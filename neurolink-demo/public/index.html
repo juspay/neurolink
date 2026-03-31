@@ -3,290 +3,1741 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NeuroLink AI Toolkit - Interactive Examples</title>
+    <title>NeuroLink AI Toolkit - Interactive Demo</title>
     <style>
-      * {
-        box-sizing: border-box;
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+      /* Dark Mode (Default) */
+      :root {
+        --bg-primary: #0a0a1a;
+        --bg-secondary: #0f0f23;
+        --bg-card: rgba(255, 255, 255, 0.04);
+        --bg-card-hover: rgba(255, 255, 255, 0.07);
+        --border: rgba(255, 255, 255, 0.08);
+        --border-accent: rgba(99, 102, 241, 0.4);
+        --text-primary: #f1f5f9;
+        --text-secondary: #94a3b8;
+        --text-muted: #64748b;
+        --accent: #6366f1;
+        --accent2: #8b5cf6;
+        --accent3: #06b6d4;
+        --accent-green: #10b981;
+        --accent-red: #ef4444;
+        --accent-yellow: #f59e0b;
+        --gradient: linear-gradient(135deg, #6366f1, #8b5cf6);
+        --gradient2: linear-gradient(135deg, #06b6d4, #6366f1);
+        --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+        --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.15);
+        --bg-input: rgba(255, 255, 255, 0.05);
+        --bg-output: rgba(0, 0, 0, 0.3);
+        --bg-tabs: rgba(10, 10, 26, 0.85);
+        --bg-sidebar: rgba(0, 0, 0, 0.3);
+        --select-bg: #1a1a2e;
       }
-      body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        margin: 0;
-        padding: 20px;
-        background: #f8f9fa;
-        line-height: 1.6;
+
+      /* Light Mode */
+      [data-theme="light"] {
+        --bg-primary: #f8fafc;
+        --bg-secondary: #ffffff;
+        --bg-card: rgba(255, 255, 255, 0.9);
+        --bg-card-hover: rgba(255, 255, 255, 1);
+        --border: rgba(0, 0, 0, 0.1);
+        --border-accent: rgba(99, 102, 241, 0.5);
+        --text-primary: #1e293b;
+        --text-secondary: #475569;
+        --text-muted: #64748b;
+        --accent: #6366f1;
+        --accent2: #8b5cf6;
+        --accent3: #0891b2;
+        --shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+        --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.1);
+        --bg-input: rgba(0, 0, 0, 0.05);
+        --bg-output: rgba(0, 0, 0, 0.03);
+        --bg-tabs: rgba(248, 250, 252, 0.9);
+        --bg-sidebar: rgba(241, 245, 249, 0.8);
+        --select-bg: #ffffff;
       }
-      .container {
-        max-width: 1400px;
-        margin: 0 auto;
+
+      /* Theme Toggle Button */
+      .theme-toggle {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 1000;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 8px 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-primary);
+        transition: all 0.3s;
+        backdrop-filter: blur(10px);
       }
-      .header {
-        text-align: center;
-        margin-bottom: 40px;
+
+      .theme-toggle:hover {
+        border-color: var(--border-accent);
+        transform: translateY(-1px);
       }
-      .header h1 {
-        color: #2c3e50;
-        margin-bottom: 10px;
-      }
-      .header p {
-        color: #7f8c8d;
+
+      .theme-toggle .icon {
         font-size: 18px;
       }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      /* Animated background */
+      body::before {
+        content: "";
+        position: fixed;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background:
+          radial-gradient(
+            ellipse at 20% 20%,
+            rgba(99, 102, 241, 0.06) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 80% 80%,
+            rgba(139, 92, 246, 0.06) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 50% 50%,
+            rgba(6, 182, 212, 0.04) 0%,
+            transparent 60%
+          );
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .container {
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 24px;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* HEADER */
+      .header {
+        text-align: center;
+        padding: 48px 24px 40px;
+        position: relative;
+      }
+
+      .header-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(99, 102, 241, 0.12);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        border-radius: 100px;
+        padding: 6px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 20px;
+      }
+
+      .header h1 {
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        font-weight: 700;
+        background: linear-gradient(
+          135deg,
+          #f1f5f9 0%,
+          #6366f1 40%,
+          #8b5cf6 70%,
+          #06b6d4 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 12px;
+        line-height: 1.1;
+      }
+
+      .header p {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+        font-weight: 400;
+        max-width: 600px;
+        margin: 0 auto 32px;
+      }
+
+      .header-stats {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .stat-pill {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 20px;
+        text-align: center;
+        backdrop-filter: blur(10px);
+        min-width: 100px;
+        transition: all 0.3s;
+      }
+
+      .stat-pill:hover {
+        border-color: var(--border-accent);
+        background: var(--bg-card-hover);
+      }
+
+      .stat-value {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--accent);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .stat-label {
+        font-size: 11px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-top: 2px;
+      }
+
+      /* TABS */
+      .tabs-wrapper {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: var(--bg-tabs);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--border);
+        padding: 12px 0;
+        margin: 0 -24px 32px;
+        padding-left: 24px;
+        padding-right: 24px;
+      }
+
       .tabs {
         display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-bottom: 30px;
-        border-bottom: 2px solid #ecf0f1;
-        padding-bottom: 10px;
+        gap: 6px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding-bottom: 2px;
       }
+
+      .tabs::-webkit-scrollbar {
+        display: none;
+      }
+
       .tab {
-        padding: 12px 24px;
-        background: white;
-        border: 2px solid #ecf0f1;
+        padding: 8px 18px;
+        background: transparent;
+        border: 1px solid transparent;
         border-radius: 8px;
         cursor: pointer;
-        transition: all 0.3s;
+        transition: all 0.25s;
         font-weight: 500;
-        color: #2c3e50;
+        font-size: 13px;
+        color: var(--text-muted);
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-family: inherit;
       }
+
       .tab:hover {
-        border-color: #3498db;
+        color: var(--text-primary);
+        background: var(--bg-card);
+        border-color: var(--border);
       }
+
       .tab.active {
-        background: #3498db;
+        background: var(--gradient);
         color: white;
-        border-color: #3498db;
+        border-color: transparent;
+        box-shadow: 0 2px 12px rgba(99, 102, 241, 0.35);
       }
+
+      /* TAB CONTENT */
       .tab-content {
         display: none;
       }
       .tab-content.active {
         display: block;
       }
+
+      /* GRID */
       .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
         gap: 20px;
       }
-      .card {
-        background: white;
-        border-radius: 12px;
-        padding: 24px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        border: 1px solid #ecf0f1;
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
       }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+      }
+
+      /* CARDS */
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--gradient);
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .card:hover {
+        border-color: var(--border-accent);
+        background: var(--bg-card-hover);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-glow);
+      }
+
+      .card:hover::before {
+        opacity: 1;
+      }
+
+      .card-full {
+        grid-column: 1 / -1;
+      }
+
       .card h3 {
-        margin-top: 0;
-        color: #2c3e50;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 16px;
         display: flex;
         align-items: center;
         gap: 10px;
       }
-      .btn {
-        background: #3498db;
-        color: white;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-        transition: background 0.3s;
-        margin: 5px 5px 5px 0;
-        display: inline-block;
+
+      .card h3 .icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: var(--gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
       }
-      .btn:hover {
-        background: #2980b9;
+
+      .card p {
+        color: var(--text-secondary);
+        font-size: 13px;
+        margin-bottom: 16px;
+        line-height: 1.6;
       }
-      .btn.secondary {
-        background: #95a5a6;
-      }
-      .btn.secondary:hover {
-        background: #7f8c8d;
-      }
+
+      /* FORM ELEMENTS */
       .form-group {
-        margin: 15px 0;
+        margin-bottom: 14px;
       }
+
       .form-group label {
         display: block;
-        margin-bottom: 5px;
-        font-weight: 500;
-        color: #2c3e50;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 6px;
       }
+
       textarea,
-      input,
+      input[type="text"],
+      input[type="number"],
       select {
         width: 100%;
-        padding: 12px;
-        border: 2px solid #ecf0f1;
-        border-radius: 6px;
-        font-size: 14px;
-        font-family: inherit;
-        transition: border-color 0.3s;
-      }
-      textarea:focus,
-      input:focus,
-      select:focus {
-        outline: none;
-        border-color: #3498db;
-      }
-      .output {
-        background: #f8f9fa;
-        border: 2px solid #ecf0f1;
-        padding: 20px;
+        padding: 10px 14px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border);
         border-radius: 8px;
-        margin-top: 15px;
-        white-space: pre-wrap;
-        max-height: 300px;
-        overflow-y: auto;
-        font-family: "Monaco", "Menlo", monospace;
+        color: var(--text-primary);
         font-size: 13px;
-        line-height: 1.4;
+        font-family: inherit;
+        transition: all 0.25s;
+        outline: none;
+        -webkit-appearance: none;
       }
+
+      textarea:focus,
+      input[type="text"]:focus,
+      input[type="number"]:focus,
+      select:focus {
+        border-color: var(--accent);
+        background: rgba(99, 102, 241, 0.08);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 80px;
+        line-height: 1.5;
+        font-family: "Inter", sans-serif;
+      }
+
+      select option {
+        background: #1a1a2e;
+        color: var(--text-primary);
+      }
+
+      input[type="file"] {
+        width: 100%;
+        padding: 10px 14px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text-secondary);
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.25s;
+      }
+
+      input[type="file"]:hover {
+        border-color: var(--accent);
+      }
+
+      /* BUTTONS */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: inherit;
+        transition: all 0.25s;
+        white-space: nowrap;
+      }
+
+      .btn-primary {
+        background: var(--gradient);
+        color: white;
+        box-shadow: 0 2px 12px rgba(99, 102, 241, 0.3);
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.45);
+      }
+
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.07);
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+      }
+
+      .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text-primary);
+      }
+
+      .btn-cyan {
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
+        color: white;
+        box-shadow: 0 2px 12px rgba(6, 182, 212, 0.3);
+      }
+
+      .btn-cyan:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 20px rgba(6, 182, 212, 0.45);
+      }
+
+      .btn-green {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        box-shadow: 0 2px 12px rgba(16, 185, 129, 0.3);
+      }
+
+      .btn-green:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.45);
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none !important;
+      }
+
+      .btn-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+      }
+
+      /* STATUS */
       .status {
-        padding: 12px 16px;
-        margin: 10px 0;
-        border-radius: 6px;
-        font-weight: 500;
         display: flex;
         align-items: center;
         gap: 10px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        margin: 10px 0;
+        border: 1px solid transparent;
       }
+
       .status.success {
-        background: #d5f4e6;
-        color: #27ae60;
-        border: 1px solid #27ae60;
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--accent-green);
+        border-color: rgba(16, 185, 129, 0.25);
       }
+
       .status.error {
-        background: #fadbd8;
-        color: #e74c3c;
-        border: 1px solid #e74c3c;
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--accent-red);
+        border-color: rgba(239, 68, 68, 0.25);
       }
+
       .status.loading {
-        background: #fff3cd;
-        color: #f39c12;
-        border: 1px solid #f39c12;
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--accent-yellow);
+        border-color: rgba(245, 158, 11, 0.25);
       }
-      .metrics {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 10px;
-        margin: 15px 0;
+
+      .status.info {
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--accent);
+        border-color: rgba(99, 102, 241, 0.25);
       }
-      .metric {
-        background: #ecf0f1;
-        padding: 10px;
-        border-radius: 6px;
-        text-align: center;
-        border: 1px solid #bdc3c7;
+
+      /* PULSE ANIMATION */
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
       }
-      .metric-value {
-        font-size: 20px;
-        font-weight: bold;
-        color: #2c3e50;
+
+      .pulse {
+        animation: pulse 1.5s ease-in-out infinite;
       }
-      .metric-label {
-        font-size: 12px;
-        color: #7f8c8d;
+
+      /* OUTPUT AREAS */
+      .output {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 12px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12.5px;
+        line-height: 1.7;
+        color: var(--text-secondary);
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 320px;
+        overflow-y: auto;
+        min-height: 60px;
+      }
+
+      .output::-webkit-scrollbar {
+        width: 4px;
+      }
+      .output::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .output::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+      }
+
+      .output-prose {
+        font-family: "Inter", sans-serif;
+        font-size: 13.5px;
+        line-height: 1.8;
+        color: var(--text-primary);
+        white-space: pre-wrap;
+      }
+
+      /* STREAMING CURSOR */
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0;
+        }
+      }
+
+      .cursor::after {
+        content: "▋";
+        color: var(--accent);
+        animation: blink 1s ease-in-out infinite;
+        margin-left: 2px;
+      }
+
+      /* AUDIO PLAYER */
+      audio {
+        width: 100%;
+        margin-top: 12px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      /* DIVIDER */
+      .divider {
+        height: 1px;
+        background: var(--border);
+        margin: 20px 0;
+      }
+
+      /* PROVIDER BADGES */
+      .provider-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: 100px;
+        font-size: 11px;
+        font-weight: 600;
+        background: rgba(99, 102, 241, 0.15);
+        color: var(--accent);
+        border: 1px solid rgba(99, 102, 241, 0.25);
+      }
+
+      /* CHAT UI */
+      .chat-messages {
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 12px;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-bottom: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .chat-messages::-webkit-scrollbar {
+        width: 4px;
+      }
+      .chat-messages::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .chat-messages::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+      }
+
+      .msg {
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-size: 13px;
+        line-height: 1.6;
+        max-width: 85%;
+      }
+
+      .msg-user {
+        background: var(--gradient);
+        color: white;
+        align-self: flex-end;
+        border-bottom-right-radius: 3px;
+      }
+
+      .msg-ai {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--border);
+        color: var(--text-primary);
+        align-self: flex-start;
+        border-bottom-left-radius: 3px;
+      }
+
+      .msg-label {
+        font-size: 10px;
+        font-weight: 700;
         text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 4px;
+        opacity: 0.7;
+      }
+
+      /* IMAGE OUTPUT */
+      .image-output img {
+        width: 100%;
+        border-radius: 10px;
+        margin-top: 12px;
+        box-shadow: var(--shadow);
+      }
+
+      /* SEARCH RESULTS */
+      .search-result {
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-bottom: 8px;
+      }
+
+      .search-result-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--accent3);
+        margin-bottom: 4px;
+      }
+
+      .search-result-snippet {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+      }
+
+      .search-result-url {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+
+      /* SECTION HEADING */
+      .section-heading {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .section-heading h2 {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .section-heading p {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin: 0;
+      }
+
+      .tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 100px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .tag-new {
+        background: rgba(16, 185, 129, 0.15);
+        color: var(--accent-green);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+      }
+
+      .tag-beta {
+        background: rgba(245, 158, 11, 0.15);
+        color: var(--accent-yellow);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+      }
+
+      /* PPT SLIDES PREVIEW */
+      .slide-preview {
+        background: white;
+        color: #1a1a2e;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 8px;
+        font-size: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .slide-preview h4 {
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: #3730a3;
+      }
+
+      /* RESPONSIVE */
+      @media (max-width: 768px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+        .grid-3 {
+          grid-template-columns: 1fr;
+        }
+        .container {
+          padding: 12px;
+        }
+        .header h1 {
+          font-size: 1.8rem;
+        }
       }
     </style>
   </head>
   <body>
+    <!-- Theme Toggle Button -->
+    <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle">
+      <span class="icon">🌙</span>
+      <span id="theme-label">Dark</span>
+    </button>
+
     <div class="container">
+      <!-- HEADER -->
       <div class="header">
-        <h1>🧠 NeuroLink AI Toolkit</h1>
-        <p>Comprehensive Interactive Examples & Use Cases</p>
-        <div class="metrics">
-          <div class="metric">
-            <div class="metric-value" id="total-requests">0</div>
-            <div class="metric-label">Requests</div>
+        <div class="header-badge">NeuroLink AI Platform v2</div>
+        <h1>Universal AI Toolkit</h1>
+        <div class="header-stats">
+          <div class="stat-pill">
+            <div class="stat-value" id="stat-requests">0</div>
+            <div class="stat-label">Requests</div>
           </div>
-          <div class="metric">
-            <div class="metric-value" id="active-providers">3</div>
-            <div class="metric-label">Providers</div>
+          <div class="stat-pill">
+            <div class="stat-value" id="stat-providers">9+</div>
+            <div class="stat-label">Providers</div>
           </div>
-          <div class="metric">
-            <div class="metric-value" id="total-tokens">0</div>
-            <div class="metric-label">Tokens</div>
+          <div class="stat-pill">
+            <div class="stat-value" id="stat-tokens">0</div>
+            <div class="stat-label">Tokens</div>
+          </div>
+          <div class="stat-pill">
+            <div class="stat-value" id="stat-latency">—</div>
+            <div class="stat-label">Avg Latency</div>
           </div>
         </div>
       </div>
 
-      <div class="tabs">
-        <div class="tab active" onclick="showTab('basic')">
-          🚀 Basic Examples
+      <!-- TABS -->
+      <div class="tabs-wrapper">
+        <div class="tabs">
+          <button class="tab active" onclick="showTab('basic', this)">
+            🚀 Generate
+          </button>
+          <button class="tab" onclick="showTab('streaming', this)">
+            ⚡ Streaming
+          </button>
+          <button class="tab" onclick="showTab('documents', this)">
+            📄 Documents
+          </button>
+          <button class="tab" onclick="showTab('audio', this)">🔊 Audio</button>
+          <button class="tab" onclick="showTab('rag', this)">📚 RAG</button>
+          <button class="tab" onclick="showTab('context', this)">
+            💬 Context
+          </button>
+          <button class="tab" onclick="showTab('search', this)">
+            🔍 Search
+          </button>
+          <button class="tab" onclick="showTab('business', this)">
+            💼 Business
+          </button>
+          <button class="tab" onclick="showTab('creative', this)">
+            🎨 Creative
+          </button>
+          <button class="tab" onclick="showTab('developer', this)">
+            👨‍💻 Developer
+          </button>
+          <button class="tab" onclick="showTab('mcp', this)">🔧 MCP</button>
+          <button class="tab" onclick="showTab('monitoring', this)">
+            📊 Monitoring
+          </button>
         </div>
-        <div class="tab" onclick="showTab('business')">
-          💼 Business Use Cases
-        </div>
-        <div class="tab" onclick="showTab('creative')">🎨 Creative Tools</div>
-        <div class="tab" onclick="showTab('developer')">👨‍💻 Developer Tools</div>
-        <div class="tab" onclick="showTab('mcp')">🔧 MCP Integration</div>
-        <div class="tab" onclick="showTab('monitoring')">📊 Monitoring</div>
       </div>
 
-      <!-- Basic Examples Tab -->
+      <!-- =================== GENERATE TAB =================== -->
       <div id="basic" class="tab-content active">
         <div class="grid">
           <div class="card">
-            <h3>🤖 AI Provider Testing</h3>
+            <h3><span class="icon">🤖</span> AI Text Generation</h3>
             <div class="form-group">
-              <label>Choose Provider:</label>
+              <label>Provider</label>
               <select id="basic-provider">
                 <option value="auto">🎯 Auto (Best Available)</option>
-                <option value="openai">🟢 OpenAI (GPT-4)</option>
-                <option value="bedrock">🟠 Amazon Bedrock (Claude)</option>
-                <option value="vertex">🔵 Google Vertex AI (Gemini)</option>
+                <option value="litellm">🌐 LiteLLM (100+ Models)</option>
+                <option value="ollama">🦙 Ollama (Local)</option>
+                <option value="google-ai">🟦 Google AI Studio</option>
+                <option value="vertex">🔵 Google Vertex AI</option>
+                <option value="anthropic">🟣 Anthropic Claude</option>
+                <option value="openai">🟢 OpenAI GPT-4</option>
+                <option value="mistral">🔴 Mistral AI</option>
+                <option value="bedrock">🟠 Amazon Bedrock</option>
+                <option value="azure">💙 Azure OpenAI</option>
+                <option value="huggingface">🤗 Hugging Face</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Your Prompt:</label>
+              <label>Prompt</label>
               <textarea id="basic-prompt" rows="3">
 Explain the concept of machine learning in simple terms.</textarea
               >
             </div>
-            <button class="btn" onclick="generateBasic()">Generate Text</button>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="generateBasic()">
+                ✨ Generate
+              </button>
+              <button
+                class="btn btn-secondary"
+                onclick="clearOutput('basic-output', 'basic-status')"
+              >
+                Clear
+              </button>
+            </div>
             <div id="basic-status"></div>
-            <div id="basic-output" class="output"></div>
+            <div
+              id="basic-output"
+              class="output output-prose"
+              style="display: none"
+            ></div>
           </div>
 
           <div class="card">
-            <h3>🎯 Schema Validation</h3>
-            <p>Generate structured data with validation:</p>
+            <h3><span class="icon">🎯</span> Structured Output</h3>
+            <p>Generate type-safe structured data validated against schemas.</p>
             <div class="form-group">
-              <label>Select Data Type:</label>
+              <label>Custom Prompt (optional)</label>
+              <textarea
+                id="schema-prompt"
+                rows="3"
+                placeholder="Enter your own prompt for structured data generation..."
+              ></textarea>
+            </div>
+            <div class="form-group">
+              <label>Data Type</label>
               <select id="schema-type">
                 <option value="user-profile">👤 User Profile</option>
                 <option value="product-review">⭐ Product Review</option>
                 <option value="meeting-notes">📝 Meeting Notes</option>
+                <option value="custom">✏️ Custom (use prompt above)</option>
               </select>
             </div>
-            <button class="btn" onclick="generateSchema()">
-              Generate Data
+            <button class="btn btn-primary" onclick="generateSchema()">
+              🔮 Generate
             </button>
             <div id="schema-status"></div>
-            <div id="schema-output" class="output"></div>
+            <div id="schema-output" class="output" style="display: none"></div>
           </div>
 
           <div class="card">
-            <h3>⚡ Performance Benchmark</h3>
-            <p>Compare response times across providers:</p>
-            <button class="btn" onclick="runBenchmark()">Run Benchmark</button>
+            <h3><span class="icon">⚡</span> Performance Benchmark</h3>
+            <p>
+              Compare response times and throughput across all available
+              providers.
+            </p>
+            <button class="btn btn-cyan" onclick="runBenchmark()">
+              🏎️ Run Benchmark
+            </button>
             <div id="benchmark-status"></div>
-            <div id="benchmark-output" class="output"></div>
+            <div
+              id="benchmark-output"
+              class="output"
+              style="display: none"
+            ></div>
           </div>
         </div>
       </div>
 
-      <!-- Business Use Cases Tab -->
+      <!-- =================== STREAMING TAB =================== -->
+      <div id="streaming" class="tab-content">
+        <div class="section-heading">
+          <div>
+            <h2>⚡ Real-time Streaming <span class="tag tag-new">NEW</span></h2>
+            <p>Watch AI responses stream in real-time, token by token</p>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="card card-full">
+            <h3><span class="icon">⚡</span> Stream AI Response</h3>
+            <div class="grid-2">
+              <div>
+                <div class="form-group">
+                  <label>Provider</label>
+                  <select id="stream-provider">
+                    <option value="auto">🎯 Auto (Best Available)</option>
+                    <option value="google-ai">🟦 Google AI Studio</option>
+                    <option value="openai">🟢 OpenAI</option>
+                    <option value="anthropic">🟣 Anthropic</option>
+                    <option value="vertex">🔵 Vertex AI</option>
+                    <option value="litellm">🌐 LiteLLM</option>
+                    <option value="mistral">🔴 Mistral</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Prompt</label>
+                  <textarea id="stream-prompt" rows="4">
+Write a detailed explanation of how large language models work, covering the key concepts of transformers, attention mechanisms, and training.</textarea
+                  >
+                </div>
+                <div class="btn-row">
+                  <button
+                    class="btn btn-primary"
+                    id="stream-btn"
+                    onclick="streamText()"
+                  >
+                    ▶ Start Stream
+                  </button>
+                  <button class="btn btn-secondary" onclick="stopStream()">
+                    ⏹ Stop
+                  </button>
+                  <button
+                    class="btn btn-secondary"
+                    onclick="clearOutput('stream-output', 'stream-status')"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div id="stream-status"></div>
+                <div
+                  style="
+                    margin-top: 8px;
+                    display: flex;
+                    gap: 16px;
+                    font-size: 12px;
+                    color: var(--text-muted);
+                  "
+                >
+                  <span id="stream-tokens">Tokens: 0</span>
+                  <span id="stream-chunks">Chunks: 0</span>
+                  <span id="stream-time">Time: 0ms</span>
+                </div>
+              </div>
+              <div>
+                <div
+                  id="stream-output"
+                  class="output output-prose"
+                  style="min-height: 220px; max-height: 400px"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================== DOCUMENTS TAB =================== -->
+      <div id="documents" class="tab-content">
+        <div class="section-heading">
+          <div>
+            <h2>📄 Document Analysis</h2>
+            <p>Analyze PDFs and videos with multi-modal AI</p>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3><span class="icon">📑</span> PDF Analysis</h3>
+            <p>Upload a PDF and ask questions about its content using AI.</p>
+            <div class="form-group">
+              <label>PDF File</label>
+              <input type="file" id="pdf-file" accept=".pdf" />
+            </div>
+            <div class="form-group">
+              <label>Your Question</label>
+              <textarea id="pdf-question" rows="3">
+What are the main topics covered in this document? Provide a structured summary.</textarea
+              >
+            </div>
+            <div class="form-group">
+              <label>Provider</label>
+              <select id="pdf-provider">
+                <option value="google-ai">🟦 Google AI Studio</option>
+                <option value="vertex">🔵 Vertex AI</option>
+                <option value="openai">🟢 OpenAI</option>
+                <option value="anthropic">🟣 Anthropic</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="analyzePDF()">
+              🔍 Analyze PDF
+            </button>
+            <div id="pdf-status"></div>
+            <div
+              id="pdf-output"
+              class="output output-prose"
+              style="display: none"
+            ></div>
+          </div>
+
+          <div class="card">
+            <h3><span class="icon">🎬</span> Video Analysis</h3>
+            <p>Upload a video or provide a URL for AI-powered analysis.</p>
+            <div class="form-group">
+              <label>Video Source</label>
+              <select id="video-source-type" onchange="toggleVideoSource()">
+                <option value="url">🔗 URL</option>
+                <option value="file">📁 File Upload</option>
+              </select>
+            </div>
+            <div id="video-url-group" class="form-group">
+              <label>Video URL</label>
+              <input
+                type="text"
+                id="video-url"
+                placeholder="https://example.com/video.mp4"
+              />
+            </div>
+            <div id="video-file-group" class="form-group" style="display: none">
+              <label>Video File</label>
+              <input type="file" id="video-file" accept="video/*" />
+            </div>
+            <div class="form-group">
+              <label>Analysis Prompt</label>
+              <textarea id="video-question" rows="3">
+Describe what happens in this video. Identify key scenes, actions, and any important information.</textarea
+              >
+            </div>
+            <button class="btn btn-primary" onclick="analyzeVideo()">
+              🎥 Analyze Video
+            </button>
+            <div id="video-status"></div>
+            <div
+              id="video-output"
+              class="output output-prose"
+              style="display: none"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================== AUDIO TAB =================== -->
+      <div id="audio" class="tab-content">
+        <div class="section-heading">
+          <div>
+            <h2>🔊 Text-to-Speech <span class="tag tag-new">NEW</span></h2>
+            <p>Convert any text to natural-sounding audio</p>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3><span class="icon">🎙️</span> Generate Speech</h3>
+            <div class="form-group">
+              <label>Text to Speak</label>
+              <textarea id="tts-text" rows="4">
+Welcome to NeuroLink, the universal AI toolkit that brings together the world's most powerful language models in a single, elegant interface.</textarea
+              >
+            </div>
+            <div class="form-group">
+              <label>Voice</label>
+              <select id="tts-voice">
+                <option value="alloy">Alloy (Neutral)</option>
+                <option value="echo">Echo (Male)</option>
+                <option value="fable">Fable (British)</option>
+                <option value="onyx">Onyx (Deep)</option>
+                <option value="nova">Nova (Female)</option>
+                <option value="shimmer">Shimmer (Soft)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Model</label>
+              <select id="tts-model">
+                <option value="tts-1">tts-1 (Faster)</option>
+                <option value="tts-1-hd">tts-1-hd (Higher Quality)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Speed (0.25 – 4.0)</label>
+              <input
+                type="number"
+                id="tts-speed"
+                value="1.0"
+                min="0.25"
+                max="4.0"
+                step="0.25"
+              />
+            </div>
+            <button class="btn btn-primary" onclick="generateTTS()">
+              🎵 Generate Audio
+            </button>
+            <div id="tts-status"></div>
+            <div id="tts-output"></div>
+          </div>
+
+          <div class="card">
+            <h3><span class="icon">💡</span> TTS Use Cases</h3>
+            <p>Quick examples to try:</p>
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <button
+                class="btn btn-secondary"
+                style="justify-content: flex-start; text-align: left"
+                onclick="
+                  setTTSText(
+                    'The quarterly revenue has increased by 47% compared to last year, driven by strong performance in our enterprise segment.',
+                  )
+                "
+              >
+                📊 Business Report
+              </button>
+              <button
+                class="btn btn-secondary"
+                style="justify-content: flex-start; text-align: left"
+                onclick="
+                  setTTSText(
+                    'Step one: Heat the pan over medium heat. Step two: Add olive oil. Step three: Sauté the garlic until golden.',
+                  )
+                "
+              >
+                🍳 Recipe Instructions
+              </button>
+              <button
+                class="btn btn-secondary"
+                style="justify-content: flex-start; text-align: left"
+                onclick="
+                  setTTSText(
+                    'Breaking news: Scientists have discovered a new exoplanet that may support liquid water, raising exciting possibilities for extraterrestrial life.',
+                  )
+                "
+              >
+                📰 News Headline
+              </button>
+              <button
+                class="btn btn-secondary"
+                style="justify-content: flex-start; text-align: left"
+                onclick="
+                  setTTSText(
+                    'Welcome aboard! Your account has been created successfully. You now have access to all premium features.',
+                  )
+                "
+              >
+                📱 App Notification
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================== RAG TAB =================== -->
+      <div id="rag" class="tab-content">
+        <div class="section-heading">
+          <div>
+            <h2>
+              📚 RAG — Retrieval Augmented Generation
+              <span class="tag tag-new">NEW</span>
+            </h2>
+            <p>
+              Index your documents and query them with AI-powered semantic
+              search
+            </p>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3><span class="icon">📥</span> Index Documents</h3>
+            <p>
+              Add documents to your knowledge base for semantic search and
+              retrieval.
+            </p>
+            <div class="form-group">
+              <label>Document Content</label>
+              <textarea id="rag-doc-content" rows="5">
+NeuroLink is a universal AI SDK that supports 9+ providers including OpenAI, Anthropic, Google AI, AWS Bedrock, Azure, Hugging Face, Mistral, Ollama, and LiteLLM. It provides a unified interface for text generation, streaming, image generation, PDF analysis, and more. The SDK is built with TypeScript and supports both Node.js and browser environments.</textarea
+              >
+            </div>
+            <div class="form-group">
+              <label>Document Title</label>
+              <input
+                type="text"
+                id="rag-doc-title"
+                value="NeuroLink SDK Overview"
+              />
+            </div>
+            <div class="form-group">
+              <label>Tags (comma-separated)</label>
+              <input
+                type="text"
+                id="rag-doc-tags"
+                value="ai, sdk, documentation"
+              />
+            </div>
+            <button class="btn btn-primary" onclick="ragIndex()">
+              📥 Index Document
+            </button>
+            <div id="rag-index-status"></div>
+            <div
+              id="rag-index-output"
+              class="output"
+              style="display: none"
+            ></div>
+          </div>
+
+          <div class="card">
+            <h3><span class="icon">🔎</span> Query Knowledge Base</h3>
+            <p>
+              Ask questions and get answers grounded in your indexed documents.
+            </p>
+            <div class="form-group">
+              <label>Your Question</label>
+              <textarea id="rag-query" rows="3">
+What AI providers does NeuroLink support? What are the main features?</textarea
+              >
+            </div>
+            <div class="form-group">
+              <label>Max Results</label>
+              <select id="rag-max-results">
+                <option value="3">3 results</option>
+                <option value="5" selected>5 results</option>
+                <option value="10">10 results</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Provider for Answer Generation</label>
+              <select id="rag-provider">
+                <option value="google-ai">🟦 Google AI Studio</option>
+                <option value="openai">🟢 OpenAI</option>
+                <option value="anthropic">🟣 Anthropic</option>
+                <option value="auto">🎯 Auto</option>
+              </select>
+            </div>
+            <button class="btn btn-cyan" onclick="ragQuery()">🔎 Query</button>
+            <div id="rag-query-status"></div>
+            <div
+              id="rag-query-output"
+              class="output output-prose"
+              style="display: none"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================== CONTEXT CHAT TAB =================== -->
+      <div id="context" class="tab-content">
+        <div class="section-heading">
+          <div>
+            <h2>💬 Context-Aware Chat <span class="tag tag-new">NEW</span></h2>
+            <p>Multi-turn conversations with automatic context summarization</p>
+          </div>
+        </div>
+
+        <!-- ChatGPT-style Layout with Sidebar -->
+        <div
+          style="
+            display: flex;
+            gap: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            min-height: 600px;
+          "
+        >
+          <!-- Left Sidebar - Sessions List -->
+          <div
+            style="
+              width: 260px;
+              min-width: 260px;
+              background: rgba(0, 0, 0, 0.3);
+              border-right: 1px solid var(--border);
+              display: flex;
+              flex-direction: column;
+            "
+          >
+            <div style="padding: 16px; border-bottom: 1px solid var(--border)">
+              <button
+                class="btn btn-primary"
+                onclick="newSession()"
+                style="width: 100%; justify-content: center"
+              >
+                ➕ New Chat
+              </button>
+            </div>
+
+            <div style="padding: 8px 12px">
+              <div
+                style="
+                  font-size: 11px;
+                  font-weight: 700;
+                  color: var(--text-muted);
+                  text-transform: uppercase;
+                  letter-spacing: 0.06em;
+                  margin-bottom: 8px;
+                "
+              >
+                Recent Sessions
+              </div>
+            </div>
+
+            <div
+              id="sessions-sidebar"
+              style="flex: 1; overflow-y: auto; padding: 0 8px 8px"
+            >
+              <!-- Sessions will be loaded here -->
+              <div
+                style="
+                  text-align: center;
+                  color: var(--text-muted);
+                  font-size: 12px;
+                  padding: 20px 10px;
+                "
+              >
+                Loading sessions...
+              </div>
+            </div>
+
+            <div style="padding: 12px; border-top: 1px solid var(--border)">
+              <select id="context-provider" style="font-size: 12px">
+                <option value="vertex">🔵 Vertex AI (Gemini)</option>
+                <option value="google-ai">🟦 Google AI</option>
+                <option value="openai">🟢 OpenAI</option>
+                <option value="anthropic">🟣 Anthropic</option>
+                <option value="auto">🎯 Auto</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Main Chat Area -->
+          <div style="flex: 1; display: flex; flex-direction: column">
+            <!-- Chat Header -->
+            <div
+              style="
+                padding: 12px 16px;
+                border-bottom: 1px solid var(--border);
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                background: rgba(0, 0, 0, 0.1);
+              "
+            >
+              <input
+                type="text"
+                id="context-session-id"
+                value="session-1"
+                placeholder="Session ID"
+                style="
+                  font-size: 12px;
+                  max-width: 180px;
+                  background: transparent;
+                  border: 1px solid var(--border);
+                "
+              />
+
+              <!-- Context Stats Pills -->
+              <div style="display: flex; gap: 8px; margin-left: auto">
+                <div
+                  style="
+                    padding: 4px 10px;
+                    background: rgba(99, 102, 241, 0.15);
+                    border-radius: 100px;
+                    font-size: 11px;
+                  "
+                >
+                  <span
+                    style="color: var(--accent); font-weight: 600"
+                    id="context-stat-messages"
+                    >0</span
+                  >
+                  <span style="color: var(--text-muted)"> msgs</span>
+                </div>
+                <div
+                  style="
+                    padding: 4px 10px;
+                    background: rgba(139, 92, 246, 0.15);
+                    border-radius: 100px;
+                    font-size: 11px;
+                  "
+                >
+                  <span
+                    style="color: var(--accent2); font-weight: 600"
+                    id="context-stat-tokens"
+                    >0</span
+                  >
+                  <span style="color: var(--text-muted)"> tokens</span>
+                </div>
+                <div
+                  style="
+                    padding: 4px 10px;
+                    background: rgba(16, 185, 129, 0.15);
+                    border-radius: 100px;
+                    font-size: 11px;
+                  "
+                  id="context-stat-summary-badge"
+                >
+                  <span style="color: var(--accent-green)">—</span>
+                  <span style="color: var(--text-muted)"> summary</span>
+                </div>
+              </div>
+
+              <button
+                class="btn btn-secondary"
+                onclick="clearCurrentSession()"
+                style="padding: 6px 12px; font-size: 12px"
+              >
+                🗑️
+              </button>
+            </div>
+
+            <!-- Chat Messages -->
+            <div
+              class="chat-messages"
+              id="chat-messages"
+              style="
+                flex: 1;
+                max-height: none;
+                min-height: 400px;
+                border: none;
+                border-radius: 0;
+                margin: 0;
+              "
+            >
+              <div
+                style="
+                  text-align: center;
+                  color: var(--text-muted);
+                  font-size: 14px;
+                  padding: 40px 20px;
+                "
+              >
+                <div style="font-size: 48px; margin-bottom: 16px">💬</div>
+                <div style="font-weight: 600; margin-bottom: 8px">
+                  Start a conversation
+                </div>
+                <div style="font-size: 13px">
+                  Type a message below to begin chatting with AI
+                </div>
+              </div>
+            </div>
+
+            <!-- Chat Input -->
+            <div
+              style="
+                padding: 16px;
+                border-top: 1px solid var(--border);
+                background: rgba(0, 0, 0, 0.1);
+              "
+            >
+              <div style="display: flex; gap: 8px">
+                <textarea
+                  id="context-message"
+                  rows="2"
+                  placeholder="Type your message... (Shift+Enter for new line)"
+                  style="
+                    flex: 1;
+                    min-height: 50px;
+                    max-height: 120px;
+                    background: rgba(255, 255, 255, 0.05);
+                  "
+                ></textarea>
+                <button
+                  class="btn btn-primary"
+                  onclick="sendContextMessage()"
+                  style="align-self: flex-end; height: 50px"
+                >
+                  Send ↵
+                </button>
+              </div>
+              <div id="context-status" style="margin-top: 8px"></div>
+
+              <!-- Quick Actions -->
+              <div style="display: flex; gap: 8px; margin-top: 12px">
+                <button
+                  class="btn btn-secondary"
+                  onclick="summarizeContext()"
+                  style="font-size: 11px; padding: 6px 12px"
+                >
+                  📝 Summarize
+                </button>
+                <button
+                  class="btn btn-secondary"
+                  onclick="
+                    loadSessionDetails(
+                      document.getElementById('context-session-id').value,
+                    )
+                  "
+                  style="font-size: 11px; padding: 6px 12px"
+                >
+                  🔄 Refresh
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Panel - Summary -->
+          <div
+            style="
+              width: 280px;
+              min-width: 280px;
+              background: rgba(0, 0, 0, 0.2);
+              border-left: 1px solid var(--border);
+              display: flex;
+              flex-direction: column;
+            "
+          >
+            <div style="padding: 16px; border-bottom: 1px solid var(--border)">
+              <div
+                style="
+                  font-size: 12px;
+                  font-weight: 700;
+                  color: var(--text-muted);
+                  text-transform: uppercase;
+                  letter-spacing: 0.06em;
+                "
+              >
+                📝 Context Summary
+              </div>
+            </div>
+            <div
+              id="current-summary"
+              style="
+                flex: 1;
+                overflow-y: auto;
+                padding: 12px;
+                font-size: 12px;
+                line-height: 1.7;
+                color: var(--text-secondary);
+              "
+            >
+              No summary yet. As you chat, the context will be automatically
+              summarized when it gets long.
+            </div>
+
+            <!-- Summarization Count -->
+            <div
+              style="
+                padding: 12px;
+                border-top: 1px solid var(--border);
+                background: rgba(0, 0, 0, 0.1);
+              "
+            >
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+                <span style="font-size: 11px; color: var(--text-muted)"
+                  >Auto-summarizations</span
+                >
+                <span
+                  style="
+                    font-size: 14px;
+                    font-weight: 700;
+                    color: var(--accent3);
+                  "
+                  id="context-stat-summarizations"
+                  >0</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================== SEARCH TAB =================== -->
+      <div id="search" class="tab-content">
+        <div class="section-heading">
+          <div>
+            <h2>🔍 Web Search <span class="tag tag-new">NEW</span></h2>
+            <p>AI-powered web search with grounded responses and citations</p>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3><span class="icon">🌐</span> Web Search</h3>
+            <p>Search the web and get AI-summarized results.</p>
+            <div class="form-group">
+              <label>Search Query</label>
+              <input
+                type="text"
+                id="search-query"
+                value="Latest AI developments in 2025"
+              />
+            </div>
+            <div class="form-group">
+              <label>Max Results</label>
+              <select id="search-max">
+                <option value="5">5 results</option>
+                <option value="10" selected>10 results</option>
+                <option value="20">20 results</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="webSearch()">
+              🔍 Search
+            </button>
+            <div id="search-status"></div>
+            <div id="search-results-output" style="margin-top: 12px"></div>
+          </div>
+
+          <div class="card">
+            <h3><span class="icon">🎯</span> Grounded Search</h3>
+            <p>
+              Get AI answers with citations directly grounded in live web data
+              via Google.
+            </p>
+            <div class="form-group">
+              <label>Question</label>
+              <textarea id="grounded-query" rows="3">
+What are the latest features in NeuroLink AI SDK? What makes it different from other AI toolkits?</textarea
+              >
+            </div>
+            <button class="btn btn-cyan" onclick="groundedSearch()">
+              🎯 Grounded Search
+            </button>
+            <div id="grounded-status"></div>
+            <div
+              id="grounded-output"
+              class="output output-prose"
+              style="display: none"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================== BUSINESS TAB =================== -->
       <div id="business" class="tab-content">
         <div class="grid">
           <div class="card">
-            <h3>📧 Email Generator</h3>
+            <h3><span class="icon">📧</span> Email Generator</h3>
             <div class="form-group">
-              <label>Email Type:</label>
+              <label>Email Type</label>
               <select id="email-type">
                 <option value="marketing">📢 Marketing Email</option>
                 <option value="support">🛠️ Customer Support</option>
@@ -294,64 +1745,161 @@ Explain the concept of machine learning in simple terms.</textarea
               </select>
             </div>
             <div class="form-group">
-              <label>Context:</label>
+              <label>Context</label>
               <textarea id="email-context" rows="3">
 New product launch announcement for our AI-powered analytics tool.</textarea
               >
             </div>
-            <button class="btn" onclick="generateEmail()">
-              Generate Email
+            <button class="btn btn-primary" onclick="generateEmail()">
+              ✉️ Generate Email
             </button>
             <div id="email-status"></div>
-            <div id="email-output" class="output"></div>
+            <div
+              id="email-output"
+              class="output output-prose"
+              style="display: none"
+            ></div>
           </div>
 
           <div class="card">
-            <h3>📊 Data Analysis</h3>
+            <h3><span class="icon">📊</span> Data Analysis</h3>
             <div class="form-group">
-              <label>Data (CSV format):</label>
-              <textarea id="data-input" rows="4">
+              <label>Data (CSV format)</label>
+              <textarea id="data-input" rows="5">
 Product,Sales,Month
 Widget A,1500,January
 Widget B,2300,January
-Widget C,1200,January</textarea
+Widget C,1200,January
+Widget A,1800,February
+Widget B,2100,February</textarea
               >
             </div>
-            <button class="btn" onclick="analyzeData()">Analyze Data</button>
+            <button class="btn btn-primary" onclick="analyzeData()">
+              📈 Analyze
+            </button>
             <div id="data-status"></div>
-            <div id="data-output" class="output"></div>
+            <div
+              id="data-output"
+              class="output output-prose"
+              style="display: none"
+            ></div>
           </div>
 
           <div class="card">
-            <h3>📝 Document Summarizer</h3>
+            <h3><span class="icon">📝</span> Document Summarizer</h3>
             <div class="form-group">
-              <label>Document Text:</label>
+              <label>Document Text</label>
               <textarea id="doc-text" rows="4">
-Artificial Intelligence (AI) has revolutionized numerous industries by automating complex tasks and providing insights that were previously impossible to obtain. Machine learning algorithms can analyze vast datasets to identify patterns, make predictions, and drive decision-making processes. From healthcare diagnostics to financial fraud detection, AI applications continue to expand rapidly across sectors.</textarea
+Artificial Intelligence (AI) has revolutionized numerous industries by automating complex tasks and providing insights that were previously impossible to obtain. Machine learning algorithms can analyze vast datasets to identify patterns, make predictions, and drive decision-making processes.</textarea
               >
             </div>
             <div class="form-group">
-              <label>Summary Length:</label>
+              <label>Summary Length</label>
               <select id="summary-length">
-                <option value="brief">📄 Brief</option>
-                <option value="medium">📃 Medium</option>
-                <option value="detailed">📑 Detailed</option>
+                <option value="brief">Brief</option>
+                <option value="medium" selected>Medium</option>
+                <option value="detailed">Detailed</option>
               </select>
             </div>
-            <button class="btn" onclick="summarizeDocument()">Summarize</button>
+            <button class="btn btn-primary" onclick="summarizeDocument()">
+              ✂️ Summarize
+            </button>
             <div id="doc-status"></div>
-            <div id="doc-output" class="output"></div>
+            <div
+              id="doc-output"
+              class="output output-prose"
+              style="display: none"
+            ></div>
           </div>
         </div>
       </div>
 
-      <!-- Creative Tools Tab -->
+      <!-- =================== CREATIVE TAB =================== -->
       <div id="creative" class="tab-content">
         <div class="grid">
           <div class="card">
-            <h3>✍️ Creative Writing</h3>
+            <h3><span class="icon">🖼️</span> Image Generator</h3>
             <div class="form-group">
-              <label>Writing Type:</label>
+              <label>Model (Google AI)</label>
+              <select id="image-model">
+                <option value="gemini-2.0-flash-exp-image-generation">
+                  🤖 Gemini 2.0 Flash (Recommended)
+                </option>
+                <option value="imagen-3.0-generate-002">
+                  🎨 Imagen 3.0 (Vertex AI)
+                </option>
+                <option value="imagen-3.0-generate-001">
+                  🎨 Imagen 3.0 (v1)
+                </option>
+                <option value="imagen-4.0-generate-preview-05-20">
+                  🎨 Imagen 4.0 Preview
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Image Prompt</label>
+              <textarea id="image-prompt" rows="3">
+A futuristic city with flying cars, neon lights, and holographic billboards at sunset.</textarea
+              >
+            </div>
+            <div class="form-group">
+              <label>Style</label>
+              <select id="image-style">
+                <option value="photorealistic">📷 Photorealistic</option>
+                <option value="digital-art">🎨 Digital Art</option>
+                <option value="anime">🌸 Anime</option>
+                <option value="oil-painting">🖼️ Oil Painting</option>
+                <option value="3d-render">💎 3D Render</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="generateImage()">
+              🎨 Generate Image
+            </button>
+            <div id="image-status"></div>
+            <div id="image-output" class="image-output"></div>
+          </div>
+
+          <div class="card">
+            <h3>
+              <span class="icon">📊</span> PowerPoint Generator
+              <span class="tag tag-new">NEW</span>
+            </h3>
+            <p>
+              Generate professional presentations from a topic or description.
+            </p>
+            <div class="form-group">
+              <label>Presentation Topic</label>
+              <textarea id="ppt-topic" rows="3">
+The Future of Artificial Intelligence: Opportunities and Challenges for Businesses</textarea
+              >
+            </div>
+            <div class="form-group">
+              <label>Number of Slides</label>
+              <select id="ppt-slides">
+                <option value="5">5 slides</option>
+                <option value="8" selected>8 slides</option>
+                <option value="12">12 slides</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Style</label>
+              <select id="ppt-style">
+                <option value="professional">💼 Professional</option>
+                <option value="creative">🎨 Creative</option>
+                <option value="minimal">✨ Minimal</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="generatePPT()">
+              📊 Generate PPT
+            </button>
+            <div id="ppt-status"></div>
+            <div id="ppt-output" class="output" style="display: none"></div>
+          </div>
+
+          <div class="card">
+            <h3><span class="icon">✍️</span> Creative Writing</h3>
+            <div class="form-group">
+              <label>Writing Type</label>
               <select id="writing-type">
                 <option value="story">📚 Short Story</option>
                 <option value="poem">📝 Poem</option>
@@ -359,44 +1907,56 @@ Artificial Intelligence (AI) has revolutionized numerous industries by automatin
               </select>
             </div>
             <div class="form-group">
-              <label>Theme/Prompt:</label>
+              <label>Theme / Prompt</label>
               <textarea id="writing-prompt" rows="3">
 A time traveler discovers they can only travel to moments of great historical significance.</textarea
               >
             </div>
-            <button class="btn" onclick="generateCreative()">
-              Create Content
+            <button class="btn btn-primary" onclick="generateCreative()">
+              ✨ Create
             </button>
             <div id="writing-status"></div>
-            <div id="writing-output" class="output"></div>
+            <div
+              id="writing-output"
+              class="output output-prose"
+              style="display: none"
+            ></div>
           </div>
 
           <div class="card">
-            <h3>🌍 Language Translation</h3>
+            <h3><span class="icon">🌍</span> Language Translation</h3>
             <div class="form-group">
-              <label>Source Text:</label>
+              <label>Source Text</label>
               <textarea id="translate-text" rows="3">
 Hello, how are you today? I hope you're having a wonderful day!</textarea
               >
             </div>
             <div class="form-group">
-              <label>Target Language:</label>
+              <label>Target Language</label>
               <select id="target-language">
                 <option value="spanish">🇪🇸 Spanish</option>
                 <option value="french">🇫🇷 French</option>
                 <option value="german">🇩🇪 German</option>
                 <option value="japanese">🇯🇵 Japanese</option>
+                <option value="arabic">🇸🇦 Arabic</option>
+                <option value="chinese">🇨🇳 Chinese</option>
               </select>
             </div>
-            <button class="btn" onclick="translateText()">Translate</button>
+            <button class="btn btn-primary" onclick="translateText()">
+              🌍 Translate
+            </button>
             <div id="translate-status"></div>
-            <div id="translate-output" class="output"></div>
+            <div
+              id="translate-output"
+              class="output output-prose"
+              style="display: none"
+            ></div>
           </div>
 
           <div class="card">
-            <h3>🎨 Content Ideas</h3>
+            <h3><span class="icon">💡</span> Content Ideas</h3>
             <div class="form-group">
-              <label>Content Type:</label>
+              <label>Content Type</label>
               <select id="content-type">
                 <option value="blog">📖 Blog Posts</option>
                 <option value="social">📱 Social Media</option>
@@ -404,112 +1964,116 @@ Hello, how are you today? I hope you're having a wonderful day!</textarea
               </select>
             </div>
             <div class="form-group">
-              <label>Topic/Industry:</label>
+              <label>Topic / Industry</label>
               <input
                 type="text"
                 id="content-topic"
                 value="artificial intelligence"
               />
             </div>
-            <button class="btn" onclick="generateIdeas()">
-              Generate Ideas
+            <button class="btn btn-primary" onclick="generateIdeas()">
+              💡 Generate Ideas
             </button>
             <div id="content-status"></div>
-            <div id="content-output" class="output"></div>
+            <div
+              id="content-output"
+              class="output output-prose"
+              style="display: none"
+            ></div>
           </div>
         </div>
       </div>
 
-      <!-- Developer Tools Tab -->
+      <!-- =================== DEVELOPER TAB =================== -->
       <div id="developer" class="tab-content">
         <div class="grid">
           <div class="card">
-            <h3>💻 Code Generator</h3>
+            <h3><span class="icon">💻</span> Code Generator</h3>
             <div class="form-group">
-              <label>Programming Language:</label>
+              <label>Language</label>
               <select id="code-language">
                 <option value="javascript">JavaScript</option>
                 <option value="python">Python</option>
                 <option value="typescript">TypeScript</option>
                 <option value="react">React/JSX</option>
+                <option value="go">Go</option>
+                <option value="rust">Rust</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Code Description:</label>
+              <label>Description</label>
               <textarea id="code-description" rows="3">
 Create a function that validates email addresses using regex and returns true/false.</textarea
               >
             </div>
-            <button class="btn" onclick="generateCode()">Generate Code</button>
-            <div id="code-status"></div>
-            <div id="code-output" class="output"></div>
-          </div>
-
-          <div class="card">
-            <h3>🔍 API Documentation</h3>
-            <div class="form-group">
-              <label>API Description:</label>
-              <textarea id="api-description" rows="3">
-A REST API for managing user accounts with endpoints for creating, reading, updating, and deleting users.</textarea
-              >
-            </div>
-            <button class="btn" onclick="generateAPIDoc()">
-              Generate Documentation
+            <button class="btn btn-primary" onclick="generateCode()">
+              💻 Generate Code
             </button>
-            <div id="api-status"></div>
-            <div id="api-output" class="output"></div>
+            <div id="code-status"></div>
+            <div id="code-output" class="output" style="display: none"></div>
           </div>
 
           <div class="card">
-            <h3>🐛 Debug Helper</h3>
+            <h3><span class="icon">🐛</span> Debug Helper</h3>
             <div class="form-group">
-              <label>Error Message/Code:</label>
+              <label>Error Message / Stack Trace</label>
               <textarea id="debug-input" rows="4">
 TypeError: Cannot read property 'map' of undefined
-  at UserList.render (UserList.js:15:23)</textarea
+  at UserList.render (UserList.js:15:23)
+  at ReactDOM.render</textarea
               >
             </div>
-            <button class="btn" onclick="debugError()">Analyze Error</button>
+            <button class="btn btn-primary" onclick="debugError()">
+              🔍 Analyze Error
+            </button>
             <div id="debug-status"></div>
-            <div id="debug-output" class="output"></div>
+            <div
+              id="debug-output"
+              class="output output-prose"
+              style="display: none"
+            ></div>
           </div>
         </div>
       </div>
 
-      <!-- MCP Integration Tab -->
+      <!-- =================== MCP TAB =================== -->
       <div id="mcp" class="tab-content">
         <div class="grid">
           <div class="card">
-            <h3>🏗️ MCP Server Management</h3>
+            <h3><span class="icon">🏗️</span> MCP Server Management</h3>
             <div class="form-group">
-              <label>Server Type:</label>
+              <label>Server Type</label>
               <select id="mcp-server-type">
-                <option value="filesystem">📁 Filesystem Operations</option>
-                <option value="github">🐙 GitHub Integration</option>
-                <option value="postgres">🗄️ PostgreSQL Database</option>
-                <option value="custom">🔧 Custom Server</option>
+                <option value="filesystem">📁 Filesystem</option>
+                <option value="github">🐙 GitHub</option>
+                <option value="postgres">🗄️ PostgreSQL</option>
+                <option value="custom">🔧 Custom</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Action:</label>
+              <label>Action</label>
               <select id="mcp-action">
-                <option value="install">📦 Install Server</option>
+                <option value="install">📦 Install</option>
                 <option value="test">🔍 Test Connection</option>
                 <option value="list">📋 List Servers</option>
                 <option value="status">📊 Check Status</option>
               </select>
             </div>
-            <button class="btn" onclick="manageMCPServer()">
-              Execute MCP Command
+            <button class="btn btn-primary" onclick="manageMCPServer()">
+              ▶ Execute
             </button>
             <div id="mcp-server-status"></div>
-            <div id="mcp-server-output" class="output"></div>
+            <div
+              id="mcp-server-output"
+              class="output"
+              style="display: none"
+            ></div>
           </div>
 
           <div class="card">
-            <h3>🛠️ Tool Execution</h3>
+            <h3><span class="icon">🛠️</span> Tool Execution</h3>
             <div class="form-group">
-              <label>MCP Server:</label>
+              <label>MCP Server</label>
               <select id="tool-server">
                 <option value="filesystem">📁 Filesystem</option>
                 <option value="github">🐙 GitHub</option>
@@ -517,7 +2081,7 @@ TypeError: Cannot read property 'map' of undefined
               </select>
             </div>
             <div class="form-group">
-              <label>Tool:</label>
+              <label>Tool</label>
               <select id="tool-name">
                 <option value="read_file">📄 Read File</option>
                 <option value="list_directory">📂 List Directory</option>
@@ -525,20 +2089,22 @@ TypeError: Cannot read property 'map' of undefined
               </select>
             </div>
             <div class="form-group">
-              <label>Parameters (JSON):</label>
+              <label>Parameters (JSON)</label>
               <textarea id="tool-params" rows="3">
 {"path": "/Users/user/Documents"}</textarea
               >
             </div>
-            <button class="btn" onclick="executeMCPTool()">Execute Tool</button>
+            <button class="btn btn-primary" onclick="executeMCPTool()">
+              ⚡ Execute Tool
+            </button>
             <div id="tool-status"></div>
-            <div id="tool-output" class="output"></div>
+            <div id="tool-output" class="output" style="display: none"></div>
           </div>
 
           <div class="card">
-            <h3>🔄 Workflow Integration</h3>
+            <h3><span class="icon">🔄</span> Workflow Integration</h3>
             <div class="form-group">
-              <label>Workflow Type:</label>
+              <label>Workflow Type</label>
               <select id="workflow-type">
                 <option value="code-analysis">💻 Code Analysis</option>
                 <option value="file-processing">📁 File Processing</option>
@@ -547,525 +2113,1545 @@ TypeError: Cannot read property 'map' of undefined
               </select>
             </div>
             <div class="form-group">
-              <label>Workflow Description:</label>
+              <label>Description</label>
               <textarea id="workflow-description" rows="3">
 Analyze project structure, generate documentation, and create GitHub issue</textarea
               >
             </div>
-            <button class="btn" onclick="runMCPWorkflow()">Run Workflow</button>
+            <button class="btn btn-primary" onclick="runMCPWorkflow()">
+              🔄 Run Workflow
+            </button>
             <div id="workflow-status"></div>
-            <div id="workflow-output" class="output"></div>
+            <div
+              id="workflow-output"
+              class="output"
+              style="display: none"
+            ></div>
           </div>
 
           <div class="card">
-            <h3>🎥 MCP Video Demonstrations</h3>
-            <p>Watch these videos to see MCP functionality in action:</p>
-            <div style="margin: 15px 0">
-              <h4>📦 Server Management Demo</h4>
-              <video
-                width="100%"
-                height="200"
-                controls
-                style="border-radius: 8px; margin-bottom: 10px"
-              >
-                <source
-                  src="./videos/mcp-demos/mcp-server-management-demo.webm"
-                  type="video/webm"
-                />
-                Your browser does not support the video tag.
-              </video>
-            </div>
-            <div style="margin: 15px 0">
-              <h4>🛠️ Tool Execution Demo</h4>
-              <video
-                width="100%"
-                height="200"
-                controls
-                style="border-radius: 8px; margin-bottom: 10px"
-              >
-                <source
-                  src="./videos/mcp-demos/mcp-tool-execution-demo.webm"
-                  type="video/webm"
-                />
-                Your browser does not support the video tag.
-              </video>
-            </div>
-            <div style="margin: 15px 0">
-              <h4>🔄 Workflow Integration Demo</h4>
-              <video
-                width="100%"
-                height="200"
-                controls
-                style="border-radius: 8px; margin-bottom: 10px"
-              >
-                <source
-                  src="./videos/mcp-demos/mcp-workflow-integration-demo.webm"
-                  type="video/webm"
-                />
-                Your browser does not support the video tag.
-              </video>
-            </div>
-          </div>
-
-          <div class="card">
-            <h3>📋 MCP Server List</h3>
-            <button class="btn" onclick="loadMCPServers()">
-              Refresh Server List
+            <h3><span class="icon">📋</span> Server List</h3>
+            <button class="btn btn-secondary" onclick="loadMCPServers()">
+              🔄 Refresh
             </button>
-            <div id="mcp-servers-output" class="output"></div>
-          </div>
-
-          <div class="card">
-            <h3>📊 MCP Analytics</h3>
-            <button class="btn" onclick="loadMCPAnalytics()">
-              Load MCP Analytics
-            </button>
-            <div id="mcp-analytics-output" class="output"></div>
+            <div
+              id="mcp-servers-output"
+              class="output"
+              style="display: none; margin-top: 12px"
+            ></div>
           </div>
         </div>
       </div>
 
-      <!-- Monitoring Tab -->
+      <!-- =================== MONITORING TAB =================== -->
       <div id="monitoring" class="tab-content">
         <div class="grid">
           <div class="card">
-            <h3>📈 Usage Analytics</h3>
-            <button class="btn" onclick="loadAnalytics()">
-              Refresh Analytics
+            <h3><span class="icon">📈</span> Usage Analytics</h3>
+            <button class="btn btn-primary" onclick="loadAnalytics()">
+              🔄 Refresh Analytics
             </button>
-            <div id="analytics-output" class="output"></div>
+            <div
+              id="analytics-output"
+              class="output"
+              style="display: none; margin-top: 12px"
+            ></div>
           </div>
 
           <div class="card">
-            <h3>🔧 Provider Status</h3>
-            <button class="btn" onclick="checkProviders()">
-              Check All Providers
+            <h3><span class="icon">🔧</span> Provider Status</h3>
+            <button class="btn btn-primary" onclick="checkProviders()">
+              🔍 Check All Providers
             </button>
-            <div id="provider-status" class="output"></div>
+            <div
+              id="provider-status"
+              class="output"
+              style="display: none; margin-top: 12px"
+            ></div>
           </div>
         </div>
       </div>
     </div>
+    <!-- /container -->
 
     <script>
-      // Global state management
-      let currentStats = { requests: 0, providers: 3, tokens: 0 };
+      // ============================================================
+      // THEME MANAGEMENT
+      // ============================================================
+      function toggleTheme() {
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute("data-theme");
+        const newTheme = currentTheme === "light" ? "dark" : "light";
 
-      // Tab management
-      function showTab(tabName) {
-        document
-          .querySelectorAll(".tab")
-          .forEach((tab) => tab.classList.remove("active"));
+        if (newTheme === "dark") {
+          html.removeAttribute("data-theme");
+        } else {
+          html.setAttribute("data-theme", "light");
+        }
+
+        // Update button text and icon
+        const themeLabel = document.getElementById("theme-label");
+        const themeIcon = document.querySelector(".theme-toggle .icon");
+
+        if (newTheme === "light") {
+          themeLabel.textContent = "Light";
+          themeIcon.textContent = "☀️";
+        } else {
+          themeLabel.textContent = "Dark";
+          themeIcon.textContent = "🌙";
+        }
+
+        // Save preference
+        localStorage.setItem("neurolink-theme", newTheme);
+      }
+
+      // Load saved theme on page load
+      function loadSavedTheme() {
+        const savedTheme = localStorage.getItem("neurolink-theme");
+        if (savedTheme === "light") {
+          document.documentElement.setAttribute("data-theme", "light");
+          document.getElementById("theme-label").textContent = "Light";
+          document.querySelector(".theme-toggle .icon").textContent = "☀️";
+        }
+      }
+
+      // ============================================================
+      // GLOBAL STATE
+      // ============================================================
+      const stats = { requests: 0, tokens: 0, totalLatency: 0 };
+      let streamController = null;
+      const chatHistory = [];
+
+      // ============================================================
+      // UTILITIES
+      // ============================================================
+      function showTab(tabName, el) {
         document
           .querySelectorAll(".tab-content")
-          .forEach((content) => content.classList.remove("active"));
-
-        event.target.classList.add("active");
+          .forEach((c) => c.classList.remove("active"));
+        document
+          .querySelectorAll(".tab")
+          .forEach((t) => t.classList.remove("active"));
         document.getElementById(tabName).classList.add("active");
+        if (el) el.classList.add("active");
       }
 
-      // Utility functions
-      function setStatus(elementId, message, type = "info") {
-        const status = document.getElementById(elementId);
-        if (status) {
-          status.className = "status " + type;
-          status.textContent = message;
+      function setStatus(id, msg, type = "info") {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.innerHTML = "";
+        if (!msg) return;
+        el.className = "status " + type;
+        el.textContent = msg;
+      }
+
+      function setOutput(id, content, show = true) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (typeof content === "string") {
+          el.textContent = content;
+        } else {
+          el.innerHTML = "";
+          el.appendChild(content);
+        }
+        if (show) el.style.display = "";
+      }
+
+      function clearOutput(outputId, statusId) {
+        const out = document.getElementById(outputId);
+        if (out) {
+          out.textContent = "";
+          out.style.display = "none";
+        }
+        const st = document.getElementById(statusId);
+        if (st) {
+          st.className = "";
+          st.textContent = "";
         }
       }
 
-      function setOutput(elementId, content) {
-        const output = document.getElementById(elementId);
-        if (output) {
-          output.textContent = content;
+      function updateStats(responseTime, tokens) {
+        stats.requests++;
+        stats.tokens += tokens || 0;
+        stats.totalLatency += responseTime || 0;
+        document.getElementById("stat-requests").textContent = stats.requests;
+        document.getElementById("stat-tokens").textContent =
+          stats.tokens > 999
+            ? (stats.tokens / 1000).toFixed(1) + "k"
+            : stats.tokens;
+        if (stats.requests > 0) {
+          document.getElementById("stat-latency").textContent =
+            Math.round(stats.totalLatency / stats.requests) + "ms";
         }
       }
 
-      async function apiCall(endpoint, data = {}) {
-        try {
-          const response = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-          });
-          return await response.json();
-        } catch (error) {
-          throw new Error("Network error: " + error.message);
-        }
+      async function apiPost(endpoint, data) {
+        const r = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        return r.json();
       }
 
-      // Update metrics display
-      function updateMetrics(response) {
-        if (response.usage) {
-          currentStats.tokens += response.usage.totalTokens || 0;
-          document.getElementById("total-tokens").textContent =
-            currentStats.tokens;
-        }
-        currentStats.requests++;
-        document.getElementById("total-requests").textContent =
-          currentStats.requests;
+      async function apiGet(endpoint) {
+        const r = await fetch(endpoint);
+        return r.json();
       }
 
-      // Basic Examples functions
+      // ============================================================
+      // GENERATE TAB
+      // ============================================================
       async function generateBasic() {
         const provider = document.getElementById("basic-provider").value;
-        const prompt = document.getElementById("basic-prompt").value;
-
-        if (!prompt.trim()) {
+        const prompt = document.getElementById("basic-prompt").value.trim();
+        if (!prompt) {
           setStatus("basic-status", "Please enter a prompt", "error");
           return;
         }
-
-        setStatus("basic-status", "Generating response...", "loading");
-        setOutput("basic-output", "");
-
+        setStatus("basic-status", "⏳ Generating...", "loading");
         try {
-          const result = await apiCall("/api/generate", { provider, prompt });
-          if (result.success) {
-            setOutput("basic-output", result.content);
+          const r = await apiPost("/api/generate", { provider, prompt });
+          if (r.success) {
+            setOutput("basic-output", r.content);
             setStatus(
               "basic-status",
-              `Generated successfully using ${result.provider} in ${result.responseTime}ms`,
+              `✅ Done via ${r.provider} in ${r.responseTime}ms`,
               "success",
             );
-            updateMetrics(result);
+            updateStats(r.responseTime, r.usage?.totalTokens);
           } else {
-            setStatus("basic-status", "Error: " + result.error, "error");
+            setStatus("basic-status", "❌ " + r.error, "error");
           }
-        } catch (error) {
-          setStatus(
-            "basic-status",
-            "Request failed: " + error.message,
-            "error",
-          );
+        } catch (e) {
+          setStatus("basic-status", "❌ " + e.message, "error");
         }
       }
 
       async function generateSchema() {
-        const schemaType = document.getElementById("schema-type").value;
-        setStatus("schema-status", "Generating structured data...", "loading");
+        const type = document.getElementById("schema-type").value;
+        const customPrompt = document
+          .getElementById("schema-prompt")
+          .value.trim();
 
+        // If custom type is selected, require a custom prompt
+        if (type === "custom" && !customPrompt) {
+          setStatus(
+            "schema-status",
+            "Please enter a custom prompt for custom type",
+            "error",
+          );
+          return;
+        }
+
+        setStatus("schema-status", "⏳ Generating...", "loading");
         try {
-          const result = await apiCall("/api/schema", { type: schemaType });
-          if (result.success) {
+          const requestData = { type };
+          if (customPrompt) {
+            requestData.customPrompt = customPrompt;
+          }
+          const r = await apiPost("/api/schema", requestData);
+          if (r.success) {
             setOutput(
               "schema-output",
-              JSON.stringify(result.structuredData, null, 2),
+              JSON.stringify(r.structuredData, null, 2),
             );
-            setStatus(
-              "schema-status",
-              "Schema generated successfully",
-              "success",
-            );
-            updateMetrics(result);
+            setStatus("schema-status", "✅ Schema generated", "success");
+            updateStats(null, r.usage?.totalTokens);
           } else {
-            setStatus("schema-status", "Error: " + result.error, "error");
+            setStatus("schema-status", "❌ " + r.error, "error");
           }
-        } catch (error) {
-          setStatus("schema-status", "Error: " + error.message, "error");
+        } catch (e) {
+          setStatus("schema-status", "❌ " + e.message, "error");
         }
       }
 
       async function runBenchmark() {
-        setStatus("benchmark-status", "Running benchmark...", "loading");
-
+        setStatus("benchmark-status", "⏳ Running benchmark...", "loading");
         try {
-          const result = await apiCall("/api/benchmark");
-          setOutput("benchmark-output", JSON.stringify(result, null, 2));
-          setStatus("benchmark-status", "Benchmark completed", "success");
-        } catch (error) {
-          setStatus("benchmark-status", "Error: " + error.message, "error");
+          const r = await apiPost("/api/benchmark", {});
+          setOutput("benchmark-output", JSON.stringify(r, null, 2));
+          setStatus("benchmark-status", "✅ Benchmark complete", "success");
+        } catch (e) {
+          setStatus("benchmark-status", "❌ " + e.message, "error");
         }
       }
 
-      // Business Use Cases functions
+      // ============================================================
+      // STREAMING TAB
+      // ============================================================
+      async function streamText() {
+        const provider = document.getElementById("stream-provider").value;
+        const prompt = document.getElementById("stream-prompt").value.trim();
+        if (!prompt) {
+          setStatus("stream-status", "Please enter a prompt", "error");
+          return;
+        }
+
+        if (streamController) {
+          streamController.abort();
+        }
+        streamController = new AbortController();
+
+        const outputEl = document.getElementById("stream-output");
+        outputEl.textContent = "";
+        outputEl.classList.add("cursor");
+        document.getElementById("stream-tokens").textContent = "Tokens: 0";
+        document.getElementById("stream-chunks").textContent = "Chunks: 0";
+        document.getElementById("stream-time").textContent = "Time: 0ms";
+
+        setStatus("stream-status", "⚡ Streaming...", "loading");
+        const startTime = Date.now();
+        let chunkCount = 0;
+        let fullText = "";
+
+        try {
+          const response = await fetch("/api/stream", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ provider, prompt }),
+            signal: streamController.signal,
+          });
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop();
+
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.type === "chunk") {
+                  fullText += data.content;
+                  outputEl.textContent = fullText;
+                  chunkCount++;
+                  document.getElementById("stream-chunks").textContent =
+                    "Chunks: " + chunkCount;
+                  document.getElementById("stream-time").textContent =
+                    "Time: " + (Date.now() - startTime) + "ms";
+                  outputEl.scrollTop = outputEl.scrollHeight;
+                } else if (data.type === "done") {
+                  outputEl.classList.remove("cursor");
+                  const elapsed = Date.now() - startTime;
+                  setStatus(
+                    "stream-status",
+                    `✅ Streamed in ${elapsed}ms via ${data.provider} (${data.chunkCount} chunks)`,
+                    "success",
+                  );
+                  document.getElementById("stream-time").textContent =
+                    "Time: " + elapsed + "ms";
+                  updateStats(elapsed, null);
+                } else if (data.type === "error") {
+                  outputEl.classList.remove("cursor");
+                  setStatus("stream-status", "❌ " + data.error, "error");
+                }
+              } catch (_) {}
+            }
+          }
+        } catch (e) {
+          outputEl.classList.remove("cursor");
+          if (e.name !== "AbortError") {
+            setStatus("stream-status", "❌ " + e.message, "error");
+          } else {
+            setStatus("stream-status", "⏹ Stream stopped", "info");
+          }
+        }
+      }
+
+      function stopStream() {
+        if (streamController) {
+          streamController.abort();
+          document.getElementById("stream-output").classList.remove("cursor");
+        }
+      }
+
+      // ============================================================
+      // DOCUMENTS TAB
+      // ============================================================
+      function toggleVideoSource() {
+        const type = document.getElementById("video-source-type").value;
+        document.getElementById("video-url-group").style.display =
+          type === "url" ? "" : "none";
+        document.getElementById("video-file-group").style.display =
+          type === "file" ? "" : "none";
+      }
+
+      async function analyzePDF() {
+        const file = document.getElementById("pdf-file").files[0];
+        const question = document.getElementById("pdf-question").value.trim();
+        const provider = document.getElementById("pdf-provider").value;
+
+        if (!file) {
+          setStatus("pdf-status", "Please select a PDF file", "error");
+          return;
+        }
+        if (!question) {
+          setStatus("pdf-status", "Please enter a question", "error");
+          return;
+        }
+
+        setStatus("pdf-status", "⏳ Reading and analyzing PDF...", "loading");
+
+        try {
+          // Convert file to base64
+          const pdfBase64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const base64 = reader.result.split(",")[1];
+              resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+
+          const result = await apiPost("/api/analyze/pdf", {
+            pdfBase64,
+            customPrompt: question,
+            provider,
+            analysisType: "general",
+          });
+
+          if (result.success) {
+            setOutput(
+              "pdf-output",
+              result.analysis || result.content || result.text,
+            );
+            setStatus(
+              "pdf-status",
+              `✅ Analyzed via ${result.provider} in ${result.responseTime}ms`,
+              "success",
+            );
+            updateStats(result.responseTime, result.usage?.totalTokens);
+          } else {
+            setStatus("pdf-status", "❌ " + result.error, "error");
+          }
+        } catch (e) {
+          setStatus("pdf-status", "❌ " + e.message, "error");
+        }
+      }
+
+      async function analyzeVideo() {
+        const sourceType = document.getElementById("video-source-type").value;
+        const question = document.getElementById("video-question").value.trim();
+
+        if (!question) {
+          setStatus("video-status", "Please enter an analysis prompt", "error");
+          return;
+        }
+
+        setStatus("video-status", "⏳ Analyzing video...", "loading");
+
+        try {
+          let result;
+          if (sourceType === "url") {
+            const videoUrl = document.getElementById("video-url").value.trim();
+            if (!videoUrl) {
+              setStatus("video-status", "Please enter a video URL", "error");
+              return;
+            }
+            // Send videoUrl to server to fetch and analyze
+            result = await apiPost("/api/analyze/video", {
+              videoUrl,
+              customPrompt: question,
+              analysisType: "general",
+            });
+          } else {
+            const file = document.getElementById("video-file").files[0];
+            if (!file) {
+              setStatus("video-status", "Please select a video file", "error");
+              return;
+            }
+
+            setStatus("video-status", "⏳ Reading video file...", "loading");
+
+            // Convert file to base64
+            const videoBase64 = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const base64 = reader.result.split(",")[1];
+                resolve(base64);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+
+            setStatus(
+              "video-status",
+              "⏳ Analyzing video with AI...",
+              "loading",
+            );
+
+            result = await apiPost("/api/analyze/video", {
+              videoBase64,
+              customPrompt: question,
+              analysisType: "general",
+            });
+          }
+
+          if (result.success) {
+            setOutput(
+              "video-output",
+              result.analysis || result.content || result.text,
+            );
+            setStatus(
+              "video-status",
+              `✅ Analyzed in ${result.responseTime}ms`,
+              "success",
+            );
+            updateStats(result.responseTime, result.usage?.totalTokens);
+          } else {
+            setStatus("video-status", "❌ " + result.error, "error");
+          }
+        } catch (e) {
+          setStatus("video-status", "❌ " + e.message, "error");
+        }
+      }
+
+      // ============================================================
+      // AUDIO (TTS) TAB
+      // ============================================================
+      function setTTSText(text) {
+        document.getElementById("tts-text").value = text;
+      }
+
+      async function generateTTS() {
+        const text = document.getElementById("tts-text").value.trim();
+        const voice = document.getElementById("tts-voice").value;
+        const model = document.getElementById("tts-model").value;
+        const speed = parseFloat(document.getElementById("tts-speed").value);
+
+        if (!text) {
+          setStatus("tts-status", "Please enter text", "error");
+          return;
+        }
+
+        setStatus("tts-status", "🎵 Generating audio...", "loading");
+        document.getElementById("tts-output").innerHTML = "";
+
+        try {
+          const r = await apiPost("/api/tts/generate", {
+            text,
+            voice,
+            model,
+            speed,
+          });
+
+          // Server returns audioBase64 field
+          const audioData = r.audioBase64 || r.audioData;
+          if (r.success && audioData) {
+            const mimeType = r.format === "ogg" ? "audio/ogg" : "audio/mpeg";
+            const audio = document.createElement("audio");
+            audio.controls = true;
+            audio.src = `data:${mimeType};base64,` + audioData;
+            const wrapper = document.createElement("div");
+            wrapper.style.marginTop = "12px";
+
+            const info = document.createElement("div");
+            info.style.cssText =
+              "font-size:12px;color:var(--text-muted);margin-bottom:8px";
+            info.textContent = `Voice: ${r.voice || voice} | Speed: ${speed}x | Size: ${r.audioSizeKB || "?"}KB | ${r.responseTime}ms`;
+
+            const downloadBtn = document.createElement("button");
+            downloadBtn.className = "btn btn-secondary";
+            downloadBtn.style.marginTop = "8px";
+            downloadBtn.textContent = "⬇️ Download Audio";
+            downloadBtn.onclick = () => {
+              const a = document.createElement("a");
+              a.href = `data:${mimeType};base64,` + audioData;
+              a.download = "neurolink-speech-" + Date.now() + ".mp3";
+              a.click();
+            };
+
+            wrapper.appendChild(info);
+            wrapper.appendChild(audio);
+            wrapper.appendChild(downloadBtn);
+            document.getElementById("tts-output").appendChild(wrapper);
+            setStatus(
+              "tts-status",
+              `✅ Audio generated in ${r.responseTime}ms via Google Cloud TTS`,
+              "success",
+            );
+            updateStats(r.responseTime);
+          } else {
+            setStatus(
+              "tts-status",
+              "❌ " + (r.error || "Failed to generate audio"),
+              "error",
+            );
+          }
+        } catch (e) {
+          setStatus("tts-status", "❌ " + e.message, "error");
+        }
+      }
+
+      // ============================================================
+      // RAG TAB
+      // ============================================================
+      async function ragIndex() {
+        const content = document.getElementById("rag-doc-content").value.trim();
+        const title = document.getElementById("rag-doc-title").value.trim();
+        const tags = document
+          .getElementById("rag-doc-tags")
+          .value.split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
+
+        if (!content) {
+          setStatus(
+            "rag-index-status",
+            "Please enter document content",
+            "error",
+          );
+          return;
+        }
+
+        setStatus("rag-index-status", "⏳ Indexing document...", "loading");
+        try {
+          // Server API expects: { documentId, content, metadata }
+          const documentId = "doc-" + Date.now();
+          const r = await apiPost("/api/rag/index", {
+            documentId,
+            content,
+            metadata: { title, tags },
+          });
+          if (r.success) {
+            setOutput("rag-index-output", JSON.stringify(r, null, 2));
+            setStatus(
+              "rag-index-status",
+              `✅ Indexed document (${r.chunksCreated || 1} chunks)`,
+              "success",
+            );
+          } else {
+            setStatus("rag-index-status", "❌ " + r.error, "error");
+          }
+        } catch (e) {
+          setStatus("rag-index-status", "❌ " + e.message, "error");
+        }
+      }
+
+      async function ragQuery() {
+        const query = document.getElementById("rag-query").value.trim();
+        const maxResults = parseInt(
+          document.getElementById("rag-max-results").value,
+        );
+        const provider = document.getElementById("rag-provider").value;
+
+        if (!query) {
+          setStatus("rag-query-status", "Please enter a question", "error");
+          return;
+        }
+
+        setStatus(
+          "rag-query-status",
+          "⏳ Searching and generating answer...",
+          "loading",
+        );
+        try {
+          // Server API expects: { query, topK, provider }
+          const r = await apiPost("/api/rag/query", {
+            query,
+            topK: maxResults,
+            provider,
+          });
+          if (r.success) {
+            let out = r.answer || r.content || "";
+            if (r.sources && r.sources.length) {
+              out +=
+                "\n\n---\nSources:\n" +
+                r.sources
+                  .map(
+                    (s, i) =>
+                      `${i + 1}. ${s.documentId || s.title || "Document"} — ${s.excerpt || ""}`,
+                  )
+                  .join("\n");
+            }
+            setOutput("rag-query-output", out);
+            setStatus(
+              "rag-query-status",
+              `✅ Found ${r.chunksUsed || r.sources?.length || 0} relevant chunks`,
+              "success",
+            );
+            updateStats(r.responseTime, r.usage?.totalTokens);
+          } else {
+            setStatus("rag-query-status", "❌ " + r.error, "error");
+          }
+        } catch (e) {
+          setStatus("rag-query-status", "❌ " + e.message, "error");
+        }
+      }
+
+      // ============================================================
+      // CONTEXT CHAT TAB
+      // ============================================================
+      function clearChat() {
+        chatHistory.length = 0;
+        document.getElementById("chat-messages").innerHTML =
+          '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:20px 0">Start a conversation below ↓</div>';
+        document.getElementById("summary-output").style.display = "none";
+      }
+
+      // New Session - Generate a new session ID
+      function newSession() {
+        const newId = "session-" + Date.now();
+        document.getElementById("context-session-id").value = newId;
+        clearChat();
+        updateContextStats({
+          totalMessages: 0,
+          totalTokens: 0,
+          summarizationCount: 0,
+          hasSummary: false,
+        });
+        document.getElementById("current-summary").textContent =
+          "No summary yet";
+        setStatus(
+          "context-status",
+          "🆕 New session created: " + newId,
+          "success",
+        );
+      }
+
+      // List all sessions - loads into sidebar
+      async function listSessions() {
+        try {
+          const r = await apiGet("/api/context/sessions");
+          const sidebarEl = document.getElementById("sessions-sidebar");
+
+          if (!sidebarEl) return;
+
+          if (r.success) {
+            if (r.sessions.length === 0) {
+              sidebarEl.innerHTML = `
+                <div style="text-align:center;color:var(--text-muted);font-size:12px;padding:20px 10px">
+                  No chats yet.<br>Start a new conversation!
+                </div>`;
+            } else {
+              // Clear and create clickable session items (ChatGPT style)
+              sidebarEl.innerHTML = "";
+
+              // Sort by last activity (most recent first)
+              const sortedSessions = [...r.sessions].sort(
+                (a, b) =>
+                  new Date(b.lastActivityAt || 0).getTime() -
+                  new Date(a.lastActivityAt || 0).getTime(),
+              );
+
+              sortedSessions.forEach((s) => {
+                const currentSessionId =
+                  document.getElementById("context-session-id")?.value;
+                const isActive = s.sessionId === currentSessionId;
+
+                const sessionDiv = document.createElement("div");
+                sessionDiv.style.cssText = `
+                  padding:10px 12px;
+                  margin:4px 0;
+                  background:${isActive ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.03)"};
+                  border-radius:8px;
+                  cursor:pointer;
+                  transition:all 0.15s;
+                  border-left:3px solid ${isActive ? "var(--accent)" : "transparent"};
+                `;
+
+                sessionDiv.onmouseover = () => {
+                  if (!isActive)
+                    sessionDiv.style.background = "rgba(255,255,255,0.08)";
+                };
+                sessionDiv.onmouseout = () => {
+                  sessionDiv.style.background = isActive
+                    ? "rgba(99,102,241,0.2)"
+                    : "rgba(255,255,255,0.03)";
+                };
+
+                sessionDiv.onclick = () => switchToSession(s.sessionId);
+
+                // Get preview text from message count
+                const previewText =
+                  s.messageCount > 0
+                    ? `${s.messageCount} message${s.messageCount > 1 ? "s" : ""}`
+                    : "New chat";
+
+                sessionDiv.innerHTML = `
+                  <div style="font-weight:600;color:var(--text-primary);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                    💬 ${s.sessionId.replace(/^session-/, "Chat ")}
+                  </div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:4px;display:flex;justify-content:space-between">
+                    <span>${previewText}</span>
+                    <span>${s.totalTokens} tok</span>
+                  </div>
+                `;
+
+                sidebarEl.appendChild(sessionDiv);
+              });
+            }
+          } else {
+            sidebarEl.innerHTML = `
+              <div style="text-align:center;color:var(--text-muted);font-size:12px;padding:20px 10px">
+                Error loading sessions
+              </div>`;
+          }
+        } catch (e) {
+          const sidebarEl = document.getElementById("sessions-sidebar");
+          if (sidebarEl) {
+            sidebarEl.innerHTML = `
+              <div style="text-align:center;color:var(--text-muted);font-size:12px;padding:20px 10px">
+                Error: ${e.message}
+              </div>`;
+          }
+        }
+      }
+
+      // Switch to a different session
+      async function switchToSession(sessionId) {
+        document.getElementById("context-session-id").value = sessionId;
+        clearChat();
+
+        // Load session messages into chat display
+        try {
+          const r = await apiGet(
+            "/api/context/session/" + encodeURIComponent(sessionId),
+          );
+          if (r.success && r.session) {
+            // Display messages from the session
+            const messages = r.session.messages || [];
+            if (messages.length > 0) {
+              messages.forEach((m) => {
+                appendMsg(m.role, m.content);
+                chatHistory.push({ role: m.role, content: m.content });
+              });
+            }
+
+            // Update stats
+            updateContextStats({
+              totalMessages: messages.length,
+              totalTokens: r.session.totalTokens || 0,
+              summarizationCount: r.session.summarizationCount || 0,
+              hasSummary: !!r.session.summary,
+            });
+
+            // Update summary if exists
+            if (r.session.summary) {
+              document.getElementById("current-summary").textContent =
+                r.session.summary;
+            } else {
+              document.getElementById("current-summary").textContent =
+                "No summary yet";
+            }
+          }
+        } catch (e) {
+          console.error("Error loading session:", e);
+        }
+
+        setStatus("context-status", `✅ Switched to ${sessionId}`, "success");
+      }
+
+      // Clear current session
+      async function clearCurrentSession() {
+        const sessionId = document
+          .getElementById("context-session-id")
+          .value.trim();
+        if (!sessionId) {
+          setStatus("context-status", "No session ID", "error");
+          return;
+        }
+
+        try {
+          const r = await fetch(
+            "/api/context/session/" + encodeURIComponent(sessionId),
+            { method: "DELETE" },
+          );
+          const result = await r.json();
+          if (result.success) {
+            clearChat();
+            updateContextStats({
+              totalMessages: 0,
+              totalTokens: 0,
+              summarizationCount: 0,
+              hasSummary: false,
+            });
+            document.getElementById("current-summary").textContent =
+              "No summary yet";
+            setStatus("context-status", "🗑️ Session cleared", "success");
+          } else {
+            setStatus("context-status", "❌ " + result.error, "error");
+          }
+        } catch (e) {
+          setStatus("context-status", "❌ " + e.message, "error");
+        }
+      }
+
+      // Update context stats display
+      function updateContextStats(stats) {
+        document.getElementById("context-stat-messages").textContent =
+          stats.totalMessages || 0;
+        document.getElementById("context-stat-tokens").textContent =
+          stats.totalTokens || 0;
+        document.getElementById("context-stat-summarizations").textContent =
+          stats.summarizationCount || 0;
+        const summaryBadge = document.getElementById(
+          "context-stat-summary-badge",
+        );
+        if (summaryBadge) {
+          summaryBadge.innerHTML =
+            '<span style="color:var(--accent-green)">' +
+            (stats.hasSummary ? "✅" : "—") +
+            '</span><span style="color:var(--text-muted)"> summary</span>';
+        }
+      }
+
+      // Load session details
+      async function loadSessionDetails(sessionId) {
+        try {
+          const r = await apiGet(
+            "/api/context/session/" + encodeURIComponent(sessionId),
+          );
+          if (r.success && r.session) {
+            updateContextStats({
+              totalMessages: r.session.messages?.length || 0,
+              totalTokens: r.session.totalTokens || 0,
+              summarizationCount: r.session.summarizationCount || 0,
+              hasSummary: !!r.session.summary,
+            });
+            if (r.session.summary) {
+              document.getElementById("current-summary").textContent =
+                r.session.summary;
+            }
+          }
+        } catch (e) {
+          console.error("Error loading session details:", e);
+        }
+      }
+
+      function appendMsg(role, text) {
+        const container = document.getElementById("chat-messages");
+        const firstChild = container.querySelector(
+          'div[style*="text-align:center"]',
+        );
+        if (firstChild) firstChild.remove();
+
+        const wrapper = document.createElement("div");
+        wrapper.style.display = "flex";
+        wrapper.style.flexDirection = "column";
+
+        const label = document.createElement("div");
+        label.className = "msg-label";
+        label.style.alignSelf = role === "user" ? "flex-end" : "flex-start";
+        label.style.color = "var(--text-muted)";
+        label.textContent = role === "user" ? "You" : "🤖 AI";
+
+        const msg = document.createElement("div");
+        msg.className = role === "user" ? "msg msg-user" : "msg msg-ai";
+        msg.textContent = text;
+
+        wrapper.appendChild(label);
+        wrapper.appendChild(msg);
+        container.appendChild(wrapper);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      async function sendContextMessage() {
+        const input = document.getElementById("context-message");
+        const message = input.value.trim();
+        if (!message) return;
+
+        const sessionId =
+          document.getElementById("context-session-id").value.trim() ||
+          "session-default";
+        const provider = document.getElementById("context-provider").value;
+
+        appendMsg("user", message);
+        chatHistory.push({ role: "user", content: message });
+        input.value = "";
+
+        setStatus("context-status", "⏳ Thinking...", "loading");
+
+        try {
+          // Server API: { sessionId, message, provider }
+          const r = await apiPost("/api/context/chat", {
+            sessionId,
+            message,
+            provider,
+          });
+
+          if (r.success) {
+            const reply = r.response || r.content || r.text;
+            appendMsg("ai", reply);
+            chatHistory.push({ role: "assistant", content: reply });
+
+            // Update session ID if server returned it
+            if (r.sessionId) {
+              document.getElementById("context-session-id").value = r.sessionId;
+            }
+
+            // Update stats from response
+            if (r.contextStats) {
+              updateContextStats(r.contextStats);
+              if (r.contextStats.wasSummarized) {
+                setStatus(
+                  "context-status",
+                  `✅ Response ready (context summarized)`,
+                  "success",
+                );
+              } else {
+                setStatus("context-status", `✅ Response ready`, "success");
+              }
+            } else {
+              setStatus("context-status", `✅ Response ready`, "success");
+            }
+
+            updateStats(r.responseTime, r.usage?.totalTokens);
+
+            // Load full session details in background
+            loadSessionDetails(r.sessionId || sessionId);
+          } else {
+            setStatus("context-status", "❌ " + r.error, "error");
+          }
+        } catch (e) {
+          setStatus("context-status", "❌ " + e.message, "error");
+        }
+      }
+
+      // Allow Enter to send (Shift+Enter for new line)
+      document.addEventListener("DOMContentLoaded", () => {
+        // Load saved theme preference
+        loadSavedTheme();
+
+        const msgInput = document.getElementById("context-message");
+        if (msgInput) {
+          msgInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              sendContextMessage();
+            }
+          });
+        }
+        checkProviders();
+
+        // Load sessions sidebar on page load
+        listSessions();
+      });
+
+      // Override showTab to refresh sessions when switching to context tab
+      const originalShowTab = showTab;
+      showTab = function (tabName, el) {
+        originalShowTab(tabName, el);
+        if (tabName === "context") {
+          // Refresh sessions list when switching to context tab
+          listSessions();
+        }
+      };
+
+      async function summarizeContext() {
+        const sessionId = document
+          .getElementById("context-session-id")
+          .value.trim();
+        if (!sessionId) {
+          setStatus("context-status", "No session ID", "error");
+          return;
+        }
+
+        setStatus("context-status", "⏳ Summarizing...", "loading");
+        try {
+          const r = await apiPost("/api/context/summarize", {
+            sessionId,
+            keepRecentCount: 5,
+          });
+
+          if (r.success) {
+            // Update current summary card
+            document.getElementById("current-summary").textContent = r.summary;
+
+            // Update stats
+            if (r.sessionStats) {
+              updateContextStats(r.sessionStats);
+            }
+
+            setStatus(
+              "context-status",
+              `✅ Summarized ${r.messagesSummarized} messages`,
+              "success",
+            );
+          } else {
+            setStatus(
+              "context-status",
+              "❌ " + (r.message || r.error),
+              "error",
+            );
+          }
+        } catch (e) {
+          setStatus("context-status", "❌ " + e.message, "error");
+        }
+      }
+
+      // ============================================================
+      // SEARCH TAB
+      // ============================================================
+      async function webSearch() {
+        const query = document.getElementById("search-query").value.trim();
+        const maxResults = parseInt(
+          document.getElementById("search-max").value,
+        );
+        if (!query) {
+          setStatus("search-status", "Please enter a search query", "error");
+          return;
+        }
+
+        setStatus("search-status", "🔍 Searching...", "loading");
+        document.getElementById("search-results-output").innerHTML = "";
+
+        try {
+          const r = await apiPost("/api/web/search", { query, maxResults });
+          if (!r.success) {
+            setStatus(
+              "search-status",
+              "❌ " + (r.error || "Search failed"),
+              "error",
+            );
+            return;
+          }
+
+          const container = document.getElementById("search-results-output");
+
+          // Server returns results as either string (AI text) or array (sources)
+          if (Array.isArray(r.results)) {
+            r.results.forEach((result) => {
+              const div = document.createElement("div");
+              div.className = "search-result";
+              div.innerHTML = `
+                <div class="search-result-title">${result.title || "Result"}</div>
+                <div class="search-result-snippet">${result.snippet || result.description || ""}</div>
+                <div class="search-result-url">${result.url || result.link || ""}</div>
+              `;
+              container.appendChild(div);
+            });
+          } else if (typeof r.results === "string" && r.results.length > 0) {
+            // Text result from AI/grounded search
+            const textDiv = document.createElement("div");
+            textDiv.className = "output output-prose";
+            textDiv.style.cssText =
+              "display:block;margin-top:8px;max-height:400px";
+            textDiv.textContent = r.results;
+            container.appendChild(textDiv);
+          }
+
+          // Show sources if available
+          if (r.sources && r.sources.length > 0) {
+            const sourcesHeader = document.createElement("div");
+            sourcesHeader.style.cssText =
+              "font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 6px";
+            sourcesHeader.textContent = "🔗 Sources";
+            container.appendChild(sourcesHeader);
+            r.sources.forEach((src) => {
+              const div = document.createElement("div");
+              div.className = "search-result";
+              div.innerHTML = `
+                <div class="search-result-title">${src.title || "Source"}</div>
+                <div class="search-result-url"><a href="${src.url || src.uri || ""}" target="_blank" style="color:var(--accent3)">${src.url || src.uri || ""}</a></div>
+              `;
+              container.appendChild(div);
+            });
+          }
+
+          const resultCount = Array.isArray(r.results)
+            ? r.results.length
+            : r.sources?.length || 1;
+          const grounded = r.isGrounded ? " (live web)" : "";
+          setStatus(
+            "search-status",
+            `✅ Search complete — ${resultCount} result(s)${grounded}`,
+            "success",
+          );
+          updateStats(r.responseTime);
+        } catch (e) {
+          setStatus("search-status", "❌ " + e.message, "error");
+        }
+      }
+
+      async function groundedSearch() {
+        const query = document.getElementById("grounded-query").value.trim();
+        if (!query) {
+          setStatus("grounded-status", "Please enter a question", "error");
+          return;
+        }
+
+        setStatus(
+          "grounded-status",
+          "🎯 Searching with grounding...",
+          "loading",
+        );
+        try {
+          const r = await apiPost("/api/web/search/grounded", { query });
+          if (r.success) {
+            // Server returns results as string (text content)
+            const content = r.results || r.content || r.answer || "";
+            setOutput("grounded-output", content);
+
+            // Show sources if available
+            if (r.sources && r.sources.length > 0) {
+              const grounded = document.getElementById("grounded-output");
+              const srcDiv = document.createElement("div");
+              srcDiv.style.cssText =
+                "margin-top:10px;padding-top:10px;border-top:1px solid var(--border)";
+              srcDiv.innerHTML =
+                '<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Sources</div>' +
+                r.sources
+                  .map(
+                    (s) =>
+                      `<div style="font-size:12px;color:var(--accent3);margin-bottom:3px">🔗 ${s.title || s.url || ""}</div>`,
+                  )
+                  .join("");
+              grounded.appendChild(srcDiv);
+            }
+
+            setStatus(
+              "grounded-status",
+              `✅ Grounded response in ${r.responseTime}ms`,
+              "success",
+            );
+            updateStats(r.responseTime, r.usage?.totalTokens);
+          } else {
+            setStatus("grounded-status", "❌ " + r.error, "error");
+          }
+        } catch (e) {
+          setStatus("grounded-status", "❌ " + e.message, "error");
+        }
+      }
+
+      // ============================================================
+      // BUSINESS TAB
+      // ============================================================
       async function generateEmail() {
         const type = document.getElementById("email-type").value;
         const context = document.getElementById("email-context").value;
-        setStatus("email-status", "Generating email...", "loading");
-
+        setStatus("email-status", "⏳ Writing email...", "loading");
         try {
-          const result = await apiCall("/api/business/email", {
-            type,
-            context,
-          });
-          if (result.success) {
-            setOutput("email-output", result.content);
-            setStatus(
-              "email-status",
-              "Email generated successfully",
-              "success",
-            );
-            updateMetrics(result);
-          } else {
-            setStatus("email-status", "Error: " + result.error, "error");
-          }
-        } catch (error) {
-          setStatus("email-status", "Error: " + error.message, "error");
+          const r = await apiPost("/api/business/email", { type, context });
+          if (r.success) {
+            setOutput("email-output", r.content);
+            setStatus("email-status", "✅ Email generated", "success");
+            updateStats(r.responseTime, r.usage?.totalTokens);
+          } else setStatus("email-status", "❌ " + r.error, "error");
+        } catch (e) {
+          setStatus("email-status", "❌ " + e.message, "error");
         }
       }
 
       async function analyzeData() {
         const data = document.getElementById("data-input").value;
-        setStatus("data-status", "Analyzing data...", "loading");
-
+        setStatus("data-status", "⏳ Analyzing...", "loading");
         try {
-          const result = await apiCall("/api/business/analyze-data", { data });
-          if (result.success) {
-            setOutput("data-output", result.content);
-            setStatus("data-status", "Analysis completed", "success");
-            updateMetrics(result);
-          } else {
-            setStatus("data-status", "Error: " + result.error, "error");
-          }
-        } catch (error) {
-          setStatus("data-status", "Error: " + error.message, "error");
+          const r = await apiPost("/api/business/analyze-data", { data });
+          if (r.success) {
+            setOutput("data-output", r.content);
+            setStatus("data-status", "✅ Analysis complete", "success");
+            updateStats(r.responseTime, r.usage?.totalTokens);
+          } else setStatus("data-status", "❌ " + r.error, "error");
+        } catch (e) {
+          setStatus("data-status", "❌ " + e.message, "error");
         }
       }
 
       async function summarizeDocument() {
         const text = document.getElementById("doc-text").value;
         const length = document.getElementById("summary-length").value;
-        setStatus("doc-status", "Summarizing document...", "loading");
-
+        setStatus("doc-status", "⏳ Summarizing...", "loading");
         try {
-          const result = await apiCall("/api/business/summarize", {
-            text,
-            length,
-          });
-          if (result.success) {
-            setOutput("doc-output", result.content);
-            setStatus("doc-status", "Summary generated", "success");
-            updateMetrics(result);
-          } else {
-            setStatus("doc-status", "Error: " + result.error, "error");
-          }
-        } catch (error) {
-          setStatus("doc-status", "Error: " + error.message, "error");
+          const r = await apiPost("/api/business/summarize", { text, length });
+          if (r.success) {
+            setOutput("doc-output", r.content);
+            setStatus("doc-status", "✅ Summary ready", "success");
+            updateStats(r.responseTime, r.usage?.totalTokens);
+          } else setStatus("doc-status", "❌ " + r.error, "error");
+        } catch (e) {
+          setStatus("doc-status", "❌ " + e.message, "error");
         }
       }
 
-      // Creative Tools functions
+      // ============================================================
+      // CREATIVE TAB
+      // ============================================================
+      async function generateImage() {
+        const model = document.getElementById("image-model").value;
+        const prompt = document.getElementById("image-prompt").value.trim();
+        const style = document.getElementById("image-style").value;
+        if (!prompt) {
+          setStatus("image-status", "Please enter a prompt", "error");
+          return;
+        }
+
+        setStatus(
+          "image-status",
+          "🎨 Generating image (10–30 seconds)...",
+          "loading",
+        );
+        document.getElementById("image-output").innerHTML = "";
+
+        try {
+          // Use the dedicated image endpoint - supports Gemini (API key) and Vertex Imagen
+          const r = await apiPost("/api/generate/image", {
+            model: model,
+            prompt: `${prompt}. Style: ${style}`,
+            aspectRatio: "1:1",
+            numberOfImages: 1,
+          });
+
+          // Server returns imageBase64 (not imageOutput.base64)
+          const base64Data =
+            r.imageBase64 || (r.imageOutput && r.imageOutput.base64);
+
+          if (r.success && base64Data) {
+            const mimeType = "image/png";
+            const img = document.createElement("img");
+            img.src = `data:${mimeType};base64,` + base64Data;
+            img.alt = "Generated";
+            img.style.cssText =
+              "width:100%;border-radius:10px;margin-top:12px;box-shadow:var(--shadow)";
+
+            const dlBtn = document.createElement("button");
+            dlBtn.className = "btn btn-secondary";
+            dlBtn.style.marginTop = "10px";
+            dlBtn.textContent = "⬇️ Download";
+            dlBtn.onclick = () => {
+              const a = document.createElement("a");
+              a.href = `data:${mimeType};base64,` + base64Data;
+              a.download = "neurolink-image-" + Date.now() + ".png";
+              a.click();
+            };
+
+            const out = document.getElementById("image-output");
+            out.appendChild(img);
+            out.appendChild(dlBtn);
+            setStatus(
+              "image-status",
+              `✅ Image generated via ${r.provider || "vertex-imagen"} in ${r.responseTime}ms`,
+              "success",
+            );
+            updateStats(r.responseTime);
+          } else {
+            setStatus(
+              "image-status",
+              "❌ " + (r.error || "No image returned"),
+              "error",
+            );
+          }
+        } catch (e) {
+          setStatus("image-status", "❌ " + e.message, "error");
+        }
+      }
+
+      async function generatePPT() {
+        const topic = document.getElementById("ppt-topic").value.trim();
+        const slides = document.getElementById("ppt-slides").value;
+        const style = document.getElementById("ppt-style").value;
+        if (!topic) {
+          setStatus("ppt-status", "Please enter a topic", "error");
+          return;
+        }
+
+        setStatus("ppt-status", "📊 Generating presentation...", "loading");
+
+        const out = document.getElementById("ppt-output");
+        out.textContent =
+          "Generating slides with AI...\nThis may take 30-60 seconds.";
+        out.style.display = "";
+
+        try {
+          // Map frontend 'style' to backend 'theme' and 'slideCount' to 'pages'
+          const themeMap = {
+            professional: "Professional",
+            creative: "Creative",
+            minimal: "Minimalist",
+          };
+          const theme = themeMap[style] || "Modern";
+
+          const response = await fetch("/api/generate/ppt", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              topic,
+              pages: parseInt(slides),
+              theme,
+              audience: "General",
+              tone: "Professional",
+            }),
+          });
+
+          // Check if response is JSON (error) or binary (PPTX file)
+          const contentType = response.headers.get("Content-Type");
+
+          if (contentType && contentType.includes("application/json")) {
+            // Error response - parse as JSON
+            const r = await response.json();
+            if (r.success) {
+              setOutput("ppt-output", JSON.stringify(r, null, 2));
+              setStatus("ppt-status", "✅ Presentation generated", "success");
+            } else {
+              out.textContent = "❌ Error: " + (r.error || "Unknown error");
+              setStatus("ppt-status", "❌ " + r.error, "error");
+            }
+          } else if (contentType && contentType.includes("presentationml")) {
+            // Success - received PPTX file
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+
+            // Get filename from Content-Disposition header
+            const disposition = response.headers.get("Content-Disposition");
+            let filename = "presentation.pptx";
+            if (disposition) {
+              const match = disposition.match(/filename="(.+?)"/);
+              if (match) filename = match[1];
+            }
+
+            out.textContent = `✅ Presentation ready!\n\nSlides: ${slides}\nTheme: ${theme}\nFormat: PowerPoint (.pptx)\n\nClick to download:`;
+
+            const dlBtn = document.createElement("a");
+            dlBtn.href = url;
+            dlBtn.download = filename;
+            dlBtn.className = "btn btn-primary";
+            dlBtn.style.cssText =
+              "display:inline-flex;margin-top:10px;text-decoration:none";
+            dlBtn.textContent = "📊 Download PPTX";
+            out.appendChild(document.createElement("br"));
+            out.appendChild(dlBtn);
+
+            setStatus(
+              "ppt-status",
+              "✅ Presentation generated successfully!",
+              "success",
+            );
+          } else {
+            // Unknown response type
+            const text = await response.text();
+            out.textContent = "Unexpected response: " + text.substring(0, 500);
+            setStatus("ppt-status", "❌ Unexpected response type", "error");
+          }
+        } catch (e) {
+          out.textContent = "❌ Error: " + e.message;
+          setStatus("ppt-status", "❌ " + e.message, "error");
+        }
+      }
+
       async function generateCreative() {
         const type = document.getElementById("writing-type").value;
         const prompt = document.getElementById("writing-prompt").value;
-        setStatus("writing-status", "Creating content...", "loading");
-
+        setStatus("writing-status", "⏳ Creating...", "loading");
         try {
-          const result = await apiCall("/api/creative/writing", {
-            type,
-            prompt,
-          });
-          if (result.success) {
-            setOutput("writing-output", result.content);
-            setStatus(
-              "writing-status",
-              "Content created successfully",
-              "success",
-            );
-            updateMetrics(result);
-          } else {
-            setStatus("writing-status", "Error: " + result.error, "error");
-          }
-        } catch (error) {
-          setStatus("writing-status", "Error: " + error.message, "error");
+          const r = await apiPost("/api/creative/writing", { type, prompt });
+          if (r.success) {
+            setOutput("writing-output", r.content);
+            setStatus("writing-status", "✅ Content created", "success");
+            updateStats(r.responseTime, r.usage?.totalTokens);
+          } else setStatus("writing-status", "❌ " + r.error, "error");
+        } catch (e) {
+          setStatus("writing-status", "❌ " + e.message, "error");
         }
       }
 
       async function translateText() {
         const text = document.getElementById("translate-text").value;
         const language = document.getElementById("target-language").value;
-        setStatus("translate-status", "Translating...", "loading");
-
+        setStatus("translate-status", "⏳ Translating...", "loading");
         try {
-          const result = await apiCall("/api/creative/translate", {
+          const r = await apiPost("/api/creative/translate", {
             text,
             language,
           });
-          if (result.success) {
-            setOutput("translate-output", result.content);
-            setStatus("translate-status", "Translation completed", "success");
-            updateMetrics(result);
-          } else {
-            setStatus("translate-status", "Error: " + result.error, "error");
-          }
-        } catch (error) {
-          setStatus("translate-status", "Error: " + error.message, "error");
+          if (r.success) {
+            setOutput("translate-output", r.content);
+            setStatus("translate-status", "✅ Translation complete", "success");
+            updateStats(r.responseTime, r.usage?.totalTokens);
+          } else setStatus("translate-status", "❌ " + r.error, "error");
+        } catch (e) {
+          setStatus("translate-status", "❌ " + e.message, "error");
         }
       }
 
       async function generateIdeas() {
         const type = document.getElementById("content-type").value;
         const topic = document.getElementById("content-topic").value;
-        setStatus("content-status", "Generating ideas...", "loading");
-
+        setStatus("content-status", "⏳ Generating ideas...", "loading");
         try {
-          const result = await apiCall("/api/creative/ideas", { type, topic });
-          if (result.success) {
-            setOutput("content-output", result.content);
-            setStatus(
-              "content-status",
-              "Ideas generated successfully",
-              "success",
-            );
-            updateMetrics(result);
-          } else {
-            setStatus("content-status", "Error: " + result.error, "error");
-          }
-        } catch (error) {
-          setStatus("content-status", "Error: " + error.message, "error");
+          const r = await apiPost("/api/creative/ideas", { type, topic });
+          if (r.success) {
+            setOutput("content-output", r.content);
+            setStatus("content-status", "✅ Ideas ready", "success");
+            updateStats(r.responseTime, r.usage?.totalTokens);
+          } else setStatus("content-status", "❌ " + r.error, "error");
+        } catch (e) {
+          setStatus("content-status", "❌ " + e.message, "error");
         }
       }
 
-      // Developer Tools functions
+      // ============================================================
+      // DEVELOPER TAB
+      // ============================================================
       async function generateCode() {
         const language = document.getElementById("code-language").value;
         const description = document.getElementById("code-description").value;
-        setStatus("code-status", "Generating code...", "loading");
-
+        setStatus("code-status", "⏳ Generating code...", "loading");
         try {
-          const result = await apiCall("/api/developer/code", {
+          const r = await apiPost("/api/developer/code", {
             language,
             description,
           });
-          if (result.success) {
-            setOutput("code-output", result.content);
-            setStatus("code-status", "Code generated successfully", "success");
-            updateMetrics(result);
-          } else {
-            setStatus("code-status", "Error: " + result.error, "error");
-          }
-        } catch (error) {
-          setStatus("code-status", "Error: " + error.message, "error");
-        }
-      }
-
-      async function generateAPIDoc() {
-        const description = document.getElementById("api-description").value;
-        setStatus("api-status", "Generating documentation...", "loading");
-
-        try {
-          const result = await apiCall("/api/developer/api-doc", {
-            description,
-          });
-          if (result.success) {
-            setOutput("api-output", result.content);
-            setStatus(
-              "api-status",
-              "Documentation generated successfully",
-              "success",
-            );
-            updateMetrics(result);
-          } else {
-            setStatus("api-status", "Error: " + result.error, "error");
-          }
-        } catch (error) {
-          setStatus("api-status", "Error: " + error.message, "error");
+          if (r.success) {
+            setOutput("code-output", r.content);
+            setStatus("code-status", "✅ Code generated", "success");
+            updateStats(r.responseTime, r.usage?.totalTokens);
+          } else setStatus("code-status", "❌ " + r.error, "error");
+        } catch (e) {
+          setStatus("code-status", "❌ " + e.message, "error");
         }
       }
 
       async function debugError() {
         const error = document.getElementById("debug-input").value;
-        setStatus("debug-status", "Analyzing error...", "loading");
-
+        setStatus("debug-status", "⏳ Analyzing error...", "loading");
         try {
-          const result = await apiCall("/api/developer/debug", { error });
-          if (result.success) {
-            setOutput("debug-output", result.content);
-            setStatus("debug-status", "Analysis completed", "success");
-            updateMetrics(result);
-          } else {
-            setStatus("debug-status", "Error: " + result.error, "error");
-          }
-        } catch (error) {
-          setStatus("debug-status", "Error: " + error.message, "error");
+          const r = await apiPost("/api/developer/debug", { error });
+          if (r.success) {
+            setOutput("debug-output", r.content);
+            setStatus("debug-status", "✅ Analysis complete", "success");
+            updateStats(r.responseTime, r.usage?.totalTokens);
+          } else setStatus("debug-status", "❌ " + r.error, "error");
+        } catch (e) {
+          setStatus("debug-status", "❌ " + e.message, "error");
         }
       }
 
-      // Monitoring functions
-      async function loadAnalytics() {
-        try {
-          const response = await fetch("/api/analytics");
-          const analytics = await response.json();
-          setOutput("analytics-output", JSON.stringify(analytics, null, 2));
-        } catch (error) {
-          setOutput(
-            "analytics-output",
-            "Error loading analytics: " + error.message,
-          );
-        }
-      }
-
-      async function checkProviders() {
-        try {
-          const response = await fetch("/api/status");
-          const status = await response.json();
-          setOutput("provider-status", JSON.stringify(status, null, 2));
-        } catch (error) {
-          setOutput(
-            "provider-status",
-            "Error checking providers: " + error.message,
-          );
-        }
-      }
-
-      // MCP Integration functions - Enhanced with real API integration
+      // ============================================================
+      // MCP TAB
+      // ============================================================
       async function manageMCPServer() {
         const serverType = document.getElementById("mcp-server-type").value;
         const action = document.getElementById("mcp-action").value;
         setStatus(
           "mcp-server-status",
-          `${action}ing ${serverType} server...`,
+          `⏳ ${action}ing ${serverType}...`,
           "loading",
         );
-
         try {
-          let result;
-
-          switch (action) {
-            case "install":
-              result = await apiCall("/api/mcp/install", {
-                serverName: serverType,
-              });
-              break;
-            case "test":
-              result = await fetch(`/api/mcp/test/${serverType}`, {
-                method: "POST",
-              });
-              result = await result.json();
-              break;
-            case "list":
-              result = await fetch("/api/mcp/servers");
-              result = await result.json();
-              break;
-            case "status":
-              result = await fetch("/api/mcp/status");
-              result = await result.json();
-              break;
-            default:
-              throw new Error("Unknown action");
-          }
-
-          if (result.success) {
-            setOutput("mcp-server-output", JSON.stringify(result, null, 2));
-            setStatus(
-              "mcp-server-status",
-              `${action} completed successfully`,
-              "success",
-            );
-          } else {
-            setOutput("mcp-server-output", JSON.stringify(result, null, 2));
-            setStatus(
-              "mcp-server-status",
-              `${action} completed with warnings`,
-              "warning",
-            );
-          }
-        } catch (error) {
-          setStatus("mcp-server-status", "Error: " + error.message, "error");
-          setOutput(
-            "mcp-server-output",
-            `Error: ${error.message}\n\nThis might indicate that the MCP CLI is not available or the server connection failed.`,
+          let r;
+          if (action === "install")
+            r = await apiPost("/api/mcp/install", { serverName: serverType });
+          else if (action === "test")
+            r = await apiPost(`/api/mcp/test/${serverType}`, {});
+          else if (action === "list") r = await apiGet("/api/mcp/servers");
+          else r = await apiGet("/api/mcp/status");
+          setOutput("mcp-server-output", JSON.stringify(r, null, 2));
+          setStatus(
+            "mcp-server-status",
+            r.success ? `✅ ${action} complete` : "❌ " + r.error,
+            r.success ? "success" : "error",
           );
+        } catch (e) {
+          setStatus("mcp-server-status", "❌ " + e.message, "error");
         }
       }
 
@@ -1073,37 +3659,22 @@ Analyze project structure, generate documentation, and create GitHub issue</text
         const serverName = document.getElementById("tool-server").value;
         const toolName = document.getElementById("tool-name").value;
         const paramsText = document.getElementById("tool-params").value;
-        setStatus("tool-status", "Executing MCP tool...", "loading");
-
+        setStatus("tool-status", "⏳ Executing...", "loading");
         try {
-          let params = {};
-          if (paramsText.trim()) {
-            params = JSON.parse(paramsText);
-          }
-
-          const result = await apiCall("/api/mcp/execute", {
+          const params = paramsText.trim() ? JSON.parse(paramsText) : {};
+          const r = await apiPost("/api/mcp/execute", {
             serverName,
             toolName,
             params,
           });
-
-          if (result.success) {
-            setOutput("tool-output", JSON.stringify(result, null, 2));
-            setStatus("tool-status", "Tool executed successfully", "success");
-          } else {
-            setOutput("tool-output", JSON.stringify(result, null, 2));
-            setStatus(
-              "tool-status",
-              "Tool execution failed: " + result.error,
-              "error",
-            );
-          }
-        } catch (error) {
-          setStatus("tool-status", "Error: " + error.message, "error");
-          setOutput(
-            "tool-output",
-            `Error: ${error.message}\n\nPlease check that:\n1. Server name is correct\n2. Tool name exists on the server\n3. Parameters are valid JSON`,
+          setOutput("tool-output", JSON.stringify(r, null, 2));
+          setStatus(
+            "tool-status",
+            r.success ? "✅ Executed" : "❌ " + r.error,
+            r.success ? "success" : "error",
           );
+        } catch (e) {
+          setStatus("tool-status", "❌ " + e.message, "error");
         }
       }
 
@@ -1112,364 +3683,67 @@ Analyze project structure, generate documentation, and create GitHub issue</text
         const description = document.getElementById(
           "workflow-description",
         ).value;
-        setStatus("workflow-status", "Running MCP workflow...", "loading");
-
+        setStatus("workflow-status", "⏳ Running workflow...", "loading");
         try {
-          const result = await apiCall("/api/mcp/workflow", {
+          const r = await apiPost("/api/mcp/workflow", {
             workflowType,
             description,
           });
-
-          if (result.success) {
-            setOutput("workflow-output", JSON.stringify(result, null, 2));
-            setStatus(
-              "workflow-status",
-              "Workflow completed successfully",
-              "success",
-            );
-          } else {
-            setOutput("workflow-output", JSON.stringify(result, null, 2));
-            setStatus(
-              "workflow-status",
-              "Workflow failed: " + result.error,
-              "error",
-            );
-          }
-        } catch (error) {
-          setStatus("workflow-status", "Error: " + error.message, "error");
-          setOutput(
-            "workflow-output",
-            `Error: ${error.message}\n\nWorkflow execution failed. This may indicate missing MCP servers or configuration issues.`,
+          setOutput("workflow-output", JSON.stringify(r, null, 2));
+          setStatus(
+            "workflow-status",
+            r.success ? "✅ Workflow complete" : "❌ " + r.error,
+            r.success ? "success" : "error",
           );
+        } catch (e) {
+          setStatus("workflow-status", "❌ " + e.message, "error");
         }
       }
 
       async function loadMCPServers() {
-        setStatus("mcp-servers-status", "Loading MCP servers...", "loading");
-
         try {
-          const response = await fetch("/api/mcp/servers");
-          const servers = await response.json();
+          const r = await apiGet("/api/mcp/servers");
+          setOutput("mcp-servers-output", JSON.stringify(r, null, 2));
+        } catch (e) {
+          setOutput("mcp-servers-output", "Error: " + e.message);
+        }
+      }
 
-          if (servers.success) {
-            setOutput("mcp-servers-output", JSON.stringify(servers, null, 2));
-            setStatus(
-              "mcp-servers-status",
-              `Loaded ${servers.totalServers} servers (${servers.availableServers} available)`,
-              "success",
-            );
-          } else {
-            setOutput("mcp-servers-output", JSON.stringify(servers, null, 2));
-            setStatus("mcp-servers-status", "Failed to load servers", "error");
+      // ============================================================
+      // MONITORING TAB
+      // ============================================================
+      async function loadAnalytics() {
+        try {
+          const r = await apiGet("/api/analytics");
+          setOutput("analytics-output", JSON.stringify(r, null, 2));
+        } catch (e) {
+          setOutput("analytics-output", "Error: " + e.message);
+        }
+      }
+
+      async function checkProviders() {
+        try {
+          const r = await apiGet("/api/status");
+          const el = document.getElementById("provider-status");
+          if (el) {
+            setOutput("provider-status", JSON.stringify(r, null, 2));
+            el.style.display = "";
           }
-        } catch (error) {
-          setStatus("mcp-servers-status", "Error: " + error.message, "error");
-          setOutput(
-            "mcp-servers-output",
-            `Error loading MCP servers: ${error.message}\n\nThis may indicate that MCP configuration is missing or the CLI is not available.`,
-          );
-        }
-      }
-
-      async function loadMCPAnalytics() {
-        setStatus(
-          "mcp-analytics-status",
-          "Loading MCP analytics...",
-          "loading",
-        );
-
-        try {
-          const response = await fetch("/api/mcp/status");
-          const analytics = await response.json();
-
-          if (analytics.success) {
-            setOutput(
-              "mcp-analytics-output",
-              JSON.stringify(analytics, null, 2),
-            );
-            setStatus(
-              "mcp-analytics-status",
-              "MCP analytics loaded successfully",
-              "success",
-            );
-          } else {
-            setOutput(
-              "mcp-analytics-output",
-              JSON.stringify(analytics, null, 2),
-            );
-            setStatus(
-              "mcp-analytics-status",
-              "Analytics loaded with warnings",
-              "warning",
-            );
+          if (r.providers) {
+            const active = Object.values(r.providers).filter(
+              (p) => p.available || p.status === "available",
+            ).length;
+            document.getElementById("stat-providers").textContent =
+              active + "+";
           }
-        } catch (error) {
-          setStatus("mcp-analytics-status", "Error: " + error.message, "error");
-          setOutput(
-            "mcp-analytics-output",
-            `Error loading MCP analytics: ${error.message}\n\nThis may indicate MCP system is not properly configured.`,
-          );
+        } catch (e) {
+          const el = document.getElementById("provider-status");
+          if (el) {
+            el.textContent = "Error: " + e.message;
+            el.style.display = "";
+          }
         }
       }
-
-      // New MCP helper functions
-      async function installMCPServer(serverName) {
-        try {
-          const result = await apiCall("/api/mcp/install", { serverName });
-          return result;
-        } catch (error) {
-          throw error;
-        }
-      }
-
-      async function removeMCPServer(serverName) {
-        try {
-          const response = await fetch(`/api/mcp/servers/${serverName}`, {
-            method: "DELETE",
-          });
-          return await response.json();
-        } catch (error) {
-          throw error;
-        }
-      }
-
-      async function getMCPServerTools(serverName) {
-        try {
-          const response = await fetch(`/api/mcp/tools/${serverName}`);
-          return await response.json();
-        } catch (error) {
-          throw error;
-        }
-      }
-
-      // Quick MCP server management buttons
-      async function quickInstallFilesystem() {
-        setStatus(
-          "mcp-server-status",
-          "Installing filesystem server...",
-          "loading",
-        );
-        try {
-          const result = await installMCPServer("filesystem");
-          setOutput("mcp-server-output", JSON.stringify(result, null, 2));
-          setStatus(
-            "mcp-server-status",
-            "Filesystem server installed successfully",
-            "success",
-          );
-          loadMCPServers(); // Refresh server list
-        } catch (error) {
-          setStatus(
-            "mcp-server-status",
-            "Installation failed: " + error.message,
-            "error",
-          );
-        }
-      }
-
-      async function quickInstallGithub() {
-        setStatus(
-          "mcp-server-status",
-          "Installing GitHub server...",
-          "loading",
-        );
-        try {
-          const result = await installMCPServer("github");
-          setOutput("mcp-server-output", JSON.stringify(result, null, 2));
-          setStatus(
-            "mcp-server-status",
-            "GitHub server installed successfully",
-            "success",
-          );
-          loadMCPServers(); // Refresh server list
-        } catch (error) {
-          setStatus(
-            "mcp-server-status",
-            "Installation failed: " + error.message,
-            "error",
-          );
-        }
-      }
-
-      async function quickInstallPostgres() {
-        setStatus(
-          "mcp-server-status",
-          "Installing PostgreSQL server...",
-          "loading",
-        );
-        try {
-          const result = await installMCPServer("postgres");
-          setOutput("mcp-server-output", JSON.stringify(result, null, 2));
-          setStatus(
-            "mcp-server-status",
-            "PostgreSQL server installed successfully",
-            "success",
-          );
-          loadMCPServers(); // Refresh server list
-        } catch (error) {
-          setStatus(
-            "mcp-server-status",
-            "Installation failed: " + error.message,
-            "error",
-          );
-        }
-      }
-
-      // Helper functions for MCP simulation
-      function generateMCPServerOutput(serverType, action) {
-        const outputs = {
-          install: {
-            filesystem: `📦 Installing MCP Server: filesystem
-
-✅ Added filesystem server configuration
-   Command: npx -y @modelcontextprotocol/server-filesystem /
-   Transport: stdio
-
-📄 Configuration saved to .mcp-config.json
-
-🔍 Testing server connectivity...
-✅ Connection successful!
-
-📋 Server Capabilities:
-   Protocol Version: 2024-11-05
-   Tools: ✅ Supported (9 tools available)
-   Resources: ✅ Supported
-
-🛠️ Available Tools:
-   • read_file - Read file contents from filesystem
-   • write_file - Create or overwrite files
-   • list_directory - List directory contents
-   • create_directory - Create directories
-   • search_files - Search for files by pattern
-
-✅ Filesystem server is ready for use!`,
-            github: `📦 Installing MCP Server: github
-
-✅ Added GitHub server configuration
-   Command: npx -y @modelcontextprotocol/server-github
-   Transport: stdio
-   Environment: GITHUB_TOKEN=***
-
-📄 Configuration saved to .mcp-config.json
-
-🔍 Testing server connectivity...
-✅ Connection successful!
-
-📋 Server Capabilities:
-   Protocol Version: 2024-11-05
-   Tools: ✅ Supported (12 tools available)
-   Resources: ✅ Supported
-
-🛠️ Available Tools:
-   • list_issues - List repository issues
-   • create_issue - Create new issues
-   • get_file_contents - Get file contents
-   • create_pull_request - Create pull requests
-
-✅ GitHub server is ready for use!`,
-          },
-          test: {
-            filesystem: `🔍 Testing MCP server: filesystem
-
-✅ Connection successful!
-
-📋 Server Capabilities:
-   Protocol Version: 2024-11-05
-   Tools: ✅ Supported
-   Resources: ✅ Supported
-
-🛠️ Available Tools:
-   • read_file: Read file contents from filesystem
-   • write_file: Create or overwrite files
-   • list_directory: List directory contents
-   • search_files: Search for files by pattern
-
-📊 Performance: Connected in 45ms
-✅ filesystem server is ready for use!`,
-          },
-          list: {
-            filesystem: `📋 Configured MCP servers (3):
-
-🔧 filesystem
-   Command: npx -y @modelcontextprotocol/server-filesystem /
-   Transport: stdio
-✅ Status: ✅ Available
-
-🔧 github
-   Command: npx -y @modelcontextprotocol/server-github
-   Transport: stdio
-✅ Status: ✅ Available
-
-🔧 postgres
-   Command: npx -y @modelcontextprotocol/server-postgres postgresql://...
-   Transport: stdio
-⚠️ Status: ❌ Not available (connection failed)`,
-          },
-        };
-
-        return (
-          outputs[action]?.[serverType] ||
-          `${action} ${serverType} server completed.`
-        );
-      }
-
-      function generateMCPToolOutput(server, toolName, params) {
-        return `🔧 Executing: ${server}.${toolName}
-
-📋 Parameters: ${params}
-
-✅ Tool execution completed successfully
-⚡ Response time: 67ms
-🔗 Used MCP server: ${server}
-
-📄 Results:
-${
-  server === "filesystem" && toolName === "read_file"
-    ? 'File content retrieved successfully (1,234 characters)\nContent preview: "# NeuroLink Universal AI Platform..."'
-    : server === "github" && toolName === "list_issues"
-      ? 'Found 5 open issues in repository\n• Issue #23: "Add MCP documentation"\n• Issue #22: "Improve CLI error handling"'
-      : "Operation completed successfully with expected results"
-}`;
-      }
-
-      function generateMCPWorkflowOutput(workflowType, description) {
-        return `🔄 Executing MCP Workflow: ${workflowType}
-
-📝 Description: ${description}
-
-Step 1: Initializing workflow...
-✅ Workflow initialized successfully
-
-Step 2: Connecting to MCP servers...
-✅ Connected to filesystem server
-✅ Connected to github server
-⚠️ PostgreSQL server offline (skipping)
-
-Step 3: Executing workflow steps...
-🔧 Reading project files (filesystem.read_file)
-✅ Found 47 files across 12 directories
-
-🤖 Analyzing project structure with AI...
-✅ Generated analysis (1,234 tokens)
-
-🐙 Creating GitHub documentation (github.create_issue)
-✅ Created issue #24: "Automated workflow results"
-
-📊 Workflow Summary:
-   Duration: 12.4 seconds
-   MCP Servers Used: 2 (filesystem, github)
-   AI Tokens: 1,234 generated
-   Operations: 4 successful, 0 failed
-
-🎉 Workflow completed successfully!`;
-      }
-
-      // Initialize page
-      document.addEventListener("DOMContentLoaded", function () {
-        console.log("🧠 NeuroLink Demo Interface Loaded");
-        // Auto-load provider status
-        checkProviders();
-      });
     </script>
   </body>
 </html>

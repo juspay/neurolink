@@ -196,7 +196,7 @@
   <body>
     <div class="container">
       <div class="header">
-        <h1>🧠 NeuroLink AI Toolkit</h1>
+        <h1>NeuroLink AI Toolkit</h1>
         <p>Comprehensive Interactive Examples & Use Cases</p>
         <div class="metrics">
           <div class="metric">
@@ -225,6 +225,8 @@
         <div class="tab" onclick="showTab('developer')">👨‍💻 Developer Tools</div>
         <div class="tab" onclick="showTab('mcp')">🔧 MCP Integration</div>
         <div class="tab" onclick="showTab('monitoring')">📊 Monitoring</div>
+        <div class="tab" onclick="showTab('rag')">📚 RAG</div>
+        <div class="tab" onclick="showTab('context')">🧠 Context</div>
       </div>
 
       <!-- Basic Examples Tab -->
@@ -642,6 +644,297 @@ Analyze project structure, generate documentation, and create GitHub issue</text
               Check All Providers
             </button>
             <div id="provider-status" class="output"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RAG Tab -->
+      <div id="rag" class="tab-content">
+        <div class="grid">
+          <div class="card">
+            <h3>📄 Index Document</h3>
+            <p>Add a document to the RAG knowledge base:</p>
+            <div class="form-group">
+              <label>Document ID:</label>
+              <input
+                type="text"
+                id="rag-doc-id"
+                placeholder="my-document"
+                value="doc-1"
+              />
+            </div>
+            <div class="form-group">
+              <label>Document Content:</label>
+              <textarea
+                id="rag-doc-content"
+                rows="6"
+                placeholder="Paste your document content here..."
+              >
+NeuroLink is a universal AI SDK that provides a unified interface for multiple AI providers including OpenAI, Anthropic, Google Vertex AI, and more. It supports text generation, streaming, function calling, and RAG (Retrieval-Augmented Generation) capabilities.
+
+Key features of NeuroLink:
+1. Multi-provider support - Use the same API across different AI providers
+2. Automatic fallback - If one provider fails, it automatically tries the next
+3. Built-in MCP integration - Model Context Protocol support for extended capabilities
+4. RAG pipeline - Document indexing, chunking, and retrieval
+5. Analytics and evaluation - Track usage and response quality</textarea
+              >
+            </div>
+            <div class="form-group">
+              <label
+                >Chunk Size:
+                <span id="chunk-size-value">1000</span> chars</label
+              >
+              <input
+                type="range"
+                id="rag-chunk-size"
+                min="200"
+                max="2000"
+                value="1000"
+                oninput="
+                  document.getElementById('chunk-size-value').textContent =
+                    this.value
+                "
+              />
+            </div>
+            <button class="btn" onclick="indexRAGDocument()">
+              Index Document
+            </button>
+            <div id="rag-index-status"></div>
+            <div id="rag-index-output" class="output"></div>
+          </div>
+
+          <div class="card">
+            <h3>🔍 Query Knowledge Base</h3>
+            <p>Ask questions about your indexed documents:</p>
+            <div class="form-group">
+              <label>Your Question:</label>
+              <textarea
+                id="rag-query"
+                rows="3"
+                placeholder="Ask a question about your documents..."
+              >
+What are the key features of NeuroLink?</textarea
+              >
+            </div>
+            <div class="form-group">
+              <label>Top K Results:</label>
+              <select id="rag-top-k">
+                <option value="3">3 chunks</option>
+                <option value="5" selected>5 chunks</option>
+                <option value="10">10 chunks</option>
+              </select>
+            </div>
+            <button class="btn" onclick="queryRAG()">Search & Answer</button>
+            <div id="rag-query-status"></div>
+            <div id="rag-query-output" class="output"></div>
+          </div>
+
+          <div class="card">
+            <h3>📚 Document Library</h3>
+            <p>View and manage indexed documents:</p>
+            <button class="btn" onclick="listRAGDocuments()">
+              Refresh Documents
+            </button>
+            <div id="rag-list-status"></div>
+            <div id="rag-list-output" class="output"></div>
+          </div>
+
+          <div class="card">
+            <h3>ℹ️ RAG Information</h3>
+            <p>How RAG (Retrieval-Augmented Generation) works:</p>
+            <div
+              style="
+                background: #f0f4f8;
+                padding: 15px;
+                border-radius: 8px;
+                font-size: 14px;
+              "
+            >
+              <p>
+                <strong>1. Index:</strong> Documents are split into chunks and
+                stored with metadata.
+              </p>
+              <p>
+                <strong>2. Query:</strong> Your question is used to find
+                relevant chunks using keyword matching.
+              </p>
+              <p>
+                <strong>3. Context:</strong> Top matching chunks are provided as
+                context to the AI.
+              </p>
+              <p>
+                <strong>4. Answer:</strong> AI generates an answer based on the
+                retrieved context.
+              </p>
+            </div>
+            <p style="margin-top: 15px; color: #7f8c8d">
+              💡 <strong>Tip:</strong> Index multiple documents to build a
+              comprehensive knowledge base. The more relevant documents you
+              index, the better the answers!
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Context Tab -->
+      <div id="context" class="tab-content">
+        <div class="grid">
+          <div class="card">
+            <h3>💬 Context-Aware Chat</h3>
+            <p>Chat with automatic context management and summarization:</p>
+            <div class="form-group">
+              <label>Session ID:</label>
+              <input
+                type="text"
+                id="context-session-id"
+                placeholder="session-123"
+                value="session-1"
+              />
+            </div>
+            <div class="form-group">
+              <label>Message:</label>
+              <textarea
+                id="context-message"
+                rows="3"
+                placeholder="Type your message..."
+              >
+Hello! Can you help me understand how context summarization works?</textarea
+              >
+            </div>
+            <div class="form-group">
+              <label
+                >Token Threshold:
+                <span id="token-threshold-value">50000</span></label
+              >
+              <input
+                type="range"
+                id="token-threshold"
+                min="5000"
+                max="100000"
+                value="50000"
+                step="5000"
+                oninput="
+                  document.getElementById('token-threshold-value').textContent =
+                    this.value
+                "
+              />
+            </div>
+            <button class="btn" onclick="startContextChat()">
+              Send Message
+            </button>
+            <button class="btn secondary" onclick="clearSession()">
+              Clear Session
+            </button>
+            <div id="context-chat-status"></div>
+            <div class="form-group">
+              <label>AI Response:</label>
+              <div
+                id="context-response"
+                class="output"
+                style="min-height: 100px"
+              ></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>📊 Context Stats</h3>
+            <p>Real-time context window statistics:</p>
+            <div class="metrics">
+              <div class="metric">
+                <div class="metric-value" id="context-messages">0</div>
+                <div class="metric-label">Messages</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value" id="context-tokens">0</div>
+                <div class="metric-label">Tokens</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value" id="context-summarizations">0</div>
+                <div class="metric-label">Summarizations</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Recent Messages:</label>
+              <div
+                id="context-messages-list"
+                class="output"
+                style="min-height: 80px; font-size: 12px"
+              >
+                No messages yet
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>📝 Context Summary</h3>
+            <p>View or manually trigger context summarization:</p>
+            <button class="btn" onclick="triggerSummarization()">
+              Summarize Now
+            </button>
+            <div id="context-summary-status"></div>
+            <div class="form-group">
+              <label>Current Summary:</label>
+              <div
+                id="context-summary"
+                class="output"
+                style="min-height: 150px"
+              >
+                No summary yet
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>📚 Session Management</h3>
+            <p>View and manage conversation sessions:</p>
+            <button class="btn" onclick="listContextSessions()">
+              List Sessions
+            </button>
+            <div id="context-sessions-status"></div>
+            <div
+              id="context-sessions-list"
+              class="output"
+              style="min-height: 100px"
+            ></div>
+          </div>
+
+          <div class="card">
+            <h3>ℹ️ How Context Summarization Works</h3>
+            <div
+              style="
+                background: #f0f4f8;
+                padding: 15px;
+                border-radius: 8px;
+                font-size: 14px;
+              "
+            >
+              <p>
+                <strong>1. Chat:</strong> Messages are stored with token counts
+                for each session.
+              </p>
+              <p>
+                <strong>2. Monitor:</strong> Total tokens are tracked against
+                the threshold.
+              </p>
+              <p>
+                <strong>3. Summarize:</strong> When threshold exceeded, older
+                messages are summarized using the 9-section format.
+              </p>
+              <p>
+                <strong>4. Preserve:</strong> Recent messages (30%) are kept
+                as-is for immediate context.
+              </p>
+              <p>
+                <strong>5. Merge:</strong> On subsequent summarizations, new
+                content is merged with existing summary.
+              </p>
+            </div>
+            <p style="margin-top: 15px; color: #7f8c8d">
+              💡 <strong>9-Section Summary:</strong> Primary Intent, Technical
+              Concepts, Files, Problem Solving, Pending Tasks, Task Evolution,
+              Current Work, Next Step, Required Files
+            </p>
           </div>
         </div>
       </div>
@@ -1462,6 +1755,346 @@ Step 3: Executing workflow steps...
    Operations: 4 successful, 0 failed
 
 🎉 Workflow completed successfully!`;
+      }
+
+      // RAG functions
+      async function indexRAGDocument() {
+        const docId = document.getElementById("rag-doc-id").value.trim();
+        const content = document.getElementById("rag-doc-content").value.trim();
+        const chunkSize = parseInt(
+          document.getElementById("rag-chunk-size").value,
+        );
+
+        if (!docId || !content) {
+          setStatus(
+            "rag-index-status",
+            "Please provide document ID and content",
+            "error",
+          );
+          return;
+        }
+
+        setStatus("rag-index-status", "Indexing document...", "loading");
+        setOutput("rag-index-output", "");
+
+        try {
+          const result = await apiCall("/api/rag/index", {
+            documentId: docId,
+            content: content,
+            chunkSize: chunkSize,
+          });
+
+          if (result.success) {
+            setOutput("rag-index-output", JSON.stringify(result, null, 2));
+            setStatus(
+              "rag-index-status",
+              `Document indexed: ${result.chunksCreated} chunks created`,
+              "success",
+            );
+            updateMetrics(result);
+          } else {
+            setStatus("rag-index-status", "Error: " + result.error, "error");
+            setOutput("rag-index-output", JSON.stringify(result, null, 2));
+          }
+        } catch (error) {
+          setStatus("rag-index-status", "Error: " + error.message, "error");
+        }
+      }
+
+      async function queryRAG() {
+        const query = document.getElementById("rag-query").value.trim();
+        const topK = parseInt(document.getElementById("rag-top-k").value);
+
+        if (!query) {
+          setStatus("rag-query-status", "Please enter a question", "error");
+          return;
+        }
+
+        setStatus("rag-query-status", "Searching knowledge base...", "loading");
+        setOutput("rag-query-output", "");
+
+        try {
+          const result = await apiCall("/api/rag/query", {
+            query: query,
+            topK: topK,
+          });
+
+          if (result.success) {
+            const output =
+              `📝 Answer:\n${result.answer}\n\n` +
+              `📊 Sources (${result.sources?.length || 0} chunks used):\n` +
+              (result.sources
+                ?.map(
+                  (s, i) =>
+                    `[${i + 1}] ${s.documentId} (score: ${s.score})\n    "${s.excerpt}"`,
+                )
+                .join("\n") || "No sources");
+
+            setOutput("rag-query-output", output);
+            setStatus(
+              "rag-query-status",
+              `Answer generated using ${result.chunksUsed || 0} context chunks (${result.provider})`,
+              "success",
+            );
+            updateMetrics(result);
+          } else {
+            setStatus("rag-query-status", "Error: " + result.error, "error");
+            setOutput("rag-query-output", JSON.stringify(result, null, 2));
+          }
+        } catch (error) {
+          setStatus("rag-query-status", "Error: " + error.message, "error");
+        }
+      }
+
+      async function listRAGDocuments() {
+        setStatus("rag-list-status", "Loading documents...", "loading");
+        setOutput("rag-list-output", "");
+
+        try {
+          const response = await fetch("/api/rag/documents");
+          const result = await response.json();
+
+          if (result.success) {
+            if (result.documents.length === 0) {
+              setOutput(
+                "rag-list-output",
+                "No documents indexed yet. Index a document to get started!",
+              );
+            } else {
+              const output = result.documents
+                .map(
+                  (doc) =>
+                    `📄 ${doc.documentId}\n   Chunks: ${doc.chunkCount}\n   Indexed: ${doc.metadata?.indexedAt || "unknown"}`,
+                )
+                .join("\n\n");
+              setOutput(
+                "rag-list-output",
+                `📚 ${result.totalDocuments} documents:\n\n${output}`,
+              );
+            }
+            setStatus(
+              "rag-list-status",
+              `Found ${result.totalDocuments} documents`,
+              "success",
+            );
+          } else {
+            setStatus("rag-list-status", "Error: " + result.error, "error");
+          }
+        } catch (error) {
+          setStatus("rag-list-status", "Error: " + error.message, "error");
+        }
+      }
+
+      // Context Summarization functions
+      async function startContextChat() {
+        const sessionId =
+          document.getElementById("context-session-id").value.trim() ||
+          "default";
+        const message = document.getElementById("context-message").value.trim();
+        const tokenThreshold =
+          parseInt(document.getElementById("token-threshold").value) || 50000;
+
+        if (!message) {
+          setStatus("context-chat-status", "Please enter a message", "error");
+          return;
+        }
+
+        setStatus("context-chat-status", "Sending message...", "loading");
+
+        try {
+          const result = await apiCall("/api/context/chat", {
+            sessionId,
+            message,
+            tokenThreshold,
+            enableSummarization: true,
+          });
+
+          if (result.success) {
+            document.getElementById("context-session-id").value =
+              result.sessionId;
+            document.getElementById("context-response").textContent =
+              result.response;
+
+            // Update stats
+            document.getElementById("context-messages").textContent =
+              result.contextStats.totalMessages;
+            document.getElementById("context-tokens").textContent =
+              result.contextStats.totalTokens;
+            document.getElementById("context-summarizations").textContent =
+              result.contextStats.summarizationCount;
+
+            if (result.contextStats.wasSummarized) {
+              setStatus(
+                "context-chat-status",
+                "Response generated. Context was summarized!",
+                "success",
+              );
+            } else {
+              setStatus(
+                "context-chat-status",
+                `Response generated (${result.provider})`,
+                "success",
+              );
+            }
+
+            // Clear input
+            document.getElementById("context-message").value = "";
+
+            // Load session details
+            loadSessionDetails(sessionId);
+          } else {
+            setStatus("context-chat-status", "Error: " + result.error, "error");
+          }
+        } catch (error) {
+          setStatus("context-chat-status", "Error: " + error.message, "error");
+        }
+      }
+
+      async function triggerSummarization() {
+        const sessionId = document
+          .getElementById("context-session-id")
+          .value.trim();
+
+        if (!sessionId) {
+          setStatus("context-summary-status", "No active session", "error");
+          return;
+        }
+
+        setStatus(
+          "context-summary-status",
+          "Summarizing context...",
+          "loading",
+        );
+
+        try {
+          const result = await apiCall("/api/context/summarize", {
+            sessionId,
+            keepRecentCount: 5,
+          });
+
+          if (result.success) {
+            document.getElementById("context-summary").textContent =
+              result.summary;
+            document.getElementById("context-tokens").textContent =
+              result.sessionStats.totalTokens;
+            document.getElementById("context-summarizations").textContent =
+              result.sessionStats.summarizationCount;
+            setStatus(
+              "context-summary-status",
+              `Summarized ${result.messagesSummarized} messages`,
+              "success",
+            );
+          } else {
+            setStatus(
+              "context-summary-status",
+              result.message || "Error summarizing",
+              "error",
+            );
+          }
+        } catch (error) {
+          setStatus(
+            "context-summary-status",
+            "Error: " + error.message,
+            "error",
+          );
+        }
+      }
+
+      async function loadSessionDetails(sessionId) {
+        try {
+          const response = await fetch(`/api/context/session/${sessionId}`);
+          const result = await response.json();
+
+          if (result.success) {
+            // Update messages display
+            const messagesHtml = result.session.messages
+              .map(
+                (m) =>
+                  `[${m.role}] ${m.content.substring(0, 100)}${m.content.length > 100 ? "..." : ""}`,
+              )
+              .join("\n");
+            document.getElementById("context-messages-list").textContent =
+              messagesHtml || "No messages yet";
+
+            // Update summary if exists
+            if (result.session.summary) {
+              document.getElementById("context-summary").textContent =
+                result.session.summary;
+            }
+          }
+        } catch (error) {
+          console.error("Error loading session details:", error);
+        }
+      }
+
+      async function listContextSessions() {
+        setStatus("context-sessions-status", "Loading sessions...", "loading");
+
+        try {
+          const response = await fetch("/api/context/sessions");
+          const result = await response.json();
+
+          if (result.success) {
+            if (result.sessions.length === 0) {
+              document.getElementById("context-sessions-list").textContent =
+                "No sessions yet. Start a conversation!";
+            } else {
+              const output = result.sessions
+                .map(
+                  (s) =>
+                    `📦 ${s.sessionId}\n   Messages: ${s.messageCount}\n   Tokens: ${s.totalTokens}\n   Summarizations: ${s.summarizationCount}`,
+                )
+                .join("\n\n");
+              document.getElementById("context-sessions-list").textContent =
+                `${result.totalSessions} sessions:\n\n${output}`;
+            }
+            setStatus(
+              "context-sessions-status",
+              `Found ${result.totalSessions} sessions`,
+              "success",
+            );
+          }
+        } catch (error) {
+          setStatus(
+            "context-sessions-status",
+            "Error: " + error.message,
+            "error",
+          );
+        }
+      }
+
+      async function clearSession() {
+        const sessionId = document
+          .getElementById("context-session-id")
+          .value.trim();
+
+        if (!sessionId) {
+          setStatus("context-chat-status", "No session to clear", "error");
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/context/session/${sessionId}`, {
+            method: "DELETE",
+          });
+          const result = await response.json();
+
+          if (result.success) {
+            document.getElementById("context-session-id").value =
+              "session-" + Date.now();
+            document.getElementById("context-response").textContent = "";
+            document.getElementById("context-messages-list").textContent =
+              "No messages yet";
+            document.getElementById("context-summary").textContent =
+              "No summary yet";
+            document.getElementById("context-messages").textContent = "0";
+            document.getElementById("context-tokens").textContent = "0";
+            document.getElementById("context-summarizations").textContent = "0";
+            setStatus("context-chat-status", "Session cleared", "success");
+          }
+        } catch (error) {
+          setStatus("context-chat-status", "Error: " + error.message, "error");
+        }
       }
 
       // Initialize page

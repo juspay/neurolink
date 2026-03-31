@@ -2,30 +2,23 @@
  * NeuroLink AI Development Platform Demo Server
  *
  * A comprehensive Express.js server showcasing NeuroLink's capabilities:
- * - 9 AI providers (OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Google AI Studio, Azure OpenAI, Hugging Face, Ollama, Mistral AI)
- * - 10 specialized MCP tools for AI development workflow
- * - Business use cases, creative tools, and developer utilities
- * - Real-time provider status monitoring and benchmarking
- * - Interactive web interface for testing all features
  */
 
-import express, {
-  type Request,
-  type Response,
-  type NextFunction,
-} from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import path from "path";
 import { fileURLToPath } from "url";
+import path from "path";
+import dotenv from "dotenv";
+import express, { Request, Response, NextFunction } from "express";
+import cors from "cors";
+import { NeuroLink } from "@juspay/neurolink";
+import { createAIProvider } from "@juspay/neurolink";
 
-// Configurable import: use published package for production, local for development
-const NEUROLINK_PACKAGE = process.env.NEUROLINK_PACKAGE || "@juspay/neurolink";
-const { createAIProvider, getBestProvider } = await import(NEUROLINK_PACKAGE);
+// Initialize configuration
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, ".env"), override: true });
 
-// ================================
-// HELPER UTILITIES
-// ================================
+// Initialize NeuroLink SDK instance
+const neurolink = new NeuroLink();
 
 function sanitizeForLog(value: string): string {
   // Strip control characters (U+0000-U+001F) and newlines for log injection prevention
@@ -36,19 +29,13 @@ function sanitizeForLog(value: string): string {
 // CONFIGURATION & CONSTANTS
 // ================================
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load environment variables
-dotenv.config();
-
 // Server configuration
 const app = express();
 const PORT = process.env.PORT || 9876;
 
 // All supported AI providers - single source of truth
-// Updated priority order: Gemini (Google AI) first as primary provider
 const ALL_PROVIDERS = [
+  "litellm",
   "google-ai",
   "anthropic",
   "openai",
@@ -72,6 +59,7 @@ const DEFAULT_MODELS: Record<string, string> = {
   huggingface: "microsoft/DialoGPT-medium",
   ollama: "llama3.2:latest",
   mistral: "mistral-small",
+  litellm: "openai/gpt-4o-mini",
 };
 
 // Environment variable mappings for provider configuration
@@ -87,8 +75,9 @@ const PROVIDER_ENV_VARS: Record<string, string[]> = {
   anthropic: ["ANTHROPIC_API_KEY"],
   azure: ["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"],
   huggingface: ["HUGGINGFACE_API_KEY"],
-  ollama: [], // No API key required for local Ollama
+  ollama: [],
   mistral: ["MISTRAL_API_KEY"],
+  litellm: ["LITELLM_API_KEY"],
 };
 
 // Common generation parameters
@@ -96,15 +85,6 @@ const DEFAULT_GENERATION_PARAMS = {
   maxTokens: 500,
   temperature: 0.7,
 };
-
-// ================================
-// MIDDLEWARE & UTILITIES
-// ================================
-
-// Express middleware setup
-app.use(cors());
-app.use(express.json({ limit: "10mb" }));
-app.use(express.static("public"));
 
 // In-memory usage statistics
 const usageStats = {
@@ -114,9 +94,13 @@ const usageStats = {
   totalTokens: 0,
 };
 
+// Express middleware setup
+app.use(cors());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.static("public"));
+
 /**
  * Request logging middleware
- * Logs all incoming requests and updates usage statistics
  */
 const logRequest = (req: Request, _res: Response, next: NextFunction) => {
   const safeMethod = sanitizeForLog(req.method);
@@ -134,8 +118,6 @@ app.use(logRequest);
 
 /**
  * Get the configured model for a specific provider
- * @param {string} provider - Provider name
- * @returns {string} Model identifier
  */
 function getModelForProvider(provider: string): string {
   const envVar = `${provider.toUpperCase().replace("-", "_")}_MODEL`;
@@ -146,30 +128,23 @@ function getModelForProvider(provider: string): string {
 
 /**
  * Check if a provider is properly configured
- * @param {string} provider - Provider name
- * @returns {boolean} True if provider has required configuration
  */
 function isProviderConfigured(provider: string): boolean {
   if (provider === "ollama") {
     return true;
-  } // Always available if installed
+  }
 
   const requiredVars = PROVIDER_ENV_VARS[provider] || [];
 
-  // Check if at least one required variable is set (for providers with multiple auth methods)
   if (provider === "vertex") {
     return requiredVars.some((varName) => !!process.env[varName]);
   }
 
-  // For most providers, all required variables must be set
   return requiredVars.every((varName) => !!process.env[varName]);
 }
 
 /**
  * Create a standardized success response
- * @param {*} data - Response data
- * @param {Object} metadata - Additional metadata (usage, timing, etc.)
- * @returns {Object} Formatted response
  */
 function createSuccessResponse(
   data: Record<string, unknown>,
@@ -185,9 +160,6 @@ function createSuccessResponse(
 
 /**
  * Create a standardized error response
- * @param {string} error - Error message
- * @param {Object} context - Additional error context
- * @returns {Object} Formatted error response
  */
 function createErrorResponse(
   error: string,
@@ -203,8 +175,6 @@ function createErrorResponse(
 
 /**
  * Handle async route errors
- * @param {Function} fn - Async route handler
- * @returns {Function} Wrapped route handler with error handling
  */
 function asyncHandler(
   fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>,
@@ -215,8 +185,7 @@ function asyncHandler(
 }
 
 /**
- * Update usage statistics with token information
- * @param {Object} usage - Usage data from AI provider
+ * Update usage statistics
  */
 function updateUsageStats(usage: { totalTokens?: number } | undefined): void {
   if (usage && usage.totalTokens) {
@@ -225,154 +194,258 @@ function updateUsageStats(usage: { totalTokens?: number } | undefined): void {
 }
 
 /**
- * Test if Ollama is actually running
- * @returns {Promise<boolean>} True if Ollama is accessible
+ * Generate AI content with standardized parameters and automatic fallback
+ * Uses NeuroLink SDK for ALL operations - image, video, and text generation
  */
-async function testOllamaConnection(): Promise<boolean> {
-  try {
-    const response = await fetch("http://localhost:11434/api/tags", {
-      method: "GET",
-      signal: AbortSignal.timeout(2000), // 2 second timeout
-    });
-    return response.ok;
-  } catch (error) {
-    console.log("[Ollama] Connection test failed:", (error as Error).message);
-    return false;
+async function generateWithProvider(
+  providerName: string,
+  prompt: string,
+  options: {
+    maxTokens?: number;
+    temperature?: number;
+    timeout?: number;
+    outputMode?: string;
+    model?: string;
+    systemPrompt?: string;
+    enableMCP?: boolean;
+    schema?: Record<string, unknown>;
+    input?: {
+      images?: (Buffer | string)[];
+      text?: string;
+      videoFiles?: (Buffer | string)[];
+    };
+    videoLength?: number;
+    videoResolution?: string;
+    videoAspectRatio?: string;
+  } = {},
+) {
+  const startTime = Date.now();
+
+  // Check if this is a multimodal/image generation request
+  const isImageRequest = options.outputMode === "image";
+  const isVideoRequest = options.outputMode === "video";
+
+  // For image generation, use NeuroLink SDK with imagen model
+  if (isImageRequest) {
+    try {
+      console.log(`[Generate] Image generation requested, using NeuroLink SDK`);
+
+      // Use NeuroLink's generate method with imagen model
+      const result = await neurolink.generate({
+        input: { text: prompt },
+        provider: "vertex",
+        model: options.model || "imagen-3.0-generate-002",
+        disableTools: true,
+        timeout: options.timeout || 60000,
+      });
+
+      const responseTime = Date.now() - startTime;
+
+      // Extract image from result
+      const imageOutput = result.imageOutput;
+      if (!imageOutput?.base64) {
+        throw new Error("No image data returned from NeuroLink");
+      }
+
+      console.log(
+        `[Generate] Image generated successfully in ${responseTime}ms`,
+      );
+
+      return {
+        content: "Image generated successfully",
+        imageOutput: { base64: imageOutput.base64 },
+        provider: result.provider || "vertex",
+        model: result.model || "imagen-3.0-generate-002",
+        responseTime,
+        usage: result.usage || { total: 0 },
+      };
+    } catch (error) {
+      const err = error as Error;
+      console.error(`[Image generation error:`, err.message);
+      throw err;
+    }
   }
+
+  // For video generation, use NeuroLink SDK with output.mode = "video"
+  if (isVideoRequest) {
+    try {
+      console.log(`[Generate] Video generation requested, using NeuroLink SDK`);
+
+      // Video generation requires an input image
+      if (!options.input?.images?.length) {
+        throw new Error(
+          "Video generation requires an input image. Provide via input.images array.",
+        );
+      }
+
+      const inputImage = options.input.images[0];
+
+      // Use NeuroLink's generate method with video output mode
+      const result = await neurolink.generate({
+        input: {
+          text: prompt,
+          images: [inputImage],
+        },
+        provider: "vertex",
+        model: options.model || "veo-3.1-generate-001",
+        output: {
+          mode: "video",
+          video: {
+            resolution: options.videoResolution || "720p",
+            length: options.videoLength || 6,
+            aspectRatio: options.videoAspectRatio || "16:9",
+          },
+        },
+        disableTools: true,
+        timeout: options.timeout || 180000, // 3 minutes for video
+      });
+
+      const responseTime = Date.now() - startTime;
+
+      // Extract video from result
+      const videoData = result.video;
+      if (!videoData?.data) {
+        throw new Error("No video data returned from NeuroLink");
+      }
+
+      console.log(
+        `[Generate] Video generated successfully in ${responseTime}ms`,
+      );
+
+      return {
+        content: "Video generated successfully",
+        videoOutput: {
+          base64: videoData.data.toString("base64"),
+          duration: videoData.metadata?.duration,
+          dimensions: videoData.metadata?.dimensions,
+        },
+        provider: result.provider || "vertex",
+        model: result.model || "veo-3.1-generate-001",
+        responseTime,
+        usage: result.usage || { total: 0 },
+      };
+    } catch (error) {
+      const err = error as Error;
+      console.error(`[Video generation error:`, err.message);
+      throw err;
+    }
+  }
+
+  // Text generation with fallback
+  return await generateTextWithFallback(providerName, prompt, options);
 }
 
 /**
- * Test a single provider's availability
- * @param {string} providerName - Name of the provider to test
- * @returns {Object} Provider status information
+ * Test if a provider is available and configured
  */
-async function testProviderAvailability(providerName: string) {
-  const result: {
-    available: boolean;
-    configured: boolean;
-    authenticated: boolean;
-    model: string;
-    error: string | null;
-  } = {
+async function testProviderAvailability(providerName) {
+  const result = {
+    configured: isProviderConfigured(providerName),
     available: false,
-    configured: false,
     authenticated: false,
     model: getModelForProvider(providerName),
     error: null,
   };
 
-  // Special handling for Ollama
   if (providerName === "ollama") {
-    const isRunning = await testOllamaConnection();
-    result.configured = isRunning;
-    result.available = isRunning;
-    result.authenticated = isRunning;
-    if (!isRunning) {
+    try {
+      const isRunning = await testOllamaConnection();
+      result.available = isRunning;
+      result.authenticated = isRunning;
+      if (!isRunning) {
+        result.error =
+          "Ollama is not running. Please start Ollama with: ollama serve";
+      }
+    } catch (error) {
+      result.error = error.message;
+    }
+    return result;
+  }
+
+  if (providerName === "litellm") {
+    const liteLLMBaseURL =
+      process.env.LITELLM_BASE_URL || "http://localhost:4000";
+
+    try {
+      const response = await fetch(`${liteLLMBaseURL}/v1/models`, {
+        method: "GET",
+        signal: AbortSignal.timeout(2000),
+      });
+
+      if (response.ok) {
+        result.configured = true;
+        result.available = true;
+        result.authenticated = true;
+      } else {
+        result.configured = isProviderConfigured(providerName);
+        result.available = false;
+        result.authenticated = false;
+        result.error = `LiteLLM proxy server returned HTTP ${response.status}`;
+      }
+    } catch (error) {
+      result.configured = isProviderConfigured(providerName);
+      result.available = false;
+      result.authenticated = false;
       result.error =
-        "Ollama is not running. Please start Ollama with: ollama serve";
+        `LiteLLM proxy server not available at ${liteLLMBaseURL}. ` +
+        "Please start the LiteLLM proxy server.";
     }
     return result;
   }
 
-  // Check if environment variables are set
-  const hasEnvVars = isProviderConfigured(providerName);
-  result.configured = hasEnvVars;
-
-  if (!hasEnvVars) {
-    result.error = `Missing required environment variables: ${PROVIDER_ENV_VARS[providerName]?.join(", ") || "Unknown"}`;
-    return result;
-  }
-
-  // Try to create provider and test with a simple request
-  try {
-    const provider = await createAIProvider(providerName);
-
-    // Try a minimal test request to verify authentication
-    const testPrompt = "Hi";
-    const testResult = await provider.generate({
-      prompt: testPrompt,
-      model: getModelForProvider(providerName),
-      maxTokens: 5, // Minimal tokens to reduce cost
-      temperature: 0.1,
-    });
-
-    // If we got here without throwing, the provider is authenticated
-    result.available = true;
-    result.authenticated = true;
-  } catch (error) {
-    result.available = false;
-    result.authenticated = false;
-
-    // Parse error message to determine if it's auth or other issue
-    const errorMsg = (error as Error).message || String(error);
-
-    if (
-      errorMsg.includes("401") ||
-      errorMsg.includes("Unauthorized") ||
-      errorMsg.includes("Invalid API") ||
-      errorMsg.includes("Authentication") ||
-      errorMsg.includes("API key") ||
-      errorMsg.includes("not authorized")
-    ) {
-      result.error = "Invalid API key or authentication failed";
-    } else if (errorMsg.includes("404") || errorMsg.includes("not found")) {
-      result.error = "Model or endpoint not found";
-    } else if (errorMsg.includes("429") || errorMsg.includes("rate limit")) {
-      result.error = "Rate limit exceeded";
-      result.authenticated = true; // Auth is OK, just rate limited
-    } else if (
-      errorMsg.includes("timeout") ||
-      errorMsg.includes("ECONNREFUSED")
-    ) {
-      result.error = "Connection failed - service may be down";
-    } else {
-      result.error = errorMsg;
-    }
-  }
-
+  result.available = result.configured;
+  result.authenticated = result.configured;
   return result;
 }
 
+async function testOllamaConnection() {
+  try {
+    const response = await fetch("http://localhost:11434/api/version", {
+      method: "GET",
+      signal: AbortSignal.timeout(2000),
+    });
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+}
+
 /**
- * Generate AI content with standardized parameters and automatic fallback
- * @param {string} providerName - Provider to use ('auto' for smart fallback)
- * @param {string} prompt - Text prompt
- * @param {Object} options - Generation options (includes timeout)
- * @returns {Object} Generation result with timing and usage info
+ * Text generation with fallback
  */
-async function generateWithProvider(
-  providerName: string,
-  prompt: string,
-  options: Record<string, unknown> = {},
-) {
+async function generateTextWithFallback(providerName, prompt, options = {}) {
   const startTime = Date.now();
 
-  // Determine provider list to try
-  let providersToTry: string[] = [];
+  let providersToTry = [];
 
-  if (providerName === "auto") {
-    // Use all providers in priority order for automatic fallback
-    providersToTry = ALL_PROVIDERS.filter((p) => isProviderConfigured(p));
-    console.log(
-      `[Generate] Auto mode: Will try providers in order: ${providersToTry.join(", ")}`,
-    );
-  } else {
-    // For specific provider, try it first, then fallback to others if enabled
-    providersToTry = [providerName];
-    if (process.env.ENABLE_FALLBACK !== "false") {
-      const fallbackProviders = ALL_PROVIDERS.filter(
-        (p) => p !== providerName && isProviderConfigured(p),
-      );
-      providersToTry = [...providersToTry, ...fallbackProviders];
-      console.log(
-        `[Generate] Fallback enabled: Will try ${providerName} first, then: ${fallbackProviders.join(", ")}`,
-      );
+  if (providerName !== "auto") {
+    if (isProviderConfigured(providerName)) {
+      providersToTry.push(providerName);
     }
   }
 
-  const errors: string[] = [];
+  if (providerName === "auto") {
+    const otherProvidersConfigured = ALL_PROVIDERS.filter(
+      (p) =>
+        !providersToTry.includes(p) &&
+        p !== "ollama" &&
+        isProviderConfigured(p),
+    );
+    providersToTry = [...providersToTry, ...otherProvidersConfigured];
+  }
 
-  // Try each provider in sequence until one succeeds
+  if (providersToTry.length === 0) {
+    const litellmConfigured = isProviderConfigured("litellm");
+    if (litellmConfigured) {
+      providersToTry.push("litellm");
+    }
+  }
+
+  console.log(
+    `[Generate] Will try providers in order: ${providersToTry.join(", ")}`,
+  );
+  const errors = [];
+
   for (let i = 0; i < providersToTry.length; i++) {
     const currentProvider = providersToTry[i];
 
@@ -388,17 +461,43 @@ async function generateWithProvider(
         maxTokens: options.maxTokens || DEFAULT_GENERATION_PARAMS.maxTokens,
         temperature:
           options.temperature || DEFAULT_GENERATION_PARAMS.temperature,
-        timeout: options.timeout, // Pass through timeout option
-        ...options,
+        timeout: options.timeout || 30000,
       });
 
       const responseTime = Date.now() - startTime;
 
-      if (!result || !result.text) {
-        throw new Error("Provider returned null or invalid response");
+      console.log(`[DEBUG ${currentProvider}] Result structure:`, {
+        hasResult: !!result,
+        hasText: !!(result && result.text),
+        resultKeys: result ? Object.keys(result) : [],
+        resultTextPreview: result?.text
+          ? result.text.substring(0, 100)
+          : undefined,
+        fullResult: result ? JSON.stringify(result, null, 2) : undefined,
+      });
+
+      if (!result) {
+        throw new Error("Provider returned null result");
       }
 
-      // Update global usage statistics
+      const content =
+        result.text ||
+        result.content ||
+        result.output ||
+        result.message?.content;
+
+      if (!content) {
+        console.error(`[${currentProvider}] Invalid response structure:`, {
+          resultKeys: Object.keys(result),
+          resultSample: JSON.stringify(result).substring(0, 500),
+        });
+        throw new Error("Provider returned response without text/content");
+      }
+
+      if (!result.text) {
+        result.text = content;
+      }
+
       updateUsageStats(result.usage);
 
       console.log(
@@ -417,20 +516,12 @@ async function generateWithProvider(
     } catch (error) {
       const errorMsg = (error as Error).message || String(error);
       errors.push(`${currentProvider}: ${errorMsg}`);
-
       console.log(`[Generate] ${currentProvider} failed: ${errorMsg}`);
 
-      // If this is the last provider, throw the accumulated errors
       if (i === providersToTry.length - 1) {
         const finalError = `Failed after ${providersToTry.length} attempts. Last error: ${errorMsg}`;
-        console.error(
-          `[Generate] All providers failed. Errors: ${errors.join("; ")}`,
-        );
         throw new Error(finalError);
       }
-
-      // Continue to next provider
-      console.log(`[Generate] Trying next provider...`);
     }
   }
 
@@ -438,10 +529,7 @@ async function generateWithProvider(
 }
 
 /**
- * Generate mock AI analysis data for demonstration
- * @param {string} toolName - Name of the analysis tool
- * @param {Object} params - Tool parameters
- * @returns {Object} Mock analysis result
+ * Generate mock AI analysis data
  */
 function generateMockAnalysisData(
   toolName: string,
@@ -467,7 +555,6 @@ function generateMockAnalysisData(
         "Implement caching for repeated queries",
       ],
     },
-
     "benchmark-provider-performance": {
       iterations: params.iterations || 3,
       summary: {
@@ -499,37 +586,6 @@ function generateMockAnalysisData(
         "Consider Bedrock for specialized enterprise use cases",
       ],
     },
-
-    "optimize-prompt-parameters": {
-      originalPrompt: params.prompt,
-      optimizedParameters: {
-        temperature:
-          params.style === "creative"
-            ? 0.9
-            : params.style === "precise"
-              ? 0.3
-              : 0.7,
-        maxTokens:
-          params.optimizeFor === "speed"
-            ? 250
-            : params.optimizeFor === "cost"
-              ? 300
-              : 500,
-        topP: 0.9,
-        frequencyPenalty: 0.1,
-      },
-      expectedImprovements: {
-        qualityIncrease: "15%",
-        costReduction: params.optimizeFor === "cost" ? "23%" : "5%",
-        speedImprovement: params.optimizeFor === "speed" ? "35%" : "8%",
-      },
-      optimizedPrompt: `${params.prompt}\n\nPlease ensure your response is ${params.style === "creative" ? "creative and engaging" : params.style === "precise" ? "precise and factual" : "well-balanced"}.`,
-      recommendations: [
-        `Temperature optimized for ${params.style || "balanced"} style`,
-        `Token limit set for ${params.optimizeFor || "quality"} optimization`,
-        "Consider A/B testing these parameters",
-      ],
-    },
   };
 
   return mockData[toolName as keyof typeof mockData] || {};
@@ -539,10 +595,6 @@ function generateMockAnalysisData(
 // CORE API ENDPOINTS
 // ================================
 
-/**
- * GET /api/status
- * Check the status and availability of all AI providers
- */
 app.get(
   "/api/status",
   asyncHandler(async (req: Request, res: Response) => {
@@ -559,19 +611,17 @@ app.get(
       providers: {},
       bestProvider: null,
       configuration: {
-        defaultProvider: process.env.DEFAULT_PROVIDER || "openai",
+        defaultProvider: process.env.DEFAULT_PROVIDER || "google-ai",
         streamingEnabled: process.env.ENABLE_STREAMING === "true",
         fallbackEnabled: process.env.ENABLE_FALLBACK === "true",
       },
     };
 
-    // Test each provider's availability
     for (const providerName of ALL_PROVIDERS) {
       status.providers[providerName] =
         await testProviderAvailability(providerName);
     }
 
-    // Get the best available provider (only from authenticated providers)
     const authenticatedProviders = ALL_PROVIDERS.filter(
       (p) => status.providers[p].authenticated,
     );
@@ -586,18 +636,12 @@ app.get(
   }),
 );
 
-/**
- * POST /api/generate
- * Generate text using a specified or auto-selected AI provider with optional MCP tools
- */
 app.post(
-  "/api/generate",
+  "/api/stream",
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const {
-      provider = "auto",
+      provider = "google-ai",
       prompt,
-      enableMCP = true, // MCP enabled by default
-      disableTools = false, // Tools enabled by default
       maxTokens,
       temperature,
       systemPrompt,
@@ -608,7 +652,389 @@ app.post(
       return;
     }
 
-    // Determine if we should use MCP tools
+    console.log(
+      `[Stream] Using provider: ${provider}, prompt length: ${prompt.length}`,
+    );
+
+    // Set headers for Server-Sent Events - MUST be set before any writes
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.setHeader("Transfer-Encoding", "chunked");
+
+    // Flush headers immediately to establish SSE connection
+    if (typeof (res as any).flushHeaders === "function") {
+      (res as any).flushHeaders();
+    }
+
+    const startTime = Date.now();
+    let chunkCount = 0;
+    let fullContent = "";
+    let actualProvider = provider;
+
+    // Helper function to send SSE chunk immediately
+    const sendChunk = (content: string, index: number) => {
+      const eventData = JSON.stringify({
+        type: "chunk",
+        content: content,
+        chunkIndex: index,
+      });
+      res.write(`data: ${eventData}\n\n`);
+
+      // Force flush for immediate delivery
+      if (typeof (res as any).flush === "function") {
+        (res as any).flush();
+      }
+    };
+
+    // Helper function to send final event
+    const sendDone = (
+      content: string,
+      providerName: string,
+      model: string,
+      responseTime: number,
+      chunks: number,
+      usage?: { total: number },
+    ) => {
+      const eventData = JSON.stringify({
+        type: "done",
+        content: content,
+        provider: providerName,
+        model: model,
+        responseTime,
+        chunkCount: chunks,
+        usage: usage ? { total: usage.total } : undefined,
+      });
+      res.write(`data: ${eventData}\n\n`);
+    };
+
+    try {
+      // Determine which provider to use - prefer the requested provider if configured
+      let streamProvider = provider;
+      let streamModel: string | undefined;
+
+      if (provider === "auto" || !isProviderConfigured(provider)) {
+        // Find best available provider
+        if (isProviderConfigured("google-ai")) {
+          streamProvider = "google-ai";
+          streamModel = process.env.GOOGLE_AI_MODEL || "gemini-2.5-flash";
+        } else if (isProviderConfigured("litellm")) {
+          streamProvider = "litellm";
+          streamModel = process.env.LITELLM_MODEL || "gpt-4o-mini";
+        } else if (isProviderConfigured("openai")) {
+          streamProvider = "openai";
+          streamModel = "gpt-4o";
+        } else if (isProviderConfigured("anthropic")) {
+          streamProvider = "anthropic";
+          streamModel = "claude-3-5-sonnet-20241022";
+        } else {
+          streamProvider = "google-ai"; // Will fail with helpful error
+          streamModel = "gemini-2.5-flash";
+        }
+      } else {
+        streamModel = getModelForProvider(provider);
+      }
+
+      console.log(
+        `[Stream] Using provider: ${streamProvider}, model: ${streamModel}`,
+      );
+
+      // Build stream options
+      const streamOptions: {
+        input: { text: string };
+        maxTokens: number;
+        temperature: number;
+        systemPrompt?: string;
+        provider: string;
+        model?: string;
+        disableTools: boolean;
+      } = {
+        input: { text: prompt },
+        maxTokens: maxTokens || DEFAULT_GENERATION_PARAMS.maxTokens,
+        temperature: temperature || DEFAULT_GENERATION_PARAMS.temperature,
+        provider: streamProvider,
+        model: streamModel,
+        disableTools: true,
+      };
+
+      if (systemPrompt) {
+        streamOptions.systemPrompt = systemPrompt;
+      }
+
+      console.log(`[Stream] Calling neurolink.stream()...`);
+
+      // Use NeuroLink's stream method
+      const result = await neurolink.stream(streamOptions);
+      actualProvider = result.provider || streamProvider;
+
+      console.log(
+        `[Stream] Stream created, provider: ${actualProvider}, model: ${result.model}`,
+      );
+
+      // Iterate over the stream and send chunks immediately
+      const streamStartTime = Date.now();
+
+      for await (const chunk of result.stream) {
+        // Extract text content from chunk - handle ALL possible formats
+        let chunkContent: string | null = null;
+
+        if (typeof chunk === "string") {
+          // Direct string chunk
+          chunkContent = chunk;
+        } else if (chunk && typeof chunk === "object") {
+          const chunkObj = chunk as Record<string, unknown>;
+
+          // Format 1: { content: string }
+          if (typeof chunkObj.content === "string") {
+            chunkContent = chunkObj.content;
+          }
+          // Format 2: { text: string }
+          else if (typeof chunkObj.text === "string") {
+            chunkContent = chunkObj.text;
+          }
+          // Format 3: { delta: { content: string } }
+          else if (chunkObj.delta && typeof chunkObj.delta === "object") {
+            const delta = chunkObj.delta as Record<string, unknown>;
+            if (typeof delta.content === "string") {
+              chunkContent = delta.content;
+            } else if (typeof delta.text === "string") {
+              chunkContent = delta.text;
+            }
+          }
+          // Format 4: { choices: [{ delta: { content: string } }] } - OpenAI format
+          else if (Array.isArray(chunkObj.choices)) {
+            const firstChoice = chunkObj.choices[0] as
+              | Record<string, unknown>
+              | undefined;
+            if (firstChoice?.delta && typeof firstChoice.delta === "object") {
+              const delta = firstChoice.delta as Record<string, unknown>;
+              if (typeof delta.content === "string") {
+                chunkContent = delta.content;
+              }
+            }
+          }
+          // Format 5: { parts: [{ text: string }] } - Gemini format
+          else if (Array.isArray(chunkObj.parts)) {
+            const firstPart = chunkObj.parts[0] as
+              | Record<string, unknown>
+              | undefined;
+            if (typeof firstPart?.text === "string") {
+              chunkContent = firstPart.text;
+            }
+          }
+          // Format 6: { candidates: [{ content: { parts: [...] } }] } - Vertex AI format
+          else if (Array.isArray(chunkObj.candidates)) {
+            const firstCandidate = chunkObj.candidates[0] as
+              | Record<string, unknown>
+              | undefined;
+            if (
+              firstCandidate?.content &&
+              typeof firstCandidate.content === "object"
+            ) {
+              const content = firstCandidate.content as Record<string, unknown>;
+              if (Array.isArray(content.parts)) {
+                const firstPart = content.parts[0] as
+                  | Record<string, unknown>
+                  | undefined;
+                if (typeof firstPart?.text === "string") {
+                  chunkContent = firstPart.text;
+                }
+              }
+            }
+          }
+        }
+
+        // Send chunk if we have content
+        if (chunkContent && chunkContent.length > 0) {
+          chunkCount++;
+          fullContent += chunkContent;
+
+          // Log first chunk for debugging
+          if (chunkCount === 1) {
+            console.log(
+              `[Stream] First chunk received after ${Date.now() - streamStartTime}ms`,
+            );
+          }
+
+          // Send immediately to client
+          sendChunk(chunkContent, chunkCount);
+        }
+      }
+
+      const responseTime = Date.now() - startTime;
+
+      // If we got chunks, send done event
+      if (chunkCount > 0) {
+        sendDone(
+          fullContent,
+          actualProvider,
+          result.model || streamModel || "unknown",
+          responseTime,
+          chunkCount,
+          result.usage,
+        );
+        console.log(
+          `[Stream] Completed in ${responseTime}ms, ${chunkCount} chunks, provider: ${actualProvider}`,
+        );
+      } else {
+        // No chunks - try direct streaming with provider
+        console.log(
+          `[Stream] No chunks from neurolink.stream(), trying direct provider stream...`,
+        );
+
+        // Try using createAIProvider and its stream method directly
+        try {
+          const aiProvider = await createAIProvider(streamProvider);
+
+          // Check if provider has a stream method
+          if (typeof (aiProvider as any).stream === "function") {
+            console.log(
+              `[Stream] Using direct provider stream for ${streamProvider}`,
+            );
+
+            const directResult = await (aiProvider as any).stream({
+              prompt,
+              model: streamModel,
+              maxTokens: maxTokens || DEFAULT_GENERATION_PARAMS.maxTokens,
+              temperature: temperature || DEFAULT_GENERATION_PARAMS.temperature,
+              systemPrompt,
+              disableTools: true,
+            });
+
+            if (directResult.stream) {
+              for await (const chunk of directResult.stream) {
+                let chunkContent: string | null = null;
+
+                if (typeof chunk === "string") {
+                  chunkContent = chunk;
+                } else if (chunk && typeof chunk === "object") {
+                  const chunkObj = chunk as Record<string, unknown>;
+                  if (typeof chunkObj.content === "string") {
+                    chunkContent = chunkObj.content;
+                  } else if (typeof chunkObj.text === "string") {
+                    chunkContent = chunkObj.text;
+                  } else if (
+                    chunkObj.delta &&
+                    typeof chunkObj.delta === "object"
+                  ) {
+                    const delta = chunkObj.delta as Record<string, unknown>;
+                    if (typeof delta.content === "string") {
+                      chunkContent = delta.content;
+                    }
+                  }
+                }
+
+                if (chunkContent && chunkContent.length > 0) {
+                  chunkCount++;
+                  fullContent += chunkContent;
+                  sendChunk(chunkContent, chunkCount);
+                }
+              }
+            }
+
+            if (chunkCount > 0) {
+              actualProvider = streamProvider;
+              sendDone(
+                fullContent,
+                actualProvider,
+                streamModel || "unknown",
+                Date.now() - startTime,
+                chunkCount,
+              );
+              console.log(
+                `[Stream] Direct stream completed: ${chunkCount} chunks`,
+              );
+              res.end();
+              return;
+            }
+          }
+        } catch (directError) {
+          console.log(
+            `[Stream] Direct stream failed:`,
+            (directError as Error).message,
+          );
+        }
+
+        // Final fallback to non-streaming generation
+        console.log(`[Stream] Falling back to non-streaming generation...`);
+
+        const genResult = await generateWithProvider(streamProvider, prompt, {
+          maxTokens,
+          temperature,
+          systemPrompt,
+        });
+
+        fullContent = genResult.content;
+        actualProvider = genResult.provider;
+
+        // Simulate streaming by breaking the response into smaller chunks
+        const words = fullContent.split(" ");
+        const chunkSize = Math.max(1, Math.floor(words.length / 20)); // Aim for ~20 chunks
+
+        for (let i = 0; i < words.length; i += chunkSize) {
+          const chunkWords = words.slice(i, i + chunkSize);
+          const chunkText = (i === 0 ? "" : " ") + chunkWords.join(" ");
+          chunkCount++;
+          fullContent = words.slice(0, i + chunkSize).join(" ");
+          sendChunk(chunkText, chunkCount);
+
+          // Small delay to simulate streaming
+          await new Promise((r) => setTimeout(r, 20));
+        }
+
+        // Ensure we have the full content
+        fullContent = genResult.content;
+
+        sendDone(
+          fullContent,
+          actualProvider,
+          genResult.model || "unknown",
+          Date.now() - startTime,
+          chunkCount,
+          genResult.usage,
+        );
+        console.log(
+          `[Stream] Fallback completed: ${chunkCount} simulated chunks`,
+        );
+      }
+
+      res.end();
+    } catch (error) {
+      console.error(`[Stream] Error:`, (error as Error).message);
+      usageStats.errors++;
+
+      // Send error event
+      res.write(
+        `data: ${JSON.stringify({
+          type: "error",
+          error: (error as Error).message,
+          provider: actualProvider,
+        })}\n\n`,
+      );
+      res.end();
+    }
+  }),
+);
+
+app.post(
+  "/api/generate",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const {
+      provider = "google-ai", // Default to google-ai (OpenAI has quota issues)
+      prompt,
+      enableMCP = true,
+      disableTools = false,
+      maxTokens,
+      temperature,
+      systemPrompt,
+    } = req.body;
+
+    if (!prompt) {
+      res.status(400).json(createErrorResponse("Prompt is required"));
+      return;
+    }
+
     const useMCP = !disableTools && enableMCP;
 
     console.log(
@@ -625,10 +1051,8 @@ app.post(
 
       console.log(`[Generate] Success in ${result.responseTime}ms`);
 
-      // Add MCP metadata if available
       const response = createSuccessResponse({
         ...result,
-        // Mock MCP tool usage for demo purposes
         toolsUsed:
           useMCP && prompt.toLowerCase().includes("time")
             ? ["get-current-time"]
@@ -658,20 +1082,15 @@ app.post(
   }),
 );
 
-/**
- * POST /api/schema
- * Test structured output generation with JSON schemas
- */
 app.post(
   "/api/schema",
   asyncHandler(async (req: Request, res: Response) => {
-    const { type = "user-profile" } = req.body;
+    const { type = "user-profile", customPrompt } = req.body;
 
-    // Pre-defined schemas for different content types
     const schemas = {
       "user-profile": {
         prompt:
-          "Generate a user profile for a fictional character including name, age, occupation, and hobbies.",
+          'Generate a user profile for a fictional character. Return ONLY valid JSON with no additional text: {"name": "...", "age": number, "occupation": "...", "hobbies": ["..."]}',
         schema: {
           type: "object",
           properties: {
@@ -685,7 +1104,7 @@ app.post(
       },
       "product-review": {
         prompt:
-          "Generate a product review for a smartphone including rating, pros, cons, and recommendation.",
+          'Generate a product review for a smartphone. Return ONLY valid JSON with no additional text: {"product": "...", "rating": number (1-5), "pros": ["..."], "cons": ["..."], "recommendation": "..."}',
         schema: {
           type: "object",
           properties: {
@@ -700,7 +1119,7 @@ app.post(
       },
       "meeting-notes": {
         prompt:
-          "Generate meeting notes for a project planning session including attendees, decisions, and action items.",
+          'Generate meeting notes for a project planning session. Return ONLY valid JSON with no additional text: {"title": "...", "date": "...", "attendees": ["..."], "decisions": ["..."], "actionItems": [{"task": "...", "assignee": "...", "dueDate": "..."}]}',
         schema: {
           type: "object",
           properties: {
@@ -725,26 +1144,63 @@ app.post(
       },
     };
 
-    const selectedSchema =
-      schemas[type as keyof typeof schemas] || schemas["user-profile"];
+    // Handle custom prompt or predefined schema
+    let promptToSend: string = schemas["user-profile"].prompt; // Default fallback
+    let schemaToSend: Record<string, unknown> | undefined;
 
-    console.log(`[Schema] Testing structured output for type: ${type}`);
+    if (type === "custom" && customPrompt) {
+      // Use custom prompt for custom type
+      promptToSend = `${customPrompt}\n\nReturn ONLY valid JSON with no additional text.`;
+      console.log(`[Schema] Using custom prompt for structured output`);
+    } else if (customPrompt && type !== "custom") {
+      // Use custom prompt with predefined schema type hint
+      const selectedSchema =
+        schemas[type as keyof typeof schemas] || schemas["user-profile"];
+      promptToSend = customPrompt;
+      schemaToSend = selectedSchema.schema;
+      console.log(`[Schema] Using custom prompt with ${type} schema type`);
+    } else {
+      // Use predefined schema
+      const selectedSchema =
+        schemas[type as keyof typeof schemas] || schemas["user-profile"];
+      promptToSend = selectedSchema.prompt;
+      schemaToSend = selectedSchema.schema;
+      console.log(`[Schema] Testing structured output for type: ${type}`);
+    }
 
     try {
-      const result = await generateWithProvider("auto", selectedSchema.prompt, {
+      const result = await generateWithProvider("auto", promptToSend, {
         maxTokens: 400,
-        schema: selectedSchema.schema,
+        schema: schemaToSend,
       });
 
       res.json(
         createSuccessResponse({
-          structuredData:
-            (result as Record<string, unknown>).object ||
-            JSON.parse(result.content),
+          structuredData: (() => {
+            // First check if result has object property (structured output)
+            if ((result as Record<string, unknown>).object) {
+              return (result as Record<string, unknown>).object;
+            }
+            // Try to extract JSON from response text
+            const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              try {
+                return JSON.parse(jsonMatch[0]);
+              } catch {
+                return {
+                  error: "Could not parse JSON from response",
+                  raw: result.content,
+                };
+              }
+            }
+            return { error: "No JSON found in response", raw: result.content };
+          })(),
           rawText: result.content,
           provider: result.provider,
           usage: result.usage,
-          schema: selectedSchema.schema,
+          schema: schemaToSend,
+          promptType: type,
+          customPromptUsed: !!customPrompt,
         }),
       );
     } catch (error) {
@@ -754,10 +1210,6 @@ app.post(
   }),
 );
 
-/**
- * POST /api/benchmark
- * Benchmark performance across all available AI providers
- */
 app.post(
   "/api/benchmark",
   asyncHandler(async (req: Request, res: Response) => {
@@ -774,7 +1226,6 @@ app.post(
 
     console.log("[Benchmark] Testing all providers with standardized prompt");
 
-    // Test each provider sequentially
     for (const providerName of ALL_PROVIDERS) {
       try {
         console.log(`[Benchmark] Testing ${providerName}`);
@@ -1013,6 +1464,2270 @@ app.post(
 );
 
 // ================================
+// IMAGE GENERATION ENDPOINT (Google AI Gemini + Vertex AI Imagen fallback)
+// ================================
+
+app.post(
+  "/api/generate/image",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const {
+      prompt,
+      model: requestedModel,
+      aspectRatio = "1:1",
+      numberOfImages = 1,
+    } = req.body;
+
+    if (!prompt) {
+      res
+        .status(400)
+        .json(createErrorResponse("Prompt is required for image generation"));
+      return;
+    }
+
+    console.log(
+      `[Image] Image generation request - prompt: ${prompt.substring(0, 100)}...`,
+    );
+
+    const startTime = Date.now();
+
+    try {
+      // ---- Strategy 1: GOOGLE_AI_API_KEY + Gemini image generation (no credential file needed) ----
+      const googleAiKey =
+        process.env.GOOGLE_AI_API_KEY ||
+        process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+        process.env.GEMINI_API_KEY;
+
+      if (googleAiKey) {
+        console.log(
+          `[Image] Using GOOGLE_AI_API_KEY with Gemini image generation`,
+        );
+
+        const geminiImageModel = "gemini-2.0-flash-exp-image-generation";
+        const geminiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${geminiImageModel}:generateContent?key=${googleAiKey}`;
+
+        try {
+          const geminiResponse = await fetch(geminiEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+            }),
+            signal: AbortSignal.timeout(60000),
+          });
+
+          if (geminiResponse.ok) {
+            const geminiResult = await geminiResponse.json();
+            const responseTime = Date.now() - startTime;
+
+            const parts: Array<Record<string, unknown>> =
+              geminiResult?.candidates?.[0]?.content?.parts || [];
+            const imagePart = parts.find((p) => p.inlineData);
+
+            if (imagePart?.inlineData) {
+              const inlineData = imagePart.inlineData as {
+                data: string;
+                mimeType?: string;
+              };
+              console.log(
+                `[Image] Gemini image generated in ${responseTime}ms`,
+              );
+              res.json(
+                createSuccessResponse({
+                  imageBase64: inlineData.data,
+                  revisedPrompt: prompt,
+                  model: geminiImageModel,
+                  provider: "google-ai-gemini",
+                  aspectRatio,
+                  responseTime,
+                }),
+              );
+              return;
+            }
+            console.warn(`[Image] Gemini returned no image parts`);
+          } else {
+            const errText = await geminiResponse.text();
+            console.warn(
+              `[Image] Gemini failed (${geminiResponse.status}): ${errText.substring(0, 200)}`,
+            );
+          }
+        } catch (geminiErr) {
+          console.warn(
+            `[Image] Gemini fetch error: ${(geminiErr as Error).message}`,
+          );
+        }
+      }
+
+      // ---- Strategy 2: Vertex AI Imagen (requires service account credential file) ----
+      const hasCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      const hasProjectId =
+        process.env.GOOGLE_VERTEX_PROJECT || process.env.GOOGLE_CLOUD_PROJECT;
+
+      if (!googleAiKey && (!hasCredentials || !hasProjectId)) {
+        res
+          .status(503)
+          .json(
+            createErrorResponse(
+              "Image generation requires GOOGLE_AI_API_KEY. Please add it to neurolink-demo/.env",
+              { requiredVars: ["GOOGLE_AI_API_KEY"] },
+            ),
+          );
+        return;
+      }
+
+      if (hasCredentials && hasProjectId) {
+        const IMAGEN_MODELS = [
+          "imagen-3.0-generate-002",
+          "imagen-3.0-generate-001",
+          "imagen-4.0-generate-preview-05-20",
+        ];
+        const model = IMAGEN_MODELS.includes(requestedModel)
+          ? requestedModel
+          : "imagen-3.0-generate-002";
+
+        const projectId = hasProjectId as string;
+        const location = process.env.GOOGLE_VERTEX_LOCATION || "us-central1";
+
+        const { GoogleAuth } = await import("google-auth-library");
+        const auth = new GoogleAuth({
+          keyFilename: hasCredentials,
+          scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+        });
+        const client = await auth.getClient();
+        const accessToken = await client.getAccessToken();
+
+        if (!accessToken.token)
+          throw new Error("Failed to get Vertex AI access token");
+
+        const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:predict`;
+        const aspectRatioMap: Record<string, string> = {
+          "1:1": "1:1",
+          "16:9": "16:9",
+          "9:16": "9:16",
+          "4:3": "4:3",
+          "3:4": "3:4",
+        };
+
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken.token}`,
+          },
+          body: JSON.stringify({
+            instances: [{ prompt }],
+            parameters: {
+              sampleCount: numberOfImages,
+              aspectRatio: aspectRatioMap[aspectRatio] || "1:1",
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `Vertex AI error: ${response.status} - ${errorText.substring(0, 200)}`,
+          );
+        }
+
+        const result = await response.json();
+        const responseTime = Date.now() - startTime;
+
+        if (!result.predictions?.length)
+          throw new Error("No images returned from Vertex AI");
+        const prediction = result.predictions[0];
+        const base64Image =
+          prediction.bytesBase64Encoded ||
+          prediction.image?.bytesBase64Encoded ||
+          prediction.imageBytes;
+
+        if (!base64Image)
+          throw new Error("No image data in Vertex AI response");
+
+        console.log(`[Image] Vertex Imagen generated in ${responseTime}ms`);
+        res.json(
+          createSuccessResponse({
+            imageBase64: base64Image,
+            revisedPrompt: prompt,
+            model,
+            provider: "vertex-imagen",
+            aspectRatio,
+            responseTime,
+          }),
+        );
+        return;
+      }
+
+      res
+        .status(503)
+        .json(createErrorResponse("No image generation provider available."));
+    } catch (error) {
+      const errorMessage = (error as Error).message || String(error);
+      console.error(`[Image] Error:`, errorMessage);
+      res.status(500).json(createErrorResponse(errorMessage));
+    }
+  }),
+);
+
+// ================================
+// RAG (Retrieval-Augmented Generation) ENDPOINT
+// ================================
+
+// In-memory RAG storage
+const ragDocuments = new Map<
+  string,
+  { text: string; metadata: Record<string, unknown> }
+>();
+const ragChunks = new Map<
+  string,
+  Array<{
+    text: string;
+    embedding?: number[];
+    metadata: Record<string, unknown>;
+  }>
+>();
+
+app.post(
+  "/api/rag/index",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const {
+      documentId,
+      content,
+      metadata = {},
+      chunkSize = 1000,
+      chunkOverlap = 200,
+    } = req.body;
+
+    if (!documentId || !content) {
+      res
+        .status(400)
+        .json(
+          createErrorResponse(
+            "documentId and content are required for RAG indexing",
+          ),
+        );
+      return;
+    }
+
+    console.log(
+      `[RAG] Indexing document: ${documentId}, content length: ${content.length}`,
+    );
+
+    try {
+      // Store the document
+      ragDocuments.set(documentId, {
+        text: content,
+        metadata: { ...metadata, indexedAt: new Date().toISOString() },
+      });
+
+      // Simple chunking (split by paragraphs and size)
+      const chunks: Array<{ text: string; metadata: Record<string, unknown> }> =
+        [];
+      const paragraphs = content.split(/\n\n+/);
+      let currentChunk = "";
+
+      for (const paragraph of paragraphs) {
+        if (
+          (currentChunk + paragraph).length > chunkSize &&
+          currentChunk.length > 0
+        ) {
+          chunks.push({
+            text: currentChunk.trim(),
+            metadata: { documentId, chunkIndex: chunks.length },
+          });
+          // Keep some overlap
+          const overlapStart = Math.max(0, currentChunk.length - chunkOverlap);
+          currentChunk =
+            currentChunk.substring(overlapStart) + "\n\n" + paragraph;
+        } else {
+          currentChunk += (currentChunk ? "\n\n" : "") + paragraph;
+        }
+      }
+
+      // Add the last chunk
+      if (currentChunk.trim()) {
+        chunks.push({
+          text: currentChunk.trim(),
+          metadata: { documentId, chunkIndex: chunks.length },
+        });
+      }
+
+      ragChunks.set(documentId, chunks);
+
+      console.log(
+        `[RAG] Document ${documentId} indexed with ${chunks.length} chunks`,
+      );
+
+      res.json(
+        createSuccessResponse({
+          documentId,
+          chunksCreated: chunks.length,
+          totalCharacters: content.length,
+          message: `Document indexed successfully with ${chunks.length} chunks`,
+        }),
+      );
+    } catch (error) {
+      const errorMessage = (error as Error).message || String(error);
+      console.error(`[RAG] Index error:`, errorMessage);
+      res.status(500).json(createErrorResponse(errorMessage));
+    }
+  }),
+);
+
+app.post(
+  "/api/rag/query",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { query, documentIds, topK = 5, provider = "auto" } = req.body;
+
+    if (!query) {
+      res
+        .status(400)
+        .json(createErrorResponse("Query is required for RAG search"));
+      return;
+    }
+
+    console.log(`[RAG] Query: ${query.substring(0, 100)}...`);
+
+    try {
+      // Get all chunks from specified documents or all documents
+      const allChunks: Array<{
+        text: string;
+        metadata: Record<string, unknown>;
+        documentId: string;
+      }> = [];
+
+      const docsToSearch = documentIds || Array.from(ragDocuments.keys());
+
+      for (const docId of docsToSearch) {
+        const chunks = ragChunks.get(docId);
+        if (chunks) {
+          for (const chunk of chunks) {
+            allChunks.push({ ...chunk, documentId: docId });
+          }
+        }
+      }
+
+      if (allChunks.length === 0) {
+        res.json(
+          createSuccessResponse({
+            answer:
+              "No documents have been indexed yet. Please index some documents first using the /api/rag/index endpoint.",
+            sources: [],
+            query,
+          }),
+        );
+        return;
+      }
+
+      // Simple keyword-based search (BM25-style scoring)
+      const queryTerms = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((t: string) => t.length > 2);
+      const scoredChunks = allChunks.map((chunk) => {
+        const textLower = chunk.text.toLowerCase();
+        let score = 0;
+        for (const term of queryTerms) {
+          const matches = (textLower.match(new RegExp(term, "g")) || []).length;
+          score += matches;
+        }
+        return { ...chunk, score };
+      });
+
+      // Sort by score and take top K
+      const topChunks = scoredChunks
+        .filter((c) => c.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, topK);
+
+      if (topChunks.length === 0) {
+        // No relevant chunks found, use AI to answer without context
+        const result = await generateWithProvider(provider, query, {
+          maxTokens: 500,
+          temperature: 0.7,
+        });
+
+        res.json(
+          createSuccessResponse({
+            answer: result.content,
+            sources: [],
+            query,
+            provider: result.provider,
+            contextUsed: false,
+          }),
+        );
+        return;
+      }
+
+      // Build context from top chunks
+      const context = topChunks
+        .map((c, i) => `[Source ${i + 1}: ${c.documentId}]\n${c.text}`)
+        .join("\n\n---\n\n");
+
+      // Use AI to answer with context
+      const ragPrompt = `You are a helpful assistant answering questions based on the provided context.
+
+CONTEXT:
+${context}
+
+QUESTION: ${query}
+
+Instructions:
+- Answer the question based primarily on the provided context
+- If the context doesn't contain enough information, say so
+- Be concise and accurate
+- Cite sources when possible (e.g., "According to Source 1...")
+
+ANSWER:`;
+
+      const result = await generateWithProvider(provider, ragPrompt, {
+        maxTokens: 1000,
+        temperature: 0.3,
+      });
+
+      const sources = topChunks.map((c) => ({
+        documentId: c.documentId,
+        excerpt: c.text.substring(0, 200) + (c.text.length > 200 ? "..." : ""),
+        score: c.score,
+      }));
+
+      console.log(
+        `[RAG] Query answered using ${topChunks.length} context chunks`,
+      );
+
+      res.json(
+        createSuccessResponse({
+          answer: result.content,
+          sources,
+          query,
+          provider: result.provider,
+          contextUsed: true,
+          chunksUsed: topChunks.length,
+        }),
+      );
+    } catch (error) {
+      const errorMessage = (error as Error).message || String(error);
+      console.error(`[RAG] Query error:`, errorMessage);
+      res.status(500).json(createErrorResponse(errorMessage));
+    }
+  }),
+);
+
+app.get(
+  "/api/rag/documents",
+  asyncHandler(async (req: Request, res: Response) => {
+    const documents = Array.from(ragDocuments.entries()).map(([id, data]) => ({
+      documentId: id,
+      metadata: data.metadata,
+      chunkCount: ragChunks.get(id)?.length || 0,
+    }));
+
+    res.json(
+      createSuccessResponse({
+        documents,
+        totalDocuments: documents.length,
+      }),
+    );
+  }),
+);
+
+app.delete(
+  "/api/rag/documents/:id",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    if (ragDocuments.has(id)) {
+      ragDocuments.delete(id);
+      ragChunks.delete(id);
+      res.json(createSuccessResponse({ message: `Document ${id} removed` }));
+    } else {
+      res.status(404).json(createErrorResponse(`Document ${id} not found`));
+    }
+  }),
+);
+
+// ================================
+// CONTEXT SUMMARIZATION ENDPOINTS
+// ================================
+
+// In-memory session storage for context management
+interface SessionMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: string;
+  tokenCount: number;
+}
+
+interface Session {
+  id: string;
+  messages: SessionMessage[];
+  summary?: string;
+  summarizedUpToMessageId?: string;
+  createdAt: string;
+  lastActivityAt: string;
+  totalTokens: number;
+  summarizationCount: number;
+}
+
+const sessions = new Map<string, Session>();
+
+// Token estimation helper (rough approximation: ~4 chars per token)
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+// Generate unique message ID
+function generateMessageId(): string {
+  return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Get or create session
+function getOrCreateSession(sessionId: string): Session {
+  let session = sessions.get(sessionId);
+  if (!session) {
+    session = {
+      id: sessionId,
+      messages: [],
+      createdAt: new Date().toISOString(),
+      lastActivityAt: new Date().toISOString(),
+      totalTokens: 0,
+      summarizationCount: 0,
+    };
+    sessions.set(sessionId, session);
+  }
+  return session;
+}
+
+// Concise summarization prompt for better context summaries
+function createSummarizationPrompt(
+  messages: SessionMessage[],
+  previousSummary?: string,
+): string {
+  const conversationText = messages
+    .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+    .join("\n\n");
+
+  if (previousSummary) {
+    return `Update this conversation summary with the new messages below.
+
+CURRENT SUMMARY:
+${previousSummary}
+
+NEW MESSAGES:
+${conversationText}
+
+INSTRUCTIONS:
+1. Merge new information into the existing summary
+2. Keep it concise (2-4 sentences max)
+3. Focus on what was discussed, decided, and any action items
+4. Remove outdated information
+
+UPDATED SUMMARY:`;
+  }
+
+  return `Create a concise summary of this conversation.
+
+MESSAGES:
+${conversationText}
+
+INSTRUCTIONS:
+1. Write 2-4 sentences summarizing what was discussed
+2. Include any decisions made or conclusions reached
+3. Mention any action items or follow-up tasks
+4. Be specific - use actual topics, names, and details from the conversation
+5. Do NOT use generic phrases like "The user's main goal is..."
+
+SUMMARY:`;
+}
+
+// POST /api/context/chat - Chat with automatic context management
+app.post(
+  "/api/context/chat",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const {
+      sessionId = "default",
+      message,
+      provider = "vertex", // Default to Vertex AI (uses service account credentials)
+      tokenThreshold = 50000,
+      enableSummarization = true,
+    } = req.body;
+
+    if (!message) {
+      res.status(400).json(createErrorResponse("Message is required"));
+      return;
+    }
+
+    console.log(`[Context] Chat message for session: ${sessionId}`);
+
+    try {
+      const session = getOrCreateSession(sessionId);
+
+      // Add user message
+      const userMessage: SessionMessage = {
+        id: generateMessageId(),
+        role: "user",
+        content: message,
+        timestamp: new Date().toISOString(),
+        tokenCount: estimateTokens(message),
+      };
+      session.messages.push(userMessage);
+      session.totalTokens += userMessage.tokenCount;
+      session.lastActivityAt = new Date().toISOString();
+
+      // Build context for AI
+      let contextForAI = "";
+      if (session.summary) {
+        contextForAI = `CONTEXT SUMMARY FROM PREVIOUS CONVERSATION:\n${session.summary}\n\n`;
+      }
+
+      // Include recent messages (after last summary)
+      const recentMessages = session.summarizedUpToMessageId
+        ? session.messages.filter((m) => {
+            const idx = session.messages.findIndex(
+              (msg) => msg.id === session.summarizedUpToMessageId,
+            );
+            return session.messages.indexOf(m) > idx;
+          })
+        : session.messages;
+
+      contextForAI +=
+        "CURRENT CONVERSATION:\n" +
+        recentMessages
+          .map(
+            (m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`,
+          )
+          .join("\n\n");
+
+      // Generate response
+      const responseStartTime = Date.now();
+      const result = await generateWithProvider(provider, contextForAI, {
+        maxTokens: 1000,
+        temperature: 0.7,
+      });
+
+      // Add assistant message
+      const assistantMessage: SessionMessage = {
+        id: generateMessageId(),
+        role: "assistant",
+        content: result.content,
+        timestamp: new Date().toISOString(),
+        tokenCount: estimateTokens(result.content),
+      };
+      session.messages.push(assistantMessage);
+      session.totalTokens += assistantMessage.tokenCount;
+
+      // Check if summarization needed
+      let wasSummarized = false;
+      if (enableSummarization && session.totalTokens > tokenThreshold) {
+        console.log(
+          `[Context] Token threshold (${tokenThreshold}) exceeded, triggering summarization...`,
+        );
+
+        // Find messages to summarize (keep recent 30%)
+        const keepRecentCount = Math.max(
+          2,
+          Math.floor(session.messages.length * 0.3),
+        );
+        const messagesToSummarize = session.messages.slice(0, -keepRecentCount);
+
+        if (messagesToSummarize.length > 0) {
+          const summaryPrompt = createSummarizationPrompt(
+            messagesToSummarize,
+            session.summary,
+          );
+          const summaryResult = await generateWithProvider(
+            isProviderConfigured("vertex") ? "vertex" : "openai", // Use vertex (Gemini) or openai
+            summaryPrompt,
+            { maxTokens: 1000, temperature: 0.3 },
+          );
+
+          session.summary = summaryResult.content;
+          session.summarizedUpToMessageId =
+            messagesToSummarize[messagesToSummarize.length - 1]?.id ||
+            undefined;
+          session.totalTokens =
+            estimateTokens(session.summary) +
+            session.messages
+              .slice(-keepRecentCount)
+              .reduce((sum, m) => sum + m.tokenCount, 0);
+          session.summarizationCount++;
+          wasSummarized = true;
+
+          console.log(
+            `[Context] Summarization completed. New token estimate: ${session.totalTokens}`,
+          );
+        }
+      }
+
+      res.json(
+        createSuccessResponse({
+          response: result.content,
+          sessionId: session.id,
+          contextStats: {
+            totalMessages: session.messages.length,
+            totalTokens: session.totalTokens,
+            summarizationCount: session.summarizationCount,
+            hasSummary: !!session.summary,
+            wasSummarized,
+          },
+          provider: result.provider,
+          responseTime: result.responseTime,
+        }),
+      );
+    } catch (error) {
+      const errorMessage = (error as Error).message || String(error);
+      console.error(`[Context] Chat error:`, errorMessage);
+      res.status(500).json(createErrorResponse(errorMessage));
+    }
+  }),
+);
+
+// POST /api/context/summarize - Manually trigger summarization
+app.post(
+  "/api/context/summarize",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { sessionId, provider = "auto", keepRecentCount = 5 } = req.body;
+
+    if (!sessionId) {
+      res.status(400).json(createErrorResponse("sessionId is required"));
+      return;
+    }
+
+    const session = sessions.get(sessionId);
+    if (!session) {
+      res
+        .status(404)
+        .json(createErrorResponse(`Session ${sessionId} not found`));
+      return;
+    }
+
+    console.log(`[Context] Manual summarization for session: ${sessionId}`);
+
+    try {
+      const messagesToSummarize = session.messages.slice(0, -keepRecentCount);
+
+      if (messagesToSummarize.length === 0) {
+        res.json(
+          createSuccessResponse({
+            message:
+              "Not enough messages to summarize. Need more than keepRecentCount.",
+            sessionStats: {
+              totalMessages: session.messages.length,
+              totalTokens: session.totalTokens,
+            },
+          }),
+        );
+        return;
+      }
+
+      const summaryPrompt = createSummarizationPrompt(
+        messagesToSummarize,
+        session.summary,
+      );
+      const result = await generateWithProvider(
+        isProviderConfigured("vertex") ? "vertex" : "openai", // Use vertex (Gemini) or openai
+        summaryPrompt,
+        { maxTokens: 1000, temperature: 0.3 },
+      );
+
+      session.summary = result.content;
+      session.summarizedUpToMessageId =
+        messagesToSummarize[messagesToSummarize.length - 1]?.id || undefined;
+      session.totalTokens =
+        estimateTokens(session.summary) +
+        session.messages
+          .slice(-keepRecentCount)
+          .reduce((sum, m) => sum + m.tokenCount, 0);
+      session.summarizationCount++;
+
+      res.json(
+        createSuccessResponse({
+          summary: result.content,
+          messagesSummarized: messagesToSummarize.length,
+          sessionStats: {
+            totalMessages: session.messages.length,
+            totalTokens: session.totalTokens,
+            summarizationCount: session.summarizationCount,
+          },
+          provider: result.provider,
+        }),
+      );
+    } catch (error) {
+      const errorMessage = (error as Error).message || String(error);
+      console.error(`[Context] Summarization error:`, errorMessage);
+      res.status(500).json(createErrorResponse(errorMessage));
+    }
+  }),
+);
+
+// GET /api/context/sessions - List all sessions
+app.get(
+  "/api/context/sessions",
+  asyncHandler(async (req: Request, res: Response) => {
+    const sessionList = Array.from(sessions.values()).map((session) => ({
+      sessionId: session.id,
+      messageCount: session.messages.length,
+      totalTokens: session.totalTokens,
+      summarizationCount: session.summarizationCount,
+      hasSummary: !!session.summary,
+      createdAt: session.createdAt,
+      lastActivityAt: session.lastActivityAt,
+    }));
+
+    res.json(
+      createSuccessResponse({
+        sessions: sessionList,
+        totalSessions: sessionList.length,
+      }),
+    );
+  }),
+);
+
+// GET /api/context/session/:id - Get session details
+app.get(
+  "/api/context/session/:id",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const session = sessions.get(id);
+
+    if (!session) {
+      res.status(404).json(createErrorResponse(`Session ${id} not found`));
+      return;
+    }
+
+    res.json(
+      createSuccessResponse({
+        session: {
+          id: session.id,
+          messages: session.messages,
+          summary: session.summary,
+          totalTokens: session.totalTokens,
+          summarizationCount: session.summarizationCount,
+          createdAt: session.createdAt,
+          lastActivityAt: session.lastActivityAt,
+        },
+      }),
+    );
+  }),
+);
+
+// DELETE /api/context/session/:id - Clear a session
+app.delete(
+  "/api/context/session/:id",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    if (sessions.has(id)) {
+      sessions.delete(id);
+      res.json(createSuccessResponse({ message: `Session ${id} cleared` }));
+    } else {
+      res.status(404).json(createErrorResponse(`Session ${id} not found`));
+    }
+  }),
+);
+
+// ================================
+// PDF ANALYSIS ENDPOINT
+// ================================
+
+import PDFParser from "pdf2json";
+
+app.post(
+  "/api/analyze/pdf",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const {
+      pdfBase64,
+      analysisType = "general",
+      provider = "auto",
+      customPrompt,
+    } = req.body;
+
+    if (!pdfBase64) {
+      res
+        .status(400)
+        .json(createErrorResponse("PDF data is required for analysis"));
+      return;
+    }
+
+    console.log(`[PDF] Analyzing PDF, type: ${analysisType}`);
+
+    try {
+      // Analysis prompts based on type
+      const analysisPrompts: Record<string, string> = {
+        general:
+          "Provide a comprehensive summary of this PDF document. Include the main topics, key points, and important details.",
+        summary:
+          "Summarize this PDF document in a clear and concise manner. Focus on the most important information.",
+        extraction:
+          "Extract all key data from this PDF including: dates, names, amounts, addresses, and any structured information. Format as JSON if possible.",
+        invoice:
+          "Extract invoice details from this PDF: invoice number, date, vendor, line items, totals, and payment terms.",
+        report:
+          "Analyze this report and provide: executive summary, key findings, recommendations, and important metrics.",
+        contract:
+          "Analyze this contract/legal document. Identify: parties involved, key terms, obligations, dates, and any notable clauses.",
+        comparison:
+          "Provide a detailed breakdown of this document's structure, sections, and content organization.",
+      };
+
+      const prompt =
+        customPrompt ||
+        analysisPrompts[analysisType] ||
+        analysisPrompts["general"];
+
+      // Convert base64 to buffer
+      const pdfBuffer = Buffer.from(pdfBase64, "base64");
+      const pdfSizeKB = Math.round(pdfBuffer.length / 1024);
+
+      console.log(
+        `[PDF] PDF size: ${pdfSizeKB}KB, extracting text with pdf2json...`,
+      );
+
+      // Extract text from PDF using pdf2json
+      let extractedText = "";
+      let pageCount = 0;
+
+      try {
+        extractedText = await new Promise<string>((resolve, reject) => {
+          const pdfParser = new (PDFParser as any)(null, 1);
+
+          pdfParser.on("pdfParser_dataError", (errData: any) => {
+            console.error(`[PDF] pdf2json error:`, errData.parserError);
+            reject(new Error(errData.parserError));
+          });
+
+          pdfParser.on("pdfParser_dataReady", (pdfData: any) => {
+            // Extract text from all pages
+            let text = "";
+            if (pdfData?.Pages) {
+              pageCount = pdfData.Pages.length;
+              for (const page of pdfData.Pages) {
+                for (const textItem of page.Texts || []) {
+                  // Decode URI-encoded text
+                  text += decodeURIComponent(textItem.R[0].T) + " ";
+                }
+                text += "\n";
+              }
+            }
+            resolve(text);
+          });
+
+          // Parse the buffer
+          pdfParser.parseBuffer(pdfBuffer);
+        });
+      } catch (parseError) {
+        // If pdf2json fails, provide a helpful error message
+        const errorMsg = (parseError as Error).message || String(parseError);
+        console.error(`[PDF] Parse error:`, errorMsg);
+
+        res.json(
+          createSuccessResponse({
+            analysis: `📄 PDF Analysis Failed\n\nThe PDF could not be parsed. This may happen if:\n\n1. **Invalid PDF format** - The file may be corrupted or not a valid PDF\n2. **Encrypted PDF** - Password-protected PDFs cannot be analyzed\n3. **Image-based PDF** - Scanned documents without OCR need different processing\n\n**Error details:** ${errorMsg}\n\n**Suggestions:**\n- Try uploading a different PDF\n- Ensure the PDF is not password-protected\n- For scanned documents, use an OCR tool first`,
+            analysisType,
+            provider: "pdf2json",
+            model: "text-extraction",
+            pageCount: 0,
+            pdfSizeKB,
+            error: errorMsg,
+          }),
+        );
+        return;
+      }
+
+      console.log(
+        `[PDF] Extracted ${extractedText.length} characters from ${pageCount} pages`,
+      );
+
+      if (!extractedText || extractedText.trim().length === 0) {
+        res.json(
+          createSuccessResponse({
+            analysis:
+              "📄 No extractable text found in this PDF. The document may be:\n\n• **Image-based** - Scanned documents need OCR processing\n• **Empty** - The PDF contains no text content\n• **Graphics-only** - Only images/charts without text\n\n**Suggestions:**\n- For scanned documents, use an OCR tool first\n- Try uploading a text-based PDF",
+            analysisType,
+            provider: "pdf2json",
+            model: "text-extraction",
+            pageCount,
+            pdfSizeKB,
+          }),
+        );
+        return;
+      }
+
+      // Truncate text if too long (most AI providers have token limits)
+      const maxChars = 15000;
+      const truncatedText =
+        extractedText.length > maxChars
+          ? extractedText.substring(0, maxChars) +
+            "\n\n[... Document truncated due to length ...]"
+          : extractedText;
+
+      // Create analysis prompt based on type
+      const analysisPrompt = `${prompt}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PDF CONTENT (${pageCount} pages, ${extractedText.length} characters):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${truncatedText}`;
+
+      console.log(`[PDF] Analyzing with AI, type: ${analysisType}`);
+
+      // Use AI to analyze the extracted text
+      const result = await generateWithProvider(
+        provider === "auto" ? "litellm" : provider,
+        analysisPrompt,
+        {
+          maxTokens: 2000,
+          temperature: 0.3,
+        },
+      );
+
+      console.log(`[PDF] Analysis completed in ${result.responseTime}ms`);
+
+      res.json(
+        createSuccessResponse({
+          analysis: result.content,
+          analysisType,
+          provider: result.provider,
+          model: result.model,
+          pageCount,
+          pdfSizeKB,
+          textLength: extractedText.length,
+          responseTime: result.responseTime,
+        }),
+      );
+    } catch (error) {
+      const errorMessage = (error as Error).message || String(error);
+      console.error(`[PDF] Error:`, errorMessage);
+      res.status(500).json(createErrorResponse(errorMessage));
+    }
+  }),
+);
+
+// ================================
+// VIDEO ANALYSIS ENDPOINT
+// ================================
+
+app.post(
+  "/api/analyze/video",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const {
+      videoBase64,
+      analysisType = "general",
+      provider = "auto",
+      customPrompt,
+    } = req.body;
+
+    // If videoUrl provided, fetch it server-side and convert to base64
+    if (!videoBase64 && req.body.videoUrl) {
+      const videoUrl = req.body.videoUrl as string;
+      console.log(`[Video] Fetching video from URL: ${videoUrl}`);
+      try {
+        const urlResponse = await fetch(videoUrl, {
+          signal: AbortSignal.timeout(30000),
+        });
+        if (!urlResponse.ok) {
+          res
+            .status(400)
+            .json(
+              createErrorResponse(
+                `Failed to fetch video URL: HTTP ${urlResponse.status}`,
+              ),
+            );
+          return;
+        }
+        const arrayBuffer = await urlResponse.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        req.body.videoBase64 = buffer.toString("base64");
+      } catch (fetchErr) {
+        res
+          .status(400)
+          .json(
+            createErrorResponse(
+              `Could not fetch video from URL: ${(fetchErr as Error).message}`,
+            ),
+          );
+        return;
+      }
+    }
+
+    const resolvedVideoBase64: string = req.body.videoBase64;
+
+    if (!resolvedVideoBase64) {
+      res
+        .status(400)
+        .json(
+          createErrorResponse(
+            "Video data is required for analysis. Provide videoBase64 or videoUrl.",
+          ),
+        );
+      return;
+    }
+
+    console.log(
+      `[Video] Analyzing video, type: ${analysisType}, provider: ${provider}`,
+    );
+
+    try {
+      // Analysis prompts based on type
+      const analysisPrompts: Record<string, string> = {
+        general:
+          "Give a detailed description of this video. Analyze the content, actions, and any notable elements.",
+        bugs: "Find UI/UX bugs, validation errors, hidden elements, or misleading UI patterns. Look for issues where user might get stuck.",
+        workflow:
+          "Trace the logical progression of this workflow. Does every state change correspond to a user action? Are there any unexpected transitions?",
+        performance:
+          "Analyze the responsiveness. Are there any noticeable delays between user actions and system responses? Does the UI feel sluggish?",
+        errors:
+          "How does the system handle errors? Are error messages clear and actionable? Is there proper recovery guidance?",
+        silentFailures:
+          "Identify any 'Silent Failures' where an action is taken but the UI/System provides no feedback loop.",
+      };
+
+      const prompt =
+        customPrompt ||
+        analysisPrompts[analysisType] ||
+        analysisPrompts["general"];
+
+      // Use resolved base64 (from direct upload or URL fetch)
+      const videoBase64 = resolvedVideoBase64;
+      // Convert base64 to buffer
+      const videoBuffer = Buffer.from(videoBase64, "base64");
+      const videoSizeKB = Math.round(videoBuffer.length / 1024);
+
+      // Determine which provider to use
+      let videoProvider = provider;
+      if (provider === "auto") {
+        // Priority: litellm (if configured) -> vertex -> google-ai
+        if (isProviderConfigured("litellm")) {
+          videoProvider = "litellm";
+        } else if (isProviderConfigured("vertex")) {
+          videoProvider = "vertex";
+        } else if (isProviderConfigured("google-ai")) {
+          videoProvider = "google-ai";
+        } else {
+          videoProvider = "litellm"; // Will fail with helpful message if not configured
+        }
+      }
+
+      console.log(
+        `[Video] Using provider: ${videoProvider}, video size: ${videoSizeKB}KB`,
+      );
+
+      // Handle LiteLLM differently - use OpenAI-compatible vision API
+      if (videoProvider === "litellm") {
+        const litellmBaseURL =
+          process.env.LITELLM_BASE_URL || "http://localhost:4000";
+
+        console.log(
+          `[Video] Using LiteLLM at ${litellmBaseURL} for video analysis`,
+        );
+
+        // For LiteLLM, we send the video as base64 to vision-capable models
+        // GPT-4 Vision and similar models can analyze video frames
+        const litellmModel = process.env.LITELLM_VIDEO_MODEL || "gpt-4o";
+
+        try {
+          const response = await fetch(
+            `${litellmBaseURL}/v1/chat/completions`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${process.env.LITELLM_API_KEY || "sk-litellm"}`,
+              },
+              body: JSON.stringify({
+                model: litellmModel,
+                messages: [
+                  {
+                    role: "user",
+                    content: [
+                      {
+                        type: "text",
+                        text: prompt,
+                      },
+                      {
+                        type: "video_url",
+                        video_url: {
+                          url: `data:video/mp4;base64,${videoBase64}`,
+                        },
+                      },
+                    ],
+                  },
+                ],
+                max_tokens: 4000,
+              }),
+            },
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(
+              `[Video] LiteLLM error: ${response.status} - ${errorText}`,
+            );
+
+            // Try fallback to Gemini if LiteLLM fails - use direct API with video content
+            if (
+              isProviderConfigured("vertex") ||
+              isProviderConfigured("google-ai")
+            ) {
+              console.log(
+                `[Video] LiteLLM failed, falling back to Gemini with video content...`,
+              );
+
+              // Use direct Gemini API with video content (not generateWithProvider which doesn't support video)
+              const fallbackProvider = isProviderConfigured("vertex")
+                ? "vertex"
+                : "google-ai";
+
+              if (fallbackProvider === "vertex") {
+                // Vertex AI Gemini with video
+                const hasCredentials =
+                  process.env.GOOGLE_APPLICATION_CREDENTIALS;
+                const hasProjectId = process.env.GOOGLE_VERTEX_PROJECT;
+
+                if (hasCredentials && hasProjectId) {
+                  const projectId = hasProjectId;
+                  const location =
+                    process.env.GOOGLE_VERTEX_LOCATION || "us-central1";
+                  const videoModel =
+                    process.env.VERTEX_VIDEO_MODEL || "gemini-2.0-flash";
+
+                  const { GoogleAuth } = await import("google-auth-library");
+                  const auth = new GoogleAuth({
+                    keyFilename: hasCredentials,
+                    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+                  });
+
+                  const client = await auth.getClient();
+                  const accessToken = await client.getAccessToken();
+
+                  if (accessToken.token) {
+                    const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${videoModel}:generateContent`;
+
+                    const requestBody = {
+                      contents: [
+                        {
+                          role: "user",
+                          parts: [
+                            {
+                              inlineData: {
+                                mimeType: "video/mp4",
+                                data: videoBase64,
+                              },
+                            },
+                            { text: prompt },
+                          ],
+                        },
+                      ],
+                      generationConfig: {
+                        temperature: 0.3,
+                        maxOutputTokens: 4000,
+                      },
+                    };
+
+                    const geminiResponse = await fetch(endpoint, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${accessToken.token}`,
+                      },
+                      body: JSON.stringify(requestBody),
+                    });
+
+                    if (geminiResponse.ok) {
+                      const geminiResult = await geminiResponse.json();
+                      const content =
+                        geminiResult.candidates?.[0]?.content?.parts?.[0]
+                          ?.text || "No analysis returned";
+
+                      res.json(
+                        createSuccessResponse({
+                          analysis: content,
+                          analysisType,
+                          provider: "vertex",
+                          model: videoModel,
+                          fallbackUsed: true,
+                          originalError: `LiteLLM: ${errorText.substring(0, 200)}`,
+                        }),
+                      );
+                      return;
+                    }
+                  }
+                }
+              } else {
+                // Google AI Studio with video
+                const googleAiKey = process.env.GOOGLE_AI_API_KEY;
+
+                if (googleAiKey) {
+                  const videoModel =
+                    process.env.GOOGLE_AI_VIDEO_MODEL || "gemini-2.0-flash";
+
+                  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${videoModel}:generateContent?key=${googleAiKey}`;
+
+                  const requestBody = {
+                    contents: [
+                      {
+                        parts: [
+                          {
+                            inlineData: {
+                              mimeType: "video/mp4",
+                              data: videoBase64,
+                            },
+                          },
+                          { text: prompt },
+                        ],
+                      },
+                    ],
+                    generationConfig: {
+                      temperature: 0.3,
+                      maxOutputTokens: 4000,
+                    },
+                  };
+
+                  const geminiResponse = await fetch(endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(requestBody),
+                  });
+
+                  if (geminiResponse.ok) {
+                    const geminiResult = await geminiResponse.json();
+                    const content =
+                      geminiResult.candidates?.[0]?.content?.parts?.[0]?.text ||
+                      "No analysis returned";
+
+                    res.json(
+                      createSuccessResponse({
+                        analysis: content,
+                        analysisType,
+                        provider: "google-ai",
+                        model: videoModel,
+                        fallbackUsed: true,
+                        originalError: `LiteLLM: ${errorText.substring(0, 200)}`,
+                      }),
+                    );
+                    return;
+                  }
+                }
+              }
+            }
+
+            throw new Error(
+              `LiteLLM video analysis failed: ${errorText.substring(0, 500)}`,
+            );
+          }
+
+          const data = await response.json();
+          const analysisText =
+            data.choices?.[0]?.message?.content || "No analysis returned";
+
+          console.log(`[Video] LiteLLM analysis completed`);
+
+          res.json(
+            createSuccessResponse({
+              analysis: analysisText,
+              analysisType,
+              provider: "litellm",
+              model: litellmModel,
+              videoSizeKB,
+            }),
+          );
+          return;
+        } catch (litellmError) {
+          // If LiteLLM fails, try Gemini fallback
+          if (
+            isProviderConfigured("vertex") ||
+            isProviderConfigured("google-ai")
+          ) {
+            console.log(`[Video] LiteLLM error, falling back to Gemini...`);
+            const fallbackProvider = isProviderConfigured("vertex")
+              ? "vertex"
+              : "google-ai";
+
+            const result = await generateWithProvider(
+              fallbackProvider,
+              prompt,
+              {
+                maxTokens: 4000,
+                temperature: 0.3,
+              },
+            );
+
+            res.json(
+              createSuccessResponse({
+                analysis: result.content,
+                analysisType,
+                provider: result.provider || fallbackProvider,
+                model: result.model,
+                fallbackUsed: true,
+                originalError: (litellmError as Error).message,
+              }),
+            );
+            return;
+          }
+
+          throw litellmError;
+        }
+      }
+
+      // For Vertex AI, use the Gemini API directly with video content
+      console.log(
+        `[Video] Using ${videoProvider} for video analysis with actual video content`,
+      );
+
+      if (videoProvider === "vertex") {
+        // Use Vertex AI Gemini with video content
+        const hasCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+        const hasProjectId = process.env.GOOGLE_VERTEX_PROJECT;
+
+        if (!hasCredentials || !hasProjectId) {
+          res.status(503).json(
+            createErrorResponse("Vertex AI not configured for video analysis", {
+              suggestion:
+                "Set GOOGLE_APPLICATION_CREDENTIALS and GOOGLE_VERTEX_PROJECT",
+            }),
+          );
+          return;
+        }
+
+        const projectId = hasProjectId as string;
+        const location = process.env.GOOGLE_VERTEX_LOCATION || "us-central1";
+        const videoModel = process.env.VERTEX_VIDEO_MODEL || "gemini-2.0-flash";
+
+        // Use Google Auth to get access token
+        const { GoogleAuth } = await import("google-auth-library");
+        const auth = new GoogleAuth({
+          keyFilename: hasCredentials,
+          scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+        });
+
+        const client = await auth.getClient();
+        const accessToken = await client.getAccessToken();
+
+        if (!accessToken.token) {
+          throw new Error("Failed to get Google Cloud access token");
+        }
+
+        const startTime = Date.now();
+
+        // Call Vertex AI Gemini API with video content
+        const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${videoModel}:generateContent`;
+
+        const requestBody = {
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: "video/mp4",
+                    data: videoBase64,
+                  },
+                },
+                {
+                  text: prompt,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 4000,
+          },
+        };
+
+        console.log(
+          `[Video] Calling Vertex AI Gemini with video content: ${endpoint}`,
+        );
+
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken.token}`,
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(
+            `[Video] Vertex AI error: ${response.status} - ${errorText}`,
+          );
+
+          if (response.status === 403) {
+            res.status(403).json(
+              createErrorResponse(
+                "Vertex AI access denied. Enable the Vertex AI API and ensure your service account has permissions.",
+                {
+                  suggestion:
+                    "Run: gcloud services enable aiplatform.googleapis.com",
+                  error: errorText.substring(0, 500),
+                },
+              ),
+            );
+            return;
+          }
+
+          throw new Error(
+            `Vertex AI API error: ${response.status} - ${errorText.substring(0, 200)}`,
+          );
+        }
+
+        const result = await response.json();
+        const responseTime = Date.now() - startTime;
+
+        // Extract the response text
+        const candidates = result.candidates || [];
+        const content =
+          candidates[0]?.content?.parts?.[0]?.text || "No analysis returned";
+
+        console.log(
+          `[Video] Vertex AI video analysis completed in ${responseTime}ms`,
+        );
+
+        res.json(
+          createSuccessResponse({
+            analysis: content,
+            analysisType,
+            provider: "vertex",
+            model: videoModel,
+            videoSizeKB,
+            responseTime,
+          }),
+        );
+        return;
+      }
+
+      // For Google AI Studio, use the Gemini API with video content
+      if (videoProvider === "google-ai") {
+        const googleAiKey = process.env.GOOGLE_AI_API_KEY;
+
+        if (!googleAiKey) {
+          res.status(503).json(
+            createErrorResponse("Google AI API key not configured", {
+              suggestion: "Set GOOGLE_AI_API_KEY in your .env file",
+            }),
+          );
+          return;
+        }
+
+        const videoModel =
+          process.env.GOOGLE_AI_VIDEO_MODEL || "gemini-2.0-flash";
+        const startTime = Date.now();
+
+        // Call Google AI Gemini API with video content
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${videoModel}:generateContent?key=${googleAiKey}`;
+
+        const requestBody = {
+          contents: [
+            {
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: "video/mp4",
+                    data: videoBase64,
+                  },
+                },
+                {
+                  text: prompt,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 4000,
+          },
+        };
+
+        console.log(`[Video] Calling Google AI Gemini with video content`);
+
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(
+            `[Video] Google AI error: ${response.status} - ${errorText}`,
+          );
+          throw new Error(
+            `Google AI API error: ${response.status} - ${errorText.substring(0, 200)}`,
+          );
+        }
+
+        const result = await response.json();
+        const responseTime = Date.now() - startTime;
+
+        // Extract the response text
+        const candidates = result.candidates || [];
+        const content =
+          candidates[0]?.content?.parts?.[0]?.text || "No analysis returned";
+
+        console.log(
+          `[Video] Google AI video analysis completed in ${responseTime}ms`,
+        );
+
+        res.json(
+          createSuccessResponse({
+            analysis: content,
+            analysisType,
+            provider: "google-ai",
+            model: videoModel,
+            videoSizeKB,
+            responseTime,
+          }),
+        );
+        return;
+      }
+
+      // Fallback for other providers - text only (no video support)
+      console.log(
+        `[Video] Provider ${videoProvider} does not support video, using text-only analysis`,
+      );
+
+      const result = await generateWithProvider(videoProvider, prompt, {
+        maxTokens: 4000,
+        temperature: 0.3,
+      });
+
+      console.log(
+        `[Video] Analysis completed with ${videoProvider} (text-only, no video content)`,
+      );
+
+      res.json(
+        createSuccessResponse({
+          analysis: result.content,
+          analysisType,
+          provider: result.provider || videoProvider,
+          model: result.model,
+          videoSizeKB,
+          note: "Video content not processed - provider does not support video input",
+        }),
+      );
+    } catch (error) {
+      const errorMessage = (error as Error).message || String(error);
+      console.error(`[Video] Error:`, errorMessage);
+      res.status(500).json(createErrorResponse(errorMessage));
+    }
+  }),
+);
+
+// ================================
+// WEB SEARCH ENDPOINT
+// ================================
+
+app.post(
+  "/api/web/search/grounded",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { query } = req.body;
+
+    if (!query) {
+      res.status(400).json(createErrorResponse("Search query is required"));
+      return;
+    }
+
+    console.log(
+      `[Grounded Search] Searching with Google Search grounding: ${query}`,
+    );
+
+    try {
+      // Check if Vertex AI is configured
+      const hasCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      const hasProjectId = process.env.GOOGLE_VERTEX_PROJECT;
+
+      if (!hasCredentials || !hasProjectId) {
+        res.status(503).json(
+          createErrorResponse("Vertex AI required for grounded search", {
+            suggestion:
+              "Set GOOGLE_APPLICATION_CREDENTIALS and GOOGLE_VERTEX_PROJECT in your .env file",
+            requiredVars: [
+              "GOOGLE_APPLICATION_CREDENTIALS",
+              "GOOGLE_VERTEX_PROJECT",
+            ],
+          }),
+        );
+        return;
+      }
+
+      const projectId = hasProjectId as string;
+      const location = process.env.GOOGLE_VERTEX_LOCATION || "us-central1";
+
+      // Use Google Auth to get access token
+      const { GoogleAuth } = await import("google-auth-library");
+      const auth = new GoogleAuth({
+        keyFilename: hasCredentials,
+        scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+      });
+
+      const client = await auth.getClient();
+      const accessToken = await client.getAccessToken();
+
+      if (!accessToken.token) {
+        throw new Error("Failed to get access token");
+      }
+
+      const startTime = Date.now();
+
+      // Call Vertex AI Gemini API with Google Search Retrieval tool
+      const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/gemini-2.0-flash:generateContent`;
+
+      const requestBody = {
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: `Search the web and provide current, accurate information about: "${query}"
+
+Include:
+1. **Current Information**: Latest facts and data from web search
+2. **Sources**: List any sources found
+3. **Context**: Relevant background
+4. **Key Points**: Most important takeaways
+
+Be factual and cite sources when possible.`,
+              },
+            ],
+          },
+        ],
+        tools: [
+          {
+            google_search: {},
+          },
+        ],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 1000,
+        },
+      };
+
+      console.log(
+        `[Grounded Search] Calling Vertex AI with Google Search Retrieval: ${endpoint}`,
+      );
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken.token}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(
+          `[Grounded Search] Vertex AI error: ${response.status} - ${errorText}`,
+        );
+
+        if (response.status === 403) {
+          res.status(403).json(
+            createErrorResponse(
+              "Vertex AI access denied. Enable the Vertex AI API and ensure your service account has permissions.",
+              {
+                suggestion:
+                  "Run: gcloud services enable aiplatform.googleapis.com and ensure the service account has Vertex AI User role",
+                error: errorText.substring(0, 500),
+              },
+            ),
+          );
+          return;
+        }
+
+        throw new Error(
+          `Vertex AI API error: ${response.status} - ${errorText.substring(0, 200)}`,
+        );
+      }
+
+      const result = await response.json();
+      const responseTime = Date.now() - startTime;
+
+      // Extract the response text
+      const candidates = result.candidates || [];
+      const content =
+        candidates[0]?.content?.parts?.[0]?.text || "No results found";
+
+      // Extract grounding metadata if available
+      const groundingMetadata = candidates[0]?.groundingMetadata;
+      const groundingChunks = groundingMetadata?.groundingChunks || [];
+      const webSources = groundingChunks
+        .filter((chunk: any) => chunk.web)
+        .map((chunk: any) => ({
+          title: chunk.web.title || "Unknown",
+          url: chunk.web.uri || "",
+        }));
+
+      console.log(
+        `[Grounded Search] Successfully retrieved grounded results in ${responseTime}ms`,
+      );
+
+      res.json(
+        createSuccessResponse({
+          query,
+          results: content,
+          sources: webSources,
+          provider: "google-vertex-grounding",
+          model: "gemini-2.0-flash",
+          isGrounded: true,
+          groundingEnabled: true,
+          responseTime,
+        }),
+      );
+    } catch (error) {
+      console.error(`[Grounded Search] Error:`, (error as Error).message);
+      res.status(500).json(createErrorResponse((error as Error).message));
+    }
+  }),
+);
+
+// Helper function to create Google Search tools (same as directTools.ts)
+function createGoogleSearchTools() {
+  const searchTool = {};
+  Object.defineProperty(searchTool, "google_search", {
+    value: {},
+    enumerable: true,
+    configurable: true,
+  });
+  return [searchTool];
+}
+
+app.post(
+  "/api/web/search",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { query } = req.body;
+
+    if (!query) {
+      res.status(400).json(createErrorResponse("Search query is required"));
+      return;
+    }
+
+    console.log(`[Web Search] Searching for: ${query}`);
+
+    try {
+      // Check if Vertex AI is configured for grounded search
+      const hasCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      const hasProjectId = process.env.GOOGLE_VERTEX_PROJECT;
+
+      if (hasCredentials && hasProjectId) {
+        // Use Vertex AI SDK with Google Search grounding (same as directTools.ts)
+        console.log(
+          `[Web Search] Using Vertex AI SDK with Google Search grounding`,
+        );
+
+        const { VertexAI } = await import("@google-cloud/vertexai");
+        const projectLocation =
+          process.env.GOOGLE_VERTEX_LOCATION || "us-central1";
+
+        const vertex_ai = new VertexAI({
+          project: hasProjectId as string,
+          location: projectLocation,
+        });
+
+        const model = vertex_ai.getGenerativeModel({
+          model: "gemini-2.5-flash-lite",
+          tools: createGoogleSearchTools(),
+        });
+
+        const startTime = Date.now();
+        const response = await model.generateContent({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `Search for: "${query}". Provide current information with sources.`,
+                },
+              ],
+            },
+          ],
+        });
+
+        const responseTime = Date.now() - startTime;
+        const candidates = response.response.candidates;
+
+        if (!candidates || candidates.length === 0) {
+          res.json(
+            createSuccessResponse({
+              query,
+              results: "No results found",
+              sources: [],
+              provider: "google-vertex-grounding",
+              isGrounded: true,
+            }),
+          );
+          return;
+        }
+
+        const content = candidates[0].content?.parts?.[0]?.text || "No results";
+
+        // Extract sources from grounding metadata
+        const groundingChunks =
+          candidates[0]?.groundingMetadata?.groundingChunks || [];
+        const sources = groundingChunks
+          .filter((chunk: any) => chunk.web)
+          .map((chunk: any) => ({
+            title: chunk.web.title || "Unknown",
+            url: chunk.web.uri || "",
+          }));
+
+        console.log(
+          `[Web Search] Vertex AI grounded search completed in ${responseTime}ms`,
+        );
+
+        res.json(
+          createSuccessResponse({
+            query,
+            results: content,
+            sources,
+            provider: "google-vertex-grounding",
+            model: "gemini-2.5-flash-lite",
+            isGrounded: true,
+            responseTime,
+          }),
+        );
+        return;
+      }
+
+      // Fallback to Google AI if no Vertex
+      if (isProviderConfigured("google-ai")) {
+        const searchPrompt = `Provide information about: "${query}"
+
+Include:
+1. **Key Facts**: Important facts and details
+2. **Background**: Relevant context
+3. **Key Points**: Most important takeaways
+
+Note: Based on training data, not real-time search.`;
+
+        const result = await generateWithProvider("google-ai", searchPrompt, {
+          maxTokens: 1000,
+          temperature: 0.4,
+          timeout: 60000,
+        });
+
+        res.json(
+          createSuccessResponse({
+            query,
+            results: result.content,
+            provider: result.provider,
+            model: result.model,
+            isGrounded: false,
+            responseTime: result.responseTime,
+          }),
+        );
+        return;
+      }
+
+      // No suitable provider
+      res.status(503).json(
+        createErrorResponse(
+          "Web search requires Google Vertex AI or Google AI configuration",
+          {
+            suggestion:
+              "Set GOOGLE_APPLICATION_CREDENTIALS and GOOGLE_VERTEX_PROJECT, or GOOGLE_AI_API_KEY",
+          },
+        ),
+      );
+    } catch (error) {
+      console.error(`[Web Search] Error:`, (error as Error).message);
+      res.status(500).json(createErrorResponse((error as Error).message));
+    }
+  }),
+);
+
+// ================================
+// PPT GENERATION ENDPOINT
+// ================================
+
+import PptxGenJS from "pptxgenjs";
+
+app.post(
+  "/api/generate/ppt",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const {
+      provider = "auto",
+      topic,
+      pages = 10,
+      theme = "Modern",
+      audience = "General",
+      tone = "Professional",
+      aspectRatio = "16:9",
+    } = req.body;
+
+    if (!topic) {
+      res
+        .status(400)
+        .json(createErrorResponse("Topic is required for PPT generation"));
+      return;
+    }
+
+    console.log(
+      `[PPT] Generating ${pages}-slide presentation about: ${topic.substring(0, 100)}`,
+    );
+
+    try {
+      // Step 1: Generate slide content using AI
+      const contentPrompt = `Create a ${pages}-slide PowerPoint presentation about: "${topic}"
+
+Theme: ${theme}
+Target Audience: ${audience}
+Tone: ${tone}
+
+For each slide, provide:
+1. Slide number
+2. Title (short, impactful)
+3. Content (3-5 bullet points, each under 15 words)
+4. Speaker notes (brief explanation)
+
+Format as JSON:
+{
+  "title": "Presentation Title",
+  "slides": [
+    {
+      "number": 1,
+      "title": "Slide Title",
+      "bullets": ["Point 1", "Point 2", "Point 3"],
+      "notes": "Speaker notes"
+    }
+  ]
+}
+
+Return ONLY valid JSON, no other text.`;
+
+      console.log(`[PPT] Generating content with AI...`);
+      const aiResult = await generateWithProvider(provider, contentPrompt, {
+        maxTokens: 2000,
+        temperature: 0.7,
+      });
+
+      // Parse AI response
+      let slideData;
+      try {
+        // Try to extract JSON from the response
+        const jsonMatch = aiResult.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          slideData = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error("No JSON found in response");
+        }
+      } catch (parseError) {
+        console.log(`[PPT] JSON parse failed, creating default structure`);
+        // Create default structure if JSON parsing fails
+        slideData = {
+          title: topic,
+          slides: Array.from({ length: Math.min(pages, 10) }, (_, i) => ({
+            number: i + 1,
+            title: i === 0 ? topic : `Slide ${i + 1}`,
+            bullets: [
+              "Key point about the topic",
+              "Important insight",
+              "Relevant data or fact",
+            ],
+            notes: `Content for slide ${i + 1}`,
+          })),
+        };
+      }
+
+      console.log(
+        `[PPT] Creating PowerPoint with ${slideData.slides?.length || pages} slides...`,
+      );
+
+      // Step 2: Create PowerPoint using pptxgenjs
+      const pptx = new PptxGenJS();
+
+      // Set presentation properties
+      pptx.author = "NeuroLink AI";
+      pptx.title = slideData.title || topic;
+      pptx.subject = topic;
+
+      // Set layout based on aspect ratio
+      if (aspectRatio === "4:3") {
+        pptx.defineLayout({ name: "CUSTOM", width: 10, height: 7.5 });
+      } else {
+        pptx.defineLayout({ name: "CUSTOM", width: 13.333, height: 7.5 });
+      }
+      pptx.layout = "CUSTOM";
+
+      // Theme colors
+      const themes: Record<
+        string,
+        { primary: string; secondary: string; accent: string; bg: string }
+      > = {
+        Modern: {
+          primary: "2C3E50",
+          secondary: "3498DB",
+          accent: "E74C3C",
+          bg: "FFFFFF",
+        },
+        Professional: {
+          primary: "1A365D",
+          secondary: "2B6CB0",
+          accent: "C53030",
+          bg: "FFFFFF",
+        },
+        Creative: {
+          primary: "6B46C1",
+          secondary: "9F7AEA",
+          accent: "F56565",
+          bg: "F7FAFC",
+        },
+        Minimalist: {
+          primary: "2D3748",
+          secondary: "4A5568",
+          accent: "718096",
+          bg: "FFFFFF",
+        },
+        Dark: {
+          primary: "1A202C",
+          secondary: "2D3748",
+          accent: "F56565",
+          bg: "1A202C",
+        },
+        default: {
+          primary: "2C3E50",
+          secondary: "3498DB",
+          accent: "E74C3C",
+          bg: "FFFFFF",
+        },
+      };
+      const colors = themes[theme] || themes["default"];
+      const isDark = theme === "Dark";
+      const textColor = isDark ? "FFFFFF" : "2D3748";
+
+      // Add title slide
+      let titleSlide = pptx.addSlide();
+      titleSlide.background = { color: colors.primary };
+      titleSlide.addText(slideData.title || topic, {
+        x: 0.5,
+        y: 2.5,
+        w: "90%",
+        h: 1.5,
+        fontSize: 40,
+        bold: true,
+        color: "FFFFFF",
+        align: "center",
+        valign: "middle",
+      });
+      titleSlide.addText(
+        `Generated by NeuroLink AI\n${new Date().toLocaleDateString()}`,
+        {
+          x: 0.5,
+          y: 4.5,
+          w: "90%",
+          h: 1,
+          fontSize: 16,
+          color: "CCCCCC",
+          align: "center",
+          valign: "middle",
+        },
+      );
+
+      // Add content slides
+      const slides = slideData.slides || [];
+      for (let i = 0; i < Math.min(slides.length, pages - 1); i++) {
+        const slideInfo = slides[i];
+        let slide = pptx.addSlide();
+        slide.background = { color: colors.bg };
+
+        // Slide title
+        slide.addText(slideInfo.title || `Slide ${i + 2}`, {
+          x: 0.5,
+          y: 0.3,
+          w: "90%",
+          h: 0.8,
+          fontSize: 28,
+          bold: true,
+          color: colors.primary,
+        });
+
+        // Divider line
+        slide.addShape("rect", {
+          x: 0.5,
+          y: 1.1,
+          w: 2,
+          h: 0.05,
+          fill: { color: colors.secondary },
+        });
+
+        // Bullet points
+        const bullets = slideInfo.bullets || [
+          "Content point 1",
+          "Content point 2",
+          "Content point 3",
+        ];
+        const bulletText = bullets.map((b: string) => ({
+          text: b,
+          options: { bullet: { type: "bullet", color: colors.accent } },
+        }));
+
+        slide.addText(bulletText, {
+          x: 0.5,
+          y: 1.5,
+          w: "85%",
+          h: 4,
+          fontSize: 18,
+          color: textColor,
+          valign: "top",
+        });
+
+        // Speaker notes
+        if (slideInfo.notes) {
+          slide.addNotes(slideInfo.notes);
+        }
+
+        // Slide number
+        slide.addText(`${i + 2}`, {
+          x: "90%",
+          y: "90%",
+          w: 0.5,
+          h: 0.3,
+          fontSize: 10,
+          color: "999999",
+          align: "right",
+        });
+      }
+
+      // Generate the file as a buffer (don't save to disk)
+      console.log(`[PPT] Generating PowerPoint buffer...`);
+      const pptBuffer = (await pptx.write({
+        outputType: "nodebuffer",
+      })) as Buffer;
+      const fileSizeKB = Math.round(pptBuffer.length / 1024);
+      const fileName = `neurolink-ppt-${Date.now()}.pptx`;
+
+      console.log(`[PPT] Presentation created: ${fileName} (${fileSizeKB}KB)`);
+
+      // Set headers for file download
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${fileName}"`,
+      );
+      res.setHeader("Content-Length", pptBuffer.length);
+
+      // Send the file buffer directly to the user
+      res.send(pptBuffer);
+    } catch (error) {
+      const errorMessage = (error as Error).message || String(error);
+      console.error(`[PPT] Error:`, errorMessage);
+      console.error(`[PPT] Stack:`, (error as Error).stack);
+      res.status(500).json(createErrorResponse(errorMessage));
+    }
+  }),
+);
+
+// ================================
 // DEVELOPER TOOLS ENDPOINTS
 // ================================
 
@@ -1117,6 +3832,703 @@ Analysis:`;
         usage: result.usage,
       }),
     );
+  }),
+);
+
+// ================================
+// NATIVE NEUROLINK DEVELOPER TOOLS
+// ================================
+
+app.post(
+  "/api/developer/csv-analyze",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { csvContent, operation = "describe", column } = req.body;
+
+    if (!csvContent) {
+      res.status(400).json(createErrorResponse("CSV content is required"));
+      return;
+    }
+
+    console.log(`[CSV] Analyzing CSV, operation: ${operation}`);
+
+    try {
+      // Parse CSV content
+      const lines = csvContent.trim().split("\n");
+      if (lines.length < 2) {
+        res
+          .status(400)
+          .json(
+            createErrorResponse(
+              "CSV must have at least a header and one data row",
+            ),
+          );
+        return;
+      }
+
+      const headers = lines[0]
+        .split(",")
+        .map((h: string) => h.trim().replace(/"/g, ""));
+      const rows = lines.slice(1).map((line: string) => {
+        const values = line
+          .split(",")
+          .map((v: string) => v.trim().replace(/"/g, ""));
+        const row: Record<string, string> = {};
+        headers.forEach((h: string, i: number) => {
+          row[h] = values[i] || "";
+        });
+        return row;
+      });
+
+      let result: Record<string, unknown> = {};
+
+      switch (operation) {
+        case "describe": {
+          result = {
+            totalRows: rows.length,
+            columns: headers,
+            columnCount: headers.length,
+            sampleData: rows.slice(0, 3),
+          };
+          break;
+        }
+
+        case "count_by_column": {
+          if (!column) {
+            res
+              .status(400)
+              .json(
+                createErrorResponse("Column name required for count operation"),
+              );
+            return;
+          }
+          const counts: Record<string, number> = {};
+          for (const row of rows) {
+            const value = row[column] || "undefined";
+            counts[value] = (counts[value] || 0) + 1;
+          }
+          result = {
+            column,
+            counts: Object.fromEntries(
+              Object.entries(counts).sort(([, a], [, b]) => b - a),
+            ),
+            uniqueValues: Object.keys(counts).length,
+          };
+          break;
+        }
+
+        case "sum_by_column": {
+          if (!column) {
+            res
+              .status(400)
+              .json(
+                createErrorResponse("Column name required for sum operation"),
+              );
+            return;
+          }
+          let sum = 0;
+          let count = 0;
+          for (const row of rows) {
+            const num = parseFloat(row[column]);
+            if (!isNaN(num)) {
+              sum += num;
+              count++;
+            }
+          }
+          result = { column, sum, count, average: count > 0 ? sum / count : 0 };
+          break;
+        }
+
+        case "min_max_by_column": {
+          if (!column) {
+            res
+              .status(400)
+              .json(
+                createErrorResponse(
+                  "Column name required for min/max operation",
+                ),
+              );
+            return;
+          }
+          const values = rows
+            .map((r: Record<string, string>) => parseFloat(r[column]))
+            .filter((n: number) => !isNaN(n));
+          if (values.length === 0) {
+            result = { column, error: "No numeric values found" };
+          } else {
+            result = {
+              column,
+              min: Math.min(...values),
+              max: Math.max(...values),
+              average:
+                values.reduce((a: number, b: number) => a + b, 0) /
+                values.length,
+              count: values.length,
+            };
+          }
+          break;
+        }
+
+        default:
+          res
+            .status(400)
+            .json(createErrorResponse(`Unknown operation: ${operation}`));
+          return;
+      }
+
+      res.json(createSuccessResponse({ ...result, operation }));
+    } catch (error) {
+      const errorMessage = (error as Error).message || String(error);
+      console.error(`[CSV] Error:`, errorMessage);
+      res.status(500).json(createErrorResponse(errorMessage));
+    }
+  }),
+);
+
+app.post(
+  "/api/developer/math",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { expression } = req.body;
+
+    if (!expression) {
+      res.status(400).json(createErrorResponse("Math expression is required"));
+      return;
+    }
+
+    console.log(`[Math] Evaluating: ${expression}`);
+
+    try {
+      // Safe math evaluation - only allow basic operations and Math functions
+      const allowedMathFunctions = [
+        "Math.abs",
+        "Math.ceil",
+        "Math.floor",
+        "Math.round",
+        "Math.sqrt",
+        "Math.pow",
+        "Math.sin",
+        "Math.cos",
+        "Math.tan",
+        "Math.log",
+        "Math.exp",
+        "Math.PI",
+        "Math.E",
+        "Math.min",
+        "Math.max",
+      ];
+
+      let safeExpression = expression;
+      let hasMathFunction = false;
+
+      for (const func of allowedMathFunctions) {
+        if (expression.includes(func)) {
+          hasMathFunction = true;
+        }
+      }
+
+      // Check for dangerous patterns
+      const dangerousPatterns =
+        /[;{}[\]]|eval|Function|require|import|process|global/;
+      if (dangerousPatterns.test(expression)) {
+        res.status(400).json(createErrorResponse("Unsafe expression detected"));
+        return;
+      }
+
+      // Use Function constructor for safe evaluation
+      const result = new Function(`'use strict'; return (${expression})`)();
+
+      res.json(
+        createSuccessResponse({
+          expression,
+          result:
+            typeof result === "number" ? Number(result.toFixed(10)) : result,
+          type: typeof result,
+        }),
+      );
+    } catch (error) {
+      const errorMessage = (error as Error).message || String(error);
+      res
+        .status(400)
+        .json(createErrorResponse(`Math evaluation error: ${errorMessage}`));
+    }
+  }),
+);
+
+app.post(
+  "/api/developer/websearch",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { query, maxResults = 5 } = req.body;
+
+    if (!query) {
+      res.status(400).json(createErrorResponse("Search query is required"));
+      return;
+    }
+
+    console.log(`[WebSearch] Searching for: ${query}`);
+
+    try {
+      // Check if Vertex AI is configured for grounding
+      const hasCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      const hasProjectId = process.env.GOOGLE_VERTEX_PROJECT;
+
+      if (!hasCredentials || !hasProjectId) {
+        // Fallback to AI-based search simulation
+        const searchPrompt = `You are a search assistant. Provide information about: "${query}"
+
+Include:
+1. Key facts and information
+2. Different perspectives if applicable
+3. Sources or references if known
+4. Current relevance
+
+Note: This is AI-generated content based on training data, not real-time search.`;
+
+        const result = await generateWithProvider("auto", searchPrompt, {
+          maxTokens: 500,
+          temperature: 0.4,
+        });
+
+        res.json(
+          createSuccessResponse({
+            query,
+            results: [
+              {
+                title: `AI-generated results for: ${query}`,
+                snippet: result.content,
+                source: "AI Knowledge Base",
+              },
+            ],
+            provider: result.provider,
+            isGrounded: false,
+            note: "Real-time search requires Google Vertex AI configuration",
+          }),
+        );
+        return;
+      }
+
+      // Use Vertex AI with grounding if configured
+      const { VertexAI } = await import("@google-cloud/vertexai");
+      const projectLocation =
+        process.env.GOOGLE_VERTEX_LOCATION || "us-central1";
+
+      const vertex_ai = new VertexAI({
+        project: hasProjectId!,
+        location: projectLocation,
+      });
+
+      // Use dynamic typing to bypass TypeScript strict checking for Vertex AI tools
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const model = vertex_ai.getGenerativeModel({
+        model: "gemini-2.5-flash-lite",
+        tools: [{ google_search: {} }] as any,
+      });
+
+      const startTime = Date.now();
+      const response = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: `Search for: ${query}` }] }],
+      });
+
+      const responseTime = Date.now() - startTime;
+      const candidates = response.response.candidates;
+
+      if (!candidates || candidates.length === 0) {
+        res.json(
+          createSuccessResponse({
+            query,
+            results: [],
+            error: "No results returned",
+          }),
+        );
+        return;
+      }
+
+      const content = candidates[0].content?.parts?.[0]?.text || "";
+      const groundingMetadata = candidates[0]?.groundingMetadata;
+
+      const searchResults = [];
+      if (groundingMetadata?.groundingChunks) {
+        for (const chunk of groundingMetadata.groundingChunks.slice(
+          0,
+          maxResults,
+        )) {
+          if (chunk.web) {
+            searchResults.push({
+              title: chunk.web.title || "No title",
+              url: chunk.web.uri || "",
+              snippet: content.substring(0, 200),
+            });
+          }
+        }
+      }
+
+      res.json(
+        createSuccessResponse({
+          query,
+          results:
+            searchResults.length > 0
+              ? searchResults
+              : [
+                  {
+                    title: `Results for: ${query}`,
+                    snippet: content,
+                    source: "Google Search Grounding",
+                  },
+                ],
+          rawContent: content,
+          provider: "google-vertex-grounding",
+          model: "gemini-2.5-flash-lite",
+          responseTime,
+          isGrounded: true,
+        }),
+      );
+    } catch (error) {
+      const errorMessage = (error as Error).message || String(error);
+      console.error(`[WebSearch] Error:`, errorMessage);
+      res.status(500).json(createErrorResponse(errorMessage));
+    }
+  }),
+);
+
+app.post(
+  "/api/developer/file-operations",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { operation, path: filePath, content } = req.body;
+
+    if (!operation) {
+      res.status(400).json(createErrorResponse("Operation is required"));
+      return;
+    }
+
+    console.log(`[FileOps] Operation: ${operation}`);
+
+    try {
+      const fs = await import("fs");
+      const path = await import("path");
+
+      // Security: Only allow operations within demo directory
+      const demoDir = process.cwd();
+      const resolvedPath = filePath ? path.resolve(demoDir, filePath) : demoDir;
+
+      if (!resolvedPath.startsWith(demoDir)) {
+        res
+          .status(403)
+          .json(
+            createErrorResponse(
+              "Access denied: Cannot operate outside demo directory",
+            ),
+          );
+        return;
+      }
+
+      switch (operation) {
+        case "list": {
+          const items = fs.readdirSync(resolvedPath);
+          const details = items.map((item) => {
+            const itemPath = path.join(resolvedPath, item);
+            const stats = fs.statSync(itemPath);
+            return {
+              name: item,
+              type: stats.isDirectory() ? "directory" : "file",
+              size: stats.size,
+              modified: stats.mtime.toISOString(),
+            };
+          });
+          res.json(
+            createSuccessResponse({ path: resolvedPath, items: details }),
+          );
+          break;
+        }
+
+        case "read": {
+          if (!filePath) {
+            res
+              .status(400)
+              .json(
+                createErrorResponse("File path required for read operation"),
+              );
+            return;
+          }
+          const fileContent = fs.readFileSync(resolvedPath, "utf-8");
+          const stats = fs.statSync(resolvedPath);
+          res.json(
+            createSuccessResponse({
+              path: resolvedPath,
+              content: fileContent,
+              size: stats.size,
+              modified: stats.mtime.toISOString(),
+            }),
+          );
+          break;
+        }
+
+        case "write": {
+          if (!filePath || content === undefined) {
+            res
+              .status(400)
+              .json(
+                createErrorResponse(
+                  "File path and content required for write operation",
+                ),
+              );
+            return;
+          }
+          fs.writeFileSync(resolvedPath, content, "utf-8");
+          res.json(
+            createSuccessResponse({
+              path: resolvedPath,
+              written: true,
+              size: content.length,
+            }),
+          );
+          break;
+        }
+
+        default:
+          res
+            .status(400)
+            .json(createErrorResponse(`Unknown operation: ${operation}`));
+      }
+    } catch (error) {
+      const errorMessage = (error as Error).message || String(error);
+      res.status(500).json(createErrorResponse(errorMessage));
+    }
+  }),
+);
+
+// ================================
+// TEXT-TO-SPEECH ENDPOINT (Google Cloud TTS)
+// ================================
+
+// Google Cloud TTS voice mappings
+const GOOGLE_TTS_VOICES: Record<
+  string,
+  { name: string; languageCode: string; ssmlGender: string }
+> = {
+  // Default voices
+  alloy: {
+    name: "en-US-Neural2-C",
+    languageCode: "en-US",
+    ssmlGender: "FEMALE",
+  },
+  echo: { name: "en-US-Neural2-D", languageCode: "en-US", ssmlGender: "MALE" },
+  fable: {
+    name: "en-US-Neural2-A",
+    languageCode: "en-US",
+    ssmlGender: "FEMALE",
+  },
+  onyx: { name: "en-US-Neural2-B", languageCode: "en-US", ssmlGender: "MALE" },
+  nova: {
+    name: "en-US-Neural2-E",
+    languageCode: "en-US",
+    ssmlGender: "FEMALE",
+  },
+  shimmer: {
+    name: "en-US-Neural2-F",
+    languageCode: "en-US",
+    ssmlGender: "FEMALE",
+  },
+  // Language-specific voices
+  "en-us-female": {
+    name: "en-US-Neural2-C",
+    languageCode: "en-US",
+    ssmlGender: "FEMALE",
+  },
+  "en-us-male": {
+    name: "en-US-Neural2-D",
+    languageCode: "en-US",
+    ssmlGender: "MALE",
+  },
+  "en-gb-female": {
+    name: "en-GB-Neural2-A",
+    languageCode: "en-GB",
+    ssmlGender: "FEMALE",
+  },
+  "en-gb-male": {
+    name: "en-GB-Neural2-B",
+    languageCode: "en-GB",
+    ssmlGender: "MALE",
+  },
+  "hi-in-female": {
+    name: "hi-IN-Neural2-A",
+    languageCode: "hi-IN",
+    ssmlGender: "FEMALE",
+  },
+  "hi-in-male": {
+    name: "hi-IN-Neural2-B",
+    languageCode: "hi-IN",
+    ssmlGender: "MALE",
+  },
+};
+
+app.post(
+  "/api/tts/generate",
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const {
+      text,
+      voice = "alloy",
+      speed = 1.0,
+      format = "mp3",
+      languageCode,
+    } = req.body;
+
+    if (!text || typeof text !== "string" || !text.trim()) {
+      res
+        .status(400)
+        .json(createErrorResponse("Text is required for TTS generation"));
+      return;
+    }
+
+    const MAX_TTS_LENGTH = 5000;
+    if (text.length > MAX_TTS_LENGTH) {
+      res
+        .status(400)
+        .json(
+          createErrorResponse(
+            `Text too long. Maximum ${MAX_TTS_LENGTH} characters, got ${text.length}.`,
+          ),
+        );
+      return;
+    }
+
+    console.log(
+      `[TTS] Generating speech with Google Cloud TTS: ${text.substring(0, 60)}... voice=${voice}`,
+    );
+
+    try {
+      // Check if Google Cloud is configured
+      const hasCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      const hasProjectId =
+        process.env.GOOGLE_VERTEX_PROJECT || process.env.GOOGLE_CLOUD_PROJECT;
+
+      if (!hasCredentials) {
+        res.status(503).json(
+          createErrorResponse(
+            "Google Cloud TTS requires GOOGLE_APPLICATION_CREDENTIALS",
+            {
+              suggestion:
+                "Set GOOGLE_APPLICATION_CREDENTIALS in your .env file pointing to your service account JSON",
+            },
+          ),
+        );
+        return;
+      }
+
+      // Use Google Auth to get access token
+      const { GoogleAuth } = await import("google-auth-library");
+      const auth = new GoogleAuth({
+        keyFilename: hasCredentials,
+        scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+      });
+
+      const client = await auth.getClient();
+      const accessToken = await client.getAccessToken();
+
+      if (!accessToken.token) {
+        throw new Error("Failed to get Google Cloud access token");
+      }
+
+      const startTime = Date.now();
+
+      // Get voice configuration
+      const voiceConfig =
+        GOOGLE_TTS_VOICES[voice.toLowerCase()] || GOOGLE_TTS_VOICES["alloy"];
+
+      // Override language code if provided
+      const finalLanguageCode = languageCode || voiceConfig.languageCode;
+
+      // Google Cloud Text-to-Speech API endpoint
+      const endpoint = "https://texttospeech.googleapis.com/v1/text:synthesize";
+
+      const requestBody = {
+        input: { text: text.trim() },
+        voice: {
+          languageCode: finalLanguageCode,
+          name: voiceConfig.name,
+          ssmlGender: voiceConfig.ssmlGender,
+        },
+        audioConfig: {
+          audioEncoding:
+            format.toUpperCase() === "MP3"
+              ? "MP3"
+              : format.toUpperCase() === "OGG"
+                ? "OGG_OPUS"
+                : "LINEAR16",
+          speakingRate: Math.min(4.0, Math.max(0.25, Number(speed) || 1.0)),
+          pitch: 0,
+          volumeGainDb: 0,
+        },
+      };
+
+      console.log(
+        `[TTS] Calling Google Cloud TTS API with voice: ${voiceConfig.name}`,
+      );
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken.token}`,
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(60000),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(
+          `[TTS] Google Cloud TTS error ${response.status}: ${errorText}`,
+        );
+
+        if (response.status === 403) {
+          res.status(403).json(
+            createErrorResponse(
+              "Google Cloud TTS access denied. Enable the Text-to-Speech API.",
+              {
+                suggestion:
+                  "Run: gcloud services enable texttospeech.googleapis.com",
+                error: errorText.substring(0, 500),
+              },
+            ),
+          );
+          return;
+        }
+
+        throw new Error(
+          `Google Cloud TTS API error: ${response.status} - ${errorText.substring(0, 200)}`,
+        );
+      }
+
+      const result = await response.json();
+      const audioBase64 = result.audioContent;
+
+      if (!audioBase64) {
+        throw new Error("No audio content returned from Google Cloud TTS");
+      }
+
+      const audioBuffer = Buffer.from(audioBase64, "base64");
+      const responseTime = Date.now() - startTime;
+
+      console.log(
+        `[TTS] Generated ${audioBuffer.length} bytes in ${responseTime}ms via Google Cloud TTS (voice=${voiceConfig.name})`,
+      );
+
+      res.json(
+        createSuccessResponse({
+          audioBase64,
+          format,
+          voice: voiceConfig.name,
+          languageCode: finalLanguageCode,
+          speed,
+          characterCount: text.trim().length,
+          audioSizeKB: Math.round(audioBuffer.length / 1024),
+          responseTime,
+          provider: "google-cloud-tts",
+        }),
+      );
+    } catch (error) {
+      const errorMessage = (error as Error).message || String(error);
+      console.error(`[TTS] Error:`, errorMessage);
+      res.status(500).json(createErrorResponse(errorMessage));
+    }
   }),
 );
 

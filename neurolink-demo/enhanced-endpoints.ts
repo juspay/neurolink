@@ -1,6 +1,9 @@
 // @ts-expect-error -- resolved via "neurolink" alias in package.json ("file:../")
 import { createAIProvider, getBestProvider } from "neurolink";
 import type { Express, Request, Response } from "express";
+import { ContextCompactor } from "../src/lib/context/contextCompactor.js";
+import { buildSummarizationPrompt } from "../src/lib/context/prompts/summarizationPrompt.js";
+import type { ChatMessage } from "../src/lib/types/conversation.js";
 
 // Enhanced API endpoints for comprehensive interactive examples
 
@@ -673,6 +676,140 @@ Analysis:`,
             debuggedAt: new Date().toISOString(),
           },
           usage: result.usage,
+        });
+      } catch (error) {
+        res
+          .status(500)
+          .json({ success: false, error: (error as Error).message });
+      }
+    },
+  );
+};
+
+// Context Management Endpoints
+export const contextEndpoints = (app: Express): void => {
+  // Context Summarization
+  app.post(
+    "/api/context/summarize",
+    async (req: Request, res: Response): Promise<void> => {
+      try {
+        const { messages, maxTokens = 4000 } = req.body;
+
+        if (!messages || !Array.isArray(messages)) {
+          res
+            .status(400)
+            .json({ success: false, error: "Messages array is required" });
+          return;
+        }
+
+        const compactor = new ContextCompactor();
+        const result = await compactor.compact(
+          messages as ChatMessage[],
+          maxTokens,
+        );
+
+        res.json({
+          success: true,
+          data: {
+            originalMessages: messages.length,
+            compactedMessages: result.messages.length,
+            compressionRatio:
+              messages.length > 0
+                ? Math.round((result.messages.length / messages.length) * 100) +
+                  "%"
+                : "0%",
+            messages: result.messages,
+            tokensSaved: result.tokensSaved || 0,
+          },
+        });
+      } catch (error) {
+        res
+          .status(500)
+          .json({ success: false, error: (error as Error).message });
+      }
+    },
+  );
+
+  // Build Summarization Prompt
+  app.post(
+    "/api/context/build-prompt",
+    async (req: Request, res: Response): Promise<void> => {
+      try {
+        const {
+          isIncremental = false,
+          previousSummary,
+          filesRead = [],
+          filesModified = [],
+        } = req.body;
+
+        const prompt = buildSummarizationPrompt({
+          isIncremental,
+          previousSummary,
+          filesRead,
+          filesModified,
+        });
+
+        res.json({
+          success: true,
+          data: {
+            prompt,
+            estimatedTokens: Math.ceil(prompt.length / 4),
+            mode: isIncremental ? "incremental" : "initial",
+          },
+        });
+      } catch (error) {
+        res
+          .status(500)
+          .json({ success: false, error: (error as Error).message });
+      }
+    },
+  );
+
+  // Get Context Statistics
+  app.post(
+    "/api/context/stats",
+    async (req: Request, res: Response): Promise<void> => {
+      try {
+        const { messages } = req.body;
+
+        if (!messages || !Array.isArray(messages)) {
+          res
+            .status(400)
+            .json({ success: false, error: "Messages array is required" });
+          return;
+        }
+
+        const totalChars = messages.reduce(
+          (sum: number, m: { content?: string }) =>
+            sum + (m.content?.length || 0),
+          0,
+        );
+        const estimatedTokens = Math.ceil(totalChars / 4);
+
+        const roleCounts = messages.reduce(
+          (acc: Record<string, number>, m: { role?: string }) => {
+            const role = m.role || "unknown";
+            acc[role] = (acc[role] || 0) + 1;
+            return acc;
+          },
+          {} as Record<string, number>,
+        );
+
+        res.json({
+          success: true,
+          data: {
+            totalMessages: messages.length,
+            estimatedTokens,
+            estimatedCost:
+              estimatedTokens > 0
+                ? `$${((estimatedTokens / 1000) * 0.002).toFixed(4)}`
+                : "$0.00",
+            roleDistribution: roleCounts,
+            averageMessageLength:
+              messages.length > 0
+                ? Math.round(totalChars / messages.length)
+                : 0,
+          },
         });
       } catch (error) {
         res
