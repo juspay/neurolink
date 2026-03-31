@@ -27,17 +27,25 @@ function detectTableRanges(
   let i = 0;
 
   while (i < lines.length) {
+    const currentLine = lines[i];
+    const separatorLine = lines[i + 1];
     // A table needs at least a header row + separator
     if (
       i + 1 < lines.length &&
-      TABLE_ROW_RE.test(lines[i]!) &&
-      TABLE_SEPARATOR_RE.test(lines[i + 1]!)
+      currentLine !== undefined &&
+      separatorLine !== undefined &&
+      TABLE_ROW_RE.test(currentLine) &&
+      TABLE_SEPARATOR_RE.test(separatorLine)
     ) {
       const start = i;
       // Advance past header + separator
       i += 2;
       // Consume remaining data rows
-      while (i < lines.length && TABLE_ROW_RE.test(lines[i]!)) {
+      while (i < lines.length) {
+        const row = lines[i];
+        if (row === undefined || !TABLE_ROW_RE.test(row)) {
+          break;
+        }
         i++;
       }
       ranges.push({ start, end: i - 1 });
@@ -281,8 +289,8 @@ export class MarkdownChunker extends BaseChunker {
       return [tableText];
     }
 
-    const headerRow = rows[0]!;
-    const separatorRow = rows[1]!;
+    const headerRow = rows[0] ?? "";
+    const separatorRow = rows[1] ?? "";
     const headerBlock = headerRow + "\n" + separatorRow;
     const dataRows = rows.slice(2);
 

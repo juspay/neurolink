@@ -240,7 +240,10 @@ export class NeuroLinkLanguageModel implements LanguageModel {
       while (true) {
         // Drain anything already buffered.
         while (buffer.length > 0) {
-          const chunk = buffer.shift()!;
+          const chunk = buffer.shift();
+          if (!chunk) {
+            break;
+          }
           yield chunk;
           if (chunk.type === "finish") {
             return;

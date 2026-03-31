@@ -26,6 +26,8 @@ NeuroLink provides comprehensive observability features for monitoring AI operat
 - **External Provider Mode**: Integrate with existing OpenTelemetry instrumentation without conflicts
 - **Context Propagation**: Automatic context enrichment with user, session, and custom metadata
 
+For the Claude proxy's local OpenObserve stack and maintained dashboard, use [Claude Proxy](/docs/features/claude-proxy) and [Claude Proxy Observability](/docs/features/claude-proxy-observability). Those guides cover `neurolink proxy telemetry setup`, dashboard import, stream names, and how to interpret proxy-specific logs, metrics, and traces.
+
 ## Quick Start
 
 ### Basic Langfuse Setup
@@ -362,9 +364,13 @@ await setLangfuseContext({ userId: "user-123" }, async () => {
 });
 ```
 
+## Proxy Observability
+
+The NeuroLink proxy automatically initializes OpenTelemetry and exports three signal types (traces, metrics, logs) via OTLP HTTP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. Each proxy request creates an OTel span with token usage, model, cost, and rate-limit attributes. Request log entries include `traceId` and `spanId` for cross-signal correlation. See the [Telemetry Guide](../telemetry-guide.md#-proxy-telemetry-otlp-triple-signal-export) for details.
+
 ## External TracerProvider Mode
 
-If your application already has OpenTelemetry instrumentation (e.g., for HTTP, database tracing), use external provider mode to avoid "duplicate registration" errors:
+If your application already has OpenTelemetry instrumentation (e.g., for HTTP, database tracing), use external provider mode to avoid "duplicate registration" errors. Note: `TelemetryService` now automatically detects and reuses an existing global `TracerProvider`, so in many cases you no longer need explicit external provider configuration.
 
 ### Configuration
 

@@ -1,6 +1,8 @@
 /**
  * Proxy Request Logger
  * Logs proxy request/response metadata to a rotating log file.
+ * Also emits OTLP log records to OpenObserve (or any OTLP-compatible backend)
+ * when a LoggerProvider is configured via OpenTelemetry instrumentation.
  * Useful for debugging and auditing proxy traffic.
  */
 
@@ -12,17 +14,39 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  rmSync,
   statSync,
   unlinkSync,
 } from "fs";
-import { appendFile } from "fs/promises";
-import type { RequestLogEntry } from "../types/index.js";
+import { appendFile, writeFile } from "fs/promises";
+import { createHash } from "crypto";
+import { promisify } from "util";
+import { gzip as gzipCallback } from "zlib";
+import type {
+  RequestAttemptLogEntry,
+  RequestLogEntry,
+} from "../types/index.js";
+import { OtelBridge } from "../observability/otelBridge.js";
+import { SeverityNumber } from "@opentelemetry/api-logs";
+import type { LoggerProvider } from "@opentelemetry/sdk-logs";
 
 let logDir: string | null = null;
 let logEnabled = false;
 
-/** Maximum body size to log (bytes). Larger bodies are truncated. */
-const MAX_BODY_LOG_SIZE = 32_768; // 32 KB
+/**
+ * Lazily-resolved LoggerProvider from OTel instrumentation.
+ * null = not resolved yet (will retry), LoggerProvider = resolved, false = permanently unavailable.
+ */
+let otelLoggerProvider: LoggerProvider | null | false = null;
+/** Number of times we've tried to resolve the LoggerProvider. */
+let otelResolveAttempts = 0;
+/** Max number of resolve attempts before giving up. */
+const MAX_RESOLVE_ATTEMPTS = 10;
+
+/** Maximum body chunk size emitted to OTLP logs. */
+const BODY_OTLP_CHUNK_SIZE = 16_000;
+
+const gzip = promisify(gzipCallback);
 
 /** Headers whose values must always be redacted. */
 const SENSITIVE_HEADER_NAMES = new Set([
@@ -66,6 +90,18 @@ export async function logRequest(entry: RequestLogEntry): Promise<void> {
     return;
   }
 
+  // Only use OtelBridge if traceId not already provided by caller.
+  // Deferred .then() callbacks lose async context, so OtelBridge would
+  // return undefined and overwrite the valid traceId the caller passed.
+  if (!entry.traceId) {
+    const bridge = new OtelBridge();
+    const traceCtx = bridge.getCurrentTraceContext();
+    if (traceCtx) {
+      entry.traceId = traceCtx.traceId;
+      entry.spanId = traceCtx.spanId;
+    }
+  }
+
   const logFile = join(
     logDir,
     `proxy-${new Date().toISOString().split("T")[0]}.jsonl`,
@@ -77,6 +113,160 @@ export async function logRequest(entry: RequestLogEntry): Promise<void> {
   } catch {
     // Non-fatal — don't crash proxy for logging failures
   }
+
+  // Emit OTLP log record (additive — file logging is the primary sink)
+  emitOtlpLogRecord(entry);
+}
+
+/**
+ * Log an upstream attempt separately from the final request outcome.
+ * Attempt logs are local-only and must not pollute the final request summary
+ * or OTLP-derived dashboard panels.
+ */
+export async function logRequestAttempt(
+  entry: RequestAttemptLogEntry,
+): Promise<void> {
+  if (!logEnabled || !logDir) {
+    return;
+  }
+
+  if (!entry.traceId) {
+    const bridge = new OtelBridge();
+    const traceCtx = bridge.getCurrentTraceContext();
+    if (traceCtx) {
+      entry.traceId = traceCtx.traceId;
+      entry.spanId = traceCtx.spanId;
+    }
+  }
+
+  const logFile = join(
+    logDir,
+    `proxy-attempts-${new Date().toISOString().split("T")[0]}.jsonl`,
+  );
+  const line = JSON.stringify(entry) + "\n";
+
+  try {
+    await appendFile(logFile, line, { mode: 0o600 });
+  } catch {
+    // Non-fatal — don't crash proxy for logging failures
+  }
+}
+
+/**
+ * Lazily resolve the LoggerProvider from OTel instrumentation.
+ * Uses dynamic import to avoid hard dependency — if instrumentation.ts
+ * hasn't been loaded or OTLP is not configured, this is a no-op.
+ * Retries up to MAX_RESOLVE_ATTEMPTS times to handle race conditions
+ * where OTel initialization completes after the first log request.
+ */
+async function resolveLoggerProvider(): Promise<LoggerProvider | undefined> {
+  if (otelLoggerProvider === false) {
+    return undefined;
+  } // permanently unavailable
+  if (otelLoggerProvider !== null) {
+    return otelLoggerProvider;
+  }
+  // Not resolved yet — try to resolve
+  otelResolveAttempts++;
+  try {
+    const { getLoggerProvider } =
+      await import("../services/server/ai/observability/instrumentation.js");
+    const provider = getLoggerProvider();
+    if (provider) {
+      otelLoggerProvider = provider;
+      return provider;
+    }
+    // Provider not available yet — if we've exceeded max attempts, give up
+    if (otelResolveAttempts >= MAX_RESOLVE_ATTEMPTS) {
+      otelLoggerProvider = false; // permanently unavailable
+    }
+    // Otherwise leave as null so we retry next time
+    return undefined;
+  } catch {
+    // instrumentation.ts not available (e.g. standalone mode) — disable permanently
+    otelLoggerProvider = false;
+    return undefined;
+  }
+}
+
+/**
+ * Emit a RequestLogEntry as an OTLP log record.
+ * Non-blocking, non-fatal — failures are silently swallowed.
+ */
+function emitOtlpLogRecord(entry: RequestLogEntry): void {
+  resolveLoggerProvider()
+    .then((provider) => {
+      if (!provider) {
+        return;
+      }
+
+      const otelLogger = provider.getLogger("neurolink-proxy", "1.0.0");
+
+      // Determine severity based on response status
+      const isError = (entry.responseStatus ?? 0) >= 400;
+      const isRateLimit = entry.responseStatus === 429;
+      const severityNumber = isError
+        ? isRateLimit
+          ? SeverityNumber.WARN
+          : SeverityNumber.ERROR
+        : SeverityNumber.INFO;
+      const severityText = isError ? (isRateLimit ? "WARN" : "ERROR") : "INFO";
+
+      otelLogger.emit({
+        severityNumber,
+        severityText,
+        body: `${entry.method} ${entry.path} → ${entry.responseStatus} (${entry.responseTimeMs}ms)`,
+        attributes: {
+          // Core request fields
+          "request.id": entry.requestId,
+          "http.method": entry.method,
+          "http.path": entry.path,
+          "http.status_code": entry.responseStatus,
+          "response.time_ms": entry.responseTimeMs,
+
+          // AI-specific fields
+          "ai.model": entry.model,
+          "ai.stream": entry.stream,
+          "ai.tool_count": entry.toolCount,
+
+          // Account info
+          "account.name": entry.account,
+          "account.type": entry.accountType,
+
+          // Token usage (when available)
+          ...(entry.inputTokens !== undefined && {
+            "ai.input_tokens": entry.inputTokens,
+          }),
+          ...(entry.outputTokens !== undefined && {
+            "ai.output_tokens": entry.outputTokens,
+          }),
+          ...(entry.cacheCreationTokens !== undefined && {
+            "ai.cache_creation_tokens": entry.cacheCreationTokens,
+          }),
+          ...(entry.cacheReadTokens !== undefined && {
+            "ai.cache_read_tokens": entry.cacheReadTokens,
+          }),
+
+          // Error info (when present)
+          ...(entry.errorType && { "error.type": entry.errorType }),
+          ...(entry.errorMessage && { "error.message": entry.errorMessage }),
+
+          // Trace correlation
+          ...(entry.traceId && { "trace.id": entry.traceId }),
+          ...(entry.spanId && { "span.id": entry.spanId }),
+
+          // Derived fields for dashboards (matches backfill script)
+          is_success: entry.responseStatus === 200,
+          is_rate_limited: entry.responseStatus === 429,
+          is_overloaded: entry.responseStatus === 529,
+          is_error: isError,
+          source: "otlp",
+        },
+      });
+    })
+    .catch(() => {
+      // Non-fatal — never crash proxy for OTLP log failures
+    });
 }
 
 export function getLogDir(): string | null {
@@ -107,32 +297,258 @@ function redactHeaders(
   return redacted;
 }
 
-/**
- * Redact sensitive keys from a JSON body string and truncate if too large.
- */
-function redactBody(body: unknown): unknown {
+type ProxyBodyCaptureEntry = {
+  timestamp: string;
+  requestId: string;
+  phase: string;
+  model: string;
+  stream: boolean;
+  headers?: Record<string, string>;
+  body?: unknown;
+  bodySize?: number;
+  contentType?: string;
+  responseStatus?: number;
+  durationMs?: number;
+  account?: string;
+  accountType?: string;
+  attempt?: number;
+  traceId?: string;
+  spanId?: string;
+  metadata?: Record<string, unknown>;
+};
+
+type StoredBodyArtifact = {
+  bodyPath?: string;
+  bodySha256?: string;
+  redactedBodyBytes?: number;
+  storedFileBytes?: number;
+  redactedBody?: string;
+};
+
+function serializeBody(body: unknown): string | undefined {
   if (body === undefined || body === null) {
-    return body;
+    return undefined;
   }
-  let str = typeof body === "string" ? body : JSON.stringify(body);
-  // Redact known sensitive JSON keys BEFORE truncating so that a mid-string
-  // slice cannot leave a partially exposed secret (the regex needs closing
-  // quotes to match).
-  str = str.replace(SENSITIVE_BODY_KEYS, '$1"[REDACTED]"');
-  if (str.length > MAX_BODY_LOG_SIZE) {
-    str =
-      str.slice(0, MAX_BODY_LOG_SIZE) +
-      `... [TRUNCATED from ${str.length} bytes]`;
+  return typeof body === "string" ? body : JSON.stringify(body);
+}
+
+/**
+ * Redact sensitive keys from a JSON body string without truncation.
+ */
+function redactBody(body: unknown): string | undefined {
+  const str = serializeBody(body);
+  if (str === undefined) {
+    return undefined;
   }
-  return str;
+  return str.replace(SENSITIVE_BODY_KEYS, '$1"[REDACTED]"');
+}
+
+function sanitizePhase(phase: string): string {
+  return phase.replace(/[^a-zA-Z0-9._-]+/g, "_");
+}
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+async function writeBodyArtifact(
+  entry: ProxyBodyCaptureEntry,
+  redactedHeaders: Record<string, string> | undefined,
+  redactedBody: string | undefined,
+): Promise<StoredBodyArtifact> {
+  if (!logDir || redactedBody === undefined) {
+    return {};
+  }
+
+  const dateStr = new Date(entry.timestamp).toISOString().split("T")[0];
+  const bodyDir = join(logDir, "bodies", dateStr, entry.requestId);
+  if (!existsSync(bodyDir)) {
+    mkdirSync(bodyDir, { recursive: true, mode: 0o700 });
+  }
+  chmodSync(bodyDir, 0o700);
+
+  const fileName =
+    `${Date.now()}-${sanitizePhase(entry.phase)}` +
+    (entry.attempt !== undefined ? `-attempt-${entry.attempt}` : "") +
+    `.json.gz`;
+  const bodyPath = join(bodyDir, fileName);
+  const payload = JSON.stringify({
+    timestamp: entry.timestamp,
+    requestId: entry.requestId,
+    phase: entry.phase,
+    model: entry.model,
+    stream: entry.stream,
+    account: entry.account,
+    accountType: entry.accountType,
+    attempt: entry.attempt,
+    responseStatus: entry.responseStatus,
+    durationMs: entry.durationMs,
+    contentType: entry.contentType,
+    headers: redactedHeaders,
+    body: redactedBody,
+    traceId: entry.traceId,
+    spanId: entry.spanId,
+    metadata: entry.metadata,
+  });
+  const compressed = await gzip(payload);
+  await writeFile(bodyPath, compressed, { mode: 0o600 });
+
+  return {
+    bodyPath,
+    bodySha256: sha256(redactedBody),
+    redactedBodyBytes: Buffer.byteLength(redactedBody, "utf8"),
+    storedFileBytes: compressed.byteLength,
+    redactedBody,
+  };
+}
+
+function emitOtlpBodyLogRecord(
+  entry: ProxyBodyCaptureEntry,
+  stored: StoredBodyArtifact,
+): void {
+  resolveLoggerProvider()
+    .then((provider) => {
+      if (!provider || stored.redactedBody === undefined) {
+        return;
+      }
+
+      const otelLogger = provider.getLogger("neurolink-proxy-bodies", "1.0.0");
+      const totalChunks = Math.max(
+        1,
+        Math.ceil(stored.redactedBody.length / BODY_OTLP_CHUNK_SIZE),
+      );
+
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const chunk = stored.redactedBody.slice(
+          chunkIndex * BODY_OTLP_CHUNK_SIZE,
+          (chunkIndex + 1) * BODY_OTLP_CHUNK_SIZE,
+        );
+
+        otelLogger.emit({
+          severityNumber:
+            (entry.responseStatus ?? 0) >= 400
+              ? SeverityNumber.WARN
+              : SeverityNumber.INFO,
+          severityText: (entry.responseStatus ?? 0) >= 400 ? "WARN" : "INFO",
+          body: chunk,
+          attributes: {
+            "event.name": "proxy.body_capture",
+            "request.id": entry.requestId,
+            "body.phase": entry.phase,
+            "body.chunk_index": chunkIndex,
+            "body.chunk_count": totalChunks,
+            "body.content_type": entry.contentType ?? "application/json",
+            "ai.model": entry.model,
+            "ai.stream": entry.stream,
+            ...(entry.account && { "account.name": entry.account }),
+            ...(entry.accountType && { "account.type": entry.accountType }),
+            ...(entry.attempt !== undefined && {
+              "proxy.attempt": entry.attempt,
+            }),
+            ...(entry.responseStatus !== undefined && {
+              "http.status_code": entry.responseStatus,
+            }),
+            ...(entry.durationMs !== undefined && {
+              "response.time_ms": entry.durationMs,
+            }),
+            ...(stored.bodySha256 && { "body.sha256": stored.bodySha256 }),
+            ...(stored.bodyPath && {
+              "body.path": stored.bodyPath.split("/").slice(-2).join("/"),
+            }),
+            ...(stored.redactedBodyBytes !== undefined && {
+              "body.bytes": stored.redactedBodyBytes,
+            }),
+            ...(entry.traceId && { "trace.id": entry.traceId }),
+            ...(entry.spanId && { "span.id": entry.spanId }),
+            ...(entry.metadata && {
+              "body.metadata_json": JSON.stringify(entry.metadata),
+            }),
+            source: "otlp",
+          },
+        });
+      }
+    })
+    .catch(() => {
+      // Non-fatal — never crash proxy for OTLP log failures
+    });
+}
+
+export async function logBodyCapture(
+  entry: ProxyBodyCaptureEntry,
+): Promise<void> {
+  if (!logEnabled || !logDir) {
+    return;
+  }
+
+  const bridge = new OtelBridge();
+  const traceCtx =
+    entry.traceId && entry.spanId
+      ? { traceId: entry.traceId, spanId: entry.spanId }
+      : bridge.getCurrentTraceContext();
+  const redactedHeaders = redactHeaders(entry.headers);
+
+  let stored: StoredBodyArtifact = {};
+  try {
+    stored = await writeBodyArtifact(
+      entry,
+      redactedHeaders,
+      redactBody(entry.body),
+    );
+  } catch {
+    // Best-effort artifact persistence; continue with in-memory metadata only.
+  }
+
+  const dateStr = new Date(entry.timestamp).toISOString().split("T")[0];
+  const logFile = join(logDir, `proxy-debug-${dateStr}.jsonl`);
+  const indexEntry: Record<string, unknown> = {
+    timestamp: entry.timestamp,
+    type: "body_capture",
+    requestId: entry.requestId,
+    phase: entry.phase,
+    model: entry.model,
+    stream: entry.stream,
+    headers: redactedHeaders,
+    contentType: entry.contentType,
+    responseStatus: entry.responseStatus,
+    durationMs: entry.durationMs,
+    account: entry.account,
+    accountType: entry.accountType,
+    attempt: entry.attempt,
+    bodyPath: stored.bodyPath,
+    bodySha256: stored.bodySha256,
+    observedBodyBytes: entry.bodySize,
+    redactedBodyBytes: stored.redactedBodyBytes,
+    storedFileBytes: stored.storedFileBytes,
+    metadata: entry.metadata,
+  };
+
+  if (traceCtx) {
+    indexEntry.traceId = traceCtx.traceId;
+    indexEntry.spanId = traceCtx.spanId;
+  }
+
+  try {
+    await appendFile(logFile, JSON.stringify(indexEntry) + "\n", {
+      mode: 0o600,
+    });
+  } catch {
+    // Non-fatal
+  }
+
+  emitOtlpBodyLogRecord(
+    {
+      ...entry,
+      traceId: traceCtx?.traceId ?? entry.traceId,
+      spanId: traceCtx?.spanId ?? entry.spanId,
+    },
+    stored,
+  );
 }
 
 /**
  * Log the FULL raw request and response for debugging.
- * Writes to a separate file: proxy-debug-YYYY-MM-DD.jsonl
- * Each entry has the complete request body and response body.
- *
- * Sensitive headers and body fields are redacted before writing.
+ * Legacy helper kept for compatibility. New call sites should prefer
+ * logBodyCapture() so each phase can be indexed and persisted separately.
  */
 export async function logFullRequestResponse(entry: {
   timestamp: string;
@@ -149,29 +565,37 @@ export async function logFullRequestResponse(entry: {
   responseBodySize?: number;
   durationMs: number;
 }): Promise<void> {
-  if (!logEnabled || !logDir) {
-    return;
-  }
-
-  const sanitizedEntry = {
-    ...entry,
-    requestHeaders: redactHeaders(entry.requestHeaders)!,
-    requestBody: redactBody(entry.requestBody),
-    responseHeaders: redactHeaders(entry.responseHeaders),
-    responseBody: redactBody(entry.responseBody),
-  };
-
-  const logFile = join(
-    logDir,
-    `proxy-debug-${new Date().toISOString().split("T")[0]}.jsonl`,
-  );
-  const line = JSON.stringify(sanitizedEntry) + "\n";
-
-  try {
-    await appendFile(logFile, line, { mode: 0o600 });
-  } catch {
-    // Non-fatal
-  }
+  await Promise.all([
+    logBodyCapture({
+      timestamp: entry.timestamp,
+      requestId: entry.requestId,
+      phase: "legacy_upstream_request",
+      model: entry.model,
+      stream: entry.stream,
+      headers: entry.requestHeaders,
+      body: entry.requestBody,
+      bodySize: entry.requestBodySize,
+      contentType: entry.requestHeaders["content-type"] ?? "application/json",
+      account: entry.account,
+      responseStatus: entry.responseStatus,
+      durationMs: entry.durationMs,
+    }),
+    logBodyCapture({
+      timestamp: entry.timestamp,
+      requestId: entry.requestId,
+      phase: "legacy_upstream_response",
+      model: entry.model,
+      stream: entry.stream,
+      headers: entry.responseHeaders,
+      body: entry.responseBody,
+      bodySize: entry.responseBodySize,
+      contentType:
+        entry.responseHeaders?.["content-type"] ?? "application/json",
+      account: entry.account,
+      responseStatus: entry.responseStatus,
+      durationMs: entry.durationMs,
+    }),
+  ]);
 }
 
 /**
@@ -190,16 +614,23 @@ export async function logStreamError(entry: {
     return;
   }
 
+  const bridge = new OtelBridge();
+  const traceCtx = bridge.getCurrentTraceContext();
+
   const logFile = join(
     logDir,
     `proxy-${new Date().toISOString().split("T")[0]}.jsonl`,
   );
-  const logEntry = {
+  const logEntry: Record<string, unknown> = {
     ...entry,
     responseStatus: 200,
     errorType: "stream_error",
     note: "mid-stream failure after initial 200",
   };
+  if (traceCtx) {
+    logEntry.traceId = traceCtx.traceId;
+    logEntry.spanId = traceCtx.spanId;
+  }
 
   try {
     await appendFile(logFile, JSON.stringify(logEntry) + "\n", {
@@ -225,10 +656,15 @@ export function cleanupLogs(
   }
 
   try {
+    const activeLogDir = logDir;
     const files = readdirSync(logDir)
-      .filter((f) => f.startsWith("proxy-") && f.endsWith(".jsonl"))
+      .filter(
+        (f) =>
+          (f.startsWith("proxy-") || f.startsWith("proxy-attempts-")) &&
+          f.endsWith(".jsonl"),
+      )
       .map((f) => {
-        const filePath = join(logDir!, f);
+        const filePath = join(activeLogDir, f);
         const stat = statSync(filePath);
         return {
           name: f,
@@ -255,12 +691,42 @@ export function cleanupLogs(
       }
     }
 
+    const bodiesDir = join(logDir, "bodies");
+    if (existsSync(bodiesDir)) {
+      for (const entry of readdirSync(bodiesDir)) {
+        const bodyPath = join(bodiesDir, entry);
+        try {
+          if (statSync(bodyPath).mtimeMs < cutoff) {
+            rmSync(bodyPath, { recursive: true, force: true });
+          }
+        } catch {
+          // Non-fatal
+        }
+      }
+    }
+
+    // Include body artifacts in total size calculation
+    const bodiesDirForSize = join(logDir, "bodies");
+    let bodiesSize = 0;
+    if (existsSync(bodiesDirForSize)) {
+      for (const entry of readdirSync(bodiesDirForSize)) {
+        try {
+          bodiesSize += statSync(join(bodiesDirForSize, entry)).size;
+        } catch {
+          // Non-fatal
+        }
+      }
+    }
+
     // Pass 2: if total size exceeds maxSizeMb, delete oldest until under limit
     const maxBytes = maxSizeMb * 1024 * 1024;
-    let totalSize = remaining.reduce((sum, f) => sum + f.size, 0);
+    let totalSize = remaining.reduce((sum, f) => sum + f.size, 0) + bodiesSize;
 
     while (totalSize > maxBytes && remaining.length > 0) {
-      const oldest = remaining.shift()!;
+      const oldest = remaining.shift();
+      if (!oldest) {
+        break;
+      }
       unlinkSync(oldest.path);
       totalSize -= oldest.size;
       deletedCount++;

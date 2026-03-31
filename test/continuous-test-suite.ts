@@ -48,6 +48,10 @@ type TestResult = {
   error: string | null;
 };
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 import type {
   ColorName,
   DestroyInventoryParams,
@@ -4133,8 +4137,8 @@ async function testAccountPoolRuntime(): Promise<boolean | null> {
       "Round-robin, cooling skip, exhaustion all work",
     );
     return true;
-  } catch (error: any) {
-    logTest("AccountPool Runtime", "FAIL", error.message);
+  } catch (error: unknown) {
+    logTest("AccountPool Runtime", "FAIL", getErrorMessage(error));
     return false;
   }
 }
@@ -4195,8 +4199,8 @@ async function testModelRouterRuntime(): Promise<boolean | null> {
       "Mapping, passthrough, and default resolution all work",
     );
     return true;
-  } catch (error: any) {
-    logTest("ModelRouter Runtime", "FAIL", error.message);
+  } catch (error: unknown) {
+    logTest("ModelRouter Runtime", "FAIL", getErrorMessage(error));
     return false;
   }
 }
@@ -4267,8 +4271,8 @@ async function testClaudeFormatRuntime(): Promise<boolean | null> {
       "Parse, serialize, and error envelope all work",
     );
     return true;
-  } catch (error: any) {
-    logTest("ClaudeFormat Runtime", "FAIL", error.message);
+  } catch (error: unknown) {
+    logTest("ClaudeFormat Runtime", "FAIL", getErrorMessage(error));
     return false;
   }
 }
@@ -4351,8 +4355,8 @@ async function testSSESerializerRuntime(): Promise<boolean | null> {
       `Event sequence correct (order verified): ${eventTypes.length} events`,
     );
     return true;
-  } catch (error: any) {
-    logTest("SSE Serializer Runtime", "FAIL", error.message);
+  } catch (error: unknown) {
+    logTest("SSE Serializer Runtime", "FAIL", getErrorMessage(error));
     return false;
   }
 }
@@ -4435,8 +4439,8 @@ async function testCloakingRuntime(): Promise<boolean | null> {
       "Headers scrubbed, session ID injected, words obfuscated",
     );
     return true;
-  } catch (error: any) {
-    logTest("Cloaking Runtime", "FAIL", error.message);
+  } catch (error: unknown) {
+    logTest("Cloaking Runtime", "FAIL", getErrorMessage(error));
     return false;
   }
 }
@@ -4477,8 +4481,8 @@ async function testProxyConfigRuntime(): Promise<boolean | null> {
       "JSON config parsed correctly with accounts",
     );
     return true;
-  } catch (error: any) {
-    logTest("ProxyConfig Runtime", "FAIL", error.message);
+  } catch (error: unknown) {
+    logTest("ProxyConfig Runtime", "FAIL", getErrorMessage(error));
     return false;
   }
 }

@@ -87,14 +87,14 @@ export class BullMQBackend implements TaskBackend {
   }
 
   async schedule(task: Task, executor: TaskExecutorFn): Promise<void> {
-    this.ensureInitialized();
+    const queue = this.getQueue();
     this.executors.set(task.id, executor);
 
     const jobData = { taskId: task.id, task };
     const schedule = task.schedule;
 
     if (schedule.type === "cron") {
-      await this.queue!.upsertJobScheduler(
+      await queue.upsertJobScheduler(
         task.id,
         {
           pattern: schedule.expression,
@@ -103,7 +103,7 @@ export class BullMQBackend implements TaskBackend {
         { name: task.name, data: jobData },
       );
     } else if (schedule.type === "interval") {
-      await this.queue!.upsertJobScheduler(
+      await queue.upsertJobScheduler(
         task.id,
         { every: schedule.every },
         { name: task.name, data: jobData },
@@ -112,7 +112,7 @@ export class BullMQBackend implements TaskBackend {
       const at =
         typeof schedule.at === "string" ? new Date(schedule.at) : schedule.at;
       const delay = Math.max(0, at.getTime() - Date.now());
-      await this.queue!.add(task.name, jobData, {
+      await queue.add(task.name, jobData, {
         jobId: task.id,
         delay,
       });
@@ -125,19 +125,19 @@ export class BullMQBackend implements TaskBackend {
   }
 
   async cancel(taskId: string): Promise<void> {
-    this.ensureInitialized();
+    const queue = this.getQueue();
     this.executors.delete(taskId);
 
     // Remove repeatable job scheduler
     try {
-      await this.queue!.removeJobScheduler(taskId);
+      await queue.removeJobScheduler(taskId);
     } catch {
       // May not be a repeatable job — try removing by job ID
     }
 
     // Remove delayed/waiting job
     try {
-      const job = await this.queue!.getJob(taskId);
+      const job = await queue.getJob(taskId);
       if (job) {
         await job.remove();
       }
@@ -240,5 +240,18 @@ export class BullMQBackend implements TaskBackend {
         "[BullMQ] Backend not initialized. Call initialize() first.",
       );
     }
+  }
+
+  private getQueue(): Queue {
+    this.ensureInitialized();
+
+    if (!this.queue) {
+      throw TaskError.create(
+        "BACKEND_NOT_INITIALIZED",
+        "[BullMQ] Queue is unavailable after initialization.",
+      );
+    }
+
+    return this.queue;
   }
 }

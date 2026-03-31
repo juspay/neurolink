@@ -227,7 +227,7 @@ async function globalCleanup(): Promise<void> {
 
 // Dynamic imports from dist for workflow APIs
 async function loadWorkflowAPIs() {
-  const mod = (await import("../dist/index.js")) as any;
+  const mod = await import("../dist/index.js");
   return {
     runWorkflow: mod.runWorkflow,
     listWorkflows: mod.listWorkflows,

@@ -32,7 +32,7 @@ import { tracers, ATTR, withClientSpan } from "../telemetry/index.js";
 import { TimeoutError } from "../utils/timeout.js";
 
 // Model version constants (configurable via environment)
-const DEFAULT_OLLAMA_MODEL = "llama3.1:8b";
+const DEFAULT_OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.1:8b";
 const FALLBACK_OLLAMA_MODEL = "llama3.2:latest"; // Used when primary model fails
 
 // Configuration helpers
@@ -68,6 +68,20 @@ const getOllamaTimeout = (): number => {
   // especially for larger models like aliafshar/gemma3-it-qat-tools:latest (12.2B parameters)
   return parseInt(process.env.OLLAMA_TIMEOUT || "240000", 10);
 };
+
+async function createOllamaHttpError(response: Response): Promise<Error> {
+  let responseBody = "";
+  try {
+    responseBody = (await response.text()).trim();
+  } catch {
+    // Ignore unreadable bodies
+  }
+
+  const suffix = responseBody ? ` - ${responseBody.slice(0, 500)}` : "";
+  return new Error(
+    `Ollama API error: ${response.status} ${response.statusText}${suffix}`,
+  );
+}
 
 // Create proxy-aware fetch instance
 const proxyFetch = createProxyFetch();
@@ -119,42 +133,9 @@ class OllamaLanguageModel implements OllamaAsLanguageModel {
       .join("\n");
   }
 
-  async doGenerate(options: Record<string, unknown>): Promise<{
-    text?: string;
-    reasoning?:
-      | string
-      | Array<
-          | { type: "text"; text: string; signature?: string }
-          | { type: "redacted"; data: string }
-        >;
-    files?: Array<{ data: string | Uint8Array; mimeType: string }>;
-    logprobs?: Array<{
-      token: string;
-      logprob: number;
-      topLogprobs: Array<{ token: string; logprob: number }>;
-    }>;
-    usage: {
-      promptTokens: number;
-      completionTokens: number;
-      totalTokens?: number;
-    };
-    finishReason:
-      | "stop"
-      | "length"
-      | "content-filter"
-      | "tool-calls"
-      | "error"
-      | "unknown";
-    response?: {
-      id?: string;
-      timestamp?: Date;
-      modelId?: string;
-    };
-    warnings?: Array<{ type: "other"; message: string }>;
-    rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
-    rawResponse?: { headers?: Record<string, string> };
-    request?: { body?: string };
-  }> {
+  async doGenerate(
+    options: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
     // Vercel AI SDK passes messages via options.messages (same as stream mode)
     // Check options.messages first, then fall back to options.prompt for backward compatibility
     const messages =
@@ -192,9 +173,7 @@ class OllamaLanguageModel implements OllamaAsLanguageModel {
       });
 
       if (!response.ok) {
-        throw new Error(
-          `Ollama API error: ${response.status} ${response.statusText}`,
-        );
+        throw await createOllamaHttpError(response);
       }
 
       const data = await response.json();
@@ -206,18 +185,34 @@ class OllamaLanguageModel implements OllamaAsLanguageModel {
 
       const text = data.choices?.[0]?.message?.content || "";
       const usage = data.usage || {};
+      const promptTokens =
+        usage.prompt_tokens ??
+        this.estimateTokenCount(JSON.stringify(messages));
+      const completionTokens =
+        usage.completion_tokens ?? this.estimateTokenCount(text);
 
       return {
+        content: text ? [{ type: "text", text }] : [],
         text,
         usage: {
-          promptTokens:
-            usage.prompt_tokens ??
-            this.estimateTokenCount(JSON.stringify(messages)),
-          completionTokens:
-            usage.completion_tokens ?? this.estimateTokenCount(text),
-          totalTokens: usage.total_tokens,
+          inputTokens: promptTokens,
+          outputTokens: completionTokens,
+          promptTokens,
+          completionTokens,
+          totalTokens: usage.total_tokens ?? promptTokens + completionTokens,
         },
-        finishReason: "stop",
+        finishReason: data.choices?.[0]?.finish_reason ?? "stop",
+        warnings: [],
+        request: {
+          body: JSON.stringify(requestBody),
+        },
+        response: {
+          id: data.id,
+          modelId: data.model,
+          timestamp: new Date(),
+          headers: {},
+          body: data,
+        },
         rawCall: {
           rawPrompt: messages,
           rawSettings: {
@@ -258,9 +253,7 @@ class OllamaLanguageModel implements OllamaAsLanguageModel {
       });
 
       if (!response.ok) {
-        throw new Error(
-          `Ollama API error: ${response.status} ${response.statusText}`,
-        );
+        throw await createOllamaHttpError(response);
       }
 
       const data = await response.json();
@@ -270,20 +263,45 @@ class OllamaLanguageModel implements OllamaAsLanguageModel {
         JSON.stringify(data, null, 2),
       );
 
-      return {
-        text: data.response,
-        usage: {
-          promptTokens:
-            data.prompt_eval_count ?? this.estimateTokenCount(prompt),
-          completionTokens:
-            data.eval_count ??
-            this.estimateTokenCount(String(data.response ?? "")),
-          totalTokens:
-            (data.prompt_eval_count ?? this.estimateTokenCount(prompt)) +
-            (data.eval_count ??
-              this.estimateTokenCount(String(data.response ?? ""))),
+      const text = String(data.response ?? "");
+      const promptTokens =
+        data.prompt_eval_count ?? this.estimateTokenCount(prompt);
+      const completionTokens = data.eval_count ?? this.estimateTokenCount(text);
+      const requestBody = {
+        model: this.modelId,
+        prompt,
+        stream: false,
+        system: messages.find(
+          (m: { role: string; content: unknown }) => m.role === "system",
+        )?.content,
+        options: {
+          temperature: options.temperature,
+          num_predict: options.maxTokens,
         },
-        finishReason: "stop",
+      };
+
+      return {
+        content: text ? [{ type: "text", text }] : [],
+        text,
+        usage: {
+          inputTokens: promptTokens,
+          outputTokens: completionTokens,
+          promptTokens,
+          completionTokens,
+          totalTokens: promptTokens + completionTokens,
+        },
+        finishReason: data.done_reason ?? "stop",
+        warnings: [],
+        request: {
+          body: JSON.stringify(requestBody),
+        },
+        response: {
+          id: data.created_at,
+          modelId: this.modelId,
+          timestamp: data.created_at ? new Date(data.created_at) : new Date(),
+          headers: {},
+          body: data,
+        },
         rawCall: {
           rawPrompt: prompt,
           rawSettings: {
@@ -348,9 +366,7 @@ class OllamaLanguageModel implements OllamaAsLanguageModel {
       });
 
       if (!response.ok) {
-        throw new Error(
-          `Ollama API error: ${response.status} ${response.statusText}`,
-        );
+        throw await createOllamaHttpError(response);
       }
 
       const self = this;
@@ -420,9 +436,7 @@ class OllamaLanguageModel implements OllamaAsLanguageModel {
       });
 
       if (!response.ok) {
-        throw new Error(
-          `Ollama API error: ${response.status} ${response.statusText}`,
-        );
+        throw await createOllamaHttpError(response);
       }
 
       const self = this;
@@ -951,9 +965,7 @@ export class OllamaProvider extends BaseProvider {
 
                 if (!response.ok) {
                   throw this.handleProviderError(
-                    new Error(
-                      `Ollama API error: ${response.status} ${response.statusText}`,
-                    ),
+                    await createOllamaHttpError(response),
                   );
                 }
 
@@ -1192,9 +1204,7 @@ export class OllamaProvider extends BaseProvider {
 
           if (!response.ok) {
             throw this.handleProviderError(
-              new Error(
-                `Ollama API error: ${response.status} ${response.statusText}`,
-              ),
+              await createOllamaHttpError(response),
             );
           }
 
@@ -1285,9 +1295,7 @@ export class OllamaProvider extends BaseProvider {
 
           if (!response.ok) {
             throw this.handleProviderError(
-              new Error(
-                `Ollama API error: ${response.status} ${response.statusText}`,
-              ),
+              await createOllamaHttpError(response),
             );
           }
 
@@ -2028,9 +2036,21 @@ export class OllamaProvider extends BaseProvider {
       );
     }
 
-    if ((error as Error).message?.includes("404")) {
-      return new NetworkError(
-        `❌ Ollama API Endpoint Not Found\n\nThe API endpoint might have changed or Ollama version is incompatible.\n\n🔧 Check:\n1. Ollama version: 'ollama --version'\n2. Update Ollama to latest version\n3. Verify API is available: 'curl ${this.baseUrl}/api/version'`,
+    const errMsg = (error as Error).message ?? "";
+    if (
+      errMsg.includes("404") &&
+      (errMsg.toLowerCase().includes("model") ||
+        errMsg.toLowerCase().includes("not found"))
+    ) {
+      return new InvalidModelError(
+        `❌ Ollama Returned HTTP 404\n\nThis usually means the configured model '${this.modelName}' is not installed locally, although a bad base URL or incompatible API mode can also cause it.\n\n🔧 Check:\n1. Verify the model exists: 'ollama list'\n2. Pull it if missing: 'ollama pull ${this.modelName}'\n3. Verify the service is healthy: 'curl ${this.baseUrl}/api/version'\n4. If you use OpenAI-compatible mode, confirm the base URL serves /v1/chat/completions`,
+        this.providerName,
+      );
+    }
+
+    if (errMsg.includes("404")) {
+      return new ProviderError(
+        `❌ Ollama Endpoint Returned HTTP 404\n\nThe configured base URL (${this.baseUrl}) did not serve the expected Ollama endpoint for model '${this.modelName}'. This is usually a configuration or API-mode mismatch rather than a missing model.\n\n🔧 Check:\n1. Verify the base URL: ${this.baseUrl}\n2. For native Ollama mode, confirm /api/generate exists\n3. For OpenAI-compatible mode, confirm /v1/chat/completions exists\n4. If the model is missing, the response body should explicitly say so`,
         this.providerName,
       );
     }

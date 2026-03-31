@@ -19,6 +19,10 @@ Welcome to NeuroLink! This section will help you get up and running quickly with
 
     Jump to [Provider Setup](provider-setup.md) to configure your API keys, then check the [CLI Guide](../cli/index.md).
 
+=== "I Need Claude Code Proxy + Telemetry"
+
+    Start with [Claude Proxy](../features/claude-proxy.md) for account pooling and local proxy setup, then use [Claude Proxy Observability](../features/claude-proxy-observability.md) to bring up OpenObserve and the maintained dashboard.
+
 === "I'm Building an Application"
 
     Follow the [Installation guide](installation.md) for SDK setup, then explore [Framework Integration](../sdk/framework-integration.md).

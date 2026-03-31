@@ -1,15 +1,14 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
-import type { ZodType } from "zod";
+import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import {
-  NoOutputGeneratedError,
-  streamText,
   type LanguageModel,
+  NoOutputGeneratedError,
   type Schema,
+  streamText,
   type Tool,
 } from "ai";
-import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
-import { AIProviderName, AnthropicModels } from "../constants/enums.js";
-import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
+import type { ZodType } from "zod";
+import { type AIProviderName, AnthropicModels } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import {
   AuthenticationError,
@@ -17,17 +16,19 @@ import {
   ProviderError,
   RateLimitError,
 } from "../types/errors.js";
+import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import { logger } from "../utils/logger.js";
 import { calculateCost } from "../utils/pricing.js";
+import {
+  createAnthropicBaseConfig,
+  validateApiKey,
+} from "../utils/providerConfig.js";
 import {
   composeAbortSignals,
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
-import {
-  validateApiKey,
-  createAnthropicBaseConfig,
-} from "../utils/providerConfig.js";
+import { resolveToolChoice } from "../utils/toolChoice.js";
 import { getModelId } from "./providerTypeUtils.js";
 
 const streamTracer = trace.getTracer("neurolink.provider.anthropic");
@@ -157,7 +158,7 @@ export class AnthropicProviderV2 extends BaseProvider {
           maxOutputTokens: options.maxTokens, // No default limit - unlimited unless specified
           maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
           tools,
-          toolChoice: shouldUseTools ? "auto" : "none",
+          toolChoice: resolveToolChoice(options, tools, shouldUseTools),
           abortSignal: composeAbortSignals(
             options.abortSignal,
             timeoutController?.controller.signal,

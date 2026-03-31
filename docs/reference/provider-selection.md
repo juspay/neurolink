@@ -489,11 +489,14 @@ type ProviderConfig = {
   priority: number;
 };
 
+// Default priority: self-hosted first (no rate limits), then cloud providers
 const providerChain: ProviderConfig[] = [
-  { provider: "openai", model: "gpt-4o", priority: 1 },
-  { provider: "anthropic", model: "claude-sonnet-4-5-20250929", priority: 2 },
-  { provider: "google-ai", model: "gemini-2.5-pro", priority: 3 },
-  { provider: "mistral", model: "mistral-large-latest", priority: 4 },
+  { provider: "litellm", model: "openai/gpt-4o", priority: 1 },
+  { provider: "ollama", model: "llama3.1:8b", priority: 2 },
+  { provider: "openai", model: "gpt-4o", priority: 3 },
+  { provider: "anthropic", model: "claude-sonnet-4-5-20250929", priority: 4 },
+  { provider: "google-ai", model: "gemini-2.5-pro", priority: 5 },
+  { provider: "mistral", model: "mistral-large-latest", priority: 6 },
 ];
 
 async function generateWithFailover(

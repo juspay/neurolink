@@ -1,10 +1,12 @@
 // src/lib/auth/sessionManager.ts
 
+import type { RedisClientType } from "redis";
 import type {
   AuthUser,
   AuthSession,
   SessionConfig,
 } from "../types/authTypes.js";
+import { withTimeout } from "../utils/async/withTimeout.js";
 import { logger } from "../utils/logger.js";
 
 /** Mask an identifier for safe logging: show first 4 chars + "***" */
@@ -14,6 +16,9 @@ function maskId(id: string): string {
   }
   return `${id.slice(0, 4)}***`;
 }
+
+const REDIS_CONNECT_TIMEOUT_MS = 5000;
+type RedisClient = RedisClientType;
 
 /**
  * Session storage interface for SessionManager
@@ -78,10 +83,12 @@ export class MemorySessionStorage implements SessionManagerStorage {
     this.sessions.set(session.id, session);
 
     // Track user's sessions
-    if (!this.userSessions.has(session.user.id)) {
-      this.userSessions.set(session.user.id, new Set());
+    let sessionIds = this.userSessions.get(session.user.id);
+    if (!sessionIds) {
+      sessionIds = new Set();
+      this.userSessions.set(session.user.id, sessionIds);
     }
-    this.userSessions.get(session.user.id)!.add(session.id);
+    sessionIds.add(session.id);
   }
 
   async delete(sessionId: string): Promise<void> {
@@ -142,7 +149,7 @@ export class MemorySessionStorage implements SessionManagerStorage {
  * Redis session storage
  *
  * Distributed session storage using Redis. Suitable for multi-instance
- * deployments. Requires ioredis or similar Redis client.
+ * deployments. Requires the "redis" (node-redis) package.
  *
  * Note: Redis client must be provided or configured via environment.
  */
@@ -174,17 +181,31 @@ export class RedisSessionStorage implements SessionManagerStorage {
   private async createClient(): Promise<RedisClient> {
     try {
       // Use variable indirection to prevent TypeScript from resolving the module at compile time
-      const moduleName = "ioredis";
-      const ioredis = await import(/* @vite-ignore */ moduleName);
-      const Redis = ioredis.default || ioredis.Redis;
-      this.client = new Redis(this.redisUrl) as unknown as RedisClient;
-      return this.client;
-    } catch {
+      const moduleName = "redis";
+      const redisModule = (await import(
+        /* @vite-ignore */ moduleName
+      )) as typeof import("redis");
+      const client: RedisClient = redisModule.createClient({
+        url: this.redisUrl,
+      });
+      client.on("error", (err: Error) => {
+        logger.error("Redis session client error:", err.message);
+      });
+      await withTimeout(
+        client.connect(),
+        REDIS_CONNECT_TIMEOUT_MS,
+        `Redis session client connect timed out after ${REDIS_CONNECT_TIMEOUT_MS}ms`,
+      );
+      this.client = client;
+      return client;
+    } catch (error) {
       this.initPromise = null;
       logger.error(
-        'Redis client (ioredis) not available. Install ioredis package and ensure Redis is reachable when using storage: "redis".',
+        'Redis client not available. Ensure the "redis" package is installed and Redis is reachable when using storage: "redis".',
       );
-      throw new Error("Redis client not available");
+      throw error instanceof Error
+        ? error
+        : new Error("Redis client not available");
     }
   }
 
@@ -204,6 +225,13 @@ export class RedisSessionStorage implements SessionManagerStorage {
       if (!data) {
         return null;
       }
+      if (typeof data !== "string") {
+        logger.warn("Unexpected Redis session payload type", {
+          sessionId: maskId(sessionId),
+          type: typeof data,
+        });
+        return null;
+      }
 
       const session = JSON.parse(data) as AuthSession;
 
@@ -214,7 +242,7 @@ export class RedisSessionStorage implements SessionManagerStorage {
       }
 
       // Check expiration
-      if (new Date() > session.expiresAt) {
+      if (session.expiresAt && new Date() > session.expiresAt) {
         await this.delete(sessionId);
         return null;
       }
@@ -239,14 +267,14 @@ export class RedisSessionStorage implements SessionManagerStorage {
         : this.ttl;
 
       // Store session
-      await client.setex(
+      await client.setEx(
         this.sessionKey(session.id),
         ttlSeconds,
         JSON.stringify(session),
       );
 
       // Track user's sessions
-      await client.sadd(this.userSessionsKey(session.user.id), session.id);
+      await client.sAdd(this.userSessionsKey(session.user.id), session.id);
       await client.expire(this.userSessionsKey(session.user.id), this.ttl);
     } catch (error) {
       logger.error("Redis session set error:", error);
@@ -264,14 +292,21 @@ export class RedisSessionStorage implements SessionManagerStorage {
       const data = await client.get(this.sessionKey(sessionId));
 
       if (data) {
-        try {
-          const session = JSON.parse(data) as AuthSession;
-          await client.srem(this.userSessionsKey(session.user.id), sessionId);
-        } catch {
-          // If parsing fails, we still delete the key below
-          logger.warn(
-            `Failed to parse session data for cleanup: ${maskId(sessionId)}`,
-          );
+        if (typeof data !== "string") {
+          logger.warn("Unexpected Redis session payload type during delete", {
+            sessionId: maskId(sessionId),
+            type: typeof data,
+          });
+        } else {
+          try {
+            const session = JSON.parse(data) as AuthSession;
+            await client.sRem(this.userSessionsKey(session.user.id), sessionId);
+          } catch {
+            // If parsing fails, we still delete the key below
+            logger.warn(
+              `Failed to parse session data for cleanup: ${maskId(sessionId)}`,
+            );
+          }
         }
       }
 
@@ -284,7 +319,7 @@ export class RedisSessionStorage implements SessionManagerStorage {
   async getUserSessions(userId: string): Promise<AuthSession[]> {
     try {
       const client = await this.getClient();
-      const sessionIds = await client.smembers(this.userSessionsKey(userId));
+      const sessionIds = await client.sMembers(this.userSessionsKey(userId));
 
       const sessions: AuthSession[] = [];
       for (const sessionId of sessionIds) {
@@ -304,7 +339,7 @@ export class RedisSessionStorage implements SessionManagerStorage {
   async deleteUserSessions(userId: string): Promise<void> {
     try {
       const client = await this.getClient();
-      const sessionIds = await client.smembers(this.userSessionsKey(userId));
+      const sessionIds = await client.sMembers(this.userSessionsKey(userId));
 
       for (const sessionId of sessionIds) {
         await client.del(this.sessionKey(sessionId));
@@ -323,17 +358,14 @@ export class RedisSessionStorage implements SessionManagerStorage {
       // Use SCAN instead of KEYS to avoid blocking Redis in production
       let cursor = "0";
       do {
-        const [nextCursor, keys] = await client.scan(
-          cursor,
-          "MATCH",
-          `${this.prefix}*`,
-          "COUNT",
-          "100",
-        );
-        cursor = nextCursor;
+        const result = await client.scan(cursor, {
+          MATCH: `${this.prefix}*`,
+          COUNT: 100,
+        });
+        cursor = result.cursor;
 
-        if (keys.length > 0) {
-          await client.del(...keys);
+        if (result.keys.length > 0) {
+          await client.del(result.keys);
         }
       } while (cursor !== "0");
     } catch (error) {
@@ -358,25 +390,6 @@ export class RedisSessionStorage implements SessionManagerStorage {
       this.initPromise = null;
     }
   }
-}
-
-/**
- * Minimal Redis client interface
- */
-interface RedisClient {
-  get(key: string): Promise<string | null>;
-  setex(key: string, ttl: number, value: string): Promise<string>;
-  del(...keys: string[]): Promise<number>;
-  sadd(key: string, ...members: string[]): Promise<number>;
-  srem(key: string, ...members: string[]): Promise<number>;
-  smembers(key: string): Promise<string[]>;
-  expire(key: string, ttl: number): Promise<number>;
-  scan(
-    cursor: string,
-    ...args: string[]
-  ): Promise<[cursor: string, keys: string[]]>;
-  ping(): Promise<string>;
-  quit(): Promise<string>;
 }
 
 /**

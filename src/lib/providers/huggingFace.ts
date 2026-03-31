@@ -1,32 +1,33 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import type { ZodType } from "zod";
 import {
+  type LanguageModel,
   NoOutputGeneratedError,
+  type Schema,
   stepCountIs,
   streamText,
-  type Schema,
-  type LanguageModel,
   type Tool,
-  type ToolSet,
   type ToolChoice,
+  type ToolSet,
 } from "ai";
-import { AIProviderName } from "../constants/enums.js";
-import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
+import type { ZodType } from "zod";
+import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
+import { DEFAULT_MAX_STEPS } from "../core/constants.js";
+import { createProxyFetch } from "../proxy/proxyFetch.js";
+import type { UnknownRecord } from "../types/common.js";
+import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
 import { logger } from "../utils/logger.js";
+import {
+  createHuggingFaceConfig,
+  getProviderModel,
+  validateApiKey,
+} from "../utils/providerConfig.js";
 import {
   composeAbortSignals,
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
-import type { UnknownRecord } from "../types/common.js";
-import { DEFAULT_MAX_STEPS } from "../core/constants.js";
-import {
-  validateApiKey,
-  createHuggingFaceConfig,
-  getProviderModel,
-} from "../utils/providerConfig.js";
-import { createProxyFetch } from "../proxy/proxyFetch.js";
+import { resolveToolChoice } from "../utils/toolChoice.js";
 
 // Configuration helpers - now using consolidated utility
 const getHuggingFaceApiKey = (): string => {
@@ -193,9 +194,14 @@ export class HuggingFaceProvider extends BaseProvider {
         tools: (shouldUseTools
           ? streamOptions.tools || allTools
           : {}) as ToolSet,
-        toolChoice: (shouldUseTools
-          ? streamOptions.toolChoice || "auto"
-          : "none") as ToolChoice<ToolSet>,
+        toolChoice: resolveToolChoice(
+          options,
+          (shouldUseTools ? streamOptions.tools || allTools : {}) as Record<
+            string,
+            Tool
+          >,
+          shouldUseTools,
+        ) as ToolChoice<ToolSet>,
         abortSignal: composeAbortSignals(
           options.abortSignal,
           timeoutController?.controller.signal,
@@ -286,7 +292,7 @@ export class HuggingFaceProvider extends BaseProvider {
       prompt: options.input.text,
       system: enhancedSystemPrompt,
       tools: formattedTools,
-      toolChoice: formattedTools ? "auto" : undefined,
+      toolChoice: formattedTools ? (options.toolChoice ?? "auto") : undefined,
     };
   }
 

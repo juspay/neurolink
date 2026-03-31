@@ -20,19 +20,21 @@ Start the Claude multi-account proxy server.
 | ------------------- | ----- | --------- | -------------------------------- | ----------------------------------------------------------------- |
 | `--port`            | `-p`  | `number`  | `55669`                          | Port to listen on.                                                |
 | `--host`            | `-H`  | `string`  | `127.0.0.1`                      | Host/IP to bind to. Use `0.0.0.0` to listen on all interfaces.    |
-| `--strategy`        | `-s`  | `string`  | `round-robin`                    | Account selection strategy. Choices: `round-robin`, `fill-first`. |
+| `--strategy`        | `-s`  | `string`  | `fill-first`                     | Account selection strategy. Choices: `fill-first`, `round-robin`. |
 | `--health-interval` |       | `number`  | `30`                             | Health check interval in seconds.                                 |
 | `--quiet`           | `-q`  | `boolean` | `false`                          | Suppress non-essential output (banner, status messages).          |
 | `--debug`           | `-d`  | `boolean` | `false`                          | Enable debug output (stack traces on errors, verbose logging).    |
 | `--config`          | `-c`  | `string`  | `~/.neurolink/proxy-config.yaml` | Path to proxy config file (YAML or JSON).                         |
+| `--env-file`        |       | `string`  |                                  | Path to .env file for provider API keys (overrides cwd .env).     |
+| `--passthrough`     |       | `boolean` | `false`                          | Transparent forwarding: no retry, rotation, or polyfill.          |
 
 **Examples:**
 
 ```bash
-# Start with defaults (port 55669, round-robin strategy)
+# Start with defaults (port 55669, fill-first strategy)
 neurolink proxy start
 
-# Custom port and round-robin strategy
+# Custom port and explicit round-robin strategy
 neurolink proxy start -p 8080 -s round-robin
 
 # Start with 60-second health checks, debug output
@@ -69,24 +71,56 @@ neurolink proxy status --format json
   "pid": 12345,
   "port": 55669,
   "host": "127.0.0.1",
-  "strategy": "round-robin",
+  "strategy": "fill-first",
   "startTime": "2025-03-22T10:00:00.000Z",
   "uptime": 3600000,
   "url": "http://127.0.0.1:55669",
-  "fallbackChain": [{ "provider": "google-ai", "model": "gemini-2.5-pro" }]
+  "fallbackChain": [{ "provider": "google-ai", "model": "gemini-2.5-pro" }],
+  "stats": {
+    "totalAttempts": 42,
+    "totalRequests": 31,
+    "totalSuccess": 29,
+    "totalErrors": 2,
+    "totalRateLimits": 5
+  }
 }
+```
+
+### `neurolink proxy telemetry <action>`
+
+Manage the repo-owned local OpenObserve stack and the maintained proxy dashboard.
+
+| Action             | Description                                                             |
+| ------------------ | ----------------------------------------------------------------------- |
+| `setup`            | Start OpenObserve + OTEL collector and import the maintained dashboard  |
+| `start`            | Start the local telemetry stack without re-importing the dashboard      |
+| `stop`             | Stop the local telemetry stack                                          |
+| `status`           | Show local stack health and endpoint info                               |
+| `logs`             | Follow OpenObserve and collector logs                                   |
+| `import-dashboard` | Re-import the dashboard and dedupe older dashboards with the same title |
+
+| Flag      | Alias | Type      | Default | Description                                       |
+| --------- | ----- | --------- | ------- | ------------------------------------------------- |
+| `--quiet` | `-q`  | `boolean` | `false` | Suppress the local CLI spinner before delegating. |
+
+**Examples:**
+
+```bash
+neurolink proxy telemetry setup
+neurolink proxy telemetry status
+neurolink proxy telemetry logs
 ```
 
 ### `neurolink proxy setup`
 
-One-command setup: login + start proxy + configure Claude Code.
+One-command setup: login + install proxy service + configure Claude Code.
 
-| Flag           | Alias | Type      | Default     | Description                                         |
-| -------------- | ----- | --------- | ----------- | --------------------------------------------------- |
-| `--port`       | `-p`  | `number`  | `55669`     | Proxy port.                                         |
-| `--host`       |       | `string`  | `127.0.0.1` | Proxy host/IP to bind to.                           |
-| `--method`     |       | `string`  | `oauth`     | Authentication method. Choices: `oauth`, `api-key`. |
-| `--no-service` |       | `boolean` | `false`     | Skip launchd install, just start foreground.        |
+| Flag           | Alias | Type      | Default | Description                                         |
+| -------------- | ----- | --------- | ------- | --------------------------------------------------- |
+| `--port`       | `-p`  | `number`  | `55669` | Proxy port.                                         |
+| `--method`     |       | `string`  | `oauth` | Authentication method. Choices: `oauth`, `api-key`. |
+| `--no-service` |       | `boolean` | `false` | Skip launchd install, just start foreground.        |
+| `--env-file`   |       | `string`  |         | Path to a proxy provider env file to persist.       |
 
 **Examples:**
 
@@ -106,7 +140,7 @@ neurolink proxy setup --no-service
 1. Checks for existing authenticated accounts in the TokenStore.
 2. Falls back to the legacy `~/.neurolink/anthropic-credentials.json` file.
 3. If no valid accounts are found, runs the OAuth login flow.
-4. Installs as macOS launchd service (auto-restart on crash/reboot). Use `--no-service` for foreground start.
+4. Installs as macOS launchd service (auto-restart on crash/reboot) and configures Claude Code. Use `--no-service` for foreground start.
 
 ### `neurolink proxy guard` (hidden)
 
@@ -128,10 +162,12 @@ You should never need to run this command manually.
 
 Install the proxy as a persistent macOS launchd service. The service auto-starts on login and auto-restarts on crash (5-second throttle). Currently macOS-only.
 
-| Flag     | Alias | Type     | Default     | Description               |
-| -------- | ----- | -------- | ----------- | ------------------------- |
-| `--port` | `-p`  | `number` | `55669`     | Proxy port.               |
-| `--host` |       | `string` | `127.0.0.1` | Proxy host/IP to bind to. |
+| Flag         | Alias | Type     | Default     | Description                                                   |
+| ------------ | ----- | -------- | ----------- | ------------------------------------------------------------- |
+| `--port`     | `-p`  | `number` | `55669`     | Proxy port.                                                   |
+| `--host`     |       | `string` | `127.0.0.1` | Proxy host/IP to bind to.                                     |
+| `--env-file` |       | `string` |             | Path to provider env file to persist for the service.         |
+| `--config`   |       | `string` |             | Path to proxy routing config file to persist for the service. |
 
 **Examples:**
 
@@ -147,7 +183,7 @@ neurolink proxy install -p 9000
 
 1. Writes a launchd plist to `~/Library/LaunchAgents/com.neurolink.proxy.plist`.
 2. Loads the service via `launchctl load`.
-3. The service runs `neurolink proxy start --port <port> --host <host> --quiet`.
+3. The service runs `neurolink proxy start --port <port> --host <host> --quiet` and persists any `--env-file` / `--config` values into the managed service definition.
 4. Logs go to `~/.neurolink/logs/proxy-launchd-stdout.log` and `proxy-launchd-stderr.log`.
 
 **Management:**
@@ -287,7 +323,7 @@ accounts:
 # Accepts both camelCase and kebab-case keys for YAML-friendliness.
 routing:
   # Account selection strategy: "round-robin" | "fill-first"
-  strategy: "round-robin"
+  strategy: "fill-first"
 
   # Model mappings: remap incoming model names to different provider/model pairs
   # Accepts: model-mappings (kebab) or modelMappings (camel)
@@ -478,16 +514,18 @@ After starting the proxy, restart Claude Code for the new settings to take effec
 
 All NeuroLink proxy files are stored under `~/.neurolink/` (with `0o700` directory permissions).
 
-| File                                             | Permissions  | Description                                                                                                                                                                                                                                                          |
-| ------------------------------------------------ | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `~/.neurolink/tokens.json`                       | `0o600`      | **TokenStore** -- Multi-provider OAuth token storage. Stores tokens keyed by `provider:label` (e.g., `anthropic:personal`). XOR-obfuscated by default (not plaintext).                                                                                               |
-| `~/.neurolink/anthropic-credentials.json`        | `0o600`      | **Legacy credentials** -- Single-account OAuth tokens. Used as a fallback when no compound keys exist in `tokens.json`. Updated on token refresh (pre-request or on-401).                                                                                            |
-| `~/.neurolink/proxy-config.yaml`                 | user default | **Proxy config** -- YAML/JSON configuration file. Loaded by `proxy start` (default path, overridable with `--config`).                                                                                                                                               |
-| `~/.neurolink/proxy-state.json`                  | user default | **Proxy state** -- Runtime state persisted by the running proxy (PID, port, host, strategy, start time, fallback chain, guard PID). Used by `proxy status` and the fail-open guard.                                                                                  |
-| `~/.neurolink/logs/proxy-YYYY-MM-DD.jsonl`       | `0o600`      | **Request logs** -- One JSONL entry per proxied request. Rotated daily by date. Each entry contains: timestamp, requestId, method, path, model, stream flag, tool count, account label, response status, response time, error info, and token usage.                 |
-| `~/.neurolink/logs/proxy-debug-YYYY-MM-DD.jsonl` | `0o600`      | **Debug logs** -- Full request/response debug entries. Includes complete request headers, body summary (model, max_tokens, message count, tool count, thinking config), response status, response headers, response body (first 2000 chars on errors), and duration. |
-| `~/.neurolink/account-quotas.json`               | user default | **Account quotas** -- Cached quota/utilization data from Anthropic's `unified-5h` and `unified-7d` rate-limit headers. Flushed to disk every 5 seconds.                                                                                                              |
-| `~/.claude/settings.json`                        | user default | **Claude Code settings** -- Auto-configured with `ANTHROPIC_BASE_URL` and `ENABLE_TOOL_SEARCH` when the proxy starts. Cleaned up on shutdown.                                                                                                                        |
+| File                                                         | Permissions  | Description                                                                                                                                                                                          |
+| ------------------------------------------------------------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `~/.neurolink/tokens.json`                                   | `0o600`      | **TokenStore** -- Multi-provider OAuth token storage. Stores tokens keyed by `provider:label` (e.g., `anthropic:personal`). XOR-obfuscated by default (not plaintext).                               |
+| `~/.neurolink/anthropic-credentials.json`                    | `0o600`      | **Legacy credentials** -- Single-account OAuth tokens. Used as a fallback when no compound keys exist in `tokens.json`. Updated on token refresh (pre-request or on-401).                            |
+| `~/.neurolink/proxy-config.yaml`                             | user default | **Proxy config** -- YAML/JSON configuration file. Loaded by `proxy start` (default path, overridable with `--config`).                                                                               |
+| `~/.neurolink/proxy-state.json`                              | user default | **Proxy state** -- Runtime state persisted by the running proxy (PID, port, host, strategy, start time, fallback chain, guard PID). Used by `proxy status` and the fail-open guard.                  |
+| `~/.neurolink/logs/proxy-YYYY-MM-DD.jsonl`                   | `0o600`      | **Request summary logs** -- One JSONL entry per completed proxied request. Includes requestId, method, path, model, status, account label, response time, token usage, and trace correlation fields. |
+| `~/.neurolink/logs/proxy-attempts-YYYY-MM-DD.jsonl`          | `0o600`      | **Attempt logs** -- One JSONL entry per upstream attempt. Useful for retry, failover, and cooldown debugging without inflating request totals.                                                       |
+| `~/.neurolink/logs/proxy-debug-YYYY-MM-DD.jsonl`             | `0o600`      | **Debug index logs** -- Redacted body-capture index rows with phase, headers, status, duration, and the stored body artifact path.                                                                   |
+| `~/.neurolink/logs/bodies/YYYY-MM-DD/<request-id>/*.json.gz` | `0o600`      | **Body artifacts** -- Compressed redacted request and response bodies captured for debugging.                                                                                                        |
+| `~/.neurolink/account-quotas.json`                           | user default | **Account quotas** -- Cached quota/utilization data from Anthropic's `unified-5h` and `unified-7d` rate-limit headers. Flushed to disk every 5 seconds.                                              |
+| `~/.claude/settings.json`                                    | user default | **Claude Code settings** -- Auto-configured with `ANTHROPIC_BASE_URL` and `ENABLE_TOOL_SEARCH` when the proxy starts. Cleaned up on shutdown.                                                        |
 
 ### TokenStore Details
 
@@ -532,9 +570,10 @@ Tokens are automatically refreshed 1 hour before expiration when a `TokenRefresh
 Model mappings let you reroute specific model requests to different providers. The proxy's `ModelRouter` checks mappings in this order:
 
 1. **Explicit mapping** -- If the requested model has a `from` match in `model-mappings`, use the corresponding `to`/`provider`.
-2. **Passthrough list** -- If the model is in `passthrough-models`, route to Anthropic.
-3. **Claude prefix** -- Any model starting with `claude-` is routed to Anthropic.
-4. **Unknown model** -- Returns `provider: null` (the proxy will attempt Anthropic by default).
+2. **Gemini prefix** -- If the requested model starts with `gemini-`, route to Vertex by default.
+3. **Passthrough list** -- If the model is in `passthrough-models`, route to Anthropic.
+4. **Claude prefix** -- Any model starting with `claude-` is routed to Anthropic.
+5. **Unknown model** -- Returns `provider: null` (the proxy will reject non-Claude models unless routing is configured).
 
 ### Example: Route Haiku to a Cheaper Provider
 
@@ -578,7 +617,7 @@ Here, Sonnet 4 and Opus requests go directly to Anthropic (passthrough), while H
 
 ### Example: No Routing (Pure Multi-Account Pool)
 
-Omit the `routing` section entirely. All requests pass through to Anthropic using the configured accounts with round-robin rotation:
+Omit the `routing` section entirely. All requests pass through to Anthropic using the configured accounts with the proxy's default `fill-first` strategy:
 
 ```yaml
 accounts:
@@ -610,7 +649,7 @@ routing:
 
 Request flow:
 
-1. Try all Claude accounts (round-robin with retry).
+1. Try Claude accounts with the configured strategy (`fill-first` by default) plus retry/failover.
 2. If all exhausted, try Google AI Studio with `gemini-2.5-pro`.
 3. If that also fails, try OpenAI with `gpt-4o`.
 
@@ -657,7 +696,7 @@ accounts:
       weight: 3
 
 routing:
-  strategy: "round-robin"
+  strategy: "fill-first"
 
   passthrough-models:
     - "claude-sonnet-4-20250514"
@@ -700,19 +739,19 @@ This configuration:
 
 For reference, the running proxy exposes these HTTP endpoints:
 
-| Method | Path                        | Description                                                          |
-| ------ | --------------------------- | -------------------------------------------------------------------- |
-| `POST` | `/v1/messages`              | Anthropic-compatible chat completions (main endpoint).               |
-| `GET`  | `/v1/models`                | List available models.                                               |
-| `POST` | `/v1/messages/count_tokens` | Token counting endpoint.                                             |
-| `GET`  | `/health`                   | Health check. Returns `{ status, strategy, uptime }`.                |
-| `GET`  | `/status`                   | Detailed status with per-account stats, request counts, error rates. |
+| Method | Path                        | Description                                                                                  |
+| ------ | --------------------------- | -------------------------------------------------------------------------------------------- |
+| `POST` | `/v1/messages`              | Anthropic-compatible chat completions (main endpoint).                                       |
+| `GET`  | `/v1/models`                | List available models.                                                                       |
+| `POST` | `/v1/messages/count_tokens` | Token counting endpoint.                                                                     |
+| `GET`  | `/health`                   | Health check. Returns `{ status, strategy, uptime }`.                                        |
+| `GET`  | `/status`                   | Detailed status with per-account stats, total attempts, completed requests, and error rates. |
 
 ---
 
 ## Log Rotation
 
-Log files (`proxy-*.jsonl` and `proxy-debug-*.jsonl`) are automatically cleaned up to prevent unbounded growth.
+Log files (`proxy-*.jsonl`, `proxy-attempts-*.jsonl`, `proxy-debug-*.jsonl`) and old body-capture directories are automatically cleaned up to prevent unbounded growth.
 
 | Parameter        | Value            | Description                                                |
 | ---------------- | ---------------- | ---------------------------------------------------------- |

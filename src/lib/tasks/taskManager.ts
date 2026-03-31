@@ -107,6 +107,39 @@ export class TaskManager {
     });
   }
 
+  private getStore(): TaskStore {
+    if (!this.store) {
+      throw TaskError.create(
+        "BACKEND_NOT_INITIALIZED",
+        "[TaskManager] Store not initialized. Call initialize() first.",
+      );
+    }
+
+    return this.store;
+  }
+
+  private getBackend(): TaskBackend {
+    if (!this.backend) {
+      throw TaskError.create(
+        "BACKEND_NOT_INITIALIZED",
+        "[TaskManager] Backend not initialized. Call initialize() first.",
+      );
+    }
+
+    return this.backend;
+  }
+
+  private getExecutor(): TaskExecutor {
+    if (!this.executor) {
+      throw TaskError.create(
+        "BACKEND_NOT_INITIALIZED",
+        "[TaskManager] Executor not initialized. Call initialize() first.",
+      );
+    }
+
+    return this.executor;
+  }
+
   // ── Public API ────────────────────────────────────────
 
   async create(definition: TaskDefinition): Promise<Task> {
@@ -118,10 +151,12 @@ export class TaskManager {
     }
 
     await this.ensureInitialized();
+    const store = this.getStore();
+    const backend = this.getBackend();
 
     // Enforce maximum task limit to prevent unbounded task creation
     const maxTasks = this.config.maxTasks ?? TASK_DEFAULTS.maxTasks;
-    const existingTasks = await this.store!.list();
+    const existingTasks = await store.list();
     if (existingTasks.length >= maxTasks) {
       throw TaskError.create(
         "TASK_LIMIT_REACHED",
@@ -175,7 +210,7 @@ export class TaskManager {
     }
 
     // Save to store
-    await this.store!.save(task);
+    await store.save(task);
 
     // Register callbacks (in-memory only)
     if (definition.onSuccess || definition.onError || definition.onComplete) {
@@ -188,9 +223,9 @@ export class TaskManager {
 
     // Schedule
     try {
-      await this.backend!.schedule(task, (t) => this.onTaskTick(t));
+      await backend.schedule(task, (t) => this.onTaskTick(t));
     } catch (err) {
-      await this.store!.delete(task.id);
+      await store.delete(task.id);
       throw err;
     }
 
@@ -207,12 +242,12 @@ export class TaskManager {
 
   async get(taskId: string): Promise<Task | null> {
     await this.ensureInitialized();
-    return this.store!.get(taskId);
+    return this.getStore().get(taskId);
   }
 
   async list(filter?: { status?: TaskStatus }): Promise<Task[]> {
     await this.ensureInitialized();
-    return this.store!.list(filter);
+    return this.getStore().list(filter);
   }
 
   async update(
@@ -220,8 +255,10 @@ export class TaskManager {
     updates: Partial<TaskDefinition>,
   ): Promise<Task> {
     await this.ensureInitialized();
+    const store = this.getStore();
+    const backend = this.getBackend();
 
-    const existing = await this.store!.get(taskId);
+    const existing = await store.get(taskId);
     if (!existing) {
       throw TaskError.create("TASK_NOT_FOUND", `Task not found: ${taskId}`);
     }
@@ -257,16 +294,16 @@ export class TaskManager {
         taskUpdates.sessionId = `session_${nanoid(12)}`;
       } else if (updates.mode !== "continuation") {
         taskUpdates.sessionId = undefined;
-        await this.store!.clearHistory(taskId);
+        await store.clearHistory(taskId);
       }
     }
 
-    const updated = await this.store!.update(taskId, taskUpdates);
+    const updated = await store.update(taskId, taskUpdates);
 
     // Re-schedule if schedule changed and task is active
     if (updates.schedule && updated.status === "active") {
-      await this.backend!.cancel(taskId);
-      await this.backend!.schedule(updated, (t) => this.onTaskTick(t));
+      await backend.cancel(taskId);
+      await backend.schedule(updated, (t) => this.onTaskTick(t));
     }
 
     return updated;
@@ -276,7 +313,7 @@ export class TaskManager {
   async run(taskId: string): Promise<TaskRunResult> {
     await this.ensureInitialized();
 
-    const task = await this.store!.get(taskId);
+    const task = await this.getStore().get(taskId);
     if (!task) {
       throw TaskError.create("TASK_NOT_FOUND", `Task not found: ${taskId}`);
     }
@@ -286,8 +323,10 @@ export class TaskManager {
 
   async pause(taskId: string): Promise<Task> {
     await this.ensureInitialized();
+    const store = this.getStore();
+    const backend = this.getBackend();
 
-    const task = await this.store!.get(taskId);
+    const task = await store.get(taskId);
     if (!task) {
       throw TaskError.create("TASK_NOT_FOUND", `Task not found: ${taskId}`);
     }
@@ -298,8 +337,8 @@ export class TaskManager {
       );
     }
 
-    await this.backend!.pause(taskId);
-    const updated = await this.store!.update(taskId, { status: "paused" });
+    await backend.pause(taskId);
+    const updated = await store.update(taskId, { status: "paused" });
 
     this.emit("task:paused", updated);
     return updated;
@@ -307,8 +346,10 @@ export class TaskManager {
 
   async resume(taskId: string): Promise<Task> {
     await this.ensureInitialized();
+    const store = this.getStore();
+    const backend = this.getBackend();
 
-    const task = await this.store!.get(taskId);
+    const task = await store.get(taskId);
     if (!task) {
       throw TaskError.create("TASK_NOT_FOUND", `Task not found: ${taskId}`);
     }
@@ -319,8 +360,8 @@ export class TaskManager {
       );
     }
 
-    const updated = await this.store!.update(taskId, { status: "active" });
-    await this.backend!.schedule(updated, (t) => this.onTaskTick(t));
+    const updated = await store.update(taskId, { status: "active" });
+    await backend.schedule(updated, (t) => this.onTaskTick(t));
 
     this.emit("task:resumed", updated);
     return updated;
@@ -328,9 +369,11 @@ export class TaskManager {
 
   async delete(taskId: string): Promise<void> {
     await this.ensureInitialized();
+    const backend = this.getBackend();
+    const store = this.getStore();
 
-    await this.backend!.cancel(taskId);
-    await this.store!.delete(taskId);
+    await backend.cancel(taskId);
+    await store.delete(taskId);
     this.callbacks.delete(taskId);
 
     this.emit("task:deleted", taskId);
@@ -341,7 +384,7 @@ export class TaskManager {
     options?: { limit?: number; status?: string },
   ): Promise<TaskRunResult[]> {
     await this.ensureInitialized();
-    return this.store!.getRuns(taskId, options);
+    return this.getStore().getRuns(taskId, options);
   }
 
   async shutdown(): Promise<void> {
@@ -373,9 +416,12 @@ export class TaskManager {
    */
   private async onTaskTick(task: Task): Promise<TaskRunResult> {
     this.emit("task:started", task);
+    const store = this.getStore();
+    const backend = this.getBackend();
+    const executor = this.getExecutor();
 
     // Re-read latest task state (may have been updated/paused since scheduling)
-    const current = await this.store!.get(task.id);
+    const current = await store.get(task.id);
     if (!current || current.status !== "active") {
       logger.debug("[TaskManager] Skipping tick for non-active task", {
         taskId: task.id,
@@ -391,10 +437,10 @@ export class TaskManager {
       };
     }
 
-    const result = await this.executor!.execute(current);
+    const result = await executor.execute(current);
 
     // Log the run
-    await this.store!.appendRun(task.id, result);
+    await store.appendRun(task.id, result);
 
     // Update task tracking
     const updates: Partial<Task> = {
@@ -405,13 +451,13 @@ export class TaskManager {
     // Check if task should complete
     if (current.maxRuns && current.runCount + 1 >= current.maxRuns) {
       updates.status = "completed";
-      await this.backend!.cancel(task.id);
+      await backend.cancel(task.id);
     }
 
     // Mark successful once tasks as completed
     if (result.status === "success" && current.schedule.type === "once") {
       updates.status = "completed";
-      await this.backend!.cancel(task.id);
+      await backend.cancel(task.id);
     }
 
     // Mark as failed on permanent error
@@ -419,7 +465,7 @@ export class TaskManager {
       updates.status = "failed";
     }
 
-    await this.store!.update(task.id, updates);
+    await store.update(task.id, updates);
 
     // Fire callbacks
     const cbs = this.callbacks.get(task.id);
@@ -440,7 +486,7 @@ export class TaskManager {
           });
         }
         if (updates.status === "completed" || updates.status === "failed") {
-          const finalTask = await this.store!.get(task.id);
+          const finalTask = await store.get(task.id);
           if (finalTask && cbs.onComplete) {
             await cbs.onComplete(finalTask);
           }
@@ -468,11 +514,13 @@ export class TaskManager {
    * Called on initialization to handle process restarts.
    */
   private async rescheduleActiveTasks(): Promise<void> {
-    const activeTasks = await this.store!.list({ status: "active" });
+    const store = this.getStore();
+    const backend = this.getBackend();
+    const activeTasks = await store.list({ status: "active" });
 
     for (const task of activeTasks) {
       try {
-        await this.backend!.schedule(task, (t) => this.onTaskTick(t));
+        await backend.schedule(task, (t) => this.onTaskTick(t));
         logger.debug("[TaskManager] Re-scheduled task", {
           taskId: task.id,
           name: task.name,

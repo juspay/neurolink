@@ -92,9 +92,16 @@ await neurolink.addExternalMCPServer("database", {
   env: { DB_CONNECTION: "postgresql://..." },
 });
 
-// Verify registration
+// Verify registration — getMCPStatus() also triggers MCP initialization,
+// so always call it before listMCPServers() to ensure the subsystem is ready.
 const status = await neurolink.getMCPStatus();
 console.log("Active servers:", status.totalServers);
+
+const servers = await neurolink.listMCPServers();
+console.log(
+  "Registered servers:",
+  servers.map((s) => s.name),
+);
 ```
 
 ### **4. Execute Tools (Planned)**

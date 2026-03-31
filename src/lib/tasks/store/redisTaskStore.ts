@@ -82,14 +82,14 @@ export class RedisTaskStore implements TaskStore {
   // ── Task CRUD ───────────────────────────────────────────
 
   async save(task: Task): Promise<void> {
-    this.ensureConnected();
-    await this.client!.hSet(TASKS_HASH, task.id, JSON.stringify(task));
+    const client = this.getClient();
+    await client.hSet(TASKS_HASH, task.id, JSON.stringify(task));
     this.applyRetentionTTL(task);
   }
 
   async get(taskId: string): Promise<Task | null> {
-    this.ensureConnected();
-    const data = await this.client!.hGet(TASKS_HASH, taskId);
+    const client = this.getClient();
+    const data = await client.hGet(TASKS_HASH, taskId);
     if (!data) {
       return null;
     }
@@ -97,8 +97,8 @@ export class RedisTaskStore implements TaskStore {
   }
 
   async list(filter?: { status?: TaskStatus }): Promise<Task[]> {
-    this.ensureConnected();
-    const all = await this.client!.hGetAll(TASKS_HASH);
+    const client = this.getClient();
+    const all = await client.hGetAll(TASKS_HASH);
     let tasks = Object.values(all).map((v) => JSON.parse(String(v)) as Task);
 
     if (filter?.status) {
@@ -112,7 +112,7 @@ export class RedisTaskStore implements TaskStore {
   }
 
   async update(taskId: string, updates: Partial<Task>): Promise<Task> {
-    this.ensureConnected();
+    const client = this.getClient();
     const existing = await this.get(taskId);
     if (!existing) {
       throw TaskError.create("TASK_NOT_FOUND", `Task not found: ${taskId}`);
@@ -125,42 +125,42 @@ export class RedisTaskStore implements TaskStore {
       updatedAt: new Date().toISOString(),
     };
 
-    await this.client!.hSet(TASKS_HASH, taskId, JSON.stringify(updated));
+    await client.hSet(TASKS_HASH, taskId, JSON.stringify(updated));
     this.applyRetentionTTL(updated);
     return updated;
   }
 
   async delete(taskId: string): Promise<void> {
-    this.ensureConnected();
+    const client = this.getClient();
     await Promise.all([
-      this.client!.hDel(TASKS_HASH, taskId),
-      this.client!.del(taskRunsKey(taskId)),
-      this.client!.del(taskHistoryKey(taskId)),
+      client.hDel(TASKS_HASH, taskId),
+      client.del(taskRunsKey(taskId)),
+      client.del(taskHistoryKey(taskId)),
     ]);
   }
 
   // ── Run Logs ──────────────────────────────────────────
 
   async appendRun(taskId: string, run: TaskRunResult): Promise<void> {
-    this.ensureConnected();
+    const client = this.getClient();
     const key = taskRunsKey(taskId);
-    await this.client!.lPush(key, JSON.stringify(run));
+    await client.lPush(key, JSON.stringify(run));
     // Trim to keep only the latest maxRunLogs entries
-    await this.client!.lTrim(key, 0, this.maxRunLogs - 1);
+    await client.lTrim(key, 0, this.maxRunLogs - 1);
   }
 
   async getRuns(
     taskId: string,
     options?: { limit?: number; status?: string },
   ): Promise<TaskRunResult[]> {
-    this.ensureConnected();
+    const client = this.getClient();
     const limit = options?.limit ?? 20;
     const key = taskRunsKey(taskId);
     // When a status filter is applied, we need to fetch more items than `limit`
     // because post-filter may discard many entries. Fetch all (-1) when filtering,
     // otherwise fetch exactly `limit` items.
     const fetchEnd = options?.status ? -1 : limit - 1;
-    const items = await this.client!.lRange(key, 0, fetchEnd);
+    const items = await client.lRange(key, 0, fetchEnd);
 
     let runs = items.map((v) => JSON.parse(String(v)) as TaskRunResult);
 
@@ -177,26 +177,26 @@ export class RedisTaskStore implements TaskStore {
     taskId: string,
     messages: ConversationEntry[],
   ): Promise<void> {
-    this.ensureConnected();
+    const client = this.getClient();
     const key = taskHistoryKey(taskId);
     const serialized = messages.map((m) => JSON.stringify(m));
     if (serialized.length > 0) {
-      await this.client!.rPush(key, serialized);
+      await client.rPush(key, serialized);
       // Trim to keep only the most recent entries, preventing unbounded growth
-      await this.client!.lTrim(key, -this.maxHistoryEntries, -1);
+      await client.lTrim(key, -this.maxHistoryEntries, -1);
     }
   }
 
   async getHistory(taskId: string): Promise<ConversationEntry[]> {
-    this.ensureConnected();
+    const client = this.getClient();
     const key = taskHistoryKey(taskId);
-    const items = await this.client!.lRange(key, 0, -1);
+    const items = await client.lRange(key, 0, -1);
     return items.map((v) => JSON.parse(String(v)) as ConversationEntry);
   }
 
   async clearHistory(taskId: string): Promise<void> {
-    this.ensureConnected();
-    await this.client!.del(taskHistoryKey(taskId));
+    const client = this.getClient();
+    await client.del(taskHistoryKey(taskId));
   }
 
   // ── Internal ──────────────────────────────────────────
@@ -208,6 +208,19 @@ export class RedisTaskStore implements TaskStore {
         "[TaskStore:Redis] Not connected. Call initialize() first.",
       );
     }
+  }
+
+  private getClient(): RedisClient {
+    this.ensureConnected();
+
+    if (!this.client) {
+      throw TaskError.create(
+        "BACKEND_NOT_INITIALIZED",
+        "[TaskStore:Redis] Client is unavailable after initialization.",
+      );
+    }
+
+    return this.client;
   }
 
   /**
@@ -226,14 +239,15 @@ export class RedisTaskStore implements TaskStore {
 
     const ttlMs = ttlMap[task.status];
     if (ttlMs) {
+      const client = this.getClient();
       const ttlSeconds = Math.ceil(ttlMs / 1000);
       // Set TTL on associated keys
-      this.client!.expire(taskRunsKey(task.id), ttlSeconds).catch((err) => {
+      client.expire(taskRunsKey(task.id), ttlSeconds).catch((err) => {
         logger.debug("[TaskStore:Redis] Failed to set TTL", {
           error: String(err),
         });
       });
-      this.client!.expire(taskHistoryKey(task.id), ttlSeconds).catch((err) => {
+      client.expire(taskHistoryKey(task.id), ttlSeconds).catch((err) => {
         logger.debug("[TaskStore:Redis] Failed to set TTL", {
           error: String(err),
         });

@@ -66,10 +66,14 @@ neurolink auth login anthropic --method oauth
 neurolink auth login anthropic --method oauth --add --label work
 neurolink auth login anthropic --method oauth --add --label personal
 
-# Step 3: Start the proxy
+# Step 3: (Optional) Start the local OpenObserve stack and import the dashboard
+neurolink proxy telemetry setup
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14318
+
+# Step 4: Start the proxy
 neurolink proxy start
 
-# Step 4: Restart Claude Code to pick up the new ANTHROPIC_BASE_URL
+# Step 5: Restart Claude Code to pick up the new ANTHROPIC_BASE_URL
 ```
 
 ## How It Works
@@ -81,6 +85,10 @@ Every request from Claude Code flows through the proxy in one of two modes:
 **Passthrough mode** (Claude to Claude): The request body is forwarded directly to `api.anthropic.com` with only the authentication headers modified. This preserves multi-turn conversation history, thinking content, cache control, and tool definitions exactly as Claude Code sent them. No lossy conversion through an intermediate format.
 
 **Translation mode** (Claude to other provider): When model routing directs a request to a non-Anthropic provider, the proxy parses the Claude Messages API request into NeuroLink's internal format, calls `neurolink.generate()` or `neurolink.stream()`, and serializes the result back into Claude Messages API format (including SSE streaming events). For streaming, the proxy emits SSE keep-alive comments (`: keep-alive`) every 15 seconds during idle periods to prevent connection timeouts.
+
+### Trace And Session Context
+
+If the caller sends W3C trace headers (`traceparent`, `tracestate`) or NeuroLink session headers (`x-neurolink-session-id`, `x-neurolink-user-id`, `x-neurolink-conversation-id`), the proxy links its spans to the caller trace and preserves that session/user/conversation context in proxy traces and logs.
 
 ### Token Management
 
@@ -170,6 +178,8 @@ cloaking:
   plugins: {}
 ```
 
+When routing is enabled, any requested model that starts with `gemini-` is treated as a Vertex target by default unless an explicit `model-mappings` rule overrides it.
+
 ### Environment variable interpolation
 
 String values in the config file support `${VAR_NAME}` and `${VAR_NAME:-default}` syntax:
@@ -246,11 +256,13 @@ neurolink proxy uninstall
 Start the proxy server.
 
 ```bash
-neurolink proxy start                           # Default: port 55669, round-robin
+neurolink proxy start                           # Default: port 55669, fill-first
 neurolink proxy start -p 8080 -s fill-first     # Custom port and strategy
 neurolink proxy start --config ./my-proxy.yaml  # Custom config file
 neurolink proxy start --debug                   # Enable debug logging
 neurolink proxy start --quiet                   # Suppress non-essential output
+neurolink proxy start --passthrough             # Transparent forwarding (no retry/rotation)
+neurolink proxy start --env-file ./proxy.env    # Load provider keys from dedicated file
 ```
 
 **Options:**
@@ -259,22 +271,39 @@ neurolink proxy start --quiet                   # Suppress non-essential output
 | ------------------- | ----- | -------------------------------- | ---------------------------------------------------------- |
 | `--port`            | `-p`  | 55669                            | Port to listen on                                          |
 | `--host`            | `-H`  | 127.0.0.1                        | Host to bind to                                            |
-| `--strategy`        | `-s`  | round-robin                      | Account selection strategy (`round-robin` or `fill-first`) |
+| `--strategy`        | `-s`  | fill-first                       | Account selection strategy (`fill-first` or `round-robin`) |
 | `--health-interval` |       | 30                               | Health check interval (seconds)                            |
 | `--config`          | `-c`  | `~/.neurolink/proxy-config.yaml` | Config file path                                           |
 | `--quiet`           | `-q`  | false                            | Suppress output                                            |
 | `--debug`           | `-d`  | false                            | Enable debug output                                        |
+| `--passthrough`     |       | false                            | Transparent forwarding (no retry, rotation, or polyfill)   |
+| `--env-file`        |       |                                  | Path to .env file for provider API keys                    |
 
 **Strategy choices:** `round-robin`, `fill-first`
 
 ### `neurolink proxy status`
 
-Show proxy status, including PID, uptime, strategy, fallback chain, and per-account usage statistics (fetched from the live `/status` endpoint).
+Show proxy status, including PID, uptime, strategy, fallback chain, and per-account usage statistics fetched from the live `/status` endpoint. Status output now distinguishes total upstream attempts from completed requests, so retry-heavy incidents are easier to spot.
 
 ```bash
 neurolink proxy status               # Human-readable text output
 neurolink proxy status --format json # Machine-readable JSON
 ```
+
+### `neurolink proxy telemetry <action>`
+
+Manage the local OpenObserve stack and the maintained proxy dashboard from the CLI.
+
+```bash
+neurolink proxy telemetry setup            # Start OpenObserve + OTEL collector and import dashboard
+neurolink proxy telemetry start            # Start the local telemetry stack only
+neurolink proxy telemetry stop             # Stop the local telemetry stack
+neurolink proxy telemetry status           # Show local stack health
+neurolink proxy telemetry logs             # Follow OpenObserve + collector logs
+neurolink proxy telemetry import-dashboard # Re-import the dashboard without restarting containers
+```
+
+These commands use the repo-owned assets under `scripts/observability/` and the dashboard JSON at `docs/assets/dashboards/neurolink-proxy-observability-dashboard.json`.
 
 ### `neurolink auth login anthropic`
 
@@ -492,11 +521,11 @@ On startup, the proxy spawns a detached background process (`neurolink proxy gua
 When the target provider is `anthropic` (the default for any `claude-*` model), the proxy operates in passthrough mode:
 
 1. Load all available accounts (TokenStore, legacy file, env var). Expired accounts are given one refresh attempt at startup; if that fails, they are disabled.
-2. Select the first non-cooling account (fill-first via round-robin cursor).
+2. Select the first non-cooling account according to the active routing strategy. With the default `fill-first` strategy, this is always the current primary account until it cools down.
 3. Auto-refresh the token if expiring within 1 hour.
 4. Forward the raw request body via plain `fetch()` to `https://api.anthropic.com/v1/messages?beta=true`.
 5. Set authentication headers (`Authorization: Bearer` for OAuth, `x-api-key` for API keys).
-6. Forward client headers as-is; fill defaults only when absent (e.g., `user-agent`, `anthropic-version`). Ensure `oauth-2025-04-20` is in the beta header.
+6. Forward client headers as-is, preserving Claude Code's own request shape, then merge in required OAuth betas and trace headers when absent. The proxy extracts incoming `traceparent` and `x-neurolink-*` headers and injects outbound trace context plus `x-claude-code-session-id` when needed.
 7. For streaming: verify the first chunk (bootstrap retry), then forward the stream. For non-streaming: return JSON.
 
 This mode preserves the exact request format that Claude Code expects, including thinking blocks, cache control headers, and multi-turn tool use conversations. Rate-limit headers from Anthropic (`retry-after`, `anthropic-ratelimit-requests-remaining`, `anthropic-ratelimit-requests-limit`, `anthropic-ratelimit-tokens-remaining`, `anthropic-ratelimit-tokens-limit`) are passed through to the client.
@@ -510,16 +539,19 @@ When model routing directs to a non-Anthropic provider:
 3. For streaming: use `ClaudeStreamSerializer` to emit Claude-compatible SSE events (`message_start`, `content_block_start`, `content_block_delta`, `content_block_stop`, `message_delta`, `message_stop`).
 4. For non-streaming: collect all text from the stream and call `serializeClaudeResponse()` to build a Claude Messages API response.
 
+If the translated response model differs from the requested model, the proxy records that as a model-substitution metric (`proxy_model_substitution_total`) and adds the requested vs actual model attributes to the trace.
+
 ### OAuth cloaking
 
 For OAuth-authenticated requests, the proxy applies transformations to make requests appear as standard Claude CLI traffic:
 
-- **User-Agent**: `claude-cli/2.1.80 (external, cli)`
-- **Beta headers**: `claude-code-20250219`, `oauth-2025-04-20`, `interleaved-thinking-2025-05-14`, `context-management-2025-06-27`, `prompt-caching-scope-2026-01-05`
+- **User-Agent**: `claude-cli/2.1.87 (external, sdk-cli)`
+- **Beta headers**: `oauth-2025-04-20`, `claude-code-20250219`, `interleaved-thinking-2025-05-14`, `context-management-2025-06-27`, `prompt-caching-scope-2026-01-05`, `advanced-tool-use-2025-11-20`, `effort-2025-11-24`
 - **Identity headers**: `x-app: cli`, `anthropic-dangerous-direct-browser-access: true`
 - **Stainless SDK headers**: `x-stainless-runtime`, `x-stainless-lang`, `x-stainless-os`, etc.
-- **Billing header**: Injected into the system prompt as a text block
-- **User ID**: Synthetic `user_id` in metadata (cached per token prefix, 1-hour TTL)
+- **Billing header**: Injected into the system prompt as a deterministic Claude-Code-shaped billing block so prompt caching stays stable across requests
+- **User ID**: `metadata.user_id` is a JSON string with `device_id`, `account_uuid`, and `session_id`, cached per account/token seed and reused across requests
+- **Trace linkage**: outbound requests include W3C trace headers and a stable `x-claude-code-session-id` when the proxy owns the request shape
 
 The `CloakingPipeline` supports three modes:
 
@@ -534,18 +566,23 @@ The `CloakingPipeline` supports three modes:
 The pipeline runs plugins in `order` field order:
 
 - **HeaderScrubber** -- Removes or modifies headers that reveal proxy usage
-- **SessionIdentity** -- Generates consistent fake session identifiers
+- **SessionIdentity** -- Generates Claude-Code-shaped identity metadata with stable `device_id` and `account_uuid`
 - **SystemPromptInjector** -- Adds billing and agent block to system prompts
 - **TlsFingerprint** -- TLS fingerprint matching
 - **WordObfuscator** -- Obfuscates identifiable patterns
 
 ### Request logging
 
-The proxy logs every request to `~/.neurolink/logs/proxy-YYYY-MM-DD.jsonl` in JSONL format. Each entry includes timestamp, request ID, method, path, model, account label, response status, response time, and token usage. Log files use `0o600` permissions.
+The proxy writes four complementary log families under `~/.neurolink/logs/`:
 
-Full debug logs (complete request/response bodies and headers) are written to `~/.neurolink/logs/proxy-debug-YYYY-MM-DD.jsonl`. These are useful for diagnosing upstream API issues.
+- `proxy-YYYY-MM-DD.jsonl` -- final request summaries used for request counts, status trends, token totals, and dashboard panels
+- `proxy-attempts-YYYY-MM-DD.jsonl` -- per-upstream-attempt diagnostics for retries, failover, and rate-limit debugging
+- `proxy-debug-YYYY-MM-DD.jsonl` -- redacted body-capture index rows with phase, headers, file path, and response metadata
+- `bodies/YYYY-MM-DD/<request-id>/*.json.gz` -- the corresponding redacted request and response body artifacts, stored compressed with `0o600` permissions
 
-> **Header redaction:** Request headers are redacted before logging — sensitive values (`authorization`, `x-api-key`) are truncated or masked. Response headers from the upstream API are currently logged unredacted.
+Final request summaries include request ID, method, path, model, account label, response status, response time, token usage, and `traceId` / `spanId` for trace correlation. Debug body captures are also emitted to OTLP logs as `event.name=proxy.body_capture`.
+
+> **Redaction:** Sensitive headers and common JSON secret keys (`authorization`, `access_token`, `refresh_token`, `api_key`, etc.) are redacted before debug artifacts are written locally or emitted to OTLP.
 
 ### Log rotation
 
@@ -560,11 +597,11 @@ This prevents unbounded log growth without requiring external cron jobs.
 
 In-memory per-account statistics track:
 
-- Request count, success count, error count, rate-limit count
+- Upstream attempt count, success count, error count, rate-limit count
 - Current backoff level and cooling state
-- Last request and last error timestamps
+- Last attempt and last error timestamps
 
-Statistics reset on proxy restart. Access via the `/status` endpoint.
+Proxy-wide status also tracks total upstream attempts separately from completed requests. Statistics reset on proxy restart. Access them via the `/status` endpoint or `neurolink proxy status`.
 
 ## Comparison with CLIProxyAPI
 
@@ -585,26 +622,48 @@ Statistics reset on proxy restart. Access via the `/status` endpoint.
 
 ## Key Files
 
-| File                                         | Purpose                                                                  |
-| -------------------------------------------- | ------------------------------------------------------------------------ |
-| `src/cli/commands/proxy.ts`                  | CLI commands: start, status, setup, install, uninstall                   |
-| `src/lib/server/routes/claudeProxyRoutes.ts` | Claude API route handlers (passthrough + translation)                    |
-| `src/lib/proxy/modelRouter.ts`               | Model name resolution and fallback chain                                 |
-| `src/lib/proxy/claudeFormat.ts`              | Request parser, response serializer, SSE state machine                   |
-| `src/lib/proxy/oauthFetch.ts`                | OAuth fetch wrapper with cloaking                                        |
-| `src/lib/proxy/proxyConfig.ts`               | YAML/JSON config loader with env var interpolation                       |
-| `src/lib/proxy/requestLogger.ts`             | JSONL request logging                                                    |
-| `src/lib/proxy/usageStats.ts`                | In-memory per-account statistics                                         |
-| `src/lib/proxy/tokenRefresh.ts`              | Shared token refresh helpers (needsRefresh, refreshToken, persistTokens) |
-| `src/lib/proxy/accountQuota.ts`              | Quota header parsing (unified-5h, unified-7d) and persistence            |
-| `src/lib/proxy/cloaking/index.ts`            | CloakingPipeline orchestrator                                            |
-| `src/lib/proxy/cloaking/types.ts`            | Cloaking plugin interface and context types                              |
-| `src/lib/auth/tokenStore.ts`                 | Multi-provider OAuth token storage                                       |
-| `src/lib/auth/anthropicOAuth.ts`             | Anthropic OAuth 2.0 + PKCE flow                                          |
-| `src/lib/auth/accountPool.ts`                | Account pool management                                                  |
-| `src/cli/commands/auth.ts`                   | Auth CLI commands: login, logout, list, status, refresh, cleanup, enable |
-| `src/cli/factories/authCommandFactory.ts`    | Auth command builder with subcommands                                    |
-| `src/lib/types/subscriptionTypes.ts`         | Subscription tier, auth, and routing types                               |
+| File                                                                  | Purpose                                                                  |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `src/cli/commands/proxy.ts`                                           | CLI commands: start, status, telemetry, setup, install, uninstall        |
+| `src/lib/server/routes/claudeProxyRoutes.ts`                          | Claude API route handlers (passthrough + translation)                    |
+| `src/lib/proxy/modelRouter.ts`                                        | Model name resolution and fallback chain                                 |
+| `src/lib/proxy/claudeFormat.ts`                                       | Request parser, response serializer, SSE state machine                   |
+| `src/lib/proxy/oauthFetch.ts`                                         | OAuth fetch wrapper with cloaking                                        |
+| `src/lib/proxy/proxyConfig.ts`                                        | YAML/JSON config loader with env var interpolation                       |
+| `src/lib/proxy/requestLogger.ts`                                      | JSONL request logging, OTLP log emission, and debug body capture storage |
+| `src/lib/proxy/rawStreamCapture.ts`                                   | Lossless raw stream capture for debugging streaming request/response IO  |
+| `src/lib/proxy/usageStats.ts`                                         | In-memory per-account statistics                                         |
+| `src/lib/proxy/tokenRefresh.ts`                                       | Shared token refresh helpers (needsRefresh, refreshToken, persistTokens) |
+| `src/lib/proxy/accountQuota.ts`                                       | Quota header parsing (unified-5h, unified-7d) and persistence            |
+| `src/lib/proxy/cloaking/index.ts`                                     | CloakingPipeline orchestrator                                            |
+| `src/lib/proxy/cloaking/types.ts`                                     | Cloaking plugin interface and context types                              |
+| `src/lib/auth/tokenStore.ts`                                          | Multi-provider OAuth token storage                                       |
+| `src/lib/auth/anthropicOAuth.ts`                                      | Anthropic OAuth 2.0 + PKCE flow                                          |
+| `src/lib/auth/accountPool.ts`                                         | Account pool management                                                  |
+| `src/cli/commands/auth.ts`                                            | Auth CLI commands: login, logout, list, status, refresh, cleanup, enable |
+| `src/cli/factories/authCommandFactory.ts`                             | Auth command builder with subcommands                                    |
+| `src/lib/types/subscriptionTypes.ts`                                  | Subscription tier, auth, and routing types                               |
+| `scripts/observability/manage-local-openobserve.sh`                   | Local OpenObserve lifecycle helper for `proxy telemetry`                 |
+| `docs/assets/dashboards/neurolink-proxy-observability-dashboard.json` | Maintained dashboard source-of-truth                                     |
+
+## Observability Dashboard
+
+The maintained OpenObserve dashboard definition for the proxy lives in `docs/assets/dashboards/neurolink-proxy-observability-dashboard.json`.
+
+For a fresh local OpenObserve setup owned by this repo, run `neurolink proxy telemetry setup`. That bootstraps the local collector and dashboard from `scripts/observability/` without depending on the Curator repo.
+
+Useful lifecycle commands:
+
+- `neurolink proxy telemetry setup`
+- `neurolink proxy telemetry start`
+- `neurolink proxy telemetry stop`
+- `neurolink proxy telemetry status`
+- `neurolink proxy telemetry logs`
+- `neurolink proxy telemetry import-dashboard`
+
+When working from a repo checkout, the `pnpm run proxy:observability:*` scripts are equivalent shortcuts.
+
+For what each tab means, which streams are valid, and how to interpret cache, routing, latency, and trace data, see [Claude Proxy Observability](/docs/features/claude-proxy-observability).
 
 ## Troubleshooting
 

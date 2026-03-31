@@ -1,10 +1,34 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { type LanguageModel, stepCountIs, streamText, type Tool } from "ai";
-import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
-import { type AIProviderName, AnthropicModels } from "../constants/enums.js";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "fs";
+import { homedir } from "os";
+import { join } from "path";
+import {
+  ANTHROPIC_TOKEN_URL,
+  CLAUDE_CLI_USER_AGENT,
+  CLAUDE_CODE_CLIENT_ID,
+} from "../auth/anthropicOAuth.js";
+import {
+  type AIProviderName,
+  AnthropicModels,
+  TOKEN_EXPIRY_BUFFER_MS,
+} from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
+import {
+  getModelCapabilities,
+  getRecommendedModelForTier,
+  isModelAvailableForTier,
+} from "../models/anthropicModels.js";
 import type { NeuroLink } from "../neurolink.js";
+import { createOAuthFetch } from "../proxy/oauthFetch.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type { JsonValue, UnknownRecord } from "../types/common.js";
 import {
@@ -14,10 +38,19 @@ import {
   RateLimitError,
 } from "../types/errors.js";
 import type {
-  TextGenerationOptions,
   EnhancedGenerateResult,
+  TextGenerationOptions,
 } from "../types/generateTypes.js";
+import type { AnthropicProviderConfig } from "../types/providers.js";
 import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
+import type {
+  AnthropicAuthMethod,
+  AnthropicRateLimitInfo,
+  AnthropicResponseMetadata,
+  ClaudeSubscriptionTier,
+  ClaudeUsageInfo,
+  OAuthToken,
+} from "../types/subscriptionTypes.js";
 import type { ValidationSchema } from "../types/typeAliases.js";
 import { logger } from "../utils/logger.js";
 import { calculateCost } from "../utils/pricing.js";
@@ -31,49 +64,23 @@ import {
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
-import type {
-  ClaudeSubscriptionTier,
-  AnthropicAuthMethod,
-  OAuthToken,
-  AnthropicRateLimitInfo,
-  AnthropicResponseMetadata,
-  ClaudeUsageInfo,
-} from "../types/subscriptionTypes.js";
-import type { AnthropicProviderConfig } from "../types/providers.js";
-import {
-  isModelAvailableForTier,
-  getRecommendedModelForTier,
-  getModelCapabilities,
-} from "../models/anthropicModels.js";
-import {
-  CLAUDE_CLI_USER_AGENT,
-  CLAUDE_CODE_CLIENT_ID,
-  ANTHROPIC_TOKEN_URL,
-} from "../auth/anthropicOAuth.js";
-import { createOAuthFetch } from "../proxy/oauthFetch.js";
-import { homedir } from "os";
-import {
-  readFileSync,
-  existsSync,
-  writeFileSync,
-  mkdirSync,
-  renameSync,
-} from "fs";
-import { join } from "path";
-import { TOKEN_EXPIRY_BUFFER_MS } from "../constants/enums.js";
+import { resolveToolChoice } from "../utils/toolChoice.js";
 import { getModelId } from "./providerTypeUtils.js";
 
 /**
  * Beta headers for Claude Code integration.
  * These enable experimental features:
  * - claude-code-20250219: Claude Code specific features
- * - interleaved-thinking-2025-05-14: Interleaved thinking mode
  * - fine-grained-tool-streaming-2025-05-14: Fine-grained tool streaming
+ *
+ * Note: interleaved-thinking-2025-05-14 was removed — it was claude-3-7-sonnet
+ * specific and causes invalid_request_error (HTTP 400) on claude-4 models
+ * (claude-opus-4-6, claude-sonnet-4-6) which handle thinking via the
+ * `thinking` request body parameter instead.
  */
 const ANTHROPIC_BETA_HEADERS = {
   "anthropic-beta": [
     "claude-code-20250219",
-    "interleaved-thinking-2025-05-14",
     "fine-grained-tool-streaming-2025-05-14",
   ].join(","),
 };
@@ -237,7 +244,9 @@ const detectAuthMethod = (
   } else if (explicit) {
     logger.warn(
       "[detectAuthMethod] Unrecognized ANTHROPIC_AUTH_METHOD value; falling through to auto-detection",
-      { value: explicit },
+      {
+        value: explicit,
+      },
     );
   }
   // Auto-detect: OAuth takes precedence if available
@@ -1013,7 +1022,7 @@ export class AnthropicProvider extends BaseProvider {
           maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
           tools,
           stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
-          toolChoice: shouldUseTools ? "auto" : "none",
+          toolChoice: resolveToolChoice(options, tools, shouldUseTools),
           abortSignal: composeAbortSignals(
             options.abortSignal,
             timeoutController?.controller.signal,
@@ -1145,10 +1154,10 @@ export class AnthropicProvider extends BaseProvider {
 
 // Re-export types and utilities for convenience
 export {
-  ModelAccessError,
-  isModelAvailableForTier,
-  getRecommendedModelForTier,
   getModelCapabilities,
+  getRecommendedModelForTier,
+  isModelAvailableForTier,
+  ModelAccessError,
 } from "../models/anthropicModels.js";
 
 // Export beta headers constant for external use

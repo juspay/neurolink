@@ -92,8 +92,17 @@ export class FirebaseAuthProvider extends BaseAuthProvider {
     }
 
     try {
+      const jwks = this.jwks;
+      if (!jwks) {
+        throw AuthError.create(
+          "PROVIDER_INIT_FAILED",
+          "Firebase JWKS was not initialized",
+          { details: { provider: "firebase" } },
+        );
+      }
+
       // Verify the token using Google's public keys
-      const { payload } = await jose.jwtVerify(token, this.jwks!, {
+      const { payload } = await jose.jwtVerify(token, jwks, {
         issuer: `https://securetoken.google.com/${this.projectId}`,
         audience: this.projectId,
       });

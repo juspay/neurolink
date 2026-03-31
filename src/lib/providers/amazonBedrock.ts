@@ -1409,8 +1409,7 @@ export class AmazonBedrockProvider extends BaseProvider {
 
               if (firstStopReason === "tool_use") {
                 const toolNames = firstMessageContent
-                  .filter((b) => b.toolUse?.name)
-                  .map((b) => b.toolUse!.name)
+                  .flatMap((b) => (b.toolUse?.name ? [b.toolUse.name] : []))
                   .join(", ");
                 streamSpan.addEvent("stream.tool_use", {
                   iteration: 0,
@@ -1452,8 +1451,7 @@ export class AmazonBedrockProvider extends BaseProvider {
 
               if (stopReason === "tool_use") {
                 const toolNames = assistantMessage.content
-                  .filter((b) => b.toolUse?.name)
-                  .map((b) => b.toolUse!.name)
+                  .flatMap((b) => (b.toolUse?.name ? [b.toolUse.name] : []))
                   .join(", ");
                 streamSpan.addEvent("stream.tool_use", {
                   iteration,

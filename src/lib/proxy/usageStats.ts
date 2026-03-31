@@ -8,6 +8,7 @@ import type { AccountStats, ProxyStats } from "../types/index.js";
 
 const stats: ProxyStats = {
   startedAt: Date.now(),
+  totalAttempts: 0,
   totalRequests: 0,
   totalSuccess: 0,
   totalErrors: 0,
@@ -15,32 +16,51 @@ const stats: ProxyStats = {
   accounts: {},
 };
 
-export function recordRequest(accountLabel: string, accountType: string): void {
-  ensureAccount(accountLabel, accountType).requestCount++;
-  ensureAccount(accountLabel, accountType).lastRequestAt = Date.now();
+export function recordAttempt(accountLabel: string, accountType: string): void {
+  stats.totalAttempts++;
+  const acct = ensureAccount(accountLabel, accountType);
+  acct.attemptCount++;
+  acct.lastAttemptAt = Date.now();
 }
 
-export function recordSuccess(accountLabel: string, accountType: string): void {
+export function recordFinalSuccess(
+  accountLabel?: string,
+  accountType?: string,
+): void {
   stats.totalRequests++;
   stats.totalSuccess++;
-  const acct = ensureAccount(accountLabel, accountType);
-  acct.successCount++;
-  acct.currentBackoffLevel = 0;
+  if (accountLabel && accountType) {
+    const acct = ensureAccount(accountLabel, accountType);
+    acct.successCount++;
+    acct.currentBackoffLevel = 0;
+  }
 }
 
-export function recordError(
+export function recordAttemptError(
   accountLabel: string,
   accountType: string,
   status: number,
 ): void {
-  stats.totalRequests++;
-  stats.totalErrors++;
   const acct = ensureAccount(accountLabel, accountType);
   acct.errorCount++;
   acct.lastErrorAt = Date.now();
   if (status === 429) {
     stats.totalRateLimits++;
     acct.rateLimitCount++;
+  }
+}
+
+export function recordFinalError(
+  _status: number,
+  accountLabel?: string,
+  accountType?: string,
+): void {
+  stats.totalRequests++;
+  stats.totalErrors++;
+  if (accountLabel && accountType) {
+    const acct = ensureAccount(accountLabel, accountType);
+    acct.errorCount++;
+    acct.lastErrorAt = Date.now();
   }
 }
 
@@ -70,6 +90,7 @@ export function getAccountStats(label: string): AccountStats | undefined {
 
 export function resetStats(): void {
   stats.startedAt = Date.now();
+  stats.totalAttempts = 0;
   stats.totalRequests = 0;
   stats.totalSuccess = 0;
   stats.totalErrors = 0;
@@ -82,11 +103,11 @@ function ensureAccount(label: string, type: string): AccountStats {
     stats.accounts[label] = {
       label,
       type,
-      requestCount: 0,
+      attemptCount: 0,
       successCount: 0,
       errorCount: 0,
       rateLimitCount: 0,
-      lastRequestAt: 0,
+      lastAttemptAt: 0,
       currentBackoffLevel: 0,
     };
   }

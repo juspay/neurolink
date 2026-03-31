@@ -1,28 +1,29 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import {
-  NoOutputGeneratedError,
-  streamText,
-  type Schema,
   type LanguageModel,
+  NoOutputGeneratedError,
+  type Schema,
+  streamText,
   type Tool,
 } from "ai";
-import type { ZodUnknownSchema } from "../types/typeAliases.js";
-import { AIProviderName } from "../constants/enums.js";
-import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
-import type { UnknownRecord } from "../types/common.js";
-import type { ModelsResponse } from "../types/providers.js";
-import type { NeuroLink } from "../neurolink.js";
+import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
+import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
+import type { NeuroLink } from "../neurolink.js";
+import { createProxyFetch } from "../proxy/proxyFetch.js";
+import type { UnknownRecord } from "../types/common.js";
+import type { StepFinishEvent } from "../types/index.js";
+import type { ModelsResponse } from "../types/providers.js";
+import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
+import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import { logger } from "../utils/logger.js";
 import {
   composeAbortSignals,
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
-import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
-import { createProxyFetch } from "../proxy/proxyFetch.js";
+import { resolveToolChoice } from "../utils/toolChoice.js";
 import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
-import type { StepFinishEvent } from "../types/index.js";
 
 // Constants
 const FALLBACK_OPENAI_COMPATIBLE_MODEL = "gpt-3.5-turbo";
@@ -260,7 +261,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
           ? { temperature: options.temperature }
           : {}),
         tools,
-        toolChoice: shouldUseTools ? "auto" : "none",
+        toolChoice: resolveToolChoice(options, tools, shouldUseTools),
         abortSignal: composeAbortSignals(
           options.abortSignal,
           timeoutController?.controller.signal,

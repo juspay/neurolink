@@ -13,72 +13,16 @@
 
 import {
   CLAUDE_CLI_USER_AGENT,
+  CLAUDE_CODE_OAUTH_BETAS,
   MCP_TOOL_PREFIX,
+  buildStableClaudeCodeBillingHeader,
+  getOrCreateClaudeCodeIdentity,
 } from "../auth/anthropicOAuth.js";
 import { logger } from "../utils/logger.js";
-import { randomBytes, randomUUID } from "crypto";
 
 // Re-export constants for consumers that previously imported them alongside
 // the function from `providers/anthropic.ts`.
 export { CLAUDE_CLI_USER_AGENT, MCP_TOOL_PREFIX };
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Cache fake user IDs per token prefix (1-hour TTL, max 1000 entries). */
-const userIdCache = new Map<string, { id: string; expires: number }>();
-const USER_ID_CACHE_TTL_MS = 3_600_000; // 1 hour
-const USER_ID_CACHE_MAX_SIZE = 1_000;
-
-/** Evict expired entries and enforce max size (LRU-approximation via insertion order). */
-function evictUserIdCache(): void {
-  const now = Date.now();
-  for (const [key, entry] of userIdCache) {
-    if (entry.expires <= now) {
-      userIdCache.delete(key);
-    }
-  }
-  // If still over capacity, remove oldest entries (Map preserves insertion order)
-  if (userIdCache.size > USER_ID_CACHE_MAX_SIZE) {
-    const excess = userIdCache.size - USER_ID_CACHE_MAX_SIZE;
-    let removed = 0;
-    for (const key of userIdCache.keys()) {
-      if (removed >= excess) {
-        break;
-      }
-      userIdCache.delete(key);
-      removed++;
-    }
-  }
-}
-
-function getOrCreateUserId(tokenPrefix: string): string {
-  evictUserIdCache();
-  const cached = userIdCache.get(tokenPrefix);
-  if (cached && cached.expires > Date.now()) {
-    return cached.id;
-  }
-  const hex = randomBytes(32).toString("hex");
-  const id = `user_${hex}_account_${randomUUID()}_session_${randomUUID()}`;
-  userIdCache.set(tokenPrefix, {
-    id,
-    expires: Date.now() + USER_ID_CACHE_TTL_MS,
-  });
-  return id;
-}
-
-/** Compute a short hex hash of a string using Web Crypto (SHA-256). */
-async function shortSha256(data: string): Promise<string> {
-  const buf = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(data),
-  );
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("")
-    .substring(0, 5);
-}
 
 // ---------------------------------------------------------------------------
 // Main factory
@@ -92,7 +36,7 @@ async function shortSha256(data: string): Promise<string> {
  * - Sets User-Agent to Claude CLI
  * - Adds ?beta=true query parameter to /v1/messages
  * - Injects billing header & agent block into system prompt
- * - Injects fake user ID into metadata
+ * - Injects Claude-Code-shaped user ID into metadata
  * - Adds Stainless SDK headers for fingerprint matching
  * - Disables thinking when tool_choice is forced
  *
@@ -184,9 +128,11 @@ export function createOAuthFetch(
     if (!skipBodyTransform) {
       // Direct NeuroLink usage — set full beta list
       requiredBetas.push(
-        "claude-code-20250219",
-        ...(includeOptionalBetas ? ["interleaved-thinking-2025-05-14"] : []),
-        "prompt-caching-scope-2026-01-05",
+        ...(includeOptionalBetas
+          ? CLAUDE_CODE_OAUTH_BETAS.filter(
+              (beta) => beta !== "oauth-2025-04-20",
+            )
+          : []),
       );
     }
 
@@ -200,6 +146,8 @@ export function createOAuthFetch(
     if (!skipBodyTransform) {
       // Only override user-agent for direct NeuroLink usage
       requestHeaders.set("user-agent", CLAUDE_CLI_USER_AGENT);
+      requestHeaders.set("anthropic-version", "2023-06-01");
+      requestHeaders.set("accept", "application/json");
     }
     requestHeaders.delete("x-api-key");
 
@@ -308,45 +256,80 @@ export function createOAuthFetch(
           delete parsed.thinking;
         }
 
-        // --- Inject billing header + agent block into system prompt ----
-        const version = "2.1.63";
-        const randomHex = Array.from(crypto.getRandomValues(new Uint8Array(2)))
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join("")
-          .substring(0, 3);
-
-        const bodyString = JSON.stringify(parsed);
-        const cch = await shortSha256(bodyString);
-
-        const billingBlock = {
-          type: "text",
-          text: `x-anthropic-billing-header: cc_version=${version}.${randomHex}; cc_entrypoint=cli; cch=${cch};`,
-        };
-
         const agentBlock = {
           type: "text",
           text: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
         };
 
-        // Normalise `system` to an array and prepend billing + agent blocks
+        // Normalise `system` to an array and APPEND billing + agent blocks.
+        // IMPORTANT: We append (not prepend) to preserve the client's cache
+        // prefix chain. Anthropic's prompt caching uses prefix matching — if
+        // we insert anything before the client's system blocks, we invalidate
+        // all cached content (tools, system prompt, message history).
+        //
+        // Claude Code sends a billing block with a `cch=<hash>` value that
+        // changes on every request. We remove any existing billing/agent
+        // blocks from their positions and always append our stable
+        // Claude-Code-shaped versions at the end.
         if (parsed.system) {
           if (typeof parsed.system === "string") {
             parsed.system = [{ type: "text", text: parsed.system }];
           }
           if (Array.isArray(parsed.system)) {
-            parsed.system = [billingBlock, agentBlock, ...parsed.system];
+            // Find and remove existing billing/agent blocks from wherever
+            // the client placed them (typically at system[0])
+            const billingIdx = parsed.system.findIndex(
+              (b: { text?: string }) =>
+                typeof b.text === "string" &&
+                b.text.includes("x-anthropic-billing-header"),
+            );
+            const agentIdx = parsed.system.findIndex(
+              (b: { text?: string }) =>
+                typeof b.text === "string" &&
+                b.text.includes("Claude Agent SDK"),
+            );
+            const billingBlock = {
+              type: "text",
+              text: buildStableClaudeCodeBillingHeader(
+                parsed.system[billingIdx]?.text,
+              ),
+            };
+
+            // Remove in reverse index order so indices stay valid
+            const indicesToRemove = [billingIdx, agentIdx]
+              .filter((i) => i >= 0)
+              .sort((a, b) => b - a);
+            for (const idx of indicesToRemove) {
+              parsed.system.splice(idx, 1);
+            }
+
+            // Always append deterministic billing + agent blocks at the end
+            parsed.system = [...parsed.system, billingBlock, agentBlock];
           }
         } else {
+          const billingBlock = {
+            type: "text",
+            text: buildStableClaudeCodeBillingHeader(),
+          };
           parsed.system = [billingBlock, agentBlock];
         }
 
-        // --- Inject fake user ID into metadata -------------------------
-        const token = getToken();
-        const tokenPrefix = token.substring(0, Math.min(20, token.length));
+        // --- Inject Claude-Code-shaped identity into metadata ----------
+        // Prefer existing metadata.user_id (refresh-stable) over the access
+        // token prefix, which changes on every token rotation.
+        const stableId =
+          parsed.metadata?.user_id ??
+          getToken().substring(0, Math.min(20, getToken().length));
+        const identity = getOrCreateClaudeCodeIdentity(stableId, {
+          existingUserId: parsed.metadata?.user_id,
+          preferredSessionId:
+            requestHeaders.get("x-claude-code-session-id") ?? undefined,
+        });
         parsed.metadata = {
           ...parsed.metadata,
-          user_id: getOrCreateUserId(tokenPrefix),
+          user_id: identity.metadataUserId,
         };
+        requestHeaders.set("x-claude-code-session-id", identity.sessionId);
 
         body = JSON.stringify(parsed);
       } catch {
@@ -357,6 +340,21 @@ export function createOAuthFetch(
     // Remove any inherited content-length — the body may have been transformed
     // above, so the original length is stale. Let fetch/undici recalculate it.
     requestHeaders.delete("content-length");
+
+    // Inject OTel traceparent so the proxy can link to this trace
+    try {
+      const { propagation: otelPropagation, context: otelContext } =
+        await import("@opentelemetry/api");
+      const carrier: Record<string, string> = {};
+      otelPropagation.inject(otelContext.active(), carrier);
+      for (const [key, value] of Object.entries(carrier)) {
+        if (!requestHeaders.has(key)) {
+          requestHeaders.set(key, value);
+        }
+      }
+    } catch {
+      // OTel not available — skip silently
+    }
 
     // Make the request
     const response = await fetch(

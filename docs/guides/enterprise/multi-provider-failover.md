@@ -92,14 +92,14 @@ console.log("Failed providers:", result.metadata.failedProviders);
 
 ### 1. Priority-Based Failover (Recommended)
 
-Try providers in priority order until one succeeds.
+Try providers in priority order until one succeeds. Self-hosted providers (LiteLLM, Ollama) are recommended as primary to avoid external rate limits:
 
 ```typescript
 const ai = new NeuroLink({
   providers: [
-    { name: "openai", priority: 1 }, // Try first
-    { name: "anthropic", priority: 2 }, // Try second
-    { name: "google-ai", priority: 3 }, // Try third
+    { name: "litellm", priority: 1 }, // Self-hosted proxy (no rate limits)
+    { name: "openai", priority: 2 }, // Cloud fallback
+    { name: "anthropic", priority: 3 }, // Cloud fallback
   ],
   failoverConfig: {
     enabled: true,

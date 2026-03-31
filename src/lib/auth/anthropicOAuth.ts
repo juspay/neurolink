@@ -15,7 +15,7 @@
  * @module auth/anthropicOAuth
  */
 
-import { createHash, randomBytes } from "crypto";
+import { createHash, createHmac, randomBytes, randomUUID } from "crypto";
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import type { Server } from "http";
 import {
@@ -94,15 +94,193 @@ export const DEFAULT_SCOPES: readonly string[] = [
 /**
  * User-Agent string to spoof Claude CLI
  */
-export const CLAUDE_CLI_USER_AGENT = "claude-cli/2.1.2 (external, cli)";
+export const CLAUDE_CODE_VERSION = "2.1.87.6d6";
+export const CLAUDE_CODE_ENTRYPOINT = "sdk-cli";
+export const CLAUDE_CLI_USER_AGENT = "claude-cli/2.1.87 (external, sdk-cli)";
+
+export type ClaudeCodeIdentity = {
+  deviceId: string;
+  accountUuid: string;
+  sessionId: string;
+  metadataUserId: string;
+};
+
+const CLAUDE_CODE_IDENTITY_TTL_MS = 3_600_000;
+const CLAUDE_CODE_IDENTITY_NAMESPACE = "neurolink-claude-code-identity-v1";
+const claudeCodeIdentityCache = new Map<
+  string,
+  ClaudeCodeIdentity & { expiresAt: number }
+>();
+
+function stableIdentityDigest(input: string): string {
+  // These identifiers are deterministic pseudonyms for Claude Code metadata,
+  // not password hashes or authentication secrets.
+  return createHmac("sha256", CLAUDE_CODE_IDENTITY_NAMESPACE)
+    .update(input)
+    .digest("hex");
+}
+
+function hexToUuid(hex: string): string {
+  const trimmed = hex.replace(/-/g, "").slice(0, 32).padEnd(32, "0");
+  return `${trimmed.slice(0, 8)}-${trimmed.slice(8, 12)}-${trimmed.slice(12, 16)}-${trimmed.slice(16, 20)}-${trimmed.slice(20, 32)}`;
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+function buildMetadataUserId(identity: {
+  deviceId: string;
+  accountUuid: string;
+  sessionId: string;
+}): string {
+  return JSON.stringify({
+    device_id: identity.deviceId,
+    account_uuid: identity.accountUuid,
+    session_id: identity.sessionId,
+  });
+}
+
+export function parseClaudeCodeUserId(
+  userId: unknown,
+): ClaudeCodeIdentity | null {
+  if (typeof userId !== "string") {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(userId) as {
+      device_id?: unknown;
+      account_uuid?: unknown;
+      session_id?: unknown;
+    };
+    if (
+      typeof parsed.device_id !== "string" ||
+      !/^[0-9a-f]{64}$/i.test(parsed.device_id) ||
+      typeof parsed.account_uuid !== "string" ||
+      !isUuid(parsed.account_uuid) ||
+      typeof parsed.session_id !== "string" ||
+      !isUuid(parsed.session_id)
+    ) {
+      return null;
+    }
+
+    return {
+      deviceId: parsed.device_id,
+      accountUuid: parsed.account_uuid,
+      sessionId: parsed.session_id,
+      metadataUserId: buildMetadataUserId({
+        deviceId: parsed.device_id,
+        accountUuid: parsed.account_uuid,
+        sessionId: parsed.session_id,
+      }),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function getOrCreateClaudeCodeIdentity(
+  seed: string,
+  options?: { existingUserId?: unknown; preferredSessionId?: string },
+): ClaudeCodeIdentity {
+  const parsedExisting = parseClaudeCodeUserId(options?.existingUserId);
+  if (parsedExisting) {
+    if (options?.preferredSessionId && isUuid(options.preferredSessionId)) {
+      return {
+        deviceId: parsedExisting.deviceId,
+        accountUuid: parsedExisting.accountUuid,
+        sessionId: options.preferredSessionId,
+        metadataUserId: buildMetadataUserId({
+          deviceId: parsedExisting.deviceId,
+          accountUuid: parsedExisting.accountUuid,
+          sessionId: options.preferredSessionId,
+        }),
+      };
+    }
+    return parsedExisting;
+  }
+
+  const now = Date.now();
+  const cacheKey = seed || "default";
+  const cached = claudeCodeIdentityCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    if (options?.preferredSessionId && isUuid(options.preferredSessionId)) {
+      return {
+        deviceId: cached.deviceId,
+        accountUuid: cached.accountUuid,
+        sessionId: options.preferredSessionId,
+        metadataUserId: buildMetadataUserId({
+          deviceId: cached.deviceId,
+          accountUuid: cached.accountUuid,
+          sessionId: options.preferredSessionId,
+        }),
+      };
+    }
+    return cached;
+  }
+
+  const deviceId = stableIdentityDigest(`${cacheKey}:device`);
+  const accountUuid = hexToUuid(stableIdentityDigest(`${cacheKey}:account`));
+  const sessionId =
+    options?.preferredSessionId && isUuid(options.preferredSessionId)
+      ? options.preferredSessionId
+      : randomUUID();
+  const identity = {
+    deviceId,
+    accountUuid,
+    sessionId,
+    metadataUserId: buildMetadataUserId({
+      deviceId,
+      accountUuid,
+      sessionId,
+    }),
+    expiresAt: now + CLAUDE_CODE_IDENTITY_TTL_MS,
+  };
+  claudeCodeIdentityCache.set(cacheKey, identity);
+  return identity;
+}
+
+export function purgeExpiredClaudeCodeIdentities(now = Date.now()): number {
+  let removed = 0;
+  for (const [cacheKey, identity] of claudeCodeIdentityCache.entries()) {
+    if (identity.expiresAt <= now) {
+      claudeCodeIdentityCache.delete(cacheKey);
+      removed += 1;
+    }
+  }
+  return removed;
+}
+
+export function buildStableClaudeCodeBillingHeader(
+  originalText?: string,
+): string {
+  const version =
+    originalText?.match(/cc_version=([^;]+)/)?.[1]?.trim() ||
+    CLAUDE_CODE_VERSION;
+  const entrypoint =
+    originalText?.match(/cc_entrypoint=([^;]+)/)?.[1]?.trim() ||
+    CLAUDE_CODE_ENTRYPOINT;
+
+  return `x-anthropic-billing-header: cc_version=${version}; cc_entrypoint=${entrypoint}; cch=00000;`;
+}
 
 /**
  * Required beta headers for OAuth API requests.
  * The "oauth-2025-04-20" header is CRITICAL for OAuth authentication.
- * The "interleaved-thinking-2025-05-14" enables extended thinking.
  */
-export const OAUTH_BETA_HEADERS =
-  "oauth-2025-04-20,interleaved-thinking-2025-05-14";
+export const OAUTH_BETA_HEADERS = "oauth-2025-04-20";
+
+export const CLAUDE_CODE_OAUTH_BETAS = [
+  "oauth-2025-04-20",
+  "claude-code-20250219",
+  "context-management-2025-06-27",
+  "prompt-caching-scope-2026-01-05",
+  "advanced-tool-use-2025-11-20",
+  "effort-2025-11-24",
+] as const;
 
 /**
  * Tool name prefix required for OAuth API requests

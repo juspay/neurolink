@@ -322,8 +322,9 @@ app.use(
 );
 
 // External rate limiting with Redis
-const Redis = require("ioredis");
-const redis = new Redis();
+const { createClient } = require("redis");
+const redis = createClient();
+await redis.connect();
 
 app.use(
   ratelimit({

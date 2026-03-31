@@ -560,6 +560,59 @@ export class CLICommandFactory {
     return resolveFilePaths(paths);
   }
 
+  private static isNonLocalFileReference(filePath: string): boolean {
+    const lower = filePath.toLowerCase();
+    return (
+      lower.startsWith("http://") ||
+      lower.startsWith("https://") ||
+      lower.startsWith("file://") ||
+      lower.startsWith("data:")
+    );
+  }
+
+  private static validateCliInputFiles(argv: Record<string, unknown>): void {
+    const fileArgs: Array<{
+      option: "--image" | "--csv" | "--pdf" | "--video" | "--file";
+      value?: string | string[];
+    }> = [
+      { option: "--image", value: argv.image as string | string[] | undefined },
+      { option: "--csv", value: argv.csv as string | string[] | undefined },
+      { option: "--pdf", value: argv.pdf as string | string[] | undefined },
+      { option: "--video", value: argv.video as string | string[] | undefined },
+      { option: "--file", value: argv.file as string | string[] | undefined },
+    ];
+
+    const missingPaths: string[] = [];
+
+    for (const { option, value } of fileArgs) {
+      if (!value) {
+        continue;
+      }
+
+      const rawPaths = Array.isArray(value) ? value : [value];
+      const resolvedPaths = resolveFilePaths(rawPaths);
+
+      for (let i = 0; i < resolvedPaths.length; i++) {
+        const resolvedPath = resolvedPaths[i];
+        if (CLICommandFactory.isNonLocalFileReference(resolvedPath)) {
+          continue;
+        }
+
+        if (!fs.existsSync(resolvedPath)) {
+          missingPaths.push(
+            `${option} path not found: ${rawPaths[i]} (resolved to ${resolvedPath})`,
+          );
+        }
+      }
+    }
+
+    if (missingPaths.length > 0) {
+      throw new Error(
+        `One or more input files do not exist:\n${missingPaths.join("\n")}`,
+      );
+    }
+  }
+
   // Helper method to process common options
   private static processOptions(
     argv: BaseCommandArgs & Record<string, unknown>,
@@ -2434,6 +2487,8 @@ export class CLICommandFactory {
         await new Promise((resolve) => setTimeout(resolve, options.delay));
       }
 
+      CLICommandFactory.validateCliInputFiles(argv);
+
       // Process context
       const { inputText, contextMetadata } =
         CLICommandFactory.processGenerateContext(rawInput, options);
@@ -3206,6 +3261,8 @@ export class CLICommandFactory {
       if (options.delay) {
         await new Promise((resolve) => setTimeout(resolve, options.delay));
       }
+
+      CLICommandFactory.validateCliInputFiles(argv);
 
       const { inputText, contextMetadata } =
         await CLICommandFactory.processStreamContext(argv, options);

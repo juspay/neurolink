@@ -77,6 +77,12 @@ neurolink server start --port 8080
 neurolink server status
 neurolink server stop
 
+# Claude proxy + local telemetry
+neurolink proxy setup
+neurolink proxy status
+neurolink proxy telemetry setup
+neurolink proxy telemetry status
+
 # View and manage routes
 neurolink server routes
 neurolink server routes --group agent --format json
@@ -94,6 +100,8 @@ neurolink server config --set defaultPort=8080
 - **[Commands Reference](commands.md)** — Complete reference for all CLI commands, options, and parameters with detailed explanations.
 - **[Examples](examples.md)** — Practical examples and common usage patterns for different scenarios and workflows.
 - **[Advanced Usage](advanced.md)** — Advanced features like batch processing, streaming, analytics, and custom configurations.
+- **[Claude Proxy](../features/claude-proxy.md)** — Multi-account Claude proxy setup, lifecycle commands, routing, and local service management.
+- **[Claude Proxy Observability](../features/claude-proxy-observability.md)** — Local OpenObserve stack setup, dashboard import, and how to read proxy logs, traces, and metrics.
 
 ## Installation
 

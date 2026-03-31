@@ -346,15 +346,20 @@ class AdaptiveRateLimiter extends RateLimiter {
 For multi-instance deployments:
 
 ```typescript
-import { Redis } from "ioredis";
+import { createClient, type RedisClientType } from "redis";
 
 class RedisRateLimiter {
-  private redis: Redis;
+  private redis: RedisClientType;
   private key: string;
   private limit: number;
   private window: number; // seconds
 
-  constructor(redis: Redis, key: string, limit: number, window: number = 60) {
+  constructor(
+    redis: RedisClientType,
+    key: string,
+    limit: number,
+    window: number = 60,
+  ) {
     this.redis = redis;
     this.key = key;
     this.limit = limit;

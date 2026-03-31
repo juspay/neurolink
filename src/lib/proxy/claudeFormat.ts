@@ -9,8 +9,8 @@
  * Reference: https://docs.anthropic.com/en/api/messages
  */
 
+import { jsonSchema, tool } from "ai";
 import { randomBytes } from "crypto";
-import { jsonSchema } from "ai";
 import type {
   ClaudeContentBlock,
   ClaudeErrorResponse,
@@ -137,17 +137,14 @@ export function parseClaudeRequest(body: ClaudeRequest): ParsedClaudeRequest {
         } else if (block.type === "tool_use") {
           // Preserve assistant tool_use blocks so multi-turn tool
           // conversations retain the full call/result chain.
-          const inputStr =
-            block.input !== undefined ? JSON.stringify(block.input) : "{}";
+          const inputStr = block.input !== undefined ? JSON.stringify(block.input) : "{}";
           textParts.push(`[tool_use:${block.id}:${block.name}] ${inputStr}`);
         } else if (block.type === "tool_result") {
           const resultContent =
             typeof block.content === "string"
               ? block.content
               : Array.isArray(block.content)
-                ? block.content
-                    .map((b) => (b.type === "text" ? b.text : `[${b.type}]`))
-                    .join("\n")
+                ? block.content.map((b) => (b.type === "text" ? b.text : `[${b.type}]`)).join("\n")
                 : "";
           textParts.push(`[tool_result:${block.tool_use_id}] ${resultContent}`);
         } else if (block.type) {
@@ -155,8 +152,7 @@ export function parseClaudeRequest(body: ClaudeRequest): ParsedClaudeRequest {
           // so they are visible in translated history instead of silently dropped.
           const { type, ...rest } = block;
           const preview = JSON.stringify(rest);
-          const truncated =
-            preview.length > 200 ? preview.slice(0, 200) + "…" : preview;
+          const truncated = preview.length > 200 ? preview.slice(0, 200) + "…" : preview;
           textParts.push(`[${type}: ${truncated}]`);
         }
       }
@@ -172,13 +168,13 @@ export function parseClaudeRequest(body: ClaudeRequest): ParsedClaudeRequest {
   const tools: ParsedClaudeRequest["tools"] = {};
   if (body.tools) {
     for (const t of body.tools) {
-      tools[t.name] = {
+      tools[t.name] = tool({
         description: t.description ?? "",
-        // Wrap raw JSON schema with AI SDK's jsonSchema() so the SDK
-        // recognizes it (it checks for Symbol.for("vercel.ai.schema")).
-        // Without this, the SDK tries zodSchema() on raw JSON and crashes.
-        parameters: jsonSchema(t.input_schema ?? { type: "object" as const }),
-      };
+        // Fallback providers consume AI SDK-style tools, not Claude wire-format
+        // tool descriptors. Wrap the raw JSON schema once here so every
+        // downstream provider sees a canonical `inputSchema` shape.
+        inputSchema: jsonSchema(t.input_schema ?? { type: "object" as const }),
+      });
     }
   }
 
@@ -207,15 +203,12 @@ export function parseClaudeRequest(body: ClaudeRequest): ParsedClaudeRequest {
   let thinkingConfig: ParsedClaudeRequest["thinkingConfig"];
   if (body.thinking) {
     // Claude thinking types: "enabled" (fixed budget), "adaptive" (auto budget), "disabled"
-    const isEnabled =
-      body.thinking.type === "enabled" || body.thinking.type === "adaptive";
+    const isEnabled = body.thinking.type === "enabled" || body.thinking.type === "adaptive";
     thinkingConfig = {
       enabled: isEnabled,
       budgetTokens: body.thinking.budget_tokens,
       // Pass the raw type so providers can map "adaptive" appropriately
-      ...(body.thinking.type === "adaptive"
-        ? { thinkingLevel: "medium" as const }
-        : {}),
+      ...(body.thinking.type === "adaptive" ? { thinkingLevel: "medium" as const } : {}),
     };
   }
 
@@ -268,11 +261,12 @@ function mapStopReason(finishReason: string | undefined): string | null {
 /**
  * Serialize a NeuroLink GenerateResult into a Claude Messages API response.
  */
-export function serializeClaudeResponse(
-  result: InternalResult,
-  requestModel: string,
-): ClaudeResponse {
+export function serializeClaudeResponse(result: InternalResult, requestModel: string): ClaudeResponse {
   const content: ClaudeContentBlock[] = [];
+  const inferredFinishReason =
+    result.toolCalls && result.toolCalls.length > 0 && (!result.finishReason || result.finishReason === "stop")
+      ? "tool_use"
+      : result.finishReason;
 
   // Thinking/reasoning content block (if present)
   if (result.reasoning) {
@@ -287,11 +281,16 @@ export function serializeClaudeResponse(
   // Tool use blocks — normalize IDs to Claude `toolu_` format
   if (result.toolCalls && result.toolCalls.length > 0) {
     for (const tc of result.toolCalls) {
+      const toolInput =
+        tc.args ??
+        (tc as { parameters?: Record<string, unknown> }).parameters ??
+        (tc as { input?: Record<string, unknown> }).input ??
+        {};
       content.push({
         type: "tool_use",
         id: generateToolUseId(),
         name: tc.toolName,
-        input: tc.args,
+        input: toolInput,
       });
     }
   }
@@ -307,7 +306,7 @@ export function serializeClaudeResponse(
     role: "assistant",
     content,
     model: result.model ?? requestModel,
-    stop_reason: mapStopReason(result.finishReason),
+    stop_reason: mapStopReason(inferredFinishReason),
     stop_sequence: null,
     usage: {
       input_tokens: result.usage?.input ?? 0,
@@ -355,11 +354,7 @@ function errorTypeFromStatus(status: number): string {
 /**
  * Build a Claude-compatible error envelope.
  */
-export function buildClaudeError(
-  status: number,
-  message: string,
-  errorType?: string,
-): ClaudeErrorResponse {
+export function buildClaudeError(status: number, message: string, errorType?: string): ClaudeErrorResponse {
   return {
     type: "error",
     error: {
@@ -412,6 +407,7 @@ export function formatSSE(eventType: string, data: unknown): string {
 export class ClaudeStreamSerializer {
   private state: StreamLifecycleState = "idle";
   private currentBlockType: ContentBlockType = null;
+  private sawToolUseBlock = false;
   private blockIndex = 0;
   private hasOpenedBlock = false;
   private outputTokens = 0;
@@ -532,8 +528,8 @@ export class ClaudeStreamSerializer {
   // -----------------------------------------------------------------------
 
   /**
-   * Emit the opening frames: message_start, ping, content_block_start (text).
-   * Automatically called on the first pushDelta if not called manually.
+   * Emit the opening frames: message_start and ping.
+   * The first actual content decides which content block opens next.
    */
   *start(): Generator<string> {
     if (this.state !== "idle") {
@@ -541,7 +537,6 @@ export class ClaudeStreamSerializer {
     }
 
     yield* this.ensureMessageStarted();
-    yield* this.openBlock({ type: "text", text: "" });
   }
 
   /**
@@ -607,6 +602,7 @@ export class ClaudeStreamSerializer {
       return;
     }
 
+    this.sawToolUseBlock = true;
     yield* this.ensureMessageStarted();
 
     // Open a tool_use block (closes any current block)
@@ -645,7 +641,7 @@ export class ClaudeStreamSerializer {
   *finish(outputTokens?: number, finishReason?: string): Generator<string> {
     // If we never started (empty response), start first
     if (this.state === "idle") {
-      yield* this.start();
+      yield* this.ensureMessageStarted();
     }
 
     if (this.state === "done" || this.state === "error") {
@@ -653,6 +649,8 @@ export class ClaudeStreamSerializer {
     }
 
     this.outputTokens = outputTokens ?? this.outputTokens;
+    const resolvedFinishReason =
+      this.sawToolUseBlock && (!finishReason || finishReason === "stop") ? "tool_use" : finishReason;
 
     // Close any open content block
     yield* this.closeCurrentBlock();
@@ -661,7 +659,7 @@ export class ClaudeStreamSerializer {
     const messageDelta: SSEMessageDelta = {
       type: "message_delta",
       delta: {
-        stop_reason: mapStopReason(finishReason),
+        stop_reason: mapStopReason(resolvedFinishReason),
         stop_sequence: null,
       },
       usage: { output_tokens: this.outputTokens },

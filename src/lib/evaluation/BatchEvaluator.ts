@@ -115,6 +115,12 @@ export interface BatchEvaluationResult {
   allSucceeded: boolean;
 }
 
+function hasEvaluationData(
+  result: BatchEvaluationItemResult,
+): result is BatchEvaluationItemResult & { data: EvaluationData } {
+  return result.success && result.data !== undefined;
+}
+
 /**
  * BatchEvaluator - Performs evaluation on multiple items in parallel.
  * Supports configurable concurrency, retry logic, and progress tracking.
@@ -360,11 +366,11 @@ export class BatchEvaluator {
     }
 
     // Calculate summary statistics
-    const successfulResults = results.filter((r) => r.success && r.data);
-    const scores = successfulResults.map((r) => r.data!.overall);
+    const successfulResults = results.filter(hasEvaluationData);
+    const scores = successfulResults.map((r) => r.data.overall);
     const passingScores = successfulResults.filter(
       (r) =>
-        r.data!.overall >=
+        r.data.overall >=
         (autoEvalConfig.threshold || this.config.threshold || 7),
     );
 

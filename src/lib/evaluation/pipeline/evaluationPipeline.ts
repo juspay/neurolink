@@ -24,9 +24,9 @@ export type PipelineExecutionOptions = {
   correlationId?: string;
   /** Custom timeout override */
   timeout?: number;
-  /** Skip specific scorers */
+  /** Skip specific scorers. Mutually exclusive with onlyScorers. */
   skipScorers?: string[];
-  /** Only run specific scorers */
+  /** Only run specific scorers. Mutually exclusive with skipScorers. */
   onlyScorers?: string[];
   /** Additional metadata to attach */
   metadata?: JsonObject;
@@ -154,6 +154,7 @@ export class EvaluationPipeline {
     if (!this._initialized) {
       await this.initialize();
     }
+    this._validateExecutionOptions(options);
 
     const startTime = Date.now();
     const correlationId = options?.correlationId ?? `pipeline-${Date.now()}`;
@@ -257,6 +258,19 @@ export class EvaluationPipeline {
     };
   }
 
+  private _validateExecutionOptions(options?: PipelineExecutionOptions): void {
+    const hasOnlyScorers =
+      !!options?.onlyScorers && options.onlyScorers.length > 0;
+    const hasSkipScorers =
+      !!options?.skipScorers && options.skipScorers.length > 0;
+
+    if (hasOnlyScorers && hasSkipScorers) {
+      throw new Error(
+        "Cannot specify both 'onlyScorers' and 'skipScorers' options",
+      );
+    }
+  }
+
   /**
    * Get scorers to run based on options
    */
@@ -264,13 +278,15 @@ export class EvaluationPipeline {
     options?: PipelineExecutionOptions,
   ): Array<[string, Scorer]> {
     const allScorers = Array.from(this._scorers.entries());
+    const onlyScorers = options?.onlyScorers;
+    const skipScorers = options?.skipScorers;
 
-    if (options?.onlyScorers && options.onlyScorers.length > 0) {
-      return allScorers.filter(([id]) => options.onlyScorers!.includes(id));
+    if (onlyScorers && onlyScorers.length > 0) {
+      return allScorers.filter(([id]) => onlyScorers.includes(id));
     }
 
-    if (options?.skipScorers && options.skipScorers.length > 0) {
-      return allScorers.filter(([id]) => !options.skipScorers!.includes(id));
+    if (skipScorers && skipScorers.length > 0) {
+      return allScorers.filter(([id]) => !skipScorers.includes(id));
     }
 
     return allScorers;
@@ -281,13 +297,15 @@ export class EvaluationPipeline {
    */
   private _getSkippedScorers(options?: PipelineExecutionOptions): string[] {
     const allIds = Array.from(this._scorers.keys());
+    const onlyScorers = options?.onlyScorers;
+    const skipScorers = options?.skipScorers;
 
-    if (options?.onlyScorers && options.onlyScorers.length > 0) {
-      return allIds.filter((id) => !options.onlyScorers!.includes(id));
+    if (onlyScorers && onlyScorers.length > 0) {
+      return allIds.filter((id) => !onlyScorers.includes(id));
     }
 
-    if (options?.skipScorers && options.skipScorers.length > 0) {
-      return options.skipScorers.filter((id) => allIds.includes(id));
+    if (skipScorers && skipScorers.length > 0) {
+      return skipScorers.filter((id) => allIds.includes(id));
     }
 
     return [];

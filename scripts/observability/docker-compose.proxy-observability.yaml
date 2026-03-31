@@ -1,0 +1,55 @@
+# Local OpenObserve stack for NeuroLink proxy observability.
+#
+# Architecture:
+#   NeuroLink proxy -> OTEL collector -> OpenObserve
+#
+# Override defaults by exporting env vars or by copying
+# scripts/observability/proxy-observability.env.example to
+# scripts/observability/proxy-observability.env and using the helper script.
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yaml"]
+    environment:
+      NEUROLINK_OPENOBSERVE_OTLP_ENDPOINT: ${NEUROLINK_OPENOBSERVE_OTLP_ENDPOINT:-http://openobserve:5080/api/default}
+      NEUROLINK_OPENOBSERVE_BASIC_AUTH: ${NEUROLINK_OPENOBSERVE_BASIC_AUTH:-Basic cm9vdEBleGFtcGxlLmNvbTpDb21wbGV4cGFzcyMxMjM=}
+      NEUROLINK_PROXY_STREAM_HEADER: ${NEUROLINK_PROXY_STREAM_HEADER:-neurolink-proxy}
+    volumes:
+      - ./otel-collector.proxy-observability.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "${NEUROLINK_OTLP_GRPC_PORT:-14317}:4317"
+      - "${NEUROLINK_OTLP_HTTP_PORT:-14318}:4318"
+      - "${NEUROLINK_OTEL_HEALTH_PORT:-14333}:13133"
+      - "${NEUROLINK_OTEL_METRICS_PORT:-18888}:8888"
+      - "${NEUROLINK_OTEL_PPROF_PORT:-11777}:1777"
+    depends_on:
+      - openobserve
+    networks:
+      - proxy-observability
+
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve:latest
+    restart: unless-stopped
+    ports:
+      - "${NEUROLINK_OPENOBSERVE_HTTP_PORT:-5080}:5080"
+      - "${NEUROLINK_OPENOBSERVE_GRPC_PORT:-5081}:5081"
+    environment:
+      ZO_ROOT_USER_EMAIL: ${NEUROLINK_OPENOBSERVE_USER:-root@example.com}
+      ZO_ROOT_USER_PASSWORD: ${NEUROLINK_OPENOBSERVE_PASSWORD:-Complexpass#123}
+      ZO_DATA_DIR: /data
+      RUST_LOG: ${NEUROLINK_OPENOBSERVE_LOG_LEVEL:-info}
+      ZO_INGEST_ALLOWED_UPTO: ${NEUROLINK_OPENOBSERVE_INGEST_HOURS:-720}
+    volumes:
+      - openobserve-data:/data
+    networks:
+      - proxy-observability
+
+networks:
+  proxy-observability:
+    driver: bridge
+
+volumes:
+  openobserve-data:
+    name: ${NEUROLINK_OPENOBSERVE_VOLUME_NAME:-neurolink-openobserve-data}

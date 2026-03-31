@@ -232,7 +232,20 @@ cat ~/.neurolink/logs/proxy-$(date +%Y-%m-%d).jsonl | python3 -m json.tool
 tail -5 ~/.neurolink/logs/proxy-$(date +%Y-%m-%d).jsonl | python3 -m json.tool
 ```
 
-Each log entry includes: timestamp, request ID, method, path, model, account label, response status, response time (ms), and token usage.
+Each log entry includes: timestamp, request ID, method, path, model, account label, response status, response time (ms), token usage, and OTel correlation fields (`traceId`, `spanId`).
+
+### Correlate logs with traces
+
+When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, every request log entry includes `traceId` and `spanId` fields. Use these to find the corresponding trace in your observability backend (Jaeger, Grafana Tempo, OpenObserve):
+
+```bash
+# Find the traceId for a specific request
+cat ~/.neurolink/logs/proxy-$(date +%Y-%m-%d).jsonl | jq 'select(.traceId) | {timestamp, model, traceId, spanId, responseStatus}'
+
+# Search by traceId in your OTel backend
+# Jaeger: http://localhost:16686/trace/<traceId>
+# Grafana: Explore → Tempo → Search by traceId
+```
 
 ### Check debug logs
 

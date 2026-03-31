@@ -261,10 +261,14 @@ export type ParsedClaudeRequest = {
    */
   conversationMessages: Array<{ role: string; content: string }>;
 
-  /** Tools in NeuroLink-compatible shape (name -> { description, parameters }). */
+  /** Tools translated to AI SDK-compatible shape for provider fallback. */
   tools: Record<
     string,
-    { description: string; parameters: Record<string, unknown> }
+    {
+      description?: string;
+      inputSchema?: unknown;
+      execute?: (...args: unknown[]) => unknown;
+    }
   >;
 
   /**
@@ -482,6 +486,37 @@ export type RequestLogEntry = {
   errorMessage?: string;
   inputTokens?: number;
   outputTokens?: number;
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
+  /** OTel trace ID for correlation with distributed traces */
+  traceId?: string;
+  /** OTel span ID for correlation with distributed traces */
+  spanId?: string;
+};
+
+export type RequestAttemptLogEntry = {
+  timestamp: string;
+  requestId: string;
+  attempt: number;
+  method: string;
+  path: string;
+  model: string;
+  stream: boolean;
+  toolCount: number;
+  account: string;
+  accountType: string;
+  responseStatus: number;
+  responseTimeMs: number;
+  errorType?: string;
+  errorMessage?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
+  /** OTel trace ID for correlation with distributed traces */
+  traceId?: string;
+  /** OTel span ID for correlation with distributed traces */
+  spanId?: string;
 };
 
 // =============================================================================
@@ -491,11 +526,11 @@ export type RequestLogEntry = {
 export type AccountStats = {
   label: string;
   type: string;
-  requestCount: number;
+  attemptCount: number;
   successCount: number;
   errorCount: number;
   rateLimitCount: number;
-  lastRequestAt: number;
+  lastAttemptAt: number;
   lastErrorAt?: number;
   currentBackoffLevel: number;
   coolingUntil?: number;
@@ -503,6 +538,7 @@ export type AccountStats = {
 
 export type ProxyStats = {
   startedAt: number;
+  totalAttempts: number;
   totalRequests: number;
   totalSuccess: number;
   totalErrors: number;

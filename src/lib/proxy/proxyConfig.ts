@@ -259,41 +259,60 @@ export function validateProxyConfig(config: unknown): string[] {
     errors.push(`"version" must be a number, got ${typeof cfg.version}`);
   }
 
-  if (
-    !cfg.accounts ||
-    typeof cfg.accounts !== "object" ||
-    Array.isArray(cfg.accounts)
-  ) {
+  const hasAccounts =
+    !!cfg.accounts &&
+    typeof cfg.accounts === "object" &&
+    !Array.isArray(cfg.accounts);
+  const hasRouting =
+    !!cfg.routing &&
+    typeof cfg.routing === "object" &&
+    !Array.isArray(cfg.routing);
+
+  if (cfg.routing !== undefined && !hasRouting) {
+    errors.push('"routing" must be an object');
+    return errors;
+  }
+
+  if (!hasAccounts && !hasRouting) {
+    errors.push('Config must contain at least one of "accounts" or "routing"');
+    return errors;
+  }
+
+  if (cfg.accounts !== undefined && !hasAccounts) {
     errors.push(
       '"accounts" must be an object mapping provider names to account arrays',
     );
     return errors;
   }
 
-  const accounts = cfg.accounts as Record<string, unknown>;
-  let totalAccounts = 0;
-  for (const [provider, list] of Object.entries(accounts)) {
-    if (!Array.isArray(list)) {
-      errors.push(`accounts.${provider} must be an array, got ${typeof list}`);
-      continue;
-    }
-    totalAccounts += list.length;
-    for (let i = 0; i < list.length; i++) {
-      const acct = list[i] as Record<string, unknown>;
-      if (!acct || typeof acct !== "object") {
-        errors.push(`accounts.${provider}[${i}] must be an object`);
+  if (hasAccounts) {
+    const accounts = cfg.accounts as Record<string, unknown>;
+    let totalAccounts = 0;
+    for (const [provider, list] of Object.entries(accounts)) {
+      if (!Array.isArray(list)) {
+        errors.push(
+          `accounts.${provider} must be an array, got ${typeof list}`,
+        );
         continue;
       }
-      if (typeof acct.apiKey !== "string" || acct.apiKey.length === 0) {
-        errors.push(
-          `accounts.${provider}[${i}].apiKey is required and must be a non-empty string`,
-        );
+      totalAccounts += list.length;
+      for (let i = 0; i < list.length; i++) {
+        const acct = list[i] as Record<string, unknown>;
+        if (!acct || typeof acct !== "object") {
+          errors.push(`accounts.${provider}[${i}] must be an object`);
+          continue;
+        }
+        if (typeof acct.apiKey !== "string" || acct.apiKey.length === 0) {
+          errors.push(
+            `accounts.${provider}[${i}].apiKey is required and must be a non-empty string`,
+          );
+        }
       }
     }
-  }
 
-  if (totalAccounts === 0) {
-    errors.push('"accounts" must contain at least one account');
+    if (totalAccounts === 0 && !hasRouting) {
+      errors.push('"accounts" must contain at least one account');
+    }
   }
 
   return errors;
@@ -566,11 +585,13 @@ export async function loadProxyConfig(
   const raw = parsed as Record<string, unknown>;
   const accounts: Record<string, ProxyAccountConfig[]> = {};
 
-  const rawAccounts = raw.accounts as Record<string, unknown[]>;
-  for (const [provider, list] of Object.entries(rawAccounts)) {
-    accounts[provider] = list.map((item) =>
-      applyAccountDefaults(item as Partial<ProxyAccountConfig>),
-    );
+  const rawAccounts = raw.accounts as Record<string, unknown[]> | undefined;
+  if (rawAccounts && typeof rawAccounts === "object") {
+    for (const [provider, list] of Object.entries(rawAccounts)) {
+      accounts[provider] = list.map((item) =>
+        applyAccountDefaults(item as Partial<ProxyAccountConfig>),
+      );
+    }
   }
 
   // 7. Extract routing config
@@ -660,11 +681,17 @@ export async function parseProxyConfigString(
   const raw = parsed as Record<string, unknown>;
   const accounts: Record<string, ProxyAccountConfig[]> = {};
 
-  const rawAccounts = raw.accounts as Record<string, unknown[]>;
-  for (const [provider, list] of Object.entries(rawAccounts)) {
-    accounts[provider] = list.map((item) =>
-      applyAccountDefaults(item as Partial<ProxyAccountConfig>),
-    );
+  const rawAccounts = raw.accounts as Record<string, unknown[]> | undefined;
+  if (
+    rawAccounts &&
+    typeof rawAccounts === "object" &&
+    !Array.isArray(rawAccounts)
+  ) {
+    for (const [provider, list] of Object.entries(rawAccounts)) {
+      accounts[provider] = list.map((item) =>
+        applyAccountDefaults(item as Partial<ProxyAccountConfig>),
+      );
+    }
   }
 
   const routing = parseRoutingConfig(

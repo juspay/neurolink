@@ -215,6 +215,8 @@ Any model in the [Ollama library](https://ollama.ai/library) can be used by pass
 
 The default model is `llama3.2:latest` (set via `OllamaModels.LLAMA3_2_LATEST` in the provider registry). The internal `OllamaLanguageModel` uses `llama3.1:8b` as its default with `llama3.2:latest` as a fallback when the primary model fails. Override the default with the `OLLAMA_MODEL` environment variable.
 
+Model names are matched by prefix, so `llama3.2` will match `llama3.2:latest` on your Ollama instance. This also means `gemma3:27b` matches `gemma3:27b-fp16`.
+
 ### Model Selection by Use Case
 
 ```typescript

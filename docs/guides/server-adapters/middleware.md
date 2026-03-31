@@ -636,11 +636,11 @@ server.registerMiddleware(
 ### Custom Rate Limit Store (Redis)
 
 ```typescript
-import Redis from "ioredis";
+import { createClient, type RedisClientType } from "redis";
 import type { RateLimitStore, RateLimitEntry } from "@juspay/neurolink";
 
 class RedisRateLimitStore implements RateLimitStore {
-  constructor(private redis: Redis) {}
+  constructor(private redis: RedisClientType) {}
 
   async get(key: string): Promise<RateLimitEntry | undefined> {
     const data = await this.redis.get(`ratelimit:${key}`);
@@ -649,7 +649,9 @@ class RedisRateLimitStore implements RateLimitStore {
 
   async set(key: string, entry: RateLimitEntry): Promise<void> {
     const ttl = Math.ceil((entry.resetAt - Date.now()) / 1000);
-    await this.redis.setex(`ratelimit:${key}`, ttl, JSON.stringify(entry));
+    await this.redis.set(`ratelimit:${key}`, JSON.stringify(entry), {
+      EX: ttl,
+    });
   }
 
   async increment(key: string, windowMs: number): Promise<RateLimitEntry> {
@@ -658,7 +660,7 @@ class RedisRateLimitStore implements RateLimitStore {
     const count = await this.redis.incr(`ratelimit:${key}`);
 
     if (count === 1) {
-      await this.redis.pexpire(`ratelimit:${key}`, windowMs);
+      await this.redis.pExpire(`ratelimit:${key}`, windowMs);
     }
 
     return { count, resetAt };
@@ -669,7 +671,9 @@ class RedisRateLimitStore implements RateLimitStore {
   }
 }
 
-const redisStore = new RedisRateLimitStore(new Redis());
+const redisClient = createClient();
+await redisClient.connect();
+const redisStore = new RedisRateLimitStore(redisClient);
 server.registerMiddleware(
   createRateLimitMiddleware({
     maxRequests: 100,

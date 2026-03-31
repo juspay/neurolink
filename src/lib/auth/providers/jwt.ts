@@ -131,6 +131,15 @@ export class JWTProvider extends BaseAuthProvider {
     }
 
     try {
+      const keyObject = this.keyObject;
+      if (!keyObject) {
+        throw AuthError.create(
+          "PROVIDER_INIT_FAILED",
+          "JWT verification key was not initialized",
+          { details: { provider: "jwt" } },
+        );
+      }
+
       const verifyOptions: jose.JWTVerifyOptions = {};
 
       if (this.algorithms.length > 0) {
@@ -146,11 +155,7 @@ export class JWTProvider extends BaseAuthProvider {
         verifyOptions.audience = this.audience;
       }
 
-      const { payload } = await jose.jwtVerify(
-        token,
-        this.keyObject!,
-        verifyOptions,
-      );
+      const { payload } = await jose.jwtVerify(token, keyObject, verifyOptions);
 
       // Reject tokens without a non-empty sub claim
       if (!payload.sub) {

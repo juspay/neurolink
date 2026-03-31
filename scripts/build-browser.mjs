@@ -29,9 +29,12 @@ const npmStubs = [
 
 // OTel packages
 const otelPkgs = [
-  '@opentelemetry/api','@opentelemetry/resources','@opentelemetry/sdk-trace-node',
-  '@opentelemetry/sdk-trace-base','@opentelemetry/sdk-node','@opentelemetry/core',
-  '@opentelemetry/exporter-trace-otlp-http','@opentelemetry/semantic-conventions','@opentelemetry/context-async-hooks',
+  '@opentelemetry/api','@opentelemetry/api-logs','@opentelemetry/resources','@opentelemetry/sdk-trace-node',
+  '@opentelemetry/sdk-trace-base','@opentelemetry/sdk-node','@opentelemetry/sdk-logs',
+  '@opentelemetry/sdk-metrics','@opentelemetry/core',
+  '@opentelemetry/exporter-trace-otlp-http','@opentelemetry/exporter-logs-otlp-http',
+  '@opentelemetry/exporter-metrics-otlp-http',
+  '@opentelemetry/semantic-conventions','@opentelemetry/context-async-hooks',
   '@opentelemetry/instrumentation','@opentelemetry/auto-instrumentations-node',
   '@opentelemetry/instrumentation-amqplib','@opentelemetry/instrumentation-aws-lambda',
   '@opentelemetry/instrumentation-aws-sdk','@opentelemetry/instrumentation-http',
@@ -58,6 +61,7 @@ export const createHash = (algorithm) => {
     }
   };
 };
+export const createHmac = (algorithm, key) => createHash(algorithm);
 export const randomBytes = (n) => new Uint8Array(n||32);
 export const randomUUID = () => globalThis.crypto?.randomUUID?.() || Math.random().toString(36);
 export const webcrypto = globalThis.crypto;
@@ -98,6 +102,7 @@ export const readdirSync = () => [];
 export const unlinkSync = noop;
 export const renameSync = noop;
 export const rmdirSync = noop;
+export const rmSync = noop;
 export const createWriteStream = () => new Writable();
 export const createReadStream = () => new Readable();
 export const readFile = noopAsync;
@@ -132,6 +137,7 @@ export const inflateSync = () => new Uint8Array();
 export const deflateSync = () => new Uint8Array();
 export const gunzipSync = () => new Uint8Array();
 export const gzipSync = () => new Uint8Array();
+export const gzip = (b,cb) => cb?.(null,b);
 export const gunzip = (b,cb) => cb?.(null,b);
 export const createGunzip = () => ({});
 export const createGzip = () => ({});
@@ -225,6 +231,7 @@ export const {createClient}=mod;
 export const {Queue,Worker,Job,QueueScheduler,FlowProducer}=mod;
 export const {Cron}=mod;
 export const {parseBuffer,selectCover}=mod;
+export const {extractRawText,convertToHtml}=mod;
 export const {Hono}=mod;
 export const {cors,HTTPException,logger,secureHeaders,streamSSE,timeout}=mod;
 export const fetch=globalThis.fetch;
@@ -272,11 +279,19 @@ export const NodeTracerProvider=class{register(){}addSpanProcessor(){}getTracer(
 export const SimpleSpanProcessor=class{onStart(){}onEnd(){}shutdown(){return Promise.resolve()}forceFlush(){return Promise.resolve()}};
 export const BatchSpanProcessor=class{onStart(){}onEnd(){}shutdown(){return Promise.resolve()}forceFlush(){return Promise.resolve()}};
 export const OTLPTraceExporter=class{export(){}shutdown(){return Promise.resolve()}};
+export const OTLPLogExporter=class{export(){}shutdown(){return Promise.resolve()}};
+export const OTLPMetricExporter=class{constructor(){}export(){}shutdown(){return Promise.resolve()}};
 export const getNodeAutoInstrumentations=()=>[];
 export const registerInstrumentations=()=>{};
 export const resourceFromAttributes=(a)=>({attributes:a||{},merge(){return this}});
 export const LangfuseSpanProcessor=class{onStart(){}onEnd(){}shutdown(){return Promise.resolve()}forceFlush(){return Promise.resolve()}};
+export const LoggerProvider=class{constructor(){}getLogger(){return{emit(){}}}forceFlush(){return Promise.resolve()}shutdown(){return Promise.resolve()}};
+export const BatchLogRecordProcessor=class{onStart(){}onEnd(){}shutdown(){return Promise.resolve()}forceFlush(){return Promise.resolve()}};
+export const MeterProvider=class{constructor(){}getMeter(){return NOOP_METER}addMetricReader(){}forceFlush(){return Promise.resolve()}shutdown(){return Promise.resolve()}};
+export const PeriodicExportingMetricReader=class{constructor(){}shutdown(){return Promise.resolve()}forceFlush(){return Promise.resolve()}};
+export const SeverityNumber={UNSPECIFIED:0,TRACE:1,TRACE2:2,TRACE3:3,TRACE4:4,DEBUG:5,DEBUG2:6,DEBUG3:7,DEBUG4:8,INFO:9,INFO2:10,INFO3:11,INFO4:12,WARN:13,WARN2:14,WARN3:15,WARN4:16,ERROR:17,ERROR2:18,ERROR3:19,ERROR4:20,FATAL:21,FATAL2:22,FATAL3:23,FATAL4:24};
 export const AsyncLocalStorageContextManager=class{enable(){return this}disable(){return this}};
+export const W3CTraceContextPropagator=class{inject(){}extract(c){return c}fields(){return[]}};
 export const ATTR_SERVICE_NAME='service.name';
 export const ATTR_SERVICE_VERSION='service.version';
 export const SEMRESATTRS_SERVICE_NAME='service.name';

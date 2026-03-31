@@ -875,6 +875,8 @@ export type ProxyStartArgs = {
   quiet?: boolean;
   debug?: boolean;
   config?: string;
+  envFile?: string;
+  passthrough?: boolean;
 };
 
 /** Arguments accepted by `neurolink proxy status` */
@@ -894,6 +896,12 @@ export type ProxyGuardArgs = {
   quiet?: boolean;
 };
 
+/** Arguments accepted by `neurolink proxy telemetry <subcommand>` */
+export type ProxyTelemetryArgs = {
+  action?: "setup" | "start" | "stop" | "status" | "logs" | "import-dashboard";
+  quiet?: boolean;
+};
+
 /** A fallback chain entry (serialisable subset of FallbackEntry) */
 export type FallbackInfo = { provider: string; model: string };
 
@@ -904,12 +912,15 @@ export type ProxyState = {
   host: string;
   strategy: string;
   startTime: string;
+  envFile?: string;
   /** Fallback chain from proxy config (persisted at start time) */
   fallbackChain?: FallbackInfo[];
   /** Optional fail-open guard PID that reverts Claude settings if proxy dies */
   guardPid?: number;
   /** How the proxy was launched — "launchd" if installed as service, "manual" otherwise */
   managedBy?: "launchd" | "manual";
+  /** Whether the proxy is running in transparent passthrough mode */
+  passthrough?: boolean;
 };
 
 // ============================================================================

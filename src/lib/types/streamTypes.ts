@@ -1,25 +1,21 @@
-import type { Tool } from "ai";
+import type { LanguageModel, StepResult, Tool, ToolChoice } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import type { EvaluationData } from "../index.js";
 import type { RAGConfig } from "../rag/types.js";
-import type {
-  AnalyticsData,
-  ToolExecutionEvent,
-  ToolExecutionSummary,
-} from "../types/index.js";
+import type { AnalyticsData, ToolExecutionEvent, ToolExecutionSummary } from "../types/index.js";
 import type {
   MiddlewareFactoryOptions,
-  OnFinishCallback,
-  OnErrorCallback,
   OnChunkCallback,
+  OnErrorCallback,
+  OnFinishCallback,
 } from "../types/middlewareTypes.js";
 import type { TokenUsage } from "./analytics.js";
 import type { JsonValue, UnknownRecord } from "./common.js";
 import type { Content, ImageWithAltText } from "./content.js";
 import type { ChatMessage } from "./conversation.js";
+import type { AdditionalMemoryUser } from "./generateTypes.js";
 import type { AIModelProviderConfig } from "./providers.js";
 import type { TTSChunk, TTSOptions } from "./ttsTypes.js";
-import type { AdditionalMemoryUser } from "./generateTypes.js";
 import type { StandardRecord, ValidationSchema } from "./typeAliases.js";
 
 /**
@@ -63,9 +59,7 @@ export type StreamingOptions = {
 /**
  * Progress callback for streaming operations
  */
-export type ProgressCallback = (
-  progress: StreamingProgressData,
-) => void | Promise<void>;
+export type ProgressCallback = (progress: StreamingProgressData) => void | Promise<void>;
 
 /**
  * Type for tool execution calls (AI SDK compatible)
@@ -375,6 +369,28 @@ export type StreamOptions = {
   disableTools?: boolean;
   maxSteps?: number; // Maximum tool execution steps. Defaults to 5 in the implementation if not specified.
 
+  /**
+   * Tool choice configuration for streaming generation.
+   * Mirrors generate() so translated/fallback requests can preserve forced tool use.
+   */
+  toolChoice?: ToolChoice<Record<string, Tool>>;
+
+  /**
+   * Optional callback that runs before each stream step in a multi-step generation.
+   */
+  prepareStep?: (options: {
+    steps: StepResult<Record<string, Tool>>[];
+    stepNumber: number;
+    maxSteps: number;
+    model: LanguageModel;
+  }) => PromiseLike<
+    | {
+        toolChoice?: ToolChoice<Record<string, Tool>>;
+        activeTools?: Record<string, Tool>;
+      }
+    | undefined
+  >;
+
   /** Include only these tools by name (whitelist). If set, only matching tools are available. */
   toolFilter?: string[];
 
@@ -383,6 +399,12 @@ export type StreamOptions = {
 
   /** Disable tool result caching for this request (overrides global mcp.cache.enabled) */
   disableToolCache?: boolean;
+
+  /**
+   * Disable NeuroLink's internal provider fallback for this request.
+   * Used by the Claude proxy so the proxy itself can own fallback order.
+   */
+  disableInternalFallback?: boolean;
 
   /**
    * Skip injecting tool schemas into the system prompt.
@@ -643,15 +665,7 @@ export type StreamTextResult = {
       }
     | undefined
   >;
-  finishReason: PromiseLike<
-    | "stop"
-    | "length"
-    | "content-filter"
-    | "tool-calls"
-    | "error"
-    | "other"
-    | "unknown"
-  >;
+  finishReason: PromiseLike<"stop" | "length" | "content-filter" | "tool-calls" | "error" | "other" | "unknown">;
   /**
    * Tool results. Accepts both NeuroLink ToolResult[] and AI SDK TypedToolResult[],
    * since the analytics collector passes them through as `unknown` anyway.

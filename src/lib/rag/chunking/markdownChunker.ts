@@ -236,14 +236,22 @@ export class MarkdownChunker implements Chunker {
     let i = 0;
 
     while (i < lines.length) {
+      const currentLine = lines[i];
+      const separatorLine = lines[i + 1];
       if (
         i + 1 < lines.length &&
-        TABLE_ROW_RE.test(lines[i]!) &&
-        this.isTableSeparator(lines[i + 1]!, SEPARATOR_CELL_RE)
+        currentLine !== undefined &&
+        separatorLine !== undefined &&
+        TABLE_ROW_RE.test(currentLine) &&
+        this.isTableSeparator(separatorLine, SEPARATOR_CELL_RE)
       ) {
         const start = i;
         i += 2;
-        while (i < lines.length && TABLE_ROW_RE.test(lines[i]!)) {
+        while (i < lines.length) {
+          const row = lines[i];
+          if (row === undefined || !TABLE_ROW_RE.test(row)) {
+            break;
+          }
           i++;
         }
         ranges.push({ start, end: i - 1 });
@@ -264,7 +272,8 @@ export class MarkdownChunker implements Chunker {
     // Split by "|" → ["", "---", "---", ""] for "|---|---|"
     const cells = trimmed.split("|");
     cells.shift(); // remove leading empty element
-    if (cells.length > 0 && cells[cells.length - 1]!.trim() === "") {
+    const lastCell = cells.at(-1);
+    if (cells.length > 0 && lastCell?.trim() === "") {
       cells.pop(); // remove trailing empty element
     }
     if (cells.length === 0) {
@@ -359,8 +368,8 @@ export class MarkdownChunker implements Chunker {
       return [tableText];
     }
 
-    const headerRow = rows[0]!;
-    const separatorRow = rows[1]!;
+    const headerRow = rows[0] ?? "";
+    const separatorRow = rows[1] ?? "";
     const headerBlock = headerRow + "\n" + separatorRow;
     const dataRows = rows.slice(2);
 

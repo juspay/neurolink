@@ -26,16 +26,29 @@ import type {
   ProxyStartArgs,
   ProxyStatusArgs,
   ProxyGuardArgs,
+  ProxyTelemetryArgs,
   FallbackInfo,
   ProxyState,
 } from "../../lib/types/index.js";
 import type { ModelRouter } from "../../lib/proxy/modelRouter.js";
+import {
+  loadProxyEnvFile,
+  resolveProxyEnvFile,
+} from "../../lib/proxy/proxyEnv.js";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
 const _require = createRequire(import.meta.url);
 const { version: PROXY_VERSION } = _require("../../../package.json") as {
   version: string;
 };
+
+const PROXY_TELEMETRY_SCRIPT_PATH = fileURLToPath(
+  new URL(
+    "../../../scripts/observability/manage-local-openobserve.sh",
+    import.meta.url,
+  ),
+);
 
 // =============================================================================
 // STATE MANAGEMENT
@@ -288,6 +301,44 @@ function spawnFailOpenGuard(
   }
 }
 
+async function runProxyTelemetryManager(command: string): Promise<void> {
+  const { existsSync } = await import("fs");
+  if (!existsSync(PROXY_TELEMETRY_SCRIPT_PATH)) {
+    throw new Error(
+      "Proxy telemetry helper files were not found in this installation. Reinstall NeuroLink with observability assets included.",
+    );
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn("bash", [PROXY_TELEMETRY_SCRIPT_PATH, command], {
+      stdio: "inherit",
+      env: process.env,
+    });
+
+    child.on("error", (error) => {
+      reject(error);
+    });
+
+    child.on("exit", (code, signal) => {
+      if (signal) {
+        reject(
+          new Error(
+            `proxy telemetry ${command} terminated by signal ${signal}`,
+          ),
+        );
+        return;
+      }
+      if (code !== 0) {
+        reject(
+          new Error(`proxy telemetry ${command} exited with code ${code ?? 1}`),
+        );
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
 // =============================================================================
 // STARTUP BANNER
 // =============================================================================
@@ -387,6 +438,18 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
         description: "Path to proxy config file (YAML/JSON)",
         defaultDescription: "~/.neurolink/proxy-config.yaml",
       })
+      .option("env-file", {
+        type: "string",
+        alias: "envFile",
+        description:
+          "Path to proxy provider env file (overrides cwd .env for the proxy process)",
+      })
+      .option("passthrough", {
+        type: "boolean",
+        default: false,
+        description:
+          "Run in transparent passthrough mode (no retry, no rotation, no polyfill)",
+      })
       .example(
         "neurolink proxy start",
         "Start proxy on default port 55669 with fill-first strategy",
@@ -457,6 +520,26 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
       // -----------------------------------------------------------------
       // 1. Create NeuroLink instance — reads all env vars automatically
       // -----------------------------------------------------------------
+
+      let loadedEnvFile: string | undefined;
+      try {
+        const envResult = await loadProxyEnvFile({
+          explicitEnvFile: argv.envFile,
+        });
+        loadedEnvFile = envResult.path;
+        if (spinner && loadedEnvFile) {
+          spinner.text = `Loaded proxy env from ${loadedEnvFile}`;
+        }
+      } catch (envError) {
+        if (spinner) {
+          spinner.fail(
+            chalk.red(
+              envError instanceof Error ? envError.message : String(envError),
+            ),
+          );
+        }
+        process.exit(1);
+      }
 
       // Skip MCP initialization for proxy — tools come from Claude Code, not MCP servers
       process.env.NEUROLINK_SKIP_MCP = "true";
@@ -561,10 +644,13 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
         );
       });
 
+      const passthrough = argv.passthrough ?? false;
+
       const routeGroup = createClaudeProxyRoutes(
         modelRouter,
         "",
         strategy as "round-robin" | "fill-first",
+        passthrough,
       );
 
       // Register proxy routes — inject NeuroLink into ServerContext
@@ -572,10 +658,16 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
         const method = route.method.toLowerCase() as "get" | "post";
         app[method](route.path, async (c) => {
           const emptyBody = {};
-          const body =
-            method === "post"
-              ? await c.req.json().catch(() => emptyBody)
-              : undefined;
+          let body: unknown;
+          let rawBody: string | undefined;
+          if (method === "post") {
+            rawBody = await c.req.text().catch(() => undefined);
+            try {
+              body = rawBody ? JSON.parse(rawBody) : emptyBody;
+            } catch {
+              body = emptyBody;
+            }
+          }
 
           // Log incoming request
           const model = (body as Record<string, unknown>)?.model ?? "-";
@@ -601,6 +693,7 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
             ),
             params: c.req.param() as Record<string, string>,
             body,
+            rawBody, // Preserve original bytes for passthrough mode
             neurolink, // NeuroLink instance for generate/stream
             toolRegistry: neurolink.getToolRegistry(),
             timestamp: Date.now(),
@@ -724,6 +817,7 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
           uptime: process.uptime(),
           version: PROXY_VERSION,
           stats: {
+            totalAttempts: stats.totalAttempts,
             totalRequests: stats.totalRequests,
             totalSuccess: stats.totalSuccess,
             totalErrors: stats.totalErrors,
@@ -731,7 +825,8 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
             accounts: Object.values(stats.accounts).map((a) => ({
               label: a.label,
               type: a.type,
-              requests: a.requestCount,
+              attempts: a.attemptCount,
+              requests: a.attemptCount,
               success: a.successCount,
               errors: a.errorCount,
               rateLimits: a.rateLimitCount,
@@ -744,7 +839,72 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
       });
 
       // -----------------------------------------------------------------
-      // 5. Start listening
+      // 5. Initialize OpenTelemetry for proxy observability
+      // -----------------------------------------------------------------
+
+      try {
+        const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+        if (!process.env.OTEL_SERVICE_NAME) {
+          process.env.OTEL_SERVICE_NAME = "neurolink-proxy";
+        }
+
+        // Merge resource attributes (preserving any existing ones)
+        process.env.OTEL_RESOURCE_ATTRIBUTES = [
+          `service.name=neurolink-proxy`,
+          `service.version=${PROXY_VERSION}`,
+          `deployment.environment=local`,
+          process.env.OTEL_RESOURCE_ATTRIBUTES,
+        ]
+          .filter(Boolean)
+          .join(",");
+
+        const { initializeOpenTelemetry, isOpenTelemetryInitialized } =
+          await import("../../lib/services/server/ai/observability/instrumentation.js");
+        const { buildObservabilityConfigFromEnv } =
+          await import("../../lib/utils/observabilityHelpers.js");
+
+        if (!isOpenTelemetryInitialized()) {
+          const observabilityConfig = buildObservabilityConfigFromEnv();
+          const langfuseConfig = observabilityConfig?.langfuse;
+          const langfuseEnabled = langfuseConfig?.enabled === true;
+          initializeOpenTelemetry({
+            enabled: langfuseEnabled,
+            publicKey: langfuseConfig?.publicKey || "",
+            secretKey: langfuseConfig?.secretKey || "",
+            baseUrl: langfuseConfig?.baseUrl,
+            environment: "proxy",
+            release: PROXY_VERSION,
+            userId: "neurolink-proxy",
+            autoDetectOperationName: true,
+          });
+
+          if (langfuseEnabled) {
+            logger.always(
+              `[proxy] Langfuse enabled — exporting to ${langfuseConfig.baseUrl || "https://cloud.langfuse.com"} (environment=proxy)`,
+            );
+          }
+
+          if (otlpEndpoint) {
+            logger.always(
+              `[proxy] OTLP exporter enabled — exporting to ${otlpEndpoint} (service.name=neurolink-proxy)`,
+            );
+          }
+
+          if (!langfuseEnabled && !otlpEndpoint) {
+            logger.always(
+              "[proxy] OpenTelemetry exporters disabled — set OTEL_EXPORTER_OTLP_ENDPOINT or Langfuse credentials to enable proxy observability",
+            );
+          }
+        }
+      } catch (otelError) {
+        // OTel is non-critical — proxy must still work without it
+        logger.debug(
+          `[proxy] OpenTelemetry init failed (non-fatal): ${otelError instanceof Error ? otelError.message : String(otelError)}`,
+        );
+      }
+
+      // -----------------------------------------------------------------
+      // 6. Start listening
       // -----------------------------------------------------------------
 
       const port = argv.port ?? 55669;
@@ -778,9 +938,14 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
         host,
         strategy,
         startTime: new Date().toISOString(),
+        envFile: loadedEnvFile,
         fallbackChain,
         guardPid,
-        managedBy: "manual",
+        managedBy:
+          process.platform === "darwin" && process.ppid === 1
+            ? "launchd"
+            : "manual",
+        passthrough,
       };
       saveProxyState(state);
 
@@ -791,6 +956,14 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
       const normalizedHost = host === "0.0.0.0" ? "localhost" : host;
       const url = `http://${normalizedHost}:${port}`;
       printProxyBanner(url, strategy);
+      logger.always(
+        `  ${chalk.bold("Mode:")}       ${chalk.cyan(passthrough ? "passthrough" : "full")}`,
+      );
+      if (loadedEnvFile) {
+        logger.always(
+          `  ${chalk.bold("Env File:")}   ${chalk.cyan(loadedEnvFile)}`,
+        );
+      }
 
       // Auto-configure Claude Code — use the normalized URL (localhost, not 0.0.0.0)
       try {
@@ -807,7 +980,7 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
       }
 
       // -----------------------------------------------------------------
-      // 6. Background token refresh (every 30 seconds)
+      // 7. Background token refresh (every 30 seconds)
       // -----------------------------------------------------------------
       const { needsRefresh, refreshToken, persistTokens } =
         await import("../../lib/proxy/tokenRefresh.js");
@@ -886,13 +1059,23 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
       );
 
       // -----------------------------------------------------------------
-      // 7. Graceful shutdown
+      // 8. Graceful shutdown
       // -----------------------------------------------------------------
 
       const shutdown = async (signal: string) => {
         clearInterval(refreshInterval);
         clearInterval(logCleanupInterval);
         logger.always(`\nShutting down proxy (${signal})...`);
+
+        // Flush and shutdown OpenTelemetry before closing the server
+        try {
+          const { flushOpenTelemetry, shutdownOpenTelemetry } =
+            await import("../../lib/services/server/ai/observability/instrumentation.js");
+          await flushOpenTelemetry();
+          await shutdownOpenTelemetry();
+        } catch {
+          /* non-fatal — proxy shutdown must not block on OTel */
+        }
 
         // Only clear Claude settings on user-initiated stop (SIGINT).
         // On SIGTERM (launchd restart cycle), leave settings intact so
@@ -947,6 +1130,7 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
 // =============================================================================
 
 type StatusStats = {
+  totalAttempts?: number;
   totalRequests: number;
   totalSuccess: number;
   totalErrors: number;
@@ -954,15 +1138,22 @@ type StatusStats = {
   accounts?: {
     label: string;
     type: string;
-    requests: number;
+    attempts?: number;
+    requests?: number;
+    success?: number;
+    errors?: number;
+    rateLimits?: number;
     cooling: boolean;
   }[];
 };
 
 function printStatusStats(stats: StatusStats): void {
   console.info(`\n  Stats:`);
+  if (stats.totalAttempts !== undefined) {
+    console.info(`    Attempts:    ${stats.totalAttempts}`);
+  }
   console.info(
-    `    Requests:    ${stats.totalRequests} total, ${stats.totalSuccess} success, ${stats.totalErrors} errors`,
+    `    Completed:   ${stats.totalRequests} total, ${stats.totalSuccess} success, ${stats.totalErrors} errors`,
   );
   console.info(`    Rate limits: ${stats.totalRateLimits}`);
   if (stats.accounts?.length) {
@@ -971,8 +1162,12 @@ function printStatusStats(stats: StatusStats): void {
       const acctStatus = a.cooling
         ? chalk.red("cooling")
         : chalk.green("active");
+      const attempts = a.attempts ?? a.requests ?? 0;
+      const success = a.success ?? 0;
+      const errors = a.errors ?? 0;
+      const rateLimits = a.rateLimits ?? 0;
       console.info(
-        `    ${a.label.padEnd(20)} ${a.type.padEnd(8)} ${String(a.requests).padEnd(6)} reqs  ${acctStatus}`,
+        `    ${a.label.padEnd(20)} ${a.type.padEnd(8)} ${String(attempts).padEnd(6)} attempts  ${String(success).padEnd(6)} success  ${String(errors).padEnd(6)} errors  ${String(rateLimits).padEnd(6)} rl  ${acctStatus}`,
       );
     }
   }
@@ -1018,6 +1213,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         uptime: null as number | null,
         startTime: null as string | null,
         url: null as string | null,
+        envFile: null as string | null,
         fallbackChain: null as FallbackInfo[] | null,
       };
 
@@ -1030,11 +1226,29 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         status.startTime = state.startTime;
         status.uptime = Date.now() - new Date(state.startTime).getTime();
         status.url = `http://${state.host === "0.0.0.0" ? "localhost" : state.host}:${state.port}`;
+        status.envFile = state.envFile ?? null;
         status.fallbackChain = state.fallbackChain ?? null;
       }
 
+      // Fetch live stats before rendering (JSON or text)
+      let liveStats: Record<string, unknown> | null = null;
+      if (status.running && status.url) {
+        try {
+          const statusResp = await fetch(`${status.url}/status`);
+          if (statusResp.ok) {
+            const statusData = (await statusResp.json()) as Record<
+              string,
+              unknown
+            >;
+            liveStats = statusData.stats as Record<string, unknown> | null;
+          }
+        } catch {
+          // Non-fatal — live stats unavailable
+        }
+      }
+
       if (argv.format === "json") {
-        logger.always(JSON.stringify(status, null, 2));
+        logger.always(JSON.stringify({ ...status, stats: liveStats }, null, 2));
         return;
       }
 
@@ -1063,6 +1277,11 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         logger.always(
           `  ${chalk.bold("Uptime:")}     ${chalk.cyan(formatUptime(status.uptime ?? 0))}`,
         );
+        if (status.envFile) {
+          logger.always(
+            `  ${chalk.bold("Env File:")}   ${chalk.cyan(status.envFile)}`,
+          );
+        }
 
         // Display fallback chain if configured
         if (status.fallbackChain && status.fallbackChain.length > 0) {
@@ -1106,6 +1325,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
           if (statusResp.ok) {
             const statusData = (await statusResp.json()) as {
               stats?: {
+                totalAttempts?: number;
                 totalRequests: number;
                 totalSuccess: number;
                 totalErrors: number;
@@ -1113,7 +1333,11 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
                 accounts?: {
                   label: string;
                   type: string;
-                  requests: number;
+                  attempts?: number;
+                  requests?: number;
+                  success?: number;
+                  errors?: number;
+                  rateLimits?: number;
                   cooling: boolean;
                 }[];
               };
@@ -1146,6 +1370,80 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
     }
   },
 };
+
+// =============================================================================
+// PROXY TELEMETRY COMMAND
+// =============================================================================
+
+const PROXY_TELEMETRY_ACTIONS = [
+  "setup",
+  "start",
+  "stop",
+  "status",
+  "logs",
+  "import-dashboard",
+] as const;
+
+type ProxyTelemetryAction = (typeof PROXY_TELEMETRY_ACTIONS)[number];
+
+export const proxyTelemetryCommand: CommandModule<object, ProxyTelemetryArgs> =
+  {
+    command: "telemetry <action>",
+    describe:
+      "Manage the local OpenObserve stack and dashboard for proxy observability",
+    builder: (yargs: Argv) =>
+      yargs
+        .positional("action", {
+          type: "string",
+          choices: [...PROXY_TELEMETRY_ACTIONS],
+          describe:
+            "Telemetry action: setup, start, stop, status, logs, or import-dashboard",
+        })
+        .option("quiet", {
+          type: "boolean",
+          alias: "q",
+          default: false,
+          description: "Suppress the local CLI spinner and delegate directly",
+        })
+        .example(
+          "neurolink proxy telemetry setup",
+          "Start OpenObserve, start the OTEL collector, and import the dashboard",
+        )
+        .example(
+          "neurolink proxy telemetry start",
+          "Start the local proxy telemetry stack without re-importing the dashboard",
+        )
+        .example(
+          "neurolink proxy telemetry stop",
+          "Stop the local OpenObserve and OTEL collector containers",
+        ) as Argv<ProxyTelemetryArgs>,
+    handler: async (argv) => {
+      const action = argv.action as ProxyTelemetryAction;
+      const spinner = argv.quiet
+        ? null
+        : ora(`Running proxy telemetry ${action}...`).start();
+
+      try {
+        if (spinner) {
+          spinner.stop();
+        }
+        await runProxyTelemetryManager(action);
+        if (spinner) {
+          spinner.succeed(`proxy telemetry ${action} completed`);
+        }
+      } catch (error) {
+        if (spinner) {
+          spinner.fail(`proxy telemetry ${action} failed`);
+        }
+        logger.error(
+          chalk.red(
+            `Error: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        );
+        process.exit(1);
+      }
+    },
+  };
 
 // =============================================================================
 // PROXY FAIL-OPEN GUARD COMMAND (HIDDEN)
@@ -1494,6 +1792,11 @@ export const proxySetupCommand: CommandModule = {
         description:
           "Skip service installation and start proxy in foreground instead",
       })
+      .option("env-file", {
+        type: "string",
+        alias: "envFile",
+        description: "Path to proxy provider env file to persist for the proxy",
+      })
       .example("neurolink proxy setup", "Full setup with defaults")
       .example("neurolink proxy setup -p 9000", "Setup on custom port")
       .example(
@@ -1628,9 +1931,35 @@ export const proxySetupCommand: CommandModule = {
 // PROXY INSTALL / UNINSTALL — launchd service (macOS)
 // =============================================================================
 
-function buildPlist(port: number, host: string): string {
-  const nodeExec = process.execPath;
-  const entryScript = process.argv[1] ?? join(__dirname, "..", "index.js");
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function buildPlist(
+  port: number,
+  host: string,
+  envFile?: string,
+  configFile?: string,
+): string {
+  const nodeExec = escapeXml(process.execPath);
+  const entryScript = escapeXml(
+    process.argv[1] ?? join(__dirname, "..", "index.js"),
+  );
+  const envFileArgs = envFile
+    ? `
+    <string>--env-file</string>
+    <string>${escapeXml(envFile)}</string>`
+    : "";
+  const configArgs = configFile
+    ? `
+    <string>--config</string>
+    <string>${escapeXml(configFile)}</string>`
+    : "";
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -1650,6 +1979,8 @@ function buildPlist(port: number, host: string): string {
     <string>${port}</string>
     <string>--host</string>
     <string>${host}</string>
+${envFileArgs}
+${configArgs}
     <string>--quiet</string>
   </array>
 
@@ -1699,6 +2030,17 @@ export const proxyInstallCommand: CommandModule = {
         default: "127.0.0.1",
         description: "Proxy host",
       })
+      .option("env-file", {
+        type: "string",
+        alias: "envFile",
+        description:
+          "Path to proxy provider env file to persist for the service",
+      })
+      .option("config", {
+        type: "string",
+        description:
+          "Path to proxy routing config file to persist for the service",
+      })
       .example("neurolink proxy install", "Install with defaults (port 55669)")
       .example(
         "neurolink proxy install -p 9000",
@@ -1720,6 +2062,23 @@ export const proxyInstallCommand: CommandModule = {
     }
 
     const { writeFileSync, mkdirSync, existsSync } = await import("fs");
+    const envResolution = resolveProxyEnvFile({
+      explicitEnvFile: (argv as { envFile?: string }).envFile,
+    });
+    const envFile = envResolution.path;
+    const explicitConfig = (argv as { config?: string }).config;
+    const configPath =
+      explicitConfig ?? join(homedir(), ".neurolink", "proxy-config.yaml");
+    if (explicitConfig && !existsSync(configPath)) {
+      console.info(chalk.red(`Proxy config file not found: ${configPath}`));
+      process.exit(1);
+    }
+    const configFile = existsSync(configPath) ? configPath : undefined;
+
+    if (envFile && !existsSync(envFile)) {
+      console.info(chalk.red(`Proxy env file not found: ${envFile}`));
+      process.exit(1);
+    }
 
     const logsDir = join(homedir(), ".neurolink", "logs");
     if (!existsSync(logsDir)) {
@@ -1730,9 +2089,12 @@ export const proxyInstallCommand: CommandModule = {
       mkdirSync(PLIST_DIR, { recursive: true });
     }
 
-    const plist = buildPlist(port, host);
+    const plist = buildPlist(port, host, envFile, configFile);
     writeFileSync(PLIST_PATH, plist, "utf-8");
     console.info(chalk.green(`✓ Plist written to ${PLIST_PATH}`));
+    if (envFile) {
+      console.info(chalk.green(`✓ Proxy env file: ${envFile}`));
+    }
 
     try {
       const { execFileSync } = await import("node:child_process");
@@ -1770,6 +2132,7 @@ export const proxyInstallCommand: CommandModule = {
           host,
           strategy: "fill-first",
           startTime: new Date().toISOString(),
+          envFile,
           managedBy: "launchd",
         });
       }

@@ -1,24 +1,25 @@
 import { createAzure } from "@ai-sdk/azure";
-import { stepCountIs, streamText, type LanguageModel, type Tool } from "ai";
+import { type LanguageModel, stepCountIs, streamText, type Tool } from "ai";
+import { type AIProviderName, APIVersions } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
-import { AIProviderName, APIVersions } from "../constants/enums.js";
-import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
-import type { UnknownRecord } from "../types/common.js";
+import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import type { NeuroLink } from "../neurolink.js";
+import { createProxyFetch } from "../proxy/proxyFetch.js";
+import type { UnknownRecord } from "../types/common.js";
+import type { StepFinishEvent } from "../types/index.js";
+import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
+import { logger } from "../utils/logger.js";
 import {
-  validateApiKey,
   createAzureAPIKeyConfig,
   createAzureEndpointConfig,
+  validateApiKey,
 } from "../utils/providerConfig.js";
-import { DEFAULT_MAX_STEPS } from "../core/constants.js";
-import { logger } from "../utils/logger.js";
-import { createProxyFetch } from "../proxy/proxyFetch.js";
 import {
   composeAbortSignals,
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
-import type { StepFinishEvent } from "../types/index.js";
+import { resolveToolChoice } from "../utils/toolChoice.js";
 
 export class AzureOpenAIProvider extends BaseProvider {
   private apiKey: string;
@@ -146,7 +147,7 @@ export class AzureOpenAIProvider extends BaseProvider {
           ? { temperature: options.temperature }
           : {}),
         tools,
-        toolChoice: shouldUseTools ? "auto" : "none",
+        toolChoice: resolveToolChoice(options, tools, shouldUseTools),
         stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
         abortSignal: composeAbortSignals(
           options.abortSignal,

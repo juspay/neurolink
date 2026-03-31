@@ -40,6 +40,8 @@ import type {
   AudioChunk,
   StreamOptions,
   StreamResult,
+  ToolCall,
+  ToolResult,
 } from "../types/streamTypes.js";
 import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import { ERROR_CODES, NeuroLinkError } from "../utils/errorHandling.js";
@@ -51,6 +53,7 @@ import {
   TimeoutError,
 } from "../utils/timeout.js";
 import { estimateTokens } from "../utils/tokenEstimation.js";
+import { resolveToolChoice } from "../utils/toolChoice.js";
 import {
   buildNativeConfig,
   buildNativeToolDeclarations,
@@ -646,6 +649,9 @@ export class GoogleAIStudioProvider extends BaseProvider {
       // Using protected helper from BaseProvider to eliminate code duplication
       const messages = await this.buildMessagesForStream(options);
 
+      const collectedToolCalls: ToolCall[] = [];
+      const collectedToolResults: ToolResult[] = [];
+
       const result = await streamText({
         model,
         messages: messages,
@@ -653,7 +659,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
         maxOutputTokens: options.maxTokens, // No default limit - unlimited unless specified
         tools,
         stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
-        toolChoice: shouldUseTools ? "auto" : "none",
+        toolChoice: resolveToolChoice(options, tools, shouldUseTools),
         abortSignal: composeAbortSignals(
           options.abortSignal,
           timeoutController?.controller.signal,
@@ -679,6 +685,37 @@ export class GoogleAIStudioProvider extends BaseProvider {
           },
         }),
         onStepFinish: ({ toolCalls, toolResults }) => {
+          for (const toolCall of toolCalls) {
+            collectedToolCalls.push({
+              toolCallId: toolCall.toolCallId,
+              toolName: toolCall.toolName,
+              args:
+                (toolCall as { args?: Record<string, unknown> }).args ??
+                (toolCall as { input?: Record<string, unknown> }).input ??
+                (toolCall as { parameters?: Record<string, unknown> })
+                  .parameters ??
+                {},
+            });
+          }
+
+          for (const toolResult of toolResults) {
+            const rawToolResult = toolResult as {
+              output?: unknown;
+              result?: unknown;
+              error?: string;
+              toolCallId?: string;
+            };
+            collectedToolResults.push({
+              toolName: toolResult.toolName,
+              status: rawToolResult.error ? "failure" : "success",
+              output:
+                ((rawToolResult.output ??
+                  rawToolResult.result) as ToolResult["output"]) ?? undefined,
+              error: rawToolResult.error,
+              id: rawToolResult.toolCallId ?? toolResult.toolName,
+            });
+          }
+
           this.handleToolExecutionStorage(
             toolCalls,
             toolResults,
@@ -728,6 +765,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
         stream: transformedStream,
         provider: this.providerName,
         model: this.modelName,
+        ...(shouldUseTools && {
+          toolCalls: collectedToolCalls,
+          toolResults: collectedToolResults,
+        }),
         analytics: analyticsPromise,
         metadata: {
           startTime,

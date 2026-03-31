@@ -33,6 +33,7 @@ import {
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
+import { resolveToolChoice } from "../utils/toolChoice.js";
 
 // Constants
 const MODELS_DISCOVERY_TIMEOUT_MS = 5000; // 5 seconds for model discovery
@@ -339,7 +340,7 @@ export class OpenRouterProvider extends BaseProvider {
         ...(shouldUseTools &&
           Object.keys(tools).length > 0 && {
             tools,
-            toolChoice: "auto",
+            toolChoice: resolveToolChoice(options, tools, shouldUseTools),
             maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
           }),
         abortSignal: composeAbortSignals(

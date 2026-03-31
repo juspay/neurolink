@@ -974,6 +974,7 @@ async function processUnifiedFilesArray(
   }
 
   const totalFiles = options.input.files.length;
+  const files = options.input.files;
 
   return withSpan(
     {
@@ -996,8 +997,8 @@ async function processUnifiedFilesArray(
         | FileReferenceRegistry
         | undefined;
 
-      for (let fileIdx = 0; fileIdx < options.input.files!.length; fileIdx++) {
-        const file = options.input.files![fileIdx];
+      for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
+        const file = files[fileIdx];
         const filename = extractFilename(file, fileIdx);
         try {
           // ─── Lazy file registration path ──────────────────────────────

@@ -1,13 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import {
-  type LanguageModel,
-  NoOutputGeneratedError,
-  Output,
-  type Schema,
-  streamText,
-  type Tool,
-} from "ai";
+import { type LanguageModel, NoOutputGeneratedError, Output, type Schema, streamText, type Tool } from "ai";
 import type { ZodType } from "zod";
 import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -23,20 +16,13 @@ import {
   ProviderError,
   RateLimitError,
 } from "../types/errors.js";
-import type {
-  StreamOptions,
-  StreamResult,
-  StreamTextResult,
-} from "../types/streamTypes.js";
+import type { StreamOptions, StreamResult, StreamTextResult, ToolCall, ToolResult } from "../types/streamTypes.js";
 import { isAbortError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
 import { calculateCost } from "../utils/pricing.js";
 import { getProviderModel } from "../utils/providerConfig.js";
-import {
-  composeAbortSignals,
-  createTimeoutController,
-  TimeoutError,
-} from "../utils/timeout.js";
+import { composeAbortSignals, createTimeoutController, TimeoutError } from "../utils/timeout.js";
+import { resolveToolChoice } from "../utils/toolChoice.js";
 import { getModelId } from "./providerTypeUtils.js";
 
 const streamTracer = trace.getTracer("neurolink.provider.litellm");
@@ -94,7 +80,7 @@ export class LiteLLMProvider extends BaseProvider {
       fetch: createProxyFetch(),
     });
 
-    this.model = customOpenAI(this.modelName || getDefaultLiteLLMModel());
+    this.model = customOpenAI.chat(this.modelName || getDefaultLiteLLMModel());
 
     logger.debug("LiteLLM Provider initialized", {
       modelName: this.modelName,
@@ -120,29 +106,19 @@ export class LiteLLMProvider extends BaseProvider {
 
   public formatProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
-      return new NetworkError(
-        `Request timed out: ${error.message}`,
-        this.providerName,
-      );
+      return new NetworkError(`Request timed out: ${error.message}`, this.providerName);
     }
 
     // Check for timeout by error name and message as fallback
     const errorRecord = error as UnknownRecord;
     if (
       errorRecord?.name === "TimeoutError" ||
-      (typeof errorRecord?.message === "string" &&
-        errorRecord.message.toLowerCase().includes("timeout"))
+      (typeof errorRecord?.message === "string" && errorRecord.message.toLowerCase().includes("timeout"))
     ) {
-      return new NetworkError(
-        `Request timed out: ${errorRecord?.message || "Unknown timeout"}`,
-        this.providerName,
-      );
+      return new NetworkError(`Request timed out: ${errorRecord?.message || "Unknown timeout"}`, this.providerName);
     }
     if (typeof errorRecord?.message === "string") {
-      if (
-        errorRecord.message.includes("ECONNREFUSED") ||
-        errorRecord.message.includes("Failed to fetch")
-      ) {
+      if (errorRecord.message.includes("ECONNREFUSED") || errorRecord.message.includes("Failed to fetch")) {
         return new NetworkError(
           "LiteLLM proxy server not available. Please start the LiteLLM proxy server at " +
             `${process.env.LITELLM_BASE_URL || "http://localhost:4000"}`,
@@ -150,10 +126,7 @@ export class LiteLLMProvider extends BaseProvider {
         );
       }
 
-      if (
-        errorRecord.message.includes("API_KEY_INVALID") ||
-        errorRecord.message.includes("Invalid API key")
-      ) {
+      if (errorRecord.message.includes("API_KEY_INVALID") || errorRecord.message.includes("Invalid API key")) {
         return new AuthenticationError(
           "Invalid LiteLLM configuration. Please check your LITELLM_API_KEY environment variable.",
           this.providerName,
@@ -161,10 +134,7 @@ export class LiteLLMProvider extends BaseProvider {
       }
 
       if (errorRecord.message.toLowerCase().includes("rate limit")) {
-        return new RateLimitError(
-          "LiteLLM rate limit exceeded. Please try again later.",
-          this.providerName,
-        );
+        return new RateLimitError("LiteLLM rate limit exceeded. Please try again later.", this.providerName);
       }
 
       if (
@@ -179,10 +149,7 @@ export class LiteLLMProvider extends BaseProvider {
       }
     }
 
-    return new ProviderError(
-      `LiteLLM error: ${errorRecord?.message || "Unknown error"}`,
-      this.providerName,
-    );
+    return new ProviderError(`LiteLLM error: ${errorRecord?.message || "Unknown error"}`, this.providerName);
   }
 
   /**
@@ -205,11 +172,7 @@ export class LiteLLMProvider extends BaseProvider {
     const startTime = Date.now();
     let chunkCount = 0; // Track chunk count for debugging
     const timeout = this.getTimeout(options);
-    const timeoutController = createTimeoutController(
-      timeout,
-      this.providerName,
-      "stream",
-    );
+    const timeoutController = createTimeoutController(timeout, this.providerName, "stream");
 
     try {
       // Build message array from options with multimodal support
@@ -220,9 +183,7 @@ export class LiteLLMProvider extends BaseProvider {
 
       // Get tools - options.tools is pre-merged by BaseProvider.stream()
       const shouldUseTools = !options.disableTools && this.supportsTools();
-      const tools = shouldUseTools
-        ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
-        : {};
+      const tools = shouldUseTools ? (options.tools as Record<string, Tool>) || (await this.getAllTools()) : {};
 
       logger.debug(`LiteLLM: Tools for streaming`, {
         shouldUseTools,
@@ -232,18 +193,14 @@ export class LiteLLMProvider extends BaseProvider {
 
       // Model-specific maxTokens handling - Gemini 2.5 models have issues with maxTokens
       const modelName = this.modelName || getDefaultLiteLLMModel();
-      const isGemini25Model =
-        modelName.includes("gemini-2.5") || modelName.includes("gemini/2.5");
+      const isGemini25Model = modelName.includes("gemini-2.5") || modelName.includes("gemini/2.5");
       const maxTokens = isGemini25Model ? undefined : options.maxTokens;
 
       if (isGemini25Model && options.maxTokens) {
-        logger.debug(
-          `LiteLLM: Skipping maxTokens for Gemini 2.5 model (known compatibility issue)`,
-          {
-            modelName,
-            requestedMaxTokens: options.maxTokens,
-          },
-        );
+        logger.debug(`LiteLLM: Skipping maxTokens for Gemini 2.5 model (known compatibility issue)`, {
+          modelName,
+          requestedMaxTokens: options.maxTokens,
+        });
       }
 
       // Build complete stream options with proper typing - matching Vertex pattern
@@ -255,20 +212,15 @@ export class LiteLLMProvider extends BaseProvider {
         ...(shouldUseTools &&
           Object.keys(tools).length > 0 && {
             tools,
-            toolChoice: "auto",
+            toolChoice: resolveToolChoice(options, tools, shouldUseTools),
             maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
           }),
-        abortSignal: composeAbortSignals(
-          options.abortSignal,
-          timeoutController?.controller.signal,
-        ),
-        experimental_telemetry:
-          this.telemetryHandler.getTelemetryConfig(options),
+        abortSignal: composeAbortSignals(options.abortSignal, timeoutController?.controller.signal),
+        experimental_telemetry: this.telemetryHandler.getTelemetryConfig(options),
 
         onError: (event: { error: unknown }) => {
           const error = event.error;
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
           logger.error(`LiteLLM: Stream error`, {
             provider: this.providerName,
             modelName: this.modelName,
@@ -277,11 +229,7 @@ export class LiteLLMProvider extends BaseProvider {
           });
         },
 
-        onFinish: (event: {
-          finishReason: string;
-          usage: Record<string, unknown>;
-          text?: string;
-        }) => {
+        onFinish: (event: { finishReason: string; usage: Record<string, unknown>; text?: string }) => {
           logger.debug(`LiteLLM: Stream finished`, {
             finishReason: event.finishReason,
             totalChunks: chunkCount,
@@ -295,12 +243,35 @@ export class LiteLLMProvider extends BaseProvider {
         onStepFinish: ({ toolCalls, toolResults }) => {
           logger.info("Tool execution completed", { toolResults, toolCalls });
 
-          this.handleToolExecutionStorage(
-            toolCalls,
-            toolResults,
-            options,
-            new Date(),
-          ).catch((error: unknown) => {
+          for (const toolCall of toolCalls) {
+            collectedToolCalls.push({
+              toolCallId: toolCall.toolCallId,
+              toolName: toolCall.toolName,
+              args:
+                (toolCall as { args?: Record<string, unknown> }).args ??
+                (toolCall as { input?: Record<string, unknown> }).input ??
+                (toolCall as { parameters?: Record<string, unknown> }).parameters ??
+                {},
+            });
+          }
+
+          for (const toolResult of toolResults) {
+            const rawToolResult = toolResult as {
+              output?: unknown;
+              result?: unknown;
+              error?: string;
+              toolCallId?: string;
+            };
+            collectedToolResults.push({
+              toolName: toolResult.toolName,
+              status: rawToolResult.error ? "failure" : "success",
+              output: ((rawToolResult.output ?? rawToolResult.result) as ToolResult["output"]) ?? undefined,
+              error: rawToolResult.error,
+              id: rawToolResult.toolCallId ?? toolResult.toolName,
+            });
+          }
+
+          this.handleToolExecutionStorage(toolCalls, toolResults, options, new Date()).catch((error: unknown) => {
             logger.warn("[LiteLLMProvider] Failed to store tool executions", {
               provider: this.providerName,
               error: error instanceof Error ? error.message : String(error),
@@ -326,30 +297,23 @@ export class LiteLLMProvider extends BaseProvider {
       }
 
       // Wrap streamText in an OTel span to capture provider-level latency, token usage, and cost
-      const streamSpan = streamTracer.startSpan(
-        "neurolink.provider.streamText",
-        {
-          kind: SpanKind.CLIENT,
-          attributes: {
-            "gen_ai.system": "litellm",
-            "gen_ai.request.model": getModelId(
-              model,
-              this.modelName || "unknown",
-            ),
-          },
+      const streamSpan = streamTracer.startSpan("neurolink.provider.streamText", {
+        kind: SpanKind.CLIENT,
+        attributes: {
+          "gen_ai.system": "litellm",
+          "gen_ai.request.model": getModelId(model, this.modelName || "unknown"),
         },
-      );
+      });
 
       let result: ReturnType<typeof streamText>;
+      const collectedToolCalls: ToolCall[] = [];
+      const collectedToolResults: ToolResult[] = [];
       try {
         result = streamText(streamOptions);
       } catch (streamError) {
         streamSpan.setStatus({
           code: SpanStatusCode.ERROR,
-          message:
-            streamError instanceof Error
-              ? streamError.message
-              : String(streamError),
+          message: streamError instanceof Error ? streamError.message : String(streamError),
         });
         streamSpan.end();
         throw streamError;
@@ -359,14 +323,8 @@ export class LiteLLMProvider extends BaseProvider {
       // then end the span. This avoids blocking the stream consumer.
       Promise.resolve(result.usage)
         .then((usage) => {
-          streamSpan.setAttribute(
-            "gen_ai.usage.input_tokens",
-            usage.inputTokens || 0,
-          );
-          streamSpan.setAttribute(
-            "gen_ai.usage.output_tokens",
-            usage.outputTokens || 0,
-          );
+          streamSpan.setAttribute("gen_ai.usage.input_tokens", usage.inputTokens || 0);
+          streamSpan.setAttribute("gen_ai.usage.output_tokens", usage.outputTokens || 0);
           const cost = calculateCost(this.providerName, this.modelName, {
             input: usage.inputTokens || 0,
             output: usage.outputTokens || 0,
@@ -381,10 +339,7 @@ export class LiteLLMProvider extends BaseProvider {
         });
       Promise.resolve(result.finishReason)
         .then((reason) => {
-          streamSpan.setAttribute(
-            "gen_ai.response.finish_reason",
-            reason || "unknown",
-          );
+          streamSpan.setAttribute("gen_ai.response.finish_reason", reason || "unknown");
         })
         .catch(() => {
           // Finish reason may not be available if the stream is aborted
@@ -434,15 +389,10 @@ export class LiteLLMProvider extends BaseProvider {
                 if (textDelta) {
                   yield { content: textDelta };
                 }
-              } else if (
-                "type" in chunk &&
-                chunk.type === "tool-call" &&
-                "toolCallId" in chunk
-              ) {
+              } else if ("type" in chunk && chunk.type === "tool-call" && "toolCallId" in chunk) {
                 // Tool call event - log for debugging
                 const toolCallId = String(chunk.toolCallId);
-                const toolName =
-                  "toolName" in chunk ? String(chunk.toolName) : "unknown";
+                const toolName = "toolName" in chunk ? String(chunk.toolName) : "unknown";
                 logger.debug("LiteLLM: Tool call", {
                   toolCallId,
                   toolName,
@@ -456,9 +406,7 @@ export class LiteLLMProvider extends BaseProvider {
         } catch (streamError) {
           // AI SDK v6 throws NoOutputGeneratedError when the stream produced no output.
           if (NoOutputGeneratedError.isInstance(streamError)) {
-            logger.warn(
-              "LiteLLM: Stream produced no output (NoOutputGeneratedError)",
-            );
+            logger.warn("LiteLLM: Stream produced no output (NoOutputGeneratedError)");
             return;
           }
           throw streamError;
@@ -472,9 +420,7 @@ export class LiteLLMProvider extends BaseProvider {
         result as StreamTextResult,
         Date.now() - startTime,
         {
-          requestId:
-            (options as { requestId?: string }).requestId ??
-            `litellm-stream-${Date.now()}`,
+          requestId: (options as { requestId?: string }).requestId ?? `litellm-stream-${Date.now()}`,
           streamingMode: true,
         },
       );
@@ -483,6 +429,10 @@ export class LiteLLMProvider extends BaseProvider {
         stream: transformedStream,
         provider: this.providerName,
         model: this.modelName,
+        ...(shouldUseTools && {
+          toolCalls: collectedToolCalls,
+          toolResults: collectedToolResults,
+        }),
         analytics: analyticsPromise,
         metadata: {
           startTime,
@@ -503,10 +453,7 @@ export class LiteLLMProvider extends BaseProvider {
     const { embed: aiEmbed } = await import("ai");
     const { createOpenAI } = await import("@ai-sdk/openai");
     const config = getLiteLLMConfig();
-    const embeddingModelName =
-      modelName ||
-      process.env.LITELLM_EMBEDDING_MODEL ||
-      "gemini-embedding-001";
+    const embeddingModelName = modelName || process.env.LITELLM_EMBEDDING_MODEL || "gemini-embedding-001";
 
     const customOpenAI = createOpenAI({
       baseURL: config.baseURL,
@@ -527,10 +474,7 @@ export class LiteLLMProvider extends BaseProvider {
     const { embedMany: aiEmbedMany } = await import("ai");
     const { createOpenAI } = await import("@ai-sdk/openai");
     const config = getLiteLLMConfig();
-    const embeddingModelName =
-      modelName ||
-      process.env.LITELLM_EMBEDDING_MODEL ||
-      "gemini-embedding-001";
+    const embeddingModelName = modelName || process.env.LITELLM_EMBEDDING_MODEL || "gemini-embedding-001";
 
     const customOpenAI = createOpenAI({
       baseURL: config.baseURL,
@@ -554,8 +498,7 @@ export class LiteLLMProvider extends BaseProvider {
     // Check if cached models are still valid
     if (
       LiteLLMProvider.modelsCache.length > 0 &&
-      now - LiteLLMProvider.modelsCacheTime <
-        LiteLLMProvider.MODELS_CACHE_DURATION
+      now - LiteLLMProvider.modelsCacheTime < LiteLLMProvider.MODELS_CACHE_DURATION
     ) {
       logger.debug(`[${functionTag}] Using cached models`, {
         cacheAge: Math.round((now - LiteLLMProvider.modelsCacheTime) / 1000),
@@ -578,18 +521,13 @@ export class LiteLLMProvider extends BaseProvider {
         return dynamicModels;
       }
     } catch (error) {
-      logger.warn(
-        `[${functionTag}] Failed to fetch models from API, using fallback`,
-        {
-          error: error instanceof Error ? error.message : String(error),
-        },
-      );
+      logger.warn(`[${functionTag}] Failed to fetch models from API, using fallback`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     // Fallback to hardcoded list if API fetch fails
-    const fallbackModels = process.env.LITELLM_FALLBACK_MODELS?.split(",").map(
-      (m) => m.trim(),
-    ) || [
+    const fallbackModels = process.env.LITELLM_FALLBACK_MODELS?.split(",").map((m) => m.trim()) || [
       "openai/gpt-4o", // minimal safe baseline
       "anthropic/claude-3-haiku",
       "meta-llama/llama-3.1-8b-instruct",
@@ -647,9 +585,7 @@ export class LiteLLMProvider extends BaseProvider {
               ? (model as { id: string }).id
               : undefined,
           )
-          .filter(
-            (id: string | undefined) => typeof id === "string" && id.length > 0,
-          )
+          .filter((id: string | undefined) => typeof id === "string" && id.length > 0)
           .sort();
 
         logger.debug(`[${functionTag}] Successfully parsed models`, {
@@ -665,10 +601,7 @@ export class LiteLLMProvider extends BaseProvider {
       clearTimeout(timeoutId);
 
       if (isAbortError(error)) {
-        throw new NetworkError(
-          "Request timed out after 5 seconds",
-          this.providerName,
-        );
+        throw new NetworkError("Request timed out after 5 seconds", this.providerName);
       }
 
       throw error;

@@ -348,18 +348,21 @@ app.post(
 ### Redis-Based Custom Rate Limiting
 
 ```bash
-npm install @fastify/rate-limit ioredis
+npm install @fastify/rate-limit redis
 ```
 
 ```typescript
 // src/plugins/redis-rate-limit.ts
 import fp from "fastify-plugin";
 import rateLimit from "@fastify/rate-limit";
-import Redis from "ioredis";
+import { createClient } from "redis";
 import { FastifyInstance } from "fastify";
 
 async function redisRateLimitPlugin(fastify: FastifyInstance) {
-  const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
+  const redis = createClient({
+    url: process.env.REDIS_URL || "redis://localhost:6379",
+  });
+  await redis.connect();
 
   await fastify.register(rateLimit, {
     global: true,
@@ -385,19 +388,19 @@ export default fp(redisRateLimitPlugin, { name: "redis-rate-limit" });
 ### Redis Caching with Hooks
 
 ```bash
-npm install ioredis
+npm install redis
 ```
 
 ```typescript
 // src/plugins/cache.ts
 import fp from "fastify-plugin";
-import Redis from "ioredis";
+import { createClient, type RedisClientType } from "redis";
 import { createHash } from "crypto";
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 
 declare module "fastify" {
   interface FastifyInstance {
-    cache: Redis;
+    cache: RedisClientType;
     cacheResponse: (ttl: number) => {
       onRequest: (
         request: FastifyRequest,
@@ -416,7 +419,10 @@ declare module "fastify" {
 }
 
 async function cachePlugin(fastify: FastifyInstance) {
-  const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
+  const redis = createClient({
+    url: process.env.REDIS_URL || "redis://localhost:6379",
+  });
+  await redis.connect();
 
   fastify.decorate("cache", redis);
 
@@ -440,7 +446,7 @@ async function cachePlugin(fastify: FastifyInstance) {
       payload: string,
     ) => {
       if (request.cacheKey && reply.statusCode === 200) {
-        await redis.setex(request.cacheKey, ttl, payload);
+        await redis.setEx(request.cacheKey, ttl, payload);
       }
       return payload;
     },

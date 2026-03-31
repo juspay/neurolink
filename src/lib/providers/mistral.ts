@@ -20,6 +20,7 @@ import {
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
+import { resolveToolChoice } from "../utils/toolChoice.js";
 import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
 
 // Configuration helpers - now using consolidated utility
@@ -101,7 +102,7 @@ export class MistralProvider extends BaseProvider {
         maxOutputTokens: options.maxTokens, // No default limit - unlimited unless specified
         tools,
         stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
-        toolChoice: shouldUseTools ? "auto" : "none",
+        toolChoice: resolveToolChoice(options, tools, shouldUseTools),
         abortSignal: composeAbortSignals(
           options.abortSignal,
           timeoutController?.controller.signal,

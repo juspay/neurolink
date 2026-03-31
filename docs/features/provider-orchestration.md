@@ -74,8 +74,8 @@ Future CLI releases will surface a `--enable-orchestration` flag; until then kee
 Enable orchestration in development to understand routing patterns, then pin `provider` or `model` in production for predictable behavior. Orchestration is ideal for exploratory workflows; explicit selection ensures consistency in critical paths.
 :::
 
-:::tip[Ollama Local-First]
-The router prioritizes local Ollama models when available, reducing costs and latency for development workflows. Ensure Ollama is running (`http://localhost:11434`) to take advantage of local-first routing.
+:::tip[Self-Hosted First]
+The default fallback order prioritizes self-hosted providers — LiteLLM and Ollama — before cloud providers. This avoids external API costs and rate limits during development. Ensure your local providers are running to take advantage of this local-first routing.
 :::
 
 - Pair orchestration with evaluation to verify the routed provider meets quality expectations.

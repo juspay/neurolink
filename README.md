@@ -57,6 +57,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 - **Memory** – Per-user condensed memory that persists across all conversations. Automatically retrieves and stores memory on each `generate()`/`stream()` call. Supports S3, Redis, and SQLite storage with LLM-powered condensation. → [Memory Guide](docs/features/memory.md)
 - **External TracerProvider Support** – Integrate NeuroLink with applications that already have OpenTelemetry instrumentation. Supports auto-detection and manual configuration. → [Observability Guide](docs/features/observability.md)
+- **Claude Proxy Telemetry** – Bootstrap a local OpenObserve + OTEL collector stack with `neurolink proxy telemetry setup`, import the maintained NeuroLink Proxy Observability dashboard, and inspect proxy logs, traces, metrics, cache reuse, and routing behavior. → [Claude Proxy Guide](docs/features/claude-proxy.md) | [Proxy Observability Guide](docs/features/claude-proxy-observability.md)
 - **Server Adapters** – Deploy NeuroLink as an HTTP API server with your framework of choice (Hono, Express, Fastify, Koa). Full CLI support with `serve` and `server` commands for foreground/background modes, route management, and OpenAPI generation. → [Server Adapters Guide](docs/guides/server-adapters/index.md)
 - **Title Generation Events** – Emit real-time events when conversation titles are auto-generated. Listen to `conversation:titleGenerated` for session tracking. → [Conversation Memory Guide](docs/conversation-memory.md#title-generation-events)
 - **Custom Title Prompts** – Customize conversation title generation with `NEUROLINK_TITLE_PROMPT` environment variable. Use `${userMessage}` placeholder for dynamic prompts. → [Conversation Memory Guide](docs/conversation-memory.md#customizing-the-title-prompt)
@@ -599,6 +600,11 @@ npx @juspay/neurolink generate "Draft release notes" \
 # RAG: Ask questions about your docs (auto-chunks, embeds, searches)
 npx @juspay/neurolink generate "What are the key features?" \
   --rag-files ./docs/guide.md ./docs/api.md --rag-strategy markdown
+
+# Claude proxy + local OpenObserve dashboard
+npx @juspay/neurolink proxy setup
+npx @juspay/neurolink proxy telemetry setup
+npx @juspay/neurolink proxy status --format json
 ```
 
 ```typescript
@@ -677,7 +683,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 | **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging.                             |
 | **Memory & context**     | Conversation memory, Redis history export (Q4), context summarization (Q4).                                              |
 | **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output.                                     |
-| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management.                                         |
+| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, local OpenObserve dashboard setup, configuration management.      |
 | **Tool ecosystem**       | MCP auto discovery, HTTP/stdio/SSE/WebSocket transports, LiteLLM hub access, SageMaker custom deployment, web search.    |
 
 ## Documentation Map

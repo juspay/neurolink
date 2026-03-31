@@ -93,8 +93,17 @@ export class WorkOSProvider extends BaseAuthProvider {
     }
 
     try {
+      const jwks = this.jwks;
+      if (!jwks) {
+        throw AuthError.create(
+          "PROVIDER_INIT_FAILED",
+          "WorkOS JWKS was not initialized",
+          { details: { provider: "workos" } },
+        );
+      }
+
       // Verify the JWT
-      const { payload } = await jose.jwtVerify(token, this.jwks!, {
+      const { payload } = await jose.jwtVerify(token, jwks, {
         audience: this.clientId,
       });
 

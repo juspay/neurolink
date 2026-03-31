@@ -35,6 +35,7 @@ npm install @juspay/neurolink
 | `sagemaker <command>` | Manage Amazon SageMaker endpoints and models.                    | `npx @juspay/neurolink sagemaker status`                                    |
 | `server <subcommand>` | Manage NeuroLink HTTP server                                     | `npx @juspay/neurolink server start --port 3000`                            |
 | `serve`               | Start server in foreground mode                                  | `npx @juspay/neurolink serve --port 3000`                                   |
+| `proxy <subcommand>`  | Manage the Claude multi-account proxy and its local telemetry.   | `npx @juspay/neurolink proxy telemetry setup`                               |
 | `rag <subcommand>`    | RAG document processing (chunk, index, query).                   | `npx @juspay/neurolink rag chunk ./docs/guide.md`                           |
 | `workflow <sub>`      | Manage and execute AI workflows.                                 | `npx @juspay/neurolink workflow list`                                       |
 | `observability`       | Observability and telemetry management (aliases: `obs`, `otel`). | `npx @juspay/neurolink observability status`                                |
@@ -1092,6 +1093,124 @@ neurolink server openapi -o openapi.json
 # Generate YAML format
 neurolink server openapi --format yaml -o openapi.yaml
 ```
+
+## proxy \<subcommand\>
+
+Manage the Claude multi-account proxy server and the local OpenObserve stack used for proxy observability.
+
+```bash
+# Start the proxy on the default port
+npx @juspay/neurolink proxy start
+
+# Check live proxy status
+npx @juspay/neurolink proxy status --format json
+
+# Bring up OpenObserve + OTEL collector + dashboard
+npx @juspay/neurolink proxy telemetry setup
+```
+
+**Subcommands:**
+
+| Subcommand           | Description                                                                |
+| -------------------- | -------------------------------------------------------------------------- |
+| `start`              | Start the Claude multi-account proxy in the foreground                     |
+| `status`             | Show live proxy status, including attempts vs completed requests           |
+| `telemetry <action>` | Manage the local OpenObserve stack and maintained dashboard for the proxy  |
+| `setup`              | One-command onboarding: auth + service install + Claude Code configuration |
+| `install`            | Install the proxy as a persistent background service                       |
+| `uninstall`          | Remove the persistent background service                                   |
+
+### proxy start
+
+```bash
+npx @juspay/neurolink proxy start
+npx @juspay/neurolink proxy start --port 8080 --strategy fill-first
+npx @juspay/neurolink proxy start --config ./proxy-config.yaml --env-file ./proxy.env
+```
+
+| Option              | Alias | Type    | Default                          | Description                                               |
+| ------------------- | ----- | ------- | -------------------------------- | --------------------------------------------------------- |
+| `--port`            | `-p`  | number  | `55669`                          | Port to listen on                                         |
+| `--host`            | `-H`  | string  | `127.0.0.1`                      | Host to bind to                                           |
+| `--strategy`        | `-s`  | string  | `fill-first`                     | Account selection strategy: `fill-first` or `round-robin` |
+| `--health-interval` |       | number  | `30`                             | Health check interval in seconds                          |
+| `--config`          | `-c`  | string  | `~/.neurolink/proxy-config.yaml` | Path to proxy config file                                 |
+| `--env-file`        |       | string  |                                  | Path to proxy provider env file                           |
+| `--passthrough`     |       | boolean | `false`                          | Transparent forwarding: no retry, rotation, or polyfill   |
+| `--debug`           | `-d`  | boolean | `false`                          | Enable debug output                                       |
+| `--quiet`           | `-q`  | boolean | `false`                          | Suppress non-essential output                             |
+
+### proxy status
+
+```bash
+npx @juspay/neurolink proxy status
+npx @juspay/neurolink proxy status --format json
+```
+
+| Option     | Alias | Type    | Default | Description                     |
+| ---------- | ----- | ------- | ------- | ------------------------------- |
+| `--format` |       | string  | `text`  | Output format: `text` or `json` |
+| `--quiet`  | `-q`  | boolean | `false` | Suppress non-essential output   |
+
+### proxy telemetry \<action\>
+
+Manage the repo-owned local OpenObserve stack in `scripts/observability/`.
+
+```bash
+npx @juspay/neurolink proxy telemetry setup
+npx @juspay/neurolink proxy telemetry status
+npx @juspay/neurolink proxy telemetry logs
+```
+
+| Action             | Description                                                             |
+| ------------------ | ----------------------------------------------------------------------- |
+| `setup`            | Start OpenObserve + OTEL collector and import the maintained dashboard  |
+| `start`            | Start the local telemetry stack without re-importing the dashboard      |
+| `stop`             | Stop the local telemetry stack                                          |
+| `status`           | Show local stack health and endpoint info                               |
+| `logs`             | Follow OpenObserve and collector logs                                   |
+| `import-dashboard` | Re-import the dashboard and dedupe older dashboards with the same title |
+
+| Option    | Alias | Type    | Default | Description                                          |
+| --------- | ----- | ------- | ------- | ---------------------------------------------------- |
+| `--quiet` | `-q`  | boolean | `false` | Suppress the local CLI spinner and delegate directly |
+
+### proxy setup
+
+```bash
+npx @juspay/neurolink proxy setup
+npx @juspay/neurolink proxy setup --no-service
+npx @juspay/neurolink proxy setup --port 9000 --method oauth
+```
+
+| Option         | Alias | Type    | Default | Description                                              |
+| -------------- | ----- | ------- | ------- | -------------------------------------------------------- |
+| `--port`       | `-p`  | number  | `55669` | Proxy port                                               |
+| `--method`     |       | string  | `oauth` | Auth method: `oauth` or `api-key`                        |
+| `--no-service` |       | boolean | `false` | Skip service installation and start in foreground        |
+| `--env-file`   |       | string  |         | Path to proxy provider env file to persist for the proxy |
+
+### proxy install
+
+```bash
+npx @juspay/neurolink proxy install
+npx @juspay/neurolink proxy install --port 9000 --host 0.0.0.0
+```
+
+| Option       | Alias | Type   | Default     | Description                                                  |
+| ------------ | ----- | ------ | ----------- | ------------------------------------------------------------ |
+| `--port`     | `-p`  | number | `55669`     | Proxy port                                                   |
+| `--host`     |       | string | `127.0.0.1` | Proxy host                                                   |
+| `--env-file` |       | string |             | Path to proxy provider env file to persist for the service   |
+| `--config`   |       | string |             | Path to proxy routing config file to persist for the service |
+
+### proxy uninstall
+
+```bash
+npx @juspay/neurolink proxy uninstall
+```
+
+For the full operational guide, routing model, and the maintained OpenObserve dashboard, see [Claude Proxy](../features/claude-proxy.md) and [Claude Proxy Observability](../features/claude-proxy-observability.md).
 
 ## Global Flags (available on every command)
 

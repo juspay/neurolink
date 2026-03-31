@@ -235,6 +235,8 @@ const chatService = createEnhancedChatService({
 });
 
 // Handle streaming responses
+// Note: onChunk, onFinish, and onError callbacks are preserved through middleware —
+// middleware will not override callbacks you've explicitly set.
 await chatService.streamChat({
   prompt: "Generate a story about AI and humanity",
   onChunk: (chunk) => {

@@ -33,6 +33,7 @@ export class TelemetryService {
   private tracerProvider?: BasicTracerProvider;
   private enabled: boolean = false;
   private initialized: boolean = false;
+  private usingExternalTracerProvider: boolean = false;
   private meter?: Meter;
   private tracer?: Tracer;
 
@@ -75,13 +76,63 @@ export class TelemetryService {
 
   private isTelemetryEnabled(): boolean {
     return (
+      this.hasExternalTracerProvider() ||
       process.env.NEUROLINK_TELEMETRY_ENABLED === "true" ||
       process.env.OTEL_EXPORTER_OTLP_ENDPOINT !== undefined
     );
   }
 
+  private hasExternalTracerProvider(): boolean {
+    try {
+      const provider = trace.getTracerProvider() as {
+        constructor?: { name?: string };
+        _delegate?: { constructor?: { name?: string } };
+      } | null;
+
+      if (!provider) {
+        return false;
+      }
+
+      const delegateName = provider._delegate?.constructor?.name || "";
+      if (delegateName && delegateName !== "NoopTracerProvider") {
+        return true;
+      }
+
+      const providerName = provider.constructor?.name || "";
+      return (
+        providerName !== "ProxyTracerProvider" &&
+        providerName !== "NoopTracerProvider"
+      );
+    } catch (error) {
+      logger.warn("[Telemetry] Failed checking for external TracerProvider", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  private adoptExternalTracerProvider(reason: string): void {
+    this.usingExternalTracerProvider = true;
+    this.tracerProvider = undefined;
+    this.meter = metrics.getMeter("neurolink-ai");
+    this.tracer = trace.getTracer("neurolink-ai");
+    this.initializeMetrics();
+
+    logger.debug("[Telemetry] Reusing externally managed TracerProvider", {
+      reason,
+      endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    });
+  }
+
   private initializeTelemetry(): void {
     try {
+      if (this.hasExternalTracerProvider()) {
+        this.adoptExternalTracerProvider(
+          "global tracer provider already registered",
+        );
+        return;
+      }
+
       const resource = resourceFromAttributes({
         [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || "neurolink-ai",
         [ATTR_SERVICE_VERSION]: process.env.OTEL_SERVICE_VERSION || "3.0.1",
@@ -97,18 +148,30 @@ export class TelemetryService {
         resource,
         spanProcessors: [new BatchSpanProcessor(exporter)],
       });
-      trace.setGlobalTracerProvider(this.tracerProvider);
-
       this.meter = metrics.getMeter("neurolink-ai");
-      this.tracer = trace.getTracer("neurolink-ai");
+      this.tracer = this.tracerProvider.getTracer("neurolink-ai");
 
       this.initializeMetrics();
 
-      logger.debug(
-        "[Telemetry] Initialized with endpoint:",
-        process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-      );
+      logger.debug("[Telemetry] Initialized local telemetry exporter", {
+        endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+        globalTracerProviderOwnedBy: "observability/instrumentation",
+      });
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const isDuplicateRegistration =
+        errorMessage.includes("duplicate registration") ||
+        errorMessage.includes("already registered") ||
+        errorMessage.includes("already set");
+
+      if (isDuplicateRegistration && this.hasExternalTracerProvider()) {
+        this.adoptExternalTracerProvider(
+          "duplicate global tracer registration detected",
+        );
+        return;
+      }
+
       logger.error("[Telemetry] Failed to initialize:", error);
       this.enabled = false;
     }
@@ -163,6 +226,22 @@ export class TelemetryService {
 
   async initialize(): Promise<void> {
     if (!this.enabled) {
+      return;
+    }
+
+    if (this.usingExternalTracerProvider) {
+      this.initialized = true;
+      logger.debug(
+        "[Telemetry] External TracerProvider already initialized by host",
+      );
+      return;
+    }
+
+    if (!this.tracerProvider) {
+      this.initialized = true;
+      logger.debug(
+        "[Telemetry] Tracer provider already prepared during constructor",
+      );
       return;
     }
 
@@ -436,7 +515,11 @@ export class TelemetryService {
 
   // Cleanup
   async shutdown(): Promise<void> {
-    if (this.enabled && this.tracerProvider) {
+    if (
+      this.enabled &&
+      this.tracerProvider &&
+      !this.usingExternalTracerProvider
+    ) {
       try {
         await this.tracerProvider.shutdown();
         this.initialized = false;

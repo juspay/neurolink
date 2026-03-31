@@ -291,13 +291,15 @@ main();
 
 ### 1. Provider Priority
 
-Providers are ordered by priority (1 = highest):
+Providers are ordered by priority (1 = highest). The default `getBestProvider()` order prioritizes self-hosted providers first (no rate limits, no external costs):
 
 ```typescript
 providers = [
-  { name: "openai", priority: 1 }, // Try first
-  { name: "anthropic", priority: 2 }, // Fallback
-  { name: "google-ai", priority: 3 }, // Last resort
+  { name: "litellm", priority: 1 }, // Self-hosted proxy (no rate limits)
+  { name: "ollama", priority: 2 }, // Local models (no rate limits)
+  { name: "openai", priority: 3 }, // Cloud fallback
+  { name: "anthropic", priority: 4 }, // Cloud fallback
+  { name: "google-ai", priority: 5 }, // Cloud fallback
 ];
 ```
 

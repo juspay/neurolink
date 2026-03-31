@@ -266,11 +266,11 @@ When using `createRBACMiddleware()`:
 
 ### Storage Backends
 
-| Backend   | Class                      | Characteristics                            |
-| --------- | -------------------------- | ------------------------------------------ |
-| In-memory | `MemorySessionStorage`     | Single-instance, sessions lost on restart  |
-| Redis     | `RedisSessionStorage`      | Distributed, TTL-based expiration, ioredis |
-| Custom    | Implement `SessionStorage` | User-provided storage backend              |
+| Backend   | Class                      | Characteristics                                       |
+| --------- | -------------------------- | ----------------------------------------------------- |
+| In-memory | `MemorySessionStorage`     | Single-instance, sessions lost on restart             |
+| Redis     | `RedisSessionStorage`      | Distributed, TTL-based expiration, redis (node-redis) |
+| Custom    | Implement `SessionStorage` | User-provided storage backend                         |
 
 `SessionManager` wraps the storage backend and adds:
 

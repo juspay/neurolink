@@ -41,14 +41,14 @@ claudeProxyRoutes.ts  POST /v1/messages handler
   │
   ├─ ModelRouter.resolve(body.model)
   │    → { provider: "anthropic", model: "claude-sonnet-4-..." }
-  │    (or null provider for unknown claude-* models)
+  │    (or null provider for unknown non-Claude models)
   │
   ├─ isClaudeTarget? YES → passthrough path
   │
   ├─ Load accounts (see §3 Account Management)
   │    TokenStore compound keys → legacy credentials file → env var
   │
-  ├─ Round-robin offset: rotate accounts array by requestCursor
+  ├─ Order accounts by configured strategy (`fill-first` by default)
   │
   ├─ FOR EACH account (skip if cooling):
   │    │
@@ -97,13 +97,16 @@ Accounts are loaded in the `POST /v1/messages` handler on every request (not cac
 
 3. **Environment variable** (`ANTHROPIC_API_KEY`) — Only used when no OAuth accounts were found at all. Creates a single `api_key`-type account.
 
-### Account selection: fill-first with round-robin cursor
+### Account selection: strategy-driven with fill-first default
 
-The code uses a module-level `requestCursor` integer. On each request with multiple accounts, the accounts array is rotated by `requestCursor % accounts.length`, then the cursor increments. Within a single request, accounts are tried sequentially (first non-cooling account wins). This is effectively fill-first with periodic rotation.
+The request handler supports two real account-selection strategies:
+
+- **`fill-first` (default)** — always begin with the current primary account and stay on it until it cools down or fails.
+- **`round-robin`** — rotate the starting account on each request, then try the remaining accounts sequentially.
 
 Expired accounts are pruned at startup via `tokenStore.pruneExpired()` (one-time). Accounts that are persisted as disabled (via `tokenStore.isDisabled()`) are skipped. Expired tokens with a refresh token get one refresh attempt at startup; on failure, the account is disabled until re-authentication.
 
-Note: the CLI `--strategy` flag accepts `round-robin`, `least-loaded`, `priority`, `latency`, and `random`, but the actual passthrough code in `claudeProxyRoutes.ts` always uses the round-robin cursor. The strategy flag is used by the `ModelRouter` for translation-mode routing.
+The CLI `--strategy` flag and the proxy config `routing.strategy` field both map directly to this account ordering logic. There are only two supported values today: `fill-first` and `round-robin`.
 
 ### Per-status cooldowns
 
@@ -232,6 +235,25 @@ On a valid first chunk:
 
 The body bytes are never parsed or modified. Claude Code receives exactly what Anthropic sent.
 
+### SSE Stream Interceptor (Telemetry)
+
+In both passthrough and translation paths, the proxy optionally pipes the SSE stream through an `SSEInterceptor` (`sseInterceptor.ts`). This is a zero-overhead `TransformStream` that:
+
+1. Forwards every byte to the client immediately (no buffering delay).
+2. Parses SSE events in the background to extract: token usage (`input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`), model name, content block metadata (text, thinking, tool_use), and stop reason.
+3. Resolves a telemetry promise when the stream ends, providing the extracted data to `ProxyRequestTracer` for OTel span attributes and metric recording.
+
+### ProxyRequestTracer (OTel Spans)
+
+`ProxyRequestTracer` (`proxyTracer.ts`) manages the OTel span lifecycle for each proxy request:
+
+- **Request span**: Created at request receive, covers the full request lifecycle.
+- **Upstream spans**: One per retry attempt, tracks fetch duration and response status.
+- **Usage attributes**: Token counts, model, provider, cost estimate, rate-limit headers.
+- **Correlation**: Writes `traceId` and `spanId` into the request log entry for cross-signal correlation.
+
+The tracer emits metrics via `TelemetryService`: request counters, retry counters, latency histograms, request/response body sizes, estimated cost, cache token counters, and model-substitution counters when the translated response model differs from the requested one.
+
 ### Translation streaming (Claude-to-Other)
 
 When the target is a non-Anthropic provider:
@@ -265,15 +287,16 @@ Used by the NeuroLink Anthropic provider for direct SDK usage. Full cloaking:
 
 - All passthrough modifications, plus:
 - Sets `User-Agent` to `CLAUDE_CLI_USER_AGENT`
-- Adds beta headers: `claude-code-20250219`, `interleaved-thinking-2025-05-14`, `prompt-caching-scope-2026-01-05`
+- Adds the full Claude-Code beta set, including `oauth-2025-04-20`, `claude-code-20250219`, `context-management-2025-06-27`, `prompt-caching-scope-2026-01-05`, `advanced-tool-use-2025-11-20`, and `effort-2025-11-24`
 - Adds identity headers: `anthropic-dangerous-direct-browser-access`, `x-app: cli`
 - Adds Stainless SDK headers (`x-stainless-runtime`, `x-stainless-lang`, `x-stainless-os`, `x-stainless-arch`, `x-stainless-package-version`, `x-stainless-retry-count`, `x-stainless-timeout`)
 - **Body modifications:**
-  - Injects billing header block into system prompt: `x-anthropic-billing-header: cc_version=2.1.63.<hex>; cc_entrypoint=cli; cch=<sha256>;`
+  - Injects a deterministic Claude-Code-shaped billing header block into the system prompt so prompt caching remains stable
   - Injects agent identity block: `"You are a Claude agent, built on Anthropic's Claude Agent SDK."`
-  - Injects fake `user_id` into `metadata` (cached per token prefix for 1 hour)
+  - Injects `metadata.user_id` as a JSON string with `device_id`, `account_uuid`, and `session_id`
   - Prefixes tool names with `mcp_` when `enableMcpPrefix` is true
   - Disables `thinking` when `tool_choice.type` is `"any"` or `"tool"`
+  - Injects W3C trace headers and `x-claude-code-session-id` when the proxy owns the request shape
 
 ### MCP prefix handling
 
@@ -319,9 +342,9 @@ Without the guard, if the proxy crashes, Claude Code would keep trying to route 
 
 Claude Code sends complex request bodies: multi-turn conversations with interleaved tool use/result blocks, thinking blocks, context management betas, system prompts with cache control, image blocks, and tool definitions with complex JSON schemas. Parsing this into NeuroLink's internal format and re-serializing would be lossy (losing features like `prompt-caching-scope`, thinking configuration, exact tool schemas). Passthrough preserves byte-level fidelity.
 
-### WHY fill-first with round-robin cursor
+### WHY strategy-driven account selection
 
-The code uses a module-level `requestCursor` that rotates the account array on each request. Within a request, accounts are tried sequentially (first non-cooling account wins). This is effectively fill-first with periodic rotation. The `--strategy` CLI flag (which includes options like `least-loaded`) is for `ModelRouter` configuration, not the passthrough account selection.
+Most Claude Code usage benefits from identity stability, so `fill-first` is the default. It keeps one account "hot" until rate limits or auth failures force rotation. `round-robin` is still available when a deployment wants to spread traffic more evenly across accounts.
 
 ### WHY cloaking is in oauthFetch.ts
 
@@ -345,7 +368,7 @@ proxy.ts (CLI command)
   ├── Creates NeuroLink instance (NEUROLINK_SKIP_MCP=true)
   ├── Loads proxy config (~/.neurolink/proxy-config.yaml)
   ├── Creates ModelRouter (if routing configured)
-  ├── Initializes requestLogger + usageStats
+  ├── Initializes requestLogger + usageStats + OpenTelemetry (OTLP traces/metrics/logs)
   ├── Builds Hono app
   │     │
   │     ├── /v1/messages      ─→ claudeProxyRoutes.ts (POST)
@@ -359,8 +382,23 @@ proxy.ts (CLI command)
   ├── Auto-configures ~/.claude/settings.json (ANTHROPIC_BASE_URL + ENABLE_TOOL_SEARCH)
   ├── Reactive token refresh (per-request + on-401)
   ├── Log rotation (startup + hourly: 7 days, 500 MB cap)
-  ├── Debug logging to ~/.neurolink/logs/proxy-debug-*.jsonl
+  ├── Summary logs to ~/.neurolink/logs/proxy-*.jsonl
+  ├── Attempt logs to ~/.neurolink/logs/proxy-attempts-*.jsonl
+  ├── Debug index to ~/.neurolink/logs/proxy-debug-*.jsonl
+  ├── Redacted body artifacts to ~/.neurolink/logs/bodies/YYYY-MM-DD/<request-id>/*.json.gz
+  ├── OTel flush + shutdown on exit
   └── Graceful shutdown (SIGTERM/SIGINT → clear settings, close server)
+
+proxyTracer.ts
+  ├── Creates request-level OTel span (receive → end)
+  ├── Creates per-retry upstream spans
+  ├── Records token usage, cost, rate-limit attributes
+  └── Writes traceId/spanId into request log entry
+
+sseInterceptor.ts
+  ├── Zero-overhead TransformStream (taps SSE without buffering)
+  ├── Extracts token counts, model, content blocks, stop reason
+  └── Resolves telemetry promise on stream end
 
 claudeProxyRoutes.ts
   │
@@ -396,14 +434,14 @@ oauthFetch.ts (shared module)
   │     └── skipBodyTransform=false ─ direct SDK (full cloaking)
   │
   ├── Billing header injection
-  ├── Fake user_id generation (cached 1hr per token prefix)
+  ├── Claude-Code-shaped metadata.user_id generation (cached and reused per seed)
   ├── Stainless SDK header spoofing
   └── MCP tool prefix/strip (carry-buffer stream transform)
 
 Supporting modules:
   ├── modelRouter.ts       ─ resolve() model → { provider, model }
   ├── claudeFormat.ts      ─ Claude API ↔ NeuroLink format conversion
-  ├── requestLogger.ts     ─ JSONL audit log (~/.neurolink/logs/proxy-YYYY-MM-DD.jsonl)
+  ├── requestLogger.ts     ─ Request summaries, attempt logs, OTLP log export, debug body capture
   ├── usageStats.ts        ─ In-memory per-account stats (resets on restart)
   ├── tokenRefresh.ts      ─ Shared refresh logic (needsRefresh, refreshToken, persistTokens)
   ├── accountQuota.ts      ─ Parse unified-5h/7d quota headers, debounced persistence
@@ -417,12 +455,13 @@ Supporting modules:
 
 | File                                         | Lines   | Purpose                                                                                                                             |
 | -------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `src/cli/commands/proxy.ts`                  | ~1249   | CLI commands: `proxy start`, `proxy status`, `proxy guard`, `proxy setup`, `proxy install`, `proxy uninstall`                       |
+| `src/cli/commands/proxy.ts`                  | ~varies | CLI commands: `proxy start`, `proxy status`, `proxy telemetry`, `proxy guard`, `proxy setup`, `proxy install`, `proxy uninstall`    |
 | `src/lib/server/routes/claudeProxyRoutes.ts` | ~1047   | Route handlers: `/v1/messages`, `/v1/models`, `/v1/messages/count_tokens`                                                           |
 | `src/lib/proxy/oauthFetch.ts`                | ~383    | OAuth fetch wrapper with cloaking (passthrough + direct modes)                                                                      |
 | `src/lib/proxy/modelRouter.ts`               | ~57     | Model name resolution and fallback chain                                                                                            |
 | `src/lib/proxy/claudeFormat.ts`              | ~varies | Claude API format parser, response serializer, SSE state machine                                                                    |
-| `src/lib/proxy/requestLogger.ts`             | ~150    | JSONL request/response audit logging + debug logging + log rotation                                                                 |
+| `src/lib/proxy/requestLogger.ts`             | ~varies | Request summaries, attempt logs, OTLP log export, debug logging, and log rotation                                                   |
+| `src/lib/proxy/rawStreamCapture.ts`          | ~varies | Lossless raw stream capture for debugging streaming request/response IO                                                             |
 | `src/lib/proxy/accountQuota.ts`              | ~110    | Quota header parsing (unified-5h, unified-7d) and persistence                                                                       |
 | `src/lib/proxy/usageStats.ts`                | ~60+    | In-memory per-account usage statistics                                                                                              |
 | `src/lib/proxy/tokenRefresh.ts`              | ~53     | Token refresh helpers (needsRefresh, refreshToken, persistTokens)                                                                   |

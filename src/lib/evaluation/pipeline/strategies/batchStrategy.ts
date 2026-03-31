@@ -67,6 +67,12 @@ export type BatchResult = {
   };
 };
 
+function hasPipelineResult(
+  result: BatchItemResult,
+): result is BatchItemResult & { result: PipelineResult } {
+  return !result.error && result.result !== undefined;
+}
+
 /**
  * Default batch configuration
  */
@@ -153,9 +159,9 @@ export class BatchStrategy {
 
     // Calculate summary
     const totalDuration = Date.now() - startTime;
-    const successfulResults = results.filter((r) => !r.error && r.result);
-    const scores = successfulResults.map((r) => r.result!.overallScore);
-    const passed = successfulResults.filter((r) => r.result!.passed);
+    const successfulResults = results.filter(hasPipelineResult);
+    const scores = successfulResults.map((r) => r.result.overallScore);
+    const passed = successfulResults.filter((r) => r.result.passed);
 
     return {
       results,
@@ -317,11 +323,9 @@ export async function* streamBatchEvaluation(
 
       // If continueOnError is false and this result has an error, abort and return summary
       if (result.error && batchConfig.continueOnError === false) {
-        const successfulResults = results.filter((r) => !r.error && r.result);
-        const earlyScores = successfulResults.map(
-          (r) => r.result!.overallScore,
-        );
-        const earlyPassed = successfulResults.filter((r) => r.result!.passed);
+        const successfulResults = results.filter(hasPipelineResult);
+        const earlyScores = successfulResults.map((r) => r.result.overallScore);
+        const earlyPassed = successfulResults.filter((r) => r.result.passed);
         return {
           total: inputs.length,
           successful: successfulResults.length,
@@ -356,9 +360,9 @@ export async function* streamBatchEvaluation(
   }
 
   // Return summary
-  const successfulResults = results.filter((r) => !r.error && r.result);
-  const scores = successfulResults.map((r) => r.result!.overallScore);
-  const passed = successfulResults.filter((r) => r.result!.passed);
+  const successfulResults = results.filter(hasPipelineResult);
+  const scores = successfulResults.map((r) => r.result.overallScore);
+  const passed = successfulResults.filter((r) => r.result.passed);
 
   return {
     total: inputs.length,

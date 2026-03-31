@@ -364,10 +364,12 @@ export class SSEClient {
    * Register event handler
    */
   on(event: string, callback: (...args: unknown[]) => void): void {
-    if (!this.eventHandlers.has(event)) {
-      this.eventHandlers.set(event, new Set());
+    let handlers = this.eventHandlers.get(event);
+    if (!handlers) {
+      handlers = new Set();
+      this.eventHandlers.set(event, handlers);
     }
-    this.eventHandlers.get(event)!.add(callback);
+    handlers.add(callback);
   }
 
   /**
@@ -443,7 +445,11 @@ export class SSEClient {
 
       while (!done && !error) {
         if (events.length > 0) {
-          yield events.shift()!;
+          const nextEvent = events.shift();
+          if (!nextEvent) {
+            continue;
+          }
+          yield nextEvent;
         } else {
           await new Promise<void>((resolve) => {
             resolver = resolve;
@@ -453,7 +459,11 @@ export class SSEClient {
 
       // Yield remaining events
       while (events.length > 0) {
-        yield events.shift()!;
+        const nextEvent = events.shift();
+        if (!nextEvent) {
+          continue;
+        }
+        yield nextEvent;
       }
 
       if (error) {
@@ -704,10 +714,12 @@ export class WebSocketStreamingClient {
    * Register event handler
    */
   on(event: string, callback: WebSocketMessageHandler): void {
-    if (!this.eventHandlers.has(event)) {
-      this.eventHandlers.set(event, new Set());
+    let handlers = this.eventHandlers.get(event);
+    if (!handlers) {
+      handlers = new Set();
+      this.eventHandlers.set(event, handlers);
     }
-    this.eventHandlers.get(event)!.add(callback);
+    handlers.add(callback);
   }
 
   /**
@@ -760,7 +772,11 @@ export class WebSocketStreamingClient {
     try {
       while (!disconnected) {
         if (messageQueue.length > 0) {
-          yield messageQueue.shift()!;
+          const nextMessage = messageQueue.shift();
+          if (nextMessage === undefined) {
+            continue;
+          }
+          yield nextMessage;
         } else {
           await new Promise<void>((resolve) => {
             resolver = resolve;
@@ -770,7 +786,11 @@ export class WebSocketStreamingClient {
 
       // Yield remaining messages
       while (messageQueue.length > 0) {
-        yield messageQueue.shift()!;
+        const nextMessage = messageQueue.shift();
+        if (nextMessage === undefined) {
+          continue;
+        }
+        yield nextMessage;
       }
     } finally {
       this.off("message", onMessage);

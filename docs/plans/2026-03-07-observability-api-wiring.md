@@ -160,6 +160,8 @@ git add src/lib/neurolink.ts
 git commit --no-verify -m "feat(observability): implement getMetrics() on NeuroLink"
 ```
 
+**Note (2026-03-30):** `TelemetryService` now automatically detects and reuses an existing global `TracerProvider` instead of creating a duplicate. If a `NodeTracerProvider` is already registered (e.g., by the proxy's `initializeOpenTelemetry()`), `TelemetryService` adopts it via `hasExternalTracerProvider()` + `adoptExternalTracerProvider()`, avoiding "already registered" errors.
+
 ---
 
 ## Task 4: Implement getSpans(), getTraces(), resetMetrics(), recordMetricsSpan()

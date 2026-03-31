@@ -478,7 +478,10 @@ export class TaskCommandFactory {
       } else if (argv.every) {
         schedule = { type: "interval", every: parseDuration(argv.every) };
       } else {
-        schedule = { type: "once", at: argv.at! };
+        if (!argv.at) {
+          throw new Error("One-time tasks require --at");
+        }
+        schedule = { type: "once", at: argv.at };
       }
 
       const now = new Date().toISOString();

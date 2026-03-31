@@ -5,11 +5,65 @@
  */
 
 import { logger } from "../utils/logger.js";
-import { SpanStatusCode } from "@opentelemetry/api";
+import { SpanStatusCode, propagation, context } from "@opentelemetry/api";
 import { tracers } from "../telemetry/tracers.js";
 import type { ProxyAgent } from "undici";
 import { shouldBypassProxy } from "./utils/noProxyUtils.js";
 import type { ParsedProxyConfig } from "../types/index.js";
+
+type LangfuseContext = {
+  sessionId?: string | null;
+  userId?: string | null;
+  conversationId?: string | null;
+};
+
+async function getLangfuseContext(): Promise<LangfuseContext | undefined> {
+  try {
+    // Dynamic import to avoid hard dependency — getLangfuseContext is only
+    // available when the observability module is loaded.
+    const mod =
+      await import("../services/server/ai/observability/instrumentation.js");
+    return mod.getLangfuseContext?.();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Inject OTel trace context (traceparent/tracestate) and NeuroLink session context
+ * into outgoing request headers. This enables:
+ * - The NeuroLink proxy to link proxy spans as children of the calling SDK's trace
+ * - Conversation-level session/user attribution on proxy spans
+ */
+async function injectTraceContext(init?: RequestInit): Promise<RequestInit> {
+  const carrier: Record<string, string> = {};
+  propagation.inject(context.active(), carrier);
+
+  // Also inject NeuroLink session context from Langfuse AsyncLocalStorage
+  const langfuseContext = await getLangfuseContext();
+  if (langfuseContext?.sessionId) {
+    carrier["x-neurolink-session-id"] = langfuseContext.sessionId;
+  }
+  if (langfuseContext?.userId) {
+    carrier["x-neurolink-user-id"] = langfuseContext.userId;
+  }
+  if (langfuseContext?.conversationId) {
+    carrier["x-neurolink-conversation-id"] = langfuseContext.conversationId;
+  }
+
+  if (Object.keys(carrier).length === 0) {
+    return init ?? {};
+  }
+
+  const existingHeaders = new Headers(init?.headers);
+  for (const [key, value] of Object.entries(carrier)) {
+    if (!existingHeaders.has(key)) {
+      existingHeaders.set(key, value);
+    }
+  }
+
+  return { ...init, headers: existingHeaders };
+}
 
 const fetchTracer = tracers.http;
 
@@ -384,6 +438,8 @@ export function createProxyFetch(): typeof fetch {
       input: RequestInfo | URL,
       init?: RequestInit,
     ): Promise<Response> => {
+      // Inject OTel traceparent so the proxy can link to this trace
+      const enrichedInit = await injectTraceContext(init);
       const reqId = `req-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
       const startTs = Date.now();
       const url =
@@ -394,18 +450,20 @@ export function createProxyFetch(): typeof fetch {
             : (input as Request).url;
 
       if (logger.shouldLog("debug")) {
-        const { size: bodySize, type: bodyType } = parseBody(init?.body);
+        const { size: bodySize, type: bodyType } = parseBody(
+          enrichedInit?.body,
+        );
         logger.debug("[Observability] HTTP request to LLM provider", {
           requestId: reqId,
           url,
-          method: init?.method || "POST",
+          method: enrichedInit?.method || "POST",
           bodySize,
           bodyType,
         });
       }
 
       try {
-        const response = await fetchWithRetry(input, init);
+        const response = await fetchWithRetry(input, enrichedInit);
 
         if (logger.shouldLog("debug")) {
           const {
@@ -454,6 +512,8 @@ export function createProxyFetch(): typeof fetch {
     input: RequestInfo | URL,
     init?: RequestInit,
   ): Promise<Response> => {
+    // Inject OTel traceparent so the proxy can link to this trace
+    init = await injectTraceContext(init);
     const requestId = `req-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     const requestStartTime = Date.now();
 

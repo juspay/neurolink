@@ -50,7 +50,12 @@ import type {
   TextGenerationOptions,
 } from "../types/generateTypes.js";
 import type { GenAIClient, GoogleGenAIClass } from "../types/providers.js";
-import type { StreamOptions, StreamResult } from "../types/streamTypes.js";
+import type {
+  StreamOptions,
+  StreamResult,
+  ToolCall,
+  ToolResult,
+} from "../types/streamTypes.js";
 import type { ZodUnknownSchema } from "../types/typeAliases.js";
 import { ERROR_CODES, NeuroLinkError } from "../utils/errorHandling.js";
 import { FileDetector } from "../utils/fileDetector.js";
@@ -72,6 +77,7 @@ import {
   TimeoutError,
 } from "../utils/timeout.js";
 import { estimateTokens } from "../utils/tokenEstimation.js";
+import { resolveToolChoice } from "../utils/toolChoice.js";
 import {
   buildNativeConfig,
   buildNativeToolDeclarations,
@@ -1177,6 +1183,9 @@ export class GoogleVertexProvider extends BaseProvider {
         ? options.maxTokens // No default limit
         : undefined;
 
+      const collectedToolCalls: ToolCall[] = [];
+      const collectedToolResults: ToolResult[] = [];
+
       // Build complete stream options with proper typing
       let streamOptions: Parameters<typeof streamText>[0] = {
         model: model,
@@ -1188,7 +1197,7 @@ export class GoogleVertexProvider extends BaseProvider {
           tools &&
           Object.keys(tools).length > 0 && {
             tools,
-            toolChoice: "auto",
+            toolChoice: resolveToolChoice(options, tools, shouldUseTools),
             stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
           }),
         abortSignal: composeAbortSignals(
@@ -1245,6 +1254,37 @@ export class GoogleVertexProvider extends BaseProvider {
 
         onStepFinish: ({ toolCalls, toolResults }) => {
           logger.info("Tool execution completed", { toolResults, toolCalls });
+
+          for (const toolCall of toolCalls) {
+            collectedToolCalls.push({
+              toolCallId: toolCall.toolCallId,
+              toolName: toolCall.toolName,
+              args:
+                (toolCall as { args?: Record<string, unknown> }).args ??
+                (toolCall as { input?: Record<string, unknown> }).input ??
+                (toolCall as { parameters?: Record<string, unknown> })
+                  .parameters ??
+                {},
+            });
+          }
+
+          for (const toolResult of toolResults) {
+            const rawToolResult = toolResult as {
+              output?: unknown;
+              result?: unknown;
+              error?: string;
+              toolCallId?: string;
+            };
+            collectedToolResults.push({
+              toolName: toolResult.toolName,
+              status: rawToolResult.error ? "failure" : "success",
+              output:
+                ((rawToolResult.output ??
+                  rawToolResult.result) as ToolResult["output"]) ?? undefined,
+              error: rawToolResult.error,
+              id: rawToolResult.toolCallId ?? toolResult.toolName,
+            });
+          }
 
           // Handle tool execution storage
           this.handleToolExecutionStorage(
@@ -1380,26 +1420,13 @@ export class GoogleVertexProvider extends BaseProvider {
       // Transform string stream to content object stream using BaseProvider method
       const transformedStream = this.createTextStream(result);
 
-      // Track tool calls and results for streaming
-      const toolCalls: Array<{
-        toolName: string;
-        parameters: Record<string, unknown>;
-        id?: string;
-      }> = [];
-      const toolResults: Array<{
-        toolName: string;
-        status: "success" | "failure";
-        result?: unknown;
-        error?: string;
-      }> = [];
-
       return {
         stream: transformedStream,
         provider: this.providerName,
         model: this.modelName,
         ...(shouldUseTools && {
-          toolCalls,
-          toolResults,
+          toolCalls: collectedToolCalls,
+          toolResults: collectedToolResults,
         }),
       };
     } catch (error) {

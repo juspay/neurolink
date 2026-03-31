@@ -25,6 +25,13 @@ export const DEFAULT_SAMPLING_CONFIG: SamplingConfig = {
   },
 };
 
+const DEFAULT_ADAPTIVE_CONFIG = {
+  enabled: false,
+  qualityThreshold: 0.7,
+  minRate: 0.1,
+  maxRate: 1.0,
+};
+
 /**
  * Sampling strategy for evaluation
  */
@@ -36,12 +43,12 @@ export class SamplingStrategy {
 
   constructor(config: Partial<SamplingConfig> = {}) {
     const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+    const defaultAdaptive =
+      DEFAULT_SAMPLING_CONFIG.adaptive ?? DEFAULT_ADAPTIVE_CONFIG;
 
     const rawRate = config.rate ?? DEFAULT_SAMPLING_CONFIG.rate;
-    const rawMinRate =
-      config.adaptive?.minRate ?? DEFAULT_SAMPLING_CONFIG.adaptive!.minRate;
-    const rawMaxRate =
-      config.adaptive?.maxRate ?? DEFAULT_SAMPLING_CONFIG.adaptive!.maxRate;
+    const rawMinRate = config.adaptive?.minRate ?? defaultAdaptive.minRate;
+    const rawMaxRate = config.adaptive?.maxRate ?? defaultAdaptive.maxRate;
     const minRate = clamp01(Math.min(rawMinRate, rawMaxRate));
     const maxRate = clamp01(Math.max(rawMinRate, rawMaxRate));
 
@@ -54,11 +61,9 @@ export class SamplingStrategy {
         ...(config.alwaysEvaluate ?? {}),
       },
       adaptive: {
-        enabled:
-          config.adaptive?.enabled ?? DEFAULT_SAMPLING_CONFIG.adaptive!.enabled,
+        enabled: config.adaptive?.enabled ?? defaultAdaptive.enabled,
         qualityThreshold: clamp01(
-          config.adaptive?.qualityThreshold ??
-            DEFAULT_SAMPLING_CONFIG.adaptive!.qualityThreshold,
+          config.adaptive?.qualityThreshold ?? defaultAdaptive.qualityThreshold,
         ),
         minRate,
         maxRate,
@@ -193,12 +198,14 @@ export class SamplingStrategy {
    */
   configure(config: Partial<SamplingConfig>): void {
     const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+    const currentAdaptive =
+      this._config.adaptive ??
+      DEFAULT_SAMPLING_CONFIG.adaptive ??
+      DEFAULT_ADAPTIVE_CONFIG;
 
     const rawRate = config.rate ?? this._config.rate;
-    const rawMinRate =
-      config.adaptive?.minRate ?? this._config.adaptive!.minRate;
-    const rawMaxRate =
-      config.adaptive?.maxRate ?? this._config.adaptive!.maxRate;
+    const rawMinRate = config.adaptive?.minRate ?? currentAdaptive.minRate;
+    const rawMaxRate = config.adaptive?.maxRate ?? currentAdaptive.maxRate;
     const minRate = clamp01(Math.min(rawMinRate, rawMaxRate));
     const maxRate = clamp01(Math.max(rawMinRate, rawMaxRate));
 
@@ -211,10 +218,9 @@ export class SamplingStrategy {
         ...(config.alwaysEvaluate ?? {}),
       },
       adaptive: {
-        enabled: config.adaptive?.enabled ?? this._config.adaptive!.enabled,
+        enabled: config.adaptive?.enabled ?? currentAdaptive.enabled,
         qualityThreshold: clamp01(
-          config.adaptive?.qualityThreshold ??
-            this._config.adaptive!.qualityThreshold,
+          config.adaptive?.qualityThreshold ?? currentAdaptive.qualityThreshold,
         ),
         minRate,
         maxRate,

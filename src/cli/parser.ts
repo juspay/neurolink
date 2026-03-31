@@ -16,6 +16,7 @@ import { TelemetryCommandFactory } from "./commands/telemetry.js";
 import {
   proxyStartCommand,
   proxyStatusCommand,
+  proxyTelemetryCommand,
   proxySetupCommand,
   proxyGuardCommand,
   proxyInstallCommand,
@@ -239,19 +240,20 @@ export function initializeCliParser() {
 
       // Proxy Commands - Claude multi-account proxy
       .command({
-        command: "proxy <subcommand>",
+        command: "proxy",
         describe: "Manage Claude multi-account proxy server",
         builder: (yargs) =>
           yargs
             .command(proxyStartCommand)
             .command(proxyStatusCommand)
+            .command(proxyTelemetryCommand)
             .command(proxySetupCommand)
             .command(proxyGuardCommand)
             .command(proxyInstallCommand)
             .command(proxyUninstallCommand)
             .demandCommand(
               1,
-              "Please specify a proxy subcommand: start, status, setup, guard, install, or uninstall",
+              "Please specify a proxy subcommand: start, status, telemetry <setup|start|stop|status|logs|import-dashboard>, setup, guard, install, or uninstall",
             ),
         handler: () => {},
       })

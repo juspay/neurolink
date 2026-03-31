@@ -100,15 +100,18 @@ export async function getBestProvider(
 
   /**
    * Provider priority order rationale:
-   * - Vertex (Google Cloud AI) is prioritized first for its enterprise-grade reliability and advanced model capabilities.
-   * - Google AI follows as second priority for comprehensive Google AI ecosystem support.
+   * - LiteLLM and Ollama are prioritized first for local/self-hosted deployments,
+   *   avoiding cloud quota/rate-limit issues during fallback scenarios.
+   * - Vertex (Google Cloud AI) follows for enterprise-grade reliability.
+   * - Google AI follows as second cloud priority for comprehensive Google AI ecosystem support.
    * - OpenAI maintains high priority due to its consistent reliability and broad model support.
-   * - Other providers are ordered based on a combination of reliability, feature set, and historical performance in our use cases.
-   * - Ollama is kept as a fallback for local deployments when available.
+   * - Other providers are ordered based on a combination of reliability, feature set, and historical performance.
    * Please update this comment if the order is changed in the future, and document the rationale for maintainability.
    */
   const providers = [
-    "vertex", // Prioritize Google Cloud AI (Vertex) first
+    "litellm", // Prioritize self-hosted/proxy (no rate limits)
+    "ollama", // Local models (no rate limits)
+    "vertex", // Google Cloud AI (enterprise)
     "google-ai", // Google AI ecosystem support
     "openai", // Reliable with broad model support
     "anthropic",
@@ -116,7 +119,6 @@ export async function getBestProvider(
     "azure",
     "mistral",
     "huggingface",
-    "ollama", // Keep as fallback
   ];
 
   for (const provider of providers) {
@@ -150,8 +152,14 @@ async function isProviderAvailable(providerName: string): Promise<boolean> {
       });
       if (response.ok) {
         const { models } = await response.json();
-        const defaultOllamaModel = "llama3.2:latest";
-        return models.some((m: UnknownRecord) => m.name === defaultOllamaModel);
+        const defaultOllamaModel = process.env.OLLAMA_MODEL || "llama3.1:8b";
+        // Check for exact match first, then prefix match (e.g. "gemma3:27b" matches "gemma3:27b-fp16")
+        return models.some(
+          (m: UnknownRecord) =>
+            m.name === defaultOllamaModel ||
+            (typeof m.name === "string" &&
+              m.name.startsWith(defaultOllamaModel.split(":")[0] + ":")),
+        );
       }
       return false;
     } catch {
@@ -531,6 +539,7 @@ export function getAvailableProviders(): string[] {
     "anthropic",
     "azure",
     "google-ai",
+    "litellm",
     "huggingface",
     "ollama",
     "mistral",

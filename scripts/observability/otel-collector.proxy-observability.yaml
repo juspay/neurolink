@@ -1,0 +1,78 @@
+# OpenTelemetry Collector configuration dedicated to the NeuroLink proxy.
+#
+# Active OpenObserve streams created by this setup:
+#   - Logs:   neurolink_proxy
+#   - Traces: neurolink_proxy
+#   - Metrics: proxy_* (metric name becomes the stream)
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  filter/healthcheck:
+    error_mode: ignore
+    traces:
+      span:
+        - 'IsMatch(name, ".*health.*") or IsMatch(name, ".*healthz.*") or IsMatch(name, ".*ready.*")'
+
+exporters:
+  otlphttp/openobserve:
+    endpoint: ${env:NEUROLINK_OPENOBSERVE_OTLP_ENDPOINT}
+    headers:
+      Authorization: ${env:NEUROLINK_OPENOBSERVE_BASIC_AUTH}
+      stream-name: ${env:NEUROLINK_PROXY_STREAM_HEADER}
+    tls:
+      insecure: true
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+service:
+  extensions: [health_check, pprof]
+
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/healthcheck, batch]
+      exporters: [otlphttp/openobserve]
+
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/openobserve]
+
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/openobserve]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: "0.0.0.0"
+                port: 8888

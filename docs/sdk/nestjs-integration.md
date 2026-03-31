@@ -591,7 +591,7 @@ export class AppModule {}
 ### CacheInterceptor with @nestjs/cache-manager
 
 ```bash
-npm install @nestjs/cache-manager cache-manager cache-manager-ioredis-yet
+npm install @nestjs/cache-manager cache-manager cache-manager-redis-yet
 ```
 
 ```typescript

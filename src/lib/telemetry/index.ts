@@ -7,7 +7,8 @@ import { logger } from "../utils/logger.js";
 
 /**
  * Initialize telemetry for NeuroLink
- * OPTIONAL - Only works when NEUROLINK_TELEMETRY_ENABLED=true
+ * Reuses an existing global TracerProvider when one is already registered,
+ * otherwise bootstraps Neurolink telemetry when an exporter endpoint is configured.
  */
 export async function initializeTelemetry() {
   const { TelemetryService } = await import("./telemetryService.js");

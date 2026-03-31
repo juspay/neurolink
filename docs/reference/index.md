@@ -13,6 +13,7 @@ This section provides comprehensive reference materials for advanced usage, conf
 - **[FAQ](faq.md)** — Frequently asked questions about NeuroLink features, limitations, and best practices.
 - **[Error Codes](error-codes.md)** — Complete error code reference with categorized codes, severity levels, and resolution guidance.
 - **[Analytics](analytics.md)** — Comprehensive guide to NeuroLink analytics, metrics, token tracking, cost monitoring, and observability integration.
+- **[Telemetry Guide](../telemetry-guide.md)** — OTLP setup, exporter behavior, and the local OpenObserve workflow for the Claude proxy.
 - **[Server Configuration](./server-configuration.md)** — Configuration reference for server adapters including Hono, Express, Fastify, and Koa framework integration.
 - **[MCP Enhancements API](../features/mcp-enhancements.md#api-reference)** — API reference for MCP enhancements including ToolRouter, ToolCache, RequestBatcher, tool annotations, and elicitation protocol.
 
@@ -67,6 +68,12 @@ neurolink config init              # Interactive setup
 neurolink mcp discover             # Find available servers
 neurolink mcp list                 # List installed servers
 neurolink mcp install <server>     # Install MCP server
+
+# Claude proxy + local telemetry
+neurolink proxy setup
+neurolink proxy status --format json
+neurolink proxy telemetry setup
+neurolink proxy telemetry status
 ```
 
 ### SDK Quick Reference

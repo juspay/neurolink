@@ -46,6 +46,7 @@ import {
 } from "../utils/redis.js";
 
 const redisTracer = tracers.redis;
+const REDIS_TIMEOUT_MS = 5000;
 
 /**
  * Redis-based implementation of the ConversationMemoryManager
@@ -210,6 +211,7 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
     if (!this.redisClient) {
       return undefined;
     }
+    const redisClient = this.redisClient;
 
     return redisTracer.startActiveSpan(
       "neurolink.memory.getSession",
@@ -220,7 +222,10 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
         }
         try {
           const redisKey = getSessionKey(this.redisConfig, sessionId, userId);
-          const conversationData = await this.redisClient!.get(redisKey);
+          const conversationData = await withTimeout(
+            redisClient.get(redisKey),
+            REDIS_TIMEOUT_MS,
+          );
           const conversation = deserializeConversation(
             conversationData || null,
           );
@@ -911,6 +916,7 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
       );
       return [];
     }
+    const redisClient = this.redisClient;
 
     // NLK-GAP-012: Add span for buildContext CRUD operation
     return redisTracer.startActiveSpan(
@@ -934,7 +940,10 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
           );
 
           const redisKey = getSessionKey(this.redisConfig, sessionId, userId);
-          const conversationData = await this.redisClient!.get(redisKey);
+          const conversationData = await withTimeout(
+            redisClient.get(redisKey),
+            REDIS_TIMEOUT_MS,
+          );
           const conversation = deserializeConversation(
             conversationData || null,
           );
@@ -1531,6 +1540,7 @@ User message: "${userMessage}"`;
     if (!this.redisClient) {
       return false;
     }
+    const redisClient = this.redisClient;
 
     // NLK-GAP-012: Add span for clearSession CRUD operation
     return redisTracer.startActiveSpan(
@@ -1545,7 +1555,10 @@ User message: "${userMessage}"`;
       async (span) => {
         try {
           const redisKey = getSessionKey(this.redisConfig, sessionId, userId);
-          const result = await this.redisClient!.del(redisKey);
+          const result = await withTimeout(
+            redisClient.del(redisKey),
+            REDIS_TIMEOUT_MS,
+          );
 
           if (Number(result) > 0) {
             // Remove session from user's session set

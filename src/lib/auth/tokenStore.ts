@@ -381,7 +381,7 @@ export class TokenStore {
       return result.accessToken;
     }
 
-    const refreshTokenValue = snapshot.refreshToken!;
+    const refreshTokenValue = snapshot.refreshToken;
     const refreshPromise = (async (): Promise<StoredOAuthTokens> => {
       let newTokens: StoredOAuthTokens;
       try {

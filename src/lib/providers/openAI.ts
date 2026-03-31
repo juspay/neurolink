@@ -1,14 +1,14 @@
 import { createOpenAI } from "@ai-sdk/openai";
+import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import {
   embed,
   embedMany,
-  NoOutputGeneratedError,
   type LanguageModel,
+  NoOutputGeneratedError,
   stepCountIs,
   streamText,
   type Tool,
 } from "ai";
-import { trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
@@ -23,6 +23,7 @@ import {
   ProviderError,
   RateLimitError,
 } from "../types/errors.js";
+import type { ToolWithLegacyParams } from "../types/index.js";
 import type {
   StreamOptions,
   StreamResult,
@@ -42,8 +43,8 @@ import {
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
+import { resolveToolChoice } from "../utils/toolChoice.js";
 import { getModelId } from "./providerTypeUtils.js";
-import type { ToolWithLegacyParams } from "../types/index.js";
 
 /**
  * Retrieve a tool's schema, handling both AI SDK v6 (`inputSchema`) and
@@ -441,8 +442,7 @@ export class OpenAIProvider extends BaseProvider {
           maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
           tools,
           stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
-          toolChoice:
-            shouldUseTools && Object.keys(tools).length > 0 ? "auto" : "none",
+          toolChoice: resolveToolChoice(options, tools, shouldUseTools),
           abortSignal: composeAbortSignals(
             options.abortSignal,
             timeoutController?.controller.signal,

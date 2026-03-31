@@ -109,11 +109,13 @@ export class ObservabilityHooks {
     event: K,
     handler: EventHandler<EvaluationEvents[K]>,
   ): () => void {
-    if (!this._handlers.has(event)) {
-      this._handlers.set(event, new Set());
+    let handlers = this._handlers.get(event);
+    if (!handlers) {
+      handlers = new Set();
+      this._handlers.set(event, handlers);
     }
 
-    this._handlers.get(event)!.add(handler as EventHandler<unknown>);
+    handlers.add(handler as EventHandler<unknown>);
 
     // Return unsubscribe function
     return () => {

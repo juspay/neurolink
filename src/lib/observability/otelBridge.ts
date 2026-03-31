@@ -4,6 +4,7 @@
  */
 
 import {
+  type Context,
   context,
   propagation,
   type SpanContext,
@@ -24,7 +25,21 @@ export class OtelBridge {
    * Extract trace context from incoming request headers
    */
   extractContext(headers: Record<string, string>): SpanContext | null {
-    const extractedContext = propagation.extract(context.active(), headers);
+    // Normalize traceparent: OTel HTTP auto-instrumentation may inject a second traceparent
+    // on top of the SDK's manually injected one, producing "val1, val2". The W3C spec rejects
+    // multiple values, causing extraction to silently return null. Take the first value only.
+    const normalizedHeaders = { ...headers };
+    if (
+      typeof normalizedHeaders["traceparent"] === "string" &&
+      normalizedHeaders["traceparent"].includes(", ")
+    ) {
+      normalizedHeaders["traceparent"] =
+        normalizedHeaders["traceparent"].split(", ")[0];
+    }
+    const extractedContext = propagation.extract(
+      context.active(),
+      normalizedHeaders,
+    );
     const spanContext = trace.getSpanContext(extractedContext);
     return spanContext ?? null;
   }
@@ -32,8 +47,11 @@ export class OtelBridge {
   /**
    * Inject trace context into outgoing request headers
    */
-  injectContext(headers: Record<string, string>): Record<string, string> {
-    propagation.inject(context.active(), headers);
+  injectContext(
+    headers: Record<string, string>,
+    otelContext: Context = context.active(),
+  ): Record<string, string> {
+    propagation.inject(otelContext, headers);
     return headers;
   }
 

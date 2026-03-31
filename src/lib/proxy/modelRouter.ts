@@ -24,6 +24,9 @@ export class ModelRouter {
     if (this.passthrough.has(requestedModel)) {
       return { provider: "anthropic", model: requestedModel };
     }
+    if (requestedModel.startsWith("gemini-")) {
+      return { provider: "vertex", model: requestedModel };
+    }
     if (requestedModel.startsWith("claude-")) {
       return { provider: "anthropic", model: requestedModel };
     }

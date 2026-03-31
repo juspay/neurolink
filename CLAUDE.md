@@ -1025,20 +1025,20 @@ NeuroLink has been enhanced with new features beyond the core unified AI provide
 
 ### Implementation Status
 
-| Feature                    | Status                    | Notes                                                                        |
-| -------------------------- | ------------------------- | ---------------------------------------------------------------------------- |
-| **Gateway Provider**       | ✅ Complete               | 69+ providers, CLI support, full integration                                 |
-| **I/O Processors**         | ✅ Complete               | 52 files, 17+ file type processors, ProcessorRegistry, security sanitization |
-| **Evaluation/Scoring**     | ⚠️ Code complete, 0 tests | RAGAS-based evaluator (~663 lines), ~5 scoring dimensions, CLI — no tests    |
-| **Observability**          | ✅ Complete               | 100% pattern compliance, 9 exporters, 9 samplers                             |
-| **Server Adapters**        | ✅ Complete               | 4 adapters (Hono, Express, Fastify, Koa), 5 route groups                     |
-| **RAG Processing**         | ✅ Complete               | 10 chunkers, hybrid search, RerankerFactory/Registry                         |
-| **MCP Enhancements**       | ✅ Complete               | ToolRouter, ToolCache, RequestBatcher (1,702 new lines)                      |
-| **Streaming Architecture** | ✅ Complete               | All 4 streaming patterns, 24 event types, backpressure                       |
-| **Dynamic Arguments**      | ✅ Complete               | CLI context flags, runtime resolution, 269 tests                             |
-| **Context Compaction**     | ✅ Complete               | 4-stage pipeline, BudgetChecker, file summarization                          |
-| **Workflow System**        | ✅ Complete               | Full engine with fluent API, checkpointing, HITL, 26 files (~20K lines)      |
-| **Basic TTS**              | ✅ Complete               | TTSProcessor (~398 lines), Google TTS handler, TTS in generate/stream paths  |
+| Feature                    | Status                    | Notes                                                                                                                          |
+| -------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Gateway Provider**       | ✅ Complete               | 69+ providers, CLI support, full integration                                                                                   |
+| **I/O Processors**         | ✅ Complete               | 52 files, 17+ file type processors, ProcessorRegistry, security sanitization                                                   |
+| **Evaluation/Scoring**     | ⚠️ Code complete, 0 tests | RAGAS-based evaluator, 14 scorers, pipelines, CLI — integration tests only, no unit tests                                      |
+| **Observability**          | ✅ Complete               | 100% pattern compliance, 9 exporters, 9 samplers                                                                               |
+| **Server Adapters**        | ✅ Complete               | 4 adapters (Hono, Express, Fastify, Koa), 5 route groups                                                                       |
+| **RAG Processing**         | ✅ Complete               | 10 chunkers, hybrid search, RerankerFactory/Registry                                                                           |
+| **MCP Enhancements**       | ✅ Complete               | ToolRouter, ToolCache, RequestBatcher (1,702 new lines)                                                                        |
+| **Streaming Architecture** | ✅ Complete               | All 4 streaming patterns, 24 event types, backpressure                                                                         |
+| **Dynamic Arguments**      | ✅ Complete               | CLI context flags, runtime resolution, 269 tests                                                                               |
+| **Context Compaction**     | ✅ Complete               | 4-stage pipeline, BudgetChecker, file summarization                                                                            |
+| **Workflow System**        | ✅ Complete               | Full engine with fluent API, checkpointing, HITL, 26 files (~20K lines)                                                        |
+| **Basic TTS**              | ⚠️ Core path only         | TTSProcessor + GoogleTTSHandler work. No streaming TTS, no OpenAI/Azure handlers, no CLI playback, 1 of 20 planned issues done |
 
 ### New Feature Directories
 

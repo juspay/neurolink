@@ -151,6 +151,8 @@ export class GenerationHandler {
       }
     }
 
+    const prepareStep = options.prepareStep;
+
     return await generateText({
       model,
       messages,
@@ -159,9 +161,9 @@ export class GenerationHandler {
       stopWhen: stepCountIs(options.maxSteps ?? DEFAULT_MAX_STEPS),
       ...(shouldUseTools &&
         options.toolChoice && { toolChoice: options.toolChoice }),
-      ...(options.prepareStep && {
+      ...(prepareStep && {
         experimental_prepareStep: ((stepOptions) =>
-          options.prepareStep!({
+          prepareStep({
             ...stepOptions,
             maxSteps: options.maxSteps ?? DEFAULT_MAX_STEPS,
           })) satisfies PrepareStepFunction,
