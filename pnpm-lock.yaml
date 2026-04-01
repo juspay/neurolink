@@ -34,7 +34,7 @@ overrides:
   ajv@>=8.0.0 <8.18.0: '>=8.18.0'
   rollup@>=4.0.0 <4.59.0: '>=4.59.0'
 
-pnpmfileChecksum: dwrccubqr5brez3zg4ymueqmfi
+pnpmfileChecksum: sha256-qFFlrDVMxTAG02VWf3xBAHmYpquoAuUauBBYPNQv57g=
 
 importers:
 
@@ -226,49 +226,6 @@ importers:
       zod-to-json-schema:
         specifier: ^3.25.1
         version: 3.25.2(zod@4.3.6)
-    optionalDependencies:
-      '@fastify/cors':
-        specifier: ^11.2.0
-        version: 11.2.0
-      '@fastify/rate-limit':
-        specifier: ^10.3.0
-        version: 10.3.0
-      '@hono/node-server':
-        specifier: ^1.19.9
-        version: 1.19.11(hono@4.12.9)
-      '@koa/cors':
-        specifier: ^5.0.0
-        version: 5.0.0
-      '@koa/router':
-        specifier: ^15.3.1
-        version: 15.4.0(koa@3.2.0)
-      canvas:
-        specifier: ^3.2.1
-        version: 3.2.2
-      cors:
-        specifier: ^2.8.5
-        version: 2.8.6
-      express:
-        specifier: ^5.1.0
-        version: 5.2.1
-      express-rate-limit:
-        specifier: ^8.2.1
-        version: 8.3.1(express@5.2.1)
-      fastify:
-        specifier: ^5.7.2
-        version: 5.8.4
-      ffmpeg-static:
-        specifier: ^5.3.0
-        version: 5.3.0
-      koa:
-        specifier: ^3.1.1
-        version: 3.2.0
-      koa-bodyparser:
-        specifier: ^4.4.1
-        version: 4.4.1
-      sharp:
-        specifier: ^0.34.5
-        version: 0.34.5
     devDependencies:
       '@actions/core':
         specifier: ^3.0.0
@@ -456,6 +413,49 @@ importers:
       why-is-node-running:
         specifier: ^3.2.2
         version: 3.2.2
+    optionalDependencies:
+      '@fastify/cors':
+        specifier: ^11.2.0
+        version: 11.2.0
+      '@fastify/rate-limit':
+        specifier: ^10.3.0
+        version: 10.3.0
+      '@hono/node-server':
+        specifier: ^1.19.9
+        version: 1.19.11(hono@4.12.9)
+      '@koa/cors':
+        specifier: ^5.0.0
+        version: 5.0.0
+      '@koa/router':
+        specifier: ^15.3.1
+        version: 15.4.0(koa@3.2.0)
+      canvas:
+        specifier: ^3.2.1
+        version: 3.2.2
+      cors:
+        specifier: ^2.8.5
+        version: 2.8.6
+      express:
+        specifier: ^5.1.0
+        version: 5.2.1
+      express-rate-limit:
+        specifier: ^8.2.1
+        version: 8.3.1(express@5.2.1)
+      fastify:
+        specifier: ^5.7.2
+        version: 5.8.4
+      ffmpeg-static:
+        specifier: ^5.3.0
+        version: 5.3.0
+      koa:
+        specifier: ^3.1.1
+        version: 3.2.0
+      koa-bodyparser:
+        specifier: ^4.4.1
+        version: 4.4.1
+      sharp:
+        specifier: ^0.34.5
+        version: 0.34.5
 
 packages:
 
@@ -3120,6 +3120,7 @@ packages:
   '@xmldom/xmldom@0.8.11':
     resolution: {integrity: sha512-cQzWCtO6C8TQiYl1ruKNn2U6Ao4o4WBBcbL61yJl84x+j5sOWWFU9X7DpND8XZG3daDppSsigMdfAIl2upQBRw==}
     engines: {node: '>=10.0.0'}
+    deprecated: this version has critical issues, please update to the latest version
 
   abstract-logging@2.0.1:
     resolution: {integrity: sha512-2BjRTZxTPvheOvGbBslFSYOUkr+SjPtOnrLP33f+VIWLzezQpZcqVg7ja3L4dBXmzzgwT+a029jRx5PCi3JuiA==}
