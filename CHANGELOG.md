@@ -1,3 +1,9 @@
+## [9.43.0](https://github.com/juspay/neurolink/compare/v9.42.1...v9.43.0) (2026-04-02)
+
+### Features
+
+- **(proxy):** harden fallback chain, add readiness checks, normalize tool schemas ([ddf34de](https://github.com/juspay/neurolink/commit/ddf34de7b7549a48d48989fd01598cd28b1f3df0))
+
 ## [9.42.1](https://github.com/juspay/neurolink/compare/v9.42.0...v9.42.1) (2026-04-02)
 
 ## [9.42.0](https://github.com/juspay/neurolink/compare/v9.41.0...v9.42.0) (2026-04-01)
