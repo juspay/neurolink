@@ -470,15 +470,39 @@ function errMsg(err) {
 // Queue worker
 // ---------------------------------------------------------------------------
 
+const MAX_JOB_MS = Number(process.env.CHECK_RUNNER_MAX_JOB_MS || 900_000); // 15 min hard ceiling per job
+
+/** Wrap executeJob with a hard timeout so a hung job can never block the queue forever. */
+async function executeJobWithTimeout(job) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      console.log(`[JOB ${job.jobId}] HARD TIMEOUT after ${MAX_JOB_MS}ms — force-failing`);
+      stamp(job, { status: "failed", stage: job.stage || "unknown", error: { code: "JOB_TIMEOUT", message: `Job exceeded hard ceiling of ${MAX_JOB_MS}ms` } });
+      resolve();
+    }, MAX_JOB_MS);
+
+    executeJob(job).then(resolve, (err) => {
+      // Should never happen (executeJob catches internally), but guard anyway.
+      console.error(`[JOB ${job.jobId}] uncaught error in executeJob:`, err);
+      stamp(job, { status: "failed", stage: "internal", error: { code: E.INTERNAL, message: errMsg(err) } });
+      resolve();
+    }).finally(() => clearTimeout(timer));
+  });
+}
+
 async function drainQueue() {
   if (workerBusy) return;
   workerBusy = true;
-  while (queue.length > 0) {
-    const id = queue.shift();
-    const job = id && jobs.get(id);
-    if (job) await executeJob(job);
+  try {
+    while (queue.length > 0) {
+      const id = queue.shift();
+      const job = id && jobs.get(id);
+      if (job) await executeJobWithTimeout(job);
+    }
+  } finally {
+    // Always release the lock — even if something unexpected throws.
+    workerBusy = false;
   }
-  workerBusy = false;
 }
 
 // ---------------------------------------------------------------------------
