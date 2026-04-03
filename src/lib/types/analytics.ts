@@ -21,7 +21,7 @@ export type TokenUsage = {
 /**
  * Error info type for analytics
  */
-export type ErrorInfo = {
+export type AnalyticsErrorInfo = {
   message: string;
   code?: string | number;
   stack?: string;

@@ -7,7 +7,7 @@ import {
   ListEndpointsCommand,
   type EndpointSummary,
 } from "@aws-sdk/client-sagemaker";
-import type { UnknownRecord } from "../../lib/types/common.js";
+import type { UnknownRecord } from "../../lib/types/index.js";
 import { logger } from "../../lib/utils/logger.js";
 import {
   checkSageMakerConfiguration,
@@ -23,7 +23,7 @@ import {
 import type {
   DoGenerateModel,
   SecureConfiguration,
-} from "../../lib/types/cli.js";
+} from "../../lib/types/index.js";
 
 /**
  * Narrow a LanguageModel to a DoGenerateModel if it exposes doGenerate.

@@ -13,7 +13,7 @@ import type {
   TTSResult,
   AudioSaveResult,
   AudioFormat,
-} from "../../lib/types/ttsTypes.js";
+} from "../../lib/types/index.js";
 
 /**
  * Format file size in human-readable format

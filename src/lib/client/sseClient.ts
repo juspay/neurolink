@@ -11,8 +11,8 @@
 import type {
   ClientConfig,
   StreamCallbacks,
-  StreamEvent,
-  StreamResult,
+  ClientStreamEvent as StreamEvent,
+  ClientStreamResult as StreamResult,
   ApiError,
 } from "../types/clientTypes.js";
 import { logger } from "../utils/logger.js";

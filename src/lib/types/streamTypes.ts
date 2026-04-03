@@ -1,7 +1,7 @@
 import type { LanguageModel, StepResult, Tool, ToolChoice } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
-import type { EvaluationData } from "../index.js";
-import type { RAGConfig } from "../rag/types.js";
+import type { EvaluationData } from "./evaluation.js";
+import type { RAGConfig } from "./ragTypes.js";
 import type {
   AnalyticsData,
   ToolExecutionEvent,

@@ -31,8 +31,8 @@ import type {
   TaskManagerConfig,
   TaskExecutionMode,
   WorkerState,
-} from "../../lib/types/taskTypes.js";
-import { TASK_DEFAULTS } from "../../lib/types/taskTypes.js";
+} from "../../lib/types/index.js";
+import { TASK_DEFAULTS } from "../../lib/types/index.js";
 import {
   StateFileManager,
   isProcessRunning,

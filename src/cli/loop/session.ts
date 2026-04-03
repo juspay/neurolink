@@ -8,12 +8,12 @@ import type {
   OptionSchema,
   RestorationToolContext,
   SessionRestoreResult,
-} from "../../lib/types/cli.js";
+} from "../../lib/types/index.js";
 import type {
   ConversationData,
   ConversationMemoryConfig,
   NeurolinkOptions,
-} from "../../lib/types/conversation.js";
+} from "../../lib/types/index.js";
 import { logger } from "../../lib/utils/logger.js";
 import {
   displayConversationPreview,

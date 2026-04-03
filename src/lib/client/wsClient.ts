@@ -10,8 +10,8 @@
 
 import type {
   StreamCallbacks,
-  StreamEvent,
-  StreamResult,
+  ClientStreamEvent as StreamEvent,
+  ClientStreamResult as StreamResult,
   ApiError,
   WSClientState,
   WSClientConfig,

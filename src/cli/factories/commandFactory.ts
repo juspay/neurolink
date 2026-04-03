@@ -12,24 +12,24 @@ import type {
   GenerateCommandArgs,
   GenerateResult,
   StreamCommandArgs,
-} from "../../lib/types/cli.js";
-import type { JsonValue } from "../../lib/types/common.js";
+} from "../../lib/types/index.js";
+import type { JsonValue } from "../../lib/types/index.js";
 // Use TokenUsage from standard types - no local interface needed
 import {
   type BaseContext,
   type ContextConfig,
   ContextFactory,
-} from "../../lib/types/contextTypes.js";
+} from "../../lib/types/index.js";
 import type {
   ConversationMemoryConfig,
   ConversationSummary,
-} from "../../lib/types/conversation.js";
+} from "../../lib/types/index.js";
 import type { AnalyticsData, TokenUsage } from "../../lib/types/index.js";
 import type {
   AnthropicAuthConfig,
   AnthropicAuthMethod,
   ClaudeSubscriptionTier,
-} from "../../lib/types/subscriptionTypes.js";
+} from "../../lib/types/index.js";
 
 import { checkRedisAvailability } from "../../lib/utils/conversationMemory.js";
 import { normalizeEvaluationData } from "../../lib/utils/evaluationUtils.js";

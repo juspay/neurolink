@@ -5,7 +5,7 @@ import {
   AuthorizationError,
   NetworkError,
   RateLimitError,
-} from "../lib/types/errors.js";
+} from "../lib/types/index.js";
 import { globalSession } from "../lib/session/globalSessionState.js";
 
 export function handleError(_error: Error, context: string): void {

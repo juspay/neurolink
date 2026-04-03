@@ -10,8 +10,8 @@
 import type {
   Middleware,
   AuthConfig,
-  OAuth2Config,
-  TokenRefreshResult,
+  ClientOAuth2Config,
+  ClientTokenRefreshResult,
 } from "../types/clientTypes.js";
 
 // =============================================================================
@@ -50,7 +50,7 @@ export class OAuth2TokenManager {
   private refreshBufferMs: number;
 
   constructor(
-    private readonly config: OAuth2Config,
+    private readonly config: ClientOAuth2Config,
     options?: { refreshBufferMs?: number },
   ) {
     this.refreshBufferMs = options?.refreshBufferMs ?? 60000;
@@ -150,7 +150,7 @@ export class OAuth2TokenManager {
       );
     }
 
-    const data = (await response.json()) as TokenRefreshResult;
+    const data = (await response.json()) as ClientTokenRefreshResult;
     this.token =
       data.accessToken ||
       (data as unknown as { access_token?: string }).access_token ||
@@ -208,7 +208,7 @@ export class JWTTokenManager {
     private readonly config: {
       token: string;
       expiresAt: number;
-      refreshFn: () => Promise<TokenRefreshResult>;
+      refreshFn: () => Promise<ClientTokenRefreshResult>;
       refreshBufferMs?: number;
     },
   ) {

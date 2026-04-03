@@ -13,7 +13,7 @@ import { AuthProviderFactory } from "../../lib/auth/AuthProviderFactory.js";
 import type {
   AuthProviderConfig,
   AuthProviderType,
-} from "../../lib/types/authTypes.js";
+} from "../../lib/types/index.js";
 import { logger } from "../../lib/utils/logger.js";
 
 /**

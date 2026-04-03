@@ -11,8 +11,8 @@ import type {
   Middleware,
   MiddlewareRequest,
   MiddlewareResponse,
-  MiddlewareContext,
-  RetryConfig,
+  ClientMiddlewareContext as MiddlewareContext,
+  ClientRetryConfig as RetryConfig,
   ApiError,
 } from "../types/clientTypes.js";
 import { logger } from "../utils/logger.js";

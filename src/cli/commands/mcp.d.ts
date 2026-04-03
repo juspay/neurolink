@@ -4,7 +4,7 @@
  * Real MCP server connectivity and management
  */
 import type { Argv } from "yargs";
-import type { JsonValue } from "../../lib/types/common.js";
+import type { JsonValue } from "../../lib/types/index.js";
 type MCPServerConfig = {
     name: string;
     command: string;

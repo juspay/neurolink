@@ -10,16 +10,16 @@
 import type {
   ClientConfig,
   RequestOptions,
-  ApiResponse,
+  ClientApiResponse,
   ApiError,
-  RetryConfig,
+  ClientRetryConfig,
   Middleware,
   MiddlewareRequest,
   MiddlewareResponse,
-  MiddlewareContext,
+  ClientMiddlewareContext,
   StreamCallbacks,
-  StreamEvent,
-  StreamResult,
+  ClientStreamEvent,
+  ClientStreamResult,
   GenerateRequestOptions,
   GenerateResponse,
   StreamRequestOptions,
@@ -30,7 +30,7 @@ import type {
   WorkflowExecuteResult,
   WorkflowInfo,
   ToolInfo,
-  ProviderStatus,
+  ClientProviderStatus,
   WebSocketOptions,
   WebSocketState,
   WebSocketMessageHandler,
@@ -83,7 +83,7 @@ const DEFAULT_TIMEOUT = 30_000;
 /**
  * Default retry configuration
  */
-const DEFAULT_RETRY_CONFIG: RetryConfig = {
+const DEFAULT_RETRY_CONFIG: ClientRetryConfig = {
   maxAttempts: 3,
   initialDelayMs: 1000,
   maxDelayMs: 10000,
@@ -214,7 +214,7 @@ export class NeuroLinkClient {
   /**
    * Calculate delay for exponential backoff
    */
-  private calculateDelay(attempt: number, config: RetryConfig): number {
+  private calculateDelay(attempt: number, config: ClientRetryConfig): number {
     const delay =
       config.initialDelayMs * Math.pow(config.backoffMultiplier, attempt);
     const jitter = Math.random() * 0.1 * delay;
@@ -254,13 +254,13 @@ export class NeuroLinkClient {
     path: string,
     body?: unknown,
     options?: RequestOptions,
-  ): Promise<ApiResponse<T>> {
+  ): Promise<ClientApiResponse<T>> {
     const url = `${this.config.baseUrl}${path}`;
     const requestId = this.generateRequestId();
     const { retry } = this.config;
     const skipRetry = options?.skipRetry ?? false;
 
-    const context: MiddlewareContext = {
+    const context: ClientMiddlewareContext = {
       startTime: Date.now(),
       requestId,
       retryCount: 0,
@@ -467,7 +467,7 @@ export class NeuroLinkClient {
   async generate(
     options: GenerateRequestOptions,
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<GenerateResponse>> {
+  ): Promise<ClientApiResponse<GenerateResponse>> {
     return this.request("POST", "/api/agent/execute", options, requestOptions);
   }
 
@@ -489,7 +489,7 @@ export class NeuroLinkClient {
     options: StreamRequestOptions | GenerateRequestOptions,
     callbacks?: StreamCallbacks,
     requestOptions?: RequestOptions,
-  ): Promise<StreamResult> {
+  ): Promise<ClientStreamResult> {
     const url = `${this.config.baseUrl}/api/agent/stream`;
     const requestId = this.generateRequestId();
 
@@ -554,17 +554,17 @@ export class NeuroLinkClient {
           if (line.startsWith("data: ")) {
             const data = line.slice(6);
             if (data === "[DONE]") {
-              const result: StreamResult = {
+              const result: ClientStreamResult = {
                 content: fullContent,
-                toolCalls: toolCalls as StreamResult["toolCalls"],
-                toolResults: toolResults as StreamResult["toolResults"],
+                toolCalls: toolCalls as ClientStreamResult["toolCalls"],
+                toolResults: toolResults as ClientStreamResult["toolResults"],
               };
               callbacks?.onDone?.(result);
               return result;
             }
 
             try {
-              const event = JSON.parse(data) as StreamEvent;
+              const event = JSON.parse(data) as ClientStreamEvent;
               this.handleStreamEvent(event, callbacks, {
                 onText: (text) => {
                   fullContent += text;
@@ -589,8 +589,8 @@ export class NeuroLinkClient {
 
     return {
       content: fullContent,
-      toolCalls: toolCalls as StreamResult["toolCalls"],
-      toolResults: toolResults as StreamResult["toolResults"],
+      toolCalls: toolCalls as ClientStreamResult["toolCalls"],
+      toolResults: toolResults as ClientStreamResult["toolResults"],
     };
   }
 
@@ -598,7 +598,7 @@ export class NeuroLinkClient {
    * Handle individual stream events
    */
   private handleStreamEvent(
-    event: StreamEvent,
+    event: ClientStreamEvent,
     callbacks?: StreamCallbacks,
     internalCallbacks?: {
       onText?: (text: string) => void;
@@ -668,7 +668,7 @@ export class NeuroLinkClient {
   async executeAgent(
     options: AgentExecuteOptions,
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<AgentExecuteResult>> {
+  ): Promise<ClientApiResponse<AgentExecuteResult>> {
     return this.request(
       "POST",
       `/api/agents/${options.agentId}/execute`,
@@ -684,7 +684,7 @@ export class NeuroLinkClient {
     options: AgentExecuteOptions,
     callbacks?: StreamCallbacks,
     requestOptions?: RequestOptions,
-  ): Promise<StreamResult> {
+  ): Promise<ClientStreamResult> {
     return this.stream(
       {
         input: { text: options.input },
@@ -701,7 +701,7 @@ export class NeuroLinkClient {
    */
   async listAgents(
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<AgentInfo[]>> {
+  ): Promise<ClientApiResponse<AgentInfo[]>> {
     return this.request("GET", "/api/agents", undefined, requestOptions);
   }
 
@@ -711,7 +711,7 @@ export class NeuroLinkClient {
   async getAgent(
     agentId: string,
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<AgentInfo>> {
+  ): Promise<ClientApiResponse<AgentInfo>> {
     return this.request(
       "GET",
       `/api/agents/${agentId}`,
@@ -746,7 +746,7 @@ export class NeuroLinkClient {
   async executeWorkflow(
     options: WorkflowExecuteOptions,
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<WorkflowExecuteResult>> {
+  ): Promise<ClientApiResponse<WorkflowExecuteResult>> {
     return this.request(
       "POST",
       `/api/workflows/${options.workflowId}/execute`,
@@ -763,7 +763,7 @@ export class NeuroLinkClient {
     resumeToken: string,
     resumeData?: UnknownRecord,
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<WorkflowExecuteResult>> {
+  ): Promise<ClientApiResponse<WorkflowExecuteResult>> {
     return this.request(
       "POST",
       `/api/workflows/${workflowId}/resume`,
@@ -779,7 +779,7 @@ export class NeuroLinkClient {
     workflowId: string,
     runId: string,
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<WorkflowExecuteResult>> {
+  ): Promise<ClientApiResponse<WorkflowExecuteResult>> {
     return this.request(
       "GET",
       `/api/workflows/${workflowId}/runs/${runId}`,
@@ -795,7 +795,7 @@ export class NeuroLinkClient {
     workflowId: string,
     runId: string,
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<{ success: boolean }>> {
+  ): Promise<ClientApiResponse<{ success: boolean }>> {
     return this.request(
       "POST",
       `/api/workflows/${workflowId}/runs/${runId}/cancel`,
@@ -809,7 +809,7 @@ export class NeuroLinkClient {
    */
   async listWorkflows(
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<WorkflowInfo[]>> {
+  ): Promise<ClientApiResponse<WorkflowInfo[]>> {
     return this.request("GET", "/api/workflows", undefined, requestOptions);
   }
 
@@ -819,7 +819,7 @@ export class NeuroLinkClient {
   async getWorkflow(
     workflowId: string,
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<WorkflowInfo>> {
+  ): Promise<ClientApiResponse<WorkflowInfo>> {
     return this.request(
       "GET",
       `/api/workflows/${workflowId}`,
@@ -844,7 +844,7 @@ export class NeuroLinkClient {
   async listTools(
     options?: { category?: string; serverId?: string },
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<ToolInfo[]>> {
+  ): Promise<ClientApiResponse<ToolInfo[]>> {
     const params = new URLSearchParams();
     if (options?.category) {
       params.set("category", options.category);
@@ -869,7 +869,7 @@ export class NeuroLinkClient {
     toolName: string,
     params: UnknownRecord,
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<unknown>> {
+  ): Promise<ClientApiResponse<unknown>> {
     return this.request(
       "POST",
       `/api/tools/${toolName}/execute`,
@@ -884,7 +884,7 @@ export class NeuroLinkClient {
   async getTool(
     toolName: string,
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<ToolInfo>> {
+  ): Promise<ClientApiResponse<ToolInfo>> {
     return this.request(
       "GET",
       `/api/tools/${toolName}`,
@@ -902,7 +902,7 @@ export class NeuroLinkClient {
    */
   async listProviders(
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<ProviderStatus[]>> {
+  ): Promise<ClientApiResponse<ClientProviderStatus[]>> {
     return this.request("GET", "/api/providers", undefined, requestOptions);
   }
 
@@ -912,7 +912,7 @@ export class NeuroLinkClient {
   async getProviderStatus(
     providerName: string,
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<ProviderStatus>> {
+  ): Promise<ClientApiResponse<ClientProviderStatus>> {
     return this.request(
       "GET",
       `/api/providers/${providerName}/status`,
@@ -930,7 +930,7 @@ export class NeuroLinkClient {
    */
   async health(
     requestOptions?: RequestOptions,
-  ): Promise<ApiResponse<{ status: string; version: string }>> {
+  ): Promise<ClientApiResponse<{ status: string; version: string }>> {
     return this.request("GET", "/api/health", undefined, requestOptions);
   }
 
@@ -1137,16 +1137,16 @@ export function createClient(config: ClientConfig): NeuroLinkClient {
 export type {
   ClientConfig,
   RequestOptions,
-  ApiResponse,
+  ClientApiResponse,
   ApiError,
-  RetryConfig,
+  ClientRetryConfig,
   Middleware,
   MiddlewareRequest,
   MiddlewareResponse,
-  MiddlewareContext,
+  ClientMiddlewareContext,
   StreamCallbacks,
-  StreamEvent,
-  StreamResult,
+  ClientStreamEvent,
+  ClientStreamResult,
   GenerateRequestOptions,
   GenerateResponse,
   StreamRequestOptions,
@@ -1157,7 +1157,7 @@ export type {
   WorkflowExecuteResult,
   WorkflowInfo,
   ToolInfo,
-  ProviderStatus,
+  ClientProviderStatus,
   WebSocketOptions,
   WebSocketState,
   WebSocketMessageHandler,

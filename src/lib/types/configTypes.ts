@@ -3,7 +3,7 @@
  * Centralized configuration type definitions following the established architecture pattern
  */
 
-import { MCPToolRegistry } from "../mcp/toolRegistry.js";
+import type { MCPToolRegistry } from "../mcp/toolRegistry.js";
 import type { TaskManagerConfig } from "./taskTypes.js";
 import type { HITLConfig } from "../types/hitlTypes.js";
 import type { ConversationMemoryConfig } from "./conversation.js";

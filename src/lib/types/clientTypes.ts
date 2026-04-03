@@ -30,7 +30,7 @@ export type ClientConfig = {
   /** Default headers to include in all requests */
   headers?: Record<string, string>;
   /** Retry configuration for failed requests */
-  retry?: RetryConfig;
+  retry?: ClientRetryConfig;
   /** Enable debug logging */
   debug?: boolean;
   /** Custom fetch implementation (for environments without native fetch) */
@@ -42,7 +42,7 @@ export type ClientConfig = {
 /**
  * Retry configuration for failed requests
  */
-export type RetryConfig = {
+export type ClientRetryConfig = {
   /** Maximum number of retry attempts (default: 3) */
   maxAttempts: number;
   /** Initial delay in milliseconds before first retry (default: 1000) */
@@ -78,7 +78,7 @@ export type RequestOptions = {
 /**
  * Response wrapper with metadata for all API responses
  */
-export type ApiResponse<T> = {
+export type ClientApiResponse<T> = {
   /** Response data */
   data: T;
   /** HTTP status code */
@@ -112,7 +112,7 @@ export type ApiError = {
 /**
  * Provider status information
  */
-export type ProviderStatus = {
+export type ClientProviderStatus = {
   /** Provider name */
   name: string;
   /** Provider availability status */
@@ -150,7 +150,7 @@ export type StreamEventType =
 /**
  * Stream event from SSE/WebSocket
  */
-export type StreamEvent = {
+export type ClientStreamEvent = {
   /** Event type */
   type: StreamEventType;
   /** Text content (for text events) */
@@ -188,7 +188,7 @@ export type StreamCallbacks = {
   /** Called on stream error */
   onError?: (error: ApiError) => void;
   /** Called when stream completes */
-  onDone?: (result: StreamResult) => void;
+  onDone?: (result: ClientStreamResult) => void;
   /** Called for metadata updates */
   onMetadata?: (metadata: JsonObject) => void;
   /** Called for audio chunks */
@@ -200,7 +200,7 @@ export type StreamCallbacks = {
 /**
  * Stream result with full response data
  */
-export type StreamResult = {
+export type ClientStreamResult = {
   /** Full accumulated text content */
   content: string;
   /** All tool calls made */
@@ -477,7 +477,7 @@ export type MiddlewareRequest = {
   /** Request body */
   body?: unknown;
   /** Middleware context */
-  context: MiddlewareContext;
+  context: ClientMiddlewareContext;
 };
 
 /**
@@ -491,13 +491,13 @@ export type MiddlewareResponse = {
   /** Response body */
   body: unknown;
   /** Middleware context */
-  context: MiddlewareContext;
+  context: ClientMiddlewareContext;
 };
 
 /**
  * Middleware context for passing data between middleware
  */
-export type MiddlewareContext = {
+export type ClientMiddlewareContext = {
   /** Request start time */
   startTime: number;
   /** Request ID */
@@ -532,7 +532,7 @@ export type NeuroLinkProviderProps = {
 /**
  * Chat message for useChat hook
  */
-export type ChatMessage = {
+export type ClientChatMessage = {
   /** Unique message ID */
   id: string;
   /** Message role */
@@ -558,7 +558,7 @@ export type UseChatOptions = {
   /** Agent ID to use */
   agentId?: string;
   /** Initial messages */
-  initialMessages?: ChatMessage[];
+  initialMessages?: ClientChatMessage[];
   /** Session ID for conversation continuity */
   sessionId?: string;
   /** System prompt */
@@ -566,7 +566,7 @@ export type UseChatOptions = {
   /** Called when response starts */
   onResponse?: (response: Response) => void | Promise<void>;
   /** Called when response finishes */
-  onFinish?: (message: ChatMessage) => void;
+  onFinish?: (message: ClientChatMessage) => void;
   /** Called on error */
   onError?: (error: ApiError) => void;
   /** Called for each tool call */
@@ -586,7 +586,7 @@ export type UseChatOptions = {
  */
 export type UseChatReturn = {
   /** Chat messages */
-  messages: ChatMessage[];
+  messages: ClientChatMessage[];
   /** Current input value */
   input: string;
   /** Set input value */
@@ -600,14 +600,14 @@ export type UseChatReturn = {
   ) => void;
   /** Append a message */
   append: (
-    message: Omit<ChatMessage, "id" | "createdAt">,
+    message: Omit<ClientChatMessage, "id" | "createdAt">,
   ) => Promise<string | null | undefined>;
   /** Reload the last message */
   reload: () => Promise<string | null | undefined>;
   /** Stop generation */
   stop: () => void;
   /** Set messages directly */
-  setMessages: (messages: ChatMessage[]) => void;
+  setMessages: (messages: ClientChatMessage[]) => void;
   /** Loading state */
   isLoading: boolean;
   /** Error state */
@@ -790,7 +790,7 @@ export type UseStreamReturn = {
   /** Current text content */
   text: string;
   /** All events received */
-  events: StreamEvent[];
+  events: ClientStreamEvent[];
   /** Streaming state */
   isStreaming: boolean;
   /** Error state */
@@ -1028,7 +1028,7 @@ export type WSClientEventHandlers = {
   onOpen?: () => void;
   onClose?: (code: number, reason: string) => void;
   onError?: (error: Error) => void;
-  onMessage?: (event: StreamEvent) => void;
+  onMessage?: (event: ClientStreamEvent) => void;
   onReconnect?: (attempt: number) => void;
   onStateChange?: (state: WSClientState) => void;
 };
@@ -1092,7 +1092,7 @@ export type AuthConfig = {
 /**
  * OAuth2 client credentials configuration
  */
-export type OAuth2Config = {
+export type ClientOAuth2Config = {
   /** Token endpoint URL */
   tokenUrl: string;
   /** OAuth2 client ID */
@@ -1108,7 +1108,7 @@ export type OAuth2Config = {
 /**
  * Token refresh result
  */
-export type TokenRefreshResult = {
+export type ClientTokenRefreshResult = {
   /** Access token */
   accessToken: string;
   /** Token expiry time in seconds */
@@ -1232,3 +1232,28 @@ export interface SpeechGrammar {
  */
 export type { JsonValue, JsonObject, UnknownRecord };
 export type { ToolCall, ToolResult };
+
+// =============================================================================
+// BACKWARD COMPATIBILITY ALIASES
+// These preserve the old type names for consumers importing directly from
+// clientTypes.ts. Use the Client*-prefixed names for new code.
+// =============================================================================
+
+/** @deprecated Use {@link ClientRetryConfig} instead */
+export type RetryConfig = ClientRetryConfig;
+/** @deprecated Use {@link ClientApiResponse} instead */
+export type ApiResponse<T = unknown> = ClientApiResponse<T>;
+/** @deprecated Use {@link ClientProviderStatus} instead */
+export type ProviderStatus = ClientProviderStatus;
+/** @deprecated Use {@link ClientStreamEvent} instead */
+export type StreamEvent = ClientStreamEvent;
+/** @deprecated Use {@link ClientStreamResult} instead */
+export type StreamResult = ClientStreamResult;
+/** @deprecated Use {@link ClientMiddlewareContext} instead */
+export type MiddlewareContext = ClientMiddlewareContext;
+/** @deprecated Use {@link ClientChatMessage} instead */
+export type ChatMessage = ClientChatMessage;
+/** @deprecated Use {@link ClientOAuth2Config} instead */
+export type OAuth2Config = ClientOAuth2Config;
+/** @deprecated Use {@link ClientTokenRefreshResult} instead */
+export type TokenRefreshResult = ClientTokenRefreshResult;

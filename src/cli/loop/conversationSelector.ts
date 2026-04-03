@@ -8,8 +8,8 @@ import chalk from "chalk";
 import type {
   RedisConversationObject,
   ConversationSummary,
-} from "../../lib/types/conversation.js";
-import type { RedisStorageConfig } from "../../lib/types/conversation.js";
+} from "../../lib/types/index.js";
+import type { RedisStorageConfig } from "../../lib/types/index.js";
 import type {
   ConversationChoice,
   MenuChoice,

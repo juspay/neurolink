@@ -26,7 +26,7 @@ import type {
   PipelineConfig,
   ScorerInput,
   ReportFormat,
-} from "../../lib/types/scorerTypes.js";
+} from "../../lib/types/index.js";
 import { logger } from "../../lib/utils/logger.js";
 
 /**

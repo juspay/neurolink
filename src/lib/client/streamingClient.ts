@@ -9,9 +9,9 @@
 
 import type {
   // ClientConfig - not currently used but may be needed for future implementations
-  StreamEvent,
+  ClientStreamEvent as StreamEvent,
   StreamCallbacks,
-  StreamResult,
+  ClientStreamResult as StreamResult,
   ApiError,
   WebSocketOptions,
   WebSocketState,

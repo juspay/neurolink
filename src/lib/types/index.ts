@@ -55,9 +55,11 @@ export type {
   MCPServerCategory,
   MCPServerConfig,
   MCPServerConnectionStatus,
+  MCPServerInfo,
   MCPServerMetadata,
   MCPServerRegistryEntry,
   MCPServerStatus,
+  MCPStatus,
   MCPToolInfo,
   MCPToolMetadata,
   MCPTransportType,
@@ -168,7 +170,7 @@ export type {
 // Analytics types - NEW (selective export to avoid ErrorInfo conflict with common.js)
 export type {
   AnalyticsData,
-  ErrorInfo as AnalyticsErrorInfo, // Renamed to avoid conflict with common.js ErrorInfo
+  AnalyticsErrorInfo,
   PerformanceMetrics,
   StreamAnalyticsData,
   TokenUsage,
@@ -292,11 +294,86 @@ export * from "./fileReferenceTypes.js";
 // RAG types
 export * from "./ragTypes.js";
 
+// Server adapter types (selective export to avoid naming conflicts)
+export type {
+  AgentExecuteRequest,
+  AgentExecuteResponse,
+  AuthConfig as ServerAuthConfig,
+  AuthenticatedUser,
+  AuthStrategy,
+  BodyParserConfig,
+  CORSConfig,
+  DataStreamWriter,
+  EmbedManyRequest,
+  EmbedManyResponse,
+  EmbedRequest,
+  EmbedResponse,
+  ErrorCategory,
+  ErrorCategoryType,
+  ErrorSeverity,
+  ErrorSeverityType,
+  HealthResponse,
+  HttpMethod,
+  LoggingConfig,
+  MCPServerStatusResponse,
+  MiddlewareDefinition,
+  MiddlewareHandler,
+  RateLimitConfig as ServerRateLimitConfig,
+  ReadyResponse,
+  RedactionConfig,
+  RequiredBodyParserConfig,
+  RequiredCORSConfig,
+  RequiredLoggingConfig,
+  RequiredRateLimitConfig,
+  RequiredRedactionConfig,
+  RequiredServerAdapterConfig,
+  RequiredShutdownConfig,
+  RouteDefinition,
+  RouteDeprecation,
+  RouteGroup,
+  RouteHandler,
+  ServerAdapterConfig,
+  ServerAdapterErrorCode,
+  ServerAdapterErrorCodeType,
+  ServerAdapterErrorContext,
+  ServerAdapterEvents,
+  ServerAdapterFactoryOptions,
+  ServerContext,
+  ServerFramework,
+  ServerLifecycleState,
+  ServerResponse,
+  ServerStatus,
+  ShutdownConfig,
+  SSEWriteOptions,
+  StreamingConfig,
+  ToolExecuteRequest,
+  ToolExecuteResponse,
+  TrackedConnection,
+  WebSocketConfig,
+  WebSocketConnection,
+  WebSocketHandler,
+  WebSocketMessage,
+  WebSocketMessageType,
+} from "./serverTypes.js";
+
 // Conversation memory manager type
 export * from "./conversationMemoryInterface.js";
 
-// Custom storage config for Hippocampus memory (consumer-managed storage)
-export type { StorageConfig } from "./conversation.js";
+// Conversation types (selective to avoid collisions)
+export type {
+  StorageConfig,
+  ConversationData,
+  ConversationSummary,
+  NeurolinkOptions,
+} from "./conversation.js";
+
+// Error classes
+export {
+  AuthenticationError,
+  AuthorizationError,
+  NetworkError,
+  RateLimitError,
+} from "./errors.js";
 
 // Subscription types (Claude subscription tiers, authentication, usage tracking)
 // NOTE: subscriptionTypes.ts re-exports auth types from ./authTypes.ts for
@@ -311,17 +388,17 @@ export type {
   ClientConfig,
   RequestOptions as ClientRequestOptions,
   // Retry (conflicts with configTypes.ts RetryConfig)
-  RetryConfig as ClientRetryConfig,
+  ClientRetryConfig,
   // API response/error (ApiResponse conflicts with typeAliases.ts)
-  ApiResponse as ClientApiResponse,
+  ClientApiResponse,
   ApiError as ClientApiError,
   // Provider status (conflicts with providers.ts ProviderStatus)
-  ProviderStatus as ClientProviderStatus,
+  ClientProviderStatus,
   // Streaming (StreamResult conflicts with streamTypes.ts)
   StreamEventType as ClientStreamEventType,
-  StreamEvent as ClientStreamEvent,
+  ClientStreamEvent,
   StreamCallbacks as ClientStreamCallbacks,
-  StreamResult as ClientStreamResult,
+  ClientStreamResult,
   // Generation
   GenerateRequestOptions as ClientGenerateRequestOptions,
   GenerateResponse as ClientGenerateResponse,
@@ -340,9 +417,9 @@ export type {
   Middleware as ClientMiddleware,
   MiddlewareRequest as ClientMiddlewareRequest,
   MiddlewareResponse as ClientMiddlewareResponse,
-  MiddlewareContext as ClientMiddlewareContext,
+  ClientMiddlewareContext,
   // React hooks
-  ChatMessage as ClientChatMessage,
+  ClientChatMessage,
   UseChatOptions,
   UseChatReturn,
   UseAgentOptions,
@@ -376,8 +453,8 @@ export type {
   SpeechSynthesisOptions as ClientSpeechSynthesisOptions,
   // Authentication
   AuthConfig as ClientAuthConfig,
-  OAuth2Config as ClientOAuth2Config,
-  TokenRefreshResult as ClientTokenRefreshResult,
+  ClientOAuth2Config,
+  ClientTokenRefreshResult,
 } from "./clientTypes.js";
 export type { TokenRefresher } from "./subscriptionTypes.js";
 
@@ -492,5 +569,7 @@ export type {
   TaskBackendName,
   TaskManagerConfig,
   TaskRetentionConfig,
+  WorkerState,
   ConversationEntry as TaskConversationEntry,
 } from "./taskTypes.js";
+export { TASK_DEFAULTS } from "./taskTypes.js";

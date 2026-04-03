@@ -20,6 +20,9 @@ import type {
   VectorQueryResult,
 } from "../rag/types.js";
 
+// Re-export types from ../rag/types.js for use in RAGConfig
+export type { ChunkingStrategy } from "../rag/types.js";
+
 /**
  * Citation format options
  */
@@ -638,4 +641,85 @@ export type RAGPreparedTool = {
   chunksIndexed: number;
   /** Number of files loaded */
   filesLoaded: number;
+};
+
+// =============================================================================
+// RAG CONFIG (moved from rag/types.ts to break circular dependency)
+// =============================================================================
+
+/**
+ * RAG configuration for generate() and stream() APIs.
+ *
+ * When provided, NeuroLink automatically:
+ * 1. Loads the specified files
+ * 2. Chunks them using the selected strategy
+ * 3. Generates embeddings
+ * 4. Stores in an in-memory vector store
+ * 5. Creates a search tool the AI can invoke on demand
+ *
+ * @example
+ * ```typescript
+ * const result = await neurolink.generate({
+ *   input: { text: "What is RAG?" },
+ *   provider: "vertex",
+ *   rag: {
+ *     files: ["./docs/guide.md", "./docs/api.md"],
+ *     strategy: "markdown",
+ *     chunkSize: 512,
+ *     topK: 5,
+ *   }
+ * });
+ * ```
+ */
+export type RAGConfig = {
+  /** File paths to load and index for retrieval */
+  files: string[];
+
+  /**
+   * Chunking strategy to use. If not specified, auto-detected from file extension.
+   * @default "recursive"
+   */
+  strategy?: ChunkingStrategy;
+
+  /**
+   * Maximum chunk size in characters.
+   * @default 1000
+   */
+  chunkSize?: number;
+
+  /**
+   * Overlap between adjacent chunks in characters.
+   * @default 200
+   */
+  chunkOverlap?: number;
+
+  /**
+   * Number of top results to retrieve per query.
+   * @default 5
+   */
+  topK?: number;
+
+  /**
+   * Tool name visible to the AI model.
+   * @default "search_knowledge_base"
+   */
+  toolName?: string;
+
+  /**
+   * Tool description for the AI model explaining what the knowledge base contains.
+   * @default "Search the loaded documents for relevant information to answer the user's question"
+   */
+  toolDescription?: string;
+
+  /**
+   * Embedding model provider for generating embeddings.
+   * Defaults to the same provider used for generation.
+   */
+  embeddingProvider?: string;
+
+  /**
+   * Embedding model name.
+   * Defaults to the provider's default embedding model.
+   */
+  embeddingModel?: string;
 };

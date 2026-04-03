@@ -5,7 +5,7 @@
 
 import type { ZodTypeAny } from "zod";
 import type { Schema } from "ai";
-import type { JsonValue, JsonObject } from "./common.js";
+import type { JsonValue, Result, AsyncFunction } from "./common.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 // ============================================================================
@@ -91,14 +91,6 @@ export type OptionalJsonRecord = JsonRecord | undefined;
 // ============================================================================
 
 /**
- * Standard async function type for tool execution
- * Most common function signature in the codebase
- */
-export type AsyncFunction<TParams = unknown, TResult = unknown> = (
-  params: TParams,
-) => Promise<TResult>;
-
-/**
  * Tool execution function with context
  * Standard pattern for MCP tool execution
  */
@@ -148,22 +140,10 @@ export type AsyncTransformFunction<TInput = unknown, TOutput = unknown> = (
 // ============================================================================
 
 /**
- * Array of unknown values
- * Common for flexible array parameters
- */
-export type UnknownArray = unknown[];
-
-/**
  * Array of standard records
  * Common in data collections
  */
 export type RecordArray = StandardRecord[];
-
-/**
- * Array of JSON objects
- * API-safe array type
- */
-export type JsonArray = JsonObject[];
 
 /**
  * String array type
@@ -279,14 +259,6 @@ export type StandardError = {
 };
 
 /**
- * Result type with success/error pattern
- * Common pattern for operation results
- */
-export type Result<TData = unknown, TError = StandardError> =
-  | { success: true; data: TData }
-  | { success: false; error: TError };
-
-/**
  * Async result type
  */
 export type AsyncResult<TData = unknown, TError = StandardError> = Promise<
@@ -368,17 +340,6 @@ export type ServiceConfig = {
   endpoint?: string;
   apiKey?: string;
   metadata?: StandardRecord;
-};
-
-/**
- * Cache configuration
- * Common caching parameters
- */
-export type CacheConfig = {
-  enabled?: boolean;
-  ttl?: number;
-  maxSize?: number;
-  strategy?: "memory" | "redis" | "hybrid";
 };
 
 /**

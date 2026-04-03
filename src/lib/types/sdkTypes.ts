@@ -46,10 +46,10 @@ export type {
   StreamOptions,
   StreamResult,
   StreamTextResult,
-  ToolCall as StreamToolCall, // Note: Renamed in main index to avoid conflict with tools.js ToolCall
+  ToolCall as StreamToolCall,
   ToolCallResults,
   ToolCalls,
-  ToolResult as StreamToolResult, // Note: Renamed in main index to avoid conflict with tools.js ToolResult
+  ToolResult as StreamToolResult,
 } from "./streamTypes.js";
 
 // Tool system types are exported directly from tools.js via index.ts
