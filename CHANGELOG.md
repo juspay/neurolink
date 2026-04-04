@@ -1,3 +1,9 @@
+## [9.47.0](https://github.com/juspay/neurolink/compare/v9.46.1...v9.47.0) (2026-04-04)
+
+### Features
+
+- **(observability):** auto-write OTEL endpoint to ~/.neurolink/.env on telemetry setup ([a6e56f3](https://github.com/juspay/neurolink/commit/a6e56f392b66005bbd4bbfeeff952aefebf172d4))
+
 ## [9.46.1](https://github.com/juspay/neurolink/compare/v9.46.0...v9.46.1) (2026-04-04)
 
 ### Bug Fixes
