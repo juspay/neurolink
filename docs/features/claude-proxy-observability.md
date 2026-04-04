@@ -45,13 +45,21 @@ Then continue with the setup steps below.
 neurolink proxy telemetry setup
 ```
 
-3. Point the proxy at the dedicated proxy collector before starting it:
+The setup command starts OpenObserve and the OTEL collector, imports the pre-built dashboard, and automatically writes `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:<port>` (default: `14318`, configurable via `NEUROLINK_OTLP_HTTP_PORT`) into `~/.neurolink/.env`. The proxy reads that file on every start, so no manual `export` is required.
+
+The collector uses a dedicated port set (`14317`/`14318`/`14333`) to avoid collisions with other local OTEL stacks. If you overrode ports in `proxy-observability.env`, the correct endpoint is printed by the setup command and written to `~/.neurolink/.env` automatically.
+
+1. Start the proxy:
 
 ```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14318
+neurolink proxy start
+# or, if installed as a launchd service:
+launchctl start com.neurolink.proxy
 ```
 
-The helper defaults to a dedicated collector port set (`14317`/`14318`/`14333`) so it does not fight with another local stack such as Curator. If you changed ports in `proxy-observability.env`, use the OTLP HTTP endpoint printed by the setup command.
+Data begins flowing immediately. No environment variable export needed.
+
+> **How the env file is picked up:** The proxy auto-loads `~/.neurolink/.env` on every start (whether run manually, via `proxy install`, or as a launchd service). You can also point the proxy at a different file with `--env-file <path>` or by setting `NEUROLINK_ENV_FILE`. See the [config reference](./claude-proxy-config-reference.md#3-environment-variables) for the full resolution order.
 
 Useful follow-up commands:
 

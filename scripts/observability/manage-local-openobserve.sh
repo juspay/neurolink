@@ -167,6 +167,33 @@ export NEUROLINK_OPENOBSERVE_OTLP_ENDPOINT
 
 select_compose
 
+# Write or update OTEL_EXPORTER_OTLP_ENDPOINT in ~/.neurolink/.env so the
+# proxy picks it up automatically without any manual export.
+upsert_neurolink_env() {
+  local neurolink_dir="${HOME}/.neurolink"
+  local env_file="${neurolink_dir}/.env"
+  local endpoint="http://localhost:${NEUROLINK_OTLP_HTTP_PORT}"
+  local key="OTEL_EXPORTER_OTLP_ENDPOINT"
+
+  mkdir -p "${neurolink_dir}"
+  chmod 700 "${neurolink_dir}" 2>/dev/null || true
+
+  if [[ -f "${env_file}" ]] && grep -Eq "^[[:space:]]*(export[[:space:]]+)?${key}=" "${env_file}"; then
+    # Replace existing line in-place (portable sed -i)
+    sed -i.bak -E "s|^[[:space:]]*(export[[:space:]]+)?${key}=.*|${key}=${endpoint}|" "${env_file}"
+    rm -f "${env_file}.bak"
+  else
+    # Ensure the new entry starts on its own line if the file lacks a trailing newline
+    if [[ -f "${env_file}" ]] && [[ -s "${env_file}" ]] && [[ "$(tail -c 1 "${env_file}")" != "" ]]; then
+      echo "" >> "${env_file}"
+    fi
+    echo "${key}=${endpoint}" >> "${env_file}"
+  fi
+  chmod 600 "${env_file}" 2>/dev/null || true
+
+  echo "  Wrote ${key}=${endpoint} to ${env_file}"
+}
+
 command="${1:-setup}"
 
 case "${command}" in
@@ -175,6 +202,7 @@ case "${command}" in
     wait_for_http "OpenObserve" "${NEUROLINK_OPENOBSERVE_URL}/healthz"
     wait_for_http "OTEL collector" "http://localhost:${NEUROLINK_OTEL_HEALTH_PORT}/"
     node "${IMPORT_SCRIPT}" --replace-by-title
+    upsert_neurolink_env
     cat <<EOF
 Local proxy observability is ready.
 
@@ -183,12 +211,12 @@ OpenObserve login user: ${NEUROLINK_OPENOBSERVE_USER}
 OpenObserve password source: ${ENV_FILE} (NEUROLINK_OPENOBSERVE_PASSWORD)
 OTLP HTTP endpoint: http://localhost:${NEUROLINK_OTLP_HTTP_PORT}
 
-Set this before starting the proxy:
-  export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:${NEUROLINK_OTLP_HTTP_PORT}
+OTEL endpoint written to ~/.neurolink/.env — the proxy will pick it up automatically on next start.
 EOF
     ;;
   up|start)
     compose up -d
+    upsert_neurolink_env
     ;;
   down|stop)
     compose down
