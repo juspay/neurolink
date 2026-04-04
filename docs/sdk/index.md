@@ -1,3 +1,7 @@
+---
+description: The NeuroLink SDK provides a TypeScript-first programmatic interface for integrating AI capabilities into your applications.
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

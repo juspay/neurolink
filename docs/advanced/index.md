@@ -1,3 +1,7 @@
+---
+description: Explore NeuroLink's enterprise-grade capabilities including middleware, streaming, memory, and factory patterns.
+---
+
 # Advanced Features
 
 Explore NeuroLink's enterprise-grade capabilities that set it apart from basic AI integration libraries.

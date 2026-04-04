@@ -1,3 +1,7 @@
+---
+description: Experience NeuroLink through comprehensive visual demonstrations, screenshots, and interactive examples.
+---
+
 # Visual Demos
 
 Experience NeuroLink through comprehensive visual demonstrations, screenshots, and interactive examples.

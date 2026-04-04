@@ -1,3 +1,7 @@
+---
+description: Complete installation guide for NeuroLink CLI and SDK across different environments and package managers.
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

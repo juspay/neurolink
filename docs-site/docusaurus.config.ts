@@ -205,31 +205,11 @@ const config: Config = {
     image: "img/neurolink-social-card.png",
 
     metadata: [
-      {
-        name: "description",
-        content:
-          "Enterprise AI Development Platform - Universal provider support, MCP integration, and professional CLI",
-      },
-      {
-        property: "og:description",
-        content:
-          "Enterprise AI Development Platform - Universal provider support, MCP integration, and professional CLI",
-      },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "NeuroLink" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "NeuroLink Documentation" },
-      {
-        name: "twitter:description",
-        content:
-          "Enterprise AI Development Platform - Universal provider support, MCP integration, and professional CLI",
-      },
       { name: "twitter:site", content: "@jaborhey" },
       { name: "twitter:creator", content: "@jaborhey" },
-      {
-        name: "twitter:image",
-        content: "https://docs.neurolink.ink/img/neurolink-social-card.png",
-      },
     ],
 
     colorMode: {
@@ -395,6 +375,9 @@ const config: Config = {
 
     // Local search index generation (fallback when Algolia is not configured)
     "./plugins/docusaurus-plugin-search-index",
+
+    // Generate unique OG images per page at build time (satori + resvg)
+    "./plugins/docusaurus-plugin-og-images",
 
     // Fix server bundle: handle Node-only native modules
     // (protobufjs from posthog→opentelemetry, ws from jsdom, fsevents, etc.)

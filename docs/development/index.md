@@ -1,3 +1,7 @@
+---
+description: Contributing to NeuroLink and extending its capabilities for your specific needs.
+---
+
 # Development
 
 Contributing to NeuroLink and extending its capabilities for your specific needs.

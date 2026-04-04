@@ -1,3 +1,7 @@
+---
+description: The NeuroLink CLI provides a professional command-line interface for AI text generation, provider management, and workflow automation.
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
