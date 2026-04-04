@@ -587,6 +587,32 @@ export class ImageProcessor {
 }
 
 /**
+ * Whitelist of valid image file extensions (lowercase, no dots).
+ * Used to validate file extensions against a known set of image formats.
+ */
+export const VALID_IMAGE_EXTENSIONS = [
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "webp",
+  "bmp",
+  "tiff",
+  "tif",
+  "svg",
+  "avif",
+  "ico",
+  "heic",
+  "heif",
+];
+
+/**
+ * Set of valid image extensions for O(1) lookup.
+ * @internal
+ */
+const VALID_IMAGE_EXTENSIONS_SET = new Set<string>(VALID_IMAGE_EXTENSIONS);
+
+/**
  * Utility functions for image handling
  */
 export const imageUtils = {
@@ -619,11 +645,54 @@ export const imageUtils = {
   isBase64: (str: string): boolean => imageUtils.isValidBase64(str),
 
   /**
-   * Extract file extension from filename or URL
+   * Extract file extension from filename or URL.
+   * Strips query strings and fragments before matching so that
+   * "image.jpg?v=1" correctly returns "jpg".
+   * Returns null if no extension is found or if the extension
+   * contains non-alphanumeric characters.
    */
   getFileExtension: (filename: string): string | null => {
-    const match = filename.match(/\.([^.]+)$/);
-    return match ? match[1].toLowerCase() : null;
+    const sanitized = filename.split(/[?#]/)[0];
+    const match = sanitized.match(/\.([^.]+)$/);
+    if (!match) {
+      return null;
+    }
+    const extension = match[1].toLowerCase();
+    if (!/^[a-z0-9]+$/.test(extension)) {
+      return null;
+    }
+    return extension;
+  },
+
+  /**
+   * Validate that an extension is a recognised image format.
+   * Case-insensitive; rejects extensions with special characters.
+   */
+  isValidImageExtension: (extension: string): boolean => {
+    if (!extension || typeof extension !== "string") {
+      return false;
+    }
+    const normalizedExt = extension.toLowerCase();
+    if (!/^[a-z0-9]+$/.test(normalizedExt)) {
+      return false;
+    }
+    return VALID_IMAGE_EXTENSIONS_SET.has(normalizedExt);
+  },
+
+  /**
+   * Extract and validate image file extension from a filename or URL.
+   * Returns null if the extension is missing or not a recognised image format.
+   *
+   * Security note: the last extension is used, so "malware.exe.jpg" returns
+   * "jpg". Callers should apply additional checks (e.g. content inspection)
+   * where double-extension attacks are a concern.
+   */
+  getValidatedImageExtension: (filename: string): string | null => {
+    const extension = imageUtils.getFileExtension(filename);
+    if (!extension) {
+      return null;
+    }
+    return imageUtils.isValidImageExtension(extension) ? extension : null;
   },
 
   /**
