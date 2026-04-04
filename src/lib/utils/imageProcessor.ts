@@ -438,11 +438,67 @@ export class ImageProcessor {
         return { width, height };
       }
 
-      // Basic JPEG dimension extraction (simplified)
+      // JPEG dimension extraction via SOF marker parsing
       if (buffer.length >= 4 && buffer[0] === 0xff && buffer[1] === 0xd8) {
-        // This is a very basic implementation
-        // For production, consider using a proper image library
-        return null;
+        // Search for SOF0 (0xFFC0) or SOF2 (0xFFC2) markers
+        let offset = 2;
+        while (offset < buffer.length - 1) {
+          // Find next marker (0xFF followed by non-zero, non-0xFF byte)
+          if (buffer[offset] !== 0xff) {
+            offset++;
+            continue;
+          }
+
+          // Skip any padding 0xFF bytes
+          while (offset < buffer.length && buffer[offset] === 0xff) {
+            offset++;
+          }
+
+          if (offset >= buffer.length) {
+            break;
+          }
+
+          const marker = buffer[offset];
+          offset++;
+
+          // Check for SOF0 (0xC0 - baseline DCT) and SOF2 (0xC2 - progressive DCT)
+          // These are the most common JPEG encoding modes
+          if (marker === 0xc0 || marker === 0xc2) {
+            // SOF marker found: length (2 bytes) + precision (1 byte) + height (2 bytes) + width (2 bytes)
+            if (offset + 7 > buffer.length) {
+              break; // Truncated file
+            }
+            const height = buffer.readUInt16BE(offset + 3);
+            const width = buffer.readUInt16BE(offset + 5);
+            return { width, height };
+          }
+
+          // Skip this marker's segment (except for markers without length)
+          if (
+            marker === 0xd0 ||
+            marker === 0xd1 ||
+            marker === 0xd2 ||
+            marker === 0xd3 ||
+            marker === 0xd4 ||
+            marker === 0xd5 ||
+            marker === 0xd6 ||
+            marker === 0xd7 ||
+            marker === 0xd8 ||
+            marker === 0xd9 ||
+            marker === 0x01
+          ) {
+            // RST0-RST7, SOI, EOI, TEM - no length field
+            continue;
+          }
+
+          if (offset + 2 > buffer.length) {
+            break; // Truncated file
+          }
+          const segmentLength = buffer.readUInt16BE(offset);
+          offset += segmentLength;
+        }
+
+        return null; // No SOF marker found
       }
 
       return null;
