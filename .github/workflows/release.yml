@@ -91,7 +91,7 @@ jobs:
           echo "✅ ffmpeg installed successfully"
 
       - name: Upgrade npm for OIDC support
-        run: npm install -g npm@latest
+        run: npm install -g npm@10
 
       - name: Install dependencies
         run: pnpm install
