@@ -77,8 +77,8 @@ neurolink auth login anthropic --method oauth --add --label work
 neurolink auth login anthropic --method oauth --add --label personal
 
 # Step 3: (Optional) Start the local OpenObserve stack and import the dashboard
+# (auto-writes OTEL_EXPORTER_OTLP_ENDPOINT to ~/.neurolink/.env)
 neurolink proxy telemetry setup
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14318
 
 # Step 4: Start the proxy
 neurolink proxy start
@@ -656,24 +656,40 @@ Proxy-wide status also tracks total upstream attempts separately from completed 
 | `scripts/observability/manage-local-openobserve.sh`                   | Local OpenObserve lifecycle helper for `proxy telemetry`                 |
 | `docs/assets/dashboards/neurolink-proxy-observability-dashboard.json` | Maintained dashboard source-of-truth                                     |
 
-## Observability Dashboard
+## Observability
 
-The maintained OpenObserve dashboard definition for the proxy lives in `docs/assets/dashboards/neurolink-proxy-observability-dashboard.json`.
+The proxy ships a local observability stack (OpenObserve + OTEL collector) with a pre-built dashboard covering traffic, failures, latency, account routing, token usage, and cost.
 
-For a fresh local OpenObserve setup owned by this repo, run `neurolink proxy telemetry setup`. That bootstraps the local collector and dashboard from `scripts/observability/` without depending on the Curator repo.
+### Quick start
 
-Useful lifecycle commands:
+```bash
+# Start OpenObserve + OTEL collector, import dashboard, wire up endpoint
+neurolink proxy telemetry setup
 
-- `neurolink proxy telemetry setup`
-- `neurolink proxy telemetry start`
-- `neurolink proxy telemetry stop`
-- `neurolink proxy telemetry status`
-- `neurolink proxy telemetry logs`
-- `neurolink proxy telemetry import-dashboard`
+# Then start the proxy as normal — telemetry flows automatically
+neurolink proxy start
+```
+
+`telemetry setup` writes `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:<port>` (default: `14318`, configurable via `NEUROLINK_OTLP_HTTP_PORT`) into `~/.neurolink/.env`. The proxy reads that file on every start, including when running as a launchd service.
+
+**Dashboard:** `http://localhost:5080` — login `root@example.com` / `Complexpass#123` (default credentials, change in `scripts/observability/proxy-observability.env`).
+
+### Useful commands
+
+| Command                                      | Purpose                                        |
+| -------------------------------------------- | ---------------------------------------------- |
+| `neurolink proxy telemetry setup`            | Start stack + import dashboard + wire endpoint |
+| `neurolink proxy telemetry start`            | Start stack without re-importing dashboard     |
+| `neurolink proxy telemetry stop`             | Stop the local stack                           |
+| `neurolink proxy telemetry status`           | Show health and endpoint URLs                  |
+| `neurolink proxy telemetry logs`             | Tail OpenObserve and collector logs            |
+| `neurolink proxy telemetry import-dashboard` | Re-import the dashboard definition             |
 
 When working from a repo checkout, the `pnpm run proxy:observability:*` scripts are equivalent shortcuts.
 
-For what each tab means, which streams are valid, and how to interpret cache, routing, latency, and trace data, see [Claude Proxy Observability](/docs/features/claude-proxy-observability).
+The maintained dashboard definition lives in `docs/assets/dashboards/neurolink-proxy-observability-dashboard.json`.
+
+See [Claude Proxy Observability](./claude-proxy-observability) for a full guide to reading the dashboard.
 
 ## Troubleshooting
 
