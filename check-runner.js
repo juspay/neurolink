@@ -206,11 +206,13 @@ function buildRepoUrl(repoName) {
   if (!GIT_REPO_URL || !GIT_READ_USERNAME || !GIT_READ_TOKEN) {
     throw new Error("GIT_REPO_URL, GIT_READ_USERNAME, and GIT_READ_TOKEN must be configured");
   }
+  // Manually encode credentials — new URL() does not encode `+` in the password
+  // component, which Bitbucket interprets as a space and rejects with 403.
   const parsed = new URL(GIT_REPO_URL);
-  parsed.username = GIT_READ_USERNAME;
-  parsed.password = GIT_READ_TOKEN;
-  parsed.pathname = parsed.pathname.replace(/\/[^/]+$/, `/${repoName}.git`);
-  return parsed.toString();
+  const encodedUser = encodeURIComponent(GIT_READ_USERNAME);
+  const encodedToken = encodeURIComponent(GIT_READ_TOKEN);
+  const basePath = parsed.pathname.replace(/\/[^/]+$/, "");
+  return `${parsed.protocol}//${encodedUser}:${encodedToken}@${parsed.host}${basePath}/${repoName}.git`;
 }
 
 // ---------------------------------------------------------------------------
