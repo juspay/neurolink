@@ -1,3 +1,9 @@
+## [9.48.1](https://github.com/juspay/neurolink/compare/v9.48.0...v9.48.1) (2026-04-06)
+
+### Bug Fixes
+
+- **(types):** update index to export directly from multimodal (fixes [#275](https://github.com/juspay/neurolink/issues/275)) ([739ad2a](https://github.com/juspay/neurolink/commit/739ad2aa91d9766f098bb7d804de6fbb00d1c9d8))
+
 ## [9.48.0](https://github.com/juspay/neurolink/compare/v9.47.0...v9.48.0) (2026-04-05)
 
 ### Features
