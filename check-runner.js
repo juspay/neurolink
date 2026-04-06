@@ -23,6 +23,14 @@ const GIT_CLONE_TIMEOUT_MS = Number(process.env.CHECK_RUNNER_GIT_CLONE_TIMEOUT_M
 const GIT_REPO_URL      = process.env.GIT_REPO_URL      || "";
 const GIT_READ_USERNAME = process.env.GIT_READ_USERNAME  || "";
 const GIT_READ_TOKEN    = process.env.GIT_READ_TOKEN     || "";
+
+// Proxy config — the pod sets HTTP_PROXY_HOST + HTTP_PROXY_PORT for outbound traffic.
+// We turn that into a proper proxy URL that git/curl understand.
+const HTTP_PROXY_HOST   = process.env.HTTP_PROXY_HOST    || "";
+const HTTP_PROXY_PORT   = process.env.HTTP_PROXY_PORT    || "";
+const PROXY_URL = HTTP_PROXY_HOST && HTTP_PROXY_PORT
+  ? `http://${HTTP_PROXY_HOST}:${HTTP_PROXY_PORT}`
+  : "";
 const MAX_BODY_BYTES = 1 * 1024 * 1024;
 const MAX_OUTPUT_BYTES = 100 * 1024;
 
@@ -250,15 +258,98 @@ async function walkFiles(baseDir, relDir, fileSet, skipDirs) {
  * @param {string} workDir - snapshot directory to overlay onto
  * @returns {Promise<{ copiedCount: number; deletedCount: number; branchDir: string }>}
  */
+/**
+ * Run a shell command and capture full output for diagnostics. Never throws.
+ */
+async function diagRun(cmd, timeoutMs = 15_000, extraEnv = {}) {
+  return new Promise((resolve) => {
+    exec(cmd, {
+      timeout: timeoutMs,
+      maxBuffer: 1024 * 1024,
+      env: { ...process.env, ...extraEnv },
+    }, (err, stdout, stderr) => {
+      resolve({
+        exitCode: err && typeof err.code === "number" ? err.code : (err ? 1 : 0),
+        stdout: (stdout || "").slice(-1500),
+        stderr: (stderr || "").slice(-1500),
+      });
+    });
+  });
+}
+
+/**
+ * Run a series of network/auth probes from inside the pod so we can see
+ * exactly why git clone is failing. Output is embedded in the job error.
+ */
+async function collectDiffDiagnostics(repoUrl) {
+  const redactedUrl = repoUrl.replace(/:[^:@]+@/, ":[REDACTED]@");
+  const lines = [];
+  lines.push(`=== DIAGNOSTICS ===`);
+  lines.push(`Redacted URL: ${redactedUrl}`);
+  lines.push(`HTTP_PROXY_HOST: ${HTTP_PROXY_HOST || "(unset)"}`);
+  lines.push(`HTTP_PROXY_PORT: ${HTTP_PROXY_PORT || "(unset)"}`);
+  lines.push(`PROXY_URL (derived): ${PROXY_URL || "(none)"}`);
+  lines.push(`env HTTPS_PROXY: ${process.env.HTTPS_PROXY || "(unset)"}`);
+  lines.push(`env HTTP_PROXY: ${process.env.HTTP_PROXY || "(unset)"}`);
+  lines.push(`env NO_PROXY: ${process.env.NO_PROXY || "(unset)"}`);
+
+  // DNS resolution
+  const dns = await diagRun("getent hosts bitbucket.juspay.net");
+  lines.push(`\n[DNS getent] exit=${dns.exitCode} stdout=${dns.stdout.trim()} stderr=${dns.stderr.trim()}`);
+
+  // TCP connect 443
+  const tcp = await diagRun("timeout 5 bash -c '</dev/tcp/bitbucket.juspay.net/443' && echo OPEN || echo CLOSED");
+  lines.push(`[TCP 443] exit=${tcp.exitCode} stdout=${tcp.stdout.trim()} stderr=${tcp.stderr.trim()}`);
+
+  // curl direct (no proxy) unauthenticated
+  const curlDirectNoAuth = await diagRun(
+    `curl -sS -o /dev/null -w "code=%{http_code}" --max-time 10 --noproxy '*' https://bitbucket.juspay.net/scm/bz/lighthouse.git/info/refs?service=git-upload-pack`,
+  );
+  lines.push(`[CURL direct noauth] exit=${curlDirectNoAuth.exitCode} stdout=${curlDirectNoAuth.stdout.trim()} stderr=${curlDirectNoAuth.stderr.trim()}`);
+
+  // curl direct (no proxy) authenticated
+  const curlDirectAuth = await diagRun(
+    `curl -sS -o /dev/null -w "code=%{http_code}" --max-time 10 --noproxy '*' -u '${GIT_READ_USERNAME}:${GIT_READ_TOKEN}' https://bitbucket.juspay.net/scm/bz/lighthouse.git/info/refs?service=git-upload-pack`,
+  );
+  lines.push(`[CURL direct auth] exit=${curlDirectAuth.exitCode} stdout=${curlDirectAuth.stdout.trim()} stderr=${curlDirectAuth.stderr.trim()}`);
+
+  // curl via proxy authenticated
+  if (PROXY_URL) {
+    const curlProxyAuth = await diagRun(
+      `curl -sS -o /dev/null -w "code=%{http_code}" --max-time 10 --proxy '${PROXY_URL}' -u '${GIT_READ_USERNAME}:${GIT_READ_TOKEN}' https://bitbucket.juspay.net/scm/bz/lighthouse.git/info/refs?service=git-upload-pack`,
+    );
+    lines.push(`[CURL via proxy auth] exit=${curlProxyAuth.exitCode} stdout=${curlProxyAuth.stdout.trim()} stderr=${curlProxyAuth.stderr.trim()}`);
+
+    // git ls-remote via proxy
+    const gitProxy = await diagRun(`git ls-remote '${repoUrl}' HEAD`, 15_000, {
+      HTTPS_PROXY: PROXY_URL,
+      HTTP_PROXY: PROXY_URL,
+    });
+    lines.push(`[GIT ls-remote via proxy] exit=${gitProxy.exitCode} stdout=${gitProxy.stdout.trim()} stderr=${gitProxy.stderr.trim()}`);
+  }
+
+  return lines.join("\n");
+}
+
 async function applyBranchDiff(repoName, branchRef, workDir) {
   const repoUrl = buildRepoUrl(repoName);
   const branchDir = await fs.mkdtemp(path.join(os.tmpdir(), `cr-branch-${repoName}-`));
+
+  // If a proxy is configured, pass it to git via HTTPS_PROXY/HTTP_PROXY.
+  // Git respects these env vars (and NO_PROXY) natively.
+  const gitEnv = PROXY_URL
+    ? { ...process.env, HTTPS_PROXY: PROXY_URL, HTTP_PROXY: PROXY_URL }
+    : process.env;
+
+  if (PROXY_URL) {
+    console.log(`[DIFF] using proxy: ${PROXY_URL}`);
+  }
 
   try {
     // Clone just the latest commit — we only need the current file state.
     await execFile(
       "git", ["clone", "--depth=1", "--branch", branchRef, "--single-branch", repoUrl, branchDir],
-      { timeout: GIT_CLONE_TIMEOUT_MS, maxBuffer: 10 * 1024 * 1024 },
+      { timeout: GIT_CLONE_TIMEOUT_MS, maxBuffer: 10 * 1024 * 1024, env: gitEnv },
     );
 
     const SKIP = new Set([".git", "node_modules"]);
@@ -294,8 +385,19 @@ async function applyBranchDiff(repoName, branchRef, workDir) {
     return { copiedCount, deletedCount, branchDir };
 
   } catch (err) {
+    // Collect diagnostics so we can see exactly why the clone failed from inside the pod.
+    let diag = "";
+    try { diag = await collectDiffDiagnostics(repoUrl); }
+    catch (e) { diag = `(diagnostics failed: ${e && e.message})`; }
+
+    console.log(`[DIFF] clone failed, diagnostics:\n${diag}`);
+
     await fs.rm(branchDir, { recursive: true, force: true });
-    throw err;
+
+    // Re-throw with diagnostics appended to the message so it surfaces in the job error.
+    const origMsg = err && err.message ? err.message : String(err);
+    const wrapped = new Error(`${origMsg}\n\n${diag}`);
+    throw wrapped;
   }
 }
 
