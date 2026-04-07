@@ -38,12 +38,17 @@ const MAX_OUTPUT_BYTES = 100 * 1024;
 // Env vars that commands are allowed to see.
 // JWT secret, git credentials, and cloud credentials never reach subprocesses.
 // NODE_OPTIONS is forced to cap memory — lighthouse scripts request 8GB but the pod only has 4GB.
+// HTTP(S)_PROXY + NO_PROXY are forwarded so pnpm install (and any user command
+// that needs outbound network) can reach the npm registry through the pod's
+// outbound proxy on AWS.
 const COMMAND_ENV = {
   ...Object.fromEntries(
     [
       "PATH", "HOME", "USER", "SHELL", "LANG", "TERM", "TMPDIR",
       "NODE_VERSION", "HOSTNAME", "npm_config_cache", "PNPM_HOME", "COREPACK_HOME",
       "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH", "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD",
+      "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY",
+      "http_proxy", "https_proxy", "no_proxy",
     ]
       .filter((k) => process.env[k] !== undefined)
       .map((k) => [k, process.env[k]]),
