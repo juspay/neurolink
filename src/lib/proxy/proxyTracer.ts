@@ -59,6 +59,9 @@ type ProxyMetrics = {
   modelSubstitutionTotal: Counter;
   requestBodySize: Histogram;
   responseBodySize: Histogram;
+  fallbackAttemptsTotal: Counter;
+  fallbackSuccessTotal: Counter;
+  fallbackFailureTotal: Counter;
 };
 
 let _metrics: ProxyMetrics | null = null;
@@ -126,6 +129,21 @@ function getProxyMetrics(): ProxyMetrics {
     responseBodySize: meter.createHistogram("proxy_response_body_bytes", {
       description: "Response body size in bytes received from upstream",
       unit: "By",
+    }),
+    fallbackAttemptsTotal: meter.createCounter(
+      "proxy_fallback_attempts_total",
+      {
+        description: "Total fallback provider attempts",
+        unit: "{attempt}",
+      },
+    ),
+    fallbackSuccessTotal: meter.createCounter("proxy_fallback_success_total", {
+      description: "Total successful fallback provider responses",
+      unit: "{success}",
+    }),
+    fallbackFailureTotal: meter.createCounter("proxy_fallback_failure_total", {
+      description: "Total failed fallback provider responses",
+      unit: "{failure}",
     }),
   };
 
@@ -589,6 +607,25 @@ class ProxyTracer {
     });
   }
 
+  setFallbackInfo(info: {
+    triggered: boolean;
+    provider?: string;
+    model?: string;
+    attemptCount: number;
+    reason: string;
+  }): void {
+    if (!this.rootSpan) {
+      return;
+    }
+    this.rootSpan.setAttributes({
+      "proxy.fallback.triggered": info.triggered,
+      ...(info.provider ? { "proxy.fallback.provider": info.provider } : {}),
+      ...(info.model ? { "proxy.fallback.model": info.model } : {}),
+      "proxy.fallback.attempt_count": info.attemptCount,
+      "proxy.fallback.reason": info.reason,
+    });
+  }
+
   // -------------------------------------------------------------------------
   // Log payloads as span events
   // -------------------------------------------------------------------------
@@ -882,6 +919,30 @@ class ProxyTracer {
       {},
       trace.setSpan(context.active(), this.rootSpan),
     );
+  }
+}
+
+export function recordFallbackAttempt(attrs: {
+  provider: string;
+  model: string;
+  status: "success" | "failure";
+  errorMessage?: string;
+  durationMs: number;
+}): void {
+  try {
+    const m = getProxyMetrics();
+    const labels = { provider: attrs.provider, model: attrs.model };
+    m.fallbackAttemptsTotal.add(1, labels);
+    if (attrs.status === "success") {
+      m.fallbackSuccessTotal.add(1, labels);
+    } else {
+      m.fallbackFailureTotal.add(1, {
+        ...labels,
+        error: attrs.errorMessage?.slice(0, 100) ?? "unknown",
+      });
+    }
+  } catch {
+    // metrics are best-effort
   }
 }
 
