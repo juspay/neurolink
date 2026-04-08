@@ -32,7 +32,7 @@ import {
   serializeClaudeResponse,
 } from "../../proxy/claudeFormat.js";
 import type { ModelRouter } from "../../proxy/modelRouter.js";
-import { ProxyTracer } from "../../proxy/proxyTracer.js";
+import { ProxyTracer, recordFallbackAttempt } from "../../proxy/proxyTracer.js";
 import { createRawStreamCapture } from "../../proxy/rawStreamCapture.js";
 import {
   logBodyCapture,
@@ -1765,51 +1765,80 @@ async function executeClaudeFallbackTranslation(args: {
     const streamResult = await ctx.neurolink.stream(options);
     const serializer = new ClaudeStreamSerializer(body.model, 0);
 
-    async function* sseGenerator(): AsyncIterable<string> {
-      for (const frame of serializer.start()) {
-        yield frame;
-      }
-      let collectedText = "";
-      for await (const chunk of streamResult.stream) {
-        const text = extractText(chunk);
-        if (text) {
-          collectedText += text;
-          for (const frame of serializer.pushDelta(text)) {
-            yield frame;
-          }
+    // Eagerly consume stream so errors fire synchronously and the
+    // fallback loop in tryConfiguredClaudeFallbackChain can catch them.
+    const frames: string[] = [];
+    let collectedText = "";
+
+    for (const frame of serializer.start()) {
+      frames.push(frame);
+    }
+
+    for await (const chunk of streamResult.stream) {
+      const text = extractText(chunk);
+      if (text) {
+        collectedText += text;
+        for (const frame of serializer.pushDelta(text)) {
+          frames.push(frame);
         }
-      }
-      const toolCalls = streamResult.toolCalls ?? [];
-      if (!hasTranslatedOutput(collectedText, toolCalls)) {
-        throw new Error(
-          `Translated provider ${providerLabel} returned no content or tool calls`,
-        );
-      }
-      if (toolCalls.length) {
-        for (const toolCall of toolCalls) {
-          const toolName =
-            (toolCall as { toolName?: string }).toolName ??
-            (toolCall as { name?: string }).name ??
-            "unknown";
-          for (const frame of serializer.pushToolUse(
-            generateToolUseId(),
-            toolName,
-            extractToolArgs(toolCall),
-          )) {
-            yield frame;
-          }
-        }
-      }
-      const reason = streamResult.finishReason ?? "end_turn";
-      const resolvedUsage = extractUsageFromStreamResult(streamResult.usage);
-      for (const frame of serializer.finish(resolvedUsage.output, reason)) {
-        yield frame;
       }
     }
 
+    const toolCalls = streamResult.toolCalls ?? [];
+
+    if (!hasTranslatedOutput(collectedText, toolCalls)) {
+      throw new Error(
+        `Translated provider ${providerLabel} returned no content or tool calls`,
+      );
+    }
+
+    if (toolCalls.length) {
+      for (const toolCall of toolCalls) {
+        const toolName =
+          (toolCall as { toolName?: string }).toolName ??
+          (toolCall as { name?: string }).name ??
+          "unknown";
+        for (const frame of serializer.pushToolUse(
+          generateToolUseId(),
+          toolName,
+          extractToolArgs(toolCall),
+        )) {
+          frames.push(frame);
+        }
+      }
+    }
+
+    const reason = streamResult.finishReason ?? "end_turn";
+    const resolvedUsage = extractUsageFromStreamResult(streamResult.usage);
+    for (const frame of serializer.finish(resolvedUsage.output, reason)) {
+      frames.push(frame);
+    }
+
+    // Telemetry AFTER validation — not before like the old lazy path
     tracer?.end(200, Date.now() - requestStartTime);
     recordFinalSuccess();
-    logFinalRequest(200, "", providerLabel);
+    logFinalRequest(200, "", providerLabel, undefined, undefined, {
+      inputTokens: resolvedUsage.input,
+      outputTokens: resolvedUsage.output,
+    });
+
+    const bufferedBody = frames.join("");
+    logProxyBody({
+      phase: "client_response",
+      headers: { "content-type": "text/event-stream" },
+      body: bufferedBody,
+      bodySize: Buffer.byteLength(bufferedBody, "utf8"),
+      contentType: "text/event-stream",
+      responseStatus: 200,
+      durationMs: Date.now() - requestStartTime,
+    });
+
+    // Return generator that yields pre-buffered frames
+    async function* sseGenerator(): AsyncIterable<string> {
+      for (const frame of frames) {
+        yield frame;
+      }
+    }
     return sseGenerator();
   }
 
@@ -1917,6 +1946,12 @@ async function tryConfiguredClaudeFallbackChain(args: {
     logger.always(`[proxy] skipping fallback ${label}: ${skipped.reason}`);
   }
 
+  tracer?.setFallbackInfo({
+    triggered: true,
+    attemptCount: fallbackPlan.attempts.slice(1).length,
+    reason: fallbackPolicyReason ?? "all_anthropic_accounts_exhausted",
+  });
+
   for (const fallback of fallbackPlan.attempts.slice(1)) {
     if (!fallback.provider || !fallback.model) {
       continue;
@@ -1933,6 +1968,7 @@ async function tryConfiguredClaudeFallbackChain(args: {
       );
     }
 
+    const fallbackStart = Date.now();
     try {
       logger.always(
         `[proxy] fallback → ${fallback.provider}/${fallback.model}`,
@@ -1951,14 +1987,65 @@ async function tryConfiguredClaudeFallbackChain(args: {
         options: options as Parameters<ServerContext["neurolink"]["stream"]>[0],
         providerLabel: fallback.provider,
       });
+      recordFallbackAttempt({
+        provider: fallback.provider,
+        model: fallback.model,
+        status: "success",
+        durationMs: Date.now() - fallbackStart,
+      });
+      tracer?.setFallbackInfo({
+        triggered: true,
+        provider: fallback.provider,
+        model: fallback.model,
+        attemptCount: fallbackPlan.attempts.slice(1).length,
+        reason: "fallback_success",
+      });
       return {
         response,
         fallbackPolicyReason,
       };
     } catch (fallbackErr) {
+      const errMsg =
+        fallbackErr instanceof Error
+          ? fallbackErr.message
+          : String(fallbackErr);
+
+      let errorClass = "unknown";
+      if (
+        errMsg.includes("Rate limit") ||
+        errMsg.includes("rate_limit") ||
+        errMsg.includes("max_parallel_requests")
+      ) {
+        errorClass = "rate_limit";
+      } else if (
+        errMsg.includes("context length") ||
+        errMsg.includes("ContextWindowExceeded")
+      ) {
+        errorClass = "context_overflow";
+      } else if (
+        errMsg.includes("no content or tool calls") ||
+        errMsg.includes("NoOutputGenerated")
+      ) {
+        errorClass = "empty_response";
+      } else if (
+        errMsg.includes("thinking_level") ||
+        errMsg.includes("Field required")
+      ) {
+        errorClass = "schema_mismatch";
+      } else if (errMsg.includes("Resource exhausted")) {
+        errorClass = "provider_quota";
+      }
+
       logger.always(
-        `[proxy] fallback ${fallback.provider}/${fallback.model} failed: ${fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)}`,
+        `[proxy] fallback ${fallback.provider}/${fallback.model} failed [${errorClass}]: ${errMsg}`,
       );
+      recordFallbackAttempt({
+        provider: fallback.provider,
+        model: fallback.model,
+        status: "failure",
+        errorMessage: `[${errorClass}] ${errMsg}`,
+        durationMs: Date.now() - fallbackStart,
+      });
     }
   }
 
@@ -5192,7 +5279,15 @@ function shouldOmitThinkingConfigForTarget(
   provider?: string,
   model?: string,
 ): boolean {
-  return provider === "vertex" && model === "gemini-2.5-flash";
+  if (provider === "litellm") {
+    return true;
+  }
+  if (provider !== "vertex") {
+    return false;
+  }
+  // Only Gemini 2.5+ and 3.x support thinking_level on Vertex.
+  const m = model?.toLowerCase() ?? "";
+  return !/gemini-(2\.5|3)/.test(m);
 }
 
 function extractToolArgs(toolCall: unknown): unknown {

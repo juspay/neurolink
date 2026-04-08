@@ -522,9 +522,9 @@ export class LiteLLMProvider extends BaseProvider {
     } catch (streamError) {
       if (NoOutputGeneratedError.isInstance(streamError)) {
         logger.warn(
-          "LiteLLM: Stream produced no output (NoOutputGeneratedError)",
+          "LiteLLM: Stream produced no output (NoOutputGeneratedError) — propagating to fallback chain",
         );
-        return;
+        throw streamError;
       }
       throw streamError;
     }
