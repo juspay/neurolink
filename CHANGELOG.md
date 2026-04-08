@@ -1,3 +1,9 @@
+## [9.48.3](https://github.com/juspay/neurolink/compare/v9.48.2...v9.48.3) (2026-04-08)
+
+### Bug Fixes
+
+- **(ci):** upgrade to npm 11 for native OIDC publish support ([e25fedb](https://github.com/juspay/neurolink/commit/e25fedb74845322fc44509ebf076834d1a02abfd))
+
 ## [9.48.2](https://github.com/juspay/neurolink/compare/v9.48.1...v9.48.2) (2026-04-08)
 
 ### Bug Fixes
