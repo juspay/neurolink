@@ -227,6 +227,7 @@
     "@opentelemetry/sdk-metrics": "^2.6.1",
     "@opentelemetry/sdk-trace-base": "^2.6.0",
     "@opentelemetry/semantic-conventions": "^1.40.0",
+    "@picovoice/cobra-node": "^3.0.2",
     "adm-zip": "^0.5.16",
     "ai": "^6.0.134",
     "bullmq": "^5.52.2",

@@ -23,6 +23,7 @@
     "examples",
     "neurolink-demo",
     "scripts",
-    "eslint.config.js"
+    "eslint.config.js",
+    "src/lib/server/voice/public"
   ]
 }

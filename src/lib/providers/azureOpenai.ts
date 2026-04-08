@@ -66,11 +66,14 @@ export class AzureOpenAIProvider extends BaseProvider {
     }
 
     // Create the Azure provider instance with proxy support
-    // Let the Azure SDK handle all URL construction automatically
+    // useDeploymentBasedUrls is required because @ai-sdk/azure v3+ defaults to
+    // the /v1/ URL format, but most Azure deployments still require the legacy
+    // /deployments/{deployment}/ URL pattern.
     this.azureProvider = createAzure({
       resourceName: this.resourceName,
       apiKey: this.apiKey,
       apiVersion: this.apiVersion,
+      useDeploymentBasedUrls: true,
       fetch: createProxyFetch(),
     });
 
@@ -90,10 +93,13 @@ export class AzureOpenAIProvider extends BaseProvider {
   }
 
   /**
-   * Returns the Vercel AI SDK model instance for Azure OpenAI
+   * Returns the Vercel AI SDK model instance for Azure OpenAI.
+   * Uses .chat() explicitly because @ai-sdk/azure v3+ defaults the bare
+   * provider() call to the Responses API, which many Azure deployments
+   * do not support yet.
    */
   public getAISDKModel(): LanguageModel {
-    return this.azureProvider(this.deployment);
+    return this.azureProvider.chat(this.deployment);
   }
 
   protected formatProviderError(error: unknown): Error {

@@ -25,6 +25,7 @@ import {
 import { EvaluateCommandFactory } from "./commands/evaluate.js";
 import { TaskCommandFactory } from "./commands/task.js";
 import { AutoresearchCommandFactory } from "./commands/autoresearch.js";
+import { voiceServerCommand } from "./commands/voiceServer.js";
 
 // Enhanced CLI with Professional UX
 export function initializeCliParser() {
@@ -267,5 +268,8 @@ export function initializeCliParser() {
 
       // AutoResearch Command Group - Automated AI-driven research experiments
       .command(AutoresearchCommandFactory.createAutoresearchCommands())
+
+      // Real-time voice server (Soniox STT + Cartesia TTS + Cobra VAD)
+      .command(voiceServerCommand)
   ); // Close the main return statement
 }

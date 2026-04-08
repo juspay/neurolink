@@ -134,6 +134,9 @@ importers:
       '@opentelemetry/semantic-conventions':
         specifier: ^1.40.0
         version: 1.40.0
+      '@picovoice/cobra-node':
+        specifier: ^3.0.2
+        version: 3.0.2
       adm-zip:
         specifier: ^0.5.16
         version: 0.5.16
@@ -2348,6 +2351,11 @@ packages:
 
   '@oxc-project/types@0.122.0':
     resolution: {integrity: sha512-oLAl5kBpV4w69UtFZ9xqcmTi+GENWOcPF7FCrczTiBbmC0ibXxCwyvZGbO39rCVEuLGAZM84DH0pUIyyv/YJzA==}
+
+  '@picovoice/cobra-node@3.0.2':
+    resolution: {integrity: sha512-nH1Iz2iX4iS0Id6LigoyUtf9IC8yhsW4oYWs6GqXU/QLNyUWwpyKOqK9labeFi5Q2GMGOyRZte+aHajoOByYDA==}
+    engines: {node: '>=18.0.0'}
+    cpu: ['!ia32', '!mips', '!ppc', '!ppc64']
 
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
@@ -9506,6 +9514,8 @@ snapshots:
       '@opentelemetry/core': 2.6.1(@opentelemetry/api@1.9.1)
 
   '@oxc-project/types@0.122.0': {}
+
+  '@picovoice/cobra-node@3.0.2': {}
 
   '@pinojs/redact@0.4.0':
     optional: true
