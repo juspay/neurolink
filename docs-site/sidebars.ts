@@ -125,6 +125,8 @@ const sidebars: SidebarsConfig = {
             "features/embeddings",
             "features/rag",
             "features/observability",
+            "features/task-manager",
+            "features/autoresearch",
           ],
         },
         {

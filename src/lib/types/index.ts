@@ -190,6 +190,200 @@ export type {
 } from "./analytics.js";
 // Content types for multimodal support (direct export from canonical source)
 export * from "./multimodal.js";
+// Authentication types - Multi-provider auth system
+export type {
+  Auth0Config,
+  AuthCacheConfig,
+  // Error types
+  AuthErrorCode,
+  AuthErrorInfo,
+  // Backward-compatible alias (was `AuthError as AuthErrorType`)
+  AuthErrorInfo as AuthErrorType,
+  AuthEventData,
+  AuthEventHandler,
+  AuthEvents,
+  // Event types
+  AuthEventType,
+  AuthenticatedContext,
+  // Health and events
+  AuthHealthCheck,
+  AuthLifecycle,
+  AuthMiddlewareConfig,
+  // Middleware
+  AuthMiddlewareOptions,
+  // Authorization
+  AuthorizationResult,
+  AuthProviderConfig,
+  // Factory types
+  AuthProviderFactoryFn,
+  AuthProviderHealthCheck,
+  AuthProviderHealthStatus,
+  // Registry types (moved from AuthProviderRegistry.ts)
+  AuthProviderMetadata,
+  AuthProviderRegistration,
+  // Provider types
+  AuthProviderType,
+  // Context
+  AuthRequestContext,
+  AuthRequestHandler,
+  AuthSession,
+  AuthSessionManager,
+  // Composed sub-types
+  AuthTokenValidator,
+  // User and session
+  AuthUser,
+  AuthUserAuthorizer,
+  AuthUserManager,
+  BaseAuthProviderConfig,
+  BetterAuthConfig,
+  ClerkConfig,
+  CognitoConfig,
+  CustomAuthConfig,
+  FirebaseConfig,
+  JWK,
+  JWKS,
+  JWTConfig,
+  KeycloakConfig,
+  MastraAuthProvider,
+  OAuth2Config,
+  PermissionDefinition,
+  RBACConfig,
+  RBACMiddlewareConfig,
+  SessionConfig,
+  SessionStorage,
+  SessionStorageType,
+  // Session types
+  SessionValidationResult,
+  SupabaseConfig,
+  TokenClaims,
+  TokenExtractionConfig,
+  // Configuration
+  TokenExtractionStrategy,
+  TokenRefreshResult,
+  TokenType,
+  TokenValidationConfig,
+  // Token types
+  TokenValidationResult as AuthTokenValidationResult,
+  WorkOSConfig,
+} from "./authTypes.js";
+// Autoresearch types
+export type {
+  AutoresearchEmitter,
+  AutoresearchErrorEvent,
+  AutoresearchEventMap,
+  AutoresearchEventName,
+  AutoresearchExperimentCompletedEvent,
+  AutoresearchExperimentStartedEvent,
+  AutoresearchInitializedEvent,
+  AutoresearchMetricImprovedEvent,
+  AutoresearchPhaseChangedEvent,
+  AutoresearchResumedEvent,
+  AutoresearchRevertEvent,
+  AutoresearchRevertFailedEvent,
+  AutoresearchStateUpdatedEvent,
+  ExperimentPhase,
+  ExperimentRecord,
+  ExperimentStats,
+  ExperimentStatus,
+  ExperimentSummary,
+  MemoryMetricConfig,
+  MetricConfig,
+  MetricDirection,
+  PhaseToolPolicy,
+  ResearchConfig,
+  ResearchState,
+  ResearchWorkerConfig,
+} from "./autoresearchTypes.js";
+export { AUTORESEARCH_DEFAULTS } from "./autoresearchTypes.js";
+// Client SDK types (selective export to avoid collisions with existing types)
+// Conflicting names are aliased with "Client" prefix.
+export type {
+  // Agent
+  AgentExecuteOptions as ClientAgentExecuteOptions,
+  AgentExecuteResult as ClientAgentExecuteResult,
+  AgentInfo as ClientAgentInfo,
+  ApiError as ClientApiError,
+  // Authentication
+  AuthConfig as ClientAuthConfig,
+  // API response/error (ApiResponse conflicts with typeAliases.ts)
+  ClientApiResponse,
+  // React hooks
+  ClientChatMessage,
+  // Core config
+  ClientConfig,
+  ClientMiddlewareContext,
+  ClientOAuth2Config,
+  // Provider status (conflicts with providers.ts ProviderStatus)
+  ClientProviderStatus,
+  // Retry (conflicts with configTypes.ts RetryConfig)
+  ClientRetryConfig,
+  ClientStreamEvent,
+  ClientStreamResult,
+  ClientTokenRefreshResult,
+  // Generation
+  GenerateRequestOptions as ClientGenerateRequestOptions,
+  GenerateResponse as ClientGenerateResponse,
+  // AI SDK adapter
+  LanguageModel as ClientLanguageModel,
+  LanguageModelCallOptions as ClientLanguageModelCallOptions,
+  LanguageModelResponse as ClientLanguageModelResponse,
+  LanguageModelStreamResponse as ClientLanguageModelStreamResponse,
+  // Middleware (client HTTP middleware, distinct from AI SDK middleware)
+  Middleware as ClientMiddleware,
+  MiddlewareRequest as ClientMiddlewareRequest,
+  MiddlewareResponse as ClientMiddlewareResponse,
+  ModelOptions as ClientModelOptions,
+  NeuroLinkProviderOptions,
+  RequestOptions as ClientRequestOptions,
+  // Voice
+  SpeechRecognitionResult as ClientSpeechRecognitionResult,
+  SpeechSynthesisOptions as ClientSpeechSynthesisOptions,
+  StreamCallbacks as ClientStreamCallbacks,
+  // Streaming (StreamResult conflicts with streamTypes.ts)
+  StreamEventType as ClientStreamEventType,
+  StreamRequestOptions as ClientStreamRequestOptions,
+  // Tool (conflicts with tools.ts ToolInfo)
+  ToolInfo as ClientToolInfo,
+  UseAgentOptions,
+  UseAgentReturn,
+  UseChatOptions,
+  UseChatReturn,
+  UseStreamOptions,
+  UseStreamReturn,
+  UseToolsOptions,
+  UseToolsReturn,
+  UseVoiceOptions,
+  UseVoiceReturn,
+  UseWorkflowOptions,
+  UseWorkflowReturn,
+  WebSocketMessageHandler as ClientWebSocketMessageHandler,
+  // WebSocket
+  WebSocketOptions as ClientWebSocketOptions,
+  WebSocketState as ClientWebSocketState,
+  // Workflow
+  WorkflowExecuteOptions as ClientWorkflowExecuteOptions,
+  WorkflowExecuteResult as ClientWorkflowExecuteResult,
+  WorkflowInfo as ClientWorkflowInfo,
+  WSClientConfig,
+  WSClientEventHandlers,
+  WSClientMessage,
+  // Dedicated WS client types
+  WSClientState,
+} from "./clientTypes.js";
+// Content types: canonical source is ./multimodal.js (already exported above).
+// ./content.js re-exports from multimodal for backward compat but is NOT
+// re-exported here to avoid duplicate symbol collisions.
+// Context compaction types
+export * from "./contextTypes.js";
+// Conversation types (selective to avoid collisions)
+export type {
+  ConversationData,
+  ConversationSummary,
+  NeurolinkOptions,
+  StorageConfig,
+} from "./conversation.js";
+// Conversation memory manager type
+export * from "./conversationMemoryInterface.js";
 // Domain factory types
 export type {
   DomainConfig,
@@ -199,10 +393,19 @@ export type {
   DomainType,
   DomainValidationRule,
 } from "./domainTypes.js";
+// Error classes
+export {
+  AuthenticationError,
+  AuthorizationError,
+  NetworkError,
+  RateLimitError,
+} from "./errors.js";
 // Evaluation types - NEW
 export * from "./evaluation.js";
 // Evaluation provider types - NEW
 export * from "./evaluationProviders.js";
+// File reference types
+export * from "./fileReferenceTypes.js";
 // File detection and processing types
 export * from "./fileTypes.js";
 // Generate types - NEW (selective export to avoid GenerateResult conflict with cli.js)
@@ -223,90 +426,17 @@ export * from "./hitlTypes.js";
 export * from "./middlewareTypes.js";
 // Model types - NEW
 export * from "./modelTypes.js";
+// Proxy types (Claude API format, cloaking, routing, config, stats, server adapters)
+export * from "./proxyTypes.js";
+
+// RAG types
+export * from "./ragTypes.js";
 // Scorer types for evaluation system
 export * from "./scorerTypes.js";
 // SDK Types - Core types for external developers
 // Note: sdkTypes.ts uses selective re-exports internally, so we use wildcard here
 // The conflicts were from generateTypes and analytics which are now handled above
 export * from "./sdkTypes.js";
-// Service types - NEW
-export * from "./serviceTypes.js";
-// Stream types - NEW (selective export to avoid conflicts)
-export type {
-  EnhancedStreamProvider,
-  ProgressCallback,
-  StreamingMetadata,
-  StreamingOptions,
-  StreamingProgressData,
-  StreamOptions,
-  StreamResult,
-  ToolCall as StreamToolCall, // Renamed to avoid conflict with tools.js ToolCall
-  ToolCallResults,
-  ToolCalls,
-  ToolResult as StreamToolResult, // Renamed to avoid conflict with tools.js ToolResult
-} from "./streamTypes.js";
-// TTS (Text-to-Speech) types
-export * from "./ttsTypes.js";
-// Utilities Types - Utility module types (selective export to avoid conflicts)
-export * from "./utilities.js";
-
-// Workflow types (ScoreResult aliased to avoid collision with scorerTypes.ts ScoreResult)
-export type {
-  AggregatedUsage,
-  ConditioningConfig,
-  ConditionOptions,
-  ConditionResult,
-  EnsembleExecutionResult,
-  EnsembleResponse,
-  ExecuteEnsembleOptions,
-  ExecuteLayerOptions,
-  ExecuteModelOptions,
-  ExecutionConfig,
-  ExecutionStrategy,
-  JudgeConfig,
-  JudgeOutputFormat,
-  JudgeScores,
-  LayerExecutionResult,
-  ListOptions,
-  ModelGroup,
-  MultiJudgeScores,
-  ParsedJudgeResponse,
-  RegisterOptions,
-  RegisterResult,
-  RegistryEntry,
-  RegistryStats,
-  ScoreOptions,
-  ScoreResult as WorkflowScoreResult,
-  SummaryStats,
-  ToneAdjustment,
-  ValidationIssues,
-  WorkflowAnalytics,
-  WorkflowComparison,
-  WorkflowConfig,
-  WorkflowErrorDetails,
-  WorkflowEvaluationData,
-  WorkflowExecutionMetrics,
-  WorkflowGenerateOptions,
-  WorkflowInput,
-  WorkflowMetadata,
-  WorkflowModelConfig,
-  WorkflowResult,
-  WorkflowType,
-  WorkflowValidationError,
-  WorkflowValidationResult,
-  WorkflowValidationWarning,
-} from "./workflowTypes.js";
-export { WorkflowError } from "./workflowTypes.js";
-
-// Context compaction types
-export * from "./contextTypes.js";
-
-// File reference types
-export * from "./fileReferenceTypes.js";
-
-// RAG types
-export * from "./ragTypes.js";
-
 // Server adapter types (selective export to avoid naming conflicts)
 export type {
   AgentExecuteRequest,
@@ -368,221 +498,100 @@ export type {
   WebSocketMessage,
   WebSocketMessageType,
 } from "./serverTypes.js";
-
-// Conversation memory manager type
-export * from "./conversationMemoryInterface.js";
-
-// Conversation types (selective to avoid collisions)
+// Service types - NEW
+export * from "./serviceTypes.js";
+// Stream types - NEW (selective export to avoid conflicts)
 export type {
-  StorageConfig,
-  ConversationData,
-  ConversationSummary,
-  NeurolinkOptions,
-} from "./conversation.js";
-
-// Error classes
-export {
-  AuthenticationError,
-  AuthorizationError,
-  NetworkError,
-  RateLimitError,
-} from "./errors.js";
-
+  EnhancedStreamProvider,
+  ProgressCallback,
+  StreamingMetadata,
+  StreamingOptions,
+  StreamingProgressData,
+  StreamOptions,
+  StreamResult,
+  ToolCall as StreamToolCall, // Renamed to avoid conflict with tools.js ToolCall
+  ToolCallResults,
+  ToolCalls,
+  ToolResult as StreamToolResult, // Renamed to avoid conflict with tools.js ToolResult
+} from "./streamTypes.js";
+export type { TokenRefresher } from "./subscriptionTypes.js";
 // Subscription types (Claude subscription tiers, authentication, usage tracking)
 // NOTE: subscriptionTypes.ts re-exports auth types from ./authTypes.ts for
 // backward compatibility. Import StoredOAuthTokens, TokenRefresher, etc.
 // from authTypes.ts for new code.
 export * from "./subscriptionTypes.js";
-
-// Client SDK types (selective export to avoid collisions with existing types)
-// Conflicting names are aliased with "Client" prefix.
-export type {
-  // Core config
-  ClientConfig,
-  RequestOptions as ClientRequestOptions,
-  // Retry (conflicts with configTypes.ts RetryConfig)
-  ClientRetryConfig,
-  // API response/error (ApiResponse conflicts with typeAliases.ts)
-  ClientApiResponse,
-  ApiError as ClientApiError,
-  // Provider status (conflicts with providers.ts ProviderStatus)
-  ClientProviderStatus,
-  // Streaming (StreamResult conflicts with streamTypes.ts)
-  StreamEventType as ClientStreamEventType,
-  ClientStreamEvent,
-  StreamCallbacks as ClientStreamCallbacks,
-  ClientStreamResult,
-  // Generation
-  GenerateRequestOptions as ClientGenerateRequestOptions,
-  GenerateResponse as ClientGenerateResponse,
-  StreamRequestOptions as ClientStreamRequestOptions,
-  // Agent
-  AgentExecuteOptions as ClientAgentExecuteOptions,
-  AgentExecuteResult as ClientAgentExecuteResult,
-  AgentInfo as ClientAgentInfo,
-  // Workflow
-  WorkflowExecuteOptions as ClientWorkflowExecuteOptions,
-  WorkflowExecuteResult as ClientWorkflowExecuteResult,
-  WorkflowInfo as ClientWorkflowInfo,
-  // Tool (conflicts with tools.ts ToolInfo)
-  ToolInfo as ClientToolInfo,
-  // Middleware (client HTTP middleware, distinct from AI SDK middleware)
-  Middleware as ClientMiddleware,
-  MiddlewareRequest as ClientMiddlewareRequest,
-  MiddlewareResponse as ClientMiddlewareResponse,
-  ClientMiddlewareContext,
-  // React hooks
-  ClientChatMessage,
-  UseChatOptions,
-  UseChatReturn,
-  UseAgentOptions,
-  UseAgentReturn,
-  UseWorkflowOptions,
-  UseWorkflowReturn,
-  UseVoiceOptions,
-  UseVoiceReturn,
-  UseStreamOptions,
-  UseStreamReturn,
-  UseToolsOptions,
-  UseToolsReturn,
-  // AI SDK adapter
-  LanguageModel as ClientLanguageModel,
-  LanguageModelCallOptions as ClientLanguageModelCallOptions,
-  LanguageModelResponse as ClientLanguageModelResponse,
-  LanguageModelStreamResponse as ClientLanguageModelStreamResponse,
-  NeuroLinkProviderOptions,
-  ModelOptions as ClientModelOptions,
-  // WebSocket
-  WebSocketOptions as ClientWebSocketOptions,
-  WebSocketState as ClientWebSocketState,
-  WebSocketMessageHandler as ClientWebSocketMessageHandler,
-  // Dedicated WS client types
-  WSClientState,
-  WSClientConfig,
-  WSClientMessage,
-  WSClientEventHandlers,
-  // Voice
-  SpeechRecognitionResult as ClientSpeechRecognitionResult,
-  SpeechSynthesisOptions as ClientSpeechSynthesisOptions,
-  // Authentication
-  AuthConfig as ClientAuthConfig,
-  ClientOAuth2Config,
-  ClientTokenRefreshResult,
-} from "./clientTypes.js";
-export type { TokenRefresher } from "./subscriptionTypes.js";
-
-// Proxy types (Claude API format, cloaking, routing, config, stats, server adapters)
-export * from "./proxyTypes.js";
-
-// Authentication types - Multi-provider auth system
-export type {
-  // Provider types
-  AuthProviderType,
-  AuthProviderConfig,
-  MastraAuthProvider,
-  BetterAuthConfig,
-  Auth0Config,
-  ClerkConfig,
-  FirebaseConfig,
-  SupabaseConfig,
-  WorkOSConfig,
-  JWTConfig,
-  OAuth2Config,
-  CognitoConfig,
-  KeycloakConfig,
-  CustomAuthConfig,
-  BaseAuthProviderConfig,
-
-  // User and session
-  AuthUser,
-  AuthSession,
-  TokenType,
-
-  // Token types
-  TokenValidationResult as AuthTokenValidationResult,
-  TokenClaims,
-  JWK,
-  JWKS,
-  TokenRefreshResult,
-  TokenValidationConfig,
-  TokenExtractionConfig,
-
-  // Session types
-  SessionValidationResult,
-  SessionStorage,
-
-  // Authorization
-  AuthorizationResult,
-
-  // Context
-  AuthRequestContext,
-  AuthenticatedContext,
-
-  // Configuration
-  TokenExtractionStrategy,
-  SessionConfig,
-  SessionStorageType,
-  RBACConfig,
-  PermissionDefinition,
-  AuthCacheConfig,
-
-  // Middleware
-  AuthMiddlewareOptions,
-  AuthMiddlewareConfig,
-  RBACMiddlewareConfig,
-
-  // Error types
-  AuthErrorCode,
-  AuthErrorInfo,
-  // Backward-compatible alias (was `AuthError as AuthErrorType`)
-  AuthErrorInfo as AuthErrorType,
-
-  // Event types
-  AuthEventType,
-  AuthEventData,
-  AuthEventHandler,
-
-  // Factory types
-  AuthProviderFactoryFn,
-  AuthProviderRegistration,
-
-  // Health and events
-  AuthHealthCheck,
-  AuthProviderHealthCheck,
-  AuthEvents,
-
-  // Registry types (moved from AuthProviderRegistry.ts)
-  AuthProviderMetadata,
-  AuthProviderHealthStatus,
-
-  // Composed sub-types
-  AuthTokenValidator,
-  AuthUserAuthorizer,
-  AuthSessionManager,
-  AuthRequestHandler,
-  AuthUserManager,
-  AuthLifecycle,
-} from "./authTypes.js";
-
 // Task Manager types
 export type {
-  Task,
-  TaskDefinition,
-  TaskSchedule,
-  TaskScheduleType,
+  AutoresearchTaskConfig,
+  ConversationEntry as TaskConversationEntry,
   CronSchedule,
   IntervalSchedule,
   OnceSchedule,
-  TaskExecutionMode,
-  TaskStatus,
-  TaskRunResult,
-  TaskRunError,
-  TaskStore,
+  ScheduledTaskType,
+  Task,
   TaskBackend,
   TaskBackendName,
+  TaskDefinition,
+  TaskExecutionMode,
   TaskManagerConfig,
   TaskRetentionConfig,
+  TaskRunError,
+  TaskRunResult,
+  TaskSchedule,
+  TaskScheduleType,
+  TaskStatus,
+  TaskStore,
   WorkerState,
-  ConversationEntry as TaskConversationEntry,
 } from "./taskTypes.js";
 export { TASK_DEFAULTS } from "./taskTypes.js";
+// TTS (Text-to-Speech) types
+export * from "./ttsTypes.js";
+// Utilities Types - Utility module types (selective export to avoid conflicts)
+export * from "./utilities.js";
+// Workflow types (ScoreResult aliased to avoid collision with scorerTypes.ts ScoreResult)
+export type {
+  AggregatedUsage,
+  ConditioningConfig,
+  ConditionOptions,
+  ConditionResult,
+  EnsembleExecutionResult,
+  EnsembleResponse,
+  ExecuteEnsembleOptions,
+  ExecuteLayerOptions,
+  ExecuteModelOptions,
+  ExecutionConfig,
+  ExecutionStrategy,
+  JudgeConfig,
+  JudgeOutputFormat,
+  JudgeScores,
+  LayerExecutionResult,
+  ListOptions,
+  ModelGroup,
+  MultiJudgeScores,
+  ParsedJudgeResponse,
+  RegisterOptions,
+  RegisterResult,
+  RegistryEntry,
+  RegistryStats,
+  ScoreOptions,
+  ScoreResult as WorkflowScoreResult,
+  SummaryStats,
+  ToneAdjustment,
+  ValidationIssues,
+  WorkflowAnalytics,
+  WorkflowComparison,
+  WorkflowConfig,
+  WorkflowErrorDetails,
+  WorkflowEvaluationData,
+  WorkflowExecutionMetrics,
+  WorkflowGenerateOptions,
+  WorkflowInput,
+  WorkflowMetadata,
+  WorkflowModelConfig,
+  WorkflowResult,
+  WorkflowType,
+  WorkflowValidationError,
+  WorkflowValidationResult,
+  WorkflowValidationWarning,
+} from "./workflowTypes.js";
+export { WorkflowError } from "./workflowTypes.js";

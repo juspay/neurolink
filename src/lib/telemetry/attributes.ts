@@ -97,4 +97,20 @@ export const ATTR = {
   // Middleware
   MW_COUNT: "middleware.count",
   MW_NAMES: "middleware.names",
+  // Autoresearch
+  AR_TAG: "autoresearch.tag",
+  AR_BRANCH: "autoresearch.branch",
+  AR_PHASE: "autoresearch.phase",
+  AR_PHASE_FROM: "autoresearch.phase_from",
+  AR_PHASE_TO: "autoresearch.phase_to",
+  AR_RUN_COUNT: "autoresearch.run_count",
+  AR_KEEP_COUNT: "autoresearch.keep_count",
+  AR_STATUS: "autoresearch.status",
+  AR_METRIC: "autoresearch.metric",
+  AR_BEST_METRIC: "autoresearch.best_metric",
+  AR_DIRECTION: "autoresearch.metric_direction",
+  AR_COMMIT: "autoresearch.commit",
+  AR_DURATION_MS: "autoresearch.duration_ms",
+  AR_DESCRIPTION: "autoresearch.description",
+  AR_ERROR_CODE: "autoresearch.error_code",
 } as const;

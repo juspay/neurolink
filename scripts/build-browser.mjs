@@ -65,6 +65,8 @@ export const createHmac = (algorithm, key) => createHash(algorithm);
 export const randomBytes = (n) => new Uint8Array(n||32);
 export const randomUUID = () => globalThis.crypto?.randomUUID?.() || Math.random().toString(36);
 export const webcrypto = globalThis.crypto;
+export const appendFileSync = () => { throw new Error('[NeuroLink:browser] fs.appendFileSync is not supported in browser runtime — use server-side execution'); };
+export const cpSync = () => { throw new Error('[NeuroLink:browser] fs.cpSync is not supported in browser runtime — use server-side execution'); };
 export const createServer = () => ({listen:noop,close:noop,on:noop});
 export const join = (...a) => a.join('/');
 export const resolve = (...a) => a.join('/');

@@ -45,6 +45,7 @@ Each recipe follows a consistent structure:
 
 - [**Structured Output with JSON Schema**](structured-output.md) - Extract structured data with type safety
 - [**Tool Chaining**](tool-chaining.md) - Chain multiple MCP tool calls together
+- [**AutoResearch Quickstart**](autoresearch-quickstart.md) - Set up an autonomous AI experiment loop in under 5 minutes
 
 ## How to Use These Recipes
 

@@ -1155,6 +1155,26 @@ export abstract class BaseProvider implements AIProvider {
       },
       responseTime: 0, // BaseProvider doesn't track response time directly
       toolsUsed: result.toolsUsed || [],
+      // Map toolExecutions from EnhancedGenerateResult shape to TextGenerationResult shape
+      // Preserve original timing/status fields when present, fall back to safe defaults
+      toolExecutions: result.toolExecutions?.map((te) => {
+        const t = te as Record<string, unknown>;
+        return {
+          // Spread original fields first so normalized fields take precedence
+          ...te,
+          toolName: te.name,
+          executionTime:
+            typeof t.executionTime === "number"
+              ? t.executionTime
+              : typeof t.duration === "number"
+                ? t.duration
+                : 0,
+          success:
+            typeof t.success === "boolean"
+              ? t.success
+              : t.status === undefined || t.status === "success",
+        };
+      }),
       enhancedWithTools: !!(result.toolsUsed && result.toolsUsed.length > 0),
       analytics: result.analytics,
       evaluation: result.evaluation,

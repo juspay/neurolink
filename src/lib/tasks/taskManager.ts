@@ -10,12 +10,9 @@
  */
 
 import { nanoid } from "nanoid";
-import { logger } from "../utils/logger.js";
-import { TaskBackendRegistry } from "./backends/taskBackendRegistry.js";
-import { TaskError } from "./errors.js";
-import { TaskExecutor } from "./taskExecutor.js";
 import {
   type NeuroLinkExecutable,
+  TASK_DEFAULTS,
   type Task,
   type TaskBackend,
   type TaskDefinition,
@@ -23,8 +20,12 @@ import {
   type TaskRunResult,
   type TaskStatus,
   type TaskStore,
-  TASK_DEFAULTS,
 } from "../types/taskTypes.js";
+import { logger } from "../utils/logger.js";
+import { clearWorkerCache } from "./autoresearchTaskExecutor.js";
+import { TaskBackendRegistry } from "./backends/taskBackendRegistry.js";
+import { TaskError } from "./errors.js";
+import { TaskExecutor } from "./taskExecutor.js";
 
 export class TaskManager {
   private config: TaskManagerConfig;
@@ -94,8 +95,8 @@ export class TaskManager {
     this.backend = await TaskBackendRegistry.create(backendName, this.config);
     await this.backend.initialize();
 
-    // Create executor
-    this.executor = new TaskExecutor(this.neurolink, this.store);
+    // Create executor (pass emitter for autoresearch lifecycle events)
+    this.executor = new TaskExecutor(this.neurolink, this.store, this.emitter);
 
     // Re-schedule active tasks from store (handles restarts)
     await this.rescheduleActiveTasks();
@@ -165,12 +166,44 @@ export class TaskManager {
     }
 
     const now = new Date().toISOString();
+
+    // Autoresearch validation
+    const taskType = definition.type ?? "standard";
+    if (taskType === "autoresearch") {
+      const ar = definition.autoresearch;
+      if (!ar) {
+        throw TaskError.create(
+          "TASK_VALIDATION_FAILED",
+          'Tasks with type "autoresearch" require an autoresearch config.',
+        );
+      }
+      if (
+        !ar.repoPath ||
+        !ar.runCommand ||
+        !ar.mutablePaths?.length ||
+        !ar.metric
+      ) {
+        throw TaskError.create(
+          "TASK_VALIDATION_FAILED",
+          "Autoresearch config must include repoPath, runCommand, mutablePaths (non-empty), and metric.",
+        );
+      }
+    }
+    // Reject autoresearch config on non-autoresearch tasks
+    if (definition.autoresearch && taskType !== "autoresearch") {
+      throw TaskError.create(
+        "TASK_VALIDATION_FAILED",
+        'Tasks with autoresearch config must have type "autoresearch".',
+      );
+    }
+
     const task: Task = {
       id: `task_${nanoid(12)}`,
       name: definition.name,
       prompt: definition.prompt,
       schedule: definition.schedule,
       mode: definition.mode ?? TASK_DEFAULTS.mode,
+      type: taskType,
       status: "active",
       tools: definition.tools ?? TASK_DEFAULTS.tools,
       timeout: definition.timeout ?? TASK_DEFAULTS.timeout,
@@ -202,6 +235,9 @@ export class TaskManager {
         ? { maxRuns: definition.maxRuns }
         : {}),
       ...(definition.metadata ? { metadata: definition.metadata } : {}),
+      ...(definition.autoresearch
+        ? { autoresearch: definition.autoresearch }
+        : {}),
     };
 
     // Generate session ID for continuation mode
@@ -474,6 +510,7 @@ export class TaskManager {
       await this.store.shutdown();
     }
     this.callbacks.clear();
+    clearWorkerCache();
     this.initialized = false;
     this.initPromise = null;
     logger.info("[TaskManager] Shut down");

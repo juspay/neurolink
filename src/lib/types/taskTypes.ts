@@ -7,7 +7,45 @@
 
 import type { Cron } from "croner";
 import type { createClient } from "redis";
+import type { MemoryMetricConfig, MetricConfig } from "./autoresearchTypes.js";
 import type { ThinkingLevel } from "./configTypes.js";
+
+// ── Task Type Discriminator ─────────────────────────────
+
+/**
+ * Discriminator for standard vs autoresearch tasks.
+ * - "standard": Normal prompt-based task (default)
+ * - "autoresearch": Autonomous experiment loop task
+ */
+export type ScheduledTaskType = "standard" | "autoresearch";
+
+// ── Autoresearch Task Config ────────────────────────────
+
+/**
+ * Configuration for autoresearch tasks.
+ * Embedded in TaskDefinition/Task when type === "autoresearch".
+ */
+export type AutoresearchTaskConfig = {
+  repoPath: string;
+  mutablePaths: string[];
+  runCommand: string;
+  metric: MetricConfig;
+  immutablePaths?: string[];
+  timeoutMs?: number;
+  maxExperiments?: number;
+  provider?: string;
+  model?: string;
+  thinkingLevel?: ThinkingLevel;
+  maxBudgetUsd?: number;
+  // Artifact layout — forwarded to ResearchWorker so scheduled runs
+  // faithfully reproduce the full research config.
+  programPath?: string;
+  resultsPath?: string;
+  statePath?: string;
+  logPath?: string;
+  branchPrefix?: string;
+  memoryMetric?: MemoryMetricConfig;
+};
 
 // ── Schedule Types ──────────────────────────────────────
 
@@ -61,6 +99,11 @@ export type TaskDefinition = {
   schedule: TaskSchedule;
   mode?: TaskExecutionMode;
 
+  /** Task type discriminator. Default: "standard" */
+  type?: ScheduledTaskType;
+  /** Autoresearch config (required when type === "autoresearch") */
+  autoresearch?: AutoresearchTaskConfig;
+
   // Provider overrides
   provider?: string;
   model?: string;
@@ -102,7 +145,12 @@ export type Task = {
   prompt: string;
   schedule: TaskSchedule;
   mode: TaskExecutionMode;
+  /** Task type discriminator. Default: "standard" */
+  type: ScheduledTaskType;
   status: TaskStatus;
+
+  /** Autoresearch config (present when type === "autoresearch") */
+  autoresearch?: AutoresearchTaskConfig;
 
   // Provider overrides
   provider?: string;

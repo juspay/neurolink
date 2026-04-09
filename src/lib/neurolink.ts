@@ -49,10 +49,10 @@ import {
 import { ContextBudgetExceededError } from "./context/errors.js";
 import { repairToolPairs } from "./context/toolPairRepair.js";
 import { SYSTEM_LIMITS } from "./core/constants.js";
-import { createToolEventPayload } from "./core/toolEvents.js";
 import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
 import { AIProviderFactory } from "./core/factory.js";
 import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
+import { createToolEventPayload } from "./core/toolEvents.js";
 import { ProviderRegistry } from "./factories/providerRegistry.js";
 import { FileReferenceRegistry } from "./files/fileReferenceRegistry.js";
 import { createFileTools } from "./files/fileTools.js";
@@ -3742,6 +3742,7 @@ Current user's request: ${currentInput}`;
       region: options.region,
       tts: options.tts,
       fileRegistry: this.fileRegistry,
+      timeout: options.timeout,
       abortSignal: options.abortSignal,
       skipToolPromptInjection: options.skipToolPromptInjection,
       middleware: options.middleware,
@@ -5882,7 +5883,28 @@ Current user's request: ${currentInput}`;
           responseTime,
           finishReason: result.finishReason,
           toolsUsed: result.toolsUsed || [],
-          enhancedWithTools: false,
+          // Map toolExecutions from EnhancedGenerateResult shape ({name,input,output})
+          // to TextGenerationResult shape ({toolName,executionTime,success}).
+          // Preserve original timing/status when present, fall back to safe defaults.
+          toolExecutions: result.toolExecutions?.map((te) => {
+            const t = te as Record<string, unknown>;
+            return {
+              // Spread original fields first so normalized fields take precedence
+              ...te,
+              toolName: te.name,
+              executionTime:
+                typeof t.executionTime === "number"
+                  ? t.executionTime
+                  : typeof t.duration === "number"
+                    ? t.duration
+                    : 0,
+              success:
+                typeof t.success === "boolean"
+                  ? t.success
+                  : t.status === "success",
+            };
+          }),
+          enhancedWithTools: !!result.toolExecutions?.length,
           analytics: result.analytics,
           evaluation: result.evaluation,
           audio: result.audio,

@@ -5,6 +5,7 @@ import {
   NoOutputGeneratedError,
   Output,
   type Schema,
+  stepCountIs,
   streamText,
   type Tool,
 } from "ai";
@@ -268,7 +269,7 @@ export class LiteLLMProvider extends BaseProvider {
           Object.keys(tools).length > 0 && {
             tools,
             toolChoice: resolveToolChoice(options, tools, shouldUseTools),
-            maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
+            stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
           }),
         abortSignal: composeAbortSignals(
           options.abortSignal,

@@ -42,6 +42,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 | Feature                             | Version | Description                                                                                                                                                   | Guide                                                                 |
 | ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **AutoResearch**                    | v9.17.0 | Autonomous AI experiment engine: proposes code changes, runs experiments, evaluates metrics, keeps improvements — unattended for hours.                       | [AutoResearch Guide](docs/features/autoresearch.md)                   |
 | **MCP Enhancements**                | v9.16.0 | Advanced MCP features: tool routing, result caching, request batching, annotations, elicitation, custom server base, multi-server management                  | [MCP Enhancements Guide](docs/features/mcp-enhancements.md)           |
 | **Memory**                          | v9.12.0 | Per-user condensed memory that persists across conversations. LLM-powered condensation with S3, Redis, or SQLite backends.                                    | [Memory Guide](docs/features/memory.md)                               |
 | **Context Window Management**       | v9.2.0  | 4-stage compaction pipeline with auto-detection, budget gate at 80% usage, per-provider token estimation                                                      | [Context Compaction Guide](docs/features/context-compaction.md)       |
@@ -55,6 +56,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 | **Image Generation with Gemini**    | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI.                | [Image Generation Guide](docs/image-generation-streaming.md)          |
 | **HTTP/Streamable HTTP Transport**  | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.                 | [HTTP Transport Guide](docs/mcp-http-transport.md)                    |
 
+- **AutoResearch** – Autonomous AI experiment engine inspired by Karpathy's autoresearch. Phase-gated tool access, git-backed safety, deterministic metric evaluation, and TaskManager integration for continuous unattended research. 12 research tools, 10 typed events, 9 CLI subcommands. → [AutoResearch Guide](docs/features/autoresearch.md)
 - **Memory** – Per-user condensed memory that persists across all conversations. Automatically retrieves and stores memory on each `generate()`/`stream()` call. Supports S3, Redis, and SQLite storage with LLM-powered condensation. → [Memory Guide](docs/features/memory.md)
 - **External TracerProvider Support** – Integrate NeuroLink with applications that already have OpenTelemetry instrumentation. Supports auto-detection and manual configuration. → [Observability Guide](docs/features/observability.md)
 - **Claude Proxy Telemetry** – Bootstrap a local OpenObserve + OTEL collector stack with `neurolink proxy telemetry setup`, import the maintained NeuroLink Proxy Observability dashboard, and inspect proxy logs, traces, metrics, cache reuse, and routing behavior. → [Claude Proxy Guide](docs/features/claude-proxy.md) | [Proxy Observability Guide](docs/features/claude-proxy-observability.md)
@@ -89,6 +91,23 @@ const image = await neurolink.generate({
   model: "imagen-3.0-generate-002",
 });
 console.log(image.imageOutput?.base64); // Base64-encoded image
+
+// AutoResearch — autonomous experiment loop (v9.17.0)
+import { resolveConfig, ResearchWorker } from "@juspay/neurolink/autoresearch";
+
+const config = resolveConfig({
+  repoPath: "/path/to/repo",
+  mutablePaths: ["train.py"],
+  runCommand: "python3 train.py",
+  metric: {
+    name: "val_bpb",
+    direction: "lower",
+    pattern: "^val_bpb:\\s+([\\d.]+)",
+  },
+});
+const worker = new ResearchWorker(config);
+await worker.initialize("experiment-1");
+const result = await worker.runExperimentCycle("Try lower learning rate");
 
 // HTTP Transport for Remote MCP (v8.29.0)
 await neurolink.addExternalMCPServer("remote-tools", {

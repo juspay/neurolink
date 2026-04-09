@@ -14,6 +14,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 | Feature                                                                     | Description                                                                                                                                                                                  |
 | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[AutoResearch](autoresearch.md)**                                         | Autonomous AI experiment engine: proposes code changes, runs experiments, evaluates metrics, keeps improvements — runs unattended for hours.                                                 |
 | **[MCP Enhancements](mcp-enhancements.md)**                                 | Advanced MCP features: ToolRouter, ToolCache, RequestBatcher, tool annotations, elicitation protocol, and custom MCP server creation.                                                        |
 | **[PPT Generation](ppt-generation.md)**                                     | Generate professional PowerPoint presentations from text prompts with 35 slide types, 5 themes, and optional AI images.                                                                      |
 | **[Video Generation](video-generation.md)**                                 | Generate videos from text prompts using RunwayML (ML5, ML6 Turbo models).                                                                                                                    |
@@ -32,6 +33,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 **Q1 2026 Highlights:**
 
+- **AutoResearch**: Autonomous AI experiment engine inspired by Karpathy's autoresearch. Phase-gated tool access (9 phases), git-backed safety with automatic revert, deterministic metric evaluation via regex, TaskManager integration for continuous unattended research, 12 research tools, 10 typed events, and 9 CLI subcommands
 - **Authentication Providers**: Pluggable multi-provider authentication system with 11 providers, per-call token validation in generate/stream, composable middleware (auth + RBAC + rate limiting), in-memory and Redis session storage, AsyncLocalStorage context propagation, and CLI management commands
 - **MCP Enhancements**: Advanced MCP features including intelligent tool routing (round-robin, least-loaded, capability-based), result caching with LRU/FIFO/LFU eviction, request batching, tool annotations with safety levels, elicitation protocol for interactive input, MCPServerBase for custom servers, and multi-server management with load balancing
 - **PPT Generation**: Create AI-powered PowerPoint presentations with 35 slide types (title, content, charts, timelines, dashboards, composite layouts), 5 built-in themes, optional AI-generated images, and multi-provider support (Vertex, OpenAI, Anthropic, Google AI, Azure, Bedrock)

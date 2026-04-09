@@ -3,11 +3,13 @@ import {
   type LanguageModel,
   NoOutputGeneratedError,
   type Schema,
+  stepCountIs,
   streamText,
   type Tool,
 } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
+import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import type { NeuroLink } from "../neurolink.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
@@ -278,6 +280,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
           : {}),
         tools,
         toolChoice: resolveToolChoice(options, tools, shouldUseTools),
+        stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
         abortSignal: composeAbortSignals(
           options.abortSignal,
           timeoutController?.controller.signal,

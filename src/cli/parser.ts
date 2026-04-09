@@ -24,6 +24,7 @@ import {
 } from "./commands/proxy.js";
 import { EvaluateCommandFactory } from "./commands/evaluate.js";
 import { TaskCommandFactory } from "./commands/task.js";
+import { AutoresearchCommandFactory } from "./commands/autoresearch.js";
 
 // Enhanced CLI with Professional UX
 export function initializeCliParser() {
@@ -263,5 +264,8 @@ export function initializeCliParser() {
 
       // Task Command Group - Scheduled and self-running tasks
       .command(TaskCommandFactory.createTaskCommands())
+
+      // AutoResearch Command Group - Automated AI-driven research experiments
+      .command(AutoresearchCommandFactory.createAutoresearchCommands())
   ); // Close the main return statement
 }

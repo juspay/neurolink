@@ -17,28 +17,27 @@
  */
 
 import { spawn } from "node:child_process";
-import { openSync } from "node:fs";
+import { mkdirSync, openSync } from "node:fs";
 import { join } from "node:path";
-import { mkdirSync } from "node:fs";
 import chalk from "chalk";
 import { nanoid } from "nanoid";
 import ora from "ora";
 import type { CommandModule } from "yargs";
 import type {
   Task,
+  TaskExecutionMode,
+  TaskManagerConfig,
   TaskSchedule,
   TaskStatus,
-  TaskManagerConfig,
-  TaskExecutionMode,
   WorkerState,
 } from "../../lib/types/index.js";
 import { TASK_DEFAULTS } from "../../lib/types/index.js";
 import {
-  StateFileManager,
-  isProcessRunning,
+  ensureStateDir,
   formatUptime,
   getNeuroLinkDir,
-  ensureStateDir,
+  isProcessRunning,
+  StateFileManager,
 } from "../utils/serverUtils.js";
 
 const workerState = new StateFileManager<WorkerState>("task-worker-state.json");
@@ -401,6 +400,57 @@ export class TaskCommandFactory {
     return store;
   }
 
+  /** Attach autoresearch-specific event listeners for worker log output */
+  private static attachAutoresearchEventListeners(emitter: {
+    on(event: string, fn: (...args: unknown[]) => void): void;
+  }): void {
+    emitter.on("autoresearch:phase-changed", (event: unknown) => {
+      const e = event as { tag?: string; from?: string; to?: string };
+      console.info(
+        `  ${chalk.magenta("⟳")} ${chalk.dim(new Date().toLocaleTimeString())} ${chalk.magenta("phase")} ${e.from} → ${chalk.bold(e.to ?? "?")}${e.tag ? ` [${e.tag}]` : ""}`,
+      );
+    });
+    emitter.on("autoresearch:experiment-completed", (event: unknown) => {
+      const e = event as {
+        status?: string;
+        metric?: number;
+        commit?: string;
+        durationMs?: number;
+      };
+      const icon =
+        e.status === "keep"
+          ? chalk.green("✔")
+          : e.status === "discard"
+            ? chalk.yellow("↩")
+            : chalk.red("✘");
+      console.info(
+        `  ${icon} ${chalk.dim(new Date().toLocaleTimeString())} ${chalk.cyan("experiment")} ${e.status} metric=${e.metric ?? "N/A"} commit=${(e.commit ?? "").slice(0, 7)} ${e.durationMs ? `${e.durationMs}ms` : ""}`,
+      );
+    });
+    emitter.on("autoresearch:metric-improved", (event: unknown) => {
+      const e = event as {
+        previousBest?: number;
+        newBest?: number;
+        direction?: string;
+      };
+      console.info(
+        `  ${chalk.green("★")} ${chalk.dim(new Date().toLocaleTimeString())} ${chalk.green("new best metric")} ${e.previousBest} → ${chalk.bold(String(e.newBest))} (${e.direction})`,
+      );
+    });
+    emitter.on("autoresearch:error", (event: unknown) => {
+      const e = event as {
+        code?: string;
+        error?: string;
+        message?: string;
+        phase?: string;
+      };
+      const errMsg = e.error ?? e.message ?? "unknown";
+      console.info(
+        `  ${chalk.red("⚠")} ${chalk.dim(new Date().toLocaleTimeString())} ${chalk.red("autoresearch error")} [${e.code}] ${errMsg.slice(0, 100)}${e.phase ? ` (phase: ${e.phase})` : ""}`,
+      );
+    });
+  }
+
   /** Attach event listeners and keep the process alive for scheduled task execution */
   private static enterWorkerMode(
     neurolink: {
@@ -440,6 +490,9 @@ export class TaskCommandFactory {
           `  ${chalk.red("✘")} ${chalk.dim(new Date().toLocaleTimeString())} ${chalk.cyan(r.taskId)} — ${chalk.red(r.error?.slice(0, 100) || "unknown error")}`,
         );
       });
+
+      // Autoresearch lifecycle events
+      TaskCommandFactory.attachAutoresearchEventListeners(emitter);
     }
 
     // Graceful shutdown on Ctrl+C
@@ -493,6 +546,7 @@ export class TaskCommandFactory {
         prompt: argv.prompt,
         schedule,
         mode,
+        type: "standard",
         status: "active",
         tools: TASK_DEFAULTS.tools,
         timeout: TASK_DEFAULTS.timeout,
@@ -1064,6 +1118,9 @@ export class TaskCommandFactory {
           `[task-worker] ✘ ${new Date().toISOString()} ${r.taskId} — ${r.error?.slice(0, 200) || "unknown error"}`,
         );
       });
+
+      // Autoresearch lifecycle events
+      TaskCommandFactory.attachAutoresearchEventListeners(emitter);
     }
 
     // Graceful shutdown

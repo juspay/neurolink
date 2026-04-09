@@ -2,6 +2,19 @@
  * Common utility types for NeuroLink
  */
 
+import type {
+  AutoresearchErrorEvent,
+  AutoresearchExperimentCompletedEvent,
+  AutoresearchExperimentStartedEvent,
+  AutoresearchInitializedEvent,
+  AutoresearchMetricImprovedEvent,
+  AutoresearchPhaseChangedEvent,
+  AutoresearchResumedEvent,
+  AutoresearchRevertEvent,
+  AutoresearchRevertFailedEvent,
+  AutoresearchStateUpdatedEvent,
+} from "./autoresearchTypes.js";
+
 /**
  * Type-safe unknown value - use when type is truly unknown
  */
@@ -195,6 +208,18 @@ export type NeuroLinkEvents = {
 
   // Log events
   "log-event": unknown;
+
+  // Autoresearch lifecycle events
+  "autoresearch:initialized": AutoresearchInitializedEvent;
+  "autoresearch:resumed": AutoresearchResumedEvent;
+  "autoresearch:phase-changed": AutoresearchPhaseChangedEvent;
+  "autoresearch:experiment-started": AutoresearchExperimentStartedEvent;
+  "autoresearch:experiment-completed": AutoresearchExperimentCompletedEvent;
+  "autoresearch:metric-improved": AutoresearchMetricImprovedEvent;
+  "autoresearch:revert": AutoresearchRevertEvent;
+  "autoresearch:revert-failed": AutoresearchRevertFailedEvent;
+  "autoresearch:state-updated": AutoresearchStateUpdatedEvent;
+  "autoresearch:error": AutoresearchErrorEvent;
 
   // Allow any additional event for flexibility
   [key: string]: unknown;

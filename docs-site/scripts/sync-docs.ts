@@ -987,6 +987,8 @@ const LINK_MAPPINGS: Record<string, string> = {
   "mcp-enhancements-diagrams.md": "/features/mcp-enhancements-diagrams",
   "client-sdk": "/features/client-sdk",
   "client-sdk.md": "/features/client-sdk",
+  autoresearch: "/features/autoresearch",
+  "autoresearch.md": "/features/autoresearch",
 
   // Cookbook - absolute paths
   "batch-processing": "/cookbook/batch-processing",
@@ -999,6 +1001,8 @@ const LINK_MAPPINGS: Record<string, string> = {
   "tool-chaining": "/cookbook/tool-chaining",
   "context-window-management": "/cookbook/context-window-management",
   "conversation-summarization": "/cookbook/conversation-summarization",
+  "autoresearch-quickstart": "/cookbook/autoresearch-quickstart",
+  "autoresearch-quickstart.md": "/cookbook/autoresearch-quickstart",
 
   // Getting started - absolute paths
   "provider-setup": "/getting-started/provider-setup",

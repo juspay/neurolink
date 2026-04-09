@@ -1,0 +1,13 @@
+{
+  "mutablePaths": ["train.py"],
+  "immutablePaths": ["prepare.py", "program.md"],
+  "runCommand": "python3 train.py",
+  "metric": {
+    "name": "val_bpb",
+    "direction": "lower",
+    "pattern": "^val_bpb:\\s+([\\d.]+)"
+  },
+  "timeoutMs": 600000,
+  "provider": "google-vertex",
+  "model": "gemini-2.5-flash"
+}

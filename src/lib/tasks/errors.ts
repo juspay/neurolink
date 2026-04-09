@@ -15,6 +15,7 @@ export const TaskErrorCodes = {
   TASK_LIMIT_REACHED: "TASK-005",
   TASK_DISABLED: "TASK-006",
   SCHEDULE_FAILED: "TASK-007",
+  TASK_VALIDATION_FAILED: "TASK-008",
 } as const;
 
 export const TaskError = createErrorFactory("Task", TaskErrorCodes);

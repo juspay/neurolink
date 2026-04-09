@@ -9,14 +9,16 @@
  */
 
 import { nanoid } from "nanoid";
-import { logger } from "../utils/logger.js";
+import type { AutoresearchEmitter } from "../types/autoresearchTypes.js";
 import type {
-  TaskStore,
-  Task,
-  TaskRunResult,
   ConversationEntry,
   NeuroLinkExecutable,
+  Task,
+  TaskRunResult,
+  TaskStore,
 } from "../types/taskTypes.js";
+import { logger } from "../utils/logger.js";
+import { executeAutoresearchTick } from "./autoresearchTaskExecutor.js";
 
 /** Errors that are transient and should be retried */
 const TRANSIENT_PATTERNS = [
@@ -43,6 +45,7 @@ export class TaskExecutor {
   constructor(
     private neurolink: NeuroLinkExecutable,
     private store: TaskStore,
+    private emitter?: AutoresearchEmitter,
   ) {}
 
   /**
@@ -102,6 +105,11 @@ export class TaskExecutor {
   // ── Internal ──────────────────────────────────────────
 
   private async executeOnce(task: Task, runId: string): Promise<TaskRunResult> {
+    // ── Autoresearch routing ──
+    if (task.type === "autoresearch") {
+      return executeAutoresearchTick(task, this.neurolink, this.emitter);
+    }
+
     const startTime = Date.now();
 
     // Build generate options
