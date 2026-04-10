@@ -37,6 +37,7 @@ import type {
   Memory,
   StorageConfig,
 } from "../memory/hippocampusInitializer.js";
+
 export type { Memory, StorageConfig };
 
 /**
@@ -463,7 +464,11 @@ export type AgenticLoopReportType =
 /**
  * Status of an agentic loop report
  */
-export type AgenticLoopReportStatus = "INPROGRESS" | "COMPLETED";
+export type AgenticLoopReportStatus =
+  | "INPROGRESS"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "FAILED";
 
 /**
  * Metadata for an individual agentic loop report
@@ -594,6 +599,9 @@ export type ConversationSummary = ConversationBase & {
 export type RedisStorageConfig = {
   /** Redis connection URL (e.g., 'rediss://host:6379' for TLS) */
   url?: string;
+
+  /** Redis username for ACL authentication (optional) */
+  username?: string;
 
   /** Redis host (default: 'localhost') */
   host?: string;

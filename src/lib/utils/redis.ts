@@ -453,6 +453,7 @@ export function getNormalizedConfig(
 
   let host = config.host || "localhost";
   let port = config.port || 6379;
+  let username = config.username || "";
   let password = config.password || "";
   let db = config.db || 0;
   let url = config.url;
@@ -462,12 +463,13 @@ export function getNormalizedConfig(
       const parsedUrl = new URL(url);
       host = parsedUrl.hostname;
       port = parsedUrl.port ? parseInt(parsedUrl.port) : 6379;
+      username = parsedUrl.username || username;
       password = parsedUrl.password || password;
       db = parsedUrl.pathname
         ? parseInt(parsedUrl.pathname.replace("/", "")) || 0
         : 0;
     } catch (e) {
-      const sanitizedUrl = url.replace(/:\/\/[^:]+:[^@]+@/, "://[redacted]@");
+      const sanitizedUrl = url.replace(/:\/\/[^@]+@/, "://[redacted]@");
       logger.warn(
         "[redisUtils] Failed to parse Redis URL, falling back to component-based connection",
         {
@@ -484,6 +486,7 @@ export function getNormalizedConfig(
     host,
     port,
     password,
+    username,
     db,
     keyPrefix,
     userSessionsKeyPrefix:

@@ -296,7 +296,11 @@ export class Utilities {
         error?: unknown;
       };
       if (mcpResult.success) {
-        return mcpResult.data;
+        // If `data` field exists, return it (standard MCP format).
+        // Otherwise fall back to the full result object so the LLM
+        // receives the actual payload instead of `undefined`, which
+        // would cause it to re-call the tool in a loop.
+        return mcpResult.data !== undefined ? mcpResult.data : result;
       } else {
         // Instead of throwing, return a structured error result
         // This prevents tool failures from terminating streams
