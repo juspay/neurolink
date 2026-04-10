@@ -1589,6 +1589,179 @@ async function downloadImageFromUrl(url: string): Promise<string> {
 }
 
 /**
+ * Get MIME type from file extension
+ */
+function getMimeTypeFromExtension(filePath: string): string {
+  const ext = filePath.toLowerCase().split(".").pop();
+  switch (ext) {
+    case "png":
+      return "image/png";
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    case "bmp":
+      return "image/bmp";
+    case "tiff":
+    case "tif":
+      return "image/tiff";
+    default:
+      return "image/jpeg";
+  }
+}
+
+/**
+ * Detect MIME type from buffer magic bytes
+ * Returns undefined if format cannot be detected
+ */
+function detectMimeTypeFromBuffer(buffer: Buffer): string | undefined {
+  // JPEG: FF D8 FF
+  if (
+    buffer.length >= 3 &&
+    buffer[0] === 0xff &&
+    buffer[1] === 0xd8 &&
+    buffer[2] === 0xff
+  ) {
+    return "image/jpeg";
+  }
+
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return "image/png";
+  }
+
+  // GIF: 47 49 46 38 (37|39) 61
+  if (
+    buffer.length >= 6 &&
+    buffer[0] === 0x47 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x38 &&
+    (buffer[4] === 0x37 || buffer[4] === 0x39) &&
+    buffer[5] === 0x61
+  ) {
+    return "image/gif";
+  }
+
+  // WebP: 52 49 46 46 ?? ?? ?? ?? 57 45 42 50
+  if (
+    buffer.length >= 12 &&
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46 &&
+    buffer[8] === 0x57 &&
+    buffer[9] === 0x45 &&
+    buffer[10] === 0x42 &&
+    buffer[11] === 0x50
+  ) {
+    return "image/webp";
+  }
+
+  // BMP: 42 4D
+  if (buffer.length >= 2 && buffer[0] === 0x42 && buffer[1] === 0x4d) {
+    return "image/bmp";
+  }
+
+  // TIFF: (49 49 2A 00) or (4D 4D 00 2A)
+  if (
+    buffer.length >= 4 &&
+    ((buffer[0] === 0x49 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x2a &&
+      buffer[3] === 0x00) ||
+      (buffer[0] === 0x4d &&
+        buffer[1] === 0x4d &&
+        buffer[2] === 0x00 &&
+        buffer[3] === 0x2a))
+  ) {
+    return "image/tiff";
+  }
+
+  return undefined;
+}
+
+/**
+ * Convert file path to raw base64 string.
+ * Returns raw base64 (not a data: URI) to avoid SSRF validation in AI SDK v6.
+ */
+function convertFilePathToBase64(filePath: string): string {
+  if (!existsSync(filePath)) {
+    throw new Error(`Image file not found: ${filePath}`);
+  }
+
+  const buffer = readFileSync(filePath);
+  return buffer.toString("base64");
+}
+
+/**
+ * Process a single image input and convert to raw base64 format.
+ * IMPORTANT: Returns raw base64 (not a data: URI) to avoid SSRF validation
+ * in Vercel AI SDK v6. The SDK calls `new URL(image)` on string values;
+ * a data: URI is a valid URL, causing the SDK to "download" it and hit
+ * validateDownloadUrl which throws "URL scheme must be http or https, got data:".
+ * Passing raw base64 avoids this because `new URL(base64string)` throws and
+ * the SDK treats the string as inline base64 data instead.
+ */
+function processImageToBase64(
+  image: Buffer | string,
+  index: number,
+): { imageData: string; mimeType: string } {
+  let imageData: string;
+  let mimeType = "image/jpeg"; // Default mime type
+
+  if (typeof image === "string") {
+    if (image.startsWith("data:")) {
+      // Data URI (including downloaded URLs) - extract mime type and raw base64
+      const match = image.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        mimeType = match[1];
+        imageData = match[2]; // Raw base64 only — NOT the full data: URI
+      } else {
+        imageData = image;
+      }
+    } else if (isInternetUrl(image)) {
+      // This should not happen as URLs are processed separately
+      throw new Error(`Unprocessed URL found in actualImages: ${image}`);
+    } else {
+      // File path string - convert to raw base64
+      try {
+        imageData = convertFilePathToBase64(image);
+        mimeType = getMimeTypeFromExtension(image);
+      } catch (error) {
+        MultimodalLogger.logError("FILE_PATH_CONVERSION", error as Error, {
+          index,
+          filePath: image,
+        });
+        throw new Error(
+          `Failed to convert file path to base64: ${image}. ${error}`,
+          { cause: error },
+        );
+      }
+    }
+  } else {
+    // Buffer - convert to raw base64 with proper MIME type detection
+    const detectedMimeType = detectMimeTypeFromBuffer(image);
+    if (detectedMimeType) {
+      mimeType = detectedMimeType;
+    }
+    imageData = image.toString("base64");
+  }
+
+  return { imageData, mimeType };
+}
+
+/**
  * Convert simple images format to Vercel AI SDK format with smart auto-detection
  * - URLs: Downloaded and converted to base64 for Vercel AI SDK compatibility
  * - Local files: Converted to base64 for Vercel AI SDK compatibility
@@ -1668,80 +1841,8 @@ async function convertSimpleImagesToProviderFormat(
   // Process all images (including downloaded URLs) for Vercel AI SDK
   actualImages.forEach(({ data: image }, index) => {
     try {
-      // Vercel AI SDK v6 expects { type: 'image', image: Buffer | string, mimeType?: string }
-      // IMPORTANT: The `image` field must be raw base64 or a Buffer — NOT a data: URI string.
-      // The AI SDK v6's download pipeline calls `new URL(image)` on string values. A data: URI
-      // is a valid URL, so the SDK tries to "download" it, which hits SSRF validation
-      // (validateDownloadUrl) and throws "URL scheme must be http or https, got data:".
-      // Passing raw base64 avoids this because `new URL(base64string)` throws and the SDK
-      // treats the string as inline base64 data instead.
-      let imageData: string;
-      let mimeType = "image/jpeg"; // Default mime type
-
-      if (typeof image === "string") {
-        if (image.startsWith("data:")) {
-          // Data URI (including downloaded URLs) - extract mime type and raw base64
-          const match = image.match(/^data:([^;]+);base64,(.+)$/);
-          if (match) {
-            mimeType = match[1];
-            imageData = match[2]; // Raw base64 only — NOT the full data: URI
-          } else {
-            imageData = image;
-          }
-        } else if (isInternetUrl(image)) {
-          // This should not happen as URLs are processed separately above
-          // But handle it gracefully just in case
-          throw new Error(`Unprocessed URL found in actualImages: ${image}`);
-        } else {
-          // File path string - convert to base64
-          try {
-            if (existsSync(image)) {
-              const buffer = readFileSync(image);
-              const base64 = buffer.toString("base64");
-
-              // Detect mime type from file extension
-              const ext = image.toLowerCase().split(".").pop();
-              switch (ext) {
-                case "png":
-                  mimeType = "image/png";
-                  break;
-                case "gif":
-                  mimeType = "image/gif";
-                  break;
-                case "webp":
-                  mimeType = "image/webp";
-                  break;
-                case "bmp":
-                  mimeType = "image/bmp";
-                  break;
-                case "tiff":
-                case "tif":
-                  mimeType = "image/tiff";
-                  break;
-                default:
-                  mimeType = "image/jpeg";
-                  break;
-              }
-
-              imageData = base64; // Raw base64 only
-            } else {
-              throw new Error(`Image file not found: ${image}`);
-            }
-          } catch (error) {
-            MultimodalLogger.logError("FILE_PATH_CONVERSION", error as Error, {
-              index,
-              filePath: image,
-            });
-            throw new Error(
-              `Failed to convert file path to base64: ${image}. ${error}`,
-              { cause: error },
-            );
-          }
-        }
-      } else {
-        // Buffer - convert to raw base64
-        imageData = image.toString("base64");
-      }
+      // Use helper function to process image and reduce nesting depth
+      const { imageData, mimeType } = processImageToBase64(image, index);
 
       content.push({
         type: "image" as const,
