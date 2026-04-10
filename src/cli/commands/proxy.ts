@@ -60,7 +60,18 @@ const PROXY_TELEMETRY_SCRIPT_PATH = fileURLToPath(
 // STATE MANAGEMENT
 // =============================================================================
 
-const proxyStateManager = new StateFileManager<ProxyState>("proxy-state.json");
+let proxyStateManager = new StateFileManager<ProxyState>("proxy-state.json");
+
+/**
+ * Reinitialise the state manager with a custom base directory.
+ * Called when --dev redirects writable paths to .neurolink-dev/.
+ */
+function setProxyStateDir(baseDir: string): void {
+  proxyStateManager = new StateFileManager<ProxyState>(
+    "proxy-state.json",
+    baseDir,
+  );
+}
 
 function saveProxyState(state: ProxyState): void {
   proxyStateManager.save(state);
@@ -468,7 +479,7 @@ async function loadProxyStartEnv(
   }
 }
 
-async function createProxyNeurolinkRuntime() {
+async function createProxyNeurolinkRuntime(logsDir?: string) {
   process.env.NEUROLINK_SKIP_MCP = "true";
 
   const { NeuroLink } = await import("../../lib/neurolink.js");
@@ -476,7 +487,7 @@ async function createProxyNeurolinkRuntime() {
   const { initRequestLogger, cleanupLogs } =
     await import("../../lib/proxy/requestLogger.js");
 
-  initRequestLogger(true);
+  initRequestLogger(true, logsDir);
   cleanupLogs(7, 500);
 
   return { neurolink, cleanupLogs };
@@ -929,6 +940,7 @@ function registerProxyShutdownHandlers(params: {
   server: { close?: () => void };
   host: string;
   port: number;
+  isDev?: boolean;
   refreshInterval: NodeJS.Timeout;
   logCleanupInterval: NodeJS.Timeout;
 }): void {
@@ -946,7 +958,7 @@ function registerProxyShutdownHandlers(params: {
       // non-fatal — proxy shutdown must not block on OTel
     }
 
-    if (signal === "SIGINT") {
+    if (signal === "SIGINT" && !params.isDev) {
       try {
         const shutdownHost =
           params.host === "0.0.0.0" ? "localhost" : params.host;
@@ -992,7 +1004,11 @@ async function startProxyRuntime(params: {
     port: params.port,
     hostname: params.host,
   });
-  const guardPid = spawnFailOpenGuard(params.host, params.port, process.pid);
+  // Skip the fail-open guard in dev mode — it monitors the proxy and clears
+  // global Claude settings on exit, which is exactly what we want to avoid.
+  const guardPid = params.argv.dev
+    ? undefined
+    : spawnFailOpenGuard(params.host, params.port, process.pid);
   const readinessHost = params.host === "0.0.0.0" ? "127.0.0.1" : params.host;
   await waitForProxyReadiness({
     host: readinessHost,
@@ -1031,12 +1047,20 @@ async function startProxyRuntime(params: {
     params.spinner.succeed(chalk.green("Claude proxy started successfully"));
   }
 
+  const isDev = params.argv.dev ?? false;
   const normalizedHost = params.host === "0.0.0.0" ? "localhost" : params.host;
   const url = `http://${normalizedHost}:${params.port}`;
   printProxyBanner(url, params.strategy);
-  logger.always(
-    `  ${chalk.bold("Mode:")}       ${chalk.cyan(params.passthrough ? "passthrough" : "full")}`,
-  );
+
+  if (isDev) {
+    logger.always(
+      `  ${chalk.bold("Mode:")}       ${chalk.magenta("dev (isolated — state in .neurolink-dev/)")}`,
+    );
+  } else {
+    logger.always(
+      `  ${chalk.bold("Mode:")}       ${chalk.cyan(params.passthrough ? "passthrough" : "full")}`,
+    );
+  }
   if (params.passthrough) {
     logger.always(
       chalk.yellow(
@@ -1055,16 +1079,22 @@ async function startProxyRuntime(params: {
     );
   }
 
-  try {
-    await setClaudeProxySettings(url);
-    logger.always(chalk.green("  ✓ Auto-configured Claude Code settings"));
+  if (!isDev) {
+    try {
+      await setClaudeProxySettings(url);
+      logger.always(chalk.green("  ✓ Auto-configured Claude Code settings"));
+      logger.always(
+        chalk.dim("    Restart Claude Code to connect through proxy"),
+      );
+    } catch (error) {
+      logger.debug(
+        "[proxy] Failed to auto-configure Claude Code: " +
+          (error instanceof Error ? error.message : String(error)),
+      );
+    }
+  } else {
     logger.always(
-      chalk.dim("    Restart Claude Code to connect through proxy"),
-    );
-  } catch (error) {
-    logger.debug(
-      "[proxy] Failed to auto-configure Claude Code: " +
-        (error instanceof Error ? error.message : String(error)),
+      chalk.dim("  ⊘ Dev mode: skipping client auto-configuration"),
     );
   }
 
@@ -1073,17 +1103,44 @@ async function startProxyRuntime(params: {
     server,
     host: params.host,
     port: params.port,
+    isDev,
     ...maintenance,
   });
 }
 
 async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
   const spinner = argv.quiet ? null : ora("Starting Claude proxy...").start();
+  const isDev = argv.dev ?? false;
 
   try {
-    await ensureProxyStartAllowed(spinner);
+    // In dev mode: redirect writable state to .neurolink-dev/ and skip singleton check
+    let devPaths:
+      | import("../../lib/proxy/proxyPaths.js").ProxyPaths
+      | undefined;
+    if (isDev) {
+      const { resolveProxyPaths } =
+        await import("../../lib/proxy/proxyPaths.js");
+      devPaths = resolveProxyPaths(true);
+      setProxyStateDir(devPaths.stateDir);
+
+      const { initAccountQuota } =
+        await import("../../lib/proxy/accountQuota.js");
+      initAccountQuota(devPaths.quotaFile);
+
+      // Ensure the dev state directory exists
+      const { mkdirSync, existsSync } = await import("fs");
+      if (!existsSync(devPaths.stateDir)) {
+        mkdirSync(devPaths.stateDir, { recursive: true, mode: 0o700 });
+      }
+    }
+
+    if (!isDev) {
+      await ensureProxyStartAllowed(spinner);
+    }
     const loadedEnvFile = await loadProxyStartEnv(argv, spinner);
-    const { neurolink, cleanupLogs } = await createProxyNeurolinkRuntime();
+    const { neurolink, cleanupLogs } = await createProxyNeurolinkRuntime(
+      devPaths?.logsDir,
+    );
     const { proxyConfig, strategy, modelRouter, passthrough } =
       await loadProxyStartConfiguration(argv, spinner);
 
@@ -1201,6 +1258,12 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
         default: false,
         description:
           "Run in transparent passthrough mode (no retry, no rotation, no polyfill)",
+      })
+      .option("dev", {
+        type: "boolean",
+        default: false,
+        description:
+          "Run in isolated dev mode — state files scoped to .neurolink-dev/ in cwd, no client auto-configuration, no singleton check",
       })
       .example(
         "neurolink proxy start",

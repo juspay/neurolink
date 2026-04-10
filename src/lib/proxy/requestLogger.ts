@@ -67,14 +67,17 @@ const SENSITIVE_HEADER_PATTERN = /token|secret|key|password|credential/i;
 const SENSITIVE_BODY_KEYS =
   /("(?:password|access_token|refresh_token|api_key|apiKey|secret|authorization|token|credential|x-api-key)"\s*:\s*)"(?:[^"\\]|\\.)*"/gi;
 
-export function initRequestLogger(enabled: boolean = true): void {
+export function initRequestLogger(
+  enabled: boolean = true,
+  customLogsDir?: string,
+): void {
   logEnabled = enabled;
   if (!enabled) {
     return;
   }
 
   try {
-    logDir = join(homedir(), ".neurolink", "logs");
+    logDir = customLogsDir ?? join(homedir(), ".neurolink", "logs");
     if (!existsSync(logDir)) {
       mkdirSync(logDir, { recursive: true, mode: 0o700 });
     }

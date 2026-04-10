@@ -10,7 +10,7 @@
  * path is never blocked by file I/O.
  */
 
-import { join } from "path";
+import { dirname, join } from "path";
 import { homedir } from "os";
 import { promises as fs } from "fs";
 import type { AccountQuota } from "../types/index.js";
@@ -93,12 +93,35 @@ let cacheLoaded = false;
 let dirty = false;
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
+/** Custom quota file path set via initAccountQuota(). */
+let customQuotaFilePath: string | null = null;
+
+/**
+ * Initialise the quota module with a custom file path.
+ * When set, all reads/writes go to this path instead of the default
+ * ~/.neurolink/account-quotas.json. Call before the first load/save.
+ */
+export function initAccountQuota(quotaFilePath: string): void {
+  customQuotaFilePath = quotaFilePath;
+  // Cancel any pending flush from a previous configuration so it does not
+  // write stale data to the new path.
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  // Reset cache so the new path is picked up on next load
+  memoryCache = {};
+  cacheLoaded = false;
+  dirty = false;
+}
+
 function getQuotaFilePath(): string {
-  return join(homedir(), ".neurolink", QUOTA_FILE);
+  return customQuotaFilePath ?? join(homedir(), ".neurolink", QUOTA_FILE);
 }
 
 async function ensureDir(): Promise<void> {
-  const dir = join(homedir(), ".neurolink");
+  const filePath = getQuotaFilePath();
+  const dir = dirname(filePath);
   await fs.mkdir(dir, { recursive: true, mode: 0o700 }).catch(() => {
     // Non-fatal: directory may already exist
   });

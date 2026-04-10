@@ -877,6 +877,7 @@ export type ProxyStartArgs = {
   config?: string;
   envFile?: string;
   passthrough?: boolean;
+  dev?: boolean;
 };
 
 /** Arguments accepted by `neurolink proxy status` */
