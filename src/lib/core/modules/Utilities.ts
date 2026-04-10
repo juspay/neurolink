@@ -44,12 +44,28 @@ import { STEP_LIMITS } from "../constants.js";
  * Utilities class - Provides validation, normalization, and utility methods
  */
 export class Utilities {
+  // Not readonly so BaseProvider.setRequestTimeout() can override it per-request
+  private defaultTimeout: number;
+
   constructor(
     private readonly providerName: AIProviderName,
     private readonly modelName: string,
-    private readonly defaultTimeout: number = 30000,
+    defaultTimeout: number = 30000,
     private readonly middlewareOptions?: MiddlewareFactoryOptions,
-  ) {}
+  ) {
+    this.defaultTimeout = defaultTimeout;
+  }
+
+  /**
+   * Override the default timeout used when no per-call timeout is specified.
+   * Called by BaseProvider.setRequestTimeout() to propagate options.timeout
+   * onto the provider instance before generation starts, ensuring that any
+   * internal code path that falls back to defaultTimeout uses the caller's
+   * requested value instead of the static 30 000 ms default.
+   */
+  setDefaultTimeout(timeoutMs: number): void {
+    this.defaultTimeout = timeoutMs;
+  }
 
   /**
    * Validate text generation options
