@@ -1,3 +1,9 @@
+## [9.51.0](https://github.com/juspay/neurolink/compare/v9.50.2...v9.51.0) (2026-04-10)
+
+### Features
+
+- **(proxy):** add --dev flag for isolated local proxy instances ([f9c0a35](https://github.com/juspay/neurolink/commit/f9c0a35b91d528750adca5ae241b87fbf0f0bfbc))
+
 ## [9.50.2](https://github.com/juspay/neurolink/compare/v9.50.1...v9.50.2) (2026-04-09)
 
 ### Bug Fixes
