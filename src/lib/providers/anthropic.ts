@@ -14,6 +14,7 @@ import {
   ANTHROPIC_TOKEN_URL,
   CLAUDE_CLI_USER_AGENT,
   CLAUDE_CODE_CLIENT_ID,
+  CLAUDE_CODE_OAUTH_BETAS,
 } from "../auth/anthropicOAuth.js";
 import {
   type AIProviderName,
@@ -439,6 +440,9 @@ export class AnthropicProvider extends BaseProvider {
       anthropic = createAnthropic({
         apiKey: apiKeyToUse,
         headers,
+        ...(process.env.ANTHROPIC_BASE_URL && {
+          baseURL: process.env.ANTHROPIC_BASE_URL,
+        }),
         fetch: createProxyFetch(),
       });
 
@@ -489,9 +493,23 @@ export class AnthropicProvider extends BaseProvider {
   public getAuthHeaders(): Record<string, string> {
     const headers: Record<string, string> = {};
 
-    // Add beta headers if enabled
+    // When routing through proxy (ANTHROPIC_BASE_URL set), use the full
+    // OAuth beta set so the proxy forwards them upstream. Without these,
+    // Anthropic treats the request with tighter non-subscription rate limits.
+    const usingProxy = !!process.env.ANTHROPIC_BASE_URL;
+
     if (this.enableBetaFeatures) {
-      headers["anthropic-beta"] = ANTHROPIC_BETA_HEADERS["anthropic-beta"];
+      if (usingProxy) {
+        headers["anthropic-beta"] = [
+          ...CLAUDE_CODE_OAUTH_BETAS,
+          "fine-grained-tool-streaming-2025-05-14",
+          "context-1m-2025-08-07",
+          "interleaved-thinking-2025-05-14",
+          "redact-thinking-2026-02-12",
+        ].join(",");
+      } else {
+        headers["anthropic-beta"] = ANTHROPIC_BETA_HEADERS["anthropic-beta"];
+      }
     }
 
     // Add subscription-specific headers if applicable

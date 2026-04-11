@@ -27,7 +27,7 @@ const STREAMING_CONVERSATIONAL_TOOL_THRESHOLD = 4;
 const STRONG_TOOL_FIDELITY_THRESHOLD = 8;
 const HIGH_TOOL_COUNT_THRESHOLD = 24;
 const DEFAULT_COOLDOWN_FLOOR_MS = 1_000;
-const HIGH_TOOL_COUNT_COOLDOWN_FLOOR_MS = 120_000;
+const HIGH_TOOL_COUNT_COOLDOWN_FLOOR_MS = 10_000;
 const HIGH_FIDELITY_COOLDOWN_FLOOR_MS = 300_000;
 
 export function inferClaudeProxyModelTier(
@@ -346,12 +346,16 @@ export function applyRateLimitCooldownScope(args: {
     mtBackoffLevels[modelTierKey] ?? 0,
   );
 
-  const floorMs =
-    args.profile.modelTier === "opus" || args.profile.requiresStrongToolFidelity
+  // High-tool-count-non-stream gets its own (lower) floor so that requests
+  // recover faster once proper OAuth betas are forwarded. Check it first
+  // because every >=24-tool request also satisfies requiresStrongToolFidelity
+  // (threshold 8), which would otherwise shadow this branch.
+  const floorMs = args.profile.isHighToolCountNonStream
+    ? HIGH_TOOL_COUNT_COOLDOWN_FLOOR_MS
+    : args.profile.modelTier === "opus" ||
+        args.profile.requiresStrongToolFidelity
       ? HIGH_FIDELITY_COOLDOWN_FLOOR_MS
-      : args.profile.isHighToolCountNonStream
-        ? HIGH_TOOL_COUNT_COOLDOWN_FLOOR_MS
-        : DEFAULT_COOLDOWN_FLOOR_MS;
+      : DEFAULT_COOLDOWN_FLOOR_MS;
   const baseCooldownMs = Math.max(args.retryAfterMs ?? 0, floorMs);
   const backoffMs = Math.min(
     baseCooldownMs * 2 ** scopedBackoffLevel,
