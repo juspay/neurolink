@@ -273,6 +273,13 @@ export type ChatMessageMetadata = {
   toolOutputPreview?: string;
   /** Original byte size of the full tool output before any truncation */
   originalSize?: number;
+  /**
+   * Artifact store ID for an externalized MCP tool output.
+   * Set when `mcp.outputLimits.strategy = "externalize"` and the tool output
+   * exceeded `maxBytes`. Use retrieve_context with this ID to fetch the full
+   * payload from the local artifact store.
+   */
+  artifactId?: string;
 };
 
 /**

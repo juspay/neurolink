@@ -109,6 +109,39 @@ export type MCPEnhancementsConfig = {
   };
   /** Global tool middleware applied to every tool execution. Default: empty. */
   middleware?: ToolMiddleware[];
+
+  /**
+   * Large MCP tool output handling.
+   *
+   * MCP servers can return arbitrarily large payloads. Without limits these
+   * are loaded entirely into memory, cached in full, stored whole in Redis, and
+   * injected into the LLM context window — all of which silently fail at scale.
+   *
+   * When configured, NeuroLink intercepts oversized outputs at the tool boundary
+   * (before caching and before memory persistence) and applies the chosen
+   * strategy so the model receives a compact surrogate instead of a firehose.
+   *
+   * Two strategies:
+   *  - "inline"      Keep sending the full payload to the model regardless of
+   *                  size. A warning is emitted above warnBytes.
+   *  - "externalize" Store the full payload on disk as an artifact and return a
+   *                  compact surrogate with a head/tail preview and an artifact
+   *                  ID. The model uses `retrieve_context` with that ID to read
+   *                  the full output on demand, with offset/limit pagination.
+   *
+   * Defaults (when `outputLimits` is set):
+   *  strategy  = "externalize"
+   *  maxBytes  = 100 KB (100 * 1024)
+   *  warnBytes =  50 KB  (50 * 1024)
+   */
+  outputLimits?: {
+    /** What to do when output exceeds maxBytes. Default: "externalize". */
+    strategy?: "inline" | "externalize";
+    /** Byte ceiling above which the strategy fires. Default: 102400 (100 KB). */
+    maxBytes?: number;
+    /** Bytes at which a warning is emitted even when still inline. Default: 51200 (50 KB). */
+    warnBytes?: number;
+  };
 };
 
 /**

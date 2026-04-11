@@ -276,6 +276,20 @@ export class ExternalServerManager extends EventEmitter {
   }
 
   /**
+   * Attach a McpOutputNormalizer to the underlying ToolDiscoveryService.
+   * All tool outputs will be measured and (if oversized) replaced with compact
+   * surrogates before being returned to callers.
+   */
+  setOutputNormalizer(
+    normalizer: import("./mcpOutputNormalizer.js").McpOutputNormalizer,
+  ): void {
+    this.toolDiscovery.setOutputNormalizer(normalizer);
+    mcpLogger.debug(
+      "[ExternalServerManager] MCP output normalizer attached to ToolDiscoveryService",
+    );
+  }
+
+  /**
    * Set HITL manager for human-in-the-loop safety mechanisms
    * @param hitlManager - HITL manager instance (optional, can be undefined to disable)
    */

@@ -10,7 +10,9 @@
 import { tool } from "ai";
 import { z } from "zod";
 import type { RedisConversationMemoryManager } from "../core/redisConversationMemoryManager.js";
+import type { ArtifactStore } from "../artifacts/artifactStore.js";
 import { logger } from "../utils/logger.js";
+import { withTimeout } from "../utils/errorHandling.js";
 import {
   SpanSerializer,
   SpanType,
@@ -29,21 +31,44 @@ const MAX_SEARCH_MATCHES = 50;
 
 /**
  * Factory function that creates memory retrieval tools bound to a memory manager.
- * @param memoryManager - The Redis conversation memory manager instance
+ *
+ * @param memoryManager  Redis conversation memory manager instance.
+ * @param artifactStore  Optional artifact store for externalized MCP outputs.
+ *                       When provided, retrieve_context gains an `artifactId`
+ *                       parameter that fetches the full payload written by
+ *                       McpOutputNormalizer under strategy="externalize".
  * @returns Record of tool name to Vercel AI SDK tool definition
  */
 export function createMemoryRetrievalTools(
-  memoryManager: RedisConversationMemoryManager,
+  memoryManager: RedisConversationMemoryManager | undefined,
+  artifactStore?: ArtifactStore,
 ) {
   return {
     retrieve_context: tool({
       description:
-        "Retrieve messages from conversation memory. Use this to access full tool " +
-        "outputs when a result was truncated, review previous assistant responses, " +
-        "or search through conversation history. Supports filtering by role, " +
-        "pagination for large content, and regex search within messages.",
+        "Retrieve messages from conversation memory, or fetch the full payload of " +
+        "an externalized MCP tool output by artifact ID. Use this to:\n" +
+        "• Access full tool outputs when a result was truncated or externalized\n" +
+        "• Review previous assistant responses\n" +
+        "• Search through conversation history\n" +
+        "Supports filtering by role, pagination for large content, and regex search.\n" +
+        "To fetch an externalized artifact, provide `artifactId` (omit sessionId).",
       inputSchema: z.object({
-        sessionId: z.string().describe("Session ID for the conversation"),
+        sessionId: z
+          .string()
+          .optional()
+          .describe(
+            "Session ID for conversation history retrieval. " +
+              "Required unless artifactId is provided.",
+          ),
+        artifactId: z
+          .string()
+          .optional()
+          .describe(
+            "Artifact ID from an externalized MCP tool output " +
+              "(visible in the tool output as neurolinkArtifactId=<id>). " +
+              "When provided, returns the full stored payload directly.",
+          ),
         messageId: z
           .string()
           .optional()
@@ -81,6 +106,68 @@ export function createMemoryRetrievalTools(
           ),
       }),
       execute: async (args) => {
+        // ── Artifact resolution path ────────────────────────────────────────
+        // When the caller supplies an artifactId we short-circuit to the
+        // artifact store (bypassing Redis) and return the full payload with
+        // optional offset/limit pagination.
+        if (args.artifactId) {
+          if (!artifactStore) {
+            logger.warn(
+              "[MemoryRetrievalTools] retrieve_context called with artifactId " +
+                "but no ArtifactStore is configured",
+            );
+            return {
+              error:
+                "Artifact store not configured — " +
+                "mcp.outputLimits.strategy must be set to 'externalize' to use artifactId retrieval",
+              artifactId: args.artifactId,
+            };
+          }
+          const content = await withTimeout(
+            artifactStore.retrieve(args.artifactId),
+            10_000,
+            new Error(
+              `ArtifactStore.retrieve() timed out for artifact "${args.artifactId}"`,
+            ),
+          );
+          if (content === null) {
+            return {
+              error: "Artifact not found or has expired",
+              artifactId: args.artifactId,
+            };
+          }
+          const charLimit = Math.min(
+            args.limit ?? DEFAULT_RETRIEVAL_LIMIT,
+            MAX_RETRIEVAL_LIMIT,
+          );
+          const start = args.offset ?? 0;
+          const slice = content.slice(start, start + charLimit);
+          return {
+            artifactId: args.artifactId,
+            content: slice,
+            totalSize: content.length,
+            hasMore: start + charLimit < content.length,
+            offset: start,
+            limit: charLimit,
+          };
+        }
+        // ── End artifact resolution ─────────────────────────────────────────
+
+        if (!args.sessionId) {
+          return {
+            error: "sessionId is required when artifactId is not provided",
+          };
+        }
+
+        if (!memoryManager) {
+          return {
+            error:
+              "Session history retrieval requires Redis conversation memory — " +
+              "enable mcp.conversationMemory with a Redis backend, or use " +
+              "artifactId to retrieve an externalized MCP tool output.",
+          };
+        }
+
         const span = SpanSerializer.createSpan(
           SpanType.MEMORY,
           "memory.retrieve",
@@ -92,15 +179,20 @@ export function createMemoryRetrievalTools(
           },
         );
         const startTime = Date.now();
+        // args.sessionId is guaranteed non-null here — we returned early above
+        // when it was missing. Cast via string coercion to satisfy eslint.
+        const sessionId = String(args.sessionId);
         try {
-          const conversation = await memoryManager.getSessionRaw(
-            args.sessionId,
+          const conversation = await withTimeout(
+            memoryManager.getSessionRaw(sessionId),
+            10_000,
+            new Error(`getSessionRaw() timed out for session "${sessionId}"`),
           );
           if (!conversation) {
             span.durationMs = Date.now() - startTime;
             const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
             getMetricsAggregator().recordSpan(endedSpan);
-            return { error: "Session not found", sessionId: args.sessionId };
+            return { error: "Session not found", sessionId };
           }
 
           let messages = conversation.messages;

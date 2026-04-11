@@ -8,6 +8,7 @@ import { tracers } from "../telemetry/tracers.js";
 import { randomUUID } from "crypto";
 import { MESSAGES_PER_TURN } from "../config/conversationMemory.js";
 import { generateToolOutputPreview } from "../context/toolOutputLimits.js";
+import { NEUROLINK_ARTIFACT_ID_KEY } from "../mcp/mcpOutputNormalizer.js";
 import { SummarizationEngine } from "../context/summarizationEngine.js";
 import { NeuroLink } from "../neurolink.js";
 import type {
@@ -1863,11 +1864,32 @@ User message: "${userMessage}"`;
           },
         );
 
+        // Extract artifact ID if this result was externalized by McpOutputNormalizer.
+        // The surrogate carries `_meta.neurolinkArtifactId` on the raw result object.
+        let artifactId: string | undefined;
+        try {
+          const rawResult = toolResult.result;
+          if (rawResult && typeof rawResult === "object") {
+            const meta = (rawResult as Record<string, unknown>)._meta;
+            if (meta && typeof meta === "object") {
+              const idValue = (meta as Record<string, unknown>)[
+                NEUROLINK_ARTIFACT_ID_KEY
+              ];
+              if (typeof idValue === "string") {
+                artifactId = idValue;
+              }
+            }
+          }
+        } catch {
+          // Ignore extraction errors — artifact ID is best-effort metadata
+        }
+
         // Build metadata — only store preview when truncation occurred (no duplication)
         const metadata: ChatMessageMetadata = {
           truncated,
           ...(truncated && { toolOutputPreview: preview }),
           ...(truncated && { originalSize }),
+          ...(artifactId && { artifactId }),
         };
 
         // Build result — success/error metadata only, NOT the output data

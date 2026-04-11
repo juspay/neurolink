@@ -36,6 +36,19 @@ export type {
   ExternalMCPToolInfo,
   ExternalMCPToolResult,
 } from "./externalMcp.js";
+// Artifact store types
+export type {
+  ArtifactMeta,
+  ArtifactRef,
+  ArtifactStore,
+} from "./artifactTypes.js";
+// MCP output normalizer types
+export type {
+  McpOutputContext,
+  McpOutputNormalizerConfig,
+  McpOutputStrategy,
+  NormalizedMcpOutput,
+} from "./mcpOutputTypes.js";
 // MCP domain types
 export type {
   AuthorizationUrlResult,

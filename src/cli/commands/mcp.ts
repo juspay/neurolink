@@ -881,119 +881,179 @@ export class MCPCommandFactory {
       }
 
       const sdk = new NeuroLink();
-      await this.getMCPStatusWithTimeout(sdk);
-
-      // Check if server exists and is connected
-      const allServers = await sdk.listMCPServers();
-      const server = allServers.find((s) => s.name === serverName);
-
-      if (!server) {
-        if (spinner) {
-          spinner.fail();
-        }
-        logger.error(chalk.red(`❌ Server not found: ${serverName}`));
-        process.exit(1);
-      }
-
-      if (server.status !== "connected") {
-        if (spinner) {
-          spinner.fail();
-        }
-        logger.error(chalk.red(`❌ Server not connected: ${serverName}`));
-        logger.always(chalk.yellow("💡 Try: neurolink mcp test " + serverName));
-        process.exit(1);
-      }
-
-      // Check if tool exists
-      const tool = server.tools?.find((t) => t.name === toolName);
-      if (!tool) {
-        if (spinner) {
-          spinner.fail();
-        }
-        logger.error(chalk.red(`❌ Tool not found: ${toolName}`));
-        if (server.tools?.length) {
-          logger.always(chalk.blue("Available tools:"));
-          server.tools.forEach((t) => {
-            logger.always(`  • ${t.name}: ${t.description}`);
-          });
-        }
-        process.exit(1);
-      }
-
-      // Execute the tool using the NeuroLink MCP tool registry
+      let exitCode = 0;
       try {
-        const { toolRegistry } = await import("../../lib/mcp/toolRegistry.js");
-        const executionResult = await toolRegistry.executeTool(
-          toolName,
-          params,
-          {
-            sessionId: `cli-${Date.now()}`,
-            userId: process.env.USER || "cli-user",
-            config: {
-              domainType: "cli-execution",
-              customData: { serverName },
-            },
-          },
-        );
+        await this.getMCPStatusWithTimeout(sdk);
 
-        const result = {
-          tool: toolName,
-          server: serverName,
-          params,
-          result: executionResult,
-          success: true,
-          timestamp: new Date().toISOString(),
-        };
+        // Check if server exists and is connected
+        const allServers = await sdk.listMCPServers();
+        const server = allServers.find((s) => s.name === serverName);
 
-        if (spinner) {
-          spinner.succeed(chalk.green("✅ Tool executed successfully"));
-        }
-
-        // Display results
-        if (argv.format === "json") {
-          logger.always(JSON.stringify(result, null, 2));
-        } else {
-          logger.always(chalk.green("🔧 Tool Execution Results:"));
-          logger.always(`   Tool: ${chalk.cyan(toolName)}`);
-          logger.always(`   Server: ${chalk.cyan(serverName)}`);
+        if (!server) {
+          if (spinner) {
+            spinner.fail();
+          }
+          logger.error(chalk.red(`❌ Server not found: ${serverName}`));
+          exitCode = 1;
+        } else if (server.status !== "connected") {
+          if (spinner) {
+            spinner.fail();
+          }
+          logger.error(chalk.red(`❌ Server not connected: ${serverName}`));
           logger.always(
-            `   Result: ${JSON.stringify(executionResult, null, 2)}`,
+            chalk.yellow("💡 Try: neurolink mcp test " + serverName),
           );
-          logger.always(`   Timestamp: ${result.timestamp}`);
-        }
-      } catch (toolError) {
-        const errorMessage =
-          toolError instanceof Error ? toolError.message : String(toolError);
-
-        if (spinner) {
-          spinner.fail(chalk.red("❌ Tool execution failed"));
-        }
-
-        const result = {
-          tool: toolName,
-          server: serverName,
-          params,
-          _error: errorMessage,
-          success: false,
-          timestamp: new Date().toISOString(),
-        };
-
-        if (argv.format === "json") {
-          logger.always(JSON.stringify(result, null, 2));
+          exitCode = 1;
         } else {
-          logger.error(chalk.red("🔧 Tool Execution Failed:"));
-          logger.error(`   Tool: ${chalk.cyan(toolName)}`);
-          logger.error(`   Server: ${chalk.cyan(serverName)}`);
-          logger.error(`   Error: ${chalk.red(errorMessage)}`);
+          // Check if tool exists
+          const tool = server.tools?.find((t) => t.name === toolName);
+          if (!tool) {
+            if (spinner) {
+              spinner.fail();
+            }
+            logger.error(chalk.red(`❌ Tool not found: ${toolName}`));
+            if (server.tools?.length) {
+              logger.always(chalk.blue("Available tools:"));
+              server.tools.forEach((t) => {
+                logger.always(`  • ${t.name}: ${t.description}`);
+              });
+            }
+            exitCode = 1;
+          } else {
+            exitCode = await this.runExecTool(
+              toolName,
+              serverName,
+              params,
+              argv,
+              spinner,
+            );
+          }
         }
-
-        process.exit(1);
+      } finally {
+        // Always shut down MCP connections to prevent lingering child processes
+        await sdk.shutdown().catch(() => undefined);
       }
+
+      // Flush stdout/stderr before exit so buffered output (spinner lines,
+      // result text) is not truncated by process.exit(). process.exit() is
+      // still required because MCP stdio connections and health-check timers
+      // keep the Node.js event loop alive even after sdk.shutdown().
+      await new Promise<void>((resolve) => {
+        process.stdout.write("", () => {
+          process.stderr.write("", () => resolve());
+        });
+      });
+      process.exit(exitCode);
     } catch (_error) {
       logger.error(
         chalk.red(`❌ Exec command failed: ${(_error as Error).message}`),
       );
       process.exit(1);
+    }
+  }
+
+  /**
+   * Run the actual MCP tool execution and format/write the output.
+   * Extracted to keep executeExec nesting within ESLint max-depth limit.
+   * Returns 0 on success, 1 on failure.
+   */
+  private static async runExecTool(
+    toolName: string,
+    serverName: string,
+    params: UnknownRecord,
+    argv: MCPCommandArgs,
+    spinner: ReturnType<typeof ora> | null,
+  ): Promise<number> {
+    const WARN_BYTES = 50 * 1024; // 50 KB
+    try {
+      const { toolRegistry } = await import("../../lib/mcp/toolRegistry.js");
+      const executionResult = await withTimeout(
+        toolRegistry.executeTool(toolName, params, {
+          sessionId: `cli-${Date.now()}`,
+          userId: process.env.USER || "cli-user",
+          config: { domainType: "cli-execution", customData: { serverName } },
+        }),
+        MCP_STATUS_TIMEOUT_MS,
+        ErrorFactory.toolTimeout(toolName, MCP_STATUS_TIMEOUT_MS),
+      );
+
+      const result = {
+        tool: toolName,
+        server: serverName,
+        params,
+        result: executionResult,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+
+      if (spinner) {
+        spinner.succeed(chalk.green("✅ Tool executed successfully"));
+      }
+
+      const resultJson = JSON.stringify(result, null, 2);
+      const resultBytes = Buffer.byteLength(resultJson, "utf-8");
+      const outputFile = argv.output as string | undefined;
+
+      if (outputFile) {
+        await fs.promises.writeFile(outputFile, resultJson, "utf-8");
+        logger.always(
+          chalk.green(`✅ Result saved to: ${chalk.cyan(outputFile)}`),
+        );
+        logger.always(
+          `   Size: ${resultBytes >= 1024 ? `${(resultBytes / 1024).toFixed(1)} KB` : `${resultBytes} B`}`,
+        );
+      } else if (argv.format === "json") {
+        if (resultBytes > WARN_BYTES) {
+          logger.warn(
+            chalk.yellow(
+              `⚠  Large result (${(resultBytes / 1024).toFixed(1)} KB). ` +
+                `Use --output <file> to save to disk instead.`,
+            ),
+          );
+        }
+        logger.always(resultJson);
+      } else {
+        if (resultBytes > WARN_BYTES) {
+          logger.warn(
+            chalk.yellow(
+              `⚠  Large result (${(resultBytes / 1024).toFixed(1)} KB). ` +
+                `Use --output <file> to save to disk instead.`,
+            ),
+          );
+        }
+        logger.always(chalk.green("🔧 Tool Execution Results:"));
+        logger.always(`   Tool: ${chalk.cyan(toolName)}`);
+        logger.always(`   Server: ${chalk.cyan(serverName)}`);
+        logger.always(`   Result: ${JSON.stringify(executionResult, null, 2)}`);
+        logger.always(`   Timestamp: ${result.timestamp}`);
+      }
+      return 0;
+    } catch (toolError) {
+      const errorMessage =
+        toolError instanceof Error ? toolError.message : String(toolError);
+
+      if (spinner) {
+        spinner.fail(chalk.red("❌ Tool execution failed"));
+      }
+
+      const result = {
+        tool: toolName,
+        server: serverName,
+        params,
+        _error: errorMessage,
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+
+      if (argv.format === "json") {
+        logger.always(JSON.stringify(result, null, 2));
+      } else {
+        logger.error(chalk.red("🔧 Tool Execution Failed:"));
+        logger.error(`   Tool: ${chalk.cyan(toolName)}`);
+        logger.error(`   Server: ${chalk.cyan(serverName)}`);
+        logger.error(`   Error: ${chalk.red(errorMessage)}`);
+      }
+      return 1;
     }
   }
 

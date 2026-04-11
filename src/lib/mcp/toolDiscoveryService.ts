@@ -32,6 +32,7 @@ import {
 import { withTimeout } from "../utils/errorHandling.js";
 import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { tracers } from "../telemetry/tracers.js";
+import type { McpOutputNormalizer } from "./mcpOutputNormalizer.js";
 
 const mcpTracer = tracers.mcp;
 
@@ -54,8 +55,21 @@ export class ToolDiscoveryService extends EventEmitter {
   private serverTools = new Map<string, Set<string>>();
   private discoveryInProgress = new Set<string>();
 
+  /** Optional normalizer applied to every tool output before it is returned. */
+  private outputNormalizer?: McpOutputNormalizer;
+
   constructor() {
     super();
+  }
+
+  /**
+   * Attach a McpOutputNormalizer.
+   * When set, every raw callTool() result is passed through the normalizer
+   * before being returned. Oversized outputs are replaced with compact
+   * surrogates according to the configured strategy.
+   */
+  setOutputNormalizer(normalizer: McpOutputNormalizer): void {
+    this.outputNormalizer = normalizer;
   }
 
   /**
@@ -517,6 +531,38 @@ export class ToolDiscoveryService extends EventEmitter {
                 new Error(`Tool execution timeout: ${toolName}`),
               );
               callSpan.setStatus({ code: SpanStatusCode.OK });
+
+              // ── MCP output normalization ──────────────────────────────────
+              // Intercept here — after receive, before cache, before memory,
+              // before LLM context injection. Returns a compact surrogate when
+              // the payload exceeds mcp.outputLimits.maxBytes.
+              if (this.outputNormalizer) {
+                try {
+                  const normalized = await this.outputNormalizer.normalize(
+                    callResult,
+                    { toolName, serverId },
+                  );
+                  callSpan.setAttribute(
+                    "mcp.output.strategy",
+                    normalized.isExternalized ? "externalize" : "inline",
+                  );
+                  if (normalized.isExternalized) {
+                    callSpan.setAttribute(
+                      "mcp.output.original_bytes",
+                      normalized.originalBytes,
+                    );
+                  }
+                  return normalized.result;
+                } catch (normErr) {
+                  mcpLogger.warn(
+                    `[ToolDiscoveryService] McpOutputNormalizer failed for ` +
+                      `${toolName}: ${normErr instanceof Error ? normErr.message : String(normErr)} ` +
+                      `— returning raw result`,
+                  );
+                }
+              }
+              // ── end normalization ─────────────────────────────────────────
+
               return callResult;
             } catch (err) {
               callSpan.setStatus({
@@ -546,7 +592,7 @@ export class ToolDiscoveryService extends EventEmitter {
         `[ToolDiscoveryService] Tool execution completed: ${toolName}`,
         {
           duration,
-          hasContent: !!result.content,
+          hasContent: !!(result as { content?: unknown })?.content,
         },
       );
 

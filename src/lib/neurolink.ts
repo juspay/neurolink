@@ -62,6 +62,13 @@ import { ToolCallBatcher } from "./mcp/batching/index.js";
 import { ToolResultCache } from "./mcp/caching/index.js";
 import { EnhancedToolDiscovery } from "./mcp/enhancedToolDiscovery.js";
 import { ExternalServerManager } from "./mcp/externalServerManager.js";
+import {
+  McpOutputNormalizer,
+  DEFAULT_MAX_MCP_OUTPUT_BYTES,
+  DEFAULT_WARN_MCP_OUTPUT_BYTES,
+} from "./mcp/mcpOutputNormalizer.js";
+import { LocalTempArtifactStore } from "./artifacts/artifactStore.js";
+import type { ArtifactStore } from "./artifacts/artifactStore.js";
 import type { MCPTool, RoutingDecision } from "./mcp/routing/index.js";
 import { ToolRouter } from "./mcp/routing/index.js";
 // Import direct tools server for automatic registration
@@ -493,6 +500,8 @@ export class NeuroLink {
   private mcpToolBatcher?: ToolCallBatcher;
   private mcpEnhancedDiscovery?: EnhancedToolDiscovery;
   private mcpToolMiddlewares: ToolMiddleware[] = [];
+  /** Artifact store for externalized MCP tool outputs (set when strategy=externalize). */
+  private mcpArtifactStore?: ArtifactStore;
   private _disableToolCacheForCurrentRequest = false;
   private mcpEnhancementsConfig?: MCPEnhancementsConfig;
 
@@ -1321,6 +1330,33 @@ export class NeuroLink {
     }
 
     // ToolRouter — lazy-initialized when 2+ external servers exist (see addExternalMCPServer)
+
+    // McpOutputNormalizer — active when mcp.outputLimits is configured
+    if (mcpConfig?.outputLimits) {
+      const strategy = mcpConfig.outputLimits.strategy ?? "externalize";
+      const maxBytes =
+        mcpConfig.outputLimits.maxBytes ?? DEFAULT_MAX_MCP_OUTPUT_BYTES;
+      const warnBytes =
+        mcpConfig.outputLimits.warnBytes ?? DEFAULT_WARN_MCP_OUTPUT_BYTES;
+
+      let artifactStore: ArtifactStore | undefined;
+      if (strategy === "externalize") {
+        artifactStore = new LocalTempArtifactStore();
+        this.mcpArtifactStore = artifactStore;
+        logger.debug("[NeuroLink] MCP artifact store initialized (local-temp)");
+      }
+
+      const normalizer = new McpOutputNormalizer(
+        { strategy, maxBytes, warnBytes },
+        artifactStore,
+      );
+      this.externalServerManager.setOutputNormalizer(normalizer);
+      logger.debug("[NeuroLink] MCP output normalizer initialized", {
+        strategy,
+        maxBytes,
+        warnBytes,
+      });
+    }
   }
 
   /**
@@ -1464,108 +1500,73 @@ export class NeuroLink {
         "redis" in memConfig &&
         !!(memConfig as { redis?: unknown }).redis) ||
       process.env.STORAGE_TYPE === "redis";
-    if (!memConfig?.enabled || !hasRedisConfig) {
+    const hasArtifactStore = !!this.mcpArtifactStore;
+
+    // Register when Redis is configured OR when an artifact store exists.
+    // Artifact store alone is sufficient for the artifactId retrieval path —
+    // session history retrieval just returns a clear error when Redis is absent.
+    if ((!memConfig?.enabled || !hasRedisConfig) && !hasArtifactStore) {
       logger.debug(
-        "[NeuroLink] Skipping memory retrieval tools — requires Redis conversation memory",
+        "[NeuroLink] Skipping memory retrieval tools — requires Redis conversation memory or an artifact store",
       );
       return;
     }
 
-    const tools = {
-      retrieve_context: {
-        description:
-          "Retrieve messages from conversation memory. Use this to access full tool " +
-          "outputs when a result was truncated, review previous assistant responses, " +
-          "or search through conversation history.",
-        execute: async (params: unknown) => {
-          // Lazy access: conversationMemory is initialized on first generate() call
-          const memoryManager = this.conversationMemory;
-          if (!memoryManager || !("getSessionRaw" in memoryManager)) {
-            return {
-              success: false,
-              error:
-                "Memory retrieval not available — Redis memory manager not initialized",
-              metadata: {
-                toolName: "retrieve_context",
-                serverId: "direct",
-                executionTime: 0,
-              },
-            };
-          }
+    // Extract the canonical tool definition (schema + description) from the
+    // memoryRetrievalTools factory. We pass undefined as the memoryManager here
+    // because we only need the Zod inputSchema and description at registration
+    // time — the actual manager is resolved lazily at execution time.
+    const canonicalTools = createMemoryRetrievalTools(
+      undefined,
+      this.mcpArtifactStore,
+    );
+    const retrieveContextDef = canonicalTools.retrieve_context;
 
-          const actualTools = createMemoryRetrievalTools(
-            memoryManager as import("./core/redisConversationMemoryManager.js").RedisConversationMemoryManager,
-          );
-          const result = await (
-            actualTools.retrieve_context.execute as (
+    // Register via this.registerTool() so the tool ends up in the "user-defined"
+    // category inside toolRegistry. getCustomTools() returns that category, which
+    // is what ToolsManager reads to build the tool schema sent to the LLM.
+    // (Tools registered via toolRegistry.registerTool() directly land in the
+    // "built-in" category and are never included in the LLM's tool schema.)
+    this.registerTool("retrieve_context", {
+      name: "retrieve_context",
+      description:
+        retrieveContextDef.description ?? "Retrieve context or artifacts",
+      // Pass the Zod schema so ToolsManager gives the LLM full parameter types.
+      // registerTool() detects isZodSchema on inputSchema and preserves it.
+      inputSchema: (retrieveContextDef as unknown as { inputSchema: object })
+        .inputSchema,
+      execute: async (params: unknown) => {
+        // Lazy: conversationMemory is initialized on the first generate() call.
+        // When only an artifact store is present (no Redis), memoryManager is
+        // undefined — createMemoryRetrievalTools handles that via an explicit guard.
+        const memoryManager = this.conversationMemory as
+          | import("./core/redisConversationMemoryManager.js").RedisConversationMemoryManager
+          | undefined;
+        const tools = createMemoryRetrievalTools(
+          memoryManager,
+          this.mcpArtifactStore,
+        );
+        // Return the result directly so the LLM receives clean output instead
+        // of a nested { success, data, metadata } wrapper.
+        // Bounded by TOOL_TIMEOUTS.EXECUTION_DEFAULT_MS so a stalled Redis or
+        // filesystem backend never hangs the tool call indefinitely.
+        return await withTimeout(
+          (
+            tools.retrieve_context.execute as (
               params: unknown,
               ctx: unknown,
             ) => Promise<unknown>
-          )(params, {
-            toolCallId: "memory-retrieval",
-            messages: [],
-          });
-          // Check if the tool itself reported an error
-          const hasError =
-            result &&
-            typeof result === "object" &&
-            "error" in result &&
-            !("messages" in result);
-          const errorMsg = hasError
-            ? (result as { error: string }).error
-            : undefined;
-          return {
-            success: !hasError,
-            data: result,
-            ...(errorMsg ? { error: errorMsg } : {}),
-            metadata: {
-              toolName: "retrieve_context",
-              serverId: "direct",
-              executionTime: 0,
-            },
-          };
-        },
+          )(params, { toolCallId: "memory-retrieval", messages: [] }),
+          TOOL_TIMEOUTS.EXECUTION_DEFAULT_MS,
+          ErrorFactory.toolTimeout(
+            "retrieve_context",
+            TOOL_TIMEOUTS.EXECUTION_DEFAULT_MS,
+          ),
+        );
       },
-    };
-
-    const registrations = Object.entries(tools).map(
-      async ([toolName, toolDef]) => {
-        const toolId = `direct.${toolName}`;
-        const toolInfo: ToolInfo = {
-          name: toolName,
-          description: toolDef.description,
-          inputSchema: {},
-          serverId: "direct",
-          category: "built-in" as MCPServerCategory,
-        };
-
-        await this.toolRegistry.registerTool(toolId, toolInfo, {
-          execute: async (params: unknown) => {
-            try {
-              return await toolDef.execute(params);
-            } catch (error) {
-              // Known limitation: this non-throwing error path returns
-              // { success: false } without recording errorCategories in
-              // toolExecutionMetrics. These are internal memory-tool failures
-              // (low frequency), so the risk of metric gaps is minimal.
-              // A full fix would require access to the metrics map here,
-              // which is not available in the registration closure.
-              return {
-                success: false,
-                error: error instanceof Error ? error.message : String(error),
-                metadata: { toolName, serverId: "direct", executionTime: 0 },
-              };
-            }
-          },
-          description: toolDef.description,
-          inputSchema: {},
-        });
-      },
-    );
-
-    void Promise.all(registrations).then(() => {
-      logger.info("[NeuroLink] Memory retrieval tools registered");
     });
+
+    logger.info("[NeuroLink] Memory retrieval tools registered");
   }
 
   /** Format memory context for prompt inclusion */
