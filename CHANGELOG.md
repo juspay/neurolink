@@ -1,3 +1,9 @@
+## [9.54.1](https://github.com/juspay/neurolink/compare/v9.54.0...v9.54.1) (2026-04-12)
+
+### Bug Fixes
+
+- **(auth):** always display OAuth URL for remote device compatibility ([922daa7](https://github.com/juspay/neurolink/commit/922daa7b32c6b22d426bb644ef85a43a72509478))
+
 ## [9.54.0](https://github.com/juspay/neurolink/compare/v9.53.0...v9.54.0) (2026-04-12)
 
 ### Features
