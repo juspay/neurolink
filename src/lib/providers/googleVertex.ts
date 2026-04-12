@@ -162,8 +162,41 @@ const getVertexLocation = (): string => {
     process.env.GOOGLE_CLOUD_LOCATION ||
     process.env.VERTEX_LOCATION ||
     process.env.GOOGLE_VERTEX_LOCATION ||
-    "us-central1"
+    "global"
   );
+};
+
+/**
+ * Resolve the correct Vertex AI location for a given model.
+ *
+ * Google-published models (gemini-*) require the global endpoint
+ * (`aiplatform.googleapis.com`), not regional endpoints like
+ * `us-east5-aiplatform.googleapis.com`. Regional endpoints return
+ * "model not found" for these models.
+ *
+ * Anthropic-on-Vertex models (claude-*) require regional endpoints
+ * and are handled separately by `createVertexAnthropicSettings`.
+ *
+ * Embedding models and custom models use the configured location as-is.
+ */
+export const resolveVertexLocation = (
+  modelName: string | undefined,
+  configuredLocation: string,
+): string => {
+  if (!modelName) {
+    return configuredLocation;
+  }
+  const normalized = modelName.toLowerCase();
+  // Google-published models always use the global endpoint.
+  // Hardcoded because Google's Vertex AI serves Gemini models exclusively
+  // from the global endpoint — regional endpoints like us-east5 return
+  // "Publisher Model was not found" errors. The env var GOOGLE_VERTEX_LOCATION
+  // is typically set for Anthropic-on-Vertex (which needs regional), so we
+  // cannot rely on it for Gemini routing.
+  if (normalized.startsWith("gemini-")) {
+    return "global";
+  }
+  return configuredLocation;
 };
 
 const getDefaultVertexModel = (): string => {
@@ -189,8 +222,11 @@ let cachedCredentialsPath: string | null = null;
 const createVertexSettings = async (
   region?: string,
   credentials?: NeurolinkCredentials["vertex"],
+  modelName?: string,
 ): Promise<GoogleVertexProviderSettings> => {
-  const location = credentials?.location || region || getVertexLocation();
+  const configuredLocation =
+    credentials?.location || region || getVertexLocation();
+  const location = resolveVertexLocation(modelName, configuredLocation);
   const project = credentials?.projectId || getVertexProjectId();
 
   const baseSettings: GoogleVertexProviderSettings = {
@@ -458,9 +494,14 @@ const createVertexAnthropicSettings = async (
   // which is invalid. The correct global endpoint omits the region prefix entirely.
   // Since the SDK doesn't handle this, redirect "global" to "us-east5" for Anthropic.
   const anthropicRegion = !region || region === "global" ? "us-east5" : region;
+  // Override credentials.location so it cannot conflict with the redirected
+  // region — createVertexSettings checks credentials.location first.
+  const anthropicCredentials = credentials?.location
+    ? { ...credentials, location: anthropicRegion }
+    : credentials;
   const baseVertexSettings = await createVertexSettings(
     anthropicRegion,
-    credentials,
+    anthropicCredentials,
   );
 
   // GoogleVertexAnthropicProviderSettings extends GoogleVertexProviderSettings
@@ -779,7 +820,10 @@ export class GoogleVertexProvider extends BaseProvider {
         networkConfig: {
           projectId: this.projectId,
           location: this.location,
-          expectedEndpoint: `https://${this.location}-aiplatform.googleapis.com`,
+          expectedEndpoint:
+            this.location === "global"
+              ? "https://aiplatform.googleapis.com"
+              : `https://${this.location}-aiplatform.googleapis.com`,
           httpProxy: process.env.HTTP_PROXY || process.env.http_proxy,
           httpsProxy: process.env.HTTPS_PROXY || process.env.https_proxy,
           noProxy: process.env.NO_PROXY || process.env.no_proxy,
@@ -800,6 +844,7 @@ export class GoogleVertexProvider extends BaseProvider {
       const vertexSettings = await createVertexSettings(
         this.location,
         this.credentials,
+        modelName,
       );
 
       const vertexSettingsEndTime = process.hrtime.bigint();
@@ -1612,13 +1657,15 @@ export class GoogleVertexProvider extends BaseProvider {
    */
   private async createVertexGenAIClient(
     regionOverride?: string,
+    modelName?: string,
   ): Promise<GenAIClient> {
     const project = this.credentials?.projectId || getVertexProjectId();
-    const location =
+    const configuredLocation =
       this.credentials?.location ||
       regionOverride ||
       this.location ||
       getVertexLocation();
+    const location = resolveVertexLocation(modelName, configuredLocation);
 
     const mod: unknown = await import("@google/genai");
     const ctor = (mod as Record<string, unknown>).GoogleGenAI as unknown;
@@ -1871,9 +1918,14 @@ export class GoogleVertexProvider extends BaseProvider {
     modelName: string,
     span: Span,
   ): Promise<StreamResult> {
-    const client = await this.createVertexGenAIClient(options.region);
-    const effectiveLocation =
-      options.region || this.location || getVertexLocation();
+    const client = await this.createVertexGenAIClient(
+      options.region,
+      modelName,
+    );
+    const effectiveLocation = resolveVertexLocation(
+      modelName,
+      options.region || this.location || getVertexLocation(),
+    );
 
     logger.debug("[GoogleVertex] Using native @google/genai for Gemini 3", {
       model: modelName,
@@ -2174,9 +2226,14 @@ export class GoogleVertexProvider extends BaseProvider {
         },
       },
       async (span) => {
-        const client = await this.createVertexGenAIClient(options.region);
-        const effectiveLocation =
-          options.region || this.location || getVertexLocation();
+        const client = await this.createVertexGenAIClient(
+          options.region,
+          modelName,
+        );
+        const effectiveLocation = resolveVertexLocation(
+          modelName,
+          options.region || this.location || getVertexLocation(),
+        );
 
         logger.debug(
           "[GoogleVertex] Using native @google/genai for Gemini 3 generate",

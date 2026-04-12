@@ -47,13 +47,11 @@ import {
   refreshToken,
 } from "../../proxy/tokenRefresh.js";
 import {
-  applyRateLimitCooldownScope,
+  applyRateLimitCooldown,
   buildProxyTranslationPlan,
-  classifyClaudeProxyRequest,
-  getActiveCooldownScope,
+  clearAccountCooldown,
+  getAccountCooldownUntil,
   partitionAccountsByCooldown,
-  summarizeSkippedFallbacks,
-  type ClaudeProxyRequestProfile,
   type ProxyTranslationPlan,
 } from "../../proxy/routingPolicy.js";
 import { writeJsonSnapshotAtomically } from "../../proxy/snapshotPersistence.js";
@@ -677,16 +675,14 @@ async function handleTranslatedClaudeRequest(args: {
 function logProxyRoutingPlan(
   logProxyBody: ProxyBodyCaptureLogger,
   stage: string,
-  plan: Pick<ProxyTranslationPlan, "profile" | "attempts" | "skipped">,
+  plan: Pick<ProxyTranslationPlan, "attempts" | "skipped">,
 ): void {
   logProxyBody({
     phase: "routing_decision",
     contentType: "application/json",
     body: {
       stage,
-      requestProfile: plan.profile,
       attempts: plan.attempts,
-      skipped: plan.skipped,
     },
   });
 }
@@ -1890,7 +1886,6 @@ async function tryConfiguredClaudeFallbackChain(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
   parsedFallbackRequest: ParsedClaudeRequest;
-  requestProfile: ClaudeProxyRequestProfile;
   modelRouter?: ModelRouter;
   tracer?: ProxyTracer;
   requestStartTime: number;
@@ -1908,12 +1903,11 @@ async function tryConfiguredClaudeFallbackChain(args: {
       cacheReadTokens?: number;
     },
   ) => void;
-}): Promise<{ response: unknown | null; fallbackPolicyReason: string | null }> {
+}): Promise<{ response: unknown | null }> {
   const {
     ctx,
     body,
     parsedFallbackRequest,
-    requestProfile,
     modelRouter,
     tracer,
     requestStartTime,
@@ -1927,29 +1921,19 @@ async function tryConfiguredClaudeFallbackChain(args: {
     body.model,
     parsedFallbackRequest,
   );
-  const fallbackPolicyReason = summarizeSkippedFallbacks(fallbackPlan);
-
   logProxyBody({
     phase: "routing_decision",
     contentType: "application/json",
     body: {
       stage: "anthropic_fallback",
-      requestProfile,
       attempts: fallbackPlan.attempts.slice(1),
-      skipped: fallbackPlan.skipped,
     },
   });
-  for (const skipped of fallbackPlan.skipped) {
-    const label = skipped.provider
-      ? `${skipped.provider}/${skipped.model ?? "unknown"}`
-      : "auto-provider";
-    logger.always(`[proxy] skipping fallback ${label}: ${skipped.reason}`);
-  }
 
   tracer?.setFallbackInfo({
     triggered: true,
     attemptCount: fallbackPlan.attempts.slice(1).length,
-    reason: fallbackPolicyReason ?? "all_anthropic_accounts_exhausted",
+    reason: "all_anthropic_accounts_exhausted",
   });
 
   for (const fallback of fallbackPlan.attempts.slice(1)) {
@@ -2000,10 +1984,7 @@ async function tryConfiguredClaudeFallbackChain(args: {
         attemptCount: fallbackPlan.attempts.slice(1).length,
         reason: "fallback_success",
       });
-      return {
-        response,
-        fallbackPolicyReason,
-      };
+      return { response };
     } catch (fallbackErr) {
       const errMsg =
         fallbackErr instanceof Error
@@ -2049,10 +2030,7 @@ async function tryConfiguredClaudeFallbackChain(args: {
     }
   }
 
-  return {
-    response: null,
-    fallbackPolicyReason,
-  };
+  return { response: null };
 }
 
 async function tryAutoClaudeFallback(args: {
@@ -2128,8 +2106,6 @@ function buildClaudeAnthropicFailureResponse(args: {
   sawRateLimit: boolean;
   lastError: unknown;
   orderedAccounts: ProxyPassthroughAccount[];
-  requestProfile: ClaudeProxyRequestProfile;
-  fallbackPolicyReason: string | null;
   buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
   logProxyBody: ProxyBodyCaptureLogger;
   logFinalRequest: (
@@ -2156,8 +2132,6 @@ function buildClaudeAnthropicFailureResponse(args: {
     sawRateLimit,
     lastError,
     orderedAccounts,
-    requestProfile,
-    fallbackPolicyReason,
     buildLoggedClaudeError,
     logProxyBody,
     logFinalRequest,
@@ -2229,39 +2203,23 @@ function buildClaudeAnthropicFailureResponse(args: {
   }
 
   const earliestRecovery = orderedAccounts.reduce((min, account) => {
-    const cooldown = getActiveCooldownScope(
-      getOrCreateRuntimeState(account.key),
-      requestProfile,
-    );
-    return cooldown ? Math.min(min, cooldown.until) : min;
+    const until = getAccountCooldownUntil(getOrCreateRuntimeState(account.key));
+    return until !== null ? Math.min(min, until) : min;
   }, Infinity);
+  // If no active cooldown remains (expired while retries ran), use 1s
+  // instead of fabricating a long retry-after.
   const retryAfterSec = Number.isFinite(earliestRecovery)
     ? Math.max(1, Math.ceil((earliestRecovery - Date.now()) / 1000))
-    : 60;
-  const contractMessage = fallbackPolicyReason
-    ? ` ${fallbackPolicyReason}`
-    : "";
+    : 1;
+  const errorMessage = `All accounts rate-limited. Earliest recovery in ${retryAfterSec}s.`;
   logger.always(
-    `[proxy] all accounts rate-limited for request-class=${requestProfile.primaryClass}, retry in ${retryAfterSec}s`,
+    `[proxy] all accounts rate-limited, retry in ${retryAfterSec}s`,
   );
-  const errorBody = buildClaudeError(
-    429,
-    `All accounts rate-limited. Earliest recovery in ${retryAfterSec}s.${contractMessage}`,
-    "overloaded_error",
-  );
-  tracer?.setError(
-    "rate_limit_error",
-    `All accounts rate-limited. Retry in ${retryAfterSec}s.${contractMessage}`,
-  );
+  const errorBody = buildClaudeError(429, errorMessage, "overloaded_error");
+  tracer?.setError("rate_limit_error", errorMessage);
   tracer?.end(429, Date.now() - requestStartTime);
   recordFinalError(429);
-  logFinalRequest(
-    429,
-    "",
-    "final",
-    "rate_limit_error",
-    `All accounts rate-limited. Retry in ${retryAfterSec}s.${contractMessage}`,
-  );
+  logFinalRequest(429, "", "final", "rate_limit_error", errorMessage);
   const errorBodyText = JSON.stringify(errorBody);
   logProxyBody({
     phase: "client_response",
@@ -2289,7 +2247,6 @@ async function handleAnthropicSuccessfulResponse(args: {
   body: ClaudeRequest;
   account: ProxyPassthroughAccount;
   accountState: RuntimeAccountState;
-  requestProfile: ClaudeProxyRequestProfile;
   response: Response;
   tracer?: ProxyTracer;
   requestStartTime: number;
@@ -2317,7 +2274,6 @@ async function handleAnthropicSuccessfulResponse(args: {
     body,
     account,
     accountState,
-    requestProfile,
     response,
     tracer,
     requestStartTime,
@@ -2328,25 +2284,8 @@ async function handleAnthropicSuccessfulResponse(args: {
     logProxyBody,
     logFinalRequest,
   } = args;
-  accountState.backoffLevel = 0;
-  accountState.coolingUntil = undefined;
+  clearAccountCooldown(accountState);
   accountState.consecutiveRefreshFailures = 0;
-  if (accountState.requestClassCooldowns) {
-    delete accountState.requestClassCooldowns[
-      `${requestProfile.primaryClass}:${requestProfile.requestedModel.toLowerCase()}`
-    ];
-  }
-  if (accountState.modelTierCooldowns) {
-    delete accountState.modelTierCooldowns[requestProfile.modelTier];
-  }
-  if (accountState.requestClassBackoffLevels) {
-    delete accountState.requestClassBackoffLevels[
-      `${requestProfile.primaryClass}:${requestProfile.requestedModel.toLowerCase()}`
-    ];
-  }
-  if (accountState.modelTierBackoffLevels) {
-    delete accountState.modelTierBackoffLevels[requestProfile.modelTier];
-  }
   logger.always(`[proxy] ← ${response.status} account=${account.label}`);
 
   const quota = parseQuotaHeaders(response.headers);
@@ -3219,7 +3158,6 @@ async function handleAnthropicAuthRetry(args: {
   body: ClaudeRequest;
   account: ProxyPassthroughAccount;
   accountState: RuntimeAccountState;
-  requestProfile: ClaudeProxyRequestProfile;
   headers: Record<string, string>;
   buildUpstreamBody: (token: string) => { bodyStr: string; sessionId?: string };
   enabledAccounts: ProxyPassthroughAccount[];
@@ -3267,7 +3205,6 @@ async function handleAnthropicAuthRetry(args: {
     body,
     account,
     accountState,
-    requestProfile,
     headers,
     buildUpstreamBody,
     enabledAccounts,
@@ -3389,9 +3326,8 @@ async function handleAnthropicAuthRetry(args: {
         const cooldownMs = Number.isNaN(parsedRetryAfter)
           ? 60_000
           : Math.max(1, parsedRetryAfter) * 1000;
-        const cooldown = applyRateLimitCooldownScope({
+        const cooldown = applyRateLimitCooldown({
           state: accountState,
-          profile: requestProfile,
           retryAfterMs: cooldownMs,
           capMs: RATE_LIMIT_BACKOFF_CAP_MS,
         });
@@ -4248,7 +4184,6 @@ async function fetchAnthropicAccountResponse(args: {
   finalBodyStr: string;
   account: ProxyPassthroughAccount;
   accountState: RuntimeAccountState;
-  requestProfile: ClaudeProxyRequestProfile;
   enabledAccounts: ProxyPassthroughAccount[];
   orderedAccounts: ProxyPassthroughAccount[];
   tracer?: ProxyTracer;
@@ -4264,7 +4199,6 @@ async function fetchAnthropicAccountResponse(args: {
     finalBodyStr,
     account,
     accountState,
-    requestProfile,
     enabledAccounts,
     orderedAccounts,
     tracer,
@@ -4330,9 +4264,8 @@ async function fetchAnthropicAccountResponse(args: {
       }
     }
 
-    const cooldown = applyRateLimitCooldownScope({
+    const cooldown = applyRateLimitCooldown({
       state: accountState,
-      profile: requestProfile,
       retryAfterMs: cooldownMs > 0 ? cooldownMs : undefined,
       capMs: RATE_LIMIT_BACKOFF_CAP_MS,
     });
@@ -4350,7 +4283,7 @@ async function fetchAnthropicAccountResponse(args: {
     );
     lastError = await response.text();
     logger.always(
-      `[proxy] ← 429 account=${account.label} backoff-level=${accountState.backoffLevel} cooldown=${Math.round(cooldown.backoffMs / 1000)}s request-class=${cooldown.requestClassKey} model-tier=${cooldown.modelTierKey}`,
+      `[proxy] ← 429 account=${account.label} backoff-level=${accountState.backoffLevel} cooldown=${Math.round(cooldown.backoffMs / 1000)}s`,
     );
     logAttempt(429, "rate_limit_error", String(lastError));
     tracer?.setError("rate_limit_error", String(lastError).slice(0, 500));
@@ -4398,7 +4331,6 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     logFinalRequest,
   } = args;
   const parsedRequest = parseClaudeRequest(body);
-  const requestProfile = classifyClaudeProxyRequest(body.model, parsedRequest);
   const loadedAccounts = await loadClaudeProxyAccounts({
     ctx,
     body,
@@ -4435,19 +4367,20 @@ async function handleAnthropicRoutedClaudeRequest(args: {
   const accountPartition = partitionAccountsByCooldown(
     orderedAccounts,
     (account) => getOrCreateRuntimeState(account.key),
-    requestProfile,
   );
   for (const skippedAccount of accountPartition.skipped) {
-    if (
-      skippedAccount.cooldown.scope === "request_class" ||
-      skippedAccount.cooldown.scope === "model_tier"
-    ) {
-      loopState.sawRateLimit = true;
-    }
-    loopState.lastError = `Skipped account=${skippedAccount.account.label} due to ${skippedAccount.cooldown.scope} cooldown ${skippedAccount.cooldown.key}`;
     logger.always(
-      `[proxy] skipping account=${skippedAccount.account.label} due to ${skippedAccount.cooldown.scope} cooldown=${skippedAccount.cooldown.key} remaining=${Math.max(1, Math.ceil((skippedAccount.cooldown.until - Date.now()) / 1000))}s`,
+      `[proxy] skipping account=${skippedAccount.account.label} cooldown remaining=${Math.max(1, Math.ceil((skippedAccount.cooldown.until - Date.now()) / 1000))}s`,
     );
+  }
+  // Only flag rate-limit when ALL accounts are cooling — if some are eligible,
+  // let the actual attempt results determine sawRateLimit via real 429 responses.
+  if (
+    accountPartition.skipped.length > 0 &&
+    accountPartition.eligible.length === 0
+  ) {
+    loopState.sawRateLimit = true;
+    loopState.lastError = `All ${accountPartition.skipped.length} accounts are cooling down`;
   }
 
   accountLoop: for (const account of accountPartition.eligible) {
@@ -4508,7 +4441,6 @@ async function handleAnthropicRoutedClaudeRequest(args: {
         finalBodyStr: preparedAttempt.finalBodyStr,
         account,
         accountState,
-        requestProfile,
         enabledAccounts,
         orderedAccounts,
         tracer,
@@ -4556,7 +4488,6 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           body,
           account,
           accountState,
-          requestProfile,
           headers: preparedAttempt.headers,
           buildUpstreamBody: preparedAttempt.buildUpstreamBody,
           enabledAccounts,
@@ -4646,7 +4577,6 @@ async function handleAnthropicRoutedClaudeRequest(args: {
         body,
         account,
         accountState,
-        requestProfile,
         response,
         tracer,
         requestStartTime,
@@ -4672,7 +4602,6 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     ctx,
     body,
     parsedFallbackRequest: parsedRequest,
-    requestProfile,
     modelRouter,
     tracer,
     requestStartTime,
@@ -4683,8 +4612,9 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     return configuredFallbackResult.response;
   }
 
-  const configuredChain = modelRouter?.getFallbackChain() ?? [];
-  if (configuredChain.length === 0 && !loopState.sawRateLimit) {
+  // Try auto-provider fallback when the configured chain didn't produce a
+  // response (either no chain configured, or all entries failed/deduped).
+  if (!loopState.sawRateLimit) {
     const autoFallbackResponse = await tryAutoClaudeFallback({
       ctx,
       body,
@@ -4708,8 +4638,6 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     sawRateLimit: loopState.sawRateLimit,
     lastError: loopState.lastError,
     orderedAccounts,
-    requestProfile,
-    fallbackPolicyReason: configuredFallbackResult.fallbackPolicyReason,
     buildLoggedClaudeError,
     logProxyBody,
     logFinalRequest,
@@ -4998,8 +4926,6 @@ function getOrCreateRuntimeState(accountKey: string): RuntimeAccountState {
     backoffLevel: 0,
     consecutiveRefreshFailures: 0,
     permanentlyDisabled: false,
-    requestClassCooldowns: {},
-    modelTierCooldowns: {},
   };
   accountRuntimeState.set(accountKey, initial);
   return initial;

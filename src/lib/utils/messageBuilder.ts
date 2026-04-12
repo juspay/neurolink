@@ -465,11 +465,9 @@ export function convertToModelMessages(
             (item) => item.type === "text",
           );
           if (textOnlyContent.length === 0) {
-            // If no text content, convert to empty string
-            return {
-              role: "assistant",
-              content: "",
-            } satisfies AssistantModelMessage;
+            // No text content (e.g., only images/files) — skip message
+            // to avoid sending empty content to providers like Claude
+            return null;
           } else if (textOnlyContent.length === 1) {
             // Single text item, use string content
             return {
@@ -1398,9 +1396,52 @@ export async function buildMultimodalMessagesArray(
         const providerOptions = (
           msg as { providerOptions?: Record<string, unknown> }
         ).providerOptions;
+
+        // Sanitize assistant array content: strip tool_use/tool_result blocks
+        // that providers cannot handle. If an assistant message ends up empty
+        // after stripping, skip it to avoid sending content: "" to Claude.
+        // Only assistant messages need this — user messages may contain valid
+        // image/file blocks that must pass through unchanged.
+        let sanitizedContent: unknown = msg.content;
+        if (msg.role === "assistant" && Array.isArray(msg.content)) {
+          const textParts = (msg.content as unknown[]).filter(
+            (item: unknown) =>
+              !!item &&
+              typeof item === "object" &&
+              (item as Record<string, unknown>).type === "text" &&
+              typeof (item as Record<string, unknown>).text === "string",
+          );
+          if (textParts.length === 0) {
+            // All content was tool_use/tool_result/non-text — skip message
+            continue;
+          }
+          // Check if any retained text part carries providerOptions
+          // (e.g. Anthropic cache_control). If so, preserve them as
+          // array content to avoid losing per-block metadata.
+          const hasItemProviderOptions = textParts.some(
+            (item: unknown) =>
+              !!(item as Record<string, unknown>).providerOptions,
+          );
+          if (hasItemProviderOptions) {
+            sanitizedContent = textParts;
+          } else {
+            sanitizedContent =
+              textParts.length === 1
+                ? (textParts[0] as { text: string }).text
+                : textParts
+                    .map((p: unknown) => (p as { text: string }).text)
+                    .join(" ");
+          }
+        }
+
+        // Skip empty string content to avoid Claude API rejection
+        if (sanitizedContent === "") {
+          continue;
+        }
+
         messages.push({
           role: msg.role,
-          content: msg.content,
+          content: sanitizedContent as typeof msg.content,
           ...(providerOptions && { providerOptions }),
         });
       }
