@@ -1,3 +1,9 @@
+## [9.54.0](https://github.com/juspay/neurolink/compare/v9.53.0...v9.54.0) (2026-04-12)
+
+### Features
+
+- **(voice):** add real-time voice agent server ([f0d298d](https://github.com/juspay/neurolink/commit/f0d298d6f8f303c3df34c7ff77b175d47f6f3f10))
+
 ## [9.53.0](https://github.com/juspay/neurolink/compare/v9.52.0...v9.53.0) (2026-04-12)
 
 ### Features
