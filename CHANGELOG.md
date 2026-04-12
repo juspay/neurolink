@@ -1,3 +1,9 @@
+## [9.51.3](https://github.com/juspay/neurolink/compare/v9.51.2...v9.51.3) (2026-04-12)
+
+### Bug Fixes
+
+- **(sdk):** prevent tool result context overflow, dedupe tool calls, animate CLI stream output ([211ea9d](https://github.com/juspay/neurolink/commit/211ea9d56beaf87219185f21df554b6d22fd1240))
+
 ## [9.51.2](https://github.com/juspay/neurolink/compare/v9.51.1...v9.51.2) (2026-04-11)
 
 ### Bug Fixes
