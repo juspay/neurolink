@@ -1,3 +1,9 @@
+## [9.53.0](https://github.com/juspay/neurolink/compare/v9.52.0...v9.53.0) (2026-04-12)
+
+### Features
+
+- **(autoresearch):** add autonomous experiment engine with scheduling and docs ([22be8c8](https://github.com/juspay/neurolink/commit/22be8c857940eeb7c42e8581483d1244ef890158))
+
 ## [9.52.0](https://github.com/juspay/neurolink/compare/v9.51.4...v9.52.0) (2026-04-12)
 
 ### Features
