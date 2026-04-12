@@ -91,6 +91,16 @@ const PLIST_LABEL = "com.neurolink.proxy";
 const PLIST_DIR = join(homedir(), "Library", "LaunchAgents");
 const PLIST_PATH = join(PLIST_DIR, `${PLIST_LABEL}.plist`);
 
+// --- Linux systemd ---
+const SYSTEMD_SERVICE_NAME = "neurolink-proxy";
+const SYSTEMD_UNIT_FILE = `${SYSTEMD_SERVICE_NAME}.service`;
+const SYSTEMD_UNIT_DIR = join(
+  process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"),
+  "systemd",
+  "user",
+);
+const SYSTEMD_UNIT_PATH = join(SYSTEMD_UNIT_DIR, SYSTEMD_UNIT_FILE);
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -134,6 +144,27 @@ async function isLaunchdManaging(): Promise<boolean> {
 }
 
 /**
+ * Check if the systemd user service is loaded and actively managing the proxy.
+ * Returns true if systemctl reports the service as "active (running)".
+ */
+async function isSystemdManaging(): Promise<boolean> {
+  if (process.platform !== "linux") {
+    return false;
+  }
+  try {
+    const { execFileSync } = await import("node:child_process");
+    const output = execFileSync(
+      "systemctl",
+      ["--user", "is-active", SYSTEMD_SERVICE_NAME],
+      { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
+    );
+    return output.trim() === "active";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Attempt to restart the proxy via launchd kickstart.
  * Returns true if the proxy comes back healthy within timeoutMs.
  */
@@ -162,6 +193,50 @@ async function tryLaunchdRestart(
       "launchctl",
       ["kickstart", "-k", `gui/${uid}/${PLIST_LABEL}`],
       { stdio: "ignore", timeout: 5_000 },
+    );
+  } catch {
+    return false;
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await sleep(1_000);
+    if (await isProxyHealthy(host, port, 2_000)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Attempt to restart the proxy via systemd --user restart.
+ * Returns true if the proxy comes back healthy within timeoutMs.
+ */
+async function trySystemdRestart(
+  host: string,
+  port: number,
+  timeoutMs: number = 15_000,
+): Promise<boolean> {
+  if (process.platform !== "linux") {
+    return false;
+  }
+
+  try {
+    const { existsSync } = await import("fs");
+    if (!existsSync(SYSTEMD_UNIT_PATH)) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  try {
+    const { execFileSync } = await import("node:child_process");
+    execFileSync(
+      "systemctl",
+      ["--user", "restart", SYSTEMD_SERVICE_NAME],
+      { stdio: "ignore", timeout: 8_000 },
     );
   } catch {
     return false;
@@ -416,6 +491,30 @@ type ProxyNeurolinkRuntime = Awaited<
 >;
 type ProxyStartApp = Awaited<ReturnType<typeof createProxyStartApp>>;
 
+/**
+ * Detect what init system (if any) is managing this proxy process.
+ * - macOS: launchd has PID 1 and is the parent of user agents
+ * - Linux: systemd user manager is the parent of user services
+ *   (its PID is NOT 1 — it's a per-user process)
+ */
+function detectManagedBy(): "launchd" | "systemd" | "manual" {
+  if (process.platform === "darwin" && process.ppid === 1) {
+    return "launchd";
+  }
+  if (process.platform === "linux") {
+    try {
+      const { readFileSync } = _require("fs");
+      const comm = readFileSync(`/proc/${process.ppid}/comm`, "utf-8").trim();
+      if (comm === "systemd") {
+        return "systemd";
+      }
+    } catch {
+      // /proc not available or ppid read failed
+    }
+  }
+  return "manual";
+}
+
 async function ensureProxyStartAllowed(spinner: ProxySpinner): Promise<void> {
   const existingState = loadProxyState();
   if (existingState) {
@@ -437,23 +536,51 @@ async function ensureProxyStartAllowed(spinner: ProxySpinner): Promise<void> {
     clearProxyState();
   }
 
-  if (process.ppid === 1 || !(await isLaunchdManaging())) {
-    return;
+  if (process.ppid === 1) {
+    return; // launched by init system itself
   }
 
-  if (spinner) {
-    spinner.fail(
-      chalk.red(
-        "Proxy is managed by launchd. Manual start would cause port conflicts.",
+  const launchdActive =
+    process.platform === "darwin" && (await isLaunchdManaging());
+  const systemdActive =
+    process.platform === "linux" && (await isSystemdManaging());
+
+  if (!launchdActive && !systemdActive) {
+    return; // not managed by any init system, allow manual start
+  }
+
+  if (launchdActive) {
+    if (spinner) {
+      spinner.fail(
+        chalk.red(
+          "Proxy is managed by launchd. Manual start would cause port conflicts.",
+        ),
+      );
+    }
+    logger.always(
+      chalk.yellow(
+        "Use 'neurolink proxy uninstall' to remove the service first, " +
+          "or 'launchctl kickstart gui/$(id -u)/com.neurolink.proxy' to restart.",
       ),
     );
   }
-  logger.always(
-    chalk.yellow(
-      "Use 'neurolink proxy uninstall' to remove the service first, " +
-        "or 'launchctl kickstart gui/$(id -u)/com.neurolink.proxy' to restart.",
-    ),
-  );
+
+  if (systemdActive) {
+    if (spinner) {
+      spinner.fail(
+        chalk.red(
+          "Proxy is managed by systemd. Manual start would cause port conflicts.",
+        ),
+      );
+    }
+    logger.always(
+      chalk.yellow(
+        "Use 'neurolink proxy uninstall' to remove the service first, " +
+          "or 'systemctl --user restart neurolink-proxy' to restart.",
+      ),
+    );
+  }
+
   process.exit(1);
 }
 
@@ -1036,10 +1163,7 @@ async function startProxyRuntime(params: {
     envFile: params.loadedEnvFile,
     fallbackChain,
     guardPid,
-    managedBy:
-      process.platform === "darwin" && process.ppid === 1
-        ? "launchd"
-        : "manual",
+    managedBy: detectManagedBy(),
     passthrough: params.passthrough,
   });
 
@@ -1688,7 +1812,8 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
     // Auto-update only works on macOS with launchd. On other platforms,
     // there's no restart mechanism, so skip the update loop entirely.
     const canAutoUpdate =
-      process.platform === "darwin" && (await isLaunchdManaging());
+      (process.platform === "darwin" && (await isLaunchdManaging())) ||
+      (process.platform === "linux" && (await isSystemdManaging()));
 
     let updateInProgress = false;
     let updateRestartInProgress = false;
@@ -1787,24 +1912,51 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           return;
         }
 
-        // 4. Restart via launchctl
+        // 4. Restart via init system
         // Signal the health loop to not exit when it detects
         // the parent PID is gone — we're intentionally restarting.
         updateRestartInProgress = true;
-        logger.always(`[guard] restarting proxy via launchctl...`);
-        const uid = process.getuid?.() ?? 501;
-        try {
-          execFileSync(
-            "launchctl",
-            ["kickstart", "-k", `gui/${uid}/${PLIST_LABEL}`],
-            {
-              timeout: 10_000,
-              stdio: "pipe",
-            },
+        if (process.platform === "darwin") {
+          logger.always(`[guard] restarting proxy via launchctl...`);
+          const uid = process.getuid?.() ?? 501;
+          try {
+            execFileSync(
+              "launchctl",
+              ["kickstart", "-k", `gui/${uid}/${PLIST_LABEL}`],
+              {
+                timeout: 10_000,
+                stdio: "pipe",
+              },
+            );
+          } catch {
+            logger.always(`[guard] WARNING: launchctl kickstart failed`);
+            suppressVersion(result.latestVersion, "restart_failed");
+            updateRestartInProgress = false;
+            return;
+          }
+        } else if (process.platform === "linux") {
+          logger.always(`[guard] restarting proxy via systemctl...`);
+          try {
+            execFileSync(
+              "systemctl",
+              ["--user", "restart", SYSTEMD_SERVICE_NAME],
+              {
+                timeout: 10_000,
+                stdio: "pipe",
+              },
+            );
+          } catch {
+            logger.always(`[guard] WARNING: systemctl restart failed`);
+            suppressVersion(result.latestVersion, "restart_failed");
+            updateRestartInProgress = false;
+            return;
+          }
+        } else {
+          logger.always(
+            `[guard] WARNING: no restart mechanism for platform ${process.platform}`,
           );
-        } catch {
-          logger.always(`[guard] WARNING: launchctl kickstart failed`);
           suppressVersion(result.latestVersion, "restart_failed");
+          updateRestartInProgress = false;
           return;
         }
 
@@ -1897,11 +2049,17 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
     const guardHost = host === "0.0.0.0" ? "localhost" : host;
     const expectedBaseUrl = `http://${guardHost}:${port}`;
 
-    // Attempt restart via launchd before falling back to cleanup
-    const restarted = await tryLaunchdRestart(guardHost, port);
+    // Attempt restart via init system before falling back to cleanup
+    const restarted =
+      process.platform === "darwin"
+        ? await tryLaunchdRestart(guardHost, port)
+        : process.platform === "linux"
+          ? await trySystemdRestart(guardHost, port)
+          : false;
     if (restarted) {
       if (!argv.quiet) {
-        logger.always(`[proxy] fail-open guard restarted proxy via launchd`);
+        const initSystem = process.platform === "linux" ? "systemd" : "launchd";
+        logger.always(`[proxy] fail-open guard restarted proxy via ${initSystem}`);
       }
       return;
     }
@@ -2023,13 +2181,18 @@ export const proxySetupCommand: CommandModule = {
       console.info(chalk.green("  ✓ Authentication complete"));
     }
 
-    // Step 3: Install as persistent service (macOS) or start foreground
+    // Step 3: Install as persistent service (macOS/Linux) or start foreground
     const stepNum = validKeys.length > 0 ? 2 : 3;
 
-    if (!noService && process.platform === "darwin") {
+    const hasDaemonSupport =
+      process.platform === "darwin" || process.platform === "linux";
+
+    if (!noService && hasDaemonSupport) {
+      const platformLabel =
+        process.platform === "darwin" ? "launchd" : "systemd";
       console.info(
         chalk.blue(`\nStep ${stepNum}:`) +
-          " Installing proxy as persistent service...",
+          ` Installing proxy as persistent ${platformLabel} service...`,
       );
       await (proxyInstallCommand.handler as Function)({
         ...argv,
@@ -2037,7 +2200,7 @@ export const proxySetupCommand: CommandModule = {
         host: "127.0.0.1",
       });
 
-      // Step 4: Configure Claude Code settings
+      // Step N: Configure Claude Code settings
       const nextStep = stepNum + 1;
       console.info(
         chalk.blue(`\nStep ${nextStep}:`) + " Configuring Claude Code...",
@@ -2055,20 +2218,39 @@ export const proxySetupCommand: CommandModule = {
         console.info(chalk.yellow(`  Set manually: ANTHROPIC_BASE_URL=${url}`));
       }
 
+      // Linux-specific linger hint
+      if (process.platform === "linux") {
+        console.info("");
+        console.info(
+          chalk.dim("  ℹ To auto-start on boot (without login), run:"),
+        );
+        console.info(chalk.dim(`    loginctl enable-linger $USER`));
+      }
+
       // Done!
       console.info("");
       console.info(chalk.bold.green("Setup complete!"));
       console.info(`  Proxy running as daemon on ${chalk.cyan(url)}`);
-      console.info(`  Auto-restarts on crash (5s throttle) and on login`);
-      console.info("");
-      console.info(chalk.gray("  Status:    neurolink proxy status"));
-      console.info(
-        chalk.gray("  Logs:      ~/.neurolink/logs/proxy-launchd-*.log"),
-      );
-      console.info(chalk.gray("  Uninstall: neurolink proxy uninstall"));
+      if (process.platform === "darwin") {
+        console.info(`  Auto-restarts on crash (5s throttle) and on login`);
+        console.info("");
+        console.info(chalk.gray("  Status:    neurolink proxy status"));
+        console.info(
+          chalk.gray("  Logs:      ~/.neurolink/logs/proxy-launchd-*.log"),
+        );
+        console.info(chalk.gray("  Uninstall: neurolink proxy uninstall"));
+      } else {
+        console.info(`  Auto-restarts on crash (5s throttle)`);
+        console.info("");
+        console.info(chalk.gray("  Status:    neurolink proxy status"));
+        console.info(
+          chalk.gray("  Logs:      ~/.neurolink/logs/proxy-systemd-*.log"),
+        );
+        console.info(chalk.gray("  Uninstall: neurolink proxy uninstall"));
+      }
       console.info("");
     } else {
-      // Foreground mode (--no-service or non-macOS)
+      // Foreground mode (--no-service or unsupported platform)
       if (noService) {
         console.info(
           chalk.blue(`\nStep ${stepNum}:`) + " Starting proxy in foreground...",
@@ -2077,7 +2259,7 @@ export const proxySetupCommand: CommandModule = {
         console.info(chalk.blue(`\nStep ${stepNum}:`) + " Starting proxy...");
         console.info(
           chalk.yellow(
-            "  Note: No daemon support on this platform. Proxy runs in foreground.",
+            `  Note: No daemon support on ${process.platform}. Proxy runs in foreground.`,
           ),
         );
       }
@@ -2204,6 +2386,60 @@ ${configArgs}
 </plist>`;
 }
 
+/**
+ * Generate a systemd user unit file for the proxy service.
+ * Equivalent of buildPlist() for macOS.
+ */
+function buildSystemdUnit(
+  port: number,
+  host: string,
+  envFile?: string,
+  configFile?: string,
+): string {
+  const nodeExec = process.execPath;
+  const entryScript = process.argv[1] ?? join(__dirname, "..", "index.js");
+
+  const args = [
+    entryScript,
+    "proxy",
+    "start",
+    "--port",
+    String(port),
+    "--host",
+    host,
+    ...(envFile ? ["--env-file", envFile] : []),
+    ...(configFile ? ["--config", configFile] : []),
+    "--quiet",
+  ];
+
+  const execStart = [nodeExec, ...args].join(" ");
+
+  const path =
+    process.env.PATH ??
+    "/usr/local/bin:/usr/bin:/bin:" + join(homedir(), ".local", "bin");
+
+  const logsDir = join(homedir(), ".neurolink", "logs");
+
+  return `[Unit]
+Description=NeuroLink Claude Proxy
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=${execStart}
+Restart=on-failure
+RestartSec=5
+Environment=HOME=${homedir()}
+Environment=PATH=${path}
+${envFile ? `EnvironmentFile=${envFile}` : ""}
+StandardOutput=append:${join(logsDir, "proxy-systemd-stdout.log")}
+StandardError=append:${join(logsDir, "proxy-systemd-stderr.log")}
+
+[Install]
+WantedBy=default.target
+`;
+}
+
 export const proxyInstallCommand: CommandModule = {
   command: "install",
   describe:
@@ -2242,12 +2478,110 @@ export const proxyInstallCommand: CommandModule = {
     const port = (argv.port as number) ?? 55669;
     const host = (argv.host as string) ?? "127.0.0.1";
 
+    // ---- Linux: systemd user unit ----
+    if (process.platform === "linux") {
+      const { writeFileSync, mkdirSync, existsSync } = await import("fs");
+      const { execFileSync } = await import("node:child_process");
+
+      const envResolution = resolveProxyEnvFile({
+        explicitEnvFile: (argv as { envFile?: string }).envFile,
+      });
+      const envFile = envResolution.path;
+      const explicitConfig = (argv as { config?: string }).config;
+      const configPath = explicitConfig
+        ? resolve(explicitConfig)
+        : join(homedir(), ".neurolink", "proxy-config.yaml");
+      if (explicitConfig && !existsSync(configPath)) {
+        console.info(chalk.red(`Proxy config file not found: ${configPath}`));
+        process.exit(1);
+      }
+      const configFile = existsSync(configPath) ? configPath : undefined;
+
+      if (envFile && !existsSync(envFile)) {
+        console.info(chalk.red(`Proxy env file not found: ${envFile}`));
+        process.exit(1);
+      }
+
+      const logsDir = join(homedir(), ".neurolink", "logs");
+      if (!existsSync(logsDir)) {
+        mkdirSync(logsDir, { recursive: true });
+      }
+      if (!existsSync(SYSTEMD_UNIT_DIR)) {
+        mkdirSync(SYSTEMD_UNIT_DIR, { recursive: true });
+      }
+
+      const unitContent = buildSystemdUnit(port, host, envFile, configFile);
+      writeFileSync(SYSTEMD_UNIT_PATH, unitContent, "utf-8");
+      console.info(chalk.green(`✓ Unit file written to ${SYSTEMD_UNIT_PATH}`));
+      if (envFile) {
+        console.info(chalk.green(`✓ Proxy env file: ${envFile}`));
+      }
+
+      execFileSync("systemctl", ["--user", "daemon-reload"], { stdio: "inherit" });
+      execFileSync("systemctl", ["--user", "enable", SYSTEMD_SERVICE_NAME], {
+        stdio: "inherit",
+      });
+      execFileSync("systemctl", ["--user", "start", SYSTEMD_SERVICE_NAME], {
+        stdio: "inherit",
+      });
+      console.info(chalk.green(`✓ Service enabled and started`));
+
+      // Wait briefly for systemd to start the process, then persist state
+      await new Promise((r) => setTimeout(r, 2_000));
+      try {
+        const pidOutput = execFileSync(
+          "systemctl",
+          [
+            "--user",
+            "show",
+            SYSTEMD_SERVICE_NAME,
+            "--property=MainPID",
+            "--value",
+          ],
+          { encoding: "utf-8" },
+        ).trim();
+        const pid = Number(pidOutput);
+        if (pid > 0) {
+          saveProxyState({
+            pid,
+            port,
+            host,
+            strategy: "fill-first",
+            startTime: new Date().toISOString(),
+            envFile,
+            managedBy: "systemd",
+          });
+        }
+      } catch {
+        /* non-fatal — state will be written by the proxy process itself */
+      }
+
+      console.info("");
+      console.info(chalk.bold("Proxy is now a persistent systemd user service:"));
+      console.info(`  • Auto-starts on login`);
+      console.info(`  • Auto-restarts on crash (5s throttle)`);
+      console.info(`  • Listening on http://${host}:${port}`);
+      console.info(`  • Logs: ~/.neurolink/logs/proxy-systemd-*.log`);
+      console.info("");
+      console.info(
+        chalk.dim(
+          "  ℹ To auto-start on boot (without login), run: loginctl enable-linger $USER",
+        ),
+      );
+      console.info("");
+      console.info(
+        chalk.gray(
+          `  Manage: systemctl --user start/stop/restart ${SYSTEMD_SERVICE_NAME}`,
+        ),
+      );
+      console.info(chalk.gray(`  Remove: neurolink proxy uninstall`));
+      return; // skip macOS block below
+    }
+    // ---- end Linux block ----
+
     if (process.platform !== "darwin") {
       console.info(
-        chalk.red("proxy install is currently macOS-only (uses launchd)."),
-      );
-      console.info(
-        chalk.yellow("On Linux, use systemd. On Windows, use Task Scheduler."),
+        chalk.red(`proxy install is not supported on ${process.platform}.`),
       );
       process.exit(1);
     }
@@ -2349,8 +2683,42 @@ export const proxyUninstallCommand: CommandModule = {
   describe: "Remove proxy background service",
   builder: (yargs: Argv) => yargs,
   handler: async () => {
+    if (process.platform === "linux") {
+      const { existsSync, unlinkSync } = await import("fs");
+      const { execFileSync } = await import("node:child_process");
+
+      if (!existsSync(SYSTEMD_UNIT_PATH)) {
+        console.info(chalk.yellow("No proxy service installed."));
+        return;
+      }
+
+      try {
+        execFileSync("systemctl", ["--user", "stop", SYSTEMD_SERVICE_NAME], {
+          stdio: "ignore",
+        });
+        execFileSync("systemctl", ["--user", "disable", SYSTEMD_SERVICE_NAME], {
+          stdio: "ignore",
+        });
+        console.info(chalk.green(`✓ Service stopped and disabled`));
+      } catch {
+        /* may not be loaded */
+      }
+
+      unlinkSync(SYSTEMD_UNIT_PATH);
+      try {
+        execFileSync("systemctl", ["--user", "daemon-reload"], { stdio: "ignore" });
+      } catch {
+        /* non-fatal */
+      }
+      console.info(chalk.green(`✓ Unit file removed from ${SYSTEMD_UNIT_PATH}`));
+      console.info(chalk.green(`✓ Proxy service uninstalled`));
+      return;
+    }
+
     if (process.platform !== "darwin") {
-      console.info(chalk.red("proxy uninstall is currently macOS-only."));
+      console.info(
+        chalk.red(`proxy uninstall is not supported on ${process.platform}.`),
+      );
       process.exit(1);
     }
 

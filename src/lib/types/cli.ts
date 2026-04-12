@@ -923,7 +923,7 @@ export type ProxyState = {
   /** Optional fail-open guard PID that reverts Claude settings if proxy dies */
   guardPid?: number;
   /** How the proxy was launched — "launchd" if installed as service, "manual" otherwise */
-  managedBy?: "launchd" | "manual";
+  managedBy?: "launchd" | "systemd" | "manual";
   /** Whether the proxy is running in transparent passthrough mode */
   passthrough?: boolean;
 };
