@@ -1,28 +1,22 @@
 # CLAUDE.md
 
-Guidance for Claude Code when working in this repository.
-
-## Contents
-
-1. [Project Overview](#project-overview)
-2. [Critical Rules](#critical-rules)
-3. [Architecture](#architecture)
-4. [Key Files](#key-files)
-5. [Development Commands](#development-commands)
-6. [How-To Guides](#how-to-guides)
-7. [Common Patterns](#common-patterns)
-
----
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-NeuroLink is a unified AI development platform shipping as both a **TypeScript SDK** and **CLI**. It wraps 13+ AI providers (OpenAI, Anthropic, Google AI Studio, Vertex, AWS Bedrock, Azure, Mistral, LiteLLM, SageMaker, Hugging Face, Ollama, OpenAI-compatible) behind a single consistent API, with full MCP support, multimodal file processing, RAG pipelines, observability, and a workflow engine.
+NeuroLink is an enterprise AI development platform that provides unified access to 12+ AI providers (OpenAI, Anthropic, Google AI Studio, AWS Bedrock, Azure, Vertex, Mistral, LiteLLM, SageMaker, Hugging Face, Ollama, and OpenAI-compatible endpoints) through a single consistent API. It ships as both a TypeScript SDK and a professional CLI.
 
----
+**Key characteristics:**
 
-## Critical Rules
+- Extracted from production systems at Juspay
+- Battle-tested at enterprise scale
+- Opinionated factory architecture with provider registry pattern
+- Comprehensive multimodal support (text, images, PDFs, CSV)
+- Full MCP (Model Context Protocol) integration with 58+ external servers
+- Multiple MCP transports: stdio (local), HTTP/Streamable HTTP (remote), SSE, WebSocket
+- Production-ready enterprise features (Redis memory, failover, telemetry)
 
-These are non-negotiable. Violating them breaks the build or introduces bugs.
+## Essential Development Commands
 
 1. **Dynamic imports only in registry** — All providers must use dynamic imports inside factory functions in `providerRegistry.ts`. Static imports create circular dependencies.
 2. **Types in canonical location** — All type definitions go in `src/lib/types/`. Never create type files inside feature subdirectories.
@@ -58,299 +52,476 @@ These are non-negotiable. Violating them breaks the build or introduces bugs.
 | 12       | `neurolink/no-type-export-outside-types` |
 | 13       | `neurolink/barrel-type-imports`          |
 
----
+### Building
 
-## Architecture
+```bash
+# Full build (SDK + CLI)
+pnpm run build
 
-### Pattern: Factory + Registry
+# CLI only (for rapid testing)
+pnpm run build:cli
 
-Every extensible system (providers, processors, chunkers, rerankers) follows the same pattern:
-
+# Complete build pipeline with validation
+pnpm run build:complete
 ```
-Factory  →  creates instances
-Registry →  holds factory functions (via dynamic import)
+
+### Testing
+
+```bash
+# Run all tests
+pnpm test
+
+# Run tests once (CI mode)
+pnpm run test:run
+
+# Run specific test suites
+pnpm run test:suites           # All suites
+pnpm run test:integration      # Integration tests only
+pnpm run test:tool-discovery   # Tool discovery tests
+pnpm run test:consistency      # Provider consistency tests
+
+# Smart test runner (adaptive)
+pnpm run test:smart
+
+# Coverage report
+pnpm run test:coverage
 ```
 
-- `ProviderFactory` + `ProviderRegistry` — AI providers
-- `ProcessorRegistry` — file/multimodal processors
-- `ChunkerFactory` + `ChunkerRegistry` — RAG chunking strategies
-- `RerankerFactory` + `RerankerRegistry` — RAG rerankers
+### Linting and Formatting
 
-### Directory Map
+```bash
+# Check formatting and lint
+pnpm run lint
+
+# Auto-format code
+pnpm run format
+
+# Check all quality metrics
+pnpm run check:all
+```
+
+### Development
+
+```bash
+# Start development server
+pnpm run dev
+
+# Build and run CLI locally
+pnpm run build:cli && pnpm run cli
+
+# Type checking
+pnpm run check
+pnpm run check:watch  # Watch mode
+```
+
+### Environment Validation
+
+```bash
+# Validate environment setup
+pnpm run env:validate
+
+# Setup environment
+pnpm run env:setup
+
+# Complete setup with validation
+pnpm run setup:complete
+```
+
+## High-Level Architecture
+
+### Core Architecture Pattern: Factory + Registry
+
+NeuroLink uses a **factory pattern with dynamic provider registration** to avoid circular dependencies and enable lazy loading:
+
+1. **ProviderFactory** (`src/lib/factories/providerFactory.ts`) - Central factory for creating provider instances
+2. **ProviderRegistry** (`src/lib/factories/providerRegistry.ts`) - Registers all providers with factory functions using dynamic imports
+3. **NeuroLink** (`src/lib/neurolink.ts`) - Main SDK class that orchestrates providers, tools, and memory
+
+**Critical design decision:** All providers are loaded via dynamic imports to break circular dependency chains. Never use static imports for providers in the registry.
+
+### Directory Structure
 
 ```
 src/
-├── lib/
-│   ├── neurolink.ts          # Main SDK entry point
-│   ├── providers/            # 13 AI provider implementations
-│   ├── factories/            # ProviderFactory + ProviderRegistry
-│   ├── core/                 # BaseProvider, constants, infrastructure
-│   ├── adapters/             # Provider-specific content adapters (image, TTS)
-│   ├── utils/                # MessageBuilder, FileDetector, transformations
-│   ├── types/                # ALL type definitions (28+ files)
-│   ├── mcp/                  # MCPToolRegistry, client factory, HTTP transport
-│   ├── memory/               # Redis + in-memory conversation memory
-│   ├── context/              # Context compaction, budget checking
-│   ├── processors/           # File processors (17+ types)
-│   ├── rag/                  # Chunkers, hybrid search, rerankers, pipeline
-│   ├── evaluation/           # RAGAS-based evaluator (no unit tests yet)
-│   ├── telemetry/            # OpenTelemetry + Langfuse observability
-│   ├── workflow/             # Workflow engine with HITL and checkpointing
-│   ├── server/               # Hono/Express/Fastify/Koa adapters
-│   ├── config/               # Configuration management
-│   └── models/               # Model definitions per provider
-├── cli/
-│   ├── index.ts              # CLI entry point
-│   ├── factories/            # CommandFactory (yargs)
-│   ├── commands/             # Individual command implementations
-│   └── loop/                 # Interactive REPL session
-└── test/
-    ├── suites/               # Feature test suites
-    └── integration/          # Real-provider integration tests
+├── lib/                    # Core SDK implementation
+│   ├── neurolink.ts       # Main SDK entry point
+│   ├── providers/         # AI provider implementations (13 providers)
+│   ├── factories/         # Provider factory and registry
+│   ├── adapters/          # Provider-specific adapters (image, PDF, etc.)
+│   ├── utils/             # Utilities (messageBuilder, transformations, etc.)
+│   ├── types/             # TypeScript type definitions (28+ type files)
+│   ├── mcp/              # MCP tool registry and integration
+│   ├── memory/           # Conversation memory (Redis, in-memory)
+│   ├── middleware/       # Request/response middleware system
+│   ├── core/             # Core factory and constants
+│   ├── config/           # Configuration management
+│   ├── hitl/             # Human-in-the-loop workflows
+│   └── models/           # Model definitions and utilities
+├── cli/                   # CLI implementation
+│   ├── factories/        # Command factories
+│   ├── commands/         # CLI command implementations
+│   ├── loop/             # Interactive loop session
+│   └── utils/            # CLI-specific utilities
+└── test/                  # Test suites
+
+dist/                      # Build output (generated)
 ```
 
-### Message Flow
+### Provider System Architecture
 
+**Provider Implementation Pattern:**
+
+1. Each provider extends a base provider or implements the provider interface
+2. Providers are registered in `ProviderRegistry.registerAllProviders()` with:
+   - Provider name (from `AIProviderName` enum)
+   - Factory function (async, uses dynamic import)
+   - Default model
+   - Aliases (e.g., "gpt", "chatgpt" for OpenAI)
+
+**Example provider registration:**
+
+```typescript
+ProviderFactory.registerProvider(
+  AIProviderName.GOOGLE_AI,
+  async (modelName?, _providerName?, sdk?) => {
+    const { GoogleAIStudioProvider } =
+      await import("../providers/googleAiStudio.js");
+    return new GoogleAIStudioProvider(modelName, sdk as NeuroLink | undefined);
+  },
+  GoogleAIModels.GEMINI_2_5_FLASH,
+  ["googleAiStudio", "google", "gemini", "google-ai"],
+);
 ```
-User input (text + files)
-  → MessageBuilder (src/lib/utils/messageBuilder.ts)
-  → FileDetector detects MIME types
-  → ProcessorRegistry selects processor per file
-  → ProviderImageAdapter formats for target provider
-  → Provider sends to AI API
+
+**Key provider files:**
+
+- `src/lib/providers/openAI.ts` - OpenAI integration
+- `src/lib/providers/anthropic.ts` - Anthropic Claude
+- `src/lib/providers/googleAiStudio.ts` - Google AI Studio (Gemini 2.x and Gemini 3)
+- `src/lib/providers/googleVertex.ts` - Google Vertex AI
+- `src/lib/providers/amazonBedrock.ts` - AWS Bedrock
+- `src/lib/providers/azureOpenai.ts` - Azure OpenAI
+- `src/lib/providers/mistral.ts` - Mistral AI
+- `src/lib/providers/litellm.ts` - LiteLLM proxy (100+ models)
+- `src/lib/providers/amazonSagemaker.ts` - AWS SageMaker
+- `src/lib/providers/ollama.ts` - Ollama (local models)
+- `src/lib/providers/huggingFace.ts` - Hugging Face
+
+### Message Building and Multimodal Support
+
+**MessageBuilder** (`src/lib/utils/messageBuilder.ts`) is the central component for constructing messages:
+
+- Handles text, images, PDFs, and CSV files
+- Converts between different message formats (NeuroLink → CoreMessage for ai SDK)
+- Integrates with `FileDetector` to automatically detect file types
+- Uses `ProviderImageAdapter` for provider-specific image formatting
+- Processes PDFs with `PDFProcessor` for native document support
+
+**Flow:**
+
+1. User provides input (text + files)
+2. `MessageBuilder` detects file types
+3. Files are processed (images → base64, PDFs → structured content, CSV → parsed data)
+4. Provider-specific adapters format content for each provider's API
+5. Messages are sent to the AI provider
+
+**Key files:**
+
+- `src/lib/utils/messageBuilder.ts` - Message construction
+- `src/lib/adapters/providerImageAdapter.ts` - Provider-specific image formatting
+- `src/lib/utils/fileDetector.ts` - File type detection
+- `src/lib/utils/pdfProcessor.ts` - PDF processing
+- `src/lib/utils/imageProcessor.ts` - Image processing
+
+### Tool System (MCP Integration)
+
+**MCPToolRegistry** (`src/lib/mcp/toolRegistry.ts`) manages all tools:
+
+- Built-in tools (getCurrentTime, readFile, writeFile, listDirectory, calculateMath, websearchGrounding)
+- External MCP servers (GitHub, PostgreSQL, Google Drive, etc.)
+- Custom tools defined by users
+
+**MCP Transport Protocols:**
+
+NeuroLink supports multiple transport protocols for MCP servers:
+
+| Transport     | Use Case                                | Configuration                  |
+| ------------- | --------------------------------------- | ------------------------------ |
+| **stdio**     | Local MCP servers via command execution | `command`, `args`, `env`       |
+| **http**      | Remote HTTP/Streamable HTTP servers     | `url`, `headers`, HTTP options |
+| **sse**       | Server-Sent Events connections          | `url`, `headers`               |
+| **websocket** | WebSocket connections                   | `url`, `headers`               |
+
+**HTTP Transport Features:**
+
+- URL-based server configuration (vs command-based for stdio)
+- Authentication via custom headers (Bearer tokens, API keys)
+- HTTP options: `timeout`, `retries`, `healthCheckInterval`
+- Rate limiting with configurable limits
+- Automatic retry with exponential backoff
+- Session management via `Mcp-Session-Id` header
+
+**Example configurations:**
+
+```typescript
+// stdio transport (local server)
+await neurolink.addExternalMCPServer("github", {
+  command: "npx",
+  args: ["-y", "@modelcontextprotocol/server-github"],
+  transport: "stdio",
+  env: { GITHUB_TOKEN: process.env.GITHUB_TOKEN },
+});
+
+// HTTP transport (remote server)
+await neurolink.addExternalMCPServer("github-copilot", {
+  transport: "http",
+  url: "https://api.githubcopilot.com/mcp",
+  headers: { Authorization: "Bearer YOUR_TOKEN" },
+  timeout: 15000,
+  retries: 5,
+});
 ```
 
-### Context Compaction Pipeline
+**Tool execution flow:**
 
-`BudgetChecker` fires before every LLM call. If context exceeds 80% of the model window, `ContextCompactor` runs 4 stages:
+1. Tools registered with MCPToolRegistry
+2. Available tools transformed to provider-specific format
+3. AI model calls tools during generation
+4. Tool results sent back to AI for continued reasoning
 
-1. Tool output pruning (protect recent 40K tokens)
-2. File read deduplication
-3. LLM summarization (9-section structured summary)
-4. Sliding window truncation
+**Key files:**
 
-### MCP Transport Protocols
+- `src/lib/mcp/toolRegistry.ts` - Tool registry
+- `src/lib/mcp/mcpClientFactory.ts` - MCP client creation for all transports
+- `src/lib/mcp/externalServerManager.ts` - External server lifecycle management
+- `src/lib/mcp/httpRetryHandler.ts` - HTTP retry with exponential backoff
+- `src/lib/mcp/httpRateLimiter.ts` - Rate limiting for HTTP transport
+- `src/lib/utils/transformationUtils.ts` - Tool format transformations
+- `src/lib/types/mcpTypes.ts` - MCP type definitions (includes `MCPTransportType`)
+- `src/lib/types/externalMcp.ts` - External MCP server types
+- `src/lib/types/tools.ts` - Tool type definitions
 
-| Transport   | Config key        | Use case                    |
-| ----------- | ----------------- | --------------------------- |
-| `stdio`     | `command`, `args` | Local server via subprocess |
-| `http`      | `url`, `headers`  | Remote HTTP/Streamable HTTP |
-| `sse`       | `url`, `headers`  | Server-Sent Events          |
-| `websocket` | `url`, `headers`  | WebSocket connection        |
+### Type System
 
----
+NeuroLink has a comprehensive TypeScript type system with 28+ type definition files:
 
-## Key Files
+**Critical type files:**
 
-| File                                               | Purpose                                                        |
-| -------------------------------------------------- | -------------------------------------------------------------- |
-| `src/lib/neurolink.ts`                             | Main SDK class — orchestrates everything                       |
-| `src/lib/factories/providerRegistry.ts`            | Provider registration (use dynamic imports here)               |
-| `src/lib/core/baseProvider.ts`                     | Base class all providers extend; central `stream()` tool merge |
-| `src/lib/utils/messageBuilder.ts`                  | Constructs messages; handles all file types                    |
-| `src/lib/adapters/providerImageAdapter.ts`         | Per-provider multimodal formatting + vision capability map     |
-| `src/lib/mcp/toolRegistry.ts`                      | Tool management + MCP server registry                          |
-| `src/lib/mcp/mcpClientFactory.ts`                  | Creates MCP clients for all transport types                    |
-| `src/lib/processors/registry/ProcessorRegistry.ts` | Selects file processor by MIME type + priority                 |
-| `src/lib/types/index.ts`                           | Main type exports (start here for any type lookup)             |
-| `src/lib/types/providers.ts`                       | `AIProvider` interface, `AIProviderName` enum                  |
-| `src/lib/types/mcpTypes.ts`                        | `MCPTransportType` and MCP config types                        |
-| `src/lib/constants/contextWindows.ts`              | Per-provider, per-model context window sizes                   |
-| `src/lib/context/contextCompactor.ts`              | Multi-stage context reduction orchestrator                     |
-| `src/lib/context/budgetChecker.ts`                 | Pre-call budget validation                                     |
-| `src/lib/rag/ragIntegration.ts`                    | `prepareRAGTool()` — auto RAG setup for generate/stream        |
-| `src/cli/factories/commandFactory.ts`              | All CLI command options and flag definitions                   |
-| `src/lib/server/routes/agentRoutes.ts`             | HTTP server routes including `/api/agent/embed`                |
+- `src/lib/types/index.ts` - Main type exports
+- `src/lib/types/providers.ts` - Provider types
+- `src/lib/types/generateTypes.ts` - Generate operation types
+- `src/lib/types/streamTypes.ts` - Streaming operation types
+- `src/lib/types/mcpTypes.ts` - MCP integration types
+- `src/lib/types/conversation.ts` - Conversation and memory types
+- `src/lib/types/tools.ts` - Tool definition types
+- `src/lib/types/common.ts` - Shared common types
 
----
+**Type organization principle:** Types are organized by domain (providers, generation, streaming, MCP, etc.) to avoid circular dependencies.
 
-## Development Commands
+### CLI Architecture
+
+**CommandFactory Pattern** (`src/cli/factories/commandFactory.ts`):
+
+- Creates yargs command modules
+- Handles common options (provider, model, temperature, etc.)
+- Integrates with global session state for loop mode
+- Supports multimodal inputs (--image, --pdf, --csv flags)
+
+**Loop Mode** (`src/cli/loop/session.ts`):
+
+- Interactive REPL-style session
+- Persistent conversation memory
+- Session-wide configuration (set provider, set temperature, etc.)
+- Command history and context preservation
+
+**Key CLI files:**
+
+- `src/cli/index.ts` - CLI entry point
+- `src/cli/factories/commandFactory.ts` - Command creation
+- `src/cli/commands/` - Individual command implementations
+- `src/cli/loop/session.ts` - Interactive loop session
+
+### Build System
+
+**Dual Build Process:**
+
+1. **SDK Build** (via SvelteKit): Outputs to `dist/` for npm package
+2. **CLI Build** (via TypeScript): Compiles CLI to `dist/cli/` with executable
+
+**Build configuration:**
+
+- `vite.config.ts` - Vite configuration for SDK
+- `tsconfig.json` - Main TypeScript config
+- `tsconfig.cli.json` - CLI-specific TypeScript config
+- `svelte.config.js` - SvelteKit packaging config
+
+**Build process:**
 
 ```bash
-# Build
-pnpm run build            # Full SDK + CLI build
-pnpm run build:cli        # CLI only (faster iteration)
-pnpm run build:complete   # Build + validation
-
-# Type checking
-pnpm run check            # Type check
-pnpm run check:watch      # Watch mode
-
-# Quality
-pnpm run lint             # Check lint + format
-pnpm run format           # Auto-format
-pnpm run check:all        # All quality checks
-
-# Testing
-pnpm test                 # All tests (once)
-pnpm run test:watch       # Watch mode
-pnpm run test:coverage    # With coverage
-pnpm run test:providers   # Provider unit tests only
-pnpm run test:cli         # CLI integration tests only
-pnpm run test:integration # Integration tests only
-pnpm run test:e2e         # End-to-end
-pnpm run test:ci          # CI mode (coverage + reporters)
-
-# Run a single test file
-vitest run test/suites/tool-discovery.test.ts
-
-# Environment
-pnpm run env:validate     # Validate .env setup
-pnpm run env:setup        # Interactive setup
-
-# CLI smoke test
-pnpm run build:cli && pnpm run cli <command>
+# Full build executes:
+1. vite build         # Build SDK with Vite
+2. svelte-kit sync    # Sync SvelteKit types
+3. svelte-package     # Package for npm
+4. tsc --project tsconfig.cli.json  # Build CLI
+5. publint           # Validate package
 ```
 
-**Workflow:** edit → `pnpm run check` → `pnpm run lint` → `pnpm test` → `pnpm run build`
-
----
-
-## How-To Guides
+## Working with Providers
 
 ### Adding a New Provider
 
-1. Create `src/lib/providers/yourProvider.ts` — extend `BaseProvider`
-2. Add name to `AIProviderName` enum in `src/lib/types/providers.ts`
-3. Add model constants to `src/lib/models/`
-4. Register in `ProviderRegistry.registerAllProviders()` using a dynamic import:
-
-   ```typescript
-   ProviderFactory.registerProvider(
-     AIProviderName.YOUR_PROVIDER,
-     async (modelName?, _providerName?, sdk?) => {
-       const { YourProvider } = await import("../providers/yourProvider.js");
-       return new YourProvider(modelName, sdk as NeuroLink | undefined);
-     },
-     YourModels.DEFAULT,
-     ["alias1", "alias2"],
-   );
-   ```
-
-5. If multimodal: add vision capabilities to `ProviderImageAdapter.VISION_CAPABILITIES`
-6. Add to CLI provider choices in `src/cli/factories/commandFactory.ts`
-7. Add tests in `test/suites/` and `test/integration/`
-
-### Adding a New File Processor
-
-1. Create processor in the appropriate category under `src/lib/processors/`:
-   - `document/` — Excel, Word, RTF, OpenDocument
-   - `data/` — JSON, YAML, XML
-   - `markup/` — HTML, SVG, Markdown, Text
-   - `code/` — source code, config files
-   - `media/` — video, audio
-   - `archive/` — zip, tar, gz
-2. Extend `BaseFileProcessor` and implement `canProcess()`, `process()`, `getInfo()`
-3. Register in `ProcessorRegistry` with a priority (lower number = higher priority)
-4. Add MIME type mappings in `src/lib/processors/config/mimeTypes.ts`
-5. Add tests in `test/file-processor-test-suite.ts`
+1. Create provider file in `src/lib/providers/yourProvider.ts`
+2. Implement provider interface (extend base provider if available)
+3. Register in `ProviderRegistry.registerAllProviders()` using dynamic import
+4. Add provider name to `AIProviderName` enum in `src/lib/types/index.ts`
+5. Add model definitions to appropriate model enum
+6. Update vision capabilities in `src/lib/adapters/providerImageAdapter.ts` if multimodal
+7. Add to CLI choices in `src/cli/factories/commandFactory.ts`
+8. Add tests in `test/suites/` and `test/integration/`
 
 ### Modifying Message Building
 
-1. Core logic: `src/lib/utils/messageBuilder.ts`
-2. Provider formatting: `src/lib/adapters/` (add provider-specific adapter if needed)
-3. Type changes: `src/lib/types/conversation.ts`
-4. Ensure backward compatibility — existing message formats must still work
+When changing how messages are constructed:
 
-### Working with Embeddings
+1. Modify `src/lib/utils/messageBuilder.ts` for core logic
+2. Update adapters in `src/lib/adapters/` for provider-specific formatting
+3. Ensure backward compatibility with existing message formats
+4. Add tests for new message types
+5. Update type definitions in `src/lib/types/conversation.ts`
 
-Four providers support embeddings natively: OpenAI, Google AI Studio, Google Vertex, Amazon Bedrock. All expose `embed()` / `embedMany()` on the provider interface. Unsupported providers throw descriptive errors.
+### Working with Multimodal Content
 
-Server endpoints: `POST /api/agent/embed` and `POST /api/agent/embed-many` in `src/lib/server/routes/agentRoutes.ts`.
+**For images:**
 
-### RAG Integration
+- Add to `ProviderImageAdapter.VISION_CAPABILITIES` if new model supports vision
+- Update `ProviderImageAdapter.adaptImageForProvider()` for provider-specific formatting
+- Test with `--image` flag in CLI
 
-**Simple path** — pass `rag` config directly to `generate()` or `stream()`:
+**For PDFs:**
 
-```typescript
-const result = await neurolink.generate({
-  prompt: "What are the key features?",
-  rag: {
-    files: ["./docs/guide.md", "./docs/api.md"],
-    strategy: "markdown", // auto-detected from extension if omitted
-    chunkSize: 512, // default: 1000
-    topK: 5, // default: 5
-  },
-});
+- Modify `PDFProcessor` (`src/lib/utils/pdfProcessor.ts`) for processing logic
+- Update provider-specific handling in message builder
+- Currently supported: Vertex AI, Anthropic, Bedrock, AI Studio
+
+**For CSV:**
+
+- Modify `FileDetector` for CSV detection
+- Update message builder to handle CSV content
+- Test with `--csv` flag in CLI
+
+## Testing Strategy
+
+**Test organization:**
+
+- `test/suites/` - Feature-specific test suites (tool discovery, business tools, file operations, consistency)
+- `test/integration/` - Integration tests with real providers
+- Vitest as test runner
+
+**Running specific tests:**
+
+```bash
+vitest run test/suites/tool-discovery.test.ts
+vitest run test/integration/openai.test.ts
 ```
 
-CLI equivalent: `neurolink generate "query" --rag-files ./docs/guide.md --rag-strategy markdown`
+**Test best practices:**
 
-NeuroLink creates a `search_knowledge_base` tool the model can call. For full control (custom vector stores, embeddings), use `createVectorQueryTool` from `src/lib/rag/retrieval/vectorQueryTool.ts` directly.
-
-**Chunking strategies:** `character`, `recursive`, `sentence`, `token`, `markdown`, `html`, `json`, `latex`, `semantic`, `semantic-markdown`
-
-**Rerankers:** `simple` (TF-IDF, no LLM), `llm`, `batch`, `cross-encoder` (stub), `cohere` (stub)
-
-### Observability (Langfuse + OTEL)
-
-NeuroLink initializes its own `TracerProvider` by default. If your app already has one, set `useExternalTracerProvider: true` to avoid duplicate registration errors, then add NeuroLink's span processors via `getSpanProcessors()` to your OTEL SDK setup.
-
-Use `setLangfuseContext({ userId, sessionId, conversationId, ... }, callback)` to attach context to traces. Trace names default to `userId:operationName`; customize with `traceNameFormat`.
-
-Key exports: `getSpanProcessors`, `setLangfuseContext`, `getLangfuseContext`, `getTracer`, `createContextEnricher`, `isUsingExternalTracerProvider`.
-
-### Thinking Level
-
-Supported by Anthropic Claude, Gemini 2.5+, Gemini 3:
-
-```typescript
-await neurolink.generate({ prompt: "...", thinkingLevel: "high" });
-// CLI: neurolink generate "..." --thinking-level high
-```
-
-Levels: `minimal` | `low` | `medium` (default) | `high`
-
-### Per-Request Credentials
-
-Pass provider credentials at instance level or per-call. Per-call wins over instance, instance wins over env vars.
-
-```typescript
-// Instance-level default
-const nl = new NeuroLink({
-  credentials: { openai: { apiKey: "sk-..." } },
-});
-
-// Per-call override
-await nl.generate({
-  input: { text: "hello" },
-  provider: "openai",
-  credentials: { openai: { apiKey: "sk-user-key" } },
-});
-```
-
-Credentials flow through the factory chain (`neurolink.ts` → `core/factory.ts` → `providerFactory.ts` → `providerRegistry.ts` → provider constructor). Each provider's constructor accepts a provider-scoped slice (e.g. `{ apiKey }` for OpenAI, `{ accessKeyId, secretAccessKey }` for Bedrock, `{ projectId, serviceAccountKey }` for Vertex).
-
-CLI-only usage still relies on env vars — credentials field is excluded from `textGenerationOptionsSchema` to avoid shell-history leaks.
-
-See `docs/features/per-request-credentials.md` for the full provider reference.
-
----
+- Mock external API calls for unit tests
+- Use real API calls sparingly in integration tests
+- Test provider consistency across all providers
+- Validate multimodal content handling
 
 ## Common Patterns
 
 ### Error Handling
 
-- Use `ErrorFactory` for typed errors
-- Wrap async calls with `withTimeout` utility
-- `formatProviderError` must **return** errors, never throw
+- Use `ErrorFactory` for creating typed errors
+- Wrap async operations with `withTimeout` utility
+- Implement graceful degradation with provider fallback
 
-### Tool Transformations
+### Transformation Utilities
 
-- `transformToolExecutions()` — convert tool results for providers
-- `transformAvailableTools()` — format tools for AI model calls
-- `transformParamsForLogging()` — safely strip secrets before logging
+- `transformToolExecutions()` - Convert tool results for providers
+- `transformAvailableTools()` - Format tools for AI models
+- `transformParamsForLogging()` - Safe parameter logging
 
-### Memory
+### Configuration Management
 
-- Development: in-memory store
-- Production: Redis (set `REDIS_URL`)
-- Long conversations auto-compact via `SummarizationEngine` + `BudgetChecker`
+- Environment variables loaded from `.env`
+- Configuration validated with `env:validate` script
+- Config manager in `src/cli/commands/config.ts`
 
-### Streaming Tool Injection
+### Thinking Level Configuration
 
-`BaseProvider.stream()` merges base tools (MCP/built-in) with user-provided tools before calling provider-specific `executeStream()`. Individual providers use `options.tools || await this.getAllTools()` as fallback. This is the canonical pattern — do not bypass it.
+The `thinkingLevel` option controls extended thinking for supported models (Anthropic Claude, Gemini 2.5+, Gemini 3):
 
-### Logger Guard
+- `"minimal"` - Minimal thinking budget (fastest responses)
+- `"low"` - Low thinking budget
+- `"medium"` - Moderate thinking budget (default)
+- `"high"` - Maximum thinking budget (deep reasoning)
 
-Always wrap expensive serialization with `logger.shouldLog("debug")` before calling it.
+**Usage in SDK:**
+
+```typescript
+const result = await neurolink.generate({
+  prompt: "Complex reasoning task",
+  thinkingLevel: "high",
+});
+```
+
+**Usage in CLI:**
+
+```bash
+neurolink generate "Complex task" --thinking-level high
+```
+
+Note: When `thinkingLevel` is enabled, some providers may have limitations (see Important Constraints).
+
+### Memory Management
+
+- Redis for distributed memory (production)
+- In-memory store for development
+- Conversation summarization for long contexts
+
+## Important Constraints
+
+1. **No Circular Dependencies:** All providers use dynamic imports in registry
+2. **Type Safety:** Maintain strict TypeScript across all modules
+3. **Provider Consistency:** All providers must support same core interface
+4. **Backward Compatibility:** SDK changes must maintain existing API
+5. **File Size Limits:** Consider token limits for multimodal content
+6. **Environment Isolation:** CLI and SDK have separate concerns (CLI can use manual MCP, SDK cannot)
+7. **Gemini Tool + JSON Schema Support:** Google Gemini models (AI Studio and Vertex) now support using tools and JSON schema output together. The fix works by not setting `responseMimeType: "application/json"` when tools are present (this was causing the conflict). The `responseSchema` is still set to guide output structure. Note: Very complex schemas with many tools may still trigger "Too many states for serving" errors - simplify if this occurs.
+
+## Development Workflow
+
+1. Make changes in `src/`
+2. Run `pnpm run check` to validate types
+3. Run `pnpm run lint` and `pnpm run format` for code quality
+4. Run relevant tests with `pnpm test` or `pnpm run test:run`
+5. Build with `pnpm run build`
+6. Test CLI with `pnpm run build:cli && pnpm run cli <command>`
+7. Validate all changes with `pnpm run validate:all`
+
+## Key Files to Know
+
+| File                                       | Purpose                                       |
+| ------------------------------------------ | --------------------------------------------- |
+| `src/lib/neurolink.ts`                     | Main SDK class, orchestrates everything       |
+| `src/lib/factories/providerRegistry.ts`    | Provider registration with dynamic imports    |
+| `src/lib/utils/messageBuilder.ts`          | Central message construction logic            |
+| `src/lib/adapters/providerImageAdapter.ts` | Multimodal content adaptation                 |
+| `src/lib/mcp/toolRegistry.ts`              | Tool management and MCP integration           |
+| `src/lib/mcp/mcpClientFactory.ts`          | MCP client creation for all transports        |
+| `src/lib/mcp/externalServerManager.ts`     | External MCP server lifecycle management      |
+| `src/cli/factories/commandFactory.ts`      | CLI command creation                          |
+| `src/lib/types/index.ts`                   | Main type definitions and exports             |
+| `src/lib/types/externalMcp.ts`             | External MCP server types (HTTP config, etc.) |
+
+## Documentation
+
+- Full documentation in `docs/` directory
+- README.md has comprehensive feature overview
+- Each major feature has dedicated guide in `docs/features/`
+- API reference in `docs/sdk/api-reference.md`
+- CLI reference in `docs/cli/commands.md`

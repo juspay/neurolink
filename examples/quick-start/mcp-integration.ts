@@ -115,7 +115,7 @@ async function mcpIntegrationDemo() {
       id: "server-id",
       name: "Server Name",
       description: "Server description",
-      transport: "http", // or "stdio" or "sse"
+      transport: "http", // or "stdio" or "sse" or "websocket"
       status: "initializing", // or "connected" or "error"
       tools: [], // Array of available tools
       url: "https://api.example.com/mcp", // Required for HTTP transport
@@ -140,9 +140,14 @@ async function mcpIntegrationDemo() {
     console.log("  - Use neurolink.generate() for AI interactions");
 
     console.log("\nTransport Types:");
-    console.log("  stdio  - Local CLI tools (npx, node, python commands)");
-    console.log("  sse    - Server-Sent Events (legacy web servers)");
-    console.log("  http   - HTTP/REST APIs (recommended for remote servers)");
+    console.log("  stdio     - Local CLI tools (npx, node, python commands)");
+    console.log("  sse       - Server-Sent Events (legacy web servers)");
+    console.log(
+      "  websocket - WebSocket connections (real-time bidirectional)",
+    );
+    console.log(
+      "  http      - HTTP/REST APIs (recommended for remote servers)",
+    );
   } catch (error) {
     console.error("MCP demo failed:", (error as Error).message);
     console.log("\nTroubleshooting:");

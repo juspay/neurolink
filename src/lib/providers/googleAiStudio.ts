@@ -1,13 +1,4 @@
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import {
-  embed,
-  embedMany,
-  type LanguageModel,
-  type Schema,
-  stepCountIs,
-  streamText,
-  type Tool,
-} from "ai";
+import { type LanguageModel, type Schema, type Tool } from "ai";
 import {
   type AIProviderName,
   ErrorCategory,
@@ -15,10 +6,7 @@ import {
   GoogleAIModels,
 } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
-import { DEFAULT_MAX_STEPS } from "../core/constants.js";
-import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import type { NeuroLink } from "../neurolink.js";
-import { SpanStatusCode } from "@opentelemetry/api";
 import { ATTR, tracers, withClientSpan } from "../telemetry/index.js";
 import type {
   AnalyticsData,
@@ -28,33 +16,29 @@ import type {
   TextGenerationOptions,
   GenAIClient,
   GoogleGenAIClass,
+  GoogleLiveAudioQueueItem,
   LiveServerMessage,
   AudioChunk,
-  GoogleLiveAudioQueueItem,
   NativeToolsConfig,
   StreamOptions,
   StreamResult,
-  StreamToolCall,
-  StreamToolResult,
 } from "../types/index.js";
 
 import {
   AuthenticationError,
+  InvalidModelError,
   NetworkError,
   ProviderError,
   RateLimitError,
 } from "../types/index.js";
 import { ERROR_CODES, NeuroLinkError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
-import { isGemini3Model } from "../utils/modelDetection.js";
 import {
   composeAbortSignals,
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
 import { estimateTokens } from "../utils/tokenEstimation.js";
-import { resolveToolChoice } from "../utils/toolChoice.js";
-import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import {
   buildNativeConfig,
   buildNativeToolDeclarations,
@@ -66,9 +50,8 @@ import {
   extractTextFromParts,
   handleMaxStepsTermination,
   pushModelResponseToHistory,
-  sanitizeToolsForGemini,
 } from "./googleNativeGemini3.js";
-import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
+import { createProxyFetch } from "../proxy/proxyFetch.js";
 
 // Google AI Live API types now imported from ../types/providerSpecific.js
 
@@ -89,7 +72,13 @@ async function createGoogleGenAIClient(apiKey: string): Promise<GenAIClient> {
     });
   }
   const Ctor = ctor as GoogleGenAIClass;
-  return new Ctor({ apiKey });
+  // Include httpOptions with proxy fetch for corporate network support
+  return new Ctor({
+    apiKey,
+    httpOptions: {
+      fetch: createProxyFetch(),
+    },
+  });
 }
 
 /**
@@ -156,12 +145,19 @@ export class GoogleAIStudioProvider extends BaseProvider {
   }
 
   /**
-   * 🔧 PHASE 2: Return AI SDK model instance for tool calling
+   * AI SDK model instance — no longer used.
+   * All models are routed through native @google/genai SDK directly.
    */
   public getAISDKModel(): LanguageModel {
-    const apiKey = this.getApiKey();
-    const google = createGoogleGenerativeAI({ apiKey });
-    return google(this.modelName);
+    throw new NeuroLinkError({
+      code: ERROR_CODES.INVALID_CONFIGURATION,
+      message:
+        "GoogleAIStudioProvider no longer uses @ai-sdk/google. All models use native @google/genai SDK.",
+      category: ErrorCategory.CONFIGURATION,
+      severity: ErrorSeverity.CRITICAL,
+      retriable: false,
+      context: { provider: this.providerName, model: this.modelName },
+    });
   }
 
   protected formatProviderError(error: unknown): Error {
@@ -174,17 +170,79 @@ export class GoogleAIStudioProvider extends BaseProvider {
       typeof errorRecord?.message === "string"
         ? errorRecord.message
         : "Unknown error";
+    const statusCode =
+      typeof errorRecord?.status === "number"
+        ? errorRecord.status
+        : typeof errorRecord?.statusCode === "number"
+          ? errorRecord.statusCode
+          : undefined;
 
-    if (message.includes("API_KEY_INVALID")) {
+    // Authentication errors
+    if (
+      message.includes("API_KEY_INVALID") ||
+      message.includes("Invalid API key") ||
+      statusCode === 401
+    ) {
       return new AuthenticationError(
         "Invalid Google AI API key. Please check your GOOGLE_AI_API_KEY environment variable.",
         this.providerName,
       );
     }
 
-    if (message.includes("RATE_LIMIT_EXCEEDED")) {
+    // Rate limit errors
+    if (
+      message.includes("RATE_LIMIT_EXCEEDED") ||
+      message.includes("rate limit") ||
+      message.includes("429") ||
+      statusCode === 429
+    ) {
       return new RateLimitError(
         "Google AI rate limit exceeded. Please try again later.",
+        this.providerName,
+      );
+    }
+
+    // Model not found errors
+    if (
+      message.includes("NOT_FOUND") ||
+      message.includes("model not found") ||
+      message.includes("Model not found") ||
+      message.includes("models/") ||
+      statusCode === 404
+    ) {
+      return new InvalidModelError(
+        `Model '${this.modelName}' not found. Please check the model name and ensure it is available.`,
+        this.providerName,
+      );
+    }
+
+    // Network connectivity errors
+    if (
+      message.includes("ECONNRESET") ||
+      message.includes("ENOTFOUND") ||
+      message.includes("ETIMEDOUT") ||
+      message.includes("ECONNREFUSED") ||
+      message.includes("network") ||
+      message.includes("connection")
+    ) {
+      return new NetworkError(
+        `Connection error: ${message}`,
+        this.providerName,
+      );
+    }
+
+    // Server errors (5xx)
+    if (
+      message.includes("500") ||
+      message.includes("502") ||
+      message.includes("503") ||
+      message.includes("504") ||
+      message.includes("server error") ||
+      message.includes("Internal Server Error") ||
+      (statusCode && statusCode >= 500 && statusCode < 600)
+    ) {
+      return new ProviderError(
+        `Google AI server error: ${message}. Please try again later.`,
         this.providerName,
       );
     }
@@ -527,266 +585,70 @@ export class GoogleAIStudioProvider extends BaseProvider {
     options: StreamOptions,
     analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
-    // Check if this is a Gemini 3 model with tools - use native SDK for thought_signature
-    const gemini3CheckModelName = options.model || this.modelName;
-
-    // Structured output (analysisSchema, JSON format, or schema) is incompatible with tools on Gemini.
-    // Compute once and reuse in both the native Gemini 3 gate and the streamText fallback path.
-    const wantsStructuredOutput =
-      analysisSchema || options.output?.format === "json" || options.schema;
-
-    // Check for tools from options AND from SDK (MCP tools)
-    // Need to check early if we should route to native SDK
-    const gemini3CheckShouldUseTools =
-      !options.disableTools && this.supportsTools() && !wantsStructuredOutput;
-    const tools = options.tools || {};
-
-    const hasTools =
-      gemini3CheckShouldUseTools && Object.keys(tools).length > 0;
-
-    if (isGemini3Model(gemini3CheckModelName) && hasTools) {
-      // Merge SDK tools into options for native SDK path
-      let mergedOptions = {
-        ...options,
-        tools: tools,
-      };
-
-      // Check for tools + JSON schema conflict (Gemini limitation)
-      const wantsJsonOutput =
-        options.output?.format === "json" || options.schema;
-      if (
-        wantsJsonOutput &&
-        mergedOptions.tools &&
-        Object.keys(mergedOptions.tools).length > 0 &&
-        !mergedOptions.disableTools
-      ) {
-        logger.warn(
-          "[GoogleAIStudio] Gemini does not support tools and JSON schema output simultaneously. Disabling tools for this request.",
-        );
-        mergedOptions = { ...mergedOptions, disableTools: true, tools: {} };
-      }
-
-      // Only route to native path if tools are still active after conflict check
-      const hasActiveTools =
-        !mergedOptions.disableTools &&
-        mergedOptions.tools &&
-        Object.keys(mergedOptions.tools).length > 0;
-      if (hasActiveTools) {
-        logger.info(
-          "[GoogleAIStudio] Routing Gemini 3 to native SDK for tool calling",
-          {
-            model: gemini3CheckModelName,
-            totalToolCount: Object.keys(mergedOptions.tools ?? {}).length,
-          },
-        );
-        return this.executeNativeGemini3Stream(mergedOptions);
-      }
-      // Fall through to standard stream path using merged options (tools disabled for schema)
-      options = mergedOptions;
-    }
+    const modelName = options.model || this.modelName;
 
     // Phase 1: if audio input present, bridge to Gemini Live (Studio) using @google/genai
     if (options.input?.audio) {
       return await this.executeAudioStreamViaGeminiLive(options);
     }
-    this.validateStreamOptions(options);
 
-    const startTime = Date.now();
+    // Structured output (analysisSchema, JSON format, or schema) is incompatible with tools on Gemini.
+    const wantsStructuredOutput =
+      analysisSchema || options.output?.format === "json" || options.schema;
 
-    const model = await this.getAISDKModelWithMiddleware(options);
+    // Check for tools from options AND from SDK (MCP tools)
+    const shouldUseTools =
+      !options.disableTools && this.supportsTools() && !wantsStructuredOutput;
+    const optionTools = options.tools || {};
+    const sdkTools = shouldUseTools ? await this.getAllTools() : {};
+    const combinedToolCount =
+      Object.keys(optionTools).length + Object.keys(sdkTools).length;
 
-    const timeout = this.getTimeout(options);
-    const timeoutController = createTimeoutController(
-      timeout,
-      this.providerName,
-      "stream",
-    );
+    // Merge SDK tools into options for native SDK path
+    let mergedOptions = {
+      ...options,
+      tools: { ...sdkTools, ...optionTools },
+    };
 
-    try {
-      // Get tools consistently with generate method (include user-provided RAG tools)
-      // wantsStructuredOutput already computed before the Gemini 3 native-routing gate
-      if (
-        wantsStructuredOutput &&
-        !options.disableTools &&
-        this.supportsTools()
-      ) {
-        logger.warn(
-          "[GoogleAIStudio] Structured output active — disabling tools (Gemini limitation).",
-        );
-      }
-      const shouldUseTools =
-        !options.disableTools && this.supportsTools() && !wantsStructuredOutput;
-      const filteredTools: Record<string, Tool> = shouldUseTools
-        ? (options.tools ?? {})
-        : {};
-      // Sanitize tool schemas for Gemini proto compatibility (converts anyOf/oneOf unions to string)
-      let tools: Record<string, Tool> | undefined;
-      if (Object.keys(filteredTools).length > 0) {
-        const sanitized = sanitizeToolsForGemini(filteredTools);
-        if (sanitized.dropped.length > 0) {
-          logger.warn(
-            `[GoogleAIStudio] Dropped ${sanitized.dropped.length} incompatible tool(s): ${sanitized.dropped.join(", ")}`,
-          );
-        }
-        tools =
-          Object.keys(sanitized.tools).length > 0 ? sanitized.tools : undefined;
-      } else {
-        tools = undefined;
-      }
+    // Check for tools + JSON schema conflict (Gemini limitation)
+    const wantsJsonOutput = options.output?.format === "json" || options.schema;
+    if (
+      wantsJsonOutput &&
+      mergedOptions.tools &&
+      Object.keys(mergedOptions.tools).length > 0 &&
+      !mergedOptions.disableTools
+    ) {
+      logger.warn(
+        "[GoogleAIStudio] Gemini does not support tools and JSON schema output simultaneously. Disabling tools for this request.",
+      );
+      mergedOptions = { ...mergedOptions, disableTools: true, tools: {} };
+    }
 
-      // Build message array from options with multimodal support
-      // Using protected helper from BaseProvider to eliminate code duplication
-      const messages = await this.buildMessagesForStream(options);
+    const hasActiveTools =
+      !mergedOptions.disableTools &&
+      mergedOptions.tools &&
+      Object.keys(mergedOptions.tools).length > 0 &&
+      combinedToolCount > 0;
 
-      const collectedToolCalls: StreamToolCall[] = [];
-      const collectedToolResults: StreamToolResult[] = [];
-
-      const result = await streamText({
-        model,
-        messages: messages,
-        temperature: options.temperature,
-        maxOutputTokens: options.maxTokens, // No default limit - unlimited unless specified
-        tools,
-        stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
-        toolChoice: resolveToolChoice(options, tools, shouldUseTools),
-        abortSignal: composeAbortSignals(
-          options.abortSignal,
-          timeoutController?.controller.signal,
-        ),
-        experimental_telemetry:
-          this.telemetryHandler.getTelemetryConfig(options),
-        experimental_repairToolCall: this.getToolCallRepairFn(options),
-        // Gemini 3: use thinkingLevel via providerOptions
-        // Gemini 2.5: use thinkingBudget via providerOptions
-        ...(options.thinkingConfig?.enabled && {
-          providerOptions: {
-            google: {
-              thinkingConfig: {
-                ...(options.thinkingConfig.thinkingLevel && {
-                  thinkingLevel: options.thinkingConfig.thinkingLevel,
-                }),
-                ...(options.thinkingConfig.budgetTokens &&
-                  !options.thinkingConfig.thinkingLevel && {
-                    thinkingBudget: options.thinkingConfig.budgetTokens,
-                  }),
-                includeThoughts: true,
-              },
-            },
-          },
-        }),
-        onStepFinish: ({ toolCalls, toolResults }) => {
-          for (const toolCall of toolCalls) {
-            collectedToolCalls.push({
-              toolCallId: toolCall.toolCallId,
-              toolName: toolCall.toolName,
-              args:
-                (toolCall as { args?: Record<string, unknown> }).args ??
-                (toolCall as { input?: Record<string, unknown> }).input ??
-                (toolCall as { parameters?: Record<string, unknown> })
-                  .parameters ??
-                {},
-            });
-          }
-
-          for (const toolResult of toolResults) {
-            const rawToolResult = toolResult as {
-              output?: unknown;
-              result?: unknown;
-              error?: string;
-              toolCallId?: string;
-            };
-            collectedToolResults.push({
-              toolName: toolResult.toolName,
-              status: rawToolResult.error ? "failure" : "success",
-              output:
-                ((rawToolResult.output ??
-                  rawToolResult.result) as StreamToolResult["output"]) ??
-                undefined,
-              error: rawToolResult.error,
-              id: rawToolResult.toolCallId ?? toolResult.toolName,
-            });
-          }
-
-          // Emit tool:end for each completed tool result so Pipeline B
-          // captures telemetry for AI-SDK-driven tool calls (gap S2).
-          emitToolEndFromStepFinish(
-            this.neurolink?.getEventEmitter(),
-            toolResults as Array<{
-              toolName: string;
-              output?: unknown;
-              result?: unknown;
-              error?: string;
-            }>,
-          );
-
-          this.handleToolExecutionStorage(
-            toolCalls,
-            toolResults,
-            options,
-            new Date(),
-          ).catch((error: unknown) => {
-            logger.warn(
-              "[GoogleAiStudioProvider] Failed to store tool executions",
-              {
-                provider: this.providerName,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
-          });
-        },
-      });
-
-      // Defer timeout cleanup until the stream completes or errors.
-      // Guard against NoOutputGeneratedError becoming an unhandled rejection.
-      Promise.resolve(result.text)
-        .catch((err: unknown) => {
-          logger.debug(
-            "Stream text promise rejected (expected for empty streams)",
-            {
-              error: err instanceof Error ? err.message : String(err),
-            },
-          );
-        })
-        .finally(() => timeoutController?.cleanup());
-
-      // Transform string stream to content object stream using BaseProvider method
-      const transformedStream = this.createTextStream(result);
-
-      // Create analytics promise that resolves after stream completion
-      const analyticsPromise = streamAnalyticsCollector.createAnalytics(
-        this.providerName,
-        this.modelName,
-        toAnalyticsStreamResult(result),
-        Date.now() - startTime,
+    if (hasActiveTools) {
+      logger.info(
+        "[GoogleAIStudio] Routing to native @google/genai SDK for tool calling",
         {
-          requestId: `google-ai-stream-${Date.now()}`,
-          streamingMode: true,
+          model: modelName,
+          optionToolCount: Object.keys(optionTools).length,
+          sdkToolCount: Object.keys(sdkTools).length,
+          totalToolCount: combinedToolCount,
         },
       );
-
-      return {
-        stream: transformedStream,
-        provider: this.providerName,
-        model: this.modelName,
-        ...(shouldUseTools && {
-          toolCalls: collectedToolCalls,
-          toolResults: collectedToolResults,
-        }),
-        analytics: analyticsPromise,
-        metadata: {
-          startTime,
-          streamId: `google-ai-${Date.now()}`,
-        },
-      };
-    } catch (error) {
-      timeoutController?.cleanup();
-      throw this.handleProviderError(error);
     }
+
+    // Route ALL models through native @google/genai SDK (no more @ai-sdk/google dependency)
+    return this.executeNativeGemini3Stream(mergedOptions);
   }
 
   /**
-   * Execute stream using native @google/genai SDK for Gemini 3 models
-   * This bypasses @ai-sdk/google to properly handle thought_signature
+   * Execute stream using native @google/genai SDK
+   * Uses @google/genai directly for all Gemini models (2.0, 2.5, 3.x)
    */
   private async executeNativeGemini3Stream(
     options: StreamOptions,
@@ -1034,64 +896,8 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 timestamp: new Date().toISOString(),
               });
 
-              // Emit generation:end so Pipeline B (Langfuse) creates a GENERATION
-              // observation. The native @google/genai stream path bypasses the Vercel
-              // AI SDK so experimental_telemetry is never injected; we emit manually.
-              const nativeStreamEmitter = this.neurolink?.getEventEmitter();
-              if (nativeStreamEmitter) {
-                nativeStreamEmitter.emit("generation:end", {
-                  provider: this.providerName,
-                  responseTime,
-                  timestamp: Date.now(),
-                  result: {
-                    content: "",
-                    usage: {
-                      input: totalInputTokens,
-                      output: totalOutputTokens,
-                      total: totalInputTokens + totalOutputTokens,
-                    },
-                    model: modelName,
-                    provider: this.providerName,
-                    finishReason: hitStepLimitWithoutFinalAnswer
-                      ? "max_steps"
-                      : "stop",
-                  },
-                  success: true,
-                });
-              }
-
               channel.close();
             } catch (err) {
-              // Propagate error to OTel span so traces show ERROR status
-              span.recordException(
-                err instanceof Error ? err : new Error(String(err)),
-              );
-              span.setStatus({
-                code: SpanStatusCode.ERROR,
-                message: err instanceof Error ? err.message : String(err),
-              });
-              // Emit failure generation:end so Pipeline B records the failed stream
-              const errorEmitter = this.neurolink?.getEventEmitter();
-              if (errorEmitter) {
-                errorEmitter.emit("generation:end", {
-                  provider: this.providerName,
-                  responseTime: Date.now() - startTime,
-                  timestamp: Date.now(),
-                  result: {
-                    content: "",
-                    usage: {
-                      input: totalInputTokens,
-                      output: totalOutputTokens,
-                      total: totalInputTokens + totalOutputTokens,
-                    },
-                    model: modelName,
-                    provider: this.providerName,
-                    finishReason: "error",
-                  },
-                  success: false,
-                  error: err instanceof Error ? err.message : String(err),
-                });
-              }
               channel.error(err);
               analyticsReject(err);
             } finally {
@@ -1175,10 +981,11 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
           const shouldUseTools = !options.disableTools;
           if (shouldUseTools) {
-            const tools = options.tools || {};
+            const sdkTools = await this.getAllTools();
+            const mergedTools = { ...sdkTools, ...(options.tools || {}) };
 
-            if (Object.keys(tools).length > 0) {
-              const result = buildNativeToolDeclarations(tools);
+            if (Object.keys(mergedTools).length > 0) {
+              const result = buildNativeToolDeclarations(mergedTools);
               toolsConfig = result.toolsConfig;
               executeMap = result.executeMap;
 
@@ -1320,30 +1127,6 @@ export class GoogleAIStudioProvider extends BaseProvider {
             step >= maxSteps ? "max_steps" : "stop",
           );
 
-          // Emit generation:end so Pipeline B (Langfuse) creates a GENERATION
-          // observation. The native @google/genai path bypasses the Vercel AI SDK
-          // so experimental_telemetry is never injected; we emit the event manually.
-          const nativeGenerateEmitter = this.neurolink?.getEventEmitter();
-          if (nativeGenerateEmitter) {
-            nativeGenerateEmitter.emit("generation:end", {
-              provider: this.providerName,
-              responseTime,
-              timestamp: Date.now(),
-              result: {
-                content: finalText,
-                usage: {
-                  input: totalInputTokens,
-                  output: totalOutputTokens,
-                  total: totalInputTokens + totalOutputTokens,
-                },
-                model: modelName,
-                provider: this.providerName,
-                finishReason: step >= maxSteps ? "max_steps" : "stop",
-              },
-              success: true,
-            });
-          }
-
           // Build EnhancedGenerateResult
           return {
             content: finalText,
@@ -1380,54 +1163,48 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
     const modelName = options.model || this.modelName;
 
-    // Check if we should use native SDK for Gemini 3 with tools
+    // Check for tools from options AND from SDK (MCP tools)
     const shouldUseTools = !options.disableTools && this.supportsTools();
-    const hasTools =
-      shouldUseTools && options.tools && Object.keys(options.tools).length > 0;
+    const sdkTools = shouldUseTools ? await this.getAllTools() : {};
 
-    if (isGemini3Model(modelName) && hasTools) {
-      // Merge SDK tools into options for native SDK path
-      let mergedOptions = {
-        ...options,
-        tools: options.tools,
-      };
+    // Merge SDK tools into options for native SDK path
+    let mergedOptions = {
+      ...options,
+      tools: { ...sdkTools, ...(options.tools || {}) },
+    };
 
-      // Check for tools + JSON schema conflict (Gemini limitation)
-      const wantsJsonOutput =
-        options.output?.format === "json" || options.schema;
-      if (
-        wantsJsonOutput &&
-        mergedOptions.tools &&
-        Object.keys(mergedOptions.tools).length > 0 &&
-        !mergedOptions.disableTools
-      ) {
-        logger.warn(
-          "[GoogleAIStudio] Gemini does not support tools and JSON schema output simultaneously. Disabling tools for this request.",
-        );
-        mergedOptions = { ...mergedOptions, disableTools: true, tools: {} };
-      }
-
-      // Only route to native path if tools are still active after conflict check
-      const hasActiveTools =
-        !mergedOptions.disableTools &&
-        mergedOptions.tools &&
-        Object.keys(mergedOptions.tools).length > 0;
-      if (hasActiveTools) {
-        logger.info(
-          "[GoogleAIStudio] Routing Gemini 3 generate to native SDK for tool calling",
-          {
-            model: modelName,
-            totalToolCount: Object.keys(mergedOptions.tools ?? {}).length,
-          },
-        );
-        return this.executeNativeGemini3Generate(mergedOptions);
-      }
-      // Fall through to standard generate path using merged options (tools disabled for schema)
-      return super.generate(mergedOptions);
+    // Check for tools + JSON schema conflict (Gemini limitation)
+    const wantsJsonOutput = options.output?.format === "json" || options.schema;
+    if (
+      wantsJsonOutput &&
+      mergedOptions.tools &&
+      Object.keys(mergedOptions.tools).length > 0 &&
+      !mergedOptions.disableTools
+    ) {
+      logger.warn(
+        "[GoogleAIStudio] Gemini does not support tools and JSON schema output simultaneously. Disabling tools for this request.",
+      );
+      mergedOptions = { ...mergedOptions, disableTools: true, tools: {} };
     }
 
-    // Fall back to BaseProvider implementation
-    return super.generate(options);
+    const hasActiveTools =
+      !mergedOptions.disableTools &&
+      mergedOptions.tools &&
+      Object.keys(mergedOptions.tools).length > 0;
+
+    if (hasActiveTools) {
+      logger.info(
+        "[GoogleAIStudio] Routing generate to native @google/genai SDK for tool calling",
+        {
+          model: modelName,
+          sdkToolCount: Object.keys(sdkTools).length,
+          optionToolCount: Object.keys(options.tools || {}).length,
+        },
+      );
+    }
+
+    // Route ALL models through native @google/genai SDK (no more @ai-sdk/google dependency)
+    return this.executeNativeGemini3Generate(mergedOptions);
   }
 
   // ===================
@@ -1668,22 +1445,28 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
     try {
       const apiKey = this.getApiKey();
-      const google = createGoogleGenerativeAI({ apiKey });
+      const client = await createGoogleGenAIClient(apiKey);
 
-      const embeddingModel = google.textEmbeddingModel(embeddingModelName);
-
-      const result = await embed({
-        model: embeddingModel,
-        value: text,
+      const result = await client.models.embedContent({
+        model: embeddingModelName,
+        contents: [text],
       });
+
+      const embedding = result.embeddings?.[0]?.values;
+      if (!embedding) {
+        throw new ProviderError(
+          "No embedding returned from Google AI",
+          this.providerName,
+        );
+      }
 
       logger.debug("Embedding generated successfully", {
         provider: this.providerName,
         model: embeddingModelName,
-        embeddingDimension: result.embedding.length,
+        embeddingDimension: embedding.length,
       });
 
-      return result.embedding;
+      return embedding;
     } catch (error) {
       logger.error("Embedding generation failed", {
         error: error instanceof Error ? error.message : String(error),
@@ -1713,23 +1496,25 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
     try {
       const apiKey = this.getApiKey();
-      const google = createGoogleGenerativeAI({ apiKey });
+      const client = await createGoogleGenAIClient(apiKey);
 
-      const embeddingModel = google.textEmbeddingModel(embeddingModelName);
-
-      const result = await embedMany({
-        model: embeddingModel,
-        values: texts,
+      const result = await client.models.embedContent({
+        model: embeddingModelName,
+        contents: texts,
       });
+
+      const embeddings = (result.embeddings || []).map(
+        (e: { values?: number[] }) => e.values || [],
+      );
 
       logger.debug("Batch embeddings generated successfully", {
         provider: this.providerName,
         model: embeddingModelName,
-        count: result.embeddings.length,
-        embeddingDimension: result.embeddings[0]?.length,
+        count: embeddings.length,
+        embeddingDimension: embeddings[0]?.length,
       });
 
-      return result.embeddings;
+      return embeddings;
     } catch (error) {
       logger.error("Batch embedding generation failed", {
         error: error instanceof Error ? error.message : String(error),

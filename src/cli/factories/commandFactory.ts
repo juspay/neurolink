@@ -54,6 +54,28 @@ import { SageMakerCommandFactory } from "./sagemakerCommandFactory.js";
  * CLI Command Factory for generate commands
  */
 export class CLICommandFactory {
+  /**
+   * Normalize loop session variables before merging them into provider options.
+   *
+   * The CLI loop schema models some fields (e.g. `stopSequences`) as a single
+   * comma-separated string for ergonomic input, but providers expect `string[]`.
+   * Without conversion, `set stopSequences a,b` would be sent as one stop
+   * token "a,b" instead of two ("a", "b"). This helper splits and trims those
+   * fields so the spread into `enhancedOptions` produces the correct shape.
+   */
+  private static normalizeLoopSessionVariables(
+    vars: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const normalized: Record<string, unknown> = { ...vars };
+    if (typeof normalized.stopSequences === "string") {
+      normalized.stopSequences = normalized.stopSequences
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return normalized;
+  }
+
   // Common options available on all commands
   private static readonly commonOptions = {
     // Core generation options
@@ -2557,7 +2579,9 @@ export class CLICommandFactory {
 
       // Initialize SDK and session
       const sdk = globalSession.getOrCreateNeuroLink();
-      const sessionVariables = globalSession.getSessionVariables();
+      const sessionVariables = CLICommandFactory.normalizeLoopSessionVariables(
+        globalSession.getSessionVariables(),
+      );
       const enhancedOptions = { ...options, ...sessionVariables };
       const sessionId = globalSession.getCurrentSessionId();
       const context = sessionId
@@ -2831,7 +2855,9 @@ export class CLICommandFactory {
     contextMetadata: Partial<BaseContext> | undefined,
   ): Promise<string> {
     const sdk = globalSession.getOrCreateNeuroLink();
-    const sessionVariables = globalSession.getSessionVariables();
+    const sessionVariables = CLICommandFactory.normalizeLoopSessionVariables(
+      globalSession.getSessionVariables(),
+    );
     const enhancedOptions = { ...options, ...sessionVariables };
     const sessionId = globalSession.getCurrentSessionId();
     const context = sessionId
@@ -3402,7 +3428,9 @@ export class CLICommandFactory {
       }> = [];
 
       const sdk = globalSession.getOrCreateNeuroLink();
-      const sessionVariables = globalSession.getSessionVariables();
+      const sessionVariables = CLICommandFactory.normalizeLoopSessionVariables(
+        globalSession.getSessionVariables(),
+      );
       const enhancedOptions = { ...options, ...sessionVariables };
       const sessionId = globalSession.getCurrentSessionId();
 
