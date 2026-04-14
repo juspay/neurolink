@@ -35,7 +35,7 @@ async function configurationPatternsDemo() {
       model: "gemini-2.5-pro",
     });
     console.log("   Google AI provider used successfully");
-    console.log(`   Response: "${result.text}"\n`);
+    console.log(`   Response: "${result.content}"\n`);
 
     // 2. Provider Switching (Small Team Pattern)
     console.log("2. Provider Switching Strategy");
@@ -54,7 +54,7 @@ async function configurationPatternsDemo() {
           model: config.model,
           maxTokens: 10,
         });
-        if (testResult.text) {
+        if (testResult.content) {
           console.log(`   ${config.provider}/${config.model} available`);
         }
       } catch (error) {
@@ -84,7 +84,7 @@ async function configurationPatternsDemo() {
           provider: config.provider,
           model: config.model,
         });
-        if (fallbackResult.text) {
+        if (fallbackResult.content) {
           usedProvider = config.provider;
           console.log(`   Using fallback provider: ${config.provider}`);
           break;
@@ -94,8 +94,10 @@ async function configurationPatternsDemo() {
       }
     }
 
-    if (fallbackResult && fallbackResult.text) {
-      console.log(`   Fallback response: "${fallbackResult.text}"\n`);
+    if (fallbackResult && fallbackResult.content) {
+      console.log(`   Fallback response: "${fallbackResult.content}"\n`);
+    } else {
+      console.log("   All fallback providers failed!\n");
     }
 
     // 4. Reusable Configuration Pattern
@@ -121,7 +123,7 @@ async function configurationPatternsDemo() {
       input: { text: "Summarize: NeuroLink is a unified AI SDK." },
       ...teamConfigs.fast,
     });
-    console.log(`   Fast config result: "${configuredResult.text}"\n`);
+    console.log(`   Fast config result: "${configuredResult.content}"\n`);
 
     console.log("Configuration Patterns Demo Complete!");
   } catch (error) {

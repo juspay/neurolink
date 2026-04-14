@@ -20,6 +20,7 @@ type ProviderConstructor =
         providerName?: string,
         sdk?: UnknownRecord,
         region?: string,
+        credentials?: UnknownRecord,
       ): AIProvider;
     }
   | ((
@@ -27,6 +28,7 @@ type ProviderConstructor =
       providerName?: string,
       sdk?: UnknownRecord,
       region?: string,
+      credentials?: UnknownRecord,
     ) => Promise<AIProvider>);
 
 /**
