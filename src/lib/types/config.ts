@@ -61,6 +61,17 @@ export type NeurolinkConstructorConfig = {
    * from this NeuroLink instance. Per-call credentials override these.
    */
   credentials?: NeurolinkCredentials;
+
+  /** I/O processor pipeline configuration for this NeuroLink instance. */
+  processors?: {
+    enabled?: boolean;
+    preset?: string;
+    pipelineConfig?: {
+      name?: string;
+      stopOnAbort?: boolean;
+      pipelineTimeoutMs?: number;
+    };
+  };
 };
 
 /**

@@ -1,0 +1,155 @@
+{
+  "description": "Output test samples for I/O Processors integration testing",
+  "version": "1.0.0",
+  "responseValidation": {
+    "validResponses": [
+      {
+        "responseText": "Here is a comprehensive answer to your question about programming.",
+        "minLength": 10,
+        "expectedAction": "continue"
+      },
+      {
+        "responseText": "Machine learning is a subset of artificial intelligence that enables systems to learn and improve from experience without being explicitly programmed. It focuses on developing algorithms that can access data and use it to learn for themselves.",
+        "minLength": 50,
+        "expectedAction": "continue"
+      }
+    ],
+    "invalidResponses": [
+      {
+        "responseText": "",
+        "minLength": 1,
+        "expectedAction": "abort",
+        "expectedReason": "Empty response"
+      },
+      {
+        "responseText": "Hi",
+        "minLength": 100,
+        "expectedAction": "retry",
+        "expectedReason": "Response too short"
+      }
+    ]
+  },
+  "lengthValidation": {
+    "withinLimits": [
+      {
+        "responseText": "A normal length response that fits within typical limits.",
+        "maxLength": 10000,
+        "expectedAction": "continue"
+      }
+    ],
+    "exceedsLimits": [
+      {
+        "description": "Response exceeding max length",
+        "characterCount": 15000,
+        "maxLength": 10000,
+        "action": "truncate",
+        "expectedBehavior": "Should truncate to max length"
+      },
+      {
+        "description": "Response requiring retry",
+        "characterCount": 20000,
+        "maxLength": 5000,
+        "action": "retry",
+        "expectedBehavior": "Should request retry"
+      }
+    ]
+  },
+  "toxicityCheck": {
+    "cleanResponses": [
+      {
+        "responseText": "Thank you for your question. Here is a helpful and informative answer.",
+        "expectedScore": 0.0,
+        "expectedAction": "continue"
+      },
+      {
+        "responseText": "I understand your concern. Let me explain this topic in a respectful manner.",
+        "expectedScore": 0.0,
+        "expectedAction": "continue"
+      }
+    ],
+    "flaggedResponses": [
+      {
+        "responseText": "You are stupid and an idiot and a fool and a moron",
+        "expectedCategories": ["insult"],
+        "expectedAction": "warn",
+        "note": "Contains insult indicators"
+      },
+      {
+        "responseText": "I will destroy and kill and murder everything",
+        "expectedCategories": ["threat"],
+        "expectedAction": "abort",
+        "note": "Contains threat indicators"
+      }
+    ],
+    "thresholds": {
+      "blockThreshold": 0.7,
+      "warnThreshold": 0.4,
+      "description": "Scores above blockThreshold abort, above warnThreshold warn"
+    }
+  },
+  "contentFiltering": {
+    "allowedContent": [
+      {
+        "responseText": "Here is safe and helpful information about the topic.",
+        "expectedAction": "continue"
+      }
+    ],
+    "filteredContent": [
+      {
+        "description": "Content requiring filtering",
+        "expectedAction": "redact",
+        "note": "Would contain sensitive content markers"
+      }
+    ]
+  },
+  "tokenUsage": {
+    "normal": {
+      "inputTokens": 100,
+      "outputTokens": 500,
+      "totalTokens": 600,
+      "expectedBehavior": "Should pass tripwire"
+    },
+    "excessive": {
+      "inputTokens": 50000,
+      "outputTokens": 60000,
+      "totalTokens": 110000,
+      "expectedBehavior": "Should trigger maxTokens tripwire"
+    }
+  },
+  "latencySimulation": {
+    "fast": {
+      "latencyMs": 500,
+      "expectedBehavior": "Should pass"
+    },
+    "slow": {
+      "latencyMs": 35000,
+      "expectedBehavior": "Should trigger highLatency tripwire"
+    }
+  },
+  "repetitionPatterns": {
+    "normal": {
+      "responseText": "This is a normal response with varied vocabulary and different words throughout the text.",
+      "expectedTrigger": false
+    },
+    "repetitive": {
+      "description": "Highly repetitive content",
+      "pattern": "word repeated many many many many many many many many many many times",
+      "expectedTrigger": true,
+      "note": "Should trigger repetition-loop tripwire"
+    }
+  },
+  "edgeCases": {
+    "emptyResponse": {
+      "responseText": "",
+      "expectedTrigger": "empty-response tripwire"
+    },
+    "whitespaceOnly": {
+      "responseText": "   \n\t  \n   ",
+      "expectedTrigger": "empty-response tripwire"
+    },
+    "veryLongResponse": {
+      "characterCount": 150000,
+      "expectedTrigger": "response-too-long tripwire"
+    }
+  }
+}

@@ -1126,3 +1126,115 @@ export {
   // Server Bridge
   createAuthValidatorFromProvider,
 } from "./auth/index.js";
+
+// ============================================================================
+// I/O PROCESSORS - Input/Output Data Transformation and Validation
+// ============================================================================
+
+/**
+ * Input/Output Processors
+ *
+ * Processors provide a clean abstraction layer for validating, transforming,
+ * and enriching data flowing into and out of LLM operations.
+ *
+ * @example Basic Usage
+ * ```typescript
+ * import {
+ *   ProcessorPipeline,
+ *   createPIIDetectionProcessor,
+ *   createContentFilteringProcessor,
+ * } from '@juspay/neurolink';
+ *
+ * const pipeline = new ProcessorPipeline({
+ *   inputProcessors: [
+ *     { processor: createPIIDetectionProcessor({ action: 'redact' }) },
+ *   ],
+ *   outputProcessors: [
+ *     { processor: createContentFilteringProcessor({ filterWords: ['confidential'] }) },
+ *   ],
+ * });
+ *
+ * const inputResult = await pipeline.processInput(inputData);
+ * if (inputResult.action === 'continue') {
+ *   // Proceed with LLM call
+ * }
+ * ```
+ */
+export {
+  // Core pipeline
+  ProcessorPipeline,
+  // Input processors
+  createContentModerationProcessor,
+  createMemoryRetrievalProcessor,
+  createMessageValidationProcessor,
+  createPIIDetectionProcessor,
+  createSemanticContextProcessor,
+  // Output processors
+  createContentFilteringProcessor,
+  createLengthValidationProcessor,
+  createMemoryPersistenceProcessor,
+  createResponseValidationProcessor,
+  createToxicityCheckProcessor,
+  // Pre-configured processor instances
+  contentFilteringProcessor,
+  contentModerationProcessor,
+  lengthValidationProcessor,
+  memoryPersistenceProcessor,
+  memoryRetrievalProcessor,
+  messageValidationProcessor,
+  piiDetectionProcessor,
+  responseValidationProcessor,
+  semanticContextProcessor,
+  toxicityCheckProcessor,
+  // Registry (aliased to avoid collision with file processor ProcessorRegistry)
+  IOProcessorRegistry,
+  defaultRegistry,
+  // Presets (aliased to avoid collision with evaluation module)
+  builtInPresets,
+  defaultPreset,
+  getProcessorPreset,
+  getProcessorPresetNames,
+  minimalPreset,
+  qualityPreset,
+  securityPreset,
+  strictPreset,
+  // Tripwire system
+  TripwireEvaluator,
+  commonTripwires,
+  createDefaultTripwireEvaluator,
+  emptyResponseTripwire,
+  highLatencyTripwire,
+  inputTooLongTripwire,
+  maxTokensTripwire,
+  repetitionLoopTripwire,
+  responseTooLongTripwire,
+  tooManyMessagesTripwire,
+  // Utilities
+  createProcessorMetadata,
+  mergeProcessorMetadata,
+  validateJsonSchema,
+  // Type utilities
+  createDefaultMetadata,
+  createContinueResult,
+  createAbortResult,
+  createRetryResult,
+  // Error types and utilities
+  IOProcessorErrorCodes,
+  ioProcessorErrors,
+  isRetryableIOProcessorError,
+  isIOProcessorError,
+  createProcessorFailedError,
+  createPipelineError,
+  createRegistryError,
+  createTripwireError,
+  createValidationError,
+  createPresetNotFoundError,
+  createProcessorNotFoundError,
+  createDuplicateProcessorError,
+  createTimeoutError,
+  createProcessorConfigurationError,
+  createAbortError,
+  createBatchError,
+  // Initialization
+  initializeDefaultProcessors,
+} from "./processors/index.js";

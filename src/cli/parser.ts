@@ -26,6 +26,7 @@ import { EvaluateCommandFactory } from "./commands/evaluate.js";
 import { TaskCommandFactory } from "./commands/task.js";
 import { AutoresearchCommandFactory } from "./commands/autoresearch.js";
 import { voiceServerCommand } from "./commands/voiceServer.js";
+import { ProcessorsCommandFactory } from "./commands/processors.js";
 
 // Enhanced CLI with Professional UX
 export function initializeCliParser() {
@@ -271,5 +272,8 @@ export function initializeCliParser() {
 
       // Real-time voice server (Soniox STT + Cartesia TTS + Cobra VAD)
       .command(voiceServerCommand)
+
+      // I/O Processors Command Group
+      .command(ProcessorsCommandFactory.createProcessorsCommands())
   ); // Close the main return statement
 }

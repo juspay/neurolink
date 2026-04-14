@@ -334,3 +334,147 @@ export {
   loadFileFromPath,
   processFileFromPath,
 } from "./cli/index.js";
+
+// =============================================================================
+// I/O PROCESSOR SYSTEM
+// =============================================================================
+
+// Input processors
+export * from "./input/index.js";
+// Output processors
+export * from "./output/index.js";
+
+// Core pipeline
+export { ProcessorPipeline } from "./pipeline.js";
+
+// Presets (aliased to avoid conflict with evaluation module's getPreset/getPresetNames)
+export {
+  builtInPresets,
+  defaultPreset,
+  getPreset as getProcessorPreset,
+  getPresetNames as getProcessorPresetNames,
+  minimalPreset,
+  qualityPreset,
+  securityPreset,
+  strictPreset,
+  // Also export under original names for direct imports from this barrel
+  getPreset,
+  getPresetNames,
+} from "./presets.js";
+
+// I/O Registry (aliased to avoid collision with file processor ProcessorRegistry)
+export {
+  defaultRegistry,
+  ProcessorRegistry as IOProcessorRegistry,
+} from "./registry.js";
+
+// Tripwire system
+export {
+  commonTripwires,
+  createDefaultTripwireEvaluator,
+  emptyResponseTripwire,
+  highLatencyTripwire,
+  inputTooLongTripwire,
+  maxTokensTripwire,
+  repetitionLoopTripwire,
+  responseTooLongTripwire,
+  TripwireEvaluator,
+  tooManyMessagesTripwire,
+} from "./tripwire.js";
+
+// Utilities
+export * from "./utils/index.js";
+
+// Error utilities (runtime values only — types live in src/lib/types/)
+export {
+  IOProcessorErrorCodes,
+  ioProcessorErrors,
+  isRetryableIOProcessorError,
+  isIOProcessorError,
+  createProcessorFailedError,
+  createPipelineError,
+  createRegistryError,
+  createTripwireError,
+  createValidationError,
+  createPresetNotFoundError,
+  createProcessorNotFoundError,
+  createDuplicateProcessorError,
+  createTimeoutError,
+  createConfigurationError as createProcessorConfigurationError,
+  createAbortError,
+  createBatchError,
+} from "./errors/IOProcessorError.js";
+
+// Runtime helper functions (types live in src/lib/types/ioProcessor.ts)
+export {
+  createDefaultMetadata,
+  createContinueResult,
+  createAbortResult,
+  createRetryResult,
+} from "./processorHelpers.js";
+
+// Import processor factories for registration
+import {
+  createMessageValidationProcessor,
+  createPIIDetectionProcessor,
+  createContentModerationProcessor,
+  createMemoryRetrievalProcessor,
+  createSemanticContextProcessor,
+} from "./input/index.js";
+import {
+  createResponseValidationProcessor,
+  createLengthValidationProcessor,
+  createContentFilteringProcessor,
+  createToxicityCheckProcessor,
+  createMemoryPersistenceProcessor,
+} from "./output/index.js";
+import { defaultRegistry } from "./registry.js";
+import { builtInPresets } from "./presets.js";
+
+/**
+ * Initialize the default processor registry with all built-in processors.
+ * This function should be called once during application startup.
+ */
+export function initializeDefaultProcessors(): void {
+  // Register input processors
+  defaultRegistry.registerInputProcessor(createMessageValidationProcessor(), {
+    replace: true,
+  });
+  defaultRegistry.registerInputProcessor(createPIIDetectionProcessor(), {
+    replace: true,
+  });
+  defaultRegistry.registerInputProcessor(createContentModerationProcessor(), {
+    replace: true,
+  });
+  defaultRegistry.registerInputProcessor(createMemoryRetrievalProcessor(), {
+    replace: true,
+  });
+  defaultRegistry.registerInputProcessor(createSemanticContextProcessor(), {
+    replace: true,
+  });
+
+  // Register output processors
+  defaultRegistry.registerOutputProcessor(createResponseValidationProcessor(), {
+    replace: true,
+  });
+  defaultRegistry.registerOutputProcessor(createLengthValidationProcessor(), {
+    replace: true,
+  });
+  defaultRegistry.registerOutputProcessor(createContentFilteringProcessor(), {
+    replace: true,
+  });
+  defaultRegistry.registerOutputProcessor(createToxicityCheckProcessor(), {
+    replace: true,
+  });
+  defaultRegistry.registerOutputProcessor(createMemoryPersistenceProcessor(), {
+    replace: true,
+  });
+
+  // Register presets
+  for (const preset of builtInPresets) {
+    defaultRegistry.registerPreset(preset);
+  }
+}
+
+// Auto-initialize when module is imported
+initializeDefaultProcessors();

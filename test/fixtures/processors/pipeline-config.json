@@ -1,0 +1,378 @@
+{
+  "description": "Pipeline configuration samples for I/O Processors testing",
+  "version": "1.0.0",
+  "validConfigurations": {
+    "basic": {
+      "description": "Basic pipeline with message validation",
+      "inputProcessors": [
+        {
+          "id": "message-validation",
+          "config": {
+            "enabled": true,
+            "config": {
+              "minLength": 1,
+              "maxLength": 50000
+            }
+          }
+        }
+      ],
+      "outputProcessors": [
+        {
+          "id": "length-validation",
+          "config": {
+            "enabled": true,
+            "config": {
+              "maxLength": 100000
+            }
+          }
+        }
+      ],
+      "settings": {
+        "stopOnAbort": true,
+        "enableTracing": false
+      }
+    },
+    "security": {
+      "description": "Security-focused pipeline with PII detection and toxicity",
+      "inputProcessors": [
+        {
+          "id": "message-validation",
+          "config": { "enabled": true }
+        },
+        {
+          "id": "pii-detection",
+          "config": {
+            "enabled": true,
+            "config": {
+              "detectTypes": ["email", "phone", "ssn", "credit_card"],
+              "action": "redact",
+              "redactionText": "[REDACTED]"
+            }
+          }
+        },
+        {
+          "id": "content-moderation",
+          "config": {
+            "enabled": true,
+            "config": {
+              "blockThreshold": 0.7,
+              "warnThreshold": 0.4
+            }
+          }
+        }
+      ],
+      "outputProcessors": [
+        {
+          "id": "content-filtering",
+          "config": {
+            "enabled": true,
+            "config": {
+              "action": "redact"
+            }
+          }
+        },
+        {
+          "id": "toxicity-check",
+          "config": {
+            "enabled": true,
+            "config": {
+              "categories": ["toxicity", "insult", "threat"],
+              "blockThreshold": 0.7,
+              "warnThreshold": 0.4,
+              "action": "abort"
+            }
+          }
+        }
+      ],
+      "settings": {
+        "stopOnAbort": true,
+        "maxTotalRetries": 3,
+        "pipelineTimeout": 30000,
+        "enableTracing": true
+      }
+    },
+    "quality": {
+      "description": "Quality-focused pipeline with response validation",
+      "inputProcessors": [
+        {
+          "id": "message-validation",
+          "config": { "enabled": true }
+        }
+      ],
+      "outputProcessors": [
+        {
+          "id": "response-validation",
+          "config": {
+            "enabled": true,
+            "config": {
+              "minLength": 50,
+              "retryOnFailure": true,
+              "maxRetries": 3
+            }
+          }
+        },
+        {
+          "id": "length-validation",
+          "config": {
+            "enabled": true,
+            "config": {
+              "minLength": 20,
+              "maxLength": 10000,
+              "action": "retry"
+            }
+          }
+        }
+      ],
+      "settings": {
+        "maxTotalRetries": 5,
+        "enableTracing": true
+      }
+    },
+    "minimal": {
+      "description": "Minimal pipeline for high performance",
+      "inputProcessors": [
+        {
+          "id": "message-validation",
+          "config": {
+            "enabled": true,
+            "config": {
+              "maxLength": 100000
+            }
+          }
+        }
+      ],
+      "outputProcessors": [],
+      "settings": {
+        "stopOnAbort": false,
+        "enableTracing": false
+      }
+    },
+    "strict": {
+      "description": "Strict pipeline with maximum validation",
+      "inputProcessors": [
+        {
+          "id": "message-validation",
+          "config": {
+            "enabled": true,
+            "config": {
+              "minLength": 5,
+              "maxLength": 20000,
+              "maxMessages": 50
+            }
+          }
+        },
+        {
+          "id": "pii-detection",
+          "config": {
+            "enabled": true,
+            "config": {
+              "detectTypes": [
+                "email",
+                "phone",
+                "ssn",
+                "credit_card",
+                "ip_address"
+              ],
+              "action": "abort"
+            }
+          }
+        },
+        {
+          "id": "content-moderation",
+          "config": {
+            "enabled": true,
+            "config": {
+              "blockThreshold": 0.5,
+              "warnThreshold": 0.3
+            }
+          }
+        }
+      ],
+      "outputProcessors": [
+        {
+          "id": "response-validation",
+          "config": {
+            "enabled": true,
+            "config": {
+              "minLength": 10,
+              "retryOnFailure": true
+            }
+          }
+        },
+        {
+          "id": "length-validation",
+          "config": {
+            "enabled": true,
+            "config": {
+              "maxLength": 50000,
+              "action": "truncate"
+            }
+          }
+        },
+        {
+          "id": "content-filtering",
+          "config": {
+            "enabled": true,
+            "config": {
+              "action": "abort"
+            }
+          }
+        },
+        {
+          "id": "toxicity-check",
+          "config": {
+            "enabled": true,
+            "config": {
+              "blockThreshold": 0.5,
+              "warnThreshold": 0.3,
+              "action": "abort"
+            }
+          }
+        }
+      ],
+      "settings": {
+        "stopOnAbort": true,
+        "maxTotalRetries": 2,
+        "pipelineTimeout": 60000,
+        "enableTracing": true
+      }
+    }
+  },
+  "invalidConfigurations": {
+    "invalidProcessorType": {
+      "description": "Configuration with non-array inputProcessors",
+      "inputProcessors": "not-an-array",
+      "expectedError": "inputProcessors must be an array"
+    },
+    "missingProcessorId": {
+      "description": "Processor entry without id or processor",
+      "inputProcessors": [
+        {
+          "config": { "enabled": true }
+        }
+      ],
+      "expectedError": "must have either 'id' or 'processor' property"
+    },
+    "invalidProcessorId": {
+      "description": "Non-existent processor ID",
+      "inputProcessors": [
+        {
+          "id": "nonexistent-processor"
+        }
+      ],
+      "expectedWarning": "is not a registered input processor"
+    },
+    "invalidSettings": {
+      "description": "Invalid settings values",
+      "inputProcessors": [{ "id": "message-validation" }],
+      "settings": {
+        "stopOnAbort": "not-a-boolean",
+        "maxTotalRetries": -5,
+        "pipelineTimeout": "invalid"
+      },
+      "expectedErrors": [
+        "stopOnAbort must be a boolean",
+        "maxTotalRetries must be a non-negative number",
+        "pipelineTimeout must be a non-negative number"
+      ]
+    },
+    "invalidConfig": {
+      "description": "Invalid processor config format",
+      "inputProcessors": [
+        {
+          "id": "pii-detection",
+          "config": "not-an-object"
+        }
+      ],
+      "expectedError": "config: must be an object"
+    }
+  },
+  "conditionalConfigurations": {
+    "providerSpecific": {
+      "description": "Processors with provider conditions",
+      "inputProcessors": [
+        {
+          "id": "pii-detection",
+          "config": {
+            "enabled": true,
+            "conditions": {
+              "providers": ["openai", "anthropic"]
+            }
+          }
+        }
+      ],
+      "expectedBehavior": "Only runs for OpenAI and Anthropic"
+    },
+    "modelSpecific": {
+      "description": "Processors with model conditions",
+      "outputProcessors": [
+        {
+          "id": "toxicity-check",
+          "config": {
+            "enabled": true,
+            "conditions": {
+              "models": ["gpt-4o", "claude-3-5-sonnet"]
+            }
+          }
+        }
+      ],
+      "expectedBehavior": "Only runs for specific models"
+    },
+    "customCondition": {
+      "description": "Processor with custom condition function",
+      "note": "Custom conditions are function-based and cannot be serialized to JSON",
+      "exampleUsage": {
+        "conditions": {
+          "custom": "metadata => metadata.custom?.requireToxicityCheck === true"
+        }
+      }
+    }
+  },
+  "tripwireConfigurations": {
+    "standard": {
+      "description": "Standard tripwire configuration",
+      "tripwires": [
+        {
+          "id": "max-tokens",
+          "enabled": true,
+          "action": "abort"
+        },
+        {
+          "id": "empty-response",
+          "enabled": true,
+          "action": "abort"
+        },
+        {
+          "id": "repetition-loop",
+          "enabled": true,
+          "action": "warn"
+        },
+        {
+          "id": "response-too-long",
+          "enabled": true,
+          "action": "warn"
+        }
+      ]
+    },
+    "custom": {
+      "description": "Custom tripwire example",
+      "tripwires": [
+        {
+          "id": "custom-length-limit",
+          "name": "Custom Length Limit",
+          "condition": "data => data.responseText?.length > 5000",
+          "action": "warn",
+          "message": "Response exceeds custom limit",
+          "severity": "warning"
+        }
+      ]
+    }
+  },
+  "presetReferences": {
+    "available": ["default", "security", "strict", "quality", "minimal"],
+    "usage": {
+      "sdk": "const processors = defaultRegistry.buildFromPreset('security');",
+      "cli": "neurolink processor run --preset security --input 'text'"
+    }
+  }
+}

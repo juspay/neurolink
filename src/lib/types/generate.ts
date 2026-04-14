@@ -27,6 +27,7 @@ import type {
 import type { NeurolinkCredentials } from "./providers.js";
 import type { FileWithMetadata } from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
+import type { ProcessorPipelineConfig } from "./ioProcessor.js";
 
 /**
  * Generate function options type - Primary method for content generation
@@ -510,6 +511,9 @@ export type GenerateOptions = {
      */
     additionalUsers?: AdditionalMemoryUser[];
   };
+
+  /** I/O processor pipeline configuration for this request. */
+  processors?: ProcessorPipelineConfig;
 };
 
 /**
@@ -1070,6 +1074,9 @@ export type TextGenerationOptions = {
    * callers can correlate generation traces back to their own request lifecycle.
    */
   requestId?: string;
+
+  /** I/O processor pipeline configuration for this request. */
+  processors?: ProcessorPipelineConfig;
 };
 
 /**

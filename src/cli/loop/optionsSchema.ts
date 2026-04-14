@@ -36,6 +36,7 @@ export const textGenerationOptionsSchema: Record<
     | "toolChoice" // Complex type, not suitable for simple CLI input
     | "prepareStep" // Callback function, only usable via SDK
     | "credentials" // Complex per-provider object, only usable via SDK
+    | "processors" // Complex I/O processor config, only usable via SDK
   >,
   OptionSchema
 > = {

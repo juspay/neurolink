@@ -1,0 +1,163 @@
+{
+  "description": "Input test samples for I/O Processors integration testing",
+  "version": "1.0.0",
+  "piiTestCases": {
+    "emails": [
+      {
+        "input": "Contact me at john.doe@example.com",
+        "expectedType": "email",
+        "expectedMatch": "john.doe@example.com"
+      },
+      {
+        "input": "Multiple emails: admin@test.org and user@company.io",
+        "expectedType": "email",
+        "expectedCount": 2
+      },
+      {
+        "input": "No email here, just regular text.",
+        "expectedType": "email",
+        "expectedCount": 0
+      }
+    ],
+    "phones": [
+      {
+        "input": "Call me at 555-123-4567",
+        "expectedType": "phone",
+        "expectedMatch": "555-123-4567"
+      },
+      {
+        "input": "My number is (555) 123-4567 or +1 555.123.4567",
+        "expectedType": "phone",
+        "expectedCount": 2
+      }
+    ],
+    "ssn": [
+      {
+        "input": "SSN: 123-45-6789",
+        "expectedType": "ssn",
+        "expectedMatch": "123-45-6789"
+      },
+      {
+        "input": "Social security 123 45 6789",
+        "expectedType": "ssn",
+        "expectedMatch": "123 45 6789"
+      }
+    ],
+    "creditCards": [
+      {
+        "input": "Card: 4111-1111-1111-1111",
+        "expectedType": "credit_card",
+        "expectedMatch": "4111-1111-1111-1111"
+      },
+      {
+        "input": "Payment with 5500 0000 0000 0004",
+        "expectedType": "credit_card",
+        "expectedMatch": "5500 0000 0000 0004"
+      }
+    ],
+    "ipAddresses": [
+      {
+        "input": "Server IP: 192.168.1.100",
+        "expectedType": "ip_address",
+        "expectedMatch": "192.168.1.100"
+      }
+    ],
+    "addresses": [
+      {
+        "input": "I live at 123 Main Street",
+        "expectedType": "address",
+        "expectedMatch": "123 Main Street"
+      }
+    ],
+    "mixed": [
+      {
+        "input": "Contact John Doe at john@example.com or 555-123-4567. His SSN is 123-45-6789.",
+        "expectedTypes": ["email", "phone", "ssn"],
+        "expectedCount": 3
+      }
+    ]
+  },
+  "moderationTestCases": {
+    "cleanContent": [
+      {
+        "input": "This is a helpful message about programming best practices.",
+        "expectedAction": "continue",
+        "expectedSeverity": null
+      },
+      {
+        "input": "Can you explain how machine learning algorithms work?",
+        "expectedAction": "continue"
+      }
+    ],
+    "flaggedContent": [
+      {
+        "input": "Inappropriate content placeholder - would contain harmful material in real test",
+        "expectedAction": "abort",
+        "note": "Actual test data would use real moderation triggers"
+      }
+    ]
+  },
+  "validationTestCases": {
+    "validMessages": [
+      {
+        "input": "Hello, world!",
+        "minLength": 1,
+        "maxLength": 1000,
+        "expectedAction": "continue"
+      },
+      {
+        "input": "A longer message with multiple sentences. This should also pass validation. Nothing special here.",
+        "minLength": 10,
+        "maxLength": 500,
+        "expectedAction": "continue"
+      }
+    ],
+    "invalidMessages": [
+      {
+        "input": "",
+        "minLength": 1,
+        "expectedAction": "abort",
+        "expectedReason": "Message too short"
+      },
+      {
+        "input": "Short",
+        "minLength": 50,
+        "expectedAction": "abort",
+        "expectedReason": "Message below minimum length"
+      }
+    ]
+  },
+  "edgeCases": {
+    "emptyInput": {
+      "text": "",
+      "messages": [],
+      "expectedBehavior": "Should handle gracefully"
+    },
+    "unicodeContent": {
+      "text": "Unicode test: \u3053\u3093\u306b\u3061\u306f \u4e16\u754c \ud83c\udf0d",
+      "expectedBehavior": "Should process without error"
+    },
+    "veryLongInput": {
+      "characterCount": 100000,
+      "expectedBehavior": "Should handle or reject based on config"
+    },
+    "specialCharacters": {
+      "text": "Special chars: <script>alert('xss')</script> & ' \" ` $ { } [ ]",
+      "expectedBehavior": "Should handle safely"
+    }
+  },
+  "messageArrays": {
+    "singleMessage": [{ "role": "user", "content": "Hello" }],
+    "conversation": [
+      { "role": "system", "content": "You are a helpful assistant." },
+      { "role": "user", "content": "What is 2 + 2?" },
+      { "role": "assistant", "content": "2 + 2 equals 4." },
+      { "role": "user", "content": "Thanks!" }
+    ],
+    "longConversation": {
+      "description": "Conversation with many messages",
+      "messageCount": 100,
+      "expectedBehavior": "Should process with possible warnings"
+    }
+  }
+}

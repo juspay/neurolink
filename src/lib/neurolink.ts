@@ -216,6 +216,22 @@ import {
 import { isNonNullObject } from "./utils/typeUtils.js";
 import { getWorkflow } from "./workflow/core/workflowRegistry.js";
 import { runWorkflow } from "./workflow/core/workflowRunner.js";
+import { ProcessorPipeline } from "./processors/pipeline.js";
+import {
+  defaultRegistry as processorDefaultRegistry,
+  ProcessorRegistry,
+} from "./processors/registry.js";
+// Side-effect import: registers built-in processors and presets into defaultRegistry
+import "./processors/index.js";
+import type {
+  InputProcessor,
+  InputProcessorData,
+  OutputProcessor,
+  OutputProcessorData,
+  ProcessorPipelineResult,
+  ProcessorConfig,
+  ProcessorMetadata,
+} from "./types/index.js";
 
 /**
  * NL-002: Classify MCP error messages into categories for AI disambiguation.
@@ -991,6 +1007,8 @@ export class NeuroLink {
    * @throws {Error} When HITL configuration is invalid (if enabled)
    */
   private observabilityConfig?: ObservabilityConfig;
+  private sdkProcessorPipeline?: ProcessorPipeline;
+  private sdkProcessorsEnabled: boolean = false;
   private metricsAggregator: MetricsAggregator = new MetricsAggregator();
   /**
    * Per-request metrics trace context backed by AsyncLocalStorage.
@@ -1085,6 +1103,25 @@ export class NeuroLink {
         },
       );
       this.registerTaskTools(this._taskManager);
+    }
+
+    if (config?.processors) {
+      if (config.processors.enabled || config.processors.preset) {
+        this.sdkProcessorsEnabled = true;
+        const pipelineConfig = config.processors.pipelineConfig ?? {};
+        if (config.processors.preset) {
+          const built = processorDefaultRegistry.buildFromPreset(
+            config.processors.preset,
+          );
+          this.sdkProcessorPipeline = new ProcessorPipeline({
+            ...pipelineConfig,
+            inputProcessors: built?.inputProcessors,
+            outputProcessors: built?.outputProcessors,
+          });
+        } else {
+          this.sdkProcessorPipeline = new ProcessorPipeline(pipelineConfig);
+        }
+      }
     }
   }
 
@@ -12575,6 +12612,135 @@ Current user's request: ${currentInput}`;
    */
   getExternalServerManager(): ExternalServerManager {
     return this.externalServerManager;
+  }
+
+  // ─── I/O Processor convenience methods ───────────────────────────────────
+
+  getProcessorRegistry(): ProcessorRegistry {
+    return processorDefaultRegistry;
+  }
+
+  getProcessorPipeline(): ProcessorPipeline | undefined {
+    return this.sdkProcessorPipeline;
+  }
+
+  createProcessorPipeline(config: {
+    name?: string;
+    stopOnAbort?: boolean;
+    pipelineTimeoutMs?: number;
+  }): ProcessorPipeline {
+    return new ProcessorPipeline(config);
+  }
+
+  setProcessorPreset(presetName: string): void {
+    const built = processorDefaultRegistry.buildFromPreset(presetName);
+    if (!built) {
+      throw new Error(`Preset '${presetName}' not found`);
+    }
+    this.sdkProcessorPipeline = new ProcessorPipeline({
+      inputProcessors: built.inputProcessors,
+      outputProcessors: built.outputProcessors,
+    });
+    this.sdkProcessorsEnabled = true;
+  }
+
+  addInputProcessor(processor: InputProcessor, config?: ProcessorConfig): void {
+    if (!this.sdkProcessorPipeline) {
+      this.sdkProcessorPipeline = new ProcessorPipeline();
+    }
+    processorDefaultRegistry.registerInputProcessor(processor, {
+      defaultConfig: config,
+      replace: true,
+    });
+    this.sdkProcessorPipeline.addInputProcessor(processor, config);
+    this.sdkProcessorsEnabled = true;
+  }
+
+  addOutputProcessor(
+    processor: OutputProcessor,
+    config?: ProcessorConfig,
+  ): void {
+    if (!this.sdkProcessorPipeline) {
+      this.sdkProcessorPipeline = new ProcessorPipeline();
+    }
+    processorDefaultRegistry.registerOutputProcessor(processor, {
+      defaultConfig: config,
+      replace: true,
+    });
+    this.sdkProcessorPipeline.addOutputProcessor(processor, config);
+    this.sdkProcessorsEnabled = true;
+  }
+
+  areProcessorsEnabled(): boolean {
+    return this.sdkProcessorsEnabled;
+  }
+
+  setProcessorsEnabled(enabled: boolean): void {
+    this.sdkProcessorsEnabled = enabled;
+  }
+
+  async processInput(
+    data: InputProcessorData,
+    metadataOverrides?: Partial<ProcessorMetadata>,
+  ): Promise<
+    ProcessorPipelineResult<InputProcessorData> & { processorsExecuted: number }
+  > {
+    if (!this.sdkProcessorPipeline) {
+      return {
+        action: "continue",
+        data,
+        feedback: [],
+        issues: [],
+        metadata: {
+          requestId: `neurolink-${Date.now()}`,
+          timestamp: Date.now(),
+          custom: {},
+          issues: [],
+          processorTrace: [],
+          ...metadataOverrides,
+        },
+        totalTime: 0,
+        processorsExecuted: 0,
+      };
+    }
+    const result = await this.sdkProcessorPipeline.processInput(
+      data,
+      metadataOverrides,
+    );
+    return { ...result, processorsExecuted: result.processorsExecuted ?? 0 };
+  }
+
+  async processOutput(
+    data: OutputProcessorData,
+    metadataOverrides?: Partial<ProcessorMetadata>,
+  ): Promise<
+    ProcessorPipelineResult<OutputProcessorData> & {
+      processorsExecuted: number;
+    }
+  > {
+    if (!this.sdkProcessorPipeline) {
+      return {
+        action: "continue",
+        data,
+        feedback: [],
+        issues: [],
+        metadata: {
+          requestId: `neurolink-${Date.now()}`,
+          timestamp: Date.now(),
+          custom: {},
+          issues: [],
+          processorTrace: [],
+          ...metadataOverrides,
+        },
+        totalTime: 0,
+        processorsExecuted: 0,
+      };
+    }
+    const result = await this.sdkProcessorPipeline.processOutput(
+      data,
+      metadataOverrides,
+    );
+    return { ...result, processorsExecuted: result.processorsExecuted ?? 0 };
   }
 }
 
