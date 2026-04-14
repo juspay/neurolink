@@ -53,6 +53,7 @@ import {
 } from "../utils/videoFileUtils.js";
 import { OllamaCommandFactory } from "./ollamaCommandFactory.js";
 import { SageMakerCommandFactory } from "./sagemakerCommandFactory.js";
+import { AgentCommandFactory } from "../commands/agent.js";
 
 /**
  * CLI Command Factory for generate commands
@@ -1587,6 +1588,20 @@ export class CLICommandFactory {
    */
   static createDiscoverCommand(): CommandModule {
     return MCPCommandFactory.createDiscoverCommand();
+  }
+
+  /**
+   * Create agent commands for multi-agent orchestration
+   */
+  static createAgentCommands(): CommandModule {
+    return AgentCommandFactory.createAgentCommands();
+  }
+
+  /**
+   * Create network commands for agent network orchestration
+   */
+  static createNetworkCommands(): CommandModule {
+    return AgentCommandFactory.createNetworkCommands();
   }
 
   /**

@@ -23,6 +23,17 @@ import { EventEmitter } from "events";
 import pLimit from "p-limit";
 import type { AIProviderName } from "./constants/enums.js";
 import { ErrorCategory, ErrorSeverity } from "./constants/enums.js";
+// Multi-agent orchestration imports
+import { Agent } from "./agent/agent.js";
+import { AgentNetwork } from "./agent/agentNetwork.js";
+import type {
+  AgentDefinition,
+  AgentNetworkConfig,
+  NetworkExecutionInput,
+  NetworkExecutionOptions,
+  NetworkExecutionResult,
+  NetworkStreamChunk,
+} from "./types/agentNetworkTypes.js";
 import {
   CIRCUIT_BREAKER,
   CIRCUIT_BREAKER_RESET_MS,
@@ -12142,6 +12153,262 @@ Current user's request: ${currentInput}`;
       ErrorFactory.evaluationTimeout("evaluation module load", 10000),
     );
     return getPreset(presetName);
+  }
+
+  // ============================================================================
+  // MULTI-AGENT ORCHESTRATION METHODS
+  // ============================================================================
+
+  /**
+   * Create an Agent instance for multi-agent orchestration.
+   *
+   * Agents are specialized AI entities with defined instructions, tools, and behavior.
+   * They can be composed into networks for complex task orchestration.
+   *
+   * @param definition - Agent definition specifying behavior and capabilities
+   * @returns A new Agent instance
+   *
+   * @example
+   * ```typescript
+   * const researcher = neurolink.createAgent({
+   *   id: 'researcher',
+   *   name: 'Research Agent',
+   *   description: 'Searches and analyzes information from various sources',
+   *   instructions: 'You are a research assistant. Search thoroughly and cite sources.',
+   *   tools: ['websearchGrounding', 'readFile'],
+   *   model: 'gpt-4o'
+   * });
+   *
+   * const result = await researcher.execute('Find recent AI breakthroughs');
+   * ```
+   *
+   * @see {@link AgentDefinition} for definition options
+   * @see {@link Agent} for agent methods
+   * @since 8.38.0
+   */
+  createAgent(definition: AgentDefinition): Agent {
+    logger.debug("[NeuroLink] Creating agent", {
+      id: definition.id,
+      name: definition.name,
+      tools: definition.tools?.length || 0,
+    });
+    return new Agent(definition, this);
+  }
+
+  /**
+   * Create an AgentNetwork for multi-agent orchestration.
+   *
+   * Networks coordinate multiple agents, workflows, and tools with intelligent
+   * LLM-powered routing. The router agent analyzes tasks and delegates to
+   * the most appropriate primitive.
+   *
+   * @param config - Network configuration with agents, workflows, and routing settings
+   * @returns A new AgentNetwork instance
+   *
+   * @example
+   * ```typescript
+   * const network = neurolink.createNetwork({
+   *   name: 'Content Team',
+   *   description: 'Collaborative content creation pipeline',
+   *   agents: [
+   *     {
+   *       id: 'researcher',
+   *       name: 'Researcher',
+   *       description: 'Finds and verifies information',
+   *       instructions: 'Research topics thoroughly...',
+   *     },
+   *     {
+   *       id: 'writer',
+   *       name: 'Writer',
+   *       description: 'Creates engaging content',
+   *       instructions: 'Write clear, engaging content...',
+   *     },
+   *     {
+   *       id: 'editor',
+   *       name: 'Editor',
+   *       description: 'Reviews and improves content',
+   *       instructions: 'Review for clarity and accuracy...',
+   *     }
+   *   ],
+   *   router: {
+   *     model: 'gpt-4o',
+   *     confidenceThreshold: 0.7
+   *   }
+   * });
+   *
+   * const result = await network.execute({
+   *   message: 'Write an article about quantum computing'
+   * });
+   * ```
+   *
+   * @see {@link AgentNetworkConfig} for configuration options
+   * @see {@link AgentNetwork} for network methods
+   * @since 8.38.0
+   */
+  createNetwork(config: AgentNetworkConfig): AgentNetwork {
+    logger.debug("[NeuroLink] Creating agent network", {
+      name: config.name,
+      agentCount: config.agents.length,
+      workflowCount: config.workflows?.length || 0,
+      toolCount: config.tools?.length || 0,
+    });
+    return new AgentNetwork(config, this);
+  }
+
+  /**
+   * Execute an agent network with the given input.
+   *
+   * @param network - The agent network to execute
+   * @param input - Execution input (message and context)
+   * @param options - Optional execution options
+   * @returns Network execution result with content, trace, and usage
+   *
+   * @see {@link NetworkExecutionInput} for input options
+   * @see {@link NetworkExecutionResult} for result structure
+   * @since 8.38.0
+   */
+  async executeNetwork(
+    network: AgentNetwork,
+    input: NetworkExecutionInput,
+    options?: NetworkExecutionOptions,
+  ): Promise<NetworkExecutionResult> {
+    logger.debug("[NeuroLink] Executing agent network", {
+      networkId: network.id,
+      networkName: network.name,
+      hasContext: !!input.context,
+    });
+    return network.execute(input, options);
+  }
+
+  /**
+   * Stream agent network execution with real-time events.
+   *
+   * @param network - The agent network to stream
+   * @param input - Execution input (message and context)
+   * @param options - Optional execution options
+   * @returns Async iterable of network stream chunks
+   *
+   * @see {@link NetworkStreamChunk} for chunk types
+   * @since 8.38.0
+   */
+  async *streamNetwork(
+    network: AgentNetwork,
+    input: NetworkExecutionInput,
+    options?: NetworkExecutionOptions,
+  ): AsyncIterable<NetworkStreamChunk> {
+    logger.debug("[NeuroLink] Streaming agent network", {
+      networkId: network.id,
+      networkName: network.name,
+      hasContext: !!input.context,
+    });
+    yield* network.stream(input, options);
+  }
+
+  // ============================================================================
+  // ADVANCED ORCHESTRATION METHODS
+  // ============================================================================
+
+  /**
+   * Create a NetworkOrchestrator for managing multiple agent networks.
+   *
+   * @param config - Orchestrator configuration options
+   * @returns A new NetworkOrchestrator instance
+   * @since 8.38.0
+   */
+  createOrchestrator(
+    config?: import("./agent/orchestration/index.js").OrchestratorConfig,
+  ): import("./agent/orchestration/index.js").NetworkOrchestrator {
+    const { NetworkOrchestrator } = require("./agent/orchestration/index.js");
+    logger.debug("[NeuroLink] Creating network orchestrator", {
+      maxConcurrentExecutions: config?.maxConcurrentExecutions,
+      defaultMode: config?.defaultMode,
+    });
+    return new NetworkOrchestrator(this, config);
+  }
+
+  /**
+   * Create a SupervisorAgent for oversight and control of agent execution.
+   *
+   * @param config - Supervisor configuration options
+   * @returns A new SupervisorAgent instance
+   * @since 8.38.0
+   */
+  createSupervisor(
+    config?: import("./agent/supervisor/index.js").SupervisorConfig,
+  ): import("./agent/supervisor/index.js").SupervisorAgent {
+    const { SupervisorAgent } = require("./agent/supervisor/index.js");
+    logger.debug("[NeuroLink] Creating supervisor agent", {
+      supervisionLevel: config?.level,
+    });
+    return new SupervisorAgent(this, config);
+  }
+
+  /**
+   * Create an AgentEvaluator for assessing agent output quality.
+   *
+   * @param config - Evaluator configuration options
+   * @returns A new AgentEvaluator instance
+   * @since 8.38.0
+   */
+  createEvaluator(
+    config?: import("./agent/evaluation/index.js").EvaluatorConfig,
+  ): import("./agent/evaluation/index.js").AgentEvaluator {
+    const { AgentEvaluator } = require("./agent/evaluation/index.js");
+    logger.debug("[NeuroLink] Creating agent evaluator", {
+      model: config?.model,
+      provider: config?.provider,
+    });
+    return new AgentEvaluator(this, config);
+  }
+
+  /**
+   * Create a ResultOptimizer for iteratively improving agent outputs.
+   *
+   * @param evaluator - Optional evaluator instance (creates default if not provided)
+   * @returns A new ResultOptimizer instance
+   * @since 8.38.0
+   */
+  createOptimizer(
+    evaluator?: import("./agent/evaluation/index.js").AgentEvaluator,
+  ): import("./agent/evaluation/index.js").ResultOptimizer {
+    const { ResultOptimizer } = require("./agent/evaluation/index.js");
+    logger.debug("[NeuroLink] Creating result optimizer");
+    return new ResultOptimizer(this, evaluator);
+  }
+
+  /**
+   * Create an AgentCoordinator for managing agent coordination strategies.
+   *
+   * @param config - Coordinator configuration options
+   * @returns A new AgentCoordinator instance
+   * @since 8.38.0
+   */
+  createCoordinator(
+    config?: import("./agent/coordination/index.js").CoordinatorConfig,
+  ): import("./agent/coordination/index.js").AgentCoordinator {
+    const { AgentCoordinator } = require("./agent/coordination/index.js");
+    logger.debug("[NeuroLink] Creating agent coordinator", {
+      strategy: config?.strategy,
+      maxConcurrency: config?.maxConcurrency,
+    });
+    return new AgentCoordinator(this, config);
+  }
+
+  /**
+   * Create a MessageBus for inter-agent communication.
+   *
+   * @param config - Message bus configuration options
+   * @returns A new MessageBus instance
+   * @since 8.38.0
+   */
+  createMessageBus(
+    config?: import("./agent/communication/index.js").MessageBusConfig,
+  ): import("./agent/communication/index.js").MessageBus {
+    const { MessageBus } = require("./agent/communication/index.js");
+    logger.debug("[NeuroLink] Creating message bus", {
+      maxHistorySize: config?.maxHistorySize,
+    });
+    return new MessageBus(config);
   }
 
   /**

@@ -595,3 +595,90 @@ export type {
   WorkflowValidationWarning,
 } from "./workflowTypes.js";
 export { WorkflowError } from "./workflowTypes.js";
+
+// Agent Network types (Multi-Agent Orchestration)
+// Selective export to avoid conflicts with existing types
+export type {
+  AgentAction,
+  // Agent definition types
+  AgentDefinition,
+  AgentEvaluatorInterface,
+  AgentExecutionOptions,
+  AgentInput,
+  AgentInstance,
+  // Network configuration types
+  AgentNetworkConfig,
+  AgentPrimitive,
+  AgentResult,
+  AgentStatus,
+  AgentStreamChunk,
+  // Streaming types
+  AgentStreamChunkType,
+  AgentTextChunk,
+  AgentToolCallChunk,
+  AgentToolResultChunk,
+  CoreMessage,
+  DelegationCondition,
+  DelegationRule,
+  Entity,
+  EscalationIssue,
+  EscalationResult,
+  EvaluatedNetworkResult,
+  // Agent evaluation types (renamed to avoid conflict with evaluation.ts)
+  EvaluationCriteria as AgentEvaluationCriteria,
+  EvaluationScore as AgentEvaluationScore,
+  EvaluatorConfig,
+  // Execution types (renamed to avoid conflict with tools.ts ExecutionContext)
+  ExecutionContext as AgentExecutionContext,
+  HierarchicalExecutionTrace,
+  // Hierarchical network types
+  HierarchicalNetworkConfig,
+  ImprovementSuggestion,
+  NetworkCompleteChunk,
+  NetworkDefaults,
+  NetworkErrorChunk,
+  NetworkEvaluationMetrics,
+  NetworkExecutionInput,
+  NetworkExecutionOptions,
+  NetworkExecutionResult,
+  NetworkExecutionStatus,
+  NetworkExecutionStep,
+  NetworkExecutionTrace,
+  NetworkMemoryConfig,
+  NetworkPrimitive,
+  // Network primitive types
+  NetworkPrimitiveType,
+  NetworkStartChunk,
+  NetworkStreamChunk,
+  NetworkStreamChunkBase,
+  NetworkStreamChunkType,
+  NetworkTokenUsage,
+  NetworkToolInfo,
+  NetworkWorkflow,
+  NetworkWorkflowDefinition,
+  OptimizationChunk,
+  OptimizationConfig,
+  OptimizationIteration,
+  OptimizationOptions,
+  OptimizationResult,
+  Primitive,
+  PrimitiveEndChunk,
+  PrimitiveExecutionResult,
+  PrimitiveStartChunk,
+  Requirement,
+  ReviewDecision,
+  RouterConfig,
+  // Routing context types
+  RoutingContext,
+  RoutingDecision,
+  RoutingDecisionChunk,
+  SupervisedResult,
+  SupervisionOptions,
+  SupervisionPolicy,
+  // Supervisor types
+  SupervisorAgentDefinition,
+  // Task analysis types
+  TaskAnalysis,
+  ToolPrimitive,
+  WorkflowPrimitive,
+} from "./agentNetworkTypes.js";
