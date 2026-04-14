@@ -1792,3 +1792,71 @@ export type CliServeFlatRoute = {
   description?: string;
   group: string;
 };
+
+/**
+ * Agent command arguments for multi-agent orchestration
+ */
+export type CliAgentCommandArgs = BaseCommandArgs & {
+  /** Agent ID */
+  id?: string;
+  /** Agent name */
+  name?: string;
+  /** Agent description */
+  description?: string;
+  /** Agent instructions/system prompt */
+  instructions?: string;
+  /** AI provider to use */
+  provider?: string;
+  /** Model name */
+  model?: string;
+  /** Tools available to the agent */
+  tools?: string[];
+  /** Maximum execution steps */
+  maxSteps?: number;
+  /** Temperature setting */
+  temperature?: number;
+  /** Input prompt for execution */
+  input?: string;
+  /** Context data as JSON */
+  context?: string;
+  /** Agent definition file path */
+  file?: string;
+  /** Output file path */
+  output?: string;
+  /** Enable streaming output */
+  stream?: boolean;
+  /** Show detailed information */
+  detailed?: boolean;
+};
+
+/**
+ * Network command arguments for agent network orchestration
+ */
+export type CliNetworkCommandArgs = BaseCommandArgs & {
+  /** Network ID */
+  id?: string;
+  /** Network name */
+  name?: string;
+  /** Network description */
+  description?: string;
+  /** Network configuration file path */
+  file?: string;
+  /** Input message for execution */
+  input?: string;
+  /** Maximum execution steps */
+  maxSteps?: number;
+  /** Execution timeout in ms */
+  timeout?: number;
+  /** Context data as JSON */
+  context?: string;
+  /** Output file path */
+  output?: string;
+  /** Enable streaming output */
+  stream?: boolean;
+  /** Router provider */
+  routerProvider?: string;
+  /** Router model */
+  routerModel?: string;
+  /** Show detailed information */
+  detailed?: boolean;
+};

@@ -1,0 +1,514 @@
+{
+  "description": "Test fixtures for MessageBus inter-agent communication",
+  "version": "1.0.0",
+  "messageTypes": {
+    "task": {
+      "description": "Task assignment message",
+      "schema": {
+        "type": "task",
+        "taskId": "string",
+        "fromAgent": "string",
+        "toAgent": "string",
+        "payload": "object",
+        "priority": "number",
+        "deadline": "string (ISO date)"
+      }
+    },
+    "result": {
+      "description": "Task result message",
+      "schema": {
+        "type": "result",
+        "taskId": "string",
+        "fromAgent": "string",
+        "toAgent": "string",
+        "result": "any",
+        "status": "string",
+        "duration": "number"
+      }
+    },
+    "status": {
+      "description": "Agent status message",
+      "schema": {
+        "type": "status",
+        "fromAgent": "string",
+        "state": "string",
+        "load": "number",
+        "availableCapacity": "number"
+      }
+    },
+    "broadcast": {
+      "description": "Broadcast message to all agents",
+      "schema": {
+        "type": "broadcast",
+        "fromAgent": "string",
+        "topic": "string",
+        "payload": "any"
+      }
+    },
+    "request": {
+      "description": "Request-response message",
+      "schema": {
+        "type": "request",
+        "requestId": "string",
+        "fromAgent": "string",
+        "toAgent": "string",
+        "method": "string",
+        "params": "object",
+        "timeout": "number"
+      }
+    },
+    "response": {
+      "description": "Response to a request",
+      "schema": {
+        "type": "response",
+        "requestId": "string",
+        "fromAgent": "string",
+        "toAgent": "string",
+        "result": "any",
+        "error": "string (optional)"
+      }
+    },
+    "event": {
+      "description": "Event notification",
+      "schema": {
+        "type": "event",
+        "eventId": "string",
+        "fromAgent": "string",
+        "eventType": "string",
+        "payload": "any",
+        "timestamp": "string (ISO date)"
+      }
+    }
+  },
+  "testMessages": {
+    "taskMessages": [
+      {
+        "id": "task-001",
+        "type": "task",
+        "taskId": "analyze-code-001",
+        "fromAgent": "coordinator",
+        "toAgent": "code-analyzer",
+        "payload": {
+          "code": "function add(a, b) { return a + b; }",
+          "language": "javascript",
+          "analysisType": "all"
+        },
+        "priority": 1,
+        "deadline": "2025-01-31T14:00:00Z"
+      },
+      {
+        "id": "task-002",
+        "type": "task",
+        "taskId": "process-data-001",
+        "fromAgent": "coordinator",
+        "toAgent": "data-processor",
+        "payload": {
+          "data": [
+            { "id": 1, "value": 100 },
+            { "id": 2, "value": 200 }
+          ],
+          "format": "json",
+          "operations": ["filter", "transform"]
+        },
+        "priority": 2,
+        "deadline": "2025-01-31T15:00:00Z"
+      },
+      {
+        "id": "task-003",
+        "type": "task",
+        "taskId": "research-001",
+        "fromAgent": "coordinator",
+        "toAgent": "researcher",
+        "payload": {
+          "topic": "Multi-agent AI systems",
+          "depth": "deep"
+        },
+        "priority": 3,
+        "deadline": "2025-01-31T16:00:00Z"
+      }
+    ],
+    "resultMessages": [
+      {
+        "id": "result-001",
+        "type": "result",
+        "taskId": "analyze-code-001",
+        "fromAgent": "code-analyzer",
+        "toAgent": "coordinator",
+        "result": {
+          "issues": [],
+          "suggestions": ["Consider adding type annotations"],
+          "score": 85
+        },
+        "status": "success",
+        "duration": 1250
+      },
+      {
+        "id": "result-002",
+        "type": "result",
+        "taskId": "process-data-001",
+        "fromAgent": "data-processor",
+        "toAgent": "coordinator",
+        "result": {
+          "processedData": [{ "id": 1, "value": 100, "status": "active" }],
+          "recordsProcessed": 2,
+          "recordsFiltered": 1
+        },
+        "status": "success",
+        "duration": 850
+      },
+      {
+        "id": "result-003",
+        "type": "result",
+        "taskId": "research-001",
+        "fromAgent": "researcher",
+        "toAgent": "coordinator",
+        "result": {
+          "summary": "Multi-agent AI systems involve...",
+          "keyFindings": ["Finding 1", "Finding 2"],
+          "sources": ["source1.com", "source2.org"]
+        },
+        "status": "success",
+        "duration": 3500
+      },
+      {
+        "id": "result-004",
+        "type": "result",
+        "taskId": "failed-task-001",
+        "fromAgent": "error-prone",
+        "toAgent": "coordinator",
+        "result": null,
+        "status": "error",
+        "error": "Provider unavailable",
+        "duration": 150
+      }
+    ],
+    "statusMessages": [
+      {
+        "id": "status-001",
+        "type": "status",
+        "fromAgent": "code-analyzer",
+        "state": "idle",
+        "load": 0.2,
+        "availableCapacity": 0.8
+      },
+      {
+        "id": "status-002",
+        "type": "status",
+        "fromAgent": "data-processor",
+        "state": "executing",
+        "load": 0.6,
+        "availableCapacity": 0.4
+      },
+      {
+        "id": "status-003",
+        "type": "status",
+        "fromAgent": "researcher",
+        "state": "idle",
+        "load": 0.1,
+        "availableCapacity": 0.9
+      },
+      {
+        "id": "status-004",
+        "type": "status",
+        "fromAgent": "error-prone",
+        "state": "error",
+        "load": 0,
+        "availableCapacity": 0,
+        "error": "Agent in error state"
+      }
+    ],
+    "broadcastMessages": [
+      {
+        "id": "broadcast-001",
+        "type": "broadcast",
+        "fromAgent": "coordinator",
+        "topic": "status-check",
+        "payload": {
+          "requestId": "check-001",
+          "respondBy": "2025-01-31T14:30:00Z"
+        }
+      },
+      {
+        "id": "broadcast-002",
+        "type": "broadcast",
+        "fromAgent": "coordinator",
+        "topic": "config-update",
+        "payload": {
+          "setting": "maxSteps",
+          "newValue": 15
+        }
+      },
+      {
+        "id": "broadcast-003",
+        "type": "broadcast",
+        "fromAgent": "coordinator",
+        "topic": "shutdown-notice",
+        "payload": {
+          "reason": "maintenance",
+          "shutdownTime": "2025-01-31T18:00:00Z"
+        }
+      }
+    ],
+    "requestResponsePairs": [
+      {
+        "request": {
+          "id": "request-001",
+          "type": "request",
+          "requestId": "req-001",
+          "fromAgent": "coordinator",
+          "toAgent": "code-analyzer",
+          "method": "getCapabilities",
+          "params": {},
+          "timeout": 5000
+        },
+        "response": {
+          "id": "response-001",
+          "type": "response",
+          "requestId": "req-001",
+          "fromAgent": "code-analyzer",
+          "toAgent": "coordinator",
+          "result": {
+            "capabilities": ["analyze", "lint", "security-scan"],
+            "supportedLanguages": ["typescript", "javascript", "python"]
+          }
+        }
+      },
+      {
+        "request": {
+          "id": "request-002",
+          "type": "request",
+          "requestId": "req-002",
+          "fromAgent": "data-processor",
+          "toAgent": "validator",
+          "method": "validateSchema",
+          "params": {
+            "data": { "id": 1, "name": "test" },
+            "schema": "userSchema"
+          },
+          "timeout": 3000
+        },
+        "response": {
+          "id": "response-002",
+          "type": "response",
+          "requestId": "req-002",
+          "fromAgent": "validator",
+          "toAgent": "data-processor",
+          "result": {
+            "valid": true,
+            "errors": []
+          }
+        }
+      },
+      {
+        "request": {
+          "id": "request-003",
+          "type": "request",
+          "requestId": "req-003",
+          "fromAgent": "researcher",
+          "toAgent": "error-prone",
+          "method": "process",
+          "params": {},
+          "timeout": 2000
+        },
+        "response": {
+          "id": "response-003",
+          "type": "response",
+          "requestId": "req-003",
+          "fromAgent": "error-prone",
+          "toAgent": "researcher",
+          "result": null,
+          "error": "Agent unavailable"
+        }
+      }
+    ],
+    "eventMessages": [
+      {
+        "id": "event-001",
+        "type": "event",
+        "eventId": "evt-001",
+        "fromAgent": "code-analyzer",
+        "eventType": "task-started",
+        "payload": {
+          "taskId": "analyze-code-001"
+        },
+        "timestamp": "2025-01-31T14:00:00Z"
+      },
+      {
+        "id": "event-002",
+        "type": "event",
+        "eventId": "evt-002",
+        "fromAgent": "code-analyzer",
+        "eventType": "task-completed",
+        "payload": {
+          "taskId": "analyze-code-001",
+          "duration": 1250
+        },
+        "timestamp": "2025-01-31T14:00:01.250Z"
+      },
+      {
+        "id": "event-003",
+        "type": "event",
+        "eventId": "evt-003",
+        "fromAgent": "error-prone",
+        "eventType": "error",
+        "payload": {
+          "errorType": "ProviderError",
+          "message": "Provider unavailable",
+          "recoverable": false
+        },
+        "timestamp": "2025-01-31T14:01:00Z"
+      }
+    ]
+  },
+  "subscriptionPatterns": {
+    "allMessages": {
+      "pattern": "*",
+      "description": "Subscribe to all messages"
+    },
+    "taskOnly": {
+      "pattern": "task:*",
+      "description": "Subscribe to all task messages"
+    },
+    "specificAgent": {
+      "pattern": "from:code-analyzer",
+      "description": "Subscribe to messages from specific agent"
+    },
+    "topicBased": {
+      "pattern": "topic:status-check",
+      "description": "Subscribe to specific topic broadcasts"
+    },
+    "eventType": {
+      "pattern": "event:task-completed",
+      "description": "Subscribe to specific event types"
+    }
+  },
+  "priorityLevels": {
+    "critical": {
+      "level": 0,
+      "description": "Highest priority - processed immediately",
+      "timeout": 5000
+    },
+    "high": {
+      "level": 1,
+      "description": "High priority - processed before normal",
+      "timeout": 10000
+    },
+    "normal": {
+      "level": 2,
+      "description": "Normal priority - standard processing",
+      "timeout": 30000
+    },
+    "low": {
+      "level": 3,
+      "description": "Low priority - processed when capacity available",
+      "timeout": 60000
+    },
+    "background": {
+      "level": 4,
+      "description": "Background priority - processed during idle time",
+      "timeout": 300000
+    }
+  },
+  "testScenarios": {
+    "basicPubSub": {
+      "description": "Basic publish-subscribe pattern",
+      "steps": [
+        { "action": "subscribe", "agent": "coordinator", "topic": "results" },
+        {
+          "action": "publish",
+          "agent": "code-analyzer",
+          "topic": "results",
+          "message": "result-001"
+        },
+        { "action": "verify", "agent": "coordinator", "received": "result-001" }
+      ]
+    },
+    "requestResponse": {
+      "description": "Request-response pattern with timeout",
+      "steps": [
+        {
+          "action": "request",
+          "from": "coordinator",
+          "to": "code-analyzer",
+          "method": "getCapabilities"
+        },
+        {
+          "action": "respond",
+          "from": "code-analyzer",
+          "to": "coordinator",
+          "result": "capabilities"
+        },
+        {
+          "action": "verify",
+          "agent": "coordinator",
+          "received": "capabilities"
+        }
+      ]
+    },
+    "broadcast": {
+      "description": "Broadcast to all agents",
+      "steps": [
+        {
+          "action": "subscribe",
+          "agents": ["code-analyzer", "data-processor", "researcher"],
+          "topic": "broadcast"
+        },
+        {
+          "action": "broadcast",
+          "agent": "coordinator",
+          "message": "broadcast-001"
+        },
+        {
+          "action": "verify",
+          "agents": ["code-analyzer", "data-processor", "researcher"],
+          "received": "broadcast-001"
+        }
+      ]
+    },
+    "priorityQueue": {
+      "description": "Messages processed by priority",
+      "steps": [
+        { "action": "send", "message": "task-002", "priority": 2 },
+        { "action": "send", "message": "task-001", "priority": 1 },
+        { "action": "send", "message": "task-003", "priority": 3 },
+        {
+          "action": "verify-order",
+          "expected": ["task-001", "task-002", "task-003"]
+        }
+      ]
+    },
+    "errorHandling": {
+      "description": "Handle message delivery errors",
+      "steps": [
+        { "action": "send", "to": "non-existent-agent", "message": "task-001" },
+        { "action": "verify", "error": "agent-not-found" }
+      ]
+    },
+    "timeout": {
+      "description": "Handle request timeout",
+      "steps": [
+        {
+          "action": "request",
+          "from": "coordinator",
+          "to": "slow-agent",
+          "timeout": 100
+        },
+        { "action": "verify", "error": "timeout" }
+      ]
+    }
+  },
+  "deliveryGuarantees": {
+    "atMostOnce": {
+      "description": "Message delivered zero or one time",
+      "useCase": "Non-critical notifications"
+    },
+    "atLeastOnce": {
+      "description": "Message delivered one or more times",
+      "useCase": "Important tasks that can handle duplicates"
+    },
+    "exactlyOnce": {
+      "description": "Message delivered exactly one time",
+      "useCase": "Critical operations like financial transactions"
+    }
+  }
+}

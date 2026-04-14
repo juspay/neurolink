@@ -69,3 +69,6 @@ export * from "./streamDedup.js";
 
 // Curator P3-6: NoOutputGeneratedError sentinel chunk shape
 export * from "./noOutputSentinel.js";
+
+// Multi-Agent orchestration types
+export * from "./agentNetwork.js";
