@@ -40,7 +40,7 @@ async function basicUsageExample() {
     });
 
     console.log("Generated with timeout:");
-    console.log(timeoutResult.text);
+    console.log(timeoutResult.content);
   } catch (error) {
     const err = error as Error;
     console.error("Error:", err.message);

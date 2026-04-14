@@ -58,6 +58,21 @@ export const textGenerationOptionsSchema: Record<
     type: "number",
     description: "The maximum number of tokens to generate.",
   },
+  topP: {
+    type: "number",
+    description:
+      "Top-p (nucleus) sampling parameter. Controls diversity of generated tokens (0.0-1.0).",
+  },
+  topK: {
+    type: "number",
+    description:
+      "Top-k sampling parameter. Limits the number of tokens considered (Google/Gemini models only).",
+  },
+  stopSequences: {
+    type: "string",
+    description:
+      "Stop sequences that will halt generation when encountered (comma-separated).",
+  },
   output: {
     type: "string",
     description:
