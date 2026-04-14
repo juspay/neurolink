@@ -1,0 +1,273 @@
+{
+  "description": "Test fixtures for Multi-Agent Network topologies",
+  "version": "1.0.0",
+  "networks": {
+    "simpleHubSpoke": {
+      "id": "simple-hub-spoke",
+      "name": "Simple Hub-Spoke Network",
+      "description": "Basic hub-spoke topology with 1 hub and 3 spokes",
+      "topology": "hub-spoke",
+      "config": {
+        "hubAgentId": "coordinator",
+        "spokeAgentIds": ["code-analyzer", "data-processor", "researcher"],
+        "loadBalancing": "round-robin",
+        "maxConcurrentTasksPerSpoke": 2
+      },
+      "agents": ["coordinator", "code-analyzer", "data-processor", "researcher"]
+    },
+    "advancedHubSpoke": {
+      "id": "advanced-hub-spoke",
+      "name": "Advanced Hub-Spoke Network",
+      "description": "Hub-spoke with priority routing and failover",
+      "topology": "hub-spoke",
+      "config": {
+        "hubAgentId": "coordinator",
+        "spokeAgentIds": [
+          "code-analyzer",
+          "data-processor",
+          "researcher",
+          "validator"
+        ],
+        "loadBalancing": "least-loaded",
+        "maxConcurrentTasksPerSpoke": 5,
+        "failoverEnabled": true,
+        "priorityRouting": true,
+        "healthCheckInterval": 5000
+      },
+      "agents": [
+        "coordinator",
+        "code-analyzer",
+        "data-processor",
+        "researcher",
+        "validator"
+      ]
+    },
+    "simpleMesh": {
+      "id": "simple-mesh",
+      "name": "Simple Mesh Network",
+      "description": "Basic mesh topology where all agents can communicate",
+      "topology": "mesh",
+      "config": {
+        "agentIds": ["code-analyzer", "data-processor", "researcher"],
+        "autoDiscovery": true,
+        "maxHops": 2,
+        "enableP2PDelegation": true
+      },
+      "agents": ["code-analyzer", "data-processor", "researcher"]
+    },
+    "secureMesh": {
+      "id": "secure-mesh",
+      "name": "Secure Mesh Network",
+      "description": "Mesh with access controls and audit logging",
+      "topology": "mesh",
+      "config": {
+        "agentIds": [
+          "code-analyzer",
+          "data-processor",
+          "researcher",
+          "validator"
+        ],
+        "autoDiscovery": false,
+        "maxHops": 3,
+        "enableP2PDelegation": true,
+        "accessControl": {
+          "code-analyzer": ["data-processor", "validator"],
+          "data-processor": ["code-analyzer", "researcher"],
+          "researcher": ["data-processor"],
+          "validator": ["code-analyzer", "data-processor", "researcher"]
+        },
+        "auditLogging": true
+      },
+      "agents": ["code-analyzer", "data-processor", "researcher", "validator"]
+    },
+    "simpleHierarchical": {
+      "id": "simple-hierarchical",
+      "name": "Simple Hierarchical Network",
+      "description": "Two-level hierarchy with coordinator at top",
+      "topology": "hierarchical",
+      "config": {
+        "rootAgentId": "coordinator",
+        "levels": [
+          {
+            "level": 1,
+            "agents": ["code-analyzer", "researcher"]
+          },
+          {
+            "level": 2,
+            "agents": ["data-processor", "validator"]
+          }
+        ],
+        "allowCrossLevel": false,
+        "autoEscalation": true
+      },
+      "agents": [
+        "coordinator",
+        "code-analyzer",
+        "researcher",
+        "data-processor",
+        "validator"
+      ]
+    },
+    "complexHierarchical": {
+      "id": "complex-hierarchical",
+      "name": "Complex Hierarchical Network",
+      "description": "Multi-level hierarchy with cross-level communication",
+      "topology": "hierarchical",
+      "config": {
+        "rootAgentId": "coordinator",
+        "levels": [
+          {
+            "level": 1,
+            "agents": ["code-analyzer", "researcher"],
+            "canDelegate": true
+          },
+          {
+            "level": 2,
+            "agents": ["data-processor"],
+            "canDelegate": true
+          },
+          {
+            "level": 3,
+            "agents": ["validator"],
+            "canDelegate": false
+          }
+        ],
+        "allowCrossLevel": true,
+        "autoEscalation": true,
+        "escalationThreshold": 0.7,
+        "maxEscalationDepth": 2
+      },
+      "agents": [
+        "coordinator",
+        "code-analyzer",
+        "researcher",
+        "data-processor",
+        "validator"
+      ]
+    },
+    "minimalNetwork": {
+      "id": "minimal-network",
+      "name": "Minimal Network",
+      "description": "Single agent network for edge case testing",
+      "topology": "hub-spoke",
+      "config": {
+        "hubAgentId": "minimal",
+        "spokeAgentIds": []
+      },
+      "agents": ["minimal"]
+    },
+    "errorTestNetwork": {
+      "id": "error-test-network",
+      "name": "Error Test Network",
+      "description": "Network configured to test error scenarios",
+      "topology": "mesh",
+      "config": {
+        "agentIds": ["error-prone", "validator"],
+        "autoDiscovery": false,
+        "maxHops": 1
+      },
+      "agents": ["error-prone", "validator"]
+    }
+  },
+  "routerConfigs": {
+    "defaultRouter": {
+      "type": "semantic",
+      "confidenceThreshold": 0.7,
+      "fallbackAgent": "coordinator",
+      "maxRetries": 3
+    },
+    "strictRouter": {
+      "type": "rule-based",
+      "confidenceThreshold": 0.9,
+      "fallbackAgent": null,
+      "maxRetries": 1,
+      "rules": [
+        {
+          "pattern": "code|analyze|bug|security",
+          "targetAgent": "code-analyzer",
+          "priority": 1
+        },
+        {
+          "pattern": "data|transform|csv|json",
+          "targetAgent": "data-processor",
+          "priority": 2
+        },
+        {
+          "pattern": "research|find|search|information",
+          "targetAgent": "researcher",
+          "priority": 3
+        }
+      ]
+    },
+    "hybridRouter": {
+      "type": "hybrid",
+      "confidenceThreshold": 0.75,
+      "fallbackAgent": "coordinator",
+      "maxRetries": 2,
+      "useSemanticFallback": true
+    }
+  },
+  "networkDefaults": {
+    "standard": {
+      "maxConcurrentTasks": 10,
+      "taskTimeout": 30000,
+      "retryPolicy": {
+        "maxRetries": 3,
+        "backoffMultiplier": 2,
+        "initialDelay": 1000
+      }
+    },
+    "highThroughput": {
+      "maxConcurrentTasks": 50,
+      "taskTimeout": 15000,
+      "retryPolicy": {
+        "maxRetries": 1,
+        "backoffMultiplier": 1,
+        "initialDelay": 500
+      }
+    },
+    "reliable": {
+      "maxConcurrentTasks": 5,
+      "taskTimeout": 60000,
+      "retryPolicy": {
+        "maxRetries": 5,
+        "backoffMultiplier": 3,
+        "initialDelay": 2000
+      }
+    }
+  },
+  "testScenarios": {
+    "singleAgentTask": {
+      "description": "Task handled by a single agent",
+      "input": "Analyze this simple function",
+      "expectedRoute": "code-analyzer",
+      "expectedHops": 1
+    },
+    "multiAgentCollaboration": {
+      "description": "Task requiring multiple agents",
+      "input": "Research best practices, then analyze our codebase against them",
+      "expectedAgents": ["researcher", "code-analyzer"],
+      "expectedHops": 2
+    },
+    "delegationChain": {
+      "description": "Task with delegation chain",
+      "input": "Coordinate a full code review including data validation",
+      "expectedChain": ["coordinator", "code-analyzer", "validator"],
+      "expectedHops": 3
+    },
+    "failoverScenario": {
+      "description": "Task with failover when primary agent fails",
+      "input": "Process this data (primary unavailable)",
+      "network": "errorTestNetwork",
+      "primaryAgent": "error-prone",
+      "fallbackAgent": "validator",
+      "note": "Both agents are co-located in errorTestNetwork (agents: error-prone, validator)"
+    },
+    "broadcastTask": {
+      "description": "Task broadcast to all agents",
+      "input": "Status check",
+      "broadcast": true,
+      "expectedResponses": "all"
+    }
+  }
+}
