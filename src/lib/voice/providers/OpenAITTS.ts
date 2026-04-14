@@ -6,16 +6,27 @@
  * @module voice/providers/OpenAITTS
  */
 
-import type { TTSHandler } from "../../utils/ttsProcessor.js";
-import { TTSError, TTS_ERROR_CODES } from "../../utils/ttsProcessor.js";
-import type { TTSOptions, TTSResult, TTSVoice, AudioFormat } from "../../types/ttsTypes.js";
 import { ErrorCategory, ErrorSeverity } from "../../constants/enums.js";
+import type {
+  AudioFormat,
+  TTSOptions,
+  TTSResult,
+  TTSVoice,
+} from "../../types/ttsTypes.js";
 import { logger } from "../../utils/logger.js";
+import type { TTSHandler } from "../../utils/ttsProcessor.js";
+import { TTS_ERROR_CODES, TTSError } from "../../utils/ttsProcessor.js";
 
 /**
  * OpenAI TTS voices
  */
-export type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
+export type OpenAIVoice =
+  | "alloy"
+  | "echo"
+  | "fable"
+  | "onyx"
+  | "nova"
+  | "shimmer";
 
 /**
  * OpenAI TTS models
@@ -37,7 +48,7 @@ export type OpenAITTSOptions = TTSOptions & {
  *
  * @see https://platform.openai.com/docs/api-reference/audio/createSpeech
  */
-export class OpenAITTSHandler implements TTSHandler {
+export class OpenAITTS implements TTSHandler {
   private readonly apiKey: string | null;
   private readonly baseUrl = "https://api.openai.com/v1";
 
@@ -50,12 +61,54 @@ export class OpenAITTSHandler implements TTSHandler {
    * Available voices
    */
   private static readonly VOICES: TTSVoice[] = [
-    { id: "alloy", name: "Alloy", languageCode: "en", languageCodes: ["en"], gender: "neutral", type: "neural" },
-    { id: "echo", name: "Echo", languageCode: "en", languageCodes: ["en"], gender: "male", type: "neural" },
-    { id: "fable", name: "Fable", languageCode: "en", languageCodes: ["en"], gender: "neutral", type: "neural" },
-    { id: "onyx", name: "Onyx", languageCode: "en", languageCodes: ["en"], gender: "male", type: "neural" },
-    { id: "nova", name: "Nova", languageCode: "en", languageCodes: ["en"], gender: "female", type: "neural" },
-    { id: "shimmer", name: "Shimmer", languageCode: "en", languageCodes: ["en"], gender: "female", type: "neural" },
+    {
+      id: "alloy",
+      name: "Alloy",
+      languageCode: "en",
+      languageCodes: ["en"],
+      gender: "neutral",
+      type: "neural",
+    },
+    {
+      id: "echo",
+      name: "Echo",
+      languageCode: "en",
+      languageCodes: ["en"],
+      gender: "male",
+      type: "neural",
+    },
+    {
+      id: "fable",
+      name: "Fable",
+      languageCode: "en",
+      languageCodes: ["en"],
+      gender: "neutral",
+      type: "neural",
+    },
+    {
+      id: "onyx",
+      name: "Onyx",
+      languageCode: "en",
+      languageCodes: ["en"],
+      gender: "male",
+      type: "neural",
+    },
+    {
+      id: "nova",
+      name: "Nova",
+      languageCode: "en",
+      languageCodes: ["en"],
+      gender: "female",
+      type: "neural",
+    },
+    {
+      id: "shimmer",
+      name: "Shimmer",
+      languageCode: "en",
+      languageCodes: ["en"],
+      gender: "female",
+      type: "neural",
+    },
   ];
 
   constructor(apiKey?: string) {
@@ -70,9 +123,9 @@ export class OpenAITTSHandler implements TTSHandler {
     // OpenAI voices are pre-defined, filter by language if provided
     if (languageCode && !languageCode.startsWith("en")) {
       // OpenAI TTS works with multiple languages but voices are English-named
-      return OpenAITTSHandler.VOICES;
+      return OpenAITTS.VOICES;
     }
-    return OpenAITTSHandler.VOICES;
+    return OpenAITTS.VOICES;
   }
 
   async synthesize(text: string, options: TTSOptions = {}): Promise<TTSResult> {
@@ -175,7 +228,7 @@ export class OpenAITTSHandler implements TTSHandler {
    * Map AudioFormat to OpenAI response_format
    */
   private mapFormat(format: AudioFormat): string {
-    const formats: Record<AudioFormat, string> = {
+    const formats: Partial<Record<AudioFormat, string>> = {
       mp3: "mp3",
       wav: "wav",
       ogg: "opus", // OpenAI uses opus for ogg

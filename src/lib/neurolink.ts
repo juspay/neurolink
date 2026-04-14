@@ -15,156 +15,162 @@ try {
   // Environment variables should be set externally in production
 }
 
-import type {
-  TextGenerationOptions,
-  TextGenerationResult,
-  AnalyticsData,
-  ProviderStatus,
-} from "./types/index.js";
-import { AIProviderFactory } from "./core/factory.js";
-import { isNonNullObject } from "./utils/typeUtils.js";
-import { isZodSchema } from "./utils/schemaConversion.js";
+import { EventEmitter } from "events";
 import type { MemoryClient } from "mem0ai";
-import { AIProviderName } from "./constants/enums.js";
-import { mcpLogger } from "./utils/logger.js";
-import { SYSTEM_LIMITS } from "./core/constants.js";
+import pLimit from "p-limit";
 import {
-  NANOSECOND_TO_MS_DIVISOR,
-  TOOL_TIMEOUTS,
-  RETRY_ATTEMPTS,
-  RETRY_DELAYS,
+  type AIProviderName,
+  ErrorCategory,
+  ErrorSeverity,
+} from "./constants/enums.js";
+import {
   CIRCUIT_BREAKER,
   CIRCUIT_BREAKER_RESET_MS,
   MEMORY_THRESHOLDS,
-  PROVIDER_TIMEOUTS,
+  NANOSECOND_TO_MS_DIVISOR,
   PERFORMANCE_THRESHOLDS,
+  PROVIDER_TIMEOUTS,
+  RETRY_ATTEMPTS,
+  RETRY_DELAYS,
+  TOOL_TIMEOUTS,
 } from "./constants/index.js";
-import pLimit from "p-limit";
-import { MCPToolRegistry } from "./mcp/toolRegistry.js";
-import { logger } from "./utils/logger.js";
-import { getBestProvider } from "./utils/providerUtils.js";
+import { SYSTEM_LIMITS } from "./core/constants.js";
+import type { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
+import { AIProviderFactory } from "./core/factory.js";
+import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import { ProviderRegistry } from "./factories/providerRegistry.js";
+import { HITLManager } from "./hitl/hitlManager.js";
+import { ExternalServerManager } from "./mcp/externalServerManager.js";
+// Import direct tools server for automatic registration
+import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
+import { MCPToolRegistry } from "./mcp/toolRegistry.js";
+import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
+import {
+  flushOpenTelemetry,
+  getLangfuseHealthStatus,
+  initializeOpenTelemetry,
+  setLangfuseContext,
+  shutdownOpenTelemetry,
+} from "./services/server/ai/observability/instrumentation.js";
+import type {
+  JsonObject,
+  JsonValue,
+  NeuroLinkEvents,
+  TypedEventEmitter,
+  UnknownRecord,
+} from "./types/common.js";
+import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
+import type {
+  ChatMessage,
+  ConversationMemoryConfig,
+  ProviderDetails,
+} from "./types/conversation.js";
+import type {
+  ExternalMCPOperationResult,
+  ExternalMCPServerInstance,
+  ExternalMCPToolInfo,
+} from "./types/externalMcp.js";
 // NEW: Generate function imports
 import type { GenerateOptions, GenerateResult } from "./types/generateTypes.js";
 import type {
-  StreamOptions,
-  StreamResult,
-  ToolCall,
-  ToolResult,
-  AudioChunk,
-} from "./types/streamTypes.js";
-import type { TokenUsage, EvaluationData } from "./types/index.js";
+  ConfirmationResponseEvent,
+  HITLConfig,
+} from "./types/hitlTypes.js";
+import type {
+  AnalyticsData,
+  EvaluationData,
+  ProviderStatus,
+  TextGenerationOptions,
+  TextGenerationResult,
+  TokenUsage,
+} from "./types/index.js";
 import type {
   MCPExecutableTool,
   MCPServerCategory,
   MCPServerInfo,
   MCPStatus,
 } from "./types/mcpTypes.js";
-import type { ToolInfo } from "./types/tools.js";
-import type { NeuroLinkEvents, TypedEventEmitter } from "./types/common.js";
-import {
-  createCustomToolServerInfo,
-  detectCategory,
-} from "./utils/mcpDefaults.js";
-import type {
-  ToolExecutionContext,
-  ToolExecutionSummary,
-} from "./types/tools.js";
-import type { JsonValue, JsonObject, UnknownRecord } from "./types/common.js";
-import type {
-  ToolExecutionResult,
-  BatchOperationResult,
-} from "./types/typeAliases.js";
-// Factory processing imports
-import {
-  processFactoryOptions,
-  enhanceTextGenerationOptions,
-  validateFactoryConfig,
-  processStreamingFactoryOptions,
-  createCleanStreamOptions,
-} from "./utils/factoryProcessing.js";
-// Tool detection and execution imports
-// Transformation utilities
-import {
-  transformToolExecutions,
-  transformToolExecutionsForMCP,
-  transformAvailableTools,
-  transformToolsForMCP,
-  transformToolsToExpectedFormat,
-  transformToolsToDescriptions,
-  extractToolNames,
-  transformParamsForLogging,
-  optimizeToolForCollection,
-} from "./utils/transformationUtils.js";
-// Enhanced error handling imports
-import {
-  ErrorFactory,
-  NeuroLinkError,
-  withTimeout,
-  withRetry,
-  isRetriableError,
-  logStructuredError,
-  CircuitBreaker,
-} from "./utils/errorHandling.js";
-import { EventEmitter } from "events";
-import type {
-  ConversationMemoryConfig,
-  ChatMessage,
-  ProviderDetails,
-} from "./types/conversation.js";
-import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
-import { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
-import {
-  getConversationMessages,
-  storeConversationTurn,
-} from "./utils/conversationMemory.js";
-import { ExternalServerManager } from "./mcp/externalServerManager.js";
-import type {
-  HITLConfig,
-  ConfirmationResponseEvent,
-} from "./types/hitlTypes.js";
-import { HITLManager } from "./hitl/hitlManager.js";
-import type {
-  ExternalMCPServerInstance,
-  ExternalMCPOperationResult,
-  ExternalMCPToolInfo,
-} from "./types/externalMcp.js";
-// Import direct tools server for automatic registration
-import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
-// Import orchestration components
-import { ModelRouter } from "./utils/modelRouter.js";
-import { BinaryTaskClassifier } from "./utils/taskClassifier.js";
-import {
-  initializeOpenTelemetry,
-  shutdownOpenTelemetry,
-  flushOpenTelemetry,
-  getLangfuseHealthStatus,
-  setLangfuseContext,
-} from "./services/server/ai/observability/instrumentation.js";
 import type { ObservabilityConfig } from "./types/observability.js";
-import type { NeurolinkConstructorConfig } from "./types/configTypes.js";
-
-import { initializeMem0, type Mem0Config } from "./memory/mem0Initializer.js";
-
-// Voice integration imports
-import type { TTSOptions, TTSResult } from "./types/ttsTypes.js";
+import type { RealtimeConfig, RealtimeSession } from "./types/realtimeTypes.js";
+import type {
+  AudioChunk,
+  StreamOptions,
+  StreamResult,
+  ToolCall,
+  ToolResult,
+} from "./types/streamTypes.js";
 import type {
   STTOptions,
   STTResult,
   TranscriptionSegment,
 } from "./types/sttTypes.js";
-import type { RealtimeConfig, RealtimeSession } from "./types/realtimeTypes.js";
+import type {
+  ToolExecutionContext,
+  ToolExecutionSummary,
+  ToolInfo,
+} from "./types/tools.js";
+// Voice integration imports
+import type { TTSOptions, TTSResult } from "./types/ttsTypes.js";
+import type {
+  BatchOperationResult,
+  ToolExecutionResult,
+} from "./types/typeAliases.js";
 import type {
   CompositeVoiceConfig,
-  VoiceProviderName,
   TTSStreamChunk,
   VoiceAgentConfig,
+  VoiceProviderName,
 } from "./types/voiceTypes.js";
-import { VoiceFactory } from "./voice/voiceFactory.js";
+import {
+  getConversationMessages,
+  storeConversationTurn,
+} from "./utils/conversationMemory.js";
+// Enhanced error handling imports
+import {
+  CircuitBreaker,
+  ErrorFactory,
+  isRetriableError,
+  logStructuredError,
+  NeuroLinkError,
+  withRetry,
+  withTimeout,
+} from "./utils/errorHandling.js";
+// Factory processing imports
+import {
+  createCleanStreamOptions,
+  enhanceTextGenerationOptions,
+  processFactoryOptions,
+  processStreamingFactoryOptions,
+  validateFactoryConfig,
+} from "./utils/factoryProcessing.js";
+import { logger, mcpLogger } from "./utils/logger.js";
+import {
+  createCustomToolServerInfo,
+  detectCategory,
+} from "./utils/mcpDefaults.js";
+// Import orchestration components
+import { ModelRouter } from "./utils/modelRouter.js";
+import { getBestProvider } from "./utils/providerUtils.js";
+import { isZodSchema } from "./utils/schemaConversion.js";
+import { BinaryTaskClassifier } from "./utils/taskClassifier.js";
+// Tool detection and execution imports
+// Transformation utilities
+import {
+  extractToolNames,
+  optimizeToolForCollection,
+  transformAvailableTools,
+  transformParamsForLogging,
+  transformToolExecutions,
+  transformToolExecutionsForMCP,
+  transformToolsForMCP,
+  transformToolsToDescriptions,
+  transformToolsToExpectedFormat,
+} from "./utils/transformationUtils.js";
+import { isNonNullObject } from "./utils/typeUtils.js";
 import { CompositeVoice } from "./voice/compositeVoice.js";
+import { VOICE_ERROR_CODES, VoiceError } from "./voice/errors.js";
+import { VoiceFactory } from "./voice/VoiceFactory.js";
 import { VoiceAgent } from "./voice/voiceAgent.js";
-import { VoiceError, VOICE_ERROR_CODES } from "./voice/errors.js";
-import { ErrorCategory, ErrorSeverity } from "./constants/enums.js";
 
 /**
  * NeuroLink - Universal AI Development Platform
@@ -3202,7 +3208,7 @@ Current user's request: ${currentInput}`;
               const userId = (
                 enhancedOptions.context as Record<string, unknown>
               )?.userId as string;
-              let providerDetails: ProviderDetails | undefined = undefined;
+              let providerDetails: ProviderDetails | undefined;
               if (enhancedOptions.model) {
                 providerDetails = {
                   provider: providerName,
@@ -3565,7 +3571,7 @@ Current user's request: ${currentInput}`;
           )?.sessionId as string;
           const userId = (enhancedOptions?.context as Record<string, unknown>)
             ?.userId as string;
-          let providerDetails: ProviderDetails | undefined = undefined;
+          let providerDetails: ProviderDetails | undefined;
           if (options.model) {
             providerDetails = {
               provider: providerName,
@@ -5244,7 +5250,10 @@ Current user's request: ${currentInput}`;
     try {
       const health = await ProviderHealthChecker.checkProviderHealth(
         providerName as AIProviderName,
-        { includeConnectivityTest: false, cacheResults: false },
+        {
+          includeConnectivityTest: false,
+          cacheResults: false,
+        },
       );
       return health.isConfigured && health.hasApiKey;
     } catch (error) {
@@ -6344,7 +6353,7 @@ Current user's request: ${currentInput}`;
 
     if (!this.compositeVoice) {
       throw new VoiceError({
-        code: VOICE_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
+        code: VOICE_ERROR_CODES.INVALID_CONFIGURATION,
         message: "Voice not initialized. Call initializeVoice() first.",
         category: ErrorCategory.CONFIGURATION,
         severity: ErrorSeverity.HIGH,
@@ -6386,8 +6395,14 @@ Current user's request: ${currentInput}`;
     );
 
     // Check if provider supports streaming
-    if (ttsProvider.synthesizeStream) {
-      yield* ttsProvider.synthesizeStream(text, options ?? {});
+    const streamingProvider = ttsProvider as {
+      synthesizeStream?: (
+        text: string,
+        options: TTSOptions,
+      ) => AsyncIterable<TTSStreamChunk>;
+    };
+    if (streamingProvider.synthesizeStream) {
+      yield* streamingProvider.synthesizeStream(text, options ?? {});
     } else {
       // Fallback: synthesize full audio and yield as single chunk
       const result = await ttsProvider.synthesize(text, options ?? {});
@@ -6434,7 +6449,7 @@ Current user's request: ${currentInput}`;
 
     if (!this.compositeVoice) {
       throw new VoiceError({
-        code: VOICE_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
+        code: VOICE_ERROR_CODES.INVALID_CONFIGURATION,
         message: "Voice not initialized. Call initializeVoice() first.",
         category: ErrorCategory.CONFIGURATION,
         severity: ErrorSeverity.HIGH,
@@ -6475,8 +6490,26 @@ Current user's request: ${currentInput}`;
     );
 
     // Check if provider supports streaming
-    if (sttProvider.transcribeStream) {
-      yield* sttProvider.transcribeStream(audioStream, options ?? {});
+    const streamingProvider = sttProvider as {
+      transcribeStream?: (
+        audio: AsyncIterable<Buffer>,
+        options: STTOptions,
+      ) => AsyncIterable<TranscriptionSegment>;
+    };
+    if (streamingProvider.transcribeStream) {
+      // Note: Voice module TranscriptionSegment may have optional fields,
+      // but lib TranscriptionSegment requires them. Cast for compatibility.
+      for await (const segment of streamingProvider.transcribeStream(
+        audioStream,
+        options ?? {},
+      )) {
+        yield {
+          ...segment,
+          start: segment.start ?? 0,
+          end: segment.end ?? 0,
+          confidence: segment.confidence ?? 0,
+        } as TranscriptionSegment;
+      }
     } else {
       // Fallback: collect all audio and transcribe at once
       const chunks: Buffer[] = [];
@@ -6487,8 +6520,15 @@ Current user's request: ${currentInput}`;
       const result = await sttProvider.transcribe(fullAudio, options ?? {});
 
       // Yield segments from result
-      for (const segment of result.segments) {
-        yield segment;
+      if (result.segments) {
+        for (const segment of result.segments) {
+          yield {
+            ...segment,
+            start: segment.start ?? segment.startTime ?? 0,
+            end: segment.end ?? segment.endTime ?? 0,
+            confidence: segment.confidence ?? 0,
+          } as TranscriptionSegment;
+        }
       }
     }
   }
@@ -6594,14 +6634,15 @@ Current user's request: ${currentInput}`;
       provider as "openai-realtime" | "gemini-live",
     );
 
-    const session = await realtimeProvider.connect(config);
+    // Cast to any to handle type differences between lib/types and voice/types
+    const session = await realtimeProvider.connect(config as any);
 
     logger.debug("[NeuroLink] Realtime voice session started", {
       sessionId: session.id,
       provider,
     });
 
-    return session;
+    return session as unknown as RealtimeSession;
   }
 
   /**
@@ -6639,6 +6680,10 @@ Current user's request: ${currentInput}`;
         | "sarvam",
     );
 
+    if (!ttsProvider.getVoices) {
+      return [];
+    }
+
     const voices = await ttsProvider.getVoices(languageCode);
     return voices.map((v) => ({
       id: v.id,
@@ -6667,6 +6712,7 @@ Current user's request: ${currentInput}`;
   ): Promise<{ valid: boolean; errors: string[] }> {
     try {
       // Determine provider type and create instance
+      // Note: validateConfig is not on the Handler interfaces, so we check if the provider was created successfully
       if (
         provider.includes("tts") ||
         ["elevenlabs", "sarvam"].includes(provider)
@@ -6679,19 +6725,38 @@ Current user's request: ${currentInput}`;
             | "azure-tts"
             | "sarvam",
         );
-        return ttsProvider.validateConfig();
+        // Provider created successfully - check if validateConfig exists
+        if (
+          "validateConfig" in ttsProvider &&
+          typeof (ttsProvider as any).validateConfig === "function"
+        ) {
+          return (ttsProvider as any).validateConfig();
+        }
+        return { valid: true, errors: [] };
       } else if (
         ["deepgram", "gladia", "whisper", "assemblyai"].includes(provider)
       ) {
         const sttProvider = await VoiceFactory.createSTTProvider(
           provider as "deepgram" | "gladia" | "whisper",
         );
-        return sttProvider.validateConfig();
+        if (
+          "validateConfig" in sttProvider &&
+          typeof (sttProvider as any).validateConfig === "function"
+        ) {
+          return (sttProvider as any).validateConfig();
+        }
+        return { valid: true, errors: [] };
       } else if (["openai-realtime", "gemini-live"].includes(provider)) {
         const realtimeProvider = await VoiceFactory.createRealtimeProvider(
           provider as "openai-realtime" | "gemini-live",
         );
-        return realtimeProvider.validateConfig();
+        if (
+          "validateConfig" in realtimeProvider &&
+          typeof (realtimeProvider as any).validateConfig === "function"
+        ) {
+          return (realtimeProvider as any).validateConfig();
+        }
+        return { valid: true, errors: [] };
       }
 
       return { valid: false, errors: [`Unknown provider: ${provider}`] };

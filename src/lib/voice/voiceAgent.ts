@@ -6,23 +6,29 @@
  * @module voice/voiceAgent
  */
 
+import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 import type { GenerateResult } from "../types/generateTypes.js";
 import type {
   RealtimeConfig,
   RealtimeSession,
 } from "../types/realtimeTypes.js";
-import type { STTOptions, STTResult } from "../types/sttTypes.js";
+import type {
+  STTOptions as LibSTTOptions,
+  STTResult,
+} from "../types/sttTypes.js";
 import type { TTSOptions, TTSResult } from "../types/ttsTypes.js";
 import type {
   RealtimeVoiceProvider,
+  STTOptions,
   VoiceAgentConfig,
   VoiceProcessingResult,
   VoiceTurn,
 } from "../types/voiceTypes.js";
 import { logger } from "../utils/logger.js";
 import { CompositeVoice } from "./compositeVoice.js";
-import { VoiceErrorFactory } from "./errors.js";
-import { VoiceFactory } from "./voiceFactory.js";
+import { VOICE_ERROR_CODES, VoiceError } from "./errors.js";
+import type { RealtimeHandler } from "./RealtimeVoiceAPI.js";
+import { VoiceFactory, voiceFactory } from "./VoiceFactory.js";
 
 /**
  * Voice Agent Events
@@ -104,7 +110,7 @@ export class VoiceAgent {
   private readonly config: VoiceAgentConfig;
   private readonly neurolink: NeuroLinkInstance | null;
   private compositeVoice: CompositeVoice | null = null;
-  private realtimeProvider: RealtimeVoiceProvider | null = null;
+  private realtimeProvider: RealtimeHandler | null = null;
   private realtimeSession: RealtimeSession | null = null;
   private eventHandlers = new Map<
     VoiceAgentEvent,
@@ -153,16 +159,17 @@ export class VoiceAgent {
         defaultSTTOptions: {
           ...config.sttSettings,
           language: config.voiceSettings?.language,
-        },
+          format: config.sttSettings?.format as STTOptions["format"],
+        } as STTOptions,
         trackHistory: true,
       });
     }
 
     // Initialize realtime provider if configured
     if (config.realtimeProvider) {
-      this.realtimeProvider = await VoiceFactory.createRealtimeProvider(
+      this.realtimeProvider = (await VoiceFactory.createRealtimeProvider(
         config.realtimeProvider,
-      );
+      )) as RealtimeHandler;
     }
 
     logger.debug("[VoiceAgent] Initialized", {
@@ -190,10 +197,15 @@ export class VoiceAgent {
     } = {},
   ): Promise<VoiceProcessingResult> {
     if (!this.compositeVoice) {
-      throw VoiceErrorFactory.featureNotSupported(
-        "batch processing",
-        "voice-agent",
-      );
+      throw new VoiceError({
+        code: VOICE_ERROR_CODES.INVALID_CONFIGURATION,
+        message:
+          "Batch processing requires a composite voice (TTS + STT providers)",
+        category: ErrorCategory.CONFIGURATION,
+        severity: ErrorSeverity.HIGH,
+        retriable: false,
+        context: { feature: "batch processing", provider: "voice-agent" },
+      });
     }
 
     const totalStartTime = Date.now();
@@ -351,7 +363,14 @@ export class VoiceAgent {
     config?: Partial<RealtimeConfig>,
   ): Promise<RealtimeSession> {
     if (!this.realtimeProvider) {
-      throw VoiceErrorFactory.featureNotSupported("realtime", "voice-agent");
+      throw new VoiceError({
+        code: VOICE_ERROR_CODES.INVALID_CONFIGURATION,
+        message: "Realtime requires a realtime provider to be configured",
+        category: ErrorCategory.CONFIGURATION,
+        severity: ErrorSeverity.HIGH,
+        retriable: false,
+        context: { feature: "realtime", provider: "voice-agent" },
+      });
     }
 
     if (this.realtimeSession?.isOpen()) {
@@ -368,14 +387,17 @@ export class VoiceAgent {
       ...config,
     };
 
-    this.realtimeSession = await this.realtimeProvider.connect(sessionConfig);
+    // Cast to any to handle type differences between lib/types and voice/types
+    this.realtimeSession = (await this.realtimeProvider.connect(
+      sessionConfig as any,
+    )) as unknown as RealtimeSession;
 
     logger.debug("[VoiceAgent] Realtime session started", {
-      sessionId: this.realtimeSession.id,
+      sessionId: this.realtimeSession?.id,
       provider: this.realtimeProvider.name,
     });
 
-    return this.realtimeSession;
+    return this.realtimeSession!;
   }
 
   /**
@@ -476,7 +498,7 @@ export class VoiceAgent {
   /**
    * Get the realtime provider
    */
-  getRealtimeProvider(): RealtimeVoiceProvider | null {
+  getRealtimeProvider(): RealtimeHandler | null {
     return this.realtimeProvider;
   }
 

@@ -7,8 +7,8 @@
  */
 
 import { EventEmitter } from "events";
-import type { AudioFormat, AudioStreamChunk } from "./types/voiceTypes.js";
 import { logger } from "../utils/logger.js";
+import type { AudioFormat, AudioStreamChunk } from "./types/voiceTypes.js";
 
 /**
  * Stream handler configuration
@@ -183,7 +183,9 @@ export class ChunkedAudioStream extends EventEmitter {
     // Emit final chunk with remaining data
     if (this.buffer.length > 0) {
       const durationMs =
-        (this.buffer.length / this.config.bytesPerSample / this.config.sampleRate) *
+        (this.buffer.length /
+          this.config.bytesPerSample /
+          this.config.sampleRate) *
         1000;
 
       const chunk: AudioStreamChunk = {
@@ -456,8 +458,9 @@ export function streamToAsyncIterable(
   return {
     [Symbol.asyncIterator](): AsyncIterator<AudioStreamChunk> {
       const queue: AudioStreamChunk[] = [];
-      let resolveNext: ((result: IteratorResult<AudioStreamChunk>) => void) | null =
-        null;
+      let resolveNext:
+        | ((result: IteratorResult<AudioStreamChunk>) => void)
+        | null = null;
       let done = false;
       let error: Error | null = null;
 
@@ -473,7 +476,10 @@ export function streamToAsyncIterable(
       stream.on("end", () => {
         done = true;
         if (resolveNext) {
-          resolveNext({ value: undefined as unknown as AudioStreamChunk, done: true });
+          resolveNext({
+            value: undefined as unknown as AudioStreamChunk,
+            done: true,
+          });
           resolveNext = null;
         }
       });
@@ -481,7 +487,10 @@ export function streamToAsyncIterable(
       stream.on("error", (err) => {
         error = err;
         if (resolveNext) {
-          resolveNext({ value: undefined as unknown as AudioStreamChunk, done: true });
+          resolveNext({
+            value: undefined as unknown as AudioStreamChunk,
+            done: true,
+          });
           resolveNext = null;
         }
       });
@@ -497,7 +506,10 @@ export function streamToAsyncIterable(
           }
 
           if (done) {
-            return { value: undefined as unknown as AudioStreamChunk, done: true };
+            return {
+              value: undefined as unknown as AudioStreamChunk,
+              done: true,
+            };
           }
 
           return new Promise((resolve) => {
@@ -536,9 +548,6 @@ export async function asyncIterableToStream(
 
   return stream;
 }
-
-// Export types
-export type { StreamHandlerConfig, StreamEvents };
 
 // Export main class with alias
 export { ChunkedAudioStream as StreamHandler };

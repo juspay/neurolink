@@ -6,11 +6,11 @@
  * @module voice/errors
  */
 
-import { NeuroLinkError } from "../utils/errorHandling.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
+import { NeuroLinkError } from "../utils/errorHandling.js";
 import {
-  STT_ERROR_CODES,
   REALTIME_ERROR_CODES,
+  STT_ERROR_CODES,
   VOICE_ERROR_CODES,
 } from "./types/voiceTypes.js";
 
@@ -28,6 +28,7 @@ export type VoiceErrorOptions = {
   retriable?: boolean;
   context?: Record<string, unknown>;
   originalError?: Error;
+  provider?: string;
 };
 
 /**
@@ -102,16 +103,32 @@ export class STTError extends NeuroLinkError {
    */
   static invalidFormat(
     format: string,
-    supportedFormats: string[],
+    supportedFormatsOrProvider?: string[] | string,
     provider?: string,
   ): STTError {
+    // Handle overloaded signature: (format, provider) or (format, supportedFormats[], provider?)
+    let supportedFormats: string[] | undefined;
+    let actualProvider: string | undefined;
+
+    if (typeof supportedFormatsOrProvider === "string") {
+      // Called as (format, provider)
+      actualProvider = supportedFormatsOrProvider;
+    } else {
+      // Called as (format, supportedFormats[], provider?)
+      supportedFormats = supportedFormatsOrProvider;
+      actualProvider = provider;
+    }
+
+    const message = supportedFormats
+      ? `Unsupported audio format: ${format}. Supported formats: ${supportedFormats.join(", ")}`
+      : `Unsupported audio format: ${format}`;
     return new STTError({
       code: STT_ERROR_CODES.INVALID_AUDIO_FORMAT,
-      message: `Unsupported audio format: ${format}. Supported formats: ${supportedFormats.join(", ")}`,
+      message,
       category: ErrorCategory.VALIDATION,
       severity: ErrorSeverity.MEDIUM,
       retriable: false,
-      context: { format, supportedFormats, provider },
+      context: { format, supportedFormats, provider: actualProvider },
     });
   }
 
@@ -138,12 +155,34 @@ export class STTError extends NeuroLinkError {
 
   /**
    * Create an error for transcription failure
+   * Supports two signatures:
+   * - transcriptionFailed(reason, provider?, originalError?)
+   * - transcriptionFailed(reason, originalError, provider)
    */
   static transcriptionFailed(
     reason: string,
-    provider?: string,
-    originalError?: Error,
+    providerOrError?: string | Error,
+    originalErrorOrProvider?: Error | string,
   ): STTError {
+    let provider: string | undefined;
+    let originalError: Error | undefined;
+
+    if (typeof providerOrError === "string") {
+      // Called as (reason, provider?, originalError?)
+      provider = providerOrError;
+      originalError =
+        originalErrorOrProvider instanceof Error
+          ? originalErrorOrProvider
+          : undefined;
+    } else if (providerOrError instanceof Error) {
+      // Called as (reason, originalError, provider)
+      originalError = providerOrError;
+      provider =
+        typeof originalErrorOrProvider === "string"
+          ? originalErrorOrProvider
+          : undefined;
+    }
+
     return new STTError({
       code: STT_ERROR_CODES.TRANSCRIPTION_FAILED,
       message: `Transcription failed: ${reason}`,
@@ -199,6 +238,20 @@ export class STTError extends NeuroLinkError {
       context: { provider },
     });
   }
+
+  /**
+   * Alias for providerNotConfigured
+   */
+  static notConfigured(provider: string): STTError {
+    return STTError.providerNotConfigured(provider);
+  }
+
+  /**
+   * Alias for audioEmpty
+   */
+  static emptyAudio(provider?: string): STTError {
+    return STTError.audioEmpty(provider);
+  }
 }
 
 /**
@@ -220,12 +273,34 @@ export class RealtimeError extends NeuroLinkError {
 
   /**
    * Create an error for connection failure
+   * Supports two signatures:
+   * - connectionFailed(reason, provider?, originalError?)
+   * - connectionFailed(reason, originalError?, provider?)
    */
   static connectionFailed(
     reason: string,
-    provider?: string,
-    originalError?: Error,
+    providerOrError?: string | Error,
+    originalErrorOrProvider?: Error | string,
   ): RealtimeError {
+    let provider: string | undefined;
+    let originalError: Error | undefined;
+
+    if (typeof providerOrError === "string") {
+      // Called as (reason, provider?, originalError?)
+      provider = providerOrError;
+      originalError =
+        originalErrorOrProvider instanceof Error
+          ? originalErrorOrProvider
+          : undefined;
+    } else if (providerOrError instanceof Error) {
+      // Called as (reason, originalError, provider)
+      originalError = providerOrError;
+      provider =
+        typeof originalErrorOrProvider === "string"
+          ? originalErrorOrProvider
+          : undefined;
+    }
+
     return new RealtimeError({
       code: REALTIME_ERROR_CODES.CONNECTION_FAILED,
       message: `Failed to connect to realtime service: ${reason}`,
@@ -240,10 +315,7 @@ export class RealtimeError extends NeuroLinkError {
   /**
    * Create an error for session timeout
    */
-  static sessionTimeout(
-    timeoutMs: number,
-    provider?: string,
-  ): RealtimeError {
+  static sessionTimeout(timeoutMs: number, provider?: string): RealtimeError {
     return new RealtimeError({
       code: REALTIME_ERROR_CODES.SESSION_TIMEOUT,
       message: `Realtime session timed out after ${timeoutMs}ms`,
@@ -276,10 +348,7 @@ export class RealtimeError extends NeuroLinkError {
   /**
    * Create an error for audio stream failures
    */
-  static audioStreamError(
-    reason: string,
-    provider?: string,
-  ): RealtimeError {
+  static audioStreamError(reason: string, provider?: string): RealtimeError {
     return new RealtimeError({
       code: REALTIME_ERROR_CODES.AUDIO_STREAM_ERROR,
       message: `Audio stream error: ${reason}`,
@@ -360,6 +429,49 @@ export class RealtimeError extends NeuroLinkError {
       severity: ErrorSeverity.MEDIUM,
       retriable: false,
       context: { provider },
+    });
+  }
+
+  /**
+   * Create an error for connection closed unexpectedly
+   */
+  static connectionClosed(
+    reason: string,
+    sessionId?: string,
+    provider?: string,
+  ): RealtimeError {
+    return new RealtimeError({
+      code: REALTIME_ERROR_CODES.CONNECTION_FAILED,
+      message: `Connection closed: ${reason}`,
+      category: ErrorCategory.NETWORK,
+      severity: ErrorSeverity.HIGH,
+      retriable: true,
+      context: { sessionId, provider },
+    });
+  }
+
+  /**
+   * Create an error for unconfigured provider (alias)
+   */
+  static notConfigured(provider: string): RealtimeError {
+    return RealtimeError.providerNotConfigured(provider);
+  }
+
+  /**
+   * Create an error for operation timeout
+   */
+  static timeout(
+    operation: string,
+    timeoutMs: number,
+    provider?: string,
+  ): RealtimeError {
+    return new RealtimeError({
+      code: REALTIME_ERROR_CODES.SESSION_TIMEOUT,
+      message: `Operation "${operation}" timed out after ${timeoutMs}ms`,
+      category: ErrorCategory.TIMEOUT,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: true,
+      context: { operation, timeoutMs, provider },
     });
   }
 }

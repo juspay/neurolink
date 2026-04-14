@@ -218,13 +218,13 @@ export class WhisperSTTHandler implements STTProvider {
     options: STTOptions = {},
   ): Promise<STTResult> {
     if (!this.apiKey) {
-      throw STTError.notConfigured("whisper");
+      throw STTError.providerNotConfigured("whisper");
     }
 
     const buffer = audio instanceof ArrayBuffer ? Buffer.from(audio) : audio;
 
     if (buffer.length === 0) {
-      throw STTError.emptyAudio("whisper");
+      throw STTError.audioEmpty("whisper");
     }
 
     if (buffer.length > WhisperSTTHandler.MAX_FILE_SIZE) {

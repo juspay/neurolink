@@ -6,17 +6,17 @@
  * @module voice/providers/AzureSTT
  */
 
+import { logger } from "../../utils/logger.js";
+import { STTError } from "../errors.js";
 import type { STTHandler } from "../STTProvider.js";
 import type {
+  AudioFormat,
+  STTLanguage,
   STTOptions,
   STTResult,
-  STTLanguage,
   TranscriptionSegment,
-  AudioFormat,
   WordTiming,
 } from "../types/voiceTypes.js";
-import { STTError } from "../errors.js";
-import { logger } from "../../utils/logger.js";
 
 /**
  * Azure STT-specific options
@@ -70,7 +70,7 @@ type AzureRecognitionResult = {
  *
  * @see https://docs.microsoft.com/azure/cognitive-services/speech-service/
  */
-export class AzureSTTHandler implements STTHandler {
+export class AzureSTT implements STTHandler {
   private readonly apiKey: string | null;
   private readonly region: string;
 
@@ -100,20 +100,90 @@ export class AzureSTTHandler implements STTHandler {
   async getSupportedLanguages(): Promise<STTLanguage[]> {
     // Azure supports 100+ languages
     return [
-      { code: "en-US", name: "English (US)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "en-GB", name: "English (UK)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "es-ES", name: "Spanish (Spain)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "es-MX", name: "Spanish (Mexico)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "fr-FR", name: "French", supportsDiarization: true, supportsPunctuation: true },
-      { code: "de-DE", name: "German", supportsDiarization: true, supportsPunctuation: true },
-      { code: "it-IT", name: "Italian", supportsDiarization: true, supportsPunctuation: true },
-      { code: "pt-BR", name: "Portuguese (Brazil)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "ja-JP", name: "Japanese", supportsDiarization: true, supportsPunctuation: true },
-      { code: "ko-KR", name: "Korean", supportsDiarization: true, supportsPunctuation: true },
-      { code: "zh-CN", name: "Chinese (Simplified)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "hi-IN", name: "Hindi", supportsDiarization: true, supportsPunctuation: true },
-      { code: "ar-SA", name: "Arabic", supportsDiarization: true, supportsPunctuation: true },
-      { code: "ru-RU", name: "Russian", supportsDiarization: true, supportsPunctuation: true },
+      {
+        code: "en-US",
+        name: "English (US)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "en-GB",
+        name: "English (UK)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "es-ES",
+        name: "Spanish (Spain)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "es-MX",
+        name: "Spanish (Mexico)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "fr-FR",
+        name: "French",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "de-DE",
+        name: "German",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "it-IT",
+        name: "Italian",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "pt-BR",
+        name: "Portuguese (Brazil)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ja-JP",
+        name: "Japanese",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ko-KR",
+        name: "Korean",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "zh-CN",
+        name: "Chinese (Simplified)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "hi-IN",
+        name: "Hindi",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ar-SA",
+        name: "Arabic",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ru-RU",
+        name: "Russian",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
     ];
   }
 
@@ -152,7 +222,7 @@ export class AzureSTTHandler implements STTHandler {
       }
 
       // Add custom endpoint if provided
-      let baseUrl = `https://${this.region}.stt.speech.microsoft.com`;
+      const baseUrl = `https://${this.region}.stt.speech.microsoft.com`;
       if (azureOptions.customEndpointId) {
         params.set("cid", azureOptions.customEndpointId);
       }
@@ -166,7 +236,7 @@ export class AzureSTTHandler implements STTHandler {
           "Content-Type": this.getContentType(options.format ?? "wav"),
           Accept: "application/json",
         },
-        body: audioBuffer,
+        body: new Uint8Array(audioBuffer),
       });
 
       if (!response.ok) {
@@ -231,9 +301,7 @@ export class AzureSTTHandler implements STTHandler {
         }
       }
 
-      logger.info(
-        `[AzureSTTHandler] Transcribed audio in ${latency}ms`,
-      );
+      logger.info(`[AzureSTTHandler] Transcribed audio in ${latency}ms`);
 
       return result;
     } catch (err: unknown) {
@@ -315,7 +383,7 @@ export class AzureSTTHandler implements STTHandler {
    * Get Content-Type header for audio format
    */
   private getContentType(format: AudioFormat): string {
-    const contentTypes: Record<AudioFormat, string> = {
+    const contentTypes: Partial<Record<AudioFormat, string>> = {
       mp3: "audio/mpeg",
       wav: "audio/wav; codecs=audio/pcm; samplerate=16000",
       ogg: "audio/ogg; codecs=opus",

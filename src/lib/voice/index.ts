@@ -52,46 +52,43 @@
 // TYPES
 // ============================================================================
 
+// Re-export TTS types from the main types module
 export type {
-  // Voice capability types
-  VoiceCapability,
-  VoiceProviderType,
-  VoiceProviderConfig,
-  VoiceProviderMetadata,
-  // STT types
-  STTOptions,
-  STTResult,
-  STTLanguage,
-  TranscriptionSegment,
-  WordTiming,
-  // Realtime types
-  RealtimeConfig,
-  RealtimeSession,
-  RealtimeSessionState,
-  RealtimeAudioChunk,
-  RealtimeMessage,
-  RealtimeMessageType,
-  RealtimeTool,
-  RealtimeEventHandlers,
+  AudioConversionOptions,
+  AudioFormat,
+  // Audio utility types
+  AudioFormatDetails,
+  AudioStreamChunk,
   // Composite voice types
   CompositeVoiceConfig,
   CompositeVoiceSession,
-  // Voice agent types
-  VoiceAgentConfig,
-  VoiceProcessingResult,
-  VoiceTurn,
-  // Audio utility types
-  AudioFormatDetails,
-  AudioConversionOptions,
-  AudioStreamChunk,
-} from "./types/voiceTypes.js";
-
-// Re-export TTS types from the main types module
-export type {
-  AudioFormat,
+  RealtimeAudioChunk,
+  // Realtime types
+  RealtimeConfig,
+  RealtimeEventHandlers,
+  RealtimeMessage,
+  RealtimeMessageType,
+  RealtimeSession,
+  RealtimeSessionState,
+  RealtimeTool,
+  STTLanguage,
+  // STT types
+  STTOptions,
+  STTResult,
+  TranscriptionSegment,
   TTSOptions,
   TTSResult,
   TTSVoice,
+  // Voice agent types
+  VoiceAgentConfig,
+  // Voice capability types
+  VoiceCapability,
+  VoiceProcessingResult,
+  VoiceProviderConfig,
+  VoiceProviderMetadata,
+  VoiceProviderType,
+  VoiceTurn,
+  WordTiming,
 } from "./types/voiceTypes.js";
 
 // ============================================================================
@@ -99,17 +96,17 @@ export type {
 // ============================================================================
 
 export {
-  STT_ERROR_CODES,
-  REALTIME_ERROR_CODES,
-  VOICE_ERROR_CODES,
   AUDIO_FORMAT_DETAILS,
-  DEFAULT_STT_OPTIONS,
   DEFAULT_REALTIME_CONFIG,
+  DEFAULT_STT_OPTIONS,
   // Type guards
   isSTTResult,
-  isValidSTTOptions,
-  isValidRealtimeConfig,
   isTranscriptionSegment,
+  isValidRealtimeConfig,
+  isValidSTTOptions,
+  REALTIME_ERROR_CODES,
+  STT_ERROR_CODES,
+  VOICE_ERROR_CODES,
 } from "./types/voiceTypes.js";
 
 // ============================================================================
@@ -117,9 +114,9 @@ export {
 // ============================================================================
 
 export {
-  VoiceError,
-  STTError,
   RealtimeError,
+  STTError,
+  VoiceError,
   type VoiceErrorOptions,
 } from "./errors.js";
 
@@ -127,19 +124,16 @@ export {
 // STT PROVIDER
 // ============================================================================
 
-export {
-  STTProcessor,
-  type STTHandler,
-} from "./STTProvider.js";
+export { type STTHandler, STTProcessor } from "./STTProvider.js";
 
 // ============================================================================
 // REALTIME VOICE API
 // ============================================================================
 
 export {
-  RealtimeProcessor,
   BaseRealtimeHandler,
   type RealtimeHandler,
+  RealtimeProcessor,
 } from "./RealtimeVoiceAPI.js";
 
 // ============================================================================
@@ -148,8 +142,8 @@ export {
 
 export {
   VoiceFactory,
-  voiceFactory,
   type VoiceHandler,
+  voiceFactory,
 } from "./VoiceFactory.js";
 
 // ============================================================================
@@ -157,10 +151,10 @@ export {
 // ============================================================================
 
 export {
+  type VoiceHandler as VoiceHandlerType,
+  type VoiceProviderEntry,
   VoiceRegistry,
   voiceRegistry,
-  type VoiceProviderEntry,
-  type VoiceHandler as VoiceHandlerType,
 } from "./VoiceRegistry.js";
 
 // ============================================================================
@@ -184,20 +178,20 @@ export {
 // ============================================================================
 
 export {
-  detectAudioFormat,
+  AUDIO_SIGNATURES,
   calculateDuration,
   convertAudioFormat,
   createPcmBuffer,
-  extractPcmSamples,
-  resamplePcm,
-  normalizeAudio,
-  createWavHeader,
   createWavFile,
-  splitIntoChunks,
-  getMimeType,
+  createWavHeader,
+  detectAudioFormat,
+  extractPcmSamples,
   getFileExtension,
-  AUDIO_SIGNATURES,
+  getMimeType,
   MIME_TYPES,
+  normalizeAudio,
+  resamplePcm,
+  splitIntoChunks,
 } from "./audio-utils.js";
 
 // ============================================================================
@@ -205,49 +199,66 @@ export {
 // ============================================================================
 
 export {
+  asyncIterableToStream,
   ChunkedAudioStream,
+  type StreamEvents,
+  StreamHandler,
+  type StreamHandlerConfig,
   StreamMerger,
   StreamSplitter,
   streamToAsyncIterable,
-  asyncIterableToStream,
-  StreamHandler,
-  type StreamHandlerConfig,
-  type StreamEvents,
 } from "./stream-handler.js";
 
 // ============================================================================
 // TTS PROVIDERS
 // ============================================================================
 
-// Note: TTS providers are imported dynamically to avoid circular dependencies
-// Use VoiceFactory.createTTS() instead of importing directly
-//
-// Available TTS providers:
-// - 'openai' (OpenAITTS)
-// - 'google' (GoogleTTS)
-// - 'azure' (AzureTTS)
-// - 'elevenlabs' (ElevenLabsTTS)
+export { AzureTTS, AzureTTS as AzureTTSHandler } from "./providers/AzureTTS.js";
+export {
+  ElevenLabsTTS,
+  ElevenLabsTTS as ElevenLabsTTSHandler,
+} from "./providers/ElevenLabsTTS.js";
+// Export TTS provider classes for direct use
+export {
+  GoogleTTS,
+  GoogleTTS as GoogleTTSHandler,
+} from "./providers/GoogleTTS.js";
+export {
+  OpenAITTS,
+  OpenAITTS as OpenAITTSHandler,
+} from "./providers/OpenAITTS.js";
 
 // ============================================================================
 // STT PROVIDERS
 // ============================================================================
 
-// Note: STT providers are imported dynamically to avoid circular dependencies
-// Use VoiceFactory.createSTT() instead of importing directly
-//
-// Available STT providers:
-// - 'openai' / 'whisper' (OpenAISTT)
-// - 'google' (GoogleSTT)
-// - 'azure' (AzureSTT)
-// - 'deepgram' (DeepgramSTT)
+export { AzureSTT, AzureSTT as AzureSTTHandler } from "./providers/AzureSTT.js";
+export {
+  DeepgramSTT,
+  DeepgramSTT as DeepgramSTTHandler,
+} from "./providers/DeepgramSTT.js";
+// Export STT provider classes for direct use
+export {
+  GoogleSTT,
+  GoogleSTT as GoogleSTTHandler,
+} from "./providers/GoogleSTT.js";
+export {
+  OpenAISTT,
+  OpenAISTTHandler,
+  WhisperSTT,
+  WhisperSTTHandler,
+} from "./providers/OpenAISTT.js";
 
 // ============================================================================
 // REALTIME PROVIDERS
 // ============================================================================
 
-// Note: Realtime providers are imported dynamically to avoid circular dependencies
-// Use VoiceFactory.createRealtime() instead of importing directly
-//
-// Available Realtime providers:
-// - 'openai' (OpenAIRealtime)
-// - 'gemini' (GeminiLive)
+export {
+  GeminiLive,
+  GeminiLive as GeminiLiveHandler,
+} from "./providers/GeminiLive.js";
+// Export Realtime provider classes for direct use
+export {
+  OpenAIRealtime,
+  OpenAIRealtime as OpenAIRealtimeHandler,
+} from "./providers/OpenAIRealtime.js";

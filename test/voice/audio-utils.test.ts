@@ -24,9 +24,18 @@ describe("Audio Utilities", () => {
     it("should detect WAV format", () => {
       // WAV header: RIFF....WAVE
       const wavBuffer = Buffer.from([
-        0x52, 0x49, 0x46, 0x46, // RIFF
-        0x00, 0x00, 0x00, 0x00, // file size
-        0x57, 0x41, 0x56, 0x45, // WAVE
+        0x52,
+        0x49,
+        0x46,
+        0x46, // RIFF
+        0x00,
+        0x00,
+        0x00,
+        0x00, // file size
+        0x57,
+        0x41,
+        0x56,
+        0x45, // WAVE
       ]);
 
       expect(detectAudioFormat(wavBuffer)).toBe("wav");

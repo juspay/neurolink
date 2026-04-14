@@ -18,10 +18,7 @@ import {
   STTError,
   RealtimeError,
 } from "../../src/lib/voice/index.js";
-import type {
-  STTHandler,
-  RealtimeHandler,
-} from "../../src/lib/voice/index.js";
+import type { STTHandler, RealtimeHandler } from "../../src/lib/voice/index.js";
 import type { TTSHandler } from "../../src/lib/utils/ttsProcessor.js";
 import type {
   VoiceProviderMetadata,
@@ -118,41 +115,29 @@ describe("Voice Module Integration", () => {
         isConfigured: vi.fn().mockReturnValue(true),
       };
 
-      factory.registerTTSProvider(
-        "tts-a",
-        async () => mockTTSHandler,
-        {
-          type: "tts",
-          displayName: "TTS A",
-          capabilities: ["tts"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      factory.registerTTSProvider("tts-a", async () => mockTTSHandler, {
+        type: "tts",
+        displayName: "TTS A",
+        capabilities: ["tts"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
-      factory.registerTTSProvider(
-        "tts-b",
-        async () => mockTTSHandler,
-        {
-          type: "tts",
-          displayName: "TTS B",
-          capabilities: ["tts"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      factory.registerTTSProvider("tts-b", async () => mockTTSHandler, {
+        type: "tts",
+        displayName: "TTS B",
+        capabilities: ["tts"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
-      factory.registerSTTProvider(
-        "stt-a",
-        async () => mockSTTHandler,
-        {
-          type: "stt",
-          displayName: "STT A",
-          capabilities: ["stt"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      factory.registerSTTProvider("stt-a", async () => mockSTTHandler, {
+        type: "stt",
+        displayName: "STT A",
+        capabilities: ["stt"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
       const ttsProviders = factory.getTTSProviders();
       const sttProviders = factory.getSTTProviders();
@@ -244,10 +229,9 @@ describe("Voice Module Integration", () => {
       expect(RealtimeProcessor.supports("test-realtime")).toBe(true);
 
       // Connect to session
-      const session = await RealtimeProcessor.connect(
-        "test-realtime",
-        { provider: "openai" },
-      );
+      const session = await RealtimeProcessor.connect("test-realtime", {
+        provider: "openai",
+      });
 
       expect(session.id).toBe("session-123");
       expect(RealtimeProcessor.isConnected("test-realtime")).toBe(true);
@@ -457,26 +441,21 @@ describe("Voice Module Integration", () => {
         isConfigured: () => true,
       };
 
-      factory.registerSTTProvider(
-        "factory-stt",
-        async () => mockSTTHandler,
-        {
-          type: "stt",
-          displayName: "Factory STT",
-          capabilities: ["stt"],
-          supportedFormats: ["mp3", "wav"],
-          supportsStreaming: false,
-        },
-      );
+      factory.registerSTTProvider("factory-stt", async () => mockSTTHandler, {
+        type: "stt",
+        displayName: "Factory STT",
+        capabilities: ["stt"],
+        supportedFormats: ["mp3", "wav"],
+        supportsStreaming: false,
+      });
 
       // Create handler through factory
       const handler = await factory.createSTT("factory-stt");
 
       // Use handler directly
-      const result = await handler.transcribe(
-        Buffer.from("audio"),
-        { language: "en-US" },
-      );
+      const result = await handler.transcribe(Buffer.from("audio"), {
+        language: "en-US",
+      });
 
       expect(result.text).toBe("Factory created handler result");
 

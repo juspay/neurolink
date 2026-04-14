@@ -7,21 +7,21 @@
  * @module voice/VoiceFactory
  */
 
+import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 import {
   BaseFactory,
   type FactoryFunction,
 } from "../core/infrastructure/index.js";
 import { logger } from "../utils/logger.js";
+import type { TTSHandler } from "../utils/ttsProcessor.js";
+import { VOICE_ERROR_CODES, VoiceError } from "./errors.js";
+import type { RealtimeHandler } from "./RealtimeVoiceAPI.js";
+import type { STTHandler } from "./STTProvider.js";
 import type {
   VoiceProviderConfig,
   VoiceProviderMetadata,
   VoiceProviderType,
 } from "./types/voiceTypes.js";
-import type { TTSHandler } from "../utils/ttsProcessor.js";
-import type { STTHandler } from "./STTProvider.js";
-import type { RealtimeHandler } from "./RealtimeVoiceAPI.js";
-import { VoiceError, VOICE_ERROR_CODES } from "./errors.js";
-import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 
 /**
  * Union type for all voice handlers
@@ -58,13 +58,20 @@ type VoiceFactoryRegistration = {
  * const realtimeHandler = await factory.createRealtime('openai');
  * ```
  */
-export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig> {
+export class VoiceFactory extends BaseFactory<
+  VoiceHandler,
+  VoiceProviderConfig
+> {
   private static instance: VoiceFactory | null = null;
   private readonly typeMap = new Map<string, VoiceProviderType>();
   private readonly metadataMap = new Map<string, VoiceProviderMetadata>();
 
   private constructor() {
     super();
+    // Eagerly start initialization
+    this.ensureInitialized().catch((err) => {
+      logger.error(`[VoiceFactory] Failed to initialize: ${err}`);
+    });
   }
 
   /**
@@ -91,14 +98,14 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
    * Register all default providers
    */
   protected async registerAll(): Promise<void> {
-    // Register TTS providers
-    await this.registerDefaultTTSProviders();
+    // Register TTS providers (synchronous)
+    this.registerDefaultTTSProviders();
 
-    // Register STT providers
-    await this.registerDefaultSTTProviders();
+    // Register STT providers (synchronous)
+    this.registerDefaultSTTProviders();
 
-    // Register Realtime providers
-    await this.registerDefaultRealtimeProviders();
+    // Register Realtime providers (synchronous)
+    this.registerDefaultRealtimeProviders();
 
     logger.info("[VoiceFactory] Registered all default voice providers");
   }
@@ -106,13 +113,13 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
   /**
    * Register default TTS providers
    */
-  private async registerDefaultTTSProviders(): Promise<void> {
+  private registerDefaultTTSProviders(): void {
     // Google TTS
     this.registerTTSProvider(
       "google-tts",
       async (config) => {
-        const { GoogleTTSHandler } = await import("./providers/GoogleTTS.js");
-        return new GoogleTTSHandler(config?.apiKey);
+        const { GoogleTTS } = await import("./providers/GoogleTTS.js");
+        return new GoogleTTS(config?.apiKey);
       },
       {
         type: "tts",
@@ -130,8 +137,8 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
     this.registerTTSProvider(
       "openai-tts",
       async (config) => {
-        const { OpenAITTSHandler } = await import("./providers/OpenAITTS.js");
-        return new OpenAITTSHandler(config?.apiKey);
+        const { OpenAITTS } = await import("./providers/OpenAITTS.js");
+        return new OpenAITTS(config?.apiKey);
       },
       {
         type: "tts",
@@ -149,8 +156,8 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
     this.registerTTSProvider(
       "elevenlabs-tts",
       async (config) => {
-        const { ElevenLabsTTSHandler } = await import("./providers/ElevenLabsTTS.js");
-        return new ElevenLabsTTSHandler(config?.apiKey);
+        const { ElevenLabsTTS } = await import("./providers/ElevenLabsTTS.js");
+        return new ElevenLabsTTS(config?.apiKey);
       },
       {
         type: "tts",
@@ -168,8 +175,8 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
     this.registerTTSProvider(
       "azure-tts",
       async (config) => {
-        const { AzureTTSHandler } = await import("./providers/AzureTTS.js");
-        return new AzureTTSHandler(config?.apiKey, config?.options?.region as string);
+        const { AzureTTS } = await import("./providers/AzureTTS.js");
+        return new AzureTTS(config?.apiKey, config?.options?.region as string);
       },
       {
         type: "tts",
@@ -187,7 +194,7 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
   /**
    * Register default STT providers
    */
-  private async registerDefaultSTTProviders(): Promise<void> {
+  private registerDefaultSTTProviders(): void {
     // OpenAI Whisper
     this.registerSTTProvider(
       "whisper",
@@ -211,8 +218,8 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
     this.registerSTTProvider(
       "deepgram",
       async (config) => {
-        const { DeepgramSTTHandler } = await import("./providers/DeepgramSTT.js");
-        return new DeepgramSTTHandler(config?.apiKey);
+        const { DeepgramSTT } = await import("./providers/DeepgramSTT.js");
+        return new DeepgramSTT(config?.apiKey);
       },
       {
         type: "stt",
@@ -230,8 +237,8 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
     this.registerSTTProvider(
       "google-stt",
       async (config) => {
-        const { GoogleSTTHandler } = await import("./providers/GoogleSTT.js");
-        return new GoogleSTTHandler(config?.apiKey);
+        const { GoogleSTT } = await import("./providers/GoogleSTT.js");
+        return new GoogleSTT(config?.apiKey);
       },
       {
         type: "stt",
@@ -249,8 +256,8 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
     this.registerSTTProvider(
       "azure-stt",
       async (config) => {
-        const { AzureSTTHandler } = await import("./providers/AzureSTT.js");
-        return new AzureSTTHandler(config?.apiKey, config?.options?.region as string);
+        const { AzureSTT } = await import("./providers/AzureSTT.js");
+        return new AzureSTT(config?.apiKey, config?.options?.region as string);
       },
       {
         type: "stt",
@@ -268,13 +275,15 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
   /**
    * Register default Realtime providers
    */
-  private async registerDefaultRealtimeProviders(): Promise<void> {
+  private registerDefaultRealtimeProviders(): void {
     // OpenAI Realtime
     this.registerRealtimeProvider(
       "openai-realtime",
       async (config) => {
-        const { OpenAIRealtimeHandler } = await import("./providers/OpenAIRealtime.js");
-        return new OpenAIRealtimeHandler(config?.apiKey);
+        const { OpenAIRealtime } = await import(
+          "./providers/OpenAIRealtime.js"
+        );
+        return new OpenAIRealtime(config?.apiKey);
       },
       {
         type: "realtime",
@@ -291,8 +300,8 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
     this.registerRealtimeProvider(
       "gemini-live",
       async (config) => {
-        const { GeminiLiveHandler } = await import("./providers/GeminiLive.js");
-        return new GeminiLiveHandler(config?.apiKey);
+        const { GeminiLive } = await import("./providers/GeminiLive.js");
+        return new GeminiLive(config?.apiKey);
       },
       {
         type: "realtime",
@@ -315,7 +324,13 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
     metadata: VoiceProviderMetadata,
     aliases: string[] = [],
   ): void {
-    this.registerVoiceProvider(name, "tts", factory as FactoryFunction<VoiceHandler, VoiceProviderConfig>, metadata, aliases);
+    this.registerVoiceProvider(
+      name,
+      "tts",
+      factory as FactoryFunction<VoiceHandler, VoiceProviderConfig>,
+      metadata,
+      aliases,
+    );
   }
 
   /**
@@ -327,7 +342,13 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
     metadata: VoiceProviderMetadata,
     aliases: string[] = [],
   ): void {
-    this.registerVoiceProvider(name, "stt", factory as FactoryFunction<VoiceHandler, VoiceProviderConfig>, metadata, aliases);
+    this.registerVoiceProvider(
+      name,
+      "stt",
+      factory as FactoryFunction<VoiceHandler, VoiceProviderConfig>,
+      metadata,
+      aliases,
+    );
   }
 
   /**
@@ -339,7 +360,13 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
     metadata: VoiceProviderMetadata,
     aliases: string[] = [],
   ): void {
-    this.registerVoiceProvider(name, "realtime", factory as FactoryFunction<VoiceHandler, VoiceProviderConfig>, metadata, aliases);
+    this.registerVoiceProvider(
+      name,
+      "realtime",
+      factory as FactoryFunction<VoiceHandler, VoiceProviderConfig>,
+      metadata,
+      aliases,
+    );
   }
 
   /**
@@ -502,6 +529,117 @@ export class VoiceFactory extends BaseFactory<VoiceHandler, VoiceProviderConfig>
     super.clear();
     this.typeMap.clear();
     this.metadataMap.clear();
+  }
+
+  // ============================================================================
+  // STATIC CONVENIENCE METHODS
+  // ============================================================================
+
+  /**
+   * Create a TTS provider (static convenience method)
+   */
+  static async createTTSProvider(
+    nameOrAlias: string,
+    config?: VoiceProviderConfig,
+  ): Promise<TTSHandler> {
+    return VoiceFactory.getInstance().createTTS(nameOrAlias, config);
+  }
+
+  /**
+   * Create an STT provider (static convenience method)
+   */
+  static async createSTTProvider(
+    nameOrAlias: string,
+    config?: VoiceProviderConfig,
+  ): Promise<STTHandler> {
+    return VoiceFactory.getInstance().createSTT(nameOrAlias, config);
+  }
+
+  /**
+   * Create a Realtime provider (static convenience method)
+   */
+  static async createRealtimeProvider(
+    nameOrAlias: string,
+    config?: VoiceProviderConfig,
+  ): Promise<RealtimeHandler> {
+    return VoiceFactory.getInstance().createRealtime(nameOrAlias, config);
+  }
+
+  /**
+   * Check if a TTS provider exists (static convenience method)
+   */
+  static hasTTSProvider(nameOrAlias: string): boolean {
+    const factory = VoiceFactory.getInstance();
+    const type = factory.getType(nameOrAlias);
+    return type === "tts";
+  }
+
+  /**
+   * Check if an STT provider exists (static convenience method)
+   */
+  static hasSTTProvider(nameOrAlias: string): boolean {
+    const factory = VoiceFactory.getInstance();
+    const type = factory.getType(nameOrAlias);
+    return type === "stt";
+  }
+
+  /**
+   * Check if a Realtime provider exists (static convenience method)
+   */
+  static hasRealtimeProvider(nameOrAlias: string): boolean {
+    const factory = VoiceFactory.getInstance();
+    const type = factory.getType(nameOrAlias);
+    return type === "realtime";
+  }
+
+  /**
+   * Get available TTS providers (static convenience method)
+   */
+  static getAvailableTTSProviders(): string[] {
+    return VoiceFactory.getInstance().getTTSProviders();
+  }
+
+  /**
+   * Get available STT providers (static convenience method)
+   */
+  static getAvailableSTTProviders(): string[] {
+    return VoiceFactory.getInstance().getSTTProviders();
+  }
+
+  /**
+   * Get available Realtime providers (static convenience method)
+   */
+  static getAvailableRealtimeProviders(): string[] {
+    return VoiceFactory.getInstance().getRealtimeProviders();
+  }
+
+  /**
+   * Get provider capabilities (static convenience method)
+   */
+  static getProviderCapabilities(nameOrAlias: string): string[] | undefined {
+    const metadata = VoiceFactory.getInstance().getMetadata(nameOrAlias);
+    return metadata?.capabilities;
+  }
+
+  /**
+   * Get all available providers (returns a flat array of provider names)
+   * NOTE: Returns empty array if factory not yet initialized.
+   * Call ensureInitialized() first for async initialization.
+   */
+  getAvailableProviders(): string[] {
+    // Trigger initialization if not started (fire and forget for sync access)
+    if (!this.initialized && !this.initPromise) {
+      this.ensureInitialized().catch(() => {});
+    }
+    return this.getAvailable();
+  }
+
+  /**
+   * Async version that ensures initialization before returning providers
+   */
+  async getAvailableProvidersAsync(): Promise<string[]> {
+    await this.ensureInitialized();
+    return this.getAvailable();
   }
 }
 

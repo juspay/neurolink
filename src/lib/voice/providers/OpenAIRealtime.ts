@@ -6,16 +6,16 @@
  * @module voice/providers/OpenAIRealtime
  */
 
+import type WebSocket from "ws";
+import { logger } from "../../utils/logger.js";
+import { RealtimeError } from "../errors.js";
 import { BaseRealtimeHandler } from "../RealtimeVoiceAPI.js";
 import type {
+  AudioFormat,
+  RealtimeAudioChunk,
   RealtimeConfig,
   RealtimeSession,
-  RealtimeAudioChunk,
-  AudioFormat,
 } from "../types/voiceTypes.js";
-import { RealtimeError } from "../errors.js";
-import { logger } from "../../utils/logger.js";
-import type WebSocket from "ws";
 
 /**
  * OpenAI Realtime event types
@@ -68,7 +68,9 @@ type OpenAIAudioDelta = OpenAIRealtimeEvent & {
  * OpenAI Realtime transcript delta event
  */
 type OpenAITranscriptDelta = OpenAIRealtimeEvent & {
-  type: "response.audio_transcript.delta" | "conversation.item.input_audio_transcription.completed";
+  type:
+    | "response.audio_transcript.delta"
+    | "conversation.item.input_audio_transcription.completed";
   delta?: string;
   transcript?: string;
 };
@@ -80,7 +82,7 @@ type OpenAITranscriptDelta = OpenAIRealtimeEvent & {
  *
  * @see https://platform.openai.com/docs/api-reference/realtime
  */
-export class OpenAIRealtimeHandler extends BaseRealtimeHandler {
+export class OpenAIRealtime extends BaseRealtimeHandler {
   readonly name = "openai-realtime";
 
   private readonly apiKey: string | null;
@@ -287,7 +289,7 @@ export class OpenAIRealtimeHandler extends BaseRealtimeHandler {
    * Send session update with configuration
    */
   private async sendSessionUpdate(config: RealtimeConfig): Promise<void> {
-    if (!this.ws) return;
+    if (!this.ws) {return;}
 
     const sessionConfig: Record<string, unknown> = {
       modalities: ["text", "audio"],
@@ -356,7 +358,12 @@ export class OpenAIRealtimeHandler extends BaseRealtimeHandler {
           } else if (event.type === "error") {
             clearTimeout(timeout);
             this.ws?.off("message", handler);
-            reject(new Error((event as { error?: { message?: string } }).error?.message ?? "Unknown error"));
+            reject(
+              new Error(
+                (event as { error?: { message?: string } }).error?.message ??
+                  "Unknown error",
+              ),
+            );
           }
         } catch {
           // Ignore parse errors
@@ -432,10 +439,15 @@ export class OpenAIRealtimeHandler extends BaseRealtimeHandler {
           };
           if (funcEvent.name && funcEvent.arguments) {
             try {
-              const args = JSON.parse(funcEvent.arguments) as Record<string, unknown>;
+              const args = JSON.parse(funcEvent.arguments) as Record<
+                string,
+                unknown
+              >;
               this.handleFunctionCall(funcEvent.name, args);
             } catch {
-              logger.warn("[OpenAIRealtimeHandler] Failed to parse function arguments");
+              logger.warn(
+                "[OpenAIRealtimeHandler] Failed to parse function arguments",
+              );
             }
           }
           break;
@@ -453,7 +465,9 @@ export class OpenAIRealtimeHandler extends BaseRealtimeHandler {
         }
 
         case "error": {
-          const errorEvent = event as { error?: { type?: string; message?: string } };
+          const errorEvent = event as {
+            error?: { type?: string; message?: string };
+          };
           const errorMessage = errorEvent.error?.message ?? "Unknown error";
           this.emitError(new Error(errorMessage));
           break;
@@ -461,7 +475,9 @@ export class OpenAIRealtimeHandler extends BaseRealtimeHandler {
 
         default:
           // Log unhandled events at debug level
-          logger.debug(`[OpenAIRealtimeHandler] Unhandled event: ${event.type}`);
+          logger.debug(
+            `[OpenAIRealtimeHandler] Unhandled event: ${event.type}`,
+          );
       }
     } catch (err: unknown) {
       logger.warn(

@@ -6,17 +6,17 @@
  * @module voice/providers/DeepgramSTT
  */
 
+import { logger } from "../../utils/logger.js";
+import { STTError } from "../errors.js";
 import type { STTHandler } from "../STTProvider.js";
 import type {
+  AudioFormat,
+  STTLanguage,
   STTOptions,
   STTResult,
-  STTLanguage,
   TranscriptionSegment,
-  AudioFormat,
   WordTiming,
 } from "../types/voiceTypes.js";
-import { STTError } from "../errors.js";
-import { logger } from "../../utils/logger.js";
 
 /**
  * Deepgram model options
@@ -131,7 +131,7 @@ type DeepgramResponse = {
  *
  * @see https://developers.deepgram.com/docs
  */
-export class DeepgramSTTHandler implements STTHandler {
+export class DeepgramSTT implements STTHandler {
   private readonly apiKey: string | null;
   private readonly baseUrl = "https://api.deepgram.com/v1";
 
@@ -160,20 +160,90 @@ export class DeepgramSTTHandler implements STTHandler {
   async getSupportedLanguages(): Promise<STTLanguage[]> {
     // Deepgram supports 40+ languages
     return [
-      { code: "en", name: "English", supportsDiarization: true, supportsPunctuation: true },
-      { code: "en-US", name: "English (US)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "en-GB", name: "English (UK)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "es", name: "Spanish", supportsDiarization: true, supportsPunctuation: true },
-      { code: "fr", name: "French", supportsDiarization: true, supportsPunctuation: true },
-      { code: "de", name: "German", supportsDiarization: true, supportsPunctuation: true },
-      { code: "it", name: "Italian", supportsDiarization: true, supportsPunctuation: true },
-      { code: "pt", name: "Portuguese", supportsDiarization: true, supportsPunctuation: true },
-      { code: "nl", name: "Dutch", supportsDiarization: true, supportsPunctuation: true },
-      { code: "ja", name: "Japanese", supportsDiarization: true, supportsPunctuation: true },
-      { code: "ko", name: "Korean", supportsDiarization: true, supportsPunctuation: true },
-      { code: "zh", name: "Chinese", supportsDiarization: true, supportsPunctuation: true },
-      { code: "hi", name: "Hindi", supportsDiarization: true, supportsPunctuation: true },
-      { code: "ru", name: "Russian", supportsDiarization: true, supportsPunctuation: true },
+      {
+        code: "en",
+        name: "English",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "en-US",
+        name: "English (US)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "en-GB",
+        name: "English (UK)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "es",
+        name: "Spanish",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "fr",
+        name: "French",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "de",
+        name: "German",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "it",
+        name: "Italian",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "pt",
+        name: "Portuguese",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "nl",
+        name: "Dutch",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ja",
+        name: "Japanese",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ko",
+        name: "Korean",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "zh",
+        name: "Chinese",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "hi",
+        name: "Hindi",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ru",
+        name: "Russian",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
     ];
   }
 
@@ -272,7 +342,7 @@ export class DeepgramSTTHandler implements STTHandler {
           Authorization: `Token ${this.apiKey}`,
           "Content-Type": this.getMimeType(options.format ?? "wav"),
         },
-        body: audioBuffer,
+        body: new Uint8Array(audioBuffer),
       });
 
       if (!response.ok) {
@@ -357,7 +427,8 @@ export class DeepgramSTTHandler implements STTHandler {
           confidence: utt.confidence,
           startTime: utt.start,
           endTime: utt.end,
-          speaker: utt.speaker !== undefined ? `Speaker ${utt.speaker}` : undefined,
+          speaker:
+            utt.speaker !== undefined ? `Speaker ${utt.speaker}` : undefined,
         }));
       }
 
@@ -373,7 +444,9 @@ export class DeepgramSTTHandler implements STTHandler {
 
       const errorMessage =
         err instanceof Error ? err.message : String(err || "Unknown error");
-      logger.error(`[DeepgramSTTHandler] Transcription failed: ${errorMessage}`);
+      logger.error(
+        `[DeepgramSTTHandler] Transcription failed: ${errorMessage}`,
+      );
       throw STTError.transcriptionFailed(
         errorMessage,
         "deepgram",
@@ -427,7 +500,9 @@ export class DeepgramSTTHandler implements STTHandler {
 
     let segmentIndex = 0;
     const messageQueue: TranscriptionSegment[] = [];
-    let resolveNext: ((value: IteratorResult<TranscriptionSegment>) => void) | null = null;
+    let resolveNext:
+      | ((value: IteratorResult<TranscriptionSegment>) => void)
+      | null = null;
     let done = false;
     let error: Error | null = null;
 
@@ -471,7 +546,10 @@ export class DeepgramSTTHandler implements STTHandler {
     ws.on("error", (err: Error) => {
       error = err;
       if (resolveNext) {
-        resolveNext({ value: undefined as unknown as TranscriptionSegment, done: true });
+        resolveNext({
+          value: undefined as unknown as TranscriptionSegment,
+          done: true,
+        });
         resolveNext = null;
       }
     });
@@ -479,7 +557,10 @@ export class DeepgramSTTHandler implements STTHandler {
     ws.on("close", () => {
       done = true;
       if (resolveNext) {
-        resolveNext({ value: undefined as unknown as TranscriptionSegment, done: true });
+        resolveNext({
+          value: undefined as unknown as TranscriptionSegment,
+          done: true,
+        });
         resolveNext = null;
       }
     });
@@ -515,7 +596,7 @@ export class DeepgramSTTHandler implements STTHandler {
     // Yield segments
     while (!done) {
       if (error) {
-        throw STTError.streamError(error.message, "deepgram");
+        throw STTError.streamError((error as Error).message, "deepgram");
       }
 
       if (messageQueue.length > 0) {
@@ -540,7 +621,7 @@ export class DeepgramSTTHandler implements STTHandler {
    * Get MIME type for audio format
    */
   private getMimeType(format: AudioFormat): string {
-    const mimeTypes: Record<AudioFormat, string> = {
+    const mimeTypes: Partial<Record<AudioFormat, string>> = {
       mp3: "audio/mpeg",
       wav: "audio/wav",
       ogg: "audio/ogg",

@@ -247,13 +247,13 @@ export class GladiaSTTHandler implements STTProvider {
     options: STTOptions = {},
   ): Promise<STTResult> {
     if (!this.apiKey) {
-      throw STTError.notConfigured("gladia");
+      throw STTError.providerNotConfigured("gladia");
     }
 
     const buffer = audio instanceof ArrayBuffer ? Buffer.from(audio) : audio;
 
     if (buffer.length === 0) {
-      throw STTError.emptyAudio("gladia");
+      throw STTError.audioEmpty("gladia");
     }
 
     // Validate format if specified
@@ -316,7 +316,7 @@ export class GladiaSTTHandler implements STTProvider {
     options: STTOptions = {},
   ): AsyncIterable<TranscriptionSegment> {
     if (!this.apiKey) {
-      throw STTError.notConfigured("gladia");
+      throw STTError.providerNotConfigured("gladia");
     }
 
     const gladiaOptions = options as GladiaSTTOptions;

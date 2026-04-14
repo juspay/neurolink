@@ -6,7 +6,12 @@
  * @module voice/types/voiceTypes
  */
 
-import type { AudioFormat, TTSOptions, TTSResult, TTSVoice } from "../../types/ttsTypes.js";
+import type {
+  AudioFormat,
+  TTSOptions,
+  TTSResult,
+  TTSVoice,
+} from "../../types/ttsTypes.js";
 
 // ============================================================================
 // VOICE CAPABILITY TYPES
@@ -82,10 +87,14 @@ export type STTOptions = {
   sampleRate?: number;
   /** Enable punctuation in transcription */
   punctuation?: boolean;
+  /** Enable punctuation (alias) */
+  punctuate?: boolean;
   /** Enable profanity filter */
   profanityFilter?: boolean;
   /** Enable speaker diarization */
   speakerDiarization?: boolean;
+  /** Enable speaker diarization (alias) */
+  diarization?: boolean;
   /** Number of speakers (for diarization) */
   speakerCount?: number;
   /** Enable word-level timestamps */
@@ -94,6 +103,8 @@ export type STTOptions = {
   model?: string;
   /** Custom vocabulary/phrases */
   vocabulary?: string[];
+  /** Minimum confidence threshold */
+  confidenceThreshold?: number;
 };
 
 /**
@@ -126,8 +137,12 @@ export type TranscriptionSegment = {
   confidence?: number;
   /** Start time in audio (seconds) */
   startTime?: number;
+  /** Start time (alias for startTime) */
+  start?: number;
   /** End time in audio (seconds) */
   endTime?: number;
+  /** End time (alias for endTime) */
+  end?: number;
   /** Word-level timings */
   words?: WordTiming[];
   /** Speaker label */
@@ -363,14 +378,22 @@ export type RealtimeEventHandlers = {
  * Composite voice configuration for combined TTS + STT
  */
 export type CompositeVoiceConfig = {
-  /** TTS provider name */
-  ttsProvider: string;
-  /** STT provider name */
-  sttProvider: string;
-  /** TTS options */
+  /** TTS provider name or config object */
+  ttsProvider?: string | VoiceProviderConfig;
+  /** STT provider name or config object */
+  sttProvider?: string | VoiceProviderConfig;
+  /** Default TTS options */
+  defaultTTSOptions?: TTSOptions;
+  /** Default STT options */
+  defaultSTTOptions?: STTOptions;
+  /** TTS options (alias for defaultTTSOptions) */
   ttsOptions?: TTSOptions;
-  /** STT options */
+  /** STT options (alias for defaultSTTOptions) */
   sttOptions?: STTOptions;
+  /** Whether to track conversation history */
+  trackHistory?: boolean;
+  /** Maximum number of history turns to keep */
+  maxHistoryTurns?: number;
   /** Whether to enable streaming */
   streaming?: boolean;
   /** Latency optimization mode */
@@ -593,7 +616,9 @@ export function isTranscriptionSegment(
 /**
  * Supported audio formats with details
  */
-export const AUDIO_FORMAT_DETAILS: Record<AudioFormat, AudioFormatDetails> = {
+export const AUDIO_FORMAT_DETAILS: Partial<
+  Record<AudioFormat, AudioFormatDetails>
+> = {
   mp3: {
     format: "mp3",
     mimeType: "audio/mpeg",
@@ -626,13 +651,40 @@ export const AUDIO_FORMAT_DETAILS: Record<AudioFormat, AudioFormatDetails> = {
     sampleRates: [8000, 12000, 16000, 24000, 48000],
     bitDepths: [16],
   },
+  m4a: {
+    format: "m4a",
+    mimeType: "audio/mp4",
+    extension: ".m4a",
+    supportsStreaming: false,
+    sampleRates: [44100, 48000],
+    bitDepths: [16],
+  },
+  flac: {
+    format: "flac",
+    mimeType: "audio/flac",
+    extension: ".flac",
+    supportsStreaming: false,
+    sampleRates: [44100, 48000, 96000],
+    bitDepths: [16, 24],
+  },
+  webm: {
+    format: "webm",
+    mimeType: "audio/webm",
+    extension: ".webm",
+    supportsStreaming: true,
+    sampleRates: [44100, 48000],
+    bitDepths: [16],
+  },
 };
 
 /**
  * Default STT options
  */
 export const DEFAULT_STT_OPTIONS: Required<
-  Pick<STTOptions, "language" | "punctuation" | "profanityFilter" | "sampleRate">
+  Pick<
+    STTOptions,
+    "language" | "punctuation" | "profanityFilter" | "sampleRate"
+  >
 > = {
   language: "en-US",
   punctuation: true,

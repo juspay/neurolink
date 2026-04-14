@@ -18,7 +18,10 @@ import type {
   AudioFormat,
 } from "./types/voiceTypes.js";
 import { RealtimeError } from "./errors.js";
-import { REALTIME_ERROR_CODES, DEFAULT_REALTIME_CONFIG } from "./types/voiceTypes.js";
+import {
+  REALTIME_ERROR_CODES,
+  DEFAULT_REALTIME_CONFIG,
+} from "./types/voiceTypes.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 
 /**
@@ -254,9 +257,7 @@ export class RealtimeProcessor {
     }
 
     try {
-      logger.debug(
-        `[RealtimeProcessor] Connecting to provider: ${provider}`,
-      );
+      logger.debug(`[RealtimeProcessor] Connecting to provider: ${provider}`);
 
       const session = await handler.connect(mergedConfig);
       this.sessions.set(provider.toLowerCase(), session);
@@ -596,10 +597,7 @@ export abstract class BaseRealtimeHandler implements RealtimeHandler {
   /**
    * Create a session object
    */
-  protected createSession(
-    id: string,
-    config: RealtimeConfig,
-  ): RealtimeSession {
+  protected createSession(id: string, config: RealtimeConfig): RealtimeSession {
     return {
       id,
       state: "connected",

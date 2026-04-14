@@ -6,16 +6,26 @@
  * @module voice/providers/GoogleTTS
  */
 
-import type { TTSHandler } from "../../utils/ttsProcessor.js";
-import { TTSError, TTS_ERROR_CODES } from "../../utils/ttsProcessor.js";
-import type { TTSOptions, TTSResult, TTSVoice, AudioFormat } from "../../types/ttsTypes.js";
 import { ErrorCategory, ErrorSeverity } from "../../constants/enums.js";
+import type {
+  AudioFormat,
+  TTSOptions,
+  TTSResult,
+  TTSVoice,
+} from "../../types/ttsTypes.js";
 import { logger } from "../../utils/logger.js";
+import type { TTSHandler } from "../../utils/ttsProcessor.js";
+import { TTS_ERROR_CODES, TTSError } from "../../utils/ttsProcessor.js";
 
 /**
  * Google TTS voice types
  */
-export type GoogleVoiceType = "Standard" | "WaveNet" | "Neural2" | "Studio" | "Polyglot";
+export type GoogleVoiceType =
+  | "Standard"
+  | "WaveNet"
+  | "Neural2"
+  | "Studio"
+  | "Polyglot";
 
 /**
  * Google-specific TTS options
@@ -80,7 +90,7 @@ type GoogleSynthesizeResponse = {
  *
  * @see https://cloud.google.com/text-to-speech/docs
  */
-export class GoogleTTSHandler implements TTSHandler {
+export class GoogleTTS implements TTSHandler {
   private readonly apiKey: string | null;
   private readonly credentialsPath: string | null;
   private readonly baseUrl = "https://texttospeech.googleapis.com/v1";
@@ -116,7 +126,7 @@ export class GoogleTTSHandler implements TTSHandler {
     // Return cached voices if valid and no language filter
     if (
       this.voicesCache &&
-      Date.now() - this.voicesCache.timestamp < GoogleTTSHandler.CACHE_TTL_MS &&
+      Date.now() - this.voicesCache.timestamp < GoogleTTS.CACHE_TTL_MS &&
       !languageCode
     ) {
       return this.voicesCache.voices;
@@ -197,9 +207,7 @@ export class GoogleTTSHandler implements TTSHandler {
       const isSSML = text.trim().startsWith("<speak");
 
       // Build synthesis input
-      const input: GoogleSynthesisInput = isSSML
-        ? { ssml: text }
-        : { text };
+      const input: GoogleSynthesisInput = isSSML ? { ssml: text } : { text };
 
       // Parse voice and language from voice name or use defaults
       const voiceName = options.voice ?? "en-US-Neural2-C";
@@ -268,7 +276,9 @@ export class GoogleTTSHandler implements TTSHandler {
         format: options.format ?? "mp3",
         size: audioBuffer.length,
         voice: voiceName,
-        sampleRate: googleOptions.sampleRateHertz ?? this.getDefaultSampleRate(options.format),
+        sampleRate:
+          googleOptions.sampleRateHertz ??
+          this.getDefaultSampleRate(options.format),
         metadata: {
           latency,
           provider: "google-tts",
@@ -350,7 +360,7 @@ export class GoogleTTSHandler implements TTSHandler {
    * Get encoding string for audio format
    */
   private getEncoding(format: AudioFormat): string {
-    const encodings: Record<AudioFormat, string> = {
+    const encodings: Partial<Record<AudioFormat, string>> = {
       mp3: "MP3",
       wav: "LINEAR16",
       ogg: "OGG_OPUS",

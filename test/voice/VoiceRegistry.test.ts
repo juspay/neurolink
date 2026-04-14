@@ -103,12 +103,9 @@ describe("VoiceRegistry", () => {
         supportsStreaming: false,
       };
 
-      registry.registerTTS(
-        "test-tts",
-        async () => mockHandler,
-        metadata,
-        ["test"],
-      );
+      registry.registerTTS("test-tts", async () => mockHandler, metadata, [
+        "test",
+      ]);
 
       expect(registry.has("test-tts")).toBe(true);
       expect(registry.has("test")).toBe(true);
@@ -124,11 +121,7 @@ describe("VoiceRegistry", () => {
         supportsStreaming: false,
       };
 
-      registry.registerTTS(
-        "TEST-TTS",
-        async () => mockHandler,
-        metadata,
-      );
+      registry.registerTTS("TEST-TTS", async () => mockHandler, metadata);
 
       expect(registry.has("test-tts")).toBe(true);
       expect(registry.has("TEST-TTS")).toBe(true);
@@ -146,11 +139,7 @@ describe("VoiceRegistry", () => {
         supportsStreaming: false,
       };
 
-      registry.registerSTT(
-        "test-stt",
-        async () => mockHandler,
-        metadata,
-      );
+      registry.registerSTT("test-stt", async () => mockHandler, metadata);
 
       expect(registry.has("test-stt")).toBe(true);
     });
@@ -165,12 +154,10 @@ describe("VoiceRegistry", () => {
         supportsStreaming: false,
       };
 
-      registry.registerSTT(
-        "whisper",
-        async () => mockHandler,
-        metadata,
-        ["openai-whisper", "openai-stt"],
-      );
+      registry.registerSTT("whisper", async () => mockHandler, metadata, [
+        "openai-whisper",
+        "openai-stt",
+      ]);
 
       expect(registry.has("whisper")).toBe(true);
       expect(registry.has("openai-whisper")).toBe(true);
@@ -210,11 +197,7 @@ describe("VoiceRegistry", () => {
         supportsStreaming: false,
       };
 
-      registry.registerTTS(
-        "test-tts",
-        async () => mockHandler,
-        metadata,
-      );
+      registry.registerTTS("test-tts", async () => mockHandler, metadata);
 
       const handler = await registry.get("test-tts");
 
@@ -231,12 +214,9 @@ describe("VoiceRegistry", () => {
         supportsStreaming: false,
       };
 
-      registry.registerTTS(
-        "google-tts",
-        async () => mockHandler,
-        metadata,
-        ["google"],
-      );
+      registry.registerTTS("google-tts", async () => mockHandler, metadata, [
+        "google",
+      ]);
 
       const handler = await registry.get("google");
 
@@ -261,11 +241,7 @@ describe("VoiceRegistry", () => {
         supportsStreaming: false,
       };
 
-      registry.registerTTS(
-        "test-tts",
-        async () => mockHandler,
-        metadata,
-      );
+      registry.registerTTS("test-tts", async () => mockHandler, metadata);
 
       expect(registry.has("test-tts")).toBe(true);
     });
@@ -280,12 +256,9 @@ describe("VoiceRegistry", () => {
         supportsStreaming: false,
       };
 
-      registry.registerTTS(
-        "test-tts",
-        async () => mockHandler,
-        metadata,
-        ["test-alias"],
-      );
+      registry.registerTTS("test-tts", async () => mockHandler, metadata, [
+        "test-alias",
+      ]);
 
       expect(registry.has("test-alias")).toBe(true);
     });
@@ -306,12 +279,10 @@ describe("VoiceRegistry", () => {
         supportsStreaming: false,
       };
 
-      registry.registerTTS(
-        "google-tts",
-        async () => mockHandler,
-        metadata,
-        ["google", "gcp-tts"],
-      );
+      registry.registerTTS("google-tts", async () => mockHandler, metadata, [
+        "google",
+        "gcp-tts",
+      ]);
 
       expect(registry.resolveAlias("google")).toBe("google-tts");
       expect(registry.resolveAlias("gcp-tts")).toBe("google-tts");
@@ -327,41 +298,29 @@ describe("VoiceRegistry", () => {
       const ttsHandler = createMockTTSHandler();
       const sttHandler = createMockSTTHandler();
 
-      registry.registerTTS(
-        "tts1",
-        async () => ttsHandler,
-        {
-          type: "tts",
-          displayName: "TTS 1",
-          capabilities: ["tts"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      registry.registerTTS("tts1", async () => ttsHandler, {
+        type: "tts",
+        displayName: "TTS 1",
+        capabilities: ["tts"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
-      registry.registerTTS(
-        "tts2",
-        async () => ttsHandler,
-        {
-          type: "tts",
-          displayName: "TTS 2",
-          capabilities: ["tts"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      registry.registerTTS("tts2", async () => ttsHandler, {
+        type: "tts",
+        displayName: "TTS 2",
+        capabilities: ["tts"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
-      registry.registerSTT(
-        "stt1",
-        async () => sttHandler,
-        {
-          type: "stt",
-          displayName: "STT 1",
-          capabilities: ["stt"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      registry.registerSTT("stt1", async () => sttHandler, {
+        type: "stt",
+        displayName: "STT 1",
+        capabilities: ["stt"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
       const ttsProviders = registry.getByType("tts");
       const sttProviders = registry.getByType("stt");
@@ -381,35 +340,27 @@ describe("VoiceRegistry", () => {
     it("should return all TTS providers with metadata", () => {
       const mockHandler = createMockTTSHandler();
 
-      registry.registerTTS(
-        "google-tts",
-        async () => mockHandler,
-        {
-          type: "tts",
-          displayName: "Google Cloud TTS",
-          capabilities: ["tts", "streaming"],
-          supportedFormats: ["mp3", "wav"],
-          supportsStreaming: true,
-        },
-      );
+      registry.registerTTS("google-tts", async () => mockHandler, {
+        type: "tts",
+        displayName: "Google Cloud TTS",
+        capabilities: ["tts", "streaming"],
+        supportedFormats: ["mp3", "wav"],
+        supportsStreaming: true,
+      });
 
-      registry.registerTTS(
-        "openai-tts",
-        async () => mockHandler,
-        {
-          type: "tts",
-          displayName: "OpenAI TTS",
-          capabilities: ["tts"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      registry.registerTTS("openai-tts", async () => mockHandler, {
+        type: "tts",
+        displayName: "OpenAI TTS",
+        capabilities: ["tts"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
       const providers = registry.getTTSProviders();
 
       expect(providers).toHaveLength(2);
-      expect(providers.find(p => p.id === "google-tts")).toBeDefined();
-      expect(providers.find(p => p.id === "openai-tts")).toBeDefined();
+      expect(providers.find((p) => p.id === "google-tts")).toBeDefined();
+      expect(providers.find((p) => p.id === "openai-tts")).toBeDefined();
     });
   });
 
@@ -417,29 +368,21 @@ describe("VoiceRegistry", () => {
     it("should return all STT providers", () => {
       const mockHandler = createMockSTTHandler();
 
-      registry.registerSTT(
-        "whisper",
-        async () => mockHandler,
-        {
-          type: "stt",
-          displayName: "Whisper",
-          capabilities: ["stt"],
-          supportedFormats: ["mp3", "wav"],
-          supportsStreaming: false,
-        },
-      );
+      registry.registerSTT("whisper", async () => mockHandler, {
+        type: "stt",
+        displayName: "Whisper",
+        capabilities: ["stt"],
+        supportedFormats: ["mp3", "wav"],
+        supportsStreaming: false,
+      });
 
-      registry.registerSTT(
-        "deepgram",
-        async () => mockHandler,
-        {
-          type: "stt",
-          displayName: "Deepgram",
-          capabilities: ["stt", "streaming"],
-          supportedFormats: ["mp3", "wav"],
-          supportsStreaming: true,
-        },
-      );
+      registry.registerSTT("deepgram", async () => mockHandler, {
+        type: "stt",
+        displayName: "Deepgram",
+        capabilities: ["stt", "streaming"],
+        supportedFormats: ["mp3", "wav"],
+        supportsStreaming: true,
+      });
 
       const providers = registry.getSTTProviders();
 
@@ -451,29 +394,21 @@ describe("VoiceRegistry", () => {
     it("should return all Realtime providers", () => {
       const mockHandler = createMockRealtimeHandler();
 
-      registry.registerRealtime(
-        "openai-realtime",
-        async () => mockHandler,
-        {
-          type: "realtime",
-          displayName: "OpenAI Realtime",
-          capabilities: ["realtime"],
-          supportedFormats: ["opus"],
-          supportsStreaming: true,
-        },
-      );
+      registry.registerRealtime("openai-realtime", async () => mockHandler, {
+        type: "realtime",
+        displayName: "OpenAI Realtime",
+        capabilities: ["realtime"],
+        supportedFormats: ["opus"],
+        supportsStreaming: true,
+      });
 
-      registry.registerRealtime(
-        "gemini-live",
-        async () => mockHandler,
-        {
-          type: "realtime",
-          displayName: "Gemini Live",
-          capabilities: ["realtime"],
-          supportedFormats: ["opus", "wav"],
-          supportsStreaming: true,
-        },
-      );
+      registry.registerRealtime("gemini-live", async () => mockHandler, {
+        type: "realtime",
+        displayName: "Gemini Live",
+        capabilities: ["realtime"],
+        supportedFormats: ["opus", "wav"],
+        supportsStreaming: true,
+      });
 
       const providers = registry.getRealtimeProviders();
 
@@ -486,47 +421,39 @@ describe("VoiceRegistry", () => {
       const ttsHandler = createMockTTSHandler();
       const sttHandler = createMockSTTHandler();
 
-      registry.registerTTS(
-        "streaming-tts",
-        async () => ttsHandler,
-        {
-          type: "tts",
-          displayName: "Streaming TTS",
-          capabilities: ["tts", "streaming"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: true,
-        },
-      );
+      registry.registerTTS("streaming-tts", async () => ttsHandler, {
+        type: "tts",
+        displayName: "Streaming TTS",
+        capabilities: ["tts", "streaming"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: true,
+      });
 
-      registry.registerTTS(
-        "basic-tts",
-        async () => ttsHandler,
-        {
-          type: "tts",
-          displayName: "Basic TTS",
-          capabilities: ["tts"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      registry.registerTTS("basic-tts", async () => ttsHandler, {
+        type: "tts",
+        displayName: "Basic TTS",
+        capabilities: ["tts"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
-      registry.registerSTT(
-        "streaming-stt",
-        async () => sttHandler,
-        {
-          type: "stt",
-          displayName: "Streaming STT",
-          capabilities: ["stt", "streaming"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: true,
-        },
-      );
+      registry.registerSTT("streaming-stt", async () => sttHandler, {
+        type: "stt",
+        displayName: "Streaming STT",
+        capabilities: ["stt", "streaming"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: true,
+      });
 
       const streamingProviders = registry.getByCapability("streaming");
 
       expect(streamingProviders).toHaveLength(2);
-      expect(streamingProviders.find(p => p.id === "streaming-tts")).toBeDefined();
-      expect(streamingProviders.find(p => p.id === "streaming-stt")).toBeDefined();
+      expect(
+        streamingProviders.find((p) => p.id === "streaming-tts"),
+      ).toBeDefined();
+      expect(
+        streamingProviders.find((p) => p.id === "streaming-stt"),
+      ).toBeDefined();
     });
 
     it("should return empty array for capability with no providers", () => {
@@ -541,29 +468,21 @@ describe("VoiceRegistry", () => {
       const ttsHandler = createMockTTSHandler();
       const sttHandler = createMockSTTHandler();
 
-      registry.registerTTS(
-        "tts",
-        async () => ttsHandler,
-        {
-          type: "tts",
-          displayName: "TTS",
-          capabilities: ["tts"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      registry.registerTTS("tts", async () => ttsHandler, {
+        type: "tts",
+        displayName: "TTS",
+        capabilities: ["tts"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
-      registry.registerSTT(
-        "stt",
-        async () => sttHandler,
-        {
-          type: "stt",
-          displayName: "STT",
-          capabilities: ["stt"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      registry.registerSTT("stt", async () => sttHandler, {
+        type: "stt",
+        displayName: "STT",
+        capabilities: ["stt"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
       const all = registry.list();
 

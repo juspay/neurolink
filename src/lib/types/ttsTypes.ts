@@ -7,9 +7,19 @@
  */
 
 /**
- * Supported audio formats for TTS output
+ * Supported audio formats for TTS output and STT input
  */
-export type AudioFormat = "mp3" | "wav" | "ogg" | "opus";
+export type AudioFormat =
+  | "mp3"
+  | "wav"
+  | "ogg"
+  | "opus"
+  | "m4a"
+  | "flac"
+  | "webm"
+  | "mp4"
+  | "mpeg"
+  | "mpga";
 
 /**
  * TTS quality settings

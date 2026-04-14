@@ -47,7 +47,10 @@ export interface STTHandler {
    * @returns Transcription result with text, confidence, and metadata
    * @throws {STTError} On transcription failure, timeout, or configuration issues
    */
-  transcribe(audio: Buffer | ArrayBuffer, options: STTOptions): Promise<STTResult>;
+  transcribe(
+    audio: Buffer | ArrayBuffer,
+    options: STTOptions,
+  ): Promise<STTResult>;
 
   /**
    * Stream transcription for live audio input (optional)
@@ -253,7 +256,11 @@ export class STTProcessor {
     if (options.format) {
       const supportedFormats = handler.getSupportedFormats();
       if (!supportedFormats.includes(options.format)) {
-        throw STTError.invalidFormat(options.format, supportedFormats, provider);
+        throw STTError.invalidFormat(
+          options.format,
+          supportedFormats,
+          provider,
+        );
       }
     }
 

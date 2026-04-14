@@ -182,7 +182,11 @@ function calculateWavDuration(buffer: Buffer): number | undefined {
       // Find data chunk size
       let dataOffset = offset + 8 + chunkSize;
       while (dataOffset < buffer.length - 8) {
-        const dataChunkId = buffer.toString("ascii", dataOffset, dataOffset + 4);
+        const dataChunkId = buffer.toString(
+          "ascii",
+          dataOffset,
+          dataOffset + 4,
+        );
         const dataChunkSize = buffer.readUInt32LE(dataOffset + 4);
 
         if (dataChunkId === "data") {
@@ -238,7 +242,9 @@ function estimateMp3Duration(buffer: Buffer): number | undefined {
       const sampleRate = sampleRates[version]?.[sampleRateIndex];
 
       // Get bitrate (MPEG1 Layer III)
-      const bitrates = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0];
+      const bitrates = [
+        0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0,
+      ];
       const bitrate = bitrates[bitrateIndex];
 
       if (sampleRate && bitrate) {
@@ -363,7 +369,7 @@ export function extractPcmSamples(
 
     switch (bitDepth) {
       case 8:
-        samples.push((buffer.readUInt8(offset) / 127.5) - 1);
+        samples.push(buffer.readUInt8(offset) / 127.5 - 1);
         break;
       case 16:
         samples.push(buffer.readInt16LE(offset) / 32767);
@@ -413,7 +419,8 @@ export function resamplePcm(
 
     // Linear interpolation
     const value =
-      samples[srcIndexFloor] * (1 - fraction) + samples[srcIndexCeil] * fraction;
+      samples[srcIndexFloor] * (1 - fraction) +
+      samples[srcIndexCeil] * fraction;
     resampled.push(value);
   }
 
@@ -509,7 +516,12 @@ export function createWavFile(
   channels: number = 1,
   bitDepth: number = 16,
 ): Buffer {
-  const header = createWavHeader(pcmData.length, sampleRate, channels, bitDepth);
+  const header = createWavHeader(
+    pcmData.length,
+    sampleRate,
+    channels,
+    bitDepth,
+  );
   return Buffer.concat([header, pcmData]);
 }
 

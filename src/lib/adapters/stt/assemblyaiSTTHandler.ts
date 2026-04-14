@@ -268,13 +268,13 @@ export class AssemblyAISTTHandler implements STTProvider {
     options: STTOptions = {},
   ): Promise<STTResult> {
     if (!this.apiKey) {
-      throw STTError.notConfigured("assemblyai");
+      throw STTError.providerNotConfigured("assemblyai");
     }
 
     const buffer = audio instanceof ArrayBuffer ? Buffer.from(audio) : audio;
 
     if (buffer.length === 0) {
-      throw STTError.emptyAudio("assemblyai");
+      throw STTError.audioEmpty("assemblyai");
     }
 
     // Validate format if specified
@@ -324,7 +324,7 @@ export class AssemblyAISTTHandler implements STTProvider {
     options: STTOptions = {},
   ): AsyncIterable<TranscriptionSegment> {
     if (!this.apiKey) {
-      throw STTError.notConfigured("assemblyai");
+      throw STTError.providerNotConfigured("assemblyai");
     }
 
     const assemblyaiOptions = options as AssemblyAISTTOptions;

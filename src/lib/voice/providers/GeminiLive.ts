@@ -6,16 +6,16 @@
  * @module voice/providers/GeminiLive
  */
 
+import type WebSocket from "ws";
+import { logger } from "../../utils/logger.js";
+import { RealtimeError } from "../errors.js";
 import { BaseRealtimeHandler } from "../RealtimeVoiceAPI.js";
 import type {
+  AudioFormat,
+  RealtimeAudioChunk,
   RealtimeConfig,
   RealtimeSession,
-  RealtimeAudioChunk,
-  AudioFormat,
 } from "../types/voiceTypes.js";
-import { RealtimeError } from "../errors.js";
-import { logger } from "../../utils/logger.js";
-import type WebSocket from "ws";
 
 /**
  * Gemini Live message types
@@ -90,7 +90,7 @@ type GeminiResponse = {
  *
  * @see https://ai.google.dev/gemini-api/docs/live
  */
-export class GeminiLiveHandler extends BaseRealtimeHandler {
+export class GeminiLive extends BaseRealtimeHandler {
   readonly name = "gemini-live";
 
   private readonly apiKey: string | null;
@@ -127,7 +127,8 @@ export class GeminiLiveHandler extends BaseRealtimeHandler {
       const { default: WebSocket } = await import("ws");
 
       // Determine model
-      const model = config.model ?? "gemini-2.5-flash-native-audio-preview-09-2025";
+      const model =
+        config.model ?? "gemini-2.5-flash-native-audio-preview-09-2025";
 
       // Connect to Gemini Live API
       const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
@@ -284,8 +285,11 @@ export class GeminiLiveHandler extends BaseRealtimeHandler {
   /**
    * Send setup message with configuration
    */
-  private async sendSetup(config: RealtimeConfig, model: string): Promise<void> {
-    if (!this.ws) return;
+  private async sendSetup(
+    config: RealtimeConfig,
+    model: string,
+  ): Promise<void> {
+    if (!this.ws) {return;}
 
     const setupMessage: GeminiMessage = {
       setup: {
@@ -422,9 +426,9 @@ export class GeminiLiveHandler extends BaseRealtimeHandler {
    * Parse audio format from MIME type
    */
   private parseAudioFormat(mimeType: string): AudioFormat {
-    if (mimeType.includes("opus")) return "opus";
-    if (mimeType.includes("wav") || mimeType.includes("pcm")) return "wav";
-    if (mimeType.includes("mp3") || mimeType.includes("mpeg")) return "mp3";
+    if (mimeType.includes("opus")) {return "opus";}
+    if (mimeType.includes("wav") || mimeType.includes("pcm")) {return "wav";}
+    if (mimeType.includes("mp3") || mimeType.includes("mpeg")) {return "mp3";}
     return "opus";
   }
 

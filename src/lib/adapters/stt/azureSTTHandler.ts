@@ -239,13 +239,13 @@ export class AzureSTTHandler implements STTProvider {
     options: STTOptions = {},
   ): Promise<STTResult> {
     if (!this.subscriptionKey) {
-      throw STTError.notConfigured("azure-stt");
+      throw STTError.providerNotConfigured("azure-stt");
     }
 
     const buffer = audio instanceof ArrayBuffer ? Buffer.from(audio) : audio;
 
     if (buffer.length === 0) {
-      throw STTError.emptyAudio("azure-stt");
+      throw STTError.audioEmpty("azure-stt");
     }
 
     // Validate format if specified
@@ -362,7 +362,7 @@ export class AzureSTTHandler implements STTProvider {
     options: STTOptions = {},
   ): AsyncIterable<TranscriptionSegment> {
     if (!this.subscriptionKey) {
-      throw STTError.notConfigured("azure-stt");
+      throw STTError.providerNotConfigured("azure-stt");
     }
 
     const azureOptions = options as AzureSTTOptions;

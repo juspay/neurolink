@@ -10,7 +10,10 @@ import {
   BaseRealtimeHandler,
   type RealtimeHandler,
 } from "../../src/lib/voice/RealtimeVoiceAPI.js";
-import { RealtimeError, REALTIME_ERROR_CODES } from "../../src/lib/voice/errors.js";
+import {
+  RealtimeError,
+  REALTIME_ERROR_CODES,
+} from "../../src/lib/voice/errors.js";
 import type {
   RealtimeConfig,
   RealtimeSession,
@@ -38,9 +41,11 @@ class MockRealtimeHandler extends BaseRealtimeHandler {
     this.emitStateChange("disconnected");
   });
 
-  sendAudio = vi.fn(async (_audio: Buffer | RealtimeAudioChunk): Promise<void> => {
-    // Mock audio sending
-  });
+  sendAudio = vi.fn(
+    async (_audio: Buffer | RealtimeAudioChunk): Promise<void> => {
+      // Mock audio sending
+    },
+  );
 
   sendText = vi.fn(async (text: string): Promise<void> => {
     // Mock text sending
@@ -124,7 +129,10 @@ describe("RealtimeProcessor", () => {
 
     it("should throw error when handler is null", () => {
       expect(() =>
-        RealtimeProcessor.registerHandler("mock", null as unknown as RealtimeHandler),
+        RealtimeProcessor.registerHandler(
+          "mock",
+          null as unknown as RealtimeHandler,
+        ),
       ).toThrow("Handler is required");
     });
   });

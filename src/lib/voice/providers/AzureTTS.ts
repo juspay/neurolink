@@ -6,11 +6,16 @@
  * @module voice/providers/AzureTTS
  */
 
-import type { TTSHandler } from "../../utils/ttsProcessor.js";
-import { TTSError, TTS_ERROR_CODES } from "../../utils/ttsProcessor.js";
-import type { TTSOptions, TTSResult, TTSVoice, AudioFormat } from "../../types/ttsTypes.js";
 import { ErrorCategory, ErrorSeverity } from "../../constants/enums.js";
+import type {
+  AudioFormat,
+  TTSOptions,
+  TTSResult,
+  TTSVoice,
+} from "../../types/ttsTypes.js";
 import { logger } from "../../utils/logger.js";
+import type { TTSHandler } from "../../utils/ttsProcessor.js";
+import { TTS_ERROR_CODES, TTSError } from "../../utils/ttsProcessor.js";
 
 /**
  * Azure-specific TTS options
@@ -49,7 +54,7 @@ type AzureVoiceInfo = {
  *
  * @see https://docs.microsoft.com/azure/cognitive-services/speech-service/
  */
-export class AzureTTSHandler implements TTSHandler {
+export class AzureTTS implements TTSHandler {
   private readonly apiKey: string | null;
   private readonly region: string;
   private voicesCache: { voices: TTSVoice[]; timestamp: number } | null = null;
@@ -83,7 +88,7 @@ export class AzureTTSHandler implements TTSHandler {
     // Return cached voices if valid
     if (
       this.voicesCache &&
-      Date.now() - this.voicesCache.timestamp < AzureTTSHandler.CACHE_TTL_MS &&
+      Date.now() - this.voicesCache.timestamp < AzureTTS.CACHE_TTL_MS &&
       !languageCode
     ) {
       return this.voicesCache.voices;
@@ -112,7 +117,9 @@ export class AzureTTSHandler implements TTSHandler {
         languageCode: voice.Locale,
         languageCodes: [voice.Locale],
         gender: this.mapGender(voice.Gender),
-        type: voice.VoiceType.toLowerCase().includes("neural") ? "neural" : "standard",
+        type: voice.VoiceType.toLowerCase().includes("neural")
+          ? "neural"
+          : "standard",
         description: voice.LocaleName,
       }));
 
@@ -120,7 +127,9 @@ export class AzureTTSHandler implements TTSHandler {
       if (languageCode) {
         voices = voices.filter(
           (v) =>
-            v.languageCode.toLowerCase().startsWith(languageCode.toLowerCase()) ||
+            v.languageCode
+              .toLowerCase()
+              .startsWith(languageCode.toLowerCase()) ||
             v.languageCode.toLowerCase() === languageCode.toLowerCase(),
         );
       }
@@ -309,7 +318,7 @@ export class AzureTTSHandler implements TTSHandler {
    * Map AudioFormat to Azure output format
    */
   private mapFormat(format: AudioFormat): string {
-    const formats: Record<AudioFormat, string> = {
+    const formats: Partial<Record<AudioFormat, string>> = {
       mp3: "audio-24khz-96kbitrate-mono-mp3",
       wav: "riff-24khz-16bit-mono-pcm",
       ogg: "ogg-24khz-16bit-mono-opus",
@@ -322,9 +331,9 @@ export class AzureTTSHandler implements TTSHandler {
    * Get sample rate from format string
    */
   private getSampleRate(format: string): number {
-    if (format.includes("24khz")) return 24000;
-    if (format.includes("16khz")) return 16000;
-    if (format.includes("48khz")) return 48000;
+    if (format.includes("24khz")) {return 24000;}
+    if (format.includes("16khz")) {return 16000;}
+    if (format.includes("48khz")) {return 48000;}
     return 24000;
   }
 }

@@ -7,16 +7,19 @@
  * @module voice/VoiceRegistry
  */
 
-import { BaseRegistry, type RegistryEntry } from "../core/infrastructure/index.js";
+import {
+  BaseRegistry,
+  type RegistryEntry,
+} from "../core/infrastructure/index.js";
 import { logger } from "../utils/logger.js";
+import type { TTSHandler } from "../utils/ttsProcessor.js";
+import type { RealtimeHandler } from "./RealtimeVoiceAPI.js";
+import type { STTHandler } from "./STTProvider.js";
 import type {
+  VoiceCapability,
   VoiceProviderMetadata,
   VoiceProviderType,
-  VoiceCapability,
 } from "./types/voiceTypes.js";
-import type { TTSHandler } from "../utils/ttsProcessor.js";
-import type { STTHandler } from "./STTProvider.js";
-import type { RealtimeHandler } from "./RealtimeVoiceAPI.js";
 
 /**
  * Union type for all voice handlers
@@ -60,7 +63,10 @@ export type VoiceProviderEntry = {
  * const handler = await registry.get('google');
  * ```
  */
-export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetadata> {
+export class VoiceRegistry extends BaseRegistry<
+  VoiceHandler,
+  VoiceProviderMetadata
+> {
   private static instance: VoiceRegistry | null = null;
   private readonly aliasMap = new Map<string, string>();
   private readonly typeMap = new Map<VoiceProviderType, Set<string>>();
@@ -70,6 +76,10 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
     this.typeMap.set("tts", new Set());
     this.typeMap.set("stt", new Set());
     this.typeMap.set("realtime", new Set());
+    // Eagerly start initialization
+    this.ensureInitialized().catch((err) => {
+      logger.error(`[VoiceRegistry] Failed to initialize: ${err}`);
+    });
   }
 
   /**
@@ -97,14 +107,14 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
    * Called during initialization
    */
   protected async registerAll(): Promise<void> {
-    // Register TTS providers
-    await this.registerDefaultTTSProviders();
+    // Register TTS providers (synchronous registration)
+    this.registerDefaultTTSProviders();
 
-    // Register STT providers
-    await this.registerDefaultSTTProviders();
+    // Register STT providers (synchronous registration)
+    this.registerDefaultSTTProviders();
 
-    // Register Realtime providers
-    await this.registerDefaultRealtimeProviders();
+    // Register Realtime providers (synchronous registration)
+    this.registerDefaultRealtimeProviders();
 
     logger.info("[VoiceRegistry] Registered all default voice providers");
   }
@@ -112,15 +122,13 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
   /**
    * Register default TTS providers
    */
-  private async registerDefaultTTSProviders(): Promise<void> {
+  private registerDefaultTTSProviders(): void {
     // Google TTS
     this.registerTTS(
       "google-tts",
       async () => {
-        const { GoogleTTSHandler } = await import(
-          "./providers/GoogleTTS.js"
-        );
-        return new GoogleTTSHandler();
+        const { GoogleTTS } = await import("./providers/GoogleTTS.js");
+        return new GoogleTTS();
       },
       {
         type: "tts",
@@ -138,10 +146,8 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
     this.registerTTS(
       "openai-tts",
       async () => {
-        const { OpenAITTSHandler } = await import(
-          "./providers/OpenAITTS.js"
-        );
-        return new OpenAITTSHandler();
+        const { OpenAITTS } = await import("./providers/OpenAITTS.js");
+        return new OpenAITTS();
       },
       {
         type: "tts",
@@ -159,10 +165,8 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
     this.registerTTS(
       "elevenlabs-tts",
       async () => {
-        const { ElevenLabsTTSHandler } = await import(
-          "./providers/ElevenLabsTTS.js"
-        );
-        return new ElevenLabsTTSHandler();
+        const { ElevenLabsTTS } = await import("./providers/ElevenLabsTTS.js");
+        return new ElevenLabsTTS();
       },
       {
         type: "tts",
@@ -180,10 +184,8 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
     this.registerTTS(
       "azure-tts",
       async () => {
-        const { AzureTTSHandler } = await import(
-          "./providers/AzureTTS.js"
-        );
-        return new AzureTTSHandler();
+        const { AzureTTS } = await import("./providers/AzureTTS.js");
+        return new AzureTTS();
       },
       {
         type: "tts",
@@ -201,14 +203,12 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
   /**
    * Register default STT providers
    */
-  private async registerDefaultSTTProviders(): Promise<void> {
+  private registerDefaultSTTProviders(): void {
     // OpenAI Whisper
     this.registerSTT(
       "whisper",
       async () => {
-        const { WhisperSTTHandler } = await import(
-          "./providers/OpenAISTT.js"
-        );
+        const { WhisperSTTHandler } = await import("./providers/OpenAISTT.js");
         return new WhisperSTTHandler();
       },
       {
@@ -227,10 +227,8 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
     this.registerSTT(
       "deepgram",
       async () => {
-        const { DeepgramSTTHandler } = await import(
-          "./providers/DeepgramSTT.js"
-        );
-        return new DeepgramSTTHandler();
+        const { DeepgramSTT } = await import("./providers/DeepgramSTT.js");
+        return new DeepgramSTT();
       },
       {
         type: "stt",
@@ -254,10 +252,8 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
     this.registerSTT(
       "google-stt",
       async () => {
-        const { GoogleSTTHandler } = await import(
-          "./providers/GoogleSTT.js"
-        );
-        return new GoogleSTTHandler();
+        const { GoogleSTT } = await import("./providers/GoogleSTT.js");
+        return new GoogleSTT();
       },
       {
         type: "stt",
@@ -275,10 +271,8 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
     this.registerSTT(
       "azure-stt",
       async () => {
-        const { AzureSTTHandler } = await import(
-          "./providers/AzureSTT.js"
-        );
-        return new AzureSTTHandler();
+        const { AzureSTT } = await import("./providers/AzureSTT.js");
+        return new AzureSTT();
       },
       {
         type: "stt",
@@ -296,15 +290,15 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
   /**
    * Register default Realtime providers
    */
-  private async registerDefaultRealtimeProviders(): Promise<void> {
+  private registerDefaultRealtimeProviders(): void {
     // OpenAI Realtime
     this.registerRealtime(
       "openai-realtime",
       async () => {
-        const { OpenAIRealtimeHandler } = await import(
+        const { OpenAIRealtime } = await import(
           "./providers/OpenAIRealtime.js"
         );
-        return new OpenAIRealtimeHandler();
+        return new OpenAIRealtime();
       },
       {
         type: "realtime",
@@ -312,7 +306,11 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
         capabilities: ["realtime", "streaming"],
         supportedFormats: ["opus"],
         supportsStreaming: true,
-        features: ["voice-activity-detection", "function-calling", "interruption"],
+        features: [
+          "voice-activity-detection",
+          "function-calling",
+          "interruption",
+        ],
       },
       ["openai-voice", "gpt-realtime"],
     );
@@ -321,10 +319,8 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
     this.registerRealtime(
       "gemini-live",
       async () => {
-        const { GeminiLiveHandler } = await import(
-          "./providers/GeminiLive.js"
-        );
-        return new GeminiLiveHandler();
+        const { GeminiLive } = await import("./providers/GeminiLive.js");
+        return new GeminiLive();
       },
       {
         type: "realtime",
@@ -347,7 +343,13 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
     metadata: VoiceProviderMetadata,
     aliases: string[] = [],
   ): void {
-    this.registerProvider(id, "tts", factory as () => Promise<VoiceHandler>, metadata, aliases);
+    this.registerProvider(
+      id,
+      "tts",
+      factory as () => Promise<VoiceHandler>,
+      metadata,
+      aliases,
+    );
   }
 
   /**
@@ -359,7 +361,13 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
     metadata: VoiceProviderMetadata,
     aliases: string[] = [],
   ): void {
-    this.registerProvider(id, "stt", factory as () => Promise<VoiceHandler>, metadata, aliases);
+    this.registerProvider(
+      id,
+      "stt",
+      factory as () => Promise<VoiceHandler>,
+      metadata,
+      aliases,
+    );
   }
 
   /**
@@ -371,7 +379,13 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
     metadata: VoiceProviderMetadata,
     aliases: string[] = [],
   ): void {
-    this.registerProvider(id, "realtime", factory as () => Promise<VoiceHandler>, metadata, aliases);
+    this.registerProvider(
+      id,
+      "realtime",
+      factory as () => Promise<VoiceHandler>,
+      metadata,
+      aliases,
+    );
   }
 
   /**
@@ -432,7 +446,9 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
   /**
    * Get all providers of a specific type
    */
-  getByType(type: VoiceProviderType): Array<{ id: string; metadata: VoiceProviderMetadata }> {
+  getByType(
+    type: VoiceProviderType,
+  ): Array<{ id: string; metadata: VoiceProviderMetadata }> {
     const typeSet = this.typeMap.get(type);
     if (!typeSet) {
       return [];
@@ -458,14 +474,19 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
   /**
    * Get all Realtime providers
    */
-  getRealtimeProviders(): Array<{ id: string; metadata: VoiceProviderMetadata }> {
+  getRealtimeProviders(): Array<{
+    id: string;
+    metadata: VoiceProviderMetadata;
+  }> {
     return this.getByType("realtime");
   }
 
   /**
    * Get providers with a specific capability
    */
-  getByCapability(capability: VoiceCapability): Array<{ id: string; metadata: VoiceProviderMetadata }> {
+  getByCapability(
+    capability: VoiceCapability,
+  ): Array<{ id: string; metadata: VoiceProviderMetadata }> {
     return this.list().filter((entry) =>
       entry.metadata.capabilities.includes(capability),
     );
@@ -477,7 +498,28 @@ export class VoiceRegistry extends BaseRegistry<VoiceHandler, VoiceProviderMetad
   override clear(): void {
     super.clear();
     this.aliasMap.clear();
-    this.typeMap.forEach((set) => set.clear());
+    this.typeMap.forEach((set) => {
+      set.clear();
+    });
+  }
+
+  // ============================================================================
+  // STATIC CONVENIENCE METHODS
+  // ============================================================================
+
+  /**
+   * Check if the registry has been initialized (static convenience method)
+   */
+  static isRegistered(): boolean {
+    const registry = VoiceRegistry.getInstance();
+    return registry.list().length > 0;
+  }
+
+  /**
+   * Register all providers (static convenience method)
+   */
+  static async registerAllProviders(): Promise<void> {
+    await VoiceRegistry.getInstance().ensureInitialized();
   }
 }
 

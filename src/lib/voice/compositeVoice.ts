@@ -6,18 +6,23 @@
  * @module voice/compositeVoice
  */
 
-import type { STTOptions, STTResult } from "../types/sttTypes.js";
+import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
+import type {
+  STTOptions as LibSTTOptions,
+  STTResult as LibSTTResult,
+} from "../types/sttTypes.js";
 import type { TTSOptions, TTSResult } from "../types/ttsTypes.js";
+import { logger } from "../utils/logger.js";
+import type { TTSHandler } from "../utils/ttsProcessor.js";
+import { VOICE_ERROR_CODES, VoiceError } from "./errors.js";
+import type { STTHandler } from "./STTProvider.js";
 import type {
   CompositeVoiceConfig,
-  STTProvider,
-  TTSProvider,
   VoiceCapability,
+  STTOptions as VoiceSTTOptions,
   VoiceTurn,
-} from "../types/voiceTypes.js";
-import { logger } from "../utils/logger.js";
-import { VoiceErrorFactory } from "./errors.js";
-import { VoiceFactory } from "./voiceFactory.js";
+} from "./types/voiceTypes.js";
+import { VoiceFactory } from "./VoiceFactory.js";
 
 /**
  * Composite Voice
@@ -45,12 +50,14 @@ import { VoiceFactory } from "./voiceFactory.js";
  * ```
  */
 export class CompositeVoice {
-  private ttsProvider: TTSProvider | null = null;
-  private sttProvider: STTProvider | null = null;
+  private ttsProvider: TTSHandler | null = null;
+  private sttProvider: STTHandler | null = null;
   private readonly config: CompositeVoiceConfig;
   private history: VoiceTurn[] = [];
   private initialized = false;
   private initPromise: Promise<void> | null = null;
+  private ttsProviderName: string | null = null;
+  private sttProviderName: string | null = null;
 
   constructor(config: CompositeVoiceConfig = {}) {
     this.config = {
@@ -87,11 +94,13 @@ export class CompositeVoice {
         this.ttsProvider = await VoiceFactory.createTTSProvider(
           this.config.ttsProvider,
         );
+        this.ttsProviderName = this.config.ttsProvider;
       } else {
         this.ttsProvider = await VoiceFactory.createTTSProvider(
           this.config.ttsProvider.name,
           this.config.ttsProvider,
         );
+        this.ttsProviderName = this.config.ttsProvider.name;
       }
     }
 
@@ -101,18 +110,20 @@ export class CompositeVoice {
         this.sttProvider = await VoiceFactory.createSTTProvider(
           this.config.sttProvider,
         );
+        this.sttProviderName = this.config.sttProvider;
       } else {
         this.sttProvider = await VoiceFactory.createSTTProvider(
           this.config.sttProvider.name,
           this.config.sttProvider,
         );
+        this.sttProviderName = this.config.sttProvider.name;
       }
     }
 
     this.initialized = true;
     logger.debug("[CompositeVoice] Initialized", {
-      tts: this.ttsProvider?.name,
-      stt: this.sttProvider?.name,
+      tts: this.ttsProviderName,
+      stt: this.sttProviderName,
     });
   }
 
@@ -120,21 +131,17 @@ export class CompositeVoice {
    * Get combined capabilities from both providers
    */
   getCapabilities(): VoiceCapability[] {
-    const capabilities = new Set<VoiceCapability>();
+    const capabilities: VoiceCapability[] = [];
 
     if (this.ttsProvider) {
-      for (const cap of this.ttsProvider.getCapabilities()) {
-        capabilities.add(cap);
-      }
+      capabilities.push("tts");
     }
 
     if (this.sttProvider) {
-      for (const cap of this.sttProvider.getCapabilities()) {
-        capabilities.add(cap);
-      }
+      capabilities.push("stt");
     }
 
-    return Array.from(capabilities);
+    return capabilities;
   }
 
   /**
@@ -151,7 +158,14 @@ export class CompositeVoice {
     await this.ensureInitialized();
 
     if (!this.ttsProvider) {
-      throw VoiceErrorFactory.featureNotSupported("tts", "composite");
+      throw new VoiceError({
+        code: VOICE_ERROR_CODES.PROVIDER_NOT_FOUND,
+        message: "TTS provider not configured",
+        category: ErrorCategory.CONFIGURATION,
+        severity: ErrorSeverity.HIGH,
+        retriable: false,
+        context: { feature: "tts" },
+      });
     }
 
     const mergedOptions: TTSOptions = {
@@ -169,7 +183,7 @@ export class CompositeVoice {
         audio: result.buffer,
         timestamp: new Date(),
         metadata: {
-          provider: this.ttsProvider.name,
+          provider: this.ttsProviderName ?? "unknown",
           ...result.metadata,
         },
       });
@@ -187,17 +201,35 @@ export class CompositeVoice {
    */
   async transcribe(
     audio: Buffer | ArrayBuffer,
-    options: Partial<STTOptions> = {},
-  ): Promise<STTResult> {
+    options: Partial<LibSTTOptions> = {},
+  ): Promise<LibSTTResult> {
     await this.ensureInitialized();
 
     if (!this.sttProvider) {
-      throw VoiceErrorFactory.featureNotSupported("stt", "composite");
+      throw new VoiceError({
+        code: VOICE_ERROR_CODES.PROVIDER_NOT_FOUND,
+        message: "STT provider not configured",
+        category: ErrorCategory.CONFIGURATION,
+        severity: ErrorSeverity.HIGH,
+        retriable: false,
+        context: { feature: "stt" },
+      });
     }
 
-    const mergedOptions: STTOptions = {
+    // Convert to voice module STT options format
+    const voiceSTTOptions: VoiceSTTOptions = {
+      language: options.language,
+      format: options.format as VoiceSTTOptions["format"],
+      diarization: options.diarization,
+      punctuate: options.punctuate,
+      wordTimestamps: options.wordTimestamps,
+      confidenceThreshold: (options as { confidenceThreshold?: number })
+        .confidenceThreshold,
+    };
+
+    const mergedOptions: VoiceSTTOptions = {
       ...this.config.defaultSTTOptions,
-      ...options,
+      ...voiceSTTOptions,
     };
 
     const result = await this.sttProvider.transcribe(audio, mergedOptions);
@@ -215,12 +247,39 @@ export class CompositeVoice {
           duration: result.duration,
           confidence: result.confidence,
           language: result.language,
-          provider: this.sttProvider.name,
+          provider: this.sttProviderName ?? "unknown",
         },
       });
     }
 
-    return result;
+    // Convert result to LibSTTResult format
+    return {
+      text: result.text,
+      confidence: result.confidence ?? 0,
+      duration: result.duration ?? 0,
+      language: result.language ?? "en",
+      segments:
+        result.segments?.map((s) => ({
+          text: s.text,
+          start: s.start ?? s.startTime ?? 0,
+          end: s.end ?? s.endTime ?? 0,
+          confidence: s.confidence ?? 0,
+          speaker: s.speaker,
+          words: s.words?.map((w) => ({
+            word: w.word,
+            start: w.startTime ?? 0,
+            end: w.endTime ?? 0,
+            confidence: w.confidence ?? 0,
+            speaker: w.speaker,
+          })),
+        })) ?? [],
+      metadata: {
+        ...result.metadata,
+        latency: result.metadata?.latency ?? 0,
+        provider:
+          result.metadata?.provider ?? this.sttProviderName ?? "unknown",
+      },
+    };
   }
 
   /**
@@ -235,14 +294,14 @@ export class CompositeVoice {
     userAudio: Buffer | ArrayBuffer,
     processText: (text: string, history: VoiceTurn[]) => Promise<string>,
     options: {
-      stt?: Partial<STTOptions>;
+      stt?: Partial<LibSTTOptions>;
       tts?: Partial<TTSOptions>;
     } = {},
   ): Promise<{
     userText: string;
     responseText: string;
     responseAudio: Buffer;
-    transcription: STTResult;
+    transcription: LibSTTResult;
     synthesis: TTSResult;
   }> {
     // Transcribe user audio
@@ -294,42 +353,46 @@ export class CompositeVoice {
   /**
    * Set TTS provider dynamically
    */
-  async setTTSProvider(provider: string | TTSProvider): Promise<void> {
+  async setTTSProvider(provider: string | TTSHandler): Promise<void> {
     if (typeof provider === "string") {
       this.ttsProvider = await VoiceFactory.createTTSProvider(provider);
+      this.ttsProviderName = provider;
     } else {
       this.ttsProvider = provider;
+      this.ttsProviderName = "custom";
     }
     logger.debug("[CompositeVoice] TTS provider set", {
-      provider: this.ttsProvider.name,
+      provider: this.ttsProviderName,
     });
   }
 
   /**
    * Set STT provider dynamically
    */
-  async setSTTProvider(provider: string | STTProvider): Promise<void> {
+  async setSTTProvider(provider: string | STTHandler): Promise<void> {
     if (typeof provider === "string") {
       this.sttProvider = await VoiceFactory.createSTTProvider(provider);
+      this.sttProviderName = provider;
     } else {
       this.sttProvider = provider;
+      this.sttProviderName = "custom";
     }
     logger.debug("[CompositeVoice] STT provider set", {
-      provider: this.sttProvider.name,
+      provider: this.sttProviderName,
     });
   }
 
   /**
    * Get current TTS provider
    */
-  getTTSProvider(): TTSProvider | null {
+  getTTSProvider(): TTSHandler | null {
     return this.ttsProvider;
   }
 
   /**
    * Get current STT provider
    */
-  getSTTProvider(): STTProvider | null {
+  getSTTProvider(): STTHandler | null {
     return this.sttProvider;
   }
 
@@ -339,7 +402,7 @@ export class CompositeVoice {
   async getAvailableVoices(languageCode?: string): Promise<string[]> {
     await this.ensureInitialized();
 
-    if (!this.ttsProvider) {
+    if (!this.ttsProvider || !this.ttsProvider.getVoices) {
       return [];
     }
 
@@ -353,11 +416,14 @@ export class CompositeVoice {
   async getSupportedLanguages(): Promise<string[]> {
     await this.ensureInitialized();
 
-    if (!this.sttProvider) {
+    if (!this.sttProvider || !this.sttProvider.getSupportedLanguages) {
       return [];
     }
 
-    return this.sttProvider.getSupportedLanguages();
+    const languages = await this.sttProvider.getSupportedLanguages();
+    return languages.map((lang) =>
+      typeof lang === "string" ? lang : lang.code,
+    );
   }
 
   /**
@@ -376,18 +442,12 @@ export class CompositeVoice {
 
     const errors: string[] = [];
 
-    if (this.ttsProvider) {
-      const ttsValidation = await this.ttsProvider.validateConfig();
-      if (!ttsValidation.valid) {
-        errors.push(...ttsValidation.errors.map((e) => `TTS: ${e}`));
-      }
+    if (this.ttsProvider && !this.ttsProvider.isConfigured()) {
+      errors.push("TTS: Provider is not configured");
     }
 
-    if (this.sttProvider) {
-      const sttValidation = await this.sttProvider.validateConfig();
-      if (!sttValidation.valid) {
-        errors.push(...sttValidation.errors.map((e) => `STT: ${e}`));
-      }
+    if (this.sttProvider && !this.sttProvider.isConfigured()) {
+      errors.push("STT: Provider is not configured");
     }
 
     return {

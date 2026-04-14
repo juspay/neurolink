@@ -9,17 +9,16 @@
  * @module cli/commands/voice
  */
 
-import type { Argv, CommandModule } from "yargs";
 import fs from "node:fs";
 import path from "node:path";
 import chalk from "chalk";
 import ora from "ora";
-
-import { logger } from "../../lib/utils/logger.js";
-import { VoiceFactory } from "../../lib/voice/voiceFactory.js";
-import { VoiceRegistry } from "../../lib/voice/voiceRegistry.js";
+import type { Argv, CommandModule } from "yargs";
 import type { TTSOptions } from "../../lib/types/ttsTypes.js";
-import type { STTOptions } from "../../lib/types/sttTypes.js";
+import { logger } from "../../lib/utils/logger.js";
+import type { STTOptions } from "../../lib/voice/types/voiceTypes.js";
+import { VoiceFactory, voiceFactory } from "../../lib/voice/VoiceFactory.js";
+import { VoiceRegistry, voiceRegistry } from "../../lib/voice/VoiceRegistry.js";
 
 /**
  * Voice command argument types
@@ -201,7 +200,7 @@ async function handleTranscribe(argv: VoiceTranscribeArgs): Promise<void> {
 
     const options: STTOptions = {
       language: argv.language,
-      format: format as "wav" | "mp3" | "m4a" | "flac" | "ogg" | "webm" | "mp4",
+      format: format as STTOptions["format"],
       diarization: argv.diarization,
       wordTimestamps: argv.wordTimestamps,
     };
@@ -216,23 +215,25 @@ async function handleTranscribe(argv: VoiceTranscribeArgs): Promise<void> {
     logger.always(chalk.blue("\nTranscription Results:"));
     logger.always(`  Provider: ${chalk.white(providerName)}`);
     logger.always(`  Language: ${chalk.white(result.language)}`);
-    logger.always(`  Duration: ${chalk.white(result.duration.toFixed(2))}s`);
+    logger.always(
+      `  Duration: ${chalk.white((result.duration ?? 0).toFixed(2))}s`,
+    );
     logger.always(
       `  Confidence: ${chalk.white((result.confidence * 100).toFixed(1))}%`,
     );
-    if (result.metadata.speakerCount) {
+    if (result.metadata?.speakerCount) {
       logger.always(`  Speakers: ${chalk.white(result.metadata.speakerCount)}`);
     }
-    logger.always(`  Latency: ${chalk.white(result.metadata.latency)}ms`);
+    logger.always(`  Latency: ${chalk.white(result.metadata?.latency ?? 0)}ms`);
 
     logger.always(chalk.blue("\nTranscribed Text:"));
     logger.always(chalk.white(result.text));
 
     // Show segments if word timestamps enabled
-    if (argv.wordTimestamps && result.segments.length > 0) {
+    if (argv.wordTimestamps && result.segments && result.segments.length > 0) {
       logger.always(chalk.blue("\nSegments:"));
       for (const segment of result.segments) {
-        const timeRange = `[${segment.start.toFixed(2)}s - ${segment.end.toFixed(2)}s]`;
+        const timeRange = `[${(segment.start ?? 0).toFixed(2)}s - ${(segment.end ?? 0).toFixed(2)}s]`;
         const speaker = segment.speaker ? `(${segment.speaker}) ` : "";
         logger.always(chalk.gray(timeRange) + " " + speaker + segment.text);
       }
@@ -350,7 +351,7 @@ function formatBytes(bytes: number): string {
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  return parseFloat((bytes / k ** i).toFixed(2)) + " " + sizes[i];
 }
 
 /**

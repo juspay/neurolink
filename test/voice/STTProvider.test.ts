@@ -5,9 +5,17 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { STTProcessor, type STTHandler } from "../../src/lib/voice/STTProvider.js";
+import {
+  STTProcessor,
+  type STTHandler,
+} from "../../src/lib/voice/STTProvider.js";
 import { STTError, STT_ERROR_CODES } from "../../src/lib/voice/errors.js";
-import type { STTOptions, STTResult, STTLanguage, AudioFormat } from "../../src/lib/voice/types/voiceTypes.js";
+import type {
+  STTOptions,
+  STTResult,
+  STTLanguage,
+  AudioFormat,
+} from "../../src/lib/voice/types/voiceTypes.js";
 
 /**
  * Mock STT Handler for testing
@@ -26,7 +34,10 @@ class MockSTTHandler implements STTHandler {
   };
 
   transcribe = vi.fn(
-    async (_audio: Buffer | ArrayBuffer, _options: STTOptions): Promise<STTResult> => {
+    async (
+      _audio: Buffer | ArrayBuffer,
+      _options: STTOptions,
+    ): Promise<STTResult> => {
       return this.mockResult;
     },
   );
@@ -58,7 +69,10 @@ class MockStreamingSTTHandler implements STTHandler {
   private configured = true;
 
   transcribe = vi.fn(
-    async (_audio: Buffer | ArrayBuffer, _options: STTOptions): Promise<STTResult> => {
+    async (
+      _audio: Buffer | ArrayBuffer,
+      _options: STTOptions,
+    ): Promise<STTResult> => {
       return {
         text: "Test transcription",
         confidence: 0.9,
@@ -310,7 +324,8 @@ describe("STTProcessor", () => {
         yield Buffer.from("chunk2");
       }
 
-      const segments: Array<{ index: number; text: string; isFinal: boolean }> = [];
+      const segments: Array<{ index: number; text: string; isFinal: boolean }> =
+        [];
 
       for await (const segment of STTProcessor.transcribeStream(
         audioGenerator(),

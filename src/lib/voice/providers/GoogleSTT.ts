@@ -6,17 +6,17 @@
  * @module voice/providers/GoogleSTT
  */
 
+import { logger } from "../../utils/logger.js";
+import { STTError } from "../errors.js";
 import type { STTHandler } from "../STTProvider.js";
 import type {
+  AudioFormat,
+  STTLanguage,
   STTOptions,
   STTResult,
-  STTLanguage,
   TranscriptionSegment,
-  AudioFormat,
   WordTiming,
 } from "../types/voiceTypes.js";
-import { STTError } from "../errors.js";
-import { logger } from "../../utils/logger.js";
 
 /**
  * Google STT model options
@@ -104,7 +104,7 @@ type GoogleRecognizeResponse = {
  *
  * @see https://cloud.google.com/speech-to-text/docs
  */
-export class GoogleSTTHandler implements STTHandler {
+export class GoogleSTT implements STTHandler {
   private readonly apiKey: string | null;
   private readonly credentialsPath: string | null;
   private readonly baseUrl = "https://speech.googleapis.com/v1";
@@ -136,21 +136,96 @@ export class GoogleSTTHandler implements STTHandler {
   async getSupportedLanguages(): Promise<STTLanguage[]> {
     // Return common languages supported by Google STT
     return [
-      { code: "en-US", name: "English (US)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "en-GB", name: "English (UK)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "es-ES", name: "Spanish (Spain)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "es-US", name: "Spanish (US)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "fr-FR", name: "French", supportsDiarization: true, supportsPunctuation: true },
-      { code: "de-DE", name: "German", supportsDiarization: true, supportsPunctuation: true },
-      { code: "it-IT", name: "Italian", supportsDiarization: true, supportsPunctuation: true },
-      { code: "pt-BR", name: "Portuguese (Brazil)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "ja-JP", name: "Japanese", supportsDiarization: true, supportsPunctuation: true },
-      { code: "ko-KR", name: "Korean", supportsDiarization: true, supportsPunctuation: true },
-      { code: "zh-CN", name: "Chinese (Simplified)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "zh-TW", name: "Chinese (Traditional)", supportsDiarization: true, supportsPunctuation: true },
-      { code: "ar-SA", name: "Arabic", supportsDiarization: true, supportsPunctuation: true },
-      { code: "hi-IN", name: "Hindi", supportsDiarization: true, supportsPunctuation: true },
-      { code: "ru-RU", name: "Russian", supportsDiarization: true, supportsPunctuation: true },
+      {
+        code: "en-US",
+        name: "English (US)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "en-GB",
+        name: "English (UK)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "es-ES",
+        name: "Spanish (Spain)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "es-US",
+        name: "Spanish (US)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "fr-FR",
+        name: "French",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "de-DE",
+        name: "German",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "it-IT",
+        name: "Italian",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "pt-BR",
+        name: "Portuguese (Brazil)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ja-JP",
+        name: "Japanese",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ko-KR",
+        name: "Korean",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "zh-CN",
+        name: "Chinese (Simplified)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "zh-TW",
+        name: "Chinese (Traditional)",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ar-SA",
+        name: "Arabic",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "hi-IN",
+        name: "Hindi",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ru-RU",
+        name: "Russian",
+        supportsDiarization: true,
+        supportsPunctuation: true,
+      },
     ];
   }
 
@@ -314,9 +389,7 @@ export class GoogleSTTHandler implements STTHandler {
         };
       });
 
-      logger.info(
-        `[GoogleSTTHandler] Transcribed audio in ${latency}ms`,
-      );
+      logger.info(`[GoogleSTTHandler] Transcribed audio in ${latency}ms`);
 
       return result;
     } catch (err: unknown) {
@@ -398,7 +471,7 @@ export class GoogleSTTHandler implements STTHandler {
    * Get encoding string for audio format
    */
   private getEncoding(format: AudioFormat): string {
-    const encodings: Record<AudioFormat, string> = {
+    const encodings: Partial<Record<AudioFormat, string>> = {
       mp3: "MP3",
       wav: "LINEAR16",
       ogg: "OGG_OPUS",
@@ -411,7 +484,7 @@ export class GoogleSTTHandler implements STTHandler {
    * Parse duration string (e.g., "1.5s") to seconds
    */
   private parseDuration(duration: string): number {
-    if (!duration) return 0;
+    if (!duration) {return 0;}
     const match = duration.match(/^([\d.]+)s$/);
     return match ? parseFloat(match[1]) : 0;
   }
@@ -426,7 +499,7 @@ export class GoogleSTTHandler implements STTHandler {
       .map((r) => r.alternatives[0]?.confidence)
       .filter((c): c is number => typeof c === "number");
 
-    if (confidences.length === 0) return 0;
+    if (confidences.length === 0) {return 0;}
     return confidences.reduce((sum, c) => sum + c, 0) / confidences.length;
   }
 

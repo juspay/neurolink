@@ -10,7 +10,10 @@ import { VoiceError, VOICE_ERROR_CODES } from "../../src/lib/voice/errors.js";
 import type { TTSHandler } from "../../src/lib/utils/ttsProcessor.js";
 import type { STTHandler } from "../../src/lib/voice/STTProvider.js";
 import type { RealtimeHandler } from "../../src/lib/voice/RealtimeVoiceAPI.js";
-import type { VoiceProviderMetadata, AudioFormat } from "../../src/lib/voice/types/voiceTypes.js";
+import type {
+  VoiceProviderMetadata,
+  AudioFormat,
+} from "../../src/lib/voice/types/voiceTypes.js";
 
 /**
  * Mock TTS Handler
@@ -350,29 +353,21 @@ describe("VoiceFactory", () => {
       const ttsHandler = createMockTTSHandler();
       const sttHandler = createMockSTTHandler();
 
-      factory.registerTTSProvider(
-        "tts-provider",
-        async () => ttsHandler,
-        {
-          type: "tts",
-          displayName: "TTS",
-          capabilities: ["tts"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      factory.registerTTSProvider("tts-provider", async () => ttsHandler, {
+        type: "tts",
+        displayName: "TTS",
+        capabilities: ["tts"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
-      factory.registerSTTProvider(
-        "stt-provider",
-        async () => sttHandler,
-        {
-          type: "stt",
-          displayName: "STT",
-          capabilities: ["stt"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      factory.registerSTTProvider("stt-provider", async () => sttHandler, {
+        type: "stt",
+        displayName: "STT",
+        capabilities: ["stt"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
       expect(factory.getType("tts-provider")).toBe("tts");
       expect(factory.getType("stt-provider")).toBe("stt");
@@ -415,41 +410,29 @@ describe("VoiceFactory", () => {
       const ttsHandler = createMockTTSHandler();
       const sttHandler = createMockSTTHandler();
 
-      factory.registerTTSProvider(
-        "tts1",
-        async () => ttsHandler,
-        {
-          type: "tts",
-          displayName: "TTS 1",
-          capabilities: ["tts"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      factory.registerTTSProvider("tts1", async () => ttsHandler, {
+        type: "tts",
+        displayName: "TTS 1",
+        capabilities: ["tts"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
-      factory.registerTTSProvider(
-        "tts2",
-        async () => ttsHandler,
-        {
-          type: "tts",
-          displayName: "TTS 2",
-          capabilities: ["tts"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      factory.registerTTSProvider("tts2", async () => ttsHandler, {
+        type: "tts",
+        displayName: "TTS 2",
+        capabilities: ["tts"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
-      factory.registerSTTProvider(
-        "stt1",
-        async () => sttHandler,
-        {
-          type: "stt",
-          displayName: "STT 1",
-          capabilities: ["stt"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      factory.registerSTTProvider("stt1", async () => sttHandler, {
+        type: "stt",
+        displayName: "STT 1",
+        capabilities: ["stt"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
       const ttsProviders = factory.getProvidersByType("tts");
       const sttProviders = factory.getProvidersByType("stt");
@@ -466,29 +449,21 @@ describe("VoiceFactory", () => {
     it("should return all TTS providers", async () => {
       const mockHandler = createMockTTSHandler();
 
-      factory.registerTTSProvider(
-        "google-tts",
-        async () => mockHandler,
-        {
-          type: "tts",
-          displayName: "Google TTS",
-          capabilities: ["tts"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      factory.registerTTSProvider("google-tts", async () => mockHandler, {
+        type: "tts",
+        displayName: "Google TTS",
+        capabilities: ["tts"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
-      factory.registerTTSProvider(
-        "openai-tts",
-        async () => mockHandler,
-        {
-          type: "tts",
-          displayName: "OpenAI TTS",
-          capabilities: ["tts"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      factory.registerTTSProvider("openai-tts", async () => mockHandler, {
+        type: "tts",
+        displayName: "OpenAI TTS",
+        capabilities: ["tts"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
       const providers = factory.getTTSProviders();
 
@@ -501,29 +476,21 @@ describe("VoiceFactory", () => {
     it("should return all STT providers", async () => {
       const mockHandler = createMockSTTHandler();
 
-      factory.registerSTTProvider(
-        "whisper",
-        async () => mockHandler,
-        {
-          type: "stt",
-          displayName: "Whisper",
-          capabilities: ["stt"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      factory.registerSTTProvider("whisper", async () => mockHandler, {
+        type: "stt",
+        displayName: "Whisper",
+        capabilities: ["stt"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
-      factory.registerSTTProvider(
-        "deepgram",
-        async () => mockHandler,
-        {
-          type: "stt",
-          displayName: "Deepgram",
-          capabilities: ["stt"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: true,
-        },
-      );
+      factory.registerSTTProvider("deepgram", async () => mockHandler, {
+        type: "stt",
+        displayName: "Deepgram",
+        capabilities: ["stt"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: true,
+      });
 
       const providers = factory.getSTTProviders();
 
@@ -558,17 +525,13 @@ describe("VoiceFactory", () => {
     it("should clear all registrations", async () => {
       const mockHandler = createMockTTSHandler();
 
-      factory.registerTTSProvider(
-        "test",
-        async () => mockHandler,
-        {
-          type: "tts",
-          displayName: "Test",
-          capabilities: ["tts"],
-          supportedFormats: ["mp3"],
-          supportsStreaming: false,
-        },
-      );
+      factory.registerTTSProvider("test", async () => mockHandler, {
+        type: "tts",
+        displayName: "Test",
+        capabilities: ["tts"],
+        supportedFormats: ["mp3"],
+        supportsStreaming: false,
+      });
 
       expect(factory.getTTSProviders()).toHaveLength(1);
 

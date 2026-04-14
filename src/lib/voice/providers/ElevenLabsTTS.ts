@@ -6,11 +6,16 @@
  * @module voice/providers/ElevenLabsTTS
  */
 
-import type { TTSHandler } from "../../utils/ttsProcessor.js";
-import { TTSError, TTS_ERROR_CODES } from "../../utils/ttsProcessor.js";
-import type { TTSOptions, TTSResult, TTSVoice, AudioFormat } from "../../types/ttsTypes.js";
 import { ErrorCategory, ErrorSeverity } from "../../constants/enums.js";
+import type {
+  AudioFormat,
+  TTSOptions,
+  TTSResult,
+  TTSVoice,
+} from "../../types/ttsTypes.js";
 import { logger } from "../../utils/logger.js";
+import type { TTSHandler } from "../../utils/ttsProcessor.js";
+import { TTS_ERROR_CODES, TTSError } from "../../utils/ttsProcessor.js";
 
 /**
  * ElevenLabs model options
@@ -65,7 +70,7 @@ type ElevenLabsVoicesResponse = {
  *
  * @see https://elevenlabs.io/docs/api-reference
  */
-export class ElevenLabsTTSHandler implements TTSHandler {
+export class ElevenLabsTTS implements TTSHandler {
   private readonly apiKey: string | null;
   private readonly baseUrl = "https://api.elevenlabs.io/v1";
   private voicesCache: { voices: TTSVoice[]; timestamp: number } | null = null;
@@ -98,7 +103,7 @@ export class ElevenLabsTTSHandler implements TTSHandler {
     // Return cached voices if valid
     if (
       this.voicesCache &&
-      Date.now() - this.voicesCache.timestamp < ElevenLabsTTSHandler.CACHE_TTL_MS &&
+      Date.now() - this.voicesCache.timestamp < ElevenLabsTTS.CACHE_TTL_MS &&
       !languageCode
     ) {
       return this.voicesCache.voices;
@@ -122,7 +127,20 @@ export class ElevenLabsTTSHandler implements TTSHandler {
         id: voice.voice_id,
         name: voice.name,
         languageCode: "en", // ElevenLabs supports multiple languages per voice
-        languageCodes: ["en", "es", "fr", "de", "it", "pt", "pl", "hi", "ar", "zh", "ja", "ko"],
+        languageCodes: [
+          "en",
+          "es",
+          "fr",
+          "de",
+          "it",
+          "pt",
+          "pl",
+          "hi",
+          "ar",
+          "zh",
+          "ja",
+          "ko",
+        ],
         gender: this.mapGender(voice.labels?.gender),
         type: "neural",
         description: voice.labels?.description,
@@ -137,7 +155,9 @@ export class ElevenLabsTTSHandler implements TTSHandler {
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : String(err || "Unknown error");
-      logger.error(`[ElevenLabsTTSHandler] Failed to get voices: ${errorMessage}`);
+      logger.error(
+        `[ElevenLabsTTSHandler] Failed to get voices: ${errorMessage}`,
+      );
       throw new TTSError({
         code: TTS_ERROR_CODES.SYNTHESIS_FAILED,
         message: `Failed to get voices: ${errorMessage}`,
@@ -254,10 +274,10 @@ export class ElevenLabsTTSHandler implements TTSHandler {
    * Map gender string to standard type
    */
   private mapGender(gender?: string): "male" | "female" | "neutral" {
-    if (!gender) return "neutral";
+    if (!gender) {return "neutral";}
     const lower = gender.toLowerCase();
-    if (lower.includes("male") && !lower.includes("female")) return "male";
-    if (lower.includes("female")) return "female";
+    if (lower.includes("male") && !lower.includes("female")) {return "male";}
+    if (lower.includes("female")) {return "female";}
     return "neutral";
   }
 
@@ -265,7 +285,7 @@ export class ElevenLabsTTSHandler implements TTSHandler {
    * Map AudioFormat to ElevenLabs output format
    */
   private mapFormat(format: AudioFormat): string {
-    const formats: Record<AudioFormat, string> = {
+    const formats: Partial<Record<AudioFormat, string>> = {
       mp3: "mp3_44100_128",
       wav: "pcm_44100",
       ogg: "ogg_22050",
@@ -278,9 +298,9 @@ export class ElevenLabsTTSHandler implements TTSHandler {
    * Get sample rate from format string
    */
   private getSampleRate(format: string): number {
-    if (format.includes("44100")) return 44100;
-    if (format.includes("22050")) return 22050;
-    if (format.includes("24000")) return 24000;
+    if (format.includes("44100")) {return 44100;}
+    if (format.includes("22050")) {return 22050;}
+    if (format.includes("24000")) {return 24000;}
     return 44100;
   }
 }

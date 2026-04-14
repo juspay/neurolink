@@ -234,13 +234,13 @@ export class DeepgramSTTHandler implements STTProvider {
     options: STTOptions = {},
   ): Promise<STTResult> {
     if (!this.apiKey) {
-      throw STTError.notConfigured("deepgram");
+      throw STTError.providerNotConfigured("deepgram");
     }
 
     const buffer = audio instanceof ArrayBuffer ? Buffer.from(audio) : audio;
 
     if (buffer.length === 0) {
-      throw STTError.emptyAudio("deepgram");
+      throw STTError.audioEmpty("deepgram");
     }
 
     // Validate format if specified
@@ -320,7 +320,7 @@ export class DeepgramSTTHandler implements STTProvider {
     options: STTOptions = {},
   ): AsyncIterable<TranscriptionSegment> {
     if (!this.apiKey) {
-      throw STTError.notConfigured("deepgram");
+      throw STTError.providerNotConfigured("deepgram");
     }
 
     const deepgramOptions = options as DeepgramSTTOptions;

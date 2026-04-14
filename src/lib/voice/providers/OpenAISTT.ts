@@ -6,16 +6,16 @@
  * @module voice/providers/OpenAISTT
  */
 
+import { logger } from "../../utils/logger.js";
+import { STTError } from "../errors.js";
 import type { STTHandler } from "../STTProvider.js";
 import type {
+  AudioFormat,
+  STTLanguage,
   STTOptions,
   STTResult,
-  STTLanguage,
-  AudioFormat,
   WordTiming,
 } from "../types/voiceTypes.js";
-import { STTError } from "../errors.js";
-import { logger } from "../../utils/logger.js";
 
 /**
  * Whisper model options
@@ -76,7 +76,7 @@ type WhisperVerboseResponse = {
  *
  * @see https://platform.openai.com/docs/api-reference/audio
  */
-export class WhisperSTTHandler implements STTHandler {
+export class OpenAISTT implements STTHandler {
   private readonly apiKey: string | null;
   private readonly baseUrl = "https://api.openai.com/v1";
 
@@ -106,18 +106,78 @@ export class WhisperSTTHandler implements STTHandler {
     // Whisper supports 100+ languages
     // Return the most common ones
     return [
-      { code: "en", name: "English", supportsDiarization: false, supportsPunctuation: true },
-      { code: "es", name: "Spanish", supportsDiarization: false, supportsPunctuation: true },
-      { code: "fr", name: "French", supportsDiarization: false, supportsPunctuation: true },
-      { code: "de", name: "German", supportsDiarization: false, supportsPunctuation: true },
-      { code: "it", name: "Italian", supportsDiarization: false, supportsPunctuation: true },
-      { code: "pt", name: "Portuguese", supportsDiarization: false, supportsPunctuation: true },
-      { code: "ru", name: "Russian", supportsDiarization: false, supportsPunctuation: true },
-      { code: "ja", name: "Japanese", supportsDiarization: false, supportsPunctuation: true },
-      { code: "ko", name: "Korean", supportsDiarization: false, supportsPunctuation: true },
-      { code: "zh", name: "Chinese", supportsDiarization: false, supportsPunctuation: true },
-      { code: "ar", name: "Arabic", supportsDiarization: false, supportsPunctuation: true },
-      { code: "hi", name: "Hindi", supportsDiarization: false, supportsPunctuation: true },
+      {
+        code: "en",
+        name: "English",
+        supportsDiarization: false,
+        supportsPunctuation: true,
+      },
+      {
+        code: "es",
+        name: "Spanish",
+        supportsDiarization: false,
+        supportsPunctuation: true,
+      },
+      {
+        code: "fr",
+        name: "French",
+        supportsDiarization: false,
+        supportsPunctuation: true,
+      },
+      {
+        code: "de",
+        name: "German",
+        supportsDiarization: false,
+        supportsPunctuation: true,
+      },
+      {
+        code: "it",
+        name: "Italian",
+        supportsDiarization: false,
+        supportsPunctuation: true,
+      },
+      {
+        code: "pt",
+        name: "Portuguese",
+        supportsDiarization: false,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ru",
+        name: "Russian",
+        supportsDiarization: false,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ja",
+        name: "Japanese",
+        supportsDiarization: false,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ko",
+        name: "Korean",
+        supportsDiarization: false,
+        supportsPunctuation: true,
+      },
+      {
+        code: "zh",
+        name: "Chinese",
+        supportsDiarization: false,
+        supportsPunctuation: true,
+      },
+      {
+        code: "ar",
+        name: "Arabic",
+        supportsDiarization: false,
+        supportsPunctuation: true,
+      },
+      {
+        code: "hi",
+        name: "Hindi",
+        supportsDiarization: false,
+        supportsPunctuation: true,
+      },
     ];
   }
 
@@ -142,8 +202,8 @@ export class WhisperSTTHandler implements STTHandler {
       // Prepare form data
       const formData = new FormData();
 
-      // Add audio file
-      const audioBlob = new Blob([audioBuffer], {
+      // Add audio file - convert Buffer to Uint8Array for compatibility
+      const audioBlob = new Blob([new Uint8Array(audioBuffer)], {
         type: this.getMimeType(options.format ?? "wav"),
       });
       formData.append("file", audioBlob, `audio.${options.format ?? "wav"}`);
@@ -273,7 +333,7 @@ export class WhisperSTTHandler implements STTHandler {
    * Get MIME type for audio format
    */
   private getMimeType(format: AudioFormat): string {
-    const mimeTypes: Record<AudioFormat, string> = {
+    const mimeTypes: Partial<Record<AudioFormat, string>> = {
       mp3: "audio/mpeg",
       wav: "audio/wav",
       ogg: "audio/ogg",
@@ -283,5 +343,7 @@ export class WhisperSTTHandler implements STTHandler {
   }
 }
 
-// Export as named export for compatibility
-export { WhisperSTTHandler as OpenAISTTHandler };
+// Export as named exports for compatibility
+export { OpenAISTT as WhisperSTT };
+export { OpenAISTT as WhisperSTTHandler };
+export { OpenAISTT as OpenAISTTHandler };

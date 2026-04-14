@@ -569,9 +569,9 @@ describe("Voice/Speech Integration Tests", () => {
 
         expect(allVoices.length).toBe(3);
         expect(englishVoices.length).toBe(2);
-        expect(englishVoices.every((v) => v.languageCodes.includes("en-US"))).toBe(
-          true,
-        );
+        expect(
+          englishVoices.every((v) => v.languageCodes.includes("en-US")),
+        ).toBe(true);
       });
 
       it("should validate provider configuration", async () => {
@@ -661,11 +661,20 @@ describe("Voice/Speech Integration Tests", () => {
   describe("STT Providers Integration", () => {
     const sttProviders = [
       { name: "deepgram", aliases: ["dg", "deepgram-stt"] },
-      { name: "whisper", aliases: ["openai-whisper", "oai-whisper", "whisper-stt"] },
+      {
+        name: "whisper",
+        aliases: ["openai-whisper", "oai-whisper", "whisper-stt"],
+      },
       { name: "gladia", aliases: ["gladia-stt"] },
-      { name: "assemblyai", aliases: ["assembly", "assembly-ai", "assemblyai-stt"] },
+      {
+        name: "assemblyai",
+        aliases: ["assembly", "assembly-ai", "assemblyai-stt"],
+      },
       { name: "google-stt", aliases: ["google-speech", "gcloud-stt"] },
-      { name: "azure-stt", aliases: ["azure-speech-stt", "azure-speech-to-text"] },
+      {
+        name: "azure-stt",
+        aliases: ["azure-speech-stt", "azure-speech-to-text"],
+      },
     ];
 
     describe("Provider Registration", () => {
@@ -825,7 +834,13 @@ describe("Voice/Speech Integration Tests", () => {
         const accumulator = new TranscriptionStreamAccumulator();
 
         const segments: TranscriptionSegment[] = [
-          { text: "Hello", start: 0, end: 0.5, confidence: 0.9, isFinal: false },
+          {
+            text: "Hello",
+            start: 0,
+            end: 0.5,
+            confidence: 0.9,
+            isFinal: false,
+          },
           {
             text: "Hello world",
             start: 0,
@@ -968,7 +983,9 @@ describe("Voice/Speech Integration Tests", () => {
 
         session.updateSession({ temperature: 0.8 });
 
-        expect(session.updateSession).toHaveBeenCalledWith({ temperature: 0.8 });
+        expect(session.updateSession).toHaveBeenCalledWith({
+          temperature: 0.8,
+        });
       });
 
       it("should handle connection failure gracefully", async () => {
@@ -996,10 +1013,14 @@ describe("Voice/Speech Integration Tests", () => {
     beforeEach(() => {
       // Register mock providers for VoiceAgent tests
       VoiceFactory.registerTTSProvider("agent-tts", () =>
-        createMockTTSProvider("agent-tts", { capabilities: ["tts", "streaming"] }),
+        createMockTTSProvider("agent-tts", {
+          capabilities: ["tts", "streaming"],
+        }),
       );
       VoiceFactory.registerSTTProvider("agent-stt", () =>
-        createMockSTTProvider("agent-stt", { capabilities: ["stt", "streaming"] }),
+        createMockSTTProvider("agent-stt", {
+          capabilities: ["stt", "streaming"],
+        }),
       );
       VoiceFactory.registerRealtimeProvider("agent-rt", () =>
         createMockRealtimeProvider("agent-rt"),
@@ -1097,12 +1118,20 @@ describe("Voice/Speech Integration Tests", () => {
         await agent.initialize();
 
         const events: string[] = [];
-        agent.on("transcription.started", () => events.push("transcription.started"));
-        agent.on("transcription.completed", () => events.push("transcription.completed"));
+        agent.on("transcription.started", () =>
+          events.push("transcription.started"),
+        );
+        agent.on("transcription.completed", () =>
+          events.push("transcription.completed"),
+        );
         agent.on("generation.started", () => events.push("generation.started"));
-        agent.on("generation.completed", () => events.push("generation.completed"));
+        agent.on("generation.completed", () =>
+          events.push("generation.completed"),
+        );
         agent.on("synthesis.started", () => events.push("synthesis.started"));
-        agent.on("synthesis.completed", () => events.push("synthesis.completed"));
+        agent.on("synthesis.completed", () =>
+          events.push("synthesis.completed"),
+        );
 
         await agent.processVoice(createSampleWavBuffer());
 
@@ -1128,7 +1157,9 @@ describe("Voice/Speech Integration Tests", () => {
         await agent.initialize();
 
         await agent.processVoice(createSampleWavBuffer());
-        mockNeuroLink.generate.mockResolvedValueOnce({ content: "Second response" });
+        mockNeuroLink.generate.mockResolvedValueOnce({
+          content: "Second response",
+        });
         await agent.processVoice(createSampleWavBuffer());
 
         const history = agent.getHistory();
@@ -1748,7 +1779,8 @@ describe("Voice/Speech Integration Tests", () => {
       it("should detect MP3 format from ID3 header", () => {
         // ID3 magic bytes
         const mp3Buffer = Buffer.from([
-          0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00,
         ]);
         const format = detectAudioFormat(mp3Buffer);
         expect(format).toBe("mp3");
@@ -1756,7 +1788,8 @@ describe("Voice/Speech Integration Tests", () => {
 
       it("should detect FLAC format", () => {
         const flacBuffer = Buffer.from([
-          0x66, 0x4c, 0x61, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x66, 0x4c, 0x61, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00,
         ]);
         const format = detectAudioFormat(flacBuffer);
         expect(format).toBe("flac");
@@ -1764,7 +1797,8 @@ describe("Voice/Speech Integration Tests", () => {
 
       it("should detect OGG format", () => {
         const oggBuffer = Buffer.from([
-          0x4f, 0x67, 0x67, 0x53, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x4f, 0x67, 0x67, 0x53, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00,
         ]);
         const format = detectAudioFormat(oggBuffer);
         expect(format).toBe("ogg");
@@ -1772,7 +1806,8 @@ describe("Voice/Speech Integration Tests", () => {
 
       it("should return undefined for unknown format", () => {
         const unknownBuffer = Buffer.from([
-          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00,
         ]);
         const format = detectAudioFormat(unknownBuffer);
         expect(format).toBeUndefined();
@@ -1868,7 +1903,7 @@ describe("Voice/Speech Integration Tests", () => {
       it("should handle ArrayBuffer in base64 conversion", () => {
         const arrayBuffer = new ArrayBuffer(10);
         const view = new Uint8Array(arrayBuffer);
-        for (let i = 0; i < 10; i++) view[i] = i;
+        for (let i = 0; i < 10; i++) {view[i] = i;}
 
         const base64 = bufferToBase64(arrayBuffer);
         expect(typeof base64).toBe("string");
@@ -1963,7 +1998,11 @@ describe("Voice/Speech Integration Tests", () => {
       });
 
       it("should create Realtime-specific errors", () => {
-        const connFailed = RealtimeError.connectionFailed("refused", undefined, "rt");
+        const connFailed = RealtimeError.connectionFailed(
+          "refused",
+          undefined,
+          "rt",
+        );
         expect(connFailed.code).toBe("REALTIME_CONNECTION_FAILED");
 
         const timeout = RealtimeError.timeout("connect", 5000, "rt");
@@ -2040,7 +2079,9 @@ describe("Voice/Speech Integration Tests", () => {
 
         const provider = await VoiceFactory.createRealtimeProvider("fail-rt");
 
-        await expect(provider.connect({})).rejects.toThrow("Service unavailable");
+        await expect(provider.connect({})).rejects.toThrow(
+          "Service unavailable",
+        );
       });
     });
 
@@ -2097,7 +2138,9 @@ describe("Voice/Speech Integration Tests", () => {
 
         // Should still process but with placeholder response
         const result = await agent.processVoice(createSampleWavBuffer());
-        expect(result.assistantText).toContain("configure a NeuroLink instance");
+        expect(result.assistantText).toContain(
+          "configure a NeuroLink instance",
+        );
       });
     });
   });

@@ -296,13 +296,13 @@ export class GoogleSTTHandler implements STTProvider {
     options: STTOptions = {},
   ): Promise<STTResult> {
     if (!this.apiKey) {
-      throw STTError.notConfigured("google-stt");
+      throw STTError.providerNotConfigured("google-stt");
     }
 
     const buffer = audio instanceof ArrayBuffer ? Buffer.from(audio) : audio;
 
     if (buffer.length === 0) {
-      throw STTError.emptyAudio("google-stt");
+      throw STTError.audioEmpty("google-stt");
     }
 
     // Validate format if specified
