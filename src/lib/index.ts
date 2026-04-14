@@ -1126,3 +1126,36 @@ export {
   // Server Bridge
   createAuthValidatorFromProvider,
 } from "./auth/index.js";
+
+// ============================================================================
+// Multi-Agent Orchestration exports
+// ============================================================================
+export { Agent } from "./agent/agent.js";
+export { AgentNetwork } from "./agent/agentNetwork.js";
+export { RouterAgent } from "./agent/routerAgent.js";
+
+// Advanced agent orchestration exports
+export {
+  // Coordination
+  AgentCoordinator,
+  TaskDistributor,
+  // Communication
+  MessageBus,
+  ProtocolManager,
+  HandshakeProtocolHandler,
+  DelegationProtocolHandler,
+  ConsensusProtocolHandler,
+  HeartbeatProtocolHandler,
+  // Orchestration
+  NetworkOrchestrator,
+  NetworkTopology,
+  TopologyBuilder,
+  // Supervisor
+  SupervisorAgent,
+  createSupervisedAgent,
+  // Evaluation
+  AgentEvaluator,
+  ResultOptimizer,
+  createEvaluator,
+  createOptimizer,
+} from "./agent/index.js";
