@@ -1354,3 +1354,22 @@ export {
   createDefaultTripwireEvaluator,
   commonTripwires,
 } from "./utils/tripwireEvaluator.js";
+
+// ============================================================================
+// Multi-Agent Orchestration exports
+// ============================================================================
+export { Agent } from "./agent/agent.js";
+export { AgentNetwork } from "./agent/agentNetwork.js";
+
+// Advanced agent orchestration exports
+export {
+  // Coordination
+  AgentCoordinator,
+  TaskDistributor,
+  // Communication
+  MessageBus,
+  // Orchestration
+  NetworkOrchestrator,
+  NetworkTopology,
+  TopologyBuilder,
+} from "./agent/index.js";
