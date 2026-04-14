@@ -1,0 +1,242 @@
+{
+  "description": "Test fixtures for Multi-Agent Network agents",
+  "version": "1.0.0",
+  "agents": {
+    "basicAgent": {
+      "id": "test-basic-agent",
+      "name": "Basic Test Agent",
+      "description": "A simple agent for basic testing scenarios",
+      "instructions": "You are a helpful assistant that provides concise answers."
+    },
+    "fullConfigAgent": {
+      "id": "test-full-agent",
+      "name": "Full Configuration Agent",
+      "description": "A fully configured agent with all options specified",
+      "instructions": "You are a comprehensive test assistant with full configuration.",
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "tools": ["readFile", "writeFile", "searchCode"],
+      "maxSteps": 10,
+      "temperature": 0.5,
+      "canDelegate": true,
+      "metadata": {
+        "category": "testing",
+        "priority": "high",
+        "capabilities": ["file-operations", "code-search"]
+      }
+    },
+    "codeAnalysisAgent": {
+      "id": "code-analyzer",
+      "name": "Code Analysis Agent",
+      "description": "Analyzes code for patterns, bugs, and improvements",
+      "instructions": "You are an expert code analyst. Examine code carefully and provide detailed analysis including potential bugs, code smells, and improvement suggestions.",
+      "provider": "anthropic",
+      "model": "claude-3-5-sonnet-20241022",
+      "tools": ["readFile", "searchCode", "analyzeAST"],
+      "maxSteps": 15,
+      "temperature": 0.3,
+      "canDelegate": false,
+      "metadata": {
+        "expertise": ["typescript", "javascript", "python"],
+        "analysisTypes": ["bugs", "security", "performance"]
+      }
+    },
+    "dataProcessingAgent": {
+      "id": "data-processor",
+      "name": "Data Processing Agent",
+      "description": "Processes and transforms data in various formats",
+      "instructions": "You are a data processing specialist. Transform, validate, and analyze data according to specifications.",
+      "provider": "vertex",
+      "model": "gemini-2.0-flash",
+      "tools": ["readFile", "writeFile", "parseCSV", "transformJSON"],
+      "maxSteps": 20,
+      "temperature": 0.2,
+      "canDelegate": true,
+      "metadata": {
+        "formats": ["json", "csv", "xml", "yaml"],
+        "maxDataSize": "10MB"
+      }
+    },
+    "researchAgent": {
+      "id": "researcher",
+      "name": "Research Agent",
+      "description": "Conducts research and gathers information from various sources",
+      "instructions": "You are a thorough researcher. Gather information, synthesize findings, and present comprehensive summaries.",
+      "provider": "google-ai-studio",
+      "model": "gemini-2.5-flash",
+      "tools": ["webSearch", "readFile", "summarize"],
+      "maxSteps": 25,
+      "temperature": 0.6,
+      "canDelegate": true,
+      "metadata": {
+        "domains": ["technology", "science", "business"],
+        "outputFormats": ["summary", "report", "bullets"]
+      }
+    },
+    "coordinatorAgent": {
+      "id": "coordinator",
+      "name": "Coordinator Agent",
+      "description": "Coordinates tasks between multiple agents and manages workflows",
+      "instructions": "You are a task coordinator. Break down complex tasks, delegate to appropriate agents, and synthesize results.",
+      "provider": "openai",
+      "model": "gpt-4o",
+      "tools": ["delegateTask", "aggregateResults", "trackProgress"],
+      "maxSteps": 30,
+      "temperature": 0.4,
+      "canDelegate": true,
+      "metadata": {
+        "role": "coordinator",
+        "maxDelegations": 5,
+        "priorityLevels": ["critical", "high", "medium", "low"]
+      }
+    },
+    "validationAgent": {
+      "id": "validator",
+      "name": "Validation Agent",
+      "description": "Validates inputs, outputs, and data integrity",
+      "instructions": "You are a validation specialist. Verify data integrity, check constraints, and ensure compliance with schemas.",
+      "provider": "anthropic",
+      "model": "claude-3-5-haiku-20241022",
+      "tools": ["validateSchema", "checkConstraints", "verifyFormat"],
+      "maxSteps": 5,
+      "temperature": 0.1,
+      "canDelegate": false,
+      "metadata": {
+        "strictMode": true,
+        "validationRules": ["schema", "format", "range", "uniqueness"]
+      }
+    },
+    "minimalAgent": {
+      "id": "minimal",
+      "name": "Minimal Agent",
+      "description": "Minimal configuration for edge case testing",
+      "instructions": "Respond briefly."
+    },
+    "streamingAgent": {
+      "id": "streamer",
+      "name": "Streaming Agent",
+      "description": "Agent optimized for streaming responses",
+      "instructions": "You provide detailed, progressive responses suitable for streaming output.",
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "maxSteps": 5,
+      "temperature": 0.7,
+      "canDelegate": false,
+      "metadata": {
+        "streamOptimized": true,
+        "chunkSize": "sentence"
+      }
+    },
+    "errorProneAgent": {
+      "id": "error-prone",
+      "name": "Error Prone Agent",
+      "description": "Agent configured to test error handling scenarios",
+      "instructions": "You may encounter errors during execution.",
+      "provider": "invalid-provider",
+      "model": "non-existent-model",
+      "maxSteps": 1,
+      "temperature": 0.0,
+      "metadata": {
+        "testType": "error-handling",
+        "expectedErrors": ["provider-not-found", "model-unavailable"]
+      }
+    }
+  },
+  "inputSchemas": {
+    "analysisInput": {
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "description": "Code to analyze" },
+        "language": {
+          "type": "string",
+          "enum": ["typescript", "javascript", "python"]
+        },
+        "analysisType": {
+          "type": "string",
+          "enum": ["bugs", "security", "performance", "all"]
+        }
+      },
+      "required": ["code", "language"]
+    },
+    "dataProcessingInput": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": ["string", "object", "array"],
+          "description": "Data to process"
+        },
+        "format": { "type": "string", "enum": ["json", "csv", "xml"] },
+        "operations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of operations to perform"
+        }
+      },
+      "required": ["data", "format"]
+    },
+    "researchInput": {
+      "type": "object",
+      "properties": {
+        "topic": { "type": "string", "description": "Research topic" },
+        "depth": { "type": "string", "enum": ["shallow", "medium", "deep"] },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Preferred sources"
+        }
+      },
+      "required": ["topic"]
+    }
+  },
+  "outputSchemas": {
+    "analysisOutput": {
+      "type": "object",
+      "properties": {
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "severity": {
+                "type": "string",
+                "enum": ["critical", "high", "medium", "low"]
+              },
+              "type": { "type": "string" },
+              "message": { "type": "string" },
+              "line": { "type": "number" }
+            }
+          }
+        },
+        "suggestions": { "type": "array", "items": { "type": "string" } },
+        "score": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "researchOutput": {
+      "type": "object",
+      "properties": {
+        "summary": { "type": "string" },
+        "keyFindings": { "type": "array", "items": { "type": "string" } },
+        "sources": { "type": "array", "items": { "type": "string" } },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "testInputs": {
+    "simpleText": "Hello, can you help me?",
+    "codeSnippet": "function add(a, b) { return a + b; }",
+    "complexTask": "Analyze this codebase and identify potential security vulnerabilities, then propose fixes.",
+    "dataTransform": {
+      "data": [
+        { "id": 1, "name": "Alice" },
+        { "id": 2, "name": "Bob" }
+      ],
+      "format": "json",
+      "operations": ["filter", "sort", "transform"]
+    },
+    "researchQuery": {
+      "topic": "AI agent orchestration patterns",
+      "depth": "deep",
+      "sources": ["academic", "industry"]
+    }
+  }
+}

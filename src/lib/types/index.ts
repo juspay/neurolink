@@ -60,3 +60,6 @@ export * from "./exporter.js";
 export * from "./span.js";
 export * from "./imageGen.js";
 export * from "./elicitation.js";
+
+// Multi-Agent orchestration types
+export * from "./agentNetwork.js";
