@@ -156,17 +156,13 @@
       "name": "api-key-server",
       "transport": "http",
       "url": "https://api.example.com/mcp",
-      "auth": {
-        "type": "api-key",
-        "apiKey": "${YOUR_API_KEY}"
-      },
       "headers": {
         "X-API-Key": "${YOUR_API_KEY}"
       },
       "httpOptions": {
         "requestTimeout": 30000
       },
-      "description": "MCP server with API key authentication (key in header)"
+      "description": "MCP server with API key authentication - set API keys via headers (X-API-Key or Authorization)"
     },
     "enterprise-oauth-server": {
       "name": "enterprise-oauth-server",
