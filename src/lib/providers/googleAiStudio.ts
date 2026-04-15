@@ -29,6 +29,7 @@ import type {
   GoogleGenAIClass,
   LiveServerMessage,
   AudioChunk,
+  NativeToolsConfig,
   StreamOptions,
   StreamResult,
   StreamToolCall,
@@ -61,7 +62,6 @@ import {
   executeNativeToolCalls,
   extractTextFromParts,
   handleMaxStepsTermination,
-  type NativeToolsConfig,
   pushModelResponseToHistory,
   sanitizeToolsForGemini,
 } from "./googleNativeGemini3.js";

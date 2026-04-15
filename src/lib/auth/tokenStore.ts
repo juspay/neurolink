@@ -26,9 +26,6 @@ import type {
   TokenRefresher,
 } from "../types/index.js";
 
-// Re-export so existing consumers of `../auth/tokenStore.js` keep working.
-export type { StoredOAuthTokens, TokenRefresher };
-
 const { readFile, writeFile, mkdir, unlink, access, chmod, rename } = fs;
 
 // =============================================================================

@@ -1,11 +1,5 @@
-import {
-  Hippocampus,
-  type HippocampusConfig,
-  type StorageConfig,
-} from "@juspay/hippocampus";
+import { Hippocampus, type HippocampusConfig } from "@juspay/hippocampus";
 import { logger } from "../utils/logger.js";
-
-export type { HippocampusConfig, StorageConfig };
 
 export function initializeHippocampus(
   config: HippocampusConfig,

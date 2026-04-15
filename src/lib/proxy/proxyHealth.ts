@@ -3,8 +3,6 @@ import type {
   ProxyReadinessState,
 } from "../types/index.js";
 
-export type { ProxyHealthResponse, ProxyReadinessState };
-
 export function createProxyReadinessState(
   startTimeMs: number = Date.now(),
 ): ProxyReadinessState {

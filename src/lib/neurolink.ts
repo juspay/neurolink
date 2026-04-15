@@ -130,10 +130,8 @@ import { ToolRouter } from "./mcp/routing/index.js";
 import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
 import { inferAnnotations, isSafeToRetry } from "./mcp/toolAnnotations.js";
 import { MCPToolRegistry } from "./mcp/toolRegistry.js";
-import {
-  type HippocampusConfig,
-  initializeHippocampus,
-} from "./memory/hippocampusInitializer.js";
+import type { HippocampusConfig } from "@juspay/hippocampus";
+import { initializeHippocampus } from "./memory/hippocampusInitializer.js";
 import { createMemoryRetrievalTools } from "./memory/memoryRetrievalTools.js";
 import {
   getMetricsAggregator,

@@ -1125,36 +1125,3 @@ export class NeuroLinkClient {
 export function createClient(config: ClientConfig): NeuroLinkClient {
   return new NeuroLinkClient(config);
 }
-
-// =============================================================================
-// Type Exports
-// =============================================================================
-
-export type {
-  ClientConfig,
-  ClientRequestOptions,
-  ClientApiResponse,
-  ClientApiError,
-  ClientRetryConfig,
-  ClientMiddleware,
-  ClientMiddlewareRequest,
-  ClientMiddlewareResponse,
-  ClientMiddlewareContext,
-  ClientStreamCallbacks,
-  ClientStreamEvent,
-  ClientStreamResult,
-  ClientGenerateRequestOptions,
-  ClientGenerateResponse,
-  ClientStreamRequestOptions,
-  ClientAgentExecuteOptions,
-  ClientAgentExecuteResult,
-  ClientAgentInfo,
-  ClientWorkflowExecuteOptions,
-  ClientWorkflowExecuteResult,
-  ClientWorkflowInfo,
-  ClientToolInfo,
-  ClientProviderStatus,
-  ClientWebSocketOptions,
-  ClientWebSocketState,
-  ClientWebSocketMessageHandler,
-};

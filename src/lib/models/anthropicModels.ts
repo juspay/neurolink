@@ -11,8 +11,7 @@ import type {
 } from "../types/index.js";
 import { ModelAccessError } from "../types/index.js";
 
-// Re-export for convenience
-export type { ClaudeSubscriptionTier, AnthropicModelMetadata };
+// Re-export runtime value for convenience
 export { ModelAccessError };
 
 // ============================================================================

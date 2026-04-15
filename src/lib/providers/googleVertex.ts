@@ -44,6 +44,7 @@ import type {
   TextGenerationOptions,
   GenAIClient,
   GoogleGenAIClass,
+  NativeToolsConfig,
   NeurolinkCredentials,
   StreamOptions,
   StreamResult,
@@ -90,7 +91,6 @@ import {
   extractTextFromParts,
   handleMaxStepsTermination,
   normalizeToolsForJsonSchemaProvider,
-  type NativeToolsConfig,
   pushModelResponseToHistory,
   sanitizeToolsForGemini,
 } from "./googleNativeGemini3.js";

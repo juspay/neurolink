@@ -9,7 +9,6 @@ import type {
   RetryContext,
   RetryDecision,
 } from "../types/index.js";
-export type { RetryPolicy };
 
 /**
  * Base retry policy with common configuration

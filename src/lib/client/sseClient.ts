@@ -700,14 +700,3 @@ export class NeuroLinkSSE {
 export function createSSEClient(config: SSEConfig): NeuroLinkSSE {
   return new NeuroLinkSSE(config);
 }
-
-// =============================================================================
-// Type Exports
-// =============================================================================
-
-export type {
-  ClientStreamCallbacks,
-  StreamEvent,
-  StreamResult,
-  ClientApiError,
-};

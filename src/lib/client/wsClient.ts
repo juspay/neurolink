@@ -12,7 +12,6 @@ import type {
   ClientStreamCallbacks,
   ClientStreamEvent as StreamEvent,
   ClientStreamResult as StreamResult,
-  ClientApiError,
   WebSocketEventHandlers,
   ClientClientWebSocketState,
   ClientWebSocketMessage,
@@ -463,14 +462,3 @@ export function createWebSocketClient(
 ): NeuroLinkWebSocket {
   return new NeuroLinkWebSocket(config);
 }
-
-// =============================================================================
-// Type Exports
-// =============================================================================
-
-export type {
-  ClientStreamCallbacks,
-  StreamEvent,
-  StreamResult,
-  ClientApiError,
-};

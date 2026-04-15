@@ -16,8 +16,6 @@ import type {
 
 import { ERROR_MESSAGES, FileErrorCode } from "./FileErrorCode.js";
 
-export type { FileProcessingError };
-
 /**
  * Summary of file processing operations.
  */

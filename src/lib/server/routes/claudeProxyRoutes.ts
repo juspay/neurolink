@@ -49,8 +49,8 @@ import {
 import {
   buildProxyTranslationPlan,
   parseRetryAfterMs,
-  type ProxyTranslationPlan,
 } from "../../proxy/routingPolicy.js";
+import type { ProxyTranslationPlan } from "../../types/index.js";
 import { writeJsonSnapshotAtomically } from "../../proxy/snapshotPersistence.js";
 import {
   recordAttempt,

@@ -57,7 +57,7 @@ module.exports = {
       // Pattern C: `export { type X } from "..."` (inline type modifier).
       ExportNamedDeclaration(node) {
         // `export type { X } from "..."` has `exportKind === "type"` at the declaration level.
-        if (node.exportKind === "type" && node.source) {
+        if (node.exportKind === "type") {
           context.report({ node, messageId: "noTypeReExport" });
           return;
         }

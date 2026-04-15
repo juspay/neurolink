@@ -12,8 +12,6 @@ import type {
 
 import { SpanStatus } from "../../types/index.js";
 
-export type { Sampler };
-
 /**
  * Always sample all spans
  */

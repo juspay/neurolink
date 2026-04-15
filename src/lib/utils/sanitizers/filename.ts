@@ -99,7 +99,6 @@ import type {
   SanitizeFileNameOptions,
   SanitizeDisplayNameOptions,
 } from "../../types/index.js";
-export type { SanitizeFileNameOptions, SanitizeDisplayNameOptions };
 
 /**
  * Sanitize a filename for safe filesystem storage.

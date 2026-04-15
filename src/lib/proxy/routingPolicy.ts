@@ -6,12 +6,6 @@ import type {
   ProxyTranslationPlan,
 } from "../types/index.js";
 
-export type {
-  ClaudeProxyModelTier,
-  ProxyTranslationAttempt,
-  ProxyTranslationPlan,
-};
-
 export function inferClaudeProxyModelTier(
   modelName: string,
 ): ClaudeProxyModelTier {

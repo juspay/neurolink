@@ -10,8 +10,6 @@ import type {
   SpanProcessor,
 } from "../types/index.js";
 
-export type { SpanProcessor };
-
 /**
  * No-op processor that passes spans through unchanged
  */

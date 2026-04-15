@@ -41,15 +41,6 @@ import {
 } from "../utils/schemaConversion.js";
 
 import { createNativeThinkingConfig } from "../utils/thinkingConfig.js";
-export type {
-  CollectedChunkResult,
-  NativeFunctionCall,
-  NativeFunctionDeclaration,
-  NativeFunctionResponse,
-  NativeToolDeclarationsResult,
-  NativeToolsConfig,
-  TextChannel,
-};
 
 // ── Functions ──
 

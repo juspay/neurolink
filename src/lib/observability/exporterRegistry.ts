@@ -5,11 +5,11 @@
 
 import { logger } from "../utils/logger.js";
 import type { BaseExporter } from "./exporters/baseExporter.js";
-import type { Sampler } from "./sampling/samplers.js";
 import { AlwaysSampler } from "./sampling/samplers.js";
 import type {
   ExporterHealthStatus,
   ExportResult,
+  Sampler,
   SpanData,
 } from "../types/index.js";
 
