@@ -1,11 +1,11 @@
+import chalk from "chalk";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import chalk from "chalk";
 import packageJson from "../../package.json" with { type: "json" };
-import { CLICommandFactory } from "./factories/commandFactory.js";
 import { globalSession } from "../lib/session/globalSessionState.js";
-import { handleError } from "./errorHandler.js";
 import { logger } from "../lib/utils/logger.js";
+import { handleError } from "./errorHandler.js";
+import { CLICommandFactory } from "./factories/commandFactory.js";
 import { SetupCommandFactory } from "./factories/setupCommandFactory.js";
 import { AuthCommandFactory } from "./factories/authCommandFactory.js";
 import { ServerCommandFactory } from "./commands/server.js";
@@ -121,9 +121,7 @@ export function initializeCliParser() {
           if (!alreadyExitedByHandleError) {
             process.stderr.write(
               chalk.red(
-                `CLI Error: ${
-                  err.message || msg || "An unexpected error occurred."
-                }\n`,
+                `CLI Error: ${err.message || msg || "An unexpected error occurred."}\n`,
               ),
             );
             // If it's a yargs internal parsing error, show help.

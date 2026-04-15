@@ -46,7 +46,7 @@ NeuroLink's auth system follows the same architectural patterns used for AI prov
    provider.authenticateToken(token)     Dynamic import
          |                               provider module
    TokenValidationResult                       |
-         |                               MastraAuthProvider
+         |                               AuthProvider
    userId/email/roles                    instance returned
    merged into context
 ```
@@ -85,7 +85,7 @@ The `create(type, config)` method:
 1. Calls `ensureInitialized()` to lazily run `registerAll()` once
 2. Resolves the name through alias lookup via `resolveName()`
 3. Calls the registered factory function with the provider config
-4. Returns the `MastraAuthProvider` instance
+4. Returns the `AuthProvider` instance
 
 ### AuthProviderRegistry
 
@@ -109,7 +109,7 @@ Both `AuthProviderFactory` and `AuthProviderRegistry` use `createErrorFactory()`
 
 ## Provider Interface
 
-All providers implement the `MastraAuthProvider` type, which defines:
+All providers implement the `AuthProvider` type, which defines:
 
 ### Required Methods
 

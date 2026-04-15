@@ -145,7 +145,7 @@ const rateLimit = createRateLimitByUserMiddleware({
 | JWT         | `jwt`         | Yes            | Yes          | Yes  | Yes          | `jwt-auth`, `jwt-token`           |
 | Custom      | `custom`      | Yes            | Yes          | Yes  | Yes          | `custom-auth`                     |
 
-All providers implement the `MastraAuthProvider` interface, ensuring a consistent API regardless of which identity platform you choose.
+All providers implement the `AuthProvider` interface, ensuring a consistent API regardless of which identity platform you choose.
 
 ## SDK API
 
@@ -162,7 +162,7 @@ new NeuroLink({
   },
 });
 
-// Form 2: Direct MastraAuthProvider instance
+// Form 2: Direct AuthProvider instance
 const provider = await AuthProviderFactory.create("clerk", {
   type: "clerk",
   secretKey: process.env.CLERK_SECRET_KEY!,

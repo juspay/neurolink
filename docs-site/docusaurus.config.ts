@@ -143,7 +143,6 @@ const config: Config = {
             "**/package-overrides.md",
             "**/mcp/concurrency.md",
             "**/features/interactive-cli.md",
-            "**/mastra-features-implementation/**",
           ],
           showLastUpdateAuthor: true,
           showLastUpdateTime: true,

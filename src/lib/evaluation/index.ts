@@ -28,7 +28,7 @@ export * from "./reporting/index.js";
 // Re-export scorers
 export * from "./scorers/index.js";
 
-// Re-export Factory and Registry (Mastra-inspired patterns)
+// Re-export Factory and Registry
 export { BatchEvaluator } from "./BatchEvaluator.js";
 
 export { EvaluationAggregator } from "./EvaluationAggregator.js";

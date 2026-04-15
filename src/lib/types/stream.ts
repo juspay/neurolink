@@ -389,6 +389,13 @@ export type StreamOptions = {
   /** Include only these tools by name (whitelist). If set, only matching tools are available. */
   toolFilter?: string[];
 
+  /**
+   * Filter available tools by name.
+   * Used by dynamic arguments to dynamically select which tools to enable.
+   * Merged into `toolFilter` before tool filtering runs.
+   */
+  enabledToolNames?: string[];
+
   /** Exclude these tools by name (blacklist). Applied after toolFilter. */
   excludeTools?: string[];
 

@@ -572,7 +572,7 @@ export type PermissionDefinition = {
  */
 export type AuthMiddlewareOptions = {
   /** Auth provider instance */
-  provider: MastraAuthProvider;
+  provider: AuthProvider;
   /** Routes to exclude from authentication */
   excludePaths?: string[];
   /** Whether auth is optional (continue if no token) */
@@ -844,7 +844,7 @@ export type CustomAuthConfig = {
 // =============================================================================
 
 /**
- * Configuration for MastraAuthProvider.
+ * Configuration for AuthProvider.
  *
  * Discriminated union of base + each provider-specific config so that
  * provider factories receive the properly typed config without requiring
@@ -976,7 +976,7 @@ export type AuthEventHandler = (event: AuthEventData) => void | Promise<void>;
  */
 export type AuthProviderFactoryFn = (
   config: AuthProviderConfig,
-) => Promise<MastraAuthProvider>;
+) => Promise<AuthProvider>;
 
 // =============================================================================
 // HEALTH CHECK TYPES
@@ -1062,7 +1062,7 @@ export type AuthProviderHealthStatus = {
 };
 
 // =============================================================================
-// PROVIDER SUB-TYPES (composed into MastraAuthProvider)
+// PROVIDER SUB-TYPES (composed into AuthProvider)
 // =============================================================================
 
 /**
@@ -1196,7 +1196,7 @@ export type AuthLifecycle = {
  * Composed from focused sub-types so consumers can depend on only the
  * slice they need (e.g. `AuthTokenValidator` for token-only middleware).
  *
- * Implements Mastra-style auth provider pattern with unified methods for:
+ * Unified auth provider interface covering:
  * - Token validation  (AuthTokenValidator)
  * - User authorization (AuthUserAuthorizer)
  * - Session management (AuthSessionManager)
@@ -1204,7 +1204,7 @@ export type AuthLifecycle = {
  * - User management    (AuthUserManager)
  * - Lifecycle          (AuthLifecycle)
  */
-export type MastraAuthProvider = AuthTokenValidator &
+export type AuthProvider = AuthTokenValidator &
   AuthUserAuthorizer &
   AuthSessionManager &
   AuthRequestHandler &
@@ -1264,7 +1264,7 @@ export type AuthJWKSCacheEntry = {
 /** Async constructor for an auth provider given its config. */
 export type AuthProviderConstructor = (
   config: AuthProviderConfig,
-) => Promise<MastraAuthProvider>;
+) => Promise<AuthProvider>;
 
 /** Registration row for an auth provider in AuthProviderFactory. */
 export type AuthProviderRegistration = {

@@ -60,3 +60,6 @@ export * from "./exporter.js";
 export * from "./span.js";
 export * from "./imageGen.js";
 export * from "./elicitation.js";
+
+// Dynamic Arguments types
+export * from "./dynamic.js";

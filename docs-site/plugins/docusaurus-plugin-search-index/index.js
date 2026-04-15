@@ -135,7 +135,6 @@ module.exports = function searchIndexPlugin(context, options = {}) {
     "**/package-overrides.md",
     "**/mcp/concurrency.md",
     "**/features/interactive-cli.md",
-    "**/mastra-features-implementation/**",
     "**/404.md",
     "**/404.mdx",
   ];

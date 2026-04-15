@@ -23,7 +23,7 @@ import type {
   AuthRequestContext,
   AuthSession,
   AuthUser,
-  MastraAuthProvider,
+  AuthProvider,
   RBACConfig,
   SessionConfig,
   SessionStorage,
@@ -172,7 +172,7 @@ export class InMemorySessionStorage implements SessionStorage {
  * - updateUserPermissions() - Update user permissions in provider
  * - dispose() - Clean up resources
  */
-export abstract class BaseAuthProvider implements MastraAuthProvider {
+export abstract class BaseAuthProvider implements AuthProvider {
   abstract readonly type: AuthProviderType;
   readonly config: AuthProviderConfig;
 
@@ -781,7 +781,7 @@ export abstract class BaseAuthProvider implements MastraAuthProvider {
   }
 
   // ===========================================================================
-  // METHODS FROM MastraAuthProvider INTERFACE
+  // METHODS FROM AuthProvider INTERFACE
   // ===========================================================================
 
   /**

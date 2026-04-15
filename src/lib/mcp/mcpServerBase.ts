@@ -4,7 +4,7 @@
  * Abstract base class for creating custom MCP servers with consistent patterns
  * for tool registration, execution, and lifecycle management.
  *
- * Implements Mastra-style MCPServerBase features including:
+ * Implements MCPServerBase features including:
  * - Tool annotation support (readOnlyHint, destructiveHint, idempotentHint)
  * - Lifecycle hooks (onInit, onStart, onStop)
  * - Event emission for tool operations

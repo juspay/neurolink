@@ -2558,7 +2558,17 @@ export class CLICommandFactory {
       // Initialize SDK and session
       const sdk = globalSession.getOrCreateNeuroLink();
       const sessionVariables = globalSession.getSessionVariables();
-      const enhancedOptions = { ...options, ...sessionVariables };
+      const enhancedOptions = {
+        ...options,
+        ...sessionVariables,
+        // enabledToolNames must be string[] for the SDK — normalize from CSV string
+        ...(typeof sessionVariables.enabledToolNames === "string" && {
+          enabledToolNames: (sessionVariables.enabledToolNames as string)
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+        }),
+      };
       const sessionId = globalSession.getCurrentSessionId();
       const context = sessionId
         ? { ...options.context, sessionId }
@@ -2590,84 +2600,91 @@ export class CLICommandFactory {
         enhancedOptions,
       );
 
-      // Execute generation
-      const result = await sdk.generate({
-        input: generateInput,
-        csvOptions: {
-          maxRows: argv.csvMaxRows as number | undefined,
-          formatStyle: argv.csvFormat as
-            | "raw"
-            | "markdown"
-            | "json"
+      const runGenerate = () =>
+        sdk.generate({
+          input: generateInput,
+          csvOptions: {
+            maxRows: argv.csvMaxRows as number | undefined,
+            formatStyle: argv.csvFormat as
+              | "raw"
+              | "markdown"
+              | "json"
+              | undefined,
+          },
+          videoOptions: {
+            frames: argv.videoFrames as number | undefined,
+            quality: argv.videoQuality as number | undefined,
+            format: argv.videoFormat as "jpeg" | "png" | undefined,
+            transcribeAudio: argv.transcribeAudio as boolean | undefined,
+          },
+          output: outputConfig,
+          provider: enhancedOptions.provider,
+          model: enhancedOptions.model,
+          temperature: enhancedOptions.temperature,
+          maxTokens: enhancedOptions.maxTokens,
+          systemPrompt: enhancedOptions.systemPrompt,
+          timeout: enhancedOptions.timeout
+            ? enhancedOptions.timeout * 1000
+            : undefined,
+          disableTools: enhancedOptions.disableTools,
+          enabledToolNames: enhancedOptions.enabledToolNames as
+            | string[]
             | undefined,
-        },
-        videoOptions: {
-          frames: argv.videoFrames as number | undefined,
-          quality: argv.videoQuality as number | undefined,
-          format: argv.videoFormat as "jpeg" | "png" | undefined,
-          transcribeAudio: argv.transcribeAudio as boolean | undefined,
-        },
-        output: outputConfig,
-        provider: enhancedOptions.provider,
-        model: enhancedOptions.model,
-        temperature: enhancedOptions.temperature,
-        maxTokens: enhancedOptions.maxTokens,
-        systemPrompt: enhancedOptions.systemPrompt,
-        timeout: enhancedOptions.timeout
-          ? enhancedOptions.timeout * 1000
-          : undefined,
-        disableTools: enhancedOptions.disableTools,
-        enableAnalytics: enhancedOptions.enableAnalytics,
-        enableEvaluation: enhancedOptions.enableEvaluation,
-        evaluationDomain: enhancedOptions.evaluationDomain as
-          | string
-          | undefined,
-        toolUsageContext: enhancedOptions.toolUsageContext as
-          | string
-          | undefined,
-        context: context,
-        region: (options as Record<string, unknown>).region as
-          | string
-          | undefined,
-        thinkingConfig: createThinkingConfigFromRecord(
-          options as Record<string, unknown>,
-        ),
-        factoryConfig: enhancedOptions.domain
-          ? {
-              domainType: enhancedOptions.domain,
-              enhancementType: "domain-configuration",
-              validateDomainData: true,
-            }
-          : undefined,
-        // RAG configuration
-        rag: (argv.ragFiles as string[] | undefined)?.length
-          ? {
-              files: argv.ragFiles as string[],
-              strategy: argv.ragStrategy as ChunkingStrategy | undefined,
-              chunkSize: argv.ragChunkSize as number | undefined,
-              chunkOverlap: argv.ragChunkOverlap as number | undefined,
-              topK: argv.ragTopK as number | undefined,
-            }
-          : undefined,
-        // TTS configuration
-        tts: enhancedOptions.tts
-          ? {
-              enabled: true,
-              useAiResponse: true,
-              voice: enhancedOptions.ttsVoice as string | undefined,
-              format:
-                (enhancedOptions.ttsFormat as "mp3" | "wav" | "ogg" | "opus") ||
-                undefined,
-              speed: enhancedOptions.ttsSpeed as number | undefined,
-              quality: enhancedOptions.ttsQuality as
-                | "standard"
-                | "hd"
-                | undefined,
-              output: enhancedOptions.ttsOutput as string | undefined,
-              play: enhancedOptions.ttsPlay as boolean | undefined,
-            }
-          : undefined,
-      });
+          enableAnalytics: enhancedOptions.enableAnalytics,
+          enableEvaluation: enhancedOptions.enableEvaluation,
+          evaluationDomain: enhancedOptions.evaluationDomain as
+            | string
+            | undefined,
+          toolUsageContext: enhancedOptions.toolUsageContext as
+            | string
+            | undefined,
+          context: context,
+          region: (options as Record<string, unknown>).region as
+            | string
+            | undefined,
+          thinkingConfig: createThinkingConfigFromRecord(
+            options as Record<string, unknown>,
+          ),
+          factoryConfig: enhancedOptions.domain
+            ? {
+                domainType: enhancedOptions.domain,
+                enhancementType: "domain-configuration",
+                validateDomainData: true,
+              }
+            : undefined,
+          // RAG configuration
+          rag: (argv.ragFiles as string[] | undefined)?.length
+            ? {
+                files: argv.ragFiles as string[],
+                strategy: argv.ragStrategy as ChunkingStrategy | undefined,
+                chunkSize: argv.ragChunkSize as number | undefined,
+                chunkOverlap: argv.ragChunkOverlap as number | undefined,
+                topK: argv.ragTopK as number | undefined,
+              }
+            : undefined,
+          // TTS configuration
+          tts: enhancedOptions.tts
+            ? {
+                enabled: true,
+                useAiResponse: true,
+                voice: enhancedOptions.ttsVoice as string | undefined,
+                format:
+                  (enhancedOptions.ttsFormat as
+                    | "mp3"
+                    | "wav"
+                    | "ogg"
+                    | "opus") || undefined,
+                speed: enhancedOptions.ttsSpeed as number | undefined,
+                quality: enhancedOptions.ttsQuality as
+                  | "standard"
+                  | "hd"
+                  | undefined,
+                output: enhancedOptions.ttsOutput as string | undefined,
+                play: enhancedOptions.ttsPlay as boolean | undefined,
+              }
+            : undefined,
+        });
+      const result = await runGenerate();
 
       // Handle successful result
       await CLICommandFactory.handleGenerateSuccess(
@@ -2855,79 +2872,96 @@ export class CLICommandFactory {
       argv.file as string | string[] | undefined,
     );
 
-    const stream = await sdk.stream({
-      input: {
-        text: inputText,
-        ...(imageBuffers && { images: imageBuffers }),
-        ...(csvFiles && { csvFiles }),
-        ...(pdfFiles && { pdfFiles }),
-        ...(videoFiles && { videoFiles }),
-        ...(files && { files }),
-      },
-      csvOptions: {
-        maxRows: argv.csvMaxRows as number | undefined,
-        formatStyle: argv.csvFormat as "raw" | "markdown" | "json" | undefined,
-      },
-      videoOptions: {
-        frames: argv.videoFrames as number | undefined,
-        quality: argv.videoQuality as number | undefined,
-        format: argv.videoFormat as "jpeg" | "png" | undefined,
-        transcribeAudio: argv.transcribeAudio as boolean | undefined,
-      },
-      provider: enhancedOptions.provider as string | undefined,
-      model: enhancedOptions.model as string | undefined,
-      temperature: enhancedOptions.temperature as number | undefined,
-      maxTokens: enhancedOptions.maxTokens as number | undefined,
-      systemPrompt: enhancedOptions.systemPrompt as string | undefined,
-      timeout: enhancedOptions.timeout
-        ? (enhancedOptions.timeout as number) * 1000
-        : undefined,
-      disableTools: enhancedOptions.disableTools as boolean | undefined,
-      enableAnalytics: enhancedOptions.enableAnalytics as boolean | undefined,
-      enableEvaluation: enhancedOptions.enableEvaluation as boolean | undefined,
-      evaluationDomain: enhancedOptions.evaluationDomain as string | undefined,
-      toolUsageContext: enhancedOptions.toolUsageContext as string | undefined,
-      context: context,
-      region: (options as Record<string, unknown>).region as string | undefined,
-      thinkingConfig: createThinkingConfigFromRecord(
-        options as Record<string, unknown>,
-      ),
-      factoryConfig: enhancedOptions.domain
-        ? {
-            domainType: enhancedOptions.domain as string,
-            enhancementType: "domain-configuration",
-            validateDomainData: true,
-          }
-        : undefined,
-      // RAG configuration
-      rag: (argv.ragFiles as string[] | undefined)?.length
-        ? {
-            files: argv.ragFiles as string[],
-            strategy: argv.ragStrategy as ChunkingStrategy | undefined,
-            chunkSize: argv.ragChunkSize as number | undefined,
-            chunkOverlap: argv.ragChunkOverlap as number | undefined,
-            topK: argv.ragTopK as number | undefined,
-          }
-        : undefined,
-      // TTS configuration
-      tts: enhancedOptions.tts
-        ? {
-            enabled: true,
-            useAiResponse: true,
-            voice: enhancedOptions.ttsVoice as string | undefined,
-            format:
-              (enhancedOptions.ttsFormat as "mp3" | "wav" | "ogg" | "opus") ||
-              undefined,
-            speed: enhancedOptions.ttsSpeed as number | undefined,
-            quality: enhancedOptions.ttsQuality as
-              | "standard"
-              | "hd"
-              | undefined,
-            output: enhancedOptions.ttsOutput as string | undefined,
-            play: enhancedOptions.ttsPlay as boolean | undefined,
-          }
-        : undefined,
-    });
+    const runStream = () =>
+      sdk.stream({
+        input: {
+          text: inputText,
+          ...(imageBuffers && { images: imageBuffers }),
+          ...(csvFiles && { csvFiles }),
+          ...(pdfFiles && { pdfFiles }),
+          ...(videoFiles && { videoFiles }),
+          ...(files && { files }),
+        },
+        csvOptions: {
+          maxRows: argv.csvMaxRows as number | undefined,
+          formatStyle: argv.csvFormat as
+            | "raw"
+            | "markdown"
+            | "json"
+            | undefined,
+        },
+        videoOptions: {
+          frames: argv.videoFrames as number | undefined,
+          quality: argv.videoQuality as number | undefined,
+          format: argv.videoFormat as "jpeg" | "png" | undefined,
+          transcribeAudio: argv.transcribeAudio as boolean | undefined,
+        },
+        provider: enhancedOptions.provider as string | undefined,
+        model: enhancedOptions.model as string | undefined,
+        temperature: enhancedOptions.temperature as number | undefined,
+        maxTokens: enhancedOptions.maxTokens as number | undefined,
+        systemPrompt: enhancedOptions.systemPrompt as string | undefined,
+        timeout: enhancedOptions.timeout
+          ? (enhancedOptions.timeout as number) * 1000
+          : undefined,
+        disableTools: enhancedOptions.disableTools as boolean | undefined,
+        enabledToolNames: enhancedOptions.enabledToolNames as
+          | string[]
+          | undefined,
+        enableAnalytics: enhancedOptions.enableAnalytics as boolean | undefined,
+        enableEvaluation: enhancedOptions.enableEvaluation as
+          | boolean
+          | undefined,
+        evaluationDomain: enhancedOptions.evaluationDomain as
+          | string
+          | undefined,
+        toolUsageContext: enhancedOptions.toolUsageContext as
+          | string
+          | undefined,
+        context: context,
+        region: (options as Record<string, unknown>).region as
+          | string
+          | undefined,
+        thinkingConfig: createThinkingConfigFromRecord(
+          options as Record<string, unknown>,
+        ),
+        factoryConfig: enhancedOptions.domain
+          ? {
+              domainType: enhancedOptions.domain as string,
+              enhancementType: "domain-configuration",
+              validateDomainData: true,
+            }
+          : undefined,
+        // RAG configuration
+        rag: (argv.ragFiles as string[] | undefined)?.length
+          ? {
+              files: argv.ragFiles as string[],
+              strategy: argv.ragStrategy as ChunkingStrategy | undefined,
+              chunkSize: argv.ragChunkSize as number | undefined,
+              chunkOverlap: argv.ragChunkOverlap as number | undefined,
+              topK: argv.ragTopK as number | undefined,
+            }
+          : undefined,
+        // TTS configuration
+        tts: enhancedOptions.tts
+          ? {
+              enabled: true,
+              useAiResponse: true,
+              voice: enhancedOptions.ttsVoice as string | undefined,
+              format:
+                (enhancedOptions.ttsFormat as "mp3" | "wav" | "ogg" | "opus") ||
+                undefined,
+              speed: enhancedOptions.ttsSpeed as number | undefined,
+              quality: enhancedOptions.ttsQuality as
+                | "standard"
+                | "hd"
+                | undefined,
+              output: enhancedOptions.ttsOutput as string | undefined,
+              play: enhancedOptions.ttsPlay as boolean | undefined,
+            }
+          : undefined,
+      });
+    const stream = await runStream();
 
     const streamResult = await CLICommandFactory.processStreamWithTimeout(
       stream,
@@ -3403,7 +3437,17 @@ export class CLICommandFactory {
 
       const sdk = globalSession.getOrCreateNeuroLink();
       const sessionVariables = globalSession.getSessionVariables();
-      const enhancedOptions = { ...options, ...sessionVariables };
+      const enhancedOptions = {
+        ...options,
+        ...sessionVariables,
+        // enabledToolNames must be string[] for the SDK — normalize from CSV string
+        ...(typeof sessionVariables.enabledToolNames === "string" && {
+          enabledToolNames: (sessionVariables.enabledToolNames as string)
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+        }),
+      };
       const sessionId = globalSession.getCurrentSessionId();
 
       for (let i = 0; i < prompts.length; i++) {
@@ -3453,32 +3497,37 @@ export class CLICommandFactory {
             ? { ...contextMetadata, sessionId }
             : contextMetadata;
 
-          const result = await sdk.generate({
-            input: { text: inputText },
-            provider: enhancedOptions.provider,
-            model: enhancedOptions.model,
-            temperature: enhancedOptions.temperature,
-            maxTokens: enhancedOptions.maxTokens,
-            systemPrompt: enhancedOptions.systemPrompt,
-            timeout: enhancedOptions.timeout
-              ? enhancedOptions.timeout * 1000
-              : undefined,
-            disableTools: enhancedOptions.disableTools,
-            evaluationDomain: enhancedOptions.evaluationDomain as
-              | string
-              | undefined,
-            toolUsageContext: enhancedOptions.toolUsageContext as
-              | string
-              | undefined,
-            context: context,
-            factoryConfig: enhancedOptions.domain
-              ? {
-                  domainType: enhancedOptions.domain as string,
-                  enhancementType: "domain-configuration",
-                  validateDomainData: true,
-                }
-              : undefined,
-          });
+          const runBatchGenerate = () =>
+            sdk.generate({
+              input: { text: inputText },
+              provider: enhancedOptions.provider,
+              model: enhancedOptions.model,
+              temperature: enhancedOptions.temperature,
+              maxTokens: enhancedOptions.maxTokens,
+              systemPrompt: enhancedOptions.systemPrompt,
+              timeout: enhancedOptions.timeout
+                ? enhancedOptions.timeout * 1000
+                : undefined,
+              disableTools: enhancedOptions.disableTools,
+              enabledToolNames: enhancedOptions.enabledToolNames as
+                | string[]
+                | undefined,
+              evaluationDomain: enhancedOptions.evaluationDomain as
+                | string
+                | undefined,
+              toolUsageContext: enhancedOptions.toolUsageContext as
+                | string
+                | undefined,
+              context: context,
+              factoryConfig: enhancedOptions.domain
+                ? {
+                    domainType: enhancedOptions.domain as string,
+                    enhancementType: "domain-configuration",
+                    validateDomainData: true,
+                  }
+                : undefined,
+            });
+          const result = await runBatchGenerate();
 
           results.push({ prompt: prompts[i], response: result.content });
 

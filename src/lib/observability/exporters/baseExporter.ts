@@ -1,6 +1,6 @@
 /**
  * Abstract base class for all observability exporters
- * Follows NeuroLink's factory pattern and Mastra's unified exporter interface
+ * Follows NeuroLink's factory pattern with a unified exporter interface
  */
 
 import { logger } from "../../utils/logger.js";

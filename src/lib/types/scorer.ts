@@ -1,6 +1,6 @@
 /**
  * @file Scorer type definitions for NeuroLink evaluation system
- * Mastra-style modular scorer interfaces and types
+ * Modular scorer interfaces and types
  */
 
 import type { JsonObject } from "./common.js";

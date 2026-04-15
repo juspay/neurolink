@@ -5,7 +5,7 @@
 
 /**
  * Span types for AI operations
- * Following Mastra's span categorization and OTel GenAI conventions
+ * Following OTel GenAI conventions for span categorization
  */
 export enum SpanType {
   /** Agent execution run (reserved for future multi-agent support) */

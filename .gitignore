@@ -135,7 +135,6 @@ quality-metrics.json
 *.key
 *.pem
 test-output/
-docs/mastra-features-implementation
 # Generated docs search index
 docs-site/static/search-index.json
 .claude/worktrees/

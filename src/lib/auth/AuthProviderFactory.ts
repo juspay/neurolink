@@ -13,7 +13,7 @@ import type {
   AuthProviderConstructor,
   AuthProviderMetadata,
   AuthProviderRegistration,
-  MastraAuthProvider,
+  AuthProvider,
 } from "../types/index.js";
 
 // =============================================================================
@@ -68,7 +68,7 @@ export class AuthProviderFactory {
   static async createProvider(
     typeOrAlias: string,
     config: AuthProviderConfig,
-  ): Promise<MastraAuthProvider> {
+  ): Promise<AuthProvider> {
     const resolvedType = AuthProviderFactory.resolveType(typeOrAlias);
     const registration = AuthProviderFactory.providers.get(resolvedType);
 
@@ -162,6 +162,6 @@ export class AuthProviderFactory {
 export async function createAuthProvider(
   type: string,
   config: AuthProviderConfig,
-): Promise<MastraAuthProvider> {
+): Promise<AuthProvider> {
   return AuthProviderFactory.createProvider(type, config);
 }

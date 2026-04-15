@@ -9,7 +9,7 @@ import type { HITLConfig } from "../types/hitl.js";
 import type { ConversationMemoryConfig } from "./conversation.js";
 import type { ObservabilityConfig } from "./observability.js";
 import type {
-  MastraAuthProvider,
+  AuthProvider,
   AuthProviderType,
   AuthProviderConfig,
   Auth0Config,
@@ -152,8 +152,8 @@ export type MCPEnhancementsConfig = {
  * Authentication configuration for NeuroLink SDK
  */
 export type NeuroLinkAuthConfig =
-  | MastraAuthProvider
-  | { provider: MastraAuthProvider }
+  | AuthProvider
+  | { provider: AuthProvider }
   | { type: "auth0"; config: Auth0Config }
   | { type: "clerk"; config: ClerkConfig }
   | { type: "firebase"; config: FirebaseConfig }
@@ -170,7 +170,7 @@ export type NeuroLinkAuthConfig =
  * Re-export auth types for convenience
  */
 export type {
-  MastraAuthProvider,
+  AuthProvider,
   AuthProviderType,
   AuthProviderConfig,
   AuthenticatedContext,
