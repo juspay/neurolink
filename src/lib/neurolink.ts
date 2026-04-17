@@ -268,6 +268,8 @@ import {
   looksLikeModelAccessDenied as sharedLooksLikeModelAccessDenied,
   isNonRetryableProviderError as sharedIsNonRetryableProviderError,
 } from "./utils/providerErrorClassification.js";
+import { detectAndRedactPII } from "./utils/piiDetector.js";
+import { validateResponse } from "./utils/responseValidator.js";
 
 /**
  * NL-002: Classify MCP error messages into categories for AI disambiguation.
@@ -4120,6 +4122,54 @@ Current user's request: ${currentInput}`;
         "Input text is required and must be a non-empty string",
       );
     }
+
+    // Input validation (trimWhitespace, minLength, maxLength, requireContent).
+    // Guard on a string input.text — release's media-only / STT flows may leave
+    // it empty/undefined, and those never carry inputValidation anyway.
+    if (options.inputValidation && typeof options.input.text === "string") {
+      const iv = options.inputValidation;
+      if (iv.trimWhitespace) {
+        options.input.text = options.input.text.trim();
+      }
+      if (iv.requireContent && !options.input.text.trim()) {
+        throw new Error(
+          "Input content is required but was empty or whitespace",
+        );
+      }
+      if (iv.minLength && options.input.text.length < iv.minLength) {
+        throw new Error(
+          `Input text is too short (${options.input.text.length} < ${iv.minLength})`,
+        );
+      }
+      if (iv.maxLength && options.input.text.length > iv.maxLength) {
+        throw new Error(
+          `Input text is too long (${options.input.text.length} > ${iv.maxLength})`,
+        );
+      }
+    }
+
+    // PII detection and redaction
+    if (
+      options.piiDetection?.enabled &&
+      typeof options.input.text === "string"
+    ) {
+      const piiResult = await detectAndRedactPII(options.input.text, {
+        enabled: true,
+        action: options.piiDetection.action ?? "warn",
+        detectTypes: options.piiDetection.detectTypes,
+        customPatterns: options.piiDetection.customPatterns,
+        allowList: options.piiDetection.allowList,
+        redactionText: options.piiDetection.redactionText,
+      });
+      if (piiResult.action === "abort") {
+        throw new Error(
+          piiResult.feedback ?? "Request blocked: PII detected in input",
+        );
+      }
+      // Replace input text with redacted version
+      options.input.text = piiResult.text;
+    }
+
     this.enforceSessionBudget(options.maxBudgetUsd);
     this.applyGenerateLifecycleMiddleware(options);
     await this.applyAuthenticatedRequestContext(options);
@@ -4946,6 +4996,34 @@ Current user's request: ${currentInput}`;
       reasoningTokens: textResult.reasoningTokens,
       ...(textResult.retries && { retries: textResult.retries }),
     };
+
+    // Response validation (if configured)
+    if (options.responseValidation) {
+      const validationResult = validateResponse(generateResult.content ?? "", {
+        minLength: options.responseValidation.minLength,
+        maxLength: options.responseValidation.maxLength,
+        requiredPhrases: options.responseValidation.requiredPhrases,
+        forbiddenPhrases: options.responseValidation.forbiddenPhrases,
+        jsonSchema: options.responseValidation.jsonSchema,
+        customValidator: options.responseValidation.customValidator,
+        truncationAction: options.responseValidation.truncationAction,
+        truncationSuffix: options.responseValidation.truncationSuffix,
+        retryOnFailure: options.responseValidation.retryOnFailure,
+        maxRetries: options.responseValidation.maxRetries,
+      });
+
+      if (validationResult.action === "abort") {
+        throw new Error(
+          validationResult.feedback ??
+            `Response validation failed: ${validationResult.issues.map((i) => i.message).join("; ")}`,
+        );
+      }
+
+      // Apply validated/truncated text
+      if (validationResult.text !== generateResult.content) {
+        generateResult.content = validationResult.text;
+      }
+    }
 
     if (generateResult.analytics?.cost && generateResult.analytics.cost > 0) {
       this._sessionCostUsd += generateResult.analytics.cost;
@@ -8736,6 +8814,48 @@ Current user's request: ${currentInput}`;
     startTime: number,
   ): Promise<void> {
     await this.validateStreamInput(options);
+
+    // Input validation for stream
+    if (options.inputValidation && options.input?.text) {
+      const iv = options.inputValidation;
+      if (iv.trimWhitespace) {
+        options.input.text = options.input.text.trim();
+      }
+      if (iv.requireContent && !options.input.text.trim()) {
+        throw new Error(
+          "Input content is required but was empty or whitespace",
+        );
+      }
+      if (iv.minLength && options.input.text.length < iv.minLength) {
+        throw new Error(
+          `Input text is too short (${options.input.text.length} < ${iv.minLength})`,
+        );
+      }
+      if (iv.maxLength && options.input.text.length > iv.maxLength) {
+        throw new Error(
+          `Input text is too long (${options.input.text.length} > ${iv.maxLength})`,
+        );
+      }
+    }
+
+    // PII detection and redaction for stream
+    if (options.piiDetection?.enabled && options.input?.text) {
+      const piiResult = await detectAndRedactPII(options.input.text, {
+        enabled: true,
+        action: options.piiDetection.action ?? "warn",
+        detectTypes: options.piiDetection.detectTypes,
+        customPatterns: options.piiDetection.customPatterns,
+        allowList: options.piiDetection.allowList,
+        redactionText: options.piiDetection.redactionText,
+      });
+      if (piiResult.action === "abort") {
+        throw new Error(
+          piiResult.feedback ?? "Request blocked: PII detected in input",
+        );
+      }
+      options.input.text = piiResult.text;
+    }
+
     this.enforceSessionBudget(options.maxBudgetUsd);
     await this.applyAuthenticatedRequestContext(options);
     this.emitStreamStartEvents(options, startTime);

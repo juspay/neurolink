@@ -1342,3 +1342,15 @@ export {
   // Server Bridge
   createAuthValidatorFromProvider,
 } from "./auth/index.js";
+
+// ============================================================================
+// SAFETY UTILITIES — PII Detection, Response Validation, Tripwires
+// ============================================================================
+
+export { detectAndRedactPII } from "./utils/piiDetector.js";
+export { validateResponse } from "./utils/responseValidator.js";
+export {
+  TripwireEvaluator,
+  createDefaultTripwireEvaluator,
+  commonTripwires,
+} from "./utils/tripwireEvaluator.js";
