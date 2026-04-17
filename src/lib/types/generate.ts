@@ -27,6 +27,7 @@ import type {
 import type { NeurolinkCredentials } from "./providers.js";
 import type { FileWithMetadata } from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
+import type { ProcessorPipelineConfig } from "./ioProcessor.js";
 
 /**
  * Generate function options type - Primary method for content generation
@@ -538,6 +539,65 @@ export type GenerateOptions = {
      */
     additionalUsers?: AdditionalMemoryUser[];
   };
+
+  /**
+   * PII detection — scans and optionally redacts PII from input before the LLM call.
+   * @example { enabled: true, action: "redact", detectTypes: ["ssn", "email"] }
+   */
+  piiDetection?: {
+    enabled?: boolean;
+    action?: "redact" | "abort" | "warn";
+    detectTypes?: Array<
+      | "email"
+      | "phone"
+      | "ssn"
+      | "creditCard"
+      | "ipAddress"
+      | "address"
+      | "name"
+      | "dateOfBirth"
+      | "passport"
+      | "driversLicense"
+    >;
+    customPatterns?: RegExp[];
+    allowList?: string[];
+    redactionText?: string;
+  };
+
+  /**
+   * Response validation — validates and optionally transforms the LLM response.
+   * Supports retry-with-feedback when `retryOnFailure: true`.
+   * @example { maxLength: 5000, truncationAction: "truncate", retryOnFailure: true }
+   */
+  responseValidation?: {
+    minLength?: number;
+    maxLength?: number;
+    requiredPhrases?: string[];
+    forbiddenPhrases?: string[];
+    jsonSchema?: Record<string, unknown>;
+    customValidator?: (text: string) => {
+      category: string;
+      severity: "error" | "warning" | "info";
+      message: string;
+    } | null;
+    truncationAction?: "abort" | "retry" | "truncate" | "warn";
+    truncationSuffix?: string;
+    retryOnFailure?: boolean;
+    maxRetries?: number;
+  };
+
+  /** Input validation — validates input text before any processing. */
+  inputValidation?: {
+    trimWhitespace?: boolean;
+    minLength?: number;
+    maxLength?: number;
+    requireContent?: boolean;
+  };
+
+  /**
+   * @deprecated Use `piiDetection`, `responseValidation`, and `inputValidation` instead.
+   */
+  processors?: ProcessorPipelineConfig;
 };
 
 /**
@@ -1113,6 +1173,18 @@ export type TextGenerationOptions = {
    * callers can correlate generation traces back to their own request lifecycle.
    */
   requestId?: string;
+
+  /** PII detection config — forwarded from GenerateOptions/StreamOptions. */
+  piiDetection?: GenerateOptions["piiDetection"];
+
+  /** Response validation config — forwarded from GenerateOptions/StreamOptions. */
+  responseValidation?: GenerateOptions["responseValidation"];
+
+  /** Input validation config — forwarded from GenerateOptions/StreamOptions. */
+  inputValidation?: GenerateOptions["inputValidation"];
+
+  /** @deprecated Use `piiDetection`, `responseValidation`, `inputValidation` instead. */
+  processors?: ProcessorPipelineConfig;
 };
 
 /**

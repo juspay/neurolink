@@ -484,6 +484,56 @@ export class CLICommandFactory {
       alias: "rag-top-k",
       default: 5,
     },
+    // Safety — PII detection
+    piiRedact: {
+      type: "boolean" as const,
+      description:
+        "Enable PII detection and redaction on input before sending to LLM",
+      alias: "pii-redact",
+      default: false,
+    },
+    piiTypes: {
+      type: "string" as const,
+      description:
+        "Comma-separated PII types to detect (email,phone,ssn,creditCard,ipAddress,address,name,dateOfBirth,passport,driversLicense)",
+      alias: "pii-types",
+    },
+    piiAction: {
+      type: "string" as const,
+      description: "Action when PII is found: redact, abort, or warn",
+      alias: "pii-action",
+      default: "redact",
+    },
+    // Safety — Input validation
+    inputMaxLength: {
+      type: "number" as const,
+      description: "Maximum input text length (characters)",
+      alias: "input-max-length",
+    },
+    trimWhitespace: {
+      type: "boolean" as const,
+      description: "Trim whitespace from input text",
+      alias: "trim-whitespace",
+      default: false,
+    },
+    requireContent: {
+      type: "boolean" as const,
+      description: "Abort if input text is empty or whitespace",
+      alias: "require-content",
+      default: false,
+    },
+    // Safety — Response validation
+    outputMaxLength: {
+      type: "number" as const,
+      description:
+        "Maximum response length (characters). Truncates if exceeded",
+      alias: "output-max-length",
+    },
+    outputMinLength: {
+      type: "number" as const,
+      description: "Minimum response length (characters)",
+      alias: "output-min-length",
+    },
   };
 
   // Helper method to build options for commands
@@ -2662,6 +2712,48 @@ export class CLICommandFactory {
                 topK: argv.ragTopK as number | undefined,
               }
             : undefined,
+          // PII detection
+          piiDetection: argv.piiRedact
+            ? {
+                enabled: true,
+                action:
+                  (argv.piiAction as "redact" | "abort" | "warn") ?? "redact",
+                detectTypes: argv.piiTypes
+                  ? ((argv.piiTypes as string)
+                      .split(",")
+                      .map((t) => t.trim()) as Array<
+                      | "email"
+                      | "phone"
+                      | "ssn"
+                      | "creditCard"
+                      | "ipAddress"
+                      | "address"
+                      | "name"
+                      | "dateOfBirth"
+                      | "passport"
+                      | "driversLicense"
+                    >)
+                  : undefined,
+              }
+            : undefined,
+          // Input validation
+          inputValidation:
+            argv.inputMaxLength || argv.trimWhitespace || argv.requireContent
+              ? {
+                  maxLength: argv.inputMaxLength as number | undefined,
+                  trimWhitespace: argv.trimWhitespace as boolean | undefined,
+                  requireContent: argv.requireContent as boolean | undefined,
+                }
+              : undefined,
+          // Response validation
+          responseValidation:
+            argv.outputMaxLength || argv.outputMinLength
+              ? {
+                  maxLength: argv.outputMaxLength as number | undefined,
+                  minLength: argv.outputMinLength as number | undefined,
+                  truncationAction: "truncate" as const,
+                }
+              : undefined,
           // TTS configuration
           tts: enhancedOptions.tts
             ? {
@@ -2942,6 +3034,48 @@ export class CLICommandFactory {
               topK: argv.ragTopK as number | undefined,
             }
           : undefined,
+        // PII detection
+        piiDetection: argv.piiRedact
+          ? {
+              enabled: true,
+              action:
+                (argv.piiAction as "redact" | "abort" | "warn") ?? "redact",
+              detectTypes: argv.piiTypes
+                ? ((argv.piiTypes as string)
+                    .split(",")
+                    .map((t) => t.trim()) as Array<
+                    | "email"
+                    | "phone"
+                    | "ssn"
+                    | "creditCard"
+                    | "ipAddress"
+                    | "address"
+                    | "name"
+                    | "dateOfBirth"
+                    | "passport"
+                    | "driversLicense"
+                  >)
+                : undefined,
+            }
+          : undefined,
+        // Input validation
+        inputValidation:
+          argv.inputMaxLength || argv.trimWhitespace || argv.requireContent
+            ? {
+                maxLength: argv.inputMaxLength as number | undefined,
+                trimWhitespace: argv.trimWhitespace as boolean | undefined,
+                requireContent: argv.requireContent as boolean | undefined,
+              }
+            : undefined,
+        // Response validation
+        responseValidation:
+          argv.outputMaxLength || argv.outputMinLength
+            ? {
+                maxLength: argv.outputMaxLength as number | undefined,
+                minLength: argv.outputMinLength as number | undefined,
+                truncationAction: "truncate" as const,
+              }
+            : undefined,
         // TTS configuration
         tts: enhancedOptions.tts
           ? {

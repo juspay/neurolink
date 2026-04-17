@@ -27,6 +27,7 @@ import type { TTSChunk, TTSOptions } from "./tts.js";
 import type { StandardRecord, ValidationSchema } from "./aliases.js";
 import type { FileWithMetadata } from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
+import type { ProcessorPipelineConfig } from "./ioProcessor.js";
 
 /**
  * Progress tracking and metadata for streaming operations
@@ -569,6 +570,56 @@ export type StreamOptions = {
      */
     additionalUsers?: AdditionalMemoryUser[];
   };
+
+  /** PII detection — scans and optionally redacts PII from input before the LLM call. */
+  piiDetection?: {
+    enabled?: boolean;
+    action?: "redact" | "abort" | "warn";
+    detectTypes?: Array<
+      | "email"
+      | "phone"
+      | "ssn"
+      | "creditCard"
+      | "ipAddress"
+      | "address"
+      | "name"
+      | "dateOfBirth"
+      | "passport"
+      | "driversLicense"
+    >;
+    customPatterns?: RegExp[];
+    allowList?: string[];
+    redactionText?: string;
+  };
+
+  /** Response validation — validates accumulated stream content after completion. */
+  responseValidation?: {
+    minLength?: number;
+    maxLength?: number;
+    requiredPhrases?: string[];
+    forbiddenPhrases?: string[];
+    jsonSchema?: Record<string, unknown>;
+    customValidator?: (text: string) => {
+      category: string;
+      severity: "error" | "warning" | "info";
+      message: string;
+    } | null;
+    truncationAction?: "abort" | "retry" | "truncate" | "warn";
+    truncationSuffix?: string;
+    retryOnFailure?: boolean;
+    maxRetries?: number;
+  };
+
+  /** Input validation — validates input text before any processing. */
+  inputValidation?: {
+    trimWhitespace?: boolean;
+    minLength?: number;
+    maxLength?: number;
+    requireContent?: boolean;
+  };
+
+  /** @deprecated Use `piiDetection`, `responseValidation`, and `inputValidation` instead. */
+  processors?: ProcessorPipelineConfig;
 };
 
 /**

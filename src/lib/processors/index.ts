@@ -334,3 +334,13 @@ export {
   loadFileFromPath,
   processFileFromPath,
 } from "./cli/index.js";
+
+// =============================================================================
+// STANDALONE SAFETY UTILITIES (extracted from the former I/O processor system)
+// =============================================================================
+
+// PII detection, response validation, and tripwire evaluation are now
+// standalone utilities in src/lib/utils/ and wired directly into
+// generate() and stream() via native options (piiDetection, responseValidation,
+// inputValidation). See src/lib/utils/piiDetector.ts, responseValidator.ts,
+// and tripwireEvaluator.ts.
