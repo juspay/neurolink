@@ -137,9 +137,6 @@ importers:
       ai:
         specifier: ^6.0.134
         version: 6.0.141(zod@4.3.6)
-      bullmq:
-        specifier: ^5.52.2
-        version: 5.71.1
       chalk:
         specifier: ^5.6.2
         version: 5.6.2
@@ -426,7 +423,10 @@ importers:
         version: 15.4.0(koa@3.2.0)
       '@langfuse/otel':
         specifier: ^5.0.1
-        version: 5.1.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.6.1(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.214.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.6.1(@opentelemetry/api@1.9.1))
+        version: 5.0.1(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.6.1(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.214.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.6.1(@opentelemetry/api@1.9.1))
+      bullmq:
+        specifier: ^5.52.2
+        version: 5.71.1
       cors:
         specifier: ^2.8.5
         version: 2.8.6
@@ -1858,10 +1858,24 @@ packages:
     peerDependencies:
       koa: ^2.0.0 || ^3.0.0
 
+  '@langfuse/core@5.0.1':
+    resolution: {integrity: sha512-DirjtE+RjToRuJeVzy7EC05ebtz+ryEDBjjeRNbcQ5OQ38VaIMqWgt124ZQXfW5Rel9oobGcYDu6V5nkr2TuMg==}
+    peerDependencies:
+      '@opentelemetry/api': ^1.9.0
+
   '@langfuse/core@5.1.0':
     resolution: {integrity: sha512-yFvC67HBtrY4B3tyzF8+RJaIqK79LBVXtAgtmEc2vhpKauecvSW0zevRnRynFX+ajUHqi9TN7tnD91FJszFLgQ==}
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
+
+  '@langfuse/otel@5.0.1':
+    resolution: {integrity: sha512-yCR8pfhPTzScgXmtcoFMo9+/705yTXJXVxMeVNATMhkoO7wtzZSuYqc/QX8XHY7/rE6K0HqI/riB7DVySRk4Eg==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@opentelemetry/api': ^1.9.0
+      '@opentelemetry/core': ^2.0.1
+      '@opentelemetry/exporter-trace-otlp-http': '>=0.202.0 <1.0.0'
+      '@opentelemetry/sdk-trace-base': ^2.6.0
 
   '@langfuse/otel@5.1.0':
     resolution: {integrity: sha512-pvaXgZHMHqjsRjn+Gs5amrrq61w0Rxz1OChmLr2FfQzlymNl7+MxSXsWBj5dZQlufGbhyG+LT3wdx3MV8aLXHQ==}
@@ -9573,7 +9587,8 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.5.0
 
-  '@ioredis/commands@1.5.1': {}
+  '@ioredis/commands@1.5.1':
+    optional: true
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -9716,9 +9731,23 @@ snapshots:
       - supports-color
     optional: true
 
+  '@langfuse/core@5.0.1(@opentelemetry/api@1.9.1)':
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+    optional: true
+
   '@langfuse/core@5.1.0(@opentelemetry/api@1.9.1)':
     dependencies:
       '@opentelemetry/api': 1.9.1
+
+  '@langfuse/otel@5.0.1(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.6.1(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.214.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.6.1(@opentelemetry/api@1.9.1))':
+    dependencies:
+      '@langfuse/core': 5.0.1(@opentelemetry/api@1.9.1)
+      '@opentelemetry/api': 1.9.1
+      '@opentelemetry/core': 2.6.1(@opentelemetry/api@1.9.1)
+      '@opentelemetry/exporter-trace-otlp-http': 0.214.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-trace-base': 2.6.1(@opentelemetry/api@1.9.1)
+    optional: true
 
   '@langfuse/otel@5.1.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.6.1(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.213.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.6.1(@opentelemetry/api@1.9.1))':
     dependencies:
@@ -9727,15 +9756,6 @@ snapshots:
       '@opentelemetry/core': 2.6.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/exporter-trace-otlp-http': 0.213.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-base': 2.6.1(@opentelemetry/api@1.9.1)
-
-  '@langfuse/otel@5.1.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.6.1(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.214.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.6.1(@opentelemetry/api@1.9.1))':
-    dependencies:
-      '@langfuse/core': 5.1.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/api': 1.9.1
-      '@opentelemetry/core': 2.6.1(@opentelemetry/api@1.9.1)
-      '@opentelemetry/exporter-trace-otlp-http': 0.214.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/sdk-trace-base': 2.6.1(@opentelemetry/api@1.9.1)
-    optional: true
 
   '@lukeed/ms@2.0.2':
     optional: true
@@ -12360,6 +12380,7 @@ snapshots:
       uuid: 11.1.0
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   bundle-name@4.1.0:
     dependencies:
@@ -12621,6 +12642,7 @@ snapshots:
   cron-parser@4.9.0:
     dependencies:
       luxon: 3.7.2
+    optional: true
 
   croner@9.1.0: {}
 
@@ -12686,7 +12708,8 @@ snapshots:
   delegates@1.0.0:
     optional: true
 
-  denque@2.1.0: {}
+  denque@2.1.0:
+    optional: true
 
   depd@1.1.2:
     optional: true
@@ -13688,6 +13711,7 @@ snapshots:
       standard-as-callback: 2.1.0
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   ip-address@10.1.0: {}
 
@@ -14024,7 +14048,8 @@ snapshots:
 
   lodash.groupby@4.6.0: {}
 
-  lodash.isarguments@3.1.0: {}
+  lodash.isarguments@3.1.0:
+    optional: true
 
   lodash.isboolean@3.0.3: {}
 
@@ -14079,7 +14104,8 @@ snapshots:
 
   lunr@2.3.9: {}
 
-  luxon@3.7.2: {}
+  luxon@3.7.2:
+    optional: true
 
   magic-string@0.30.21:
     dependencies:
@@ -14242,6 +14268,7 @@ snapshots:
   msgpackr@1.11.5:
     optionalDependencies:
       msgpackr-extract: 3.0.3
+    optional: true
 
   music-metadata@11.12.3:
     dependencies:
@@ -14291,7 +14318,8 @@ snapshots:
       semver: 7.7.4
     optional: true
 
-  node-abort-controller@3.1.1: {}
+  node-abort-controller@3.1.1:
+    optional: true
 
   node-addon-api@7.1.1:
     optional: true
@@ -14919,11 +14947,13 @@ snapshots:
   real-require@0.2.0:
     optional: true
 
-  redis-errors@1.2.0: {}
+  redis-errors@1.2.0:
+    optional: true
 
   redis-parser@3.0.0:
     dependencies:
       redis-errors: 1.2.0
+    optional: true
 
   redis@4.7.1:
     dependencies:
@@ -15312,7 +15342,8 @@ snapshots:
 
   stackback@0.0.2: {}
 
-  standard-as-callback@2.1.0: {}
+  standard-as-callback@2.1.0:
+    optional: true
 
   statuses@1.5.0:
     optional: true
@@ -15731,7 +15762,8 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  uuid@11.1.0: {}
+  uuid@11.1.0:
+    optional: true
 
   uuid@13.0.0: {}
 

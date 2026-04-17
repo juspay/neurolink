@@ -228,7 +228,6 @@
     "@picovoice/cobra-node": "^3.0.2",
     "adm-zip": "^0.5.16",
     "ai": "^6.0.134",
-    "bullmq": "^5.52.2",
     "chalk": "^5.6.2",
     "croner": "^9.1.0",
     "csv-parser": "^3.2.0",
@@ -273,6 +272,7 @@
   },
   "optionalDependencies": {
     "@langfuse/otel": "^5.0.1",
+    "bullmq": "^5.52.2",
     "pdf-parse": "^2.4.5",
     "pdf-to-img": "^5.0.0",
     "@fastify/cors": "^11.2.0",

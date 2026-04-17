@@ -7,7 +7,7 @@
  * - Survives process restarts (Redis-persisted)
  */
 
-import { Queue, Worker, type Job } from "bullmq";
+import type { Queue, Worker, Job } from "bullmq";
 import { logger } from "../../utils/logger.js";
 import { TaskError } from "../errors.js";
 import {
@@ -17,6 +17,21 @@ import {
   type TaskManagerConfig,
   TASK_DEFAULTS,
 } from "../../types/index.js";
+
+async function loadBullMQ() {
+  try {
+    return await import(/* @vite-ignore */ "bullmq");
+  } catch (err) {
+    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
+    if (e?.code === "ERR_MODULE_NOT_FOUND" && e.message.includes("bullmq")) {
+      throw new Error(
+        'BullMQ task backend requires the "bullmq" package. Install it with:\n  pnpm add bullmq',
+        { cause: err },
+      );
+    }
+    throw err;
+  }
+}
 
 const QUEUE_NAME = "neurolink-tasks";
 
@@ -32,11 +47,12 @@ export class BullMQBackend implements TaskBackend {
   }
 
   async initialize(): Promise<void> {
+    const { Queue: BullQueue, Worker: BullWorker } = await loadBullMQ();
     const connection = this.getConnectionConfig();
 
-    this.queue = new Queue(QUEUE_NAME, { connection });
+    this.queue = new BullQueue(QUEUE_NAME, { connection });
 
-    this.worker = new Worker(
+    this.worker = new BullWorker(
       QUEUE_NAME,
       async (job: Job) => {
         const taskId = job.data.taskId as string;
