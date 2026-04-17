@@ -5,7 +5,7 @@
  * Provides common functionality and interface contract.
  */
 
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { ChunkingError, RAGErrorCodes } from "../errors/RAGError.js";
 import type {
   Chunk,
@@ -165,7 +165,7 @@ export abstract class BaseChunker implements Chunker {
     };
 
     return {
-      id: uuidv4(),
+      id: randomUUID(),
       text,
       metadata,
     };
