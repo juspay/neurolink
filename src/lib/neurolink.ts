@@ -2051,7 +2051,11 @@ Current user's request: ${currentInput}`;
         });
 
         // Initialize OpenTelemetry (sets defaults from config)
-        initializeOpenTelemetry(langfuseConfig);
+        void initializeOpenTelemetry(langfuseConfig).catch((err) => {
+          logger.error("[NeuroLink] OpenTelemetry initialization failed", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
 
         const healthStatus = getLangfuseHealthStatus();
         const langfuseInitDurationNs =
@@ -3006,7 +3010,11 @@ Current user's request: ${currentInput}`;
       const langfuseConfig = this.observabilityConfig?.langfuse;
 
       if (langfuseConfig?.enabled) {
-        initializeOpenTelemetry(langfuseConfig);
+        void initializeOpenTelemetry(langfuseConfig).catch((err) => {
+          logger.error("[NeuroLink] OpenTelemetry initialization failed", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
 
         logger.debug(
           "[NeuroLink] Langfuse observability initialized via public method",

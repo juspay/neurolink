@@ -7,7 +7,7 @@
  * Flow: Vercel AI SDK → OpenTelemetry Spans → LangfuseSpanProcessor → Langfuse Platform
  */
 
-import { LangfuseSpanProcessor } from "@langfuse/otel";
+import type { LangfuseSpanProcessor as LangfuseSpanProcessorType } from "@langfuse/otel";
 import type { Context } from "@opentelemetry/api";
 import { metrics, SpanStatusCode, trace } from "@opentelemetry/api";
 import { W3CTraceContextPropagator } from "@opentelemetry/core";
@@ -134,7 +134,7 @@ const contextStorage = new AsyncLocalStorage<LangfuseContext>();
 let tracerProvider: NodeTracerProvider | null = null;
 let meterProvider: MeterProvider | null = null;
 let loggerProvider: LoggerProvider | null = null;
-let langfuseProcessor: LangfuseSpanProcessor | null = null;
+let langfuseProcessor: LangfuseSpanProcessorType | null = null;
 let isInitialized = false;
 let isCredentialsValid = false;
 let currentConfig: LangfuseConfig | null = null;
@@ -657,10 +657,23 @@ class ContextEnricher implements SpanProcessor {
   }
 }
 
-function createLangfuseProcessor(
+async function createLangfuseProcessor(
   config: LangfuseConfig,
-): LangfuseSpanProcessor {
-  return new LangfuseSpanProcessor({
+): Promise<LangfuseSpanProcessorType> {
+  let mod: typeof import("@langfuse/otel");
+  try {
+    mod = await import(/* @vite-ignore */ "@langfuse/otel");
+  } catch (err) {
+    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
+    if (e?.code === "ERR_MODULE_NOT_FOUND" && e.message.includes("langfuse")) {
+      throw new Error(
+        'Langfuse observability requires "@langfuse/otel". Install it with:\n  pnpm add @langfuse/otel',
+        { cause: err },
+      );
+    }
+    throw err;
+  }
+  return new mod.LangfuseSpanProcessor({
     publicKey: config.publicKey,
     secretKey: config.secretKey,
     baseUrl: config.baseUrl || "https://cloud.langfuse.com",
@@ -670,14 +683,14 @@ function createLangfuseProcessor(
   });
 }
 
-function initializeExternalOpenTelemetryMode(
+async function initializeExternalOpenTelemetryMode(
   config: LangfuseConfig,
   resource: ReturnType<typeof resourceFromAttributes>,
   otlpEndpoint: string | undefined,
   serviceName: string,
   langfuseRequested: boolean,
   hasLangfuseCreds: boolean,
-): void {
+): Promise<void> {
   if (langfuseRequested && !hasLangfuseCreds) {
     if (!otlpEndpoint) {
       logger.warn(
@@ -707,7 +720,7 @@ function initializeExternalOpenTelemetryMode(
     isCredentialsValid = hasLangfuseCreds;
     langfuseProcessor =
       langfuseRequested && hasLangfuseCreds
-        ? createLangfuseProcessor(config)
+        ? await createLangfuseProcessor(config)
         : null;
 
     usingExternalProvider = true;
@@ -726,11 +739,9 @@ function initializeExternalOpenTelemetryMode(
         // Auto-detect: skip if consumer already registered a LangfuseSpanProcessor.
         //
         // Detection strategy (ordered by robustness):
-        // 1. `instanceof LangfuseSpanProcessor` — reliable when both sides use
-        //    the same @langfuse/otel package instance (same module identity).
-        // 2. Duck-type check for Langfuse-specific public member
+        // 1. Duck-type check for Langfuse-specific public member
         //    (`langfuseClient` property) — survives minification.
-        // 3. `constructor.name === "LangfuseSpanProcessor"` — last resort,
+        // 2. `constructor.name === "LangfuseSpanProcessor"` — last resort,
         //    brittle under minification or bundler renaming.
         //
         // NOTE: `_registeredSpanProcessors` is an internal OpenTelemetry field.
@@ -744,10 +755,6 @@ function initializeExternalOpenTelemetryMode(
         const hasExistingLangfuse = existingProcessors.some((p) => {
           if (p === null || p === undefined || typeof p !== "object") {
             return false;
-          }
-          // Prefer instanceof — works when same @langfuse/otel package is shared
-          if (p instanceof LangfuseSpanProcessor) {
-            return true;
           }
           // Duck-type: Langfuse processor exposes a langfuseClient property
           if ("langfuseClient" in p) {
@@ -826,14 +833,14 @@ function initializeExternalOpenTelemetryMode(
   }
 }
 
-function initializeStandaloneOpenTelemetryMode(
+async function initializeStandaloneOpenTelemetryMode(
   config: LangfuseConfig,
   resource: ReturnType<typeof resourceFromAttributes>,
   otlpEndpoint: string | undefined,
   serviceName: string,
   langfuseRequested: boolean,
   hasLangfuseCreds: boolean,
-): void {
+): Promise<void> {
   if ((!langfuseRequested || !hasLangfuseCreds) && !otlpEndpoint) {
     if (langfuseRequested && !hasLangfuseCreds) {
       logger.warn(
@@ -868,7 +875,7 @@ function initializeStandaloneOpenTelemetryMode(
     isCredentialsValid = hasLangfuseCreds;
     langfuseProcessor =
       langfuseRequested && hasLangfuseCreds
-        ? createLangfuseProcessor(config)
+        ? await createLangfuseProcessor(config)
         : null;
 
     logger.debug(`${LOG_PREFIX} Standalone observability mode`, {
@@ -975,7 +982,9 @@ function initializeStandaloneOpenTelemetryMode(
  *
  * @param config - Langfuse configuration passed from parent application
  */
-export function initializeOpenTelemetry(config: LangfuseConfig): void {
+export async function initializeOpenTelemetry(
+  config: LangfuseConfig,
+): Promise<void> {
   // Guard against multiple initializations — but always update config
   // so that later NeuroLink instances can change traceNameFormat,
   // autoDetectOperationName, and other configuration preferences
@@ -1008,7 +1017,7 @@ export function initializeOpenTelemetry(config: LangfuseConfig): void {
   const resource = createOtelResource(config, serviceName);
 
   if (shouldUseExternal) {
-    initializeExternalOpenTelemetryMode(
+    await initializeExternalOpenTelemetryMode(
       config,
       resource,
       otlpEndpoint,
@@ -1019,7 +1028,7 @@ export function initializeOpenTelemetry(config: LangfuseConfig): void {
     return;
   }
 
-  initializeStandaloneOpenTelemetryMode(
+  await initializeStandaloneOpenTelemetryMode(
     config,
     resource,
     otlpEndpoint,
@@ -1163,7 +1172,7 @@ export async function shutdownOpenTelemetry(): Promise<void> {
 /**
  * Get the Langfuse span processor
  */
-export function getLangfuseSpanProcessor(): LangfuseSpanProcessor | null {
+export function getLangfuseSpanProcessor(): SpanProcessor | null {
   return langfuseProcessor;
 }
 

@@ -1013,7 +1013,7 @@ async function initializeProxyOpenTelemetry(): Promise<void> {
     const observabilityConfig = buildObservabilityConfigFromEnv();
     const langfuseConfig = observabilityConfig?.langfuse;
     const langfuseEnabled = langfuseConfig?.enabled === true;
-    initializeOpenTelemetry({
+    await initializeOpenTelemetry({
       enabled: langfuseEnabled,
       publicKey: langfuseConfig?.publicKey || "",
       secretKey: langfuseConfig?.secretKey || "",
