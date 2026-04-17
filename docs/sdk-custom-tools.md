@@ -1292,6 +1292,7 @@ neurolink.registerTool(
       }
 
       // Use a safe, restricted math expression evaluator for security
+      // Requires: pnpm add mathjs
       const {
         create,
         addDependencies,
