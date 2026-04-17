@@ -224,7 +224,6 @@
     "@opentelemetry/sdk-metrics": "^2.6.1",
     "@opentelemetry/sdk-trace-base": "^2.6.0",
     "@opentelemetry/semantic-conventions": "^1.40.0",
-    "@picovoice/cobra-node": "^3.0.2",
     "adm-zip": "^0.5.16",
     "ai": "^6.0.134",
     "chalk": "^5.6.2",
@@ -272,6 +271,7 @@
   "optionalDependencies": {
     "@aws-sdk/client-sagemaker": "^3.1000.0",
     "@langfuse/otel": "^5.0.1",
+    "@picovoice/cobra-node": "^3.0.2",
     "bullmq": "^5.52.2",
     "pdf-parse": "^2.4.5",
     "pdf-to-img": "^5.0.0",
