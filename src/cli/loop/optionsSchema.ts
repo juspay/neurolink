@@ -39,6 +39,10 @@ export const textGenerationOptionsSchema: Record<
     | "credentials" // Complex per-provider object, only usable via SDK
     | "onFinish" // Lifecycle callback, only usable via SDK
     | "onError" // Lifecycle callback, only usable via SDK
+    | "processors" // Complex I/O processor config, only usable via SDK
+    | "piiDetection" // Complex config, wired via CLI flags instead
+    | "responseValidation" // Complex config, wired via CLI flags instead
+    | "inputValidation" // Complex config, wired via CLI flags instead
   >,
   OptionSchema
 > = {

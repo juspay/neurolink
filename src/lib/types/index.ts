@@ -61,6 +61,7 @@ export * from "./utilities.js";
 export * from "./workflow.js";
 
 // Processor base types are re-exported via ./processor.js
+export * from "./ioProcessor.js";
 export * from "./exporter.js";
 export * from "./span.js";
 export * from "./imageGen.js";
