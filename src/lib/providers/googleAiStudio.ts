@@ -539,17 +539,16 @@ export class GoogleAIStudioProvider extends BaseProvider {
     // Need to check early if we should route to native SDK
     const gemini3CheckShouldUseTools =
       !options.disableTools && this.supportsTools() && !wantsStructuredOutput;
-    const optionTools = options.tools || {};
-    const sdkTools = gemini3CheckShouldUseTools ? await this.getAllTools() : {};
-    const combinedToolCount =
-      Object.keys(optionTools).length + Object.keys(sdkTools).length;
-    const hasTools = gemini3CheckShouldUseTools && combinedToolCount > 0;
+    const tools = options.tools || {};
+
+    const hasTools =
+      gemini3CheckShouldUseTools && Object.keys(tools).length > 0;
 
     if (isGemini3Model(gemini3CheckModelName) && hasTools) {
       // Merge SDK tools into options for native SDK path
       let mergedOptions = {
         ...options,
-        tools: { ...sdkTools, ...optionTools },
+        tools: tools,
       };
 
       // Check for tools + JSON schema conflict (Gemini limitation)
@@ -577,9 +576,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
           "[GoogleAIStudio] Routing Gemini 3 to native SDK for tool calling",
           {
             model: gemini3CheckModelName,
-            optionToolCount: Object.keys(optionTools).length,
-            sdkToolCount: Object.keys(sdkTools).length,
-            totalToolCount: combinedToolCount,
+            totalToolCount: Object.keys(mergedOptions.tools ?? {}).length,
           },
         );
         return this.executeNativeGemini3Stream(mergedOptions);
@@ -619,14 +616,13 @@ export class GoogleAIStudioProvider extends BaseProvider {
       }
       const shouldUseTools =
         !options.disableTools && this.supportsTools() && !wantsStructuredOutput;
-      const baseTools = shouldUseTools ? await this.getAllTools() : {};
-      const rawTools = shouldUseTools
-        ? { ...baseTools, ...(options.tools || {}) }
+      const filteredTools: Record<string, Tool> = shouldUseTools
+        ? (options.tools ?? {})
         : {};
       // Sanitize tool schemas for Gemini proto compatibility (converts anyOf/oneOf unions to string)
       let tools: Record<string, Tool> | undefined;
-      if (Object.keys(rawTools).length > 0) {
-        const sanitized = sanitizeToolsForGemini(rawTools);
+      if (Object.keys(filteredTools).length > 0) {
+        const sanitized = sanitizeToolsForGemini(filteredTools);
         if (sanitized.dropped.length > 0) {
           logger.warn(
             `[GoogleAIStudio] Dropped ${sanitized.dropped.length} incompatible tool(s): ${sanitized.dropped.join(", ")}`,
@@ -1179,11 +1175,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
           const shouldUseTools = !options.disableTools;
           if (shouldUseTools) {
-            const sdkTools = await this.getAllTools();
-            const mergedTools = { ...sdkTools, ...(options.tools || {}) };
+            const tools = options.tools || {};
 
-            if (Object.keys(mergedTools).length > 0) {
-              const result = buildNativeToolDeclarations(mergedTools);
+            if (Object.keys(tools).length > 0) {
+              const result = buildNativeToolDeclarations(tools);
               toolsConfig = result.toolsConfig;
               executeMap = result.executeMap;
 
@@ -1387,17 +1382,14 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
     // Check if we should use native SDK for Gemini 3 with tools
     const shouldUseTools = !options.disableTools && this.supportsTools();
-    const sdkTools = shouldUseTools ? await this.getAllTools() : {};
     const hasTools =
-      shouldUseTools &&
-      (Object.keys(sdkTools).length > 0 ||
-        (options.tools && Object.keys(options.tools).length > 0));
+      shouldUseTools && options.tools && Object.keys(options.tools).length > 0;
 
     if (isGemini3Model(modelName) && hasTools) {
       // Merge SDK tools into options for native SDK path
       let mergedOptions = {
         ...options,
-        tools: { ...sdkTools, ...(options.tools || {}) },
+        tools: options.tools,
       };
 
       // Check for tools + JSON schema conflict (Gemini limitation)
@@ -1425,11 +1417,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
           "[GoogleAIStudio] Routing Gemini 3 generate to native SDK for tool calling",
           {
             model: modelName,
-            sdkToolCount: Object.keys(sdkTools).length,
-            optionToolCount: Object.keys(options.tools || {}).length,
-            totalToolCount:
-              Object.keys(sdkTools).length +
-              Object.keys(options.tools || {}).length,
+            totalToolCount: Object.keys(mergedOptions.tools ?? {}).length,
           },
         );
         return this.executeNativeGemini3Generate(mergedOptions);

@@ -1193,11 +1193,8 @@ export class GoogleVertexProvider extends BaseProvider {
       analysisSchema || options.output?.format === "json" || options.schema;
     const shouldUseTools =
       !options.disableTools && this.supportsTools() && !wantsStructuredOutput;
-    const optionTools = options.tools || {};
-    const sdkTools = shouldUseTools ? await this.getAllTools() : {};
-    const combinedToolCount =
-      Object.keys(optionTools).length + Object.keys(sdkTools).length;
-    const hasTools = shouldUseTools && combinedToolCount > 0;
+    const tools = options.tools || {};
+    const hasTools = shouldUseTools && Object.keys(tools).length > 0;
 
     if (!isGemini3Model(modelName) || !hasTools) {
       return null;
@@ -1206,16 +1203,14 @@ export class GoogleVertexProvider extends BaseProvider {
     const processedOptions = await this.processCSVFilesForNativeSDK(options);
     const mergedOptions = {
       ...processedOptions,
-      tools: { ...sdkTools, ...optionTools },
+      tools: tools,
     };
 
     logger.info(
       "[GoogleVertex] Routing Gemini 3 to native SDK for tool calling",
       {
         model: modelName,
-        optionToolCount: Object.keys(optionTools).length,
-        sdkToolCount: Object.keys(sdkTools).length,
-        totalToolCount: combinedToolCount,
+        optionToolCount: Object.keys(tools).length,
       },
     );
     return this.executeNativeGemini3Stream(mergedOptions);
@@ -1303,9 +1298,8 @@ export class GoogleVertexProvider extends BaseProvider {
     baseToolCount: number;
   }> {
     const shouldUseTools = !options.disableTools && this.supportsTools();
-    const baseStreamTools = shouldUseTools ? await this.getAllTools() : {};
     const rawTools = shouldUseTools
-      ? { ...baseStreamTools, ...(options.tools || {}) }
+      ? (options.tools as Record<string, Tool>)
       : {};
     const isAnthropic = isAnthropicModel(modelName);
     let tools: Record<string, Tool> | undefined;
@@ -1335,8 +1329,7 @@ export class GoogleVertexProvider extends BaseProvider {
 
     logger.debug(`${functionTag}: Tools for streaming`, {
       shouldUseTools,
-      baseToolCount: Object.keys(baseStreamTools).length,
-      externalToolCount: Object.keys(options.tools || {}).length,
+      externalToolCount: Object.keys(options.tools ?? {}).length,
       toolCount: Object.keys(tools ?? {}).length,
       toolNames: Object.keys(tools ?? {}),
     });
@@ -1345,7 +1338,7 @@ export class GoogleVertexProvider extends BaseProvider {
       shouldUseTools,
       tools,
       isAnthropic,
-      baseToolCount: Object.keys(baseStreamTools).length,
+      baseToolCount: 0,
     };
   }
 
@@ -2302,18 +2295,15 @@ export class GoogleVertexProvider extends BaseProvider {
           shouldUseTools = false;
         }
 
-        const sdkTools = shouldUseTools ? await this.getAllTools() : {};
-        const combinedTools = shouldUseTools
-          ? { ...sdkTools, ...(options.tools || {}) }
+        const tools: Record<string, Tool> = shouldUseTools
+          ? (options.tools ?? {})
           : {};
 
         let toolsConfig: NativeToolsConfig | undefined;
         let executeMap = new Map<string, Tool["execute"]>();
 
-        if (Object.keys(combinedTools).length > 0) {
-          const result = buildNativeToolDeclarations(
-            combinedTools as Record<string, Tool>,
-          );
+        if (Object.keys(tools).length > 0) {
+          const result = buildNativeToolDeclarations(tools);
           toolsConfig = result.toolsConfig;
           executeMap = result.executeMap;
 
@@ -2630,11 +2620,8 @@ export class GoogleVertexProvider extends BaseProvider {
     // Check if we should use native SDK for Gemini 3 with tools
     const shouldUseTools =
       !options.disableTools && this.supportsTools() && !wantsStructuredOutput;
-    const sdkTools = shouldUseTools ? await this.getAllTools() : {};
     const hasTools =
-      shouldUseTools &&
-      (Object.keys(sdkTools).length > 0 ||
-        (options.tools && Object.keys(options.tools).length > 0));
+      shouldUseTools && options.tools && Object.keys(options.tools).length > 0;
 
     if (isGemini3Model(modelName) && hasTools && !wantsStructuredOutput) {
       // Process CSV files before routing to native SDK (bypasses normal message builder)
@@ -2643,17 +2630,13 @@ export class GoogleVertexProvider extends BaseProvider {
       // Merge SDK tools into options for native SDK path
       const mergedOptions = {
         ...processedOptions,
-        tools: { ...sdkTools, ...(processedOptions.tools || {}) },
+        tools: options.tools || {},
       };
       logger.info(
         "[GoogleVertex] Routing Gemini 3 generate to native SDK for tool calling",
         {
           model: modelName,
-          sdkToolCount: Object.keys(sdkTools).length,
-          optionToolCount: Object.keys(processedOptions.tools || {}).length,
-          totalToolCount:
-            Object.keys(sdkTools).length +
-            Object.keys(processedOptions.tools || {}).length,
+          totalToolCount: Object.keys(mergedOptions.tools ?? {}).length,
         },
       );
       return this.executeNativeGemini3Generate(mergedOptions);
