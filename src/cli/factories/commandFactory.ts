@@ -549,7 +549,80 @@ export class CLICommandFactory {
     return resolveFilePaths(paths);
   }
 
-  // Helper method to process CLI video files
+  // Supported video file extensions for CLI validation
+  private static readonly SUPPORTED_VIDEO_EXTENSIONS = [
+    ".mp4",
+    ".webm",
+    ".mov",
+    ".avi",
+    ".mkv",
+    ".m4v",
+    ".wmv",
+    ".flv",
+  ];
+
+  /**
+   * Check if a string is a URL (http, https, file, or data URI)
+   */
+  private static isURL(str: string): boolean {
+    const lower = str.toLowerCase();
+    return (
+      lower.startsWith("http://") ||
+      lower.startsWith("https://") ||
+      lower.startsWith("file://") ||
+      lower.startsWith("data:")
+    );
+  }
+
+  /**
+   * Validate video file paths and throw descriptive errors for invalid files
+   *
+   * @param filePaths - Array of file paths to validate
+   * @throws Error if a file doesn't exist or has an unsupported extension
+   */
+  private static validateVideoFiles(filePaths: string[]): void {
+    for (const filePath of filePaths) {
+      // Skip URL validation - URLs are handled by the SDK
+      if (CLICommandFactory.isURL(filePath)) {
+        continue;
+      }
+
+      // Resolve relative paths to absolute
+      const absolutePath = path.resolve(process.cwd(), filePath);
+
+      // Check file exists
+      if (!fs.existsSync(absolutePath)) {
+        throw new Error(
+          `Video file not found: ${filePath}\n` +
+            `  Resolved path: ${absolutePath}\n` +
+            `  Please check the file path and try again.`,
+        );
+      }
+
+      // Check file extension
+      const ext = path.extname(absolutePath).toLowerCase();
+      if (!CLICommandFactory.SUPPORTED_VIDEO_EXTENSIONS.includes(ext)) {
+        throw new Error(
+          `Unsupported video format: ${ext}\n` +
+            `  File: ${filePath}\n` +
+            `  Supported formats: ${CLICommandFactory.SUPPORTED_VIDEO_EXTENSIONS.join(", ")}`,
+        );
+      }
+
+      // Check file is readable
+      try {
+        fs.accessSync(absolutePath, fs.constants.R_OK);
+      } catch {
+        throw new Error(
+          `Cannot read video file: ${filePath}\n` +
+            `  Resolved path: ${absolutePath}\n` +
+            `  Please check file permissions.`,
+        );
+      }
+    }
+  }
+
+  // Helper method to process CLI video files with validation
   private static processCliVideoFiles(
     videoFiles?: string | string[],
   ): Array<Buffer | string> | undefined {
@@ -557,6 +630,10 @@ export class CLICommandFactory {
       return undefined;
     }
     const paths = Array.isArray(videoFiles) ? videoFiles : [videoFiles];
+
+    // Validate video files before resolving paths
+    CLICommandFactory.validateVideoFiles(paths);
+
     // Resolve relative paths to absolute paths before returning
     // URLs are preserved as-is by resolveFilePaths
     return resolveFilePaths(paths);
