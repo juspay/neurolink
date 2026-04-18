@@ -1,3 +1,5 @@
+## [9.54.9](https://github.com/juspay/neurolink/compare/v9.54.8...v9.54.9) (2026-04-18)
+
 ## [9.54.8](https://github.com/juspay/neurolink/compare/v9.54.7...v9.54.8) (2026-04-18)
 
 ### Bug Fixes
