@@ -29,6 +29,8 @@ import type {
   VectorQueryResult,
   RAGPreparedTool,
 } from "../types/index.js";
+import { withSpan } from "../telemetry/withSpan.js";
+import { tracers } from "../telemetry/tracers.js";
 /**
  * Maps file extensions to recommended chunking strategies
  */
@@ -358,52 +360,69 @@ async function _prepareRAGToolInner(
         .describe("The search query to find relevant information"),
     }),
     execute: async ({ query }: { query: string }) => {
-      // For the in-memory store with simple embeddings,
-      // generate a query embedding using the same method
-      const queryEmbedding = generateSimpleEmbedding(
-        query,
-        EMBEDDING_DIMENSION,
+      return withSpan(
+        {
+          name: "neurolink.rag.search",
+          tracer: tracers.rag,
+          attributes: {
+            "rag.query_length": query ? String(query).length : 0,
+            "rag.top_k": topK ?? 5,
+          },
+        },
+        async (span) => {
+          // For the in-memory store with simple embeddings,
+          // generate a query embedding using the same method
+          const queryEmbedding = generateSimpleEmbedding(
+            query,
+            EMBEDDING_DIMENSION,
+          );
+
+          // Fetch more candidates than needed so diversity can select across files
+          const fetchK = fileContents.length > 1 ? topK * 3 : topK;
+          const rawResults = await vectorStore.query({
+            indexName,
+            queryVector: queryEmbedding,
+            topK: fetchK,
+          });
+
+          // Apply source-file diversity for multi-file RAG
+          const results =
+            fileContents.length > 1
+              ? diversifyResults(rawResults, topK)
+              : rawResults.slice(0, topK);
+
+          if (results.length === 0) {
+            span.setAttribute("rag.results_count", 0);
+            return {
+              relevantContext: "No relevant documents found for the query.",
+              sources: [],
+              totalResults: 0,
+            };
+          }
+
+          const relevantContext = results
+            .map(
+              (r, i) =>
+                `[${i + 1}] ${(r.metadata?.text as string) || r.text || ""}`,
+            )
+            .join("\n\n");
+
+          span.setAttribute("rag.results_count", results.length);
+          return {
+            relevantContext,
+            sources: results.map((r) => ({
+              id: r.id,
+              score: r.score,
+              source: r.metadata?.source,
+              text: ((r.metadata?.text as string) || r.text || "").slice(
+                0,
+                200,
+              ),
+            })),
+            totalResults: results.length,
+          };
+        },
       );
-
-      // Fetch more candidates than needed so diversity can select across files
-      const fetchK = fileContents.length > 1 ? topK * 3 : topK;
-      const rawResults = await vectorStore.query({
-        indexName,
-        queryVector: queryEmbedding,
-        topK: fetchK,
-      });
-
-      // Apply source-file diversity for multi-file RAG
-      const results =
-        fileContents.length > 1
-          ? diversifyResults(rawResults, topK)
-          : rawResults.slice(0, topK);
-
-      if (results.length === 0) {
-        return {
-          relevantContext: "No relevant documents found for the query.",
-          sources: [],
-          totalResults: 0,
-        };
-      }
-
-      const relevantContext = results
-        .map(
-          (r, i) =>
-            `[${i + 1}] ${(r.metadata?.text as string) || r.text || ""}`,
-        )
-        .join("\n\n");
-
-      return {
-        relevantContext,
-        sources: results.map((r) => ({
-          id: r.id,
-          score: r.score,
-          source: r.metadata?.source,
-          text: ((r.metadata?.text as string) || r.text || "").slice(0, 200),
-        })),
-        totalResults: results.length,
-      };
     },
   };
 

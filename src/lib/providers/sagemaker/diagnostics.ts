@@ -5,34 +5,9 @@
  */
 
 import chalk from "chalk";
+import type { DiagnosticReport, DiagnosticResult } from "../../types/index.js";
 import { checkSageMakerConfiguration } from "./config.js";
 import { createSageMakerProvider } from "./index.js";
-
-/**
- * Simple diagnostic result interface
- */
-type DiagnosticResult = {
-  name: string;
-  category: "configuration" | "connectivity" | "streaming";
-  status: "pass" | "fail" | "warning";
-  message: string;
-  details?: string;
-  recommendation?: string;
-};
-
-/**
- * Diagnostic report interface
- */
-type DiagnosticReport = {
-  overallStatus: "healthy" | "issues" | "critical";
-  results: DiagnosticResult[];
-  summary: {
-    total: number;
-    passed: number;
-    failed: number;
-    warnings: number;
-  };
-};
 
 /**
  * Run quick diagnostics for SageMaker configuration

@@ -5,46 +5,18 @@
  */
 
 import type {
-  DataStreamWriter,
   CloseHandler,
   DataStreamEvent,
+  DataStreamEventType,
+  DataStreamResponseConfig,
+  DataStreamWriter,
+  DataStreamWriterConfig,
+  FinishEvent,
+  SSEEventOptions,
 } from "../../types/index.js";
-import type { DataStreamEventType } from "../../types/index.js";
-// ============================================
-// Event Types
-// ============================================
-/**
- * Finish event
- */
-type FinishEvent = DataStreamEvent & {
-  type: "finish";
-  data: {
-    reason?: string;
-    usage?: {
-      input: number;
-      output: number;
-      total: number;
-    };
-  };
-};
-
 // ============================================
 // Data Stream Writer Implementation
 // ============================================
-
-/**
- * Configuration for DataStreamWriter
- */
-type DataStreamWriterConfig = {
-  /** Writer function to send data */
-  write: (chunk: string) => void | Promise<void>;
-  /** Function to close the stream */
-  close?: () => void | Promise<void>;
-  /** Format: sse (Server-Sent Events) or ndjson (Newline-delimited JSON) */
-  format?: "sse" | "ndjson";
-  /** Include timestamps in events */
-  includeTimestamps?: boolean;
-};
 
 /**
  * Creates a data stream writer
@@ -141,16 +113,6 @@ export function createDataStreamWriter(
 /**
  * Configuration for DataStreamResponse
  */
-type DataStreamResponseConfig = {
-  /** Content type header */
-  contentType?: "text/event-stream" | "application/x-ndjson";
-  /** Initial headers */
-  headers?: Record<string, string>;
-  /** Keep-alive interval in milliseconds */
-  keepAliveInterval?: number;
-  /** Include timestamps in events */
-  includeTimestamps?: boolean;
-};
 
 /**
  * Data stream response class
@@ -474,16 +436,6 @@ export function createNDJSONHeaders(
 /**
  * SSE Event options for formatSSEEvent
  */
-type SSEEventOptions = {
-  /** Event type (optional) */
-  event?: string;
-  /** Event data (required) */
-  data: string;
-  /** Event ID (optional) */
-  id?: string;
-  /** Retry interval in milliseconds (optional) */
-  retry?: number;
-};
 
 /**
  * Format a Server-Sent Events (SSE) message

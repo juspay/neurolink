@@ -7,8 +7,10 @@ import { logger } from "../utils/logger.js";
 import type { BaseExporter } from "./exporters/baseExporter.js";
 import { AlwaysSampler } from "./sampling/samplers.js";
 import type {
-  ExporterHealthStatus,
   ExportResult,
+  ExporterHealthStatus,
+  ObservabilityCircuitBreakerConfig,
+  ObservabilityCircuitBreakerState,
   Sampler,
   SpanData,
 } from "../types/index.js";
@@ -43,25 +45,6 @@ function withExportTimeout<T>(
 }
 
 /**
- * Circuit breaker state for an exporter
- */
-type CircuitBreakerState = {
-  failures: number;
-  lastFailure: number;
-  state: "closed" | "open" | "half-open";
-};
-
-/**
- * Circuit breaker configuration
- */
-type CircuitBreakerConfig = {
-  /** Number of failures before opening the circuit */
-  failureThreshold: number;
-  /** Time in ms to wait before trying half-open state */
-  resetTimeout: number;
-};
-
-/**
  * Registry for managing multiple observability exporters
  * Includes circuit breaker protection to prevent cascading failures
  */
@@ -69,8 +52,9 @@ export class ExporterRegistry {
   private exporters: Map<string, BaseExporter> = new Map();
   private defaultExporter: string | null = null;
   private sampler: Sampler = new AlwaysSampler();
-  private circuitBreakers: Map<string, CircuitBreakerState> = new Map();
-  private readonly circuitBreakerConfig: CircuitBreakerConfig = {
+  private circuitBreakers: Map<string, ObservabilityCircuitBreakerState> =
+    new Map();
+  private readonly circuitBreakerConfig: ObservabilityCircuitBreakerConfig = {
     failureThreshold: 5,
     resetTimeout: 30000, // 30 seconds
   };
@@ -148,7 +132,9 @@ export class ExporterRegistry {
    * Configure the circuit breaker settings
    * @param config - Partial circuit breaker configuration
    */
-  configureCircuitBreaker(config: Partial<CircuitBreakerConfig>): void {
+  configureCircuitBreaker(
+    config: Partial<ObservabilityCircuitBreakerConfig>,
+  ): void {
     Object.assign(this.circuitBreakerConfig, config);
   }
 
@@ -228,7 +214,7 @@ export class ExporterRegistry {
    */
   getCircuitBreakerStatus(
     exporterName: string,
-  ): CircuitBreakerState | undefined {
+  ): ObservabilityCircuitBreakerState | undefined {
     return this.circuitBreakers.get(exporterName);
   }
 

@@ -3,130 +3,16 @@
  * Provides statistical analysis, trend detection, and summary generation.
  */
 
-import type { EvaluationData } from "../types/index.js";
+import type {
+  AggregationResult,
+  AlertSummary,
+  DimensionAnalysis,
+  EvaluationData,
+  ScoreDistribution,
+  ScoreStatistics,
+  TrendAnalysis,
+} from "../types/index.js";
 import { evaluationErrors } from "./errors/EvaluationError.js";
-
-/**
- * Statistical summary of evaluation scores.
- */
-type ScoreStatistics = {
-  /** Minimum score */
-  min: number;
-  /** Maximum score */
-  max: number;
-  /** Mean (average) score */
-  mean: number;
-  /** Median score */
-  median: number;
-  /** Standard deviation */
-  stdDev: number;
-  /** Variance */
-  variance: number;
-  /** 25th percentile */
-  p25: number;
-  /** 75th percentile */
-  p75: number;
-  /** 90th percentile */
-  p90: number;
-  /** 95th percentile */
-  p95: number;
-};
-
-/**
- * Score distribution across ranges.
- */
-type ScoreDistribution = {
-  /** Items scoring 1-3 (poor) */
-  poor: number;
-  /** Items scoring 4-5 (below average) */
-  belowAverage: number;
-  /** Items scoring 6-7 (average) */
-  average: number;
-  /** Items scoring 8-9 (good) */
-  good: number;
-  /** Items scoring 10 (excellent) */
-  excellent: number;
-};
-
-/**
- * Trend analysis results.
- */
-type TrendAnalysis = {
-  /** Direction of the trend */
-  direction: "improving" | "declining" | "stable";
-  /** Slope of the linear regression */
-  slope: number;
-  /** R-squared value (fit quality) */
-  rSquared: number;
-  /** Percentage change from first to last */
-  percentChange: number;
-  /** Moving average of last N evaluations */
-  movingAverage: number;
-};
-
-/**
- * Dimension-specific analysis for RAGAS metrics.
- */
-type DimensionAnalysis = {
-  /** Relevance score statistics */
-  relevance: ScoreStatistics;
-  /** Accuracy score statistics */
-  accuracy: ScoreStatistics;
-  /** Completeness score statistics */
-  completeness: ScoreStatistics;
-  /** Overall score statistics */
-  overall: ScoreStatistics;
-  /** Correlation matrix between dimensions */
-  correlations: {
-    relevanceAccuracy: number;
-    relevanceCompleteness: number;
-    accuracyCompleteness: number;
-  };
-};
-
-/**
- * Quality alerts summary.
- */
-type AlertSummary = {
-  /** Total number of alerts */
-  total: number;
-  /** Number of high severity alerts */
-  high: number;
-  /** Number of medium severity alerts */
-  medium: number;
-  /** Number of items marked as off-topic */
-  offTopic: number;
-  /** Alert rate as percentage */
-  alertRate: number;
-};
-
-/**
- * Comprehensive aggregation result.
- */
-type AggregationResult = {
-  /** Number of evaluations aggregated */
-  count: number;
-  /** Statistics for overall scores */
-  statistics: ScoreStatistics;
-  /** Score distribution */
-  distribution: ScoreDistribution;
-  /** Dimension-specific analysis */
-  dimensions: DimensionAnalysis;
-  /** Sequence trend analysis based on insertion order (not time-based) */
-  sequenceTrend?: TrendAnalysis;
-  /** Alert summary */
-  alerts: AlertSummary;
-  /** Passing rate based on threshold */
-  passingRate: number;
-  /** Average evaluation time */
-  avgEvaluationTime: number;
-  /** Aggregation metadata */
-  metadata: {
-    aggregatedAt: string;
-    threshold: number;
-    evaluationModels: string[];
-  };
-};
 
 /**
  * EvaluationAggregator - Aggregates evaluation results and provides analytics.

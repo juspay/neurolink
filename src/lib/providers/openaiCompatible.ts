@@ -22,6 +22,7 @@ import type {
   ZodUnknownSchema,
 } from "../types/index.js";
 
+import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { logger } from "../utils/logger.js";
 import {
   composeAbortSignals,
@@ -293,6 +294,15 @@ export class OpenAICompatibleProvider extends BaseProvider {
           this.telemetryHandler.getTelemetryConfig(options),
         experimental_repairToolCall: this.getToolCallRepairFn(options),
         onStepFinish: (event: StepFinishEvent) => {
+          emitToolEndFromStepFinish(
+            this.neurolink?.getEventEmitter(),
+            event.toolResults as Array<{
+              toolName: string;
+              output?: unknown;
+              result?: unknown;
+              error?: string;
+            }>,
+          );
           this.handleToolExecutionStorage(
             [...event.toolCalls],
             [...event.toolResults],

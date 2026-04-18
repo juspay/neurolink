@@ -15,8 +15,6 @@
  */
 
 import {
-  type Counter,
-  type Histogram,
   type Meter,
   type Span,
   SpanStatusCode,
@@ -32,6 +30,13 @@ import { OtelBridge } from "../observability/otelBridge.js";
 import { calculateCost } from "../utils/pricing.js";
 import { TelemetryService } from "../telemetry/telemetryService.js";
 import { logger } from "../utils/logger.js";
+import type {
+  AccountSelectionContext,
+  ProxyMetrics,
+  ProxyRequestContext,
+  UpstreamAttemptContext,
+  UsageContext,
+} from "../types/index.js";
 
 const LOG_PREFIX = "[ProxyTracer]";
 
@@ -44,25 +49,6 @@ const LOG_PREFIX = "[ProxyTracer]";
 // defer instrument creation until the first ProxyTracer.end() call, at which
 // point the MeterProvider is guaranteed to be registered.
 // ---------------------------------------------------------------------------
-
-type ProxyMetrics = {
-  requestsTotal: Counter;
-  requestDuration: Histogram;
-  tokensInput: Counter;
-  tokensOutput: Counter;
-  tokensCacheRead: Counter;
-  tokensCacheCreation: Counter;
-  tokensReasoning: Counter;
-  costTotal: Counter;
-  errorsTotal: Counter;
-  retriesTotal: Counter;
-  modelSubstitutionTotal: Counter;
-  requestBodySize: Histogram;
-  responseBodySize: Histogram;
-  fallbackAttemptsTotal: Counter;
-  fallbackSuccessTotal: Counter;
-  fallbackFailureTotal: Counter;
-};
 
 let _metrics: ProxyMetrics | null = null;
 
@@ -150,50 +136,6 @@ function getProxyMetrics(): ProxyMetrics {
   _metrics = createdMetrics;
   return createdMetrics;
 }
-
-// ---------------------------------------------------------------------------
-// Context types
-// ---------------------------------------------------------------------------
-
-type ProxyRequestContext = {
-  requestId: string;
-  method: string;
-  path: string;
-  model: string;
-  stream: boolean;
-  toolCount: number;
-  sessionId?: string;
-  userAgent?: string;
-  clientApp?: string;
-};
-
-type AccountSelectionContext = {
-  strategy: string;
-  accountsTotal: number;
-  accountsHealthy: number;
-  selectedAccount: string;
-  accountType: string;
-  rateLimitBefore5h?: number;
-  rateLimitBefore7d?: number;
-};
-
-type UpstreamAttemptContext = {
-  attempt: number;
-  account: string;
-  polyfillHeaders: boolean;
-  polyfillBody: boolean;
-  upstreamUrl: string;
-};
-
-type UsageContext = {
-  inputTokens: number;
-  outputTokens: number;
-  cacheCreationTokens: number;
-  cacheReadTokens: number;
-  reasoningTokens?: number;
-  rateLimitAfter5h?: number;
-  rateLimitAfter7d?: number;
-};
 
 // ---------------------------------------------------------------------------
 // Header redaction (mirrors requestLogger.ts patterns)

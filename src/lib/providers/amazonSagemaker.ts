@@ -19,6 +19,8 @@ import type {
   SageMakerAsLanguageModel,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { withSpan } from "../telemetry/withSpan.js";
+import { tracers } from "../telemetry/tracers.js";
 // SageMaker-specific imports
 import {
   getDefaultSageMakerEndpoint,
@@ -121,19 +123,34 @@ export class AmazonSageMakerProvider extends BaseProvider {
     _options: StreamOptions,
     _analysisSchema?: ZodType | Schema<unknown>,
   ): Promise<StreamResult> {
-    try {
-      // For now, throw an error indicating this is not yet implemented
-      throw new SageMakerError(
-        "SageMaker streaming not yet fully implemented. Coming in next phase.",
-        {
-          code: "MODEL_ERROR",
-          statusCode: 501,
-          endpoint: this.modelConfig.endpointName,
+    return withSpan(
+      {
+        name: "neurolink.provider.sagemaker.stream",
+        tracer: tracers.stream,
+        attributes: {
+          "provider.name": "sagemaker",
+          "model.name": this.modelName,
+          "sagemaker.endpoint": this.modelConfig.endpointName,
+          "sagemaker.region": this.sagemakerConfig.region,
+          "sagemaker.not_implemented": true,
         },
-      );
-    } catch (error) {
-      throw this.handleProviderError(error);
-    }
+      },
+      async () => {
+        try {
+          // For now, throw an error indicating this is not yet implemented
+          throw new SageMakerError(
+            "SageMaker streaming not yet fully implemented. Coming in next phase.",
+            {
+              code: "MODEL_ERROR",
+              statusCode: 501,
+              endpoint: this.modelConfig.endpointName,
+            },
+          );
+        } catch (error) {
+          throw this.handleProviderError(error);
+        }
+      },
+    );
   }
 
   protected formatProviderError(error: unknown): Error {

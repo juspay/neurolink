@@ -8,13 +8,7 @@
 import { openSync, readSync, closeSync, fstatSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-
-/** Result of a traffic-quiet check. */
-type QuietStatus = {
-  isQuiet: boolean;
-  lastActivityAt: Date | null;
-  silenceDurationMs: number;
-};
+import type { QuietStatus } from "../types/index.js";
 
 /** Default quiet threshold: 2 minutes of no traffic. */
 const DEFAULT_QUIET_THRESHOLD_MS = 120_000;

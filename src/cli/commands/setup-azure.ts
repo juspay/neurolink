@@ -20,29 +20,17 @@ import {
   displayEnvUpdateSummary,
 } from "../utils/envManager.js";
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
-import { AIProviderName } from "../../lib/types/index.js";
+import {
+  AIProviderName,
+  type ProviderSetupArgv,
+  type ProviderSetupConfig,
+  type ProviderSetupOptions,
+} from "../../lib/types/index.js";
 import { maskCredential } from "../utils/maskCredential.js";
 
-type AzureSetupOptions = {
-  checkOnly?: boolean;
-  interactive?: boolean;
-};
-
-type AzureSetupArgv = {
-  check?: boolean;
-  nonInteractive?: boolean;
-};
-
-type AzureConfig = {
-  apiKey?: string;
-  endpoint?: string;
-  model?: string;
-  isReconfiguring?: boolean;
-};
-
-export async function handleAzureSetup(argv: AzureSetupArgv): Promise<void> {
+export async function handleAzureSetup(argv: ProviderSetupArgv): Promise<void> {
   try {
-    const options: AzureSetupOptions = {
+    const options: ProviderSetupOptions = {
       checkOnly: argv.check || false,
       interactive: !argv.nonInteractive,
     };
@@ -77,7 +65,7 @@ export async function handleAzureSetup(argv: AzureSetupArgv): Promise<void> {
       return;
     }
 
-    const config: AzureConfig = {};
+    const config: ProviderSetupConfig = {};
 
     // Step 2: Handle existing configuration
     if (hasApiKey && hasEndpoint) {
@@ -430,7 +418,9 @@ async function promptForModel(): Promise<string> {
 /**
  * Update .env file with Azure OpenAI configuration using shared utilities
  */
-async function updateEnvFileWithConfig(config: AzureConfig): Promise<void> {
+async function updateEnvFileWithConfig(
+  config: ProviderSetupConfig,
+): Promise<void> {
   const spinner = ora("💾 Updating .env file...").start();
 
   try {

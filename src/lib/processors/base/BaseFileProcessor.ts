@@ -49,6 +49,8 @@ import { gunzip } from "zlib";
 
 import { SIZE_LIMITS } from "../config/index.js";
 import { isAbortError } from "../../utils/errorHandling.js";
+import { withSpan } from "../../telemetry/withSpan.js";
+import { tracers } from "../../telemetry/tracers.js";
 import {
   createFileError,
   extractHttpStatus,
@@ -135,90 +137,102 @@ export abstract class BaseFileProcessor<T extends ProcessedFileBase> {
     fileInfo: FileInfo,
     options?: ProcessOptions,
   ): Promise<ProcessorFileProcessingResult<T>> {
-    try {
-      // Step 1: Validate file type and size
-      const validationResult = this.validateFileWithResult(fileInfo);
-      if (!validationResult.success) {
-        return {
-          success: false,
-          error: validationResult.error,
-        };
-      }
+    return withSpan(
+      {
+        name: "neurolink.file.process",
+        tracer: tracers.file,
+        attributes: {
+          "file.processor": this.constructor.name,
+          "file.type": this.config.fileTypeName,
+          "file.mimetype": fileInfo.mimetype ?? "unknown",
+          "file.name": fileInfo.name ?? "unknown",
+        },
+      },
+      async (_span) => {
+        try {
+          // Step 1: Validate file type and size
+          const validationResult = this.validateFileWithResult(fileInfo);
+          if (!validationResult.success) {
+            return {
+              success: false,
+              error: validationResult.error,
+            };
+          }
 
-      // Step 2: Get file buffer (from direct buffer or download from URL)
-      let buffer: Buffer;
+          // Step 2: Get file buffer (from direct buffer or download from URL)
+          let buffer: Buffer;
 
-      if (fileInfo.buffer) {
-        // Direct buffer provided - skip download
-        buffer = fileInfo.buffer;
-      } else if (fileInfo.url) {
-        // Download from URL
-        const downloadResult = await this.downloadFileWithRetry(
-          fileInfo,
-          options,
-        );
-        if (!downloadResult.success) {
+          if (fileInfo.buffer) {
+            // Direct buffer provided - skip download
+            buffer = fileInfo.buffer;
+          } else if (fileInfo.url) {
+            // Download from URL
+            const downloadResult = await this.downloadFileWithRetry(
+              fileInfo,
+              options,
+            );
+            if (!downloadResult.success) {
+              return {
+                success: false,
+                error: downloadResult.error,
+              };
+            }
+            if (!downloadResult.data) {
+              return {
+                success: false,
+                error: this.createError(FileErrorCode.DOWNLOAD_FAILED, {
+                  reason: "Download succeeded but returned no data",
+                }),
+              };
+            }
+            buffer = downloadResult.data;
+
+            // Validate actual downloaded size against limit
+            if (!this.validateFileSize(buffer.length)) {
+              return {
+                success: false,
+                error: this.createError(FileErrorCode.FILE_TOO_LARGE, {
+                  sizeMB: (buffer.length / (1024 * 1024)).toFixed(2),
+                  maxMB: this.config.maxSizeMB,
+                  type: this.config.fileTypeName,
+                }),
+              };
+            }
+          } else {
+            // No buffer or URL provided
+            return {
+              success: false,
+              error: this.createError(FileErrorCode.DOWNLOAD_FAILED, {
+                reason: "No buffer or URL provided for file",
+              }),
+            };
+          }
+
+          // Step 3: Post-download validation (subclasses can override)
+          const postValidationResult =
+            await this.validateDownloadedFileWithResult(buffer, fileInfo);
+          if (!postValidationResult.success) {
+            return {
+              success: false,
+              error: postValidationResult.error,
+            };
+          }
+
+          // Step 4: Build processed result using template method
+          return await this.buildProcessedResultWithResult(buffer, fileInfo);
+        } catch (error) {
+          // Catch any unexpected errors
           return {
             success: false,
-            error: downloadResult.error,
+            error: this.createError(
+              FileErrorCode.UNKNOWN_ERROR,
+              { error: error instanceof Error ? error.message : String(error) },
+              error instanceof Error ? error : undefined,
+            ),
           };
         }
-        if (!downloadResult.data) {
-          return {
-            success: false,
-            error: this.createError(FileErrorCode.DOWNLOAD_FAILED, {
-              reason: "Download succeeded but returned no data",
-            }),
-          };
-        }
-        buffer = downloadResult.data;
-
-        // Validate actual downloaded size against limit
-        if (!this.validateFileSize(buffer.length)) {
-          return {
-            success: false,
-            error: this.createError(FileErrorCode.FILE_TOO_LARGE, {
-              sizeMB: (buffer.length / (1024 * 1024)).toFixed(2),
-              maxMB: this.config.maxSizeMB,
-              type: this.config.fileTypeName,
-            }),
-          };
-        }
-      } else {
-        // No buffer or URL provided
-        return {
-          success: false,
-          error: this.createError(FileErrorCode.DOWNLOAD_FAILED, {
-            reason: "No buffer or URL provided for file",
-          }),
-        };
-      }
-
-      // Step 3: Post-download validation (subclasses can override)
-      const postValidationResult = await this.validateDownloadedFileWithResult(
-        buffer,
-        fileInfo,
-      );
-      if (!postValidationResult.success) {
-        return {
-          success: false,
-          error: postValidationResult.error,
-        };
-      }
-
-      // Step 4: Build processed result using template method
-      return await this.buildProcessedResultWithResult(buffer, fileInfo);
-    } catch (error) {
-      // Catch any unexpected errors
-      return {
-        success: false,
-        error: this.createError(
-          FileErrorCode.UNKNOWN_ERROR,
-          { error: error instanceof Error ? error.message : String(error) },
-          error instanceof Error ? error : undefined,
-        ),
-      };
-    }
+      },
+    ); // end withSpan
   }
 
   /**

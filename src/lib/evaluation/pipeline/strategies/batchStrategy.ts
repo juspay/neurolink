@@ -7,65 +7,11 @@ import type {
   ScorerInput,
   PipelineExecutionOptions,
   PipelineResult,
+  BatchEvaluationConfig,
+  BatchEvaluationResult,
+  BatchItemResult,
 } from "../../../types/index.js";
 import type { EvaluationPipeline } from "../evaluationPipeline.js";
-
-/**
- * Batch processing configuration
- */
-type BatchConfig = {
-  /** Maximum concurrent evaluations */
-  concurrency?: number;
-  /** Delay between batches (ms) */
-  batchDelay?: number;
-  /** Continue on individual failures */
-  continueOnError?: boolean;
-  /** Progress callback */
-  onProgress?: (progress: BatchProgress) => void;
-  /** Individual result callback */
-  onResult?: (result: BatchItemResult) => void;
-};
-
-/**
- * Batch progress information
- */
-type BatchProgress = {
-  total: number;
-  completed: number;
-  failed: number;
-  remaining: number;
-  percentComplete: number;
-  estimatedTimeRemaining?: number;
-};
-
-/**
- * Individual batch item result
- */
-type BatchItemResult = {
-  index: number;
-  input: ScorerInput;
-  result?: PipelineResult;
-  error?: string;
-  duration: number;
-};
-
-/**
- * Batch evaluation result
- */
-type BatchResult = {
-  /** All individual results */
-  results: BatchItemResult[];
-  /** Summary statistics */
-  summary: {
-    total: number;
-    successful: number;
-    failed: number;
-    averageScore: number;
-    passRate: number;
-    totalDuration: number;
-    averageDuration: number;
-  };
-};
 
 function hasPipelineResult(
   result: BatchItemResult,
@@ -76,7 +22,12 @@ function hasPipelineResult(
 /**
  * Default batch configuration
  */
-const DEFAULT_BATCH_CONFIG: Required<BatchConfig> = {
+const DEFAULT_BATCH_CONFIG: Required<
+  Pick<
+    BatchEvaluationConfig,
+    "concurrency" | "batchDelay" | "continueOnError" | "onProgress" | "onResult"
+  >
+> = {
   concurrency: 5,
   batchDelay: 0,
   continueOnError: true,
@@ -89,9 +40,18 @@ const DEFAULT_BATCH_CONFIG: Required<BatchConfig> = {
  */
 export class BatchStrategy {
   private _pipeline: EvaluationPipeline;
-  private _config: Required<BatchConfig>;
+  private _config: Required<
+    Pick<
+      BatchEvaluationConfig,
+      | "concurrency"
+      | "batchDelay"
+      | "continueOnError"
+      | "onProgress"
+      | "onResult"
+    >
+  >;
 
-  constructor(pipeline: EvaluationPipeline, config?: BatchConfig) {
+  constructor(pipeline: EvaluationPipeline, config?: BatchEvaluationConfig) {
     this._pipeline = pipeline;
     this._config = { ...DEFAULT_BATCH_CONFIG, ...config };
   }
@@ -102,7 +62,7 @@ export class BatchStrategy {
   async evaluate(
     inputs: ScorerInput[],
     options?: PipelineExecutionOptions,
-  ): Promise<BatchResult> {
+  ): Promise<BatchEvaluationResult> {
     const startTime = Date.now();
     const results: BatchItemResult[] = [];
     const durations: number[] = [];
@@ -140,7 +100,7 @@ export class BatchStrategy {
         total: inputs.length,
         completed: results.length,
         failed: results.filter((r) => r.error).length,
-        remaining: inputs.length - results.length,
+        pending: inputs.length - results.length,
         percentComplete: (results.length / inputs.length) * 100,
         estimatedTimeRemaining: this._estimateRemainingTime(
           durations,
@@ -167,13 +127,13 @@ export class BatchStrategy {
       results,
       summary: {
         total: inputs.length,
-        successful: successfulResults.length,
+        succeeded: successfulResults.length,
         failed: results.length - successfulResults.length,
         averageScore:
           scores.length > 0
             ? scores.reduce((a, b) => a + b, 0) / scores.length
             : 0,
-        passRate:
+        passingRate:
           successfulResults.length > 0
             ? passed.length / successfulResults.length
             : 0,
@@ -247,7 +207,7 @@ export class BatchStrategy {
   /**
    * Update configuration
    */
-  configure(config: Partial<BatchConfig>): void {
+  configure(config: Partial<BatchEvaluationConfig>): void {
     this._config = { ...this._config, ...config };
   }
 }
@@ -257,7 +217,7 @@ export class BatchStrategy {
  */
 export function createBatchStrategy(
   pipeline: EvaluationPipeline,
-  config?: BatchConfig,
+  config?: BatchEvaluationConfig,
 ): BatchStrategy {
   return new BatchStrategy(pipeline, config);
 }
@@ -268,8 +228,8 @@ export function createBatchStrategy(
 export async function evaluateBatch(
   pipeline: EvaluationPipeline,
   inputs: ScorerInput[],
-  config?: BatchConfig,
-): Promise<BatchResult> {
+  config?: BatchEvaluationConfig,
+): Promise<BatchEvaluationResult> {
   const strategy = new BatchStrategy(pipeline, config);
   return strategy.evaluate(inputs);
 }
@@ -280,8 +240,8 @@ export async function evaluateBatch(
 export async function* streamBatchEvaluation(
   pipeline: EvaluationPipeline,
   inputs: ScorerInput[],
-  config?: Omit<BatchConfig, "onResult" | "onProgress">,
-): AsyncGenerator<BatchItemResult, BatchResult["summary"], void> {
+  config?: Omit<BatchEvaluationConfig, "onResult" | "onProgress">,
+): AsyncGenerator<BatchItemResult, BatchEvaluationResult["summary"], void> {
   const results: BatchItemResult[] = [];
   const durations: number[] = [];
   const startTime = Date.now();
@@ -328,13 +288,13 @@ export async function* streamBatchEvaluation(
         const earlyPassed = successfulResults.filter((r) => r.result.passed);
         return {
           total: inputs.length,
-          successful: successfulResults.length,
+          succeeded: successfulResults.length,
           failed: results.length - successfulResults.length,
           averageScore:
             earlyScores.length > 0
               ? earlyScores.reduce((a, b) => a + b, 0) / earlyScores.length
               : 0,
-          passRate:
+          passingRate:
             successfulResults.length > 0
               ? earlyPassed.length / successfulResults.length
               : 0,
@@ -366,11 +326,11 @@ export async function* streamBatchEvaluation(
 
   return {
     total: inputs.length,
-    successful: successfulResults.length,
+    succeeded: successfulResults.length,
     failed: results.length - successfulResults.length,
     averageScore:
       scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0,
-    passRate:
+    passingRate:
       successfulResults.length > 0
         ? passed.length / successfulResults.length
         : 0,

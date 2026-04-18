@@ -8,35 +8,18 @@
  * @module @neurolink/client/wsClient
  */
 
+import { SpanKind, SpanStatusCode, type Span } from "@opentelemetry/api";
 import type {
   ClientStreamCallbacks,
   ClientStreamEvent as StreamEvent,
   ClientStreamResult as StreamResult,
   WebSocketEventHandlers,
   ClientClientWebSocketState,
+  ClientInternalConfig,
   ClientWebSocketMessage,
   ClientWebSocketConfig,
 } from "../types/index.js";
-// =============================================================================
-// Type Aliases (re-export canonical types under the original public names)
-// =============================================================================
-// =============================================================================
-// Internal Types
-// =============================================================================
-
-type InternalConfig = {
-  baseUrl: string;
-  apiKey: string;
-  token: string;
-  timeout: number;
-  headers: Record<string, string>;
-  autoReconnect: boolean;
-  maxReconnectAttempts: number;
-  reconnectDelay: number;
-  maxReconnectDelay: number;
-  heartbeatInterval: number;
-  queueSize: number;
-};
+import { tracers } from "../telemetry/tracers.js";
 
 // =============================================================================
 // WebSocket Client
@@ -69,7 +52,7 @@ type InternalConfig = {
  */
 export class NeuroLinkWebSocket {
   private ws: WebSocket | null = null;
-  private config: InternalConfig;
+  private config: ClientInternalConfig;
   private state: ClientClientWebSocketState = "disconnected";
   private reconnectAttempts = 0;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -77,6 +60,12 @@ export class NeuroLinkWebSocket {
   private eventHandlers: WebSocketEventHandlers = {};
   private subscriptions = new Map<string, ClientStreamCallbacks>();
   private pendingAuth = false;
+  /**
+   * Active OTel span for the current WebSocket connection lifecycle.
+   * Created at connect() and ended on close/error so we capture connection
+   * lifetime, reconnect counts, and error attribution in Langfuse.
+   */
+  private connectionSpan: Span | null = null;
 
   /**
    * Local flag to suppress reconnection during an explicit disconnect().
@@ -129,6 +118,33 @@ export class NeuroLinkWebSocket {
     this.eventHandlers = handlers ?? {};
     this.setState("connecting");
 
+    // End any orphaned span from a prior connect() attempt (e.g., re-entrant call
+    // while a previous attempt was still connecting).
+    if (this.connectionSpan) {
+      this.connectionSpan.setAttribute("ws.superseded", true);
+      this.connectionSpan.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: "Connection attempt superseded by new connect() call",
+      });
+      this.connectionSpan.end();
+      this.connectionSpan = null;
+    }
+
+    // Start an OTel span that tracks the lifetime of this connection attempt.
+    // Ended in onclose/onerror/disconnect so metrics capture connection
+    // duration and error attribution.
+    this.connectionSpan = tracers.http.startSpan(
+      "neurolink.client.ws.connect",
+      {
+        kind: SpanKind.CLIENT,
+        attributes: {
+          "http.url": this.config.baseUrl,
+          "ws.auto_reconnect": this.config.autoReconnect,
+          "ws.reconnect_attempt": this.reconnectAttempts,
+        },
+      },
+    );
+
     // Build WebSocket URL (credentials are sent via headers, not query params,
     // to avoid leaking secrets in server logs, browser history, and HTTP referers)
     const url = new URL(this.config.baseUrl);
@@ -151,17 +167,28 @@ export class NeuroLinkWebSocket {
       typeof globalThis.process !== "undefined" &&
       typeof globalThis.process.versions?.node === "string";
 
-    if (isNode && Object.keys(authHeaders).length > 0) {
-      // The `ws` npm package accepts a second `options` object with a `headers`
-      // property.  The DOM WebSocket type does not model this, so we cast
-      // through `unknown` to satisfy TypeScript while remaining correct at
-      // runtime under Node.js.
-      this.ws = new (WebSocket as unknown as new (
-        url: string,
-        opts: { headers: Record<string, string> },
-      ) => WebSocket)(url.toString(), { headers: authHeaders });
-    } else {
-      this.ws = new WebSocket(url.toString());
+    try {
+      if (isNode && Object.keys(authHeaders).length > 0) {
+        this.ws = new (WebSocket as unknown as new (
+          url: string,
+          opts: { headers: Record<string, string> },
+        ) => WebSocket)(url.toString(), { headers: authHeaders });
+      } else {
+        this.ws = new WebSocket(url.toString());
+      }
+    } catch (error) {
+      if (this.connectionSpan) {
+        this.connectionSpan.recordException(
+          error instanceof Error ? error : new Error(String(error)),
+        );
+        this.connectionSpan.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        this.connectionSpan.end();
+        this.connectionSpan = null;
+      }
+      throw error;
     }
 
     this.pendingAuth = !isNode && (!!this.config.apiKey || !!this.config.token);
@@ -184,6 +211,16 @@ export class NeuroLinkWebSocket {
     }
 
     this.setState("disconnected");
+
+    // Let onclose finalize the span — it fires from ws.close(1000,...) and
+    // has the close code context.  We only end here if ws is already null
+    // (e.g. connect was never called) to avoid leaking.
+    if (this.connectionSpan && !this.ws) {
+      this.connectionSpan.setAttribute("ws.close_reason", "client_disconnect");
+      this.connectionSpan.setStatus({ code: SpanStatusCode.OK });
+      this.connectionSpan.end();
+      this.connectionSpan = null;
+    }
   }
 
   /**
@@ -194,7 +231,7 @@ export class NeuroLinkWebSocket {
       this.ws.send(JSON.stringify(message));
     } else {
       // Queue message for when connected
-      if (this.messageQueue.length < this.config.queueSize) {
+      if (this.messageQueue.length < (this.config.queueSize ?? 100)) {
         this.messageQueue.push(message);
       }
     }
@@ -261,6 +298,10 @@ export class NeuroLinkWebSocket {
       this.setState("connected");
       this.reconnectAttempts = 0;
 
+      if (this.connectionSpan) {
+        this.connectionSpan.setAttribute("ws.connected", true);
+      }
+
       // In browser environments, send credentials as the first message
       // since the browser WebSocket API does not support custom headers.
       if (this.pendingAuth && this.ws) {
@@ -289,6 +330,24 @@ export class NeuroLinkWebSocket {
       this.stopHeartbeat();
       this.eventHandlers.onClose?.(event.code, event.reason);
 
+      if (this.connectionSpan) {
+        this.connectionSpan.setAttribute("ws.close_code", event.code);
+        if (event.reason) {
+          this.connectionSpan.setAttribute("ws.close_reason", event.reason);
+        }
+        // 1000 = normal closure; other codes are abnormal.
+        if (event.code === 1000) {
+          this.connectionSpan.setStatus({ code: SpanStatusCode.OK });
+        } else {
+          this.connectionSpan.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: `WebSocket closed with code ${event.code}${event.reason ? `: ${event.reason}` : ""}`,
+          });
+        }
+        this.connectionSpan.end();
+        this.connectionSpan = null;
+      }
+
       // Only attempt reconnection when auto-reconnect is enabled AND this
       // was not an intentional disconnect (code 1000 or explicit call).
       if (
@@ -304,6 +363,17 @@ export class NeuroLinkWebSocket {
       this.setState("error");
       const error = new Error("WebSocket connection error");
       this.eventHandlers.onError?.(error);
+
+      if (this.connectionSpan) {
+        this.connectionSpan.recordException(error);
+        this.connectionSpan.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: error.message,
+        });
+        // Do not end here — onclose will fire next and end the span with
+        // the precise close code. Keeping the span open until close gives
+        // us the full connection lifetime on Langfuse.
+      }
     };
 
     this.ws.onmessage = (event) => {
@@ -380,7 +450,7 @@ export class NeuroLinkWebSocket {
       if (this.isConnected()) {
         this.send({ type: "ping" });
       }
-    }, this.config.heartbeatInterval);
+    }, this.config.heartbeatInterval ?? 30000);
   }
 
   private stopHeartbeat(): void {

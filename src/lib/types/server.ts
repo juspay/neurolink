@@ -1338,3 +1338,130 @@ export type CacheEntry = {
   ttlMs: number;
   headers?: Record<string, string>;
 };
+
+/** Voice-server conversation turn — superset role set. */
+export type Message = {
+  role: "system" | "user" | "assistant";
+  content: string;
+};
+
+/** Subset of Message that excludes the system role (assistant+user only). */
+export type ConversationMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+// =============================================================================
+// OPENAPI GENERATOR (from server/openapi/generator.ts)
+// =============================================================================
+
+/** Configuration passed to the OpenAPI spec generator. */
+export type OpenAPIGeneratorConfig = {
+  info?: {
+    title?: string;
+    version?: string;
+    description?: string;
+  };
+  servers?: Array<{
+    url: string;
+    description?: string;
+  }>;
+  includeSecurity?: boolean;
+  basePath?: string;
+  additionalTags?: Array<{
+    name: string;
+    description: string;
+  }>;
+  customSchemas?: Record<string, JsonObject>;
+  routes?: RouteDefinition[];
+};
+
+/** Structured OpenAPI 3.1 specification object. */
+export type OpenAPISpec = {
+  openapi: "3.1.0";
+  info: JsonObject;
+  servers: JsonObject[];
+  tags: JsonObject[];
+  paths: Record<string, JsonObject>;
+  components: {
+    schemas: Record<string, JsonObject>;
+    securitySchemes?: Record<string, JsonObject>;
+    parameters?: Record<string, JsonObject>;
+  };
+  security?: JsonObject[];
+};
+
+// =============================================================================
+// ROUTE HELPERS (from server/routes/index.ts)
+// =============================================================================
+
+/** Options for createAllRoutes / createRoutes. */
+export type CreateRoutesOptions = {
+  enableSwagger?: boolean;
+  getRoutes?: () => RouteDefinition[];
+  claudeProxy?: boolean;
+};
+
+// =============================================================================
+// DATA STREAM (from server/streaming/dataStream.ts)
+// =============================================================================
+
+/** Data stream finish event. */
+export type FinishEvent = DataStreamEvent & {
+  type: "finish";
+  data: {
+    reason?: string;
+    usage?: {
+      input: number;
+      output: number;
+      total: number;
+    };
+  };
+};
+
+/** Configuration for DataStreamWriter. */
+export type DataStreamWriterConfig = {
+  write: (chunk: string) => void | Promise<void>;
+  close?: () => void | Promise<void>;
+  format?: "sse" | "ndjson";
+  includeTimestamps?: boolean;
+};
+
+/** Configuration for the DataStreamResponse wrapper. */
+export type DataStreamResponseConfig = {
+  contentType?: "text/event-stream" | "application/x-ndjson";
+  headers?: Record<string, string>;
+  keepAliveInterval?: number;
+  includeTimestamps?: boolean;
+};
+
+/** Options for a single SSE message. */
+export type SSEEventOptions = {
+  event?: string;
+  data: string;
+  id?: string;
+  retry?: number;
+};
+
+// =============================================================================
+// VOICE WEBSOCKET (from server/voice/voiceWebSocketHandler.ts)
+// =============================================================================
+
+/** Single token emitted by the Soniox STT stream. */
+export type SonioxToken = {
+  is_final?: boolean;
+  text?: string;
+};
+
+/** Envelope received from the Soniox STT WebSocket. */
+export type SonioxMessage = {
+  error?: string;
+  status?: string;
+  type?: string;
+  tokens?: SonioxToken[];
+};
+
+/** Control message received from the voice client over WebSocket. */
+export type ClientControlMessage = {
+  type?: string;
+};

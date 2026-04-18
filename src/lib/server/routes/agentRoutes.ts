@@ -3,6 +3,7 @@
  * Endpoints for agent execution and streaming
  */
 
+import { SpanStatusCode } from "@opentelemetry/api";
 import { ProviderFactory } from "../../factories/providerFactory.js";
 import type {
   AgentExecuteRequest,
@@ -14,6 +15,8 @@ import type {
   RouteGroup,
   ServerContext,
 } from "../../types/index.js";
+import { withSpan } from "../../telemetry/withSpan.js";
+import { tracers } from "../../telemetry/tracers.js";
 import { createStreamRedactor } from "../utils/redaction.js";
 import {
   AgentExecuteRequestSchema,
@@ -52,53 +55,66 @@ export function createAgentRoutes(basePath: string = "/api"): RouteGroup {
 
           const request = validation.data as AgentExecuteRequest;
 
-          // Normalize input
-          const input =
-            typeof request.input === "string"
-              ? { text: request.input }
-              : request.input;
-
-          const result = await ctx.neurolink.generate({
-            input,
-            provider: request.provider,
-            model: request.model,
-            systemPrompt: request.systemPrompt,
-            temperature: request.temperature,
-            maxTokens: request.maxTokens,
-            // Note: tools should be passed as Record<string, Tool> in generate options
-            // If request.tools is an array of tool names, we skip them
-            context: {
-              // When an authenticated user context exists (set by auth middleware),
-              // always use its IDs to prevent caller-supplied impersonation.
-              sessionId: ctx.user
-                ? ctx.session?.id
-                : (ctx.session?.id ?? request.sessionId),
-              userId: ctx.user ? ctx.user.id : request.userId,
-              userEmail: ctx.user?.email,
-              userRoles: ctx.user?.roles,
-              requestId: ctx.requestId,
+          return withSpan(
+            {
+              name: "neurolink.http.execute",
+              tracer: tracers.http,
+              attributes: {
+                "http.route": "/api/agent/execute",
+                "ai.provider": request.provider || "default",
+                "ai.model": request.model || "default",
+              },
             },
-          });
+            async () => {
+              // Normalize input
+              const input =
+                typeof request.input === "string"
+                  ? { text: request.input }
+                  : request.input;
 
-          // Map tool calls from SDK format to API format
-          const toolCalls = result.toolCalls?.map(
-            (tc: {
-              toolCallId: string;
-              toolName: string;
-              args: Record<string, unknown>;
-            }) => ({
-              name: tc.toolName,
-              arguments: tc.args,
-            }),
-          );
+              const result = await ctx.neurolink.generate({
+                input,
+                provider: request.provider,
+                model: request.model,
+                systemPrompt: request.systemPrompt,
+                temperature: request.temperature,
+                maxTokens: request.maxTokens,
+                // Note: tools should be passed as Record<string, Tool> in generate options
+                // If request.tools is an array of tool names, we skip them
+                context: {
+                  // When an authenticated user context exists (set by auth middleware),
+                  // always use its IDs to prevent caller-supplied impersonation.
+                  sessionId: ctx.user
+                    ? ctx.session?.id
+                    : (ctx.session?.id ?? request.sessionId),
+                  userId: ctx.user ? ctx.user.id : request.userId,
+                  userEmail: ctx.user?.email,
+                  userRoles: ctx.user?.roles,
+                  requestId: ctx.requestId,
+                },
+              });
 
-          return {
-            content: result.content || "",
-            provider: result.provider || request.provider || "unknown",
-            model: result.model || request.model || "unknown",
-            usage: result.usage,
-            toolCalls,
-          };
+              // Map tool calls from SDK format to API format
+              const toolCalls = result.toolCalls?.map(
+                (tc: {
+                  toolCallId: string;
+                  toolName: string;
+                  args: Record<string, unknown>;
+                }) => ({
+                  name: tc.toolName,
+                  arguments: tc.args,
+                }),
+              );
+
+              return {
+                content: result.content || "",
+                provider: result.provider || request.provider || "unknown",
+                model: result.model || request.model || "unknown",
+                usage: result.usage,
+                toolCalls,
+              };
+            },
+          ); // end withSpan
         },
         description: "Execute agent with prompt",
         tags: ["agent"],
@@ -150,11 +166,32 @@ export function createAgentRoutes(basePath: string = "/api"): RouteGroup {
           // Create redactor (no-op if redaction is not enabled)
           const redactor = createStreamRedactor(ctx.redaction);
 
-          // Wrap stream to apply redaction to each chunk
+          // Wrap stream with a span that stays open for the full consumption
+          // lifetime, not just the generator creation.
           async function* redactedStream(): AsyncIterable<unknown> {
-            for await (const chunk of result.stream) {
-              // Apply redaction to chunk (returns unchanged if redaction disabled)
-              yield redactor(chunk);
+            const streamSpan = tracers.http.startSpan("neurolink.http.stream", {
+              attributes: {
+                "http.route": "/api/agent/stream",
+                "ai.provider": request.provider || "default",
+                "ai.model": request.model || "default",
+              },
+            });
+            try {
+              for await (const chunk of result.stream) {
+                yield redactor(chunk);
+              }
+              streamSpan.setStatus({ code: SpanStatusCode.OK });
+            } catch (err) {
+              streamSpan.recordException(
+                err instanceof Error ? err : new Error(String(err)),
+              );
+              streamSpan.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: err instanceof Error ? err.message : String(err),
+              });
+              throw err;
+            } finally {
+              streamSpan.end();
             }
           }
 
@@ -198,19 +235,33 @@ export function createAgentRoutes(basePath: string = "/api"): RouteGroup {
 
           try {
             const providerName = request.provider || "openai";
-            const provider = await ProviderFactory.createProvider(
-              providerName,
-              request.model,
+            return await withSpan(
+              {
+                name: "neurolink.http.embed",
+                tracer: tracers.http,
+                attributes: {
+                  "http.route": "/api/agent/embed",
+                  "ai.provider": providerName,
+                  "ai.model": request.model || "default",
+                },
+              },
+              async () => {
+                const provider = await ProviderFactory.createProvider(
+                  providerName,
+                  request.model,
+                );
+                const embedding = await provider.embed(
+                  request.text,
+                  request.model,
+                );
+                return {
+                  embedding,
+                  provider: providerName,
+                  model: request.model || "default",
+                  dimension: embedding.length,
+                };
+              },
             );
-
-            const embedding = await provider.embed(request.text, request.model);
-
-            return {
-              embedding,
-              provider: providerName,
-              model: request.model || "default",
-              dimension: embedding.length,
-            };
           } catch (error) {
             return createError(
               "EXECUTION_FAILED",
@@ -247,23 +298,37 @@ export function createAgentRoutes(basePath: string = "/api"): RouteGroup {
 
           try {
             const providerName = request.provider || "openai";
-            const provider = await ProviderFactory.createProvider(
-              providerName,
-              request.model,
-            );
+            return await withSpan(
+              {
+                name: "neurolink.http.embedMany",
+                tracer: tracers.http,
+                attributes: {
+                  "http.route": "/api/agent/embed-many",
+                  "ai.provider": providerName,
+                  "ai.model": request.model || "default",
+                  "ai.embed.count": request.texts.length,
+                },
+              },
+              async () => {
+                const provider = await ProviderFactory.createProvider(
+                  providerName,
+                  request.model,
+                );
 
-            const embeddings = await provider.embedMany(
-              request.texts,
-              request.model,
-            );
+                const embeddings = await provider.embedMany(
+                  request.texts,
+                  request.model,
+                );
 
-            return {
-              embeddings,
-              provider: providerName,
-              model: request.model || "default",
-              count: embeddings.length,
-              dimension: embeddings[0]?.length ?? 0,
-            };
+                return {
+                  embeddings,
+                  provider: providerName,
+                  model: request.model || "default",
+                  count: embeddings.length,
+                  dimension: embeddings[0]?.length ?? 0,
+                };
+              },
+            );
           } catch (error) {
             return createError(
               "EXECUTION_FAILED",

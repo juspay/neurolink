@@ -482,3 +482,108 @@ export type SpanOptions = {
   kind?: import("@opentelemetry/api").SpanKind;
   attributes?: Record<string, string | number | boolean | undefined>;
 };
+
+// =============================================================================
+// METRICS TRACE CONTEXT (from neurolink.ts)
+// =============================================================================
+
+/** Trace + parent span IDs used to correlate metric records with spans. */
+export type MetricsTraceContext = {
+  traceId: string;
+  parentSpanId: string;
+};
+
+// =============================================================================
+// EXPORTER REGISTRY CIRCUIT BREAKER (from observability/exporterRegistry.ts)
+// =============================================================================
+
+/**
+ * Runtime state for the observability exporter circuit breaker.
+ * Prefixed to disambiguate from the richer MCP CircuitBreakerState in mcp.ts.
+ */
+export type ObservabilityCircuitBreakerState = {
+  failures: number;
+  lastFailure: number;
+  state: "closed" | "open" | "half-open";
+};
+
+/**
+ * Minimal config for the observability exporter circuit breaker.
+ * Prefixed to disambiguate from the richer MCP CircuitBreakerConfig in mcp.ts.
+ */
+export type ObservabilityCircuitBreakerConfig = {
+  failureThreshold: number;
+  resetTimeout: number;
+};
+
+// =============================================================================
+// SENTRY EXPORTER (from observability/exporters/sentryExporter.ts)
+// =============================================================================
+
+/** Minimal view of the dynamically-imported @sentry/node module. */
+export type SentryModule = {
+  init: (options: {
+    dsn: string;
+    tracesSampleRate: number;
+    release?: string;
+    environment: string;
+  }) => void;
+  withScope: (callback: (scope: SentryScope) => void) => void;
+  captureException: (error: Error) => void;
+  startInactiveSpan: (options: {
+    name: string;
+    op: string;
+    startTime: number;
+    attributes?: Record<string, unknown>;
+  }) => { end: (timestamp?: number) => void };
+  flush: (timeout: number) => Promise<boolean>;
+  close: (timeout: number) => Promise<boolean>;
+};
+
+/** Sentry scope surface used by SentryExporter.withScope callbacks. */
+export type SentryScope = {
+  setTags: (tags: Record<string, string>) => void;
+  setContext: (name: string, context: Record<string, unknown>) => void;
+  setUser: (user: { id: string }) => void;
+};
+
+// =============================================================================
+// METRICS AGGREGATOR (from observability/metricsAggregator.ts)
+// =============================================================================
+
+/** Aggregated metrics for a single time window. */
+export type TimeWindowStats = {
+  windowStart: Date;
+  windowEnd: Date;
+  windowDurationMs: number;
+  requestCount: number;
+  errorCount: number;
+  successRate: number;
+  throughput: number;
+  latency: LatencyStats;
+  tokens: TokenUsageStats;
+  costByProvider: Map<string, ProviderCostStats>;
+  costByModel: Map<string, ModelCostStats>;
+};
+
+/** Configuration for MetricsAggregator. */
+export type MetricsAggregatorConfig = {
+  maxSpansRetained?: number;
+  enableTimeWindows?: boolean;
+  timeWindowMs?: number;
+  maxTimeWindows?: number;
+};
+
+// =============================================================================
+// TOKEN TRACKER (from observability/tokenTracker.ts)
+// =============================================================================
+
+/**
+ * Per-million-token pricing used by the observability TokenTracker.
+ * Prefixed to disambiguate from the richer providers.ts ModelPricing.
+ */
+export type ObservabilityModelPricing = {
+  inputPricePerMillion: number;
+  outputPricePerMillion: number;
+  cachedInputPricePerMillion?: number;
+};

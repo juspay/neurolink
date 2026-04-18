@@ -9,7 +9,10 @@
 
 import { logger } from "./logger.js";
 import { ErrorFactory } from "./errorHandling.js";
-import type { RateLimiterConfig } from "../types/index.js";
+import type {
+  RateLimiterConfig,
+  RateLimiterPendingRequest,
+} from "../types/index.js";
 
 /**
  * Default configuration: 10 downloads per second
@@ -23,16 +26,6 @@ const DEFAULT_CONFIG: RateLimiterConfig = {
 };
 
 /**
- * Pending request in the queue
- */
-type PendingRequest = {
-  resolve: () => void;
-  reject: (error: Error) => void;
-  timestamp: number;
-  timeoutTimer?: ReturnType<typeof setTimeout>;
-};
-
-/**
  * Token Bucket Rate Limiter
  *
  * Uses a token bucket algorithm where:
@@ -43,7 +36,7 @@ type PendingRequest = {
 export class TokenBucketRateLimiter {
   private tokens: number;
   private config: RateLimiterConfig;
-  private queue: PendingRequest[] = [];
+  private queue: RateLimiterPendingRequest[] = [];
   private refillTimer: ReturnType<typeof setInterval> | null = null;
   private lastRefillTime: number;
 

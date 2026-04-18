@@ -3,15 +3,11 @@ import chalk from "chalk";
 import ora from "ora";
 import inquirer from "inquirer";
 import { logger } from "../../lib/utils/logger.js";
+import type { SetupHuggingFaceArgs } from "../../lib/types/index.js";
 import {
   updateEnvFile as writeEnvFile,
   displayEnvUpdateSummary,
 } from "../utils/envManager.js";
-
-type SetupHuggingFaceArgs = {
-  check?: boolean;
-  "non-interactive"?: boolean;
-};
 
 /**
  * Validates Hugging Face API key format

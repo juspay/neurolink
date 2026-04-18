@@ -66,6 +66,7 @@ import {
   TimeoutError,
 } from "../utils/timeout.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
+import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { getModelId } from "./providerTypeUtils.js";
 
 /**
@@ -1063,6 +1064,18 @@ export class AnthropicProvider extends BaseProvider {
           experimental_telemetry:
             this.telemetryHandler.getTelemetryConfig(options),
           onStepFinish: ({ toolCalls, toolResults }) => {
+            // Emit tool:end for each completed tool result so Pipeline B
+            // captures telemetry for AI-SDK-driven tool calls (gap S2).
+            emitToolEndFromStepFinish(
+              this.neurolink?.getEventEmitter(),
+              toolResults as Array<{
+                toolName: string;
+                output?: unknown;
+                result?: unknown;
+                error?: string;
+              }>,
+            );
+
             this.handleToolExecutionStorage(
               toolCalls,
               toolResults,
@@ -1080,6 +1093,16 @@ export class AnthropicProvider extends BaseProvider {
           },
         });
       } catch (streamError) {
+        streamSpan.setStatus({
+          code: SpanStatusCode.ERROR,
+          message:
+            streamError instanceof Error
+              ? streamError.message
+              : String(streamError),
+        });
+        if (streamError instanceof Error) {
+          streamSpan.recordException(streamError);
+        }
         streamSpan.end();
         throw streamError;
       }

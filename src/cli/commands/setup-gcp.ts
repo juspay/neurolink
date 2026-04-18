@@ -19,40 +19,11 @@ import inquirer from "inquirer";
 import chalk from "chalk";
 import ora from "ora";
 import { logger } from "../../lib/utils/logger.js";
-
-type GCPSetupOptions = {
-  checkOnly?: boolean;
-  interactive?: boolean;
-};
-
-type GCPSetupArgv = {
-  check?: boolean;
-  nonInteractive?: boolean;
-};
-
-type AuthMethodStatus = {
-  method1: {
-    complete: boolean;
-    hasCredentials: boolean;
-    missingVars: string[];
-  };
-  method2: {
-    complete: boolean;
-    hasServiceAccountKey: boolean;
-    missingVars: string[];
-  };
-  method3: {
-    complete: boolean;
-    hasClientEmail: boolean;
-    hasPrivateKey: boolean;
-    missingVars: string[];
-  };
-  common: {
-    hasProject: boolean;
-    hasLocation: boolean;
-    missingVars: string[];
-  };
-};
+import type {
+  GcpAuthMethodStatus,
+  ProviderSetupArgv,
+  ProviderSetupOptions,
+} from "../../lib/types/index.js";
 
 enum AuthMethod {
   FILE_PATH = "file-path",
@@ -66,9 +37,9 @@ const AUTH_METHOD_NAMES = {
   [AuthMethod.INDIVIDUAL_VARS]: "Method 3: Individual Vars",
 };
 
-export async function handleGCPSetup(argv: GCPSetupArgv): Promise<void> {
+export async function handleGCPSetup(argv: ProviderSetupArgv): Promise<void> {
   try {
-    const options: GCPSetupOptions = {
+    const options: ProviderSetupOptions = {
       checkOnly: argv.check || false,
       interactive: !argv.nonInteractive,
     };
@@ -179,7 +150,7 @@ export async function handleGCPSetup(argv: GCPSetupArgv): Promise<void> {
 /**
  * Detect the current status of all authentication methods
  */
-function detectAuthMethodStatus(): AuthMethodStatus {
+function detectAuthMethodStatus(): GcpAuthMethodStatus {
   const hasCredentials = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
   const hasServiceAccountKey = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
   const hasClientEmail = !!process.env.GOOGLE_AUTH_CLIENT_EMAIL;
@@ -187,7 +158,7 @@ function detectAuthMethodStatus(): AuthMethodStatus {
   const hasProject = !!process.env.GOOGLE_VERTEX_PROJECT;
   const hasLocation = !!process.env.GOOGLE_VERTEX_LOCATION;
 
-  const status: AuthMethodStatus = {
+  const status: GcpAuthMethodStatus = {
     method1: {
       complete: hasCredentials && hasProject,
       hasCredentials,
@@ -246,7 +217,7 @@ function detectAuthMethodStatus(): AuthMethodStatus {
 /**
  * Display the current authentication status
  */
-function displayAuthStatus(status: AuthMethodStatus): void {
+function displayAuthStatus(status: GcpAuthMethodStatus): void {
   if (status.method1.complete) {
     logger.always(chalk.green("✔ Method 1: Complete"));
   } else if (status.method1.hasCredentials) {
@@ -287,7 +258,7 @@ function displayAuthStatus(status: AuthMethodStatus): void {
 /**
  * Check if any authentication method is complete
  */
-function getCompleteMethod(status: AuthMethodStatus): AuthMethod | null {
+function getCompleteMethod(status: GcpAuthMethodStatus): AuthMethod | null {
   if (status.method1.complete) {
     return AuthMethod.FILE_PATH;
   }
@@ -303,7 +274,9 @@ function getCompleteMethod(status: AuthMethodStatus): AuthMethod | null {
 /**
  * Let user select authentication method
  */
-async function selectAuthMethod(status: AuthMethodStatus): Promise<AuthMethod> {
+async function selectAuthMethod(
+  status: GcpAuthMethodStatus,
+): Promise<AuthMethod> {
   // Check for partially filled methods
   const partiallyFilledMethods: {
     method: AuthMethod;
@@ -397,7 +370,7 @@ async function selectAuthMethod(status: AuthMethodStatus): Promise<AuthMethod> {
  */
 async function promptForMissingValues(
   method: AuthMethod,
-  status: AuthMethodStatus,
+  status: GcpAuthMethodStatus,
 ): Promise<{
   credentialsPath?: string;
   serviceAccountKey?: string;

@@ -20,6 +20,8 @@ import { createHash } from "crypto";
 import { logger } from "../utils/logger.js";
 import { TokenStoreError } from "../types/index.js";
 import { AsyncMutex } from "../utils/asyncMutex.js";
+import { withSpan } from "../telemetry/withSpan.js";
+import { tracers } from "../telemetry/tracers.js";
 import type {
   TokenStorageData,
   StoredOAuthTokens,
@@ -133,9 +135,21 @@ export class TokenStore {
    * @throws TokenStoreError if storage fails
    */
   async saveTokens(provider: string, tokens: StoredOAuthTokens): Promise<void> {
-    return this._mutex.runExclusive(async () => {
-      await this._saveTokensInternal(provider, tokens);
-    });
+    return withSpan(
+      {
+        name: "neurolink.auth.token.save",
+        tracer: tracers.auth,
+        attributes: {
+          "auth.provider": provider,
+          "auth.has_refresh_token": Boolean(tokens.refreshToken),
+          "auth.token_type": tokens.tokenType,
+        },
+      },
+      async () =>
+        this._mutex.runExclusive(async () => {
+          await this._saveTokensInternal(provider, tokens);
+        }),
+    );
   }
 
   /**
@@ -219,9 +233,23 @@ export class TokenStore {
    * @throws TokenStoreError if reading fails (other than file not found)
    */
   async loadTokens(provider: string): Promise<StoredOAuthTokens | null> {
-    return this._mutex.runExclusive(async () => {
-      return this._loadTokensInternal(provider);
-    });
+    return withSpan(
+      {
+        name: "neurolink.auth.token.load",
+        tracer: tracers.auth,
+        attributes: { "auth.provider": provider },
+      },
+      async (span) => {
+        const result = await this._mutex.runExclusive(async () => {
+          return this._loadTokensInternal(provider);
+        });
+        span.setAttribute("auth.found", result !== null);
+        if (result) {
+          span.setAttribute("auth.expired", this.isTokenExpired(result, 0));
+        }
+        return result;
+      },
+    );
   }
 
   /**
@@ -265,6 +293,17 @@ export class TokenStore {
    * @throws TokenStoreError if deletion fails
    */
   async clearTokens(provider: string): Promise<void> {
+    return withSpan(
+      {
+        name: "neurolink.auth.token.clear",
+        tracer: tracers.auth,
+        attributes: { "auth.provider": provider },
+      },
+      async () => this._clearTokensImpl(provider),
+    );
+  }
+
+  private async _clearTokensImpl(provider: string): Promise<void> {
     return this._mutex.runExclusive(async () => {
       // Clear in-memory refresh state so re-adding an account starts fresh
       this.inFlightRefreshes.delete(provider);
@@ -333,6 +372,20 @@ export class TokenStore {
    * @throws TokenStoreError if refresh fails
    */
   async getValidToken(provider: string): Promise<string | null> {
+    return withSpan(
+      {
+        name: "neurolink.auth.token.get_valid",
+        tracer: tracers.auth,
+        attributes: { "auth.provider": provider },
+      },
+      async (span) => this._getValidTokenImpl(provider, span),
+    );
+  }
+
+  private async _getValidTokenImpl(
+    provider: string,
+    span: import("@opentelemetry/api").Span,
+  ): Promise<string | null> {
     // Phase 1: Read token under mutex (fast)
     const snapshot = await this._mutex.runExclusive(async () => {
       const tokens = await this._loadTokensInternal(provider);
@@ -343,14 +396,21 @@ export class TokenStore {
     });
 
     if (!snapshot) {
+      span.setAttribute("auth.found", false);
       logger.debug("No tokens found for provider", { provider });
       return null;
     }
 
+    span.setAttribute("auth.found", true);
+
     // Token is still valid — return immediately
     if (!this.isTokenExpired(snapshot)) {
+      span.setAttribute("auth.refreshed", false);
+      span.setAttribute("auth.expired", false);
       return snapshot.accessToken;
     }
+
+    span.setAttribute("auth.expired", true);
 
     logger.debug("Token expired or expiring soon", {
       provider,
@@ -449,6 +509,7 @@ export class TokenStore {
     this.inFlightRefreshes.set(provider, refreshPromise);
     try {
       const newTokens = await refreshPromise;
+      span.setAttribute("auth.refreshed", true);
       return newTokens.accessToken;
     } finally {
       this.inFlightRefreshes.delete(provider);

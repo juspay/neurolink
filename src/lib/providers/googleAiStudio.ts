@@ -18,6 +18,7 @@ import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import type { NeuroLink } from "../neurolink.js";
+import { SpanStatusCode } from "@opentelemetry/api";
 import { ATTR, tracers, withClientSpan } from "../telemetry/index.js";
 import type {
   AnalyticsData,
@@ -29,6 +30,7 @@ import type {
   GoogleGenAIClass,
   LiveServerMessage,
   AudioChunk,
+  GoogleLiveAudioQueueItem,
   NativeToolsConfig,
   StreamOptions,
   StreamResult,
@@ -52,6 +54,7 @@ import {
 } from "../utils/timeout.js";
 import { estimateTokens } from "../utils/tokenEstimation.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
+import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import {
   buildNativeConfig,
   buildNativeToolDeclarations,
@@ -708,6 +711,18 @@ export class GoogleAIStudioProvider extends BaseProvider {
             });
           }
 
+          // Emit tool:end for each completed tool result so Pipeline B
+          // captures telemetry for AI-SDK-driven tool calls (gap S2).
+          emitToolEndFromStepFinish(
+            this.neurolink?.getEventEmitter(),
+            toolResults as Array<{
+              toolName: string;
+              output?: unknown;
+              result?: unknown;
+              error?: string;
+            }>,
+          );
+
           this.handleToolExecutionStorage(
             toolCalls,
             toolResults,
@@ -1023,8 +1038,64 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 timestamp: new Date().toISOString(),
               });
 
+              // Emit generation:end so Pipeline B (Langfuse) creates a GENERATION
+              // observation. The native @google/genai stream path bypasses the Vercel
+              // AI SDK so experimental_telemetry is never injected; we emit manually.
+              const nativeStreamEmitter = this.neurolink?.getEventEmitter();
+              if (nativeStreamEmitter) {
+                nativeStreamEmitter.emit("generation:end", {
+                  provider: this.providerName,
+                  responseTime,
+                  timestamp: Date.now(),
+                  result: {
+                    content: "",
+                    usage: {
+                      input: totalInputTokens,
+                      output: totalOutputTokens,
+                      total: totalInputTokens + totalOutputTokens,
+                    },
+                    model: modelName,
+                    provider: this.providerName,
+                    finishReason: hitStepLimitWithoutFinalAnswer
+                      ? "max_steps"
+                      : "stop",
+                  },
+                  success: true,
+                });
+              }
+
               channel.close();
             } catch (err) {
+              // Propagate error to OTel span so traces show ERROR status
+              span.recordException(
+                err instanceof Error ? err : new Error(String(err)),
+              );
+              span.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: err instanceof Error ? err.message : String(err),
+              });
+              // Emit failure generation:end so Pipeline B records the failed stream
+              const errorEmitter = this.neurolink?.getEventEmitter();
+              if (errorEmitter) {
+                errorEmitter.emit("generation:end", {
+                  provider: this.providerName,
+                  responseTime: Date.now() - startTime,
+                  timestamp: Date.now(),
+                  result: {
+                    content: "",
+                    usage: {
+                      input: totalInputTokens,
+                      output: totalOutputTokens,
+                      total: totalInputTokens + totalOutputTokens,
+                    },
+                    model: modelName,
+                    provider: this.providerName,
+                    finishReason: "error",
+                  },
+                  success: false,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+              }
               channel.error(err);
               analyticsReject(err);
             } finally {
@@ -1254,6 +1325,30 @@ export class GoogleAIStudioProvider extends BaseProvider {
             step >= maxSteps ? "max_steps" : "stop",
           );
 
+          // Emit generation:end so Pipeline B (Langfuse) creates a GENERATION
+          // observation. The native @google/genai path bypasses the Vercel AI SDK
+          // so experimental_telemetry is never injected; we emit the event manually.
+          const nativeGenerateEmitter = this.neurolink?.getEventEmitter();
+          if (nativeGenerateEmitter) {
+            nativeGenerateEmitter.emit("generation:end", {
+              provider: this.providerName,
+              responseTime,
+              timestamp: Date.now(),
+              result: {
+                content: finalText,
+                usage: {
+                  input: totalInputTokens,
+                  output: totalOutputTokens,
+                  total: totalInputTokens + totalOutputTokens,
+                },
+                model: modelName,
+                provider: this.providerName,
+                finishReason: step >= maxSteps ? "max_steps" : "stop",
+              },
+              success: true,
+            });
+          }
+
           // Build EnhancedGenerateResult
           return {
             content: finalText,
@@ -1373,17 +1468,13 @@ export class GoogleAIStudioProvider extends BaseProvider {
       "gemini-2.5-flash-preview-native-audio-dialog";
 
     // Simple async queue for yielding audio events to the outer AsyncIterable
-    type QueueItem =
-      | { type: "audio"; audio: AudioChunk }
-      | { type: "end" }
-      | { type: "error"; error: unknown };
-    const queue: QueueItem[] = [];
+    const queue: GoogleLiveAudioQueueItem[] = [];
     let resolveNext:
       | ((value: IteratorResult<{ type: "audio"; audio: AudioChunk }>) => void)
       | null = null;
     let done = false;
 
-    const push = (item: QueueItem) => {
+    const push = (item: GoogleLiveAudioQueueItem) => {
       if (done) {
         return;
       }

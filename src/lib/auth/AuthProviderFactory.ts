@@ -10,23 +10,11 @@ import { logger } from "../utils/logger.js";
 import { AuthError } from "./errors.js";
 import type {
   AuthProviderConfig,
+  AuthProviderConstructor,
   AuthProviderMetadata,
+  AuthProviderRegistration,
   MastraAuthProvider,
 } from "../types/index.js";
-
-// =============================================================================
-// TYPES
-// =============================================================================
-
-type AuthProviderConstructor = (
-  config: AuthProviderConfig,
-) => Promise<MastraAuthProvider>;
-
-type AuthProviderRegistration = {
-  factory: AuthProviderConstructor;
-  aliases: string[];
-  metadata?: AuthProviderMetadata;
-};
 
 // =============================================================================
 // FACTORY IMPLEMENTATION

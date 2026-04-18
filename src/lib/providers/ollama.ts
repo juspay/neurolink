@@ -7,16 +7,17 @@ import { modelConfig } from "../core/modelConfiguration.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type {
   JsonValue,
+  MessageContent,
+  MultimodalChatMessage,
+  OllamaAsLanguageModel,
+  OllamaHttpError,
+  OllamaMessage,
+  OllamaToolCall,
+  OllamaToolResult,
   StreamOptions,
   StreamResult,
   ToolArgs,
   ZodUnknownSchema,
-  MessageContent,
-  MultimodalChatMessage,
-  OllamaAsLanguageModel,
-  OllamaMessage,
-  OllamaToolCall,
-  OllamaToolResult,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { buildMultimodalMessagesArray } from "../utils/messageBuilder.js";
@@ -28,6 +29,7 @@ import {
   ProviderError,
 } from "../types/index.js";
 import { tracers, ATTR, withClientSpan } from "../telemetry/index.js";
+import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { TimeoutError } from "../utils/timeout.js";
 
 // Model version constants (configurable via environment)
@@ -66,12 +68,6 @@ const getOllamaTimeout = (): number => {
   // Increased default timeout to 240000ms (4 minutes) to support slower native API responses
   // especially for larger models like aliafshar/gemma3-it-qat-tools:latest (12.2B parameters)
   return parseInt(process.env.OLLAMA_TIMEOUT || "240000", 10);
-};
-
-type OllamaHttpError = ProviderError & {
-  statusCode: number;
-  statusText: string;
-  responseBody: string;
 };
 
 function isOllamaHttpError(error: unknown): error is OllamaHttpError {
@@ -955,7 +951,16 @@ export class OllamaProvider extends BaseProvider {
           });
         }
 
+        // Capture instance references before the stream for use in the finally block.
+        const ollamaNeurolink = this.neurolink;
+        const ollamaProviderName = this.providerName;
+        const ollamaModelName = this.modelName || FALLBACK_OLLAMA_MODEL;
+
         // Conversation loop for multi-step tool execution
+        let totalInputTokens = 0;
+        let totalOutputTokens = 0;
+        let lastFinishReason: string | undefined;
+        let ollamaStreamErrored = false;
         const stream = new ReadableStream({
           start: async (controller) => {
             try {
@@ -964,7 +969,8 @@ export class OllamaProvider extends BaseProvider {
                   `[OllamaProvider] Conversation iteration ${iteration + 1}/${maxIterations}`,
                 );
 
-                // Make API request
+                // Make API request — request usage in stream_options so
+                // Pipeline B gets real token counts for Langfuse cost dashboards.
                 const response = await proxyFetch(
                   `${this.baseUrl}/v1/chat/completions`,
                   {
@@ -976,6 +982,7 @@ export class OllamaProvider extends BaseProvider {
                       tools: ollamaTools,
                       tool_choice: "auto",
                       stream: true,
+                      stream_options: { include_usage: true },
                       temperature: options.temperature,
                       max_tokens: options.maxTokens,
                     }),
@@ -990,8 +997,17 @@ export class OllamaProvider extends BaseProvider {
                 }
 
                 // Process response stream
-                const { content, toolCalls, finishReason } =
+                const { content, toolCalls, finishReason, usage } =
                   await this.processOllamaResponse(response, controller);
+
+                // Accumulate usage across iterations for Pipeline B
+                if (usage) {
+                  totalInputTokens += usage.input;
+                  totalOutputTokens += usage.output;
+                }
+                if (finishReason) {
+                  lastFinishReason = finishReason;
+                }
 
                 // Add assistant message to history
                 const assistantMessage: OllamaMessage = {
@@ -1063,6 +1079,7 @@ export class OllamaProvider extends BaseProvider {
               }
 
               if (iteration >= maxIterations) {
+                ollamaStreamErrored = true;
                 controller.error(
                   new Error(
                     `Ollama conversation exceeded maximum iterations (${maxIterations})`,
@@ -1070,23 +1087,55 @@ export class OllamaProvider extends BaseProvider {
                 );
               }
             } catch (error) {
+              ollamaStreamErrored = true;
               controller.error(error);
             } finally {
-              // Resolve analytics with final values now that the loop has completed.
+              // Resolve analytics with accumulated token counts so Pipeline A
+              // and Pipeline B both get real usage data from Ollama.
+              const aggregatedUsage = {
+                input: totalInputTokens,
+                output: totalOutputTokens,
+                total: totalInputTokens + totalOutputTokens,
+              };
               resolveAnalytics(
                 createAnalytics(
                   this.providerName,
                   this.modelName || FALLBACK_OLLAMA_MODEL,
-                  { usage: { input: 0, output: 0, total: 0 } },
+                  { usage: aggregatedUsage },
                   Date.now() - startTime,
                   {
                     requestId: `ollama-stream-${Date.now()}`,
                     streamingMode: true,
                     iterations: iteration,
-                    note: "Token usage not available from Ollama streaming responses",
                   },
                 ),
               );
+              // Emit generation:end so Pipeline B (Langfuse) creates a GENERATION
+              // observation. Ollama bypasses the Vercel AI SDK so
+              // experimental_telemetry is never injected; we emit manually.
+              const ollamaEmitter = ollamaNeurolink?.getEventEmitter();
+              if (ollamaEmitter) {
+                // Collect accumulated text from conversation history
+                const accumulatedContent = conversationHistory
+                  .filter((m) => m.role === "assistant")
+                  .map((m) => m.content)
+                  .join("");
+                ollamaEmitter.emit("generation:end", {
+                  provider: ollamaProviderName,
+                  responseTime: Date.now() - startTime,
+                  timestamp: Date.now(),
+                  result: {
+                    content: accumulatedContent,
+                    usage: aggregatedUsage,
+                    model: ollamaModelName,
+                    provider: ollamaProviderName,
+                    finishReason: ollamaStreamErrored
+                      ? "error"
+                      : (lastFinishReason ?? "stop"),
+                  },
+                  success: !ollamaStreamErrored,
+                });
+              }
             }
           },
         });
@@ -1422,6 +1471,7 @@ export class OllamaProvider extends BaseProvider {
     content?: string;
     toolCalls?: OllamaToolCall[];
     finishReason?: string;
+    usage?: { input: number; output: number; total: number };
   }> {
     const reader = response.body?.getReader();
     if (!reader) {
@@ -1433,6 +1483,9 @@ export class OllamaProvider extends BaseProvider {
     let aggregatedContent = "";
     let aggregatedToolCalls: OllamaToolCall[] = [];
     let finalFinishReason: string | undefined;
+    let finalUsage:
+      | { input: number; output: number; total: number }
+      | undefined;
 
     try {
       while (true) {
@@ -1454,6 +1507,27 @@ export class OllamaProvider extends BaseProvider {
 
             try {
               const parsed = JSON.parse(dataLine);
+              // OpenAI-compatible usage chunk (Ollama may include usage
+              // in the final chunk when stream_options.include_usage is set,
+              // or as a standalone chunk with empty choices).
+              const parsedUsage = (
+                parsed as {
+                  usage?: {
+                    prompt_tokens?: number;
+                    completion_tokens?: number;
+                    total_tokens?: number;
+                  };
+                }
+              ).usage;
+              if (parsedUsage) {
+                const input = parsedUsage.prompt_tokens ?? 0;
+                const output = parsedUsage.completion_tokens ?? 0;
+                finalUsage = {
+                  input,
+                  output,
+                  total: parsedUsage.total_tokens ?? input + output,
+                };
+              }
               const processed = this.processOllamaStreamData(parsed);
 
               if (!processed) {
@@ -1498,6 +1572,7 @@ export class OllamaProvider extends BaseProvider {
       toolCalls:
         aggregatedToolCalls.length > 0 ? aggregatedToolCalls : undefined,
       finishReason: finalFinishReason,
+      usage: finalUsage,
     };
   }
 
@@ -1886,6 +1961,23 @@ export class OllamaProvider extends BaseProvider {
         });
       }
     }
+
+    // Emit tool:end for each completed tool result so Pipeline B
+    // captures telemetry for Ollama-driven tool calls (gap S2).
+    emitToolEndFromStepFinish(
+      this.neurolink?.getEventEmitter(),
+      toolResultsForStorage.map((tr) => {
+        const hasError =
+          tr.result && typeof tr.result === "object" && "error" in tr.result;
+        return {
+          toolName: tr.toolName,
+          result: tr.result,
+          error: hasError
+            ? String((tr.result as Record<string, unknown>).error)
+            : undefined,
+        };
+      }),
+    );
 
     // Store tool executions (similar to Bedrock)
     this.handleToolExecutionStorage(

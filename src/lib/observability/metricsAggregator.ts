@@ -1,42 +1,15 @@
 import { TokenTracker } from "./tokenTracker.js";
 import type {
-  SpanData,
-  TraceView,
-  TokenUsageStats,
   LatencyStats,
+  MetricsAggregatorConfig,
   MetricsSummary,
   ModelCostStats,
   ProviderCostStats,
+  SpanData,
+  TimeWindowStats,
+  TokenUsageStats,
+  TraceView,
 } from "../types/index.js";
-/**
- * Time window statistics
- */
-type TimeWindowStats = {
-  windowStart: Date;
-  windowEnd: Date;
-  windowDurationMs: number;
-  requestCount: number;
-  errorCount: number;
-  successRate: number;
-  throughput: number; // requests per second
-  latency: LatencyStats;
-  tokens: TokenUsageStats;
-  costByProvider: Map<string, ProviderCostStats>;
-  costByModel: Map<string, ModelCostStats>;
-};
-/**
- * Configuration for the metrics aggregator
- */
-type MetricsAggregatorConfig = {
-  /** Maximum spans to retain in memory */
-  maxSpansRetained?: number;
-  /** Enable time-window statistics */
-  enableTimeWindows?: boolean;
-  /** Time window size in milliseconds (default: 60000 = 1 minute) */
-  timeWindowMs?: number;
-  /** Maximum time windows to retain */
-  maxTimeWindows?: number;
-};
 
 /**
  * Metrics Aggregator for comprehensive telemetry analysis

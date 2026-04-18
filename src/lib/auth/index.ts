@@ -160,3 +160,19 @@ export {
 
 // Server Bridge
 export { createAuthValidatorFromProvider } from "./serverBridge.js";
+
+// =============================================================================
+// AUTH PROVIDER CLASSES — public re-exports (match the module docstring above)
+// =============================================================================
+
+export { Auth0Provider } from "./providers/auth0.js";
+export { BetterAuthProvider } from "./providers/betterAuth.js";
+export { ClerkProvider } from "./providers/clerk.js";
+export { CognitoProvider } from "./providers/CognitoProvider.js";
+export { CustomAuthProvider } from "./providers/custom.js";
+export { FirebaseAuthProvider } from "./providers/firebase.js";
+export { JWTProvider } from "./providers/jwt.js";
+export { KeycloakProvider } from "./providers/KeycloakProvider.js";
+export { OAuth2Provider } from "./providers/oauth2.js";
+export { SupabaseAuthProvider } from "./providers/supabase.js";
+export { WorkOSProvider } from "./providers/workos.js";

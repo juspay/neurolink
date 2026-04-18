@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+import { type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import {
   embed,
   embedMany,
@@ -44,6 +44,7 @@ import {
   TimeoutError,
 } from "../utils/timeout.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
+import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { getModelId } from "./providerTypeUtils.js";
 
 /**
@@ -224,6 +225,18 @@ export class OpenAIProvider extends BaseProvider {
    * Validate tool structure for OpenAI compatibility
    * More lenient validation to avoid filtering out valid tools
    */
+  /** Shared helper: mark a stream span as ERROR, record the exception, and end it. */
+  private endStreamSpanWithError(span: Span, error: unknown): void {
+    span.setStatus({
+      code: SpanStatusCode.ERROR,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    if (error instanceof Error) {
+      span.recordException(error);
+    }
+    span.end();
+  }
+
   private isValidToolStructure(tool: unknown): boolean {
     if (!tool || typeof tool !== "object") {
       return false;
@@ -483,6 +496,18 @@ export class OpenAIProvider extends BaseProvider {
               toolCalls,
             });
 
+            // Emit tool:end for each completed tool result so Pipeline B
+            // captures telemetry for AI-SDK-driven tool calls (gap S2).
+            emitToolEndFromStepFinish(
+              this.neurolink?.getEventEmitter(),
+              toolResults as Array<{
+                toolName: string;
+                output?: unknown;
+                result?: unknown;
+                error?: string;
+              }>,
+            );
+
             // Handle tool execution storage
             this.handleToolExecutionStorage(
               toolCalls,
@@ -498,7 +523,7 @@ export class OpenAIProvider extends BaseProvider {
           },
         });
       } catch (streamError) {
-        streamSpan.end();
+        this.endStreamSpanWithError(streamSpan, streamError);
         throw streamError;
       }
 
@@ -541,11 +566,7 @@ export class OpenAIProvider extends BaseProvider {
           streamSpan.end();
         })
         .catch((err: unknown) => {
-          streamSpan.setStatus({
-            code: SpanStatusCode.ERROR,
-            message: err instanceof Error ? err.message : String(err),
-          });
-          streamSpan.end();
+          this.endStreamSpanWithError(streamSpan, err);
         });
 
       timeoutController?.cleanup();

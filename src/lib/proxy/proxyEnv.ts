@@ -1,26 +1,11 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
-
-type ProxyEnvSource = "cli" | "environment" | "default" | "none";
-
-type ProxyEnvResolution = {
-  path?: string;
-  source: ProxyEnvSource;
-  required: boolean;
-};
-
-type ProxyEnvLoadResult = {
-  loaded: boolean;
-  path?: string;
-  source: ProxyEnvSource;
-};
-
-type ProxyEnvOptions = {
-  explicitEnvFile?: string;
-  env?: NodeJS.ProcessEnv;
-  homeDir?: string;
-};
+import type {
+  ProxyEnvLoadResult,
+  ProxyEnvOptions,
+  ProxyEnvResolution,
+} from "../types/index.js";
 
 export function resolveProxyEnvFile(
   options: ProxyEnvOptions = {},

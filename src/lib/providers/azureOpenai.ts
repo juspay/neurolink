@@ -5,6 +5,7 @@ import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import type { NeuroLink } from "../neurolink.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
+import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import type {
   UnknownRecord,
   StepFinishEvent,
@@ -178,6 +179,15 @@ export class AzureOpenAIProvider extends BaseProvider {
           this.telemetryHandler.getTelemetryConfig(options),
         experimental_repairToolCall: this.getToolCallRepairFn(options),
         onStepFinish: (event: StepFinishEvent) => {
+          emitToolEndFromStepFinish(
+            this.neurolink?.getEventEmitter(),
+            event.toolResults as Array<{
+              toolName: string;
+              output?: unknown;
+              result?: unknown;
+              error?: string;
+            }>,
+          );
           this.handleToolExecutionStorage(
             [...event.toolCalls],
             [...event.toolResults],

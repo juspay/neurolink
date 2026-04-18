@@ -37,11 +37,12 @@ import {
   OAUTH_BETA_HEADERS,
 } from "../../lib/auth/anthropicOAuth.js";
 import type {
+  AccountQuota,
   AuthCommandArgs,
-  StoredCredentials,
   AuthStatusResult,
   OAuthTokens as OAuthTokensType,
-  AccountQuota,
+  StoredCredentials,
+  SupportedProvider,
 } from "../../lib/types/index.js";
 import { loadAccountQuotas } from "../../lib/proxy/accountQuota.js";
 
@@ -87,7 +88,6 @@ const ANTHROPIC_CONSOLE_OAUTH_CONFIG = {
 
 // Supported providers
 const SUPPORTED_PROVIDERS = ["anthropic"] as const;
-type SupportedProvider = (typeof SUPPORTED_PROVIDERS)[number];
 
 // =============================================================================
 // SUBCOMMAND HANDLERS

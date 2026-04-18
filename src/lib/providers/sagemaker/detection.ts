@@ -6,78 +6,23 @@
  */
 
 import type {
+  DetectionTestConfig,
+  EndpointHealth,
+  InvokeEndpointResponse,
+  ModelDetectionResult,
+  ParallelDetectionConfig,
   SageMakerConfig,
   SageMakerModelConfig,
-  InvokeEndpointResponse,
   StreamingCapability,
 } from "../../types/index.js";
 import { SageMakerRuntimeClient } from "./client.js";
 import { logger } from "../../utils/logger.js";
+
 /**
  * Configurable constants for detection timing and performance
  */
 const DETECTION_STAGGER_DELAY_MS = 25; // Delay between staggered test starts (ms)
 const DETECTION_RATE_LIMIT_BACKOFF_MS = 200; // Initial backoff on rate limit detection (ms)
-/**
- * Model type detection result
- */
-type ModelDetectionResult = {
-  /** Primary model type */
-  type: StreamingCapability["modelType"];
-  /** Detection confidence (0-1) */
-  confidence: number;
-  /** Evidence used for detection */
-  evidence: string[];
-  /** Suggested configuration */
-  suggestedConfig?: Partial<SageMakerModelConfig>;
-};
-
-/**
- * Endpoint health and metadata information
- */
-type EndpointHealth = {
-  /** Health status */
-  status: "healthy" | "unhealthy" | "unknown";
-  /** Response time in milliseconds */
-  responseTime: number;
-  /** Endpoint metadata if available */
-  metadata?: Record<string, unknown>;
-  /** Model information if discoverable */
-  modelInfo?: {
-    name?: string;
-    version?: string;
-    framework?: string;
-    architecture?: string;
-  };
-};
-
-/**
- * Configuration object for detection test wrapper
- * Replaces multiple callback parameters for better maintainability
- */
-type DetectionTestConfig = {
-  test: () => Promise<void>;
-  index: number;
-  testName: string;
-  endpointName: string;
-  semaphore: {
-    acquire(): Promise<void>;
-    release(): void;
-  };
-  incrementRateLimit: () => void;
-  maxRateLimitRetries: number;
-  rateLimitState: { count: number }; // Use mutable object to prevent closure issues
-};
-
-/**
- * Configuration object for parallel detection test execution
- * Centralizes rate limiting and execution parameters
- */
-type ParallelDetectionConfig = {
-  maxConcurrentTests: number;
-  maxRateLimitRetries: number;
-  initialRateLimitCount: number;
-};
 
 /**
  * SageMaker Model Detection and Capability Discovery Service

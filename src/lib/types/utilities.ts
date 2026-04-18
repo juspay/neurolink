@@ -281,3 +281,35 @@ export type ImageCacheStats = {
   /** Cache hit rate as percentage */
   hitRate: number;
 };
+
+// =============================================================================
+// RATE LIMITER (from utils/rateLimiter.ts)
+// =============================================================================
+
+/**
+ * Pending request held by TokenBucketRateLimiter's queue.
+ * Named RateLimiterPendingRequest to disambiguate from the MCP
+ * PendingRequest in mcp.ts (Rule 9).
+ */
+export type RateLimiterPendingRequest = {
+  resolve: () => void;
+  reject: (error: Error) => void;
+  timestamp: number;
+  timeoutTimer?: ReturnType<typeof setTimeout>;
+};
+
+// =============================================================================
+// TOOL END EMITTER (from utils/toolEndEmitter.ts)
+// =============================================================================
+
+/**
+ * Shape of a completed tool result as returned by the AI SDK in
+ * `onStepFinish`. Both `output` (AI SDK v4) and `result` (older shape)
+ * are supported so the helper works across SDK versions.
+ */
+export type StepToolResult = {
+  toolName: string;
+  output?: unknown;
+  result?: unknown;
+  error?: string;
+};

@@ -10,6 +10,7 @@ import {
   NeuroLinkFeatureError,
   createErrorFactory,
 } from "../../core/infrastructure/index.js";
+import type { RAGErrorCode } from "../../types/index.js";
 
 /**
  * RAG error codes for all RAG-related operations
@@ -65,8 +66,6 @@ export const RAGErrorCodes = {
   RETRY_EXHAUSTED: "RAG_RETRY_EXHAUSTED",
   INVALID_CONFIGURATION: "RAG_INVALID_CONFIGURATION",
 } as const;
-
-type RAGErrorCode = (typeof RAGErrorCodes)[keyof typeof RAGErrorCodes];
 
 /**
  * RAG error factory using the infrastructure pattern

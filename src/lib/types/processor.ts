@@ -993,3 +993,66 @@ export type BatchFileProcessingResult = {
     reason: string;
   }>;
 };
+
+// =============================================================================
+// EXCEL PROCESSOR (from processors/document/ExcelProcessor.ts)
+// =============================================================================
+
+/** Alias for ExcelJS.CellValue to avoid leaking exceljs types across files. */
+export type CellValue = import("exceljs").CellValue;
+
+// =============================================================================
+// ERROR HELPERS (from processors/errors/errorHelpers.ts)
+// =============================================================================
+
+/** Summary of file processing operations. */
+export type FileProcessingSummary = {
+  totalFiles: number;
+  processedFiles: Array<{
+    filename: string;
+    size?: number;
+    type?: string;
+  }>;
+  failedFiles: Array<{
+    filename: string;
+    error: FileProcessingError;
+  }>;
+  skippedFiles: Array<{
+    filename: string;
+    reason: string;
+    suggestedAlternative?: string;
+  }>;
+  warnings: Array<{
+    filename: string;
+    message: string;
+  }>;
+};
+
+// =============================================================================
+// ERROR SERIALIZER (from processors/errors/errorSerializer.ts)
+// =============================================================================
+
+/** Serialized error representation with full context. */
+export type SerializedError = {
+  errorId: string;
+  errorFingerprint: string;
+  errorType: string;
+  message: string;
+  stack?: string;
+  stackFrames?: string[];
+  statusCode?: number;
+  isOperational?: boolean;
+  isRetryable?: boolean;
+  code?: string;
+  metadata?: Record<string, unknown>;
+  cause?: SerializedError;
+  timestamp: string;
+};
+
+/** Options for error serialization. */
+export type SerializeOptions = {
+  includeStack?: boolean;
+  maxDepth?: number;
+  filterStacks?: boolean;
+  context?: Record<string, unknown>;
+};

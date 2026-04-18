@@ -4,6 +4,7 @@
  */
 
 import type {
+  BuiltInScorerDefinition,
   Scorer,
   ScorerCategory,
   ScorerConfig,
@@ -13,12 +14,6 @@ import type {
   ScorerType,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
-
-type BuiltInScorerDefinition = {
-  metadata: ScorerMetadata;
-  factory: ScorerFactory;
-  aliases?: string[];
-};
 
 const BUILT_IN_LLM_SCORERS: BuiltInScorerDefinition[] = [
   {

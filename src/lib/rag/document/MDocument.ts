@@ -26,30 +26,13 @@ import { LLMMetadataExtractor } from "../metadata/metadataExtractor.js";
 import type {
   BaseChunkerConfig,
   Chunk,
-  ChunkingStrategy,
   ChunkParams,
+  ChunkingStrategy,
+  DocumentState,
   DocumentType,
   ExtractParams,
   MDocumentConfig,
 } from "../../types/index.js";
-
-/**
- * Document processing state
- */
-type DocumentState = {
-  /** Raw document content */
-  content: string;
-  /** Document type */
-  type: DocumentType;
-  /** Document metadata */
-  metadata: Record<string, unknown>;
-  /** Generated chunks (after chunking) */
-  chunks: Chunk[];
-  /** Document embeddings (after embedding) */
-  embeddings: number[][];
-  /** Processing history */
-  history: string[];
-};
 
 /**
  * MDocument class for comprehensive document processing

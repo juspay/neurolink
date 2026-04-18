@@ -351,6 +351,7 @@
     "shell-quote": "^1.8.3",
     "svelte": "^5.53.6",
     "svelte-check": "^4.4.4",
+    "ts-morph": "^24.0.0",
     "tslib": "^2.8.1",
     "tsx": "^4.21.0",
     "typedoc": "^0.28.17",

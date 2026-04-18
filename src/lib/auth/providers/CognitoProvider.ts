@@ -8,6 +8,7 @@ import { importJWK, jwtVerify } from "jose";
 import { logger } from "../../utils/logger.js";
 import type {
   JsonValue,
+  AuthJWKSCacheEntry,
   AuthProviderConfig,
   AuthUser,
   CognitoConfig,
@@ -22,12 +23,7 @@ import { BaseAuthProvider } from "./BaseAuthProvider.js";
 // JWKS CACHE
 // =============================================================================
 
-type JWKSCacheEntry = {
-  jwks: JWKS;
-  expiresAt: number;
-};
-
-const jwksCache = new Map<string, JWKSCacheEntry>();
+const jwksCache = new Map<string, AuthJWKSCacheEntry>();
 
 // =============================================================================
 // COGNITO PROVIDER

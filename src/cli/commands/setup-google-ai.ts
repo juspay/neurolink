@@ -21,24 +21,13 @@ import {
   displayEnvUpdateSummary,
 } from "../utils/envManager.js";
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
-import { AIProviderName } from "../../lib/types/index.js";
+import {
+  AIProviderName,
+  type ProviderSetupArgv,
+  type ProviderSetupConfig,
+  type ProviderSetupOptions,
+} from "../../lib/types/index.js";
 import { maskCredential } from "../utils/maskCredential.js";
-
-type GoogleAISetupOptions = {
-  checkOnly?: boolean;
-  interactive?: boolean;
-};
-
-type GoogleAISetupArgv = {
-  check?: boolean;
-  nonInteractive?: boolean;
-};
-
-type GoogleAIConfig = {
-  apiKey?: string;
-  model?: string;
-  isReconfiguring?: boolean;
-};
 
 /**
  * Get the runtime default model that matches the provider implementation
@@ -48,10 +37,10 @@ function getRuntimeDefaultModel(): string {
 }
 
 export async function handleGoogleAISetup(
-  argv: GoogleAISetupArgv,
+  argv: ProviderSetupArgv,
 ): Promise<void> {
   try {
-    const options: GoogleAISetupOptions = {
+    const options: ProviderSetupOptions = {
       checkOnly: argv.check || false,
       interactive: !argv.nonInteractive,
     };
@@ -85,7 +74,7 @@ export async function handleGoogleAISetup(
       return;
     }
 
-    const config: GoogleAIConfig = {};
+    const config: ProviderSetupConfig = {};
 
     // Step 2: Handle existing configuration
     if (hasApiKey && currentApiKey) {
@@ -376,7 +365,7 @@ async function promptForModel(): Promise<string> {
 /**
  * Update .env file with Google AI Studio configuration
  */
-async function updateEnvFile(config: GoogleAIConfig): Promise<void> {
+async function updateEnvFile(config: ProviderSetupConfig): Promise<void> {
   const envPath = path.join(process.cwd(), ".env");
   const spinner = ora("💾 Updating .env file...").start();
 

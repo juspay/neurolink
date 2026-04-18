@@ -16,4 +16,6 @@ export const tracers = {
   processor: trace.getTracer("neurolink.processor"),
   file: trace.getTracer("neurolink.file"),
   autoresearch: trace.getTracer("neurolink.autoresearch"),
+  auth: trace.getTracer("neurolink.auth"),
+  workflow: trace.getTracer("neurolink.workflow"),
 } as const;

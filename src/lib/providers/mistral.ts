@@ -14,6 +14,7 @@ import type {
   ValidationSchema,
 } from "../types/index.js";
 
+import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { logger } from "../utils/logger.js";
 import {
   createMistralConfig,
@@ -121,6 +122,15 @@ export class MistralProvider extends BaseProvider {
           this.telemetryHandler.getTelemetryConfig(options),
         experimental_repairToolCall: this.getToolCallRepairFn(options),
         onStepFinish: ({ toolCalls, toolResults }) => {
+          emitToolEndFromStepFinish(
+            this.neurolink?.getEventEmitter(),
+            toolResults as Array<{
+              toolName: string;
+              output?: unknown;
+              result?: unknown;
+              error?: string;
+            }>,
+          );
           this.handleToolExecutionStorage(
             toolCalls,
             toolResults,

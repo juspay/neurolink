@@ -16,9 +16,14 @@ import { CLI_LIMITS } from "../../lib/core/constants.js";
 
 import { logger } from "../../lib/utils/logger.js";
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
-import { AIProviderName } from "../../lib/types/index.js";
-// Configuration schema for validation
-const ConfigSchema = z.object({
+import {
+  AIProviderName,
+  type CliNeuroLinkConfig,
+} from "../../lib/types/index.js";
+// Configuration schema for validation. Annotated with
+// z.ZodType<CliNeuroLinkConfig> so drift between the canonical structural
+// type in src/lib/types/cli.ts and this runtime schema fails at compile time.
+const ConfigSchema: z.ZodType<CliNeuroLinkConfig> = z.object({
   defaultProvider: z
     .enum([
       "auto",
@@ -312,12 +317,10 @@ const ConfigSchema = z.object({
     }),
 });
 
-type NeuroLinkConfig = z.infer<typeof ConfigSchema>;
-
 export class ConfigManager {
   private configDir: string;
   private configFile: string;
-  private config: NeuroLinkConfig;
+  private config: CliNeuroLinkConfig;
 
   constructor() {
     this.configDir = path.join(os.homedir(), ".neurolink");
@@ -328,7 +331,7 @@ export class ConfigManager {
   /**
    * Load configuration from file or create default
    */
-  private loadConfig(): NeuroLinkConfig {
+  private loadConfig(): CliNeuroLinkConfig {
     try {
       if (fs.existsSync(this.configFile)) {
         const configData = JSON.parse(fs.readFileSync(this.configFile, "utf8"));
@@ -926,14 +929,14 @@ export class ConfigManager {
   /**
    * Get current configuration
    */
-  getConfig(): NeuroLinkConfig {
+  getConfig(): CliNeuroLinkConfig {
     return this.config;
   }
 
   /**
    * Update configuration
    */
-  updateConfig(updates: Partial<NeuroLinkConfig>): void {
+  updateConfig(updates: Partial<CliNeuroLinkConfig>): void {
     this.config = { ...this.config, ...updates };
     this.saveConfig();
   }

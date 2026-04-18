@@ -4,6 +4,7 @@
  */
 
 import type {
+  FlaggedItem,
   LLMScorerConfig,
   ScoreResult,
   ScorerInput,
@@ -116,7 +117,6 @@ export class ToxicityScorer extends BaseLLMScorer {
       };
     }
 
-    type FlaggedItem = { text?: string; category?: string; severity?: string };
     const flaggedContent: FlaggedItem[] = Array.isArray(json.flaggedContent)
       ? (json.flaggedContent as FlaggedItem[])
       : [];

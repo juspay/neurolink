@@ -11,19 +11,11 @@
 import { createHash } from "crypto";
 import { EventEmitter } from "events";
 import { withTimeout } from "../../utils/async/withTimeout.js";
-import type { CacheStats, McpCacheConfig } from "../../types/index.js";
-
-/**
- * Cached entry with metadata
- */
-type CacheEntry<T> = {
-  value: T;
-  expires: number;
-  createdAt: number;
-  accessedAt: number;
-  accessCount: number;
-  key: string;
-};
+import type {
+  CacheStats,
+  McpCacheConfig,
+  McpCacheEntry,
+} from "../../types/index.js";
 
 /**
  * Tool Cache - High-performance caching for MCP tool results
@@ -47,7 +39,7 @@ type CacheEntry<T> = {
  * ```
  */
 export class ToolCache<T = unknown> extends EventEmitter {
-  private cache: Map<string, CacheEntry<T>> = new Map();
+  private cache: Map<string, McpCacheEntry<T>> = new Map();
   private config: Required<McpCacheConfig>;
   private stats: CacheStats;
   private cleanupTimer?: ReturnType<typeof setInterval>;
@@ -125,7 +117,7 @@ export class ToolCache<T = unknown> extends EventEmitter {
       this.evictOne();
     }
 
-    const entry: CacheEntry<T> = {
+    const entry: McpCacheEntry<T> = {
       value,
       expires: now + effectiveTtl,
       createdAt: now,
@@ -322,7 +314,7 @@ export class ToolCache<T = unknown> extends EventEmitter {
     return this.config.namespace ? `${this.config.namespace}:${key}` : key;
   }
 
-  private isExpired(entry: CacheEntry<T>): boolean {
+  private isExpired(entry: McpCacheEntry<T>): boolean {
     return Date.now() > entry.expires;
   }
 
@@ -353,7 +345,7 @@ export class ToolCache<T = unknown> extends EventEmitter {
     }
   }
 
-  private selectEvictionCandidate(): CacheEntry<T> | undefined {
+  private selectEvictionCandidate(): McpCacheEntry<T> | undefined {
     if (this.cache.size === 0) {
       return undefined;
     }
@@ -370,8 +362,8 @@ export class ToolCache<T = unknown> extends EventEmitter {
     }
   }
 
-  private findLRU(): CacheEntry<T> | undefined {
-    let oldest: CacheEntry<T> | undefined;
+  private findLRU(): McpCacheEntry<T> | undefined {
+    let oldest: McpCacheEntry<T> | undefined;
     let oldestTime = Infinity;
 
     for (const entry of this.cache.values()) {
@@ -384,8 +376,8 @@ export class ToolCache<T = unknown> extends EventEmitter {
     return oldest;
   }
 
-  private findFIFO(): CacheEntry<T> | undefined {
-    let oldest: CacheEntry<T> | undefined;
+  private findFIFO(): McpCacheEntry<T> | undefined {
+    let oldest: McpCacheEntry<T> | undefined;
     let oldestTime = Infinity;
 
     for (const entry of this.cache.values()) {
@@ -398,8 +390,8 @@ export class ToolCache<T = unknown> extends EventEmitter {
     return oldest;
   }
 
-  private findLFU(): CacheEntry<T> | undefined {
-    let leastFrequent: CacheEntry<T> | undefined;
+  private findLFU(): McpCacheEntry<T> | undefined {
+    let leastFrequent: McpCacheEntry<T> | undefined;
     let lowestCount = Infinity;
 
     for (const entry of this.cache.values()) {

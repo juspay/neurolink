@@ -3,47 +3,14 @@
  * Integration with Langfuse for LLM observability
  */
 
-import type { ScoreResult, PipelineResult } from "../../types/index.js";
+import type {
+  LangfuseAdapterConfig,
+  LangfuseClient,
+  PipelineResult,
+  ScoreResult,
+} from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { observabilityHooks } from "./observabilityHooks.js";
-
-/**
- * Langfuse client interface (minimal for type safety)
- */
-type LangfuseClient = {
-  score: (params: {
-    name: string;
-    value: number;
-    traceId?: string;
-    observationId?: string;
-    comment?: string;
-    metadata?: Record<string, unknown>;
-  }) => Promise<unknown>;
-  trace?: (params: {
-    name: string;
-    metadata?: Record<string, unknown>;
-    tags?: string[];
-  }) => { id: string };
-  shutdown?: () => Promise<void>;
-};
-
-/**
- * Langfuse adapter configuration
- */
-type LangfuseAdapterConfig = {
-  /** Langfuse client instance */
-  client: LangfuseClient;
-  /** Prefix for score names */
-  scorePrefix?: string;
-  /** Include detailed metadata */
-  includeMetadata?: boolean;
-  /** Tags to add to all scores */
-  tags?: string[];
-  /** Whether to send pipeline-level scores */
-  sendPipelineScores?: boolean;
-  /** Whether to send individual scorer scores */
-  sendScorerScores?: boolean;
-};
 
 /**
  * Langfuse adapter for evaluation observability

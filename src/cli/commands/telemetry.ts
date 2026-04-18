@@ -19,6 +19,7 @@ import { NeuroLink } from "../../lib/neurolink.js";
 import { flushOpenTelemetry } from "../../lib/services/server/ai/observability/instrumentation.js";
 import { formatRow, formatCost } from "../utils/formatters.js";
 import type {
+  ExporterName,
   TelemetryStatusArgs as StatusArgs,
   TelemetryConfigureArgs as ConfigureArgs,
   TelemetryListExportersArgs as ListExportersArgs,
@@ -40,8 +41,6 @@ const AVAILABLE_EXPORTERS = [
   "posthog",
   "laminar",
 ] as const;
-
-type ExporterName = (typeof AVAILABLE_EXPORTERS)[number];
 
 /**
  * Telemetry Command Factory

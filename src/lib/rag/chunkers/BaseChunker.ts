@@ -14,6 +14,8 @@ import type {
   ChunkingStrategy,
   ChunkMetadata,
 } from "../../types/index.js";
+import { withSpan } from "../../telemetry/withSpan.js";
+import { tracers } from "../../telemetry/tracers.js";
 
 /**
  * Default chunker configuration
@@ -83,33 +85,48 @@ export abstract class BaseChunker implements Chunker {
    * Chunk content into smaller pieces
    */
   async chunk(content: string, config?: ChunkerConfig): Promise<Chunk[]> {
-    const effectiveConfig = { ...this.config, ...config };
-
-    if (!content || content.trim().length === 0) {
-      throw new ChunkingError("Content is empty", {
-        code: RAGErrorCodes.CHUNKING_EMPTY_CONTENT,
-        strategy: this.strategy,
-        contentLength: 0,
-      });
-    }
-
-    try {
-      const chunks = await this.doChunk(content, effectiveConfig);
-      return this.filterChunks(chunks, effectiveConfig);
-    } catch (error) {
-      if (error instanceof ChunkingError) {
-        throw error;
-      }
-      throw new ChunkingError(
-        `Chunking failed: ${error instanceof Error ? error.message : String(error)}`,
-        {
-          code: RAGErrorCodes.CHUNKING_ERROR,
-          cause: error instanceof Error ? error : undefined,
-          strategy: this.strategy,
-          contentLength: content.length,
+    return withSpan(
+      {
+        name: "neurolink.rag.chunk",
+        tracer: tracers.rag,
+        attributes: {
+          "rag.chunker.strategy": this.strategy,
+          "rag.chunker.content_chars": content.length,
+          "rag.chunker.content_bytes": Buffer.byteLength(content, "utf8"),
         },
-      );
-    }
+      },
+      async (span) => {
+        const effectiveConfig = { ...this.config, ...config };
+
+        if (!content || content.trim().length === 0) {
+          throw new ChunkingError("Content is empty", {
+            code: RAGErrorCodes.CHUNKING_EMPTY_CONTENT,
+            strategy: this.strategy,
+            contentLength: 0,
+          });
+        }
+
+        try {
+          const chunks = await this.doChunk(content, effectiveConfig);
+          const result = this.filterChunks(chunks, effectiveConfig);
+          span.setAttribute("rag.chunker.chunk_count", result.length);
+          return result;
+        } catch (error) {
+          if (error instanceof ChunkingError) {
+            throw error;
+          }
+          throw new ChunkingError(
+            `Chunking failed: ${error instanceof Error ? error.message : String(error)}`,
+            {
+              code: RAGErrorCodes.CHUNKING_ERROR,
+              cause: error instanceof Error ? error : undefined,
+              strategy: this.strategy,
+              contentLength: content.length,
+            },
+          );
+        }
+      },
+    ); // end withSpan
   }
 
   /**

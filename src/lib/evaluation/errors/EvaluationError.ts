@@ -7,7 +7,11 @@ import {
   NeuroLinkFeatureError,
   createErrorFactory,
 } from "../../core/infrastructure/index.js";
-import type { EnhancedEvaluationContext } from "../../types/index.js";
+import type {
+  EnhancedEvaluationContext,
+  EvaluationErrorCode,
+  EvaluationErrorContext,
+} from "../../types/index.js";
 
 /**
  * Error codes for the Evaluation feature.
@@ -41,12 +45,6 @@ export const EvaluationErrorCodes = {
 } as const;
 
 /**
- * Type for evaluation error codes
- */
-type EvaluationErrorCode =
-  (typeof EvaluationErrorCodes)[keyof typeof EvaluationErrorCodes];
-
-/**
  * Factory for creating typed evaluation errors.
  * Uses the createErrorFactory pattern from core infrastructure.
  */
@@ -54,31 +52,6 @@ export const evaluationErrors = createErrorFactory(
   "Evaluation",
   EvaluationErrorCodes,
 );
-
-/**
- * Extended evaluation context for error details.
- * Provides rich debugging information when errors occur.
- */
-type EvaluationErrorContext = {
-  /** Length of the user query (redacted for safety) */
-  userQueryLength?: number;
-  /** Length of the AI response (redacted for safety) */
-  aiResponseLength?: number;
-  /** The current attempt number */
-  attemptNumber?: number;
-  /** Previous evaluation scores if any */
-  previousScores?: number[];
-  /** The evaluation strategy in use */
-  strategy?: string;
-  /** The evaluation model being used */
-  evaluationModel?: string;
-  /** The provider being used */
-  provider?: string;
-  /** Length of the raw response (redacted for safety) */
-  rawResponseLength?: number;
-  /** Any additional context */
-  additionalContext?: Record<string, unknown>;
-};
 
 /**
  * Checks if an error is retryable based on its code.

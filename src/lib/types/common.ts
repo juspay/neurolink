@@ -2,6 +2,8 @@
  * Common utility types for NeuroLink
  */
 
+import type { NeuroLink } from "../neurolink.js";
+import type { ConversationMemoryConfig } from "./conversation.js";
 import type {
   AutoresearchErrorEvent,
   AutoresearchExperimentCompletedEvent,
@@ -327,58 +329,6 @@ export type InfraRetryOptions = {
 };
 
 // =============================================================================
-// RETRY OPTIONS (moved from utils/async/retry.ts)
-// =============================================================================
-
-/**
- * Configuration options for retry operations with exponential backoff.
- * Named AsyncRetryOptions to avoid collision with utilities.ts RetryOptions.
- */
-export type AsyncRetryOptions = {
-  /**
-   * Maximum number of retry attempts (not including the initial attempt).
-   * @default 3
-   */
-  maxRetries: number;
-
-  /**
-   * Initial delay between retries in milliseconds.
-   * @default 1000
-   */
-  baseDelayMs: number;
-
-  /**
-   * Maximum delay cap in milliseconds.
-   * @default 30000
-   */
-  maxDelayMs: number;
-
-  /**
-   * Multiplier for exponential backoff.
-   * @default 2
-   */
-  backoffMultiplier?: number;
-
-  /**
-   * Function to determine if a retry should be attempted.
-   * Return false to stop retrying immediately.
-   */
-  shouldRetry?: (error: Error, attempt: number) => boolean;
-
-  /**
-   * Whether to add random jitter to backoff delays to prevent thundering herd.
-   * @default true
-   */
-  addJitter?: boolean;
-
-  /**
-   * Callback invoked before each retry attempt.
-   * Useful for logging or metrics.
-   */
-  onRetry?: (error: Error, attempt: number, delayMs: number) => void;
-};
-
-// =============================================================================
 // TOKEN UTILS TYPES (moved from utils/tokenUtils.ts)
 // =============================================================================
 
@@ -633,3 +583,19 @@ export type StreamingParser = {
 
 export type HippocampusMemory =
   import("@juspay/hippocampus").HippocampusConfig & { enabled?: boolean };
+
+// =============================================================================
+// SESSION STATE (from session/globalSessionState.ts)
+// =============================================================================
+
+/** Value types accepted as session variables by the loop REPL. */
+export type SessionVariableValue = string | number | boolean;
+
+/** State snapshot for the active REPL loop session. */
+export type LoopSessionState = {
+  neurolinkInstance: NeuroLink;
+  sessionId: string;
+  isActive: boolean;
+  conversationMemoryConfig?: ConversationMemoryConfig;
+  sessionVariables: Record<string, SessionVariableValue>;
+};

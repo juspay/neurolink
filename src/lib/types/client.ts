@@ -1587,3 +1587,36 @@ export type ClientWebSocketMessage = WSClientMessage;
 /** @see WSClientEventHandlers */
 
 export type WebSocketEventHandlers = WSClientEventHandlers;
+
+/**
+ * Superset internal config for SSE and WebSocket client wrappers.
+ * The 9 shared fields are required. Protocol-specific fields
+ * (useNativeEventSource for SSE; heartbeatInterval/queueSize for WS)
+ * are optional — each client populates only its own fields.
+ */
+export type ClientInternalConfig = {
+  baseUrl: string;
+  apiKey: string;
+  token: string;
+  timeout: number;
+  headers: Record<string, string>;
+  autoReconnect: boolean;
+  maxReconnectAttempts: number;
+  reconnectDelay: number;
+  maxReconnectDelay: number;
+  useNativeEventSource?: boolean;
+  heartbeatInterval?: number;
+  queueSize?: number;
+};
+
+/**
+ * Internal stream chunk format used by the AI-SDK adapter's push/pull queue.
+ * Distinct from the public NeuroLink `StreamChunk` (stream.ts) — this one
+ * mirrors the underlying `ai` package event shape (text-delta / finish).
+ */
+export type AiSdkStreamChunk = {
+  type: "text-delta" | "finish";
+  textDelta?: string;
+  finishReason?: string;
+  usage?: { promptTokens: number; completionTokens: number };
+};

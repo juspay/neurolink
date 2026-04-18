@@ -25,10 +25,13 @@ import ora from "ora";
 import type { CommandModule } from "yargs";
 import type {
   Task,
+  TaskCreateArgs,
   TaskExecutionMode,
+  TaskLogsArgs,
   TaskManagerConfig,
   TaskSchedule,
   TaskStatus,
+  TaskUpdateArgs,
   WorkerState,
 } from "../../lib/types/index.js";
 import { TASK_DEFAULTS } from "../../lib/types/index.js";
@@ -163,7 +166,7 @@ export class TaskCommandFactory {
                   return true;
                 }),
             async (argv) => {
-              await TaskCommandFactory.executeCreate(argv as CreateArgs);
+              await TaskCommandFactory.executeCreate(argv as TaskCreateArgs);
             },
           )
           .command(
@@ -269,7 +272,7 @@ export class TaskCommandFactory {
                   description: "New execution mode",
                 }),
             async (argv) => {
-              await TaskCommandFactory.executeUpdate(argv as UpdateArgs);
+              await TaskCommandFactory.executeUpdate(argv as TaskUpdateArgs);
             },
           )
           .command(
@@ -313,7 +316,7 @@ export class TaskCommandFactory {
                   description: "Show full output (no truncation)",
                 }),
             async (argv) => {
-              await TaskCommandFactory.executeLogs(argv as LogsArgs);
+              await TaskCommandFactory.executeLogs(argv as TaskLogsArgs);
             },
           )
           .command(
@@ -516,7 +519,7 @@ export class TaskCommandFactory {
    * Create — pure store write, no NeuroLink needed.
    * Builds the Task object directly, saves to the task store, exits immediately.
    */
-  private static async executeCreate(argv: CreateArgs): Promise<void> {
+  private static async executeCreate(argv: TaskCreateArgs): Promise<void> {
     const spinner = ora("Creating task...").start();
 
     try {
@@ -792,7 +795,7 @@ export class TaskCommandFactory {
     }
   }
 
-  private static async executeUpdate(argv: UpdateArgs): Promise<void> {
+  private static async executeUpdate(argv: TaskUpdateArgs): Promise<void> {
     try {
       const store = await TaskCommandFactory.getStore();
 
@@ -858,7 +861,7 @@ export class TaskCommandFactory {
     }
   }
 
-  private static async executeLogs(argv: LogsArgs): Promise<void> {
+  private static async executeLogs(argv: TaskLogsArgs): Promise<void> {
     try {
       const store = await TaskCommandFactory.getStore();
       const runs = await store.getRuns(argv.taskId, {
@@ -1169,35 +1172,3 @@ function formatDuration(ms: number): string {
 }
 
 // ── Arg Types ───────────────────────────────────────────
-
-type CreateArgs = {
-  name: string;
-  prompt: string;
-  cron?: string;
-  timezone?: string;
-  every?: string;
-  at?: string;
-  mode: string;
-  provider?: string;
-  model?: string;
-  maxRuns?: number;
-  maxTokens?: number;
-  temperature?: number;
-  systemPrompt?: string;
-};
-
-type UpdateArgs = {
-  taskId: string;
-  prompt?: string;
-  cron?: string;
-  every?: string;
-  at?: string;
-  mode?: string;
-};
-
-type LogsArgs = {
-  taskId: string;
-  limit: number;
-  status?: string;
-  full?: boolean;
-};

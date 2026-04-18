@@ -4,7 +4,9 @@
  */
 
 import type {
-  RuleScorerConfig,
+  FormatScorerConfig,
+  FormatType,
+  FormatValidationResult,
   ScoreResult,
   ScorerInput,
   ScorerMetadata,
@@ -15,83 +17,6 @@ import {
   BaseRuleScorer,
   DEFAULT_RULE_SCORER_CONFIG,
 } from "./baseRuleScorer.js";
-
-/**
- * Expected format types
- */
-type FormatType =
-  | "json"
-  | "markdown"
-  | "code"
-  | "list"
-  | "numbered-list"
-  | "bullet-list"
-  | "table"
-  | "yaml"
-  | "xml"
-  | "plain"
-  | "html"
-  | "custom";
-
-/**
- * Code language types for code format validation
- */
-type CodeLanguage =
-  | "javascript"
-  | "typescript"
-  | "python"
-  | "java"
-  | "c"
-  | "cpp"
-  | "csharp"
-  | "go"
-  | "rust"
-  | "sql"
-  | "bash"
-  | "any";
-
-/**
- * Configuration specific to format scoring
- */
-type FormatScorerConfig = RuleScorerConfig & {
-  /** Expected format type */
-  expectedFormat?: FormatType;
-  /** Multiple allowed formats */
-  allowedFormats?: FormatType[];
-  /** For code format: expected language */
-  codeLanguage?: CodeLanguage;
-  /** For JSON format: validate against schema */
-  jsonSchema?: object;
-  /** For markdown: required elements */
-  markdownRequirements?: {
-    hasHeadings?: boolean;
-    hasCodeBlocks?: boolean;
-    hasLinks?: boolean;
-    hasLists?: boolean;
-    minHeadingLevel?: number;
-    maxHeadingLevel?: number;
-  };
-  /** For list format: requirements */
-  listRequirements?: {
-    minItems?: number;
-    maxItems?: number;
-    itemPattern?: string;
-  };
-  /** Custom format regex pattern */
-  customPattern?: string;
-  /** Whether format must be exclusive (no other content) */
-  strictFormat?: boolean;
-};
-
-/**
- * Format validation result
- */
-type FormatValidationResult = {
-  isValid: boolean;
-  detectedFormat: FormatType | null;
-  issues: string[];
-  structureAnalysis?: object;
-};
 
 /**
  * Scorer metadata for format

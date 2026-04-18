@@ -156,6 +156,15 @@ export class StreamHandler {
           logger.warn(
             `${providerName}: Stream produced no output (NoOutputGeneratedError), returning empty stream`,
           );
+          // S4 fix: yield a sentinel chunk so Pipeline B can detect the empty stream
+          // and set the span to WARNING status instead of OK
+          yield {
+            content: "",
+            metadata: {
+              noOutput: true,
+              errorType: "NoOutputGeneratedError",
+            },
+          };
         } else {
           throw error;
         }

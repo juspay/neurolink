@@ -98,6 +98,7 @@ export default [
       "neurolink/no-local-types-folder": "error", // Rules 11 & 11b
       "neurolink/no-type-export-outside-types": "error", // Rule 12
       "neurolink/barrel-type-imports": "error", // Rule 13
+      "neurolink/no-local-type-alias": "error", // Rule 2 (strict)
 
       // Disable base rules that are covered by TypeScript
       "no-unused-vars": "off",

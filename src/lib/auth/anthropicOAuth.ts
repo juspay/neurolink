@@ -26,7 +26,10 @@ import {
   OAuthTokenRevocationError,
   OAuthCallbackServerError,
 } from "../types/index.js";
+import type { ClaudeCodeIdentity } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { withSpan } from "../telemetry/withSpan.js";
+import { tracers } from "../telemetry/tracers.js";
 
 /**
  * HTML-escape a string to prevent XSS when embedding in HTML responses.
@@ -97,13 +100,6 @@ export const DEFAULT_SCOPES: readonly string[] = [
 export const CLAUDE_CODE_VERSION = "2.1.87.6d6";
 export const CLAUDE_CODE_ENTRYPOINT = "sdk-cli";
 export const CLAUDE_CLI_USER_AGENT = "claude-cli/2.1.87 (external, sdk-cli)";
-
-type ClaudeCodeIdentity = {
-  deviceId: string;
-  accountUuid: string;
-  sessionId: string;
-  metadataUserId: string;
-};
 
 const CLAUDE_CODE_IDENTITY_TTL_MS = 3_600_000;
 const CLAUDE_CODE_IDENTITY_CACHE_MAX_ENTRIES = 1024;
@@ -600,6 +596,21 @@ export class AnthropicOAuth {
     codeVerifier: string,
     config: AnthropicOAuthConfig = {},
   ): Promise<OAuthFlowTokens> {
+    return withSpan(
+      {
+        name: "neurolink.auth.oauth.exchange_code",
+        tracer: tracers.auth,
+        attributes: { "auth.oauth.grant_type": "authorization_code" },
+      },
+      async () => this._exchangeCodeForTokens(code, codeVerifier, config),
+    );
+  }
+
+  private async _exchangeCodeForTokens(
+    code: string,
+    codeVerifier: string,
+    config: AnthropicOAuthConfig = {},
+  ): Promise<OAuthFlowTokens> {
     if (!code) {
       throw new OAuthTokenExchangeError("Authorization code is required");
     }
@@ -708,6 +719,20 @@ export class AnthropicOAuth {
    * ```
    */
   async refreshAccessToken(
+    refreshToken: string,
+    config: AnthropicOAuthConfig = {},
+  ): Promise<OAuthFlowTokens> {
+    return withSpan(
+      {
+        name: "neurolink.auth.oauth.refresh",
+        tracer: tracers.auth,
+        attributes: { "auth.oauth.grant_type": "refresh_token" },
+      },
+      async () => this._refreshAccessToken(refreshToken, config),
+    );
+  }
+
+  private async _refreshAccessToken(
     refreshToken: string,
     config: AnthropicOAuthConfig = {},
   ): Promise<OAuthFlowTokens> {
@@ -938,6 +963,20 @@ export class AnthropicOAuth {
    * @throws OAuthTokenRevocationError if revocation fails
    */
   async revokeToken(
+    token: string,
+    tokenType: "access_token" | "refresh_token" = "access_token",
+  ): Promise<void> {
+    return withSpan(
+      {
+        name: "neurolink.auth.oauth.revoke",
+        tracer: tracers.auth,
+        attributes: { "auth.oauth.token_type": tokenType },
+      },
+      async () => this._revokeToken(token, tokenType),
+    );
+  }
+
+  private async _revokeToken(
     token: string,
     tokenType: "access_token" | "refresh_token" = "access_token",
   ): Promise<void> {

@@ -10,13 +10,14 @@
 
 import { logger } from "../utils/logger.js";
 import type {
+  AiSdkStreamChunk,
   // ClientConfig - not currently used but may be needed for future implementations
   ClientLanguageModel,
   ClientLanguageModelCallOptions,
   ClientLanguageModelResponse,
   ClientLanguageModelStreamResponse,
-  NeuroLinkProviderOptions,
   ClientModelOptions,
+  NeuroLinkProviderOptions,
 } from "../types/index.js";
 import { createClient, NeuroLinkClient } from "./httpClient.js";
 
@@ -145,14 +146,7 @@ export class NeuroLinkLanguageModel implements ClientLanguageModel {
       system ?? messages?.find((m) => m.role === "system")?.content;
 
     // ---- Async queue (push/pull pattern) ----
-    type StreamChunk = {
-      type: "text-delta" | "finish";
-      textDelta?: string;
-      finishReason?: string;
-      usage?: { promptTokens: number; completionTokens: number };
-    };
-
-    const buffer: StreamChunk[] = [];
+    const buffer: AiSdkStreamChunk[] = [];
     let finished = false;
     let notifyConsumer: (() => void) | null = null;
 
@@ -166,7 +160,7 @@ export class NeuroLinkLanguageModel implements ClientLanguageModel {
     }
 
     /** Push a chunk into the queue and wake the consumer. */
-    function push(chunk: StreamChunk): void {
+    function push(chunk: AiSdkStreamChunk): void {
       buffer.push(chunk);
       wake();
     }
@@ -236,7 +230,7 @@ export class NeuroLinkLanguageModel implements ClientLanguageModel {
     });
 
     // ---- Async iterable that pulls from the queue ----
-    async function* createStream(): AsyncIterable<StreamChunk> {
+    async function* createStream(): AsyncIterable<AiSdkStreamChunk> {
       while (true) {
         // Drain anything already buffered.
         while (buffer.length > 0) {

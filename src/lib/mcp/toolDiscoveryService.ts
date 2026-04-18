@@ -31,6 +31,7 @@ import {
 import { withTimeout } from "../utils/errorHandling.js";
 import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { tracers } from "../telemetry/tracers.js";
+import { withSpan } from "../telemetry/withSpan.js";
 import type { McpOutputNormalizer } from "./mcpOutputNormalizer.js";
 
 const mcpTracer = tracers.mcp;
@@ -79,96 +80,115 @@ export class ToolDiscoveryService extends EventEmitter {
     client: Client,
     timeout = DEFAULT_TOOL_TIMEOUT,
   ): Promise<ToolDiscoveryResult> {
-    const startTime = Date.now();
+    return withSpan(
+      {
+        name: "neurolink.mcp.discoverTools",
+        tracer: tracers.mcp,
+        attributes: { "mcp.server_id": serverId },
+      },
+      async (span) => {
+        const startTime = Date.now();
 
-    try {
-      // Prevent concurrent discovery for same server
-      if (this.discoveryInProgress.has(serverId)) {
-        return {
-          success: false,
-          error: `Discovery already in progress for server: ${serverId}`,
-          toolCount: 0,
-          tools: [],
-          duration: Date.now() - startTime,
-          serverId,
-        };
-      }
+        try {
+          // Prevent concurrent discovery for same server
+          if (this.discoveryInProgress.has(serverId)) {
+            return {
+              success: false,
+              error: `Discovery already in progress for server: ${serverId}`,
+              toolCount: 0,
+              tools: [],
+              duration: Date.now() - startTime,
+              serverId,
+            };
+          }
 
-      this.discoveryInProgress.add(serverId);
+          this.discoveryInProgress.add(serverId);
 
-      mcpLogger.info(
-        `[ToolDiscoveryService] Starting tool discovery for server: ${serverId}`,
-      );
+          mcpLogger.info(
+            `[ToolDiscoveryService] Starting tool discovery for server: ${serverId}`,
+          );
 
-      // Create circuit breaker for tool discovery
-      const circuitBreaker = globalCircuitBreakerManager.getBreaker(
-        `tool-discovery-${serverId}`,
-        {
-          failureThreshold: 2,
-          resetTimeout: 60000,
-          operationTimeout: timeout,
-        },
-      );
+          // Create circuit breaker for tool discovery
+          const circuitBreaker = globalCircuitBreakerManager.getBreaker(
+            `tool-discovery-${serverId}`,
+            {
+              failureThreshold: 2,
+              resetTimeout: 60000,
+              operationTimeout: timeout,
+            },
+          );
 
-      // Discover tools with circuit breaker protection
-      const tools = await circuitBreaker.execute(async () => {
-        return await this.performToolDiscovery(serverId, client, timeout);
-      });
+          // Discover tools with circuit breaker protection
+          const tools = await circuitBreaker.execute(async () => {
+            return await this.performToolDiscovery(serverId, client, timeout);
+          });
 
-      // Register discovered tools
-      const registeredTools = await this.registerDiscoveredTools(
-        serverId,
-        tools,
-      );
+          // Register discovered tools
+          const registeredTools = await this.registerDiscoveredTools(
+            serverId,
+            tools,
+          );
 
-      const result: ToolDiscoveryResult = {
-        success: true,
-        toolCount: registeredTools.length,
-        tools: registeredTools,
-        duration: Date.now() - startTime,
-        serverId,
-      };
+          span.setAttribute("mcp.tools_discovered", registeredTools.length);
 
-      // Emit discovery completed event
-      this.emit("discoveryCompleted", {
-        serverId,
-        toolCount: registeredTools.length,
-        duration: result.duration,
-        timestamp: new Date(),
-      } satisfies ToolRegistryEvents["discoveryCompleted"]);
+          const result: ToolDiscoveryResult = {
+            success: true,
+            toolCount: registeredTools.length,
+            tools: registeredTools,
+            duration: Date.now() - startTime,
+            serverId,
+          };
 
-      mcpLogger.info(
-        `[ToolDiscoveryService] Discovery completed for ${serverId}: ${registeredTools.length} tools`,
-      );
+          // Emit discovery completed event
+          this.emit("discoveryCompleted", {
+            serverId,
+            toolCount: registeredTools.length,
+            duration: result.duration,
+            timestamp: new Date(),
+          } satisfies ToolRegistryEvents["discoveryCompleted"]);
 
-      return result;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+          mcpLogger.info(
+            `[ToolDiscoveryService] Discovery completed for ${serverId}: ${registeredTools.length} tools`,
+          );
 
-      mcpLogger.error(
-        `[ToolDiscoveryService] Discovery failed for ${serverId}:`,
-        error,
-      );
+          return result;
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
 
-      // Emit discovery failed event
-      this.emit("discoveryFailed", {
-        serverId,
-        error: errorMessage,
-        timestamp: new Date(),
-      } satisfies ToolRegistryEvents["discoveryFailed"]);
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: errorMessage,
+          });
+          span.recordException(
+            error instanceof Error ? error : new Error(errorMessage),
+          );
 
-      return {
-        success: false,
-        error: errorMessage,
-        toolCount: 0,
-        tools: [],
-        duration: Date.now() - startTime,
-        serverId,
-      };
-    } finally {
-      this.discoveryInProgress.delete(serverId);
-    }
+          mcpLogger.error(
+            `[ToolDiscoveryService] Discovery failed for ${serverId}:`,
+            error,
+          );
+
+          // Emit discovery failed event
+          this.emit("discoveryFailed", {
+            serverId,
+            error: errorMessage,
+            timestamp: new Date(),
+          } satisfies ToolRegistryEvents["discoveryFailed"]);
+
+          return {
+            success: false,
+            error: errorMessage,
+            toolCount: 0,
+            tools: [],
+            duration: Date.now() - startTime,
+            serverId,
+          };
+        } finally {
+          this.discoveryInProgress.delete(serverId);
+        }
+      },
+    );
   }
 
   /**

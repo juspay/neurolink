@@ -6,6 +6,10 @@
  * keeps or discards each change — running unattended for hours.
  */
 
+import type { RepoPolicy } from "../autoresearch/repoPolicy.js";
+import type { ResearchStateStore } from "../autoresearch/stateStore.js";
+import type { ResultRecorder } from "../autoresearch/resultRecorder.js";
+import type { ExperimentRunner } from "../autoresearch/runner.js";
 import type { ThinkingLevel } from "./config.js";
 
 // ── Metric Configuration ─────────────────────────────────
@@ -249,3 +253,16 @@ export const AUTORESEARCH_DEFAULTS = {
   branchPrefix: "autoresearch/",
   thinkingLevel: "medium" as ThinkingLevel,
 } as const;
+
+// =============================================================================
+// RESEARCH TOOLS FACTORY (from autoresearch/tools.ts)
+// =============================================================================
+
+/** Dependencies required to create research tools. */
+export type ResearchToolsDeps = {
+  config: ResearchConfig;
+  stateStore: ResearchStateStore;
+  repoPolicy: RepoPolicy;
+  runner: ExperimentRunner;
+  recorder: ResultRecorder;
+};

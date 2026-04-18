@@ -26,6 +26,8 @@ import type {
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { combineSignals, sleep } from "./httpClient.js";
+import { withClientSpan } from "../telemetry/withSpan.js";
+import { tracers } from "../telemetry/tracers.js";
 // =============================================================================
 // Types
 // =============================================================================
@@ -83,6 +85,25 @@ export class SSEClient {
    * Connect to SSE endpoint
    */
   async connect(
+    requestOptions: {
+      body?: unknown;
+      headers?: Record<string, string>;
+    } = {},
+  ): Promise<void> {
+    return withClientSpan(
+      {
+        name: "neurolink.client.streaming.sse.connect",
+        tracer: tracers.http,
+        attributes: {
+          "http.url": this.url,
+          "http.method": requestOptions.body ? "POST" : "GET",
+        },
+      },
+      async () => this._connectSSE(requestOptions),
+    );
+  }
+
+  private async _connectSSE(
     requestOptions: {
       body?: unknown;
       headers?: Record<string, string>;
@@ -462,6 +483,17 @@ export class WebSocketStreamingClient {
    * Connect to WebSocket server
    */
   async connect(): Promise<void> {
+    return withClientSpan(
+      {
+        name: "neurolink.client.streaming.ws.connect",
+        tracer: tracers.http,
+        attributes: { "http.url": this.options.url },
+      },
+      async () => this._connectWS(),
+    );
+  }
+
+  private async _connectWS(): Promise<void> {
     if (typeof WebSocket === "undefined") {
       throw new Error(
         "WebSocket is not available. Please use a polyfill for non-browser environments.",

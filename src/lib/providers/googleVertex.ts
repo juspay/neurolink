@@ -50,6 +50,7 @@ import type {
   StreamResult,
   StreamToolCall,
   StreamToolResult,
+  VertexNativePart,
 } from "../types/index.js";
 
 import {
@@ -80,6 +81,7 @@ import {
 } from "../utils/timeout.js";
 import { estimateTokens } from "../utils/tokenEstimation.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
+import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import {
   buildNativeConfig,
   buildNativeToolDeclarations,
@@ -1524,6 +1526,10 @@ export class GoogleVertexProvider extends BaseProvider {
       });
     }
 
+    // Emit tool:end for each completed tool result so Pipeline B
+    // captures telemetry for AI-SDK-driven tool calls (gap S2).
+    emitToolEndFromStepFinish(this.neurolink?.getEventEmitter(), toolResults);
+
     this.handleToolExecutionStorage(
       toolCalls,
       toolResults,
@@ -1760,11 +1766,7 @@ export class GoogleVertexProvider extends BaseProvider {
       { text: string } | { inlineData: { mimeType: string; data: string } }
     >;
   }> {
-    type NativePart =
-      | { text: string }
-      | { inlineData: { mimeType: string; data: string } };
-
-    const userParts: NativePart[] = [{ text: inputText }];
+    const userParts: VertexNativePart[] = [{ text: inputText }];
 
     // Add PDF files as inlineData parts if present
     if (multimodalInput?.pdfFiles && multimodalInput.pdfFiles.length > 0) {
@@ -2192,6 +2194,33 @@ export class GoogleVertexProvider extends BaseProvider {
         timestamp: new Date().toISOString(),
       });
 
+      // Emit generation:end so Pipeline B (Langfuse) creates a GENERATION
+      // observation. The native @google/genai stream path on Vertex bypasses the
+      // Vercel AI SDK so experimental_telemetry is never injected; we emit manually.
+      const vertexStreamEmitter = this.neurolink?.getEventEmitter();
+      if (vertexStreamEmitter) {
+        vertexStreamEmitter.emit("generation:end", {
+          provider: this.providerName,
+          responseTime,
+          timestamp: Date.now(),
+          result: {
+            content: "",
+            usage: {
+              input: totalInputTokens,
+              output: totalOutputTokens,
+              total: totalInputTokens + totalOutputTokens,
+            },
+            model: params.modelName,
+            provider: this.providerName,
+            finishReason:
+              step >= params.maxSteps && !completedWithFinalAnswer
+                ? "max_steps"
+                : "stop",
+          },
+          success: true,
+        });
+      }
+
       params.channel.close();
     } catch (error) {
       params.channel.error(error);
@@ -2442,6 +2471,30 @@ export class GoogleVertexProvider extends BaseProvider {
           ATTR.GEN_AI_FINISH_REASON,
           step >= maxSteps ? "max_steps" : "stop",
         );
+
+        // Emit generation:end so Pipeline B (Langfuse) creates a GENERATION
+        // observation. The native @google/genai path on Vertex bypasses the Vercel
+        // AI SDK so experimental_telemetry is never injected; we emit manually.
+        const vertexGenerateEmitter = this.neurolink?.getEventEmitter();
+        if (vertexGenerateEmitter) {
+          vertexGenerateEmitter.emit("generation:end", {
+            provider: this.providerName,
+            responseTime,
+            timestamp: Date.now(),
+            result: {
+              content: finalText,
+              usage: {
+                input: totalInputTokens,
+                output: totalOutputTokens,
+                total: totalInputTokens + totalOutputTokens,
+              },
+              model: modelName,
+              provider: this.providerName,
+              finishReason: step >= maxSteps ? "max_steps" : "stop",
+            },
+            success: true,
+          });
+        }
 
         // Build EnhancedGenerateResult
         return {

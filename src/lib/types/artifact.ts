@@ -79,3 +79,9 @@ export type ArtifactStore = {
   /** Generate a short preview string from a serialized payload. */
   generatePreview(payload: string): string;
 };
+
+/**
+ * In-memory index row tracked by LocalTempArtifactStore.
+ * Combines metadata with the on-disk path.
+ */
+export type IndexEntry = ArtifactMeta & { path: string };

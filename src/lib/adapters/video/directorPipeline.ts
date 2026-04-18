@@ -15,9 +15,12 @@
 import pLimit from "p-limit";
 import { ErrorCategory, ErrorSeverity } from "../../constants/enums.js";
 import type {
-  ImageWithAltText,
+  ClipGenState,
+  ClipResult,
   DirectorModeOptions,
   DirectorSegment,
+  ImageWithAltText,
+  TransitionResult,
   VideoGenerationResult,
   VideoOutputOptions,
 } from "../../types/index.js";
@@ -207,25 +210,6 @@ async function readImageFromDisk(
 // PHASE 1: PARALLEL CLIP GENERATION (with circuit breaker)
 // ============================================================================
 
-type ClipResult = { buffer: Buffer; processingTime: number };
-
-/** Completion status for ordered circuit breaker tracking */
-type ClipCompletion =
-  | { status: "pending" }
-  | { status: "success"; result: ClipResult }
-  | { status: "failure"; error: Error };
-
-/** State shared across clip-generation tasks for circuit-breaker logic. */
-type ClipGenState = {
-  consecutiveFailures: number;
-  circuitOpen: boolean;
-  results: Array<ClipResult | null>;
-  /** Track completion status in submission order for ordered circuit breaker */
-  completions: ClipCompletion[];
-  /** Next index to process for ordered circuit breaker evaluation */
-  nextExpectedIndex: number;
-};
-
 /**
  * Process clip completions in order to maintain an accurate consecutive failure count.
  * This prevents out-of-order completions from incorrectly resetting the failure streak.
@@ -409,14 +393,6 @@ async function generateClips(
 // ============================================================================
 // PHASE 2: PARALLEL TRANSITION GENERATION
 // ============================================================================
-
-type TransitionResult = {
-  buffer: Buffer | null;
-  fromSegment: number;
-  toSegment: number;
-  duration: number;
-  processingTime: number;
-};
 
 /**
  * Extract boundary frames and generate transition clips in parallel.

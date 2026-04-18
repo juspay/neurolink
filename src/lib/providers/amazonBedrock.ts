@@ -41,16 +41,22 @@ import type {
   BedrockContentBlock,
   BedrockMessage,
 } from "../types/index.js";
-import { AuthenticationError, ProviderError } from "../types/index.js";
+import {
+  AuthenticationError,
+  ProviderError,
+  RateLimitError,
+} from "../types/index.js";
 import { isAbortError, withTimeout } from "../utils/errorHandling.js";
+import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { logger } from "../utils/logger.js";
 import { calculateCost } from "../utils/pricing.js";
 import { buildMultimodalMessagesArray } from "../utils/messageBuilder.js";
 import { buildMultimodalOptions } from "../utils/multimodalOptionsBuilder.js";
 import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
-import { type Span, trace, SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import { type Span, SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import { tracers } from "../telemetry/index.js";
 
-const bedrockTracer = trace.getTracer("neurolink.bedrock");
+const bedrockTracer = tracers.provider;
 
 // Bedrock-specific types now imported from ../types/providerSpecific.js
 
@@ -203,6 +209,7 @@ export class AmazonBedrockProvider extends BaseProvider {
       "[AmazonBedrockProvider] generate() called with conversation management",
     );
 
+    const generateStartTime = Date.now();
     const options =
       typeof optionsOrPrompt === "string"
         ? { prompt: optionsOrPrompt }
@@ -274,21 +281,71 @@ export class AmazonBedrockProvider extends BaseProvider {
     );
 
     // Start conversation loop and return enhanced result
-    const text = await this.conversationLoop(options);
+    let text: string;
+    let usage: { input: number; output: number; total: number };
+    let finishReason: string | undefined;
+    try {
+      ({ text, usage, finishReason } = await this.conversationLoop(options));
+    } catch (error) {
+      // Emit failure generation:end so Pipeline B records the failed generation
+      const failEmitter = this.neurolink?.getEventEmitter();
+      if (failEmitter) {
+        failEmitter.emit("generation:end", {
+          provider: this.providerName,
+          responseTime: Date.now() - generateStartTime,
+          timestamp: Date.now(),
+          result: {
+            content: "",
+            usage: { input: 0, output: 0, total: 0 },
+            model: this.modelName || this.getDefaultModel(),
+            provider: this.providerName,
+            finishReason: "error",
+          },
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      throw error;
+    }
+
+    // Emit generation:end so Pipeline B (Langfuse) creates a GENERATION observation.
+    // Bedrock bypasses the Vercel AI SDK so experimental_telemetry is never injected;
+    // we emit the event manually to fill that gap.
+    const generateEmitter = this.neurolink?.getEventEmitter();
+    if (generateEmitter) {
+      generateEmitter.emit("generation:end", {
+        provider: this.providerName,
+        responseTime: Date.now() - generateStartTime,
+        timestamp: Date.now(),
+        result: {
+          content: text,
+          usage,
+          model: this.modelName || this.getDefaultModel(),
+          provider: this.providerName,
+          finishReason,
+        },
+        success: true,
+      });
+    }
 
     return {
       content: text, // CLI expects 'content' not 'text'
-      usage: { total: 0, input: 0, output: 0 },
+      usage,
       model: this.modelName || this.getDefaultModel(),
       provider: this.getProviderName(),
     };
   }
 
-  private async conversationLoop(
-    options: TextGenerationOptions,
-  ): Promise<string> {
+  private async conversationLoop(options: TextGenerationOptions): Promise<{
+    text: string;
+    usage: { input: number; output: number; total: number };
+    finishReason?: string;
+  }> {
     const maxIterations = 10; // Prevent infinite loops
     let iteration = 0;
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let lastFinishReason: string | undefined;
 
     while (iteration < maxIterations) {
       iteration++;
@@ -304,6 +361,14 @@ export class AmazonBedrockProvider extends BaseProvider {
           JSON.stringify(response, null, 2),
         );
 
+        // Accumulate real token counts and capture the stop reason so
+        // Pipeline B (Langfuse) gets correct usage and finishReason.
+        totalInputTokens += response.usage?.inputTokens ?? 0;
+        totalOutputTokens += response.usage?.outputTokens ?? 0;
+        if (response.stopReason) {
+          lastFinishReason = response.stopReason;
+        }
+
         const result = await this.handleBedrockResponse(response);
         logger.debug(`[AmazonBedrockProvider] Handle response result:`, result);
 
@@ -318,7 +383,15 @@ export class AmazonBedrockProvider extends BaseProvider {
           logger.debug(
             `[AmazonBedrockProvider] Returning final text: "${result.text}"`,
           );
-          return result.text || "";
+          return {
+            text: result.text || "",
+            usage: {
+              input: totalInputTokens,
+              output: totalOutputTokens,
+              total: totalInputTokens + totalOutputTokens,
+            },
+            finishReason: lastFinishReason,
+          };
         }
       } catch (error) {
         logger.error(
@@ -1286,6 +1359,13 @@ export class AmazonBedrockProvider extends BaseProvider {
     const maxIterations = options.maxSteps || DEFAULT_MAX_STEPS;
     let iteration = 0;
 
+    // Shared counters updated by both the first-iteration inline loop and
+    // the processStreamResponse loop. Read by the final generation:end emit
+    // so Pipeline B (Langfuse) gets real token counts from Bedrock streams.
+    let streamTotalInputTokens = 0;
+    let streamTotalOutputTokens = 0;
+    let streamLastStopReason: string | undefined;
+
     // The REAL issue: ReadableStream errors don't bubble up to the caller
     // So we need to make the first streaming call synchronously to test permissions
     try {
@@ -1411,8 +1491,24 @@ export class AmazonBedrockProvider extends BaseProvider {
 
                 if (chunk.messageStop) {
                   firstStopReason = chunk.messageStop.stopReason || "end_turn";
+                  // Don't break — metadata chunk with usage comes after messageStop
+                  continue;
+                }
+
+                // Accumulate usage from Bedrock metadata chunk for Pipeline B.
+                // The metadata chunk is emitted after messageStop with aggregate usage.
+                if (chunk.metadata?.usage) {
+                  streamTotalInputTokens +=
+                    chunk.metadata.usage.inputTokens ?? 0;
+                  streamTotalOutputTokens +=
+                    chunk.metadata.usage.outputTokens ?? 0;
+                  // Stream is effectively complete after metadata chunk
                   break;
                 }
+              }
+
+              if (firstStopReason) {
+                streamLastStopReason = firstStopReason;
               }
 
               // Add first assistant message to conversation history
@@ -1461,8 +1557,17 @@ export class AmazonBedrockProvider extends BaseProvider {
               );
 
               const commandInput = await this.prepareStreamCommand(options);
-              const { stopReason, assistantMessage } =
+              const { stopReason, assistantMessage, usage } =
                 await this.processStreamResponse(commandInput, controller);
+
+              // Accumulate real usage from Bedrock metadata chunks.
+              if (usage) {
+                streamTotalInputTokens += usage.input;
+                streamTotalOutputTokens += usage.output;
+              }
+              if (stopReason) {
+                streamLastStopReason = stopReason;
+              }
 
               streamSpan.addEvent("stream.turn_complete", {
                 iteration,
@@ -1512,23 +1617,75 @@ export class AmazonBedrockProvider extends BaseProvider {
         },
       });
 
-      // Create analytics promise (without token tracking for now due to AWS SDK limitations)
-      const analyticsPromise = Promise.resolve(
-        createAnalytics(
-          this.providerName,
-          this.modelName || this.getDefaultModel(),
-          { usage: { input: 0, output: 0, total: 0 } },
-          Date.now() - startTime,
-          {
-            requestId: `bedrock-stream-${Date.now()}`,
-            streamingMode: true,
-            note: "Token usage not available from AWS SDK streaming responses",
-          },
-        ),
+      // Emit generation:end after the stream completes so Pipeline B (Langfuse)
+      // creates a GENERATION observation. Bedrock bypasses the Vercel AI SDK so
+      // experimental_telemetry is never injected; we emit the event manually.
+      const streamEmitter = this.neurolink?.getEventEmitter();
+      const streamAsyncIterable = this.convertToAsyncIterable(stream);
+      const self = this;
+
+      // Defer analytics resolution until the stream completes so we have
+      // real token counts aggregated from Bedrock metadata chunks.
+      let resolveAnalytics!: (
+        value: ReturnType<typeof createAnalytics>,
+      ) => void;
+      const analyticsPromise = new Promise<ReturnType<typeof createAnalytics>>(
+        (resolve) => {
+          resolveAnalytics = resolve;
+        },
       );
 
+      const wrappedStreamIterable: AsyncIterable<{ content: string }> = {
+        async *[Symbol.asyncIterator]() {
+          let streamErrored = false;
+          try {
+            yield* streamAsyncIterable;
+          } catch (error) {
+            streamErrored = true;
+            throw error;
+          } finally {
+            const aggregatedUsage = {
+              input: streamTotalInputTokens,
+              output: streamTotalOutputTokens,
+              total: streamTotalInputTokens + streamTotalOutputTokens,
+            };
+
+            // Resolve analytics with accumulated token counts from Bedrock
+            // metadata chunks so Pipeline A also reports real usage.
+            resolveAnalytics(
+              createAnalytics(
+                self.providerName,
+                self.modelName || self.getDefaultModel(),
+                { usage: aggregatedUsage },
+                Date.now() - startTime,
+                {
+                  requestId: `bedrock-stream-${Date.now()}`,
+                  streamingMode: true,
+                },
+              ),
+            );
+
+            if (streamEmitter) {
+              streamEmitter.emit("generation:end", {
+                provider: self.providerName,
+                responseTime: Date.now() - startTime,
+                timestamp: Date.now(),
+                result: {
+                  content: "",
+                  usage: aggregatedUsage,
+                  model: self.modelName || self.getDefaultModel(),
+                  provider: self.providerName,
+                  finishReason: streamErrored ? "error" : streamLastStopReason,
+                },
+                success: !streamErrored,
+              });
+            }
+          }
+        },
+      };
+
       return {
-        stream: this.convertToAsyncIterable(stream),
+        stream: wrappedStreamIterable,
         usage: { total: 0, input: 0, output: 0 },
         model: this.modelName || this.getDefaultModel(),
         provider: this.getProviderName(),
@@ -1646,7 +1803,11 @@ export class AmazonBedrockProvider extends BaseProvider {
   private async processStreamResponse(
     commandInput: ConverseStreamCommandInput,
     controller: ReadableStreamDefaultController,
-  ): Promise<{ stopReason: string; assistantMessage: BedrockMessage }> {
+  ): Promise<{
+    stopReason: string;
+    assistantMessage: BedrockMessage;
+    usage?: { input: number; output: number; total: number };
+  }> {
     const command = new ConverseStreamCommand(commandInput);
 
     logger.debug(
@@ -1681,6 +1842,9 @@ export class AmazonBedrockProvider extends BaseProvider {
     })[] = [];
     let stopReason = "";
     let currentText = "";
+    let streamUsage:
+      | { input: number; output: number; total: number }
+      | undefined;
 
     // Process streaming chunks
     for await (const chunk of response.stream) {
@@ -1770,6 +1934,21 @@ export class AmazonBedrockProvider extends BaseProvider {
 
       if (chunk.messageStop) {
         stopReason = chunk.messageStop.stopReason || "end_turn";
+        // Don't break — metadata chunk with usage arrives after messageStop
+        continue;
+      }
+
+      // Bedrock ConverseStream emits a metadata chunk at the end with
+      // aggregate usage. Capture it for Pipeline B telemetry.
+      if (chunk.metadata?.usage) {
+        const input = chunk.metadata.usage.inputTokens ?? 0;
+        const output = chunk.metadata.usage.outputTokens ?? 0;
+        streamUsage = {
+          input,
+          output,
+          total: chunk.metadata.usage.totalTokens ?? input + output,
+        };
+        // Stream is effectively complete after metadata chunk
         break;
       }
     }
@@ -1781,7 +1960,7 @@ export class AmazonBedrockProvider extends BaseProvider {
     };
     this.conversationHistory.push(assistantMessage);
 
-    return { stopReason, assistantMessage };
+    return { stopReason, assistantMessage, usage: streamUsage };
   }
 
   private async handleStreamStopReason(
@@ -1945,6 +2124,23 @@ export class AmazonBedrockProvider extends BaseProvider {
         `📤 [AmazonBedrockProvider] Added ${toolResults.length} tool results to conversation (1:1 mapping validated)`,
       );
 
+      // Emit tool:end for each completed tool result so Pipeline B
+      // captures telemetry for Bedrock-driven tool calls (gap S2).
+      emitToolEndFromStepFinish(
+        this.neurolink?.getEventEmitter(),
+        toolResultsForStorage.map((tr) => {
+          const hasError =
+            tr.result && typeof tr.result === "object" && "error" in tr.result;
+          return {
+            toolName: tr.toolName,
+            result: tr.result,
+            error: hasError
+              ? String((tr.result as Record<string, unknown>).error)
+              : undefined,
+          };
+        }),
+      );
+
       // Store tool execution for analytics and debugging (similar to Vertex onStepFinish)
       this.handleToolExecutionStorage(
         toolCalls,
@@ -2054,6 +2250,19 @@ export class AmazonBedrockProvider extends BaseProvider {
       return new ProviderError(
         `Validation error: ${message}`,
         this.providerName,
+      );
+    }
+
+    // Check for AWS-specific throttling BEFORE generic mapping
+    const errName = (error as { name?: string })?.name ?? "";
+    const errCode = (error as { code?: string })?.code ?? "";
+    if (
+      errName === "ThrottlingException" ||
+      errCode === "ThrottlingException"
+    ) {
+      return new RateLimitError(
+        `Bedrock rate limit (throttled): ${error instanceof Error ? error.message : String(error)}`,
+        "bedrock",
       );
     }
 

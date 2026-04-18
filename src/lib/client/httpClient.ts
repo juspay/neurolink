@@ -39,6 +39,8 @@ import type {
 } from "../types/index.js";
 import { HttpError, ClientNetworkError, ClientTimeoutError } from "./errors.js";
 import { logger } from "../utils/logger.js";
+import { tracers } from "../telemetry/tracers.js";
+import { withClientSpan } from "../telemetry/withSpan.js";
 
 // =============================================================================
 // Shared Utilities
@@ -246,6 +248,26 @@ export class NeuroLinkClient {
    * Execute HTTP request with middleware and retry logic
    */
   private async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    options?: ClientRequestOptions,
+  ): Promise<ClientApiResponse<T>> {
+    return withClientSpan(
+      {
+        name: "neurolink.client.http.request",
+        tracer: tracers.http,
+        attributes: {
+          "http.method": method,
+          "http.route": path,
+          "http.url": `${this.config.baseUrl}${path}`,
+        },
+      },
+      async () => this._doRequest<T>(method, path, body, options),
+    );
+  }
+
+  private async _doRequest<T>(
     method: string,
     path: string,
     body?: unknown,

@@ -8,6 +8,8 @@
 
 import { logger } from "../../utils/logger.js";
 import { AIProviderFactory } from "../../core/factory.js";
+import { withSpan } from "../../telemetry/withSpan.js";
+import { tracers } from "../../telemetry/tracers.js";
 import type {
   ConditioningConfig,
   ConditionOptions,
@@ -30,6 +32,28 @@ const functionTag = "ResponseConditioner";
  */
 export async function conditionResponse(
   options: ConditionOptions,
+): Promise<ConditionResult> {
+  return withSpan(
+    {
+      name: "neurolink.workflow.response.condition",
+      tracer: tracers.workflow,
+      attributes: {
+        "workflow.conditioning.enabled": Boolean(options.config?.useConfidence),
+        "workflow.conditioning.has_synthesis_model": Boolean(
+          options.config?.synthesisModel,
+        ),
+        "workflow.conditioning.original_length": options.content.length,
+        "workflow.conditioning.responses_count":
+          options.allResponses?.length ?? 0,
+      },
+    },
+    async (otelSpan) => conditionResponseInner(options, otelSpan),
+  );
+}
+
+async function conditionResponseInner(
+  options: ConditionOptions,
+  otelSpan: import("@opentelemetry/api").Span,
 ): Promise<ConditionResult> {
   const startTime = Date.now();
   const {
@@ -95,6 +119,13 @@ export async function conditionResponse(
       finalLength: synthesizedContent.length,
       improvement: synthesizedContent.length - content.length,
     });
+
+    otelSpan.setAttribute("workflow.conditioning.applied", true);
+    otelSpan.setAttribute("workflow.conditioning.synthesis", true);
+    otelSpan.setAttribute(
+      "workflow.conditioning.final_length",
+      synthesizedContent.length,
+    );
 
     return {
       content: synthesizedContent,

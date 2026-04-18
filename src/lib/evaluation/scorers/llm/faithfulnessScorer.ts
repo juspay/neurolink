@@ -4,6 +4,7 @@
  */
 
 import type {
+  ClaimItem,
   LLMScorerConfig,
   ScoreResult,
   ScorerInput,
@@ -112,7 +113,6 @@ export class FaithfulnessScorer extends BaseLLMScorer {
       };
     }
 
-    type ClaimItem = { claim?: string; supported?: boolean; evidence?: string };
     const claims: ClaimItem[] = Array.isArray(json.claims)
       ? (json.claims as ClaimItem[])
       : [];

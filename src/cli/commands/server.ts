@@ -18,9 +18,11 @@ import {
   getNeuroLinkDir,
 } from "../utils/serverUtils.js";
 import type {
+  CliServeFlatRoute,
+  CliServeRouteGroup,
   ServerCommandArgs,
-  ServerState,
   ServerConfig,
+  ServerState,
 } from "../../lib/types/index.js";
 
 // ============================================
@@ -822,28 +824,12 @@ export class ServerCommandFactory {
       const { createAllRoutes } =
         await import("../../lib/server/routes/index.js");
 
-      type RouteGroup = {
-        prefix: string;
-        routes: Array<{
-          method: string;
-          path: string;
-          description?: string;
-        }>;
-      };
-
-      type FlatRoute = {
-        method: string;
-        path: string;
-        description?: string;
-        group: string;
-      };
-
       const routeGroups = createAllRoutes(
         argv.basePath ?? "/api",
-      ) as RouteGroup[];
+      ) as CliServeRouteGroup[];
 
       // Flatten route groups into individual routes with group info
-      let flatRoutes: FlatRoute[] = [];
+      let flatRoutes: CliServeFlatRoute[] = [];
       for (const group of routeGroups) {
         // Extract group name from prefix (e.g., "/api/agent" -> "agent")
         const groupName =

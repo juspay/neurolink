@@ -6,66 +6,13 @@
 import { BaseRegistry } from "../core/infrastructure/index.js";
 import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
 import type {
+  EvaluationStrategyConfig,
+  EvaluationStrategyFunction,
+  EvaluationStrategyMetadata,
   GenerateResult,
-  EvaluationResult,
-  EnhancedEvaluationContext,
 } from "../types/index.js";
 import { createStrategyNotFoundError } from "./errors/EvaluationError.js";
 import { withTimeout, ErrorFactory } from "../utils/errorHandling.js";
-
-/**
- * A function that performs evaluation and returns results.
- */
-type EvaluationStrategyFunction = (
-  options: LanguageModelV3CallOptions,
-  result: GenerateResult,
-  config?: EvaluationStrategyConfig,
-) => Promise<{
-  evaluationResult: EvaluationResult;
-  evalContext: EnhancedEvaluationContext;
-}>;
-
-/**
- * Configuration for evaluation strategies.
- */
-type EvaluationStrategyConfig = {
-  /** The model to use for evaluation */
-  evaluationModel?: string;
-  /** The provider to use for evaluation */
-  provider?: string;
-  /** The passing threshold (1-10) */
-  threshold?: number;
-  /** Custom prompt generator */
-  promptGenerator?: (context: {
-    userQuery: string;
-    history: string;
-    tools: string;
-    retryInfo: string;
-    aiResponse: string;
-  }) => string;
-  /** Additional strategy-specific options */
-  options?: Record<string, unknown>;
-};
-
-/**
- * Metadata for registered evaluation strategies.
- */
-type EvaluationStrategyMetadata = {
-  /** Human-readable name for the strategy */
-  name: string;
-  /** Description of what the strategy does */
-  description: string;
-  /** Whether the strategy requires an external LLM */
-  requiresLLM: boolean;
-  /** Default model for the strategy (if requiresLLM is true) */
-  defaultModel?: string;
-  /** Default provider for the strategy (if requiresLLM is true) */
-  defaultProvider?: string;
-  /** Version of the strategy */
-  version: string;
-  /** Supported features */
-  features: string[];
-};
 
 /**
  * Registry for evaluation strategies.

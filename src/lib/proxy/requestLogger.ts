@@ -23,8 +23,11 @@ import { createHash } from "crypto";
 import { promisify } from "util";
 import { gzip as gzipCallback } from "zlib";
 import type {
+  ManagedLogFile,
+  ProxyBodyCaptureEntry,
   RequestAttemptLogEntry,
   RequestLogEntry,
+  StoredBodyArtifact,
 } from "../types/index.js";
 import { OtelBridge } from "../observability/otelBridge.js";
 import { SeverityNumber } from "@opentelemetry/api-logs";
@@ -303,35 +306,6 @@ function redactHeaders(
   return redacted;
 }
 
-type ProxyBodyCaptureEntry = {
-  timestamp: string;
-  requestId: string;
-  phase: string;
-  model: string;
-  stream: boolean;
-  headers?: Record<string, string>;
-  body?: unknown;
-  bodySize?: number;
-  contentType?: string;
-  responseStatus?: number;
-  durationMs?: number;
-  account?: string;
-  accountType?: string;
-  attempt?: number;
-  traceId?: string;
-  spanId?: string;
-  metadata?: Record<string, unknown>;
-};
-
-type StoredBodyArtifact = {
-  bodyPath?: string;
-  bodySha256?: string;
-  redactedBodyBytes?: number;
-  storedFileBytes?: number;
-  redactedBody?: string;
-  bodyTruncated?: boolean;
-};
-
 function serializeBody(body: unknown): string | undefined {
   if (body === undefined || body === null) {
     return undefined;
@@ -437,12 +411,6 @@ function prepareRedactedBody(body: unknown): {
 
   return truncateUtf8String(redacted, MAX_CAPTURED_BODY_BYTES);
 }
-
-type ManagedLogFile = {
-  path: string;
-  mtime: number;
-  size: number;
-};
 
 function collectManagedLogFiles(rootDir: string): ManagedLogFile[] {
   const managedFiles: ManagedLogFile[] = [];

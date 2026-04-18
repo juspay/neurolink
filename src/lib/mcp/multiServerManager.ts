@@ -17,28 +17,17 @@
 
 import { EventEmitter } from "events";
 import type {
-  MCPServerInfo,
   JsonObject,
   LoadBalancingStrategy,
+  MCPServerInfo,
   MultiServerManagerConfig,
   ServerGroup,
+  ServerMetrics,
   UnifiedTool,
 } from "../types/index.js";
 
 import { logger } from "../utils/logger.js";
 import { ErrorFactory } from "../utils/errorHandling.js";
-/**
- * Server metrics for load balancing
- */
-type ServerMetrics = {
-  activeRequests: number;
-  totalRequests: number;
-  completedRequests: number;
-  averageResponseTime: number;
-  errorRate: number;
-  lastHealthCheck?: Date;
-  isHealthy: boolean;
-};
 
 /**
  * Multi-Server Manager

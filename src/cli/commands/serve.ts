@@ -20,12 +20,12 @@ import {
   ServerStartError,
 } from "../../lib/server/errors.js";
 import type {
-  RouteDefinition,
-  RouteGroup,
-  ServerAdapterConfig,
-  ServerFramework,
   ServeCommandArgs,
+  ServeState,
+  ServerAdapterConfig,
   ServerConfigFile,
+  ServerFramework,
+  ServerInstance,
 } from "../../lib/types/index.js";
 import { withTimeout } from "../../lib/utils/errorHandling.js";
 import { logger } from "../../lib/utils/logger.js";
@@ -34,31 +34,6 @@ import {
   isProcessRunning,
   StateFileManager,
 } from "../utils/serverUtils.js";
-/**
- * Minimal interface for the server instance returned by createServer.
- * Avoids importing BaseServerAdapter (which is dynamically loaded).
- */
-type ServerInstance = {
-  initialize: () => Promise<void>;
-  start: () => Promise<void>;
-  stop: () => Promise<void>;
-  registerRouteGroup: (group: RouteGroup) => void;
-  listRoutes?: () => RouteDefinition[];
-};
-
-/**
- * Server state stored in state file
- */
-type ServeState = {
-  pid: number;
-  port: number;
-  host: string;
-  framework: string;
-  startTime: string;
-  basePath: string;
-  configFile?: string;
-};
-
 // ============================================
 // State Management
 // ============================================

@@ -11,6 +11,7 @@ import { audioProcessor } from "../processors/media/AudioProcessor.js";
 import { videoProcessor } from "../processors/media/VideoProcessor.js";
 import type {
   CSVProcessorOptions,
+  DetectionStrategy,
   FileDetectionResult,
   FileDetectorOptions,
   FileInput,
@@ -197,13 +198,6 @@ function formatFileSize(bytes: number): string {
   }
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
-
-/**
- * Detection strategy interface
- */
-type DetectionStrategy = {
-  detect(input: FileInput): Promise<FileDetectionResult>;
-};
 
 /**
  * Centralized file type detection and processing

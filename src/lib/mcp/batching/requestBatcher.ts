@@ -11,24 +11,14 @@
 import { EventEmitter } from "events";
 import { logger } from "../../utils/logger.js";
 import { ErrorFactory } from "../../utils/errorHandling.js";
+import { withSpan } from "../../telemetry/withSpan.js";
+import { tracers } from "../../telemetry/tracers.js";
 import type {
   BatchConfig,
   BatchExecutor,
   BatchResult,
+  PendingRequest,
 } from "../../types/index.js";
-
-/**
- * Pending request in the batch queue
- */
-type PendingRequest<T> = {
-  id: string;
-  tool: string;
-  args: unknown;
-  serverId?: string;
-  resolve: (value: T) => void;
-  reject: (error: Error) => void;
-  addedAt: number;
-};
 
 /**
  * Request Batcher - Efficient batch processing for MCP tool calls
@@ -282,106 +272,139 @@ export class RequestBatcher<T = unknown> extends EventEmitter {
 
     this.emit("batchStarted", { batchId, size: batchRequests.length });
 
-    try {
-      // Guard against missing executor
-      if (!this.executor) {
-        throw ErrorFactory.missingConfiguration("batchExecutor", {
-          hint: "Call setExecutor() before executing batches",
-        });
-      }
+    await withSpan(
+      {
+        name: "neurolink.mcp.batch.execute",
+        tracer: tracers.mcp,
+        attributes: {
+          "mcp.batch.id": batchId,
+          "mcp.batch.size": batchRequests.length,
+          "mcp.batch.active_batches": this.activeBatches,
+        },
+      },
+      async (span) => {
+        let successCount = 0;
+        let errorCount = 0;
 
-      // Execute the batch with a timeout to prevent indefinite hangs
-      const executorPromise = this.executor(
-        batchRequests.map((r) => ({
-          tool: r.tool,
-          args: r.args,
-          serverId: r.serverId,
-        })),
-      );
-      const timeoutMs = Math.max(
-        5000,
-        Number(process.env.MCP_TOOL_TIMEOUT) || 60000,
-      );
-      let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutHandle = setTimeout(
-          () => reject(ErrorFactory.toolTimeout("batchExecution", timeoutMs)),
-          timeoutMs,
-        );
-      });
-      const results = await Promise.race([
-        executorPromise,
-        timeoutPromise,
-      ]).finally(() => {
-        if (timeoutHandle) {
-          clearTimeout(timeoutHandle);
-        }
-      });
+        try {
+          // Guard against missing executor
+          if (!this.executor) {
+            throw ErrorFactory.missingConfiguration("batchExecutor", {
+              hint: "Call setExecutor() before executing batches",
+            });
+          }
 
-      // Process results
-      const batchResults: BatchResult<T>[] = [];
-
-      for (let i = 0; i < batchRequests.length; i++) {
-        const request = batchRequests[i];
-        const result = results[i];
-        const executionTime = Date.now() - startTime;
-
-        if (!result) {
-          const noResultError = ErrorFactory.toolExecutionFailed(
-            request.tool,
-            new Error(`Batch executor returned no result for request ${i}`),
+          // Execute the batch with a timeout to prevent indefinite hangs
+          const executorPromise = this.executor(
+            batchRequests.map((r) => ({
+              tool: r.tool,
+              args: r.args,
+              serverId: r.serverId,
+            })),
           );
-          request.reject(noResultError);
-          batchResults.push({
-            id: request.id,
-            success: false,
-            error: noResultError,
-            executionTime,
-          });
-          continue;
-        }
-
-        if (result.success) {
-          request.resolve(result.result as T);
-          batchResults.push({
-            id: request.id,
-            success: true,
-            result: result.result,
-            executionTime,
-          });
-        } else {
-          const error =
-            result.error ??
-            ErrorFactory.toolExecutionFailed(
-              request.tool,
-              new Error("Unknown batch execution error"),
+          const timeoutMs = Math.max(
+            5000,
+            Number(process.env.MCP_TOOL_TIMEOUT) || 60000,
+          );
+          let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutHandle = setTimeout(
+              () =>
+                reject(ErrorFactory.toolTimeout("batchExecution", timeoutMs)),
+              timeoutMs,
             );
-          request.reject(error);
-          batchResults.push({
-            id: request.id,
-            success: false,
-            error,
-            executionTime,
           });
+          // Suppress unhandled rejection if executorPromise rejects after timeout wins
+          void executorPromise.catch((_e: unknown) => {
+            // Intentionally swallowed — timeout already handled the failure
+          });
+          const results = await Promise.race([
+            executorPromise,
+            timeoutPromise,
+          ]).finally(() => {
+            if (timeoutHandle) {
+              clearTimeout(timeoutHandle);
+            }
+          });
+
+          // Process results
+          const batchResults: BatchResult<T>[] = [];
+
+          for (let i = 0; i < batchRequests.length; i++) {
+            const request = batchRequests[i];
+            const result = results[i];
+            const executionTime = Date.now() - startTime;
+
+            if (!result) {
+              const noResultError = ErrorFactory.toolExecutionFailed(
+                request.tool,
+                new Error(`Batch executor returned no result for request ${i}`),
+              );
+              request.reject(noResultError);
+              batchResults.push({
+                id: request.id,
+                success: false,
+                error: noResultError,
+                executionTime,
+              });
+              errorCount++;
+              continue;
+            }
+
+            if (result.success) {
+              request.resolve(result.result as T);
+              batchResults.push({
+                id: request.id,
+                success: true,
+                result: result.result,
+                executionTime,
+              });
+              successCount++;
+            } else {
+              const error =
+                result.error ??
+                ErrorFactory.toolExecutionFailed(
+                  request.tool,
+                  new Error("Unknown batch execution error"),
+                );
+              request.reject(error);
+              batchResults.push({
+                id: request.id,
+                success: false,
+                error,
+                executionTime,
+              });
+              errorCount++;
+            }
+          }
+
+          span.setAttribute("mcp.batch.success_count", successCount);
+          span.setAttribute("mcp.batch.error_count", errorCount);
+
+          this.emit("batchCompleted", { batchId, results: batchResults });
+        } catch (error) {
+          // Batch-level failure - reject all requests
+          const batchError =
+            error instanceof Error
+              ? error
+              : ErrorFactory.toolExecutionFailed(
+                  "batch",
+                  new Error(String(error)),
+                );
+
+          for (const request of batchRequests) {
+            request.reject(batchError);
+          }
+
+          this.emit("batchFailed", { batchId, error: batchError });
+          throw batchError;
+        } finally {
+          this.activeBatches--;
         }
-      }
-
-      this.emit("batchCompleted", { batchId, results: batchResults });
-    } catch (error) {
-      // Batch-level failure - reject all requests
-      const batchError =
-        error instanceof Error
-          ? error
-          : ErrorFactory.toolExecutionFailed("batch", new Error(String(error)));
-
-      for (const request of batchRequests) {
-        request.reject(batchError);
-      }
-
-      this.emit("batchFailed", { batchId, error: batchError });
-    } finally {
-      this.activeBatches--;
-    }
+      },
+    ).catch((error) => {
+      logger.error("Batch span execution failed:", error);
+    });
 
     // Schedule next batch if there are more pending requests
     if (this.pending.size > 0) {

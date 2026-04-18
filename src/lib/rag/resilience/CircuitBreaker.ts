@@ -10,21 +10,12 @@ import { TypedEventEmitter } from "../../core/infrastructure/index.js";
 import { logger } from "../../utils/logger.js";
 import { RAGCircuitBreakerError, RAGErrorCodes } from "../errors/RAGError.js";
 import type {
+  CallRecord,
   CircuitState,
   RAGCircuitBreakerConfig,
   RAGCircuitBreakerEvents,
   RAGCircuitBreakerStats,
 } from "../../types/index.js";
-
-/**
- * Call record for statistics
- */
-type CallRecord = {
-  timestamp: number;
-  success: boolean;
-  duration: number;
-  operationType?: string;
-};
 
 /**
  * Default configuration

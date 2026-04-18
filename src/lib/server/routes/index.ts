@@ -3,7 +3,11 @@
  * Pre-built route definitions for common NeuroLink endpoints
  */
 
-import type { RouteDefinition, RouteGroup } from "../../types/index.js";
+import type {
+  CreateRoutesOptions,
+  RouteDefinition,
+  RouteGroup,
+} from "../../types/index.js";
 import { createAgentRoutes } from "./agentRoutes.js";
 import { createClaudeProxyRoutes } from "./claudeProxyRoutes.js";
 // ClaudeProxyDeps removed
@@ -22,32 +26,6 @@ export { createMCPRoutes } from "./mcpRoutes.js";
 export { createMemoryRoutes } from "./memoryRoutes.js";
 export { createOpenApiRoutes } from "./openApiRoutes.js";
 export { createToolRoutes } from "./toolRoutes.js";
-
-/**
- * Options for creating routes
- */
-type CreateRoutesOptions = {
-  /** Enable OpenAPI/Swagger documentation endpoints (default: false) */
-  enableSwagger?: boolean;
-  /**
-   * Callback to get registered routes for OpenAPI spec generation.
-   * This callback is invoked at request time when the OpenAPI spec is accessed,
-   * allowing it to reflect all routes registered with the adapter.
-   *
-   * When using `registerAllRoutes`, this is automatically bound to `adapter.listRoutes()`
-   * if the adapter supports it and no custom callback is provided.
-   *
-   * If not provided (and adapter doesn't have listRoutes), the spec will use
-   * default endpoint definitions.
-   */
-  getRoutes?: () => RouteDefinition[];
-  /**
-   * Enable or disable the Claude-compatible proxy routes.
-   * When true, registers /v1/messages, /v1/models, and /v1/messages/count_tokens
-   * endpoints that accept Anthropic API format requests.
-   */
-  claudeProxy?: boolean;
-};
 
 /**
  * Create all standard routes

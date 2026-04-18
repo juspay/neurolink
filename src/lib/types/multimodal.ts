@@ -618,3 +618,80 @@ export function isMultimodalMessageContent(
 ): content is MessageContent[] {
   return Array.isArray(content);
 }
+
+// =============================================================================
+// DIRECTOR PIPELINE (from adapters/video/directorPipeline.ts)
+// =============================================================================
+
+/** Result of a single director-mode clip generation. */
+export type ClipResult = { buffer: Buffer; processingTime: number };
+
+/** Completion status for ordered circuit-breaker tracking. */
+export type ClipCompletion =
+  | { status: "pending" }
+  | { status: "success"; result: ClipResult }
+  | { status: "failure"; error: Error };
+
+/** State shared across clip-generation tasks for circuit-breaker logic. */
+export type ClipGenState = {
+  consecutiveFailures: number;
+  circuitOpen: boolean;
+  results: Array<ClipResult | null>;
+  completions: ClipCompletion[];
+  nextExpectedIndex: number;
+};
+
+/** Result of a single director-mode transition generation. */
+export type TransitionResult = {
+  buffer: Buffer | null;
+  fromSegment: number;
+  toSegment: number;
+  duration: number;
+  processingTime: number;
+};
+
+// =============================================================================
+// VERTEX VIDEO (from adapters/video/vertexVideoHandler.ts)
+// =============================================================================
+
+/** Polling result envelope returned by Vertex Veo long-running operations. */
+export type VertexOperationResult = {
+  done?: boolean;
+  response?: {
+    videos?: Array<{
+      bytesBase64Encoded?: string;
+      gcsUri?: string;
+    }>;
+  };
+  error?: {
+    message?: string;
+  };
+};
+
+// =============================================================================
+// IMAGE COMPRESSOR (from utils/imageCompressor.ts)
+// =============================================================================
+
+/** Output format accepted by the image compressor. */
+export type SupportedFormat = "jpeg" | "png" | "webp";
+
+/** Options consumed by compressImage(). */
+export type CompressionOptions = {
+  provider: import("./providers.js").ProviderName;
+  quality?: number;
+  maxDimension?: number;
+  format?: SupportedFormat;
+};
+
+/** Result of compressImage() with metadata. */
+export type CompressionResult = {
+  buffer: Buffer;
+  originalSize: number;
+  compressedSize: number;
+  compressionRatio: number;
+  metadata: {
+    width: number;
+    height: number;
+    format: string;
+  };
+};

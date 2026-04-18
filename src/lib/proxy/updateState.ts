@@ -10,23 +10,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-
-// ============================================
-// Types
-// ============================================
-
-type SuppressedVersion = {
-  suppressedAt: string; // ISO timestamp
-  reason: string; // e.g., "unhealthy_after_restart"
-};
-
-type UpdateState = {
-  lastCheckAt: string; // ISO timestamp
-  lastCheckVersion: string; // Latest version found
-  suppressedVersions: Record<string, SuppressedVersion>;
-  lastUpdateAt: string | null;
-  lastUpdateVersion: string | null;
-};
+import type { UpdateState } from "../types/index.js";
 
 // ============================================
 // Constants

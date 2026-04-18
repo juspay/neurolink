@@ -13,12 +13,16 @@
 
 import type { CommandModule, Argv } from "yargs";
 import type {
-  UnknownRecord,
+  AnnotatedToolTarget,
+  MCPCommandArgs,
+  MCPDiscoveryResult,
   MCPServerInfo,
   MCPStatus,
-  MCPTransportType,
-  MCPCommandArgs,
   MCPToolAnnotations,
+  MCPToolWithServer,
+  MCPTransportType,
+  ToolAnnotationInfo,
+  UnknownRecord,
 } from "../../lib/types/index.js";
 import { createExternalServerInfo } from "../../lib/utils/mcpDefaults.js";
 import { NeuroLink } from "../../lib/neurolink.js";
@@ -138,21 +142,6 @@ const POPULAR_MCP_SERVERS: Record<
 };
 
 const MCP_STATUS_TIMEOUT_MS = 30_000;
-
-type ToolAnnotationInfo = {
-  serverName: string;
-  serverId: string;
-  toolName: string;
-  description: string;
-  annotations: MCPToolAnnotations;
-};
-
-type AnnotatedToolTarget = {
-  name: string;
-  description: string;
-  serverId: string;
-  serverName: string;
-};
 
 /**
  * MCP CLI command factory
@@ -1606,24 +1595,7 @@ export class MCPCommandFactory {
       const sdk = new NeuroLink();
       const servers = await sdk.listMCPServers();
 
-      // Collect all tools from all servers
-      type ToolWithServer = {
-        name: string;
-        description: string;
-        serverId: string;
-        serverName: string;
-        inputSchema?: object;
-        category?: string;
-        annotations?: {
-          readOnlyHint?: boolean;
-          destructiveHint?: boolean;
-          idempotentHint?: boolean;
-          requiresConfirmation?: boolean;
-          tags?: string[];
-        };
-      };
-
-      let tools: ToolWithServer[] = [];
+      let tools: MCPToolWithServer[] = [];
 
       const { inferAnnotations } =
         await import("../../lib/mcp/toolAnnotations.js");
@@ -1807,19 +1779,7 @@ export class MCPCommandFactory {
         spinner.text = `Discovering tools from ${targetServers.length} servers...`;
       }
 
-      // Collect discovery results
-      type DiscoveryResult = {
-        serverId: string;
-        serverName: string;
-        toolCount: number;
-        tools: Array<{
-          name: string;
-          description: string;
-          annotations: Record<string, unknown>;
-        }>;
-      };
-
-      const results: DiscoveryResult[] = [];
+      const results: MCPDiscoveryResult[] = [];
 
       for (const server of targetServers) {
         const { inferAnnotations } =

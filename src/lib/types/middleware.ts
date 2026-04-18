@@ -1,6 +1,11 @@
 import type { LanguageModelMiddleware } from "ai";
 import type { JsonValue } from "../types/common.js";
 import type { EvaluationData, GetPromptFunction } from "./evaluation.js";
+import type {
+  AuthenticatedUser,
+  RouteDefinition,
+  ServerContext,
+} from "./server.js";
 /**
  * Metadata type for NeuroLink middleware
  * Provides additional information about middleware without affecting execution
@@ -329,4 +334,141 @@ export type LifecycleMiddlewareConfig = {
   onFinish?: OnFinishCallback;
   onError?: OnErrorCallback;
   onChunk?: OnChunkCallback;
+};
+
+// =============================================================================
+// SERVER MIDDLEWARE (from server/middleware/*.ts)
+// =============================================================================
+
+/** Options for the abort-signal middleware. */
+export type AbortSignalMiddlewareOptions = {
+  onAbort?: (ctx: ServerContext) => void;
+  timeout?: number;
+};
+
+/** Options for the bearer-token auth middleware. */
+export type BearerAuthOptions = {
+  required?: boolean;
+  headerName?: string;
+  skipPaths?: string[];
+};
+
+/** Token-validation function signature. */
+export type TokenValidator = (
+  token: string,
+) => Promise<AuthenticatedUser | null> | AuthenticatedUser | null;
+
+/** Options for the API-key auth middleware. */
+export type ApiKeyAuthOptions = {
+  headerName?: string;
+  skipPaths?: string[];
+};
+
+/** Configuration for the route-deprecation middleware. */
+export type DeprecationConfig = {
+  routes: RouteDefinition[];
+  noticeHeader?: string;
+  includeLink?: boolean;
+};
+
+/** Rate-limit middleware configuration. */
+export type RateLimitMiddlewareConfig = {
+  maxRequests: number;
+  windowMs: number;
+  message?: string;
+  skipPaths?: string[];
+  keyGenerator?: (ctx: ServerContext) => string;
+  onRateLimitExceeded?: (ctx: ServerContext, retryAfter: number) => unknown;
+  store?: RateLimitStore;
+};
+
+/** Rate-limit counter entry tracked per key. */
+export type RateLimitEntry = {
+  count: number;
+  resetAt: number;
+};
+
+/** Rate-limit store contract (memory or Redis). */
+export type RateLimitStore = {
+  get(key: string): Promise<RateLimitEntry | undefined>;
+  set(key: string, entry: RateLimitEntry): Promise<void>;
+  increment(key: string, windowMs: number): Promise<RateLimitEntry>;
+  reset(key: string): Promise<void>;
+};
+
+/** Simple fixed-window rate-limit configuration. */
+export type FixedWindowRateLimitConfig = {
+  maxRequests: number;
+  windowMs: number;
+  message?: string;
+  skipPaths?: string[];
+  keyGenerator?: (ctx: ServerContext) => string;
+  onRateLimitExceeded?: (ctx: ServerContext, retryAfter: number) => unknown;
+};
+
+/** Per-field entry inside a ServerValidationError's `errors` array. */
+export type ValidationErrorPayload = {
+  field: string;
+  message: string;
+  value?: unknown;
+};
+
+/**
+ * Minimal structural view of the server-side ValidationError class used by
+ * the request-validation middleware's errorFormatter callback.
+ */
+export type ValidationErrorInfo = {
+  errors: ValidationErrorPayload[];
+  requestId?: string;
+};
+
+/** Validation configuration for the request-validation middleware. */
+export type ValidationConfig = {
+  bodySchema?: MiddlewareRequestSchema;
+  querySchema?: MiddlewareRequestSchema;
+  paramsSchema?: MiddlewareRequestSchema;
+  headersSchema?: MiddlewareRequestSchema;
+  customValidator?: (ctx: ServerContext) => Promise<void>;
+  skipPaths?: string[];
+  errorFormatter?: (errors: ValidationErrorInfo[]) => unknown;
+};
+
+/**
+ * Simple structural validation schema used by the request-validation
+ * middleware. Named MiddlewareRequestSchema to disambiguate from the zod
+ * `ValidationSchema` exported from aliases.ts (§Rule 9 domain prefix).
+ */
+export type MiddlewareRequestSchema = {
+  required?: string[];
+  properties?: Record<string, PropertySchema>;
+  additionalProperties?: boolean;
+};
+
+/** Schema for an individual property in ValidationSchema. */
+export type PropertySchema = {
+  type: "string" | "number" | "boolean" | "object" | "array";
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  minItems?: number;
+  maxItems?: number;
+  pattern?: string;
+  enum?: unknown[];
+  default?: unknown;
+  validate?: (value: unknown) => boolean | string;
+};
+
+/** PropertySchema with an extra `format` tag for common schemas. */
+export type ExtendedPropertySchema = PropertySchema & {
+  format?: string;
+};
+
+/** Extended validation schema for common schemas. */
+export type ExtendedValidationSchema = {
+  type?: string;
+  format?: string;
+  required?: string[];
+  properties?: Record<string, ExtendedPropertySchema>;
+  additionalProperties?: boolean;
 };

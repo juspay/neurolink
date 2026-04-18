@@ -3,77 +3,15 @@
  * Provides configurable rate limiting for server adapters
  */
 
-import type { MiddlewareDefinition, ServerContext } from "../../types/index.js";
+import type {
+  FixedWindowRateLimitConfig,
+  MiddlewareDefinition,
+  RateLimitEntry,
+  RateLimitMiddlewareConfig,
+  RateLimitStore,
+  ServerContext,
+} from "../../types/index.js";
 import { RateLimitError as ServerRateLimitError } from "../errors.js";
-
-/**
- * Rate limit middleware configuration
- */
-type RateLimitMiddlewareConfig = {
-  /** Maximum requests per window */
-  maxRequests: number;
-
-  /** Time window in milliseconds */
-  windowMs: number;
-
-  /** Custom error message */
-  message?: string;
-
-  /** Skip rate limiting for certain paths */
-  skipPaths?: string[];
-
-  /**
-   * Custom key generator for identifying clients
-   * Default: IP address
-   */
-  keyGenerator?: (ctx: ServerContext) => string;
-
-  /**
-   * Custom response handler for rate limit exceeded
-   */
-  onRateLimitExceeded?: (ctx: ServerContext, retryAfter: number) => unknown;
-
-  /**
-   * Custom rate limit store
-   * Default: in-memory store
-   */
-  store?: RateLimitStore;
-};
-
-/**
- * Rate limit entry
- */
-type RateLimitEntry = {
-  count: number;
-  resetAt: number;
-};
-
-/**
- * Rate limit store interface
- * Implement this for custom storage (Redis, etc.)
- */
-type RateLimitStore = {
-  /**
-   * Get the current entry for a key
-   */
-  get(key: string): Promise<RateLimitEntry | undefined>;
-
-  /**
-   * Set an entry for a key
-   */
-  set(key: string, entry: RateLimitEntry): Promise<void>;
-
-  /**
-   * Increment the counter for a key
-   * Returns the current count and reset time
-   */
-  increment(key: string, windowMs: number): Promise<RateLimitEntry>;
-
-  /**
-   * Reset the counter for a key
-   */
-  reset(key: string): Promise<void>;
-};
 
 /**
  * In-memory rate limit store
@@ -329,24 +267,6 @@ export function createSlidingWindowRateLimitMiddleware(
  * Alias for InMemoryRateLimitStore for compatibility
  */
 export { InMemoryRateLimitStore as MemoryRateLimitStore };
-
-/**
- * Fixed window rate limit configuration (for standalone signature)
- */
-type FixedWindowRateLimitConfig = {
-  /** Maximum requests per window */
-  maxRequests: number;
-  /** Time window in milliseconds */
-  windowMs: number;
-  /** Custom error message */
-  message?: string;
-  /** Skip rate limiting for certain paths */
-  skipPaths?: string[];
-  /** Custom key generator */
-  keyGenerator?: (ctx: ServerContext) => string;
-  /** Custom rate limit exceeded handler */
-  onRateLimitExceeded?: (ctx: ServerContext, retryAfter: number) => unknown;
-};
 
 /**
  * Create fixed window rate limit middleware

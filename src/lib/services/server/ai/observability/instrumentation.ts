@@ -9,7 +9,7 @@
 
 import { LangfuseSpanProcessor } from "@langfuse/otel";
 import type { Context } from "@opentelemetry/api";
-import { metrics, trace } from "@opentelemetry/api";
+import { metrics, SpanStatusCode, trace } from "@opentelemetry/api";
 import { W3CTraceContextPropagator } from "@opentelemetry/core";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
@@ -492,29 +492,151 @@ class ContextEnricher implements SpanProcessor {
         attributes["gen_ai.request.model"];
 
       if (isGenAISpan) {
+        const model =
+          (attributes["gen_ai.request.model"] as string) ||
+          (attributes["ai.model.id"] as string);
+        const provider =
+          (attributes["gen_ai.system"] as string) ||
+          (attributes["ai.model.provider"] as string);
+
         logger.debug(`${LOG_PREFIX} GenAI span detected`, {
           spanName: readableSpan.name,
-          model:
-            attributes["gen_ai.request.model"] || attributes["ai.model.id"],
-          provider:
-            attributes["gen_ai.system"] || attributes["ai.model.provider"],
+          model,
+          provider,
         });
 
-        // Log token usage for observability
-        const inputTokens =
-          attributes["gen_ai.usage.input_tokens"] ||
-          attributes["ai.usage.promptTokens"];
-        const outputTokens =
-          attributes["gen_ai.usage.output_tokens"] ||
-          attributes["ai.usage.completionTokens"];
+        // L4/L6 fix: Set explicit Langfuse observation attributes so
+        // cost dashboards and model analytics work correctly.
+        try {
+          const mAttrs = (
+            span as unknown as { attributes: Record<string, unknown> }
+          ).attributes;
 
-        if (inputTokens !== undefined || outputTokens !== undefined) {
-          logger.debug(`${LOG_PREFIX} Token usage captured`, {
-            inputTokens,
-            outputTokens,
-            totalTokens: attributes["gen_ai.usage.total_tokens"],
-          });
+          // L6: Model identity
+          if (model) {
+            mAttrs["gen_ai.response.model"] = model;
+          }
+
+          // L4: Usage details — aggregate from AI SDK attributes into a
+          // structured JSON object that Langfuse can parse for cost analysis.
+          const inputTokens =
+            (attributes["gen_ai.usage.input_tokens"] as number) ??
+            (attributes["ai.usage.promptTokens"] as number);
+          const outputTokens =
+            (attributes["gen_ai.usage.output_tokens"] as number) ??
+            (attributes["ai.usage.completionTokens"] as number);
+          const totalTokens =
+            (attributes["gen_ai.usage.total_tokens"] as number) ??
+            (inputTokens !== undefined && outputTokens !== undefined
+              ? inputTokens + outputTokens
+              : undefined);
+          const reasoningTokens =
+            (attributes["gen_ai.usage.reasoning_tokens"] as number) ??
+            (attributes["ai.usage.reasoningTokens"] as number);
+          const cachedTokens = attributes[
+            "gen_ai.usage.input_cached_tokens"
+          ] as number;
+
+          if (inputTokens !== undefined || outputTokens !== undefined) {
+            const usageDetails: Record<string, number> = {};
+            if (inputTokens !== undefined) {
+              usageDetails.input = inputTokens;
+            }
+            if (outputTokens !== undefined) {
+              usageDetails.output = outputTokens;
+            }
+            if (totalTokens !== undefined) {
+              usageDetails.total = totalTokens;
+            }
+            if (reasoningTokens !== undefined) {
+              usageDetails.reasoning_tokens = reasoningTokens;
+            }
+            if (cachedTokens !== undefined) {
+              usageDetails.input_cached_tokens = cachedTokens;
+            }
+            mAttrs["langfuse.usage_details"] = JSON.stringify(usageDetails);
+
+            logger.debug(`${LOG_PREFIX} Token usage captured`, {
+              inputTokens,
+              outputTokens,
+              totalTokens,
+            });
+          }
+
+          // L7: Model parameters — surface temperature and max_tokens for
+          // generation tuning visibility.
+          const temperature =
+            attributes["gen_ai.request.temperature"] ??
+            attributes["ai.settings.temperature"];
+          const maxTokens =
+            attributes["gen_ai.request.max_tokens"] ??
+            attributes["ai.settings.maxTokens"];
+          const topP =
+            attributes["gen_ai.request.top_p"] ??
+            attributes["ai.settings.topP"];
+          if (
+            temperature !== undefined ||
+            maxTokens !== undefined ||
+            topP !== undefined
+          ) {
+            const params: Record<string, unknown> = {};
+            if (temperature !== undefined) {
+              params.temperature = temperature;
+            }
+            if (maxTokens !== undefined) {
+              params.max_tokens = maxTokens;
+            }
+            if (topP !== undefined) {
+              params.top_p = topP;
+            }
+            mAttrs["gen_ai.request.model_parameters"] = JSON.stringify(params);
+          }
+        } catch {
+          // Read-only attributes — cannot enrich; Pipeline A will still
+          // export the raw GenAI attributes that Langfuse can parse.
         }
+      }
+
+      // P8 fix: Propagate error status to Langfuse-consumable attributes.
+      // OTel ReadableSpan attributes may be readonly at onEnd() time; the type
+      // cast attempts late mutation. LangfuseSpanProcessor runs after
+      // ContextEnricher in the spanProcessors array and reads these attributes,
+      // so setting them here allows Langfuse to surface the correct level and
+      // status message on the trace/generation.
+      const readableStatus = (
+        span as unknown as { status?: { code?: number; message?: string } }
+      ).status;
+      try {
+        const mutableAttrs = (
+          span as unknown as { attributes: Record<string, unknown> }
+        ).attributes;
+
+        if (readableStatus?.code === SpanStatusCode.ERROR) {
+          mutableAttrs["langfuse.level"] = "ERROR";
+          if (readableStatus.message) {
+            mutableAttrs["langfuse.status_message"] = readableStatus.message;
+          }
+        } else {
+          // P8 extended: Detect WARNING-level conditions on non-ERROR spans.
+          // The AI SDK sets ai.finishReason on its spans; content-filter and
+          // length finish reasons indicate partial failures that deserve WARNING.
+          const finishReason =
+            mutableAttrs["ai.finishReason"] ??
+            mutableAttrs["gen_ai.response.finish_reasons"];
+          const reasonStr = Array.isArray(finishReason)
+            ? finishReason.join(",")
+            : String(finishReason ?? "");
+          if (reasonStr.includes("content-filter") || reasonStr === "length") {
+            mutableAttrs["langfuse.level"] = "WARNING";
+            mutableAttrs["langfuse.status_message"] =
+              `Generation stopped: finishReason=${reasonStr}`;
+          }
+        }
+      } catch {
+        // Readonly enforcement by OTel SDK — mutation not possible; log at debug.
+        logger.debug(
+          `${LOG_PREFIX} Could not set langfuse.level on span (read-only attributes)`,
+        );
       }
     } catch (error) {
       // Don't fail span processing on errors

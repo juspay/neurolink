@@ -27,6 +27,7 @@ import type {
   ArtifactMeta,
   ArtifactRef,
   ArtifactStore,
+  IndexEntry,
 } from "../types/index.js";
 
 // Re-export so callers can import everything from one place
@@ -37,9 +38,6 @@ import type {
 
 /** Characters used for the quick preview embedded in surrogate results. */
 const DEFAULT_PREVIEW_CHARS = 500;
-
-/** Index entry type (in-memory only). */
-type IndexEntry = ArtifactMeta & { path: string };
 
 /**
  * Filesystem-backed artifact store using the OS temp directory.

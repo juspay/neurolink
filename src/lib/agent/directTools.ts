@@ -12,6 +12,12 @@ import { logger } from "../utils/logger.js";
 import { VertexAI } from "@google-cloud/vertexai";
 import { CSVProcessor } from "../utils/csvProcessor.js";
 import { shouldEnableBashTool } from "../utils/toolUtils.js";
+import type {
+  AllToolsMap,
+  BasicToolsMap,
+  FilesystemToolsMap,
+  UtilityToolsMap,
+} from "../types/index.js";
 
 const MAX_OUTPUT_BYTES = 102400; // 100KB
 
@@ -941,30 +947,6 @@ export const bashTool = tool({
 if (shouldEnableBashTool()) {
   (directAgentTools as Record<string, unknown>).executeBashCommand = bashTool;
 }
-
-/**
- * Type aliases for specific tool categories
- */
-type BasicToolsMap = {
-  getCurrentTime: typeof directAgentTools.getCurrentTime;
-  calculateMath: typeof directAgentTools.calculateMath;
-};
-
-type FilesystemToolsMap = {
-  readFile: typeof directAgentTools.readFile;
-  listDirectory: typeof directAgentTools.listDirectory;
-  writeFile: typeof directAgentTools.writeFile;
-};
-
-type UtilityToolsMap = {
-  getCurrentTime: typeof directAgentTools.getCurrentTime;
-  calculateMath: typeof directAgentTools.calculateMath;
-  listDirectory: typeof directAgentTools.listDirectory;
-};
-
-type AllToolsMap = typeof directAgentTools & {
-  executeBashCommand?: typeof bashTool;
-};
 
 /**
  * Get a subset of tools for specific use cases with improved type safety

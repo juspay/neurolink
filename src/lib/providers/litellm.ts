@@ -32,6 +32,7 @@ import {
   RateLimitError,
 } from "../types/index.js";
 import { isAbortError } from "../utils/errorHandling.js";
+import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { logger } from "../utils/logger.js";
 import { calculateCost } from "../utils/pricing.js";
 import { getProviderModel } from "../utils/providerConfig.js";
@@ -307,6 +308,15 @@ export class LiteLLMProvider extends BaseProvider {
         },
 
         onStepFinish: ({ toolCalls, toolResults }) => {
+          emitToolEndFromStepFinish(
+            this.neurolink?.getEventEmitter(),
+            toolResults as Array<{
+              toolName: string;
+              output?: unknown;
+              result?: unknown;
+              error?: string;
+            }>,
+          );
           logger.info("Tool execution completed", { toolResults, toolCalls });
 
           for (const toolCall of toolCalls) {

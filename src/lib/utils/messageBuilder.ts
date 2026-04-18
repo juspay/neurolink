@@ -32,14 +32,15 @@ import type { FileReferenceRegistry } from "../files/fileReferenceRegistry.js";
 import { SIZE_TIER_THRESHOLDS } from "../types/index.js";
 import type {
   ChatMessage,
-  MessageContent,
-  MultimodalChatMessage,
+  Content,
+  FileInput,
   FileWithMetadata,
   GenerateOptions,
-  TextGenerationOptions,
-  Content,
   ImageWithAltText,
+  MessageContent,
+  MultimodalChatMessage,
   StreamOptions,
+  TextGenerationOptions,
 } from "../types/index.js";
 import { tracers, ATTR, withSpan } from "../telemetry/index.js";
 import { FileDetector } from "./fileDetector.js";
@@ -842,7 +843,7 @@ function appendDetectedFileResult(
     metadata?: Record<string, unknown>;
     images?: Array<Buffer | string | ImageWithAltText>;
   },
-  file: AnyFileInput,
+  file: FileInput,
   options: GenerateOptions,
 ): void {
   const filename = extractFilename(file);
@@ -2015,13 +2016,10 @@ async function convertMultimodalToProviderFormat(
   return content;
 }
 
-/** Union type for file inputs: raw Buffer, path/URL string, or object with metadata */
-type AnyFileInput = Buffer | string | FileWithMetadata;
-
 /**
  * Type guard for FileWithMetadata objects.
  */
-function isFileWithMetadata(file: AnyFileInput): file is FileWithMetadata {
+function isFileWithMetadata(file: FileInput): file is FileWithMetadata {
   return (
     typeof file === "object" &&
     !Buffer.isBuffer(file) &&
@@ -2034,7 +2032,7 @@ function isFileWithMetadata(file: AnyFileInput): file is FileWithMetadata {
  * Extract filename from file input.
  * Supports Buffers (generic name), strings (path/URL), and FileWithMetadata objects.
  */
-function extractFilename(file: AnyFileInput, index: number = 0): string {
+function extractFilename(file: FileInput, index: number = 0): string {
   if (isFileWithMetadata(file)) {
     return file.filename;
   }
@@ -2061,7 +2059,7 @@ function extractFilename(file: AnyFileInput, index: number = 0): string {
  * For strings that are file paths: returns the stat size.
  * For URLs/data URIs: returns a rough estimate from string length.
  */
-function getFileSize(file: AnyFileInput): number {
+function getFileSize(file: FileInput): number {
   if (isFileWithMetadata(file)) {
     return file.buffer.length;
   }
@@ -2086,7 +2084,7 @@ function getFileSize(file: AnyFileInput): number {
  * For file paths: reads the file.
  * For URLs/data URIs: returns null (not supported for lazy registration).
  */
-async function getFileBuffer(file: AnyFileInput): Promise<Buffer | null> {
+async function getFileBuffer(file: FileInput): Promise<Buffer | null> {
   if (isFileWithMetadata(file)) {
     return file.buffer;
   }
@@ -2107,9 +2105,7 @@ async function getFileBuffer(file: AnyFileInput): Promise<Buffer | null> {
 /**
  * Determine the source type of a file input.
  */
-function getFileSource(
-  file: AnyFileInput,
-): "buffer" | "path" | "url" | "datauri" {
+function getFileSource(file: FileInput): "buffer" | "path" | "url" | "datauri" {
   if (isFileWithMetadata(file)) {
     return "buffer";
   }
@@ -2136,7 +2132,7 @@ function getFileSource(
  * fall through to full processing).
  */
 async function tryRegisterFileReference(
-  file: AnyFileInput,
+  file: FileInput,
   fileSize: number,
   registry: FileReferenceRegistry,
   index: number = 0,

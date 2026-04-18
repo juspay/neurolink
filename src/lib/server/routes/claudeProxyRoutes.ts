@@ -32,6 +32,8 @@ import {
   serializeClaudeResponse,
 } from "../../proxy/claudeFormat.js";
 import type { ModelRouter } from "../../proxy/modelRouter.js";
+import { tracers } from "../../telemetry/tracers.js";
+import { withSpan } from "../../telemetry/withSpan.js";
 import { ProxyTracer, recordFallbackAttempt } from "../../proxy/proxyTracer.js";
 import { createRawStreamCapture } from "../../proxy/rawStreamCapture.js";
 import {
@@ -70,14 +72,18 @@ import type {
   ClaudeLoggedErrorBuilder,
   ClaudeRequest,
   ClaudeRequestRuntimeContext,
+  ClaudeSnapshot,
+  ClaudeSnapshotBody,
   InternalResult,
   LoadedClaudeAccountContext,
+  ParsedClaudeError,
   ParsedClaudeRequest,
   PreparedAnthropicAccountAttempt,
   ProxyBodyCaptureLogger,
   ProxyPassthroughAccount,
-  RuntimeAccountState,
+  ProxyTranslationAttempt,
   RouteGroup,
+  RuntimeAccountState,
   ServerContext,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
@@ -113,7 +119,7 @@ const TRANSIENT_SAME_ACCOUNT_RETRY_DELAYS_MS = [250, 1_000] as const;
 
 /** Maximum upstream 429 attempts per account before rotating to the next account.
  *  Total attempts per account = this + 1 (the initial call plus this many retries). */
-const MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES = 5;
+const MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES = 10;
 /** Max time to sleep between 429 retries. Caps large upstream retry-after values
  *  so we don't hold the client connection open for minutes. */
 const MAX_RATE_LIMIT_RETRY_DELAY_MS = 30_000;
@@ -124,14 +130,13 @@ const UPSTREAM_FETCH_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 const accountRuntimeState = new Map<string, RuntimeAccountState>();
 
-type ProxyTranslationAttempt = {
-  provider?: string;
-  model?: string;
-  label: string;
-};
-
 /** Track whether we've run the one-time startup prune. */
 let startupPruneDone = false;
+
+/** Default cooling period when retries are exhausted and upstream didn't
+ *  provide a retry-after header. Short enough to recover quickly, long
+ *  enough to avoid immediately hammering the same account. */
+const DEFAULT_COOLING_PERIOD_MS = 60_000;
 
 /** Advance the primary account index when the current primary is exhausted
  *  (429 retries exhausted or auth failure). This is what makes fill-first work:
@@ -152,24 +157,41 @@ function advancePrimaryIfCurrent(
   primaryAccountIndex = (primaryAccountIndex + 1) % enabledCount;
 }
 
+/** If the configured home primary (index 0) is no longer cooling, reset
+ *  primaryAccountIndex back to 0 so traffic returns to the preferred account
+ *  once its rate limit window expires. Called at the start of each request. */
+function maybeResetPrimaryToHome(
+  enabledAccounts: ProxyPassthroughAccount[],
+): void {
+  if (enabledAccounts.length <= 1 || primaryAccountIndex === 0) {
+    return;
+  }
+  const homeState = accountRuntimeState.get(enabledAccounts[0].key);
+  if (
+    !homeState ||
+    !homeState.coolingUntil ||
+    Date.now() >= homeState.coolingUntil
+  ) {
+    // Home account is no longer cooling — reset to it
+    primaryAccountIndex = 0;
+    if (homeState?.coolingUntil) {
+      homeState.coolingUntil = undefined;
+      logger.always(
+        `[proxy] home primary account=${enabledAccounts[0].label} cooling expired, resetting primaryAccountIndex to 0`,
+      );
+    }
+  }
+}
+
+/** Check if an account is currently in its cooling window. */
+function isAccountCooling(accountKey: string): boolean {
+  const state = accountRuntimeState.get(accountKey);
+  return !!state?.coolingUntil && Date.now() < state.coolingUntil;
+}
+
 // ---------------------------------------------------------------------------
 // OAuth polyfill helpers (extracted to reduce block nesting)
 // ---------------------------------------------------------------------------
-
-type ClaudeSnapshotBody = {
-  metadataUserId?: string;
-  billingHeader?: string;
-  agentBlock?: string;
-  sessionId?: string;
-};
-
-type ClaudeSnapshot = {
-  accountKey: string;
-  capturedAt: string;
-  source: "claude-code";
-  headers: Record<string, string>;
-  body?: ClaudeSnapshotBody;
-};
 
 const snapshotCache = new Map<
   string,
@@ -3291,6 +3313,33 @@ async function handleAnthropicAuthRetry(args: {
 
       const retryStatus = retryResp.status;
       const retryBody = await retryResp.text();
+      // Capture full response headers and body for all auth-retry errors.
+      // Redact sensitive headers and cap body size before persisting.
+      const retryRespHeaders: Record<string, string> = {};
+      retryResp.headers.forEach((value, key) => {
+        retryRespHeaders[key] = value;
+      });
+      const safeRetryHeaders = { ...retryRespHeaders };
+      delete safeRetryHeaders["authorization"];
+      delete safeRetryHeaders["x-api-key"];
+      const cappedRetryBody =
+        retryBody.length > 4000
+          ? retryBody.slice(0, 4000) + "...[truncated]"
+          : retryBody;
+      tracer?.logUpstreamResponseHeaders(safeRetryHeaders);
+      tracer?.logUpstreamResponseBody(cappedRetryBody);
+      logProxyBody({
+        phase: "upstream_response",
+        headers: safeRetryHeaders,
+        body: cappedRetryBody,
+        bodySize: Buffer.byteLength(retryBody, "utf8"),
+        contentType: retryRespHeaders["content-type"] ?? "application/json",
+        account: account.label,
+        accountType: account.type,
+        attempt: attemptNumber,
+        responseStatus: retryStatus,
+        durationMs: Date.now() - fetchStartMs,
+      });
       authRetryError = `retry ${authRetry + 1}/${MAX_AUTH_RETRIES} failed with status ${retryStatus}`;
       currentLastError = retryBody;
       logger.debug(
@@ -4143,6 +4192,9 @@ async function fetchAnthropicAccountResponse(args: {
   orderedAccounts: ProxyPassthroughAccount[];
   tracer?: ProxyTracer;
   logAttempt: AnthropicAttemptLogger;
+  logProxyBody: ProxyBodyCaptureLogger;
+  fetchStartMs: number;
+  attemptNumber: number;
   currentLastError: unknown;
   currentSawRateLimit: boolean;
   currentSawNetworkError: boolean;
@@ -4158,6 +4210,9 @@ async function fetchAnthropicAccountResponse(args: {
     orderedAccounts: _orderedAccounts,
     tracer,
     logAttempt,
+    logProxyBody,
+    fetchStartMs,
+    attemptNumber,
     currentLastError,
     currentSawRateLimit,
     currentSawNetworkError,
@@ -4207,9 +4262,37 @@ async function fetchAnthropicAccountResponse(args: {
     sawRateLimit = true;
     const retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
     recordAttemptError(account.label, account.type, 429);
+    // Capture full response headers and body for diagnostics (parity with
+    // handleAnthropicNonOkResponse which does this for all other error statuses).
+    const errRespHeaders: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      errRespHeaders[key] = value;
+    });
     lastError = await response.text();
+    // Redact sensitive headers and cap body before persisting
+    const safe429Headers = { ...errRespHeaders };
+    delete safe429Headers["authorization"];
+    delete safe429Headers["x-api-key"];
+    const capped429Body =
+      String(lastError).length > 4000
+        ? String(lastError).slice(0, 4000) + "...[truncated]"
+        : String(lastError);
+    tracer?.logUpstreamResponseHeaders(safe429Headers);
+    tracer?.logUpstreamResponseBody(capped429Body);
+    logProxyBody({
+      phase: "upstream_response",
+      headers: safe429Headers,
+      body: capped429Body,
+      bodySize: Buffer.byteLength(String(lastError), "utf8"),
+      contentType: errRespHeaders["content-type"] ?? "application/json",
+      account: account.label,
+      accountType: account.type,
+      attempt: attemptNumber,
+      responseStatus: 429,
+      durationMs: Date.now() - fetchStartMs,
+    });
     logger.always(
-      `[proxy] ← 429 account=${account.label} retry-after=${retryAfterMs}ms (upstream)`,
+      `[proxy] ← 429 account=${account.label} retry-after=${retryAfterMs}ms (upstream) ratelimit-status=${errRespHeaders["anthropic-ratelimit-unified-status"] ?? "unknown"}`,
     );
     logAttempt(429, "rate_limit_error", String(lastError));
     tracer?.setError("rate_limit_error", String(lastError).slice(0, 500));
@@ -4293,9 +4376,18 @@ async function handleAnthropicRoutedClaudeRequest(args: {
   };
   const acctSelectionSpan = tracer?.startAccountSelection();
 
-  // No partition / cooldown gating — every account is always eligible.
-  // Retries are handled inline per-account using upstream retry-after.
-  accountLoop: for (const account of orderedAccounts) {
+  // Try to return to the home primary account if its cooling has expired.
+  maybeResetPrimaryToHome(enabledAccounts);
+
+  // Skip accounts that are still cooling from a recent 429-exhaustion,
+  // but keep them as last-resort if ALL accounts are cooling.
+  const nonCoolingAccounts = orderedAccounts.filter(
+    (a) => !isAccountCooling(a.key),
+  );
+  const effectiveAccounts =
+    nonCoolingAccounts.length > 0 ? nonCoolingAccounts : orderedAccounts;
+
+  accountLoop: for (const account of effectiveAccounts) {
     const accountState = getOrCreateRuntimeState(account.key);
     let transientSameAccountRetries = 0;
     let rateLimitSameAccountRetries = 0;
@@ -4358,6 +4450,9 @@ async function handleAnthropicRoutedClaudeRequest(args: {
         orderedAccounts,
         tracer,
         logAttempt,
+        logProxyBody,
+        fetchStartMs: preparedAttempt.fetchStartMs,
+        attemptNumber: loopState.attemptNumber,
         currentLastError: loopState.lastError,
         currentSawRateLimit: loopState.sawRateLimit,
         currentSawNetworkError: loopState.sawNetworkError,
@@ -4389,13 +4484,19 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           fetchResult.retrySameAccount &&
           fetchResult.retryAfterMs !== undefined
         ) {
+          // Mark account as cooling so subsequent requests don't hammer it
+          const coolingMs = Math.min(
+            fetchResult.retryAfterMs || DEFAULT_COOLING_PERIOD_MS,
+            DEFAULT_COOLING_PERIOD_MS,
+          );
+          accountState.coolingUntil = Date.now() + coolingMs;
           advancePrimaryIfCurrent(
             account.key,
             enabledAccounts.length,
             orderedAccounts[0]?.key,
           );
           logger.always(
-            `[proxy] exhausted ${MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES} rate-limit retries for account=${account.label}; rotating`,
+            `[proxy] exhausted ${MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES} rate-limit retries for account=${account.label}; cooling for ${coolingMs}ms, rotating`,
           );
           continue accountLoop;
         }
@@ -4518,6 +4619,11 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           continue accountLoop;
         }
         break accountLoop;
+      }
+
+      // Clear cooling on success — account is healthy again
+      if (accountState.coolingUntil) {
+        accountState.coolingUntil = undefined;
       }
 
       const successResult = await handleAnthropicSuccessfulResponse({
@@ -4745,24 +4851,32 @@ export function createClaudeProxyRoutes(
       {
         method: "GET",
         path: `${basePath}/v1/models`,
-        handler: async (_ctx: ServerContext) => {
-          const models = [
-            "claude-sonnet-4-20250514",
-            "claude-sonnet-4-5-20250929",
-            "claude-haiku-4-5-20241022",
-            "claude-opus-4-20250514",
-          ];
+        handler: async (_ctx: ServerContext) =>
+          withSpan(
+            {
+              name: "neurolink.http.claudeProxy.listModels",
+              tracer: tracers.http,
+              attributes: { "http.route": `${basePath}/v1/models` },
+            },
+            async () => {
+              const models = [
+                "claude-sonnet-4-20250514",
+                "claude-sonnet-4-5-20250929",
+                "claude-haiku-4-5-20241022",
+                "claude-opus-4-20250514",
+              ];
 
-          return {
-            object: "list",
-            data: models.map((id) => ({
-              id,
-              object: "model",
-              created: 1700000000,
-              owned_by: "anthropic",
-            })),
-          };
-        },
+              return {
+                object: "list",
+                data: models.map((id) => ({
+                  id,
+                  object: "model",
+                  created: 1700000000,
+                  owned_by: "anthropic",
+                })),
+              };
+            },
+          ),
         description: "List available Claude models",
         tags: ["claude-proxy", "models"],
       },
@@ -4773,29 +4887,45 @@ export function createClaudeProxyRoutes(
       {
         method: "POST",
         path: `${basePath}/v1/messages/count_tokens`,
-        handler: async (ctx: ServerContext) => {
-          const body = ctx.body as
-            | { model?: string; messages?: Array<{ content: unknown }> }
-            | undefined;
+        handler: async (ctx: ServerContext) =>
+          withSpan(
+            {
+              name: "neurolink.http.claudeProxy.countTokens",
+              tracer: tracers.http,
+              attributes: {
+                "http.route": `${basePath}/v1/messages/count_tokens`,
+              },
+            },
+            async (span) => {
+              const body = ctx.body as
+                | { model?: string; messages?: Array<{ content: unknown }> }
+                | undefined;
 
-          if (!body?.model || !body?.messages) {
-            return buildClaudeError(
-              400,
-              "Missing required fields: model, messages",
-            );
-          }
+              if (
+                typeof body?.model !== "string" ||
+                !Array.isArray(body?.messages)
+              ) {
+                return buildClaudeError(
+                  400,
+                  "Missing required fields: model, messages",
+                );
+              }
 
-          // Simple estimation using character-to-token heuristic
-          const text = body.messages
-            .map((m) =>
-              typeof m.content === "string"
-                ? m.content
-                : JSON.stringify(m.content),
-            )
-            .join(" ");
+              // Simple estimation using character-to-token heuristic
+              const text = body.messages
+                .map((m) =>
+                  typeof m.content === "string"
+                    ? m.content
+                    : JSON.stringify(m.content),
+                )
+                .join(" ");
 
-          return { input_tokens: Math.ceil(text.length / 4) };
-        },
+              const inputTokens = Math.ceil(text.length / 4);
+              span.setAttribute("ai.model", body.model);
+              span.setAttribute("gen_ai.usage.input_tokens", inputTokens);
+              return { input_tokens: inputTokens };
+            },
+          ),
         description: "Count tokens for a messages request",
         tags: ["claude-proxy", "tokens"],
       },
@@ -4999,11 +5129,6 @@ function isRetryableNetworkError(error: unknown): boolean {
 const TRANSIENT_HTTP_STATUSES = new Set([
   408, 500, 502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 529,
 ]);
-
-type ParsedClaudeError = {
-  errorType?: string;
-  message?: string;
-};
 
 /**
  * Parse a Claude error payload when available.

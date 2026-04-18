@@ -660,6 +660,18 @@ export type SetupArgs = {
 };
 
 /**
+ * Narrowed ProviderInfo used by the main `neurolink setup` command,
+ * where the descriptive fields are always populated.
+ */
+export type SetupProviderInfo = ProviderInfo &
+  Required<
+    Pick<
+      ProviderInfo,
+      "bestFor" | "models" | "strengths" | "pricing" | "setupCommand"
+    >
+  >;
+
+/**
  * Provider information for setup display
  */
 export type ProviderInfo = {
@@ -1271,4 +1283,512 @@ export type SetupResult = {
     error?: string;
     responseTime?: number;
   }>;
+};
+
+/**
+ * Shared options for every provider-specific CLI setup command
+ * (anthropic, azure, bedrock, gcp, google-ai, openai).
+ */
+export type ProviderSetupOptions = {
+  checkOnly?: boolean;
+  interactive?: boolean;
+};
+
+/** Shared yargs-argv shape for every provider-specific CLI setup command. */
+export type ProviderSetupArgv = {
+  check?: boolean;
+  nonInteractive?: boolean;
+};
+
+/**
+ * Superset provider-setup config. `endpoint` is Azure-only; other providers
+ * leave it undefined. Pre-consolidation there were 4 near-duplicate types
+ * (Anthropic/Azure/GoogleAI/OpenAI); they are now one.
+ */
+export type ProviderSetupConfig = {
+  apiKey?: string;
+  model?: string;
+  endpoint?: string;
+  isReconfiguring?: boolean;
+};
+
+// =============================================================================
+// AUTH COMMAND (from cli/commands/auth.ts)
+// =============================================================================
+
+/** Providers supported by the `neurolink auth` command. */
+export type SupportedProvider = "anthropic";
+
+// =============================================================================
+// AUTORESEARCH COMMAND (from cli/commands/autoresearch.ts)
+// =============================================================================
+
+/** Arguments for `neurolink autoresearch init`. */
+export type AutoresearchInitArgs = {
+  repoPath: string;
+  tag: string;
+  target: string;
+  immutable: string;
+  runCommand: string;
+  metricName: string;
+  metricPattern: string;
+  metricDirection: string;
+  timeout: number;
+  provider?: string;
+  model?: string;
+};
+
+// =============================================================================
+// EVALUATE COMMAND (from cli/commands/evaluate.ts)
+// =============================================================================
+
+/** Base options shared across all `neurolink evaluate` subcommands. */
+export type BaseEvaluateArgs = {
+  json?: boolean;
+  verbose?: boolean;
+  format?: "text" | "json" | "table";
+};
+
+/** Arguments for the bare `neurolink evaluate` invocation. */
+export type DirectEvaluateArgs = BaseEvaluateArgs & {
+  input?: string;
+  query?: string;
+  scorers?: string[];
+  context?: string;
+  threshold?: number;
+};
+
+/** Arguments for `neurolink evaluate run`. */
+export type EvaluateRunArgs = BaseEvaluateArgs & {
+  input?: string;
+  output?: string;
+  context?: string[];
+  groundTruth?: string;
+  pipeline?: string;
+  scorer?: string[];
+};
+
+/** Arguments for `neurolink evaluate score`. */
+export type EvaluateScoreArgs = BaseEvaluateArgs & {
+  scorer: string;
+  input?: string;
+  output?: string;
+  context?: string[];
+  groundTruth?: string;
+};
+
+/** Arguments for `neurolink evaluate report`. */
+export type EvaluateReportArgs = BaseEvaluateArgs & {
+  input?: string;
+  output?: string;
+  context?: string[];
+  groundTruth?: string;
+  "ground-truth"?: string;
+  pipeline?: string;
+  scorer?: string[];
+  outputFile?: string;
+  "output-file"?: string;
+};
+
+/** Arguments for `neurolink evaluate presets`. */
+export type EvaluatePresetsArgs = {
+  preset?: string;
+  json?: boolean;
+};
+
+/** Arguments for `neurolink evaluate scorers` (list-scorers). */
+export type EvaluateScorersArgs = {
+  category?: string;
+  type?: string;
+  json?: boolean;
+  detailed?: boolean;
+};
+
+/** Arguments for `neurolink evaluate run-pipeline`. */
+export type RunPipelineArgs = BaseEvaluateArgs & {
+  preset: string;
+  input: string;
+  query?: string;
+  context?: string;
+  threshold?: number;
+};
+
+// =============================================================================
+// MCP COMMAND (from cli/commands/mcp.ts)
+// =============================================================================
+
+/** Info row for an MCP tool annotation. */
+export type ToolAnnotationInfo = {
+  serverName: string;
+  serverId: string;
+  toolName: string;
+  description: string;
+  annotations: import("./mcp.js").MCPToolAnnotations;
+};
+
+/** Tool target used by the annotation printer. */
+export type AnnotatedToolTarget = {
+  name: string;
+  description: string;
+  serverId: string;
+  serverName: string;
+};
+
+// =============================================================================
+// RAG COMMAND (from cli/commands/rag.ts)
+// =============================================================================
+
+/** Arguments for `neurolink rag chunk`. */
+export type RagChunkArgs = import("./rag.js").RAGCommandArgs & {
+  file: string;
+  output?: string;
+  extract?: boolean;
+};
+
+/** Arguments for `neurolink rag index`. */
+export type RagIndexArgs = import("./rag.js").RAGCommandArgs & {
+  file: string;
+  indexName?: string;
+};
+
+/** Arguments for `neurolink rag query`. */
+export type RagQueryArgs = import("./rag.js").RAGCommandArgs & {
+  query: string;
+  indexName?: string;
+};
+
+// =============================================================================
+// SERVE COMMAND (from cli/commands/serve.ts)
+// =============================================================================
+
+/** Minimal server instance contract used by `neurolink serve`. */
+export type ServerInstance = {
+  initialize: () => Promise<void>;
+  start: () => Promise<void>;
+  stop: () => Promise<void>;
+  registerRouteGroup: (group: import("./server.js").RouteGroup) => void;
+  listRoutes?: () => import("./server.js").RouteDefinition[];
+};
+
+/** Persisted state for a running `neurolink serve` process. */
+export type ServeState = {
+  pid: number;
+  port: number;
+  host: string;
+  framework: string;
+  startTime: string;
+  basePath: string;
+  configFile?: string;
+};
+
+// =============================================================================
+// BEDROCK SETUP COMMAND (from cli/commands/setup-bedrock.ts)
+// =============================================================================
+
+/** Captured Bedrock setup configuration data. */
+export type BedrockConfigData = {
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  region?: string;
+  model?: string;
+};
+
+/** Status of Bedrock setup configuration flags. */
+export type BedrockConfigStatus = {
+  hasAccessKey: boolean;
+  hasSecretKey: boolean;
+  hasRegion: boolean;
+};
+
+// =============================================================================
+// GCP SETUP COMMAND (from cli/commands/setup-gcp.ts)
+// =============================================================================
+
+/** Status of each GCP auth method tried by setup-gcp. */
+export type GcpAuthMethodStatus = {
+  method1: {
+    complete: boolean;
+    hasCredentials: boolean;
+    missingVars: string[];
+  };
+  method2: {
+    complete: boolean;
+    hasServiceAccountKey: boolean;
+    missingVars: string[];
+  };
+  method3: {
+    complete: boolean;
+    hasClientEmail: boolean;
+    hasPrivateKey: boolean;
+    missingVars: string[];
+  };
+  common: {
+    hasProject: boolean;
+    hasLocation: boolean;
+    missingVars: string[];
+  };
+};
+
+// =============================================================================
+// PROVIDER SETUP COMMANDS (from cli/commands/setup-*.ts)
+// =============================================================================
+
+/** Arguments for `neurolink setup huggingface`. */
+export type SetupHuggingFaceArgs = {
+  check?: boolean;
+  "non-interactive"?: boolean;
+};
+
+/** Arguments for `neurolink setup mistral`. */
+export type SetupMistralArgs = {
+  check?: boolean;
+  "non-interactive"?: boolean;
+};
+
+// =============================================================================
+// TASK COMMAND (from cli/commands/task.ts)
+// =============================================================================
+
+/** Arguments for `neurolink task create`. */
+export type TaskCreateArgs = {
+  name: string;
+  prompt: string;
+  cron?: string;
+  timezone?: string;
+  every?: string;
+  at?: string;
+  mode: string;
+  provider?: string;
+  model?: string;
+  maxRuns?: number;
+  maxTokens?: number;
+  temperature?: number;
+  systemPrompt?: string;
+};
+
+/** Arguments for `neurolink task update`. */
+export type TaskUpdateArgs = {
+  taskId: string;
+  prompt?: string;
+  cron?: string;
+  every?: string;
+  at?: string;
+  mode?: string;
+};
+
+/** Arguments for `neurolink task logs`. */
+export type TaskLogsArgs = {
+  taskId: string;
+  limit: number;
+  status?: string;
+  full?: boolean;
+};
+
+// =============================================================================
+// VOICE SERVER COMMAND (from cli/commands/voiceServer.ts)
+// =============================================================================
+
+/** Arguments for `neurolink voice-server`. */
+export type VoiceServerArgs = {
+  port: number;
+};
+
+// =============================================================================
+// INTERACTIVE SETUP (from cli/utils/interactiveSetup.ts)
+// =============================================================================
+
+/** Provider config row used by the interactive setup wizard. */
+export type InteractiveProviderConfig = {
+  id: AIProviderName;
+  name: string;
+  description: string;
+  envVars: Array<{
+    key: string;
+    prompt: string;
+    secure?: boolean;
+    default?: string;
+    optional?: boolean;
+  }>;
+};
+
+// =============================================================================
+// VIDEO FILE UTILS (from cli/utils/videoFileUtils.ts)
+// =============================================================================
+
+/** Result of saving video to file. */
+export type VideoSaveResult = {
+  success: boolean;
+  path: string;
+  size: number;
+  error?: string;
+};
+
+// =============================================================================
+// CLI CONFIG (from cli/commands/config.ts)
+// =============================================================================
+
+/** Provider identifier recognized by the `neurolink config` command. */
+export type CliConfigProvider =
+  | "auto"
+  | "openai"
+  | "bedrock"
+  | "vertex"
+  | "anthropic"
+  | "azure"
+  | "google-ai"
+  | "huggingface"
+  | "ollama"
+  | "mistral";
+
+/** Analytics config for the healthcare evaluation domain. */
+export type CliHealthcareAnalyticsConfig = {
+  trackPatientData: boolean;
+  trackDiagnosticAccuracy: boolean;
+  trackTreatmentOutcomes: boolean;
+};
+
+/** Analytics config for the analytics evaluation domain. */
+export type CliAnalyticsDomainAnalyticsConfig = {
+  trackDataQuality: boolean;
+  trackModelPerformance: boolean;
+  trackBusinessImpact: boolean;
+};
+
+/** Analytics config for the finance evaluation domain. */
+export type CliFinanceAnalyticsConfig = {
+  trackRiskMetrics: boolean;
+  trackRegulatory: boolean;
+  trackPortfolioImpact: boolean;
+};
+
+/** Analytics config for the ecommerce evaluation domain. */
+export type CliEcommerceAnalyticsConfig = {
+  trackConversions: boolean;
+  trackUserBehavior: boolean;
+  trackRevenueImpact: boolean;
+};
+
+/** Generic shape of a single domain entry in the CLI config. */
+export type CliDomainConfig<
+  TAnalytics extends Record<string, boolean> = Record<string, boolean>,
+> = {
+  evaluationCriteria: string[];
+  analyticsConfig: TAnalytics;
+};
+
+/**
+ * Materialized shape of the CLI config parsed from `~/.neurolink/config.json`.
+ * Matches the output of `ConfigSchema.parse()` defined in
+ * `src/cli/commands/config.ts`. The schema is annotated with
+ * `z.ZodType<CliNeuroLinkConfig>` so drift fails at compile time.
+ */
+export type CliNeuroLinkConfig = {
+  defaultProvider: CliConfigProvider;
+  providers: {
+    openai?: { apiKey?: string; model: string; baseURL?: string };
+    bedrock?: {
+      region?: string;
+      accessKeyId?: string;
+      secretAccessKey?: string;
+      sessionToken?: string;
+      model: string;
+    };
+    vertex?: {
+      projectId?: string;
+      location: string;
+      credentials?: string;
+      serviceAccountKey?: string;
+      clientEmail?: string;
+      privateKey?: string;
+      model: string;
+    };
+    anthropic?: { apiKey?: string; model: string };
+    azure?: {
+      apiKey?: string;
+      endpoint?: string;
+      deploymentId?: string;
+      model: string;
+    };
+    "google-ai"?: { apiKey?: string; model: string };
+    huggingface?: { apiKey?: string; model: string };
+    ollama?: { baseUrl: string; model: string; timeout: number };
+    mistral?: { apiKey?: string; model: string };
+  };
+  profiles: Record<string, unknown>;
+  preferences: {
+    outputFormat: "text" | "json" | "yaml";
+    temperature: number;
+    maxTokens?: number;
+    enableLogging: boolean;
+    enableCaching: boolean;
+    cacheStrategy: "memory" | "file" | "redis";
+    defaultEvaluationDomain?: string;
+    enableAnalyticsByDefault: boolean;
+    enableEvaluationByDefault: boolean;
+  };
+  domains: {
+    healthcare: CliDomainConfig<CliHealthcareAnalyticsConfig>;
+    analytics: CliDomainConfig<CliAnalyticsDomainAnalyticsConfig>;
+    finance: CliDomainConfig<CliFinanceAnalyticsConfig>;
+    ecommerce: CliDomainConfig<CliEcommerceAnalyticsConfig>;
+  };
+};
+
+// =============================================================================
+// MCP TOOL DISCOVERY CLI (from cli/commands/mcp.ts)
+// =============================================================================
+
+/** Row in the MCP tools listing produced by `neurolink mcp tools`. */
+export type MCPToolWithServer = {
+  name: string;
+  description: string;
+  serverId: string;
+  serverName: string;
+  inputSchema?: object;
+  category?: string;
+  annotations?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    requiresConfirmation?: boolean;
+    tags?: string[];
+  };
+};
+
+/** Per-server discovery result produced by `neurolink mcp discover`. */
+export type MCPDiscoveryResult = {
+  serverId: string;
+  serverName: string;
+  toolCount: number;
+  tools: Array<{
+    name: string;
+    description: string;
+    annotations: Record<string, unknown>;
+  }>;
+};
+
+// =============================================================================
+// SERVE COMMAND ROUTE REFLECTION (from cli/commands/server.ts)
+// =============================================================================
+
+/**
+ * Minimal route-group shape reflected at runtime by `neurolink serve routes`.
+ * Named with a `CliServe` prefix to disambiguate from the richer RouteGroup
+ * in server.ts (§Rule 9).
+ */
+export type CliServeRouteGroup = {
+  prefix: string;
+  routes: Array<{
+    method: string;
+    path: string;
+    description?: string;
+  }>;
+};
+
+/** Flat per-route row used by the `neurolink serve routes` listing. */
+export type CliServeFlatRoute = {
+  method: string;
+  path: string;
+  description?: string;
+  group: string;
 };

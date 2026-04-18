@@ -15,6 +15,7 @@ import { ErrorCategory, ErrorSeverity } from "../../constants/enums.js";
 import { TIMEOUTS } from "../../constants/timeouts.js";
 import { VIDEO_ERROR_CODES } from "../../constants/videoErrors.js";
 import type {
+  VertexOperationResult,
   VideoGenerationResult,
   VideoOutputOptions,
 } from "../../types/index.js";
@@ -553,18 +554,6 @@ export async function generateVideoWithVertex(
 /**
  * Vertex AI operation result type for type safety
  */
-type VertexOperationResult = {
-  done?: boolean;
-  response?: {
-    videos?: Array<{
-      bytesBase64Encoded?: string;
-      gcsUri?: string;
-    }>;
-  };
-  error?: {
-    message?: string;
-  };
-};
 
 /**
  * Extract video buffer from completed operation result

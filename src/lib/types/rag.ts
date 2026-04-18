@@ -1491,3 +1491,72 @@ export type RAGCommandArgs = {
   /** Use Graph RAG */
   graph?: boolean;
 };
+
+// =============================================================================
+// JSON CHUNKER (from rag/chunking/jsonChunker.ts)
+// =============================================================================
+
+/** Options for the recursive JSON chunk extractor. */
+export type ExtractChunksOptions = {
+  data: unknown;
+  path: string;
+  depth: number;
+  maxDepth: number;
+  maxSize: number;
+  splitKeys: string[];
+  preserveKeys: string[];
+  includeJsonPath: boolean;
+};
+
+// =============================================================================
+// MDOCUMENT (from rag/document/MDocument.ts)
+// =============================================================================
+
+/** Document processing state held by MDocument. */
+export type DocumentState = {
+  content: string;
+  type: DocumentType;
+  metadata: Record<string, unknown>;
+  chunks: Chunk[];
+  embeddings: number[][];
+  history: string[];
+};
+
+// =============================================================================
+// RAG ERRORS (from rag/errors/RAGError.ts)
+// =============================================================================
+
+/** Canonical RAG error code. */
+export type RAGErrorCode =
+  | "RAG_CHUNKING_ERROR"
+  | "RAG_CHUNKING_INVALID_CONFIG"
+  | "RAG_CHUNKING_STRATEGY_NOT_FOUND"
+  | "RAG_CHUNKING_EMPTY_CONTENT"
+  | "RAG_CHUNKING_SIZE_EXCEEDED"
+  | "RAG_METADATA_EXTRACTION_ERROR"
+  | "RAG_METADATA_EXTRACTION_TIMEOUT"
+  | "RAG_METADATA_SCHEMA_INVALID"
+  | "RAG_METADATA_EXTRACTOR_NOT_FOUND"
+  | "RAG_EMBEDDING_ERROR"
+  | "RAG_EMBEDDING_DIMENSION_MISMATCH"
+  | "RAG_EMBEDDING_RATE_LIMIT"
+  | "RAG_EMBEDDING_PROVIDER_ERROR"
+  | "RAG_VECTOR_QUERY_ERROR"
+  | "RAG_VECTOR_QUERY_TIMEOUT"
+  | "RAG_VECTOR_STORE_UNAVAILABLE"
+  | "RAG_VECTOR_STORE_CONNECTION_ERROR"
+  | "RAG_VECTOR_INDEX_NOT_FOUND"
+  | "RAG_RERANKER_ERROR"
+  | "RAG_RERANKER_NOT_FOUND"
+  | "RAG_RERANKER_API_ERROR"
+  | "RAG_GRAPH_ERROR"
+  | "RAG_GRAPH_TRAVERSAL_ERROR"
+  | "RAG_GRAPH_NODE_NOT_FOUND"
+  | "RAG_PIPELINE_ERROR"
+  | "RAG_PIPELINE_STAGE_FAILED"
+  | "RAG_PIPELINE_PARTIAL_FAILURE"
+  | "RAG_CIRCUIT_BREAKER_OPEN"
+  | "RAG_CIRCUIT_BREAKER_HALF_OPEN_LIMIT"
+  | "RAG_OPERATION_TIMEOUT"
+  | "RAG_RETRY_EXHAUSTED"
+  | "RAG_INVALID_CONFIGURATION";

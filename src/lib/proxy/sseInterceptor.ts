@@ -16,64 +16,13 @@
  *   const data = await telemetry; // resolves on stream end
  */
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-type SSEContentBlock = {
-  index: number;
-  type: "text" | "thinking" | "tool_use" | "tool_result";
-  /** Accumulated text for text blocks. Capped at MAX_BLOCK_CONTENT_BYTES. */
-  text?: string;
-  /** Accumulated thinking content. Capped at MAX_BLOCK_CONTENT_BYTES. */
-  thinking?: string;
-  /** Tool name for tool_use blocks. */
-  toolName?: string;
-  /** Tool call id for tool_use blocks. */
-  toolId?: string;
-  /** Accumulated partial JSON input for tool_use blocks. Capped at MAX_BLOCK_CONTENT_BYTES. */
-  toolInput?: string;
-};
-
-type SSETelemetry = {
-  /** Message id from message_start. */
-  messageId: string;
-  /** Model string from message_start. */
-  model: string;
-
-  /** Token usage aggregated from message_start + message_delta. */
-  usage: {
-    inputTokens: number;
-    outputTokens: number;
-    cacheCreationInputTokens: number;
-    cacheReadInputTokens: number;
-    totalTokens: number;
-  };
-
-  /** All content blocks accumulated during the stream. */
-  contentBlocks: SSEContentBlock[];
-
-  /** Stop reason from message_delta, e.g. "end_turn". */
-  stopReason: string | null;
-  /** Stop sequence from message_delta, if any. */
-  stopSequence: string | null;
-  /** Total number of SSE events observed. */
-  eventCount: number;
-  /** Wall-clock duration from first byte to stream end (ms). */
-  streamDurationMs: number;
-  /** Total bytes received from upstream (raw SSE stream size). */
-  totalBytesReceived: number;
-
-  /**
-   * Raw SSE event log. For content_block_delta events only the type is
-   * stored (not the full data payload) to avoid excessive memory use.
-   * All other events store the full data string.
-   */
-  events: Array<{ type: string; timestamp: number; data: string }>;
-
-  /** Full raw SSE transcript, when captureRawText is enabled. */
-  rawText?: string;
-};
+import type {
+  SSEContentBlock,
+  SSEInterceptorOptions,
+  SSEInterceptorResult,
+  SSETelemetry,
+  TelemetryAccumulator,
+} from "../types/index.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -146,28 +95,6 @@ function extractSSEEvents(buffer: string): {
 // ---------------------------------------------------------------------------
 // Telemetry accumulator
 // ---------------------------------------------------------------------------
-
-type TelemetryAccumulator = {
-  messageId: string;
-  model: string;
-  inputTokens: number;
-  outputTokens: number;
-  cacheCreationInputTokens: number;
-  cacheReadInputTokens: number;
-  contentBlocks: SSEContentBlock[];
-  /** Tracks accumulated byte length per block index to enforce the cap. */
-  blockByteCounts: Map<number, number>;
-  stopReason: string | null;
-  stopSequence: string | null;
-  eventCount: number;
-  startTime: number;
-  totalBytesReceived: number;
-  events: Array<{ type: string; timestamp: number; data: string }>;
-  rawTextChunks?: string[];
-  rawTextBytes: number;
-  rawTextTruncated: boolean;
-  eventLogTruncated: boolean;
-};
 
 function createAccumulator(captureRawText: boolean): TelemetryAccumulator {
   return {
@@ -504,21 +431,6 @@ function processEvent(
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
-
-type SSEInterceptorResult = {
-  /** Pipe the upstream response through this stream. */
-  stream: TransformStream<Uint8Array, Uint8Array>;
-  /**
-   * Resolves with the accumulated telemetry when the stream finishes.
-   * If the stream errors, the promise resolves with whatever telemetry
-   * was gathered up to that point (never rejects).
-   */
-  telemetry: Promise<SSETelemetry>;
-};
-
-type SSEInterceptorOptions = {
-  captureRawText?: boolean;
-};
 
 /**
  * Create an SSE interceptor that extracts telemetry from an Anthropic

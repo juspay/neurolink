@@ -3,12 +3,13 @@
  * Enables parallel evaluation with configurable concurrency and error handling.
  */
 
-import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
 import type {
-  GenerateResult,
-  EvaluationConfig,
   EvaluationData,
   AutoEvaluationConfig,
+  BatchEvaluationConfig,
+  BatchEvaluationItem,
+  BatchEvaluationItemResult,
+  BatchEvaluationResult,
 } from "../types/index.js";
 
 import { Evaluator } from "./index.js";
@@ -18,105 +19,6 @@ import {
 } from "./errors/EvaluationError.js";
 import { logger } from "../utils/logger.js";
 import { NeuroLinkFeatureError } from "../core/infrastructure/index.js";
-
-/**
- * Configuration for batch evaluation.
- */
-type BatchEvaluationConfig = EvaluationConfig & {
-  /** Maximum number of concurrent evaluations (default: 5) */
-  concurrency?: number;
-  /** Whether to continue on individual failures (default: true) */
-  continueOnError?: boolean;
-  /** Maximum retries for retryable errors (default: 2) */
-  maxRetries?: number;
-  /** Delay between retries in milliseconds (default: 1000) */
-  retryDelay?: number;
-  /** Callback for progress updates */
-  onProgress?: (progress: BatchProgress) => void;
-  /** Callback for individual evaluation completion */
-  onItemComplete?: (result: BatchEvaluationItemResult) => void;
-};
-
-/**
- * Progress information for batch evaluation.
- */
-type BatchProgress = {
-  /** Total items to evaluate */
-  total: number;
-  /** Items completed (success + failed) */
-  completed: number;
-  /** Items that succeeded */
-  succeeded: number;
-  /** Items that failed */
-  failed: number;
-  /** Items still pending */
-  pending: number;
-  /** Percentage complete */
-  percentComplete: number;
-};
-
-/**
- * Input item for batch evaluation.
- */
-type BatchEvaluationItem = {
-  /** Unique identifier for this item */
-  id: string;
-  /** The generation options */
-  options: LanguageModelV3CallOptions;
-  /** The generation result to evaluate */
-  result: GenerateResult;
-  /** Optional item-specific threshold override */
-  threshold?: number;
-};
-
-/**
- * Result for a single item in batch evaluation.
- */
-type BatchEvaluationItemResult = {
-  /** The item ID */
-  id: string;
-  /** Whether the evaluation succeeded */
-  success: boolean;
-  /** The evaluation data (if successful) */
-  data?: EvaluationData;
-  /** Error information (if failed) */
-  error?: {
-    message: string;
-    code?: string;
-    retryable?: boolean;
-  };
-  /** Time taken for this evaluation in milliseconds */
-  duration: number;
-  /** Number of retry attempts (if any) */
-  retryCount: number;
-};
-
-/**
- * Result of a batch evaluation operation.
- */
-type BatchEvaluationResult = {
-  /** All item results */
-  results: BatchEvaluationItemResult[];
-  /** Summary statistics */
-  summary: {
-    /** Total items evaluated */
-    total: number;
-    /** Number of successful evaluations */
-    succeeded: number;
-    /** Number of failed evaluations */
-    failed: number;
-    /** Average evaluation score (for successful items) */
-    averageScore: number;
-    /** Average evaluation time in milliseconds */
-    averageDuration: number;
-    /** Total time for batch evaluation */
-    totalDuration: number;
-    /** Passing rate (percentage of items meeting threshold) */
-    passingRate: number;
-  };
-  /** Whether all evaluations succeeded */
-  allSucceeded: boolean;
-};
 
 function hasEvaluationData(
   result: BatchEvaluationItemResult,

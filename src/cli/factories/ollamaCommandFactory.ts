@@ -13,17 +13,7 @@ import { logger } from "../../lib/utils/logger.js";
 import { OllamaUtils } from "../utils/ollamaUtils.js";
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
 import { AIProviderName } from "../../lib/types/index.js";
-
-// Allowed commands for security
-type AllowedCommand =
-  | "ollama"
-  | "curl"
-  | "systemctl"
-  | "pkill"
-  | "killall"
-  | "open"
-  | "taskkill"
-  | "start";
+import type { AllowedCommand } from "../../lib/types/index.js";
 
 /**
  * Factory for creating Ollama CLI commands using the Factory Pattern

@@ -13,25 +13,10 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { tool } from "ai";
 import { z } from "zod";
-import type { ExperimentRecord, ResearchConfig } from "../types/index.js";
+import type { ExperimentRecord, ResearchToolsDeps } from "../types/index.js";
 import { withTimeout } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
-import type { RepoPolicy } from "./repoPolicy.js";
-import type { ResultRecorder } from "./resultRecorder.js";
-import type { ExperimentRunner } from "./runner.js";
-import type { ResearchStateStore } from "./stateStore.js";
 import { parseExperimentSummary } from "./summaryParser.js";
-
-/**
- * Dependencies required to create research tools.
- */
-type ResearchToolsDeps = {
-  config: ResearchConfig;
-  stateStore: ResearchStateStore;
-  repoPolicy: RepoPolicy;
-  runner: ExperimentRunner;
-  recorder: ResultRecorder;
-};
 
 /**
  * Create research management tools bound to a research session.

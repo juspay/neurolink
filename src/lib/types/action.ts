@@ -263,3 +263,6 @@ export type ActionInputValidation = {
 export type ProviderKeyMapping = {
   [K in AIProviderName]?: (keyof ActionProviderKeys)[];
 };
+
+/** Provider-to-required-keys map used by actionInputs.ts. */
+export type ProviderKeyMap = Record<string, string[]>;

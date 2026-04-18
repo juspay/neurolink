@@ -22,6 +22,7 @@ import type {
   ProxyAccountConfig,
   ProxyConfigFile,
   ProxyRoutingConfig,
+  YamlModule,
 } from "../types/index.js";
 
 // ---------------------------------------------------------------------------
@@ -177,10 +178,6 @@ function failOnUnresolvedAccountCredentials(obj: unknown): void {
 // ---------------------------------------------------------------------------
 
 /** Shape of the dynamically-imported `js-yaml` module. */
-type YamlModule = {
-  load(content: string): unknown;
-  default?: { load(content: string): unknown };
-};
 
 /**
  * Parse YAML content into a JS object.

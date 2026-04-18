@@ -2,7 +2,12 @@
  * Provider-specific type definitions for NeuroLink
  */
 
-import type { UnknownRecord, JsonValue } from "./common.js";
+import type {
+  UnknownRecord,
+  JsonValue,
+  StreamingCapability,
+} from "./common.js";
+import type { ProviderError } from "./errors.js";
 import {
   AIProviderName,
   AnthropicModels,
@@ -617,23 +622,6 @@ export type ProviderFactory = (
   providerName?: string,
   sdk?: unknown,
 ) => Promise<unknown>;
-
-/**
- * Provider constructor type
- */
-export type ProviderConstructor = {
-  new (modelName?: string, providerName?: string, sdk?: unknown): unknown;
-};
-
-/**
- * Provider registration entry
- */
-export type ProviderRegistration = {
-  name: string;
-  constructor: ProviderConstructor | ProviderFactory;
-  capabilities?: ProviderCapabilities;
-  defaultConfig?: IndividualProviderConfig;
-};
 
 /**
  * Configuration options for the provider registry
@@ -1769,3 +1757,166 @@ export type ToolWithLegacyParams = {
   /** Legacy field from AI SDK v3/v4 */
   parameters?: unknown;
 };
+
+// =============================================================================
+// PROVIDER FACTORY (from factories/providerFactory.ts)
+// =============================================================================
+
+/**
+ * Provider constructor interface - supports both sync constructors and async
+ * factory functions.
+ */
+export type ProviderConstructor =
+  | {
+      new (
+        modelName?: string,
+        providerName?: string,
+        sdk?: UnknownRecord,
+        region?: string,
+      ): AIProvider;
+    }
+  | ((
+      modelName?: string,
+      providerName?: string,
+      sdk?: UnknownRecord,
+      region?: string,
+    ) => Promise<AIProvider>);
+
+/** Provider registration entry held by ProviderFactory. */
+export type ProviderRegistration = {
+  constructor: ProviderConstructor;
+  defaultModel?: string;
+  aliases?: string[];
+};
+
+// =============================================================================
+// IMAGE GEN (from image-gen/ImageGenService.ts)
+// =============================================================================
+
+/** Minimal NeuroLink-like instance accepted by the image generation service. */
+export type NeuroLinkInstance = {
+  generate: (options: Record<string, unknown>) => Promise<unknown>;
+};
+
+// =============================================================================
+// OLLAMA (from providers/ollama.ts)
+// =============================================================================
+
+/** ProviderError enriched with HTTP response fields from Ollama. */
+export type OllamaHttpError = ProviderError & {
+  statusCode: number;
+  statusText: string;
+  responseBody: string;
+};
+
+// =============================================================================
+// SAGEMAKER DETECTION (from providers/sagemaker/detection.ts)
+// =============================================================================
+
+/** Model type detection result. */
+export type ModelDetectionResult = {
+  type: StreamingCapability["modelType"];
+  confidence: number;
+  evidence: string[];
+  suggestedConfig?: Partial<SageMakerModelConfig>;
+};
+
+/** Endpoint health and metadata information. */
+export type EndpointHealth = {
+  status: "healthy" | "unhealthy" | "unknown";
+  responseTime: number;
+  metadata?: Record<string, unknown>;
+  modelInfo?: {
+    name?: string;
+    version?: string;
+    framework?: string;
+    architecture?: string;
+  };
+};
+
+/** Configuration object for a detection test wrapper. */
+export type DetectionTestConfig = {
+  test: () => Promise<void>;
+  index: number;
+  testName: string;
+  endpointName: string;
+  semaphore: {
+    acquire(): Promise<void>;
+    release(): void;
+  };
+  incrementRateLimit: () => void;
+  maxRateLimitRetries: number;
+  rateLimitState: { count: number };
+};
+
+/** Configuration object for parallel detection test execution. */
+export type ParallelDetectionConfig = {
+  maxConcurrentTests: number;
+  maxRateLimitRetries: number;
+  initialRateLimitCount: number;
+};
+
+// =============================================================================
+// SAGEMAKER DIAGNOSTICS (from providers/sagemaker/diagnostics.ts)
+// =============================================================================
+
+/** Individual SageMaker diagnostic result. */
+export type DiagnosticResult = {
+  name: string;
+  category: "configuration" | "connectivity" | "streaming";
+  status: "pass" | "fail" | "warning";
+  message: string;
+  details?: string;
+  recommendation?: string;
+};
+
+/** Aggregated SageMaker diagnostic report. */
+export type DiagnosticReport = {
+  overallStatus: "healthy" | "issues" | "critical";
+  results: DiagnosticResult[];
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    warnings: number;
+  };
+};
+
+// =============================================================================
+// SAGEMAKER LANGUAGE MODEL (from providers/sagemaker/language-model.ts)
+// =============================================================================
+
+/** SageMaker tool_call item in the OpenAI-compatible payload shape. */
+export type SageMakerOpenAIToolCall = {
+  type: "function";
+  id: string;
+  function: {
+    name: string;
+    arguments: string;
+  };
+};
+
+// =============================================================================
+// GOOGLE AI STUDIO LIVE AUDIO (from providers/googleAiStudio.ts)
+// =============================================================================
+
+/**
+ * Event pushed through the Google AI Studio voice session's internal queue
+ * while audio chunks stream back from the Gemini Live API.
+ */
+export type GoogleLiveAudioQueueItem =
+  | { type: "audio"; audio: import("./stream.js").AudioChunk }
+  | { type: "end" }
+  | { type: "error"; error: unknown };
+
+// =============================================================================
+// GOOGLE VERTEX NATIVE PARTS (from providers/googleVertex.ts)
+// =============================================================================
+
+/**
+ * Single part inside a Google Vertex "native" (non-AI-SDK) generateContent
+ * payload — either inline text or an inline base64 data blob.
+ */
+export type VertexNativePart =
+  | { text: string }
+  | { inlineData: { mimeType: string; data: string } };

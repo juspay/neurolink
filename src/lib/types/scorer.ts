@@ -459,3 +459,227 @@ export type ReportConfig = {
   /** Include timing information */
   includeTiming?: boolean;
 };
+
+// =============================================================================
+// CONTENT SIMILARITY SCORER
+// =============================================================================
+
+/** Similarity metric types. */
+export type SimilarityMetric =
+  | "jaccard"
+  | "cosine"
+  | "levenshtein"
+  | "dice"
+  | "overlap";
+
+/** Configuration specific to content similarity scoring. */
+export type ContentSimilarityConfig = RuleScorerConfig & {
+  metric?: SimilarityMetric;
+  metrics?: SimilarityMetric[];
+  metricCombination?: "average" | "min" | "max" | "weighted";
+  metricWeights?: Record<SimilarityMetric, number>;
+  normalizeText?: boolean;
+  tokenLevel?: "word" | "character" | "ngram";
+  ngramSize?: number;
+  compareWith?: "groundTruth" | "context" | "custom";
+  referenceText?: string;
+};
+
+/** Similarity calculation detail row. */
+export type SimilarityDetails = {
+  metric: SimilarityMetric;
+  score: number;
+  responseTokens: number;
+  referenceTokens: number;
+  commonTokens?: number;
+};
+
+// =============================================================================
+// FORMAT SCORER
+// =============================================================================
+
+/** Expected format types evaluated by the format scorer. */
+export type FormatType =
+  | "json"
+  | "markdown"
+  | "code"
+  | "list"
+  | "numbered-list"
+  | "bullet-list"
+  | "table"
+  | "yaml"
+  | "xml"
+  | "plain"
+  | "html"
+  | "custom";
+
+/** Code language types for the code-format validator. */
+export type CodeLanguage =
+  | "javascript"
+  | "typescript"
+  | "python"
+  | "java"
+  | "c"
+  | "cpp"
+  | "csharp"
+  | "go"
+  | "rust"
+  | "sql"
+  | "bash"
+  | "any";
+
+/** Configuration specific to format scoring. */
+export type FormatScorerConfig = RuleScorerConfig & {
+  expectedFormat?: FormatType;
+  allowedFormats?: FormatType[];
+  codeLanguage?: CodeLanguage;
+  jsonSchema?: object;
+  markdownRequirements?: {
+    hasHeadings?: boolean;
+    hasCodeBlocks?: boolean;
+    hasLinks?: boolean;
+    hasLists?: boolean;
+    minHeadingLevel?: number;
+    maxHeadingLevel?: number;
+  };
+  listRequirements?: {
+    minItems?: number;
+    maxItems?: number;
+    itemPattern?: string;
+  };
+  customPattern?: string;
+  strictFormat?: boolean;
+};
+
+/** Format validation result. */
+export type FormatValidationResult = {
+  isValid: boolean;
+  detectedFormat: FormatType | null;
+  issues: string[];
+  structureAnalysis?: object;
+};
+
+// =============================================================================
+// KEYWORD COVERAGE SCORER
+// =============================================================================
+
+/** Configuration specific to keyword coverage scoring. */
+export type KeywordCoverageConfig = RuleScorerConfig & {
+  keywords?: string[];
+  minCoverage?: number;
+  caseInsensitive?: boolean;
+  wordBoundary?: boolean;
+  synonyms?: Record<string, string[]>;
+  keywordWeights?: Record<string, number>;
+};
+
+/** Keyword coverage result details. */
+export type KeywordCoverageDetails = {
+  totalKeywords: number;
+  foundKeywords: string[];
+  missingKeywords: string[];
+  coverageRatio: number;
+  weightedCoverage: number;
+};
+
+// =============================================================================
+// LENGTH SCORER
+// =============================================================================
+
+/** Length measurement unit. */
+export type LengthUnit =
+  | "words"
+  | "characters"
+  | "sentences"
+  | "paragraphs"
+  | "tokens";
+
+/** Length constraint type. */
+export type LengthConstraintType =
+  | "exact"
+  | "range"
+  | "minimum"
+  | "maximum"
+  | "ratio";
+
+/** Configuration specific to length scoring. */
+export type LengthScorerConfig = RuleScorerConfig & {
+  unit?: LengthUnit;
+  constraintType?: LengthConstraintType;
+  minLength?: number;
+  maxLength?: number;
+  exactLength?: number;
+  tolerance?: number;
+  ratioTarget?: number;
+  ratioReference?: "query" | "context";
+  scoringMode?: "binary" | "proportional";
+};
+
+/** Length measurement result. */
+export type LengthMeasurement = {
+  words: number;
+  characters: number;
+  sentences: number;
+  paragraphs: number;
+  estimatedTokens: number;
+};
+
+// =============================================================================
+// SCORER REGISTRY (from evaluation/scorers/scorerRegistry.ts)
+// =============================================================================
+
+/** Row describing a built-in scorer in the scorer registry seed list. */
+export type BuiltInScorerDefinition = {
+  metadata: ScorerMetadata;
+  factory: ScorerFactory;
+  aliases?: string[];
+};
+
+// =============================================================================
+// LLM SCORER INTERMEDIATE SHAPES (parsed from judge-LLM JSON responses)
+// =============================================================================
+
+/** Bias instance reported by the bias-detection scorer. */
+export type BiasInstance = {
+  type?: string;
+  text?: string;
+  explanation?: string;
+  severity?: string;
+};
+
+/** Context score row reported by the context-relevancy scorer. */
+export type ContextScoreItem = {
+  index?: number;
+  score?: number;
+  reasoning?: string;
+  keyInfo?: string[];
+};
+
+/** Claim row reported by the faithfulness scorer. */
+export type ClaimItem = {
+  claim?: string;
+  supported?: boolean;
+  evidence?: string;
+};
+
+/** Hallucination row reported by the hallucination scorer. */
+export type HallucinationItem = {
+  text?: string;
+  reason?: string;
+  severity?: string;
+};
+
+/** Tone-shift location reported by the tone-consistency scorer. */
+export type ToneShift = {
+  location?: string;
+  from?: string;
+  to?: string;
+  severity?: string;
+};
+
+/** Flagged content row reported by the toxicity scorer. */
+export type FlaggedItem = {
+  text?: string;
+  category?: string;
+  severity?: string;
+};

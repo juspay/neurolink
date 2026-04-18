@@ -3,67 +3,13 @@
  * Collect and aggregate evaluation metrics
  */
 
-import type { ScoreResult, PipelineResult } from "../../types/index.js";
-/**
- * Scorer metrics
- */
-type ScorerMetrics = {
-  scorerId: string;
-  scorerName: string;
-  totalExecutions: number;
-  successfulExecutions: number;
-  failedExecutions: number;
-  passedCount: number;
-  failedCount: number;
-  totalScore: number;
-  minScore: number;
-  maxScore: number;
-  totalDuration: number;
-  averageDuration: number;
-  averageScore: number;
-  passRate: number;
-  lastExecutionTime: number;
-};
-
-/**
- * Pipeline metrics
- */
-type PipelineMetrics = {
-  pipelineName: string;
-  totalExecutions: number;
-  passedCount: number;
-  failedCount: number;
-  totalScore: number;
-  minScore: number;
-  maxScore: number;
-  totalDuration: number;
-  averageDuration: number;
-  averageScore: number;
-  passRate: number;
-  lastExecutionTime: number;
-  scorerMetrics: Map<string, ScorerMetrics>;
-};
-
-/**
- * Aggregated metrics
- */
-type AggregatedMetrics = {
-  totalEvaluations: number;
-  overallPassRate: number;
-  averageScore: number;
-  averageDuration: number;
-  scoreDistribution: {
-    excellent: number; // 9-10
-    good: number; // 7-8.9
-    fair: number; // 5-6.9
-    poor: number; // 3-4.9
-    failing: number; // 0-2.9
-  };
-  pipelineMetrics: Map<string, PipelineMetrics>;
-  scorerMetrics: Map<string, ScorerMetrics>;
-  collectionStartTime: number;
-  lastUpdateTime: number;
-};
+import type {
+  AggregatedMetrics,
+  PipelineMetrics,
+  PipelineResult,
+  ScoreResult,
+  ScorerMetrics,
+} from "../../types/index.js";
 
 /**
  * Metrics collector for evaluation data

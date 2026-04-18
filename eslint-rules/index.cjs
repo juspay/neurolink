@@ -14,6 +14,9 @@
  *   neurolink/no-local-types-folder       → Rules 11 & 11b: Types must live in src/lib/types/.
  *   neurolink/no-type-export-outside-types → Rule 12: No `export type` outside src/lib/types/.
  *   neurolink/barrel-type-imports         → Rule 13: Internal type imports must use the barrel.
+ *   neurolink/no-local-type-alias         → Rule 2 (strict): No `type X = ...` alias outside
+ *                                            src/lib/types/ (catches non-exported aliases
+ *                                            that the Rule 12 rule misses).
  */
 
 "use strict";
@@ -27,5 +30,6 @@ module.exports = {
     "no-local-types-folder": require("./no-local-types-folder.cjs"),
     "no-type-export-outside-types": require("./no-type-export-outside-types.cjs"),
     "barrel-type-imports": require("./barrel-type-imports.cjs"),
+    "no-local-type-alias": require("./no-local-type-alias.cjs"),
   },
 };
