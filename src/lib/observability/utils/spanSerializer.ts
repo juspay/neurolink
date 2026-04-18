@@ -14,13 +14,18 @@ import {
   SpanStatus,
   SpanType,
 } from "../../types/index.js";
+import { getActiveTraceContext } from "../../telemetry/traceContext.js";
 
 /**
  * Utility class for span creation and serialization
  */
 export class SpanSerializer {
   /**
-   * Create a new span with generated IDs
+   * Create a new span with generated IDs.
+   *
+   * When `traceId` / `parentSpanId` are omitted, the method automatically
+   * attempts to inherit them from the active OTel context so that Pipeline B
+   * spans land inside the same Langfuse trace as Pipeline A spans (fix A5).
    */
   static createSpan(
     type: SpanType,
@@ -29,10 +34,21 @@ export class SpanSerializer {
     parentSpanId?: string,
     traceId?: string,
   ): SpanData {
+    // A5 fix: When no explicit traceId is provided, try to inherit from the
+    // active OTel context so Pipeline B spans are linked to Pipeline A traces.
+    let resolvedTraceId = traceId;
+    let resolvedParentSpanId = parentSpanId;
+    if (!resolvedTraceId) {
+      const otelCtx = getActiveTraceContext();
+      resolvedTraceId = otelCtx.traceId ?? randomBytes(16).toString("hex");
+      if (!resolvedParentSpanId && otelCtx.parentSpanId) {
+        resolvedParentSpanId = otelCtx.parentSpanId;
+      }
+    }
     return {
       spanId: randomBytes(8).toString("hex"),
-      traceId: traceId ?? randomBytes(16).toString("hex"),
-      parentSpanId,
+      traceId: resolvedTraceId,
+      parentSpanId: resolvedParentSpanId,
       type,
       name,
       startTime: new Date().toISOString(),
@@ -147,7 +163,12 @@ export class SpanSerializer {
       // Langfuse tracing; use LangfuseExporterConfig.redactIO=true to suppress them
       // in compliance-sensitive deployments.
       metadata: filterSafeMetadata(span.attributes),
-      level: span.status === SpanStatus.ERROR ? "ERROR" : "DEFAULT",
+      level:
+        span.status === SpanStatus.ERROR
+          ? "ERROR"
+          : span.status === SpanStatus.WARNING
+            ? "WARNING"
+            : "DEFAULT",
       statusMessage: span.statusMessage,
       input: span.attributes["input"],
       output: span.attributes["output"],

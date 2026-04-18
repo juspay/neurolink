@@ -9,6 +9,8 @@ import type {
 } from "../types/index.js";
 import { withTimeout } from "../utils/async/withTimeout.js";
 import { logger } from "../utils/logger.js";
+import { withSpan } from "../telemetry/withSpan.js";
+import { tracers } from "../telemetry/tracers.js";
 
 /** Mask an identifier for safe logging: show first 4 chars + "***" */
 function maskId(id: string): string {
@@ -19,7 +21,6 @@ function maskId(id: string): string {
 }
 
 const REDIS_CONNECT_TIMEOUT_MS = 5000;
-type RedisClient = RedisClientType;
 
 /**
  * In-memory session storage
@@ -125,8 +126,8 @@ export class RedisSessionStorage implements SessionManagerStorage {
   private prefix: string;
   private ttl: number;
   private redisUrl: string;
-  private client: RedisClient | null = null;
-  private initPromise: Promise<RedisClient> | null = null;
+  private client: RedisClientType | null = null;
+  private initPromise: Promise<RedisClientType> | null = null;
 
   constructor(config: { url: string; prefix?: string; ttl?: number }) {
     this.redisUrl = config.url;
@@ -134,7 +135,7 @@ export class RedisSessionStorage implements SessionManagerStorage {
     this.ttl = config.ttl || 3600;
   }
 
-  private async getClient(): Promise<RedisClient> {
+  private async getClient(): Promise<RedisClientType> {
     if (this.client) {
       return this.client;
     }
@@ -146,14 +147,14 @@ export class RedisSessionStorage implements SessionManagerStorage {
     return this.initPromise;
   }
 
-  private async createClient(): Promise<RedisClient> {
+  private async createClient(): Promise<RedisClientType> {
     try {
       // Use variable indirection to prevent TypeScript from resolving the module at compile time
       const moduleName = "redis";
       const redisModule = (await import(
         /* @vite-ignore */ moduleName
       )) as typeof import("redis");
-      const client: RedisClient = redisModule.createClient({
+      const client: RedisClientType = redisModule.createClient({
         url: this.redisUrl,
       });
       client.on("error", (err: Error) => {
@@ -413,6 +414,27 @@ export class SessionManager {
       deviceId?: string;
     },
   ): Promise<AuthSession> {
+    return withSpan(
+      {
+        name: "neurolink.auth.session.create",
+        tracer: tracers.auth,
+        attributes: {
+          "auth.user_id": maskId(user.id),
+          "auth.storage": this.config.storage ?? "memory",
+        },
+      },
+      async () => this._createSession(user, metadata),
+    );
+  }
+
+  private async _createSession(
+    user: AuthUser,
+    metadata?: {
+      ipAddress?: string;
+      userAgent?: string;
+      deviceId?: string;
+    },
+  ): Promise<AuthSession> {
     const sessionId = crypto.randomUUID();
     const now = new Date();
     const duration = this.config.duration || 3600;
@@ -442,6 +464,27 @@ export class SessionManager {
    * Optionally auto-refreshes if close to expiration.
    */
   async getSession(
+    sessionId: string,
+    autoRefresh = this.config.autoRefresh,
+  ): Promise<AuthSession | null> {
+    return withSpan(
+      {
+        name: "neurolink.auth.session.get",
+        tracer: tracers.auth,
+        attributes: {
+          "auth.session_id": maskId(sessionId),
+          "auth.auto_refresh": autoRefresh ?? false,
+        },
+      },
+      async (span) => {
+        const result = await this._getSession(sessionId, autoRefresh);
+        span.setAttribute("auth.found", result !== null);
+        return result;
+      },
+    );
+  }
+
+  private async _getSession(
     sessionId: string,
     autoRefresh = this.config.autoRefresh,
   ): Promise<AuthSession | null> {
@@ -475,19 +518,30 @@ export class SessionManager {
    * Refresh a session
    */
   async refreshSession(sessionId: string): Promise<AuthSession | null> {
-    const session = await this.storage.get(sessionId);
+    return withSpan(
+      {
+        name: "neurolink.auth.session.refresh",
+        tracer: tracers.auth,
+        attributes: { "auth.session_id": maskId(sessionId) },
+      },
+      async (span) => {
+        const session = await this.storage.get(sessionId);
 
-    if (!session) {
-      return null;
-    }
+        if (!session) {
+          span.setAttribute("auth.found", false);
+          return null;
+        }
 
-    const duration = this.config.duration || 3600;
-    session.expiresAt = new Date(Date.now() + duration * 1000);
+        const duration = this.config.duration || 3600;
+        session.expiresAt = new Date(Date.now() + duration * 1000);
 
-    await this.storage.set(session);
-    logger.debug(`Session refreshed: ${maskId(sessionId)}`);
+        await this.storage.set(session);
+        span.setAttribute("auth.found", true);
+        logger.debug(`Session refreshed: ${maskId(sessionId)}`);
 
-    return session;
+        return session;
+      },
+    );
   }
 
   /**
@@ -517,8 +571,19 @@ export class SessionManager {
    * Validate a session is still active
    */
   async validateSession(sessionId: string): Promise<boolean> {
-    const session = await this.storage.get(sessionId);
-    return session !== null && session.isValid;
+    return withSpan(
+      {
+        name: "neurolink.auth.session.validate",
+        tracer: tracers.auth,
+        attributes: { "auth.session_id": maskId(sessionId) },
+      },
+      async (span) => {
+        const session = await this.storage.get(sessionId);
+        const valid = session !== null && session.isValid;
+        span.setAttribute("auth.valid", valid);
+        return valid;
+      },
+    );
   }
 
   /**

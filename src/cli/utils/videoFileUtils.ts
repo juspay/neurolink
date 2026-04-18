@@ -10,21 +10,10 @@
 
 import fs from "fs";
 import path from "path";
-import type { VideoGenerationResult } from "../../lib/types/index.js";
-
-/**
- * Result of saving video to file
- */
-type VideoSaveResult = {
-  /** Whether the save was successful */
-  success: boolean;
-  /** Full path to the saved file */
-  path: string;
-  /** File size in bytes */
-  size: number;
-  /** Error message if failed */
-  error?: string;
-};
+import type {
+  VideoGenerationResult,
+  VideoSaveResult,
+} from "../../lib/types/index.js";
 
 /**
  * Format file size in human-readable format

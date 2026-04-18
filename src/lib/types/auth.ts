@@ -978,25 +978,6 @@ export type AuthProviderFactoryFn = (
   config: AuthProviderConfig,
 ) => Promise<MastraAuthProvider>;
 
-/**
- * Auth provider registration entry
- */
-export type AuthProviderRegistration = {
-  /** Provider type */
-  type: AuthProviderType;
-  /** Factory function */
-  factory: AuthProviderFactoryFn;
-  /** Provider aliases */
-  aliases: string[];
-  /** Provider metadata */
-  metadata?: {
-    name: string;
-    description: string;
-    version?: string;
-    documentation?: string;
-  };
-};
-
 // =============================================================================
 // HEALTH CHECK TYPES
 // =============================================================================
@@ -1268,4 +1249,180 @@ export type SessionManagerStorage = {
 
   /** Health check */
   isHealthy(): Promise<boolean>;
+};
+
+/** Cached JWKS entry with TTL. Used by Cognito and Keycloak providers. */
+export type AuthJWKSCacheEntry = {
+  jwks: JWKS;
+  expiresAt: number;
+};
+
+// =============================================================================
+// AUTH PROVIDER FACTORY (from auth/AuthProviderFactory.ts)
+// =============================================================================
+
+/** Async constructor for an auth provider given its config. */
+export type AuthProviderConstructor = (
+  config: AuthProviderConfig,
+) => Promise<MastraAuthProvider>;
+
+/** Registration row for an auth provider in AuthProviderFactory. */
+export type AuthProviderRegistration = {
+  factory: AuthProviderConstructor;
+  aliases: string[];
+  metadata?: AuthProviderMetadata;
+};
+
+// =============================================================================
+// CLAUDE CODE IDENTITY (from auth/anthropicOAuth.ts)
+// =============================================================================
+
+/** Synthetic Claude Code client identity used for quota + identification. */
+export type ClaudeCodeIdentity = {
+  deviceId: string;
+  accountUuid: string;
+  sessionId: string;
+  metadataUserId: string;
+};
+
+// =============================================================================
+// AUTH MIDDLEWARE (from auth/middleware/AuthMiddleware.ts)
+// =============================================================================
+
+/** Minimal request object accepted by the auth middleware. */
+export type IncomingRequest = {
+  method?: string;
+  url?: string;
+  path?: string;
+  headers?: Record<string, string | string[] | undefined>;
+  cookies?: Record<string, string>;
+  query?: Record<string, string | string[] | undefined>;
+  body?: unknown;
+  ip?: string;
+  user?: AuthUser;
+  authContext?: AuthenticatedContext;
+};
+
+/** Minimal Express-style response object used by the auth middleware. */
+export type OutgoingResponse = {
+  status(code: number): OutgoingResponse;
+  json(body: unknown): void;
+};
+
+/** Middleware handler function type for the auth layer. */
+export type AuthMiddlewareHandler<TContext = AuthRequestContext> = (
+  context: TContext,
+) => Promise<AuthMiddlewareResult>;
+
+/** Result produced by an auth middleware handler. */
+export type AuthMiddlewareResult = {
+  proceed: boolean;
+  context?: AuthenticatedContext;
+  error?: {
+    statusCode: number;
+    message: string;
+    code?: string;
+  };
+};
+
+/** Next-function for Express-style middleware chaining. */
+export type NextFunction = () => Promise<void>;
+
+/** Express-style auth middleware signature. */
+export type ExpressMiddleware = (
+  req: IncomingRequest,
+  res: OutgoingResponse,
+  next: NextFunction,
+) => Promise<void>;
+
+// =============================================================================
+// RATE LIMIT (from auth/middleware/rateLimitByUser.ts)
+// =============================================================================
+
+/** Token bucket state for a single user. */
+export type TokenBucket = {
+  tokens: number;
+  lastRefill: number;
+  userId: string;
+};
+
+/** Rate limit configuration per user or role. */
+export type AuthRateLimitConfig = {
+  maxRequests: number;
+  windowMs: number;
+  roleLimits?: Record<string, number>;
+  userLimits?: Record<string, number>;
+  skipRoles?: string[];
+  message?: string;
+};
+
+/** Rate limit result. */
+export type RateLimitResult = {
+  allowed: boolean;
+  remaining: number;
+  resetIn: number;
+  limit: number;
+  error?: string;
+};
+
+/** Result of an atomic consume operation against a token bucket. */
+export type AtomicConsumeResult = {
+  bucket: TokenBucket;
+  consumed: boolean;
+};
+
+/** Storage contract for rate-limit buckets (memory or Redis). */
+export type RateLimitStorage = {
+  getBucket(userId: string): Promise<TokenBucket | null>;
+  setBucket(userId: string, bucket: TokenBucket): Promise<void>;
+  deleteBucket(userId: string): Promise<void>;
+  healthCheck(): Promise<boolean>;
+  cleanup(): Promise<void>;
+  atomicConsume?(
+    userId: string,
+    limit: number,
+    windowMs: number,
+    nowMs: number,
+  ): Promise<AtomicConsumeResult | null>;
+};
+
+/**
+ * Minimal Redis client shape used by the rate-limiter to avoid a hard
+ * dependency on the full `RedisClientType`. Named with an Auth prefix to
+ * avoid collision with `RedisClientType` from the redis package.
+ */
+export type AuthRateLimitRedisClient = {
+  connect(): Promise<void>;
+  quit(): Promise<void>;
+  ping(): Promise<string>;
+  get(key: string): Promise<string | null>;
+  setEx(key: string, seconds: number, value: string): Promise<void>;
+  del(key: string): Promise<number>;
+  eval(script: string, numkeys: number, ...args: string[]): Promise<unknown>;
+};
+
+/** Middleware-level outcome returned by the rate limiter. */
+export type RateLimitMiddlewareResult = {
+  proceed: boolean;
+  rateLimitResult: RateLimitResult;
+  response?: Response;
+};
+
+// =============================================================================
+// AUTH0 (from auth/providers/auth0.ts)
+// =============================================================================
+
+/** Auth0 JWT payload structure. */
+export type Auth0TokenPayload = {
+  sub: string;
+  email?: string;
+  name?: string;
+  picture?: string;
+  email_verified?: boolean;
+  roles?: string[];
+  permissions?: string[];
+  iat: number;
+  exp: number;
+  aud: string | string[];
+  iss: string;
 };

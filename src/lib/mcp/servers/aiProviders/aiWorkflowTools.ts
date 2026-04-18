@@ -5,12 +5,15 @@
 
 import { z } from "zod";
 import type {
+  AIProvider,
+  DebugResult,
+  DocumentationResult,
+  NeuroLinkExecutionContext,
+  NeuroLinkMCPTool,
+  RefactoringResult,
+  ToolResult,
   Unknown,
   UnknownRecord,
-  AIProvider,
-  NeuroLinkMCPTool,
-  NeuroLinkExecutionContext,
-  ToolResult,
 } from "../../../types/index.js";
 import { AIProviderFactory } from "../../../core/factory.js";
 import { getBestProvider } from "../../../utils/providerUtils.js";
@@ -115,43 +118,6 @@ const debugAIOutputSchema = z.object({
 });
 
 // Type definitions for tool results
-type _TestCase = {
-  name: string;
-  type: string;
-  code: string;
-  description: string;
-  assertions: number;
-};
-
-type RefactoringResult = {
-  refactoredCode: string;
-  changes: string[];
-  improvements: string[];
-  metrics: {
-    linesReduced: number;
-    complexityReduction: number;
-    readabilityScore: number;
-  };
-};
-
-type DocumentationResult = {
-  documentation: string;
-  sections: string[];
-  examples: string[];
-  coverage: number;
-};
-
-type DebugResult = {
-  issues: Array<{
-    type: string;
-    severity: "low" | "medium" | "high";
-    description: string;
-    location?: string;
-  }>;
-  suggestions: string[];
-  possibleCauses: string[];
-  fixedOutput?: string;
-};
 
 /**
  * Generate test cases for code functions

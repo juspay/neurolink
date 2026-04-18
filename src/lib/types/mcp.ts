@@ -321,13 +321,16 @@ export type MCPStatus = {
 };
 
 /**
- * Call record for circuit breaker statistics tracking
- * Extracted from mcpCircuitBreaker.ts for centralized type management
+ * Call record for circuit breaker statistics tracking.
+ * Superset shape: MCP breaker uses {timestamp, success, duration};
+ * RAG breaker also tracks `operationType` (optional, for routing and
+ * metrics). Both import from here.
  */
 export type CallRecord = {
   timestamp: number;
   success: boolean;
   duration: number;
+  operationType?: string;
 };
 
 /**
@@ -2534,4 +2537,141 @@ export type MCPTool = ToolInfo & {
   annotations?: MCPToolAnnotations;
   serverId?: string;
   category?: string;
+};
+
+// =============================================================================
+// REQUEST BATCHER (from mcp/batching/requestBatcher.ts)
+// =============================================================================
+
+/** Pending request in the batcher queue. */
+export type PendingRequest<T = unknown> = {
+  id: string;
+  tool: string;
+  args: unknown;
+  serverId?: string;
+  resolve: (value: T) => void;
+  reject: (error: Error) => void;
+  addedAt: number;
+};
+
+// =============================================================================
+// TOOL CACHE (from mcp/caching/toolCache.ts)
+// =============================================================================
+
+/**
+ * Cached entry held by ToolCache. Named McpCacheEntry to disambiguate from
+ * the response-caching middleware's CacheEntry in server.ts (Rule 9).
+ */
+export type McpCacheEntry<T = unknown> = {
+  value: T;
+  expires: number;
+  createdAt: number;
+  accessedAt: number;
+  accessCount: number;
+  key: string;
+};
+
+// =============================================================================
+// MULTI-SERVER MANAGER (from mcp/multiServerManager.ts)
+// =============================================================================
+
+/** Runtime metrics tracked per MCP server by MultiServerManager. */
+export type ServerMetrics = {
+  activeRequests: number;
+  totalRequests: number;
+  completedRequests: number;
+  averageResponseTime: number;
+  errorRate: number;
+  lastHealthCheck?: Date;
+  isHealthy: boolean;
+};
+
+// =============================================================================
+// AI WORKFLOW TOOLS (from mcp/servers/aiProviders/aiWorkflowTools.ts)
+// =============================================================================
+
+/** Synthesized test case produced by the AI workflow test-generator. */
+export type WorkflowTestCase = {
+  name: string;
+  type: string;
+  code: string;
+  description: string;
+  assertions: number;
+};
+
+/** Result of the code-refactoring AI workflow. */
+export type RefactoringResult = {
+  refactoredCode: string;
+  changes: string[];
+  improvements: string[];
+  metrics: {
+    linesReduced: number;
+    complexityReduction: number;
+    readabilityScore: number;
+  };
+};
+
+/** Result of the AI documentation-generation workflow. */
+export type DocumentationResult = {
+  documentation: string;
+  sections: string[];
+  examples: string[];
+  coverage: number;
+};
+
+/** Result of the AI debugging workflow. */
+export type DebugResult = {
+  issues: Array<{
+    type: string;
+    severity: "low" | "medium" | "high";
+    description: string;
+    location?: string;
+  }>;
+  suggestions: string[];
+  possibleCauses: string[];
+  fixedOutput?: string;
+};
+
+// =============================================================================
+// AI ANALYSIS TOOLS (from mcp/servers/aiProviders/aiAnalysisTools.ts)
+// =============================================================================
+
+/** Provider name accepted by the AI analysis MCP tools. */
+export type AiAnalysisProvider =
+  | "openai"
+  | "bedrock"
+  | "vertex"
+  | "anthropic"
+  | "google-ai"
+  | "azure"
+  | "huggingface"
+  | "ollama"
+  | "mistral";
+
+/** Parsed input for the analyze-ai-usage MCP tool. */
+export type AnalyzeUsageParams = {
+  sessionId?: string;
+  timeRange: "1h" | "24h" | "7d" | "30d";
+  provider?: AiAnalysisProvider;
+  includeTokenBreakdown: boolean;
+  includeCostEstimation: boolean;
+};
+
+/** Parsed input for the benchmark-provider-performance MCP tool. */
+export type BenchmarkParams = {
+  providers?: AiAnalysisProvider[];
+  testPrompts?: string[];
+  iterations: number;
+  metrics: Array<"latency" | "quality" | "cost" | "tokens">;
+  maxTokens: number;
+};
+
+/** Parsed input for the optimize-prompt-parameters MCP tool. */
+export type OptimizeParametersParams = {
+  prompt: string;
+  provider?: AiAnalysisProvider;
+  targetLength?: number;
+  style: "creative" | "balanced" | "precise" | "factual";
+  optimizeFor: "speed" | "quality" | "cost" | "tokens";
+  iterations: number;
 };

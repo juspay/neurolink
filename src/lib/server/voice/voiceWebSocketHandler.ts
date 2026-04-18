@@ -7,30 +7,15 @@ import { CartesiaStream } from "../../adapters/tts/cartesiaHandler.js";
 import { NeuroLink } from "../../neurolink.js";
 import { logger } from "../../utils/logger.js";
 import { withTimeout } from "../../utils/async/withTimeout.js";
+import type {
+  ClientControlMessage,
+  ConversationMessage,
+  Message,
+  SonioxMessage,
+} from "../../types/index.js";
 
 const SONIOX_URL =
   process.env.SONIOX_WS_URL ?? "wss://stt-rt.soniox.com/transcribe-websocket";
-
-type ConversationMessage = {
-  role: "user" | "assistant";
-  content: string;
-};
-
-type SonioxToken = {
-  is_final?: boolean;
-  text?: string;
-};
-
-type SonioxMessage = {
-  error?: string;
-  status?: string;
-  type?: string;
-  tokens?: SonioxToken[];
-};
-
-type ClientControlMessage = {
-  type?: string;
-};
 
 function getRequiredEnv(name: string): string {
   const value = process.env[name];
@@ -112,11 +97,6 @@ function parseClientControlMessage(data: string): ClientControlMessage | null {
     return null;
   }
 }
-
-type Message = {
-  role: "system" | "user" | "assistant";
-  content: string;
-};
 
 async function streamAnswer(
   neurolink: NeuroLink,

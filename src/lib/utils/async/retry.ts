@@ -5,21 +5,20 @@
  */
 
 import { delay } from "./delay.js";
-import type { AsyncRetryOptions } from "../../types/index.js";
-
-/**
- * Local alias: the canonical type was renamed to AsyncRetryOptions to avoid
- * collision with other RetryOptions types in the codebase.
- */
-type RetryOptions = AsyncRetryOptions;
+import type { RetryOptions } from "../../types/index.js";
 
 /**
  * Default retry configuration.
  */
-export const DEFAULT_RETRY_OPTIONS: RetryOptions = {
-  maxRetries: 3,
-  baseDelayMs: 1000,
-  maxDelayMs: 30000,
+export const DEFAULT_RETRY_OPTIONS: Required<
+  Pick<
+    RetryOptions,
+    "maxAttempts" | "initialDelay" | "maxDelay" | "backoffMultiplier"
+  >
+> = {
+  maxAttempts: 3,
+  initialDelay: 1000,
+  maxDelay: 30000,
   backoffMultiplier: 2,
 };
 
@@ -128,25 +127,25 @@ export async function retry<T>(
   fn: () => Promise<T>,
   options: Partial<RetryOptions> = {},
 ): Promise<T> {
-  const config: RetryOptions = {
+  const config = {
     ...DEFAULT_RETRY_OPTIONS,
     ...options,
   };
 
   const {
-    maxRetries,
-    baseDelayMs,
-    maxDelayMs,
-    backoffMultiplier = 2,
-    shouldRetry = () => true,
+    maxAttempts,
+    initialDelay,
+    maxDelay,
+    backoffMultiplier,
+    retryCondition = () => true,
     onRetry,
   } = config;
 
   let lastError: Error = new Error("Retry failed");
-  let currentDelay = baseDelayMs;
+  let currentDelay = initialDelay;
 
   // Total attempts = initial attempt + retries
-  const totalAttempts = maxRetries + 1;
+  const totalAttempts = maxAttempts + 1;
 
   for (let attempt = 1; attempt <= totalAttempts; attempt++) {
     try {
@@ -165,16 +164,16 @@ export async function retry<T>(
       }
 
       // Check if we should retry this error
-      if (!shouldRetry(err, attempt)) {
+      if (!retryCondition(err)) {
         throw err;
       }
 
       // Calculate delay with exponential backoff (capped at maxDelay)
-      const delayMs = Math.min(currentDelay, maxDelayMs);
+      const delayMs = Math.min(currentDelay, maxDelay);
 
       // Notify about retry
       if (onRetry) {
-        onRetry(err, attempt, delayMs);
+        onRetry(attempt, err);
       }
 
       // Wait before next attempt

@@ -17,28 +17,19 @@ import chalk from "chalk";
 import ora from "ora";
 import { logger } from "../../lib/utils/logger.js";
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
-import { AIProviderName } from "../../lib/types/index.js";
+import {
+  AIProviderName,
+  type ProviderSetupArgv,
+  type ProviderSetupConfig,
+  type ProviderSetupOptions,
+} from "../../lib/types/index.js";
 import { maskCredential } from "../utils/maskCredential.js";
 
-type OpenAISetupOptions = {
-  checkOnly?: boolean;
-  interactive?: boolean;
-};
-
-type OpenAISetupArgv = {
-  check?: boolean;
-  nonInteractive?: boolean;
-};
-
-type OpenAIConfig = {
-  apiKey?: string;
-  model?: string;
-  isReconfiguring?: boolean;
-};
-
-export async function handleOpenAISetup(argv: OpenAISetupArgv): Promise<void> {
+export async function handleOpenAISetup(
+  argv: ProviderSetupArgv,
+): Promise<void> {
   try {
-    const options: OpenAISetupOptions = {
+    const options: ProviderSetupOptions = {
       checkOnly: argv.check || false,
       interactive: !argv.nonInteractive,
     };
@@ -70,7 +61,7 @@ export async function handleOpenAISetup(argv: OpenAISetupArgv): Promise<void> {
       return;
     }
 
-    const config: OpenAIConfig = {};
+    const config: ProviderSetupConfig = {};
 
     // Step 2: Handle existing configuration
     if (hasApiKey && process.env.OPENAI_API_KEY) {
@@ -351,7 +342,7 @@ async function promptForModel(): Promise<string> {
 /**
  * Update .env file with OpenAI configuration
  */
-async function updateEnvFile(config: OpenAIConfig): Promise<void> {
+async function updateEnvFile(config: ProviderSetupConfig): Promise<void> {
   const envPath = path.join(process.cwd(), ".env");
   const spinner = ora("💾 Updating .env file...").start();
 

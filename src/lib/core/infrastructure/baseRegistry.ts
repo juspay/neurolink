@@ -1,17 +1,8 @@
 import { logger } from "../../utils/logger.js";
 import type { InfraRegistryEntry } from "../../types/index.js";
 
-/**
- * Local alias: the canonical type was renamed to InfraRegistryEntry to avoid
- * collision with other RegistryEntry types in the codebase.
- */
-type RegistryEntry<TItem, TMetadata = unknown> = InfraRegistryEntry<
-  TItem,
-  TMetadata
->;
-
 export abstract class BaseRegistry<TItem, TMetadata = unknown> {
-  protected items = new Map<string, RegistryEntry<TItem, TMetadata>>();
+  protected items = new Map<string, InfraRegistryEntry<TItem, TMetadata>>();
   protected initialized = false;
   protected initPromise: Promise<void> | null = null;
 

@@ -25,6 +25,7 @@ import { ErrorFactory } from "../utils/errorHandling.js";
 
 import { HITLUserRejectedError, HITLTimeoutError } from "../hitl/hitlErrors.js";
 import { withSpan, tracers, ATTR } from "../telemetry/index.js";
+import { SpanStatusCode } from "@opentelemetry/api";
 import { getAuthContext } from "../auth/authContext.js";
 
 export class MCPToolRegistry extends MCPRegistry {
@@ -328,7 +329,7 @@ export class MCPToolRegistry extends MCPRegistry {
 
     return withSpan(
       {
-        name: "neurolink.tool.execute",
+        name: "neurolink.tool.registry.execute",
         tracer: tracers.mcp,
         attributes: {
           [ATTR.GEN_AI_TOOL_NAME]: toolName,
@@ -548,6 +549,16 @@ export class MCPToolRegistry extends MCPRegistry {
             errMsg.includes("not executable")
           ) {
             throw error;
+          }
+
+          // Explicitly set ERROR status — we're returning (not throwing) so withSpan
+          // won't automatically detect this as an error (gap T3 fix)
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: errMsg,
+          });
+          if (error instanceof Error) {
+            span.recordException(error);
           }
 
           // Return runtime execution errors in ToolResult format

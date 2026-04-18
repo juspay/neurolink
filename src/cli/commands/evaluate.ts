@@ -20,99 +20,19 @@ import {
 import { ScorerRegistry } from "../../lib/evaluation/scorers/index.js";
 import { ReportGenerator } from "../../lib/evaluation/reporting/reportGenerator.js";
 import type {
+  DirectEvaluateArgs,
+  EvaluatePresetsArgs,
+  EvaluateReportArgs,
+  EvaluateRunArgs,
+  EvaluateScoreArgs,
+  EvaluateScorersArgs,
   PipelineConfig,
-  ScorerInput,
-  ReportFormat,
   ReportData,
+  ReportFormat,
+  RunPipelineArgs,
+  ScorerInput,
 } from "../../lib/types/index.js";
 import { logger } from "../../lib/utils/logger.js";
-
-/**
- * Base evaluate command arguments
- */
-type BaseEvaluateArgs = {
-  json?: boolean;
-  verbose?: boolean;
-  format?: "text" | "json" | "table";
-};
-
-/**
- * Direct evaluate command arguments (main command)
- */
-type DirectEvaluateArgs = BaseEvaluateArgs & {
-  input?: string;
-  query?: string;
-  scorers?: string[];
-  context?: string;
-  threshold?: number;
-};
-
-/**
- * Evaluate run command arguments
- */
-type EvaluateRunArgs = BaseEvaluateArgs & {
-  input?: string;
-  output?: string;
-  context?: string[];
-  groundTruth?: string;
-  pipeline?: string;
-  scorer?: string[];
-};
-
-/**
- * Evaluate score command arguments
- */
-type EvaluateScoreArgs = BaseEvaluateArgs & {
-  scorer: string;
-  input?: string;
-  output?: string;
-  context?: string[];
-  groundTruth?: string;
-};
-
-/**
- * Evaluate report command arguments
- */
-type EvaluateReportArgs = BaseEvaluateArgs & {
-  input?: string;
-  output?: string;
-  context?: string[];
-  groundTruth?: string;
-  "ground-truth"?: string;
-  pipeline?: string;
-  scorer?: string[];
-  outputFile?: string;
-  "output-file"?: string;
-};
-
-/**
- * Evaluate presets command arguments
- */
-type EvaluatePresetsArgs = {
-  preset?: string;
-  json?: boolean;
-};
-
-/**
- * Evaluate scorers (list-scorers) command arguments
- */
-type EvaluateScorersArgs = {
-  category?: string;
-  type?: string;
-  json?: boolean;
-  detailed?: boolean;
-};
-
-/**
- * Run pipeline command arguments
- */
-type RunPipelineArgs = BaseEvaluateArgs & {
-  preset: string;
-  input: string;
-  query?: string;
-  context?: string;
-  threshold?: number;
-};
 
 /**
  * Format score result for display

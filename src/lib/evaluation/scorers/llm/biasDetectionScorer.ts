@@ -4,6 +4,7 @@
  */
 
 import type {
+  BiasInstance,
   LLMScorerConfig,
   ScoreResult,
   ScorerInput,
@@ -115,12 +116,6 @@ export class BiasDetectionScorer extends BaseLLMScorer {
       };
     }
 
-    type BiasInstance = {
-      type?: string;
-      text?: string;
-      explanation?: string;
-      severity?: string;
-    };
     const biasInstances: BiasInstance[] = Array.isArray(json.biasInstances)
       ? (json.biasInstances as BiasInstance[])
       : [];

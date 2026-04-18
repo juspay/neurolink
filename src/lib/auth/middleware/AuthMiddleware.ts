@@ -15,11 +15,16 @@ import { AuthProviderFactory } from "../AuthProviderFactory.js";
 import type {
   AuthErrorCode,
   AuthErrorInfo,
-  AuthenticatedContext,
   AuthMiddlewareConfig,
-  AuthorizationResult,
+  AuthMiddlewareHandler,
+  AuthMiddlewareResult,
   AuthRequestContext,
-  AuthUser,
+  AuthenticatedContext,
+  AuthorizationResult,
+  ExpressMiddleware,
+  IncomingRequest,
+  NextFunction,
+  OutgoingResponse,
   RBACMiddlewareConfig,
   TokenExtractionConfig,
 } from "../../types/index.js";
@@ -69,72 +74,6 @@ function createAuthErrorInfo(
 // =============================================================================
 // TYPES
 // =============================================================================
-
-/**
- * Minimal request object accepted by {@link createRequestContext}.
- *
- * Avoids `any` for Express/Koa/Hono request objects while remaining
- * compatible with any framework that exposes these standard fields.
- */
-type IncomingRequest = {
-  method?: string;
-  url?: string;
-  path?: string;
-  headers?: Record<string, string | string[] | undefined>;
-  cookies?: Record<string, string>;
-  query?: Record<string, string | string[] | undefined>;
-  body?: unknown;
-  ip?: string;
-  /** Populated by auth middleware after successful authentication */
-  user?: AuthUser;
-  /** Populated by auth middleware after successful authentication */
-  authContext?: AuthenticatedContext;
-};
-
-/**
- * Minimal response object for Express-style middleware.
- */
-type OutgoingResponse = {
-  status(code: number): OutgoingResponse;
-  json(body: unknown): void;
-};
-
-/**
- * Middleware handler function type
- */
-type MiddlewareHandler<TContext = AuthRequestContext> = (
-  context: TContext,
-) => Promise<MiddlewareResult>;
-
-/**
- * Middleware result
- */
-type MiddlewareResult = {
-  /** Whether to proceed to next handler */
-  proceed: boolean;
-  /** Updated context (if authenticated) */
-  context?: AuthenticatedContext;
-  /** Error response if not proceeding */
-  error?: {
-    statusCode: number;
-    message: string;
-    code?: string;
-  };
-};
-
-/**
- * Next function for middleware chaining
- */
-type NextFunction = () => Promise<void>;
-
-/**
- * Express-style middleware function
- */
-type ExpressMiddleware = (
-  req: IncomingRequest,
-  res: OutgoingResponse,
-  next: NextFunction,
-) => Promise<void>;
 
 // =============================================================================
 // TOKEN EXTRACTION
@@ -246,7 +185,7 @@ export async function extractToken(
  */
 export async function createAuthMiddleware(
   config: AuthMiddlewareConfig,
-): Promise<MiddlewareHandler<AuthRequestContext>> {
+): Promise<AuthMiddlewareHandler<AuthRequestContext>> {
   // Create provider instance
   const provider = await AuthProviderFactory.createProvider(
     config.provider,
@@ -257,7 +196,7 @@ export async function createAuthMiddleware(
     `[AuthMiddleware] Created middleware with ${config.provider} provider`,
   );
 
-  return async (context: AuthRequestContext): Promise<MiddlewareResult> => {
+  return async (context: AuthRequestContext): Promise<AuthMiddlewareResult> => {
     try {
       // Check if route is public
       if (isPublicRoute(context.path ?? "", config.publicRoutes)) {
@@ -411,8 +350,10 @@ export async function createAuthMiddleware(
  */
 export function createRBACMiddleware(
   config: RBACMiddlewareConfig,
-): MiddlewareHandler<AuthenticatedContext> {
-  return async (context: AuthenticatedContext): Promise<MiddlewareResult> => {
+): AuthMiddlewareHandler<AuthenticatedContext> {
+  return async (
+    context: AuthenticatedContext,
+  ): Promise<AuthMiddlewareResult> => {
     try {
       const user = context.user;
 
@@ -605,11 +546,11 @@ export function createRBACMiddleware(
 export async function createProtectedMiddleware(config: {
   auth: AuthMiddlewareConfig;
   rbac?: RBACMiddlewareConfig;
-}): Promise<MiddlewareHandler<AuthRequestContext>> {
+}): Promise<AuthMiddlewareHandler<AuthRequestContext>> {
   const authMiddleware = await createAuthMiddleware(config.auth);
   const rbacMiddleware = config.rbac ? createRBACMiddleware(config.rbac) : null;
 
-  return async (context: AuthRequestContext): Promise<MiddlewareResult> => {
+  return async (context: AuthRequestContext): Promise<AuthMiddlewareResult> => {
     // Run auth middleware
     const authResult = await authMiddleware(context);
 

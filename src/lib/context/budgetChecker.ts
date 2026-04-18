@@ -20,6 +20,7 @@ import {
   SpanStatus,
   getMetricsAggregator,
 } from "../observability/index.js";
+import { getActiveTraceContext } from "../telemetry/traceContext.js";
 /** Default compaction threshold (80% of available input) */
 const DEFAULT_COMPACTION_THRESHOLD = 0.8;
 
@@ -36,12 +37,15 @@ const TOKENS_PER_TOOL_DEFINITION = 200;
 export function checkContextBudget(
   params: BudgetCheckParams,
 ): BudgetCheckResult {
+  const { traceId, parentSpanId } = getActiveTraceContext();
   const span = SpanSerializer.createSpan(
     SpanType.CONTEXT_COMPACTION,
     "context.budgetCheck",
     {
       "context.operation": "budgetCheck",
     },
+    parentSpanId,
+    traceId,
   );
   const startTime = Date.now();
 

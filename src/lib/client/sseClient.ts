@@ -13,31 +13,16 @@ import type {
   ClientStreamEvent as StreamEvent,
   ClientStreamResult as StreamResult,
   ClientApiError,
+  ClientInternalConfig,
   SSEConfig,
   SSEEventHandlers,
   SSERequestOptions,
   SSEState,
 } from "../types/index.js";
+import { SpanStatusCode } from "@opentelemetry/api";
 import { logger } from "../utils/logger.js";
-// =============================================================================
-// Types
-// =============================================================================
-// =============================================================================
-// Internal Types
-// =============================================================================
-
-type InternalConfig = {
-  baseUrl: string;
-  apiKey: string;
-  token: string;
-  timeout: number;
-  headers: Record<string, string>;
-  autoReconnect: boolean;
-  maxReconnectAttempts: number;
-  reconnectDelay: number;
-  maxReconnectDelay: number;
-  useNativeEventSource: boolean;
-};
+import { withClientSpan } from "../telemetry/withSpan.js";
+import { tracers } from "../telemetry/tracers.js";
 
 // =============================================================================
 // SSE Client Implementation
@@ -66,7 +51,7 @@ type InternalConfig = {
  * ```
  */
 export class NeuroLinkSSE {
-  private config: InternalConfig;
+  private config: ClientInternalConfig;
   private state: SSEState = "disconnected";
   private abortController: AbortController | null = null;
   private reconnectAttempts = 0;
@@ -105,6 +90,40 @@ export class NeuroLinkSSE {
    * Stream from an endpoint using SSE
    */
   async stream(
+    path: string,
+    options: SSERequestOptions = {},
+    callbacks: ClientStreamCallbacks = {},
+  ): Promise<void> {
+    return withClientSpan(
+      {
+        name: "neurolink.client.sse.stream",
+        tracer: tracers.http,
+        attributes: {
+          "http.method": options.body ? "POST" : "GET",
+          "http.route": path,
+          "http.url": this.buildUrl(path),
+          "sse.auto_reconnect": this.config.autoReconnect,
+          "sse.native_event_source": this.config.useNativeEventSource,
+        },
+      },
+      async (span) => {
+        // Wrap onError callback so the span is marked failed on stream errors
+        const wrappedCallbacks: ClientStreamCallbacks = {
+          ...callbacks,
+          onError: (error) => {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: error?.message ?? "SSE stream error",
+            });
+            callbacks.onError?.(error);
+          },
+        };
+        return this._streamInternal(path, options, wrappedCallbacks);
+      },
+    );
+  }
+
+  private async _streamInternal(
     path: string,
     options: SSERequestOptions = {},
     callbacks: ClientStreamCallbacks = {},

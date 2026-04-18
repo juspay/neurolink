@@ -223,3 +223,10 @@ export type TTSChunk = {
   /** Sample rate in Hz */
   sampleRate?: number;
 };
+
+/** Message envelope received from the Cartesia TTS WebSocket. */
+export type CartesiaMessage = {
+  data?: string;
+  done?: boolean;
+  error?: string;
+};

@@ -11,26 +11,15 @@ import { SageMakerRuntimeClient } from "./client.js";
 import { handleSageMakerError } from "./errors.js";
 import { estimateTokenUsage, createSageMakerStream } from "./streaming.js";
 import type {
+  ConnectivityResult,
   SageMakerAsLanguageModel,
   SageMakerConfig,
   SageMakerModelConfig,
-  ConnectivityResult,
+  SageMakerOpenAIToolCall,
   UnknownRecord,
 } from "../../types/index.js";
 import { createAdaptiveSemaphore } from "./adaptive-semaphore.js";
 import { logger } from "../../utils/logger.js";
-
-/**
- * Interface for SageMaker tool call results
- */
-type SageMakerToolCall = {
-  type: "function";
-  id: string;
-  function: {
-    name: string;
-    arguments: string;
-  };
-};
 
 /**
  * Base synthetic streaming delay in milliseconds for simulating real-time response
@@ -295,7 +284,7 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
         rawCall: { rawPrompt: unknown; rawSettings: Record<string, unknown> };
         rawResponse?: { headers?: Record<string, string> };
         request?: { body?: string };
-        toolCalls?: SageMakerToolCall[];
+        toolCalls?: SageMakerOpenAIToolCall[];
         object?: unknown;
       } = {
         text: generatedText,
@@ -756,13 +745,13 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
    */
   private extractToolCallsFromResponse(
     responseBody: UnknownRecord,
-  ): SageMakerToolCall[] | undefined {
+  ): SageMakerOpenAIToolCall[] | undefined {
     // Handle OpenAI-compatible format (common for many SageMaker models)
     if (responseBody.choices && Array.isArray(responseBody.choices)) {
       const choice = responseBody.choices[0];
       if (choice?.message?.tool_calls) {
         return choice.message.tool_calls.map(
-          (toolCall: UnknownRecord): SageMakerToolCall => ({
+          (toolCall: UnknownRecord): SageMakerOpenAIToolCall => ({
             type: "function",
             id: String(toolCall.id || `call_${randomUUID()}`),
             function: {
@@ -776,7 +765,7 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
 
     // Handle custom SageMaker tool call format
     if (responseBody.tool_calls && Array.isArray(responseBody.tool_calls)) {
-      return responseBody.tool_calls as SageMakerToolCall[];
+      return responseBody.tool_calls as SageMakerOpenAIToolCall[];
     }
 
     // Handle Anthropic-style tool use
@@ -786,7 +775,7 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
       );
       if (toolUses.length > 0) {
         return toolUses.map(
-          (toolUse: UnknownRecord): SageMakerToolCall => ({
+          (toolUse: UnknownRecord): SageMakerOpenAIToolCall => ({
             type: "function",
             id: String(toolUse.id || `call_${randomUUID()}`),
             function: {

@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import type { Tool } from "ai";
 import type {
   ErrorInfo,
   JsonObject,
@@ -414,6 +415,61 @@ export type SimpleTool<TArgs = ToolArgs, TResult = JsonValue> = {
   parameters?: ZodUnknownSchema;
   metadata?: ToolMetadata;
   execute: (params: TArgs, context?: ToolContext) => Promise<TResult>;
+};
+
+/**
+ * Simple tool type accepted by the SDK registerTool() helper. Uses
+ * SDKToolContext (richer tool context with request metadata).
+ */
+export type SdkSimpleTool<TArgs = ToolArgs, TResult = JsonValue> = Omit<
+  SimpleTool<TArgs, TResult>,
+  "execute"
+> & {
+  description: string;
+  parameters?: ZodUnknownSchema;
+  execute: (params: TArgs, context?: SDKToolContext) => Promise<TResult>;
+  metadata?: {
+    category?: string;
+    version?: string;
+    author?: string;
+    tags?: string[];
+    documentation?: string;
+    [key: string]: JsonValue | undefined;
+  };
+};
+
+// =============================================================================
+// DIRECT TOOLS CATEGORIES (from agent/directTools.ts)
+// =============================================================================
+
+/** Subset of directAgentTools exposing only the "basic" category. */
+export type BasicToolsMap = {
+  getCurrentTime: Tool;
+  calculateMath: Tool;
+};
+
+/** Subset of directAgentTools exposing only the "filesystem" category. */
+export type FilesystemToolsMap = {
+  readFile: Tool;
+  listDirectory: Tool;
+  writeFile: Tool;
+};
+
+/** Subset of directAgentTools exposing the "utility" category. */
+export type UtilityToolsMap = {
+  getCurrentTime: Tool;
+  calculateMath: Tool;
+  listDirectory: Tool;
+};
+
+/** Full directAgentTools map, with the opt-in bashTool appended. */
+export type AllToolsMap = {
+  getCurrentTime: Tool;
+  calculateMath: Tool;
+  readFile: Tool;
+  listDirectory: Tool;
+  writeFile: Tool;
+  executeBashCommand?: Tool;
 };
 
 /**

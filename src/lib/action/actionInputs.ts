@@ -6,20 +6,15 @@
 
 import * as core from "@actions/core";
 import type {
-  ActionInputs,
-  ActionProviderKeys,
-  ActionInputValidation,
   ActionAWSConfig,
   ActionGoogleCloudConfig,
+  ActionInputValidation,
+  ActionInputs,
+  ActionProviderKeys,
+  ProviderKeyMap,
 } from "../types/index.js";
 import { AIProviderName } from "../constants/enums.js";
 import { ErrorFactory } from "../utils/errorHandling.js";
-
-/**
- * Provider to required keys mapping (verified providers only)
- * Uses string keys since they can be from different config objects
- */
-type ProviderKeyMap = Record<string, string[]>;
 
 const PROVIDER_KEY_MAP: ProviderKeyMap = {
   [AIProviderName.OPENAI]: ["openaiApiKey"],

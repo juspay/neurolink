@@ -7,6 +7,7 @@ import type {
   LLMScorerConfig,
   ScoreResult,
   ScorerInput,
+  ToneShift,
 } from "../../../types/index.js";
 import { BaseLLMScorer } from "./baseLLMScorer.js";
 
@@ -97,12 +98,6 @@ export class ToneConsistencyScorer extends BaseLLMScorer {
       };
     }
 
-    type ToneShift = {
-      location?: string;
-      from?: string;
-      to?: string;
-      severity?: string;
-    };
     const toneShifts: ToneShift[] = Array.isArray(json.toneShifts)
       ? (json.toneShifts as ToneShift[])
       : [];

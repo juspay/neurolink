@@ -4,17 +4,20 @@
  */
 
 import type {
+  ApiKeyAuthOptions,
+  AuthResult,
+  AuthenticatedUser,
+  BearerAuthOptions,
   MiddlewareDefinition,
   ServerContext,
-  AuthenticatedUser,
   ServerServerAuthConfig,
+  TokenValidator,
 } from "../../types/index.js";
 import {
   AuthenticationError,
   AuthorizationError,
   InvalidAuthenticationError,
 } from "../errors.js";
-import type { AuthResult } from "../../types/index.js";
 
 /**
  * Check if request is from development playground.
@@ -334,21 +337,6 @@ export class ApiKeyStore {
 /**
  * Options for bearer auth middleware
  */
-type BearerAuthOptions = {
-  /** Whether authentication is required (default: true) */
-  required?: boolean;
-  /** Header name (default: "authorization") */
-  headerName?: string;
-  /** Paths to skip authentication */
-  skipPaths?: string[];
-};
-
-/**
- * Token validation function type
- */
-type TokenValidator = (
-  token: string,
-) => Promise<AuthenticatedUser | null> | AuthenticatedUser | null;
 
 /**
  * Create bearer token authentication middleware
@@ -416,12 +404,6 @@ export function createBearerAuthMiddleware(
 /**
  * Options for API key auth middleware
  */
-type ApiKeyAuthOptions = {
-  /** Header name (default: "x-api-key") */
-  headerName?: string;
-  /** Paths to skip authentication */
-  skipPaths?: string[];
-};
 
 /**
  * Create API key authentication middleware

@@ -55,6 +55,8 @@ import type {
   RegistryProcessResult,
   ProcessorRegistration,
 } from "../../types/index.js";
+import { withSpan } from "../../telemetry/withSpan.js";
+import { tracers } from "../../telemetry/tracers.js";
 // =============================================================================
 // UTILITY FUNCTIONS
 // =============================================================================
@@ -452,12 +454,25 @@ export class ProcessorRegistry {
     fileInfo: FileInfo,
     options?: ProcessOptions,
   ): Promise<ProcessorFileProcessingResult<ProcessedFileBase> | null> {
-    const match = this.findProcessor(fileInfo.mimetype, fileInfo.name);
-    if (!match) {
-      return null;
-    }
-    const processor = match.processor as BaseFileProcessor<ProcessedFileBase>;
-    return processor.processFile(fileInfo, options);
+    return withSpan(
+      {
+        name: "neurolink.processor.processFile",
+        tracer: tracers.processor,
+        attributes: {
+          "processor.filename": fileInfo.name ?? "unknown",
+          "processor.mimetype": fileInfo.mimetype ?? "unknown",
+        },
+      },
+      async () => {
+        const match = this.findProcessor(fileInfo.mimetype, fileInfo.name);
+        if (!match) {
+          return null;
+        }
+        const processor =
+          match.processor as BaseFileProcessor<ProcessedFileBase>;
+        return processor.processFile(fileInfo, options);
+      },
+    );
   }
 
   /**

@@ -3,6 +3,7 @@
  * Judge-based scoring system for ensemble response evaluation
  */
 
+import { SpanStatusCode } from "@opentelemetry/api";
 import { AIProviderFactory } from "../../core/factory.js";
 import { logger } from "../../utils/logger.js";
 import {
@@ -11,6 +12,8 @@ import {
   SpanStatus,
   getMetricsAggregator,
 } from "../../observability/index.js";
+import { withSpan } from "../../telemetry/withSpan.js";
+import { tracers } from "../../telemetry/tracers.js";
 import { MAX_REASONING_LENGTH } from "../config.js";
 import type {
   EnsembleResponse,
@@ -35,6 +38,25 @@ const functionTag = "JudgeScorer";
  */
 export async function scoreEnsemble(
   options: ScoreOptions,
+): Promise<JudgeScoreResult> {
+  return withSpan(
+    {
+      name: "neurolink.workflow.judge.score",
+      tracer: tracers.workflow,
+      attributes: {
+        "workflow.judges_count": options.judges.length,
+        "workflow.responses_count": options.responses.length,
+        "workflow.pattern":
+          options.judges.length > 1 ? "multi-judge" : "single-judge",
+      },
+    },
+    async (otelSpan) => scoreEnsembleInner(options, otelSpan),
+  );
+}
+
+async function scoreEnsembleInner(
+  options: ScoreOptions,
+  otelSpan: import("@opentelemetry/api").Span,
 ): Promise<JudgeScoreResult> {
   const startTime = Date.now();
   const {
@@ -87,6 +109,7 @@ export async function scoreEnsemble(
       span.durationMs = judgeTime;
       const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
       getMetricsAggregator().recordSpan(endedSpan);
+      otelSpan.setAttribute("workflow.judge_time_ms", judgeTime);
 
       return {
         scores: judgeResult,
@@ -107,6 +130,8 @@ export async function scoreEnsemble(
       span.durationMs = judgeTime;
       const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
       getMetricsAggregator().recordSpan(endedSpan);
+      otelSpan.setAttribute("workflow.judge_time_ms", judgeTime);
+      otelSpan.setAttribute("workflow.judges_completed", judges.length);
 
       return {
         scores: multiJudgeResult,
@@ -126,6 +151,13 @@ export async function scoreEnsemble(
       err.message,
     );
     getMetricsAggregator().recordSpan(endedSpan);
+
+    // Mark the outer OTel span as ERROR since we return instead of rethrowing
+    otelSpan.recordException(err);
+    otelSpan.setStatus({
+      code: SpanStatusCode.ERROR,
+      message: err.message,
+    });
 
     const workflowError =
       error instanceof WorkflowError

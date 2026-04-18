@@ -51,6 +51,7 @@ export enum SpanStatus {
   UNSET = 0,
   OK = 1,
   ERROR = 2,
+  WARNING = 3,
 }
 
 /**

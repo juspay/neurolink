@@ -29,12 +29,19 @@ import {
   StateFileManager,
 } from "../utils/serverUtils.js";
 import type {
-  ProxyStartArgs,
-  ProxyStatusArgs,
-  ProxyGuardArgs,
-  ProxyTelemetryArgs,
   FallbackInfo,
+  LoadedProxyConfig,
+  ProxyGuardArgs,
+  ProxyNeurolinkRuntime,
+  ProxySpinner,
+  ProxyStartApp,
+  ProxyStartArgs,
+  ProxyStartStrategy,
   ProxyState,
+  ProxyStatusArgs,
+  ProxyTelemetryAction,
+  ProxyTelemetryArgs,
+  StatusStats,
 } from "../../lib/types/index.js";
 import type { ModelRouter } from "../../lib/proxy/modelRouter.js";
 import {
@@ -605,19 +612,6 @@ export function mapClaudeErrorTypeToStatus(errorType?: string): number {
       return 502;
   }
 }
-
-type ProxySpinner = ReturnType<typeof ora> | null;
-type ProxyStartStrategy = "round-robin" | "fill-first";
-type ProxyModelRouterConfig = ConstructorParameters<typeof ModelRouter>[0];
-type LoadedProxyConfig = {
-  routing?: Partial<ProxyModelRouterConfig> & {
-    strategy?: ProxyStartStrategy;
-  };
-};
-type ProxyNeurolinkRuntime = Awaited<
-  ReturnType<typeof createProxyNeurolinkRuntime>
->;
-type ProxyStartApp = Awaited<ReturnType<typeof createProxyStartApp>>;
 
 async function ensureProxyStartAllowed(spinner: ProxySpinner): Promise<void> {
   const existingState = loadProxyState();
@@ -1485,24 +1479,6 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
 // STATUS DISPLAY HELPERS
 // =============================================================================
 
-type StatusStats = {
-  totalAttempts?: number;
-  totalRequests: number;
-  totalSuccess: number;
-  totalErrors: number;
-  totalRateLimits: number;
-  accounts?: {
-    label: string;
-    type: string;
-    attempts?: number;
-    requests?: number;
-    success?: number;
-    errors?: number;
-    rateLimits?: number;
-    cooling: boolean;
-  }[];
-};
-
 function printStatusStats(stats: StatusStats): void {
   console.info(`\n  Stats:`);
   if (stats.totalAttempts !== undefined) {
@@ -1744,8 +1720,6 @@ const PROXY_TELEMETRY_ACTIONS = [
   "logs",
   "import-dashboard",
 ] as const;
-
-type ProxyTelemetryAction = (typeof PROXY_TELEMETRY_ACTIONS)[number];
 
 export const proxyTelemetryCommand: CommandModule<object, ProxyTelemetryArgs> =
   {

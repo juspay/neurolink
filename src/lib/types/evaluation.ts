@@ -10,7 +10,11 @@ import type { ToolExecution } from "./tools.js";
 import type { JsonObject } from "./common.js";
 import type {
   AggregatedScores,
+  EvaluationTraceContext,
   PipelineConfig,
+  ReportConfig,
+  ReportFormat,
+  ScoreResult,
   ScorerInput,
 } from "./scorer.js";
 
@@ -378,3 +382,409 @@ export type ScorerFunction = (input: ScorerInput) => Promise<{
   reasoning: string;
   metadata?: JsonObject;
 }>;
+
+// ============================================================================
+// BATCH EVALUATION TYPES (superset merges — see CLAUDE.md Rule 9)
+// ============================================================================
+
+/**
+ * Superset batch progress. `pending` is canonical; `remaining` in the
+ * pipeline's batchStrategy was renamed during consolidation (same value).
+ */
+export type BatchProgress = {
+  total: number;
+  completed: number;
+  failed: number;
+  pending: number;
+  percentComplete: number;
+  succeeded?: number;
+  estimatedTimeRemaining?: number;
+};
+
+/** Input item for BatchEvaluator. */
+export type BatchEvaluationItem = {
+  id: string;
+  options: LanguageModelV3CallOptions;
+  result: GenerateResult;
+  threshold?: number;
+};
+
+/** Result of a single item in BatchEvaluator. */
+export type BatchEvaluationItemResult = {
+  id: string;
+  success: boolean;
+  data?: EvaluationData;
+  error?: {
+    message: string;
+    code?: string;
+    retryable?: boolean;
+  };
+  duration: number;
+  retryCount: number;
+};
+
+/** Result of a single item in the pipeline batchStrategy. */
+export type BatchItemResult = {
+  index: number;
+  input: ScorerInput;
+  result?: PipelineResult;
+  error?: string;
+  duration: number;
+};
+
+/**
+ * Superset batch evaluation config. Union of pre-consolidation types
+ * (BatchEvaluationConfig in BatchEvaluator, BatchConfig in batchStrategy).
+ */
+export type BatchEvaluationConfig = EvaluationConfig & {
+  concurrency?: number;
+  continueOnError?: boolean;
+  onProgress?: (progress: BatchProgress) => void;
+  maxRetries?: number;
+  retryDelay?: number;
+  onItemComplete?: (result: BatchEvaluationItemResult) => void;
+  batchDelay?: number;
+  onResult?: (result: BatchItemResult) => void;
+};
+
+/**
+ * Superset batch-result. `results` is a union of both item-result flavors;
+ * summary field names chosen from BatchEvaluator (`succeeded`, `passingRate`).
+ */
+export type BatchEvaluationResult = {
+  results: BatchEvaluationItemResult[] | BatchItemResult[];
+  summary: {
+    total: number;
+    succeeded: number;
+    failed: number;
+    averageScore: number;
+    averageDuration: number;
+    totalDuration: number;
+    passingRate: number;
+  };
+  allSucceeded?: boolean;
+};
+
+// =============================================================================
+// EVALUATION AGGREGATOR (from evaluation/EvaluationAggregator.ts)
+// =============================================================================
+
+/** Statistical summary of evaluation scores. */
+export type ScoreStatistics = {
+  min: number;
+  max: number;
+  mean: number;
+  median: number;
+  stdDev: number;
+  variance: number;
+  p25: number;
+  p75: number;
+  p90: number;
+  p95: number;
+};
+
+/** Score distribution across ranges. */
+export type ScoreDistribution = {
+  /** Items scoring 1-3 (poor) */
+  poor: number;
+  /** Items scoring 4-5 (below average) */
+  belowAverage: number;
+  /** Items scoring 6-7 (average) */
+  average: number;
+  /** Items scoring 8-9 (good) */
+  good: number;
+  /** Items scoring 10 (excellent) */
+  excellent: number;
+};
+
+/** Trend analysis results. */
+export type TrendAnalysis = {
+  direction: "improving" | "declining" | "stable";
+  slope: number;
+  rSquared: number;
+  percentChange: number;
+  movingAverage: number;
+};
+
+/** Dimension-specific analysis for RAGAS metrics. */
+export type DimensionAnalysis = {
+  relevance: ScoreStatistics;
+  accuracy: ScoreStatistics;
+  completeness: ScoreStatistics;
+  overall: ScoreStatistics;
+  correlations: {
+    relevanceAccuracy: number;
+    relevanceCompleteness: number;
+    accuracyCompleteness: number;
+  };
+};
+
+/** Quality alerts summary. */
+export type AlertSummary = {
+  total: number;
+  high: number;
+  medium: number;
+  offTopic: number;
+  alertRate: number;
+};
+
+/** Comprehensive aggregation result. */
+export type AggregationResult = {
+  count: number;
+  statistics: ScoreStatistics;
+  distribution: ScoreDistribution;
+  dimensions: DimensionAnalysis;
+  sequenceTrend?: TrendAnalysis;
+  alerts: AlertSummary;
+  passingRate: number;
+  avgEvaluationTime: number;
+  metadata: {
+    aggregatedAt: string;
+    threshold: number;
+    evaluationModels: string[];
+  };
+};
+
+// =============================================================================
+// EVALUATOR FACTORY / REGISTRY (from evaluation/EvaluatorFactory.ts, EvaluatorRegistry.ts)
+// =============================================================================
+
+/** Configuration preset for common evaluation scenarios. */
+export type EvaluatorPreset = {
+  name: string;
+  description: string;
+  config?: EvaluationConfig;
+};
+
+/** Configuration for evaluation strategies. */
+export type EvaluationStrategyConfig = {
+  evaluationModel?: string;
+  provider?: string;
+  threshold?: number;
+  promptGenerator?: (context: {
+    userQuery: string;
+    history: string;
+    tools: string;
+    retryInfo: string;
+    aiResponse: string;
+  }) => string;
+  options?: Record<string, unknown>;
+};
+
+/** Function that performs evaluation and returns results. */
+export type EvaluationStrategyFunction = (
+  options: LanguageModelV3CallOptions,
+  result: GenerateResult,
+  config?: EvaluationStrategyConfig,
+) => Promise<{
+  evaluationResult: EvaluationResult;
+  evalContext: EnhancedEvaluationContext;
+}>;
+
+/** Metadata for registered evaluation strategies. */
+export type EvaluationStrategyMetadata = {
+  name: string;
+  description: string;
+  requiresLLM: boolean;
+  defaultModel?: string;
+  defaultProvider?: string;
+  version: string;
+  features: string[];
+};
+
+// =============================================================================
+// EVALUATION ERRORS (from evaluation/errors/EvaluationError.ts)
+// =============================================================================
+
+/** Canonical evaluation error code. */
+export type EvaluationErrorCode =
+  | "EVALUATION_FAILED"
+  | "PARSE_ERROR"
+  | "STRATEGY_NOT_FOUND"
+  | "PROVIDER_ERROR"
+  | "CONFIGURATION_ERROR"
+  | "CUSTOM_EVALUATOR_ERROR"
+  | "BATCH_EVALUATION_ERROR"
+  | "AGGREGATION_ERROR"
+  | "REGISTRY_ERROR"
+  | "MAX_RETRIES_EXCEEDED"
+  | "TIMEOUT_ERROR"
+  | "RATE_LIMIT_ERROR";
+
+/** Extended evaluation context for error details. */
+export type EvaluationErrorContext = {
+  userQueryLength?: number;
+  aiResponseLength?: number;
+  attemptNumber?: number;
+  previousScores?: number[];
+  strategy?: string;
+  evaluationModel?: string;
+  provider?: string;
+  rawResponseLength?: number;
+  additionalContext?: Record<string, unknown>;
+};
+
+// =============================================================================
+// LANGFUSE ADAPTER (from evaluation/hooks/langfuseAdapter.ts)
+// =============================================================================
+
+/** Minimal Langfuse client interface for evaluation hooks. */
+export type LangfuseClient = {
+  score: (params: {
+    name: string;
+    value: number;
+    traceId?: string;
+    observationId?: string;
+    comment?: string;
+    metadata?: Record<string, unknown>;
+  }) => Promise<unknown>;
+  trace?: (params: {
+    name: string;
+    metadata?: Record<string, unknown>;
+    tags?: string[];
+  }) => { id: string };
+  shutdown?: () => Promise<void>;
+};
+
+/** Langfuse adapter configuration. */
+export type LangfuseAdapterConfig = {
+  client: LangfuseClient;
+  scorePrefix?: string;
+  includeMetadata?: boolean;
+  tags?: string[];
+  sendPipelineScores?: boolean;
+  sendScorerScores?: boolean;
+};
+
+// =============================================================================
+// OBSERVABILITY HOOKS (from evaluation/hooks/observabilityHooks.ts)
+// =============================================================================
+
+/** Events emitted by the evaluation pipeline. */
+export type EvaluationEvents = {
+  "scorer:start": {
+    scorerId: string;
+    scorerName: string;
+    timestamp: number;
+    traceContext?: EvaluationTraceContext;
+  };
+  "scorer:end": {
+    scorerId: string;
+    scorerName: string;
+    result: ScoreResult;
+    timestamp: number;
+    duration: number;
+    traceContext?: EvaluationTraceContext;
+  };
+  "scorer:error": {
+    scorerId: string;
+    scorerName: string;
+    error: string;
+    timestamp: number;
+    traceContext?: EvaluationTraceContext;
+  };
+  "pipeline:start": {
+    pipelineName: string;
+    scorerCount: number;
+    timestamp: number;
+    correlationId: string;
+    traceContext?: EvaluationTraceContext;
+  };
+  "pipeline:end": {
+    pipelineName: string;
+    result: PipelineResult;
+    timestamp: number;
+    duration: number;
+    traceContext?: EvaluationTraceContext;
+  };
+  "pipeline:error": {
+    pipelineName: string;
+    error: string;
+    timestamp: number;
+    traceContext?: EvaluationTraceContext;
+  };
+};
+
+/**
+ * Flat span attribute map used by the evaluation observability layer.
+ * Named EvaluationSpanAttributes to disambiguate from the richer telemetry
+ * SpanAttributes in span.ts (§Rule 9 domain prefix).
+ */
+export type EvaluationSpanAttributes = Record<
+  string,
+  string | number | boolean
+>;
+
+// =============================================================================
+// METRICS COLLECTOR (from evaluation/reporting/metricsCollector.ts)
+// =============================================================================
+
+/** Metrics captured per scorer execution. */
+export type ScorerMetrics = {
+  scorerId: string;
+  scorerName: string;
+  totalExecutions: number;
+  successfulExecutions: number;
+  failedExecutions: number;
+  passedCount: number;
+  failedCount: number;
+  totalScore: number;
+  minScore: number;
+  maxScore: number;
+  totalDuration: number;
+  averageDuration: number;
+  averageScore: number;
+  passRate: number;
+  lastExecutionTime: number;
+};
+
+/** Metrics captured per evaluation pipeline. */
+export type PipelineMetrics = {
+  pipelineName: string;
+  totalExecutions: number;
+  passedCount: number;
+  failedCount: number;
+  totalScore: number;
+  minScore: number;
+  maxScore: number;
+  totalDuration: number;
+  averageDuration: number;
+  averageScore: number;
+  passRate: number;
+  lastExecutionTime: number;
+  scorerMetrics: Map<string, ScorerMetrics>;
+};
+
+/** Aggregated metrics across pipelines and scorers. */
+export type AggregatedMetrics = {
+  totalEvaluations: number;
+  overallPassRate: number;
+  averageScore: number;
+  averageDuration: number;
+  scoreDistribution: {
+    excellent: number;
+    good: number;
+    fair: number;
+    poor: number;
+    failing: number;
+  };
+  pipelineMetrics: Map<string, PipelineMetrics>;
+  scorerMetrics: Map<string, ScorerMetrics>;
+  collectionStartTime: number;
+  lastUpdateTime: number;
+};
+
+// =============================================================================
+// REPORT GENERATOR (from evaluation/reporting/reportGenerator.ts)
+// =============================================================================
+
+/** Generated evaluation report envelope. */
+export type GeneratedReport = {
+  format: ReportFormat;
+  content: string;
+  metadata: {
+    generatedAt: number;
+    format: ReportFormat;
+    config: ReportConfig;
+  };
+};

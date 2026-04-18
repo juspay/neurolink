@@ -6,13 +6,11 @@
 import { createClient, type RedisClientOptions } from "redis";
 import type {
   ChatMessage,
+  RedisClient,
   RedisConversationObject,
   RedisStorageConfig,
 } from "../types/index.js";
 import { logger } from "./logger.js";
-
-// Redis client type
-type RedisClient = ReturnType<typeof createClient>;
 
 const SESSION_ONLY_PREFIX = "session-only:";
 

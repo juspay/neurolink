@@ -3,12 +3,15 @@
  * Endpoints for MCP server management
  */
 
+import { SpanStatusCode } from "@opentelemetry/api";
 import { z } from "zod";
 import type {
   MCPServerStatusResponse,
   RouteGroup,
   ServerContext,
 } from "../../types/index.js";
+import { withSpan } from "../../telemetry/withSpan.js";
+import { tracers } from "../../telemetry/tracers.js";
 import {
   createErrorResponse,
   ServerNameParamSchema,
@@ -16,6 +19,46 @@ import {
   validateParams,
   validateRequest,
 } from "../utils/validation.js";
+
+/**
+ * Wrap a route handler with an OTel span for HTTP observability.
+ */
+function tracedMcpHandler<T>(
+  name: string,
+  route: string,
+  fn: (ctx: ServerContext) => Promise<T>,
+): (ctx: ServerContext) => Promise<T> {
+  return (ctx: ServerContext) =>
+    withSpan(
+      {
+        name,
+        tracer: tracers.http,
+        attributes: {
+          "http.route": route,
+          "http.request.id": ctx.requestId,
+        },
+      },
+      async (otelSpan) => {
+        const result = await fn(ctx);
+        // Detect returned error responses (not thrown) and mark span as failed.
+        // Only flag when the error value is truthy to avoid false positives
+        // from handlers that always include an `error` key (e.g. handleGetServer).
+        if (result && typeof result === "object") {
+          const errVal = (result as Record<string, unknown>).error;
+          if (errVal !== undefined && errVal !== null) {
+            const errMsg =
+              typeof errVal === "string"
+                ? errVal
+                : typeof (errVal as { message?: unknown })?.message === "string"
+                  ? (errVal as { message: string }).message
+                  : "MCP handler error";
+            otelSpan.setStatus({ code: SpanStatusCode.ERROR, message: errMsg });
+          }
+        }
+        return result;
+      },
+    );
+}
 
 /**
  * MCP tool execution params schema
@@ -434,49 +477,77 @@ export function createMCPRoutes(basePath: string = "/api"): RouteGroup {
       {
         method: "GET",
         path: `${basePath}/mcp/servers`,
-        handler: handleListServers,
+        handler: tracedMcpHandler(
+          "neurolink.http.mcp.listServers",
+          `${basePath}/mcp/servers`,
+          handleListServers,
+        ),
         description: "List all MCP servers",
         tags: ["mcp"],
       },
       {
         method: "GET",
         path: `${basePath}/mcp/servers/:name`,
-        handler: handleGetServer,
+        handler: tracedMcpHandler(
+          "neurolink.http.mcp.getServer",
+          `${basePath}/mcp/servers/:name`,
+          handleGetServer,
+        ),
         description: "Get MCP server status",
         tags: ["mcp"],
       },
       {
         method: "POST",
         path: `${basePath}/mcp/servers/:name/reconnect`,
-        handler: handleReconnectServer,
+        handler: tracedMcpHandler(
+          "neurolink.http.mcp.reconnectServer",
+          `${basePath}/mcp/servers/:name/reconnect`,
+          handleReconnectServer,
+        ),
         description: "Reconnect to an MCP server",
         tags: ["mcp"],
       },
       {
         method: "DELETE",
         path: `${basePath}/mcp/servers/:name`,
-        handler: handleRemoveServer,
+        handler: tracedMcpHandler(
+          "neurolink.http.mcp.removeServer",
+          `${basePath}/mcp/servers/:name`,
+          handleRemoveServer,
+        ),
         description: "Remove an MCP server",
         tags: ["mcp"],
       },
       {
         method: "GET",
         path: `${basePath}/mcp/servers/:name/tools`,
-        handler: handleListServerTools,
+        handler: tracedMcpHandler(
+          "neurolink.http.mcp.listServerTools",
+          `${basePath}/mcp/servers/:name/tools`,
+          handleListServerTools,
+        ),
         description: "List tools from a specific MCP server",
         tags: ["mcp", "tools"],
       },
       {
         method: "POST",
         path: `${basePath}/mcp/servers/:name/tools/:toolName/execute`,
-        handler: handleExecuteTool,
+        handler: tracedMcpHandler(
+          "neurolink.http.mcp.executeTool",
+          `${basePath}/mcp/servers/:name/tools/:toolName/execute`,
+          handleExecuteTool,
+        ),
         description: "Execute a tool from a specific MCP server",
         tags: ["mcp", "tools"],
       },
       {
         method: "GET",
         path: `${basePath}/mcp/health`,
-        handler: handleMCPHealth,
+        handler: tracedMcpHandler(
+          "neurolink.http.mcp.health",
+          `${basePath}/mcp/health`,
+          handleMCPHealth,
+        ),
         description: "Health check for all MCP servers",
         tags: ["mcp", "health"],
       },

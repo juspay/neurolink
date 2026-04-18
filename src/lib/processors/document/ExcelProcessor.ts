@@ -39,15 +39,15 @@
 import ExcelJS from "exceljs";
 
 const { Workbook } = ExcelJS;
-type CellValue = ExcelJS.CellValue;
 
 import { BaseFileProcessor } from "../base/BaseFileProcessor.js";
 import type {
-  FileInfo,
-  ProcessorFileProcessingResult,
-  ProcessOptions,
+  CellValue,
   ExcelWorksheet,
+  FileInfo,
+  ProcessOptions,
   ProcessedExcel,
+  ProcessorFileProcessingResult,
 } from "../../types/index.js";
 import { SIZE_LIMITS } from "../config/index.js";
 import { FileErrorCode } from "../errors/index.js";

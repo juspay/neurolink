@@ -4,21 +4,9 @@
  */
 
 import { BaseFactory } from "../core/infrastructure/index.js";
-import type { EvaluationConfig } from "../types/index.js";
+import type { EvaluationConfig, EvaluatorPreset } from "../types/index.js";
 import { Evaluator } from "./index.js";
 import { createConfigurationError } from "./errors/EvaluationError.js";
-
-/**
- * Configuration presets for common evaluation scenarios.
- */
-type EvaluatorPreset = {
-  /** Preset name for identification */
-  name: string;
-  /** Description of the preset use case */
-  description: string;
-  /** The underlying evaluation configuration (optional for built-in presets) */
-  config?: EvaluationConfig;
-};
 
 /**
  * Factory for creating Evaluator instances with various configurations.

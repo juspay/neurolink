@@ -22,31 +22,10 @@ import { handleBedrockSetup } from "./setup-bedrock.js";
 import { handleGCPSetup } from "./setup-gcp.js";
 import { handleHuggingFaceSetup } from "./setup-huggingface.js";
 import { handleMistralSetup } from "./setup-mistral.js";
-
-type SetupArgs = {
-  provider?: string;
-  list?: boolean;
-  status?: boolean;
-  interactive?: boolean;
-  help?: boolean;
-};
-
-type ProviderInfo = {
-  id: string;
-  name: string;
-  emoji: string;
-  description: string;
-  setupTime: string;
-  cost: string;
-  bestFor: string;
-  models: string;
-  strengths: string;
-  pricing: string;
-  setupCommand: string;
-};
+import type { SetupArgs, SetupProviderInfo } from "../../lib/types/index.js";
 
 // Provider information database
-const PROVIDERS: ProviderInfo[] = [
+const PROVIDERS: SetupProviderInfo[] = [
   {
     id: "google-ai",
     name: "Google AI Studio",

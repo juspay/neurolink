@@ -14,7 +14,10 @@
  * - src/lib/server/routes/claudeProxyRoutes.ts (runtime state, deps)
  */
 
-import type { Span } from "@opentelemetry/api";
+import type { Counter, Histogram, Span } from "@opentelemetry/api";
+import type { Hono } from "hono";
+import type { Ora } from "ora";
+import type { MCPToolRegistry } from "../mcp/toolRegistry.js";
 import type { ProxyTracer } from "../proxy/proxyTracer.js";
 import type {
   FallbackEntry,
@@ -772,6 +775,10 @@ export type RuntimeAccountState = {
   permanentlyDisabled: boolean;
   lastToken?: string;
   lastRefreshToken?: string;
+  /** Epoch-ms timestamp until which the account should not be used for new
+   *  requests (set after 429 retries are exhausted). Other requests arriving
+   *  during this window will skip the account rather than hammering it again. */
+  coolingUntil?: number;
 };
 
 /** A passthrough account used in the proxy route handler. */
@@ -897,3 +904,393 @@ export type ProxyPaths = {
   /** Whether this is a dev-mode isolated instance */
   isDev: boolean;
 };
+
+// =============================================================================
+// PROXY TRACER TYPES (from proxy/proxyTracer.ts)
+// =============================================================================
+
+/** OTel metric instruments used by the proxy tracer. */
+export type ProxyMetrics = {
+  requestsTotal: Counter;
+  requestDuration: Histogram;
+  tokensInput: Counter;
+  tokensOutput: Counter;
+  tokensCacheRead: Counter;
+  tokensCacheCreation: Counter;
+  tokensReasoning: Counter;
+  costTotal: Counter;
+  errorsTotal: Counter;
+  retriesTotal: Counter;
+  modelSubstitutionTotal: Counter;
+  requestBodySize: Histogram;
+  responseBodySize: Histogram;
+  fallbackAttemptsTotal: Counter;
+  fallbackSuccessTotal: Counter;
+  fallbackFailureTotal: Counter;
+};
+
+/** Context for a proxy request at the root span level. */
+export type ProxyRequestContext = {
+  requestId: string;
+  method: string;
+  path: string;
+  model: string;
+  stream: boolean;
+  toolCount: number;
+  sessionId?: string;
+  userAgent?: string;
+  clientApp?: string;
+};
+
+/** Context recorded when an account is selected for a proxy request. */
+export type AccountSelectionContext = {
+  strategy: string;
+  accountsTotal: number;
+  accountsHealthy: number;
+  selectedAccount: string;
+  accountType: string;
+  rateLimitBefore5h?: number;
+  rateLimitBefore7d?: number;
+};
+
+/** Context for a single upstream attempt (one per retry). */
+export type UpstreamAttemptContext = {
+  attempt: number;
+  account: string;
+  polyfillHeaders: boolean;
+  polyfillBody: boolean;
+  upstreamUrl: string;
+};
+
+/** Token usage and rate-limit utilisation recorded at end of request. */
+export type UsageContext = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  reasoningTokens?: number;
+  rateLimitAfter5h?: number;
+  rateLimitAfter7d?: number;
+};
+
+// =============================================================================
+// PROXY ENV TYPES (from proxy/proxyEnv.ts)
+// =============================================================================
+
+/** Where a proxy env file path was sourced from. */
+export type ProxyEnvSource = "cli" | "environment" | "default" | "none";
+
+/** Result of resolving which proxy env file to load. */
+export type ProxyEnvResolution = {
+  path?: string;
+  source: ProxyEnvSource;
+  required: boolean;
+};
+
+/** Result of loading the proxy env file. */
+export type ProxyEnvLoadResult = {
+  loaded: boolean;
+  path?: string;
+  source: ProxyEnvSource;
+};
+
+/** Options controlling proxy env file resolution. */
+export type ProxyEnvOptions = {
+  explicitEnvFile?: string;
+  env?: NodeJS.ProcessEnv;
+  homeDir?: string;
+};
+
+// =============================================================================
+// PROXY FETCH TYPES (from proxy/proxyFetch.ts)
+// =============================================================================
+
+/** Snapshot of proxy-related environment variables captured at startup. */
+export type ProxyEnvironmentSnapshot = {
+  httpsProxy?: string;
+  httpProxy?: string;
+  allProxy?: string;
+  socksProxy?: string;
+  noProxy?: string;
+};
+
+// =============================================================================
+// QUIET DETECTOR (from proxy/quietDetector.ts)
+// =============================================================================
+
+/** Result of a traffic-quiet check. */
+export type QuietStatus = {
+  isQuiet: boolean;
+  lastActivityAt: Date | null;
+  silenceDurationMs: number;
+};
+
+// =============================================================================
+// RAW STREAM CAPTURE (from proxy/rawStreamCapture.ts)
+// =============================================================================
+
+/** Accumulated upstream body capture from a raw stream. */
+export type RawStreamCapture = {
+  totalBytes: number;
+  text: string;
+  truncated: boolean;
+};
+
+/** Transformed stream pair used to capture upstream bodies without buffering. */
+export type RawStreamCaptureResult = {
+  stream: TransformStream<Uint8Array, Uint8Array>;
+  capture: Promise<RawStreamCapture>;
+};
+
+// =============================================================================
+// REQUEST LOGGER (from proxy/requestLogger.ts)
+// =============================================================================
+
+/** Single captured body/headers entry written to disk by the proxy logger. */
+export type ProxyBodyCaptureEntry = {
+  timestamp: string;
+  requestId: string;
+  phase: string;
+  model: string;
+  stream: boolean;
+  headers?: Record<string, string>;
+  body?: unknown;
+  bodySize?: number;
+  contentType?: string;
+  responseStatus?: number;
+  durationMs?: number;
+  account?: string;
+  accountType?: string;
+  attempt?: number;
+  traceId?: string;
+  spanId?: string;
+  metadata?: Record<string, unknown>;
+};
+
+/** Persisted artifact produced when a body is stored to disk. */
+export type StoredBodyArtifact = {
+  bodyPath?: string;
+  bodySha256?: string;
+  redactedBodyBytes?: number;
+  storedFileBytes?: number;
+  redactedBody?: string;
+  bodyTruncated?: boolean;
+};
+
+/** File the proxy logger tracks for rotation and cleanup. */
+export type ManagedLogFile = {
+  path: string;
+  mtime: number;
+  size: number;
+};
+
+// =============================================================================
+// SSE INTERCEPTOR (from proxy/sseInterceptor.ts)
+// =============================================================================
+
+/** Individual content block observed during an SSE stream. */
+export type SSEContentBlock = {
+  index: number;
+  type: "text" | "thinking" | "tool_use" | "tool_result";
+  /** Accumulated text for text blocks. Capped at MAX_BLOCK_CONTENT_BYTES. */
+  text?: string;
+  /** Accumulated thinking content. Capped at MAX_BLOCK_CONTENT_BYTES. */
+  thinking?: string;
+  /** Tool name for tool_use blocks. */
+  toolName?: string;
+  /** Tool call id for tool_use blocks. */
+  toolId?: string;
+  /** Accumulated partial JSON input for tool_use blocks. Capped at MAX_BLOCK_CONTENT_BYTES. */
+  toolInput?: string;
+};
+
+/** Aggregated telemetry resolved when an SSE stream completes. */
+export type SSETelemetry = {
+  messageId: string;
+  model: string;
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheCreationInputTokens: number;
+    cacheReadInputTokens: number;
+    totalTokens: number;
+  };
+  contentBlocks: SSEContentBlock[];
+  stopReason: string | null;
+  stopSequence: string | null;
+  eventCount: number;
+  streamDurationMs: number;
+  totalBytesReceived: number;
+  events: Array<{ type: string; timestamp: number; data: string }>;
+  rawText?: string;
+};
+
+/** Mutable accumulator the SSE interceptor uses internally. */
+export type TelemetryAccumulator = {
+  messageId: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
+  contentBlocks: SSEContentBlock[];
+  blockByteCounts: Map<number, number>;
+  stopReason: string | null;
+  stopSequence: string | null;
+  eventCount: number;
+  startTime: number;
+  totalBytesReceived: number;
+  events: Array<{ type: string; timestamp: number; data: string }>;
+  rawTextChunks?: string[];
+  rawTextBytes: number;
+  rawTextTruncated: boolean;
+  eventLogTruncated: boolean;
+};
+
+/** Result of createSSEInterceptor: the pass-through stream and a telemetry promise. */
+export type SSEInterceptorResult = {
+  stream: TransformStream<Uint8Array, Uint8Array>;
+  telemetry: Promise<SSETelemetry>;
+};
+
+/** Options for createSSEInterceptor. */
+export type SSEInterceptorOptions = {
+  captureRawText?: boolean;
+};
+
+// =============================================================================
+// UPDATE CHECKER (from proxy/updateChecker.ts, proxy/updateState.ts)
+// =============================================================================
+
+/** Outcome of a proxy auto-update version check against npm. */
+export type UpdateCheckResult = {
+  currentVersion: string;
+  latestVersion: string;
+  updateAvailable: boolean;
+};
+
+/** Parsed major.minor.patch components of a semver string. */
+export type SemVer = {
+  major: number;
+  minor: number;
+  patch: number;
+};
+
+/** Entry describing a version suppressed from auto-update. */
+export type SuppressedVersion = {
+  suppressedAt: string;
+  reason: string;
+};
+
+/** Persisted state for the proxy auto-update feature. */
+export type UpdateState = {
+  lastCheckAt: string;
+  lastCheckVersion: string;
+  suppressedVersions: Record<string, SuppressedVersion>;
+  lastUpdateAt: string | null;
+  lastUpdateVersion: string | null;
+};
+
+// =============================================================================
+// YAML LOADER (from proxy/proxyConfig.ts)
+// =============================================================================
+
+/** Shape of the dynamically-imported js-yaml module. */
+export type YamlModule = {
+  load(content: string): unknown;
+  default?: { load(content: string): unknown };
+};
+
+// =============================================================================
+// CLAUDE SNAPSHOT (from server/routes/claudeProxyRoutes.ts)
+// =============================================================================
+
+/** Parsed fields captured from a Claude Code client request body. */
+export type ClaudeSnapshotBody = {
+  metadataUserId?: string;
+  billingHeader?: string;
+  agentBlock?: string;
+  sessionId?: string;
+};
+
+/** Snapshot of headers and body from a Claude Code request, used for polyfill. */
+export type ClaudeSnapshot = {
+  accountKey: string;
+  capturedAt: string;
+  source: "claude-code";
+  headers: Record<string, string>;
+  body?: ClaudeSnapshotBody;
+};
+
+/** Parsed shape of a Claude API error body. */
+export type ParsedClaudeError = {
+  errorType?: string;
+  message?: string;
+};
+
+// =============================================================================
+// PROXY CLI COMMAND TYPES (from cli/commands/proxy.ts)
+// =============================================================================
+
+/** ora spinner instance held by proxy CLI commands, nullable when --quiet. */
+export type ProxySpinner = Ora | null;
+
+/** Load-balancing strategy used by the proxy across accounts. */
+export type ProxyStartStrategy = "round-robin" | "fill-first";
+
+/** Alias for the model router's constructor configuration. */
+export type ProxyModelRouterConfig = ProxyRoutingConfig;
+
+/** Partial proxy config consumed by the start command. */
+export type LoadedProxyConfig = {
+  routing?: Partial<ProxyModelRouterConfig> & {
+    strategy?: ProxyStartStrategy;
+  };
+};
+
+/**
+ * Handle for a NeuroLink runtime created by the proxy start command.
+ * The `neurolink` field is typed structurally (only the method used by the
+ * proxy layer is exposed) so types/proxy.ts does not depend on the full
+ * NeuroLink class.
+ */
+export type ProxyNeurolinkRuntime = {
+  neurolink: {
+    getToolRegistry(): MCPToolRegistry;
+  };
+  cleanupLogs: (daysToKeep?: number, maxFiles?: number) => void;
+};
+
+/** Hono app + readiness state created by the proxy start command. */
+export type ProxyStartApp = {
+  app: Hono;
+  readiness: ProxyReadinessState;
+};
+
+/** Stats shape consumed by the proxy status printer. */
+export type StatusStats = {
+  totalAttempts?: number;
+  totalRequests: number;
+  totalSuccess: number;
+  totalErrors: number;
+  totalRateLimits: number;
+  accounts?: {
+    label: string;
+    type: string;
+    attempts?: number;
+    requests?: number;
+    success?: number;
+    errors?: number;
+    rateLimits?: number;
+    cooling: boolean;
+  }[];
+};
+
+/** Sub-action of the `proxy telemetry` CLI command. */
+export type ProxyTelemetryAction =
+  | "setup"
+  | "start"
+  | "stop"
+  | "status"
+  | "logs"
+  | "import-dashboard";

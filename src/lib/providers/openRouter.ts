@@ -25,6 +25,7 @@ import type {
   StreamTextResult,
 } from "../types/index.js";
 import { isAbortError } from "../utils/errorHandling.js";
+import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { logger } from "../utils/logger.js";
 import { getProviderModel } from "../utils/providerConfig.js";
 import {
@@ -394,6 +395,15 @@ export class OpenRouterProvider extends BaseProvider {
         },
 
         onStepFinish: ({ toolCalls, toolResults }) => {
+          emitToolEndFromStepFinish(
+            this.neurolink?.getEventEmitter(),
+            toolResults as Array<{
+              toolName: string;
+              output?: unknown;
+              result?: unknown;
+              error?: string;
+            }>,
+          );
           logger.info("Tool execution completed", {
             toolCallCount: toolCalls?.length || 0,
             toolResultCount: toolResults?.length || 0,

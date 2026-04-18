@@ -1,42 +1,16 @@
 import type { AIProviderName } from "../constants/enums.js";
 import type {
-  UnknownRecord,
   AIProvider,
   NeurolinkCredentials,
+  ProviderConstructor,
+  ProviderRegistration,
+  UnknownRecord,
 } from "../types/index.js";
 
 import { logger } from "../utils/logger.js";
 
 // Pure factory pattern with no hardcoded imports
 // All providers loaded dynamically via registry to avoid circular dependencies
-
-/**
- * Provider constructor interface - supports both sync constructors and async factory functions
- */
-type ProviderConstructor =
-  | {
-      new (
-        modelName?: string,
-        providerName?: string,
-        sdk?: UnknownRecord,
-        region?: string,
-      ): AIProvider;
-    }
-  | ((
-      modelName?: string,
-      providerName?: string,
-      sdk?: UnknownRecord,
-      region?: string,
-    ) => Promise<AIProvider>);
-
-/**
- * Provider registration entry
- */
-type ProviderRegistration = {
-  constructor: ProviderConstructor;
-  defaultModel?: string; // Optional - provider can read from env
-  aliases?: string[];
-};
 
 /**
  * True Factory Pattern implementation for AI Providers

@@ -2,12 +2,7 @@ import WebSocket from "ws";
 import { EventEmitter } from "events";
 import { logger } from "../../utils/logger.js";
 import { withTimeout } from "../../utils/async/withTimeout.js";
-
-type CartesiaMessage = {
-  data?: string;
-  done?: boolean;
-  error?: string;
-};
+import type { CartesiaMessage } from "../../types/index.js";
 
 export function getCartesiaWsUrl(): string {
   const baseUrl =

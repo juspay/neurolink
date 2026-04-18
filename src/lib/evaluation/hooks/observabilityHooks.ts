@@ -4,62 +4,14 @@
  */
 
 import type {
+  EvaluationEvents,
+  EvaluationSpanAttributes,
   EvaluationTraceContext,
-  ScoreResult,
+  EventHandler,
   PipelineResult,
+  ScoreResult,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
-/**
- * Event handler type
- */
-type EventHandler<T> = (event: T) => void | Promise<void>;
-
-/**
- * Evaluation events
- */
-type EvaluationEvents = {
-  "scorer:start": {
-    scorerId: string;
-    scorerName: string;
-    timestamp: number;
-    traceContext?: EvaluationTraceContext;
-  };
-  "scorer:end": {
-    scorerId: string;
-    scorerName: string;
-    result: ScoreResult;
-    timestamp: number;
-    duration: number;
-    traceContext?: EvaluationTraceContext;
-  };
-  "scorer:error": {
-    scorerId: string;
-    scorerName: string;
-    error: string;
-    timestamp: number;
-    traceContext?: EvaluationTraceContext;
-  };
-  "pipeline:start": {
-    pipelineName: string;
-    scorerCount: number;
-    timestamp: number;
-    correlationId: string;
-    traceContext?: EvaluationTraceContext;
-  };
-  "pipeline:end": {
-    pipelineName: string;
-    result: PipelineResult;
-    timestamp: number;
-    duration: number;
-    traceContext?: EvaluationTraceContext;
-  };
-  "pipeline:error": {
-    pipelineName: string;
-    error: string;
-    timestamp: number;
-    traceContext?: EvaluationTraceContext;
-  };
-};
 
 /**
  * Observability hooks manager
@@ -258,12 +210,12 @@ export function createMetricsCollectorHook(collector: {
 /**
  * OpenTelemetry span attributes
  */
-type SpanAttributes = Record<string, string | number | boolean>;
-
 /**
  * Create span attributes from scorer result
  */
-export function scorerToSpanAttributes(result: ScoreResult): SpanAttributes {
+export function scorerToSpanAttributes(
+  result: ScoreResult,
+): EvaluationSpanAttributes {
   return {
     "scorer.id": result.scorerId,
     "scorer.name": result.scorerName,
@@ -284,7 +236,7 @@ export function scorerToSpanAttributes(result: ScoreResult): SpanAttributes {
  */
 export function pipelineToSpanAttributes(
   result: PipelineResult,
-): SpanAttributes {
+): EvaluationSpanAttributes {
   return {
     "pipeline.name": result.pipelineConfig.name ?? "unnamed",
     "pipeline.overallScore": result.overallScore,

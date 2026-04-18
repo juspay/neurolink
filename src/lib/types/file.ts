@@ -441,3 +441,8 @@ export type SvgSanitizationResult = {
   /** Whether any content was modified */
   wasModified: boolean;
 };
+
+/** Contract implemented by each file-detection strategy. */
+export type DetectionStrategy = {
+  detect(input: FileInput): Promise<FileDetectionResult>;
+};

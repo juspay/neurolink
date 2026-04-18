@@ -9,14 +9,12 @@ import { SpanStatusCode, propagation, context } from "@opentelemetry/api";
 import { tracers } from "../telemetry/tracers.js";
 import type { ProxyAgent } from "undici";
 import { shouldBypassProxy } from "./utils/noProxyUtils.js";
-import type { ParsedProxyConfig } from "../types/index.js";
+import type {
+  LangfuseContext,
+  ParsedProxyConfig,
+  ProxyEnvironmentSnapshot,
+} from "../types/index.js";
 import { createHash } from "node:crypto";
-
-type LangfuseContext = {
-  sessionId?: string | null;
-  userId?: string | null;
-  conversationId?: string | null;
-};
 
 async function getLangfuseContext(): Promise<LangfuseContext | undefined> {
   try {
@@ -408,14 +406,6 @@ async function createProxyAgent(proxyUrl: string): Promise<ProxyAgent> {
       throw new Error(`Unsupported proxy protocol: ${parsed.protocol}`);
   }
 }
-
-type ProxyEnvironmentSnapshot = {
-  httpsProxy?: string;
-  httpProxy?: string;
-  allProxy?: string;
-  socksProxy?: string;
-  noProxy?: string;
-};
 
 function sanitizeProxyUrl(url: string | undefined): string {
   return maskProxyUrl(url) ?? "NOT_SET";

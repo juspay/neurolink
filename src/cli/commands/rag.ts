@@ -26,7 +26,9 @@ import { InMemoryVectorStore } from "../../lib/rag/retrieval/vectorQueryTool.js"
 import type {
   Chunk,
   ChunkingStrategy,
-  RAGCommandArgs,
+  RagChunkArgs,
+  RagIndexArgs,
+  RagQueryArgs,
 } from "../../lib/types/index.js";
 import { globalSession } from "../../lib/session/globalSessionState.js";
 import { logger } from "../../lib/utils/logger.js";
@@ -207,27 +209,6 @@ async function getEmbeddingModel(
 /**
  * Chunk subcommand arguments
  */
-type ChunkArgs = RAGCommandArgs & {
-  file: string;
-  output?: string;
-  extract?: boolean;
-};
-
-/**
- * Index subcommand arguments
- */
-type IndexArgs = RAGCommandArgs & {
-  file: string;
-  indexName?: string;
-};
-
-/**
- * Query subcommand arguments
- */
-type QueryArgs = RAGCommandArgs & {
-  query: string;
-  indexName?: string;
-};
 
 /**
  * In-memory storage for indexed documents
@@ -316,7 +297,7 @@ function formatChunks(chunks: Chunk[], format: string): string {
 /**
  * Create the chunk subcommand
  */
-function createChunkCommand(): CommandModule<{}, ChunkArgs> {
+function createChunkCommand(): CommandModule<{}, RagChunkArgs> {
   return {
     command: "chunk <file>",
     describe: "Chunk a document into smaller pieces for processing",
@@ -388,8 +369,8 @@ function createChunkCommand(): CommandModule<{}, ChunkArgs> {
           describe: "Enable verbose output",
           type: "boolean",
           default: false,
-        }) as Argv<ChunkArgs>,
-    handler: async (args: Arguments<ChunkArgs>) => {
+        }) as Argv<RagChunkArgs>,
+    handler: async (args: Arguments<RagChunkArgs>) => {
       const spinner = ora("Processing document...").start();
 
       try {
@@ -504,7 +485,7 @@ function createChunkCommand(): CommandModule<{}, ChunkArgs> {
 /**
  * Create the index subcommand
  */
-function createIndexCommand(): CommandModule<{}, IndexArgs> {
+function createIndexCommand(): CommandModule<{}, RagIndexArgs> {
   return {
     command: "index <file>",
     describe: "Index a document for semantic search",
@@ -571,8 +552,8 @@ function createIndexCommand(): CommandModule<{}, IndexArgs> {
           describe: "Enable verbose output",
           type: "boolean",
           default: false,
-        }) as Argv<IndexArgs>,
-    handler: async (args: Arguments<IndexArgs>) => {
+        }) as Argv<RagIndexArgs>,
+    handler: async (args: Arguments<RagIndexArgs>) => {
       const spinner = ora("Indexing document...").start();
 
       try {
@@ -737,7 +718,7 @@ function createIndexCommand(): CommandModule<{}, IndexArgs> {
 /**
  * Create the query subcommand
  */
-function createQueryCommand(): CommandModule<{}, QueryArgs> {
+function createQueryCommand(): CommandModule<{}, RagQueryArgs> {
   return {
     command: "query <query>",
     describe: "Query indexed documents",
@@ -793,8 +774,8 @@ function createQueryCommand(): CommandModule<{}, QueryArgs> {
           describe: "Enable verbose output",
           type: "boolean",
           default: false,
-        }) as Argv<QueryArgs>,
-    handler: async (args: Arguments<QueryArgs>) => {
+        }) as Argv<RagQueryArgs>,
+    handler: async (args: Arguments<RagQueryArgs>) => {
       const spinner = ora("Searching...").start();
 
       try {

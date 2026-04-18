@@ -1,13 +1,7 @@
-type RawStreamCapture = {
-  totalBytes: number;
-  text: string;
-  truncated: boolean;
-};
-
-type RawStreamCaptureResult = {
-  stream: TransformStream<Uint8Array, Uint8Array>;
-  capture: Promise<RawStreamCapture>;
-};
+import type {
+  RawStreamCapture,
+  RawStreamCaptureResult,
+} from "../types/index.js";
 
 /** Maximum bytes to capture before stopping accumulation (1 MB). */
 const MAX_CAPTURE_BYTES = 1024 * 1024;

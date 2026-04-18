@@ -16,6 +16,8 @@ import {
   generateSummary,
 } from "../utils/conversationMemory.js";
 import { RECENT_MESSAGES_RATIO } from "../config/conversationMemory.js";
+import { withSpan } from "../telemetry/withSpan.js";
+import { tracers } from "../telemetry/tracers.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -38,32 +40,46 @@ export class SummarizationEngine {
     logPrefix = "[SummarizationEngine]",
     requestId?: string,
   ): Promise<boolean> {
-    const contextMessages = buildContextFromPointer(session, requestId);
-    const tokenCount = this.estimateTokens(contextMessages);
+    return withSpan(
+      {
+        name: "neurolink.memory.summarize",
+        tracer: tracers.memory,
+        attributes: {
+          "memory.session_id": session.sessionId ?? "unknown",
+          "memory.threshold": threshold,
+        },
+      },
+      async (span) => {
+        const contextMessages = buildContextFromPointer(session, requestId);
+        const tokenCount = this.estimateTokens(contextMessages);
 
-    session.lastTokenCount = tokenCount;
-    session.lastCountedAt = Date.now();
+        session.lastTokenCount = tokenCount;
+        session.lastCountedAt = Date.now();
 
-    logger.info("[Summarization] Check", {
-      requestId,
-      sessionId: session.sessionId,
-      tokenCount,
-      threshold,
-      willSummarize: tokenCount >= threshold,
-    });
+        logger.info("[Summarization] Check", {
+          requestId,
+          sessionId: session.sessionId,
+          tokenCount,
+          threshold,
+          willSummarize: tokenCount >= threshold,
+        });
 
-    if (tokenCount >= threshold) {
-      await this.summarizeSession(
-        session,
-        threshold,
-        config,
-        logPrefix,
-        requestId,
-      );
-      return true;
-    }
+        if (tokenCount >= threshold) {
+          await this.summarizeSession(
+            session,
+            threshold,
+            config,
+            logPrefix,
+            requestId,
+          );
+          span.setAttribute("memory.summarized", true);
+          return true;
+        }
 
-    return false;
+        span.setAttribute("memory.summarized", false);
+        return false;
+      },
+    ); // end withSpan
   }
 
   /**

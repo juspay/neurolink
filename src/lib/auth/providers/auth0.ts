@@ -3,34 +3,18 @@
 import { BaseAuthProvider } from "./BaseAuthProvider.js";
 import { AuthError } from "../errors.js";
 import type {
-  AuthProviderConfig,
   Auth0Config,
+  Auth0TokenPayload,
+  AuthHealthCheck,
+  AuthProviderConfig,
+  AuthProviderType,
+  AuthRequestContext,
   AuthUser,
   TokenValidationResult,
-  AuthRequestContext,
-  AuthHealthCheck,
-  AuthProviderType,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { createProxyFetch } from "../../proxy/proxyFetch.js";
 import * as jose from "jose";
-
-/**
- * Auth0 token payload structure
- */
-type Auth0TokenPayload = {
-  sub: string;
-  email?: string;
-  name?: string;
-  picture?: string;
-  email_verified?: boolean;
-  roles?: string[];
-  permissions?: string[];
-  iat: number;
-  exp: number;
-  aud: string | string[];
-  iss: string;
-};
 
 /**
  * Auth0 Authentication Provider

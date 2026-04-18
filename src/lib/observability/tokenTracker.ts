@@ -4,23 +4,16 @@
  */
 
 import type {
+  ObservabilityModelPricing,
   SpanAttributes,
   SpanData,
   TokenUsageStats,
 } from "../types/index.js";
-/**
- * Model pricing information
- */
-type ModelPricing = {
-  inputPricePerMillion: number;
-  outputPricePerMillion: number;
-  cachedInputPricePerMillion?: number;
-};
 
 /**
  * Built-in model pricing database (approximate, subject to change)
  */
-const MODEL_PRICING: Record<string, ModelPricing> = {
+const MODEL_PRICING: Record<string, ObservabilityModelPricing> = {
   // OpenAI
   "gpt-4o": {
     inputPricePerMillion: 2.5,
@@ -99,23 +92,26 @@ export class TokenTracker {
     bySpanType: new Map(),
   };
 
-  private customPricing: Map<string, ModelPricing> = new Map();
+  private customPricing: Map<string, ObservabilityModelPricing> = new Map();
 
   /**
    * Set custom pricing for a single model
    * @param modelName - The model name (e.g., "gpt-4o", "claude-3-5-sonnet")
    * @param pricing - The pricing information
    */
-  setModelPricing(modelName: string, pricing: ModelPricing): void {
+  setObservabilityModelPricing(
+    modelName: string,
+    pricing: ObservabilityModelPricing,
+  ): void {
     this.customPricing.set(modelName, pricing);
   }
 
   /**
-   * Update pricing for an existing model (alias for setModelPricing)
+   * Update pricing for an existing model (alias for setObservabilityModelPricing)
    * @param model - The model name
    * @param pricing - The new pricing information
    */
-  updatePricing(model: string, pricing: ModelPricing): void {
+  updatePricing(model: string, pricing: ObservabilityModelPricing): void {
     this.customPricing.set(model, pricing);
   }
 
@@ -124,7 +120,9 @@ export class TokenTracker {
    * Useful for loading pricing from environment or config files
    * @param config - Record of model names to pricing information
    */
-  loadPricingFromConfig(config: Record<string, ModelPricing>): void {
+  loadPricingFromConfig(
+    config: Record<string, ObservabilityModelPricing>,
+  ): void {
     for (const [model, pricing] of Object.entries(config)) {
       this.customPricing.set(model, pricing);
     }
@@ -135,7 +133,7 @@ export class TokenTracker {
    * @param model - The model name
    * @returns The pricing information or undefined if not found
    */
-  getModelPricing(model: string): ModelPricing | undefined {
+  getModelPricing(model: string): ObservabilityModelPricing | undefined {
     return this.customPricing.get(model) ?? MODEL_PRICING[model];
   }
 
@@ -143,8 +141,10 @@ export class TokenTracker {
    * Get all available model pricing (custom + built-in)
    * @returns Record of all model pricing
    */
-  getAllPricing(): Record<string, ModelPricing> {
-    const allPricing: Record<string, ModelPricing> = { ...MODEL_PRICING };
+  getAllPricing(): Record<string, ObservabilityModelPricing> {
+    const allPricing: Record<string, ObservabilityModelPricing> = {
+      ...MODEL_PRICING,
+    };
     // Custom pricing takes precedence
     const customPricingEntries = Array.from(this.customPricing.entries());
     for (const [model, pricing] of customPricingEntries) {
@@ -355,7 +355,7 @@ export class TokenTracker {
     const tracker = new TokenTracker();
     // Copy custom pricing so windowed calculations use the same rates
     for (const [model, pricing] of this.customPricing) {
-      tracker.setModelPricing(model, pricing);
+      tracker.setObservabilityModelPricing(model, pricing);
     }
     for (const span of spans) {
       tracker.trackSpan(span);

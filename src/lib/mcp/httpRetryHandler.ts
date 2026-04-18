@@ -15,6 +15,7 @@ import {
   SpanStatus,
   getMetricsAggregator,
 } from "../observability/index.js";
+import { getActiveTraceContext } from "../telemetry/traceContext.js";
 /**
  * Default HTTP retry configuration
  */
@@ -171,11 +172,18 @@ export async function withHTTPRetry<T>(
     ...config,
   };
 
-  const span = SpanSerializer.createSpan(SpanType.MCP_TRANSPORT, "mcp.retry", {
-    "mcp.transport": "http",
-    "mcp.operation": "retry",
-    "mcp.maxAttempts": mergedConfig.maxAttempts,
-  });
+  const { traceId, parentSpanId } = getActiveTraceContext();
+  const span = SpanSerializer.createSpan(
+    SpanType.MCP_TRANSPORT,
+    "mcp.retry",
+    {
+      "mcp.transport": "http",
+      "mcp.operation": "retry",
+      "mcp.maxAttempts": mergedConfig.maxAttempts,
+    },
+    parentSpanId,
+    traceId,
+  );
   const startTime = Date.now();
 
   let lastError: unknown;

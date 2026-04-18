@@ -15,6 +15,7 @@ import type {
   WorkflowModelConfig,
   ModelGroup,
   WorkflowConfig,
+  WorkflowValidation,
 } from "../types/index.js";
 // ============================================================================
 // CONSTANTS
@@ -184,10 +185,8 @@ const WorkflowConfigSchemaBase = z.object({
   updatedAt: z.string().optional(),
 });
 
-type WorkflowConfigSchemaType = z.infer<typeof WorkflowConfigSchemaBase>;
-
 export const WorkflowConfigSchema = WorkflowConfigSchemaBase.refine(
-  (data: WorkflowConfigSchemaType) => {
+  (data) => {
     // Cannot have both judge and judges
     if (data.judge && data.judges) {
       return false;
@@ -198,7 +197,7 @@ export const WorkflowConfigSchema = WorkflowConfigSchemaBase.refine(
     message: 'Cannot specify both "judge" and "judges" - use one or the other',
   },
 ).refine(
-  (data: WorkflowConfigSchemaType) => {
+  (data) => {
     // Ensemble and adaptive need at least 2 models
     // Check flat models array if modelGroups not provided
     if (data.type === "ensemble" || data.type === "adaptive") {
@@ -351,22 +350,13 @@ export function mergeWithDefaults(config: WorkflowConfig): WorkflowConfig {
 }
 
 /**
- * Validation result for workflow configuration
- */
-type WorkflowConfigValidationResult = {
-  success: boolean;
-  data?: WorkflowConfig;
-  error?: z.ZodError;
-};
-
-/**
  * Validate workflow configuration
  * @param config - Partial workflow configuration to validate
  * @returns Validation result with parsed data or error details
  */
 export function validateWorkflowConfig(
   config: Partial<WorkflowConfig>,
-): WorkflowConfigValidationResult {
+): WorkflowValidation<WorkflowConfig> {
   const result = WorkflowConfigSchema.safeParse(config);
 
   if (result.success) {
@@ -403,22 +393,13 @@ export function createWorkflowConfig(
 }
 
 /**
- * Validation result for model configuration
- */
-type ModelConfigValidationResult = {
-  success: boolean;
-  data?: WorkflowModelConfig;
-  error?: z.ZodError;
-};
-
-/**
  * Validate model configuration
  * @param config - Partial model configuration to validate
  * @returns Validation result with parsed data or error details
  */
 export function validateModelConfig(
   config: Partial<WorkflowModelConfig>,
-): ModelConfigValidationResult {
+): WorkflowValidation<WorkflowModelConfig> {
   const result = ModelConfigSchema.safeParse(config);
 
   if (result.success) {
@@ -428,22 +409,13 @@ export function validateModelConfig(
 }
 
 /**
- * Validation result for judge configuration
- */
-type JudgeConfigValidationResult = {
-  success: boolean;
-  data?: JudgeConfig;
-  error?: z.ZodError;
-};
-
-/**
  * Validate judge configuration
  * @param config - Partial judge configuration to validate
  * @returns Validation result with parsed data or error details
  */
 export function validateJudgeConfig(
   config: Partial<JudgeConfig>,
-): JudgeConfigValidationResult {
+): WorkflowValidation<JudgeConfig> {
   const result = JudgeConfigSchema.safeParse(config);
 
   if (result.success) {

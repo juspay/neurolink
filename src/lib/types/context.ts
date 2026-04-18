@@ -920,3 +920,9 @@ export type DeduplicationResult = {
   messages: ChatMessage[];
   filesDeduped: number;
 };
+
+/** Options for FileSummarizationService. */
+export type FileSummarizationServiceOptions = {
+  provider?: string;
+  model?: string;
+};

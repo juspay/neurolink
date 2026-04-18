@@ -2,8 +2,10 @@ import { nanoid } from "nanoid";
 import { NeuroLink } from "../neurolink.js";
 import type {
   ConversationMemoryConfig,
-  NeurolinkConstructorConfig,
+  LoopSessionState,
   McpOutputStrategy,
+  NeurolinkConstructorConfig,
+  SessionVariableValue,
 } from "../types/index.js";
 
 import { buildObservabilityConfigFromEnv } from "../utils/observabilityHelpers.js";
@@ -42,17 +44,6 @@ function buildMcpOutputLimitsFromEnv():
       : {}),
   };
 }
-
-// Define a specific type for session variable values
-type SessionVariableValue = string | number | boolean;
-
-type LoopSessionState = {
-  neurolinkInstance: NeuroLink;
-  sessionId: string;
-  isActive: boolean;
-  conversationMemoryConfig?: ConversationMemoryConfig;
-  sessionVariables: Record<string, SessionVariableValue>;
-};
 
 export class GlobalSessionManager {
   private static instance: GlobalSessionManager;

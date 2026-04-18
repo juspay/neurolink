@@ -11,40 +11,11 @@
 import { isAbortError } from "../../utils/errorHandling.js";
 import type {
   FileProcessingError,
+  FileProcessingSummary,
   ProcessorErrorMessageTemplate,
 } from "../../types/index.js";
 
 import { ERROR_MESSAGES, FileErrorCode } from "./FileErrorCode.js";
-
-/**
- * Summary of file processing operations.
- */
-type FileProcessingSummary = {
-  /** Total number of files attempted */
-  totalFiles: number;
-  /** Successfully processed files */
-  processedFiles: Array<{
-    filename: string;
-    size?: number;
-    type?: string;
-  }>;
-  /** Files that failed to process */
-  failedFiles: Array<{
-    filename: string;
-    error: FileProcessingError;
-  }>;
-  /** Files that were skipped */
-  skippedFiles: Array<{
-    filename: string;
-    reason: string;
-    suggestedAlternative?: string;
-  }>;
-  /** Non-fatal warnings */
-  warnings: Array<{
-    filename: string;
-    message: string;
-  }>;
-};
 
 /**
  * Create a structured file processing error with user-friendly messaging.

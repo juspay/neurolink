@@ -4,42 +4,14 @@
  */
 
 import type {
-  RuleScorerConfig,
+  KeywordCoverageConfig,
+  KeywordCoverageDetails,
   ScoreResult,
   ScorerInput,
   ScorerMetadata,
   ScorerRule,
 } from "../../../types/index.js";
 import { BaseRuleScorer } from "./baseRuleScorer.js";
-
-/**
- * Configuration specific to keyword coverage scoring
- */
-type KeywordCoverageConfig = RuleScorerConfig & {
-  /** Keywords to check for */
-  keywords?: string[];
-  /** Minimum coverage ratio (0-1) to pass */
-  minCoverage?: number;
-  /** Whether to use case-insensitive matching */
-  caseInsensitive?: boolean;
-  /** Whether to use word boundary matching */
-  wordBoundary?: boolean;
-  /** Synonyms map for flexible matching */
-  synonyms?: Record<string, string[]>;
-  /** Weight different keywords differently */
-  keywordWeights?: Record<string, number>;
-};
-
-/**
- * Keyword coverage result details
- */
-type KeywordCoverageDetails = {
-  totalKeywords: number;
-  foundKeywords: string[];
-  missingKeywords: string[];
-  coverageRatio: number;
-  weightedCoverage: number;
-};
 
 /**
  * Scorer metadata for keyword coverage

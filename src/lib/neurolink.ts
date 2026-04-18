@@ -17,7 +17,7 @@ try {
 }
 
 import type { Hippocampus } from "@juspay/hippocampus";
-import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import { SpanKind, SpanStatusCode, context, trace } from "@opentelemetry/api";
 import { AsyncLocalStorage } from "async_hooks";
 import { EventEmitter } from "events";
 import pLimit from "p-limit";
@@ -96,6 +96,7 @@ import type {
   OrchestrationResult,
   MCPTool,
   RoutingDecision,
+  MetricsTraceContext,
 } from "./types/index.js";
 import { emergencyContentTruncation } from "./context/emergencyTruncation.js";
 import {
@@ -293,6 +294,30 @@ function mcpCategoryToErrorCategory(
 }
 
 /**
+ * Extract a human-readable error string from an MCP isError result object.
+ * Returns an empty string if nothing useful can be extracted.
+ */
+function extractMcpErrorText(raw: unknown): string {
+  try {
+    const resultObj =
+      typeof raw === "string" ? (JSON.parse(raw) as unknown) : raw;
+    if (!resultObj || typeof resultObj !== "object") {
+      return "";
+    }
+    const content = (resultObj as Record<string, unknown>).content;
+    if (!Array.isArray(content)) {
+      return "";
+    }
+    const texts = (content as Array<{ type?: string; text?: string }>)
+      .filter((c) => c.type === "text" && c.text)
+      .map((c) => c.text as string);
+    return texts.join(" ").substring(0, 500);
+  } catch {
+    return "";
+  }
+}
+
+/**
  * Check if an error is a non-retryable provider error that should immediately
  * stop the retry/fallback chain. These errors represent permanent failures
  * (e.g., model not found, authentication failed) where retrying with the
@@ -418,12 +443,6 @@ function isNonRetryableProviderError(error: unknown): boolean {
  * @see {@link NeurolinkConstructorConfig} for configuration options
  * @since 1.0.0
  */
-
-/** Per-request metrics trace context stored in AsyncLocalStorage to avoid races. */
-type MetricsTraceContext = {
-  traceId: string;
-  parentSpanId: string;
-};
 
 /**
  * Module-level AsyncLocalStorage for per-request metrics trace context.
@@ -720,6 +739,26 @@ export class NeuroLink {
     traceId: string;
     parentSpanId: string;
   } {
+    // Attempt to reuse the active OTel trace context so Pipeline B spans
+    // land in the same Langfuse trace as Pipeline A spans.
+    const activeSpan = trace.getSpan(context.active());
+    if (activeSpan) {
+      const spanCtx = activeSpan.spanContext();
+      // Only use the OTel context if it has a valid trace ID.
+      // parentSpanId stores the active span's ID as a parent reference;
+      // each Pipeline B span must generate its own unique spanId to comply
+      // with the OTel/W3C requirement that spanIds are unique per trace.
+      if (
+        spanCtx.traceId &&
+        spanCtx.traceId !== "00000000000000000000000000000000"
+      ) {
+        return {
+          traceId: spanCtx.traceId,
+          parentSpanId: spanCtx.spanId,
+        };
+      }
+    }
+    // Fallback: no active OTel context (e.g. standalone Pipeline B usage)
     return {
       traceId: crypto.randomUUID().replace(/-/g, ""),
       parentSpanId: crypto.randomUUID().replace(/-/g, "").substring(0, 16),
@@ -3052,6 +3091,13 @@ Current user's request: ${currentInput}`;
   private initializeMetricsListeners(): void {
     this.emitter.on("generation:end", ((...args: unknown[]) => {
       const data = args[0] as Record<string, unknown>;
+      // A2 fix: When Pipeline A (AI SDK → @langfuse/otel) already creates a
+      // GENERATION observation, skip the Pipeline B span to avoid duplicates.
+      // Native providers (Bedrock, Ollama, Gemini 3) do NOT set this flag —
+      // Pipeline B remains their only observation source.
+      if (data.pipelineAHandled) {
+        return;
+      }
       try {
         const result = data.result as Record<string, unknown> | undefined;
         const usage = result?.usage as
@@ -3075,10 +3121,10 @@ Current user's request: ${currentInput}`;
           temperature: data.temperature as number | undefined,
           maxTokens: data.maxTokens as number | undefined,
         });
-        // Make this the root span by using the pre-generated rootSpanId
+        // Link to the OTel parent span; each Pipeline B span keeps its own
+        // unique spanId to comply with OTel/W3C uniqueness requirements.
         if (traceCtx) {
-          span.spanId = traceCtx.parentSpanId;
-          span.parentSpanId = undefined;
+          span.parentSpanId = traceCtx.parentSpanId;
         }
         // Mark failed generations with ERROR status so metrics count them correctly
         const spanStatus =
@@ -3091,6 +3137,26 @@ Current user's request: ${currentInput}`;
           data.error ? String(data.error) : undefined,
         );
         span.durationMs = responseTime;
+
+        // G2 fix: Check finishReason and escalate to WARNING for partial failures
+        const finishReason =
+          (result?.finishReason as string | undefined) ??
+          (data.finishReason as string | undefined);
+        if (finishReason) {
+          span.attributes["gen_ai.finish_reason"] = finishReason;
+          if (finishReason === "content-filter" || finishReason === "length") {
+            span = SpanSerializer.endSpan(
+              span,
+              SpanStatus.WARNING,
+              `Generation stopped: finishReason=${finishReason}`,
+            );
+          }
+        }
+
+        // G6 fix: Record retry count on Pipeline B span
+        if (data.retryCount !== undefined) {
+          span.attributes["gen_ai.retry_count"] = data.retryCount as number;
+        }
 
         if (usage) {
           span = SpanSerializer.enrichWithTokenUsage(span, {
@@ -3160,15 +3226,32 @@ Current user's request: ${currentInput}`;
           name: `gen_ai.${provider}.stream`,
           traceId: traceCtx?.traceId,
         });
-        // Make this the root span by using the pre-generated rootSpanId
+        // Link to the OTel parent span; keep unique spanId per W3C spec.
         if (traceCtx) {
-          span.spanId = traceCtx.parentSpanId;
-          span.parentSpanId = undefined;
+          span.parentSpanId = traceCtx.parentSpanId;
         }
         span = SpanSerializer.endSpan(span, SpanStatus.OK);
         span.durationMs = durationMs;
         span.attributes["stream.chunk_count"] = chunkCount;
         span.attributes["stream.content_length"] = totalLength;
+
+        // S3 fix: Record finishReason on Pipeline B stream span
+        const streamFinishReason =
+          (metadata?.finishReason as string | undefined) ??
+          (data.finishReason as string | undefined);
+        if (streamFinishReason) {
+          span.attributes["gen_ai.finish_reason"] = streamFinishReason;
+          if (
+            streamFinishReason === "content-filter" ||
+            streamFinishReason === "length"
+          ) {
+            span = SpanSerializer.endSpan(
+              span,
+              SpanStatus.WARNING,
+              `Stream stopped: finishReason=${streamFinishReason}`,
+            );
+          }
+        }
 
         // Record stream input prompt
         if (data.prompt) {
@@ -3262,9 +3345,12 @@ Current user's request: ${currentInput}`;
         );
         span.durationMs = responseTime;
 
-        if (!success && data.error) {
-          span.statusMessage =
-            (data.error as Error).message || String(data.error);
+        if (!success) {
+          if (data.error) {
+            span.statusMessage = String(data.error);
+          } else if (data.result) {
+            span.statusMessage = extractMcpErrorText(data.result);
+          }
         }
 
         if (data.result) {
@@ -3302,15 +3388,24 @@ Current user's request: ${currentInput}`;
           name: `gen_ai.${provider}.stream.error`,
           traceId: traceCtx?.traceId,
         });
-        // Make this the root span
+        // Link to the OTel parent span; keep unique spanId per W3C spec.
         if (traceCtx) {
-          span.spanId = traceCtx.parentSpanId;
-          span.parentSpanId = undefined;
+          span.parentSpanId = traceCtx.parentSpanId;
         }
         span = SpanSerializer.endSpan(span, SpanStatus.ERROR);
         span.durationMs = durationMs;
         span.statusMessage = `${errorName}: ${errorMessage}`;
         span.attributes["stream.chunk_count"] = chunkCount;
+
+        // S7 fix: Distinguish aborts from errors
+        const isAbort =
+          errorName === "AbortError" ||
+          errorMessage.toLowerCase().includes("aborted") ||
+          errorMessage.toLowerCase().includes("abort");
+        span.attributes["error.type"] = isAbort ? "abort" : errorName;
+        if (isAbort) {
+          span.attributes["stream.aborted"] = true;
+        }
 
         this.metricsAggregator.recordSpan(span);
         getMetricsAggregator().recordSpan(span);
@@ -3469,6 +3564,20 @@ Current user's request: ${currentInput}`;
         code: SpanStatusCode.ERROR,
         message: error instanceof Error ? error.message : String(error),
       });
+
+      // G7 fix: Distinguish context overflow errors with dedicated attributes
+      if (error instanceof ContextBudgetExceededError) {
+        generateSpan.setAttribute("neurolink.error.type", "context_overflow");
+        generateSpan.setAttribute(
+          "neurolink.context.estimated_tokens",
+          error.estimatedTokens,
+        );
+        generateSpan.setAttribute(
+          "neurolink.context.available_tokens",
+          error.availableTokens,
+        );
+      }
+
       this.emitGenerateErrorEvent(optionsOrPrompt, error);
       throw error;
     } finally {
@@ -3793,6 +3902,10 @@ Current user's request: ${currentInput}`;
         options.input?.text || (options as Record<string, unknown>).prompt,
       temperature: textOptions.temperature,
       maxTokens: textOptions.maxTokens,
+      // A2 fix: Signal that Pipeline A (AI SDK → @langfuse/otel) already
+      // creates a GENERATION observation for this call. The generation:end
+      // listener should skip creating a duplicate Pipeline B span.
+      pipelineAHandled: true,
     });
     this.emitter.emit("response:end", textResult.content || "");
     this.emitter.emit(
@@ -3862,6 +3975,17 @@ Current user's request: ${currentInput}`;
       "neurolink.finish_reason",
       generateResult.finishReason || "unknown",
     );
+
+    // G3 fix: Record step count and whether max steps was reached
+    // Read steps from the raw provider result (textResult), not the flattened DTO
+    const stepCount = (textResult as { steps?: unknown[] })?.steps?.length ?? 1;
+    const maxSteps = options.maxSteps ?? 200; // DEFAULT_MAX_STEPS
+    generateSpan.setAttribute("neurolink.step_count", stepCount);
+    generateSpan.setAttribute(
+      "neurolink.max_steps_reached",
+      stepCount >= maxSteps,
+    );
+
     generateSpan.setAttribute(
       "neurolink.result_provider",
       generateResult.provider || "unknown",
@@ -6387,6 +6511,7 @@ Current user's request: ${currentInput}`;
             provider: metadata.fallbackProvider ?? providerName,
             model:
               metadata.fallbackModel ?? streamModel ?? enhancedOptions.model,
+            finishReason: streamState.finishReason ?? "stop",
             prompt:
               enhancedOptions.input?.text ||
               (enhancedOptions as Record<string, unknown>).prompt,
@@ -6396,6 +6521,7 @@ Current user's request: ${currentInput}`;
               durationMs: Date.now() - streamStartTime,
               sessionId,
               usage: resolvedUsage,
+              finishReason: streamState.finishReason ?? "stop",
               ...(metadata.fallbackAttempted && {
                 primaryProvider: providerName,
                 primaryModel: enhancedOptions.model,
@@ -7491,23 +7617,20 @@ Current user's request: ${currentInput}`;
       error: error instanceof Error ? error.message : String(error),
     });
 
-    // Record a failed-provider span for the primary provider that threw
+    // S1 fix: Emit stream:error so the Pipeline B listener creates an error span.
+    // S8 fix: The old direct SpanSerializer.createGenerationSpan block is removed —
+    // the stream:error listener now handles span creation, avoiding duplication.
     try {
-      const failedProvider = options.provider || "unknown";
-      const traceCtx = this._metricsTraceContext;
-      let failedSpan = SpanSerializer.createGenerationSpan({
-        provider: failedProvider,
+      this.emitter.emit("stream:error", {
+        content: error instanceof Error ? error.message : String(error),
+        metadata: {
+          errorName: error instanceof Error ? error.name : "UnknownError",
+          durationMs: Date.now() - startTime,
+          chunkCount: 0,
+        },
+        provider: options.provider || "unknown",
         model: options.model || "unknown",
-        name: `gen_ai.${failedProvider}.stream.failed`,
-        traceId: traceCtx?.traceId,
-        parentSpanId: traceCtx?.parentSpanId,
       });
-      failedSpan = SpanSerializer.endSpan(failedSpan, SpanStatus.ERROR);
-      failedSpan.statusMessage =
-        error instanceof Error ? error.message : String(error);
-      failedSpan.durationMs = Date.now() - startTime;
-      this.metricsAggregator.recordSpan(failedSpan);
-      getMetricsAggregator().recordSpan(failedSpan);
     } catch {
       /* non-blocking */
     }
@@ -7559,6 +7682,25 @@ Current user's request: ${currentInput}`;
               contentLength: fallbackAccumulatedContent.length,
             },
           );
+
+          // S6 fix: Emit stream:complete after successful fallback so Pipeline B records it
+          try {
+            self.emitter.emit("stream:complete", {
+              content: fallbackAccumulatedContent,
+              provider: providerName,
+              model: options.model || "unknown",
+              finishReason: "stop",
+              metadata: {
+                durationMs: Date.now() - startTime,
+                chunkCount: 0,
+                totalLength: fallbackAccumulatedContent.length,
+                isFallback: true,
+                finishReason: "stop",
+              },
+            });
+          } catch {
+            /* non-blocking */
+          }
         }
 
         // Store memory after fallback stream consumption is complete
@@ -8848,6 +8990,7 @@ Current user's request: ${currentInput}`;
     executionContext: ReturnType<NeuroLink["createToolExecutionContext"]>,
     toolSpan: ReturnType<typeof tracers.mcp.startSpan>,
   ): Promise<T> {
+    let toolRetryCount = 0;
     try {
       mcpLogger.debug(
         `[${executionContext.functionTag}] Executing tool: ${toolName}`,
@@ -8858,7 +9001,6 @@ Current user's request: ${currentInput}`;
           circuitBreakerState: prepared.circuitBreaker.getState(),
         },
       );
-
       const result: T = await prepared.circuitBreaker.execute(async () => {
         return withRetry(
           async () =>
@@ -8876,6 +9018,7 @@ Current user's request: ${currentInput}`;
             delayMs: prepared.finalOptions.retryDelayMs,
             isRetriable: isRetriableError,
             onRetry: (attempt, error) => {
+              toolRetryCount = attempt;
               mcpLogger.warn(
                 `[${executionContext.functionTag}] Retrying tool execution (attempt ${attempt})`,
                 {
@@ -8888,6 +9031,7 @@ Current user's request: ${currentInput}`;
           },
         );
       });
+      toolSpan.setAttribute("tool.retry_count", toolRetryCount);
 
       return await this.handleSuccessfulToolExecution(
         toolName,
@@ -8897,6 +9041,8 @@ Current user's request: ${currentInput}`;
         toolSpan,
       );
     } catch (error) {
+      // Ensure retry count is recorded even on failure
+      toolSpan.setAttribute("tool.retry_count", toolRetryCount);
       return this.handleFailedToolExecution(
         toolName,
         params,
@@ -8956,6 +9102,21 @@ Current user's request: ${currentInput}`;
       (resultObj && "isError" in resultObj && resultObj.isError === true) ||
       (resultObj && "success" in resultObj && resultObj.success === false);
 
+    const contentArr = isToolError
+      ? (resultObj?.content as
+          | Array<{ type?: string; text?: string }>
+          | undefined)
+      : undefined;
+    const errorText = isToolError
+      ? contentArr
+          ?.filter((content) => content.type === "text" && content.text)
+          .map((content) => content.text)
+          .join(" ") ||
+        (typeof resultObj?.error === "string"
+          ? resultObj.error
+          : "Unknown error")
+      : undefined;
+
     if (isToolError) {
       try {
         await prepared.circuitBreaker.execute(async () => {
@@ -8973,18 +9134,9 @@ Current user's request: ${currentInput}`;
         },
       );
 
-      const contentArr = resultObj?.content as
-        | Array<{ type?: string; text?: string }>
-        | undefined;
-      const errorText =
-        contentArr
-          ?.filter((content) => content.type === "text" && content.text)
-          .map((content) => content.text)
-          .join(" ") ||
-        (typeof resultObj?.error === "string"
-          ? resultObj.error
-          : "Unknown error");
-      const errorCategory = classifyMcpErrorMessage(errorText);
+      const errorCategory = classifyMcpErrorMessage(
+        errorText ?? "Unknown error",
+      );
       const prefix = `[TOOL_ERROR: ${toolName} failed (${errorCategory})] `;
 
       if (resultObj && Array.isArray(contentArr)) {
@@ -8998,11 +9150,14 @@ Current user's request: ${currentInput}`;
         resultObj.content = clonedContent;
       }
 
-      toolSpan.setAttribute("tool.error.message", errorText.substring(0, 500));
+      toolSpan.setAttribute(
+        "tool.error.message",
+        (errorText ?? "Unknown error").substring(0, 500),
+      );
       toolSpan.setAttribute("tool.error.category", errorCategory);
       toolSpan.setStatus({
         code: SpanStatusCode.ERROR,
-        message: `MCP tool returned isError: ${errorText.substring(0, 200)}`,
+        message: `MCP tool returned isError: ${(errorText ?? "Unknown error").substring(0, 200)}`,
       });
 
       prepared.metrics.failedExecutions++;
@@ -9027,6 +9182,7 @@ Current user's request: ${currentInput}`;
       executionContext.executionStartTime,
       !isToolError,
       result,
+      isToolError && errorText ? new Error(errorText) : undefined,
     );
     toolSpan.setAttribute(
       "tool.result.status",
@@ -9068,6 +9224,9 @@ Current user's request: ${currentInput}`;
         executionContext.executionStartTime,
         false,
         undefined,
+        new Error(
+          `Circuit breaker open for ${toolName} (state=${error.breakerState}, failures=${error.failureCount})`,
+        ),
       );
       toolSpan.setAttribute("tool.result.status", "circuit_breaker_open");
       toolSpan.setAttribute("tool.duration_ms", executionTime);

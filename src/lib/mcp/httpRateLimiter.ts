@@ -15,6 +15,7 @@ import {
   SpanStatus,
   getMetricsAggregator,
 } from "../observability/index.js";
+import { getActiveTraceContext } from "../telemetry/traceContext.js";
 /**
  * Default rate limit configuration
  * Provides sensible defaults for most MCP HTTP transport use cases
@@ -95,6 +96,7 @@ export class HTTPRateLimiter {
    * @throws Error if the wait queue is too long
    */
   async acquire(): Promise<void> {
+    const { traceId, parentSpanId } = getActiveTraceContext();
     const span = SpanSerializer.createSpan(
       SpanType.MCP_TRANSPORT,
       "mcp.rateLimit",
@@ -104,6 +106,8 @@ export class HTTPRateLimiter {
         "mcp.rateLimit.tokensAvailable": this.tokens,
         "mcp.rateLimit.maxBurst": this.config.maxBurst,
       },
+      parentSpanId,
+      traceId,
     );
     const startTime = Date.now();
 

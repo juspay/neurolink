@@ -11,6 +11,8 @@ import type {
   RerankResult,
   AIProvider,
 } from "../../types/index.js";
+import { withSpan } from "../../telemetry/withSpan.js";
+import { tracers } from "../../telemetry/tracers.js";
 import { logger } from "../../utils/logger.js";
 
 /**
@@ -42,84 +44,100 @@ export async function rerank(
   model: AIProvider,
   options?: RerankerOptions,
 ): Promise<RerankResult[]> {
-  const {
-    queryEmbedding: _queryEmbedding,
-    topK = 3,
-    weights = DEFAULT_WEIGHTS,
-  } = options || {};
+  return withSpan(
+    {
+      name: "neurolink.rag.rerank",
+      tracer: tracers.rag,
+      attributes: {
+        "rag.reranker.input_count": results.length,
+        "rag.reranker.top_k": options?.topK ?? 3,
+        "rag.reranker.query_length": query.length,
+      },
+    },
+    async (span) => {
+      const {
+        queryEmbedding: _queryEmbedding,
+        topK = 3,
+        weights = DEFAULT_WEIGHTS,
+      } = options || {};
 
-  if (results.length === 0) {
-    return [];
-  }
+      if (results.length === 0) {
+        span.setAttribute("rag.reranker.output_count", 0);
+        return [];
+      }
 
-  // Validate weights sum to 1.0
-  const totalWeight =
-    (weights.semantic || DEFAULT_WEIGHTS.semantic) +
-    (weights.vector || DEFAULT_WEIGHTS.vector) +
-    (weights.position || DEFAULT_WEIGHTS.position);
+      // Validate weights sum to 1.0
+      const totalWeight =
+        (weights.semantic || DEFAULT_WEIGHTS.semantic) +
+        (weights.vector || DEFAULT_WEIGHTS.vector) +
+        (weights.position || DEFAULT_WEIGHTS.position);
 
-  if (Math.abs(totalWeight - 1.0) > 0.01) {
-    logger.warn("[Reranker] Weights do not sum to 1.0, normalizing", {
-      original: weights,
-      total: totalWeight,
-    });
-  }
+      if (Math.abs(totalWeight - 1.0) > 0.01) {
+        logger.warn("[Reranker] Weights do not sum to 1.0, normalizing", {
+          original: weights,
+          total: totalWeight,
+        });
+      }
 
-  const normalizedWeights = {
-    semantic: (weights.semantic || DEFAULT_WEIGHTS.semantic) / totalWeight,
-    vector: (weights.vector || DEFAULT_WEIGHTS.vector) / totalWeight,
-    position: (weights.position || DEFAULT_WEIGHTS.position) / totalWeight,
-  };
-
-  const rerankedResults: RerankResult[] = [];
-
-  // Process results in parallel batches for efficiency
-  const batchSize = 5;
-  for (let i = 0; i < results.length; i += batchSize) {
-    const batch = results.slice(i, i + batchSize);
-    const batchPromises = batch.map(async (result, batchIndex) => {
-      const globalIndex = i + batchIndex;
-
-      // Calculate vector score (use existing score or 0)
-      const vectorScore = result.score ?? 0;
-
-      // Calculate position score (inverse of position)
-      const positionScore = 1 - globalIndex / results.length;
-
-      // Calculate semantic score using LLM
-      const semanticResult = await calculateSemanticScore(
-        query,
-        result.text || (result.metadata?.text as string) || "",
-        model,
-      );
-
-      // Combine scores
-      const combinedScore =
-        normalizedWeights.semantic * semanticResult.score +
-        normalizedWeights.vector * vectorScore +
-        normalizedWeights.position * positionScore;
-
-      return {
-        result,
-        score: combinedScore,
-        details: {
-          semantic: semanticResult.score,
-          vector: vectorScore,
-          position: positionScore,
-          queryAnalysis: semanticResult.analysis,
-        },
+      const normalizedWeights = {
+        semantic: (weights.semantic || DEFAULT_WEIGHTS.semantic) / totalWeight,
+        vector: (weights.vector || DEFAULT_WEIGHTS.vector) / totalWeight,
+        position: (weights.position || DEFAULT_WEIGHTS.position) / totalWeight,
       };
-    });
 
-    const batchResults = await Promise.all(batchPromises);
-    rerankedResults.push(...batchResults);
-  }
+      const rerankedResults: RerankResult[] = [];
 
-  // Sort by combined score descending
-  rerankedResults.sort((a, b) => b.score - a.score);
+      // Process results in parallel batches for efficiency
+      const batchSize = 5;
+      for (let i = 0; i < results.length; i += batchSize) {
+        const batch = results.slice(i, i + batchSize);
+        const batchPromises = batch.map(async (result, batchIndex) => {
+          const globalIndex = i + batchIndex;
 
-  // Return top K results
-  return rerankedResults.slice(0, topK);
+          // Calculate vector score (use existing score or 0)
+          const vectorScore = result.score ?? 0;
+
+          // Calculate position score (inverse of position)
+          const positionScore = 1 - globalIndex / results.length;
+
+          // Calculate semantic score using LLM
+          const semanticResult = await calculateSemanticScore(
+            query,
+            result.text || (result.metadata?.text as string) || "",
+            model,
+          );
+
+          // Combine scores
+          const combinedScore =
+            normalizedWeights.semantic * semanticResult.score +
+            normalizedWeights.vector * vectorScore +
+            normalizedWeights.position * positionScore;
+
+          return {
+            result,
+            score: combinedScore,
+            details: {
+              semantic: semanticResult.score,
+              vector: vectorScore,
+              position: positionScore,
+              queryAnalysis: semanticResult.analysis,
+            },
+          };
+        });
+
+        const batchResults = await Promise.all(batchPromises);
+        rerankedResults.push(...batchResults);
+      }
+
+      // Sort by combined score descending
+      rerankedResults.sort((a, b) => b.score - a.score);
+
+      // Return top K results
+      const output = rerankedResults.slice(0, topK);
+      span.setAttribute("rag.reranker.output_count", output.length);
+      return output;
+    },
+  ); // end withSpan
 }
 
 /**
@@ -187,33 +205,46 @@ export async function batchRerank(
   model: AIProvider,
   options?: RerankerOptions,
 ): Promise<RerankResult[]> {
-  const { topK = 3, weights = DEFAULT_WEIGHTS } = options || {};
+  return withSpan(
+    {
+      name: "neurolink.rag.batchRerank",
+      tracer: tracers.rag,
+      attributes: {
+        "rag.reranker.input_count": results.length,
+        "rag.reranker.top_k": options?.topK ?? 3,
+        "rag.reranker.query_length": query.length,
+        "rag.reranker.batch": true,
+      },
+    },
+    async (span) => {
+      const { topK = 3, weights = DEFAULT_WEIGHTS } = options || {};
 
-  if (results.length === 0) {
-    return [];
-  }
+      if (results.length === 0) {
+        span.setAttribute("rag.reranker.output_count", 0);
+        return [];
+      }
 
-  // Normalize weights
-  const totalWeight =
-    (weights.semantic || DEFAULT_WEIGHTS.semantic) +
-    (weights.vector || DEFAULT_WEIGHTS.vector) +
-    (weights.position || DEFAULT_WEIGHTS.position);
+      // Normalize weights
+      const totalWeight =
+        (weights.semantic || DEFAULT_WEIGHTS.semantic) +
+        (weights.vector || DEFAULT_WEIGHTS.vector) +
+        (weights.position || DEFAULT_WEIGHTS.position);
 
-  const normalizedWeights = {
-    semantic: (weights.semantic || DEFAULT_WEIGHTS.semantic) / totalWeight,
-    vector: (weights.vector || DEFAULT_WEIGHTS.vector) / totalWeight,
-    position: (weights.position || DEFAULT_WEIGHTS.position) / totalWeight,
-  };
+      const normalizedWeights = {
+        semantic: (weights.semantic || DEFAULT_WEIGHTS.semantic) / totalWeight,
+        vector: (weights.vector || DEFAULT_WEIGHTS.vector) / totalWeight,
+        position: (weights.position || DEFAULT_WEIGHTS.position) / totalWeight,
+      };
 
-  // Build batch scoring prompt
-  const documentsText = results
-    .map(
-      (r, i) =>
-        `[${i + 1}] ${(r.text || (r.metadata?.text as string) || "").slice(0, 300)}`,
-    )
-    .join("\n\n");
+      // Build batch scoring prompt
+      const documentsText = results
+        .map(
+          (r, i) =>
+            `[${i + 1}] ${(r.text || (r.metadata?.text as string) || "").slice(0, 300)}`,
+        )
+        .join("\n\n");
 
-  const prompt = `Rate the relevance of each document to the query on a scale of 0 to 1.
+      const prompt = `Rate the relevance of each document to the query on a scale of 0 to 1.
 
 Query: ${query}
 
@@ -223,65 +254,72 @@ ${documentsText}
 For each document, provide a score between 0 and 1.
 Respond with only the scores, one per line, in order:`;
 
-  try {
-    const result = await model.generate({
-      prompt,
-      maxTokens: 50,
-      temperature: 0,
-    });
+      try {
+        const result = await model.generate({
+          prompt,
+          maxTokens: 50,
+          temperature: 0,
+        });
 
-    // Parse scores from response
-    const scoreLines = (result?.content || "")
-      .trim()
-      .split("\n")
-      .map((line: string) => line.trim())
-      .filter((line: string) => line.length > 0);
+        // Parse scores from response
+        const scoreLines = (result?.content || "")
+          .trim()
+          .split("\n")
+          .map((line: string) => line.trim())
+          .filter((line: string) => line.length > 0);
 
-    const semanticScores: number[] = [];
-    for (let i = 0; i < results.length; i++) {
-      const scoreLine = scoreLines[i];
-      if (scoreLine) {
-        const score = parseFloat(scoreLine.match(/[\d.]+/)?.[0] || "0.5");
-        semanticScores.push(
-          isNaN(score) || score < 0 || score > 1 ? 0.5 : score,
+        const semanticScores: number[] = [];
+        for (let i = 0; i < results.length; i++) {
+          const scoreLine = scoreLines[i];
+          if (scoreLine) {
+            const score = parseFloat(scoreLine.match(/[\d.]+/)?.[0] || "0.5");
+            semanticScores.push(
+              isNaN(score) || score < 0 || score > 1 ? 0.5 : score,
+            );
+          } else {
+            semanticScores.push(0.5);
+          }
+        }
+
+        // Calculate combined scores
+        const rerankedResults: RerankResult[] = results.map((result, i) => {
+          const vectorScore = result.score ?? 0;
+          const positionScore = 1 - i / results.length;
+          const semanticScore = semanticScores[i] ?? 0.5;
+
+          const combinedScore =
+            normalizedWeights.semantic * semanticScore +
+            normalizedWeights.vector * vectorScore +
+            normalizedWeights.position * positionScore;
+
+          return {
+            result,
+            score: combinedScore,
+            details: {
+              semantic: semanticScore,
+              vector: vectorScore,
+              position: positionScore,
+            },
+          };
+        });
+
+        // Sort and return top K
+        rerankedResults.sort((a, b) => b.score - a.score);
+        const output = rerankedResults.slice(0, topK);
+        span.setAttribute("rag.reranker.output_count", output.length);
+        return output;
+      } catch (error) {
+        logger.warn(
+          "[Reranker] Batch scoring failed, using individual scoring",
+          {
+            error: error instanceof Error ? error.message : String(error),
+          },
         );
-      } else {
-        semanticScores.push(0.5);
+        // Fall back to individual scoring
+        return rerank(results, query, model, options);
       }
-    }
-
-    // Calculate combined scores
-    const rerankedResults: RerankResult[] = results.map((result, i) => {
-      const vectorScore = result.score ?? 0;
-      const positionScore = 1 - i / results.length;
-      const semanticScore = semanticScores[i] ?? 0.5;
-
-      const combinedScore =
-        normalizedWeights.semantic * semanticScore +
-        normalizedWeights.vector * vectorScore +
-        normalizedWeights.position * positionScore;
-
-      return {
-        result,
-        score: combinedScore,
-        details: {
-          semantic: semanticScore,
-          vector: vectorScore,
-          position: positionScore,
-        },
-      };
-    });
-
-    // Sort and return top K
-    rerankedResults.sort((a, b) => b.score - a.score);
-    return rerankedResults.slice(0, topK);
-  } catch (error) {
-    logger.warn("[Reranker] Batch scoring failed, using individual scoring", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    // Fall back to individual scoring
-    return rerank(results, query, model, options);
-  }
+    },
+  ); // end withSpan
 }
 
 /**

@@ -6,6 +6,8 @@
 import { logger } from "../../utils/logger.js";
 import { OpenAPIGenerator } from "../openapi/generator.js";
 import type { RouteDefinition, RouteGroup } from "../../types/index.js";
+import { withSpan } from "../../telemetry/withSpan.js";
+import { tracers } from "../../telemetry/tracers.js";
 
 /**
  * Create OpenAPI documentation routes
@@ -53,64 +55,99 @@ export function createOpenApiRoutes(
       {
         method: "GET",
         path: `${basePath}/openapi.json`,
-        handler: async () => {
-          const routes = getRoutes?.() ?? [];
+        handler: async () =>
+          withSpan(
+            {
+              name: "neurolink.http.openapi.json",
+              tracer: tracers.http,
+              attributes: {
+                "http.route": `${basePath}/openapi.json`,
+                "openapi.format": "json",
+              },
+            },
+            async (span) => {
+              const routes = getRoutes?.() ?? [];
 
-          if (!getRoutes) {
-            logger.warn(
-              "[OpenAPI] No getRoutes callback provided. OpenAPI spec will use default endpoint definitions. " +
-                "Use registerAllRoutes(server, basePath, { enableSwagger: true }) to automatically include your routes.",
-            );
-          } else if (routes.length === 0) {
-            logger.debug(
-              "[OpenAPI] getRoutes returned empty array. No custom routes will be documented.",
-            );
-          }
+              if (!getRoutes) {
+                logger.warn(
+                  "[OpenAPI] No getRoutes callback provided. OpenAPI spec will use default endpoint definitions. " +
+                    "Use registerAllRoutes(server, basePath, { enableSwagger: true }) to automatically include your routes.",
+                );
+              } else if (routes.length === 0) {
+                logger.debug(
+                  "[OpenAPI] getRoutes returned empty array. No custom routes will be documented.",
+                );
+              }
 
-          const generator = new OpenAPIGenerator({
-            basePath,
-            routes,
-          });
-          return generator.generate();
-        },
+              span.setAttribute("openapi.route_count", routes.length);
+
+              const generator = new OpenAPIGenerator({
+                basePath,
+                routes,
+              });
+              return generator.generate();
+            },
+          ),
         description: "Get OpenAPI specification as JSON",
         tags: ["openapi", "documentation"],
       },
       {
         method: "GET",
         path: `${basePath}/openapi.yaml`,
-        handler: async () => {
-          const routes = getRoutes?.() ?? [];
+        handler: async () =>
+          withSpan(
+            {
+              name: "neurolink.http.openapi.yaml",
+              tracer: tracers.http,
+              attributes: {
+                "http.route": `${basePath}/openapi.yaml`,
+                "openapi.format": "yaml",
+              },
+            },
+            async (span) => {
+              const routes = getRoutes?.() ?? [];
 
-          if (!getRoutes) {
-            logger.warn(
-              "[OpenAPI] No getRoutes callback provided. OpenAPI spec will use default endpoint definitions. " +
-                "Use registerAllRoutes(server, basePath, { enableSwagger: true }) to automatically include your routes.",
-            );
-          } else if (routes.length === 0) {
-            logger.debug(
-              "[OpenAPI] getRoutes returned empty array. No custom routes will be documented.",
-            );
-          }
+              if (!getRoutes) {
+                logger.warn(
+                  "[OpenAPI] No getRoutes callback provided. OpenAPI spec will use default endpoint definitions. " +
+                    "Use registerAllRoutes(server, basePath, { enableSwagger: true }) to automatically include your routes.",
+                );
+              } else if (routes.length === 0) {
+                logger.debug(
+                  "[OpenAPI] getRoutes returned empty array. No custom routes will be documented.",
+                );
+              }
 
-          const generator = new OpenAPIGenerator({
-            basePath,
-            routes,
-          });
-          return {
-            _raw: true,
-            contentType: "text/yaml",
-            body: generator.toYAML(),
-          };
-        },
+              span.setAttribute("openapi.route_count", routes.length);
+
+              const generator = new OpenAPIGenerator({
+                basePath,
+                routes,
+              });
+              return {
+                _raw: true,
+                contentType: "text/yaml",
+                body: generator.toYAML(),
+              };
+            },
+          ),
         description: "Get OpenAPI specification as YAML",
         tags: ["openapi", "documentation"],
       },
       {
         method: "GET",
         path: `${basePath}/docs`,
-        handler: async () => {
-          const html = `<!DOCTYPE html>
+        handler: async () =>
+          withSpan(
+            {
+              name: "neurolink.http.openapi.docs",
+              tracer: tracers.http,
+              attributes: {
+                "http.route": `${basePath}/docs`,
+              },
+            },
+            async () => {
+              const html = `<!DOCTYPE html>
 <html>
 <head>
   <title>NeuroLink API Documentation</title>
@@ -131,12 +168,13 @@ export function createOpenApiRoutes(
   </script>
 </body>
 </html>`;
-          return {
-            _raw: true,
-            contentType: "text/html",
-            body: html,
-          };
-        },
+              return {
+                _raw: true,
+                contentType: "text/html",
+                body: html,
+              };
+            },
+          ),
         description: "Swagger UI documentation page",
         tags: ["openapi", "documentation"],
       },

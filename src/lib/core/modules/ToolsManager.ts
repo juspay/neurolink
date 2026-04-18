@@ -610,7 +610,14 @@ export class ToolsManager {
                 "tool.result.status",
                 errorResult ? "error" : "success",
               );
-              customToolSpan.setStatus({ code: SpanStatusCode.OK });
+              if (errorResult) {
+                customToolSpan.setStatus({
+                  code: SpanStatusCode.ERROR,
+                  message: `Tool ${toolName} returned isError: true`,
+                });
+              } else {
+                customToolSpan.setStatus({ code: SpanStatusCode.OK });
+              }
 
               return convertedResult;
             }
@@ -668,7 +675,14 @@ export class ToolsManager {
               "tool.result.status",
               errorResult ? "error" : "success",
             );
-            customToolSpan.setStatus({ code: SpanStatusCode.OK });
+            if (errorResult) {
+              customToolSpan.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: `Tool ${toolName} returned isError: true`,
+              });
+            } else {
+              customToolSpan.setStatus({ code: SpanStatusCode.OK });
+            }
 
             return convertedResult;
           } catch (error) {

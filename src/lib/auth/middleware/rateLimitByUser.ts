@@ -1,9 +1,16 @@
 // src/lib/auth/middleware/rateLimitByUser.ts
 
 import type {
-  AuthenticatedContext,
+  AtomicConsumeResult,
+  AuthRateLimitConfig,
+  AuthRateLimitRedisClient,
   AuthRequestContext,
   AuthUser,
+  AuthenticatedContext,
+  RateLimitMiddlewareResult,
+  RateLimitResult,
+  RateLimitStorage,
+  TokenBucket,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 
@@ -11,96 +18,6 @@ import { logger } from "../../utils/logger.js";
 function maskUserId(id: string): string {
   return id.length > 4 ? `${id.slice(0, 4)}***` : "***";
 }
-
-/**
- * Token bucket state for a single user
- */
-type TokenBucket = {
-  /** Current number of tokens available */
-  tokens: number;
-  /** Last time tokens were added */
-  lastRefill: number;
-  /** User identifier */
-  userId: string;
-};
-
-/**
- * Rate limit configuration per user or role
- */
-type RateLimitConfig = {
-  /** Maximum requests allowed in the window */
-  maxRequests: number;
-  /** Time window in milliseconds */
-  windowMs: number;
-  /** Optional: Different limits per role (role -> maxRequests) */
-  roleLimits?: Record<string, number>;
-  /** Optional: Different limits per user ID (userId -> maxRequests) */
-  userLimits?: Record<string, number>;
-  /** Skip rate limiting for these roles */
-  skipRoles?: string[];
-  /** Error message when rate limited */
-  message?: string;
-};
-
-/**
- * Rate limit result
- */
-type RateLimitResult = {
-  /** Whether the request is allowed */
-  allowed: boolean;
-  /** Remaining requests in the current window */
-  remaining: number;
-  /** Time until the bucket resets (ms) */
-  resetIn: number;
-  /** Total limit for this user */
-  limit: number;
-  /** Error message if rate limited */
-  error?: string;
-};
-
-/**
- * Result of an atomic consume operation
- */
-type AtomicConsumeResult = {
-  /** Updated bucket after the operation */
-  bucket: TokenBucket;
-  /** Whether a token was successfully consumed */
-  consumed: boolean;
-};
-
-/**
- * Interface for rate limit storage backends
- */
-type RateLimitStorage = {
-  /** Get the current bucket for a user */
-  getBucket(userId: string): Promise<TokenBucket | null>;
-  /** Set the bucket for a user */
-  setBucket(userId: string, bucket: TokenBucket): Promise<void>;
-  /** Delete a bucket (for cleanup) */
-  deleteBucket(userId: string): Promise<void>;
-  /** Check storage health */
-  healthCheck(): Promise<boolean>;
-  /** Cleanup resources */
-  cleanup(): Promise<void>;
-  /**
-   * Atomically refill and consume a token from the bucket.
-   *
-   * Implementations SHOULD perform the refill-and-consume in a single
-   * atomic step (e.g. Lua script for Redis) to prevent race conditions
-   * where parallel requests read the same token count and both succeed.
-   *
-   * The default in-memory implementation is inherently single-threaded,
-   * so atomicity comes for free.
-   *
-   * @returns null when no bucket exists yet (caller should create one)
-   */
-  atomicConsume?(
-    userId: string,
-    limit: number,
-    windowMs: number,
-    nowMs: number,
-  ): Promise<AtomicConsumeResult | null>;
-};
 
 /**
  * In-memory storage for rate limiting (single instance deployments)
@@ -162,8 +79,8 @@ export class RedisRateLimitStorage implements RateLimitStorage {
   private redisUrl: string;
   private prefix: string;
   private ttlSeconds: number;
-  private client: RedisClient | null = null;
-  private initPromise: Promise<RedisClient> | null = null;
+  private client: AuthRateLimitRedisClient | null = null;
+  private initPromise: Promise<AuthRateLimitRedisClient> | null = null;
 
   constructor(config: {
     url: string;
@@ -179,7 +96,7 @@ export class RedisRateLimitStorage implements RateLimitStorage {
     this.ttlSeconds = Math.max(baseTtl, windowTtl);
   }
 
-  private async getClient(): Promise<RedisClient> {
+  private async getClient(): Promise<AuthRateLimitRedisClient> {
     if (this.client) {
       return this.client;
     }
@@ -191,13 +108,13 @@ export class RedisRateLimitStorage implements RateLimitStorage {
     return this.initPromise;
   }
 
-  private async createClient(): Promise<RedisClient> {
+  private async createClient(): Promise<AuthRateLimitRedisClient> {
     try {
       // Dynamic import to avoid loading Redis unless needed
       const { createClient } = await import("redis");
       const client = createClient({ url: this.redisUrl });
       await client.connect();
-      this.client = client as unknown as RedisClient;
+      this.client = client as unknown as AuthRateLimitRedisClient;
       return this.client;
     } catch {
       this.initPromise = null;
@@ -365,15 +282,6 @@ export class RedisRateLimitStorage implements RateLimitStorage {
 }
 
 // Type for Redis client (simplified interface)
-type RedisClient = {
-  connect(): Promise<void>;
-  quit(): Promise<void>;
-  ping(): Promise<string>;
-  get(key: string): Promise<string | null>;
-  setEx(key: string, seconds: number, value: string): Promise<void>;
-  del(key: string): Promise<number>;
-  eval(script: string, numkeys: number, ...args: string[]): Promise<unknown>;
-};
 
 /**
  * Token bucket rate limiter implementation
@@ -384,9 +292,9 @@ type RedisClient = {
  */
 export class UserRateLimiter {
   private storage: RateLimitStorage;
-  private config: RateLimitConfig;
+  private config: AuthRateLimitConfig;
 
-  constructor(config: RateLimitConfig, storage?: RateLimitStorage) {
+  constructor(config: AuthRateLimitConfig, storage?: RateLimitStorage) {
     this.config = {
       message: "Rate limit exceeded. Please try again later.",
       ...config,
@@ -616,14 +524,6 @@ export class UserRateLimiter {
 /**
  * Middleware result type
  */
-type RateLimitMiddlewareResult = {
-  /** Whether to proceed with the request */
-  proceed: boolean;
-  /** Rate limit result */
-  rateLimitResult: RateLimitResult;
-  /** Error response if rate limited */
-  response?: Response;
-};
 
 /**
  * Create rate limiting middleware for authenticated requests
@@ -655,7 +555,7 @@ type RateLimitMiddlewareResult = {
  * ```
  */
 export function createRateLimitByUserMiddleware(
-  config: RateLimitConfig,
+  config: AuthRateLimitConfig,
   storage?: RateLimitStorage,
 ): (context: AuthenticatedContext) => Promise<RateLimitMiddlewareResult> {
   const limiter = new UserRateLimiter(config, storage);
@@ -712,7 +612,7 @@ export function createAuthenticatedRateLimitMiddleware(
     context?: AuthenticatedContext;
     response?: Response;
   }>,
-  rateLimitConfig: RateLimitConfig,
+  rateLimitConfig: AuthRateLimitConfig,
   storage?: RateLimitStorage,
 ): (context: AuthRequestContext) => Promise<{
   proceed: boolean;

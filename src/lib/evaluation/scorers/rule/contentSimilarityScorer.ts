@@ -4,58 +4,15 @@
  */
 
 import type {
-  RuleScorerConfig,
+  ContentSimilarityConfig,
   ScoreResult,
   ScorerInput,
   ScorerMetadata,
+  SimilarityDetails,
+  SimilarityMetric,
 } from "../../../types/index.js";
 import { BaseScorer } from "../baseScorer.js";
 import { DEFAULT_RULE_SCORER_CONFIG } from "./baseRuleScorer.js";
-
-/**
- * Similarity metric types
- */
-type SimilarityMetric =
-  | "jaccard"
-  | "cosine"
-  | "levenshtein"
-  | "dice"
-  | "overlap";
-
-/**
- * Configuration specific to content similarity scoring
- */
-type ContentSimilarityConfig = RuleScorerConfig & {
-  /** Similarity metric to use */
-  metric?: SimilarityMetric;
-  /** Multiple metrics to combine */
-  metrics?: SimilarityMetric[];
-  /** How to combine multiple metrics */
-  metricCombination?: "average" | "min" | "max" | "weighted";
-  /** Weights for each metric (if weighted combination) */
-  metricWeights?: Record<SimilarityMetric, number>;
-  /** Whether to normalize text before comparison */
-  normalizeText?: boolean;
-  /** Whether to use word-level or character-level comparison */
-  tokenLevel?: "word" | "character" | "ngram";
-  /** N-gram size if using ngram tokenization */
-  ngramSize?: number;
-  /** Compare against ground truth, context, or custom reference */
-  compareWith?: "groundTruth" | "context" | "custom";
-  /** Custom reference text if compareWith is "custom" */
-  referenceText?: string;
-};
-
-/**
- * Similarity calculation result
- */
-type SimilarityDetails = {
-  metric: SimilarityMetric;
-  score: number;
-  responseTokens: number;
-  referenceTokens: number;
-  commonTokens?: number;
-};
 
 /**
  * Scorer metadata for content similarity

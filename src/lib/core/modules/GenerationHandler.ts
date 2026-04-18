@@ -30,10 +30,13 @@ import type {
   AISDKGenerateResult,
   EnhancedGenerateResult,
   ExtendedTool,
+  NeuroLinkEvents,
   StandardRecord,
   TextGenerationOptions,
+  TypedEventEmitter,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
+import { emitToolEndFromStepFinish } from "../../utils/toolEndEmitter.js";
 import { calculateCost } from "../../utils/pricing.js";
 import { withProviderRetry } from "../../utils/providerRetry.js";
 import {
@@ -86,6 +89,9 @@ export class GenerationHandler {
       options: TextGenerationOptions,
       timestamp: Date,
     ) => Promise<void>,
+    private readonly getEmitterFn?: () =>
+      | TypedEventEmitter<NeuroLinkEvents>
+      | undefined,
   ) {}
 
   /**
@@ -212,6 +218,20 @@ export class GenerationHandler {
       experimental_telemetry: this.getTelemetryConfigFn(options, "generate"),
       onStepFinish: ({ toolCalls, toolResults }) => {
         logger.info("Tool execution completed", { toolResults, toolCalls });
+
+        // Emit tool:end events for Pipeline B (metrics aggregator).
+        // This surfaces AI-SDK-driven tool completions as telemetry events
+        // so that tool spans are created even when the SDK runs tools
+        // internally (gaps G5 / S2).
+        emitToolEndFromStepFinish(
+          this.getEmitterFn?.(),
+          toolResults as Array<{
+            toolName: string;
+            output?: unknown;
+            result?: unknown;
+            error?: string;
+          }>,
+        );
 
         // Handle tool execution storage
         this.handleToolStorageFn(

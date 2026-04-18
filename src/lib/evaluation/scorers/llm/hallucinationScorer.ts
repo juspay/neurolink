@@ -4,6 +4,7 @@
  */
 
 import type {
+  HallucinationItem,
   LLMScorerConfig,
   ScoreResult,
   ScorerInput,
@@ -134,11 +135,6 @@ export class HallucinationScorer extends BaseLLMScorer {
       };
     }
 
-    type HallucinationItem = {
-      text?: string;
-      reason?: string;
-      severity?: string;
-    };
     const hallucinations: HallucinationItem[] = Array.isArray(
       json.hallucinations,
     )

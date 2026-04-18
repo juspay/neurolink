@@ -7,10 +7,7 @@
  */
 
 import { withRetry } from "../../core/infrastructure/index.js";
-import type {
-  AsyncRetryOptions as _RetryOptions,
-  RAGRetryConfig,
-} from "../../types/index.js";
+import type { RAGRetryConfig } from "../../types/index.js";
 import { isAbortError } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
 import {

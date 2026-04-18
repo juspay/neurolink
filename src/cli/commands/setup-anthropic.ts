@@ -17,30 +17,19 @@ import chalk from "chalk";
 import ora from "ora";
 import { logger } from "../../lib/utils/logger.js";
 import { getTopModelChoices } from "../../lib/utils/modelChoices.js";
-import { AIProviderName } from "../../lib/types/index.js";
+import {
+  AIProviderName,
+  type ProviderSetupArgv,
+  type ProviderSetupConfig,
+  type ProviderSetupOptions,
+} from "../../lib/types/index.js";
 import { maskCredential } from "../utils/maskCredential.js";
 
-type AnthropicSetupOptions = {
-  checkOnly?: boolean;
-  interactive?: boolean;
-};
-
-type AnthropicSetupArgv = {
-  check?: boolean;
-  nonInteractive?: boolean;
-};
-
-type AnthropicConfig = {
-  apiKey?: string;
-  model?: string;
-  isReconfiguring?: boolean;
-};
-
 export async function handleAnthropicSetup(
-  argv: AnthropicSetupArgv,
+  argv: ProviderSetupArgv,
 ): Promise<void> {
   try {
-    const options: AnthropicSetupOptions = {
+    const options: ProviderSetupOptions = {
       checkOnly: argv.check || false,
       interactive: !argv.nonInteractive,
     };
@@ -73,7 +62,7 @@ export async function handleAnthropicSetup(
       return;
     }
 
-    const config: AnthropicConfig = {};
+    const config: ProviderSetupConfig = {};
 
     // Step 2: Handle existing configuration
     if (hasApiKey) {
@@ -362,7 +351,7 @@ async function promptForModel(): Promise<string> {
 /**
  * Update .env file with Anthropic configuration
  */
-async function updateEnvFile(config: AnthropicConfig): Promise<void> {
+async function updateEnvFile(config: ProviderSetupConfig): Promise<void> {
   const envPath = path.join(process.cwd(), ".env");
   const spinner = ora("💾 Updating .env file...").start();
 

@@ -4,7 +4,9 @@
  */
 
 import type {
-  RuleScorerConfig,
+  LengthMeasurement,
+  LengthScorerConfig,
+  LengthUnit,
   ScoreResult,
   ScorerInput,
   ScorerMetadata,
@@ -14,56 +16,6 @@ import {
   BaseRuleScorer,
   DEFAULT_RULE_SCORER_CONFIG,
 } from "./baseRuleScorer.js";
-
-/**
- * Length measurement unit
- */
-type LengthUnit =
-  | "words"
-  | "characters"
-  | "sentences"
-  | "paragraphs"
-  | "tokens";
-
-/**
- * Length constraint type
- */
-type LengthConstraintType = "exact" | "range" | "minimum" | "maximum" | "ratio";
-
-/**
- * Configuration specific to length scoring
- */
-type LengthScorerConfig = RuleScorerConfig & {
-  /** Unit of measurement */
-  unit?: LengthUnit;
-  /** Constraint type */
-  constraintType?: LengthConstraintType;
-  /** Minimum length (for range/minimum constraints) */
-  minLength?: number;
-  /** Maximum length (for range/maximum constraints) */
-  maxLength?: number;
-  /** Exact length (for exact constraint) */
-  exactLength?: number;
-  /** Tolerance for exact length (as percentage) */
-  tolerance?: number;
-  /** Compare ratio with query/context length */
-  ratioTarget?: number;
-  /** Ratio reference: compare against query or context */
-  ratioReference?: "query" | "context";
-  /** Scoring mode: binary (pass/fail) or proportional */
-  scoringMode?: "binary" | "proportional";
-};
-
-/**
- * Length measurement result
- */
-type LengthMeasurement = {
-  words: number;
-  characters: number;
-  sentences: number;
-  paragraphs: number;
-  estimatedTokens: number;
-};
 
 /**
  * Scorer metadata for length

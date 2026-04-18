@@ -8,36 +8,14 @@ import type {
   ExporterHealthStatus,
   ExportResult,
   SentryExporterConfig,
+  SentryModule,
+  SentryScope,
   SpanData,
 } from "../../types/index.js";
 import { SpanStatus } from "../../types/index.js";
 import { BaseExporter } from "./baseExporter.js";
 
 // Sentry types - optional dependency
-type SentryModule = {
-  init: (options: {
-    dsn: string;
-    tracesSampleRate: number;
-    release?: string;
-    environment: string;
-  }) => void;
-  withScope: (callback: (scope: SentryScope) => void) => void;
-  captureException: (error: Error) => void;
-  startInactiveSpan: (options: {
-    name: string;
-    op: string;
-    startTime: number;
-    attributes?: Record<string, unknown>;
-  }) => { end: (timestamp?: number) => void };
-  flush: (timeout: number) => Promise<boolean>;
-  close: (timeout: number) => Promise<boolean>;
-};
-
-type SentryScope = {
-  setTags: (tags: Record<string, string>) => void;
-  setContext: (name: string, context: Record<string, unknown>) => void;
-  setUser: (user: { id: string }) => void;
-};
 
 /**
  * Sentry exporter for error tracking and performance monitoring

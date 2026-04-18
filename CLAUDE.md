@@ -45,10 +45,11 @@ These are non-negotiable. Violating them breaks the build or introduces bugs.
 
 13. **Barrel-only imports for internal types** — Code outside `src/lib/types/` must import internal types from the barrel (`../types/index.js` or `../types`), never from specific type files (`../types/rag.js`, `../types/mcp.js`). External library types (`zod`, `@ai-sdk/provider`, etc.) can be imported normally. Files inside `src/lib/types/` are exempt (they import from each other).
 
-**Enforcement:** All rules (7-13) are enforced by custom ESLint rules in `eslint-rules/`. Run `pnpm run lint` (or the pre-commit hook) — no shell scripts, no regex heuristics, everything AST-based.
+**Enforcement:** All rules (2, 7-13) are enforced by custom ESLint rules in `eslint-rules/`. Run `pnpm run lint` (or the pre-commit hook) — no shell scripts, no regex heuristics, everything AST-based.
 
 | Rule     | ESLint rule                              |
 | -------- | ---------------------------------------- |
+| 2        | `neurolink/no-local-type-alias`          |
 | 7        | `neurolink/no-interface`                 |
 | 8        | `neurolink/no-types-suffix-filename`     |
 | 9        | `neurolink/unique-type-names`            |

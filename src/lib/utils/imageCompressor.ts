@@ -1,9 +1,17 @@
 import sharp from "sharp";
 import { withTimeout } from "./async/index.js";
-import type { ProviderName } from "../types/index.js";
+import type {
+  CompressionOptions,
+  CompressionResult,
+  ProviderName,
+  SupportedFormat,
+} from "../types/index.js";
 
-const SUPPORTED_FORMATS = ["jpeg", "png", "webp"] as const;
-type SupportedFormat = (typeof SUPPORTED_FORMATS)[number];
+const SUPPORTED_FORMATS: readonly SupportedFormat[] = [
+  "jpeg",
+  "png",
+  "webp",
+] as const;
 
 const IMAGE_COMPRESSION_TIMEOUT_MS = 30_000;
 
@@ -25,25 +33,6 @@ export const PROVIDER_IMAGE_LIMITS: Record<ProviderName, number> = {
   sagemaker: 5 * 1024 * 1024, // 5MB
   litellm: 20 * 1024 * 1024, // 20MB (proxy, use OpenAI default)
   auto: 5 * 1024 * 1024, // 5MB (conservative fallback)
-};
-
-type CompressionOptions = {
-  provider: ProviderName;
-  quality?: number; // 1-100, default 80
-  maxDimension?: number; // Max width/height in pixels
-  format?: SupportedFormat;
-};
-
-type CompressionResult = {
-  buffer: Buffer;
-  originalSize: number;
-  compressedSize: number;
-  compressionRatio: number;
-  metadata: {
-    width: number;
-    height: number;
-    format: string;
-  };
 };
 
 /**

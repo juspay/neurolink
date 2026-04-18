@@ -1,10 +1,7 @@
 import type { CommandModule } from "yargs";
+import type { VoiceServerArgs } from "../../lib/types/index.js";
 import { startVoiceServer } from "../../lib/server/voice/voiceServerApp.js";
 import { configureVoiceServerEnvironment } from "../../lib/server/voice/voiceWebSocketHandler.js";
-
-type VoiceServerArgs = {
-  port: number;
-};
 
 export const voiceServerCommand: CommandModule<object, VoiceServerArgs> = {
   command: "voice-server",

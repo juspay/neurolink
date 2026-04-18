@@ -4,6 +4,7 @@
  */
 
 import type {
+  ContextScoreItem,
   LLMScorerConfig,
   ScoreResult,
   ScorerInput,
@@ -100,12 +101,6 @@ export class ContextRelevancyScorer extends BaseLLMScorer {
       };
     }
 
-    type ContextScoreItem = {
-      index?: number;
-      score?: number;
-      reasoning?: string;
-      keyInfo?: string[];
-    };
     const contextScores: ContextScoreItem[] = Array.isArray(json.contextScores)
       ? (json.contextScores as ContextScoreItem[])
       : [];

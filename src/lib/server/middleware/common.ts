@@ -10,6 +10,8 @@ import {
   SpanStatus,
   SpanType,
 } from "../../observability/index.js";
+import { SpanStatusCode } from "@opentelemetry/api";
+import { tracers } from "../../telemetry/tracers.js";
 import { logger } from "../../utils/logger.js";
 
 /**
@@ -26,48 +28,67 @@ export function createTimingMiddleware(): MiddlewareDefinition {
     name: "timing",
     order: 0, // Run first
     handler: async (ctx, next) => {
-      const startTime = Date.now();
-      const startHrTime = process.hrtime.bigint();
+      return tracers.middleware.startActiveSpan(
+        "neurolink.middleware.timing",
+        async (otelSpan) => {
+          try {
+            const startTime = Date.now();
+            const startHrTime = process.hrtime.bigint();
 
-      // Store start time in metadata
-      ctx.metadata.requestStartTime = startTime;
+            // Store start time in metadata
+            ctx.metadata.requestStartTime = startTime;
 
-      const span = SpanSerializer.createSpan(
-        SpanType.SERVER_REQUEST,
-        "server.middleware.timing",
-        {
-          "server.operation": "middleware",
-          "server.middleware": "timing",
+            const span = SpanSerializer.createSpan(
+              SpanType.SERVER_REQUEST,
+              "server.middleware.timing",
+              {
+                "server.operation": "middleware",
+                "server.middleware": "timing",
+              },
+            );
+
+            try {
+              const result = await next();
+
+              // Calculate duration
+              const endHrTime = process.hrtime.bigint();
+              const durationNs = Number(endHrTime - startHrTime);
+              const durationMs = durationNs / 1_000_000;
+
+              // Add timing headers to responseHeaders (adapters read from here)
+              ctx.responseHeaders = ctx.responseHeaders || {};
+              ctx.responseHeaders["X-Response-Time"] =
+                `${durationMs.toFixed(2)}ms`;
+              ctx.responseHeaders["Server-Timing"] =
+                `total;dur=${durationMs.toFixed(2)}`;
+
+              span.durationMs = Date.now() - startTime;
+              const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
+              getMetricsAggregator().recordSpan(endedSpan);
+
+              return result;
+            } catch (error) {
+              // Propagate error to OTel span so traces show ERROR status
+              otelSpan.recordException(
+                error instanceof Error ? error : new Error(String(error)),
+              );
+              otelSpan.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: error instanceof Error ? error.message : String(error),
+              });
+
+              span.durationMs = Date.now() - startTime;
+              const endedSpan = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+              endedSpan.statusMessage =
+                error instanceof Error ? error.message : String(error);
+              getMetricsAggregator().recordSpan(endedSpan);
+              throw error;
+            }
+          } finally {
+            otelSpan.end();
+          }
         },
-      );
-
-      try {
-        const result = await next();
-
-        // Calculate duration
-        const endHrTime = process.hrtime.bigint();
-        const durationNs = Number(endHrTime - startHrTime);
-        const durationMs = durationNs / 1_000_000;
-
-        // Add timing headers to responseHeaders (adapters read from here)
-        ctx.responseHeaders = ctx.responseHeaders || {};
-        ctx.responseHeaders["X-Response-Time"] = `${durationMs.toFixed(2)}ms`;
-        ctx.responseHeaders["Server-Timing"] =
-          `total;dur=${durationMs.toFixed(2)}`;
-
-        span.durationMs = Date.now() - startTime;
-        const endedSpan = SpanSerializer.endSpan(span, SpanStatus.OK);
-        getMetricsAggregator().recordSpan(endedSpan);
-
-        return result;
-      } catch (error) {
-        span.durationMs = Date.now() - startTime;
-        const endedSpan = SpanSerializer.endSpan(span, SpanStatus.ERROR);
-        endedSpan.statusMessage =
-          error instanceof Error ? error.message : String(error);
-        getMetricsAggregator().recordSpan(endedSpan);
-        throw error;
-      }
+      ); // end startActiveSpan
     },
   };
 }

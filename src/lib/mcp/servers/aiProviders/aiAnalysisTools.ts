@@ -6,10 +6,13 @@
 
 import { z } from "zod";
 import type {
-  NeuroLinkMCPTool,
-  NeuroLinkExecutionContext,
-  ToolResult,
   AIProvider,
+  AnalyzeUsageParams,
+  BenchmarkParams,
+  NeuroLinkExecutionContext,
+  NeuroLinkMCPTool,
+  OptimizeParametersParams,
+  ToolResult,
 } from "../../../types/index.js";
 import { AIProviderFactory } from "../../../core/factory.js";
 import {
@@ -19,9 +22,13 @@ import {
 import { logger } from "../../../utils/logger.js";
 
 /**
- * Input Schemas for AI Analysis Tools
+ * Input Schemas for AI Analysis Tools.
+ *
+ * Each schema is annotated with `z.ZodType<CanonicalParams>` so any drift
+ * between the structural type (declared in src/lib/types/mcp.ts) and the
+ * runtime zod schema fails at compile time.
  */
-const AnalyzeUsageSchema = z.object({
+const AnalyzeUsageSchema: z.ZodType<AnalyzeUsageParams> = z.object({
   sessionId: z.string().optional(),
   timeRange: z.enum(["1h", "24h", "7d", "30d"]).default("24h"),
   provider: z
@@ -41,11 +48,7 @@ const AnalyzeUsageSchema = z.object({
   includeCostEstimation: z.boolean().default(true),
 });
 
-type AnalyzeUsageParams = z.infer<typeof AnalyzeUsageSchema>;
-type BenchmarkParams = z.infer<typeof BenchmarkSchema>;
-type OptimizeParametersParams = z.infer<typeof OptimizeParametersSchema>;
-
-const BenchmarkSchema = z.object({
+const BenchmarkSchema: z.ZodType<BenchmarkParams> = z.object({
   providers: z
     .array(
       z.enum([
@@ -69,7 +72,7 @@ const BenchmarkSchema = z.object({
   maxTokens: z.number().positive().default(100),
 });
 
-const OptimizeParametersSchema = z.object({
+const OptimizeParametersSchema: z.ZodType<OptimizeParametersParams> = z.object({
   prompt: z.string().min(1, "Prompt is required for optimization"),
   provider: z
     .enum([

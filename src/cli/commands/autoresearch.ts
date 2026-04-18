@@ -24,6 +24,7 @@ import chalk from "chalk";
 import ora from "ora";
 import type { CommandModule } from "yargs";
 import type {
+  AutoresearchInitArgs,
   MetricDirection,
   ResearchConfig,
   ResearchState,
@@ -86,7 +87,9 @@ export class AutoresearchCommandFactory {
                 .option("provider", { type: "string" })
                 .option("model", { type: "string" }),
             async (argv) => {
-              await AutoresearchCommandFactory.executeInit(argv as InitArgs);
+              await AutoresearchCommandFactory.executeInit(
+                argv as AutoresearchInitArgs,
+              );
             },
           )
           .command(
@@ -269,7 +272,7 @@ export class AutoresearchCommandFactory {
     return store;
   }
 
-  private static async executeInit(argv: InitArgs): Promise<void> {
+  private static async executeInit(argv: AutoresearchInitArgs): Promise<void> {
     const spinner = ora("Initializing autoresearch...").start();
     try {
       const repoPath = resolve(argv.repoPath);
@@ -683,17 +686,3 @@ export class AutoresearchCommandFactory {
     console.info(chalk.green(`Reset autoresearch state for ${resolved}`));
   }
 }
-
-type InitArgs = {
-  repoPath: string;
-  tag: string;
-  target: string;
-  immutable: string;
-  runCommand: string;
-  metricName: string;
-  metricPattern: string;
-  metricDirection: string;
-  timeout: number;
-  provider?: string;
-  model?: string;
-};

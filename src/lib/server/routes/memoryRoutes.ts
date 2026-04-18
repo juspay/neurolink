@@ -4,12 +4,36 @@
  */
 
 import type { RouteGroup, ServerContext } from "../../types/index.js";
+import { withSpan } from "../../telemetry/withSpan.js";
+import { tracers } from "../../telemetry/tracers.js";
 import {
   createErrorResponse,
   IdParamSchema,
   SessionIdParamSchema,
   validateParams,
 } from "../utils/validation.js";
+
+/**
+ * Wrap a route handler with an OTel span for HTTP observability.
+ */
+function tracedMemoryHandler<T>(
+  name: string,
+  route: string,
+  fn: (ctx: ServerContext) => Promise<T>,
+): (ctx: ServerContext) => Promise<T> {
+  return (ctx: ServerContext) =>
+    withSpan(
+      {
+        name,
+        tracer: tracers.http,
+        attributes: {
+          "http.route": route,
+          "http.request.id": ctx.requestId,
+        },
+      },
+      () => fn(ctx),
+    );
+}
 
 /**
  * Handler: Get messages for a session
@@ -503,7 +527,11 @@ export function createMemoryRoutes(basePath: string = "/api"): RouteGroup {
       {
         method: "GET",
         path: `${basePath}/memory/sessions/:id/messages`,
-        handler: handleGetSessionMessages,
+        handler: tracedMemoryHandler(
+          "neurolink.http.memory.getSessionMessages",
+          `${basePath}/memory/sessions/:id/messages`,
+          handleGetSessionMessages,
+        ),
         description: "Get messages for a session",
         tags: ["memory"],
       },
@@ -511,7 +539,11 @@ export function createMemoryRoutes(basePath: string = "/api"): RouteGroup {
       {
         method: "GET",
         path: `${basePath}/memory/sessions/:id`,
-        handler: handleGetSession,
+        handler: tracedMemoryHandler(
+          "neurolink.http.memory.getSession",
+          `${basePath}/memory/sessions/:id`,
+          handleGetSession,
+        ),
         description: "Get session by ID",
         tags: ["memory"],
       },
@@ -519,35 +551,55 @@ export function createMemoryRoutes(basePath: string = "/api"): RouteGroup {
       {
         method: "GET",
         path: `${basePath}/memory/sessions`,
-        handler: handleListSessions,
+        handler: tracedMemoryHandler(
+          "neurolink.http.memory.listSessions",
+          `${basePath}/memory/sessions`,
+          handleListSessions,
+        ),
         description: "List all conversation sessions",
         tags: ["memory"],
       },
       {
         method: "GET",
         path: `${basePath}/memory/stats`,
-        handler: handleGetStats,
+        handler: tracedMemoryHandler(
+          "neurolink.http.memory.stats",
+          `${basePath}/memory/stats`,
+          handleGetStats,
+        ),
         description: "Get memory statistics",
         tags: ["memory"],
       },
       {
         method: "DELETE",
         path: `${basePath}/memory/sessions/:sessionId`,
-        handler: handleClearSession,
+        handler: tracedMemoryHandler(
+          "neurolink.http.memory.clearSession",
+          `${basePath}/memory/sessions/:sessionId`,
+          handleClearSession,
+        ),
         description: "Clear a conversation session",
         tags: ["memory"],
       },
       {
         method: "DELETE",
         path: `${basePath}/memory/sessions`,
-        handler: handleClearAllSessions,
+        handler: tracedMemoryHandler(
+          "neurolink.http.memory.clearAllSessions",
+          `${basePath}/memory/sessions`,
+          handleClearAllSessions,
+        ),
         description: "Clear all conversation sessions",
         tags: ["memory"],
       },
       {
         method: "GET",
         path: `${basePath}/memory/health`,
-        handler: handleMemoryHealth,
+        handler: tracedMemoryHandler(
+          "neurolink.http.memory.health",
+          `${basePath}/memory/health`,
+          handleMemoryHealth,
+        ),
         description: "Check memory system health",
         tags: ["memory", "health"],
       },

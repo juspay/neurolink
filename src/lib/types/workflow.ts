@@ -5,6 +5,7 @@
  * Testing Phase: Focuses on original output + evaluation metrics for AB testing
  */
 
+import type { z } from "zod";
 import type { AnalyticsData } from "./analytics.js";
 import { AIProviderName } from "../constants/enums.js";
 import type { JsonValue } from "./common.js";
@@ -789,4 +790,23 @@ export type RunWorkflowOptions = {
   metadata?: Record<string, JsonValue>;
   /** Enable progressive streaming (yield preliminary response) */
   streaming?: boolean;
+};
+
+/**
+ * Generic workflow validation result — replaces three near-identical types
+ * (WorkflowConfigValidationResult, ModelConfigValidationResult,
+ * JudgeConfigValidationResult). Named with `Workflow*` prefix to avoid
+ * collision with `tools.ts#ValidationResult` (Rule 9).
+ */
+export type WorkflowValidation<T> = {
+  success: boolean;
+  data?: T;
+  error?: z.ZodError;
+};
+
+/** Progressive workflow response chunk streamed by runWorkflow(). */
+export type WorkflowStreamChunk = {
+  type: "preliminary" | "final";
+  content: string;
+  partialResult?: Partial<WorkflowResult>;
 };

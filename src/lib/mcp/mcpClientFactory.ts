@@ -40,6 +40,7 @@ import {
   SpanStatus,
   getMetricsAggregator,
 } from "../observability/index.js";
+import { getActiveTraceContext } from "../telemetry/traceContext.js";
 /**
  * Default timeout for MCP client creation in milliseconds.
  * Configurable via MCP_CLIENT_TIMEOUT env var.
@@ -78,6 +79,7 @@ export class MCPClientFactory {
     timeout = DEFAULT_CLIENT_TIMEOUT,
   ): Promise<MCPClientResult> {
     const startTime = Date.now();
+    const { traceId, parentSpanId } = getActiveTraceContext();
     const obsSpan = SpanSerializer.createSpan(
       SpanType.MCP_TRANSPORT,
       "mcp.connect",
@@ -86,6 +88,8 @@ export class MCPClientFactory {
         "mcp.operation": "connect",
         "mcp.server_id": config.id,
       },
+      parentSpanId,
+      traceId,
     );
 
     try {

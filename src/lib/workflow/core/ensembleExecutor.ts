@@ -25,6 +25,8 @@ import {
   getMetricsAggregator,
 } from "../../observability/index.js";
 import { WorkflowError } from "../../types/index.js";
+import { withSpan } from "../../telemetry/withSpan.js";
+import { tracers } from "../../telemetry/tracers.js";
 const functionTag = "EnsembleExecutor";
 
 // ============================================================================
@@ -38,6 +40,23 @@ const functionTag = "EnsembleExecutor";
  */
 export async function executeEnsemble(
   options: ExecuteEnsembleOptions,
+): Promise<EnsembleExecutionResult> {
+  return withSpan(
+    {
+      name: "neurolink.workflow.ensemble.execute",
+      tracer: tracers.workflow,
+      attributes: {
+        "workflow.model_count": options.models.length,
+        "workflow.parallelism": options.executionConfig?.parallelism ?? 10,
+      },
+    },
+    async (otelSpan) => executeEnsembleInner(options, otelSpan),
+  );
+}
+
+async function executeEnsembleInner(
+  options: ExecuteEnsembleOptions,
+  otelSpan: import("@opentelemetry/api").Span,
 ): Promise<EnsembleExecutionResult> {
   const startTime = Date.now();
   const { prompt, models, executionConfig, systemPrompt, workflowDefaults } =
@@ -125,6 +144,10 @@ export async function executeEnsemble(
     successCount === 0 ? "No successful model responses" : undefined,
   );
   getMetricsAggregator().recordSpan(endedSpan);
+
+  otelSpan.setAttribute("workflow.success_count", successCount);
+  otelSpan.setAttribute("workflow.failure_count", failureCount);
+  otelSpan.setAttribute("workflow.total_time_ms", totalTime);
 
   return {
     responses,
@@ -371,6 +394,38 @@ export async function executeModelGroups(
   systemPrompt?: string,
   workflowDefaultSystemPrompt?: string,
 ): Promise<EnsembleExecutionResult> {
+  return withSpan(
+    {
+      name: "neurolink.workflow.layers.execute",
+      tracer: tracers.workflow,
+      attributes: {
+        "workflow.group_count": groups.length,
+        "workflow.total_models": groups.reduce(
+          (n, g) => n + g.models.length,
+          0,
+        ),
+      },
+    },
+    async (otelSpan) =>
+      executeModelGroupsInner(
+        groups,
+        prompt,
+        _executionConfig,
+        systemPrompt,
+        workflowDefaultSystemPrompt,
+        otelSpan,
+      ),
+  );
+}
+
+async function executeModelGroupsInner(
+  groups: ModelGroup[],
+  prompt: string,
+  _executionConfig: ExecutionConfig | undefined,
+  systemPrompt: string | undefined,
+  workflowDefaultSystemPrompt: string | undefined,
+  otelSpan: import("@opentelemetry/api").Span,
+): Promise<EnsembleExecutionResult> {
   const startTime = Date.now();
   const allResponses: EnsembleResponse[] = [];
   const allErrors: WorkflowError[] = [];
@@ -440,6 +495,10 @@ export async function executeModelGroups(
     successCount: totalSuccessCount,
     failureCount: totalFailureCount,
   });
+
+  otelSpan.setAttribute("workflow.success_count", totalSuccessCount);
+  otelSpan.setAttribute("workflow.failure_count", totalFailureCount);
+  otelSpan.setAttribute("workflow.total_time_ms", totalTime);
 
   return {
     responses: allResponses,

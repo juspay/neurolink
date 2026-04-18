@@ -13,6 +13,7 @@
  */
 
 import { createHash } from "crypto";
+import type { SerializeOptions, SerializedError } from "../../types/index.js";
 
 /**
  * Fields that should be redacted for security/privacy.
@@ -58,52 +59,6 @@ const SENSITIVE_FIELDS = [
 const MAX_METADATA_SIZE = 2000;
 const MAX_STACK_FRAMES = 20;
 const MAX_DEPTH = 5;
-
-/**
- * Serialized error representation with full context.
- */
-type SerializedError = {
-  /** Unique error instance ID */
-  errorId: string;
-  /** Deterministic fingerprint for error aggregation */
-  errorFingerprint: string;
-  /** Error type/class name */
-  errorType: string;
-  /** Error message */
-  message: string;
-  /** Full stack trace */
-  stack?: string;
-  /** Parsed stack frames */
-  stackFrames?: string[];
-  /** HTTP status code if applicable */
-  statusCode?: number;
-  /** Whether the error is operational (expected) vs programmer error */
-  isOperational?: boolean;
-  /** Whether the error is retryable */
-  isRetryable?: boolean;
-  /** Error code */
-  code?: string;
-  /** Additional metadata */
-  metadata?: Record<string, unknown>;
-  /** Serialized cause error (for error chaining) */
-  cause?: SerializedError;
-  /** ISO timestamp of when the error was serialized */
-  timestamp: string;
-};
-
-/**
- * Options for error serialization.
- */
-type SerializeOptions = {
-  /** Include stack trace in output (default: true) */
-  includeStack?: boolean;
-  /** Max depth for nested object serialization (default: 5) */
-  maxDepth?: number;
-  /** Filter stack traces to application frames only (default: true in production) */
-  filterStacks?: boolean;
-  /** Additional context to include */
-  context?: Record<string, unknown>;
-};
 
 /**
  * Safely serialize an error with full context preservation.

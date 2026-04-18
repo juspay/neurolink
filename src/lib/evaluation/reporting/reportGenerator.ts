@@ -4,27 +4,12 @@
  */
 
 import type {
+  GeneratedReport,
   JsonObject,
   PipelineResult,
-  ReportData,
   ReportConfig,
-  ReportFormat,
+  ReportData,
 } from "../../types/index.js";
-/**
- * Generated report
- */
-type GeneratedReport = {
-  /** Report format */
-  format: ReportFormat;
-  /** Report content */
-  content: string;
-  /** Metadata */
-  metadata: {
-    generatedAt: number;
-    format: ReportFormat;
-    config: ReportConfig;
-  };
-};
 
 /**
  * Default report configuration

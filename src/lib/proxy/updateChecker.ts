@@ -10,31 +10,12 @@
 import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
 import { logger } from "../utils/logger.js";
+import type { SemVer, UpdateCheckResult } from "../types/index.js";
 
 const execFile = promisify(execFileCb);
 
 /** Timeout (ms) for the `npm view` child process. */
 const NPM_VIEW_TIMEOUT_MS = 10_000;
-
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
-
-type UpdateCheckResult = {
-  currentVersion: string;
-  latestVersion: string;
-  updateAvailable: boolean;
-};
-
-// ---------------------------------------------------------------------------
-// Semver helpers (no external dependency)
-// ---------------------------------------------------------------------------
-
-type SemVer = {
-  major: number;
-  minor: number;
-  patch: number;
-};
 
 /**
  * Parse a version string of the form `major.minor.patch` into numeric

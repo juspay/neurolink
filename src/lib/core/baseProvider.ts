@@ -13,8 +13,6 @@ import { IMAGE_GENERATION_MODELS } from "../core/constants.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
 import type { NeuroLink } from "../neurolink.js";
-import { SpanStatus, SpanType } from "../types/index.js";
-import { SpanSerializer } from "../observability/utils/spanSerializer.js";
 import { ATTR, tracers } from "../telemetry/index.js";
 import type {
   JsonValue,
@@ -33,7 +31,6 @@ import type {
 } from "../types/index.js";
 import { isAbortError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
-import { calculateCost } from "../utils/pricing.js";
 import {
   composeAbortSignals,
   createTimeoutController,
@@ -130,6 +127,7 @@ export abstract class BaseProvider implements AIProvider {
           options,
           timestamp,
         ),
+      () => this.neurolink?.getEventEmitter(),
     );
     this.utilities = new Utilities(
       this.providerName,
@@ -174,178 +172,132 @@ export abstract class BaseProvider implements AIProvider {
   ): Promise<StreamResult> {
     let options = this.normalizeStreamOptions(optionsOrPrompt);
 
-    // Observability: create metrics span for provider.stream
-    const metricsSpan = SpanSerializer.createSpan(
-      SpanType.MODEL_GENERATION,
-      "provider.stream",
-      {
-        "ai.provider": this.providerName || "unknown",
-        "ai.model": this.modelName || options.model || "unknown",
-        "ai.temperature": options.temperature,
-        "ai.max_tokens": options.maxTokens,
-      },
-      this._traceContext?.parentSpanId,
-      this._traceContext?.traceId,
-    );
-    let metricsSpanRecorded = false;
+    logger.info(`Starting stream`, {
+      provider: this.providerName,
+      hasTools: !options.disableTools && this.supportsTools(),
+      disableTools: !!options.disableTools,
+      supportsTools: this.supportsTools(),
+      inputLength: options.input?.text?.length || 0,
+      maxTokens: options.maxTokens,
+      temperature: options.temperature,
+      timestamp: Date.now(),
+    });
 
-    // OTEL span for provider-level stream tracing
-    const otelStreamSpan = tracers.provider.startSpan(
-      "neurolink.provider.stream",
-      {
-        kind: SpanKind.CLIENT,
-        attributes: {
-          [ATTR.GEN_AI_SYSTEM]: this.providerName || "unknown",
-          [ATTR.GEN_AI_MODEL]: this.modelName || options.model || "unknown",
-          [ATTR.GEN_AI_OPERATION]: "stream",
-          [ATTR.NL_PROVIDER]: this.providerName || "unknown",
-        },
-      },
-    );
+    // ===== EARLY MULTIMODAL DETECTION =====
+    const hasFileInput =
+      !!options.input?.files?.length || !!options.input?.videoFiles?.length;
+    if (hasFileInput) {
+      // ===== VIDEO ANALYSIS DETECTION =====
+      // Check if video frames are present and handle with fake streaming
+      const messages = await this.buildMessagesForStream(options);
+      if (hasVideoFrames(messages)) {
+        logger.info(
+          `Video frames detected in stream, using fake streaming for video analysis`,
+          {
+            provider: this.providerName,
+            model: this.modelName,
+          },
+        );
+        return await this.executeFakeStreaming(options, analysisSchema);
+      }
+    }
 
-    try {
-      logger.info(`Starting stream`, {
+    // CRITICAL: Image generation models don't support real streaming
+    // Force fake streaming for image models to ensure image output is yielded.
+    // Skip this path when the caller explicitly requests non-image output (e.g.
+    // JSON analysis) so dual-mode models like gemini-3.1-flash-image-preview
+    // can still perform text/structured generation.
+    const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
+      this.modelName.includes(m),
+    );
+    const requestsNonImageOutput =
+      options.output?.format === "json" ||
+      options.output?.format === "structured" ||
+      options.output?.format === "text";
+
+    if (isImageModel && !requestsNonImageOutput) {
+      logger.info(`Image model detected, forcing fake streaming`, {
         provider: this.providerName,
-        hasTools: !options.disableTools && this.supportsTools(),
-        disableTools: !!options.disableTools,
-        supportsTools: this.supportsTools(),
-        inputLength: options.input?.text?.length || 0,
-        maxTokens: options.maxTokens,
-        temperature: options.temperature,
+        model: this.modelName,
+        reason:
+          "Image generation requires fake streaming to yield image output",
+      });
+
+      // Skip real streaming, go directly to fake streaming
+      return await this.executeFakeStreaming(options, analysisSchema);
+    }
+
+    // Central tool merge: Pre-merge base tools (MCP/built-in) with user-provided
+    // tools (e.g. RAG tools) into options.tools. This way, every provider's
+    // executeStream() can simply use options.tools (or getAllTools() + options.tools)
+    // and get the complete tool set without needing per-provider merge logic.
+    if (!options.disableTools && this.supportsTools()) {
+      const mergedTools = await this.getToolsForStream(options);
+      options = { ...options, tools: mergedTools };
+    } else {
+      options = { ...options, tools: {} };
+    }
+
+    // CRITICAL FIX: Always prefer real streaming over fake streaming
+    // Try real streaming first, use fake streaming only as fallback
+    try {
+      logger.debug(`Attempting real streaming`, {
+        provider: this.providerName,
         timestamp: Date.now(),
       });
 
-      // ===== EARLY MULTIMODAL DETECTION =====
-      const hasFileInput =
-        !!options.input?.files?.length || !!options.input?.videoFiles?.length;
-      if (hasFileInput) {
-        // ===== VIDEO ANALYSIS DETECTION =====
-        // Check if video frames are present and handle with fake streaming
-        const messages = await this.buildMessagesForStream(options);
-        if (hasVideoFrames(messages)) {
-          logger.info(
-            `Video frames detected in stream, using fake streaming for video analysis`,
-            {
-              provider: this.providerName,
-              model: this.modelName,
-            },
-          );
-          return await this.executeFakeStreaming(options, analysisSchema);
-        }
-      }
-
-      // CRITICAL: Image generation models don't support real streaming
-      // Force fake streaming for image models to ensure image output is yielded.
-      // Skip this path when the caller explicitly requests non-image output (e.g.
-      // JSON analysis) so dual-mode models like gemini-3.1-flash-image-preview
-      // can still perform text/structured generation.
-      const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
-        this.modelName.includes(m),
+      const realStreamResult = await this.executeStream(
+        options,
+        analysisSchema,
       );
-      const requestsNonImageOutput =
-        options.output?.format === "json" ||
-        options.output?.format === "structured" ||
-        options.output?.format === "text";
 
-      if (isImageModel && !requestsNonImageOutput) {
-        logger.info(`Image model detected, forcing fake streaming`, {
-          provider: this.providerName,
-          model: this.modelName,
-          reason:
-            "Image generation requires fake streaming to yield image output",
-        });
-
-        // Skip real streaming, go directly to fake streaming
-        return await this.executeFakeStreaming(options, analysisSchema);
-      }
-
-      // Central tool merge: Pre-merge base tools (MCP/built-in) with user-provided
-      // tools (e.g. RAG tools) into options.tools. This way, every provider's
-      // executeStream() can simply use options.tools (or getAllTools() + options.tools)
-      // and get the complete tool set without needing per-provider merge logic.
-      if (!options.disableTools && this.supportsTools()) {
-        const mergedTools = await this.getToolsForStream(options);
-        options = { ...options, tools: mergedTools };
-      } else {
-        options = { ...options, tools: {} };
-      }
-
-      // CRITICAL FIX: Always prefer real streaming over fake streaming
-      // Try real streaming first, use fake streaming only as fallback
-      try {
-        logger.debug(`Attempting real streaming`, {
-          provider: this.providerName,
-          timestamp: Date.now(),
-        });
-
-        const realStreamResult = await this.executeStream(
-          options,
-          analysisSchema,
-        );
-
-        logger.info(`Real streaming succeeded`, {
-          provider: this.providerName,
-          timestamp: Date.now(),
-        });
-
-        // If real streaming succeeds, return it (with tools support via Vercel AI SDK)
-        return realStreamResult;
-      } catch (realStreamError) {
-        logger.warn(
-          `Real streaming failed for ${this.providerName}, falling back to fake streaming:`,
-          {
-            error:
-              realStreamError instanceof Error
-                ? realStreamError.message
-                : String(realStreamError),
-            timestamp: Date.now(),
-          },
-        );
-
-        // Fallback to fake streaming only if real streaming fails AND tools are enabled
-        if (!options.disableTools && this.supportsTools()) {
-          return await this.executeFakeStreaming(options, analysisSchema);
-        } else {
-          // If real streaming failed and no tools are enabled, re-throw the original error
-          logger.error(
-            `Real streaming failed for ${this.providerName}:`,
-            realStreamError,
-          );
-          throw this.handleProviderError(realStreamError);
-        }
-      }
-    } catch (error) {
-      // Observability: record failed stream span
-      metricsSpanRecorded = true;
-      const _endedStreamSpan = SpanSerializer.endSpan(
-        metricsSpan,
-        SpanStatus.ERROR,
-        error instanceof Error ? error.message : String(error),
-      );
-      // Note: Do NOT record to getMetricsAggregator() here — neurolink.ts
-      // stream:complete listener handles authoritative metrics to avoid double-counting.
-
-      otelStreamSpan.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: error instanceof Error ? error.message : String(error),
+      logger.info(`Real streaming succeeded`, {
+        provider: this.providerName,
+        timestamp: Date.now(),
       });
-      otelStreamSpan.end();
 
-      throw error;
-    } finally {
-      // Observability: record successful stream span (only if not already ended via error path)
-      if (!metricsSpanRecorded) {
-        const _endedStreamSpan = SpanSerializer.endSpan(
-          metricsSpan,
-          SpanStatus.OK,
-        );
-        // Note: Do NOT record to getMetricsAggregator() here — neurolink.ts
-        // stream:complete listener handles authoritative metrics to avoid double-counting.
+      // If real streaming succeeds, return it (with tools support via Vercel AI SDK)
+      return realStreamResult;
+    } catch (realStreamError) {
+      // Don't retry on terminal/abort errors — only fall back for
+      // "real streaming with tools is unsupported" style failures.
+      const errMsg =
+        realStreamError instanceof Error
+          ? realStreamError.message
+          : String(realStreamError);
+      const errName =
+        realStreamError instanceof Error ? realStreamError.name : "";
+      if (
+        errName === "AbortError" ||
+        errMsg.includes("abort") ||
+        errMsg.includes("timeout") ||
+        errMsg.includes("401") ||
+        errMsg.includes("403") ||
+        errMsg.includes("quota") ||
+        errMsg.includes("rate limit") ||
+        errMsg.includes("authentication")
+      ) {
+        throw this.handleProviderError(realStreamError);
       }
-      // End OTEL span on success (only if not already ended via error path)
-      if (otelStreamSpan.isRecording()) {
-        otelStreamSpan.setStatus({ code: SpanStatusCode.OK });
-        otelStreamSpan.end();
+
+      logger.warn(
+        `Real streaming failed for ${this.providerName}, falling back to fake streaming:`,
+        {
+          error: errMsg,
+          timestamp: Date.now(),
+        },
+      );
+
+      // Fallback to fake streaming only if real streaming fails AND tools are enabled
+      if (!options.disableTools && this.supportsTools()) {
+        return await this.executeFakeStreaming(options, analysisSchema);
+      } else {
+        // If real streaming failed and no tools are enabled, re-throw the original error
+        logger.error(
+          `Real streaming failed for ${this.providerName}:`,
+          realStreamError,
+        );
+        throw this.handleProviderError(realStreamError);
       }
     }
   }
@@ -740,20 +692,6 @@ export abstract class BaseProvider implements AIProvider {
     this.validateOptions(options);
     const startTime = Date.now();
 
-    // Observability: create metrics span for provider.generate
-    const metricsSpan = SpanSerializer.createSpan(
-      SpanType.MODEL_GENERATION,
-      "provider.generate",
-      {
-        "ai.provider": this.providerName || "unknown",
-        "ai.model": this.modelName || options.model || "unknown",
-        "ai.temperature": options.temperature,
-        "ai.max_tokens": options.maxTokens,
-      },
-      this._traceContext?.parentSpanId,
-      this._traceContext?.traceId,
-    );
-
     // OTEL span for provider-level generate tracing
     // Use startActiveSpan pattern via context.with() so child spans become descendants
     const otelSpan = tracers.provider.startSpan("neurolink.provider.generate", {
@@ -773,7 +711,6 @@ export abstract class BaseProvider implements AIProvider {
       this.runGenerateInActiveContext(
         options,
         startTime,
-        metricsSpan,
         otelSpan,
         otelSpanState,
       ),
@@ -792,7 +729,6 @@ export abstract class BaseProvider implements AIProvider {
   private async runGenerateInActiveContext(
     options: TextGenerationOptions,
     startTime: number,
-    metricsSpan: ReturnType<typeof SpanSerializer.createSpan>,
     otelSpan: ReturnType<typeof tracers.provider.startSpan>,
     otelSpanState: { ended: boolean },
   ): Promise<EnhancedGenerateResult | null> {
@@ -840,17 +776,11 @@ export abstract class BaseProvider implements AIProvider {
       return await this.executeStandardGenerateFlow(
         options,
         startTime,
-        metricsSpan,
         model,
         messages,
         tools,
       );
     } catch (error) {
-      SpanSerializer.endSpan(
-        metricsSpan,
-        SpanStatus.ERROR,
-        error instanceof Error ? error.message : String(error),
-      );
       otelSpan.setStatus({
         code: SpanStatusCode.ERROR,
         message: error instanceof Error ? error.message : String(error),
@@ -999,7 +929,6 @@ export abstract class BaseProvider implements AIProvider {
   private async executeStandardGenerateFlow(
     options: TextGenerationOptions,
     startTime: number,
-    metricsSpan: ReturnType<typeof SpanSerializer.createSpan>,
     model: LanguageModel,
     messages: ModelMessage[],
     tools: Record<string, Tool>,
@@ -1050,29 +979,6 @@ export abstract class BaseProvider implements AIProvider {
       options,
     );
 
-    let enrichedGenerateSpan = { ...metricsSpan };
-    if (enhancedResult?.usage) {
-      enrichedGenerateSpan = SpanSerializer.enrichWithTokenUsage(
-        enrichedGenerateSpan,
-        {
-          promptTokens: enhancedResult.usage.input || 0,
-          completionTokens: enhancedResult.usage.output || 0,
-          totalTokens: enhancedResult.usage.total || 0,
-        },
-      );
-      const cost = calculateCost(this.providerName, this.modelName, {
-        input: enhancedResult.usage.input || 0,
-        output: enhancedResult.usage.output || 0,
-        total: enhancedResult.usage.total || 0,
-      });
-      if (cost && cost > 0) {
-        enrichedGenerateSpan = SpanSerializer.enrichWithCost(
-          enrichedGenerateSpan,
-          { totalCost: cost },
-        );
-      }
-    }
-    SpanSerializer.endSpan(enrichedGenerateSpan, SpanStatus.OK);
     return this.enhanceResult(enhancedResult, options, startTime);
   }
 
@@ -1482,7 +1388,38 @@ export abstract class BaseProvider implements AIProvider {
         ? error
         : new DOMException("The operation was aborted", "AbortError");
     }
-    return this.formatProviderError(error);
+    const formatted = this.formatProviderError(error);
+
+    // P3 fix: Classify error and set error.type on the active OTel span
+    try {
+      const activeSpan = trace.getSpan(context.active());
+      if (activeSpan) {
+        let errorType = "provider_error";
+        const errName = formatted?.constructor?.name ?? "";
+        if (errName === "RateLimitError") {
+          errorType = "rate_limit";
+        } else if (errName === "AuthenticationError") {
+          errorType = "auth_failure";
+        } else if (errName === "NetworkError") {
+          errorType = "network";
+        } else if (errName === "InvalidModelError") {
+          errorType = "invalid_model";
+        } else if (errName === "TimeoutError") {
+          errorType = "timeout";
+        }
+        activeSpan.setAttribute("error.type", errorType);
+        if (formatted instanceof Error) {
+          activeSpan.setAttribute(
+            "error.message",
+            formatted.message.substring(0, 500),
+          );
+        }
+      }
+    } catch {
+      // Non-blocking — telemetry failures shouldn't mask the original error
+    }
+
+    return formatted;
   }
 
   /**

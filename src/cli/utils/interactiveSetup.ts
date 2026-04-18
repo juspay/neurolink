@@ -10,23 +10,12 @@ import { NeuroLink } from "../../lib/neurolink.js";
 import chalk from "chalk";
 import ora from "ora";
 import { logger } from "../../lib/utils/logger.js";
-import type { SetupResult } from "../../lib/types/index.js";
+import type {
+  InteractiveProviderConfig,
+  SetupResult,
+} from "../../lib/types/index.js";
 
-// Provider configuration definitions
-type ProviderConfig = {
-  id: AIProviderName;
-  name: string;
-  description: string;
-  envVars: Array<{
-    key: string;
-    prompt: string;
-    secure?: boolean;
-    default?: string;
-    optional?: boolean;
-  }>;
-};
-
-export const PROVIDER_CONFIGS: ProviderConfig[] = [
+export const PROVIDER_CONFIGS: InteractiveProviderConfig[] = [
   {
     id: AIProviderName.OPENAI,
     name: "OpenAI",

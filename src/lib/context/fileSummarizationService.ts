@@ -18,23 +18,12 @@ import {
   planFileSummarization,
 } from "./fileSummarizer.js";
 import type {
-  FileSummarizationCheckParams,
   FileForSummarization,
+  FileSummarizationCheckParams,
+  FileSummarizationServiceOptions,
   RawFileInput,
   SummarizedFile,
 } from "../types/index.js";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-/** Constructor options. */
-type FileSummarizationServiceOptions = {
-  /** Provider used for the summarization LLM call (default: "vertex") */
-  provider?: string;
-  /** Model used for the summarization LLM call (default: "gemini-2.5-flash") */
-  model?: string;
-};
 
 // ---------------------------------------------------------------------------
 // MIME → human label mapping
