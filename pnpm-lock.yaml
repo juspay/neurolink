@@ -182,9 +182,6 @@ importers:
       p-limit:
         specifier: ^7.3.0
         version: 7.3.0
-      pptxgenjs:
-        specifier: ^4.0.1
-        version: 4.0.1
       redis:
         specifier: ^5.11.0
         version: 5.11.0
@@ -454,6 +451,9 @@ importers:
       pdf-to-img:
         specifier: ^5.0.0
         version: 5.0.0
+      pptxgenjs:
+        specifier: ^4.0.1
+        version: 4.0.1
       sharp:
         specifier: ^0.34.5
         version: 0.34.5

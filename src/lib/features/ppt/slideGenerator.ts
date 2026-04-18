@@ -13,13 +13,6 @@
  * @module presentation/slideGenerator
  */
 
-import PptxGenJSImport from "pptxgenjs";
-// ESM/CJS interop: pptxgenjs v4 may double-wrap the default export under tsx/esbuild
-const PptxGenJS =
-  typeof PptxGenJSImport === "function"
-    ? PptxGenJSImport
-    : (PptxGenJSImport as unknown as { default: typeof PptxGenJSImport })
-        .default;
 import pLimit from "p-limit";
 import * as fs from "fs";
 import type {
@@ -41,6 +34,33 @@ import {
   IMAGE_GENERATION_TIMEOUT_MS,
   MAX_CONCURRENT_IMAGE_GENERATIONS,
 } from "./constants.js";
+
+let _pptxGenJS: (new () => PptxPresentation) | null = null;
+export async function loadPptxGenJS(): Promise<new () => PptxPresentation> {
+  if (_pptxGenJS) {
+    return _pptxGenJS;
+  }
+  try {
+    const mod = await import(/* @vite-ignore */ "pptxgenjs");
+    // ESM/CJS interop: pptxgenjs v4 may double-wrap the default export
+    const Ctor =
+      typeof mod.default === "function"
+        ? mod.default
+        : (mod.default as unknown as { default: new () => PptxPresentation })
+            .default;
+    _pptxGenJS = Ctor as unknown as new () => PptxPresentation;
+    return _pptxGenJS;
+  } catch (err) {
+    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
+    if (e?.code === "ERR_MODULE_NOT_FOUND" && e.message.includes("pptxgenjs")) {
+      throw new Error(
+        'PPT generation requires the "pptxgenjs" package. Install it with:\n  pnpm add pptxgenjs',
+        { cause: err },
+      );
+    }
+    throw err;
+  }
+}
 import { logger } from "../../utils/logger.js";
 import {
   withTimeout,
@@ -751,8 +771,6 @@ export class SlideGenerator {
 // ============================================================================
 // FACTORY FUNCTIONS
 // ============================================================================
-
-export { PptxGenJS };
 
 export function createSlideGenerator(
   config: SlideGeneratorConfig,

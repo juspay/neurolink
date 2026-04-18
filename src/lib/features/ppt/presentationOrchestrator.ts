@@ -12,16 +12,7 @@
  * @module presentation/presentationOrchestrator
  */
 
-// ESM/CJS interop: pptxgenjs v4 may double-wrap the default export under tsx/esbuild
-import PptxGenJSImport from "pptxgenjs";
-const PptxGenJSResolved =
-  typeof PptxGenJSImport === "function"
-    ? PptxGenJSImport
-    : (PptxGenJSImport as unknown as { default: typeof PptxGenJSImport })
-        .default;
-const PptxGenJS = PptxGenJSResolved as unknown as {
-  new (): import("../../types/index.js").PptxPresentation;
-};
+import { loadPptxGenJS } from "./slideGenerator.js";
 import * as fs from "fs/promises";
 import type {
   PPTGenerationResult,
@@ -202,6 +193,7 @@ export async function generatePresentation(
 
     // Create presentation instance
     // Use pptxgenjs directly - the SlideGenerator.renderSlide handles type conversion internally
+    const PptxGenJS = await loadPptxGenJS();
     const pptxInstance = new PptxGenJS();
 
     // Set presentation metadata using pptxgenjs API directly

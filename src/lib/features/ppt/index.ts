@@ -88,7 +88,7 @@ export {
   SlideGenerator,
   createSlideGenerator,
   generateSlidesFromPlan,
-  PptxGenJS,
+  loadPptxGenJS,
 } from "./slideGenerator.js";
 // Presentation Orchestrator (Stage 4)
 export { generatePresentation } from "./presentationOrchestrator.js";
