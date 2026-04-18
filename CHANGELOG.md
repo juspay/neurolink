@@ -1,3 +1,9 @@
+## [9.54.8](https://github.com/juspay/neurolink/compare/v9.54.7...v9.54.8) (2026-04-18)
+
+### Bug Fixes
+
+- **(tools):** tool filter not working ([a026921](https://github.com/juspay/neurolink/commit/a0269210c02d6970a51c64e48b9b5c716fcd6e3a))
+
 ## [9.54.7](https://github.com/juspay/neurolink/compare/v9.54.6...v9.54.7) (2026-04-18)
 
 ## [9.54.6](https://github.com/juspay/neurolink/compare/v9.54.5...v9.54.6) (2026-04-15)
