@@ -441,6 +441,12 @@ export function createTimeoutController(
   const controller = new AbortController();
 
   const timer = setTimeout(() => {
+    // NOTE: we cannot stamp the AI SDK's ai.streamText/ai.generateText span
+    // from here — the setTimeout callback runs in the async context captured
+    // at schedule time, which is BEFORE the AI SDK span exists. Instead we
+    // rely on the AI SDK propagating the TimeoutError through its recordSpan
+    // wrapper, which sets span.status = ERROR + message. ContextEnricher's
+    // SpanStatusCode.ERROR branch then surfaces level=ERROR + status_message.
     controller.abort(
       new TimeoutError(
         `${provider} ${operation} operation timed out after ${timeout}`,

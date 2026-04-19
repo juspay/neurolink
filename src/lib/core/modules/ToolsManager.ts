@@ -545,6 +545,10 @@ export class ToolsManager {
               attributes: {
                 "tool.name": toolName,
                 "tool.type": "custom",
+                // Curator P1-3: pure wrapper — duplicates the AI SDK's
+                // ai.toolCall observation in Langfuse. Keep the OTel span
+                // for internal metrics; filter from Langfuse export.
+                "langfuse.internal": true,
               },
             },
           );

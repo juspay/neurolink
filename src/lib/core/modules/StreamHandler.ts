@@ -156,6 +156,17 @@ export class StreamHandler {
           logger.warn(
             `${providerName}: Stream produced no output (NoOutputGeneratedError), returning empty stream`,
           );
+          // Curator P2-5: stamp the active OTel span so ContextEnricher.onEnd()
+          // surfaces a WARNING-level Langfuse observation instead of defaulting
+          // to DEFAULT with no status message.
+          try {
+            const activeSpan = trace.getSpan(otelContext.active());
+            if (activeSpan) {
+              activeSpan.setAttribute("neurolink.no_output", true);
+            }
+          } catch {
+            // Tracing not initialized — ignore.
+          }
           // S4 fix: yield a sentinel chunk so Pipeline B can detect the empty stream
           // and set the span to WARNING status instead of OK
           yield {

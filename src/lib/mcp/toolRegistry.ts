@@ -334,6 +334,9 @@ export class MCPToolRegistry extends MCPRegistry {
         attributes: {
           [ATTR.GEN_AI_TOOL_NAME]: toolName,
           [ATTR.MCP_SERVER_ID]: preResolvedServerId || "builtin",
+          // Curator P1-3: registry-level wrapper — duplicates ai.toolCall in
+          // Langfuse. Retained for OTel/metrics; skipped for Langfuse export.
+          "langfuse.internal": true,
         },
       },
       async (span) => {

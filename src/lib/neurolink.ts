@@ -188,6 +188,7 @@ import {
   validateFactoryConfig,
 } from "./utils/factoryProcessing.js";
 import { logger, mcpLogger } from "./utils/logger.js";
+import { extractMcpErrorText } from "./utils/mcpErrorText.js";
 import {
   createCustomToolServerInfo,
   detectCategory,
@@ -290,30 +291,6 @@ function mcpCategoryToErrorCategory(
       return ErrorCategory.VALIDATION;
     case "unknown":
       return ErrorCategory.EXECUTION;
-  }
-}
-
-/**
- * Extract a human-readable error string from an MCP isError result object.
- * Returns an empty string if nothing useful can be extracted.
- */
-function extractMcpErrorText(raw: unknown): string {
-  try {
-    const resultObj =
-      typeof raw === "string" ? (JSON.parse(raw) as unknown) : raw;
-    if (!resultObj || typeof resultObj !== "object") {
-      return "";
-    }
-    const content = (resultObj as Record<string, unknown>).content;
-    if (!Array.isArray(content)) {
-      return "";
-    }
-    const texts = (content as Array<{ type?: string; text?: string }>)
-      .filter((c) => c.type === "text" && c.text)
-      .map((c) => c.text as string);
-    return texts.join(" ").substring(0, 500);
-  } catch {
-    return "";
   }
 }
 
@@ -8724,6 +8701,13 @@ Current user's request: ${currentInput}`;
           "tool.type": executionContext.toolType,
           "tool.input_size": executionContext.inputSize,
           "tool.input_preview": executionContext.truncatedInput,
+          // NOT marked langfuse.internal: this is the public entrypoint for
+          // `NeuroLink.executeTool()`. Direct API callers (not going through
+          // the AI SDK) would otherwise produce zero Langfuse observations —
+          // the lower-level registry/discovery spans are internal wrappers.
+          // AI-SDK-initiated custom tools will produce both ai.toolCall and
+          // this span, which is the accepted tradeoff for keeping direct
+          // invocations observable.
         },
       },
       (toolSpan) =>

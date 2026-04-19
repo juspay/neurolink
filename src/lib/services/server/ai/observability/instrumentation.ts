@@ -39,6 +39,7 @@ import type {
   LangfuseContext,
   LangfuseSpanAttributes,
 } from "../../../../types/index.js";
+import { extractMcpErrorText } from "../../../../utils/mcpErrorText.js";
 import { logger } from "../../../../utils/logger.js";
 
 const LOG_PREFIX = "[OpenTelemetry]";
@@ -180,6 +181,70 @@ function _hasExternalTracerProvider(): boolean {
       error: error instanceof Error ? error.message : String(error),
     });
     return false;
+  }
+}
+
+/**
+ * Parse `ai.toolCall.result` on a Vercel AI SDK tool span and surface any
+ * embedded MCP `{ isError: true }` as a Langfuse ERROR + status message.
+ */
+function applyToolCallIsErrorStatus(attrs: Record<string, unknown>): void {
+  const resultAttr = attrs["ai.toolCall.result"];
+  if (typeof resultAttr !== "string" || resultAttr.length === 0) {
+    return;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(resultAttr);
+  } catch {
+    return;
+  }
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    (parsed as { isError?: unknown }).isError !== true
+  ) {
+    return;
+  }
+  attrs["langfuse.level"] = "ERROR";
+  // Always set a status_message, even when the MCP payload has non-text or
+  // empty content. Without a fallback the Curator P0-1 gap reappears for
+  // those failures (level=ERROR but statusMessage=null).
+  const errorText = extractMcpErrorText(parsed);
+  const toolName =
+    typeof attrs["ai.toolCall.name"] === "string"
+      ? (attrs["ai.toolCall.name"] as string)
+      : "tool";
+  attrs["langfuse.status_message"] =
+    errorText || `MCP ${toolName} returned isError=true`;
+}
+
+/**
+ * Map non-ERROR span conditions (content-filter, length, client abort, SDK
+ * timeout, empty output) onto Langfuse WARNING/ERROR levels. Mutates `attrs`.
+ */
+function applyNonErrorLangfuseLevel(attrs: Record<string, unknown>): void {
+  const finishReason =
+    attrs["ai.finishReason"] ?? attrs["gen_ai.response.finish_reasons"];
+  const reasonStr = Array.isArray(finishReason)
+    ? finishReason.join(",")
+    : String(finishReason ?? "");
+
+  if (reasonStr.includes("content-filter") || reasonStr === "length") {
+    attrs["langfuse.level"] = "WARNING";
+    attrs["langfuse.status_message"] =
+      `Generation stopped: finishReason=${reasonStr}`;
+    return;
+  }
+  if (attrs["neurolink.no_output"] === true) {
+    attrs["langfuse.level"] = "WARNING";
+    attrs["langfuse.status_message"] =
+      "Stream produced no output (NoOutputGeneratedError)";
+    return;
+  }
+  if (reasonStr === "aborted") {
+    attrs["langfuse.level"] = "WARNING";
+    attrs["langfuse.status_message"] = "Generation aborted by client";
   }
 }
 
@@ -611,26 +676,25 @@ class ContextEnricher implements SpanProcessor {
           span as unknown as { attributes: Record<string, unknown> }
         ).attributes;
 
+        // Curator P0-1/P0-2: detect MCP isError pattern on AI SDK tool call spans.
+        // The AI SDK's `ai.toolCall` span stays status=UNSET when the tool
+        // *returns* { isError:true } (no exception thrown), so Langfuse sees
+        // level=DEFAULT and no status message. Parse the stringified result
+        // and surface the embedded error text.
+        if (
+          readableSpan.name === "ai.toolCall" &&
+          readableStatus?.code !== SpanStatusCode.ERROR
+        ) {
+          applyToolCallIsErrorStatus(mutableAttrs);
+        }
+
         if (readableStatus?.code === SpanStatusCode.ERROR) {
           mutableAttrs["langfuse.level"] = "ERROR";
           if (readableStatus.message) {
             mutableAttrs["langfuse.status_message"] = readableStatus.message;
           }
-        } else {
-          // P8 extended: Detect WARNING-level conditions on non-ERROR spans.
-          // The AI SDK sets ai.finishReason on its spans; content-filter and
-          // length finish reasons indicate partial failures that deserve WARNING.
-          const finishReason =
-            mutableAttrs["ai.finishReason"] ??
-            mutableAttrs["gen_ai.response.finish_reasons"];
-          const reasonStr = Array.isArray(finishReason)
-            ? finishReason.join(",")
-            : String(finishReason ?? "");
-          if (reasonStr.includes("content-filter") || reasonStr === "length") {
-            mutableAttrs["langfuse.level"] = "WARNING";
-            mutableAttrs["langfuse.status_message"] =
-              `Generation stopped: finishReason=${reasonStr}`;
-          }
+        } else if (mutableAttrs["langfuse.level"] === undefined) {
+          applyNonErrorLangfuseLevel(mutableAttrs);
         }
       } catch {
         // Readonly enforcement by OTel SDK — mutation not possible; log at debug.
@@ -679,8 +743,43 @@ async function createLangfuseProcessor(
     baseUrl: config.baseUrl || "https://cloud.langfuse.com",
     environment: config.environment || "dev",
     release: config.release || "v1.0.0",
-    shouldExportSpan: () => true,
+    // Curator P1-3: skip internal wrapper spans that duplicate ai.toolCall /
+    // ai.generateText observations in Langfuse. Wrappers still emit OTel spans
+    // for internal metrics; they just aren't forwarded to Langfuse.
+    shouldExportSpan: langfuseShouldExportSpan,
   });
+}
+
+/**
+ * True when a span is an internal NeuroLink wrapper that should NOT be sent to
+ * Langfuse. Internal wrappers carry the `langfuse.internal: true` attribute.
+ *
+ * Exposed so host apps that bring their own `LangfuseSpanProcessor` (e.g.
+ * `skipLangfuseSpanProcessor: true`, or manual registration on an existing
+ * TracerProvider) can apply the same filter and avoid duplicate observations.
+ */
+export function isLangfuseInternalSpan(span: {
+  attributes?: Record<string, unknown>;
+}): boolean {
+  return span.attributes?.["langfuse.internal"] === true;
+}
+
+/**
+ * Drop-in `shouldExportSpan` predicate for a `LangfuseSpanProcessor` that
+ * filters out NeuroLink internal wrapper spans.
+ *
+ * Usage in host apps:
+ * ```ts
+ * import { langfuseShouldExportSpan } from "@juspay/neurolink";
+ * new LangfuseSpanProcessor({ ..., shouldExportSpan: langfuseShouldExportSpan });
+ * ```
+ */
+export function langfuseShouldExportSpan({
+  otelSpan,
+}: {
+  otelSpan: { attributes?: Record<string, unknown> };
+}): boolean {
+  return !isLangfuseInternalSpan(otelSpan);
 }
 
 async function initializeExternalOpenTelemetryMode(

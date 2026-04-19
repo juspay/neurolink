@@ -173,8 +173,10 @@ import {
   getTracer,
   getTracerProvider,
   initializeOpenTelemetry,
+  isLangfuseInternalSpan,
   isOpenTelemetryInitialized,
   isUsingExternalTracerProvider,
+  langfuseShouldExportSpan,
   runWithCurrentLangfuseContext,
   setLangfuseContext,
   shutdownOpenTelemetry,
@@ -198,6 +200,10 @@ export {
   getSpanProcessors,
   createContextEnricher,
   isUsingExternalTracerProvider,
+  // Host-processor filter helpers — reuse NeuroLink's internal-span filtering
+  // when the host app registers its own LangfuseSpanProcessor.
+  isLangfuseInternalSpan,
+  langfuseShouldExportSpan,
   // Enhanced context and tracing
   getLangfuseContext,
   getTracer,

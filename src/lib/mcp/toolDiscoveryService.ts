@@ -29,12 +29,76 @@ import {
   validateToolDescription,
 } from "../utils/parameterValidation.js";
 import { withTimeout } from "../utils/errorHandling.js";
+import { extractMcpErrorText } from "../utils/mcpErrorText.js";
 import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { tracers } from "../telemetry/tracers.js";
 import { withSpan } from "../telemetry/withSpan.js";
 import type { McpOutputNormalizer } from "./mcpOutputNormalizer.js";
 
 const mcpTracer = tracers.mcp;
+
+/**
+ * JSON-stringify a value for a Langfuse input/output preview attribute,
+ * truncated to a hard cap to stay under span attribute size limits. The
+ * returned string is guaranteed to be ≤ maxLen characters; when truncated,
+ * the last character is replaced with an ellipsis.
+ */
+function safeJsonStringify(value: unknown, maxLen: number): string {
+  if (maxLen <= 0) {
+    return "";
+  }
+  try {
+    const str = JSON.stringify(value);
+    if (typeof str !== "string") {
+      return "";
+    }
+    if (str.length <= maxLen) {
+      return str;
+    }
+    return str.slice(0, Math.max(0, maxLen - 1)) + "…";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Match property names that commonly hold secrets. Values under these keys
+ * are replaced with `[REDACTED]` before serialization. Case-insensitive.
+ * Conservative list — anything matching *here* is masked; the rest of the
+ * structure is preserved so Langfuse still gets a meaningful preview.
+ */
+const SENSITIVE_KEY_PATTERN =
+  /^(password|passwd|secret|token|api[_-]?key|apikey|access[_-]?key|authorization|auth|bearer|credential|cookie|session[_-]?id|private[_-]?key|client[_-]?secret|refresh[_-]?token|x-api-key)$/i;
+
+/**
+ * Walk a value, producing a structurally-equivalent copy with sensitive-key
+ * values masked. Unlike `transformParamsForLogging` (which collapses objects
+ * to a "N params" string), this preserves non-sensitive content so Langfuse
+ * input/output previews stay useful. Bounded depth guards against cycles.
+ */
+function redactForPreview(value: unknown, depth = 0): unknown {
+  if (depth > 10) {
+    return "[...]";
+  }
+  if (value === null || value === undefined) {
+    return value;
+  }
+  if (typeof value !== "object") {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => redactForPreview(v, depth + 1));
+  }
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (SENSITIVE_KEY_PATTERN.test(k)) {
+      out[k] = "[REDACTED]";
+    } else {
+      out[k] = redactForPreview(v, depth + 1);
+    }
+  }
+  return out;
+}
 
 /**
  * Default timeout for MCP tool execution operations in milliseconds.
@@ -536,6 +600,21 @@ export class ToolDiscoveryService extends EventEmitter {
               "mcp.server_id": serverId,
               "mcp.tool_name": toolName,
               "mcp.timeout_ms": effectiveTimeout,
+              // Curator P1-4: Langfuse observations rely on ai.*/gen_ai.*
+              // attributes for tool name and I/O previews. Provide them so
+              // the SPAN observation in Langfuse is legible without
+              // timestamp-joining against the parent ai.toolCall. Redact
+              // parameters via the existing secret-stripping helper so
+              // tokens/credentials/paths don't leave the process.
+              "ai.tool.name": toolName,
+              "gen_ai.tool.name": toolName,
+              "gen_ai.request": safeJsonStringify(
+                {
+                  name: toolName,
+                  arguments: redactForPreview(parameters),
+                },
+                2048,
+              ),
             },
           },
           async (callSpan) => {
@@ -549,12 +628,29 @@ export class ToolDiscoveryService extends EventEmitter {
                 timeout,
                 new Error(`Tool execution timeout: ${toolName}`),
               );
-              callSpan.setStatus({ code: SpanStatusCode.OK });
+              // Curator P0-1/P0-2: the MCP client does NOT throw on protocol
+              // errors — it returns { isError: true, content: [...] }. Detect
+              // that pattern so the span status reflects reality.
+              const resultObj = callResult as {
+                isError?: unknown;
+                content?: unknown;
+              } | null;
+              if (resultObj && resultObj.isError === true) {
+                const errorText = extractMcpErrorText(resultObj);
+                callSpan.setStatus({
+                  code: SpanStatusCode.ERROR,
+                  message: errorText || `Tool ${toolName} returned isError`,
+                });
+              } else {
+                callSpan.setStatus({ code: SpanStatusCode.OK });
+              }
 
               // ── MCP output normalization ──────────────────────────────────
               // Intercept here — after receive, before cache, before memory,
               // before LLM context injection. Returns a compact surrogate when
               // the payload exceeds mcp.outputLimits.maxBytes.
+              let resultForPreview: unknown = callResult;
+              let resultForReturn: unknown = callResult;
               if (this.outputNormalizer) {
                 try {
                   const normalized = await this.outputNormalizer.normalize(
@@ -571,7 +667,8 @@ export class ToolDiscoveryService extends EventEmitter {
                       normalized.originalBytes,
                     );
                   }
-                  return normalized.result;
+                  resultForPreview = normalized.result;
+                  resultForReturn = normalized.result;
                 } catch (normErr) {
                   mcpLogger.warn(
                     `[ToolDiscoveryService] McpOutputNormalizer failed for ` +
@@ -582,7 +679,17 @@ export class ToolDiscoveryService extends EventEmitter {
               }
               // ── end normalization ─────────────────────────────────────────
 
-              return callResult;
+              // Curator P1-4: build gen_ai.response AFTER normalization so
+              // large payloads use the compact surrogate instead of the raw
+              // result (avoids redundant stringify + memory hit on payloads
+              // that were specifically externalized to Redis). Redact via the
+              // same secret-stripping path used for request parameters.
+              callSpan.setAttribute(
+                "gen_ai.response",
+                safeJsonStringify(redactForPreview(resultForPreview), 2048),
+              );
+
+              return resultForReturn;
             } catch (err) {
               callSpan.setStatus({
                 code: SpanStatusCode.ERROR,
