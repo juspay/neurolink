@@ -6,9 +6,20 @@
 
 import { readFile, stat } from "fs/promises";
 import { getGlobalDispatcher, interceptors, request } from "undici";
-import { archiveProcessor } from "../processors/archive/ArchiveProcessor.js";
-import { audioProcessor } from "../processors/media/AudioProcessor.js";
-import { videoProcessor } from "../processors/media/VideoProcessor.js";
+// Lazy-loaded processor singletons — avoids loading heavy media deps
+// (mediabunny, fluent-ffmpeg, music-metadata, adm-zip) on every generate() call.
+async function getVideoProcessor() {
+  const mod = await import("../processors/media/VideoProcessor.js");
+  return mod.videoProcessor;
+}
+async function getAudioProcessor() {
+  const mod = await import("../processors/media/AudioProcessor.js");
+  return mod.audioProcessor;
+}
+async function getArchiveProcessor() {
+  const mod = await import("../processors/archive/ArchiveProcessor.js");
+  return mod.archiveProcessor;
+}
 import type {
   CSVProcessorOptions,
   DetectionStrategy,
@@ -1159,7 +1170,9 @@ export class FileDetector {
   ): Promise<FileProcessingResult> {
     const videoFilename = detection.metadata.filename || "video";
     try {
-      const videoResult = await videoProcessor.processFile({
+      const videoResult = await (
+        await getVideoProcessor()
+      ).processFile({
         id: videoFilename,
         name: videoFilename,
         mimetype: detection.mimeType || "video/mp4",
@@ -1230,7 +1243,9 @@ export class FileDetector {
   ): Promise<FileProcessingResult> {
     const audioFilename = detection.metadata.filename || "audio";
     try {
-      const audioResult = await audioProcessor.processFile({
+      const audioResult = await (
+        await getAudioProcessor()
+      ).processFile({
         id: audioFilename,
         name: audioFilename,
         mimetype: detection.mimeType || "audio/mpeg",
@@ -1297,7 +1312,9 @@ export class FileDetector {
   ): Promise<FileProcessingResult> {
     const archiveFilename = detection.metadata.filename || "archive";
     try {
-      const archiveResult = await archiveProcessor.processFile({
+      const archiveResult = await (
+        await getArchiveProcessor()
+      ).processFile({
         id: archiveFilename,
         name: archiveFilename,
         mimetype: detection.mimeType || "application/zip",
