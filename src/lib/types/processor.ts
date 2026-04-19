@@ -655,6 +655,35 @@ export type ProcessedYaml = ProcessedFileBase & {
 };
 
 /**
+ * Structural types for fluent-ffmpeg probe data.
+ * Defined here so the optional fluent-ffmpeg package is not required at typecheck time.
+ */
+export type FfprobeStream = {
+  codec_type?: string;
+  codec_name?: string;
+  width?: number;
+  height?: number;
+  r_frame_rate?: string;
+  avg_frame_rate?: string;
+  bit_rate?: number | string;
+  channels?: number;
+  sample_rate?: number | string;
+  tags?: Record<string, string | number>;
+  [key: string]: unknown;
+};
+
+export type FfprobeData = {
+  streams: FfprobeStream[];
+  format: {
+    duration?: number;
+    size?: number | string;
+    bit_rate?: number | string;
+    tags?: Record<string, string | number>;
+    [key: string]: unknown;
+  };
+};
+
+/**
  * Structural types for exceljs objects.
  * Defined here so the optional exceljs package is not required at typecheck time.
  */

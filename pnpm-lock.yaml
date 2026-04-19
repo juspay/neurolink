@@ -143,9 +143,6 @@ importers:
       dotenv:
         specifier: ^17.3.1
         version: 17.3.1
-      fluent-ffmpeg:
-        specifier: ^2.1.3
-        version: 2.1.3
       google-auth-library:
         specifier: ^10.6.1
         version: 10.6.2
@@ -161,12 +158,6 @@ importers:
       json-schema-to-zod:
         specifier: ^2.7.0
         version: 2.8.0
-      mediabunny:
-        specifier: ^1.40.1
-        version: 1.40.1
-      music-metadata:
-        specifier: ^11.11.2
-        version: 11.12.3
       nanoid:
         specifier: ^5.1.5
         version: 5.1.7
@@ -436,6 +427,9 @@ importers:
       ffmpeg-static:
         specifier: ^5.3.0
         version: 5.3.0
+      fluent-ffmpeg:
+        specifier: ^2.1.3
+        version: 2.1.3
       koa:
         specifier: ^3.1.1
         version: 3.2.0
@@ -445,6 +439,12 @@ importers:
       mammoth:
         specifier: ^1.11.0
         version: 1.12.0
+      mediabunny:
+        specifier: ^1.40.1
+        version: 1.40.1
+      music-metadata:
+        specifier: ^11.11.2
+        version: 11.12.3
       pdf-parse:
         specifier: ^2.4.5
         version: 2.4.5
@@ -11777,8 +11777,10 @@ snapshots:
   '@types/dom-mediacapture-transform@0.1.11':
     dependencies:
       '@types/dom-webcodecs': 0.1.13
+    optional: true
 
-  '@types/dom-webcodecs@0.1.13': {}
+  '@types/dom-webcodecs@0.1.13':
+    optional: true
 
   '@types/esrecurse@4.3.1': {}
 
@@ -14189,6 +14191,7 @@ snapshots:
     dependencies:
       '@types/dom-mediacapture-transform': 0.1.11
       '@types/dom-webcodecs': 0.1.13
+    optional: true
 
   meow@13.2.0: {}
 

@@ -37,8 +37,6 @@
  * ```
  */
 
-import { parseBuffer, selectCover } from "music-metadata";
-
 import { BaseFileProcessor } from "../base/BaseFileProcessor.js";
 import type {
   FileInfo,
@@ -48,6 +46,29 @@ import type {
 } from "../../types/index.js";
 import { SIZE_LIMITS_MB } from "../config/index.js";
 import { FileErrorCode } from "../errors/index.js";
+
+let _musicMetadata: typeof import("music-metadata") | null = null;
+async function loadMusicMetadata() {
+  if (_musicMetadata) {
+    return _musicMetadata;
+  }
+  try {
+    _musicMetadata = await import(/* @vite-ignore */ "music-metadata");
+    return _musicMetadata;
+  } catch (err) {
+    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
+    if (
+      e?.code === "ERR_MODULE_NOT_FOUND" &&
+      e.message.includes("music-metadata")
+    ) {
+      throw new Error(
+        'Audio processing requires the "music-metadata" package. Install it with:\n  pnpm add music-metadata',
+        { cause: err },
+      );
+    }
+    throw err;
+  }
+}
 
 // =============================================================================
 // TYPES
@@ -267,7 +288,7 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
       const tags = this.extractTags(audioMetadata);
 
       // Step 6: Extract embedded cover art if present
-      const coverArt = this.extractCoverArt(audioMetadata);
+      const coverArt = await this.extractCoverArt(audioMetadata);
 
       // Step 7: Attempt transcription if API key is available
       const filename = this.getFilename(fileInfo);
@@ -483,6 +504,7 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
     // where string is interpreted as MIME type.
     const mimeType = fileInfo.mimetype || undefined;
 
+    const { parseBuffer } = await loadMusicMetadata();
     return parseBuffer(buffer, mimeType);
   }
 
@@ -560,14 +582,15 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
    * @param audioMetadata - Parsed audio metadata from music-metadata
    * @returns Cover art as Buffer, or null if no cover art is embedded
    */
-  private extractCoverArt(
+  private async extractCoverArt(
     audioMetadata: import("music-metadata").IAudioMetadata,
-  ): Buffer | null {
+  ): Promise<Buffer | null> {
     const pictures = audioMetadata.common.picture;
     if (!pictures || pictures.length === 0) {
       return null;
     }
 
+    const { selectCover } = await loadMusicMetadata();
     const cover = selectCover(pictures);
     if (!cover) {
       return null;

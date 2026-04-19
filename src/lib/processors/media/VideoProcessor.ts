@@ -45,10 +45,7 @@
  */
 
 import { randomUUID } from "crypto";
-import type { FfprobeData, FfprobeStream } from "fluent-ffmpeg";
-import ffmpegCommand from "fluent-ffmpeg";
 import { createWriteStream, existsSync, promises as fs } from "fs";
-import { Input, FilePathSource, ALL_FORMATS } from "mediabunny";
 import { tmpdir } from "os";
 import { join } from "path";
 import { Readable } from "stream";
@@ -56,6 +53,8 @@ import { pipeline } from "stream/promises";
 
 import { BaseFileProcessor } from "../base/BaseFileProcessor.js";
 import type {
+  FfprobeData,
+  FfprobeStream,
   FileInfo,
   ProcessedVideo,
   ProcessorFileProcessingResult,
@@ -65,6 +64,50 @@ import { SIZE_LIMITS_MB } from "../config/index.js";
 import { FileErrorCode } from "../errors/index.js";
 import { tracers, ATTR, withSpan } from "../../telemetry/index.js";
 import { logger } from "../../utils/logger.js";
+
+// fluent-ffmpeg's default export is callable + has static methods — avoid caching
+// the module type (it confuses TS); Node's module cache handles dedup.
+async function loadFluentFfmpeg() {
+  try {
+    const mod = await import(/* @vite-ignore */ "fluent-ffmpeg");
+    return mod.default;
+  } catch (err) {
+    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
+    if (
+      e?.code === "ERR_MODULE_NOT_FOUND" &&
+      e.message.includes("fluent-ffmpeg")
+    ) {
+      throw new Error(
+        'Video processing requires the "fluent-ffmpeg" package. Install it with:\n  pnpm add fluent-ffmpeg',
+        { cause: err },
+      );
+    }
+    throw err;
+  }
+}
+
+let _mediabunny: typeof import("mediabunny") | null = null;
+async function loadMediaBunny() {
+  if (_mediabunny) {
+    return _mediabunny;
+  }
+  try {
+    _mediabunny = await import(/* @vite-ignore */ "mediabunny");
+    return _mediabunny;
+  } catch (err) {
+    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
+    if (
+      e?.code === "ERR_MODULE_NOT_FOUND" &&
+      e.message.includes("mediabunny")
+    ) {
+      throw new Error(
+        'Video processing requires the "mediabunny" package. Install it with:\n  pnpm add mediabunny',
+        { cause: err },
+      );
+    }
+    throw err;
+  }
+}
 
 // =============================================================================
 // FFMPEG PATH INITIALIZATION
@@ -103,7 +146,8 @@ async function initFfmpegPaths(): Promise<void> {
     const ffmpegStatic = await import("ffmpeg-static");
     const ffmpegPath: unknown = ffmpegStatic.default;
     if (typeof ffmpegPath === "string" && existsSync(ffmpegPath)) {
-      ffmpegCommand.setFfmpegPath(ffmpegPath);
+      const ff = await loadFluentFfmpeg();
+      ff.setFfmpegPath(ffmpegPath);
     }
   } catch {
     // Use system ffmpeg (already in PATH)
@@ -560,9 +604,10 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
    * @param filePath - Path to the video file
    * @returns Success result with probe data or error message
    */
-  private probeVideo(
+  private async probeVideo(
     filePath: string,
   ): Promise<{ success: boolean; data?: FfprobeData; error?: string }> {
+    const ffmpeg = await loadFluentFfmpeg();
     return new Promise((resolve) => {
       const timeoutId = setTimeout(() => {
         resolve({
@@ -571,7 +616,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
         });
       }, VIDEO_CONFIG.FFPROBE_TIMEOUT_MS);
 
-      ffmpegCommand.ffprobe(filePath, (err, data) => {
+      ffmpeg.ffprobe(filePath, (err, data) => {
         clearTimeout(timeoutId);
         if (err) {
           resolve({
@@ -594,11 +639,12 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
     data?: ProcessedVideo["metadata"];
     error?: string;
   }> {
-    let input: Input | undefined;
+    const mb = await loadMediaBunny();
+    let input: InstanceType<typeof mb.Input> | undefined;
     try {
-      input = new Input({
-        source: new FilePathSource(filePath),
-        formats: [...ALL_FORMATS],
+      input = new mb.Input({
+        source: new mb.FilePathSource(filePath),
+        formats: [...mb.ALL_FORMATS],
       });
 
       const duration = await input.computeDuration();
@@ -814,12 +860,13 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
    * @param outputDir - Directory to write frame files
    * @param timestamps - Array of timestamps in seconds
    */
-  private runFfmpegFrameExtraction(
+  private async runFfmpegFrameExtraction(
     videoPath: string,
     outputDir: string,
     timestamps: number[],
     intervalSec: number,
   ): Promise<void> {
+    const ff = await loadFluentFfmpeg();
     return new Promise((resolve, reject) => {
       // Improved select expression to pick exactly one frame per interval
       // instead of multiple frames within a 0.5s window.
@@ -833,7 +880,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
         );
       }, VIDEO_CONFIG.FFMPEG_TIMEOUT_MS);
 
-      ffmpegCommand(videoPath)
+      ff(videoPath)
         .outputOptions([
           "-vf",
           `select='${selectExpr}',scale='min(${VIDEO_CONFIG.FRAME_MAX_DIMENSION}\\,iw):-2'`,
@@ -901,6 +948,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
   ): Promise<string | undefined> {
     const subtitlePath = join(tempDir, "subtitles.srt");
 
+    const ffSub = await loadFluentFfmpeg();
     await new Promise<void>((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         reject(
@@ -910,7 +958,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
         );
       }, VIDEO_CONFIG.FFMPEG_TIMEOUT_MS);
 
-      ffmpegCommand(videoPath)
+      ffSub(videoPath)
         .outputOptions(["-map", "0:s:0", "-c:s", "srt"])
         .output(subtitlePath)
         .on("end", () => {
