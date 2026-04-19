@@ -1,7 +1,6 @@
-import {
-  BedrockClient,
-  ListFoundationModelsCommand,
-} from "@aws-sdk/client-bedrock";
+async function loadBedrockControl() {
+  return await import(/* @vite-ignore */ "@aws-sdk/client-bedrock");
+}
 import type {
   Tool as BedrockTool,
   ContentBlock,
@@ -133,6 +132,8 @@ export class AmazonBedrockProvider extends BaseProvider {
    * This prevents the health check failure we saw in production logs
    */
   private async performInitialHealthCheck(): Promise<void> {
+    const { BedrockClient, ListFoundationModelsCommand } =
+      await loadBedrockControl();
     const bedrockClient = new BedrockClient({
       region: this.region,
     });
@@ -2166,6 +2167,8 @@ export class AmazonBedrockProvider extends BaseProvider {
 
     // Create a separate BedrockClient for health checks (not BedrockRuntimeClient)
     // Use simple configuration like working example - no custom proxy handler
+    const { BedrockClient, ListFoundationModelsCommand } =
+      await loadBedrockControl();
     const healthCheckClient = new BedrockClient({
       region: process.env.AWS_REGION || "us-east-1",
     });
