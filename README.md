@@ -1033,6 +1033,10 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 - Development workflow, testing, and pull request guidelines → [`docs/development/contributing.md`](docs/development/contributing.md)
 - Documentation improvements → open a PR referencing the [documentation matrix](docs/tracking/FEATURE-DOC-MATRIX.md).
 
+## Acknowledgements
+
+NeuroLink is made possible by the vibrant open-source AI ecosystem. We gratefully acknowledge the teams behind [OpenAI](https://openai.com/), [Anthropic](https://www.anthropic.com/), [Google AI](https://ai.google.dev/), [Mistral](https://mistral.ai/), and the many other providers and open-source projects that power this platform. Special thanks to every contributor who has filed issues, submitted pull requests, or shared feedback — your input drives NeuroLink forward.
+
 ---
 
 NeuroLink is built with ❤️ by Juspay. Contributions, questions, and production feedback are always welcome.
