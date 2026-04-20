@@ -38,7 +38,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ---
 
-## What's New (Q1 2026)
+## What's New (2025–2026)
 
 | Feature                             | Version | Description                                                                                                                                                                                                          | Guide                                                                 |
 | ----------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
@@ -54,7 +54,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 | **Server Adapters**                 | v8.43.0 | Multi-framework HTTP server with Hono, Express, Fastify, Koa support. Full CLI for server management with foreground/background modes.                                                                               | [Server Adapters Guide](docs/guides/server-adapters/index.md)         |
 | **Title Generation Events**         | v8.38.0 | Emit `conversation:titleGenerated` event when conversation title is generated. Supports custom title prompts via `NEUROLINK_TITLE_PROMPT`.                                                                           | [Conversation Memory Guide](docs/conversation-memory.md)              |
 | **Video Generation with Veo**       | v8.32.0 | Video generation using Veo 3.1 (`veo-3.1`). Realistic video generation with many parameter options                                                                                                                   | [Video Generation Guide](docs/features/video-generation.md)           |
-| **Image Generation with Gemini**    | v8.31.0 | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI.                                                                       | [Image Generation Guide](docs/image-generation-streaming.md)          |
+| **Image Generation with Gemini**    | v8.31.0 | Native image generation using Gemini Imagen 3 (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI.                                                                       | [Image Generation Guide](docs/image-generation-streaming.md)          |
 | **HTTP/Streamable HTTP Transport**  | v8.29.0 | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.                                                                        | [HTTP Transport Guide](docs/mcp-http-transport.md)                    |
 
 - **AutoResearch** – Autonomous AI experiment engine inspired by Karpathy's autoresearch. Phase-gated tool access, git-backed safety, deterministic metric evaluation, and TaskManager integration for continuous unattended research. 12 research tools, 10 typed events, 9 CLI subcommands. → [AutoResearch Guide](docs/features/autoresearch.md)
@@ -947,7 +947,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 | Guides          | Migration, Redis, troubleshooting, provider selection     | [`docs/guides/index.md`](docs/guides/index.md)                   |
 | Operations      | Configuration, troubleshooting, provider matrix           | [`docs/reference/index.md`](docs/reference/index.md)             |
 
-### New in 2026: Enhanced Documentation
+### New in 2025–2026: Enhanced Documentation
 
 **Enterprise Features:**
 
