@@ -57,9 +57,23 @@ export async function getConversationMessages(
     | undefined,
   options: TextGenerationOptions,
 ): Promise<ChatMessage[]> {
+  logger.debug("[conversationMemoryUtils] getConversationMessages called", {
+    hasMemory: !!conversationMemory,
+    memoryType: conversationMemory?.constructor?.name || "NONE",
+    hasContext: !!options.context,
+    enableSummarization: options.enableSummarization ?? false,
+    options: JSON.stringify(options, null, 2),
+  });
   if (!conversationMemory || !options.context) {
     logger.warn(
       "[conversationMemoryUtils] No memory or context, returning empty messages",
+      {
+        hasMemory: !!conversationMemory,
+        memoryType: conversationMemory?.constructor?.name || "NONE",
+        hasContext: !!options.context,
+        enableSummarization: options.enableSummarization ?? false,
+        options: JSON.stringify(options, null, 2),
+      },
     );
     return [];
   }
