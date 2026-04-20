@@ -1,3 +1,9 @@
+## [9.55.11](https://github.com/juspay/neurolink/compare/v9.55.10...v9.55.11) (2026-04-20)
+
+### Bug Fixes
+
+- **(observability):** close Curator-reported Langfuse telemetry gaps ([42ed72a](https://github.com/juspay/neurolink/commit/42ed72acf59cca32138b4441c1331f4ed7497454))
+
 ## [9.55.10](https://github.com/juspay/neurolink/compare/v9.55.9...v9.55.10) (2026-04-19)
 
 ## [9.55.9](https://github.com/juspay/neurolink/compare/v9.55.8...v9.55.9) (2026-04-19)
