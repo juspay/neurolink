@@ -914,6 +914,11 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
     enableSummarization?: boolean,
     requestId?: string,
   ): Promise<ChatMessage[]> {
+    logger.debug("[RedisConversationMemoryManager] Building context messages", {
+      sessionId,
+      userId,
+      enableSummarization,
+    });
     await this.ensureInitialized();
     if (!this.redisClient) {
       logger.warn(
@@ -953,6 +958,15 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
             conversationData || null,
           );
 
+          logger.debug(
+            "[RedisConversationMemoryManager] Retrieved conversation for context building",
+            {
+              sessionId,
+              userId,
+              conversationFound: !!conversation,
+            },
+          );
+
           if (!conversation) {
             span.setAttribute("session.found", false);
             span.setStatus({ code: SpanStatusCode.OK });
@@ -973,6 +987,16 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
           };
 
           const contextMessages = buildContextFromPointer(session, requestId);
+
+          logger.debug(
+            "[RedisConversationMemoryManager] Built context messages from pointer",
+            {
+              sessionId,
+              userId,
+              contextMessageCount: contextMessages.length,
+              pointerMessageId: session.summarizedUpToMessageId || "none",
+            },
+          );
 
           const sendToolPreview =
             this.config?.contextCompaction?.sendToolPreview === true;
@@ -1001,6 +1025,19 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
               }
               hydratedResult = { ...msg.result, result: parsedResult };
             }
+
+            logger.debug(
+              "[RedisConversationMemoryManager] Processing tool_result message for context",
+              {
+                sessionId,
+                userId,
+                messageId: msg.id,
+                sendToolPreview,
+                hasPreview: !!msg.metadata?.toolOutputPreview,
+                contentLength: content ? String(content).length : 0,
+                resultHydrated: hydratedResult !== msg.result,
+              },
+            );
 
             return { ...msg, content, result: hydratedResult };
           });

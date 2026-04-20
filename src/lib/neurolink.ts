@@ -6252,6 +6252,16 @@ Current user's request: ${currentInput}`;
    * @throws {Error} When conversation memory operations fail (if enabled)
    */
   async stream(options: StreamOptions): Promise<StreamResult> {
+    logger.debug("[NeuroLink] stream() called with options", {
+      provider: options.provider,
+      model: options.model,
+      inputLength: options.input?.text?.length || 0,
+      disableTools: options.disableTools,
+      enableAnalytics: options.enableAnalytics,
+      enableEvaluation: options.enableEvaluation,
+      contextKeys: options.context ? Object.keys(options.context) : [],
+      optionKeys: Object.keys(options),
+    });
     return metricsTraceContextStorage.run(
       this.createMetricsTraceContext(),
       () => this.executeStreamRequest({ ...options }),
@@ -6392,6 +6402,19 @@ Current user's request: ${currentInput}`;
       originalPrompt,
     } = params;
 
+    logger.debug("[NeuroLink] Running standard stream request", {
+      streamId,
+      provider: options.provider,
+      model: options.model,
+      inputLength: options.input?.text?.length || 0,
+      disableTools: options.disableTools,
+      enableAnalytics: options.enableAnalytics,
+      enableEvaluation: options.enableEvaluation,
+      contextKeys: options.context ? Object.keys(options.context) : [],
+      optionKeys: Object.keys(options),
+      sessionId: options.context?.sessionId,
+    });
+
     try {
       const { enhancedOptions, factoryResult } =
         await this.prepareStreamOptions(
@@ -6400,6 +6423,12 @@ Current user's request: ${currentInput}`;
           startTime,
           hrTimeStart,
         );
+      logger.debug("[NeuroLink] Stream options prepared", {
+        streamId,
+        options: enhancedOptions,
+        factoryResult,
+        sessionId: enhancedOptions.context?.sessionId,
+      });
       const {
         stream: mcpStream,
         provider: providerName,
@@ -6516,6 +6545,16 @@ Current user's request: ${currentInput}`;
             timestamp: Date.now(),
           });
         } catch (error) {
+          logger.debug("[NeuroLink.stream] Stream error occurred", {
+            error: error instanceof Error ? error.message : String(error),
+            name: error instanceof Error ? error.name : "UnknownError",
+            provider: providerName,
+            model: enhancedOptions.model,
+            chunkCount,
+            totalLength: accumulatedContent.length,
+            durationMs: Date.now() - streamStartTime,
+            sessionId,
+          });
           streamError = error;
           self.emitter.emit("stream:error", {
             type: "stream:error",
@@ -6533,6 +6572,19 @@ Current user's request: ${currentInput}`;
           });
           throw error;
         } finally {
+          logger.debug(
+            "[NeuroLink.stream] Stream finished, performing cleanup",
+            {
+              provider: providerName,
+              model: enhancedOptions.model,
+              totalChunks: chunkCount,
+              totalLength: accumulatedContent.length,
+              durationMs: Date.now() - streamStartTime,
+              fallbackAttempted: metadata.fallbackAttempted,
+              guardrailsBlocked: metadata.guardrailsBlocked,
+              error: metadata.error,
+            },
+          );
           self._disableToolCacheForCurrentRequest = false;
           cleanupListeners();
 
@@ -7130,6 +7182,15 @@ Current user's request: ${currentInput}`;
       eventSequence,
     } = params;
 
+    logger.debug(
+      "[NeuroLink.stream] Preparing to store conversation turn in memory",
+      {
+        options: JSON.stringify(enhancedOptions),
+        sessionId: (enhancedOptions.context as Record<string, unknown>)
+          ?.sessionId,
+      },
+    );
+
     // Guard: skip storing if no meaningful content was produced (no text AND no tool activity)
     const hasToolEvents = eventSequence.some(
       (e) => e.type === "tool:start" || e.type === "tool:end",
@@ -7144,6 +7205,13 @@ Current user's request: ${currentInput}`;
       );
       return;
     }
+
+    logger.debug("[NeuroLink.stream] Storing conversation turn in memory", {
+      options: JSON.stringify(enhancedOptions),
+      sessionId: (enhancedOptions.context as Record<string, unknown>)
+        ?.sessionId,
+      conversationMemoryExists: this.conversationMemory ? true : false,
+    });
 
     // Store memory after stream consumption is complete
     if (this.conversationMemory && enhancedOptions.context?.sessionId) {
