@@ -1,3 +1,9 @@
+## [9.56.0](https://github.com/juspay/neurolink/compare/v9.55.11...v9.56.0) (2026-04-20)
+
+### Features
+
+- **(logs):** add logs in stream function flow ([730efdc](https://github.com/juspay/neurolink/commit/730efdcca0a509480d0e41c2ee1d0ee25f6b9931))
+
 ## [9.55.11](https://github.com/juspay/neurolink/compare/v9.55.10...v9.55.11) (2026-04-20)
 
 ### Bug Fixes
