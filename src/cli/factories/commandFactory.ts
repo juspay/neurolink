@@ -39,6 +39,7 @@ import { handleError } from "../errorHandler.js";
 import { LoopSession } from "../loop/session.js";
 import { initializeCliParser } from "../parser.js";
 import { formatFileSize, saveAudioToFile } from "../utils/audioFileUtils.js";
+import { playAudio } from "../utils/audioPlayer.js";
 import { resolveFilePaths } from "../utils/pathResolver.js";
 import { animatedWrite } from "../utils/typewriter.js";
 import { createStreamAbortHandler } from "../utils/abortHandler.js";
@@ -925,16 +926,19 @@ export class CLICommandFactory {
   }
 
   /**
-   * Helper method to handle TTS audio file output
+   * Helper method to handle TTS audio file output and playback
    * Saves audio to file when --tts-output flag is provided
+   * Plays audio when --tts-play flag is provided
    */
   private static async handleTTSOutput(
     result: CliGenerateResult | unknown,
     options: BaseCommandArgs & Record<string, unknown>,
   ): Promise<void> {
-    // Check if --tts-output flag is provided
     const ttsOutputPath = options.ttsOutput as string | undefined;
-    if (!ttsOutputPath) {
+    const shouldPlay = options.ttsPlay as boolean | undefined;
+
+    // Nothing to do if neither save nor play is requested
+    if (!ttsOutputPath && !shouldPlay) {
       return;
     }
 
@@ -956,26 +960,48 @@ export class CLICommandFactory {
       return;
     }
 
-    try {
-      // Save audio to file
-      const saveResult = await saveAudioToFile(audio, ttsOutputPath);
+    // Save audio to file if --tts-output is provided
+    if (ttsOutputPath) {
+      try {
+        const saveResult = await saveAudioToFile(audio, ttsOutputPath);
 
-      if (saveResult.success) {
-        if (!options.quiet) {
-          logger.always(
-            chalk.green(
-              `🔊 Audio saved to: ${saveResult.path} (${formatFileSize(saveResult.size)})`,
-            ),
+        if (saveResult.success) {
+          if (!options.quiet) {
+            logger.always(
+              chalk.green(
+                `🔊 Audio saved to: ${saveResult.path} (${formatFileSize(saveResult.size)})`,
+              ),
+            );
+          }
+        } else {
+          handleError(
+            new Error(saveResult.error || "Failed to save audio file"),
+            "TTS Output",
           );
         }
-      } else {
-        handleError(
-          new Error(saveResult.error || "Failed to save audio file"),
-          "TTS Output",
+      } catch (error) {
+        handleError(error as Error, "TTS Output");
+      }
+    }
+
+    // Play audio if --tts-play is provided
+    if (shouldPlay) {
+      try {
+        if (!options.quiet) {
+          logger.always(chalk.blue("Playing audio..."));
+        }
+        await playAudio(audio.buffer, audio.format);
+      } catch (err) {
+        // Non-fatal: warn but don't crash
+        logger.always(
+          chalk.yellow(`Audio playback failed: ${(err as Error).message}`),
+        );
+        logger.always(
+          chalk.yellow(
+            "   Tip: Save the audio with --tts-output <file> and play manually.",
+          ),
         );
       }
-    } catch (error) {
-      handleError(error as Error, "TTS Output");
     }
   }
 
@@ -3224,17 +3250,18 @@ export class CLICommandFactory {
       }
     }
 
-    // Handle TTS audio output if --tts-output is provided
+    // Handle TTS audio output/playback if --tts-output or --tts-play is provided
     // Note: For streaming, TTS audio is collected during the stream
     // and saved at the end if available
     const ttsOutputPath = options.ttsOutput as string | undefined;
-    if (ttsOutputPath) {
+    const shouldPlay = options.ttsPlay as boolean | undefined;
+    if (ttsOutputPath || shouldPlay) {
       // For now, streaming TTS output is not yet available
       // This will be enabled when the TTS streaming infrastructure is complete
       if (!options.quiet) {
         logger.always(
           chalk.yellow(
-            "⚠️  TTS audio output for streaming is not yet available. Use 'generate' command for TTS output.",
+            "TTS audio for streaming is not yet available. Use 'generate' command for TTS output.",
           ),
         );
       }
