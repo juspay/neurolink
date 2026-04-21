@@ -999,6 +999,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 ## Contributing & Support
 
 - Bug reports and feature requests → [GitHub Issues](https://github.com/juspay/neurolink/issues)
+- Questions and discussions → [GitHub Discussions](https://github.com/juspay/neurolink/discussions)
 - Development workflow, testing, and pull request guidelines → [`docs/development/contributing.md`](docs/development/contributing.md)
 - Documentation improvements → open a PR referencing the [documentation matrix](docs/tracking/FEATURE-DOC-MATRIX.md).
 
