@@ -3003,6 +3003,218 @@ testSDKExtensionlessCSV();
   }
 }
 
+/**
+ * Test SDK with an extension-less Buffer + mimetype hint — the Slack/Curator
+ * bot scenario. Bot receives a file with no extension, knows the MIME type
+ * from Slack's metadata, and passes it to NeuroLink as:
+ *   { buffer, filename: "Untitled", mimetype: "text/plain" }
+ *
+ * Before the fix, tryRegisterFileReference dropped the mimetype hint and the
+ * registry classified the content as "unknown" → on-demand reads returned the
+ * "[Binary file: …] This file could not be processed into text content."
+ * placeholder. The model would then honestly report "appears to be a binary
+ * file" — which was NeuroLink's verdict, not a hallucination.
+ *
+ * Uses the real `test/fixtures/zod-sample.ts` fixture (10.5 KB — above the
+ * TINY_MAX threshold, so it lands in the "small" tier and exercises the
+ * tempPath + on-demand processing path where the bug actually surfaces).
+ */
+async function testSDKMimetypeHintExtensionlessBuffer(): Promise<
+  boolean | null
+> {
+  logSection(
+    "Testing SDK with mimetype hint on extension-less Buffer (Slack/Curator bot scenario)",
+  );
+
+  // Guard: the fixture MUST exceed TINY_MAX so the file takes the lazy
+  // FileReferenceRegistry path (tempPath + on-demand processing), which is
+  // where the mimetype-drop bug originally surfaced. If the fixture ever
+  // shrinks below the threshold it would silently take the eager path
+  // instead — still passing but no longer proving the registry behavior.
+  // TINY_MAX is defined as 10 * 1024 in src/lib/types/fileReference.ts.
+  const FIXTURE_PATH = `${process.cwd()}/test/fixtures/zod-sample.ts`;
+  const TINY_MAX = 10 * 1024;
+  const fixtureStat = fs.statSync(FIXTURE_PATH);
+  if (fixtureStat.size <= TINY_MAX) {
+    logTest(
+      "SDK Mimetype Hint — extension-less Buffer",
+      "FAIL",
+      `Fixture zod-sample.ts is ${fixtureStat.size} bytes (<= TINY_MAX=${TINY_MAX}). ` +
+        `Test would silently take the eager path instead of the registry path it's meant to exercise. ` +
+        `Grow the fixture above TINY_MAX or update this test to cover both tiers explicitly.`,
+    );
+    return false;
+  }
+
+  // Inline assertions for the eager-path short-circuit (finding 2 on PR #987):
+  // the main LLM test below exercises the LAZY registry path via the 10.5 KB
+  // fixture. The eager path (< TINY_MAX) has its own mimetype-hint wiring in
+  // FileDetector. Verify that directly — no LLM needed — so CI covers both
+  // tiers in one test invocation.
+  try {
+    const { FileDetector } = await import(
+      `${process.cwd()}/dist/lib/utils/fileDetector.js`
+    );
+    const tinyJson = Buffer.from('{"ok":true}', "utf-8");
+    const det = await FileDetector.detectAndProcess(tinyJson, {
+      mimetypeHint: "application/json",
+      allowedTypes: ["text", "unknown"],
+    });
+    if (det.type !== "text" || det.mimeType !== "application/json") {
+      logTest(
+        "SDK Mimetype Hint — extension-less Buffer",
+        "FAIL",
+        `Eager path: expected type=text/mime=application/json, got type=${det.type}/mime=${det.mimeType}`,
+      );
+      return false;
+    }
+    // Opaque sentinel must NOT short-circuit the strategies.
+    const octet = await FileDetector.detectAndProcess(tinyJson, {
+      mimetypeHint: "application/octet-stream",
+      allowedTypes: ["text", "unknown"],
+    });
+    if (octet.mimeType === "application/octet-stream") {
+      logTest(
+        "SDK Mimetype Hint — extension-less Buffer",
+        "FAIL",
+        `Eager path trusted application/octet-stream hint verbatim (expected rejection).`,
+      );
+      return false;
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logTest(
+      "SDK Mimetype Hint — extension-less Buffer",
+      "FAIL",
+      `Eager-path unit check threw: ${msg}`,
+    );
+    return false;
+  }
+
+  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-sdk-mimetype-hint-");
+  const tempScriptPath = tempDir + "/test-sdk-mimetype-hint.mjs";
+
+  try {
+    const sdkOptions = buildBaseSDKOptions();
+    const testScript = `
+import { NeuroLink } from '${process.cwd()}/dist/index.js';
+import { readFileSync } from 'fs';
+
+async function testSDKMimetypeHint() {
+  const sdk = new NeuroLink();
+  let exitCode = 0;
+
+  try {
+    console.log('Step 1: Loading zod-sample.ts fixture as a Buffer...');
+    const buffer = readFileSync('${process.cwd()}/test/fixtures/zod-sample.ts');
+    console.log('  Buffer size: ' + (buffer.length / 1024).toFixed(1) + ' KB');
+
+    console.log('Step 2: Calling sdk.generate with { buffer, filename: "Untitled", mimetype: "text/plain" } — extension stripped, hint provided...');
+    const result = await sdk.generate({
+      input: {
+        text: 'The attached file is source code. Briefly name the programming language and one thing it defines (a schema, a type, a function, etc.). Keep the answer under 40 words.',
+        files: [{ buffer, filename: 'Untitled', mimetype: 'text/plain' }]
+      },
+      provider: '${sdkOptions.provider}'${
+        sdkOptions.model
+          ? `,
+      model: '${sdkOptions.model}'`
+          : ""
+      },
+      maxTokens: ${TEST_CONFIG.maxTokens}
+    });
+
+    const responseText = result.content?.toLowerCase() || '';
+    console.log('Response text:', (result.content || '').substring(0, 300) + '...');
+
+    // The bug signature: the model reports the file is binary/unreadable.
+    const sawBinaryVerdict =
+      responseText.includes('could not be processed into text content') ||
+      responseText.includes('binary file') ||
+      (responseText.includes('appears to be') && responseText.includes('binary')) ||
+      (responseText.includes('unable to') && responseText.includes('read'));
+
+    // Real content signature: the model names TypeScript / zod / schemas / types.
+    const sawRealContent =
+      responseText.includes('typescript') ||
+      responseText.includes('zod') ||
+      responseText.includes('schema') ||
+      (responseText.includes('type') && !responseText.includes('unknown'));
+
+    if (sawBinaryVerdict) {
+      console.error('FAIL: Model saw [Binary file: ...] placeholder — mimetype hint was dropped');
+      exitCode = 1;
+    } else if (!sawRealContent) {
+      console.error('FAIL: Response does not reflect the real file content');
+      exitCode = 1;
+    } else {
+      console.log('SUCCESS: mimetype hint honored, model read actual source content');
+    }
+  } catch (error) {
+    console.error('ERROR:', error.message);
+    exitCode = 1;
+  } finally {
+    try {
+      if (sdk && typeof sdk.dispose === 'function') {
+        await sdk.dispose();
+        console.log('[CLEANUP] SDK instance disposed');
+      }
+    } catch (cleanupError) {
+      console.warn('[CLEANUP] Error during cleanup:', cleanupError.message);
+    }
+    process.exit(exitCode);
+  }
+}
+
+testSDKMimetypeHint();
+`;
+
+    fs.writeFileSync(tempScriptPath, testScript);
+
+    log(
+      "Step 1: Testing SDK generate with extension-less Buffer + mimetype hint...",
+      "blue",
+    );
+    log(
+      "  Fixture: test/fixtures/zod-sample.ts (filename stripped to 'Untitled')",
+      "reset",
+    );
+
+    const result = await runCommand("node", [tempScriptPath]);
+
+    if (result.success) {
+      logTest(
+        "SDK Mimetype Hint — extension-less Buffer",
+        "PASS",
+        "mimetype hint honored end-to-end through generate()",
+      );
+      return true;
+    } else {
+      const sawBinaryVerdict =
+        result.stdout.includes("Binary file") ||
+        result.stdout.includes("mimetype hint was dropped");
+      logTest(
+        "SDK Mimetype Hint — extension-less Buffer",
+        "FAIL",
+        sawBinaryVerdict
+          ? "Bug reproduced: model received binary placeholder instead of real content"
+          : `Exit ${result.code}: ${result.stderr || result.stdout}`,
+      );
+      return false;
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logTest("SDK Mimetype Hint — extension-less Buffer", "FAIL", errorMessage);
+    return false;
+  } finally {
+    try {
+      fs.rmSync(tempDir, { recursive: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}
+
 async function testCLIStreamPDFAndCSV(): Promise<boolean | null> {
   logSection("Testing CLI Stream with PDF and CSV");
 
@@ -4592,6 +4804,10 @@ async function runAllTests(): Promise<void> {
     {
       name: "SDK Extension-less CSV (FD-018)",
       fn: testSDKExtensionlessCSV,
+    },
+    {
+      name: "SDK Mimetype Hint — extension-less Buffer",
+      fn: testSDKMimetypeHintExtensionlessBuffer,
     },
     { name: "CLI Generate PDF", fn: testCLIGeneratePDF },
     { name: "CLI Stream PDF", fn: testCLIStreamPDF },

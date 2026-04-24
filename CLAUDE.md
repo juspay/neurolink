@@ -105,8 +105,9 @@ src/
 │   ├── commands/             # Individual command implementations
 │   └── loop/                 # Interactive REPL session
 └── test/
-    ├── suites/               # Feature test suites
-    └── integration/          # Real-provider integration tests
+    ├── continuous-test-suite.ts              # Main orchestrator (pnpm test)
+    ├── continuous-test-suite-<name>.ts       # Per-domain suites (auth, mcp, rag, ppt, …)
+    └── fixtures/                             # CSVs, PDFs, PNG, JSON used by suites
 ```
 
 ### Message Flow
@@ -181,18 +182,28 @@ pnpm run lint             # Check lint + format
 pnpm run format           # Auto-format
 pnpm run check:all        # All quality checks
 
-# Testing
-pnpm test                 # All tests (once)
-pnpm run test:watch       # Watch mode
-pnpm run test:coverage    # With coverage
-pnpm run test:providers   # Provider unit tests only
-pnpm run test:cli         # CLI integration tests only
-pnpm run test:integration # Integration tests only
-pnpm run test:e2e         # End-to-end
-pnpm run test:ci          # CI mode (coverage + reporters)
+# Testing (all suites run via tsx; there is no vitest runner despite vitest.config.ts existing)
+pnpm test                 # Main suite (test/continuous-test-suite.ts)
+pnpm run test:ci          # test + test:client
+pnpm run test:client      # SDK client suite
+pnpm run test:context     # Context compaction + file handling
+pnpm run test:mcp         # MCP HTTP suite
+pnpm run test:rag         # RAG suite
+pnpm run test:providers   # Providers suite
+pnpm run test:media       # Media generation suite
+pnpm run test:memory      # Memory suite
+pnpm run test:observability
+pnpm run test:ppt
+pnpm run test:servers
+pnpm run test:tracing
+pnpm run test:tts
+pnpm run test:workflow
+pnpm run test:credentials
+pnpm run test:evaluation
+pnpm run test:middleware
 
-# Run a single test file
-vitest run test/suites/tool-discovery.test.ts
+# Run a single suite directly
+npx tsx test/continuous-test-suite-<name>.ts
 
 # Environment
 pnpm run env:validate     # Validate .env setup
@@ -229,7 +240,7 @@ pnpm run build:cli && pnpm run cli <command>
 
 5. If multimodal: add vision capabilities to `ProviderImageAdapter.VISION_CAPABILITIES`
 6. Add to CLI provider choices in `src/cli/factories/commandFactory.ts`
-7. Add tests in `test/suites/` and `test/integration/`
+7. Add tests to the most relevant `test/continuous-test-suite-*.ts` (e.g. `-providers.ts`), or create a new suite `test/continuous-test-suite-<name>.ts` and add a matching `test:<name>` script in `package.json`
 
 ### Adding a New File Processor
 
@@ -243,7 +254,7 @@ pnpm run build:cli && pnpm run cli <command>
 2. Extend `BaseFileProcessor` and implement `canProcess()`, `process()`, `getInfo()`
 3. Register in `ProcessorRegistry` with a priority (lower number = higher priority)
 4. Add MIME type mappings in `src/lib/processors/config/mimeTypes.ts`
-5. Add tests in `test/file-processor-test-suite.ts`
+5. Add tests to the closest existing suite (e.g. `test/continuous-test-suite-context.ts` for file-handling, or `continuous-test-suite.ts` for CLI-level coverage). There is no dedicated `file-processor-test-suite.ts`.
 
 ### Modifying Message Building
 

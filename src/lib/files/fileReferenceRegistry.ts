@@ -30,6 +30,11 @@ import type {
   SizeTier,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import {
+  mimeHintToExtension,
+  mimeHintToFileType,
+  normalizeMimeHint,
+} from "../utils/mimeTypeHints.js";
 import { StreamingReader } from "./streamingReader.js";
 import { SIZE_TIER_THRESHOLDS } from "../types/index.js";
 
@@ -117,20 +122,35 @@ export class FileReferenceRegistry {
       );
     }
 
+    // Normalize the caller-provided mimetype hint — shared helper drops
+    // `application/octet-stream` because that opaque sentinel would
+    // otherwise be trusted verbatim for the output mimeType and mask a
+    // better magic-byte-derived classification (e.g. PNG bytes hinted as
+    // octet-stream would record mimeType=octet-stream, not image/png).
+    const hintMime = normalizeMimeHint(options.mimetype);
+    const hintExt = hintMime ? mimeHintToExtension(hintMime) : "";
+
     // Detect file type from magic bytes and extension.
-    // If the provided filename has no extension, append one guessed from magic bytes
-    // so downstream processors (e.g., VideoProcessor) can validate by extension.
-    let filename =
-      options.filename || `file-${Date.now()}${this.guessExtension(buffer)}`;
-    if (!extname(filename)) {
-      const guessedExt = this.guessExtension(buffer);
-      if (guessedExt) {
-        filename = `${filename}${guessedExt}`;
-      }
+    // If the provided filename has no extension, append one guessed from the
+    // mimetype hint first (more reliable for text formats than magic bytes),
+    // then fall back to magic bytes — so downstream processors (e.g.,
+    // VideoProcessor) can validate by extension. Compute once, reuse.
+    const synthDefaultExt = hintExt
+      ? `.${hintExt}`
+      : this.guessExtension(buffer);
+    let filename = options.filename || `file-${Date.now()}${synthDefaultExt}`;
+    if (!extname(filename) && synthDefaultExt) {
+      filename = `${filename}${synthDefaultExt}`;
     }
     const ext = extname(filename).toLowerCase().replace(".", "");
-    const detectedType = options.fileType || this.detectType(buffer, ext);
-    const mimeType = this.guessMimeType(detectedType, ext);
+    const detectedType =
+      options.fileType ||
+      (hintMime && mimeHintToFileType(hintMime)) ||
+      this.detectType(buffer, ext);
+    // Prefer the caller's hint verbatim for the output mimeType, but only
+    // when normalizeMimeHint accepted it (i.e. it is not the opaque
+    // octet-stream sentinel). Otherwise derive from the detected type.
+    const mimeType = hintMime || this.guessMimeType(detectedType, ext);
     const sizeTier = FileReferenceRegistry.classifySizeTier(sizeBytes);
 
     // Generate preview (fast — only reads first N chars)

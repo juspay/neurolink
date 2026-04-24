@@ -359,6 +359,16 @@ export type FileDetectorOptions = {
   maxRetries?: number;
   /** Initial retry delay in milliseconds with exponential backoff (default: 1000) */
   retryDelay?: number;
+  /**
+   * Caller-provided MIME type hint (e.g. "text/plain", "application/json").
+   * Used when the filename has no extension and magic-byte detection cannot
+   * identify the content — the common Slack/Curator extension-less-buffer
+   * case. When set to a trustworthy mimetype (not "application/octet-stream"),
+   * it short-circuits the detection strategy loop with a high-confidence
+   * result so small files on the eager file-processing path still honor the
+   * hint (the lazy FileReferenceRegistry path has its own hint-handling).
+   */
+  mimetypeHint?: string;
 };
 
 /**

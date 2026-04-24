@@ -719,6 +719,7 @@ export async function buildMessagesArray(
             maxSize: 50 * 1024 * 1024,
             allowedTypes: ["csv"],
             csvOptions: csvOptions,
+            mimetypeHint: isFileWithMetadata(file) ? file.mimetype : undefined,
           });
 
           if (result.type === "csv") {
@@ -1025,6 +1026,12 @@ async function processUnifiedFilesArray(
           // ─── Full processing path (current behavior) ──────────────────
           const genericFileMaxSize = Math.max(maxSize, 100 * 1024 * 1024);
           const rawFileInput = isFileWithMetadata(file) ? file.buffer : file;
+          // Forward the caller's mimetype hint (Slack/Curator-style
+          // extension-less buffers) so the eager path classifies correctly
+          // for tiny files — the lazy registry path has its own hint wiring.
+          const fileMimetypeHint = isFileWithMetadata(file)
+            ? file.mimetype
+            : undefined;
           const result = await FileDetector.detectAndProcess(rawFileInput, {
             maxSize: genericFileMaxSize,
             allowedTypes: [
@@ -1043,6 +1050,7 @@ async function processUnifiedFilesArray(
             ],
             csvOptions: options.csvOptions,
             provider: provider,
+            mimetypeHint: fileMimetypeHint,
           });
 
           appendDetectedFileResult(result, file, options);
@@ -2146,7 +2154,14 @@ async function tryRegisterFileReference(
       return false;
     }
     const filename = extractFilename(file, index);
-    await registry.register(buffer, getFileSource(file), { filename });
+    const mimetype =
+      typeof file === "object" && !Buffer.isBuffer(file)
+        ? file.mimetype
+        : undefined;
+    await registry.register(buffer, getFileSource(file), {
+      filename,
+      mimetype,
+    });
     logger.info(
       `[FileDetector] Registered "${filename}" (${(fileSize / 1024).toFixed(0)} KB) ` +
         `as lazy reference — skipping upfront processing`,

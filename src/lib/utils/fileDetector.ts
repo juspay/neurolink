@@ -34,6 +34,11 @@ import { tracers, ATTR, withSpan } from "../telemetry/index.js";
 import { CSVProcessor } from "./csvProcessor.js";
 import { ImageProcessor } from "./imageProcessor.js";
 import { logger } from "./logger.js";
+import {
+  mimeHintToExtension,
+  mimeHintToFileType,
+  normalizeMimeHint,
+} from "./mimeTypeHints.js";
 import { PDFProcessor } from "./pdfProcessor.js";
 
 /**
@@ -434,6 +439,28 @@ export class FileDetector {
   }
 
   /**
+   * Classify a FileInput into the FileSource enum used by downstream
+   * loaders. Keeps the mimetype-hint short-circuit in detect() able to
+   * produce a valid FileDetectionResult without re-implementing the
+   * source-inference rules scattered across loadContent().
+   */
+  private static deriveInputSource(input: FileInput): FileSource {
+    if (Buffer.isBuffer(input)) {
+      return "buffer";
+    }
+    if (typeof input === "string") {
+      if (input.startsWith("data:")) {
+        return "datauri";
+      }
+      if (input.startsWith("http://") || input.startsWith("https://")) {
+        return "url";
+      }
+      return "path";
+    }
+    return "buffer";
+  }
+
+  /**
    * Try fallback parsing for a specific file type
    * Used when file detection returns "unknown" but we want to try parsing anyway
    */
@@ -702,6 +729,34 @@ export class FileDetector {
     input: FileInput,
     options?: FileDetectorOptions,
   ): Promise<FileDetectionResult> {
+    // Short-circuit on a trustworthy caller-provided mimetype hint. This is
+    // the eager-path counterpart to FileReferenceRegistry.register()'s hint
+    // handling — necessary for tiny files (<= TINY_MAX) that skip the lazy
+    // registry path. normalizeMimeHint drops "application/octet-stream" so a
+    // caller cannot hide real content behind the opaque sentinel.
+    const hintMime = normalizeMimeHint(options?.mimetypeHint);
+    if (hintMime) {
+      const type = mimeHintToFileType(hintMime);
+      if (type) {
+        const ext = mimeHintToExtension(hintMime);
+        const result: FileDetectionResult = {
+          type,
+          mimeType: hintMime,
+          extension: ext || null,
+          source: FileDetector.deriveInputSource(input),
+          metadata: {
+            confidence: 95,
+            filename: FileDetector.deriveInputFilename(input),
+            size: FileDetector.deriveInputSize(input),
+          },
+        };
+        logger.info(
+          `[FileDetector] Type: ${type} (95%, from mimetype hint: ${hintMime})`,
+        );
+        return result;
+      }
+    }
+
     const confidenceThreshold = options?.confidenceThreshold ?? 80;
     const strategies: DetectionStrategy[] = [
       new MagicBytesStrategy(),
