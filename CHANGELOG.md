@@ -1,3 +1,9 @@
+## [9.56.2](https://github.com/juspay/neurolink/compare/v9.56.1...v9.56.2) (2026-04-24)
+
+### Bug Fixes
+
+- **(files):** honor caller-provided mimetype hint for extension-less buffers ([40276cc](https://github.com/juspay/neurolink/commit/40276cc9abad565089b8161a1e7a9c2eb533df1f))
+
 ## [9.56.1](https://github.com/juspay/neurolink/compare/v9.56.0...v9.56.1) (2026-04-21)
 
 ### Bug Fixes
