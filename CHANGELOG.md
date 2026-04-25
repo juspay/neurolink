@@ -1,3 +1,9 @@
+## [9.57.0](https://github.com/juspay/neurolink/compare/v9.56.2...v9.57.0) (2026-04-25)
+
+### Features
+
+- **(dynamic-args):** add dynamic argument resolution with context-aware utilities ([673b2a2](https://github.com/juspay/neurolink/commit/673b2a213f6ac095645c670280ae4a2bb22946b5))
+
 ## [9.56.2](https://github.com/juspay/neurolink/compare/v9.56.1...v9.56.2) (2026-04-24)
 
 ### Bug Fixes
