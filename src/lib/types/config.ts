@@ -40,6 +40,17 @@ export type NeuroLinkConfig = {
 };
 
 /**
+ * Curator P2-3: callback signature for centralized fallback policy. Invoked
+ * when a generate/stream call fails with what looks like a model-access-denied
+ * error. Return `{ provider, model }` (either / both optional) to drive a
+ * retry; return `null` to bubble the original error untouched.
+ */
+export type ProviderFallbackCallback = (error: unknown) => Promise<{
+  provider?: string;
+  model?: string;
+} | null>;
+
+/**
  * Configuration object for NeuroLink constructor.
  */
 export type NeurolinkConstructorConfig = {
@@ -61,6 +72,19 @@ export type NeurolinkConstructorConfig = {
    * from this NeuroLink instance. Per-call credentials override these.
    */
   credentials?: NeurolinkCredentials;
+  /**
+   * Curator P2-3: callback invoked on model-access-denied. Lets a host (e.g.
+   * Curator) centrally drive fallback policy. The callback receives the
+   * original error and returns the next `{ provider, model }` to try, or
+   * `null` to bubble the error.
+   */
+  providerFallback?: ProviderFallbackCallback;
+  /**
+   * Curator P2-3: ordered list of model names to try in sequence on
+   * model-access-denied. Sugar over `providerFallback`. The current
+   * provider is preserved across the chain; only the model name changes.
+   */
+  modelChain?: string[];
 };
 
 /**

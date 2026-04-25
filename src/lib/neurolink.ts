@@ -310,6 +310,40 @@ function mcpCategoryToErrorCategory(
  * For example, a NOT_FOUND error for a model causes 6 retries of a 418KB
  * message, wasting ~628,000 tokens and adding 10+ seconds of latency.
  */
+/**
+ * Curator P2-3: detect model-access-denied without requiring the typed
+ * ModelAccessDeniedError class to be present (Issue #1 ships that class
+ * separately). Matches LiteLLM "team not allowed" / "team can only access
+ * models=[...]" plus typed-error markers when present.
+ */
+function looksLikeModelAccessDenied(error: unknown): boolean {
+  if (!error) {
+    return false;
+  }
+  const e = error as { name?: string; code?: string; message?: string };
+  if (e.name === "ModelAccessDeniedError") {
+    return true;
+  }
+  if (e.code === "MODEL_ACCESS_DENIED") {
+    return true;
+  }
+  const msg =
+    typeof e.message === "string"
+      ? e.message
+      : error instanceof Error
+        ? error.message
+        : String(error);
+  if (!msg) {
+    return false;
+  }
+  const lower = msg.toLowerCase();
+  return (
+    (lower.includes("team") && lower.includes("not allowed")) ||
+    lower.includes("team can only access") ||
+    /not\s+allowed\s+to\s+access\s+(this\s+)?model/i.test(msg)
+  );
+}
+
 function isNonRetryableProviderError(error: unknown): boolean {
   // Check for typed error classes from providers
   if (error instanceof InvalidModelError) {
@@ -552,6 +586,15 @@ export class NeuroLink {
 
   // Per-provider credential overrides (instance-level default)
   private credentials?: NeurolinkCredentials;
+
+  // Curator P2-3: instance-level fallback policy. Read by
+  // runWithFallbackOrchestration on model-access-denied.
+  private readonly fallbackConfig: {
+    providerFallback?: (
+      err: unknown,
+    ) => Promise<{ provider?: string; model?: string } | null>;
+    modelChain?: string[];
+  } = {};
 
   /**
    * Merge instance-level credentials with per-call credentials.
@@ -1030,6 +1073,15 @@ export class NeuroLink {
     // NL-004: Initialize model alias configuration
     if (config?.modelAliasConfig) {
       this.modelAliasConfig = config.modelAliasConfig;
+    }
+
+    // Curator P2-3: capture fallback policy. Per-call options can still
+    // override, but these are the instance-level defaults.
+    if (config?.providerFallback) {
+      this.fallbackConfig.providerFallback = config.providerFallback;
+    }
+    if (config?.modelChain) {
+      this.fallbackConfig.modelChain = config.modelChain;
     }
 
     logger.setEventEmitter(this.emitter);
@@ -3515,12 +3567,164 @@ Current user's request: ${currentInput}`;
   async generate(
     optionsOrPrompt: GenerateOptions | DynamicOptions | string,
   ): Promise<GenerateResult> {
-    return tracers.sdk.startActiveSpan(
-      "neurolink.generate",
-      { kind: SpanKind.INTERNAL },
-      (generateSpan) =>
-        this.executeGenerateWithMetricsContext(optionsOrPrompt, generateSpan),
+    return this.runWithFallbackOrchestration(
+      optionsOrPrompt,
+      "generate",
+      (opts) =>
+        tracers.sdk.startActiveSpan(
+          "neurolink.generate",
+          { kind: SpanKind.INTERNAL },
+          (generateSpan) =>
+            this.executeGenerateWithMetricsContext(opts, generateSpan),
+        ),
     );
+  }
+
+  /**
+   * Curator P2-3: wraps a generate/stream call with the fallback
+   * orchestration (`providerFallback` callback + `modelChain` walker).
+   *
+   * On a model-access-denied error from the inner call:
+   *  1. Resolve the effective callback (per-call > instance > synthesised
+   *     from modelChain) and the effective chain (per-call > instance).
+   *  2. Walk attempts: invoke callback (or pop next chain entry) → emit
+   *     `model.fallback` event → re-call inner with the new {provider,
+   *     model}.
+   *  3. Stop on first success, on a callback returning null, or after
+   *     exhausting the chain (throw the most recent error).
+   */
+  private async runWithFallbackOrchestration<T>(
+    optionsOrPrompt: GenerateOptions | DynamicOptions | string,
+    kind: "generate" | "stream",
+    inner: (opts: GenerateOptions | DynamicOptions | string) => Promise<T>,
+  ): Promise<T> {
+    const initialAttempt = await this.attemptInner(inner, optionsOrPrompt);
+    if ("ok" in initialAttempt) {
+      return initialAttempt.ok;
+    }
+    let lastError = initialAttempt.error;
+    if (!looksLikeModelAccessDenied(lastError)) {
+      throw lastError;
+    }
+
+    // Build the chain orchestration.
+    const requestedProvider = (
+      typeof optionsOrPrompt === "object"
+        ? (optionsOrPrompt as { provider?: string }).provider
+        : undefined
+    ) as string | undefined;
+    const requestedModel = (
+      typeof optionsOrPrompt === "object"
+        ? (optionsOrPrompt as { model?: string }).model
+        : undefined
+    ) as string | undefined;
+
+    const callOpts =
+      typeof optionsOrPrompt === "object"
+        ? (optionsOrPrompt as Record<string, unknown>)
+        : ({} as Record<string, unknown>);
+
+    const perCallCallback = callOpts.providerFallback as
+      | ((
+          err: unknown,
+        ) => Promise<{ provider?: string; model?: string } | null>)
+      | undefined;
+    const perCallChain = callOpts.modelChain as string[] | undefined;
+
+    const effectiveCallback =
+      perCallCallback ?? this.fallbackConfig.providerFallback;
+    const effectiveChain = perCallChain ?? this.fallbackConfig.modelChain;
+
+    if (!effectiveCallback && !effectiveChain) {
+      throw lastError;
+    }
+
+    // Synthesise a callback from modelChain if no explicit callback exists.
+    const chainCursor = { i: 0, list: effectiveChain ?? [] };
+    const synthesizedFromChain: (
+      err: unknown,
+    ) => Promise<{ provider?: string; model?: string } | null> = async () => {
+      while (chainCursor.i < chainCursor.list.length) {
+        const next = chainCursor.list[chainCursor.i++];
+        if (next !== requestedModel) {
+          return { model: next };
+        }
+      }
+      return null;
+    };
+    const callback = effectiveCallback ?? synthesizedFromChain;
+
+    let attempts = 0;
+    const maxAttempts = (effectiveChain?.length ?? 0) + 5;
+    let attemptedRequestedModel = requestedModel;
+    while (attempts++ < maxAttempts) {
+      let next: { provider?: string; model?: string } | null;
+      try {
+        next = await callback(lastError);
+      } catch (cbErr) {
+        logger.warn("[NeuroLink] providerFallback callback threw", {
+          error: cbErr instanceof Error ? cbErr.message : String(cbErr),
+        });
+        throw lastError;
+      }
+      if (!next) {
+        throw lastError;
+      }
+
+      // Emit model.fallback event so cost/audit listeners can record it.
+      try {
+        this.emitter.emit("model.fallback", {
+          requestedProvider,
+          requestedModel: attemptedRequestedModel,
+          fallbackProvider: next.provider ?? requestedProvider,
+          fallbackModel: next.model,
+          reason:
+            lastError instanceof Error ? lastError.message : String(lastError),
+          kind,
+          timestamp: Date.now(),
+        });
+      } catch {
+        /* listener errors are non-fatal */
+      }
+
+      const retriedOptions =
+        typeof optionsOrPrompt === "object"
+          ? {
+              ...(optionsOrPrompt as Record<string, unknown>),
+              ...(next.provider && { provider: next.provider }),
+              ...(next.model && { model: next.model }),
+              // Strip the fallback hooks so the retry doesn't re-orchestrate.
+              providerFallback: undefined,
+              modelChain: undefined,
+            }
+          : optionsOrPrompt;
+
+      const retryAttempt = await this.attemptInner(
+        inner,
+        retriedOptions as GenerateOptions | DynamicOptions | string,
+      );
+      if ("ok" in retryAttempt) {
+        return retryAttempt.ok;
+      }
+      lastError = retryAttempt.error;
+      attemptedRequestedModel = next.model ?? attemptedRequestedModel;
+      if (!looksLikeModelAccessDenied(lastError)) {
+        throw lastError;
+      }
+    }
+    throw lastError;
+  }
+
+  private async attemptInner<T>(
+    inner: (opts: GenerateOptions | DynamicOptions | string) => Promise<T>,
+    options: GenerateOptions | DynamicOptions | string,
+  ): Promise<{ ok: T } | { error: unknown }> {
+    try {
+      const ok = await inner(options);
+      return { ok };
+    } catch (error) {
+      return { error };
+    }
   }
 
   private async executeGenerateWithMetricsContext(
@@ -6329,10 +6533,153 @@ Current user's request: ${currentInput}`;
         : [],
       optionKeys: Object.keys(options),
     });
-    return metricsTraceContextStorage.run(
-      this.createMetricsTraceContext(),
-      () => this.executeStreamRequest({ ...options } as StreamOptions),
+    return this.streamWithIterationFallback(options as StreamOptions);
+  }
+
+  /**
+   * Curator P2-3 / Reviewer Finding #2: stream-fallback that also covers
+   * errors thrown during async iteration (e.g. LiteLLM throwing inside
+   * `createLiteLLMTransformedStream`). The standard
+   * `runWithFallbackOrchestration` only catches errors thrown while the
+   * `StreamResult` is being created — once we hand the iterator back to
+   * the caller, errors raised during consumption used to bypass
+   * `providerFallback` / `modelChain`.
+   *
+   * This wrapper runs the orchestration to get an initial StreamResult,
+   * then wraps `result.stream` so that:
+   *   - chunks are forwarded transparently while consumption succeeds
+   *   - if iteration throws a model-access-denied error AND no chunks
+   *     have been yielded yet, we resolve the next fallback target,
+   *     emit `model.fallback`, and recurse
+   *   - if chunks were already yielded, the error propagates (mid-stream
+   *     recovery isn't safe — the consumer has half a response)
+   */
+  private async streamWithIterationFallback(
+    options: StreamOptions,
+  ): Promise<StreamResult> {
+    const result = await this.runWithFallbackOrchestration(
+      options,
+      "stream",
+      (opts) =>
+        metricsTraceContextStorage.run(this.createMetricsTraceContext(), () =>
+          this.executeStreamRequest({ ...(opts as StreamOptions) }),
+        ),
     );
+
+    const callOpts = options as Record<string, unknown>;
+    const perCallCallback = callOpts.providerFallback as
+      | ((
+          err: unknown,
+        ) => Promise<{ provider?: string; model?: string } | null>)
+      | undefined;
+    const perCallChain = callOpts.modelChain as string[] | undefined;
+    const effectiveCallback =
+      perCallCallback ?? this.fallbackConfig.providerFallback;
+    const effectiveChain = perCallChain ?? this.fallbackConfig.modelChain;
+    if (!effectiveCallback && !effectiveChain) {
+      // No fallback configured — nothing to wrap.
+      return result;
+    }
+
+    // Build a chain cursor scoped to this stream's lifetime; consumers
+    // who set up `modelChain` get sequential progression here too.
+    const chainCursor = {
+      i: 0,
+      list: effectiveChain ?? [],
+      requestedModel: options.model,
+    };
+    const callback =
+      effectiveCallback ??
+      (async () => {
+        while (chainCursor.i < chainCursor.list.length) {
+          const next = chainCursor.list[chainCursor.i++];
+          if (next !== chainCursor.requestedModel) {
+            return { model: next };
+          }
+        }
+        return null;
+      });
+
+    const self = this;
+    // Yield type is the original stream's element type, threaded through
+    // as unknown — we forward chunks unchanged so structural identity is
+    // preserved without a local type alias (CLAUDE.md rule 2).
+    const wrappedStream = (async function* (): AsyncGenerator<unknown> {
+      let yielded = 0;
+      let currentResult: StreamResult = result;
+      let attemptedRequestedProvider = options.provider;
+      let attemptedRequestedModel = options.model;
+      const maxAttempts = (effectiveChain?.length ?? 0) + 5;
+      for (let attempt = 0; attempt <= maxAttempts; attempt++) {
+        try {
+          for await (const chunk of currentResult.stream) {
+            yielded++;
+            yield chunk;
+          }
+          return;
+        } catch (err) {
+          if (yielded > 0 || !looksLikeModelAccessDenied(err)) {
+            throw err;
+          }
+          let next: { provider?: string; model?: string } | null;
+          try {
+            next = await callback(err);
+          } catch (cbErr) {
+            logger.warn(
+              "[NeuroLink.stream] providerFallback callback threw during iteration",
+              {
+                error: cbErr instanceof Error ? cbErr.message : String(cbErr),
+              },
+            );
+            throw err;
+          }
+          if (!next) {
+            throw err;
+          }
+          try {
+            self.emitter.emit("model.fallback", {
+              requestedProvider: attemptedRequestedProvider,
+              requestedModel: attemptedRequestedModel,
+              fallbackProvider: next.provider ?? attemptedRequestedProvider,
+              fallbackModel: next.model,
+              reason: err instanceof Error ? err.message : String(err),
+              kind: "stream",
+              phase: "iteration",
+              timestamp: Date.now(),
+            });
+          } catch {
+            /* listener errors are non-fatal */
+          }
+          const retriedOptions: StreamOptions = {
+            ...options,
+            ...(next.provider && {
+              provider: next.provider as StreamOptions["provider"],
+            }),
+            ...(next.model && { model: next.model }),
+            // Strip the hooks so the inner orchestration doesn't double-fall-back.
+            providerFallback: undefined,
+            modelChain: undefined,
+          } as StreamOptions;
+          attemptedRequestedProvider =
+            next.provider ?? attemptedRequestedProvider;
+          attemptedRequestedModel = next.model ?? attemptedRequestedModel;
+          currentResult = await metricsTraceContextStorage.run(
+            self.createMetricsTraceContext(),
+            () => self.executeStreamRequest({ ...retriedOptions }),
+          );
+        }
+      }
+      // Exhausted attempts — re-throw the most recent error captured by
+      // the inner loop. We only get here if the loop didn't return.
+      throw new Error(
+        `[NeuroLink.stream] iteration fallback exhausted ${maxAttempts} attempts`,
+      );
+    })();
+
+    return {
+      ...result,
+      stream: wrappedStream as StreamResult["stream"],
+    };
   }
 
   private async executeStreamRequest(
