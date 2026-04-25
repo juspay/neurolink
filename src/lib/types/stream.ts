@@ -534,6 +534,20 @@ export type StreamOptions = {
   credentials?: NeurolinkCredentials;
 
   /**
+   * Curator P2-3: per-call fallback callback. Overrides any
+   * instance-level `providerFallback` set on `new NeuroLink({...})`.
+   */
+  providerFallback?: (
+    error: unknown,
+  ) => Promise<{ provider?: string; model?: string } | null>;
+
+  /**
+   * Curator P2-3: per-call ordered model chain. Overrides any
+   * instance-level `modelChain`. Tried in order on model-access-denied.
+   */
+  modelChain?: string[];
+
+  /**
    * Per-call memory control.
    *
    * Override the global memory SDK behavior for this specific call.
