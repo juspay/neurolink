@@ -364,6 +364,12 @@ function isNonRetryableProviderError(error: unknown): boolean {
   if (error instanceof ModelAccessDeniedError) {
     return true;
   }
+  // Note: ContextBudgetExceededError is intentionally NOT non-retryable.
+  // Each provider has its own context window, so a budget rejection on
+  // one provider doesn't preclude another provider's window fitting the
+  // same payload. The directProviderGeneration loop should continue
+  // trying alternate providers; the after-loop rethrow preserves the
+  // typed error when all providers reject (see `directProviderGeneration`).
 
   // Check for HTTP status codes on error objects (e.g., from Vercel AI SDK)
   if (error && typeof error === "object") {
@@ -5065,7 +5071,27 @@ Current user's request: ${currentInput}`;
     functionTag: string,
     error: unknown,
   ): Promise<TextGenerationResult | null> {
-    if (!isContextOverflowError(error) || !this.conversationMemory) {
+    // Reviewer Finding #3: drop the `!this.conversationMemory` gate so
+    // inline-conversationMessages callers also benefit from post-provider
+    // recovery when their pre-dispatch estimate happens to undershoot
+    // and the provider rejects at a higher real token count.
+    if (!isContextOverflowError(error)) {
+      return null;
+    }
+
+    const inlineMessages = (
+      options as TextGenerationOptions & {
+        _originalConversationMessages?: unknown[];
+        conversationMessages?: unknown[];
+      }
+    )._originalConversationMessages as unknown[] | undefined;
+    const callerMessages = (
+      options as TextGenerationOptions & {
+        conversationMessages?: unknown[];
+      }
+    ).conversationMessages as unknown[] | undefined;
+
+    if (!this.conversationMemory && !inlineMessages && !callerMessages) {
       return null;
     }
 
@@ -5080,12 +5106,11 @@ Current user's request: ${currentInput}`;
     try {
       const actualOverflow = parseProviderOverflowDetails(error);
       const originalMessages =
-        (
-          options as TextGenerationOptions & {
-            _originalConversationMessages?: unknown[];
-          }
-        )._originalConversationMessages ??
-        (await getConversationMessages(this.conversationMemory, options));
+        inlineMessages ??
+        callerMessages ??
+        (this.conversationMemory
+          ? await getConversationMessages(this.conversationMemory, options)
+          : []);
       const recoveryBudget = checkContextBudget({
         provider: options.provider || "openai",
         model: options.model,
@@ -5103,56 +5128,138 @@ Current user's request: ${currentInput}`;
           ? (actualTokens - compactionTarget) / actualTokens
           : 0.5;
 
-      const compactor = new ContextCompactor({
-        enableSummarize: false,
-        enablePrune: true,
-        enableDeduplicate: true,
-        enableTruncate: true,
-        truncationFraction: Math.min(0.9, requiredReduction + 0.15),
-      });
-      const compactionResult = await compactor.compact(
-        originalMessages as import("./types/index.js").ChatMessage[],
-        compactionTarget,
-        undefined,
-        (options.context as Record<string, unknown>)?.requestId as
-          | string
-          | undefined,
-      );
+      // Reviewer Finding #3: escalating truncation across attempts. The
+      // first attempt uses the budget-derived fraction (single-round
+      // compaction). If that still leaves the conversation over budget,
+      // subsequent attempts apply progressively harder truncation
+      // (0.5 → 0.75 → 0.9) before giving up. This replaces the previous
+      // single-pass behaviour where one undersized fraction guaranteed
+      // failure on the next provider call.
+      const escalationFractions = [
+        Math.min(0.9, requiredReduction + 0.15),
+        0.5,
+        0.75,
+        0.9,
+      ];
+      let lastCompactionResult: Awaited<
+        ReturnType<ContextCompactor["compact"]>
+      > | null = null;
+      let compactedMessages: unknown[] = originalMessages;
+      let verifiedBudget: ReturnType<typeof checkContextBudget> | null = null;
+      let recoveredFraction = -1;
 
-      if (!compactionResult.compacted) {
-        return null;
+      for (let i = 0; i < escalationFractions.length; i++) {
+        const fraction = escalationFractions[i];
+        const compactor = new ContextCompactor({
+          enableSummarize: false,
+          enablePrune: true,
+          enableDeduplicate: true,
+          enableTruncate: true,
+          truncationFraction: fraction,
+        });
+        const compactionResult = await compactor.compact(
+          originalMessages as import("./types/index.js").ChatMessage[],
+          compactionTarget,
+          undefined,
+          (options.context as Record<string, unknown>)?.requestId as
+            | string
+            | undefined,
+        );
+        if (!compactionResult.compacted) {
+          continue;
+        }
+        lastCompactionResult = compactionResult;
+        const repairedResult = repairToolPairs(compactionResult.messages);
+        const verifyBudget = checkContextBudget({
+          provider: options.provider || "openai",
+          model: options.model,
+          maxTokens: options.maxTokens,
+          systemPrompt: options.systemPrompt,
+          currentPrompt: options.prompt,
+          conversationMessages: repairedResult.messages as Array<{
+            role: string;
+            content: string;
+          }>,
+        });
+        if (verifyBudget.withinBudget) {
+          compactedMessages = repairedResult.messages;
+          verifiedBudget = verifyBudget;
+          recoveredFraction = fraction;
+          break;
+        }
+        verifiedBudget = verifyBudget;
       }
 
-      const repairedResult = repairToolPairs(compactionResult.messages);
-      const verifyBudget = checkContextBudget({
-        provider: options.provider || "openai",
-        model: options.model,
-        maxTokens: options.maxTokens,
-        systemPrompt: options.systemPrompt,
-        currentPrompt: options.prompt,
-        conversationMessages: repairedResult.messages as Array<{
-          role: string;
-          content: string;
-        }>,
-      });
-
-      if (!verifyBudget.withinBudget) {
-        logger.error(
-          `[${functionTag}] Recovery compaction insufficient, aborting retry`,
+      if (!lastCompactionResult) {
+        // Reviewer follow-up: when no escalation fraction managed to
+        // compact the conversation, the request will hit the same
+        // provider 400 again on retry. Surface a typed
+        // ContextBudgetExceededError + `compaction.insufficient` event
+        // instead of returning null (which lets callers propagate the
+        // opaque provider error).
+        try {
+          this.emitter.emit("compaction.insufficient", {
+            stagesAttempted: [],
+            finalTokens: actualTokens,
+            budget: budgetTokens,
+            provider: options.provider || "openai",
+            model: options.model,
+            phase: "post-provider-recovery-no-compaction",
+            fractionsTried: escalationFractions,
+            timestamp: Date.now(),
+          });
+        } catch {
+          /* listener errors are non-fatal */
+        }
+        throw new ContextBudgetExceededError(
+          `Context overflow recovery: no compaction stage was able to ` +
+            `reduce conversation messages. Provider rejected at ` +
+            `~${actualTokens} tokens; budget is ${budgetTokens} tokens.`,
           {
-            estimatedTokens: verifyBudget.estimatedInputTokens,
-            availableTokens: verifyBudget.availableInputTokens,
+            estimatedTokens: actualTokens,
+            availableTokens: budgetTokens,
+            stagesUsed: [],
+            breakdown: {},
           },
         );
+      }
+
+      if (!verifiedBudget?.withinBudget) {
+        logger.error(
+          `[${functionTag}] Recovery compaction insufficient after escalation, aborting retry`,
+          {
+            estimatedTokens: verifiedBudget?.estimatedInputTokens,
+            availableTokens: verifiedBudget?.availableInputTokens,
+            stagesAttempted: lastCompactionResult.stagesUsed,
+            fractionsTried: escalationFractions,
+          },
+        );
+        // Reviewer Finding #3: emit `compaction.insufficient` so
+        // cost / audit listeners record the specific failure mode.
+        try {
+          this.emitter.emit("compaction.insufficient", {
+            stagesAttempted: lastCompactionResult.stagesUsed,
+            finalTokens: verifiedBudget?.estimatedInputTokens,
+            budget: verifiedBudget?.availableInputTokens,
+            provider: options.provider || "openai",
+            model: options.model,
+            phase: "post-provider-recovery",
+            fractionsTried: escalationFractions,
+            timestamp: Date.now(),
+          });
+        } catch {
+          /* listener errors are non-fatal */
+        }
         throw new ContextBudgetExceededError(
           `Context overflow recovery failed. Provider rejected at ~${actualTokens} tokens, ` +
-            `recovery compaction achieved ${compactionResult.tokensAfter} tokens ` +
-            `but budget is ${budgetTokens} tokens.`,
+            `recovery compaction achieved ${lastCompactionResult.tokensAfter} tokens ` +
+            `but budget is ${budgetTokens} tokens (after escalation through ` +
+            `${escalationFractions.length} fractions).`,
           {
-            estimatedTokens: compactionResult.tokensAfter,
+            estimatedTokens: lastCompactionResult.tokensAfter,
             availableTokens: budgetTokens,
-            stagesUsed: compactionResult.stagesUsed,
-            breakdown: verifyBudget.breakdown,
+            stagesUsed: lastCompactionResult.stagesUsed,
+            breakdown: verifiedBudget?.breakdown ?? {},
           },
         );
       }
@@ -5160,16 +5267,17 @@ Current user's request: ${currentInput}`;
       logger.info(
         `[${functionTag}] Smart recovery verified, retrying generation`,
         {
-          tokensSaved: compactionResult.tokensSaved,
+          tokensSaved: lastCompactionResult.tokensSaved,
           compactionTarget,
-          verifiedTokens: verifyBudget.estimatedInputTokens,
-          verifiedBudget: verifyBudget.availableInputTokens,
+          verifiedTokens: verifiedBudget.estimatedInputTokens,
+          verifiedBudget: verifiedBudget.availableInputTokens,
+          recoveredFraction,
         },
       );
 
       return this.directProviderGeneration({
         ...options,
-        conversationMessages: repairedResult.messages,
+        conversationMessages: compactedMessages,
       } as TextGenerationOptions);
     } catch (retryError) {
       if (retryError instanceof ContextBudgetExceededError) {
@@ -6115,9 +6223,57 @@ Current user's request: ${currentInput}`;
 
         const dpgMessageCount = conversationMessages?.length || 0;
         const dpgCompactionSessionId = this.getCompactionSessionId(options);
+        // Curator P1-2: pre-dispatch compaction must run for inline
+        // `conversationMessages` too (not just conversationMemory). Without
+        // this, a 1.3M-token caller-supplied conversation against a 128K
+        // window dispatches anyway and the provider returns
+        // "prompt is too long" — the bug Curator's report cited.
+        const dpgHasInlineMessages =
+          !!optionsWithMessages.conversationMessages?.length;
+        // Reviewer follow-up: gate the hard cap on the *actual compactable
+        // history* rather than `this.conversationMemory`. A configured-but-
+        // empty memory store leaves nothing to compact yet still satisfies
+        // `!this.conversationMemory === false`, so the previous check
+        // skipped the hard cap and dispatched the oversized payload.
+        const dpgHasCompactableMessages = dpgMessageCount > 0;
+
+        // Reviewer Finding #4: pre-dispatch hard cap for the standalone
+        // oversized case. When the budget check shows the request is
+        // over budget but there's nothing to compact (no memory + no
+        // inline messages — e.g. a huge prompt or huge tool definitions
+        // alone), throw before dispatch instead of wasting a roundtrip.
+        if (!budgetCheck.withinBudget && !dpgHasCompactableMessages) {
+          try {
+            this.emitter.emit("compaction.insufficient", {
+              stagesAttempted: ["pre-dispatch hard cap"],
+              finalTokens: budgetCheck.estimatedInputTokens,
+              budget: budgetCheck.availableInputTokens,
+              provider: providerName,
+              model: options.model,
+              phase: "pre-dispatch-no-recovery",
+              timestamp: Date.now(),
+            });
+          } catch {
+            /* listener errors are non-fatal */
+          }
+          throw new ContextBudgetExceededError(
+            `Context exceeds model budget and no compaction is possible ` +
+              `(no conversationMemory, no inline conversationMessages — only ` +
+              `prompt + tools). Estimated: ${budgetCheck.estimatedInputTokens} ` +
+              `tokens, budget: ${budgetCheck.availableInputTokens} tokens. ` +
+              `Reduce prompt or tool-definition size, or trim the request.`,
+            {
+              estimatedTokens: budgetCheck.estimatedInputTokens,
+              availableTokens: budgetCheck.availableInputTokens,
+              stagesUsed: [],
+              breakdown: budgetCheck.breakdown,
+            },
+          );
+        }
+
         if (
           budgetCheck.shouldCompact &&
-          this.conversationMemory &&
+          (this.conversationMemory || dpgHasInlineMessages) &&
           dpgMessageCount >
             (this.lastCompactionMessageCount.get(dpgCompactionSessionId) ?? 0)
         ) {
@@ -6175,6 +6331,26 @@ Current user's request: ${currentInput}`;
               },
             );
 
+            // Curator P1-2: emit `compaction.insufficient` whenever a
+            // single round of compaction wasn't enough — even when
+            // emergency truncation will save the day. Lets cost / audit
+            // listeners track the "compaction was insufficient" signal
+            // separately from the eventual outcome.
+            try {
+              this.emitter.emit("compaction.insufficient", {
+                stagesAttempted: compactionResult.stagesUsed,
+                finalTokens: postCompactBudget.estimatedInputTokens,
+                budget: postCompactBudget.availableInputTokens,
+                provider: providerName,
+                model: options.model,
+                phase: "mid-compaction",
+                willEmergencyTruncate: true,
+                timestamp: Date.now(),
+              });
+            } catch {
+              /* listener errors are non-fatal */
+            }
+
             conversationMessages = emergencyContentTruncation(
               conversationMessages as import("./types/index.js").ChatMessage[],
               postCompactBudget.availableInputTokens,
@@ -6200,6 +6376,23 @@ Current user's request: ${currentInput}`;
             if (!finalBudget.withinBudget) {
               // Clear watermark so handleContextOverflow recovery can re-compact
               this.lastCompactionMessageCount.delete(dpgCompactionSessionId);
+
+              // Curator P1-2: emit `compaction.insufficient` so cost / audit
+              // listeners can record the specific failure mode (separate
+              // from a generic provider error).
+              try {
+                this.emitter.emit("compaction.insufficient", {
+                  stagesAttempted: compactionResult.stagesUsed,
+                  finalTokens: finalBudget.estimatedInputTokens,
+                  budget: finalBudget.availableInputTokens,
+                  provider: providerName,
+                  model: options.model,
+                  phase: "post-emergency-truncation",
+                  timestamp: Date.now(),
+                });
+              } catch {
+                /* listener errors are non-fatal */
+              }
 
               throw new ContextBudgetExceededError(
                 `Context exceeds model budget after all compaction stages. ` +
@@ -6339,6 +6532,15 @@ Current user's request: ${currentInput}`;
       lastError: lastError?.message,
       responseTime,
     });
+
+    // Reviewer follow-up: preserve typed ContextBudgetExceededError after
+    // the per-provider fallback loop. Each provider's hard cap is
+    // per-window; we let the loop try them all, but if every provider
+    // rejected on budget the caller still needs the typed error to
+    // distinguish "context too large" from a generic provider failure.
+    if (lastError instanceof ContextBudgetExceededError) {
+      throw lastError;
+    }
 
     throw new Error(
       `Failed to generate text with all providers. Last error: ${lastError?.message || "Unknown error"}`,
@@ -7969,6 +8171,46 @@ Current user's request: ${currentInput}`;
 
     const streamMessageCount = conversationMessages?.length || 0;
     const streamCompactionSessionId = this.getCompactionSessionId(options);
+    // Reviewer follow-up: gate the hard cap on the *actual compactable
+    // history* rather than `this.conversationMemory`. A configured-but-
+    // empty memory store leaves nothing to compact yet still satisfies
+    // `!this.conversationMemory === false`, so the previous check
+    // skipped the hard cap and dispatched the oversized payload.
+    const streamHasCompactableMessages = streamMessageCount > 0;
+
+    // Curator P1-2: pre-dispatch hard cap mirrors directProviderGeneration.
+    // When the budget check fails AND there's nothing to compact (no memory
+    // + no inline messages — only prompt + tools), throw before dispatch
+    // instead of wasting a roundtrip on a payload the provider will reject.
+    if (!streamBudget.withinBudget && !streamHasCompactableMessages) {
+      try {
+        this.emitter.emit("compaction.insufficient", {
+          stagesAttempted: ["pre-dispatch hard cap"],
+          finalTokens: streamBudget.estimatedInputTokens,
+          budget: streamBudget.availableInputTokens,
+          provider: providerName,
+          model: options.model,
+          phase: "pre-dispatch-no-recovery",
+          timestamp: Date.now(),
+        });
+      } catch {
+        /* listener errors are non-fatal */
+      }
+      throw new ContextBudgetExceededError(
+        `Stream context exceeds model budget and no compaction is possible ` +
+          `(no conversationMemory, no inline conversationMessages — only ` +
+          `prompt + tools). Estimated: ${streamBudget.estimatedInputTokens} ` +
+          `tokens, budget: ${streamBudget.availableInputTokens} tokens. ` +
+          `Reduce prompt or tool-definition size, or trim the request.`,
+        {
+          estimatedTokens: streamBudget.estimatedInputTokens,
+          availableTokens: streamBudget.availableInputTokens,
+          stagesUsed: [],
+          breakdown: streamBudget.breakdown,
+        },
+      );
+    }
+
     if (
       streamBudget.shouldCompact &&
       (hasCallerConversationHistory || this.conversationMemory) &&
@@ -8030,6 +8272,26 @@ Current user's request: ${currentInput}`;
           },
         );
 
+        // Curator P1-2: emit `compaction.insufficient` whenever a single
+        // round of compaction wasn't enough — even when emergency
+        // truncation will save the day. Lets cost / audit listeners track
+        // the "compaction was insufficient" signal separately from the
+        // eventual outcome.
+        try {
+          this.emitter.emit("compaction.insufficient", {
+            stagesAttempted: compactionResult.stagesUsed,
+            finalTokens: postCompactBudget.estimatedInputTokens,
+            budget: postCompactBudget.availableInputTokens,
+            provider: providerName,
+            model: options.model,
+            phase: "mid-compaction",
+            willEmergencyTruncate: true,
+            timestamp: Date.now(),
+          });
+        } catch {
+          /* listener errors are non-fatal */
+        }
+
         conversationMessages = emergencyContentTruncation(
           conversationMessages as import("./types/index.js").ChatMessage[],
           postCompactBudget.availableInputTokens,
@@ -8056,6 +8318,23 @@ Current user's request: ${currentInput}`;
         if (!finalBudget.withinBudget) {
           // Clear watermark so handleContextOverflow recovery can re-compact
           this.lastCompactionMessageCount.delete(streamCompactionSessionId);
+
+          // Curator P1-2: emit `compaction.insufficient` on the terminal
+          // failure path so cost / audit listeners can record the specific
+          // failure mode (compaction + emergency truncation both insufficient).
+          try {
+            this.emitter.emit("compaction.insufficient", {
+              stagesAttempted: compactionResult.stagesUsed,
+              finalTokens: finalBudget.estimatedInputTokens,
+              budget: finalBudget.availableInputTokens,
+              provider: providerName,
+              model: options.model,
+              phase: "post-emergency-truncation",
+              timestamp: Date.now(),
+            });
+          } catch {
+            /* listener errors are non-fatal */
+          }
 
           throw new ContextBudgetExceededError(
             `Stream context exceeds model budget after all compaction stages. ` +
@@ -8209,6 +8488,16 @@ Current user's request: ${currentInput}`;
     enhancedOptions?: StreamOptions,
     _factoryResult?: unknown,
   ): Promise<StreamResult> {
+    // Curator P1-2: when the pre-dispatch hard cap or post-emergency
+    // truncation budget check throws ContextBudgetExceededError, the
+    // payload is too large for the model and a same-payload retry would
+    // just fail again at the provider — wasting the same tokens that
+    // the hard cap was meant to save. Rethrow so the caller sees the
+    // typed error instead of a fallback ProviderError that hides it.
+    if (error instanceof ContextBudgetExceededError) {
+      throw error;
+    }
+
     logger.error("Stream generation failed, attempting fallback", {
       error: error instanceof Error ? error.message : String(error),
     });
