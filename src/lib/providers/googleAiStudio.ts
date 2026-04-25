@@ -17,7 +17,10 @@ import {
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
-import type { NeuroLink } from "../neurolink.js";
+import {
+  markStreamProviderEmittedGenerationEnd,
+  type NeuroLink,
+} from "../neurolink.js";
 import { SpanStatusCode } from "@opentelemetry/api";
 import { ATTR, tracers, withClientSpan } from "../telemetry/index.js";
 import type {
@@ -1039,6 +1042,13 @@ export class GoogleAIStudioProvider extends BaseProvider {
               // AI SDK so experimental_telemetry is never injected; we emit manually.
               const nativeStreamEmitter = this.neurolink?.getEventEmitter();
               if (nativeStreamEmitter) {
+                // Curator P2-4 dedup: flag the per-stream context attached
+                // to options so the orchestration skips its own emit.
+                markStreamProviderEmittedGenerationEnd(
+                  options as unknown as Parameters<
+                    typeof markStreamProviderEmittedGenerationEnd
+                  >[0],
+                );
                 nativeStreamEmitter.emit("generation:end", {
                   provider: this.providerName,
                   responseTime,
@@ -1073,6 +1083,13 @@ export class GoogleAIStudioProvider extends BaseProvider {
               // Emit failure generation:end so Pipeline B records the failed stream
               const errorEmitter = this.neurolink?.getEventEmitter();
               if (errorEmitter) {
+                // Curator P2-4 dedup: flag the per-stream context attached
+                // to options so the orchestration skips its own emit.
+                markStreamProviderEmittedGenerationEnd(
+                  options as unknown as Parameters<
+                    typeof markStreamProviderEmittedGenerationEnd
+                  >[0],
+                );
                 errorEmitter.emit("generation:end", {
                   provider: this.providerName,
                   responseTime: Date.now() - startTime,

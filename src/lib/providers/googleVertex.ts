@@ -33,7 +33,10 @@ import {
   GLOBAL_LOCATION_MODELS,
 } from "../core/constants.js";
 import { ModelConfigurationManager } from "../core/modelConfiguration.js";
-import type { NeuroLink } from "../neurolink.js";
+import {
+  markStreamProviderEmittedGenerationEnd,
+  type NeuroLink,
+} from "../neurolink.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import { ATTR, tracers, withClientSpan } from "../telemetry/index.js";
 import type {
@@ -2334,8 +2337,16 @@ export class GoogleVertexProvider extends BaseProvider {
       // Emit generation:end so Pipeline B (Langfuse) creates a GENERATION
       // observation. The native @google/genai stream path on Vertex bypasses the
       // Vercel AI SDK so experimental_telemetry is never injected; we emit manually.
+      // Curator P2-4 dedup: flag the per-stream context attached to options
+      // so the orchestration in `runStandardStreamRequest` knows we already
+      // emitted and skips its own emit (preserving exactly-once).
       const vertexStreamEmitter = this.neurolink?.getEventEmitter();
       if (vertexStreamEmitter) {
+        markStreamProviderEmittedGenerationEnd(
+          params.options as unknown as Parameters<
+            typeof markStreamProviderEmittedGenerationEnd
+          >[0],
+        );
         vertexStreamEmitter.emit("generation:end", {
           provider: this.providerName,
           responseTime,

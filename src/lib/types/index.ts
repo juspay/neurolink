@@ -63,3 +63,6 @@ export * from "./elicitation.js";
 
 // Dynamic Arguments types
 export * from "./dynamic.js";
+
+// Curator P2-4 dedup: per-stream AsyncLocalStorage context
+export * from "./streamDedup.js";

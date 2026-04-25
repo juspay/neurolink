@@ -97,6 +97,7 @@ import type {
   MCPTool,
   RoutingDecision,
   MetricsTraceContext,
+  StreamGenerationEndContext,
 } from "./types/index.js";
 import { emergencyContentTruncation } from "./context/emergencyTruncation.js";
 import {
@@ -475,6 +476,41 @@ function isNonRetryableProviderError(error: unknown): boolean {
  * same NeuroLink instance would clobber each other's trace context.
  */
 const metricsTraceContextStorage = new AsyncLocalStorage<MetricsTraceContext>();
+
+/**
+ * Curator P2-4 dedup (concurrency-safe): native providers emit
+ * `generation:end` on the shared SDK emitter. We attach a fresh
+ * mutable `dedupContext` object directly to the per-call
+ * `StreamOptions` (under `_streamDedupContext`) so each stream gets
+ * its own instance — concurrent streams have different option objects
+ * and therefore different contexts, so they cannot interfere.
+ *
+ * Native provider emit sites read `options._streamDedupContext` and
+ * flip `.providerEmitted = true` before emitting; the orchestration's
+ * finally block reads the same closed-over reference and skips its
+ * own emit when the flag is set.
+ *
+ * This avoids the AsyncLocalStorage approach which doesn't reliably
+ * propagate through async-generator yield boundaries when iteration
+ * happens from outside the original `run()` scope (e.g. when the
+ * consumer drives `for await of result.stream` after `sdk.stream(...)`
+ * returns).
+ */
+export const STREAM_DEDUP_CONTEXT_KEY = "_streamDedupContext" as const;
+
+/**
+ * Native providers call this from their `generation:end` emit sites,
+ * passing the same `options` object they received. Safe no-op when
+ * the field isn't set.
+ */
+export function markStreamProviderEmittedGenerationEnd(
+  options: { _streamDedupContext?: StreamGenerationEndContext } | undefined,
+): void {
+  const ctx = options?._streamDedupContext;
+  if (ctx) {
+    ctx.providerEmitted = true;
+  }
+}
 
 export class NeuroLink {
   private mcpInitialized = false;
@@ -6888,8 +6924,27 @@ Current user's request: ${currentInput}`;
       const streamStartTime = Date.now();
       const sessionId = (enhancedOptions.context as Record<string, unknown>)
         ?.sessionId as string | undefined;
+      // Curator P2-4 dedup (concurrency-safe): native provider stream paths
+      // (Gemini 3 on Vertex / Google AI Studio) emit `generation:end`
+      // themselves. We attach a per-stream mutable flag directly to
+      // `enhancedOptions._streamDedupContext` — native providers receive
+      // these options and flip the flag before their emit; this finally
+      // block reads the same closed-over reference. Concurrent streams
+      // have different option objects so the contexts don't interfere.
+      const dedupContext: StreamGenerationEndContext = {
+        providerEmitted: false,
+      };
+      (
+        enhancedOptions as StreamOptions & {
+          _streamDedupContext?: StreamGenerationEndContext;
+        }
+      )._streamDedupContext = dedupContext;
       const processedStream = (async function* () {
         let streamError: unknown;
+        // Curator P2-4: hoist `resolvedUsage` so the finally block can emit a
+        // single `generation:end` event with cost data. Cost listeners
+        // subscribe here; previously the stream path never fired it.
+        let resolvedUsage: unknown;
         try {
           for await (const chunk of mcpStream) {
             chunkCount++;
@@ -6932,7 +6987,7 @@ Current user's request: ${currentInput}`;
             );
           }
 
-          let resolvedUsage = streamUsage;
+          resolvedUsage = streamUsage;
           if (!resolvedUsage && streamAnalytics) {
             try {
               const resolved = await Promise.resolve(streamAnalytics);
@@ -7010,6 +7065,69 @@ Current user's request: ${currentInput}`;
               error: metadata.error,
             },
           );
+
+          // Curator P2-4: emit `generation:end` exactly once per stream so
+          // cost listeners receive the same contract as for `generate()`.
+          // The previous implementation only fired `stream:complete`, leaving
+          // any subscriber to `generation:end` with zero events.
+          //
+          // Dedup: native provider stream paths (Gemini 3 on Vertex / Google
+          // AI Studio) already emit `generation:end` themselves so Pipeline B
+          // (Langfuse) records a GENERATION observation. Skip our emit when
+          // they already fired — preserves their Pipeline B observation
+          // source and keeps the "exactly once" contract. Per-stream flag
+          // is concurrency-safe because it's scoped via AsyncLocalStorage.
+          if (!dedupContext.providerEmitted) {
+            try {
+              const finalProvider =
+                metadata.fallbackProvider ?? providerName ?? "unknown";
+              const finalModel =
+                metadata.fallbackModel ??
+                streamModel ??
+                enhancedOptions.model ??
+                "unknown";
+              const finalFinishReason = streamError
+                ? "error"
+                : (streamState.finishReason ?? "stop");
+              self.emitter.emit("generation:end", {
+                provider: finalProvider,
+                model: finalModel,
+                responseTime: Date.now() - streamStartTime,
+                toolsUsed: streamState.toolCalls?.map((t) => t.toolName),
+                timestamp: Date.now(),
+                result: {
+                  content: accumulatedContent,
+                  usage: resolvedUsage,
+                  model: finalModel,
+                  provider: finalProvider,
+                  finishReason: finalFinishReason,
+                },
+                prompt:
+                  enhancedOptions.input?.text ||
+                  (enhancedOptions as Record<string, unknown>).prompt,
+                temperature: enhancedOptions.temperature,
+                maxTokens: enhancedOptions.maxTokens,
+                success: !streamError,
+                error: streamError
+                  ? streamError instanceof Error
+                    ? streamError.message
+                    : String(streamError)
+                  : undefined,
+                pipelineAHandled: true,
+              });
+            } catch (emitError) {
+              logger.debug(
+                "[NeuroLink.stream] generation:end listener threw — ignored",
+                {
+                  error:
+                    emitError instanceof Error
+                      ? emitError.message
+                      : String(emitError),
+                },
+              );
+            }
+          }
+
           self._disableToolCacheForCurrentRequest = false;
           cleanupListeners();
 
