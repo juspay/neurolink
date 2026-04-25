@@ -153,6 +153,7 @@ import {
   AuthenticationError,
   AuthorizationError,
   InvalidModelError,
+  ModelAccessDeniedError,
 } from "./types/index.js";
 import { SpanSerializer } from "./observability/utils/spanSerializer.js";
 import {
@@ -353,6 +354,13 @@ function isNonRetryableProviderError(error: unknown): boolean {
     return true;
   }
   if (error instanceof AuthorizationError) {
+    return true;
+  }
+  // Curator P1-1: model-access-denied is permanent for the (provider, model)
+  // pair until the team whitelist changes. Retrying with the same config
+  // would just waste a second roundtrip. Caller / fallback-orchestrator
+  // should pick a different model.
+  if (error instanceof ModelAccessDeniedError) {
     return true;
   }
 
@@ -8433,6 +8441,97 @@ Current user's request: ${currentInput}`;
    */
   getEventEmitter() {
     return this.emitter;
+  }
+
+  /**
+   * Curator P1-1: synchronous credential health check for a single provider.
+   *
+   * Drives a tiny real call against the provider (1-token completion or
+   * `/models` listing depending on provider) to confirm the configured
+   * credentials are valid. Useful at startup so a service can refuse to
+   * boot if its primary provider's credentials are broken instead of
+   * discovering the problem on first user request.
+   *
+   * @example
+   * ```ts
+   * const health = await neurolink.checkCredentials({ provider: "litellm" });
+   * if (health.status !== "ok") {
+   *   throw new Error(`provider not ready: ${health.detail}`);
+   * }
+   * ```
+   *
+   * @param input - the provider to check
+   * @returns `{ provider, status, detail }`. Possible status values:
+   *   - `"ok"` — credentials valid and provider reachable
+   *   - `"missing"` — required env / credentials not configured
+   *   - `"expired"` — credentials present but rejected (401/403)
+   *   - `"denied"` — credentials valid but team not whitelisted for any model
+   *   - `"network"` — provider unreachable (timeout, ECONNREFUSED, DNS)
+   *   - `"unknown"` — other error; consult `detail`
+   */
+  async checkCredentials(input: { provider: string; model?: string }): Promise<{
+    provider: string;
+    status: "ok" | "missing" | "expired" | "denied" | "network" | "unknown";
+    detail: string;
+  }> {
+    const { provider, model } = input;
+    const probeText = "ping";
+    try {
+      // 1-token probe is cheap, exercises auth + routing without much cost.
+      await this.generate({
+        provider: provider as never,
+        ...(model && { model }),
+        input: { text: probeText },
+        maxTokens: 16,
+        disableTools: true,
+      } as never);
+      return { provider, status: "ok", detail: "credentials valid" };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const lower = msg.toLowerCase();
+      if (err instanceof ModelAccessDeniedError) {
+        return {
+          provider,
+          status: "denied",
+          detail: msg,
+        };
+      }
+      if (
+        lower.includes("authentication") ||
+        lower.includes("401") ||
+        lower.includes("invalid api key") ||
+        lower.includes("incorrect api key") ||
+        lower.includes("api_key_invalid") ||
+        lower.includes("token has expired") ||
+        lower.includes("expired credentials")
+      ) {
+        return { provider, status: "expired", detail: msg };
+      }
+      if (
+        lower.includes("not configured") ||
+        lower.includes("missing api") ||
+        lower.includes("api key is required") ||
+        lower.includes("no api key") ||
+        lower.includes("application default credentials") ||
+        lower.includes("google_application_credentials") ||
+        lower.includes("project_id") ||
+        lower.includes("default credentials") ||
+        lower.includes("service account")
+      ) {
+        return { provider, status: "missing", detail: msg };
+      }
+      if (
+        lower.includes("econnrefused") ||
+        lower.includes("enotfound") ||
+        lower.includes("could not resolve") ||
+        lower.includes("timeout") ||
+        lower.includes("network") ||
+        lower.includes("cannot connect")
+      ) {
+        return { provider, status: "network", detail: msg };
+      }
+      return { provider, status: "unknown", detail: msg };
+    }
   }
 
   // ========================================

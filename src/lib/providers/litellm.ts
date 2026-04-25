@@ -27,9 +27,12 @@ import type {
 import {
   AuthenticationError,
   InvalidModelError,
+  ModelAccessDeniedError,
   NetworkError,
   ProviderError,
   RateLimitError,
+  isModelAccessDeniedMessage,
+  parseAllowedModels,
 } from "../types/index.js";
 import { isAbortError } from "../utils/errorHandling.js";
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
@@ -162,6 +165,18 @@ export class LiteLLMProvider extends BaseProvider {
             `${process.env.LITELLM_BASE_URL || "http://localhost:4000"}`,
           this.providerName,
         );
+      }
+
+      // Curator P1-1: detect "team not allowed to access model" responses
+      // and surface as ModelAccessDeniedError with the allowed_models array
+      // parsed from the body. Must run before the generic "API key" check
+      // because LiteLLM phrases this as a 403 distinct from auth.
+      if (isModelAccessDeniedMessage(errorRecord.message)) {
+        return new ModelAccessDeniedError(errorRecord.message, {
+          provider: this.providerName,
+          requestedModel: this.modelName,
+          allowedModels: parseAllowedModels(errorRecord.message),
+        });
       }
 
       if (

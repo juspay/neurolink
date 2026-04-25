@@ -324,14 +324,32 @@ export class OpenAIProvider extends BaseProvider {
       errorObj?.type && typeof errorObj.type === "string"
         ? errorObj.type
         : undefined;
+    const statusCode =
+      typeof errorObj?.status === "number"
+        ? errorObj.status
+        : typeof errorObj?.statusCode === "number"
+          ? errorObj.statusCode
+          : undefined;
 
+    // Curator P1-1 / Reviewer Finding #4: only the explicit auth markers
+    // map to AuthenticationError. Earlier we treated every
+    // `invalid_request_error` as an auth failure — that's OpenAI's catch-all
+    // for any bad request (unsupported parameter, malformed JSON, etc.) and
+    // mislabelled them as "invalid API key". Use credential-specific
+    // signals only.
     if (
       message.includes("API_KEY_INVALID") ||
       message.includes("Invalid API key") ||
-      errorType === "invalid_api_key"
+      message.includes("Incorrect API key") ||
+      message.includes("invalid_api_key") ||
+      errorType === "invalid_api_key" ||
+      statusCode === 401
     ) {
       return new AuthenticationError(
-        "Invalid OpenAI API key. Please check your OPENAI_API_KEY environment variable.",
+        message.includes("Incorrect API key") ||
+          message.includes("Invalid API key")
+          ? message
+          : "Invalid OpenAI API key. Please check your OPENAI_API_KEY environment variable.",
         this.providerName,
       );
     }

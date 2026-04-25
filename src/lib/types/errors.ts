@@ -197,3 +197,111 @@ export class ModelAccessError extends BaseError {
     this.requiredTier = requiredTier;
   }
 }
+
+/**
+ * Curator P1-1: thrown when a provider rejects a request because the
+ * caller's team / API key is not whitelisted for the requested model.
+ *
+ * LiteLLM's `team not allowed to access model. This team can only access
+ * models=['glm-latest', 'kimi-latest', ...]` is the canonical example —
+ * the list is parsed off the error body so callers / fallback orchestrators
+ * can choose a whitelisted alternative without scraping strings.
+ */
+export class ModelAccessDeniedError extends ProviderError {
+  public readonly requestedModel: string | undefined;
+  public readonly allowedModels: string[] | undefined;
+  public readonly code = "MODEL_ACCESS_DENIED" as const;
+
+  constructor(
+    message: string,
+    options: {
+      provider?: string;
+      requestedModel?: string;
+      allowedModels?: string[];
+    } = {},
+  ) {
+    super(message, options.provider);
+    this.name = "ModelAccessDeniedError";
+    this.requestedModel = options.requestedModel;
+    this.allowedModels = options.allowedModels;
+  }
+}
+
+/** Maximum body length we'll attempt to parse. Real provider error
+ *  bodies are well under 10 KB; longer inputs are either truncated
+ *  log output or a deliberate ReDoS attempt. */
+const MAX_ALLOWED_MODELS_INPUT = 10_000;
+
+/**
+ * Parse the `allowed_models` array out of a provider error message body.
+ * Currently targets the LiteLLM team-whitelist response shape:
+ *
+ *   "team not allowed to access model. This team can only access
+ *    models=['glm-latest', 'kimi-latest', 'open-large']"
+ *
+ * Implementation note: deliberately uses `indexOf`/`slice` instead of a
+ * single `/models\s*=\s*\[([^\]]*)\]/` regex. CodeQL flagged the latter
+ * as `js/polynomial-redos` because the `[^\]]*` greedy quantifier on
+ * library-supplied input can be exploited by a crafted long string. The
+ * indexOf/slice path is O(n) with no backtracking and we additionally
+ * cap the input length.
+ *
+ * Returns undefined when no list is found.
+ */
+export function parseAllowedModels(message: string): string[] | undefined {
+  if (typeof message !== "string" || message.length === 0) {
+    return undefined;
+  }
+  if (message.length > MAX_ALLOWED_MODELS_INPUT) {
+    return undefined;
+  }
+  // Locate `models` keyword case-insensitively, then walk forward to
+  // confirm `=` and `[` markers — no regex backtracking.
+  const lower = message.toLowerCase();
+  let idx = lower.indexOf("models", 0);
+  while (idx !== -1) {
+    let cursor = idx + "models".length;
+    // Skip whitespace
+    while (cursor < message.length && /\s/.test(message[cursor])) {
+      cursor++;
+    }
+    if (message[cursor] !== "=") {
+      idx = lower.indexOf("models", idx + 1);
+      continue;
+    }
+    cursor++;
+    while (cursor < message.length && /\s/.test(message[cursor])) {
+      cursor++;
+    }
+    if (message[cursor] !== "[") {
+      idx = lower.indexOf("models", idx + 1);
+      continue;
+    }
+    const open = cursor;
+    const close = message.indexOf("]", open + 1);
+    if (close === -1) {
+      return undefined;
+    }
+    const inside = message.slice(open + 1, close);
+    const items = inside
+      .split(",")
+      .map((s) => s.trim().replace(/^['"]|['"]$/g, ""))
+      .filter((s) => s.length > 0);
+    return items.length > 0 ? items : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Returns true when `message` looks like a model-access-denied response
+ * (LiteLLM "team not allowed", generic "not allowed to access model",
+ * or "team can only access models=[...]").
+ */
+export function isModelAccessDeniedMessage(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    (lower.includes("team") && lower.includes("not allowed")) ||
+    lower.includes("team can only access") ||
+    /not\s+allowed\s+to\s+access\s+(this\s+)?model/i.test(message)
+  );
+}
