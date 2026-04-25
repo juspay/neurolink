@@ -3115,16 +3115,24 @@ Current user's request: ${currentInput}`;
         if (traceCtx) {
           span.parentSpanId = traceCtx.parentSpanId;
         }
-        // Mark failed generations with ERROR status so metrics count them correctly
-        const spanStatus =
-          data.success === false || data.error
-            ? SpanStatus.ERROR
-            : SpanStatus.OK;
-        span = SpanSerializer.endSpan(
-          span,
-          spanStatus,
-          data.error ? String(data.error) : undefined,
-        );
+        // Mark failed generations with ERROR status so metrics count them
+        // correctly. Client aborts (data.aborted === true) are NOT failures —
+        // they are user-initiated cancellations and must not pollute the
+        // failure rate. Map them to WARNING with the canonical
+        // "Generation aborted by client" message (matches the Langfuse
+        // ContextEnricher mapping for outer/internal generation spans).
+        let spanStatus: SpanStatus;
+        let statusMessage: string | undefined;
+        if (data.aborted === true) {
+          spanStatus = SpanStatus.WARNING;
+          statusMessage = "Generation aborted by client";
+        } else if (data.success === false || data.error) {
+          spanStatus = SpanStatus.ERROR;
+          statusMessage = data.error ? String(data.error) : undefined;
+        } else {
+          spanStatus = SpanStatus.OK;
+        }
+        span = SpanSerializer.endSpan(span, spanStatus, statusMessage);
         span.durationMs = responseTime;
 
         // G2 fix: Check finishReason and escalate to WARNING for partial failures
@@ -3551,10 +3559,23 @@ Current user's request: ${currentInput}`;
       generateSpan.setStatus({ code: SpanStatusCode.OK });
       return result;
     } catch (error) {
-      generateSpan.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: error instanceof Error ? error.message : String(error),
-      });
+      // Match the inner-span discrimination: client aborts are user-initiated
+      // cancellations, not faults. Mark with finishReason=aborted and skip
+      // ERROR status so ContextEnricher routes the outer trace to
+      // langfuse.level=WARNING (matches Curator telemetry-gaps Issue 5a). All
+      // other errors keep the existing ERROR status + recordException pair.
+      if (isAbortError(error)) {
+        generateSpan.setAttribute("ai.finishReason", "aborted");
+        generateSpan.setAttribute("neurolink.aborted", true);
+      } else {
+        generateSpan.recordException(
+          error instanceof Error ? error : new Error(String(error)),
+        );
+        generateSpan.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
 
       // G7 fix: Distinguish context overflow errors with dedicated attributes
       if (error instanceof ContextBudgetExceededError) {
@@ -4016,6 +4037,11 @@ Current user's request: ${currentInput}`;
         ? optionsOrPrompt.model || "unknown"
         : "unknown";
 
+    // Distinguish client aborts from real failures so consumers (and Langfuse)
+    // can route them differently. `aborted: true` is additive — `success`
+    // remains false for backwards-compat with existing listeners that only
+    // branch on the boolean.
+    const aborted = isAbortError(error);
     try {
       this.emitter.emit("generation:end", {
         provider: errProvider,
@@ -4023,6 +4049,7 @@ Current user's request: ${currentInput}`;
         responseTime: 0,
         error: error instanceof Error ? error.message : String(error),
         success: false,
+        aborted,
       });
     } catch (emitError: unknown) {
       void emitError;
@@ -4499,10 +4526,24 @@ Current user's request: ${currentInput}`;
         context,
       );
     } catch (error) {
-      internalSpan.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: error instanceof Error ? error.message : String(error),
-      });
+      // Client aborts are user-initiated cancellations, not system faults.
+      // Setting status=ERROR forces Langfuse to level=ERROR (see
+      // ContextEnricher.onEnd → instrumentation.ts:691). Instead leave status
+      // unset and stamp ai.finishReason=aborted so applyNonErrorLangfuseLevel
+      // maps it to level=WARNING with the canonical "Generation aborted by
+      // client" status_message. Matches Curator telemetry-gaps Issue 5a.
+      if (isAbortError(error)) {
+        internalSpan.setAttribute("ai.finishReason", "aborted");
+        internalSpan.setAttribute("neurolink.aborted", true);
+      } else {
+        internalSpan.recordException(
+          error instanceof Error ? error : new Error(String(error)),
+        );
+        internalSpan.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
       throw error;
     } finally {
       internalSpan.end();
@@ -4595,6 +4636,15 @@ Current user's request: ${currentInput}`;
       );
       if (recoveredResult) {
         return recoveredResult;
+      }
+      // Convert raw DOMException AbortErrors (and other untyped abort shapes)
+      // into NeuroLinkError(ABORT) so callers can branch on
+      // `error.category === ErrorCategory.ABORT` instead of message matching.
+      // Skipped if the error is already a typed abort to avoid double-wrap.
+      if (isAbortError(error) && !(error instanceof NeuroLinkError)) {
+        throw ErrorFactory.aborted(
+          error instanceof Error ? error : new Error(String(error)),
+        );
       }
       throw error;
     }
@@ -4719,8 +4769,20 @@ Current user's request: ${currentInput}`;
     }
 
     if (isAbortError(error)) {
+      // Aborted generations DO NOT write to conversation memory.
+      // Fabricating an assistant turn out of an error condition (the previous
+      // "[generation was interrupted]" sentinel) pollutes the next prompt and
+      // — at the right shape — causes the model to echo the sentinel as its
+      // response. See Curator SI-069 / SI-071. Aborts are signalled to
+      // callers via the thrown error and the "error" emitter event below;
+      // there is nothing to persist, so persisting nothing is correct.
+      //
+      // Title generation continues to work: it reads the user message of the
+      // first *successful* turn (RedisConversationMemoryManager
+      // .generateConversationTitle) and never required a fabricated assistant
+      // turn — the previous comment claiming otherwise was inaccurate.
       logger.info(
-        `[${context.functionTag}] Generation aborted — storing conversation turn for title generation`,
+        `[${context.functionTag}] Generation aborted — skipping memory write (aborts must not pollute conversation history)`,
         {
           hasMemory: !!this.conversationMemory,
           memoryType: this.conversationMemory?.constructor?.name || "NONE",
@@ -4729,35 +4791,6 @@ Current user's request: ${currentInput}`;
             "unknown",
         },
       );
-
-      try {
-        const abortedResult: TextGenerationResult = {
-          content: "[generation was interrupted]",
-          provider: options.provider || "unknown",
-          model: options.model || "unknown",
-          responseTime: Date.now() - context.generateInternalStartTime,
-        };
-        await withTimeout(
-          storeConversationTurn(
-            this.conversationMemory,
-            options,
-            abortedResult,
-            new Date(context.generateInternalStartTime),
-            context.requestId,
-          ),
-          5000,
-        );
-      } catch (storeError) {
-        logger.warn(
-          `[${context.functionTag}] Failed to store conversation turn after abort`,
-          {
-            error:
-              storeError instanceof Error
-                ? storeError.message
-                : String(storeError),
-          },
-        );
-      }
     } else {
       logger.error(`[${context.functionTag}] All generation methods failed`, {
         error: error instanceof Error ? error.message : String(error),
@@ -4765,10 +4798,17 @@ Current user's request: ${currentInput}`;
     }
 
     this.emitter.emit("response:end", "");
-    this.emitter.emit(
-      "error",
-      error instanceof Error ? error : new Error(String(error)),
-    );
+    // Node EventEmitter rethrows the original error from emit("error", e) if
+    // there is no listener registered, which would short-circuit the caller's
+    // catch block and prevent the abort-typed-error wrap from running. Only
+    // emit when a consumer is listening; non-listening callers receive the
+    // error via the thrown rejection instead, which is the canonical path.
+    if (this.emitter.listenerCount("error") > 0) {
+      this.emitter.emit(
+        "error",
+        error instanceof Error ? error : new Error(String(error)),
+      );
+    }
     return null;
   }
 
@@ -7993,8 +8033,12 @@ Current user's request: ${currentInput}`;
    * **Generation Events:**
    * - `generation:start` - Fired when text generation begins
    *   - `{ provider: string, timestamp: number }`
-   * - `generation:end` - Fired when text generation completes
-   *   - `{ provider: string, responseTime: number, toolsUsed?: string[], timestamp: number }`
+   * - `generation:end` - Fired when text generation completes (or fails / is aborted)
+   *   - `{ provider: string, responseTime: number, toolsUsed?: string[], timestamp: number, success?: boolean, aborted?: boolean, error?: string }`
+   *   - `success` is `false` for both failures and client aborts; `aborted: true`
+   *     distinguishes the latter so consumers can route cancellations
+   *     differently from real errors. Pipeline B's metrics span maps
+   *     `aborted: true` events to `SpanStatus.WARNING` (not ERROR).
    *
    * **Streaming Events:**
    * - `stream:start` - Fired when streaming begins
@@ -9401,7 +9445,13 @@ Current user's request: ${currentInput}`;
       undefined,
       structuredError,
     );
-    this.emitter.emit("error", structuredError);
+    // Gate on listenerCount: Node EventEmitter rethrows the original error
+    // from emit("error", e) when no listener is registered, which would
+    // short-circuit the surrounding flow and surface as an unhandled
+    // rejection. Same pattern as handleGenerateTextInternalFailure.
+    if (this.emitter.listenerCount("error") > 0) {
+      this.emitter.emit("error", structuredError);
+    }
 
     structuredError = new NeuroLinkError({
       ...structuredError,
@@ -9632,14 +9682,20 @@ Current user's request: ${currentInput}`;
           const errorMessage =
             (result as { error?: string }).error || "Tool execution failed";
           const errorToEmit = new Error(errorMessage);
-          this.emitter.emit("error", errorToEmit);
+          // Gate on listenerCount — see handleGenerateTextInternalFailure for
+          // the rationale (Node EventEmitter rethrows on no listener).
+          if (this.emitter.listenerCount("error") > 0) {
+            this.emitter.emit("error", errorToEmit);
+          }
         }
 
         return result;
       } catch (error) {
         const errorToEmit =
           error instanceof Error ? error : new Error(String(error));
-        this.emitter.emit("error", errorToEmit);
+        if (this.emitter.listenerCount("error") > 0) {
+          this.emitter.emit("error", errorToEmit);
+        }
 
         // Check if tool was not found
         if (error instanceof Error && error.message.includes("not found")) {

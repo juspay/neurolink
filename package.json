@@ -73,6 +73,7 @@
     "test:mcp": "npx tsx test/continuous-test-suite-mcp-http.ts",
     "test:media": "npx tsx test/continuous-test-suite-media-gen.ts",
     "test:memory": "npx tsx test/continuous-test-suite-memory.ts",
+    "test:session-memory-bugs": "npx tsx test/continuous-test-suite-session-memory-bugs.ts",
     "test:middleware": "npx tsx test/continuous-test-suite-middleware.ts",
     "test:observability": "npx tsx test/continuous-test-suite-observability.ts",
     "test:ppt": "npx tsx test/continuous-test-suite-ppt.ts",

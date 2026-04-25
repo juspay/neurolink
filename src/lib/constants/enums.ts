@@ -977,6 +977,13 @@ export enum ErrorCategory {
   CONFIGURATION = "configuration",
   EXECUTION = "execution",
   SYSTEM = "system",
+  /**
+   * Caller-initiated cancellation via AbortSignal. Distinct from system errors
+   * — represents a user/control-plane decision, not a SDK or provider failure.
+   * Consumers can branch on this category to differentiate "user cancelled"
+   * from "server error" without resorting to message-string matching.
+   */
+  ABORT = "abort",
 }
 
 // Error severity levels

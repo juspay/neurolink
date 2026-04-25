@@ -29,6 +29,9 @@ export const ERROR_CODES = {
   PROVIDER_AUTH_FAILED: "PROVIDER_AUTH_FAILED",
   PROVIDER_QUOTA_EXCEEDED: "PROVIDER_QUOTA_EXCEEDED",
 
+  // Cancellation
+  OPERATION_ABORTED: "OPERATION_ABORTED",
+
   // Configuration errors
   INVALID_CONFIGURATION: "INVALID_CONFIGURATION",
   MISSING_CONFIGURATION: "MISSING_CONFIGURATION",
@@ -254,6 +257,31 @@ export class ErrorFactory {
       context: { memoryUsageMB },
       toolName,
     });
+  }
+
+  /**
+   * Create a typed abort error preserving the originating exception. Callers
+   * can switch on `error.category === ErrorCategory.ABORT` and
+   * `error.code === ERROR_CODES.OPERATION_ABORTED` instead of message-string
+   * matching DOMException / AI SDK error wrappers.
+   *
+   * `error.name` is intentionally set to "AbortError" (overriding the default
+   * "NeuroLinkError") so existing callers that branch on
+   * `err.name === "AbortError"` keep working without code changes — the new
+   * structured fields (category, code, retriable) are additive.
+   */
+  static aborted(originalError?: Error): NeuroLinkError {
+    const err = new NeuroLinkError({
+      code: ERROR_CODES.OPERATION_ABORTED,
+      message: originalError?.message || "The operation was aborted",
+      category: ErrorCategory.ABORT,
+      severity: ErrorSeverity.LOW,
+      retriable: false,
+      context: {},
+      originalError,
+    });
+    err.name = "AbortError";
+    return err;
   }
 
   // ============================================================================
@@ -1061,6 +1089,13 @@ export function isAbortError(error: unknown): boolean {
     return true;
   }
   if (error instanceof Error && error.name === "AbortError") {
+    return true;
+  }
+  // Typed NeuroLinkError abort - canonical from-now-on shape.
+  if (
+    error instanceof NeuroLinkError &&
+    error.category === ErrorCategory.ABORT
+  ) {
     return true;
   }
   if (
