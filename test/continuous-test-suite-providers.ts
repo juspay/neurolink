@@ -82,6 +82,10 @@ const ALL_PROVIDERS = [
   "ollama",
   "litellm",
   "huggingface",
+  "deepseek",
+  "nvidia-nim",
+  "lm-studio",
+  "llamacpp",
 ] as const;
 
 // ============================================================
@@ -833,36 +837,46 @@ async function testGemini3TokenCounting(
   }
 }
 
-// --- Test #10: Gemini 3 DisableTools ---
+// --- Test #10: DisableTools (provider-agnostic) ---
 async function testGemini3DisableTools(
-  sdk: NeuroLink,
+  _sdk: NeuroLink,
 ): Promise<boolean | null> {
-  logTest("Gemini 3 - DisableTools", "TESTING");
+  logTest("DisableTools", "TESTING");
+  // Use a dedicated NeuroLink with a registered tool so the model has
+  // something it COULD call — otherwise `toolsUsed.length === 0` is
+  // guaranteed even when `disableTools` is silently ignored.
+  const toolSdk = new NeuroLink();
   try {
-    const result = await sdk.generate({
+    toolSdk.registerTool("dummy_tool", {
+      name: "dummy_tool",
+      description: "A deterministic tool used to verify disableTools behaviour",
+      inputSchema: {
+        type: "object",
+        properties: { x: { type: "string" } },
+        required: ["x"],
+      },
+      execute: async () => ({ result: "tool-called" }),
+    });
+
+    const result = await toolSdk.generate({
       input: {
-        text: "What is the meaning of life? Give a brief philosophical answer.",
+        text: "Use dummy_tool to look something up, then answer briefly.",
       },
       maxTokens: 500,
-      provider: "vertex",
-      model: "gemini-3-flash-preview",
+      ...buildBaseSDKOptions(),
       disableTools: true,
     });
 
     const content = result.content || "";
     if (!content) {
-      logTest(
-        "Gemini 3 - DisableTools",
-        "FAIL",
-        "Empty response with disableTools",
-      );
+      logTest("DisableTools", "FAIL", "Empty response with disableTools");
       return false;
     }
 
     // Verify no tools were used
     if (result.toolsUsed && result.toolsUsed.length > 0) {
       logTest(
-        "Gemini 3 - DisableTools",
+        "DisableTools",
         "FAIL",
         `Tools were used despite disableTools: ${result.toolsUsed.join(", ")}`,
       );
@@ -870,7 +884,7 @@ async function testGemini3DisableTools(
     }
 
     logTest(
-      "Gemini 3 - DisableTools",
+      "DisableTools",
       "PASS",
       `Response generated without tools (${content.length} chars)`,
     );
@@ -878,11 +892,24 @@ async function testGemini3DisableTools(
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedProviderError(msg)) {
-      logTest("Gemini 3 - DisableTools", "SKIP", msg);
+      logTest("DisableTools", "SKIP", msg);
       return null;
     }
-    logTest("Gemini 3 - DisableTools", "FAIL", msg);
+    logTest("DisableTools", "FAIL", msg);
     return false;
+  } finally {
+    // Release the per-test NeuroLink instance so it doesn't leak across the
+    // suite. shutdown() is best-effort — if it fails or doesn't exist, the
+    // try/catch keeps the test result intact. (Chaining `.catch()` on
+    // `shutdown?.()` would TypeError when `shutdown` is undefined — the
+    // optional call returns `undefined`, not a promise.)
+    try {
+      await (
+        toolSdk as unknown as { shutdown?: () => Promise<unknown> }
+      ).shutdown?.();
+    } catch {
+      /* ignore — cleanup must not affect test outcome */
+    }
   }
 }
 
@@ -1444,6 +1471,10 @@ async function testModelRegistryCompleteness(): Promise<boolean | null> {
       "openrouter",
       "openai-compatible",
       "sagemaker",
+      "deepseek",
+      "nvidia-nim",
+      "lm-studio",
+      "llamacpp",
     ];
 
     // Check AIProviderName enum exists
@@ -1854,11 +1885,50 @@ async function test_observability_spans(
           (s: { type: string }) => s.type === SpanType.MODEL_GENERATION,
         );
 
+        // Pipeline A providers (AI SDK + Langfuse OTEL) intentionally skip
+        // Pipeline B span emission to avoid duplicate observations. See
+        // neurolink.ts initializeMetricsListeners(): when pipelineAHandled=true
+        // the listener returns early. Native (Pipeline B) providers MUST emit
+        // model.generation; failing to do so is a real regression, not a skip.
+        const PIPELINE_A_PROVIDERS = new Set([
+          "openai",
+          "anthropic",
+          "azure",
+          "mistral",
+          "openrouter",
+          "openai-compatible",
+          "litellm",
+          "huggingface",
+          "deepseek",
+          "nvidia",
+          "nim",
+          "nvidia-nim",
+          "lmstudio",
+          "lms",
+          "lm-studio",
+          "llama.cpp",
+          "llama-cpp",
+          "llamacpp",
+        ]);
+        const providerKey = TEST_CONFIG.provider.toLowerCase();
+
+        if (
+          generationSpans.length === 0 &&
+          PIPELINE_A_PROVIDERS.has(providerKey)
+        ) {
+          logTest(
+            "Observability Spans",
+            "SKIP",
+            `Provider uses Pipeline A (AI SDK + Langfuse OTEL); no Pipeline B span expected. Got ${allSpans.length} non-generation spans.`,
+          );
+          return null;
+        }
+
         if (generationSpans.length === 0) {
           logTest(
             "Observability Spans",
             "FAIL",
-            `generate() succeeded but no ${SpanType.MODEL_GENERATION} spans found (got ${allSpans.length} total spans)`,
+            `Native provider ${TEST_CONFIG.provider} produced no model.generation span (got ${allSpans.length} non-generation spans).`,
           );
           return false;
         }

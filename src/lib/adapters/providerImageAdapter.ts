@@ -56,7 +56,19 @@ const PROXY_PROVIDERS = new Set(["litellm", "openrouter"]);
  */
 function normalizeVisionProvider(provider: string): string {
   const lower = provider.toLowerCase();
-  switch (lower) {
+  // Strip non-alpha characters so alias forms (e.g. "lm-studio", "lm_studio",
+  // "llama.cpp", "nvidia_nim") all collapse onto a canonical key. Mirrors
+  // the alias-normalization pattern used in pricing.ts and contextWindows.ts.
+  const stripped = lower.replace(/[^a-z]/g, "");
+  switch (stripped) {
+    case "lmstudio":
+      return "lm-studio";
+    case "llamacpp":
+      return "llamacpp";
+    case "nvidianim":
+      return "nvidia-nim";
+    case "googleaistudio":
+      return "google-ai";
     case "or":
       return "openrouter";
     default:
@@ -443,6 +455,32 @@ const VISION_CAPABILITIES = {
     "meta-llama-4-maverick-17b-128e-instruct",
     "meta-llama-4-scout-17b-16e-instruct",
   ],
+  // DeepSeek has no vision support — empty list
+  deepseek: [] as readonly string[],
+  "nvidia-nim": [
+    "meta/llama-3.2-90b-vision-instruct",
+    "meta/llama-3.2-11b-vision-instruct",
+  ],
+  // LM Studio + llama.cpp: vision depends on the loaded model.
+  // Substrings must point at known multimodal variants only — bare
+  // "llama-3.2" matches the text-only Llama-3.2-1B/3B chat models.
+  "lm-studio": [
+    "llava",
+    "llama-3.2-11b-vision",
+    "llama-3.2-90b-vision",
+    "vision-instruct",
+    "qwen2-vl",
+    "qwen2.5-vl",
+    "phi-3-vision",
+  ],
+  llamacpp: [
+    "llava",
+    "llama-3.2-11b-vision",
+    "llama-3.2-90b-vision",
+    "vision-instruct",
+    "qwen2-vl",
+    "phi-3-vision",
+  ],
 } as const;
 
 /**
@@ -576,6 +614,14 @@ export class ProviderImageAdapter {
         return false;
       }
 
+      // An empty list means the provider has NO vision support (e.g. deepseek).
+      // Without this guard, the no-model branch below would return `true` for
+      // every provider that has an entry in VISION_CAPABILITIES — even an empty
+      // one — letting vision requests through to a text-only API.
+      if (supportedModels.length === 0) {
+        return false;
+      }
+
       if (!model) {
         return true; // Provider supports vision, but need to check specific model
       }
@@ -612,7 +658,12 @@ export class ProviderImageAdapter {
    * Get all vision-capable providers
    */
   static getVisionProviders(): string[] {
-    return Object.keys(VISION_CAPABILITIES);
+    // Filter out providers whose allowlist is empty (e.g. deepseek). They're
+    // listed in VISION_CAPABILITIES so supportsVision can return false for
+    // them, but they should not be advertised as vision-capable.
+    return Object.entries(VISION_CAPABILITIES)
+      .filter(([, models]) => models.length > 0)
+      .map(([provider]) => provider);
   }
 
   /**

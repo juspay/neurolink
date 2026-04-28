@@ -15,3 +15,7 @@ export { HuggingFaceProvider as HuggingFace } from "./huggingFace.js";
 export { OllamaProvider as Ollama } from "./ollama.js";
 export { MistralProvider as MistralAI } from "./mistral.js";
 export { LiteLLMProvider as LiteLLM } from "./litellm.js";
+export { DeepSeekProvider as DeepSeek } from "./deepseek.js";
+export { NvidiaNimProvider as NvidiaNim } from "./nvidiaNim.js";
+export { LMStudioProvider as LMStudio } from "./lmStudio.js";
+export { LlamaCppProvider as LlamaCpp } from "./llamaCpp.js";

@@ -28,6 +28,34 @@ export const DEFAULT_OUTPUT_RESERVE_RATIO = 0.35;
  * The "_default" key is the fallback for unknown models within a provider.
  */
 export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
+  deepseek: {
+    _default: 64_000,
+    "deepseek-chat": 64_000,
+    "deepseek-reasoner": 64_000,
+  },
+  "nvidia-nim": {
+    _default: 128_000,
+    "meta/llama-3.3-70b-instruct": 128_000,
+    "meta/llama-3.1-405b-instruct": 128_000,
+    "meta/llama-3.1-70b-instruct": 128_000,
+    "meta/llama-3.2-90b-vision-instruct": 128_000,
+    "meta/llama-3.2-11b-vision-instruct": 128_000,
+    "nvidia/llama-3.3-nemotron-super-49b-v1": 128_000,
+    "nvidia/llama-3.1-nemotron-nano-8b-v1": 128_000,
+    "nvidia/llama-3.1-nemotron-70b-instruct": 128_000,
+    "deepseek-ai/deepseek-r1": 128_000,
+    "deepseek-ai/deepseek-r1-distill-llama-70b": 128_000,
+    "mistralai/mixtral-8x22b-instruct-v0.1": 65_536,
+    "mistralai/mixtral-8x7b-instruct-v0.1": 32_768,
+    "microsoft/phi-4": 16_384,
+    "google/gemma-3-27b-it": 8_192,
+  },
+  "lm-studio": {
+    _default: 8_192,
+  },
+  llamacpp: {
+    _default: 8_192,
+  },
   anthropic: {
     _default: 200_000,
     // Claude 4.6 (Feb 2026) — 1M context window
@@ -230,6 +258,38 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
 };
 
 /**
+ * Map of provider aliases to canonical MODEL_CONTEXT_WINDOWS keys.
+ *
+ * Callers reach `getContextWindowSize` via the unnormalized form on
+ * `options.provider` (e.g. CLI `--provider lmstudio`, alias `llama.cpp`),
+ * and `ProviderFactory.normalizeProviderName` runs only at instantiation —
+ * its output never reaches budget calculations. Without this normalization
+ * those alias forms miss the table and fall back to `DEFAULT_CONTEXT_WINDOW`,
+ * understating the budget for LM Studio / llama.cpp / NVIDIA NIM.
+ *
+ * The keys here are the result of stripping non-alpha characters, so
+ * `lm-studio` -> `lmstudio`, `nvidia-nim` -> `nvidianim`, `llama.cpp` -> `llamacpp`.
+ */
+const PROVIDER_ALIAS_MAP: Record<string, string> = {
+  googleaistudio: "google-ai-studio",
+  lmstudio: "lm-studio",
+  llamacpp: "llamacpp",
+  nvidianim: "nvidia-nim",
+  nim: "nvidia-nim",
+  nvidia: "nvidia-nim",
+  deepseek: "deepseek",
+};
+
+function normalizeProviderForLookup(provider: string): string {
+  const stripped = provider.toLowerCase().replace(/[^a-z]/g, "");
+  // On alias miss, return the *stripped* key — not the raw input — so case /
+  // separator variants ("OpenAI", "open-ai", "Vertex AI") still find their
+  // table entry under the lowercase canonical key instead of falling through
+  // to DEFAULT_CONTEXT_WINDOW.
+  return PROVIDER_ALIAS_MAP[stripped] ?? stripped;
+}
+
+/**
  * Resolve context window size for a provider/model combination.
  *
  * Priority:
@@ -260,8 +320,11 @@ export function getContextWindowSize(provider: string, model?: string): number {
     }
   }
 
-  // Static fallback chain
-  const providerWindows = MODEL_CONTEXT_WINDOWS[provider];
+  // Static fallback chain — normalize aliases first so "lmstudio" / "llama.cpp" /
+  // "nvidianim" find their canonical entries instead of falling back to default.
+  const canonical = normalizeProviderForLookup(provider);
+  const providerWindows =
+    MODEL_CONTEXT_WINDOWS[canonical] ?? MODEL_CONTEXT_WINDOWS[provider];
   if (!providerWindows) {
     return DEFAULT_CONTEXT_WINDOW;
   }
@@ -282,9 +345,13 @@ export function getContextWindowSize(provider: string, model?: string): number {
 /**
  * Calculate output token reserve for a given context window.
  *
+ * Returns the *real* token count that will be reserved for output so callers
+ * (`getAvailableInputTokens`, `BudgetChecker`, conversation-memory pruning, file
+ * summarisation) compute input budget against the actual outgoing maxTokens.
+ *
  * @param contextWindow - Total context window size
  * @param maxTokens - Explicit maxTokens from user config (if set)
- * @returns Number of tokens reserved for output
+ * @returns Number of tokens reserved for output (matches what's sent upstream)
  */
 export function getOutputReserve(
   contextWindow: number,

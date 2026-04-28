@@ -54,6 +54,11 @@ const PROVIDER_MAX_TOKENS: Record<string, number> = {
   bedrock: 8192,
   ollama: 4096,
   openrouter: 4096,
+  // OpenAI-compat providers added 2026
+  deepseek: 4096,
+  "nvidia-nim": 8192,
+  "lm-studio": 1024,
+  llamacpp: 1024,
 };
 
 const TEST_CONFIG = {
@@ -234,8 +239,30 @@ async function scoreAnswerOnDimension(
     ? `\nGround truth answer: ${extras.groundTruth}`
     : "";
 
+  // Dimension-specific framing: "context precision" needs the judge to focus
+  // on the CONTEXT (not the answer). Without this clarification, judges see
+  // the same good answer in both calls and rate it 1.00 regardless of which
+  // context was supplied.
+  const focusInstruction = (() => {
+    const d = dimension.toLowerCase();
+    if (d.includes("context precision")) {
+      return `Focus exclusively on the CONTEXT itself. Estimate the fraction of the context that is directly relevant to the question. If half the context is irrelevant filler, the score should be around 0.5. If all the context is on-topic, score 1.0. Ignore answer quality entirely.`;
+    }
+    if (d.includes("context recall")) {
+      return `Estimate how much of the information needed to answer the question is actually present in the context. Ignore answer quality.`;
+    }
+    if (d.includes("faithfulness")) {
+      return `Score whether the answer is factually grounded in the context. 1.0 = every claim in the answer is supported by the context. 0.0 = the answer contradicts or hallucinates beyond the context.`;
+    }
+    if (d.includes("answer relevancy")) {
+      return `Score how directly the answer addresses the question. Ignore the context.`;
+    }
+    return "";
+  })();
+
   const prompt = `You are an evaluation judge. Score the ${dimension} of an AI answer.
 ${dimensionDescription}
+${focusInstruction}
 ${contextBlock}
 Question: ${EVAL_TEST_DATA.question}
 ${groundTruthBlock}
@@ -1573,7 +1600,24 @@ if (cliArgs.model) {
   TEST_CONFIG.model = cliArgs.model;
 }
 if (!TEST_CONFIG.maxTokens) {
-  TEST_CONFIG.maxTokens = PROVIDER_MAX_TOKENS[TEST_CONFIG.provider] || 8192;
+  // Normalize alias spellings so `--provider=google-ai` resolves to the
+  // `google-ai-studio` budget instead of falling through to the 1024 default.
+  // Mirrors the pricing.ts / contextWindows.ts alias maps.
+  const stripped = TEST_CONFIG.provider.toLowerCase().replace(/[^a-z]/g, "");
+  const PROVIDER_KEY_ALIASES: Record<string, string> = {
+    googleai: "google-ai-studio",
+    googleaistudio: "google-ai-studio",
+    googlevertex: "vertex",
+    nvidianim: "nvidia-nim",
+    lmstudio: "lm-studio",
+    llamacpp: "llamacpp",
+  };
+  const canonical =
+    PROVIDER_KEY_ALIASES[stripped] ?? TEST_CONFIG.provider.toLowerCase();
+  TEST_CONFIG.maxTokens =
+    PROVIDER_MAX_TOKENS[canonical] ??
+    PROVIDER_MAX_TOKENS[TEST_CONFIG.provider] ??
+    1024;
 }
 
 if (typeof describe === "undefined") {

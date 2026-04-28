@@ -61,7 +61,24 @@ export class YourProvider implements AIProvider {
 }
 ```
 
-#### **1.2.1 Real Example: LiteLLM Implementation**
+#### **1.2.1 Recent Examples: PR #997 Four-Provider Integration (April 2026)**
+
+Four providers were integrated in PR #997 and serve as concrete recent examples:
+
+| Provider | File | Provider ID | Default base URL | Credential key | Notes |
+|---|---|---|---|---|---|
+| DeepSeek | `src/lib/providers/deepseek.ts` | `deepseek` | `https://api.deepseek.com` | `DEEPSEEK_API_KEY` | Uses `createOpenAI().chat()`; opt-in thinking via `providerOptions.openai.thinking` |
+| NVIDIA NIM | `src/lib/providers/nvidiaNim.ts` | `nvidia-nim` | `https://integrate.api.nvidia.com/v1` | `NVIDIA_NIM_API_KEY` | NIM extras via `providerOptions.openai.body`; one-retry-on-400 to strip unsupported fields |
+| LM Studio | `src/lib/providers/lmStudio.ts` | `lm-studio` | `http://localhost:1234/v1` | optional | Auto-discovers model from `/v1/models`; memoizes on success only; `refreshHandlersForModel()` after discovery |
+| llama.cpp | `src/lib/providers/llamaCpp.ts` | `llamacpp` | `http://localhost:8080/v1` | optional | Same discovery pattern as LM Studio; `--jinja` flag needed for tools; 3-attempt `/health` check in `validateConfiguration()` |
+
+**Key patterns introduced by these four providers:**
+- OpenAI-compatible providers use `createOpenAI({ baseURL, apiKey }).chat(modelName)` (not the default Responses API).
+- Local providers (LM Studio, llama.cpp) call `refreshHandlersForModel(discovered)` so telemetry/analytics report the real model name, not a pre-discovery placeholder.
+- Local providers only memoize the resolved `LanguageModel` on a successful discovery to allow retry when the server starts later.
+- `formatProviderError` distinguishes ECONNREFUSED (server down) from 404 (model not loaded) for local providers.
+
+#### **1.2.2 Real Example: LiteLLM Implementation**
 
 ```typescript
 // src/lib/providers/litellm.ts - Actual LiteLLM Implementation

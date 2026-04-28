@@ -32,6 +32,10 @@ Use this matrix to quickly identify the best provider for your primary requireme
 | **Vision/Multimodal**     | OpenAI GPT-4o        | Anthropic Claude 4.5 | Google Gemini           |
 | **Tool Calling**          | OpenAI               | Anthropic            | Google AI Studio        |
 | **Custom Models**         | Amazon SageMaker     | OpenAI Compatible    | Ollama                  |
+| **Budget Reasoning**      | DeepSeek (R1)        | NVIDIA NIM           | llama.cpp (local)       |
+| **Local GUI Inference**   | LM Studio            | Ollama               | llama.cpp               |
+| **Local CLI Inference**   | llama.cpp            | Ollama               | LM Studio               |
+| **NVIDIA GPU Cloud**      | NVIDIA NIM           | -                    | -                       |
 
 ---
 
@@ -147,16 +151,22 @@ for await (const chunk of result.stream) {
 
 Match provider capabilities to your feature needs:
 
-| Feature               | Full Support                                       | Partial Support          | No Support             |
-| --------------------- | -------------------------------------------------- | ------------------------ | ---------------------- |
-| **Streaming**         | All providers                                      | SageMaker                | -                      |
-| **Tool Calling**      | OpenAI, Anthropic, Google, Azure, Bedrock, Mistral | HuggingFace, Ollama      | SageMaker              |
-| **Vision**            | OpenAI, Anthropic, Google, Azure                   | Mistral, Ollama, LiteLLM | HuggingFace, SageMaker |
-| **PDF Native**        | Anthropic, Google AI Studio, Vertex                | Bedrock (Claude)         | OpenAI, Azure, Mistral |
-| **Extended Thinking** | Anthropic, Google (Gemini 2.5+)                    | -                        | Others                 |
-| **Structured Output** | OpenAI, Anthropic, Azure, Mistral                  | Google\*                 | HuggingFace, Ollama    |
+| Feature               | Full Support                                                 | Partial Support                                        | No Support                                                  |
+| --------------------- | ------------------------------------------------------------ | ------------------------------------------------------ | ----------------------------------------------------------- |
+| **Streaming**         | All providers                                                | SageMaker                                              | -                                                           |
+| **Tool Calling**      | OpenAI, Anthropic, Google, Azure, Bedrock, Mistral, DeepSeek | HuggingFace, Ollama, NIM†, LM Studio†, llama.cpp†      | SageMaker                                                   |
+| **Vision**            | OpenAI, Anthropic, Google, Azure                             | Mistral, Ollama, LiteLLM, NIM†, LM Studio†, llama.cpp† | HuggingFace, SageMaker, DeepSeek                            |
+| **PDF Native**        | Anthropic, Google AI Studio, Vertex                          | Bedrock (Claude)                                       | OpenAI, Azure, Mistral, DeepSeek, NIM, LM Studio, llama.cpp |
+| **Extended Thinking** | Anthropic, Google (Gemini 2.5+), DeepSeek (R1), NVIDIA NIM‡  | LM Studio†, llama.cpp†                                 | Others                                                      |
+| **Structured Output** | OpenAI, Anthropic, Azure, Mistral, DeepSeek                  | Google\*, NIM†, LM Studio†, llama.cpp†                 | HuggingFace, Ollama                                         |
+| **Local Execution**   | Ollama, LM Studio, llama.cpp                                 | -                                                      | All cloud providers                                         |
+| **Zero API Cost**     | Ollama, LM Studio, llama.cpp                                 | -                                                      | All cloud providers                                         |
 
 \*Google providers cannot combine tools + JSON schema simultaneously
+
+† Model-dependent: capability depends on the specific model loaded / hosted. Check provider documentation.
+
+‡ NVIDIA NIM thinking supported on Nemotron-Reasoning and DeepSeek-R1 hosted models via `thinkingLevel` option.
 
 ```typescript
 // Feature-specific provider selection
@@ -354,6 +364,89 @@ const documentResult = await neurolink.generate({
   model: "gemini-2.5-pro",
 });
 ```
+
+### Cost-Efficient Reasoning (DeepSeek)
+
+Choose DeepSeek when you need frontier-quality reasoning at a fraction of the cost of Anthropic or OpenAI.
+
+- **When to choose:** Text-only agentic workflows, chain-of-thought reasoning tasks, budget-constrained production.
+- **Provider ID:** `deepseek`
+- **Key models:** `deepseek-chat` (V3 — general purpose), `deepseek-reasoner` (R1 — reasoning)
+- **Not suitable for:** Vision, PDF, or image processing tasks.
+- **Credential needed:** `DEEPSEEK_API_KEY` (get one at https://platform.deepseek.com)
+
+```typescript
+// Reasoning at low cost
+const result = await neurolink.generate({
+  input: { text: "Step through the implications of this decision" },
+  provider: "deepseek",
+  model: "deepseek-reasoner",
+});
+```
+
+### NVIDIA-Hosted Models (NVIDIA NIM)
+
+Choose NVIDIA NIM when you want NVIDIA-curated hosted inference — Llama, Nemotron, Mistral, and DeepSeek-R1 — accessed via an NVIDIA API key.
+
+- **When to choose:** You want Llama 3.x or Nemotron models served at scale; you need thinking/reasoning via hosted DeepSeek-R1 or Nemotron-Reasoning; you are already an NGC customer.
+- **Provider ID:** `nvidia-nim`
+- **Key models:** `meta/llama-3.3-70b-instruct`, `nvidia/nemotron-4-340b-instruct`, DeepSeek-R1 variants
+- **Vision:** Available on select models (Phi-3-vision, Llama 3.2 Vision); check https://build.nvidia.com/models.
+- **Not suitable for:** PDF processing; vision on non-vision models.
+- **Credential needed:** `NVIDIA_NIM_API_KEY` (get one at https://build.nvidia.com/settings/api-keys)
+
+```typescript
+// NVIDIA NIM with thinking enabled
+const result = await neurolink.generate({
+  input: { text: "Reason through this math problem step by step" },
+  provider: "nvidia-nim",
+  model: "nvidia/nemotron-reasoning-70b",
+  thinkingLevel: "high",
+});
+```
+
+### Local Inference via LM Studio
+
+Choose LM Studio when you want a desktop GUI for managing and running local models, with zero cloud cost and maximum privacy.
+
+- **When to choose:** You want a GUI to browse, download, and switch models; you need local inference without managing llama-server manually; vision models like LLaVA or Qwen-VL are attractive.
+- **Provider ID:** `lm-studio`
+- **Model:** Auto-discovered from the loaded model (or pass an explicit model name).
+- **Default base URL:** `http://localhost:1234/v1`
+- **Not suitable for:** Production at scale (single machine); PDF processing.
+- **Setup:** Download LM Studio, load a model, click "Start Server".
+
+```typescript
+// LM Studio — auto-discovers the loaded model
+const result = await neurolink.generate({
+  input: { text: "Summarize this article" },
+  provider: "lm-studio",
+  // No model needed — auto-discovered from running LM Studio app
+});
+```
+
+### Local Inference via llama.cpp
+
+Choose llama.cpp when you want the lowest-level, most resource-efficient local inference — especially on CPU or with heavily quantized GGUF models.
+
+- **When to choose:** You need CPU-only inference; you want direct llama-server process control; you are running in a headless / server environment.
+- **Provider ID:** `llamacpp`
+- **Model:** Auto-discovered from the running llama-server (or pass an explicit model name).
+- **Default base URL:** `http://localhost:8080/v1`
+- **Tool calling:** Requires server to be started with `--jinja` flag.
+- **Not suitable for:** PDF processing; production at scale without additional infrastructure.
+- **Setup:** `./llama-server -m model.gguf --port 8080 [--jinja]`
+
+```typescript
+// llama.cpp — auto-discovers the loaded GGUF model
+const result = await neurolink.generate({
+  input: { text: "Classify this text" },
+  provider: "llamacpp",
+  // No model needed — auto-discovered from running llama-server
+});
+```
+
+---
 
 ### Privacy-Critical Applications
 
@@ -736,15 +829,16 @@ START: What's your primary constraint?
 │       └─ High → Claude Opus or GPT-5
 │
 ├─ PRIVACY → How sensitive is your data?
-│   ├─ Critical (no cloud) → Ollama (local)
+│   ├─ Critical (no cloud) → Ollama / LM Studio / llama.cpp (local, free)
 │   ├─ EU only → Mistral (GDPR)
 │   └─ Enterprise compliant → Azure/Bedrock
 │
 ├─ FEATURES → What capabilities do you need?
-│   ├─ Extended Thinking → Anthropic or Google Gemini 2.5+
+│   ├─ Extended Thinking → Anthropic or Google Gemini 2.5+ or DeepSeek-R1 (budget)
 │   ├─ PDF Processing → Anthropic or Google
 │   ├─ Vision → OpenAI, Anthropic, or Google
-│   └─ Tool Calling → OpenAI or Anthropic
+│   ├─ Tool Calling → OpenAI or Anthropic (or DeepSeek for budget)
+│   └─ Local / Zero Cost → LM Studio, llama.cpp, or Ollama
 │
 ├─ CLOUD PLATFORM → Which cloud are you on?
 │   ├─ AWS → Amazon Bedrock
@@ -776,7 +870,15 @@ START: What's your primary constraint?
 
 ### For Privacy
 
-**Use Ollama** - Complete data privacy with local execution.
+**Use Ollama, LM Studio, or llama.cpp** - Complete data privacy with local execution. LM Studio offers a GUI; llama.cpp offers maximum CPU efficiency.
+
+### For Cost-Efficient Reasoning
+
+**Use DeepSeek** - deepseek-reasoner (R1) delivers strong chain-of-thought reasoning at a fraction of Anthropic/OpenAI pricing.
+
+### For NVIDIA Ecosystem
+
+**Use NVIDIA NIM** - Curated Llama, Nemotron, and DeepSeek-R1 models served at scale via NVIDIA's cloud.
 
 ### For Cost Optimization
 

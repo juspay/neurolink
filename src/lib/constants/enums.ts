@@ -19,6 +19,10 @@ export enum AIProviderName {
   MISTRAL = "mistral",
   LITELLM = "litellm",
   SAGEMAKER = "sagemaker",
+  DEEPSEEK = "deepseek",
+  NVIDIA_NIM = "nvidia-nim",
+  LM_STUDIO = "lm-studio",
+  LLAMACPP = "llamacpp",
   AUTO = "auto",
 }
 
@@ -1014,6 +1018,65 @@ export enum AnthropicBetaFeature {
   CLAUDE_CODE = "claude-code-20250219",
   INTERLEAVED_THINKING = "interleaved-thinking-2025-05-14",
   FINE_GRAINED_STREAMING = "fine-grained-tool-streaming-2025-05-14",
+}
+
+/**
+ * Supported Models for DeepSeek
+ * Docs: https://api-docs.deepseek.com/quick_start/pricing
+ */
+export enum DeepSeekModels {
+  /** General-purpose chat (DeepSeek-V3) */
+  DEEPSEEK_CHAT = "deepseek-chat",
+  /** Reasoning model (DeepSeek-R1) — exposes reasoning_content */
+  DEEPSEEK_REASONER = "deepseek-reasoner",
+}
+
+/**
+ * Selected NVIDIA NIM Models
+ * Full catalog: https://build.nvidia.com/models
+ * Note: NIM hosts hundreds of models; pass arbitrary IDs via --model.
+ */
+export enum NvidiaNimModels {
+  // Meta Llama
+  LLAMA_3_3_70B_INSTRUCT = "meta/llama-3.3-70b-instruct",
+  LLAMA_3_1_405B_INSTRUCT = "meta/llama-3.1-405b-instruct",
+  LLAMA_3_1_70B_INSTRUCT = "meta/llama-3.1-70b-instruct",
+  LLAMA_3_2_90B_VISION = "meta/llama-3.2-90b-vision-instruct",
+  LLAMA_3_2_11B_VISION = "meta/llama-3.2-11b-vision-instruct",
+  // NVIDIA Nemotron (reasoning)
+  NEMOTRON_SUPER_49B = "nvidia/llama-3.3-nemotron-super-49b-v1",
+  NEMOTRON_NANO_8B = "nvidia/llama-3.1-nemotron-nano-8b-v1",
+  NEMOTRON_70B_INSTRUCT = "nvidia/llama-3.1-nemotron-70b-instruct",
+  // DeepSeek hosted on NIM
+  DEEPSEEK_R1 = "deepseek-ai/deepseek-r1",
+  DEEPSEEK_R1_DISTILL_LLAMA_70B = "deepseek-ai/deepseek-r1-distill-llama-70b",
+  // Mistral / Mixtral
+  MIXTRAL_8X22B_INSTRUCT = "mistralai/mixtral-8x22b-instruct-v0.1",
+  MIXTRAL_8X7B_INSTRUCT = "mistralai/mixtral-8x7b-instruct-v0.1",
+  // Microsoft Phi
+  PHI_4 = "microsoft/phi-4",
+  // Google Gemma
+  GEMMA_3_27B_IT = "google/gemma-3-27b-it",
+  // Z.AI GLM
+  GLM_4_5 = "z-ai/glm4.5",
+}
+
+/**
+ * LM Studio loads any GGUF model the user has downloaded.
+ * Default: empty string → triggers /v1/models auto-discovery.
+ */
+export enum LMStudioModels {
+  /** Sentinel value — triggers auto-discovery from /v1/models */
+  AUTO_DISCOVER = "",
+}
+
+/**
+ * llama.cpp serves a single model loaded at server startup.
+ * Default: empty string → uses whatever is loaded.
+ */
+export enum LlamaCppModels {
+  /** Sentinel value — uses the model loaded by the llama-server process */
+  AUTO_DISCOVER = "",
 }
 
 // ============================================================================

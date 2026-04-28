@@ -12,7 +12,11 @@ import {
   AIProviderName,
   AnthropicModels,
   BedrockModels,
+  DeepSeekModels,
   GoogleAIModels,
+  LlamaCppModels,
+  LMStudioModels,
+  NvidiaNimModels,
   OpenAIModels,
   VertexModels,
 } from "../constants/enums.js";
@@ -60,10 +64,14 @@ export type AISDKModel = {
  */
 export type SupportedModelName =
   | BedrockModels
+  | DeepSeekModels
   | OpenAIModels
   | VertexModels
   | GoogleAIModels
-  | AnthropicModels;
+  | AnthropicModels
+  | NvidiaNimModels
+  | LMStudioModels
+  | LlamaCppModels;
 
 /**
  * Extract provider names from enum
@@ -171,6 +179,31 @@ export type NeurolinkCredentials = {
   litellm?: { apiKey?: string; baseURL?: string };
   openaiCompatible?: { apiKey?: string; baseURL?: string };
   ollama?: { baseURL?: string };
+  deepseek?: { apiKey?: string; baseURL?: string };
+  nvidiaNim?: { apiKey?: string; baseURL?: string };
+  // apiKey is optional for LM Studio / llama.cpp; use only when running them
+  // behind an auth-proxying reverse-proxy.
+  lmStudio?: { apiKey?: string; baseURL?: string };
+  llamacpp?: { apiKey?: string; baseURL?: string };
+};
+
+/**
+ * NVIDIA NIM extra request body parameters passed via `providerOptions.openai.body`.
+ * Lives here (not in providers/nvidiaNim.ts) per CLAUDE.md rule 2.
+ */
+export type NvidiaNimExtraBody = {
+  top_k?: number;
+  min_p?: number;
+  repetition_penalty?: number;
+  min_tokens?: number;
+  chat_template?: string;
+  request_id?: string;
+  ignore_eos?: boolean;
+  chat_template_kwargs?: {
+    thinking?: boolean;
+    enable_thinking?: boolean;
+    reasoning_budget?: number;
+  };
 };
 
 /**
@@ -547,6 +580,11 @@ export type ProviderConfigOptions = {
   description: string;
   instructions: string[];
   fallbackEnvVars?: string[]; // For providers with multiple possible env vars
+  // For local providers (LM Studio, llama.cpp) where the envVarName points at
+  // a base URL with a working default rather than a required credential.
+  // When true, validateApiKey()/validateApiKeyEnhanced() return the env value
+  // (or empty string) instead of throwing when it's unset.
+  optional?: boolean;
 };
 
 // ============================================================================

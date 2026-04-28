@@ -763,8 +763,13 @@ export function createProxyFetch(): typeof fetch {
 
 /**
  * Mask credentials in a proxy URL for safe logging/reporting.
+ *
+ * Exported so provider-side fetch loggers (lmStudio, llamaCpp, deepseek,
+ * nvidiaNim) can sanitize upstream URLs before emitting warnings — reverse-
+ * proxied deployments can embed credentials or signed query params in the
+ * base URL, and those should never reach application logs verbatim.
  */
-function maskProxyUrl(url: string | null | undefined): string | null {
+export function maskProxyUrl(url: string | null | undefined): string | null {
   if (!url) {
     return null;
   }

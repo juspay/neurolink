@@ -39,6 +39,13 @@ const PROVIDER_MAX_TOKENS: Record<string, number> = {
   bedrock: 8192,
   ollama: 4096,
   openrouter: 4096,
+  // OpenAI-compat providers added 2026. Caps are tuned per-provider (cloud
+  // providers get the larger output budget; local backends with small loaded
+  // models stay tight) to leave room for the system prompt + tool defs.
+  deepseek: 4096,
+  "nvidia-nim": 8192,
+  "lm-studio": 1024,
+  llamacpp: 1024,
 };
 
 const TEST_CONFIG = {
@@ -1980,7 +1987,9 @@ if (cliArgs.model) {
   TEST_CONFIG.model = cliArgs.model;
 }
 if (!TEST_CONFIG.maxTokens) {
-  TEST_CONFIG.maxTokens = PROVIDER_MAX_TOKENS[TEST_CONFIG.provider] || 8192;
+  // Fallback for unknown providers: cap at 1024 instead of 8192 so small-
+  // context-window providers don't get budget=0 (their entire context is 8192).
+  TEST_CONFIG.maxTokens = PROVIDER_MAX_TOKENS[TEST_CONFIG.provider] || 1024;
 }
 
 if (typeof describe === "undefined") {

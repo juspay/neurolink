@@ -57,7 +57,11 @@ import { Utilities } from "./modules/Utilities.js";
  * Tools are integrated as first-class citizens - always available by default
  */
 export abstract class BaseProvider implements AIProvider {
-  protected readonly modelName: string;
+  // Not `readonly` because providers that auto-discover the model from a
+  // /v1/models endpoint (lm-studio, llamacpp) need to update modelName after
+  // construction so handlers (TelemetryHandler, MessageBuilder) cache the
+  // resolved name. All other providers treat this as effectively readonly.
+  protected modelName: string;
   protected readonly providerName: AIProviderName;
   protected readonly defaultTimeout: number = 30000; // 30 seconds
   protected middlewareOptions?: MiddlewareFactoryOptions; // TODO: Implement global level middlewares that can be used
@@ -85,11 +89,16 @@ export abstract class BaseProvider implements AIProvider {
   }
 
   // Composition modules - Single Responsibility Principle
-  private readonly messageBuilder: MessageBuilder;
-  private readonly streamHandler: StreamHandler;
-  private readonly generationHandler: GenerationHandler;
-  protected readonly telemetryHandler: TelemetryHandler;
-  private readonly utilities: Utilities;
+  // Handlers below are not `readonly` so that providers which auto-discover
+  // their model after construction (lm-studio, llamacpp) can rebuild them
+  // via `refreshHandlersForModel(...)` and propagate the resolved name into
+  // pricing / telemetry / span attributes. All other providers leave these
+  // alone.
+  private messageBuilder: MessageBuilder;
+  private streamHandler: StreamHandler;
+  private generationHandler: GenerationHandler;
+  protected telemetryHandler: TelemetryHandler;
+  private utilities: Utilities;
   private readonly toolsManager: ToolsManager;
 
   constructor(
@@ -146,6 +155,52 @@ export abstract class BaseProvider implements AIProvider {
         fixSchemaForOpenAIStrictMode: (schema) =>
           this.fixSchemaForOpenAIStrictMode(schema),
       },
+    );
+  }
+
+  /**
+   * Update modelName and rebuild composition handlers with the new value.
+   *
+   * Auto-discovery providers (lm-studio, llamacpp) call this once they have
+   * resolved the loaded model from `/v1/models`. Without this, handlers
+   * (TelemetryHandler, MessageBuilder, ...) keep the pre-discovery name and
+   * pricing / span / log metadata reports the stale value.
+   */
+  protected refreshHandlersForModel(model: string): void {
+    this.modelName = model;
+    trace
+      .getSpan(context.active())
+      ?.setAttribute(ATTR.GEN_AI_MODEL, this.modelName);
+    this.messageBuilder = new MessageBuilder(this.providerName, this.modelName);
+    this.streamHandler = new StreamHandler(this.providerName, this.modelName);
+    this.telemetryHandler = new TelemetryHandler(
+      this.providerName,
+      this.modelName,
+      this.neurolink,
+    );
+    this.generationHandler = new GenerationHandler(
+      this.providerName,
+      this.modelName,
+      () => this.supportsTools(),
+      (options, type) =>
+        this.telemetryHandler.getTelemetryConfig(
+          options,
+          type as "stream" | "generate",
+        ),
+      (toolCalls, toolResults, options, timestamp) =>
+        this.handleToolExecutionStorage(
+          toolCalls,
+          toolResults,
+          options,
+          timestamp,
+        ),
+      () => this.neurolink?.getEventEmitter(),
+    );
+    this.utilities = new Utilities(
+      this.providerName,
+      this.modelName,
+      this.defaultTimeout,
+      this.middlewareOptions,
     );
   }
 

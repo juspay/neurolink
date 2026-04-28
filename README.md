@@ -26,7 +26,7 @@ for await (const chunk of result.stream) {
 
 ## 🧠 What is NeuroLink?
 
-**NeuroLink is the universal AI integration platform that unifies 13 major AI providers and 100+ models under one consistent API.**
+**NeuroLink is the universal AI integration platform that unifies 17 major AI providers and 100+ models under one consistent API.**
 
 Extracted from production systems at Juspay and battle-tested at enterprise scale, NeuroLink provides a production-ready solution for integrating AI into any application. Whether you're building with OpenAI, Anthropic, Google, AWS Bedrock, Azure, or any of our 13 supported providers, NeuroLink gives you a single, consistent interface that works everywhere.
 
@@ -195,7 +195,7 @@ npx @juspay/neurolink --help
 
 ### Configuration
 
-NeuroLink works with 13+ AI providers. You'll need at least one API key to get started:
+NeuroLink works with 17+ AI providers. You'll need at least one API key to get started:
 
 **Option 1: Interactive Setup (Recommended)**
 
@@ -382,7 +382,7 @@ const result = await neurolink.generate({
 ### Next Steps
 
 - **[Complete Documentation](https://docs.neurolink.ink)** - Comprehensive guides and API reference
-- **[Provider Setup Guide](docs/getting-started/provider-setup.md)** - Configure all 13 providers
+- **[Provider Setup Guide](docs/getting-started/provider-setup.md)** - Configure all 17 providers
 - **[SDK API Reference](docs/sdk/api-reference.md)** - Full TypeScript API documentation
 - **[CLI Command Reference](docs/cli/commands.md)** - Complete CLI documentation
 - **[Example Projects](docs/examples/index.md)** - Real-world integration examples
@@ -414,7 +414,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 ### 🤖 AI Provider Integration
 
-**13 providers unified under one API** - Switch providers with a single parameter change.
+**17 providers unified under one API** - Switch providers with a single parameter change.
 
 | Provider              | Models                                             | Free Tier       | Tool Support | Status        | Documentation                                                                                                                 |
 | --------------------- | -------------------------------------------------- | --------------- | ------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -431,6 +431,10 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 | **Ollama**            | Local models (Llama, Mistral)                      | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)                                                                  |
 | **OpenAI Compatible** | Any OpenAI-compatible endpoint                     | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-compatible)                                                       |
 | **OpenRouter**        | 200+ Models via OpenRouter                         | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/providers/openrouter.md)                                                                   |
+| **DeepSeek**          | deepseek-chat (V3), deepseek-reasoner (R1)         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#deepseek)                                                                |
+| **NVIDIA NIM**        | Llama 3.3 70B, 400+ catalog models                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#nvidia-nim)                                                              |
+| **LM Studio**         | Any model loaded in LM Studio (local)              | ✅ Free (Local) | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#lm-studio)                                                               |
+| **llama.cpp**         | Any GGUF model served by llama-server (local)      | ✅ Free (Local) | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#llamacpp)                                                                |
 
 **[📖 Provider Comparison Guide](docs/reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
 **[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 13 providers
@@ -589,7 +593,7 @@ const result = await neurolink.generate({
 - **ProcessorRegistry** - Priority-based processor selection with fallback
 - **OWASP Security** - HTML/SVG sanitization prevents XSS attacks
 - **Auto-detection** - FileDetector identifies file types by extension and content
-- **Provider-agnostic** - All processors work across all 13 AI providers
+- **Provider-agnostic** - All processors work across all 17 AI providers
 
 **[📖 File Processors Guide](docs/features/file-processors.md)** - Complete reference for all file types
 
@@ -731,7 +735,7 @@ Run AI-powered workflows directly in GitHub Actions with 13 provider support and
 
 | Feature                | Description                                                                               |
 | ---------------------- | ----------------------------------------------------------------------------------------- |
-| **Multi-Provider**     | 13 providers with unified interface                                                       |
+| **Multi-Provider**     | 17 providers with unified interface                                                       |
 | **PR/Issue Comments**  | Auto-post AI responses with intelligent updates                                           |
 | **Multimodal Support** | Attach images, PDFs, CSVs, Excel, Word, JSON, YAML, XML, HTML, SVG, code files to prompts |
 | **Cost Tracking**      | Built-in analytics and quality evaluation                                                 |
@@ -924,7 +928,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 | Capability               | Highlights                                                                                                               |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| **Provider unification** | 13+ providers with automatic fallback, cost-aware routing, provider orchestration (Q3).                                  |
+| **Provider unification** | 17+ providers with automatic fallback, cost-aware routing, provider orchestration (Q3).                                  |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types. |
 | **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging.                             |
 | **Memory & context**     | Conversation memory, Redis history export (Q4), context summarization (Q4).                                              |

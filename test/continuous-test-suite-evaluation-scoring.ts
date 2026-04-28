@@ -53,6 +53,11 @@ const PROVIDER_MAX_TOKENS: Record<string, number> = {
   bedrock: 8192,
   ollama: 4096,
   openrouter: 4096,
+  // OpenAI-compat providers added 2026
+  deepseek: 4096,
+  "nvidia-nim": 8192,
+  "lm-studio": 1024,
+  llamacpp: 1024,
 };
 
 const TEST_CONFIG = {
@@ -1210,7 +1215,7 @@ if (cliArgs.model) {
   TEST_CONFIG.model = cliArgs.model;
 }
 if (!TEST_CONFIG.maxTokens) {
-  TEST_CONFIG.maxTokens = PROVIDER_MAX_TOKENS[TEST_CONFIG.provider] || 8192;
+  TEST_CONFIG.maxTokens = PROVIDER_MAX_TOKENS[TEST_CONFIG.provider] || 1024;
 }
 
 if (typeof describe === "undefined") {

@@ -20,6 +20,8 @@ import {
   OllamaModels,
   LiteLLMModels,
   HuggingFaceModels,
+  DeepSeekModels,
+  NvidiaNimModels,
 } from "../constants/enums.js";
 
 /**
@@ -374,6 +376,99 @@ export class ProviderRegistry {
         },
         process.env.SAGEMAKER_MODEL || "sagemaker-model",
         ["sagemaker", "aws-sagemaker"],
+      );
+
+      // Register DeepSeek provider
+      ProviderFactory.registerProvider(
+        AIProviderName.DEEPSEEK,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const deepseekCreds = credentials as NeurolinkCredentials["deepseek"];
+          const { DeepSeekProvider } = await import("../providers/deepseek.js");
+          return new DeepSeekProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            deepseekCreds,
+          );
+        },
+        process.env.DEEPSEEK_MODEL || DeepSeekModels.DEEPSEEK_CHAT,
+        ["deepseek", "ds"],
+      );
+
+      // Register NVIDIA NIM provider
+      ProviderFactory.registerProvider(
+        AIProviderName.NVIDIA_NIM,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const nimCreds = credentials as NeurolinkCredentials["nvidiaNim"];
+          const { NvidiaNimProvider } =
+            await import("../providers/nvidiaNim.js");
+          return new NvidiaNimProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            nimCreds,
+          );
+        },
+        process.env.NVIDIA_NIM_MODEL || NvidiaNimModels.LLAMA_3_3_70B_INSTRUCT,
+        ["nvidia", "nim", "nvidia-nim"],
+      );
+
+      // Register LM Studio provider (local)
+      ProviderFactory.registerProvider(
+        AIProviderName.LM_STUDIO,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const lmStudioCreds = credentials as NeurolinkCredentials["lmStudio"];
+          const { LMStudioProvider } = await import("../providers/lmStudio.js");
+          return new LMStudioProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            lmStudioCreds,
+          );
+        },
+        process.env.LM_STUDIO_MODEL || undefined,
+        ["lmstudio", "lm-studio", "lms"],
+      );
+
+      // Register llama.cpp provider (local)
+      ProviderFactory.registerProvider(
+        AIProviderName.LLAMACPP,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const llamaCppCreds = credentials as NeurolinkCredentials["llamacpp"];
+          const { LlamaCppProvider } = await import("../providers/llamaCpp.js");
+          return new LlamaCppProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            llamaCppCreds,
+          );
+        },
+        process.env.LLAMACPP_MODEL || undefined,
+        ["llamacpp", "llama.cpp", "llama-cpp"],
       );
 
       logger.debug("All providers registered successfully");

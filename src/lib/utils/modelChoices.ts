@@ -17,6 +17,8 @@ import {
   HuggingFaceModels,
   SageMakerModels,
   OpenRouterModels,
+  DeepSeekModels,
+  NvidiaNimModels,
 } from "../constants/enums.js";
 import type { ModelChoice } from "../types/index.js";
 
@@ -250,6 +252,47 @@ const TOP_MODELS_CONFIG: Record<
     { model: "gpt-4-turbo", description: "Turbo compatible model" },
     { model: "gpt-3.5-turbo", description: "Legacy compatible model" },
   ],
+  [AIProviderName.DEEPSEEK]: [
+    { model: "deepseek-chat", description: "DeepSeek-V3 general chat" },
+    {
+      model: "deepseek-reasoner",
+      description: "DeepSeek-R1 reasoning (slower, deeper)",
+    },
+  ],
+  [AIProviderName.NVIDIA_NIM]: [
+    {
+      model: "meta/llama-3.3-70b-instruct",
+      description: "Recommended - Llama 3.3 70B",
+    },
+    {
+      model: "nvidia/llama-3.3-nemotron-super-49b-v1",
+      description: "Nemotron Super (reasoning)",
+    },
+    {
+      model: "deepseek-ai/deepseek-r1",
+      description: "DeepSeek-R1 hosted on NIM",
+    },
+    {
+      model: "meta/llama-3.2-90b-vision-instruct",
+      description: "Llama 3.2 vision",
+    },
+    {
+      model: "mistralai/mixtral-8x22b-instruct-v0.1",
+      description: "Mixtral 8x22B",
+    },
+  ],
+  [AIProviderName.LM_STUDIO]: [
+    {
+      model: "",
+      description: "Auto-discover loaded model from /v1/models",
+    },
+  ],
+  [AIProviderName.LLAMACPP]: [
+    {
+      model: "",
+      description: "Use whatever model llama-server has loaded",
+    },
+  ],
   [AIProviderName.AUTO]: [],
 };
 
@@ -270,6 +313,12 @@ export const DEFAULT_MODELS: Record<string, string> = {
   [AIProviderName.SAGEMAKER]: SageMakerModels.LLAMA_4_MAVERICK_17B_128E,
   [AIProviderName.OPENROUTER]: OpenRouterModels.CLAUDE_3_5_SONNET,
   [AIProviderName.OPENAI_COMPATIBLE]: "gpt-4o",
+  [AIProviderName.DEEPSEEK]: DeepSeekModels.DEEPSEEK_CHAT,
+  [AIProviderName.NVIDIA_NIM]: NvidiaNimModels.LLAMA_3_3_70B_INSTRUCT,
+  // LM Studio + llama.cpp auto-discover their loaded model from /v1/models;
+  // an empty default is the documented signal to use that path.
+  [AIProviderName.LM_STUDIO]: "",
+  [AIProviderName.LLAMACPP]: "",
 };
 
 /**
@@ -289,6 +338,10 @@ const MODEL_ENUMS: Record<AIProviderName, Record<string, string> | null> = {
   [AIProviderName.SAGEMAKER]: SageMakerModels,
   [AIProviderName.OPENROUTER]: OpenRouterModels,
   [AIProviderName.OPENAI_COMPATIBLE]: null,
+  [AIProviderName.DEEPSEEK]: DeepSeekModels,
+  [AIProviderName.NVIDIA_NIM]: NvidiaNimModels,
+  [AIProviderName.LM_STUDIO]: null,
+  [AIProviderName.LLAMACPP]: null,
   [AIProviderName.AUTO]: null,
 };
 
@@ -310,7 +363,15 @@ export function getTopModelChoices(
   }
 
   const choices = config.slice(0, limit).map((item) => ({
-    name: `${item.model} (${item.description})`,
+    // Empty-string entries are auto-discovery sentinels for LM Studio /
+    // llama.cpp. Surface them with a friendly label so the CLI doesn't show a
+    // blank row, but keep `value: ""` so it matches `DEFAULT_MODELS` (which
+    // also uses `""`) and any caller that preselects the active choice via
+    // the default model still resolves to this entry.
+    name:
+      item.model.length > 0
+        ? `${item.model} (${item.description})`
+        : `Auto-discover loaded model (${item.description})`,
     value: item.model,
     description: item.description,
   }));
@@ -437,14 +498,20 @@ export function getPopularModelsAcrossProviders(): {
 
   for (const [provider, config] of Object.entries(TOP_MODELS_CONFIG)) {
     if (config && config.length > 0) {
-      // Take top 2 from each provider
-      config.slice(0, 2).forEach((item) => {
-        popularModels.push({
-          provider: provider as AIProviderName,
-          model: item.model,
-          description: item.description,
+      // Take top 2 from each provider, ignoring blank auto-discovery sentinels.
+      // (Auto-discovery is surfaced separately by `getTopModelChoices` for
+      // LM Studio / llama.cpp; we don't want it to appear in the cross-
+      // provider popular-models list as an empty value.)
+      config
+        .filter((item) => item.model.length > 0)
+        .slice(0, 2)
+        .forEach((item) => {
+          popularModels.push({
+            provider: provider as AIProviderName,
+            model: item.model,
+            description: item.description,
+          });
         });
-      });
     }
   }
 

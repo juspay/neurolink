@@ -211,6 +211,77 @@ export const PROVIDER_CONFIGS: InteractiveProviderConfig[] = [
       },
     ],
   },
+  {
+    id: AIProviderName.DEEPSEEK,
+    name: "DeepSeek",
+    description:
+      "Cost-efficient frontier models (deepseek-chat V3, deepseek-reasoner R1)",
+    envVars: [
+      {
+        key: "DEEPSEEK_API_KEY",
+        prompt: "DeepSeek API Key (get one at https://platform.deepseek.com)",
+        secure: true,
+      },
+    ],
+  },
+  {
+    id: AIProviderName.NVIDIA_NIM,
+    name: "NVIDIA NIM",
+    description:
+      "NVIDIA-hosted Llama, Nemotron, Mistral, and DeepSeek-R1 models",
+    envVars: [
+      {
+        key: "NVIDIA_NIM_API_KEY",
+        prompt:
+          "NVIDIA NIM API Key (get one at https://build.nvidia.com/settings/api-keys)",
+        secure: true,
+      },
+    ],
+  },
+  {
+    id: AIProviderName.LM_STUDIO,
+    name: "LM Studio",
+    description:
+      "Local inference via LM Studio desktop app (https://lmstudio.ai)",
+    envVars: [
+      {
+        key: "LM_STUDIO_BASE_URL",
+        prompt: "LM Studio server URL",
+        default: "http://localhost:1234/v1",
+        secure: false,
+        optional: true,
+      },
+      {
+        key: "LM_STUDIO_API_KEY",
+        prompt:
+          "LM Studio API Key (leave blank — only needed behind an auth proxy)",
+        secure: false,
+        optional: true,
+      },
+    ],
+  },
+  {
+    id: AIProviderName.LLAMACPP,
+    name: "llama.cpp",
+    description:
+      "Local inference via llama-server (https://github.com/ggerganov/llama.cpp). Start with: ./llama-server -m model.gguf --port 8080 --jinja",
+    envVars: [
+      {
+        key: "LLAMACPP_BASE_URL",
+        prompt: "llama-server URL",
+        default: "http://localhost:8080/v1",
+        secure: false,
+        optional: true,
+      },
+      {
+        key: "LLAMACPP_API_KEY",
+        prompt:
+          "llama-server API Key (leave blank — only needed behind an auth proxy)",
+        secure: false,
+        optional: true,
+      },
+    ],
+  },
 ];
 
 /**

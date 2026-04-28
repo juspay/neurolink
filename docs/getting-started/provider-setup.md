@@ -15,6 +15,10 @@ NeuroLink supports multiple AI providers with flexible authentication methods. T
 - **Hugging Face** - 100,000+ open source models including DialoGPT, GPT-2, GPT-Neo
 - **Ollama** - Local AI models including Llama 2, Code Llama, Mistral, Vicuna
 - **Mistral AI** - Mistral Tiny, Small, Medium, and Large models
+- **DeepSeek** - deepseek-chat (V3) and deepseek-reasoner (R1)
+- **NVIDIA NIM** - Llama 3.3 70B and 400+ catalog models via NVIDIA hosted or self-hosted NIM
+- **LM Studio** - Any model loaded in LM Studio desktop app (local, no API key required)
+- **llama.cpp** - Any GGUF model served by llama-server (local, no API key required)
 
 ## 💰 Model Availability & Cost Considerations
 
@@ -1324,6 +1328,340 @@ export OPENAI_COMPATIBLE_API_KEY="your-api-key-if-needed"
 export OPENAI_COMPATIBLE_MODEL="your-model-name"
 ```
 
+## DeepSeek Configuration {#deepseek}
+
+DeepSeek provides cost-effective access to its own frontier models: the general-purpose V3 chat model and the R1 reasoning model.
+
+### Basic Setup
+
+```bash
+export DEEPSEEK_API_KEY="sk-your-deepseek-api-key"
+```
+
+### Optional Configuration
+
+```bash
+export DEEPSEEK_MODEL="deepseek-chat"               # Default: deepseek-chat
+export DEEPSEEK_BASE_URL="https://api.deepseek.com" # Default base URL (override for compatible proxies)
+```
+
+### Supported Models
+
+- `deepseek-chat` (default) - DeepSeek V3, high-quality general chat at low cost
+- `deepseek-reasoner` - DeepSeek R1, extended chain-of-thought reasoning (thinking mode)
+
+### Usage Example
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// General chat with DeepSeek V3
+const result = await neurolink.generate({
+  input: { text: "Explain transformers in simple terms" },
+  provider: "deepseek",
+  model: "deepseek-chat",
+  temperature: 0.7,
+  maxTokens: 1000,
+});
+
+// Extended reasoning with DeepSeek R1
+const reasoned = await neurolink.generate({
+  input: { text: "Solve step by step: ..." },
+  provider: "deepseek",
+  model: "deepseek-reasoner",
+  thinkingLevel: "high",
+});
+```
+
+### CLI Usage
+
+```bash
+# Use DeepSeek V3
+npx @juspay/neurolink generate "Explain quantum computing" --provider deepseek
+
+# Use DeepSeek R1 with alias
+npx @juspay/neurolink generate "Solve this math problem" --provider ds --model deepseek-reasoner
+```
+
+### Getting Started with DeepSeek
+
+1. **Create Account**: Visit [platform.deepseek.com](https://platform.deepseek.com)
+2. **Generate Key**: Navigate to **API Keys** and create a new key
+3. **Add Billing**: Top up your account balance at [platform.deepseek.com/usage](https://platform.deepseek.com/usage)
+4. **Set Environment**: Export `DEEPSEEK_API_KEY`
+
+### Environment Variables Reference
+
+| Variable            | Required | Default                    | Description                                             |
+| ------------------- | -------- | -------------------------- | ------------------------------------------------------- |
+| `DEEPSEEK_API_KEY`  | ✅       | -                          | DeepSeek API key                                        |
+| `DEEPSEEK_MODEL`    | ❌       | `deepseek-chat`            | Model: `deepseek-chat` (V3) or `deepseek-reasoner` (R1) |
+| `DEEPSEEK_BASE_URL` | ❌       | `https://api.deepseek.com` | Override for proxies or alternative endpoints           |
+
+### Provider ID and Aliases
+
+- **Provider ID**: `deepseek`
+- **Aliases**: `ds`
+
+---
+
+## NVIDIA NIM Configuration {#nvidia-nim}
+
+NVIDIA NIM provides access to 400+ optimized models through NVIDIA's hosted cloud inference API, and also supports self-hosted NIM deployments.
+
+### Basic Setup
+
+```bash
+export NVIDIA_NIM_API_KEY="nvapi-your-nvidia-api-key"
+```
+
+### Optional Configuration
+
+```bash
+export NVIDIA_NIM_MODEL="meta/llama-3.3-70b-instruct"              # Default model
+export NVIDIA_NIM_BASE_URL="https://integrate.api.nvidia.com/v1"   # Default; override for self-hosted NIM
+```
+
+### NIM-Specific Extras (Advanced)
+
+These environment variables pass NIM-specific request body extensions. Leave them unset unless you have a specific need:
+
+```bash
+export NVIDIA_NIM_TOP_K=""                  # Integer; -1 or unset = disabled
+export NVIDIA_NIM_MIN_P=""                  # Float; 0 or unset = disabled
+export NVIDIA_NIM_REPETITION_PENALTY=""     # Float; 1.0 or unset = disabled
+export NVIDIA_NIM_MIN_TOKENS=""             # Integer; 0 or unset = disabled
+export NVIDIA_NIM_CHAT_TEMPLATE=""          # Override model chat template (advanced)
+```
+
+### Supported Models
+
+- `meta/llama-3.3-70b-instruct` (default) - Meta Llama 3.3 70B Instruct
+- Any model from the [NVIDIA NIM catalog](https://build.nvidia.com/models)
+
+### Usage Example
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  input: { text: "Explain GPU architecture" },
+  provider: "nvidia-nim",
+  model: "meta/llama-3.3-70b-instruct",
+  temperature: 0.7,
+  maxTokens: 1000,
+});
+```
+
+### CLI Usage
+
+```bash
+# Use NVIDIA NIM with default model
+npx @juspay/neurolink generate "Explain GPU architecture" --provider nvidia-nim
+
+# Use nim alias
+npx @juspay/neurolink generate "Hello" --provider nim --model "mistralai/mistral-7b-instruct-v0.3"
+```
+
+### Self-Hosted NIM Endpoints
+
+Override the base URL to point at your own NIM deployment:
+
+```bash
+export NVIDIA_NIM_BASE_URL="http://your-nim-server:8000/v1"
+```
+
+### Getting Started with NVIDIA NIM
+
+1. **Create Account**: Visit [build.nvidia.com](https://build.nvidia.com/)
+2. **Open Settings**: Navigate to **Settings → API Keys**
+3. **Generate Key**: Create a new Bearer token API key
+4. **Browse Models**: Explore the catalog at [build.nvidia.com/models](https://build.nvidia.com/models)
+5. **Set Environment**: Export `NVIDIA_NIM_API_KEY`
+
+### Environment Variables Reference
+
+| Variable                        | Required | Default                               | Description                             |
+| ------------------------------- | -------- | ------------------------------------- | --------------------------------------- |
+| `NVIDIA_NIM_API_KEY`            | ✅       | -                                     | NVIDIA NIM API key (Bearer token)       |
+| `NVIDIA_NIM_MODEL`              | ❌       | `meta/llama-3.3-70b-instruct`         | Default model                           |
+| `NVIDIA_NIM_BASE_URL`           | ❌       | `https://integrate.api.nvidia.com/v1` | Override for self-hosted NIM            |
+| `NVIDIA_NIM_TOP_K`              | ❌       | -                                     | Top-K sampling parameter                |
+| `NVIDIA_NIM_MIN_P`              | ❌       | -                                     | Min-P sampling parameter                |
+| `NVIDIA_NIM_REPETITION_PENALTY` | ❌       | -                                     | Repetition penalty                      |
+| `NVIDIA_NIM_MIN_TOKENS`         | ❌       | -                                     | Minimum tokens to generate              |
+| `NVIDIA_NIM_CHAT_TEMPLATE`      | ❌       | -                                     | Override model chat template (advanced) |
+
+### Provider ID and Aliases
+
+- **Provider ID**: `nvidia-nim`
+- **Aliases**: `nim`, `nvidia`
+
+---
+
+## LM Studio Configuration {#lm-studio}
+
+LM Studio is a local AI provider — it runs models entirely on your machine with no data sent to any external service. No API key is required for standard (non-proxied) installations.
+
+### Prerequisites
+
+1. Install LM Studio from [lmstudio.ai](https://lmstudio.ai/)
+2. Open LM Studio and download a model from the **Discover** tab
+3. Go to **Local Server** and click **Start Server**
+
+The server starts at `http://localhost:1234/v1` by default. NeuroLink auto-discovers the currently loaded model via `/v1/models` — you do not need to specify a model name.
+
+### Optional Configuration
+
+```bash
+export LM_STUDIO_BASE_URL="http://localhost:1234/v1"   # Default; override if server is on a different host/port
+export LM_STUDIO_MODEL=""                              # Blank = auto-discover; set to force a specific model ID
+# export LM_STUDIO_API_KEY="your-key"                 # Only needed behind an auth-proxying reverse-proxy
+```
+
+### Usage Example
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// Model is auto-discovered from LM Studio
+const result = await neurolink.generate({
+  input: { text: "Explain machine learning" },
+  provider: "lm-studio",
+  temperature: 0.7,
+  maxTokens: 500,
+});
+
+// Or specify a model explicitly (must be loaded in LM Studio)
+const result2 = await neurolink.generate({
+  input: { text: "Write a poem" },
+  provider: "lm-studio",
+  model: "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
+});
+```
+
+### CLI Usage
+
+```bash
+# Auto-discover loaded model
+npx @juspay/neurolink generate "Hello from LM Studio" --provider lm-studio
+
+# Use alias
+npx @juspay/neurolink generate "Hello" --provider lmstudio
+```
+
+### Notes
+
+- **API key**: Not required for vanilla LM Studio installs. Set `LM_STUDIO_API_KEY` only when running LM Studio behind an authenticating reverse-proxy.
+- **Model auto-discovery**: If the server is not running or has no model loaded, NeuroLink logs a warning and falls back gracefully. Start LM Studio and load a model, then retry.
+
+### Timeout Configuration
+
+- **Default Timeout**: 5 minutes (longer for local CPU/GPU inference)
+- **Environment Variable**: `LM_STUDIO_TIMEOUT='10m'` (optional)
+
+### Environment Variables Reference
+
+| Variable             | Required | Default                    | Description                                           |
+| -------------------- | -------- | -------------------------- | ----------------------------------------------------- |
+| `LM_STUDIO_BASE_URL` | ❌       | `http://localhost:1234/v1` | LM Studio server URL                                  |
+| `LM_STUDIO_MODEL`    | ❌       | _(auto-discovered)_        | Force a specific model ID; blank = use loaded model   |
+| `LM_STUDIO_API_KEY`  | ❌       | -                          | API key — only for reverse-proxy authenticated setups |
+
+### Provider ID and Aliases
+
+- **Provider ID**: `lm-studio`
+- **Aliases**: `lmstudio`, `lms`
+
+---
+
+## llama.cpp Configuration {#llamacpp}
+
+llama.cpp's `llama-server` is a local AI provider — it runs GGUF models entirely on your machine. No API key is required for standard (non-proxied) installations.
+
+### Prerequisites
+
+1. Build llama.cpp: follow the [build instructions](https://github.com/ggerganov/llama.cpp#build)
+2. Download a GGUF model file (e.g., from [Hugging Face](https://huggingface.co/models?library=gguf))
+3. Start the server:
+
+   ```bash
+   # Basic usage
+   ./llama-server -m model.gguf --port 8080
+
+   # With tool/function-call support (required for MCP tools)
+   ./llama-server -m model.gguf --port 8080 --jinja
+   ```
+
+The server starts at `http://localhost:8080/v1` by default. NeuroLink auto-discovers the loaded model via `/v1/models`.
+
+### Optional Configuration
+
+```bash
+export LLAMACPP_BASE_URL="http://localhost:8080/v1"    # Default; override if server is on a different host/port
+export LLAMACPP_MODEL=""                               # Blank = auto-discover; set to force a specific model ID
+# export LLAMACPP_API_KEY="your-key"                  # Only needed behind an auth-proxying reverse-proxy
+```
+
+### Usage Example
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+// Model is auto-discovered from llama-server
+const result = await neurolink.generate({
+  input: { text: "Explain machine learning" },
+  provider: "llamacpp",
+  temperature: 0.7,
+  maxTokens: 500,
+});
+```
+
+### CLI Usage
+
+```bash
+# Auto-discover loaded model
+npx @juspay/neurolink generate "Hello from llama.cpp" --provider llamacpp
+
+# Use alias
+npx @juspay/neurolink generate "Hello" --provider "llama.cpp"
+```
+
+### Notes
+
+- **API key**: Not required for vanilla llama-server installs. Set `LLAMACPP_API_KEY` only when running behind an authenticating reverse-proxy.
+- **Tool support**: llama-server must be started with the `--jinja` flag to enable tool/function-call support. Without it, tool calls return a 400 error.
+- **Model auto-discovery**: llama-server hosts one model at a time. NeuroLink reads it from `/v1/models` automatically.
+- **Health check**: NeuroLink validates connectivity via the `/health` endpoint with up to 3 retries.
+
+### Timeout Configuration
+
+- **Default Timeout**: 5 minutes (longer for local CPU/GPU inference)
+- **Environment Variable**: `LLAMACPP_TIMEOUT='10m'` (optional)
+
+### Environment Variables Reference
+
+| Variable            | Required | Default                    | Description                                           |
+| ------------------- | -------- | -------------------------- | ----------------------------------------------------- |
+| `LLAMACPP_BASE_URL` | ❌       | `http://localhost:8080/v1` | llama-server URL                                      |
+| `LLAMACPP_MODEL`    | ❌       | _(auto-discovered)_        | Force a specific model ID; blank = use loaded model   |
+| `LLAMACPP_API_KEY`  | ❌       | -                          | API key — only for reverse-proxy authenticated setups |
+
+### Provider ID and Aliases
+
+- **Provider ID**: `llamacpp`
+- **Aliases**: `llama.cpp`
+
+---
+
 ## Redis Configuration {#redis}
 
 Redis integration for distributed conversation memory and session state.
@@ -1472,6 +1810,20 @@ OLLAMA_MODEL=llama2  # Optional
 # Mistral AI
 MISTRAL_API_KEY=your_mistral_api_key
 MISTRAL_MODEL=mistral-small  # Optional
+
+# DeepSeek
+DEEPSEEK_API_KEY=sk-your-deepseek-key
+DEEPSEEK_MODEL=deepseek-chat  # Optional (deepseek-chat or deepseek-reasoner)
+
+# NVIDIA NIM
+NVIDIA_NIM_API_KEY=nvapi-your-nvidia-key
+NVIDIA_NIM_MODEL=meta/llama-3.3-70b-instruct  # Optional
+
+# LM Studio (local — no API key required)
+LM_STUDIO_BASE_URL=http://localhost:1234/v1  # Optional
+
+# llama.cpp (local — no API key required)
+LLAMACPP_BASE_URL=http://localhost:8080/v1  # Optional
 
 # Application Settings
 DEFAULT_PROVIDER=auto

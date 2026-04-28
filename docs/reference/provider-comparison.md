@@ -3,7 +3,7 @@
 **Last Updated:** February 28, 2026
 **NeuroLink Version:** 9.14.0
 
-Complete comparison of all 13 AI providers supported by NeuroLink, including capabilities, pricing, and use case recommendations.
+Complete comparison of all 17 AI providers supported by NeuroLink, including capabilities, pricing, and use case recommendations.
 
 ---
 
@@ -24,6 +24,10 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 | Ollama            | ✓    | ✓      | ✓     | ⚠️     | ✗   | ✗        | ✗          | ✓         | 5 min      |
 | OpenAI Compatible | ✓    | ✓      | ✓     | ⚠️     | ✗   | ✗        | ✓          | ⚠️        | 5 min      |
 | OpenRouter        | ✓    | ✓      | ⚠️    | ⚠️     | ✗   | ✗        | ✓          | ⚠️        | 2 min      |
+| DeepSeek          | ✓    | ✓      | ✓     | ✗      | ✗   | ✓        | ✓          | ✗         | 2 min      |
+| NVIDIA NIM        | ✓    | ✓      | ✓     | ⚠️     | ✗   | ✓        | ✓          | ✗         | 5 min      |
+| LM Studio         | ✓    | ✓      | ⚠️    | ⚠️     | ✗   | ⚠️       | ⚠️         | ✓         | 5 min      |
+| llama.cpp         | ✓    | ✓      | ⚠️    | ⚠️     | ✗   | ⚠️       | ⚠️         | ✓         | 10 min     |
 
 **Legend:**
 
@@ -50,6 +54,8 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 | **Mistral**          | $0.25 - $8.00         | $0.75 - $24.00         | $0.25 - $8.00  | Mistral Small: $0.20/$0.60    |
 | **HuggingFace**      | FREE - $1.00          | FREE - $1.00           | N/A            | Qwen 2.5 72B: FREE            |
 | **OpenRouter**       | $0.00 - $60.00        | $0.00 - $180.00        | Varies         | Many free models              |
+| **DeepSeek**         | $0.14 - $2.19         | $0.28 - $8.75          | N/A            | deepseek-chat: $0.14/$0.28    |
+| **NVIDIA NIM**       | Varies by model       | Varies by model        | Varies         | Free credits for new users    |
 
 ^2^ Anthropic also offers subscription-based pricing as an alternative to per-token API pricing: Free tier (limited), Pro ($20/mo), Max ($100+/mo with 5x-20x usage). NeuroLink supports both API key and OAuth (subscription) authentication. See [Anthropic Deep Dive](#2-anthropic).
 
@@ -61,6 +67,8 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 | **LiteLLM**           | Proxy  | Backend provider costs   | No additional fee, proxy overhead only            |
 | **Ollama**            | Local  | Hardware costs only      | FREE (uses local compute)                         |
 | **OpenAI Compatible** | Custom | Backend-dependent        | Varies by endpoint provider                       |
+| **LM Studio**         | Local  | Hardware costs only      | FREE (uses local compute)                         |
+| **llama.cpp**         | Local  | Hardware costs only      | FREE (uses local compute)                         |
 
 ### Free Tier Details
 
@@ -94,6 +102,20 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 - Completely FREE
 - Uses local compute
 - No API limits
+
+**LM Studio:**
+
+- Completely FREE
+- Uses local compute (GPU or CPU)
+- No API limits or network dependency
+- Requires LM Studio desktop app
+
+**llama.cpp:**
+
+- Completely FREE
+- Uses local compute (GPU or CPU)
+- No API limits or network dependency
+- Requires llama-server binary
 
 **OpenRouter:**
 
@@ -152,6 +174,10 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 - ✓ Ollama
 - ✓ OpenAI Compatible
 - ✓ OpenRouter
+- ✓ DeepSeek
+- ✓ NVIDIA NIM
+- ✓ LM Studio
+- ✓ llama.cpp
 
 **Partial/Limited Streaming:**
 
@@ -171,9 +197,13 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 - ✓ Google AI Studio - Gemini models
 - ✓ Amazon Bedrock - Converse API tool support
 - ✓ LiteLLM - Proxies to backend providers
+- ✓ DeepSeek - Both deepseek-chat and deepseek-reasoner
 
 **Model-Dependent Support:**
 
+- ⚠️ NVIDIA NIM - Depends on hosted model (Llama 3.x: yes; embedding-only models: no)
+- ⚠️ LM Studio - Depends on loaded model (Llama 3.1+, Mistral 7B Instruct v0.3, etc.)
+- ⚠️ llama.cpp - Requires `--jinja` server flag; depends on loaded model
 - ⚠️ HuggingFace - Only specific models:
   - Llama 3.1+ series
   - Hermes 3 models
@@ -222,11 +252,15 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 - ⚠️ **OpenAI Compatible** - Backend-dependent
 - ⚠️ **OpenRouter** - Model-dependent (Claude, GPT-4o, Gemini support vision)
 - ⚠️ **Amazon Bedrock** - Claude models support vision
+- ⚠️ **NVIDIA NIM** - Depends on hosted model (e.g., Phi-3-vision, Llama 3.2 Vision)
+- ⚠️ **LM Studio** - Depends on loaded model (LLaVA, Llama 3.2 Vision, Qwen-VL, etc.)
+- ⚠️ **llama.cpp** - Depends on loaded model (LLaVA, Llama 3.2 Vision, etc.)
 
 **No Vision Support:**
 
 - ✗ HuggingFace
 - ✗ Amazon SageMaker
+- ✗ DeepSeek (API does not accept image input)
 
 ---
 
@@ -250,6 +284,10 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 - ✗ OpenAI Compatible
 - ✗ OpenRouter
 - ✗ Amazon SageMaker
+- ✗ DeepSeek
+- ✗ NVIDIA NIM
+- ✗ LM Studio
+- ✗ llama.cpp
 
 ---
 
@@ -266,6 +304,16 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
   - Thinking levels: minimal, low, medium, high
   - Configurable thinking budget
 - ✓ **Google Vertex** - Same as AI Studio (Gemini only, not Claude)
+
+**Native Extended Thinking (continued):**
+
+- ✓ **DeepSeek** - deepseek-reasoner (R1) model exposes chain-of-thought natively; deepseek-chat supports opt-in thinking mode
+- ✓ **NVIDIA NIM** - Hosted Nemotron-Reasoning and DeepSeek-R1 models; controlled via `thinkingLevel` option
+
+**Model-Dependent Thinking:**
+
+- ⚠️ **LM Studio** - Depends on loaded model (Qwen3, DeepSeek-R1-distill variants expose reasoning)
+- ⚠️ **llama.cpp** - Depends on loaded model (DeepSeek-R1-distill GGUF variants expose reasoning)
 
 **No Extended Thinking:**
 
@@ -294,6 +342,7 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 - ✓ **LiteLLM** - Proxies to backend
 - ✓ **OpenAI Compatible** - OpenAI-compatible endpoints
 - ✓ **OpenRouter** - Model-dependent
+- ✓ **DeepSeek** - JSON schema support via OpenAI-compatible API
 
 **Partial Support (Tools OR Schema, Not Both):**
 
@@ -303,6 +352,12 @@ Complete comparison of all 13 AI providers supported by NeuroLink, including cap
 - ⚠️ **Google Vertex** - ❌ Cannot combine (Gemini models only)
   - Claude models on Vertex CAN combine
   - Gemini models have same limitation as AI Studio
+
+**Model-Dependent Structured Output:**
+
+- ⚠️ **NVIDIA NIM** - Model-dependent reliability; capable frontier models work well
+- ⚠️ **LM Studio** - Model-dependent reliability; small local models may struggle with strict schemas
+- ⚠️ **llama.cpp** - Model-dependent reliability; small local models may struggle with strict schemas
 
 **No Structured Output:**
 
@@ -780,6 +835,143 @@ _Subscription Pricing (via OAuth):_
 
 ---
 
+### 14. DeepSeek
+
+**Provider ID:** `deepseek`
+**Default Model:** `deepseek-chat`
+**Aliases:** `ds`
+
+**Strengths:**
+
+- Very competitive pricing (among the cheapest frontier-quality models)
+- deepseek-reasoner (R1) — strong open-weight reasoning model
+- OpenAI-compatible API — minimal integration overhead
+- Tool calling supported on both models
+
+**Weaknesses:**
+
+- No vision / multimodal support
+- Cloud-only (data sent to DeepSeek servers in China — consider for compliance)
+- No PDF support
+
+**Best For:**
+
+- Cost-sensitive text and reasoning workloads
+- Agentic tool-calling pipelines where budget matters
+- Experimenting with open-weight-quality reasoning at low cost
+
+**Pricing:**
+
+- deepseek-chat (V3): ~$0.14/$0.28 per 1M tokens
+- deepseek-reasoner (R1): ~$0.55/$2.19 per 1M tokens
+
+---
+
+### 15. NVIDIA NIM
+
+**Provider ID:** `nvidia-nim`
+**Default Model:** `meta/llama-3.3-70b-instruct`
+**Aliases:** `nvidia`, `nim`
+
+**Strengths:**
+
+- Access to NVIDIA-hosted Llama, Mistral, Nemotron, DeepSeek models
+- Thinking/reasoning supported on Nemotron-Reasoning and DeepSeek-R1 models
+- Vision supported on vision-capable models (Phi-3-vision, Llama 3.2 Vision)
+- OpenAI-compatible API with NIM-specific extras (top_k, min_p, reasoning_budget)
+- Graceful retry on 400 errors — drops unsupported extras automatically
+
+**Weaknesses:**
+
+- Tool and vision capability depends entirely on the specific hosted model
+- Requires NVIDIA NGC API key
+- No PDF support
+
+**Best For:**
+
+- Running NVIDIA-optimized Llama/Mistral/Nemotron models in the cloud
+- Reasoning workloads via hosted DeepSeek-R1 or Nemotron
+- Developers already in the NVIDIA ecosystem (NGC, DGX Cloud)
+
+**Pricing:**
+
+- Varies by model; new accounts receive free credits
+- See https://build.nvidia.com/models for per-model pricing
+
+---
+
+### 16. LM Studio
+
+**Provider ID:** `lm-studio`
+**Default Model:** Auto-discovered from running server
+**Aliases:** `lmstudio`, `lms`
+
+**Strengths:**
+
+- **Completely FREE** (local execution via LM Studio desktop app)
+- Maximum privacy — no data sent to cloud
+- Auto-discovers the currently loaded model via `/v1/models`
+- Vision supported on compatible models (LLaVA, Llama 3.2 Vision, Qwen-VL, etc.)
+- Tool calling supported on compatible models
+
+**Weaknesses:**
+
+- Requires LM Studio app and a loaded model
+- Model quality and capability depend entirely on what is loaded
+- No PDF support
+- Small local models may give inconsistent structured output
+
+**Best For:**
+
+- Privacy-critical local inference
+- Offline / air-gapped environments
+- Development and experimentation without cloud costs
+- Testing multiple open-weight models via a GUI
+
+**Pricing:**
+
+- **FREE** (hardware costs only)
+- Requires local GPU for best performance
+
+---
+
+### 17. llama.cpp
+
+**Provider ID:** `llamacpp`
+**Default Model:** Auto-discovered from running llama-server
+**Aliases:** `llama.cpp`, `llama-cpp`
+
+**Strengths:**
+
+- **Completely FREE** (local execution via llama-server)
+- Maximum privacy — no data sent to cloud
+- GGUF model support — run quantized models on CPU or GPU
+- Auto-discovers loaded model via `/v1/models`
+- Vision supported on compatible models (LLaVA, Llama 3.2 Vision)
+- Tool calling supported when server started with `--jinja` flag
+
+**Weaknesses:**
+
+- Requires building / downloading llama-server and a GGUF model
+- Tool calling requires `--jinja` flag at server startup
+- Model quality depends on the GGUF model loaded
+- No PDF support
+- Small local models may give inconsistent structured output
+
+**Best For:**
+
+- Maximum privacy and air-gapped deployments
+- CPU inference without a GPU
+- Running heavily quantized models at low resource cost
+- Power users who want direct control over model serving
+
+**Pricing:**
+
+- **FREE** (hardware costs only)
+- No API costs or rate limits
+
+---
+
 ## Use Case Recommendations
 
 ### For Startups (Limited Budget)
@@ -837,7 +1029,19 @@ _Subscription Pricing (via OAuth):_
 - Works offline
 - Completely FREE
 
-**🥈 Alternative: Mistral**
+**🥈 Alternative: LM Studio**
+
+- 100% local execution via desktop app
+- No data sent to cloud
+- GUI-driven model management
+
+**🥉 Alternative: llama.cpp**
+
+- 100% local execution — even CPU-only deployments
+- Maximum control over model serving
+- Completely FREE
+
+**Also Consider: Mistral**
 
 - GDPR compliant
 - European data centers
@@ -941,12 +1145,18 @@ if (hasImages) {
 ```typescript
 // Use local for privacy-sensitive
 if (sensitiveData) {
-  provider = "ollama"; // Local, FREE
+  provider = "ollama"; // Local, FREE — or "lm-studio" / "llamacpp"
 }
 
 // Use cloud for complex tasks
 if (needsAdvancedReasoning) {
   provider = "anthropic"; // Extended thinking
+}
+
+// Use DeepSeek for cost-efficient reasoning
+if (needsReasoningButBudgetConstrained) {
+  provider = "deepseek"; // Low-cost frontier-quality reasoning
+  model = "deepseek-reasoner";
 }
 ```
 
@@ -964,7 +1174,7 @@ Need highest quality?
     └─ No → Continue
         │
         Need complete privacy?
-        ├─ Yes → Ollama (local, free)
+        ├─ Yes → Ollama / LM Studio / llama.cpp (local, free)
         └─ No → Continue
             │
             Need PDF processing?
@@ -1100,12 +1310,13 @@ const result = await neurolink.generate({
 
 1. **Budget Priority** → Google AI Studio (free) or OpenRouter (free models) or Anthropic Free tier (via OAuth)
 2. **Quality Priority** → OpenAI or Anthropic
-3. **Privacy Priority** → Ollama (local)
-4. **Reasoning Priority** → Anthropic (extended thinking)
+3. **Privacy Priority** → Ollama / LM Studio / llama.cpp (local)
+4. **Reasoning Priority** → Anthropic (extended thinking) or DeepSeek-R1 (cost-efficient)
 5. **Document Priority** → Anthropic or Google AI Studio (PDF support)
 6. **Compliance Priority** → Azure OpenAI or Bedrock
-7. **Flexibility Priority** → OpenRouter (300+ models)
+7. **Flexibility Priority** → OpenRouter (300+ models) or NVIDIA NIM (curated NVIDIA-hosted models)
 8. **Flat-Rate Pricing** → Anthropic subscription (Pro $20/mo, Max $100+/mo)
+9. **Zero Cloud Cost** → LM Studio or llama.cpp (local execution)
 
 **NeuroLink Advantage:**
 

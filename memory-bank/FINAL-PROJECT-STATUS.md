@@ -68,9 +68,19 @@
 16. ✅ **Resilient JSON Parser** - Handles corrupted configuration files from all AI tools
 17. 🔧 **External Server Activation** - Communication protocol implementation in progress
 
+### **🚀 MILESTONE - Four New Provider Integrations (PR #997, April 2026)**:
+
+18. ✅ **DeepSeek Provider** - deepseek-chat (V3) and deepseek-reasoner (R1); full tool calling; opt-in thinking mode for chat; OpenAI-compatible API; `DEEPSEEK_API_KEY` credential
+19. ✅ **NVIDIA NIM Provider** - NVIDIA-hosted Llama, Nemotron, Mistral, and DeepSeek-R1; tool + vision support per model; thinking/reasoning via `thinkingLevel`; NIM-specific extras (top_k, min_p, reasoning_budget) with graceful 400-retry strip; `NVIDIA_NIM_API_KEY` credential
+20. ✅ **LM Studio Provider** - Local OpenAI-compat server; auto-discovers loaded model via `/v1/models`; vision + tool support per model; zero cloud cost; `LM_STUDIO_BASE_URL` default `http://localhost:1234/v1`
+21. ✅ **llama.cpp Provider** - Local llama-server; auto-discovers loaded GGUF model; tool calling requires `--jinja` flag; vision per model; retry-with-backoff health check; `LLAMACPP_BASE_URL` default `http://localhost:8080/v1`
+22. ✅ **Registry Integration** - All four registered in `ProviderRegistry` via dynamic imports; aliases: `ds`, `nvidia`/`nim`, `lmstudio`/`lms`, `llama.cpp`/`llama-cpp`
+23. ✅ **Interactive Setup** - Wizard entries added for all four providers with appropriate prompts and defaults
+24. ✅ **Documentation** - Provider comparison, feature compatibility, provider selection, and CLI examples updated
+
 ### **🚀 MAJOR BREAKTHROUGH - LiteLLM Integration (January 2025)**:
 
-18. ✅ **LiteLLM Provider Implementation** - Complete proxy provider with 100+ model access
+25. ✅ **LiteLLM Provider Implementation** - Complete proxy provider with 100+ model access
 19. ✅ **Unified Model Access** - Single interface for OpenAI, Anthropic, Google, Mistral, Meta, and 50+ providers
 20. ✅ **Factory Pattern Integration** - Seamless integration with existing provider system
 21. ✅ **BaseProvider Extension** - Automatic tool support, analytics, and error handling

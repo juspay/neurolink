@@ -536,23 +536,30 @@ async function testProviderScopedCredentials(): Promise<void> {
       "litellm",
       "openaicompatible", // normalized: openaiCompatible -> lowercase
       "ollama",
+      "deepseek",
+      "nvidia-nim", // matches the registered provider name verbatim
+      "lm-studio", // matches the registered provider name verbatim
+      "llamacpp",
     ];
 
-    // At least half of the credential keys should have a matching registered provider
-    // (using lowercase comparison, accounting for alias registrations)
-    const availableLower = available.map((p) => p.toLowerCase());
-    const matchCount = credKeys.filter((k) =>
-      availableLower.some(
+    // Strip hyphens / underscores so e.g. "nvidia-nim" matches a provider
+    // alias registered as "nvidianim" without the entries above having to
+    // mirror that internal normalization.
+    const norm = (s: string): string => s.toLowerCase().replace(/[-_]/g, "");
+    const availableNormalized = available.map(norm);
+    const matchCount = credKeys.filter((k) => {
+      const kn = norm(k);
+      return availableNormalized.some(
         (p) =>
-          p.includes(k) ||
-          k.includes(p) ||
+          p.includes(kn) ||
+          kn.includes(p) ||
           // Special alias checks
-          (k === "googleaistudio" &&
+          (kn === "googleaistudio" &&
             (p.includes("google") || p.includes("gemini"))) ||
-          (k === "huggingface" && p.includes("hugging")) ||
-          (k === "openaicompatible" && p.includes("openai")),
-      ),
-    ).length;
+          (kn === "huggingface" && p.includes("hugging")) ||
+          (kn === "openaicompatible" && p.includes("openai")),
+      );
+    }).length;
 
     assert(
       matchCount >= 5,

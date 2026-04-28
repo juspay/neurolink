@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-After comprehensive testing across 11 AI providers, we have identified **4 production-ready providers with 100% feature compatibility** and documented specific technical limitations and configuration requirements for all others.
+After comprehensive testing across 11 AI providers (plus 4 newly integrated providers), we have identified **4 production-ready providers with 100% feature compatibility** and documented specific technical limitations and configuration requirements for all others.
 
 ### Production-Ready Providers (100% Compatibility) ⭐⭐⭐
 
@@ -31,21 +31,27 @@ After comprehensive testing across 11 AI providers, we have identified **4 produ
 
 ## Complete Feature Support Matrix
 
-| Provider             | CSV    | PDF    | MCP Tools | Business Tools | Structured Output | Enterprise | Score     | Status       |
-| -------------------- | ------ | ------ | --------- | -------------- | ----------------- | ---------- | --------- | ------------ |
-| **Google AI Studio** | ✅ 6/6 | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ⚠️ Partial\*      | ✅ 1/1     | **19/19** | Production   |
-| **Vertex AI**        | ✅ 6/6 | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ⚠️ Partial\*      | ✅ 1/1     | **19/19** | Production   |
-| **LiteLLM**          | ✅ 6/6 | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ✅ Full           | ✅ 1/1     | **19/19** | Production   |
-| **OpenAI**           | ✅ 6/6 | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ✅ Full           | ✅ 1/1     | **19/19** | Production   |
-| **Azure OpenAI**     | ✅ 6/6 | ❌ 0/6 | ✅ 4/4    | ✅ 2/2         | ✅ Full           | ✅ 1/1     | 13/19     | Production\* |
-| **Mistral**          | ✅ 6/6 | ❌ 0/6 | ⚠️ 2/4    | ❌ 0/2         | ✅ Full           | ✅ 1/1     | 9/19      | Development  |
-| **Ollama**           | ⚠️ 3/6 | ⚠️ 1/6 | ❌ 0/4    | ❌ 0/2         | ⚠️ Limited        | ✅ 1/1     | 7/19      | Development  |
-| **Anthropic**        | 🔧 0/6 | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ✅ Full           | ✅ 1/1     | 2/19\*\*  | Config       |
-| **Bedrock**          | 🔧 0/6 | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ✅ Full           | ✅ 1/1     | 2/19\*\*  | Config       |
-| **Hugging Face**     | 🔧 0/6 | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ⚠️ Limited        | ✅ 1/1     | 2/19\*\*  | Config       |
-| **SageMaker**        | 🔧 0/6 | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ⚠️ Limited        | ✅ 1/1     | 2/19\*\*  | Config       |
+| Provider             | CSV      | PDF    | MCP Tools | Business Tools | Structured Output | Enterprise | Score     | Status       |
+| -------------------- | -------- | ------ | --------- | -------------- | ----------------- | ---------- | --------- | ------------ |
+| **Google AI Studio** | ✅ 6/6   | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ⚠️ Partial\*      | ✅ 1/1     | **19/19** | Production   |
+| **Vertex AI**        | ✅ 6/6   | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ⚠️ Partial\*      | ✅ 1/1     | **19/19** | Production   |
+| **LiteLLM**          | ✅ 6/6   | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ✅ Full           | ✅ 1/1     | **19/19** | Production   |
+| **OpenAI**           | ✅ 6/6   | ✅ 6/6 | ✅ 4/4    | ✅ 2/2         | ✅ Full           | ✅ 1/1     | **19/19** | Production   |
+| **Azure OpenAI**     | ✅ 6/6   | ❌ 0/6 | ✅ 4/4    | ✅ 2/2         | ✅ Full           | ✅ 1/1     | 13/19     | Production\* |
+| **Mistral**          | ✅ 6/6   | ❌ 0/6 | ⚠️ 2/4    | ❌ 0/2         | ✅ Full           | ✅ 1/1     | 9/19      | Development  |
+| **Ollama**           | ⚠️ 3/6   | ⚠️ 1/6 | ❌ 0/4    | ❌ 0/2         | ⚠️ Limited        | ✅ 1/1     | 7/19      | Development  |
+| **Anthropic**        | 🔧 0/6   | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ✅ Full           | ✅ 1/1     | 2/19\*\*  | Config       |
+| **Bedrock**          | 🔧 0/6   | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ✅ Full           | ✅ 1/1     | 2/19\*\*  | Config       |
+| **Hugging Face**     | 🔧 0/6   | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ⚠️ Limited        | ✅ 1/1     | 2/19\*\*  | Config       |
+| **SageMaker**        | 🔧 0/6   | 🔧 0/6 | 🔧 0/4    | 🔧 0/2         | ⚠️ Limited        | ✅ 1/1     | 2/19\*\*  | Config       |
+| **DeepSeek**         | ✅ 6/6   | ❌ 0/6 | ✅ 4/4    | ✅ 2/2         | ✅ Full           | ✅ 1/1     | N/A†      | Cloud        |
+| **NVIDIA NIM**       | ✅ 6/6   | ❌ 0/6 | ⚠️ Model  | ⚠️ Model       | ⚠️ Model          | ✅ 1/1     | N/A†      | Cloud        |
+| **LM Studio**        | ⚠️ Model | ❌ 0/6 | ⚠️ Model  | ⚠️ Model       | ⚠️ Model          | ✅ 1/1     | N/A†      | Local        |
+| **llama.cpp**        | ⚠️ Model | ❌ 0/6 | ⚠️ Model  | ⚠️ Model       | ⚠️ Model          | ✅ 1/1     | N/A†      | Local        |
 
 \*Google providers: Cannot combine tools + schemas (use `disableTools: true`). Google API limitation, not NeuroLink bug.
+
+†Not yet run through the standard 19-test suite. Capability flags based on provider source code audit (PR #997).
 
 **Legend:**
 
@@ -414,6 +420,34 @@ SageMaker endpoint invocation failed: The security token included in the request
 - **Impact:** Inconsistent results across different models and operations
 - **Workaround:** Carefully select models, use for development/testing only
 - **Affected Features:** Various tests show inconsistent behavior
+
+### DeepSeek
+
+- **Limitation:** No vision / multimodal support; no PDF support
+- **Impact:** Cannot process images or documents
+- **Workaround:** Use OpenAI or Anthropic for vision/PDF workflows; DeepSeek for text-only tasks
+- **Affected Features:** All PDF tests (6/6), image processing
+
+### NVIDIA NIM
+
+- **Limitation:** Tool calling and vision are model-dependent; no PDF support
+- **Impact:** Not all hosted models support tools or vision
+- **Workaround:** Choose a tool-capable model (e.g., Llama 3.3 70B Instruct); use a vision-capable model for multimodal tasks
+- **Affected Features:** Model-dependent — check https://build.nvidia.com/models for capabilities per model
+
+### LM Studio
+
+- **Limitation:** All capabilities depend on the currently loaded model; requires LM Studio app running
+- **Impact:** ECONNREFUSED error if app is not started or no model is loaded
+- **Workaround:** Start LM Studio, load a model, click "Start Server"
+- **Affected Features:** CSV/PDF/tool support all model-dependent; structured output reliability varies on small models
+
+### llama.cpp
+
+- **Limitation:** Tool calling requires `--jinja` server flag; all capabilities depend on loaded GGUF model; requires llama-server process running
+- **Impact:** 400 error on tool calls if server was not started with `--jinja`; ECONNREFUSED if server is not running
+- **Workaround:** Start llama-server with: `./llama-server -m model.gguf --port 8080 --jinja`
+- **Affected Features:** Tool support model + flag dependent; structured output reliability varies on small quantized models
 
 ---
 

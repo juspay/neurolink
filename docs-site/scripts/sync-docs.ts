@@ -1035,6 +1035,14 @@ const LINK_MAPPINGS: Record<string, string> = {
   "providers/openrouter": "/getting-started/providers/openrouter",
   "providers/anthropic": "/getting-started/providers/anthropic",
   anthropic: "/getting-started/providers/anthropic",
+  // Bare provider names so sibling-relative `./<name>.md` links inside
+  // docs/getting-started/providers/ resolve to the canonical Docusaurus path
+  // instead of falling through to the generic `/docs/<name>` (which 404s).
+  ollama: "/getting-started/providers/ollama",
+  deepseek: "/getting-started/providers/deepseek",
+  "nvidia-nim": "/getting-started/providers/nvidia-nim",
+  "lm-studio": "/getting-started/providers/lm-studio",
+  llamacpp: "/getting-started/providers/llamacpp",
 
   // MCP additional
   "mcp/server-catalog": "/guides/mcp/server-catalog",

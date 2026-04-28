@@ -77,6 +77,16 @@ export class CLICommandFactory {
         "mistral",
         "litellm",
         "sagemaker",
+        "deepseek",
+        "ds",
+        "nvidia-nim",
+        "nim",
+        "nvidia",
+        "lm-studio",
+        "lmstudio",
+        "lms",
+        "llamacpp",
+        "llama.cpp",
       ],
       default: "auto",
       description:
@@ -1793,6 +1803,10 @@ export class CLICommandFactory {
                 "vertex",
                 "huggingface",
                 "mistral",
+                "deepseek",
+                "nvidia-nim",
+                "lm-studio",
+                "llamacpp",
               ],
             })
             .option("list", {
@@ -3916,7 +3930,7 @@ export class CLICommandFactory {
         "        generate|gen)\n" +
         '            case "${prev}" in\n' +
         "                --provider|-p)\n" +
-        '                    COMPREPLY=( $(compgen -W "auto openai bedrock vertex googleVertex anthropic azure google-ai huggingface ollama mistral litellm" -- ${cur}) )\n' +
+        '                    COMPREPLY=( $(compgen -W "auto openai openai-compatible openrouter or bedrock vertex googleVertex anthropic anthropic-subscription azure google-ai google-ai-studio huggingface ollama mistral litellm sagemaker deepseek ds nvidia-nim nim lm-studio lmstudio llamacpp llama.cpp" -- ${cur}) )\n' +
         "                    return 0\n" +
         "                    ;;\n" +
         "                --format|-f|--output-format)\n" +

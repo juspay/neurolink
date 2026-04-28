@@ -150,6 +150,7 @@ async function startServer(): Promise<boolean> {
       config: {
         port: TEST_CONFIG.serverPort,
         cors: { origins: ["*"] },
+        timeout: TEST_CONFIG.timeout,
       },
     });
 

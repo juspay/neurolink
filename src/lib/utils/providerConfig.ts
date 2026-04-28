@@ -111,6 +111,10 @@ export function validateApiKeyEnhanced(
   }
 
   if (!apiKey) {
+    if (config.optional) {
+      // Local providers — base URL defaulted; treat as valid with empty value.
+      return { isValid: true, apiKey: "" };
+    }
     return {
       isValid: false,
       apiKey: "",
@@ -162,6 +166,12 @@ export function validateApiKey(config: ProviderConfigOptions): string {
   }
 
   if (!apiKey) {
+    // Local providers (LM Studio, llama.cpp) treat envVarName as a base-URL
+    // override, not a credential. Returning "" lets callers fall back to the
+    // documented default URL without raising a configuration error.
+    if (config.optional) {
+      return "";
+    }
     throw new Error(createConfigErrorMessage(config));
   }
 
@@ -419,6 +429,82 @@ export function createOpenAICompatibleConfig(): ProviderConfigOptions {
       "3. Set OPENAI_COMPATIBLE_API_KEY to your API key",
       "4. Optionally set OPENAI_COMPATIBLE_MODEL (will auto-discover if not set)",
     ],
+  };
+}
+
+/**
+ * Creates DeepSeek provider configuration
+ */
+export function createDeepSeekConfig(): ProviderConfigOptions {
+  return {
+    providerName: "DeepSeek",
+    envVarName: "DEEPSEEK_API_KEY",
+    setupUrl: "https://platform.deepseek.com/api_keys",
+    description: "API key",
+    instructions: [
+      "1. Visit: https://platform.deepseek.com/api_keys",
+      "2. Create or sign in to your DeepSeek account",
+      "3. Generate a new API key",
+      "4. Set DEEPSEEK_API_KEY in your .env file",
+    ],
+  };
+}
+
+/**
+ * Creates NVIDIA NIM provider configuration
+ */
+export function createNvidiaNimConfig(): ProviderConfigOptions {
+  return {
+    providerName: "NVIDIA NIM",
+    envVarName: "NVIDIA_NIM_API_KEY",
+    setupUrl: "https://build.nvidia.com/settings/api-keys",
+    description: "API key",
+    instructions: [
+      "1. Visit: https://build.nvidia.com/",
+      "2. Sign in with your NVIDIA developer account",
+      "3. Open Settings → API Keys",
+      "4. Generate a new API key (Bearer token)",
+      "5. Set NVIDIA_NIM_API_KEY in your .env file",
+    ],
+  };
+}
+
+/**
+ * Creates LM Studio provider configuration (local server)
+ */
+export function createLmStudioConfig(): ProviderConfigOptions {
+  return {
+    providerName: "LM Studio",
+    envVarName: "LM_STUDIO_BASE_URL",
+    setupUrl: "https://lmstudio.ai/",
+    description: "LM Studio server URL",
+    instructions: [
+      "1. Install LM Studio: https://lmstudio.ai/",
+      "2. Open LM Studio and download a model (e.g. Llama 3.2 3B Instruct)",
+      '3. Click "Local Server" → Start Server',
+      "4. Default URL is http://localhost:1234/v1 (override via LM_STUDIO_BASE_URL)",
+    ],
+    // Base URL is optional — defaults to http://localhost:1234/v1 if unset.
+    optional: true,
+  };
+}
+
+/**
+ * Creates llama.cpp provider configuration (local server)
+ */
+export function createLlamaCppConfig(): ProviderConfigOptions {
+  return {
+    providerName: "llama.cpp",
+    envVarName: "LLAMACPP_BASE_URL",
+    setupUrl: "https://github.com/ggerganov/llama.cpp",
+    description: "llama.cpp server URL",
+    instructions: [
+      "1. Build llama.cpp: https://github.com/ggerganov/llama.cpp#build",
+      "2. Run: ./llama-server -m model.gguf --port 8080",
+      "3. Default URL is http://localhost:8080/v1 (override via LLAMACPP_BASE_URL)",
+    ],
+    // Base URL is optional — defaults to http://localhost:8080/v1 if unset.
+    optional: true,
   };
 }
 

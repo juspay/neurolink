@@ -237,6 +237,67 @@ const PRICING: Record<
       output: 0.15 / 1_000_000,
     },
   },
+  deepseek: {
+    "deepseek-chat": {
+      input: 0.27 / 1_000_000,
+      output: 1.1 / 1_000_000,
+      cacheRead: 0.07 / 1_000_000,
+    },
+    "deepseek-reasoner": {
+      input: 0.55 / 1_000_000,
+      output: 2.19 / 1_000_000,
+      cacheRead: 0.14 / 1_000_000,
+    },
+  },
+  "nvidia-nim": {
+    "meta/llama-3.3-70b-instruct": {
+      input: 0.4 / 1_000_000,
+      output: 0.4 / 1_000_000,
+    },
+    "meta/llama-3.1-405b-instruct": {
+      input: 1.79 / 1_000_000,
+      output: 1.79 / 1_000_000,
+    },
+    "meta/llama-3.1-70b-instruct": {
+      input: 0.4 / 1_000_000,
+      output: 0.4 / 1_000_000,
+    },
+    "meta/llama-3.2-90b-vision-instruct": {
+      input: 0.5 / 1_000_000,
+      output: 0.5 / 1_000_000,
+    },
+    "nvidia/llama-3.3-nemotron-super-49b-v1": {
+      input: 0.3 / 1_000_000,
+      output: 0.3 / 1_000_000,
+    },
+    "deepseek-ai/deepseek-r1": {
+      input: 0.55 / 1_000_000,
+      output: 2.19 / 1_000_000,
+    },
+    "mistralai/mixtral-8x22b-instruct-v0.1": {
+      input: 0.6 / 1_000_000,
+      output: 0.6 / 1_000_000,
+    },
+    "mistralai/mixtral-8x7b-instruct-v0.1": {
+      input: 0.24 / 1_000_000,
+      output: 0.24 / 1_000_000,
+    },
+    "microsoft/phi-4": { input: 0.07 / 1_000_000, output: 0.07 / 1_000_000 },
+    "google/gemma-3-27b-it": {
+      input: 0.07 / 1_000_000,
+      output: 0.07 / 1_000_000,
+    },
+  },
+  "lm-studio": {
+    // Local inference — there is no upstream USD price. Reporting a fabricated
+    // symbolic rate here misstated spend in analytics/spans, so the rate is
+    // explicitly zero. `calculateCost()` returns 0 for zero rates and the CLI
+    // / span renderers already treat 0 as "no billable cost" (no $ shown).
+    _default: { input: 0, output: 0 },
+  },
+  llamacpp: {
+    _default: { input: 0, output: 0 },
+  },
 };
 
 /**
@@ -260,6 +321,12 @@ const PROVIDER_ALIASES: Record<string, string> = {
   litellm: "__cross_provider__",
   openrouter: "__cross_provider__",
   openaicompatible: "__cross_provider__",
+  deepseek: "deepseek",
+  nvidianim: "nvidia-nim",
+  nim: "nvidia-nim",
+  nvidia: "nvidia-nim",
+  lmstudio: "lm-studio",
+  llamacpp: "llamacpp",
 };
 
 /**
@@ -318,10 +385,10 @@ function findRates(
     return providerPricing[model];
   }
 
-  // Longest-prefix match
-  const sortedKeys = Object.keys(providerPricing).sort(
-    (a, b) => b.length - a.length,
-  );
+  // Longest-prefix match (skip the synthetic "_default" sentinel below)
+  const sortedKeys = Object.keys(providerPricing)
+    .filter((k) => k !== "_default")
+    .sort((a, b) => b.length - a.length);
   const key = sortedKeys.find((k) => model.startsWith(k));
   if (key) {
     return providerPricing[key];
@@ -329,6 +396,9 @@ function findRates(
 
   // Fallback: Vertex hosts both Claude and Gemini models.
   // If no match found under "vertex", try "google" pricing for Gemini models.
+  // (Run BEFORE the provider-level _default fallback so that Vertex Gemini
+  // requests get the more specific Google rates rather than a generic Vertex
+  // _default if one is ever added.)
   if (normalizedProvider === "vertex" && model.startsWith("gemini")) {
     const googlePricing = PRICING["google"];
     if (googlePricing) {
@@ -343,6 +413,14 @@ function findRates(
         return googlePricing[googleKey];
       }
     }
+  }
+
+  // Provider-level fallback: when a pricing table only has _default (or has
+  // no entry matching the specific model), use _default. This is mainly for
+  // local/symbolic providers (lm-studio, llamacpp) that don't enumerate per-
+  // model pricing.
+  if (providerPricing["_default"]) {
+    return providerPricing["_default"];
   }
 
   return undefined;
@@ -379,7 +457,21 @@ export function calculateCost(
  * Check if pricing is available for a provider/model combination.
  * Checks the rate table directly instead of computing a cost,
  * so even very cheap models (e.g. gemini-1.5-flash) are detected correctly.
+ *
+ * Zero-rate entries (the local-provider `_default` for lm-studio / llamacpp)
+ * count as "no pricing" — those providers explicitly don't have an upstream
+ * USD price, and any caller gated by `hasPricing()` should treat them as
+ * non-billable rather than zero-cost-billable.
  */
 export function hasPricing(provider: string, model: string): boolean {
-  return findRates(provider, model) !== undefined;
+  const rates = findRates(provider, model);
+  if (!rates) {
+    return false;
+  }
+  return (
+    rates.input > 0 ||
+    rates.output > 0 ||
+    (rates.cacheRead ?? 0) > 0 ||
+    (rates.cacheCreation ?? 0) > 0
+  );
 }

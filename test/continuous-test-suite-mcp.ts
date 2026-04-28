@@ -96,6 +96,11 @@ const PROVIDER_MAX_TOKENS: Record<string, number> = {
   bedrock: 8192,
   ollama: 4096,
   openrouter: 4096,
+  // OpenAI-compat providers added 2026
+  deepseek: 4096,
+  "nvidia-nim": 8192,
+  "lm-studio": 1024,
+  llamacpp: 1024,
   or: 4096,
   litellm: 16384,
 };
@@ -146,7 +151,11 @@ const TEST_CONFIG = {
 
 // Resolve model AFTER provider is determined (CLI arg or env)
 TEST_CONFIG.model = resolveTestModel(TEST_CONFIG.provider);
-TEST_CONFIG.maxTokens = PROVIDER_MAX_TOKENS[TEST_CONFIG.provider] || 4096;
+// Match the suite-wide default used in the other continuous-test-suite-* files:
+// fall back to 1024, not 4096, for unmapped providers. Keeps token budgets
+// consistent across suites and avoids zeroing out the input budget on small-
+// context-window providers.
+TEST_CONFIG.maxTokens = PROVIDER_MAX_TOKENS[TEST_CONFIG.provider] || 1024;
 
 function buildBaseSDKOptions(): { provider: string; model?: string } {
   const options: { provider: string; model?: string } = {

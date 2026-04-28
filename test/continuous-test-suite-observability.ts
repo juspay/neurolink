@@ -60,13 +60,24 @@ const PROVIDER_MAX_TOKENS: Record<string, number> = {
   bedrock: 8192,
   ollama: 4096,
   openrouter: 4096,
+  // OpenAI-compat providers added 2026
+  deepseek: 4096,
+  "nvidia-nim": 8192,
+  "lm-studio": 1024,
+  llamacpp: 1024,
 };
 
+// Guard against malformed TEST_TIMEOUT_MS — a NaN here makes setTimeout fire
+// immediately and breaks every subprocess test.
+const parsedTimeoutMs = Number.parseInt(process.env.TEST_TIMEOUT_MS ?? "", 10);
 const TEST_CONFIG = {
   provider: process.env.TEST_PROVIDER || "vertex",
   model: process.env.TEST_MODEL || (undefined as string | undefined),
   maxTokens: undefined as number | undefined,
-  timeout: 90000,
+  timeout:
+    Number.isFinite(parsedTimeoutMs) && parsedTimeoutMs > 0
+      ? parsedTimeoutMs
+      : 90000,
   interTestDelay: 2000,
 };
 
@@ -1746,7 +1757,7 @@ if (cliArgs.model) {
   TEST_CONFIG.model = cliArgs.model;
 }
 if (!TEST_CONFIG.maxTokens) {
-  TEST_CONFIG.maxTokens = PROVIDER_MAX_TOKENS[TEST_CONFIG.provider] || 8192;
+  TEST_CONFIG.maxTokens = PROVIDER_MAX_TOKENS[TEST_CONFIG.provider] || 1024;
 }
 
 if (typeof describe === "undefined") {

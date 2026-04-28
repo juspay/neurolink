@@ -53,6 +53,11 @@ const PROVIDER_MAX_TOKENS: Record<string, number> = {
   bedrock: 8192,
   ollama: 4096,
   openrouter: 4096,
+  // OpenAI-compat providers added 2026
+  deepseek: 4096,
+  "nvidia-nim": 8192,
+  "lm-studio": 1024,
+  llamacpp: 1024,
 };
 
 const TEST_CONFIG = {
@@ -596,30 +601,51 @@ async function testContextCompactionLongConversation(
   }
 }
 
-// --- Test 3: Context Compaction Vertex ---
+// --- Test 3: Context Compaction Vertex Flash (provider-agnostic) ---
+// Uses TEST_PROVIDER if set; falls back to vertex+Flash for the canonical
+// long-context-compaction test. The test verifies that 20 turns + a final
+// generate() complete without error — proving compaction kicks in.
 async function testContextCompactionVertex(
   sdk: NeuroLink,
 ): Promise<boolean | null> {
-  logTest("SDK Generate - Context Compaction Vertex", "TESTING");
+  // Provider-aware label so non-Vertex runs (deepseek, lm-studio, NIM, …)
+  // don't show up as "Vertex Flash" failures in the log. Falls back to the
+  // historical literal when the test actually targets Vertex.
+  const testLabelFlash =
+    TEST_CONFIG.provider === "vertex"
+      ? "SDK Generate - Context Compaction Vertex Flash"
+      : `SDK Generate - Context Compaction (${TEST_CONFIG.provider})`;
+  logTest(testLabelFlash, "TESTING");
   try {
-    const vertexSdk = new NeuroLink();
+    const testSdk = new NeuroLink();
     const totalTurns = 20;
+    // Use TEST_CONFIG.provider directly: --provider=deepseek (without
+    // TEST_PROVIDER env) and other CLI/env paths should also override the
+    // default vertex target.
+    const useVertex = TEST_CONFIG.provider === "vertex";
+    const provider = TEST_CONFIG.provider;
+    // Honor `--model` even on Vertex runs — without this, an explicit
+    // CLI override silently fell back to VERTEX_FLASH_TEST_MODEL.
+    const model = useVertex
+      ? (TEST_CONFIG.model ?? VERTEX_FLASH_TEST_MODEL)
+      : TEST_CONFIG.model;
 
     for (let i = 0; i < totalTurns; i++) {
       try {
-        await vertexSdk.generate({
+        await testSdk.generate({
           input: {
             text: `Turn ${i + 1}: Name one programming language and its primary use case. Be brief.`,
           },
           maxTokens: 100,
-          provider: "vertex",
+          provider,
+          ...(model ? { model } : {}),
         });
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         if (isExpectedProviderError(msg)) {
-          logTest("SDK Generate - Context Compaction Vertex", "SKIP", msg);
+          logTest(testLabelFlash, "SKIP", msg);
           try {
-            await vertexSdk.shutdown?.();
+            await testSdk.shutdown?.();
           } catch {
             /* ignore */
           }
@@ -631,23 +657,22 @@ async function testContextCompactionVertex(
 
     // Gate: final generate() must succeed
     try {
-      const finalResult = await vertexSdk.generate({
-        input: {
-          text: "Reply with 'OK' to confirm you can still respond.",
-        },
+      const finalResult = await testSdk.generate({
+        input: { text: "Reply with 'OK' to confirm you can still respond." },
         maxTokens: 50,
-        provider: "vertex",
+        provider,
+        ...(model ? { model } : {}),
       });
 
       try {
-        await vertexSdk.shutdown?.();
+        await testSdk.shutdown?.();
       } catch {
         /* ignore */
       }
 
       if (!finalResult.content || finalResult.content.length === 0) {
         logTest(
-          "SDK Generate - Context Compaction Vertex",
+          testLabelFlash,
           "FAIL",
           "Final generate() returned empty after conversation",
         );
@@ -656,41 +681,37 @@ async function testContextCompactionVertex(
 
       const usage = finalResult.usage as { promptTokens?: number } | undefined;
       logTest(
-        "SDK Generate - Context Compaction Vertex",
+        testLabelFlash,
         "PASS",
-        `Final call succeeded after ${totalTurns} turns on Vertex${usage?.promptTokens ? `, promptTokens=${usage.promptTokens}` : ""}`,
+        `Final call succeeded after ${totalTurns} turns on ${provider}${usage?.promptTokens ? `, promptTokens=${usage.promptTokens}` : ""}`,
       );
       return true;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       if (isExpectedProviderError(msg)) {
-        logTest("SDK Generate - Context Compaction Vertex", "SKIP", msg);
+        logTest(testLabelFlash, "SKIP", msg);
         try {
-          await vertexSdk.shutdown?.();
+          await testSdk.shutdown?.();
         } catch {
           /* ignore */
         }
         return null;
       }
       try {
-        await vertexSdk.shutdown?.();
+        await testSdk.shutdown?.();
       } catch {
         /* ignore */
       }
-      logTest(
-        "SDK Generate - Context Compaction Vertex",
-        "FAIL",
-        `Final generate() failed: ${msg}`,
-      );
+      logTest(testLabelFlash, "FAIL", `Final generate() failed: ${msg}`);
       return false;
     }
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedProviderError(msg)) {
-      logTest("SDK Generate - Context Compaction Vertex", "SKIP", msg);
+      logTest(testLabelFlash, "SKIP", msg);
       return null;
     }
-    logTest("SDK Generate - Context Compaction Vertex", "FAIL", msg);
+    logTest(testLabelFlash, "FAIL", msg);
     return false;
   }
 }
@@ -699,27 +720,42 @@ async function testContextCompactionVertex(
 async function testContextCompactionVertexPro(
   sdk: NeuroLink,
 ): Promise<boolean | null> {
-  logTest("SDK Generate - Context Compaction Vertex Pro", "TESTING");
+  // Provider-aware label so non-Vertex runs don't surface as Vertex Pro fails.
+  const testLabelPro =
+    TEST_CONFIG.provider === "vertex"
+      ? "SDK Generate - Context Compaction Vertex Pro"
+      : `SDK Generate - Context Compaction Pro (${TEST_CONFIG.provider})`;
+  logTest(testLabelPro, "TESTING");
   try {
-    const vertexProSdk = new NeuroLink();
+    const testSdk = new NeuroLink();
     const totalTurns = 20;
+    // Use TEST_CONFIG.provider directly: --provider=deepseek (without
+    // TEST_PROVIDER env) and other CLI/env paths should also override the
+    // default vertex target.
+    const useVertex = TEST_CONFIG.provider === "vertex";
+    const provider = TEST_CONFIG.provider;
+    // Honor `--model` even on Vertex runs — without this, an explicit
+    // CLI override silently fell back to VERTEX_PRO_TEST_MODEL.
+    const model = useVertex
+      ? (TEST_CONFIG.model ?? VERTEX_PRO_TEST_MODEL)
+      : TEST_CONFIG.model;
 
     for (let i = 0; i < totalTurns; i++) {
       try {
-        await vertexProSdk.generate({
+        await testSdk.generate({
           input: {
             text: `Turn ${i + 1}: Name one database technology and its primary use case. Be brief.`,
           },
           maxTokens: 100,
-          provider: "vertex",
-          model: VERTEX_PRO_TEST_MODEL,
+          provider,
+          ...(model ? { model } : {}),
         });
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         if (isExpectedProviderError(msg)) {
-          logTest("SDK Generate - Context Compaction Vertex Pro", "SKIP", msg);
+          logTest(testLabelPro, "SKIP", msg);
           try {
-            await vertexProSdk.shutdown?.();
+            await testSdk.shutdown?.();
           } catch {
             /* ignore */
           }
@@ -731,24 +767,22 @@ async function testContextCompactionVertexPro(
 
     // Gate: final generate() must succeed
     try {
-      const finalResult = await vertexProSdk.generate({
-        input: {
-          text: "Reply with 'OK' to confirm you can still respond.",
-        },
+      const finalResult = await testSdk.generate({
+        input: { text: "Reply with 'OK' to confirm you can still respond." },
         maxTokens: 50,
-        provider: "vertex",
-        model: VERTEX_PRO_TEST_MODEL,
+        provider,
+        ...(model ? { model } : {}),
       });
 
       try {
-        await vertexProSdk.shutdown?.();
+        await testSdk.shutdown?.();
       } catch {
         /* ignore */
       }
 
       if (!finalResult.content || finalResult.content.length === 0) {
         logTest(
-          "SDK Generate - Context Compaction Vertex Pro",
+          testLabelPro,
           "FAIL",
           "Final generate() returned empty after conversation",
         );
@@ -757,41 +791,37 @@ async function testContextCompactionVertexPro(
 
       const usage = finalResult.usage as { promptTokens?: number } | undefined;
       logTest(
-        "SDK Generate - Context Compaction Vertex Pro",
+        testLabelPro,
         "PASS",
-        `Final call succeeded after ${totalTurns} turns on Vertex Pro${usage?.promptTokens ? `, promptTokens=${usage.promptTokens}` : ""}`,
+        `Final call succeeded after ${totalTurns} turns on ${provider}${usage?.promptTokens ? `, promptTokens=${usage.promptTokens}` : ""}`,
       );
       return true;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       if (isExpectedProviderError(msg)) {
-        logTest("SDK Generate - Context Compaction Vertex Pro", "SKIP", msg);
+        logTest(testLabelPro, "SKIP", msg);
         try {
-          await vertexProSdk.shutdown?.();
+          await testSdk.shutdown?.();
         } catch {
           /* ignore */
         }
         return null;
       }
       try {
-        await vertexProSdk.shutdown?.();
+        await testSdk.shutdown?.();
       } catch {
         /* ignore */
       }
-      logTest(
-        "SDK Generate - Context Compaction Vertex Pro",
-        "FAIL",
-        `Final generate() failed: ${msg}`,
-      );
+      logTest(testLabelPro, "FAIL", `Final generate() failed: ${msg}`);
       return false;
     }
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (isExpectedProviderError(msg)) {
-      logTest("SDK Generate - Context Compaction Vertex Pro", "SKIP", msg);
+      logTest(testLabelPro, "SKIP", msg);
       return null;
     }
-    logTest("SDK Generate - Context Compaction Vertex Pro", "FAIL", msg);
+    logTest(testLabelPro, "FAIL", msg);
     return false;
   }
 }
@@ -2414,7 +2444,7 @@ if (cliArgs.model) {
   TEST_CONFIG.model = cliArgs.model;
 }
 if (!TEST_CONFIG.maxTokens) {
-  TEST_CONFIG.maxTokens = PROVIDER_MAX_TOKENS[TEST_CONFIG.provider] || 8192;
+  TEST_CONFIG.maxTokens = PROVIDER_MAX_TOKENS[TEST_CONFIG.provider] || 1024;
 }
 
 if (typeof describe === "undefined") {

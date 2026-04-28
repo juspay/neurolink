@@ -5533,7 +5533,7 @@ if (cliArgs.model) {
 
 // Set provider-specific maxTokens if not already set
 if (!TEST_CONFIG.maxTokens) {
-  TEST_CONFIG.maxTokens = PROVIDER_MAX_TOKENS[TEST_CONFIG.provider] || 8192; // Default to 8192 for unknown providers
+  TEST_CONFIG.maxTokens = PROVIDER_MAX_TOKENS[TEST_CONFIG.provider] || 1024; // Default to 1024 for unknown providers — keeps headroom under small context windows so availableInputTokens stays positive
   log(
     `📝 Using provider-specific maxTokens: ${TEST_CONFIG.maxTokens} for ${TEST_CONFIG.provider}`,
     "cyan",

@@ -861,12 +861,138 @@ npx @juspay/neurolink sagemaker setup
 
 ---
 
+### 12. DeepSeek
+
+#### Required Variables
+
+```bash
+DEEPSEEK_API_KEY="sk-your-deepseek-api-key"
+```
+
+#### Optional Variables
+
+```bash
+DEEPSEEK_MODEL="deepseek-chat"                    # Default: deepseek-chat (use deepseek-reasoner for R1)
+DEEPSEEK_BASE_URL="https://api.deepseek.com"      # Default: DeepSeek API
+```
+
+#### How to Get DeepSeek API Key
+
+1. Visit [DeepSeek Platform](https://platform.deepseek.com/api_keys)
+2. Sign up or log in to your account
+3. Navigate to **API Keys** section
+4. Click **Create API Key**
+5. Copy the key
+
+#### Supported Models
+
+- `deepseek-chat` (default) - DeepSeek V3, high-quality general chat
+- `deepseek-reasoner` - DeepSeek R1, extended chain-of-thought reasoning
+
+---
+
+### 13. NVIDIA NIM
+
+#### Required Variables
+
+```bash
+NVIDIA_NIM_API_KEY="nvapi-your-nvidia-api-key"
+```
+
+#### Optional Variables
+
+```bash
+NVIDIA_NIM_MODEL="meta/llama-3.3-70b-instruct"              # Default model
+NVIDIA_NIM_BASE_URL="https://integrate.api.nvidia.com/v1"   # Default: NVIDIA cloud API (override for self-hosted NIM)
+```
+
+#### NIM-Specific Extras (rarely needed)
+
+```bash
+# Sampling extras passed as request body extensions
+NVIDIA_NIM_TOP_K=                      # Integer, -1 = disabled (default)
+NVIDIA_NIM_MIN_P=                      # Float, 0 = disabled (default)
+NVIDIA_NIM_REPETITION_PENALTY=         # Float, 1.0 = disabled (default)
+NVIDIA_NIM_MIN_TOKENS=                 # Integer, 0 = disabled (default)
+NVIDIA_NIM_CHAT_TEMPLATE=              # Override model chat template string (advanced)
+```
+
+#### How to Get NVIDIA NIM API Key
+
+1. Visit [NVIDIA Build](https://build.nvidia.com/)
+2. Sign in with your NVIDIA developer account
+3. Open **Settings → API Keys**
+4. Generate a new API key (Bearer token)
+
+#### Supported Models
+
+- `meta/llama-3.3-70b-instruct` (default) - Llama 3.3 70B Instruct
+- Any model listed at [build.nvidia.com/models](https://build.nvidia.com/models)
+
+---
+
+### 14. LM Studio (Local)
+
+LM Studio is a local provider — no API key is required for standard installations.
+
+#### Optional Variables
+
+```bash
+LM_STUDIO_BASE_URL="http://localhost:1234/v1"    # Default: local LM Studio server
+LM_STUDIO_MODEL=""                               # Blank = auto-discover from /v1/models
+# LM_STUDIO_API_KEY=                             # Only set when running behind an auth-proxying reverse-proxy
+```
+
+#### How to Set Up LM Studio
+
+1. Install LM Studio from [lmstudio.ai](https://lmstudio.ai/)
+2. Open LM Studio and download a model (e.g., Llama 3.2 3B Instruct)
+3. Click **Local Server** → **Start Server**
+4. The server starts at `http://localhost:1234/v1` by default
+5. NeuroLink auto-discovers the loaded model; no `LM_STUDIO_MODEL` needed
+
+**Note:** `LM_STUDIO_API_KEY` is only needed if you run LM Studio behind an authenticating reverse-proxy. Vanilla local installs do not require an API key.
+
+---
+
+### 15. llama.cpp (Local)
+
+llama.cpp (llama-server) is a local provider — no API key is required for standard installations.
+
+#### Optional Variables
+
+```bash
+LLAMACPP_BASE_URL="http://localhost:8080/v1"     # Default: local llama-server
+LLAMACPP_MODEL=""                                # Blank = use whatever model llama-server has loaded
+# LLAMACPP_API_KEY=                              # Only set when running behind an auth-proxying reverse-proxy
+```
+
+#### How to Set Up llama.cpp
+
+1. Build llama.cpp from source: [github.com/ggerganov/llama.cpp](https://github.com/ggerganov/llama.cpp#build)
+2. Download a GGUF model file
+3. Start llama-server:
+
+   ```bash
+   # Basic usage
+   ./llama-server -m model.gguf --port 8080
+
+   # With tool/function-call support (required for MCP tools)
+   ./llama-server -m model.gguf --port 8080 --jinja
+   ```
+
+4. NeuroLink auto-discovers the loaded model; no `LLAMACPP_MODEL` needed
+
+**Note:** `LLAMACPP_API_KEY` is only needed if you run llama-server behind an authenticating reverse-proxy. Vanilla local installs do not require an API key.
+
+---
+
 ## 🔧 Configuration Examples
 
 ### Complete .env File Example
 
 ```bash
-# NeuroLink Environment Configuration - All 11 Providers
+# NeuroLink Environment Configuration - All 15 Providers
 
 # OpenAI Configuration
 OPENAI_API_KEY="sk-proj-your-openai-key"
@@ -926,6 +1052,26 @@ MISTRAL_MODEL="mistral-small"
 LITELLM_BASE_URL="http://localhost:4000"
 LITELLM_API_KEY="sk-anything"
 LITELLM_MODEL="openai/gpt-4o-mini"
+
+# DeepSeek Configuration
+DEEPSEEK_API_KEY="sk-your-deepseek-key"
+DEEPSEEK_MODEL="deepseek-chat"
+# DEEPSEEK_BASE_URL=https://api.deepseek.com
+
+# NVIDIA NIM Configuration
+NVIDIA_NIM_API_KEY="nvapi-your-nvidia-key"
+NVIDIA_NIM_MODEL="meta/llama-3.3-70b-instruct"
+# NVIDIA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
+
+# LM Studio Configuration (local — no API key required)
+LM_STUDIO_BASE_URL="http://localhost:1234/v1"
+# LM_STUDIO_MODEL=                 # blank = auto-discover
+# LM_STUDIO_API_KEY=               # only for reverse-proxy setups
+
+# llama.cpp Configuration (local — no API key required)
+LLAMACPP_BASE_URL="http://localhost:8080/v1"
+# LLAMACPP_MODEL=                  # blank = auto-discover
+# LLAMACPP_API_KEY=                # only for reverse-proxy setups
 ```
 
 ### Docker/Container Configuration

@@ -111,6 +111,65 @@ Providers with specific compliance certifications:
 
 ---
 
+## 🧑‍💻 Hosted Inference Providers
+
+Access frontier models via hosted cloud inference APIs:
+
+### [DeepSeek](../../getting-started/provider-setup.md#deepseek)
+
+**deepseek-chat (V3) and deepseek-reasoner (R1)**
+
+- 🧠 deepseek-chat — high-quality general chat at low cost
+- 💭 deepseek-reasoner — R1 chain-of-thought reasoning model
+- 🔑 API key from [platform.deepseek.com](https://platform.deepseek.com/api_keys)
+- 🔄 Aliases: `ds`
+
+[Setup Guide →](../../getting-started/provider-setup.md#deepseek)
+
+### [NVIDIA NIM](../../getting-started/provider-setup.md#nvidia-nim)
+
+**400+ models via NVIDIA's hosted and self-hosted inference platform**
+
+- 🚀 Llama 3.3 70B Instruct (default), Mistral, Nemotron, and 400+ catalog models
+- 🔧 NIM-specific extras: top_k, min_p, repetition_penalty, reasoning_budget
+- 🔑 API key from [build.nvidia.com](https://build.nvidia.com/settings/api-keys)
+- 🖥️ Also supports self-hosted NIM endpoints via `NVIDIA_NIM_BASE_URL`
+- 🔄 Aliases: `nim`, `nvidia`
+
+[Setup Guide →](../../getting-started/provider-setup.md#nvidia-nim)
+
+---
+
+## 💻 Local Providers
+
+Run models entirely on your own hardware — no API key or internet required for inference:
+
+### [LM Studio](../../getting-started/provider-setup.md#lm-studio)
+
+**Run any supported model locally with a GUI app**
+
+- 🖥️ Download and run models via the LM Studio desktop application
+- 🔍 Auto-discovers the loaded model from `/v1/models` (no model name required)
+- 🌐 OpenAI-compatible API at `http://localhost:1234/v1` by default
+- 🆓 No API key needed for local use (key optional for reverse-proxy setups)
+- 🔄 Aliases: `lmstudio`, `lms`
+
+[Setup Guide →](../../getting-started/provider-setup.md#lm-studio)
+
+### [llama.cpp](../../getting-started/provider-setup.md#llamacpp)
+
+**High-performance local inference via llama-server**
+
+- ⚡ Run GGUF models with llama-server at `http://localhost:8080/v1` by default
+- 🔍 Auto-discovers the loaded model from `/v1/models`
+- 🛠️ Tool support requires `--jinja` flag when starting llama-server
+- 🆓 No API key needed for local use (key optional for reverse-proxy setups)
+- 🔄 Aliases: `llama.cpp`
+
+[Setup Guide →](../../getting-started/provider-setup.md#llamacpp)
+
+---
+
 ## 🔌 Aggregators & Proxies
 
 Access multiple providers through unified interfaces:
@@ -154,18 +213,22 @@ Access multiple providers through unified interfaces:
 
 ## Quick Comparison
 
-| Provider                                  | Free Tier | Enterprise | GDPR   | Latency | Best For                        |
-| ----------------------------------------- | --------- | ---------- | ------ | ------- | ------------------------------- |
-| [Anthropic](anthropic.md)                 | Limited   | ✅         | ✅     | Low     | Reasoning, coding, Claude       |
-| [Hugging Face](huggingface.md)            | ✅        | ❌         | ✅     | Medium  | Open source, experimentation    |
-| [Google AI](google-ai.md)                 | ✅        | ✅         | ✅     | Low     | Free tier, Gemini               |
-| [Mistral AI](mistral.md)                  | ❌        | ✅         | ✅     | Low     | EU compliance, cost             |
-| [OpenRouter](openrouter.md)               | ✅        | ✅         | Varies | Low     | Multi-model, automatic failover |
-| [OpenAI Compatible](openai-compatible.md) | Varies    | ✅         | Varies | Varies  | Flexibility, local deployment   |
-| [LiteLLM](litellm.md)                     | ❌        | ✅         | Varies | Low     | Multi-provider, unified API     |
-| [Azure OpenAI](azure-openai.md)           | ❌        | ✅         | ✅     | Low     | Enterprise, Microsoft ecosystem |
-| [Vertex AI](google-vertex.md)             | ❌        | ✅         | ✅     | Low     | Enterprise, GCP ecosystem       |
-| [AWS Bedrock](aws-bedrock.md)             | ❌        | ✅         | ✅     | Low     | Enterprise, AWS ecosystem       |
+| Provider                                                         | Free Tier  | Enterprise | GDPR   | Latency | Best For                              |
+| ---------------------------------------------------------------- | ---------- | ---------- | ------ | ------- | ------------------------------------- |
+| [Anthropic](anthropic.md)                                        | Limited    | ✅         | ✅     | Low     | Reasoning, coding, Claude             |
+| [Hugging Face](huggingface.md)                                   | ✅         | ❌         | ✅     | Medium  | Open source, experimentation          |
+| [Google AI](google-ai.md)                                        | ✅         | ✅         | ✅     | Low     | Free tier, Gemini                     |
+| [Mistral AI](mistral.md)                                         | ❌         | ✅         | ✅     | Low     | EU compliance, cost                   |
+| [OpenRouter](openrouter.md)                                      | ✅         | ✅         | Varies | Low     | Multi-model, automatic failover       |
+| [OpenAI Compatible](openai-compatible.md)                        | Varies     | ✅         | Varies | Varies  | Flexibility, local deployment         |
+| [LiteLLM](litellm.md)                                            | ❌         | ✅         | Varies | Low     | Multi-provider, unified API           |
+| [Azure OpenAI](azure-openai.md)                                  | ❌         | ✅         | ✅     | Low     | Enterprise, Microsoft ecosystem       |
+| [Vertex AI](google-vertex.md)                                    | ❌         | ✅         | ✅     | Low     | Enterprise, GCP ecosystem             |
+| [AWS Bedrock](aws-bedrock.md)                                    | ❌         | ✅         | ✅     | Low     | Enterprise, AWS ecosystem             |
+| [DeepSeek](../../getting-started/provider-setup.md#deepseek)     | ❌         | ✅         | ❌     | Low     | Cost-effective reasoning, R1 model    |
+| [NVIDIA NIM](../../getting-started/provider-setup.md#nvidia-nim) | ❌         | ✅         | Varies | Low     | NVIDIA-hosted or self-hosted LLMs     |
+| [LM Studio](../../getting-started/provider-setup.md#lm-studio)   | ✅ (Local) | ❌         | ✅     | Varies  | Local GUI model management            |
+| [llama.cpp](../../getting-started/provider-setup.md#llamacpp)    | ✅ (Local) | ❌         | ✅     | Varies  | High-performance local GGUF inference |
 
 ---
 
