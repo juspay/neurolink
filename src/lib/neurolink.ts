@@ -9982,7 +9982,7 @@ Current user's request: ${currentInput}`;
       timeout:
         options?.timeout ??
         toolInfo?.tool?.timeoutMs ??
-        TOOL_TIMEOUTS.EXECUTION_DEFAULT_MS,
+        TOOL_TIMEOUTS.EXECUTION_BATCH_MS,
       maxRetries:
         options?.maxRetries ??
         toolInfo?.tool?.maxRetries ??
