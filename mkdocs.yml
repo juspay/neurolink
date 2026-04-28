@@ -1,0 +1,303 @@
+site_name: "NeuroLink"
+site_description: "Enterprise AI Development Platform with built-in tools, universal provider support, and factory pattern architecture. Production-ready with TypeScript support."
+site_url: "https://juspay.github.io/neurolink"
+repo_url: "https://github.com/juspay/neurolink"
+repo_name: "juspay/neurolink"
+edit_uri: "edit/release/docs/"
+
+# Build settings
+docs_dir: "docs"
+# Use '_site' instead of the default 'site' directory for the following reasons:
+# 1. Alignment with GitHub Pages deployment workflow expectations
+# 2. Avoids potential conflicts with other static site generators and tools
+# 3. Provides clear distinction for MkDocs-specific output directory
+# 4. Follows modern convention for build artifacts separation
+site_dir: "_site"
+
+# The root docs/index.md is synced from README.md via sync-readme.sh
+
+# Exclude TypeDoc-generated files that link to _media:
+# - api/_media/: TypeDoc copies files linked from root README.md here (duplicates)
+# - api/README.md: TypeDoc-generated from root README, has broken _media links
+# The canonical docs are at their proper locations (sdk/, features/, guides/, etc.)
+exclude_docs: |
+  api/_media/**
+  api/README.md
+
+# Theme configuration
+theme:
+  name: material
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.tabs.link
+    - content.tooltips
+    - header.autohide
+    - navigation.expand
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.prune
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+    - toc.integrate
+  palette:
+    - scheme: slate
+      primary: blue
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: blue
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+  # logo: assets/images/logo.png
+  # favicon: assets/images/favicon.ico
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+
+# Plugins
+plugins:
+  - search:
+      lang: en
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+
+# Markdown extensions
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      title: Page contents
+  - tables
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      normalize_issue_symbols: true
+      repo_url_shorthand: true
+      user: juspay
+      repo: neurolink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  # The 'auto_append' option for pymdownx.snippets was intentionally removed to simplify configuration.
+  # If your documentation previously relied on auto-appended snippets, you must now manually include those snippets in each Markdown file where needed.
+  # Verified: No documentation files depend on auto-appended snippets. All required content is included manually.
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# Page navigation
+nav:
+  - Home: index.md
+  - About:
+      - Vision & Roadmap: about/vision.md
+  - Getting Started:
+      - getting-started/index.md
+      - Quick Start: getting-started/quick-start.md
+      - Installation: getting-started/installation.md
+      - Provider Setup: getting-started/provider-setup.md
+      - Environment Variables: getting-started/environment-variables.md
+      - Redis Quick Start: getting-started/redis-quickstart.md
+      - Providers:
+          - getting-started/providers/index.md
+          - Hugging Face: getting-started/providers/huggingface.md
+          - Mistral AI: getting-started/providers/mistral.md
+          - OpenAI Compatible: getting-started/providers/openai-compatible.md
+          - Google AI Studio: getting-started/providers/google-ai.md
+          - LiteLLM: getting-started/providers/litellm.md
+          - Azure OpenAI: getting-started/providers/azure-openai.md
+          - Google Vertex AI: getting-started/providers/google-vertex.md
+          - AWS Bedrock: getting-started/providers/aws-bedrock.md
+  - Feature Guides:
+      - features/index.md
+      - Enterprise HITL: features/enterprise-hitl.md
+      - Human-in-the-Loop (HITL): features/hitl.md
+      - Interactive CLI: features/interactive-cli.md
+      - MCP Tools Showcase: features/mcp-tools-showcase.md
+      - Guardrails Middleware: features/guardrails.md
+      - Redis Conversation Export: features/conversation-history.md
+      - Multimodal: features/multimodal.md
+      - Multimodal Chat Experiences: features/multimodal-chat.md
+      - Audio Input: features/audio-input.md
+      - TTS (Text-to-Speech): features/tts.md
+      - CSV Support: features/csv-support.md
+      - PDF Support: features/pdf-support.md
+      - Office Documents: features/office-documents.md
+      - Auto Evaluation Engine: features/auto-evaluation.md
+      - CLI Loop Sessions: features/cli-loop-sessions.md
+      - Regional Streaming Controls: features/regional-streaming.md
+      - Provider Orchestration Brain: features/provider-orchestration.md
+      - Structured Output: features/structured-output.md
+      - Thinking Configuration: features/thinking-configuration.md
+      - Video Generation: features/video-generation.md
+  - CLI Guide:
+      - cli/index.md
+      - Commands Reference: cli/commands.md
+      - Examples: cli/examples.md
+      - Advanced Usage: cli/advanced.md
+  - SDK Reference:
+      - sdk/index.md
+      - API Reference: sdk/api-reference.md
+      - Framework Integration: sdk/framework-integration.md
+      - NestJS Integration: sdk/nestjs-integration.md
+      - Custom Tools: sdk/custom-tools.md
+  - Integrations & Platforms:
+      - LITELLM Integration: litellm-integration.md
+      - SageMaker Integration: sagemaker-integration.md
+      - MCP Integration: mcp-integration.md
+      - MCP HTTP Transport: mcp-http-transport.md
+      - Mem0 Conversational Memory: mem0-integration.md
+      - Enterprise Proxy Setup: enterprise-proxy-setup.md
+      - Configuration Management: configuration-management.md
+  - Advanced:
+      - advanced/index.md
+      - Advanced Orchestration: advanced-orchestration.md
+      - AI Orchestration Guide: ai-orchestration-guide.md
+      - Analytics & Evaluation: advanced/analytics.md
+      - Dynamic Models: advanced/dynamic-models.md
+      - Factory Pattern Architecture: factory-pattern-architecture.md
+      - Conversation Memory Deep Dive: conversation-memory.md
+      - Streaming: advanced/streaming.md
+      - Error Handling: error-handling.md
+      - Middleware:
+          - Middleware Architecture: advanced/middleware-architecture.md
+          - Built-in Middleware: advanced/builtin-middleware.md
+          - Custom Middleware Guide: custom-middleware-guide.md
+  - Guides:
+      - guides/index.md
+      - Provider Selection Guide: guides/provider-selection.md
+      - Troubleshooting: guides/troubleshooting.md
+      - Redis:
+          - Redis Configuration: guides/redis-configuration.md
+          - Redis Migration: guides/redis-migration.md
+      - Migration:
+          - From LangChain: guides/migration/from-langchain.md
+          - From Vercel AI SDK: guides/migration/from-vercel-ai-sdk.md
+          - Migration Guide (Legacy): guides/migration-guide.md
+      - Enterprise:
+          - Multi-Provider Failover: guides/enterprise/multi-provider-failover.md
+          - Load Balancing: guides/enterprise/load-balancing.md
+          - Cost Optimization: guides/enterprise/cost-optimization.md
+          - Compliance & Security: guides/enterprise/compliance.md
+          - Multi-Region Deployment: guides/enterprise/multi-region.md
+          - Monitoring & Observability: guides/enterprise/monitoring.md
+          - Audit Trails: guides/enterprise/audit-trails.md
+      - MCP:
+          - Server Catalog: guides/mcp/server-catalog.md
+      - Frameworks:
+          - Next.js: guides/frameworks/nextjs.md
+          - Express.js: guides/frameworks/express.md
+          - Fastify: guides/frameworks/fastify.md
+          - SvelteKit: guides/frameworks/sveltekit.md
+      - Examples:
+          - Use Cases: guides/examples/use-cases.md
+          - Code Patterns: guides/examples/code-patterns.md
+  - Cookbook:
+      - cookbook/index.md
+      - Streaming with Retry: cookbook/streaming-with-retry.md
+      - Cost Optimization: cookbook/cost-optimization.md
+      - Rate Limit Handling: cookbook/rate-limit-handling.md
+      - Context Window Management: cookbook/context-window-management.md
+      - Error Recovery: cookbook/error-recovery.md
+      - Multi-Provider Fallback: cookbook/multi-provider-fallback.md
+      - Conversation Summarization: cookbook/conversation-summarization.md
+      - Structured Output: cookbook/structured-output.md
+      - Batch Processing: cookbook/batch-processing.md
+      - Tool Chaining: cookbook/tool-chaining.md
+  - Tutorials:
+      - tutorials/index.md
+      - Chat Application: tutorials/chat-app.md
+      - RAG System: tutorials/rag.md
+  - Examples:
+      - examples/index.md
+      - Basic Usage: examples/basic-usage.md
+      - Advanced Examples: examples/advanced.md
+      - Use Cases: examples/use-cases.md
+      - Business Applications: examples/business.md
+  - Visual Demos:
+      - demos/index.md
+      - Screenshots: demos/screenshots.md
+      - Videos: demos/videos.md
+      - Interactive Demo: demos/interactive.md
+  - Reference:
+      - reference/index.md
+      - Configuration Reference: reference/configuration.md
+      - Error Codes: reference/error-codes.md
+      - Provider Capabilities Audit: reference/provider-capabilities-audit.md
+      - Provider Comparison: reference/provider-comparison.md
+      - Provider Feature Compatibility: reference/provider-feature-compatibility.md
+      - Troubleshooting: reference/troubleshooting.md
+      - FAQ: reference/faq.md
+      - Documentation Matrix: tracking/FEATURE-DOC-MATRIX.md
+  - Development:
+      - development/index.md
+      - Contributing: development/contributing.md
+      - Testing: development/testing.md
+      - Architecture Notes: development/architecture.md
+      - Factory Pattern Migration: development/factory-migration.md
+      - Documentation Versioning: development/versioning.md
+      - Automated Link Checking: development/link-checking.md
+
+# Social links and extras
+extra:
+  version:
+    provider: mike
+    default: latest
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/juspay/neurolink
+      name: GitHub Repository
+    - icon: fontawesome/brands/npm
+      link: https://www.npmjs.com/package/@juspay/neurolink
+      name: NPM Package
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/juspay
+      name: Follow on Twitter
+  # analytics:
+  #   provider: google
+  #   property: G-XXXXXXXXXX
+  generator: false
+
+# Copyright after GitHub Pages source change
+copyright: |
+  &copy; 2025 <a href="https://juspay.io"  target="_blank" rel="noopener">Juspay Technologies</a>

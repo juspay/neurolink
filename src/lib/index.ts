@@ -737,6 +737,125 @@ export {
 
 // Export legacy types for backward compatibility
 
+// ============================================================================
+// THREE-LAYER MEMORY SYSTEM - Enterprise Memory Management
+// ============================================================================
+
+/**
+ * Three-Layer Memory System
+ *
+ * Sophisticated memory architecture providing:
+ * - Conversation History: Raw message storage with processors
+ * - Semantic Recall: Vector-based similarity search
+ * - Working Memory: Dynamic key-value state management
+ *
+ * @example
+ * ```typescript
+ * import {
+ *   createThreeLayerMemoryManager,
+ *   ThreeLayerMemoryManager,
+ * } from '@juspay/neurolink';
+ *
+ * const memory = createThreeLayerMemoryManager({
+ *   conversationHistory: { maxMessages: 100 },
+ *   semanticRecall: {
+ *     vectorStore: { provider: 'in-memory' },
+ *     embedder: { provider: 'openai' },
+ *   },
+ *   workingMemory: { enabled: true },
+ * });
+ *
+ * await memory.addMessage(threadId, userMessage);
+ * const context = await memory.getMemoryContext(threadId);
+ * ```
+ *
+ * @since 9.0.0
+ */
+export {
+  // Main Manager
+  createThreeLayerMemoryManager,
+  ThreeLayerMemoryManager,
+  // Layers
+  ConversationHistoryLayer,
+  SemanticRecallLayer,
+  WorkingMemoryLayer,
+  // Vector Stores
+  InMemoryVectorStore as MemoryInMemoryVectorStore,
+  RedisVectorStore,
+  QdrantVectorStore,
+  PGVectorStore,
+  PineconeVectorStore,
+  createVectorStore,
+  getSupportedVectorStoreProviders,
+  // Embedders
+  createEmbedder,
+  getSupportedEmbeddingProviders,
+  OpenAIEmbedder,
+  VertexEmbedder,
+  MistralEmbedder,
+  CohereEmbedder,
+  OllamaEmbedder,
+  BedrockEmbedder,
+  // Storage
+  createWorkingMemoryStorage,
+  InMemoryWorkingMemoryStorage,
+  RedisWorkingMemoryStorage,
+  // Processors
+  applyProcessors,
+  CustomProcessor,
+  createProcessor,
+  createProcessorChain,
+  RoleFilterProcessor,
+  TimeWindowProcessor,
+  TokenLimitProcessor,
+  createRoleFilterProcessor,
+  createTokenLimitProcessor,
+  // Tools
+  createUpdateWorkingMemoryTool,
+  // Compatibility
+  convertLegacyConfig,
+  extractRedisConfig,
+  isLegacyMemoryConfig,
+  isRedisEnabled,
+  normalizeMemoryConfig,
+  // Memory Coordinator (Factory+Registry Pattern)
+  MemoryCoordinator,
+  createMemoryCoordinator,
+  // Memory Factory (BaseFactory Pattern)
+  VectorStoreFactory,
+  EmbedderFactory,
+  WorkingMemoryStorageBackendFactory,
+  createVectorStoreFromFactory,
+  createEmbedderFromFactory,
+  createWorkingMemoryStorageBackendFromFactory,
+  registerCustomVectorStore,
+  registerCustomEmbedder,
+  registerCustomWorkingMemoryStorageBackend,
+  getAvailableVectorStores,
+  getAvailableEmbedders,
+  getAvailableWorkingMemoryStorageBackends,
+  // Memory Registry (BaseRegistry Pattern)
+  MemoryCoordinatorRegistry,
+  VectorStoreRegistry,
+  EmbedderRegistry,
+  WorkingMemoryStorageRegistry,
+  initializeMemoryRegistries,
+  clearMemoryRegistries,
+  getRegistrySummary,
+  createInMemoryThreeLayerMemory,
+  // Semantic Memory Layer Implementation
+  SemanticMemoryLayer,
+  InMemoryVectorStoreImpl,
+  MockEmbedder,
+  createInMemorySemanticLayer,
+  // Working Memory Layer Implementation
+  WorkingMemoryLayerImpl,
+  InMemoryWorkingMemoryStorageImpl,
+  RedisWorkingMemoryStorageImpl,
+  createInMemoryWorkingMemoryLayer,
+  createRedisWorkingMemoryLayer,
+} from "./memory/index.js";
+
 /**
  * Legacy generateText function for backward compatibility.
  *

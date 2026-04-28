@@ -98,6 +98,7 @@ import type {
   RoutingDecision,
   MetricsTraceContext,
   StreamGenerationEndContext,
+  ThreeLayerMemoryConfig,
 } from "./types/index.js";
 import { emergencyContentTruncation } from "./context/emergencyTruncation.js";
 import {
@@ -141,6 +142,10 @@ import type {
 import type { HippocampusConfig } from "@juspay/hippocampus";
 import { initializeHippocampus } from "./memory/hippocampusInitializer.js";
 import { createMemoryRetrievalTools } from "./memory/memoryRetrievalTools.js";
+import {
+  createThreeLayerMemoryManager,
+  type ThreeLayerMemoryManager,
+} from "./memory/threeLayerMemoryManager.js";
 import {
   getMetricsAggregator,
   MetricsAggregator,
@@ -626,6 +631,10 @@ export class NeuroLink {
     conversationMemory?: Partial<ConversationMemoryConfig>;
   };
 
+  // Three-layer memory system
+  private threeLayerMemoryManager?: ThreeLayerMemoryManager;
+  private threeLayerMemoryConfig?: ThreeLayerMemoryConfig;
+
   // Add orchestration property
   private enableOrchestration: boolean;
 
@@ -1044,6 +1053,225 @@ export class NeuroLink {
     return this.memoryInstance;
   }
 
+  // ========================================
+  // Three-Layer Memory System
+  // ========================================
+
+  /**
+   * Initialize the three-layer memory system
+   * This should be called when conversation memory is ready
+   */
+  private async initializeThreeLayerMemory(): Promise<void> {
+    if (!this.threeLayerMemoryConfig || this.threeLayerMemoryManager) {
+      return;
+    }
+
+    try {
+      this.threeLayerMemoryManager = createThreeLayerMemoryManager(
+        this.threeLayerMemoryConfig,
+      );
+
+      if (this.conversationMemory) {
+        await this.threeLayerMemoryManager.initialize(this.conversationMemory);
+        logger.info(
+          "[NeuroLink] Three-layer memory system initialized successfully",
+        );
+      }
+    } catch (error) {
+      logger.error("[NeuroLink] Failed to initialize three-layer memory", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * Get the three-layer memory manager instance
+   */
+  getThreeLayerMemory(): ThreeLayerMemoryManager | undefined {
+    return this.threeLayerMemoryManager;
+  }
+
+  /**
+   * Create and initialize a three-layer memory system dynamically.
+   */
+  async createThreeLayerMemory(
+    config: ThreeLayerMemoryConfig,
+  ): Promise<ThreeLayerMemoryManager> {
+    this.threeLayerMemoryConfig = config;
+    this.threeLayerMemoryManager = createThreeLayerMemoryManager(config);
+
+    if (this.conversationMemory) {
+      await this.threeLayerMemoryManager.initialize(this.conversationMemory);
+      logger.info(
+        "[NeuroLink] Three-layer memory system created and initialized",
+      );
+    } else {
+      logger.warn(
+        "[NeuroLink] Three-layer memory created but conversation memory not available.",
+      );
+    }
+
+    return this.threeLayerMemoryManager;
+  }
+
+  /**
+   * Get working memory data for a specific context.
+   */
+  async getWorkingMemory(context: {
+    threadId: string;
+    resourceId?: string;
+  }): Promise<string | Record<string, unknown> | null> {
+    if (!this.threeLayerMemoryManager) {
+      return null;
+    }
+
+    if (!this.threeLayerMemoryManager.isLayerEnabled("workingMemory")) {
+      return null;
+    }
+
+    try {
+      const memoryContext = await this.threeLayerMemoryManager.retrieve(
+        context,
+        undefined,
+      );
+      return memoryContext.workingMemory ?? null;
+    } catch (error) {
+      logger.error("[NeuroLink] Failed to retrieve working memory", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Update working memory for a specific context.
+   */
+  async updateWorkingMemory(
+    context: { threadId: string; resourceId?: string },
+    data: string | Record<string, unknown>,
+    reason?: string,
+  ): Promise<void> {
+    if (!this.threeLayerMemoryManager) {
+      throw new Error(
+        "Three-layer memory not configured. Call createThreeLayerMemory() first or enable in constructor config.",
+      );
+    }
+
+    if (!this.threeLayerMemoryManager.isLayerEnabled("workingMemory")) {
+      throw new Error(
+        "Working memory layer not enabled. Enable it in three-layer memory configuration.",
+      );
+    }
+
+    await this.threeLayerMemoryManager.updateWorkingMemory(
+      context,
+      data,
+      reason,
+    );
+  }
+
+  /**
+   * Get three-layer memory statistics
+   */
+  async getThreeLayerMemoryStats(): Promise<{
+    conversationHistory?: { enabled: boolean };
+    semanticRecall?: { vectorCount: number };
+    workingMemory?: { enabled: boolean; mode: "template" | "schema" };
+  }> {
+    if (!this.threeLayerMemoryManager) {
+      throw new Error("Three-layer memory is not enabled");
+    }
+
+    return await this.threeLayerMemoryManager.getStats();
+  }
+
+  /**
+   * Store a conversation turn in memory (public API for import/replay)
+   */
+  async storeConversation(
+    userMessage: string,
+    assistantMessage: string,
+    sessionId: string = "default",
+    userId?: string,
+  ): Promise<void> {
+    const initId = `store-conv-init-${Date.now()}`;
+    await this.initializeConversationMemoryForGeneration(
+      initId,
+      Date.now(),
+      process.hrtime.bigint(),
+    );
+
+    if (!this.conversationMemory) {
+      throw new Error("Conversation memory is not enabled");
+    }
+
+    await this.conversationMemory.storeConversationTurn({
+      sessionId,
+      userId,
+      userMessage,
+      aiResponse: assistantMessage,
+    });
+  }
+
+  /**
+   * Search memory using semantic similarity (public API)
+   */
+  async searchMemory(
+    query: string,
+    options?: { sessionId?: string; limit?: number; threshold?: number },
+  ): Promise<
+    Array<{
+      content: string;
+      score: number;
+      role: string;
+      threadId?: string;
+    }>
+  > {
+    const initId = `search-memory-init-${Date.now()}`;
+    await this.initializeConversationMemoryForGeneration(
+      initId,
+      Date.now(),
+      process.hrtime.bigint(),
+    );
+
+    if (this.threeLayerMemoryManager) {
+      try {
+        const context = {
+          threadId: options?.sessionId || "default",
+          resourceId: undefined,
+        };
+
+        const retrievedContext = await this.threeLayerMemoryManager.retrieve(
+          context,
+          query,
+        );
+
+        if (retrievedContext.semanticMatches) {
+          return retrievedContext.semanticMatches
+            .filter((match) => match.score >= (options?.threshold ?? 0.7))
+            .slice(0, options?.limit ?? 10)
+            .map((match) => ({
+              content:
+                typeof match.message.content === "string"
+                  ? match.message.content
+                  : JSON.stringify(match.message.content),
+              score: match.score,
+              role: match.message.role,
+              threadId: match.threadId,
+            }));
+        }
+      } catch (error) {
+        logger.debug("Semantic search not available", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    throw new Error(
+      "Semantic search requires three-layer memory with semantic recall enabled",
+    );
+  }
+
   /**
    * Context storage for tool execution
    * This context will be merged with any runtime context passed by the AI model
@@ -1119,6 +1347,11 @@ export class NeuroLink {
 
     // Initialize orchestration setting
     this.enableOrchestration = config?.enableOrchestration ?? false;
+
+    // Store three-layer memory config for lazy initialization
+    if (config?.threeLayerMemory?.enabled) {
+      this.threeLayerMemoryConfig = config.threeLayerMemory;
+    }
 
     // NL-004: Initialize model alias configuration
     if (config?.modelAliasConfig) {
@@ -4337,61 +4570,14 @@ Current user's request: ${currentInput}`;
   }
 
   /**
-   * Handle PPT generation mode
+   * Handle PPT generation mode (PPT feature removed)
    */
   private async generateWithPPT(
-    options: GenerateOptions,
+    _options: GenerateOptions,
   ): Promise<GenerateResult> {
-    const startTime = Date.now();
-
-    // Dynamic import to avoid circular deps (same pattern as RAG)
-    const { generatePresentation } =
-      await import("./features/ppt/presentationOrchestrator.js");
-    const { extractPPTContext, getEffectivePPTProvider } =
-      await import("./features/ppt/utils.js");
-
-    // Get provider instance for content planning
-    const requestedProvider = (options.provider || "vertex") as AIProviderName;
-    const provider = await AIProviderFactory.createProvider(
-      requestedProvider,
-      options.model,
-      true,
-      this as unknown as Record<string, unknown>,
-      undefined,
-      this.resolveCredentials(options.credentials),
+    throw new Error(
+      "PPT generation feature has been removed. Use an external presentation library instead.",
     );
-
-    // Resolve effective PPT provider (may auto-select if current is not PPT-compatible)
-    const effectiveProvider = await getEffectivePPTProvider(
-      provider,
-      requestedProvider as string,
-      options.model || "default",
-      this,
-    );
-
-    // Extract PPT context from options
-    const pptContext = extractPPTContext(options);
-
-    // Generate the presentation
-    const pptResult = await generatePresentation({
-      context: pptContext,
-      provider:
-        effectiveProvider.provider as import("./types/index.js").AIProvider,
-      providerName: effectiveProvider.providerName,
-      modelName: effectiveProvider.modelName,
-      neurolink: this,
-    });
-
-    // Map PPT result to GenerateResult
-    return {
-      content: `Presentation generated: ${pptResult.filePath} (${pptResult.totalSlides} slides)`,
-      finishReason: "stop",
-      provider: pptResult.provider || (requestedProvider as string),
-      model: pptResult.model || options.model || "default",
-      usage: undefined,
-      responseTime: Date.now() - startTime,
-      ppt: pptResult,
-    };
   }
 
   /**

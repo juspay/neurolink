@@ -1,0 +1,452 @@
+{
+  "description": "Sample conversation history data for Three-Layer Memory System testing",
+  "version": "1.0.0",
+
+  "conversations": {
+    "simple_qa": {
+      "threadId": "thread-simple-qa-001",
+      "userId": "test-user-001",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What is the capital of France?",
+          "timestamp": "2026-01-15T10:00:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "The capital of France is Paris. Paris is not only the capital but also the largest city in France, known for landmarks like the Eiffel Tower, the Louvre Museum, and Notre-Dame Cathedral.",
+          "timestamp": "2026-01-15T10:00:05Z"
+        },
+        {
+          "role": "user",
+          "content": "What is its population?",
+          "timestamp": "2026-01-15T10:00:30Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Paris has a population of approximately 2.1 million people in the city proper. However, the Paris metropolitan area (Île-de-France) has about 12.4 million inhabitants, making it one of the most populous urban areas in Europe.",
+          "timestamp": "2026-01-15T10:00:35Z"
+        }
+      ]
+    },
+
+    "multi_turn_coding": {
+      "threadId": "thread-coding-002",
+      "userId": "test-user-002",
+      "messages": [
+        {
+          "role": "user",
+          "content": "I need help writing a TypeScript function to validate email addresses",
+          "timestamp": "2026-01-15T14:00:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Here's a TypeScript function to validate email addresses:\n\n```typescript\nfunction isValidEmail(email: string): boolean {\n  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n  return emailRegex.test(email);\n}\n```\n\nThis uses a regex pattern that checks for:\n- Characters before the @ symbol\n- An @ symbol\n- Characters after @ but before the dot\n- A dot followed by a domain extension",
+          "timestamp": "2026-01-15T14:00:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Can you make it more strict to follow RFC 5322?",
+          "timestamp": "2026-01-15T14:01:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Here's a more RFC 5322 compliant email validator:\n\n```typescript\nfunction isValidEmailRFC5322(email: string): boolean {\n  const rfc5322Regex = /^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])$/i;\n  return rfc5322Regex.test(email);\n}\n```",
+          "timestamp": "2026-01-15T14:01:15Z"
+        },
+        {
+          "role": "user",
+          "content": "Now add error messages for different validation failures",
+          "timestamp": "2026-01-15T14:02:30Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Here's an enhanced version with detailed error messages:\n\n```typescript\ninterface EmailValidationResult {\n  isValid: boolean;\n  error?: string;\n}\n\nfunction validateEmail(email: string): EmailValidationResult {\n  if (!email) {\n    return { isValid: false, error: 'Email address is required' };\n  }\n  \n  if (email.length > 254) {\n    return { isValid: false, error: 'Email address is too long (max 254 characters)' };\n  }\n  \n  if (!email.includes('@')) {\n    return { isValid: false, error: 'Email must contain @ symbol' };\n  }\n  \n  const [local, domain] = email.split('@');\n  \n  if (!local || local.length > 64) {\n    return { isValid: false, error: 'Local part is invalid or too long' };\n  }\n  \n  if (!domain || !domain.includes('.')) {\n    return { isValid: false, error: 'Domain must contain a valid TLD' };\n  }\n  \n  const rfc5322Regex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n  if (!rfc5322Regex.test(email)) {\n    return { isValid: false, error: 'Email format is invalid' };\n  }\n  \n  return { isValid: true };\n}\n```",
+          "timestamp": "2026-01-15T14:02:45Z"
+        }
+      ]
+    },
+
+    "long_conversation": {
+      "threadId": "thread-long-003",
+      "userId": "test-user-003",
+      "description": "A conversation that exceeds the default message limit (40) for testing summarization",
+      "messageCount": 50,
+      "messages": [
+        {
+          "role": "user",
+          "content": "Message 1: Let's discuss the history of computing",
+          "timestamp": "2026-01-15T09:00:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 2: Computing history begins with early mechanical calculators like the abacus and Pascaline.",
+          "timestamp": "2026-01-15T09:00:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 3: Tell me about Charles Babbage",
+          "timestamp": "2026-01-15T09:01:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 4: Charles Babbage designed the Analytical Engine, considered the first general-purpose computer.",
+          "timestamp": "2026-01-15T09:01:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 5: Who was Ada Lovelace?",
+          "timestamp": "2026-01-15T09:02:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 6: Ada Lovelace wrote the first algorithm for Babbage's machine, making her the first programmer.",
+          "timestamp": "2026-01-15T09:02:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 7: When was ENIAC built?",
+          "timestamp": "2026-01-15T09:03:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 8: ENIAC was completed in 1945, the first general-purpose electronic digital computer.",
+          "timestamp": "2026-01-15T09:03:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 9: What about the transistor?",
+          "timestamp": "2026-01-15T09:04:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 10: The transistor was invented at Bell Labs in 1947, revolutionizing electronics.",
+          "timestamp": "2026-01-15T09:04:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 11: When did integrated circuits appear?",
+          "timestamp": "2026-01-15T09:05:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 12: Jack Kilby and Robert Noyce independently invented the IC in 1958-1959.",
+          "timestamp": "2026-01-15T09:05:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 13: Tell me about microprocessors",
+          "timestamp": "2026-01-15T09:06:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 14: The Intel 4004, released in 1971, was the first commercial microprocessor.",
+          "timestamp": "2026-01-15T09:06:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 15: What was the first personal computer?",
+          "timestamp": "2026-01-15T09:07:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 16: The Altair 8800 (1975) is often considered the first successful personal computer.",
+          "timestamp": "2026-01-15T09:07:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 17: When did Apple start?",
+          "timestamp": "2026-01-15T09:08:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 18: Apple Computer was founded in 1976 by Jobs, Wozniak, and Wayne.",
+          "timestamp": "2026-01-15T09:08:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 19: What about Microsoft?",
+          "timestamp": "2026-01-15T09:09:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 20: Microsoft was founded in 1975 by Bill Gates and Paul Allen.",
+          "timestamp": "2026-01-15T09:09:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 21: When was the IBM PC released?",
+          "timestamp": "2026-01-15T09:10:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 22: The IBM PC was released in 1981 and became the industry standard.",
+          "timestamp": "2026-01-15T09:10:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 23: Tell me about the Macintosh",
+          "timestamp": "2026-01-15T09:11:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 24: The Macintosh launched in 1984 with its famous Super Bowl commercial.",
+          "timestamp": "2026-01-15T09:11:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 25: When did Windows come out?",
+          "timestamp": "2026-01-15T09:12:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 26: Windows 1.0 was released in November 1985.",
+          "timestamp": "2026-01-15T09:12:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 27: What about the World Wide Web?",
+          "timestamp": "2026-01-15T09:13:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 28: Tim Berners-Lee invented the World Wide Web in 1989 at CERN.",
+          "timestamp": "2026-01-15T09:13:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 29: When was Linux created?",
+          "timestamp": "2026-01-15T09:14:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 30: Linus Torvalds released Linux in 1991 as a free operating system.",
+          "timestamp": "2026-01-15T09:14:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 31: Tell me about the dot-com boom",
+          "timestamp": "2026-01-15T09:15:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 32: The dot-com boom occurred 1995-2000, followed by the bubble burst.",
+          "timestamp": "2026-01-15T09:15:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 33: When was Google founded?",
+          "timestamp": "2026-01-15T09:16:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 34: Google was founded by Larry Page and Sergey Brin in 1998.",
+          "timestamp": "2026-01-15T09:16:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 35: What about Amazon?",
+          "timestamp": "2026-01-15T09:17:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 36: Amazon was founded by Jeff Bezos in 1994 as an online bookstore.",
+          "timestamp": "2026-01-15T09:17:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 37: When did Facebook launch?",
+          "timestamp": "2026-01-15T09:18:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 38: Facebook was launched by Mark Zuckerberg in 2004 at Harvard.",
+          "timestamp": "2026-01-15T09:18:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 39: What about the iPhone?",
+          "timestamp": "2026-01-15T09:19:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 40: The iPhone was announced by Steve Jobs in January 2007.",
+          "timestamp": "2026-01-15T09:19:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 41: When did Android launch?",
+          "timestamp": "2026-01-15T09:20:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 42: Android was released by Google in 2008 as a mobile OS.",
+          "timestamp": "2026-01-15T09:20:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 43: Tell me about cloud computing",
+          "timestamp": "2026-01-15T09:21:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 44: AWS launched in 2006, pioneering modern cloud computing services.",
+          "timestamp": "2026-01-15T09:21:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 45: What about AI development?",
+          "timestamp": "2026-01-15T09:22:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 46: Modern AI accelerated with deep learning breakthroughs around 2012.",
+          "timestamp": "2026-01-15T09:22:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 47: When was ChatGPT released?",
+          "timestamp": "2026-01-15T09:23:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 48: ChatGPT was released by OpenAI in November 2022.",
+          "timestamp": "2026-01-15T09:23:10Z"
+        },
+        {
+          "role": "user",
+          "content": "Message 49: What's the future of computing?",
+          "timestamp": "2026-01-15T09:24:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Message 50: Quantum computing, AI agents, and neuromorphic computing are key future directions.",
+          "timestamp": "2026-01-15T09:24:10Z"
+        }
+      ]
+    },
+
+    "with_system_message": {
+      "threadId": "thread-system-004",
+      "userId": "test-user-004",
+      "systemMessage": "You are a helpful assistant that specializes in TypeScript and Node.js development. Always provide code examples when relevant.",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are a helpful assistant that specializes in TypeScript and Node.js development. Always provide code examples when relevant.",
+          "timestamp": "2026-01-15T16:00:00Z"
+        },
+        {
+          "role": "user",
+          "content": "How do I create a simple HTTP server in Node.js?",
+          "timestamp": "2026-01-15T16:00:05Z"
+        },
+        {
+          "role": "assistant",
+          "content": "Here's how to create a simple HTTP server in Node.js:\n\n```typescript\nimport http from 'http';\n\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { 'Content-Type': 'text/plain' });\n  res.end('Hello, World!');\n});\n\nconst PORT = 3000;\nserver.listen(PORT, () => {\n  console.log(`Server running at http://localhost:${PORT}`);\n});\n```\n\nThis creates a basic server that responds with 'Hello, World!' to all requests.",
+          "timestamp": "2026-01-15T16:00:15Z"
+        }
+      ]
+    },
+
+    "tool_usage": {
+      "threadId": "thread-tools-005",
+      "userId": "test-user-005",
+      "description": "Conversation with tool calls to test memory with tool results",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What time is it and what's the weather in San Francisco?",
+          "timestamp": "2026-01-15T18:00:00Z"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "toolCalls": [
+            {
+              "id": "call_001",
+              "name": "getCurrentTime",
+              "arguments": {}
+            },
+            {
+              "id": "call_002",
+              "name": "getWeather",
+              "arguments": { "location": "San Francisco, CA" }
+            }
+          ],
+          "timestamp": "2026-01-15T18:00:05Z"
+        },
+        {
+          "role": "tool",
+          "toolCallId": "call_001",
+          "content": "2026-01-15T18:00:05-08:00",
+          "timestamp": "2026-01-15T18:00:06Z"
+        },
+        {
+          "role": "tool",
+          "toolCallId": "call_002",
+          "content": "{ \"temperature\": 58, \"condition\": \"Partly Cloudy\", \"humidity\": 65 }",
+          "timestamp": "2026-01-15T18:00:07Z"
+        },
+        {
+          "role": "assistant",
+          "content": "It's currently 6:00 PM PST. The weather in San Francisco is 58°F and partly cloudy with 65% humidity.",
+          "timestamp": "2026-01-15T18:00:10Z"
+        }
+      ]
+    }
+  },
+
+  "testCases": {
+    "addMessage": {
+      "description": "Test adding new messages to conversation history",
+      "input": {
+        "threadId": "thread-new-001",
+        "message": {
+          "role": "user",
+          "content": "Hello, this is a test message"
+        }
+      },
+      "expected": {
+        "messageAdded": true,
+        "messageCount": 1
+      }
+    },
+
+    "getRecentMessages": {
+      "description": "Test retrieving recent messages within limit",
+      "input": {
+        "threadId": "thread-simple-qa-001",
+        "limit": 2
+      },
+      "expected": {
+        "messageCount": 2,
+        "oldestMessageRole": "user",
+        "newestMessageRole": "assistant"
+      }
+    },
+
+    "summarization": {
+      "description": "Test conversation summarization for long conversations",
+      "input": {
+        "threadId": "thread-long-003",
+        "triggerLimit": 40
+      },
+      "expected": {
+        "summarizationTriggered": true,
+        "summaryContainsKey": ["computing", "history", "technology"]
+      }
+    },
+
+    "clearConversation": {
+      "description": "Test clearing conversation history",
+      "input": {
+        "threadId": "thread-to-clear"
+      },
+      "expected": {
+        "cleared": true,
+        "messageCount": 0
+      }
+    }
+  }
+}

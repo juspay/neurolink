@@ -240,6 +240,6 @@ const maxBudget = getMaxThinkingBudgetTokens("gemini-3-flash-preview"); // 50000
 
 ## See Also
 
-- [API Reference](../sdk/api-reference.md)
+- [API Reference](../sdk/api-reference.md#generate)
 - [Provider Configuration](../getting-started/provider-setup.md)
 - [Streaming](./regional-streaming.md)

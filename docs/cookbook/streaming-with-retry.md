@@ -274,4 +274,4 @@ async function streamWithProviderFallback(prompt: string) {
 - [Error Recovery Patterns](error-recovery.md)
 - [Multi-Provider Fallback](multi-provider-fallback.md)
 - [Rate Limit Handling](rate-limit-handling.md)
-- [Streaming API Reference](../sdk/api-reference.md)
+- [Streaming API Reference](../sdk/api-reference.md#core-methods)

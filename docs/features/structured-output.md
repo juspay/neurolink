@@ -164,6 +164,6 @@ If you need both tool execution and structured output with Gemini, consider thes
 
 ## See Also
 
-- [API Reference](../sdk/api-reference.md)
+- [API Reference](../sdk/api-reference.md#generate)
 - [Custom Tools](../sdk/custom-tools.md)
 - [MCP Integration](../advanced/mcp-integration.md)

@@ -1,0 +1,272 @@
+{
+  "description": "Sample documents for Semantic Recall Layer testing in Three-Layer Memory System",
+  "version": "1.0.0",
+
+  "documents": {
+    "technical_docs": [
+      {
+        "id": "doc-ts-001",
+        "title": "TypeScript Generics Guide",
+        "content": "TypeScript generics allow you to create reusable components that work with multiple types. Generic functions use type parameters like <T> to capture the type provided by the user. This enables type-safe code that maintains flexibility. Common patterns include generic constraints using 'extends', default type parameters, and generic interfaces for collections.",
+        "metadata": {
+          "category": "programming",
+          "language": "typescript",
+          "topic": "generics",
+          "difficulty": "intermediate",
+          "lastUpdated": "2026-01-10"
+        },
+        "embedding": null
+      },
+      {
+        "id": "doc-ts-002",
+        "title": "TypeScript Decorators",
+        "content": "Decorators are a special kind of declaration that can be attached to classes, methods, accessors, properties, or parameters. They use the @expression syntax where expression evaluates to a function. Decorators are widely used in frameworks like NestJS and Angular for dependency injection, routing, and metadata annotation.",
+        "metadata": {
+          "category": "programming",
+          "language": "typescript",
+          "topic": "decorators",
+          "difficulty": "advanced",
+          "lastUpdated": "2026-01-08"
+        },
+        "embedding": null
+      },
+      {
+        "id": "doc-node-001",
+        "title": "Node.js Event Loop",
+        "content": "The Node.js event loop is the mechanism that allows Node.js to perform non-blocking I/O operations. It operates in phases: timers, pending callbacks, idle/prepare, poll, check, and close callbacks. Understanding the event loop is crucial for writing performant Node.js applications and avoiding blocking operations.",
+        "metadata": {
+          "category": "programming",
+          "language": "javascript",
+          "runtime": "nodejs",
+          "topic": "event-loop",
+          "difficulty": "advanced",
+          "lastUpdated": "2026-01-12"
+        },
+        "embedding": null
+      },
+      {
+        "id": "doc-react-001",
+        "title": "React Hooks Overview",
+        "content": "React Hooks let you use state and other React features without writing classes. useState allows functional components to have state. useEffect handles side effects like data fetching. useContext provides access to context. useMemo and useCallback optimize performance. Custom hooks enable reusable stateful logic.",
+        "metadata": {
+          "category": "programming",
+          "framework": "react",
+          "topic": "hooks",
+          "difficulty": "intermediate",
+          "lastUpdated": "2026-01-05"
+        },
+        "embedding": null
+      },
+      {
+        "id": "doc-db-001",
+        "title": "PostgreSQL Indexing Strategies",
+        "content": "PostgreSQL supports multiple index types: B-tree (default, for equality and range queries), Hash (equality only), GiST (geometric data, full-text search), SP-GiST (partitioned search trees), GIN (multiple values like arrays), and BRIN (block range indexes for large tables). Choosing the right index type significantly impacts query performance.",
+        "metadata": {
+          "category": "database",
+          "database": "postgresql",
+          "topic": "indexing",
+          "difficulty": "advanced",
+          "lastUpdated": "2026-01-14"
+        },
+        "embedding": null
+      }
+    ],
+
+    "company_docs": [
+      {
+        "id": "doc-policy-001",
+        "title": "Remote Work Policy",
+        "content": "Our company supports flexible remote work arrangements. Employees may work remotely up to 3 days per week with manager approval. Core hours for meetings are 10 AM to 3 PM in your local timezone. All remote work must comply with data security policies including VPN usage and secure device management.",
+        "metadata": {
+          "category": "policy",
+          "department": "hr",
+          "topic": "remote-work",
+          "effectiveDate": "2026-01-01"
+        },
+        "embedding": null
+      },
+      {
+        "id": "doc-policy-002",
+        "title": "Code Review Guidelines",
+        "content": "All code changes require peer review before merging. Reviews should focus on correctness, maintainability, test coverage, and adherence to coding standards. Authors should keep PRs under 400 lines when possible. Reviewers should respond within 24 business hours. Use constructive feedback and explain the reasoning behind suggestions.",
+        "metadata": {
+          "category": "policy",
+          "department": "engineering",
+          "topic": "code-review",
+          "effectiveDate": "2025-06-15"
+        },
+        "embedding": null
+      },
+      {
+        "id": "doc-process-001",
+        "title": "Incident Response Procedure",
+        "content": "When a production incident occurs: 1) Assess severity (P1-P4), 2) Notify on-call engineer via PagerDuty, 3) Create incident channel in Slack, 4) Begin mitigation while documenting actions, 5) Communicate status to stakeholders every 30 minutes for P1/P2, 6) Conduct post-mortem within 48 hours of resolution.",
+        "metadata": {
+          "category": "process",
+          "department": "engineering",
+          "topic": "incident-response",
+          "severity": "critical",
+          "lastReviewed": "2025-12-01"
+        },
+        "embedding": null
+      }
+    ],
+
+    "product_docs": [
+      {
+        "id": "doc-product-001",
+        "title": "NeuroLink SDK Quick Start",
+        "content": "To get started with NeuroLink SDK: 1) Install via npm: npm install neurolink-sdk, 2) Import and initialize: import { NeuroLink } from 'neurolink-sdk', 3) Configure your provider with API keys, 4) Make your first call: await neurolink.generate({ prompt: 'Hello' }). The SDK supports 12+ AI providers including OpenAI, Anthropic, and Google.",
+        "metadata": {
+          "category": "documentation",
+          "product": "neurolink",
+          "topic": "quickstart",
+          "version": "2.0.0",
+          "lastUpdated": "2026-01-15"
+        },
+        "embedding": null
+      },
+      {
+        "id": "doc-product-002",
+        "title": "NeuroLink Memory System",
+        "content": "NeuroLink's three-layer memory system provides: Conversation History for recent messages with automatic summarization, Semantic Recall for vector-based retrieval of relevant context, and Working Memory for persistent user profiles. Configure memory with MemoryCoordinator and customize token allocation per layer.",
+        "metadata": {
+          "category": "documentation",
+          "product": "neurolink",
+          "topic": "memory-system",
+          "version": "2.0.0",
+          "feature": "three-layer-memory",
+          "lastUpdated": "2026-01-15"
+        },
+        "embedding": null
+      }
+    ]
+  },
+
+  "testCases": {
+    "similaritySearch": {
+      "description": "Test vector similarity search with various queries",
+      "queries": [
+        {
+          "id": "query-001",
+          "text": "How do I use TypeScript generic types?",
+          "expectedTopResult": "doc-ts-001",
+          "expectedMinScore": 0.7
+        },
+        {
+          "id": "query-002",
+          "text": "What is the Node.js event loop and how does it work?",
+          "expectedTopResult": "doc-node-001",
+          "expectedMinScore": 0.75
+        },
+        {
+          "id": "query-003",
+          "text": "How do I review code at this company?",
+          "expectedTopResult": "doc-policy-002",
+          "expectedMinScore": 0.65
+        },
+        {
+          "id": "query-004",
+          "text": "How do I get started with the NeuroLink SDK?",
+          "expectedTopResult": "doc-product-001",
+          "expectedMinScore": 0.8
+        }
+      ]
+    },
+
+    "metadataFiltering": {
+      "description": "Test search with metadata filters",
+      "queries": [
+        {
+          "id": "filter-001",
+          "text": "TypeScript programming",
+          "filter": { "language": "typescript" },
+          "expectedResultCount": 2
+        },
+        {
+          "id": "filter-002",
+          "text": "company procedures",
+          "filter": { "category": "policy" },
+          "expectedResultCount": 2
+        },
+        {
+          "id": "filter-003",
+          "text": "NeuroLink features",
+          "filter": { "product": "neurolink" },
+          "expectedResultCount": 2
+        }
+      ]
+    },
+
+    "addDocument": {
+      "description": "Test adding new documents to semantic memory",
+      "input": {
+        "id": "doc-new-001",
+        "title": "New Test Document",
+        "content": "This is a test document for verifying the add functionality of the semantic recall layer.",
+        "metadata": {
+          "category": "test",
+          "topic": "verification"
+        }
+      },
+      "expected": {
+        "documentAdded": true,
+        "searchable": true
+      }
+    },
+
+    "deleteDocument": {
+      "description": "Test deleting documents from semantic memory",
+      "input": {
+        "documentId": "doc-to-delete"
+      },
+      "expected": {
+        "deleted": true,
+        "notFoundOnSearch": true
+      }
+    },
+
+    "batchOperations": {
+      "description": "Test batch add and delete operations",
+      "input": {
+        "documentsToAdd": 10,
+        "documentsToDelete": 5
+      },
+      "expected": {
+        "allAdded": true,
+        "allDeleted": true,
+        "remainingCount": 5
+      }
+    }
+  },
+
+  "embeddingTestCases": {
+    "description": "Test cases for different embedder configurations",
+    "providers": [
+      {
+        "name": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536,
+        "testText": "Test embedding generation"
+      },
+      {
+        "name": "vertex",
+        "model": "textembedding-gecko@003",
+        "dimensions": 768,
+        "testText": "Test embedding generation"
+      },
+      {
+        "name": "cohere",
+        "model": "embed-english-v3.0",
+        "dimensions": 1024,
+        "testText": "Test embedding generation"
+      },
+      {
+        "name": "mistral",
+        "model": "mistral-embed",
+        "dimensions": 1024,
+        "testText": "Test embedding generation"
+      }
+    ]
+  }
+}

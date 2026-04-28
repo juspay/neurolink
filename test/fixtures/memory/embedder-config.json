@@ -1,0 +1,433 @@
+{
+  "description": "Configuration fixtures for embedders and vector stores in Three-Layer Memory System",
+  "version": "1.0.0",
+
+  "embedders": {
+    "openai": {
+      "name": "OpenAI Embeddings",
+      "provider": "openai",
+      "models": {
+        "default": "text-embedding-3-small",
+        "large": "text-embedding-3-large",
+        "ada": "text-embedding-ada-002"
+      },
+      "dimensions": {
+        "text-embedding-3-small": 1536,
+        "text-embedding-3-large": 3072,
+        "text-embedding-ada-002": 1536
+      },
+      "config": {
+        "apiKey": "${OPENAI_API_KEY}",
+        "baseUrl": "https://api.openai.com/v1",
+        "maxBatchSize": 2048,
+        "rateLimit": {
+          "requestsPerMinute": 3000,
+          "tokensPerMinute": 1000000
+        }
+      },
+      "testConfig": {
+        "apiKey": "test-api-key",
+        "model": "text-embedding-3-small"
+      }
+    },
+
+    "vertex": {
+      "name": "Google Vertex AI Embeddings",
+      "provider": "vertex",
+      "models": {
+        "default": "textembedding-gecko@003",
+        "multilingual": "textembedding-gecko-multilingual@001"
+      },
+      "dimensions": {
+        "textembedding-gecko@003": 768,
+        "textembedding-gecko-multilingual@001": 768
+      },
+      "config": {
+        "projectId": "${GOOGLE_CLOUD_PROJECT}",
+        "location": "us-central1",
+        "credentials": "${GOOGLE_APPLICATION_CREDENTIALS}",
+        "maxBatchSize": 250,
+        "rateLimit": {
+          "requestsPerMinute": 600
+        }
+      },
+      "testConfig": {
+        "projectId": "test-project",
+        "location": "us-central1",
+        "model": "textembedding-gecko@003"
+      }
+    },
+
+    "cohere": {
+      "name": "Cohere Embeddings",
+      "provider": "cohere",
+      "models": {
+        "default": "embed-english-v3.0",
+        "multilingual": "embed-multilingual-v3.0",
+        "light": "embed-english-light-v3.0"
+      },
+      "dimensions": {
+        "embed-english-v3.0": 1024,
+        "embed-multilingual-v3.0": 1024,
+        "embed-english-light-v3.0": 384
+      },
+      "config": {
+        "apiKey": "${COHERE_API_KEY}",
+        "inputType": "search_document",
+        "maxBatchSize": 96,
+        "rateLimit": {
+          "requestsPerMinute": 100
+        }
+      },
+      "testConfig": {
+        "apiKey": "test-api-key",
+        "model": "embed-english-v3.0"
+      }
+    },
+
+    "mistral": {
+      "name": "Mistral Embeddings",
+      "provider": "mistral",
+      "models": {
+        "default": "mistral-embed"
+      },
+      "dimensions": {
+        "mistral-embed": 1024
+      },
+      "config": {
+        "apiKey": "${MISTRAL_API_KEY}",
+        "baseUrl": "https://api.mistral.ai/v1",
+        "maxBatchSize": 512,
+        "rateLimit": {
+          "requestsPerMinute": 500
+        }
+      },
+      "testConfig": {
+        "apiKey": "test-api-key",
+        "model": "mistral-embed"
+      }
+    },
+
+    "ollama": {
+      "name": "Ollama Embeddings (Local)",
+      "provider": "ollama",
+      "models": {
+        "default": "nomic-embed-text",
+        "alternative": "mxbai-embed-large"
+      },
+      "dimensions": {
+        "nomic-embed-text": 768,
+        "mxbai-embed-large": 1024
+      },
+      "config": {
+        "baseUrl": "http://localhost:11434",
+        "maxBatchSize": 100
+      },
+      "testConfig": {
+        "baseUrl": "http://localhost:11434",
+        "model": "nomic-embed-text"
+      }
+    },
+
+    "bedrock": {
+      "name": "AWS Bedrock Embeddings",
+      "provider": "bedrock",
+      "models": {
+        "default": "amazon.titan-embed-text-v1",
+        "v2": "amazon.titan-embed-text-v2:0",
+        "cohere": "cohere.embed-english-v3"
+      },
+      "dimensions": {
+        "amazon.titan-embed-text-v1": 1536,
+        "amazon.titan-embed-text-v2:0": 1024,
+        "cohere.embed-english-v3": 1024
+      },
+      "config": {
+        "region": "${AWS_REGION}",
+        "accessKeyId": "${AWS_ACCESS_KEY_ID}",
+        "secretAccessKey": "${AWS_SECRET_ACCESS_KEY}",
+        "maxBatchSize": 25,
+        "rateLimit": {
+          "requestsPerMinute": 100
+        }
+      },
+      "testConfig": {
+        "region": "us-east-1",
+        "model": "amazon.titan-embed-text-v1"
+      }
+    }
+  },
+
+  "vectorStores": {
+    "memory": {
+      "name": "In-Memory Vector Store",
+      "provider": "memory",
+      "description": "Fast, ephemeral storage for development and testing",
+      "config": {
+        "maxDocuments": 10000,
+        "similarityMetric": "cosine"
+      },
+      "testConfig": {
+        "maxDocuments": 1000
+      },
+      "features": {
+        "persistence": false,
+        "metadataFiltering": true,
+        "batchOperations": true,
+        "namespaces": true
+      }
+    },
+
+    "redis": {
+      "name": "Redis Vector Store",
+      "provider": "redis",
+      "description": "Fast vector search with Redis Stack",
+      "config": {
+        "url": "${REDIS_URL}",
+        "indexName": "neurolink_vectors",
+        "similarityMetric": "COSINE",
+        "initialCapacity": 10000
+      },
+      "testConfig": {
+        "url": "redis://localhost:6379",
+        "indexName": "test_vectors"
+      },
+      "features": {
+        "persistence": true,
+        "metadataFiltering": true,
+        "batchOperations": true,
+        "namespaces": true,
+        "hybridSearch": true
+      }
+    },
+
+    "qdrant": {
+      "name": "Qdrant Vector Store",
+      "provider": "qdrant",
+      "description": "High-performance vector database",
+      "config": {
+        "url": "${QDRANT_URL}",
+        "apiKey": "${QDRANT_API_KEY}",
+        "collectionName": "neurolink_collection",
+        "similarityMetric": "Cosine",
+        "onDiskPayload": true
+      },
+      "testConfig": {
+        "url": "http://localhost:6333",
+        "collectionName": "test_collection"
+      },
+      "features": {
+        "persistence": true,
+        "metadataFiltering": true,
+        "batchOperations": true,
+        "namespaces": true,
+        "hybridSearch": true,
+        "quantization": true
+      }
+    },
+
+    "pgvector": {
+      "name": "PostgreSQL pgvector",
+      "provider": "pgvector",
+      "description": "Vector search extension for PostgreSQL",
+      "config": {
+        "connectionString": "${DATABASE_URL}",
+        "tableName": "neurolink_embeddings",
+        "similarityMetric": "cosine",
+        "indexType": "ivfflat",
+        "indexLists": 100
+      },
+      "testConfig": {
+        "connectionString": "postgresql://localhost:5432/neurolink_test",
+        "tableName": "test_embeddings"
+      },
+      "features": {
+        "persistence": true,
+        "metadataFiltering": true,
+        "batchOperations": true,
+        "namespaces": true,
+        "transactions": true
+      }
+    },
+
+    "pinecone": {
+      "name": "Pinecone Vector Store",
+      "provider": "pinecone",
+      "description": "Managed vector database service",
+      "config": {
+        "apiKey": "${PINECONE_API_KEY}",
+        "environment": "${PINECONE_ENVIRONMENT}",
+        "indexName": "neurolink-index",
+        "namespace": "default",
+        "similarityMetric": "cosine"
+      },
+      "testConfig": {
+        "apiKey": "test-api-key",
+        "environment": "test-environment",
+        "indexName": "test-index"
+      },
+      "features": {
+        "persistence": true,
+        "metadataFiltering": true,
+        "batchOperations": true,
+        "namespaces": true,
+        "hybridSearch": true,
+        "serverless": true
+      }
+    }
+  },
+
+  "testProfiles": {
+    "development": {
+      "description": "Configuration for local development",
+      "embedder": "ollama",
+      "vectorStore": "memory",
+      "settings": {
+        "logLevel": "debug",
+        "enableMetrics": false
+      }
+    },
+
+    "testing": {
+      "description": "Configuration for automated tests",
+      "embedder": "openai",
+      "vectorStore": "memory",
+      "settings": {
+        "logLevel": "warn",
+        "enableMetrics": false,
+        "mockExternalCalls": true
+      }
+    },
+
+    "staging": {
+      "description": "Configuration for staging environment",
+      "embedder": "openai",
+      "vectorStore": "qdrant",
+      "settings": {
+        "logLevel": "info",
+        "enableMetrics": true
+      }
+    },
+
+    "production": {
+      "description": "Configuration for production environment",
+      "embedder": "openai",
+      "vectorStore": "pinecone",
+      "settings": {
+        "logLevel": "warn",
+        "enableMetrics": true,
+        "enableCaching": true
+      }
+    }
+  },
+
+  "testCases": {
+    "embedderCreation": {
+      "description": "Test creating embedders via EmbedderFactory",
+      "tests": [
+        {
+          "name": "create_openai_embedder",
+          "provider": "openai",
+          "expectedType": "OpenAIEmbedder"
+        },
+        {
+          "name": "create_vertex_embedder",
+          "provider": "vertex",
+          "expectedType": "VertexEmbedder"
+        },
+        {
+          "name": "create_ollama_embedder",
+          "provider": "ollama",
+          "expectedType": "OllamaEmbedder"
+        }
+      ]
+    },
+
+    "vectorStoreCreation": {
+      "description": "Test creating vector stores via VectorStoreFactory",
+      "tests": [
+        {
+          "name": "create_memory_store",
+          "provider": "memory",
+          "expectedType": "MemoryVectorStore"
+        },
+        {
+          "name": "create_redis_store",
+          "provider": "redis",
+          "expectedType": "RedisVectorStore",
+          "requiresConnection": true
+        },
+        {
+          "name": "create_qdrant_store",
+          "provider": "qdrant",
+          "expectedType": "QdrantVectorStore",
+          "requiresConnection": true
+        }
+      ]
+    },
+
+    "embeddingGeneration": {
+      "description": "Test embedding generation with different providers",
+      "testTexts": [
+        "Hello, world!",
+        "This is a longer test sentence for embedding generation.",
+        "NeuroLink SDK provides unified access to multiple AI providers."
+      ],
+      "expected": {
+        "embeddingLength": "matches_model_dimensions",
+        "embeddingType": "array_of_numbers",
+        "normalized": true
+      }
+    },
+
+    "vectorOperations": {
+      "description": "Test vector store CRUD operations",
+      "operations": [
+        {
+          "name": "upsert_single",
+          "type": "upsert",
+          "documentCount": 1
+        },
+        {
+          "name": "upsert_batch",
+          "type": "upsert",
+          "documentCount": 100
+        },
+        {
+          "name": "search",
+          "type": "query",
+          "topK": 5
+        },
+        {
+          "name": "delete_single",
+          "type": "delete",
+          "documentCount": 1
+        },
+        {
+          "name": "delete_batch",
+          "type": "delete",
+          "documentCount": 10
+        }
+      ]
+    }
+  },
+
+  "environmentVariables": {
+    "description": "Required environment variables for each provider",
+    "embedders": {
+      "openai": ["OPENAI_API_KEY"],
+      "vertex": ["GOOGLE_CLOUD_PROJECT", "GOOGLE_APPLICATION_CREDENTIALS"],
+      "cohere": ["COHERE_API_KEY"],
+      "mistral": ["MISTRAL_API_KEY"],
+      "ollama": [],
+      "bedrock": ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
+    },
+    "vectorStores": {
+      "memory": [],
+      "redis": ["REDIS_URL"],
+      "qdrant": ["QDRANT_URL"],
+      "pgvector": ["DATABASE_URL"],
+      "pinecone": ["PINECONE_API_KEY", "PINECONE_ENVIRONMENT"]
+    }
+  }
+}

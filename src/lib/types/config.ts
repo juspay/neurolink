@@ -24,6 +24,7 @@ import type {
   KeycloakConfig,
   AuthenticatedContext,
 } from "./auth.js";
+import type { ThreeLayerMemoryConfig } from "./memory.js";
 import type { NeurolinkCredentials } from "./providers.js";
 
 /**
@@ -85,6 +86,8 @@ export type NeurolinkConstructorConfig = {
    * provider is preserved across the chain; only the model name changes.
    */
   modelChain?: string[];
+  /** Three-layer memory system configuration */
+  threeLayerMemory?: ThreeLayerMemoryConfig;
 };
 
 /**

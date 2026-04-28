@@ -642,5 +642,5 @@ NeuroLink's multimodal capabilities provide:
 
 1. Review the [provider support matrix](#provider-support-matrix) to select the right provider
 2. Try the [quick start examples](#quick-start) with your use case
-3. Explore [advanced recipes](#examples--recipes) for complex scenarios
+3. Explore [advanced recipes](#examples-recipes) for complex scenarios
 4. Check [troubleshooting](#troubleshooting) if you encounter issues
