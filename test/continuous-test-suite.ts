@@ -4020,6 +4020,426 @@ async function testGoogleAIStudioImageGeneration(): Promise<boolean | null> {
 // Types imported from @juspay/neurolink: ProcessResult, TestFunction, TestResult
 
 // ============================================================
+// IMAGE-GEN ROUTING BUG REPROS
+// ============================================================
+// Two production routing bugs in src/lib/core/baseProvider.ts:
+//
+// Bug 1 (image-gen routing, baseProvider.ts:740-758 + :210-228):
+//   `isImageModel && !requestsNonImageOutput` routes to executeImageGeneration
+//   when the model name is in IMAGE_GENERATION_MODELS AND output.format is unset.
+//   gemini-3.1-flash-image-preview is dual-mode (returns text OR images), so a
+//   bare text prompt gets force-routed to the image pipeline. The model returns
+//   text, googleVertex.ts:4295 throws
+//   "Image generation completed but model returned text instead of image data".
+//
+// Bug 2 (video-frame hijack, baseProvider.ts:838+ via videoAnalysisProcessor.ts:37):
+//   handleVideoFrameGeneration fires whenever messages contain >=3 image parts,
+//   ignoring caller's schema/output.format. It runs executeVideoAnalysis with
+//   hardcoded model "gemini-2.5-flash" and returns prose. Schema is silently
+//   dropped; structured-output callers get garbage.
+//
+// Each test SKIPs on credential errors and FAILs on the bug signature.
+
+async function testTextRequestOnDualModeImageModelCLI(): Promise<
+  boolean | null
+> {
+  logSection("Testing Text Request on Dual-Mode Image Model (CLI)");
+
+  try {
+    const result = await runCommand("node", [
+      "dist/cli/index.js",
+      "generate",
+      "--provider=vertex",
+      "--model=gemini-3.1-flash-image-preview",
+      "--timeout=120",
+      "What is the capital of France? Reply with one word only.",
+    ]);
+
+    const combined = result.stderr + result.stdout;
+
+    // Check bug signature FIRST — googleVertex.ts:4295 throws this exact string
+    // when image-gen routing fires for a text-only request on a dual-mode model.
+    // The error includes troubleshooting text containing "credentials" / "authentication",
+    // so the SKIP-on-cred-error gate must come AFTER this check or it will mask the bug.
+    if (/returned text instead of image data/i.test(combined)) {
+      logTest(
+        "Text Request on Dual-Mode Image Model (CLI)",
+        "FAIL",
+        "BUG REPRODUCED: text prompt force-routed to image-gen pipeline",
+      );
+      return false;
+    }
+
+    // SKIP only on genuine cred failures (no bug signature present)
+    if (
+      !result.success &&
+      /\b(?:UNAUTHENTICATED|PERMISSION_DENIED|GOOGLE_APPLICATION_CREDENTIALS|invalid[_ ]?credentials|invalid[_ ]?api[_ ]?key|authentication failed)\b/i.test(
+        combined,
+      )
+    ) {
+      logTest(
+        "Text Request on Dual-Mode Image Model (CLI)",
+        "SKIP",
+        "Vertex credentials not configured",
+      );
+      return null;
+    }
+
+    if (result.success && /paris/i.test(result.stdout)) {
+      logTest(
+        "Text Request on Dual-Mode Image Model (CLI)",
+        "PASS",
+        "text response returned for text prompt on dual-mode image model",
+      );
+      return true;
+    }
+
+    logTest(
+      "Text Request on Dual-Mode Image Model (CLI)",
+      "FAIL",
+      `unexpected: code=${result.code} stdout=${result.stdout.substring(0, 200)} stderr=${result.stderr.substring(0, 200)}`,
+    );
+    return false;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logTest(
+      "Text Request on Dual-Mode Image Model (CLI)",
+      "FAIL",
+      errorMessage,
+    );
+    return false;
+  }
+}
+
+async function testTextRequestOnDualModeImageModelSDK(): Promise<
+  boolean | null
+> {
+  logSection("Testing Text Request on Dual-Mode Image Model (SDK)");
+
+  const tempDir = fs.mkdtempSync(
+    os.tmpdir() + "/test-text-on-image-model-sdk-",
+  );
+  const tempScriptPath = tempDir + "/test.mjs";
+
+  try {
+    const testScript = `
+import { NeuroLink } from '${process.cwd()}/dist/index.js';
+
+async function run() {
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.generate({
+      input: { text: 'What is the capital of France? Reply with one word only.' },
+      provider: 'vertex',
+      model: 'gemini-3.1-flash-image-preview',
+    });
+
+    const content = (result?.content || '').toLowerCase();
+    if (/paris/.test(content) && !result?.imageOutput?.base64) {
+      console.log('SDK Text on Image Model: PASS - text returned, no imageOutput');
+      process.exit(0);
+    }
+    console.log('SDK Text on Image Model: FAIL - content=' + JSON.stringify(result?.content || '').slice(0, 200) + ' imageOutput=' + (result?.imageOutput ? 'present' : 'absent'));
+    process.exit(1);
+  } catch (error) {
+    const msg = error?.message || '';
+    // Bug signature check FIRST — the error message includes troubleshooting text
+    // containing "credentials" which would otherwise trigger a false-SKIP.
+    if (/returned text instead of image data/i.test(msg)) {
+      console.log('SDK Text on Image Model: FAIL - BUG REPRODUCED: ' + msg.slice(0, 200));
+      process.exit(1);
+    }
+    if (/\\b(?:UNAUTHENTICATED|PERMISSION_DENIED|GOOGLE_APPLICATION_CREDENTIALS|invalid[_ ]?credentials|invalid[_ ]?api[_ ]?key|authentication failed)\\b/i.test(msg)) {
+      console.log('SDK Text on Image Model: SKIP - credentials not configured');
+      process.exit(0);
+    }
+    console.log('SDK Text on Image Model: FAIL - ' + (msg || String(error)).slice(0, 300));
+    process.exit(1);
+  }
+}
+run();
+`;
+
+    fs.writeFileSync(tempScriptPath, testScript);
+    const result = await runCommand("node", [tempScriptPath]);
+
+    if (result.stdout.includes("SKIP")) {
+      logTest(
+        "Text Request on Dual-Mode Image Model (SDK)",
+        "SKIP",
+        "credentials not configured",
+      );
+      return null;
+    }
+    if (result.stdout.includes("PASS")) {
+      logTest(
+        "Text Request on Dual-Mode Image Model (SDK)",
+        "PASS",
+        "text returned for text prompt on dual-mode image model",
+      );
+      return true;
+    }
+    const failLine =
+      result.stdout.split("\n").find((l) => l.includes("FAIL")) ||
+      result.stdout.slice(0, 300);
+    logTest("Text Request on Dual-Mode Image Model (SDK)", "FAIL", failLine);
+    return false;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logTest(
+      "Text Request on Dual-Mode Image Model (SDK)",
+      "FAIL",
+      errorMessage,
+    );
+    return false;
+  } finally {
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+async function testSchemaWithMultipleImagesSDK(): Promise<boolean | null> {
+  logSection("Testing Schema Output with 3+ Images (SDK)");
+
+  const screenshotPath = "test/fixtures/sample-screenshot.png";
+  if (!fs.existsSync(screenshotPath)) {
+    logTest(
+      "Schema Output with 3+ Images (SDK)",
+      "SKIP",
+      "screenshot fixture not available",
+    );
+    return null;
+  }
+
+  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-schema-multi-img-sdk-");
+  const tempScriptPath = tempDir + "/test.mjs";
+
+  try {
+    const testScript = `
+import { NeuroLink } from '${process.cwd()}/dist/index.js';
+import { z } from 'zod';
+import { readFileSync } from 'fs';
+
+async function run() {
+  const sdk = new NeuroLink();
+  const img = readFileSync('${process.cwd()}/${screenshotPath}');
+
+  // input.images (not input.files) is the canonical multi-image input.
+  // 3+ image content parts trigger hasVideoFrames=true → handleVideoFrameGeneration
+  // fires and returns videoAnalysisResult while ignoring options.schema.
+  // Deterministic hijack signature: result.usage.total === 0 (hijack returns
+  // hardcoded {input:0,output:0,total:0} when no systemPrompt is set).
+  // Standard flow always reports real token counts from the AI SDK.
+  const schema = z.object({
+    images: z.array(z.object({
+      index: z.number(),
+      description: z.string(),
+    })),
+  });
+
+  try {
+    const result = await sdk.generate({
+      input: {
+        text: 'For each of the 3 images, return its 0-based index and a one-sentence description as JSON matching the schema.',
+        images: [img, img, img],
+      },
+      provider: 'vertex',
+      model: 'gemini-2.5-pro',
+      schema,
+      disableTools: true,
+    });
+
+    const totalUsage = result?.usage?.total ?? 0;
+    if (totalUsage === 0) {
+      console.log('Schema 3+ Images: FAIL - BUG REPRODUCED: usage.total=0 indicates handleVideoFrameGeneration hijack fired (schema bypassed). content=' + (result.content || '').slice(0, 200));
+      process.exit(1);
+    }
+
+    let parsed;
+    try {
+      parsed = typeof result.content === 'string' ? JSON.parse(result.content.replace(/^\\\`\\\`\\\`json\\s*|\\s*\\\`\\\`\\\`$/g, '').trim()) : result.content;
+    } catch (e) {
+      console.log('Schema 3+ Images: FAIL - non-JSON content. content=' + (result.content || '').slice(0, 200));
+      process.exit(1);
+    }
+    const valid = schema.safeParse(parsed);
+    if (valid.success) {
+      // Tighten the assertion: 3 input images must produce 3 entries with
+      // indices 0,1,2. Schema-shape-only would let semantically-wrong
+      // responses (e.g. 1 image described 3 times) silently pass.
+      const indices = valid.data.images.map((x) => x.index).sort((a, b) => a - b);
+      const exactThree = valid.data.images.length === 3 && indices.join(',') === '0,1,2';
+      if (exactThree) {
+        console.log('Schema 3+ Images: PASS - schema honored, usage.total=' + totalUsage + ', images.length=' + valid.data.images.length);
+        process.exit(0);
+      }
+      console.log('Schema 3+ Images: FAIL - schema valid but expected exactly 3 entries with indices 0,1,2. images.length=' + valid.data.images.length + ' indices=[' + indices.join(',') + '] usage.total=' + totalUsage);
+      process.exit(1);
+    }
+    console.log('Schema 3+ Images: FAIL - response did not match schema. parsed=' + JSON.stringify(parsed).slice(0, 200));
+    process.exit(1);
+  } catch (error) {
+    const msg = error?.message || '';
+    if (/\\b(?:UNAUTHENTICATED|PERMISSION_DENIED|GOOGLE_APPLICATION_CREDENTIALS|invalid[_ ]?credentials|invalid[_ ]?api[_ ]?key|authentication failed)\\b/i.test(msg)) {
+      console.log('Schema 3+ Images: SKIP - credentials not configured');
+      process.exit(0);
+    }
+    console.log('Schema 3+ Images: FAIL - ' + (msg || String(error)).slice(0, 300));
+    process.exit(1);
+  }
+}
+run();
+`;
+
+    fs.writeFileSync(tempScriptPath, testScript);
+    const result = await runCommand("node", [tempScriptPath]);
+
+    if (result.stdout.includes("SKIP")) {
+      logTest(
+        "Schema Output with 3+ Images (SDK)",
+        "SKIP",
+        "credentials or fixture missing",
+      );
+      return null;
+    }
+    if (result.stdout.includes("PASS")) {
+      logTest(
+        "Schema Output with 3+ Images (SDK)",
+        "PASS",
+        "schema honored for multi-image input",
+      );
+      return true;
+    }
+    const failLine =
+      result.stdout.split("\n").find((l) => l.includes("FAIL")) ||
+      result.stdout.slice(0, 300);
+    logTest("Schema Output with 3+ Images (SDK)", "FAIL", failLine);
+    return false;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logTest("Schema Output with 3+ Images (SDK)", "FAIL", errorMessage);
+    return false;
+  } finally {
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+async function testJsonFormatWithMultipleImagesSDK(): Promise<boolean | null> {
+  logSection("Testing output.format=json with 3+ Images (SDK)");
+
+  const screenshotPath = "test/fixtures/sample-screenshot.png";
+  if (!fs.existsSync(screenshotPath)) {
+    logTest(
+      "JSON Format with 3+ Images (SDK)",
+      "SKIP",
+      "screenshot fixture not available",
+    );
+    return null;
+  }
+
+  const tempDir = fs.mkdtempSync(os.tmpdir() + "/test-json-multi-img-sdk-");
+  const tempScriptPath = tempDir + "/test.mjs";
+
+  try {
+    const testScript = `
+import { NeuroLink } from '${process.cwd()}/dist/index.js';
+import { readFileSync } from 'fs';
+
+async function run() {
+  const sdk = new NeuroLink();
+  const img = readFileSync('${process.cwd()}/${screenshotPath}');
+
+  // Same deterministic hijack signature as the schema test:
+  // result.usage.total === 0 ⇒ handleVideoFrameGeneration fired, output.format ignored.
+  try {
+    const result = await sdk.generate({
+      input: {
+        text: 'Return ONLY a JSON object of the form {"count": <number of images attached>}. No prose. No markdown fences.',
+        images: [img, img, img],
+      },
+      provider: 'vertex',
+      model: 'gemini-2.5-pro',
+      output: { format: 'json' },
+      disableTools: true,
+    });
+
+    const totalUsage = result?.usage?.total ?? 0;
+    if (totalUsage === 0) {
+      console.log('JSON 3+ Images: FAIL - BUG REPRODUCED: usage.total=0 indicates handleVideoFrameGeneration hijack fired (output.format=json bypassed). content=' + (result.content || '').slice(0, 200));
+      process.exit(1);
+    }
+
+    let parsed;
+    try {
+      parsed = typeof result.content === 'string' ? JSON.parse(result.content) : result.content;
+    } catch (e) {
+      console.log('JSON 3+ Images: FAIL - non-JSON content. content=' + (result.content || '').slice(0, 200));
+      process.exit(1);
+    }
+    if (parsed && typeof parsed === 'object' && Number(parsed.count) === 3) {
+      console.log('JSON 3+ Images: PASS - json output honored, usage.total=' + totalUsage + ', count=' + parsed.count);
+      process.exit(0);
+    }
+    console.log('JSON 3+ Images: FAIL - response did not match expected {"count":3}. parsed=' + JSON.stringify(parsed).slice(0, 200));
+    process.exit(1);
+  } catch (error) {
+    const msg = error?.message || '';
+    if (/\\b(?:UNAUTHENTICATED|PERMISSION_DENIED|GOOGLE_APPLICATION_CREDENTIALS|invalid[_ ]?credentials|invalid[_ ]?api[_ ]?key|authentication failed)\\b/i.test(msg)) {
+      console.log('JSON 3+ Images: SKIP - credentials not configured');
+      process.exit(0);
+    }
+    console.log('JSON 3+ Images: FAIL - ' + (msg || String(error)).slice(0, 300));
+    process.exit(1);
+  }
+}
+run();
+`;
+
+    fs.writeFileSync(tempScriptPath, testScript);
+    const result = await runCommand("node", [tempScriptPath]);
+
+    if (result.stdout.includes("SKIP")) {
+      logTest(
+        "JSON Format with 3+ Images (SDK)",
+        "SKIP",
+        "credentials or fixture missing",
+      );
+      return null;
+    }
+    if (result.stdout.includes("PASS")) {
+      logTest(
+        "JSON Format with 3+ Images (SDK)",
+        "PASS",
+        "output.format=json honored for multi-image input",
+      );
+      return true;
+    }
+    const failLine =
+      result.stdout.split("\n").find((l) => l.includes("FAIL")) ||
+      result.stdout.slice(0, 300);
+    logTest("JSON Format with 3+ Images (SDK)", "FAIL", failLine);
+    return false;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logTest("JSON Format with 3+ Images (SDK)", "FAIL", errorMessage);
+    return false;
+  } finally {
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// ============================================================
 // Model Alias Resolution Tests (NL-004)
 // ============================================================
 
@@ -4831,6 +5251,23 @@ async function runAllTests(): Promise<void> {
       fn: testImageGenerationUnsupportedProvider,
     },
     { name: "Google AI Studio Image", fn: testGoogleAIStudioImageGeneration },
+    // Routing bug repros (Bug 1: dual-mode image-model text request, Bug 2: video-frame hijack on schema/json)
+    {
+      name: "Text Request on Dual-Mode Image Model (CLI)",
+      fn: testTextRequestOnDualModeImageModelCLI,
+    },
+    {
+      name: "Text Request on Dual-Mode Image Model (SDK)",
+      fn: testTextRequestOnDualModeImageModelSDK,
+    },
+    {
+      name: "Schema Output with 3+ Images (SDK)",
+      fn: testSchemaWithMultipleImagesSDK,
+    },
+    {
+      name: "JSON Format with 3+ Images (SDK)",
+      fn: testJsonFormatWithMultipleImagesSDK,
+    },
     { name: "CLI Generate", fn: testCLIGenerate },
     { name: "CLI Stream", fn: testCLIStream },
     { name: "SDK Generate", fn: () => testSDKGenerate(sharedSdk) },

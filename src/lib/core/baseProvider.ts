@@ -844,6 +844,22 @@ export abstract class BaseProvider implements AIProvider {
     if (!hasVideoFrames(messages)) {
       return null;
     }
+    // Bug 2 fix: callers requesting structured output (schema or explicit
+    // output.format) must NOT be hijacked into the prose-returning video
+    // analysis path. Without this gate, schema/format are silently dropped
+    // whenever messages contain >=3 image parts.
+    if (options.schema !== undefined || options.output?.format !== undefined) {
+      logger.info(
+        "[VideoFrameGen] Skipping video-frame analysis route; caller requested structured output",
+        {
+          provider: this.providerName,
+          model: this.modelName,
+          hasSchema: options.schema !== undefined,
+          outputFormat: options.output?.format,
+        },
+      );
+      return null;
+    }
 
     const videoAnalysisResult = await executeVideoAnalysis(messages, {
       provider: options.provider,

@@ -4252,7 +4252,14 @@ export class GoogleVertexProvider extends BaseProvider {
   }
 
   /**
-   * Parse the Vertex AI image generation REST API response and extract image data.
+   * Parse the Vertex AI image generation REST API response.
+   *
+   * Dual-mode image models (gemini-3.1-flash-image-preview, gemini-2.5-flash-image,
+   * gemini-3-pro-image-preview) decide per-request whether to emit an image or text.
+   * When the response contains text parts but no image part, surface the text via
+   * `textFallback` so the caller can return a normal text result instead of throwing
+   * "model returned text instead of image data" and burning retries on a query that
+   * the model has already answered.
    */
   private parseImageGenerationResponse(
     data: {
@@ -4267,7 +4274,7 @@ export class GoogleVertexProvider extends BaseProvider {
       }>;
     },
     imageModelName: string,
-  ): { imageData: string; mimeType: string } {
+  ): { imageData: string; mimeType: string } | { textFallback: string } {
     const candidate = data.candidates?.[0];
     if (!candidate?.content?.parts) {
       throw new ProviderError(
@@ -4288,12 +4295,16 @@ export class GoogleVertexProvider extends BaseProvider {
     );
 
     if (!imagePart) {
-      const hasTextContent = candidate.content.parts.some((part) => part.text);
-
+      // Filter out empty/whitespace-only text parts so an effectively empty
+      // response throws "no image data" instead of returning content: "".
+      const textParts = candidate.content.parts
+        .map((part) => (typeof part.text === "string" ? part.text : ""))
+        .filter((text) => text.trim().length > 0);
+      if (textParts.length > 0) {
+        return { textFallback: textParts.join("") };
+      }
       throw new ProviderError(
-        hasTextContent
-          ? `Image generation completed but model returned text instead of image data. Model: ${imageModelName}`
-          : `Image generation completed but no image data was returned. Model: ${imageModelName}`,
+        `Image generation completed but no image data was returned. Model: ${imageModelName}`,
         this.providerName,
       );
     }
@@ -4445,10 +4456,36 @@ export class GoogleVertexProvider extends BaseProvider {
         }>;
       };
 
-      const { imageData, mimeType } = this.parseImageGenerationResponse(
-        data,
-        imageModelName,
-      );
+      const parsed = this.parseImageGenerationResponse(data, imageModelName);
+
+      // Dual-mode model decided to emit text instead of an image. Surface the
+      // text as a normal text result instead of throwing — the model already
+      // answered the user; failing here just burns retries.
+      if ("textFallback" in parsed) {
+        logger.info(
+          "Dual-mode image model returned text; returning as text result",
+          {
+            model: imageModelName,
+            textLength: parsed.textFallback.length,
+            responseTime: Date.now() - startTime,
+          },
+        );
+        const inputTokens = this.estimateTokenCount(prompt);
+        const outputTokens = this.estimateTokenCount(parsed.textFallback);
+        const textResult: EnhancedGenerateResult = {
+          content: parsed.textFallback,
+          provider: this.providerName,
+          model: imageModelName,
+          usage: {
+            input: inputTokens,
+            output: outputTokens,
+            total: inputTokens + outputTokens,
+          },
+        };
+        return await this.enhanceResult(textResult, options, startTime);
+      }
+
+      const { imageData, mimeType } = parsed;
 
       logger.info("Image generation successful", {
         model: imageModelName,
