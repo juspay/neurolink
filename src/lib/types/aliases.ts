@@ -28,6 +28,20 @@ export type ZodUnknownSchema = ZodTypeAny;
 export type ZodToJsonSchemaInput = Parameters<typeof zodToJsonSchema>[0];
 
 /**
+ * Dialects accepted by Zod 4's native `z.toJSONSchema(schema, { target })`.
+ * Note the `.` in `"openapi-3.0"`: this differs from the `zod-to-json-schema`
+ * package's `"openApi3"` form. The schemaConversion helper maps between the
+ * two so internal call sites can use a single `"openApi3"` identifier.
+ */
+export type Zod4NativeTarget = "draft-07" | "openapi-3.0";
+
+/**
+ * Subset of Zod 4's `ToJSONSchemaParams` we forward through. Kept minimal so
+ * the type stays stable even if Zod 4 grows the surface in future releases.
+ */
+export type Zod4NativeParams = { target?: Zod4NativeTarget };
+
+/**
  * Union type for schema validation (Zod or AI SDK schema)
  * Commonly used in provider interfaces and validation functions
  */

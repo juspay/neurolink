@@ -581,8 +581,10 @@ export type StreamingParser = {
   reset(): void;
 };
 
-export type HippocampusMemory =
-  import("@juspay/hippocampus").HippocampusConfig & { enabled?: boolean };
+// HippocampusMemory has moved to ./memory.ts where the local structural
+// definition lives. Keeping the type out of this file avoids re-exporting
+// the same name from two source locations and breaks the previous
+// dependency on `import("@juspay/hippocampus")` at the type level.
 
 // =============================================================================
 // SESSION STATE (from session/globalSessionState.ts)

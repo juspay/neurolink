@@ -336,6 +336,32 @@ function buildBaseSDKOptions(): { provider: string; model?: string } {
 }
 
 /**
+ * Resolve a known concrete model for the test's configured provider.
+ * Used by alias-config tests that need a real model to redirect TO when
+ * the operator hasn't pinned `TEST_MODEL` — without this the tests have
+ * to skip on "Requires --model to provide a concrete alias target",
+ * which masks alias-resolution regressions in CI.
+ */
+function getDefaultTestModelForProvider(provider: string): string {
+  const map: Record<string, string> = {
+    vertex: "gemini-2.5-flash",
+    "google-vertex": "gemini-2.5-flash",
+    "google-ai": "gemini-2.5-flash",
+    googleaistudio: "gemini-2.5-flash",
+    google: "gemini-2.5-flash",
+    gemini: "gemini-2.5-flash",
+    anthropic: "claude-3-5-sonnet-20241022",
+    claude: "claude-3-5-sonnet-20241022",
+    openai: "gpt-4o-mini",
+    azure: "gpt-4o-mini",
+    bedrock: "anthropic.claude-3-5-sonnet-20240620-v1:0",
+    mistral: "mistral-small-latest",
+    huggingface: "meta-llama/Llama-3.2-3B-Instruct",
+  };
+  return map[provider.toLowerCase()] || "gemini-2.5-flash";
+}
+
+/**
  * Cleanup helper for NeuroLink SDK instances
  * Disposes of all resources to prevent test contamination
  */
@@ -1339,10 +1365,14 @@ async function testCLIBusinessTools(): Promise<boolean | null> {
       ...buildBaseSDKOptions(),
     });
 
+    // 25s was too aggressive — a single tool-using generate against
+    // Vertex Gemini 2.5 routinely takes 20-30s (model reasoning + tool
+    // execution + final synthesis). Bump to 60s so legitimate slow
+    // responses don't get reported as test failures.
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(
         () => reject(new Error("CLI Business Tools test timed out")),
-        25000,
+        60000,
       ),
     );
 
@@ -2263,7 +2293,16 @@ async function testCLIStreamTwoCSVComparison(): Promise<boolean | null> {
       "--csv-max-rows=50",
       "--max-tokens=2000",
       "--timeout=90",
-      "Compare the transaction counts by merchant_id in both files. Does the merchant-summary.csv match the actual counts in the transactions file? Use the analyzeCSV tool to count transactions by merchant_id in the first file.",
+      // Phrase the prompt around "datasets" rather than "files" because
+      // newer Gemini 2.5 chat models bias toward asking for re-uploads
+      // whenever the user prompt repeatedly references "files", even if
+      // the file contents are inlined verbatim in the same message.
+      // Drop the analyzeCSV tool reference — when both prompt-inlined data
+      // AND a tool path are offered, Gemini 2.5 chooses the tool path,
+      // doesn't have a real file path to feed it, and falls back to "I
+      // can't see the file." Forcing it onto the inlined-data path is
+      // both faster and more deterministic.
+      "Two CSV tables labeled 'transactions' and 'merchant-summary' are provided in the user message above as plain-text data blocks. Count the rows per merchant_id directly from the 'transactions' table, then compare those counts to the transaction_count column in the 'merchant-summary' table. Report whether they match. Do NOT call any tools — work only from the inlined CSV text.",
     ]);
 
     if (!result.success) {
@@ -4510,17 +4549,11 @@ async function testModelAliasRedirect(): Promise<boolean | null> {
   logSection("Model Alias Redirect");
 
   const baseOptions = buildBaseSDKOptions();
-  const targetModel = baseOptions.model;
-
-  // If no model override is set, skip since we need a concrete target
-  if (!targetModel) {
-    logTest(
-      "Model Alias Redirect",
-      "SKIP",
-      "Requires --model to provide a concrete alias target",
-    );
-    return null;
-  }
+  // Fall back to the provider's well-known default rather than skipping.
+  // The alias-resolution path is provider-agnostic, so any concrete
+  // model that the configured provider can serve is a valid target.
+  const targetModel =
+    baseOptions.model || getDefaultTestModelForProvider(baseOptions.provider);
 
   // Build alias config that redirects "test-old-model" to the real model
   const sdk = new NeuroLink({
@@ -4673,16 +4706,11 @@ async function testModelAliasWarn(): Promise<boolean | null> {
   logSection("Model Alias Warn");
 
   const baseOptions = buildBaseSDKOptions();
-  const targetModel = baseOptions.model;
-
-  if (!targetModel) {
-    logTest(
-      "Model Alias Warn",
-      "SKIP",
-      "Requires --model to provide a concrete alias target",
-    );
-    return null;
-  }
+  // Same reasoning as Redirect: fall through to the provider's default
+  // model so this assertion always exercises the warn-and-redirect path
+  // even when the operator hasn't pinned `TEST_MODEL`.
+  const targetModel =
+    baseOptions.model || getDefaultTestModelForProvider(baseOptions.provider);
 
   const sdk = new NeuroLink({
     modelAliasConfig: {

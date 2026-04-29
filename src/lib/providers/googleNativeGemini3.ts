@@ -10,6 +10,8 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { extname } from "node:path";
 import {
   type ToolExecuteFunction,
   jsonSchema as aiJsonSchema,
@@ -31,10 +33,13 @@ import type {
   NativeToolsConfig,
   TextChannel,
   ToolWithLegacyParams,
+  VertexNativePart,
+  GeminiMultimodalInput,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import {
   convertZodToJsonSchema,
+  ensureNestedSchemaTypes,
   inlineJsonSchema,
   isZodSchema,
   normalizeJsonSchemaObject,
@@ -183,6 +188,7 @@ export function sanitizeToolsForGemini(tools: Record<string, Tool>): {
       ) {
         const rawJsonSchema = convertZodToJsonSchema(
           params as ZodUnknownSchema,
+          "openApi3",
         ) as Record<string, unknown>;
         const inlined = inlineJsonSchema(rawJsonSchema);
         // Gemini sanitization strips Zod-only features not supported by the Gemini API:
@@ -245,6 +251,7 @@ export function normalizeToolsForJsonSchemaProvider(
     if (isZodSchema(toolParams)) {
       rawSchema = convertZodToJsonSchema(
         toolParams as ZodUnknownSchema,
+        "openApi3",
       ) as Record<string, unknown>;
     } else if (toolParams && typeof toolParams === "object") {
       rawSchema = toolParams as Record<string, unknown>;
@@ -309,6 +316,7 @@ export function buildNativeToolDeclarations(
         if (isZodSchema(toolParams)) {
           rawSchema = convertZodToJsonSchema(
             toolParams as ZodUnknownSchema,
+            "openApi3",
           ) as Record<string, unknown>;
         } else if (typeof toolParams === "object") {
           rawSchema = toolParams as Record<string, unknown>;
@@ -355,6 +363,14 @@ export function buildNativeToolDeclarations(
 
 /**
  * Build the native @google/genai config object shared by stream and generate.
+ *
+ * Caller is responsible for the tools-vs-JSON conflict resolution: Gemini's
+ * function calling cannot be combined with `responseMimeType:
+ * "application/json"`, and `responseSchema` requires that mime type. So
+ * when tools are active, callers must NOT pass `wantsJsonOutput`/
+ * `responseSchema` here; when JSON/schema output is requested, callers
+ * must omit `toolsConfig`. The AI Studio path enforces this by forcing
+ * `disableTools: true` whenever JSON/schema output is requested.
  */
 export function buildNativeConfig(
   options: {
@@ -362,6 +378,16 @@ export function buildNativeConfig(
     maxTokens?: number;
     systemPrompt?: string;
     thinkingConfig?: ThinkingConfig;
+    /**
+     * When true (and `toolsConfig` is undefined), set
+     * `responseMimeType: "application/json"` to enforce native JSON output.
+     */
+    wantsJsonOutput?: boolean;
+    /**
+     * Pre-converted JSON Schema for native `responseSchema`. Implies
+     * `wantsJsonOutput`. Ignored if `toolsConfig` is present.
+     */
+    responseSchema?: Record<string, unknown>;
   },
   toolsConfig?: NativeToolsConfig,
 ): Record<string, unknown> {
@@ -384,6 +410,17 @@ export function buildNativeConfig(
   );
   if (nativeThinkingConfig) {
     config.thinkingConfig = nativeThinkingConfig;
+  }
+
+  // Native JSON / schema enforcement. Only set when tools are NOT being sent
+  // (Gemini rejects the combination). responseSchema implies JSON mime type.
+  if (!toolsConfig) {
+    if (options.responseSchema || options.wantsJsonOutput) {
+      config.responseMimeType = "application/json";
+    }
+    if (options.responseSchema) {
+      config.responseSchema = options.responseSchema;
+    }
   }
 
   return config;
@@ -805,4 +842,213 @@ export function pushModelResponseToHistory(
         ? rawResponseParts
         : stepFunctionCalls.map((fc) => ({ functionCall: fc })),
   });
+}
+
+/**
+ * Convert a Zod schema (or AI SDK `jsonSchema()` wrapper) into the shape
+ * `@google/genai` accepts as `responseSchema`. Mirrors the inline pipeline
+ * the Vertex Gemini paths already use:
+ *
+ *   convertZodToJsonSchema → inlineJsonSchema → strip `$schema` → ensure
+ *   every nested schema has a `type` (Vertex/Gemini reject schemas missing
+ *   that field, even on nested objects).
+ *
+ * Lives here so the AI Studio and Vertex paths can share the same
+ * sanitization without duplicating the schema-conversion churn.
+ */
+export function buildGeminiResponseSchema(
+  schema: unknown,
+): Record<string, unknown> {
+  const raw = convertZodToJsonSchema(
+    schema as Parameters<typeof convertZodToJsonSchema>[0],
+    "openApi3",
+  ) as Record<string, unknown>;
+  const inlined = inlineJsonSchema(raw);
+  if (inlined.$schema) {
+    delete inlined.$schema;
+  }
+  return ensureNestedSchemaTypes(inlined);
+}
+
+/**
+ * Map NeuroLink ChatMessage[] history into the @google/genai content format
+ * and push the entries onto a contents array.
+ *
+ * Used by the native Vertex Gemini and Google AI Studio paths to honor
+ * `options.conversationMessages` so multi-turn conversations (memory, loop
+ * REPL, agent flows) actually carry prior turns into the request.
+ *
+ * Behavior notes:
+ *  - Only `user` and `assistant` roles are forwarded; system messages are
+ *    expected to be wired via `systemInstruction`, and tool-call /
+ *    tool-result roles only appear inside intra-call tool loops which build
+ *    their own model/function entries.
+ *  - String content is wrapped as a single `{ text }` part. Empty strings
+ *    are skipped to avoid sending empty parts that some Gemini regions
+ *    reject.
+ *  - The current user input should be appended AFTER calling this helper
+ *    so the prior turns appear first in chronological order.
+ */
+export function prependConversationMessages(
+  contents: Array<{ role: string; parts: unknown[] }>,
+  conversationMessages?: Array<{
+    role: string;
+    content: string;
+  }>,
+): void {
+  if (!conversationMessages || conversationMessages.length === 0) {
+    return;
+  }
+  for (const msg of conversationMessages) {
+    if (msg.role !== "user" && msg.role !== "assistant") {
+      continue;
+    }
+    const text = typeof msg.content === "string" ? msg.content : "";
+    if (text.length === 0) {
+      continue;
+    }
+    contents.push({
+      role: msg.role === "assistant" ? "model" : "user",
+      parts: [{ text }],
+    });
+  }
+}
+
+/**
+ * Build the `parts` array for the current user turn of a Gemini native
+ * `generateContent` request, including inline image + PDF blobs.
+ *
+ * Both providers that hit the native `@google/genai` SDK — `GoogleVertex`
+ * and `GoogleAIStudio` — need this. The previous AI Studio code only
+ * pushed a single `{ text }` part, which silently dropped `input.images`
+ * and `input.pdfFiles` on the floor: the model received text only and
+ * legitimately reported "no image attached". Extracting this from the
+ * Vertex copy keeps both providers on one definition.
+ *
+ * Accepted shapes per element (mirroring the runtime behaviour the Vertex
+ * code already supported):
+ *   - `Buffer` → used as-is
+ *   - local file path → read via `readFileSync`, MIME guessed from extension
+ *   - `data:<mime>;base64,...` URL → mime parsed, data base64-decoded
+ *   - `http(s)://...` URL → fetched, mime from `content-type`
+ *   - any other string → assumed to be a base64-encoded payload
+ *
+ * Image MIME guessing is conservative — only known extensions override the
+ * default `image/jpeg`. Fetch failures are logged and the offending entry
+ * is skipped rather than aborting the entire request, matching prior
+ * Vertex behaviour.
+ */
+export async function buildUserPartsWithMultimodal(
+  input: GeminiMultimodalInput | undefined,
+  textOverride?: string,
+  logPrefix: string = "[GeminiNative]",
+): Promise<VertexNativePart[]> {
+  const text =
+    typeof textOverride === "string" ? textOverride : (input?.text ?? "");
+  const parts: VertexNativePart[] = [{ text }];
+
+  if (input?.pdfFiles && input.pdfFiles.length > 0) {
+    logger.debug(`${logPrefix} Processing ${input.pdfFiles.length} PDF(s)`);
+    for (const pdfFile of input.pdfFiles) {
+      let pdfBuffer: Buffer;
+      if (typeof pdfFile === "string") {
+        if (existsSync(pdfFile)) {
+          pdfBuffer = readFileSync(pdfFile);
+        } else {
+          // Treat as already-base64-encoded payload
+          pdfBuffer = Buffer.from(pdfFile, "base64");
+        }
+      } else {
+        pdfBuffer = pdfFile;
+      }
+      parts.push({
+        inlineData: {
+          mimeType: "application/pdf",
+          data: pdfBuffer.toString("base64"),
+        },
+      });
+    }
+  }
+
+  if (input?.images && input.images.length > 0) {
+    logger.debug(`${logPrefix} Processing ${input.images.length} image(s)`);
+    for (const rawImage of input.images) {
+      // `images` may carry plain Buffer/string values or `{ data, altText? }`
+      // objects. Normalise to the inner payload before format detection.
+      const image: Buffer | string =
+        rawImage && typeof rawImage === "object" && !Buffer.isBuffer(rawImage)
+          ? (rawImage as { data: Buffer | string }).data
+          : (rawImage as Buffer | string);
+      let imageBuffer: Buffer | undefined;
+      let mimeType = "image/jpeg";
+
+      if (typeof image === "string") {
+        if (existsSync(image)) {
+          imageBuffer = readFileSync(image);
+          const ext = extname(image).toLowerCase();
+          if (ext === ".png") {
+            mimeType = "image/png";
+          } else if (ext === ".gif") {
+            mimeType = "image/gif";
+          } else if (ext === ".webp") {
+            mimeType = "image/webp";
+          }
+        } else if (image.startsWith("data:")) {
+          const matches = image.match(/^data:([^;]+);base64,(.+)$/);
+          if (matches) {
+            mimeType = matches[1];
+            imageBuffer = Buffer.from(matches[2], "base64");
+          } else {
+            continue;
+          }
+        } else if (
+          image.startsWith("http://") ||
+          image.startsWith("https://")
+        ) {
+          try {
+            const response = await fetch(image);
+            if (!response.ok) {
+              logger.warn(
+                `${logPrefix} Image fetch failed: ${response.status} ${response.statusText}, skipping`,
+                { url: image },
+              );
+              continue;
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            imageBuffer = Buffer.from(arrayBuffer);
+            const headerMime = response.headers.get("content-type");
+            if (headerMime && headerMime.startsWith("image/")) {
+              mimeType = headerMime.split(";")[0];
+            }
+          } catch (fetchError) {
+            logger.warn(
+              `${logPrefix} Image URL fetch threw, skipping: ${
+                fetchError instanceof Error
+                  ? fetchError.message
+                  : String(fetchError)
+              }`,
+              { url: image },
+            );
+            continue;
+          }
+        } else {
+          imageBuffer = Buffer.from(image, "base64");
+        }
+      } else {
+        imageBuffer = image;
+      }
+
+      if (!imageBuffer) {
+        continue;
+      }
+      parts.push({
+        inlineData: {
+          mimeType,
+          data: imageBuffer.toString("base64"),
+        },
+      });
+    }
+  }
+
+  return parts;
 }

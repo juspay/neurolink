@@ -16,7 +16,6 @@ try {
   // Environment variables should be set externally in production
 }
 
-import type { Hippocampus } from "@juspay/hippocampus";
 import { SpanKind, SpanStatusCode, context, trace } from "@opentelemetry/api";
 import { AsyncLocalStorage } from "async_hooks";
 import { EventEmitter } from "events";
@@ -138,8 +137,9 @@ import { resolveDynamicArgument } from "./dynamic/dynamicResolver.js";
 import type {
   DynamicOptions,
   DynamicResolutionContext,
+  HippocampusConfig,
+  HippocampusLike,
 } from "./types/index.js";
-import type { HippocampusConfig } from "@juspay/hippocampus";
 import { initializeHippocampus } from "./memory/hippocampusInitializer.js";
 import { createMemoryRetrievalTools } from "./memory/memoryRetrievalTools.js";
 import {
@@ -202,6 +202,7 @@ import {
   processStreamingFactoryOptions,
   validateFactoryConfig,
 } from "./utils/factoryProcessing.js";
+import { fireOnErrorOnce } from "./utils/lifecycleCallbacks.js";
 import { logger, mcpLogger } from "./utils/logger.js";
 import { extractMcpErrorText } from "./utils/mcpErrorText.js";
 import {
@@ -723,7 +724,7 @@ export class NeuroLink {
   private cachedFileTools: ReturnType<typeof createFileTools> | null = null;
 
   // Memory instance and config
-  private memoryInstance?: Hippocampus | null;
+  private memoryInstance?: HippocampusLike | null;
   private memorySDKConfig?: HippocampusConfig;
 
   /**
@@ -1032,7 +1033,7 @@ export class NeuroLink {
   /**
    * Lazy initialization for memory — called during generate/stream.
    */
-  private ensureMemoryReady(): Hippocampus | null {
+  private ensureMemoryReady(): HippocampusLike | null {
     if (this.memoryInstance !== undefined) {
       return this.memoryInstance;
     }
@@ -3624,17 +3625,43 @@ Current user's request: ${currentInput}`;
   async generate(
     optionsOrPrompt: GenerateOptions | DynamicOptions | string,
   ): Promise<GenerateResult> {
-    return this.runWithFallbackOrchestration(
-      optionsOrPrompt,
-      "generate",
-      (opts) =>
-        tracers.sdk.startActiveSpan(
-          "neurolink.generate",
-          { kind: SpanKind.INTERNAL },
-          (generateSpan) =>
-            this.executeGenerateWithMetricsContext(opts, generateSpan),
-        ),
-    );
+    const startTime = Date.now();
+    try {
+      return await this.runWithFallbackOrchestration(
+        optionsOrPrompt,
+        "generate",
+        (opts) =>
+          tracers.sdk.startActiveSpan(
+            "neurolink.generate",
+            { kind: SpanKind.INTERNAL },
+            (generateSpan) =>
+              this.executeGenerateWithMetricsContext(opts, generateSpan),
+          ),
+      );
+    } catch (error) {
+      // Fire `onError` lifecycle callback for ANY thrown error — including
+      // ones raised before the provider is even instantiated (invalid
+      // provider name, missing credentials, etc.). The downstream
+      // LifecycleMiddleware only fires `onError` once it has wrapped the
+      // AI SDK doGenerate, which is too late for early-resolution failures.
+      // `fireOnErrorOnce` dedupes against the middleware path so the
+      // consumer callback fires at most once per logical failure.
+      const onError =
+        typeof optionsOrPrompt === "object" && optionsOrPrompt !== null
+          ? (
+              optionsOrPrompt as {
+                onError?: Parameters<typeof fireOnErrorOnce>[0];
+              }
+            ).onError
+          : undefined;
+      const err = error instanceof Error ? error : new Error(String(error));
+      fireOnErrorOnce(onError, error, {
+        error: err,
+        duration: Date.now() - startTime,
+        recoverable: false,
+      });
+      throw error;
+    }
   }
 
   /**
@@ -4212,6 +4239,12 @@ Current user's request: ${currentInput}`;
       middleware: options.middleware,
       conversationMessages: options.conversationMessages,
       credentials: options.credentials,
+      // Lifecycle callbacks must reach the provider so non-AI-SDK paths
+      // (Vertex's native @google/genai, native Bedrock, Ollama, etc.) can
+      // invoke them directly. Pipeline A also still receives them via the
+      // wrapped middleware config set by applyGenerateLifecycleMiddleware.
+      onFinish: options.onFinish,
+      onError: options.onError,
     };
 
     const extraContext = options as Record<string, unknown>;
@@ -6890,7 +6923,28 @@ Current user's request: ${currentInput}`;
         : [],
       optionKeys: Object.keys(options),
     });
-    return this.streamWithIterationFallback(options as StreamOptions);
+    const startTime = Date.now();
+    try {
+      return await this.streamWithIterationFallback(options as StreamOptions);
+    } catch (error) {
+      // Fire `onError` for early-resolution failures (invalid provider,
+      // missing credentials, etc.) that surface before the per-chunk
+      // wrapper installed by GoogleVertex / LifecycleMiddleware can run.
+      // `fireOnErrorOnce` dedupes against the middleware path so the
+      // consumer callback fires at most once per logical failure.
+      const onError = (
+        options as {
+          onError?: Parameters<typeof fireOnErrorOnce>[0];
+        }
+      ).onError;
+      const err = error instanceof Error ? error : new Error(String(error));
+      fireOnErrorOnce(onError, error, {
+        error: err,
+        duration: Date.now() - startTime,
+        recoverable: false,
+      });
+      throw error;
+    }
   }
 
   /**

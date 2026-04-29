@@ -36,6 +36,7 @@
     "build:cli:bundle:minify": "node scripts/bundle-cli.mjs --minify",
     "build:action": "ncc build src/action/index.ts -o action-dist --source-map",
     "build:cli:link": "pnpm run build:cli && pnpm link --global",
+    "check:deps": "tsx scripts/check-banned-deps.ts",
     "cli": "node dist/cli/index.js",
     "preview": "vite preview",
     "prepare": "git rev-parse --git-dir > /dev/null 2>&1 && husky install || echo 'Skipping husky in non-git environment'",
@@ -82,6 +83,7 @@
     "test:rag": "npx tsx test/continuous-test-suite-rag.ts",
     "test:servers": "npx tsx test/continuous-test-suite-servers.ts",
     "test:tool-reliability": "npx tsx test/continuous-test-suite-tool-reliability.ts",
+    "test:google-native": "npx tsx test/continuous-test-suite-google-native.ts",
     "test:tracing": "npx tsx test/continuous-test-suite-tracing.ts",
     "test:tts": "npx tsx test/continuous-test-suite-tts.ts",
     "test:voice": "npx tsx test/continuous-test-suite-voice.ts",
@@ -207,19 +209,19 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.50",
     "@ai-sdk/azure": "^3.0.38",
-    "@ai-sdk/google": "^3.0.34",
-    "@ai-sdk/google-vertex": "^4.0.68",
     "@ai-sdk/mistral": "^3.0.21",
     "@ai-sdk/openai": "^3.0.37",
     "@ai-sdk/provider": "^3.0.8",
+    "@anthropic-ai/vertex-sdk": "^0.16.0",
     "@aws-sdk/client-bedrock": "^3.1000.0",
     "@aws-sdk/client-bedrock-runtime": "^3.1000.0",
     "@aws-sdk/client-sagemaker-runtime": "^3.1000.0",
+    "@aws-sdk/credential-provider-node": "^3.886.0",
+    "@aws-sdk/types": "^3.862.0",
     "@google-cloud/text-to-speech": "^6.4.0",
     "@google-cloud/vertexai": "^1.10.0",
     "@google/genai": "^1.43.0",
     "@huggingface/inference": "^4.13.14",
-    "@juspay/hippocampus": "^0.1.4",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@openrouter/ai-sdk-provider": "^2.2.3",
     "@opentelemetry/api-logs": "^0.214.0",
@@ -258,12 +260,16 @@
     "zod-to-json-schema": "^3.25.1"
   },
   "peerDependencies": {
+    "@juspay/hippocampus": ">=0.1.4",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-trace-node": "^2.0.0",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
   },
   "peerDependenciesMeta": {
+    "@juspay/hippocampus": {
+      "optional": true
+    },
     "react": {
       "optional": true
     },
@@ -324,6 +330,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/fluent-ffmpeg": "^2.1.28",
+    "@juspay/hippocampus": "^0.1.6",
     "@types/inquirer": "^9.0.9",
     "@types/js-yaml": "^4.0.9",
     "@types/koa": "^3.0.1",

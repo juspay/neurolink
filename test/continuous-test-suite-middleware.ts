@@ -62,9 +62,23 @@ function logTest(
 // TEST CONFIGURATION
 // ============================================================
 
+// Middleware tests are provider-agnostic — they verify lifecycle callbacks
+// (onFinish, onChunk, onError, isolation) regardless of which provider
+// actually fulfils the request. Default to a provider that is configured
+// in CI (vertex) instead of one that requires a local daemon (ollama),
+// so the suite returns real PASS rather than blanket SKIPs.
+//
+// `thinkingLevel: "minimal"` keeps Gemini 2.5+ from spending its 50-token
+// budget on hidden reasoning and returning empty visible text. Combined
+// with `disableTools: true` we keep the request shape pure-text so the
+// model isn't tempted to multi-step into a tool call (e.g. calculateMath
+// for "what is 2+2?") and exhaust the tiny token budget on tool plumbing
+// instead of the actual answer the callback consumes.
 const TEST_CONFIG = {
-  provider: process.env.TEST_PROVIDER || "ollama",
-  model: process.env.TEST_MODEL || "llama3.2",
+  provider: process.env.TEST_PROVIDER || "vertex",
+  model: process.env.TEST_MODEL,
+  thinkingLevel: "minimal" as const,
+  disableTools: true,
   timeout: 60_000,
   interTestDelay: 2_000,
 };
@@ -138,6 +152,8 @@ async function testGenerateOnFinish(): Promise<boolean | null> {
       input: { text: "What is 2 + 2? Reply with just the number." },
       provider: TEST_CONFIG.provider,
       model: TEST_CONFIG.model,
+      thinkingLevel: TEST_CONFIG.thinkingLevel,
+      disableTools: TEST_CONFIG.disableTools,
       maxTokens: 50,
       onFinish: (payload) => {
         finishPayload = payload;
@@ -271,6 +287,8 @@ async function testGenerateCallbackIsolation(): Promise<boolean | null> {
       input: { text: "What is 1 + 1? Reply with just the number." },
       provider: TEST_CONFIG.provider,
       model: TEST_CONFIG.model,
+      thinkingLevel: TEST_CONFIG.thinkingLevel,
+      disableTools: TEST_CONFIG.disableTools,
       maxTokens: 50,
       onFinish: () => {
         throw new Error("Consumer callback blew up");
@@ -331,6 +349,8 @@ async function testStreamOnFinish(): Promise<boolean | null> {
       input: { text: "What is 3 + 3? Reply with just the number." },
       provider: TEST_CONFIG.provider,
       model: TEST_CONFIG.model,
+      thinkingLevel: TEST_CONFIG.thinkingLevel,
+      disableTools: TEST_CONFIG.disableTools,
       maxTokens: 50,
       onFinish: (payload) => {
         finishPayload = payload;
@@ -403,6 +423,8 @@ async function testStreamOnChunk(): Promise<boolean | null> {
       input: { text: "Count from 1 to 5. Reply with just the numbers." },
       provider: TEST_CONFIG.provider,
       model: TEST_CONFIG.model,
+      thinkingLevel: TEST_CONFIG.thinkingLevel,
+      disableTools: TEST_CONFIG.disableTools,
       maxTokens: 100,
       onChunk: (payload) => {
         chunkPayloads.push(payload);
@@ -535,6 +557,8 @@ async function testStreamCallbackIsolation(): Promise<boolean | null> {
       input: { text: "What is 5 + 5? Reply with just the number." },
       provider: TEST_CONFIG.provider,
       model: TEST_CONFIG.model,
+      thinkingLevel: TEST_CONFIG.thinkingLevel,
+      disableTools: TEST_CONFIG.disableTools,
       maxTokens: 50,
       onFinish: () => {
         throw new Error("Consumer stream callback blew up");

@@ -54,6 +54,38 @@ import { SageMakerCommandFactory } from "./sagemakerCommandFactory.js";
  * CLI Command Factory for generate commands
  */
 export class CLICommandFactory {
+  /**
+   * Normalize loop session variables before merging them into provider options.
+   *
+   * The CLI loop schema models some fields (e.g. `stopSequences`,
+   * `enabledToolNames`) as a single comma-separated string for ergonomic
+   * input, but providers expect `string[]`. Without conversion,
+   * `set stopSequences a,b` would be sent as one stop token "a,b" instead
+   * of two ("a", "b"); `set enabledToolNames read,write` would be cast to
+   * a `string[]` containing the single literal "read,write" and silently
+   * filter out every tool. This helper splits and trims those fields so
+   * the spread into `enhancedOptions` produces the correct shape across
+   * generate / batch / stream paths.
+   */
+  private static normalizeLoopSessionVariables(
+    vars: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const normalized: Record<string, unknown> = { ...vars };
+    if (typeof normalized.stopSequences === "string") {
+      normalized.stopSequences = normalized.stopSequences
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    if (typeof normalized.enabledToolNames === "string") {
+      normalized.enabledToolNames = normalized.enabledToolNames
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return normalized;
+  }
+
   // Common options available on all commands
   private static readonly commonOptions = {
     // Core generation options
@@ -729,6 +761,13 @@ export class CLICommandFactory {
       model: argv.model as string | undefined,
       temperature: argv.temperature as number | undefined,
       maxTokens: argv.maxTokens as number | undefined,
+      // Sampling controls — surfaced here so all three command paths
+      // (generate / stream / batch) get them consistently typed instead
+      // of relying on an ad-hoc cast at each sdk call site.
+      topP: argv.topP as number | undefined,
+      topK: argv.topK as number | undefined,
+      stopSequences: argv.stopSequences as string[] | undefined,
+      enabledToolNames: argv.enabledToolNames as string[] | undefined,
       systemPrompt: argv.system as string | undefined,
       timeout: argv.timeout as number | undefined,
       disableTools: argv.disableTools as boolean | undefined,
@@ -2637,18 +2676,10 @@ export class CLICommandFactory {
 
       // Initialize SDK and session
       const sdk = globalSession.getOrCreateNeuroLink();
-      const sessionVariables = globalSession.getSessionVariables();
-      const enhancedOptions = {
-        ...options,
-        ...sessionVariables,
-        // enabledToolNames must be string[] for the SDK — normalize from CSV string
-        ...(typeof sessionVariables.enabledToolNames === "string" && {
-          enabledToolNames: (sessionVariables.enabledToolNames as string)
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
-        }),
-      };
+      const sessionVariables = CLICommandFactory.normalizeLoopSessionVariables(
+        globalSession.getSessionVariables(),
+      );
+      const enhancedOptions = { ...options, ...sessionVariables };
       const sessionId = globalSession.getCurrentSessionId();
       const context = sessionId
         ? { ...options.context, sessionId }
@@ -2718,6 +2749,9 @@ export class CLICommandFactory {
           model: enhancedOptions.model,
           temperature: enhancedOptions.temperature,
           maxTokens: enhancedOptions.maxTokens,
+          topP: enhancedOptions.topP as number | undefined,
+          topK: enhancedOptions.topK as number | undefined,
+          stopSequences: enhancedOptions.stopSequences as string[] | undefined,
           systemPrompt: enhancedOptions.systemPrompt,
           timeout: enhancedOptions.timeout
             ? enhancedOptions.timeout * 1000
@@ -2953,7 +2987,9 @@ export class CLICommandFactory {
     contextMetadata: Partial<BaseContext> | undefined,
   ): Promise<string> {
     const sdk = globalSession.getOrCreateNeuroLink();
-    const sessionVariables = globalSession.getSessionVariables();
+    const sessionVariables = CLICommandFactory.normalizeLoopSessionVariables(
+      globalSession.getSessionVariables(),
+    );
     const enhancedOptions = { ...options, ...sessionVariables };
     const sessionId = globalSession.getCurrentSessionId();
     const context = sessionId
@@ -3005,6 +3041,9 @@ export class CLICommandFactory {
         model: enhancedOptions.model as string | undefined,
         temperature: enhancedOptions.temperature as number | undefined,
         maxTokens: enhancedOptions.maxTokens as number | undefined,
+        topP: enhancedOptions.topP as number | undefined,
+        topK: enhancedOptions.topK as number | undefined,
+        stopSequences: enhancedOptions.stopSequences as string[] | undefined,
         systemPrompt: enhancedOptions.systemPrompt as string | undefined,
         timeout: enhancedOptions.timeout
           ? (enhancedOptions.timeout as number) * 1000
@@ -3589,18 +3628,10 @@ export class CLICommandFactory {
       }> = [];
 
       const sdk = globalSession.getOrCreateNeuroLink();
-      const sessionVariables = globalSession.getSessionVariables();
-      const enhancedOptions = {
-        ...options,
-        ...sessionVariables,
-        // enabledToolNames must be string[] for the SDK — normalize from CSV string
-        ...(typeof sessionVariables.enabledToolNames === "string" && {
-          enabledToolNames: (sessionVariables.enabledToolNames as string)
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
-        }),
-      };
+      const sessionVariables = CLICommandFactory.normalizeLoopSessionVariables(
+        globalSession.getSessionVariables(),
+      );
+      const enhancedOptions = { ...options, ...sessionVariables };
       const sessionId = globalSession.getCurrentSessionId();
 
       for (let i = 0; i < prompts.length; i++) {
@@ -3657,6 +3688,11 @@ export class CLICommandFactory {
               model: enhancedOptions.model,
               temperature: enhancedOptions.temperature,
               maxTokens: enhancedOptions.maxTokens,
+              topP: enhancedOptions.topP as number | undefined,
+              topK: enhancedOptions.topK as number | undefined,
+              stopSequences: enhancedOptions.stopSequences as
+                | string[]
+                | undefined,
               systemPrompt: enhancedOptions.systemPrompt,
               timeout: enhancedOptions.timeout
                 ? enhancedOptions.timeout * 1000

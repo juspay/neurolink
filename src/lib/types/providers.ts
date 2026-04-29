@@ -908,6 +908,13 @@ export type GenAIModelsAPI = {
     contents: Array<{ role: string; parts: unknown[] }>;
     config?: Record<string, unknown>;
   }) => Promise<GenAIGenerateContentResponse>;
+  embedContent: (params: {
+    model: string;
+    contents: string | string[];
+    config?: Record<string, unknown>;
+  }) => Promise<{
+    embeddings?: Array<{ values?: number[] }>;
+  }>;
 };
 
 /**
@@ -919,14 +926,59 @@ export type GenAIClient = {
 };
 
 /**
+ * HTTP options for Google GenAI SDK
+ * Allows custom fetch implementation for proxy support
+ */
+export type GoogleGenAIHttpOptions = {
+  /** Custom fetch implementation for proxy support */
+  fetch?: typeof fetch;
+};
+
+/**
  * Google GenAI constructor type
  * Supports both API key (Google AI Studio) and Vertex AI configurations
  */
 export type GoogleGenAIClass = new (
   cfg:
-    | { apiKey: string }
-    | { vertexai: boolean; project: string; location: string },
+    | { apiKey: string; httpOptions?: GoogleGenAIHttpOptions }
+    | {
+        vertexai: boolean;
+        project: string;
+        location: string;
+        httpOptions?: GoogleGenAIHttpOptions;
+      },
 ) => GenAIClient;
+
+// ============================================================================
+// Google Vertex AI Provider Types
+// ============================================================================
+
+/**
+ * Google Vertex AI provider settings for native SDK configuration
+ * Used with @google/genai SDK in vertexai mode
+ *
+ * Note: Authentication is handled via environment variables (GOOGLE_APPLICATION_CREDENTIALS)
+ * or the temporary credentials file approach, not through these settings fields.
+ */
+export type GoogleVertexProviderSettings = {
+  /** Google Cloud project ID */
+  project: string;
+  /** Google Cloud region/location (e.g., 'us-central1') */
+  location: string;
+  /** Optional custom fetch implementation */
+  fetch?: typeof fetch;
+};
+
+/**
+ * Anthropic Vertex AI settings for Claude models on Vertex
+ * Used with @anthropic-ai/vertex-sdk
+ */
+export type AnthropicVertexSettings = {
+  /** Google Cloud project ID */
+  projectId: string;
+  /** Google Cloud region for Anthropic models (e.g., 'us-east5') */
+  region: string;
+};
 
 // ============================================================================
 // OpenAI Compatible Provider Types
@@ -1811,6 +1863,7 @@ export type ProviderConstructor =
         providerName?: string,
         sdk?: UnknownRecord,
         region?: string,
+        credentials?: UnknownRecord,
       ): AIProvider;
     }
   | ((
@@ -1818,6 +1871,7 @@ export type ProviderConstructor =
       providerName?: string,
       sdk?: UnknownRecord,
       region?: string,
+      credentials?: UnknownRecord,
     ) => Promise<AIProvider>);
 
 /** Provider registration entry held by ProviderFactory. */
@@ -1954,10 +2008,26 @@ export type GoogleLiveAudioQueueItem =
 /**
  * Single part inside a Google Vertex "native" (non-AI-SDK) generateContent
  * payload — either inline text or an inline base64 data blob.
+ *
+ * Despite the "Vertex" prefix, the shape is identical for the Google AI
+ * Studio native path (`@google/genai` SDK), so AI Studio re-uses this type.
  */
 export type VertexNativePart =
   | { text: string }
   | { inlineData: { mimeType: string; data: string } };
+
+/**
+ * Subset of `GenerateOptions["input"]` consumed by the shared Gemini-native
+ * multimodal-parts builder. Kept narrow so the helper doesn't depend on the
+ * full `GenerateOptions` shape. The `images` field mirrors the public
+ * `GenerateOptions["input"].images` shape so the helper accepts the same
+ * value SDK callers pass in (plain Buffer/string or `ImageWithAltText`).
+ */
+export type GeminiMultimodalInput = {
+  text?: string;
+  pdfFiles?: Array<Buffer | string>;
+  images?: Array<Buffer | string | { data: Buffer | string; altText?: string }>;
+};
 
 /**
  * Internal helpers used by the conversation-history builder in
@@ -1976,3 +2046,67 @@ export type VertexRegularSegment = {
 };
 
 export type VertexSegment = VertexToolStep | VertexRegularSegment;
+
+/**
+ * Function declaration shape accepted by the @google/genai SDK when tools are
+ * attached to a Vertex generateContent call.
+ */
+export type VertexGenaiFunctionDeclaration = {
+  name: string;
+  description: string;
+  parametersJsonSchema?: Record<string, unknown>;
+};
+
+// =============================================================================
+// VERTEX ANTHROPIC (from providers/googleVertex.ts Claude-on-Vertex path)
+// =============================================================================
+
+/**
+ * Message payload passed to the Anthropic Vertex SDK — mirrors the Anthropic
+ * Messages API shape (role + structured content blocks).
+ */
+export type VertexAnthropicMessage = {
+  role: "user" | "assistant";
+  content:
+    | string
+    | Array<
+        | { type: "text"; text: string }
+        | {
+            type: "image";
+            source: { type: "base64"; media_type: string; data: string };
+          }
+        | {
+            type: "document";
+            source: { type: "base64"; media_type: string; data: string };
+          }
+        | { type: "tool_use"; id: string; name: string; input: unknown }
+        | { type: "tool_result"; tool_use_id: string; content: string }
+        | { type: "thinking"; thinking: string }
+        | { type: "redacted_thinking"; data: string }
+      >;
+};
+
+/** Tool definition accepted by the Anthropic Vertex SDK. */
+export type VertexAnthropicTool = {
+  name: string;
+  description: string;
+  input_schema: {
+    type: "object";
+    properties?: Record<string, unknown>;
+    required?: string[];
+  };
+};
+
+/**
+ * Content block variants returned by the Anthropic Vertex SDK during streaming
+ * and generation — used to narrow responses before handing tool calls back.
+ */
+export type VertexAnthropicContentBlock =
+  | { type: "text"; text: string }
+  | {
+      type: "tool_use";
+      id: string;
+      name: string;
+      input: Record<string, unknown>;
+    }
+  | { type: "tool_result"; tool_use_id: string; content: string };

@@ -37,6 +37,8 @@ export const textGenerationOptionsSchema: Record<
     | "toolChoice" // Complex type, not suitable for simple CLI input
     | "prepareStep" // Callback function, only usable via SDK
     | "credentials" // Complex per-provider object, only usable via SDK
+    | "onFinish" // Lifecycle callback, only usable via SDK
+    | "onError" // Lifecycle callback, only usable via SDK
   >,
   OptionSchema
 > = {
@@ -58,6 +60,21 @@ export const textGenerationOptionsSchema: Record<
   maxTokens: {
     type: "number",
     description: "The maximum number of tokens to generate.",
+  },
+  topP: {
+    type: "number",
+    description:
+      "Top-p (nucleus) sampling parameter. Controls diversity of generated tokens (0.0-1.0).",
+  },
+  topK: {
+    type: "number",
+    description:
+      "Top-k sampling parameter. Limits the number of tokens considered (Google/Gemini models only).",
+  },
+  stopSequences: {
+    type: "string",
+    description:
+      "Stop sequences that will halt generation when encountered (comma-separated).",
   },
   output: {
     type: "string",

@@ -124,9 +124,16 @@ async function getVertexConfig(): Promise<{
   project: string;
   location: string;
 }> {
+  // Veo 3.1 is only published in us-central1 (and the synthetic
+  // `global` endpoint). When the operator's environment defaults to
+  // a region where Veo 3.1 isn't available (e.g. us-east5 set for
+  // Gemini chat traffic), the regional endpoint returns a 404
+  // "Publisher Model … was not found". Allow `GOOGLE_VEO_LOCATION` as
+  // a Veo-specific override and fall through to us-central1 instead
+  // of inheriting the default Vertex region.
   const location =
-    process.env.GOOGLE_VERTEX_LOCATION ||
-    process.env.GOOGLE_CLOUD_LOCATION ||
+    process.env.GOOGLE_VEO_LOCATION ||
+    process.env.GOOGLE_VERTEX_VIDEO_LOCATION ||
     DEFAULT_LOCATION;
 
   // Try environment variables first

@@ -66,15 +66,19 @@ const getOpenRouterConfig = (): OpenRouterConfig => {
  *
  * OpenRouter uses a 'provider/model' format for model names.
  * For example:
- *   - 'anthropic/claude-3-5-sonnet'
+ *   - 'anthropic/claude-sonnet-4.5'
  *   - 'openai/gpt-4o'
- *   - 'google/gemini-2.0-flash'
+ *   - 'google/gemini-2.5-flash'
  *   - 'meta-llama/llama-3-70b-instruct'
  *
  * You can override the default by setting the OPENROUTER_MODEL environment variable.
+ *
+ * Default updated from `anthropic/claude-3-5-sonnet` to `anthropic/claude-sonnet-4.5`
+ * because OpenRouter sunset the Claude 3.5 Sonnet endpoint upstream — every
+ * call against the old default returned `No endpoints found` 404s.
  */
 const getDefaultOpenRouterModel = (): string => {
-  return getProviderModel("OPENROUTER_MODEL", "anthropic/claude-3-5-sonnet");
+  return getProviderModel("OPENROUTER_MODEL", "anthropic/claude-sonnet-4.5");
 };
 
 /**

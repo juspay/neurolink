@@ -238,6 +238,12 @@ export type GenerateOptions = {
   region?: string;
   temperature?: number;
   maxTokens?: number;
+  /** Top-p (nucleus) sampling parameter. Controls diversity of generated tokens. */
+  topP?: number;
+  /** Top-k sampling parameter. Limits the number of tokens considered. (Google/Gemini models only) */
+  topK?: number;
+  /** Stop sequences that will halt generation when encountered. */
+  stopSequences?: string[];
   systemPrompt?: string;
   /**
    * Zod schema for structured output validation
@@ -831,6 +837,12 @@ export type TextGenerationOptions = {
   region?: string;
   temperature?: number;
   maxTokens?: number;
+  /** Top-p (nucleus) sampling parameter. Controls diversity of generated tokens. */
+  topP?: number;
+  /** Top-k sampling parameter. Limits the number of tokens considered. (Google/Gemini models only) */
+  topK?: number;
+  /** Stop sequences that will halt generation when encountered. */
+  stopSequences?: string[];
   systemPrompt?: string;
   schema?: ZodUnknownSchema | Schema<unknown>;
   /**
@@ -1018,6 +1030,15 @@ export type TextGenerationOptions = {
 
   // NEW: Middleware related configs
   middleware?: MiddlewareFactoryOptions;
+
+  // Lifecycle callbacks. Forwarded from `GenerateOptions.onFinish` /
+  // `GenerateOptions.onError` so non-AI-SDK provider paths (Vertex's
+  // native @google/genai, native Bedrock, Ollama) can still invoke them
+  // — Pipeline A providers ALSO honour these via the AI SDK middleware
+  // wrapper installed by `applyGenerateLifecycleMiddleware`, and the two
+  // wires never both fire because non-AI-SDK paths bypass that wrapper.
+  onFinish?: OnFinishCallback;
+  onError?: OnErrorCallback;
 
   // NEW: Evaluation Context Parameters
   expectedOutcome?: string; // Expected outcome for evaluation

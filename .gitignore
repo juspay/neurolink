@@ -141,3 +141,5 @@ test-output/
 docs-site/static/search-index.json
 .claude/worktrees/
 .type-consolidation/
+.tmp-tests/
+.proof-of-work/

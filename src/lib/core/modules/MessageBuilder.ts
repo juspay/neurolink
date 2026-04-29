@@ -137,6 +137,18 @@ export class MessageBuilder {
             this.providerName,
             this.modelName,
           );
+          // Propagate any systemPrompt augmentation (e.g. inline-file
+          // handling guidance from processUnifiedFilesArray) back to the
+          // caller's options. Providers like GoogleVertex's native
+          // @google/genai stream path read `options.systemPrompt` directly
+          // — without this propagation the augmentation lives only on the
+          // local `multimodalOptions` clone and never reaches the model.
+          if (
+            multimodalOptions.systemPrompt &&
+            multimodalOptions.systemPrompt !== options.systemPrompt
+          ) {
+            options.systemPrompt = multimodalOptions.systemPrompt;
+          }
         } else {
           if (process.env.NEUROLINK_DEBUG === "true") {
             logger.debug(
@@ -270,6 +282,18 @@ export class MessageBuilder {
             this.providerName,
             this.modelName,
           );
+          // Propagate any systemPrompt augmentation (e.g. inline-file
+          // handling guidance from processUnifiedFilesArray) back to the
+          // caller's options. Providers like GoogleVertex's native
+          // @google/genai stream path read `options.systemPrompt` directly
+          // — without this propagation the augmentation lives only on the
+          // local `multimodalOptions` clone and never reaches the model.
+          if (
+            multimodalOptions.systemPrompt &&
+            multimodalOptions.systemPrompt !== options.systemPrompt
+          ) {
+            options.systemPrompt = multimodalOptions.systemPrompt;
+          }
         } else {
           if (process.env.NEUROLINK_DEBUG === "true") {
             logger.debug(

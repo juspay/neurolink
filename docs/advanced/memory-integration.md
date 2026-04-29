@@ -36,6 +36,17 @@ The memory system operates in three phases:
 2. **Context Enhancement**: Retrieved memory is prepended to the user's prompt
 3. **Memory Storage**: The new conversation turn is condensed and stored asynchronously
 
+## Installation
+
+`@juspay/hippocampus` is shipped as an **optional peer dependency** of NeuroLink. Memory features are off by default; install the package explicitly when you want them:
+
+```bash
+pnpm add @juspay/hippocampus
+# or: npm install @juspay/hippocampus
+```
+
+If a memory configuration is supplied without the package installed, NeuroLink logs a warning and proceeds with memory disabled — no exception is thrown and the rest of the SDK continues to work. This packaging change exists to keep NeuroLink's production dependency graph free of the deprecated `@ai-sdk/google` and `@ai-sdk/google-vertex` packages, which Hippocampus's own `@juspay/neurolink` peer was previously dragging in.
+
 ## Quick Start
 
 ```typescript

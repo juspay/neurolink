@@ -175,6 +175,15 @@ memory: {
 
 > **Note**: SQLite requires the `better-sqlite3` optional peer dependency. Install it manually: `pnpm add better-sqlite3`
 
+> **Heads up — `@juspay/hippocampus` is now an optional peer.** Starting with this release, NeuroLink no longer pulls `@juspay/hippocampus` as a hard runtime dependency (the package's own peer on `@juspay/neurolink` was dragging the deprecated `@ai-sdk/google` and `@ai-sdk/google-vertex` packages into the production graph). To enable memory in your app, install the SDK explicitly:
+>
+> ```bash
+> pnpm add @juspay/hippocampus
+> # or: npm install @juspay/hippocampus
+> ```
+>
+> If memory is configured but the package is missing, NeuroLink logs a one-time warning and disables memory rather than throwing — generation/streaming continue to work normally.
+
 #### Custom (Consumer-Managed)
 
 Delegates storage to your application via callbacks. Use this when you want to manage persistence yourself — call your own API, write to your own database, or integrate with any external system.

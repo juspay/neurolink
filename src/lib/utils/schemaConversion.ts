@@ -1,8 +1,40 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { jsonSchemaToZod } from "json-schema-to-zod";
+import * as zodModule from "zod";
 import { z } from "zod";
-import type { ZodUnknownSchema, ZodToJsonSchemaInput } from "../types/index.js";
+import type {
+  ZodUnknownSchema,
+  ZodToJsonSchemaInput,
+  Zod4NativeTarget,
+  Zod4NativeParams,
+} from "../types/index.js";
 import { logger } from "./logger.js";
+
+// Zod 4 ships a built-in `z.toJSONSchema(...)`. Zod 3 does not — it returned
+// nothing of the sort and we relied entirely on `zod-to-json-schema`. The
+// `zod-to-json-schema` package only understands Zod 3's internal `_def`
+// shape, so feeding it a Zod 4 schema yields an empty `{}` (it silently
+// produces `definitions: { ToolParameters: {} }`). When this happens
+// downstream callers send an empty `responseSchema` to the model and get
+// back arbitrary JSON, which is exactly how the Vertex Structured-Output
+// regressions surfaced. Detect the Zod 4 helper at module load and prefer
+// it for actual Zod schemas.
+// Zod 4 spells the OpenAPI target as "openapi-3.0" (with a dot) while the
+// third-party zod-to-json-schema package uses "openApi3". Internally we use
+// the latter for backwards compatibility with existing call sites; this map
+// translates to the dialect Zod 4 actually accepts. The Zod4Native* types
+// live in src/lib/types/aliases.ts per project rule 2.
+const zodToJsonSchemaV4 =
+  typeof (zodModule as { toJSONSchema?: unknown }).toJSONSchema === "function"
+    ? ((
+        zodModule as {
+          toJSONSchema: (schema: unknown, params?: Zod4NativeParams) => unknown;
+        }
+      ).toJSONSchema as (
+        schema: unknown,
+        params?: Zod4NativeParams,
+      ) => Record<string, unknown>)
+    : undefined;
 
 /**
  * Resolve a deep JSON pointer path within a schema.
@@ -125,7 +157,12 @@ export function inlineJsonSchema(
       return inlined;
     }
 
-    logger.debug(`[SCHEMA-INLINE] Could not resolve $ref: ${refPath}`);
+    // Unresolved $ref: warn and preserve the original node verbatim. Falling
+    // through to the copy loop below would strip the $ref key and silently
+    // turn a ref-only node into an empty {}, which broadens validation
+    // instead of failing closed.
+    logger.warn(`[SCHEMA-INLINE] Could not resolve $ref: ${refPath}`);
+    return { ...schema };
   }
 
   // Create result without $ref and definitions
@@ -392,7 +429,14 @@ export function ensureNestedSchemaTypes(
  * 2. AI SDK `jsonSchema()` wrappers (have `.jsonSchema` property) -- extracted directly
  * 3. Plain JSON Schema objects (have `type`/`properties` but no `_def`) -- returned as-is
  */
-export function convertZodToJsonSchema(zodSchema: ZodUnknownSchema): object {
+export function convertZodToJsonSchema(
+  zodSchema: ZodUnknownSchema,
+  // Default to JSON Schema draft-07 so non-Vertex consumers (Bedrock, MCP
+  // tool registration, etc.) keep their pre-migration dialect. Vertex/Gemini
+  // callers opt into "openApi3" explicitly to get `nullable: true` instead
+  // of `anyOf: [..., {type: "null"}]`.
+  target: "jsonSchema7" | "openApi3" = "jsonSchema7",
+): object {
   const schema = zodSchema as unknown as Record<string, unknown>;
 
   if (!schema || typeof schema !== "object") {
@@ -416,14 +460,45 @@ export function convertZodToJsonSchema(zodSchema: ZodUnknownSchema): object {
     );
   }
 
-  // Actual Zod schema — convert via zod-to-json-schema
+  // Actual Zod schema — prefer Zod 4's native `z.toJSONSchema` when
+  // available (the runtime version of `zod` here is Zod 4), then fall
+  // back to `zod-to-json-schema` for Zod 3 schemas that external callers
+  // might still pass in.
+  //
+  // Translate our `target` to Zod 4's native dialect identifier so the
+  // openApi3 path emits the OpenAPI 3 schema shape Vertex/Gemini expect
+  // (and not the default draft-07 anyOf/null union).
+  if (zodToJsonSchemaV4) {
+    const nativeTarget: Zod4NativeTarget =
+      target === "openApi3" ? "openapi-3.0" : "draft-07";
+    try {
+      const native = zodToJsonSchemaV4(zodSchema as unknown, {
+        target: nativeTarget,
+      });
+      // Drop the $schema metadata Vertex/Gemini doesn't need, then walk to
+      // backfill any missing nested types (Zod 4's output is already flat
+      // — no $defs/$ref by default — but the helper is cheap and matches
+      // the Zod 3 path's contract).
+      const flat = { ...native };
+      delete (flat as Record<string, unknown>).$schema;
+      const inlined = inlineJsonSchema(flat);
+      return ensureNestedSchemaTypes(ensureTypeField(inlined));
+    } catch (error) {
+      logger.warn(
+        "Native z.toJSONSchema failed; falling back to zod-to-json-schema",
+        { error: error instanceof Error ? error.message : String(error) },
+      );
+    }
+  }
+
+  // Zod 3 fallback path
   try {
     // Zod 4→3 boundary: zodToJsonSchema types reference Zod 3's ZodSchema via zod/v3.
     // Runtime compatible — cast through unknown at this third-party boundary only.
     const zodV3Schema = zodSchema as unknown as ZodToJsonSchemaInput;
     const jsonSchema = zodToJsonSchema(zodV3Schema, {
       name: "ToolParameters",
-      target: "openApi3", // Use OpenAPI 3.0 for nullable: true instead of anyOf with null (required for Vertex AI)
+      target,
       errorMessages: true,
     }) as Record<string, unknown>;
 

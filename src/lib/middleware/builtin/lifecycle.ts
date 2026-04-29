@@ -20,6 +20,7 @@ import type {
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { isRecoverableError } from "../../utils/errorHandling.js";
+import { fireOnErrorOnce } from "../../utils/lifecycleCallbacks.js";
 
 export function createLifecycleMiddleware(
   config: LifecycleMiddlewareConfig = {},
@@ -74,22 +75,12 @@ export function createLifecycleMiddleware(
 
         return result;
       } catch (error) {
-        if (config.onError) {
-          const err = error instanceof Error ? error : new Error(String(error));
-          try {
-            const callbackResult = config.onError({
-              error: err,
-              duration: Date.now() - startTime,
-              recoverable: isRecoverableError(err),
-            });
-            Promise.resolve(callbackResult).catch((e) => {
-              logger.warn("[LifecycleMiddleware] onError callback error:", e);
-            });
-          } catch (e) {
-            logger.warn("[LifecycleMiddleware] onError callback error:", e);
-          }
-        }
-
+        const err = error instanceof Error ? error : new Error(String(error));
+        fireOnErrorOnce(config.onError, error, {
+          error: err,
+          duration: Date.now() - startTime,
+          recoverable: isRecoverableError(err),
+        });
         throw error;
       }
     },
@@ -142,28 +133,13 @@ export function createLifecycleMiddleware(
 
               controller.enqueue(chunk);
             } catch (error) {
-              if (config.onError) {
-                const err =
-                  error instanceof Error ? error : new Error(String(error));
-                try {
-                  const callbackResult = config.onError({
-                    error: err,
-                    duration: Date.now() - startTime,
-                    recoverable: isRecoverableError(err),
-                  });
-                  Promise.resolve(callbackResult).catch((e) => {
-                    logger.warn(
-                      "[LifecycleMiddleware] onError callback error:",
-                      e,
-                    );
-                  });
-                } catch (e) {
-                  logger.warn(
-                    "[LifecycleMiddleware] onError callback error:",
-                    e,
-                  );
-                }
-              }
+              const err =
+                error instanceof Error ? error : new Error(String(error));
+              fireOnErrorOnce(config.onError, error, {
+                error: err,
+                duration: Date.now() - startTime,
+                recoverable: isRecoverableError(err),
+              });
               throw error;
             }
           },
@@ -195,22 +171,12 @@ export function createLifecycleMiddleware(
           stream: result.stream.pipeThrough(transformStream),
         };
       } catch (error) {
-        if (config.onError) {
-          const err = error instanceof Error ? error : new Error(String(error));
-          try {
-            const callbackResult = config.onError({
-              error: err,
-              duration: Date.now() - startTime,
-              recoverable: isRecoverableError(err),
-            });
-            Promise.resolve(callbackResult).catch((e) => {
-              logger.warn("[LifecycleMiddleware] onError callback error:", e);
-            });
-          } catch (e) {
-            logger.warn("[LifecycleMiddleware] onError callback error:", e);
-          }
-        }
-
+        const err = error instanceof Error ? error : new Error(String(error));
+        fireOnErrorOnce(config.onError, error, {
+          error: err,
+          duration: Date.now() - startTime,
+          recoverable: isRecoverableError(err),
+        });
         throw error;
       }
     },

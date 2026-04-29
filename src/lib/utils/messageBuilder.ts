@@ -698,9 +698,13 @@ export async function buildMessagesArray(
             }
           }
 
-          csvSection += buildCSVToolInstructions(filePath);
-
+          // Put the actual CSV content BEFORE the tool instructions —
+          // buildCSVToolInstructions references "the CSV data shown above"
+          // and the trailing position keeps that reference accurate.
+          // Vertex Gemini misreads CSV-only prompts as "no files attached"
+          // when the NOTE-then-data order makes the reference dangle.
           csvSection += result.content;
+          csvSection += buildCSVToolInstructions(filePath);
           csvContent += csvSection;
           logger.info(`[CSV] ✅ Processed: ${filename}`, result.metadata);
         } catch (error) {
@@ -861,8 +865,11 @@ function appendDetectedFileResult(
         csvSection += metadataText + `\n\n`;
       }
     }
-    csvSection += buildCSVToolInstructions(filePath);
+    // Put the actual CSV content BEFORE the tool instructions —
+    // buildCSVToolInstructions references "the CSV data shown above" and
+    // the trailing position keeps that reference accurate.
     csvSection += result.content;
+    csvSection += buildCSVToolInstructions(filePath);
     options.input.text += csvSection;
     logger.info(`[FileDetector] ✅ CSV: ${filename}`);
   } else if (result.type === "svg") {
@@ -967,8 +974,13 @@ function appendDetectedFileResult(
 /**
  * Process the unified files array with auto-detection.
  * Handles lazy file registration, full processing, and preview injection.
+ *
+ * Exported so providers that bypass BaseProvider.generate() (e.g.
+ * GoogleVertex's native @google/genai path) can still preprocess
+ * `input.files` — without this, mimetype-hint and text-file inputs
+ * would silently never reach the model on those paths.
  */
-async function processUnifiedFilesArray(
+export async function processUnifiedFilesArray(
   options: GenerateOptions,
   maxSize: number,
   provider: string,
@@ -1097,6 +1109,25 @@ async function processUnifiedFilesArray(
       logger.info(
         `[NEUROLINK] File processing complete: ${includedCount}/${totalFiles} files included in message`,
       );
+
+      // Augment options.systemPrompt with file-handling guidance so providers
+      // that bypass the message-builder's system message and read
+      // `options.systemPrompt` directly (e.g. GoogleVertex's native @google/genai
+      // path uses `config.systemInstruction = options.systemPrompt`) still see
+      // the "treat inlined CSV/PDF as the actual file" guidance. Without this,
+      // Vertex Gemini 2.5 reliably responds with "no files attached" even
+      // though the CSV content is fully embedded in the user prompt.
+      if (includedCount > 0) {
+        const filePromptAugmentation = `\n\nIMPORTANT FILE HANDLING INSTRUCTIONS:
+- The full content of the user's local file(s) is INLINED in this message under "## CSV Data from ..." / "## PDF Data from ..." / "## File: ..." headings — it is the actual file the user is asking about.
+- TREAT THE INLINED CONTENT AS IF IT WERE AN ATTACHMENT. Do NOT respond with "no files attached" or ask the user to re-upload — the data is already here.
+- DO NOT use GitHub tools (get_file_contents, search_code, etc.) for local files - they only work for remote repository files.
+- Analyze the inlined file content directly without attempting to fetch or read files using tools.`;
+        const existingSystem = (options.systemPrompt || "").trim();
+        options.systemPrompt = existingSystem
+          ? `${existingSystem}${filePromptAugmentation}`
+          : filePromptAugmentation.trim();
+      }
     },
   );
 }
@@ -1137,8 +1168,11 @@ async function processExplicitCsvFiles(
         }
       }
 
-      csvSection += buildCSVToolInstructions(filePath);
+      // Put the actual CSV content BEFORE the tool instructions —
+      // buildCSVToolInstructions references "the CSV data shown above"
+      // and the trailing position keeps that reference accurate.
       csvSection += result.content;
+      csvSection += buildCSVToolInstructions(filePath);
       options.input.text += csvSection;
       logger.info(`[CSV] ✅ Processed: ${filename}`);
     } catch (error) {
@@ -1295,7 +1329,8 @@ function buildMultimodalSystemPrompt(
     }
 
     systemPrompt += `\n\nIMPORTANT FILE HANDLING INSTRUCTIONS:
-- File content (${fileTypes.join(", ")}, images) is already processed and included in this message
+- The full content of the user's local ${fileTypes.join(", ")} (and any images) is INLINED in this message under the "## CSV Data from ..." / "## PDF Data from ..." headings — it is the actual file the user is asking about.
+- TREAT THE INLINED CONTENT AS IF IT WERE AN ATTACHMENT. Do NOT respond with "no files attached" or ask the user to re-upload — the data is already here.
 - DO NOT use GitHub tools (get_file_contents, search_code, etc.) for local files - they only work for remote repository files
 - Analyze the provided file content directly without attempting to fetch or read files using tools
 - GitHub MCP tools are ONLY for remote repository operations, not local filesystem access

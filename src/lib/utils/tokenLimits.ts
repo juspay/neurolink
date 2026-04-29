@@ -3,38 +3,18 @@
  * Provides safe maxTokens values based on provider and model capabilities
  */
 
-import {
-  PROVIDER_MAX_TOKENS,
-  IMAGE_GENERATION_MODELS,
-} from "../core/constants.js";
+import { PROVIDER_MAX_TOKENS } from "../core/constants.js";
 import { logger } from "./logger.js";
+import {
+  hasRestrictedOutputLimit,
+  RESTRICTED_OUTPUT_TOKEN_LIMIT,
+} from "./modelDetection.js";
 
-// Gemini 3 models and Gemini 2.5 image models have a hard limit of 32768 output tokens
-const GEMINI_RESTRICTED_MAX_OUTPUT_TOKENS = 32768;
-
-/**
- * Check if a model has the restricted 32768 output token limit
- * This applies to:
- * - All Gemini 3 models (gemini-3-flash, gemini-3-pro, etc.)
- * - All Gemini 2.5 image generation models (gemini-2.5-flash-image)
- */
-function hasRestrictedOutputLimit(model?: string): boolean {
-  if (!model) {
-    return false;
-  }
-
-  // Check for Gemini 3 models
-  if (model.includes("gemini-3")) {
-    return true;
-  }
-
-  // Check for image generation models (includes gemini-2.5-flash-image)
-  if (IMAGE_GENERATION_MODELS.some((m) => model.includes(m))) {
-    return true;
-  }
-
-  return false;
-}
+// Restricted-model detection (Gemini 3.x + image-gen models capped at 32768
+// output tokens) lives in modelDetection.ts. Importing the canonical helper
+// keeps both call sites on one definition; the previous local copy used
+// case-sensitive substring matches and could miss identifiers like
+// "Gemini-3-Pro" which the canonical anchored, case-insensitive regex matches.
 
 /**
  * Get the safe maximum tokens for a provider and model
@@ -47,23 +27,23 @@ export function getSafeMaxTokens(
   // CRITICAL: Gemini 3 models AND image generation models have a hard limit of 32768 output tokens
   // This check must happen FIRST, before any other logic, because these models
   // will reject requests with maxOutputTokens > 32768
-  const isRestrictedModel = hasRestrictedOutputLimit(model);
+  const isRestrictedModel = model ? hasRestrictedOutputLimit(model) : false;
   if (isRestrictedModel) {
     // Explicit undefined/null check so a caller-supplied 0 is preserved
-    // (truthy checks would treat 0 as "unset" and silently fall back to the cap).
+    // (truthy guards would treat 0 as "unset" and silently fall back to the cap).
     if (
       requestedMaxTokens !== undefined &&
       requestedMaxTokens !== null &&
-      requestedMaxTokens > GEMINI_RESTRICTED_MAX_OUTPUT_TOKENS
+      requestedMaxTokens > RESTRICTED_OUTPUT_TOKEN_LIMIT
     ) {
       logger.warn(
-        `Requested maxTokens ${requestedMaxTokens} exceeds ${model} limit of ${GEMINI_RESTRICTED_MAX_OUTPUT_TOKENS}. Using ${GEMINI_RESTRICTED_MAX_OUTPUT_TOKENS} instead.`,
+        `Requested maxTokens ${requestedMaxTokens} exceeds ${model} limit of ${RESTRICTED_OUTPUT_TOKEN_LIMIT}. Using ${RESTRICTED_OUTPUT_TOKEN_LIMIT} instead.`,
       );
-      return GEMINI_RESTRICTED_MAX_OUTPUT_TOKENS;
+      return RESTRICTED_OUTPUT_TOKEN_LIMIT;
     }
     // If no maxTokens specified, use the restricted limit as default
     if (requestedMaxTokens === undefined || requestedMaxTokens === null) {
-      return GEMINI_RESTRICTED_MAX_OUTPUT_TOKENS;
+      return RESTRICTED_OUTPUT_TOKEN_LIMIT;
     }
     // Otherwise, use the requested value (it's within limits, including 0)
     return requestedMaxTokens;
@@ -75,7 +55,12 @@ export function getSafeMaxTokens(
 
   if (!providerLimits) {
     logger.warn(`Unknown provider ${provider}, no token limits enforced`);
-    return requestedMaxTokens || undefined; // No default limit for unknown providers
+    // Explicit undefined/null check so a caller-supplied 0 is preserved
+    // (truthy guard would silently drop 0 here as it does in the restricted branch).
+    if (requestedMaxTokens === undefined || requestedMaxTokens === null) {
+      return undefined;
+    }
+    return requestedMaxTokens;
   }
 
   // Get model-specific limit or provider default
@@ -97,8 +82,10 @@ export function getSafeMaxTokens(
     maxLimit = PROVIDER_MAX_TOKENS.default;
   }
 
-  // If no specific maxTokens requested, return the provider limit
-  if (!requestedMaxTokens) {
+  // If no specific maxTokens requested, return the provider limit.
+  // Use explicit undefined/null so a caller-supplied 0 is preserved
+  // (matches the restricted-model branch above).
+  if (requestedMaxTokens === undefined || requestedMaxTokens === null) {
     return maxLimit;
   }
 

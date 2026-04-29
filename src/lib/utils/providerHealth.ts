@@ -494,7 +494,7 @@ export class ProviderHealthChecker {
             `    • claude-sonnet-4@20250514, claude-opus-4@20250514\n` +
             `    • claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022\n` +
             `    • claude-3-sonnet-20240229, claude-3-haiku-20240307, claude-3-opus-20240229\n` +
-            `  Implementation: Uses @ai-sdk/google-vertex with dual provider setup\n` +
+            `  Implementation: Uses native SDKs (@google/genai for Gemini, @anthropic-ai/vertex-sdk for Claude)\n` +
             `  Authentication: Requires Google Cloud project with Vertex AI API enabled\n` +
             `  Note: Anthropic models require Anthropic integration in your Google Cloud project`,
         );
@@ -1342,20 +1342,18 @@ export class ProviderHealthChecker {
 
     try {
       // 1. Check SDK module availability
-      logger.debug(
-        "Checking @ai-sdk/google-vertex/anthropic module availability",
-      );
-      const anthropicModule = await import("@ai-sdk/google-vertex/anthropic");
+      logger.debug("Checking @anthropic-ai/vertex-sdk module availability");
+      const anthropicModule = await import("@anthropic-ai/vertex-sdk");
 
       result.hasCreateVertexAnthropic =
-        typeof anthropicModule.createVertexAnthropic === "function";
-      result.hasCorrectTypes = true; // Types are bundled with the function
+        typeof anthropicModule.AnthropicVertex === "function";
+      result.hasCorrectTypes = true; // Types are bundled with the class
 
       if (!result.hasCreateVertexAnthropic) {
         result.troubleshooting.push(
-          "📦 Update @ai-sdk/google-vertex to latest version with Anthropic support",
-          "🔄 Run: npm install @ai-sdk/google-vertex@latest",
-          "📖 See: https://sdk.vercel.ai/providers/ai-sdk-providers/google-vertex#anthropic-models",
+          "📦 Install @anthropic-ai/vertex-sdk for Claude on Vertex AI support",
+          "🔄 Run: npm install @anthropic-ai/vertex-sdk",
+          "📖 See: https://docs.anthropic.com/en/api/claude-on-vertex-ai",
         );
         return result;
       }
@@ -1530,7 +1528,7 @@ export class ProviderHealthChecker {
         `🐛 Error: ${error instanceof Error ? error.message : String(error)}`,
         "",
         "🔧 Troubleshooting steps:",
-        "1. Update @ai-sdk/google-vertex to latest version",
+        "1. Verify @google-cloud/vertexai and @anthropic-ai/vertex-sdk are properly installed",
         "2. Verify Google Cloud authentication setup",
         "3. Check project ID and region configuration",
         "4. Enable Vertex AI API in Google Cloud Console",

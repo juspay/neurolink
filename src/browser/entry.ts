@@ -157,8 +157,6 @@ export * from "../lib/index.js";
 // === Re-export AI SDK provider creators (for direct browser use) ===
 export { createAnthropic, anthropic } from "@ai-sdk/anthropic";
 export { createOpenAI, openai } from "@ai-sdk/openai";
-export { createGoogleGenerativeAI, google } from "@ai-sdk/google";
-export { createGoogleGenerativeAI as createGoogle } from "@ai-sdk/google";
 export { createMistral, mistral } from "@ai-sdk/mistral";
 
 // === Core AI SDK functions ===

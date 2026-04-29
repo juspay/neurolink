@@ -1747,7 +1747,7 @@ export abstract class BaseProvider implements AIProvider {
    * // result.video contains the generated video
    * ```
    */
-  private async handleVideoGeneration(
+  protected async handleVideoGeneration(
     options: TextGenerationOptions,
     startTime: number,
   ): Promise<EnhancedGenerateResult> {

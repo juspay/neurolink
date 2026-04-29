@@ -66,6 +66,32 @@ const TEST_CONFIG = {
   interTestDelay: 5000,
 };
 
+/**
+ * Pipeline A providers (Vercel AI SDK + AI SDK telemetry) emit
+ * `neurolink.executeGeneration` via GenerationHandler. Native providers
+ * (Pipeline B — Vertex Gemini, Bedrock, Ollama, AI Studio's native path)
+ * call provider SDKs directly so that span never appears.
+ *
+ * The span-chain check below treats `neurolink.executeGeneration` as
+ * required only for Pipeline A; Pipeline B providers must still emit
+ * `neurolink.generate` and `neurolink.provider.generate` (which the
+ * native paths now do via withClientSpan).
+ */
+const PIPELINE_B_PROVIDERS = new Set([
+  "vertex",
+  "google-vertex",
+  "google-ai",
+  "google-ai-studio",
+  "bedrock",
+  "amazon-bedrock",
+  "ollama",
+  "google-vertex-ai",
+]);
+
+function isPipelineB(provider: string): boolean {
+  return PIPELINE_B_PROVIDERS.has(provider.toLowerCase());
+}
+
 // ============================================================
 // LOGGING UTILITIES
 // ============================================================
@@ -206,7 +232,10 @@ async function test_generate_span_chain(): Promise<boolean | null> {
       return false;
     }
 
-    if (!executeGenSpan) {
+    // Pipeline B providers (Vertex native, Bedrock, Ollama) never call
+    // GenerationHandler so the executeGeneration span will not exist —
+    // their visible-from-OTel surface stops at neurolink.provider.generate.
+    if (!executeGenSpan && !isPipelineB(TEST_CONFIG.provider)) {
       logTest(
         "Generate Span Chain",
         "FAIL",
@@ -282,10 +311,15 @@ async function test_generate_span_chain(): Promise<boolean | null> {
       return false;
     }
 
+    // Pipeline B intentionally has 2 required spans (no
+    // neurolink.executeGeneration); other pipelines have 3. Reflect that
+    // in the PASS message so a passing run doesn't claim "Found all 3
+    // spans" when only 2 were ever expected.
+    const requiredSpanCount = isPipelineB(TEST_CONFIG.provider) ? 2 : 3;
     logTest(
       "Generate Span Chain",
       "PASS",
-      `Found all 3 spans. provider="${providerAttr}", model="${modelAttr ?? "default"}", inputTokens=${inputTokens}, outputTokens=${outputTokens}`,
+      `Found required ${requiredSpanCount} spans. provider="${providerAttr}", model="${modelAttr ?? "default"}", inputTokens=${inputTokens}, outputTokens=${outputTokens}`,
     );
     return true;
   } catch (error) {
@@ -430,7 +464,20 @@ async function test_message_build_span(): Promise<boolean | null> {
     const msgBuildSpan = findSpan("neurolink.message.build");
 
     if (!msgBuildSpan) {
-      // This span IS instrumented — FAIL if not found.
+      // The message-build span is created by MessageBuilder which only
+      // runs in the Pipeline A (Vercel AI SDK) flow. Native providers
+      // (Pipeline B — Vertex Gemini, Bedrock, AI Studio's native path)
+      // build the request directly via the provider SDK so this span
+      // never gets created. Treat that as a clean skip rather than a
+      // failure for Pipeline B providers.
+      if (isPipelineB(TEST_CONFIG.provider)) {
+        logTest(
+          "Message Build Span",
+          "SKIP",
+          `Provider ${TEST_CONFIG.provider} uses native (Pipeline B) path; MessageBuilder span not produced`,
+        );
+        return null;
+      }
       logTest(
         "Message Build Span",
         "FAIL",

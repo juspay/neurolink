@@ -363,7 +363,10 @@ export class ProviderRegistry {
             openrouterCreds,
           );
         },
-        process.env.OPENROUTER_MODEL || "anthropic/claude-3-5-sonnet",
+        // Default updated from claude-3-5-sonnet (sunset by OpenRouter)
+        // to claude-sonnet-4.5. Must match getDefaultOpenRouterModel()
+        // in src/lib/providers/openRouter.ts.
+        process.env.OPENROUTER_MODEL || "anthropic/claude-sonnet-4.5",
         ["openrouter", "or"],
       );
 
