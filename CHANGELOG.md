@@ -1,3 +1,9 @@
+## [9.59.6](https://github.com/juspay/neurolink/compare/v9.59.5...v9.59.6) (2026-04-30)
+
+### Bug Fixes
+
+- **(tools):** start execution timeout after HITL approval ([1e6d3e0](https://github.com/juspay/neurolink/commit/1e6d3e044a216b67674116830a3917cf1df7171a))
+
 ## [9.59.5](https://github.com/juspay/neurolink/compare/v9.59.4...v9.59.5) (2026-04-29)
 
 ### Bug Fixes
