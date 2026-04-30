@@ -395,13 +395,43 @@ exit 127
 }
 
 /**
+ * Check whether a pnpm binary can install into the global store.
+ *
+ * Multiple pnpm major versions can coexist (e.g., standalone v8 + nvm v10).
+ * They use different store layouts (`store/v10` vs `store/v10/v3`), so a
+ * pnpm that passes `--version` may still fail `pnpm add -g` with
+ * ERR_PNPM_UNEXPECTED_STORE. We detect this by running `pnpm root -g` and
+ * checking whether the resolved global root directory actually exists on disk.
+ */
+function canInstallGlobally(pnpmPath: string): boolean {
+  try {
+    const { execFileSync } = _require(
+      "node:child_process",
+    ) as typeof import("node:child_process");
+    const { existsSync } = _require("fs") as typeof import("fs");
+    const globalRoot = execFileSync(pnpmPath, ["root", "-g"], {
+      encoding: "utf8",
+      timeout: 10_000,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    // If the global root exists, this pnpm version is compatible with
+    // the current store layout and can install packages there.
+    return !!globalRoot && existsSync(globalRoot);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Resolve the `pnpm` binary defensively.
  *
- * Tries multiple candidates in order of preference and validates each by
- * running `--version`. Returns the first one that actually works, along
- * with a list of all candidates tried (for diagnostics). This defends
- * against environments where `which pnpm` returns a broken shim or an
- * incompatible version.
+ * Tries multiple candidates in order of preference. Each candidate must:
+ * 1. Respond to `pnpm --version` (binary works)
+ * 2. Have a compatible global store (`pnpm root -g` points to an existing dir)
+ *
+ * This defends against environments with multiple pnpm major versions
+ * (e.g., standalone v8 + nvm v10) where the wrong one would fail with
+ * ERR_PNPM_UNEXPECTED_STORE on `pnpm add -g`.
  *
  * Honors `NEUROLINK_PNPM_PATH` as an escape hatch.
  */
@@ -409,7 +439,12 @@ function resolveFullPnpmPath(): {
   bin: string;
   resolved: boolean;
   version?: string;
-  tried: Array<{ path: string; version?: string; working: boolean }>;
+  tried: Array<{
+    path: string;
+    version?: string;
+    working: boolean;
+    globalStoreOk?: boolean;
+  }>;
 } {
   const candidates: string[] = [];
 
@@ -454,18 +489,34 @@ function resolveFullPnpmPath(): {
     return true;
   });
 
-  // Probe each candidate
+  // Probe each candidate: must pass --version AND have a compatible global store
   const tried = unique.map((path) => {
     const version = probeBinVersion(path);
-    return { path, version, working: version !== undefined };
+    const working = version !== undefined;
+    const globalStoreOk = working ? canInstallGlobally(path) : false;
+    return { path, version, working, globalStoreOk };
   });
 
-  const working = tried.find((r) => r.working);
-  if (working) {
+  // Prefer a candidate that can actually install globally
+  const fullyWorking = tried.find((r) => r.working && r.globalStoreOk);
+  if (fullyWorking) {
     return {
-      bin: working.path,
+      bin: fullyWorking.path,
       resolved: true,
-      version: working.version,
+      version: fullyWorking.version,
+      tried,
+    };
+  }
+
+  // Fall back to any candidate that at least responds to --version
+  // (better than nothing — the install may still fail, but will be
+  // caught and suppressed by the caller)
+  const anyWorking = tried.find((r) => r.working);
+  if (anyWorking) {
+    return {
+      bin: anyWorking.path,
+      resolved: true,
+      version: anyWorking.version,
       tried,
     };
   }
