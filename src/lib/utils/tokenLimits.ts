@@ -3,8 +3,38 @@
  * Provides safe maxTokens values based on provider and model capabilities
  */
 
-import { PROVIDER_MAX_TOKENS } from "../core/constants.js";
+import {
+  PROVIDER_MAX_TOKENS,
+  IMAGE_GENERATION_MODELS,
+} from "../core/constants.js";
 import { logger } from "./logger.js";
+
+// Gemini 3 models and Gemini 2.5 image models have a hard limit of 32768 output tokens
+const GEMINI_RESTRICTED_MAX_OUTPUT_TOKENS = 32768;
+
+/**
+ * Check if a model has the restricted 32768 output token limit
+ * This applies to:
+ * - All Gemini 3 models (gemini-3-flash, gemini-3-pro, etc.)
+ * - All Gemini 2.5 image generation models (gemini-2.5-flash-image)
+ */
+function hasRestrictedOutputLimit(model?: string): boolean {
+  if (!model) {
+    return false;
+  }
+
+  // Check for Gemini 3 models
+  if (model.includes("gemini-3")) {
+    return true;
+  }
+
+  // Check for image generation models (includes gemini-2.5-flash-image)
+  if (IMAGE_GENERATION_MODELS.some((m) => model.includes(m))) {
+    return true;
+  }
+
+  return false;
+}
 
 /**
  * Get the safe maximum tokens for a provider and model
@@ -14,6 +44,31 @@ export function getSafeMaxTokens(
   model?: string,
   requestedMaxTokens?: number,
 ): number | undefined {
+  // CRITICAL: Gemini 3 models AND image generation models have a hard limit of 32768 output tokens
+  // This check must happen FIRST, before any other logic, because these models
+  // will reject requests with maxOutputTokens > 32768
+  const isRestrictedModel = hasRestrictedOutputLimit(model);
+  if (isRestrictedModel) {
+    // Explicit undefined/null check so a caller-supplied 0 is preserved
+    // (truthy checks would treat 0 as "unset" and silently fall back to the cap).
+    if (
+      requestedMaxTokens !== undefined &&
+      requestedMaxTokens !== null &&
+      requestedMaxTokens > GEMINI_RESTRICTED_MAX_OUTPUT_TOKENS
+    ) {
+      logger.warn(
+        `Requested maxTokens ${requestedMaxTokens} exceeds ${model} limit of ${GEMINI_RESTRICTED_MAX_OUTPUT_TOKENS}. Using ${GEMINI_RESTRICTED_MAX_OUTPUT_TOKENS} instead.`,
+      );
+      return GEMINI_RESTRICTED_MAX_OUTPUT_TOKENS;
+    }
+    // If no maxTokens specified, use the restricted limit as default
+    if (requestedMaxTokens === undefined || requestedMaxTokens === null) {
+      return GEMINI_RESTRICTED_MAX_OUTPUT_TOKENS;
+    }
+    // Otherwise, use the requested value (it's within limits, including 0)
+    return requestedMaxTokens;
+  }
+
   // Get provider-specific limits
   const providerLimits =
     PROVIDER_MAX_TOKENS[provider as keyof typeof PROVIDER_MAX_TOKENS];

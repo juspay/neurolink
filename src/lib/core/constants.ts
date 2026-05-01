@@ -20,10 +20,21 @@ export const PDF_IMAGE_GENERATION_MODELS = [
 
 // Global Location Models
 // Models that require global location configuration (uses aiplatform.googleapis.com instead of region-specific endpoints)
+// Includes Gemini 3.x text and image models, which are only available via the global endpoint on Vertex AI.
+// IMAGE_GENERATION_MODELS is spread in to keep the two lists from drifting:
+// any new image-gen model added there is automatically routed to global here.
 export const GLOBAL_LOCATION_MODELS = [
-  "gemini-3-pro-image-preview",
-  "gemini-2.5-flash-image",
-  "gemini-3.1-flash-image-preview",
+  // Image generation (sourced from IMAGE_GENERATION_MODELS)
+  ...IMAGE_GENERATION_MODELS,
+  // Gemini 3.1 text models (global-only)
+  "gemini-3.1-pro-preview",
+  "gemini-3.1-flash-lite-preview",
+  "gemini-3.1-pro-preview-customtools",
+  // Gemini 3 text models (global-only)
+  "gemini-3-pro-preview",
+  "gemini-3-pro-preview-11-2025",
+  "gemini-3-pro-latest",
+  "gemini-3-flash-preview",
 ];
 
 // Core AI Generation Defaults
