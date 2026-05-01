@@ -1465,14 +1465,3 @@ export type SonioxMessage = {
 export type ClientControlMessage = {
   type?: string;
 };
-
-/**
- * Structural type for Picovoice Cobra VAD instance.
- * Defined here so the optional `@picovoice/cobra-node` package
- * is not required at typecheck time.
- */
-export type CobraInstance = {
-  frameLength: number;
-  process: (pcm: Int16Array) => number;
-  release: () => void;
-};

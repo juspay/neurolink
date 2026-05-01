@@ -27,6 +27,7 @@ export const textGenerationOptionsSchema: Record<
     | "region"
     | "csvOptions"
     | "tts"
+    | "stt" // Complex object, set via --stt* flags
     | "thinkingConfig" // Complex object, use thinking/thinkingBudget instead
     | "requestId" // Observability ID, not CLI-settable
     | "fileRegistry" // Internal: set by SDK, not by CLI

@@ -2,25 +2,11 @@ import type { Argv, CommandModule } from "yargs";
 import chalk from "chalk";
 import ora from "ora";
 import inquirer from "inquirer";
-import type { EndpointSummary } from "@aws-sdk/client-sagemaker";
-
-async function loadSageMakerControl() {
-  try {
-    return await import(/* @vite-ignore */ "@aws-sdk/client-sagemaker");
-  } catch (err) {
-    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
-    if (
-      e?.code === "ERR_MODULE_NOT_FOUND" &&
-      e.message.includes("client-sagemaker")
-    ) {
-      throw new Error(
-        'SageMaker setup requires "@aws-sdk/client-sagemaker". Install it with:\n  pnpm add @aws-sdk/client-sagemaker',
-        { cause: err },
-      );
-    }
-    throw err;
-  }
-}
+import {
+  SageMakerClient,
+  ListEndpointsCommand,
+  type EndpointSummary,
+} from "@aws-sdk/client-sagemaker";
 import type {
   UnknownRecord,
   DoGenerateModel,
@@ -250,11 +236,10 @@ export class SageMakerCommandFactory {
   /**
    * Validate secure configuration without exposing credentials
    */
-  private static async validateSecureConfiguration(
+  private static validateSecureConfiguration(
     secureConfig: SecureConfiguration,
-  ): Promise<void> {
+  ): void {
     // Create temporary AWS SDK client with secure credentials
-    const { SageMakerClient } = await loadSageMakerControl();
     const tempClient = new SageMakerClient({
       region: secureConfig.region,
       credentials: {
@@ -440,8 +425,6 @@ export class SageMakerCommandFactory {
       // Use AWS SDK directly for better security and error handling
       try {
         const config = await getSageMakerConfig();
-        const { SageMakerClient, ListEndpointsCommand } =
-          await loadSageMakerControl();
         const sagemakerClient = new SageMakerClient({
           region: config.region,
           credentials: {
@@ -715,7 +698,7 @@ export class SageMakerCommandFactory {
       clearConfigurationCache();
 
       try {
-        await this.validateSecureConfiguration(secureConfig); // Validate configuration is loadable
+        this.validateSecureConfiguration(secureConfig); // Validate configuration is loadable
         spinner.succeed("✅ Configuration validated successfully");
 
         logger.always(chalk.green("\n🎉 SageMaker setup complete!"));

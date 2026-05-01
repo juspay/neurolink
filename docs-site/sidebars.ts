@@ -33,6 +33,17 @@ const sidebars: SidebarsConfig = {
             "getting-started/providers/sagemaker",
             "getting-started/providers/openrouter",
             "getting-started/providers/openai-compatible",
+            {
+              type: "category",
+              label: "Voice Providers",
+              collapsed: true,
+              items: [
+                "getting-started/providers/openai-tts",
+                "getting-started/providers/elevenlabs",
+                "getting-started/providers/deepgram",
+                "getting-started/providers/azure-speech",
+              ],
+            },
           ],
         },
       ],

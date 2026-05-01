@@ -1096,6 +1096,10 @@ const LINK_MAPPINGS: Record<string, string> = {
   "builtin-middleware": "/advanced/builtin-middleware",
   "google-vertex": "/getting-started/providers/google-vertex",
   huggingface: "/getting-started/providers/huggingface",
+  "openai-tts": "/getting-started/providers/openai-tts",
+  elevenlabs: "/getting-started/providers/elevenlabs",
+  deepgram: "/getting-started/providers/deepgram",
+  "azure-speech": "/getting-started/providers/azure-speech",
 
   // API documentation paths - these need /api/ prefix
   "enumerations/AIProviderName": "/api/enumerations/AIProviderName",

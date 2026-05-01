@@ -38,6 +38,8 @@ export enum SpanType {
   WORKFLOW = "workflow",
   /** TTS synthesis */
   TTS = "tts",
+  /** STT transcription */
+  STT = "stt",
   /** Server adapter request */
   SERVER_REQUEST = "server.request",
   /** Custom span */

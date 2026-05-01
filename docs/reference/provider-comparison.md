@@ -972,6 +972,35 @@ _Subscription Pricing (via OAuth):_
 
 ---
 
+---
+
+## Voice Providers
+
+Voice providers handle audio I/O and are distinct from LLM text-generation providers. They are categorised by function: Text-to-Speech (TTS), Speech-to-Text (STT), and Realtime (bidirectional audio over WebSocket).
+
+| Provider            | Type     | Protocol         | Streaming | Formats             | Auth             |
+| ------------------- | -------- | ---------------- | --------- | ------------------- | ---------------- |
+| **google-ai** (TTS) | TTS      | REST (gRPC SDK)  | No        | MP3, WAV, OGG       | Service Account  |
+| **openai-tts**      | TTS      | REST             | No        | MP3, WAV, OGG, Opus | API Key          |
+| **elevenlabs**      | TTS      | REST             | No        | MP3                 | API Key          |
+| **azure-tts**       | TTS      | REST             | No        | MP3                 | API Key + Region |
+| **whisper**         | STT      | REST             | No        | WAV, MP3, M4A, FLAC | API Key          |
+| **google-stt**      | STT      | REST             | No        | WAV, FLAC, MP3, OGG | Service Account  |
+| **deepgram**        | STT      | REST + WebSocket | Yes       | WAV, MP3, OGG, FLAC | API Key          |
+| **azure-stt**       | STT      | REST             | No        | WAV, MP3            | API Key + Region |
+| **openai-realtime** | Realtime | WebSocket        | Yes       | WAV, Opus           | API Key          |
+| **gemini-live**     | Realtime | WebSocket        | Yes       | WAV                 | API Key          |
+
+**Legend:**
+
+- **TTS** — Text-to-Speech: converts text to audio
+- **STT** — Speech-to-Text: transcribes audio to text
+- **Realtime** — Bidirectional voice session with the model over a persistent WebSocket
+
+See also: [Voice Provider Selection](#voice-provider-selection) | [Voice Providers Index](../getting-started/providers/index.md#voice-providers)
+
+---
+
 ## Use Case Recommendations
 
 ### For Startups (Limited Budget)
@@ -1304,6 +1333,122 @@ const result = await neurolink.generate({
 
 ---
 
+## Voice Provider Selection
+
+### Text-to-Speech (TTS)
+
+**Best quality: `openai-tts` with model tts-1-hd**
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+const audio = await neurolink.tts({
+  input: "Hello, world!",
+  voice: { provider: "openai-tts", model: "tts-1-hd", voiceId: "nova" },
+});
+```
+
+**Best multilingual: `elevenlabs`**
+
+ElevenLabs supports the widest range of languages and voice cloning, making it the default choice for multilingual or branded voice experiences.
+
+```typescript
+const audio = await neurolink.tts({
+  input: "Hola, ¿cómo estás?",
+  voice: { provider: "elevenlabs", voiceId: "your-voice-id" },
+});
+```
+
+**Most cost-effective: `google-ai` (1M chars free tier)**
+
+Google Cloud Text-to-Speech provides a generous free tier (1M characters/month for standard voices) and is ideal for high-volume applications on GCP.
+
+```typescript
+const audio = await neurolink.tts({
+  input: "Cost-effective synthesis at scale.",
+  voice: { provider: "google-ai", voiceId: "en-US-Standard-A" },
+});
+```
+
+**Enterprise: `azure-tts` (SSML support)**
+
+Azure Cognitive Services TTS has the most comprehensive SSML support, including fine-grained prosody control, making it the standard choice for enterprise IVR and accessibility pipelines.
+
+```typescript
+const audio = await neurolink.tts({
+  input: "<speak>Welcome to <emphasis>Neurolink</emphasis>.</speak>",
+  voice: {
+    provider: "azure-tts",
+    voiceId: "en-US-AriaNeural",
+    credentials: {
+      azureApiKey: process.env.AZURE_SPEECH_KEY,
+      azureRegion: "eastus",
+    },
+  },
+});
+```
+
+---
+
+### Speech-to-Text (STT)
+
+**Best accuracy: `whisper` (OpenAI)**
+
+OpenAI Whisper consistently ranks highest on transcription benchmarks across languages and noisy environments.
+
+```typescript
+const transcript = await neurolink.stt({
+  audio: { file: "./recording.mp3" },
+  speech: { provider: "whisper", model: "whisper-1" },
+});
+```
+
+**Best streaming: `deepgram` (WebSocket real-time)**
+
+Deepgram is the only STT provider with native WebSocket streaming support, enabling sub-300 ms word-level transcription for live audio.
+
+```typescript
+const transcript = await neurolink.stt({
+  audio: { stream: microphoneStream },
+  speech: { provider: "deepgram", model: "nova-3", streaming: true },
+});
+```
+
+**Best for Google Cloud users: `google-stt`**
+
+Tight integration with GCP infrastructure, support for 125+ languages, and speaker diarization make `google-stt` the natural choice when already on Google Cloud.
+
+```typescript
+const transcript = await neurolink.stt({
+  audio: { file: "./meeting.flac" },
+  speech: {
+    provider: "google-stt",
+    credentials: { googleServiceAccountKey: process.env.GOOGLE_SA_KEY },
+  },
+});
+```
+
+**Enterprise: `azure-stt`**
+
+Azure Cognitive Services STT offers custom model training, batch transcription, and fine-grained compliance controls for regulated industries.
+
+```typescript
+const transcript = await neurolink.stt({
+  audio: { file: "./call-recording.wav" },
+  speech: {
+    provider: "azure-stt",
+    credentials: {
+      azureApiKey: process.env.AZURE_SPEECH_KEY,
+      azureRegion: "eastus",
+    },
+  },
+});
+```
+
+---
+
 ## Conclusion
 
 **Choose based on priorities:**
@@ -1317,6 +1462,11 @@ const result = await neurolink.generate({
 7. **Flexibility Priority** → OpenRouter (300+ models) or NVIDIA NIM (curated NVIDIA-hosted models)
 8. **Flat-Rate Pricing** → Anthropic subscription (Pro $20/mo, Max $100+/mo)
 9. **Zero Cloud Cost** → LM Studio or llama.cpp (local execution)
+10. **TTS Quality** → `openai-tts` (tts-1-hd) or `elevenlabs` (multilingual)
+11. **TTS Cost** → `google-ai` TTS (1M chars/month free tier)
+12. **STT Accuracy** → `whisper` (OpenAI)
+13. **STT Streaming** → `deepgram` (WebSocket, sub-300 ms)
+14. **Realtime Voice** → `openai-realtime` or `gemini-live`
 
 **NeuroLink Advantage:**
 
@@ -1330,3 +1480,5 @@ See also:
 - [Provider Capabilities Audit](./provider-capabilities-audit.md) - Detailed technical capabilities
 - [Provider Selection Wizard](../guides/provider-selection.md) - Interactive decision guide
 - [Claude Subscription Support](../features/claude-subscription.md) - OAuth authentication and subscription tiers for Anthropic
+- [Voice Provider Selection](./provider-comparison.md#voice-provider-selection) - TTS, STT, and Realtime provider recommendations
+- [Voice Providers Index](../getting-started/providers/index.md#voice-providers) - Voice provider setup cards

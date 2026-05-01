@@ -15,7 +15,8 @@ NeuroLink provides comprehensive audio input capabilities, enabling real-time vo
 NeuroLink supports the following audio capabilities today:
 
 - **Real-time voice conversations** via Gemini Live (Google AI Studio)
-- **Text-to-Speech (TTS) output** via Google Cloud TTS integration
+- **Text-to-Speech (TTS) output** via Google Cloud TTS, OpenAI TTS, ElevenLabs, and Azure TTS
+- **Speech-to-Text (STT)** via `generate()` and `stream()` options (Whisper/OpenAI STT, Google STT, Deepgram, Azure STT)
 - **WebSocket-based voice streaming** for web applications
 - **Bidirectional audio** - speak and hear AI responses in real-time
 
@@ -25,22 +26,22 @@ The following features are planned for future releases:
 
 - CLI commands: `neurolink audio transcribe`, `neurolink audio analyze`, `neurolink audio summarize`
 - CLI commands: `neurolink voice chat`, `neurolink voice demo`
-- OpenAI Whisper transcription integration
-- Cross-provider audio support (Anthropic, Azure, AWS)
+- Cross-provider audio support (Anthropic, AWS Transcribe still planned)
 - File-based audio input processing
 
 ---
 
 ## Provider Support Matrix
 
-| Provider             | Real-time Voice | TTS Output | Audio Transcription | Status           |
-| -------------------- | --------------- | ---------- | ------------------- | ---------------- |
-| **Google AI Studio** | Yes             | Yes        | Planned             | Production Ready |
-| **Google Vertex AI** | Planned         | Yes        | Planned             | TTS Available    |
-| **OpenAI**           | Planned         | Planned    | Planned             | Planned          |
-| **Anthropic**        | Planned         | Planned    | Planned             | Planned          |
-| **Azure OpenAI**     | Planned         | Planned    | Planned             | Planned          |
-| **AWS Bedrock**      | Planned         | Planned    | Planned             | Planned          |
+| Provider             | Real-time Voice | TTS Output | Audio Transcription          | Status           |
+| -------------------- | --------------- | ---------- | ---------------------------- | ---------------- |
+| **Google AI Studio** | Yes             | Yes        | Yes (via Google STT)         | Production Ready |
+| **Google Vertex AI** | Planned         | Yes        | Yes (via Google STT)         | Available        |
+| **OpenAI**           | Planned         | Yes        | Yes (via Whisper/OpenAI STT) | Available        |
+| **Deepgram**         | Planned         | No         | Yes                          | Available        |
+| **Azure**            | Planned         | Yes        | Yes (via Azure STT)          | Available        |
+| **Anthropic**        | Planned         | Planned    | Planned                      | Planned          |
+| **AWS Bedrock**      | Planned         | Planned    | Planned                      | Planned          |
 
 **Supported Model for Real-time Voice:**
 
@@ -585,23 +586,42 @@ type AudioContent = {
   neurolink audio analyze podcast.mp3 --prompt "Summarize key points"
   ```
 
-### Phase 3 (Planned)
+### Phase 3 (Partially Available)
 
-- **OpenAI Whisper Integration**
+- **Speech-to-Text via `generate()` / `stream()`** — Available now via the `stt` option. There is no standalone `neurolink.transcribe()` method; STT is integrated directly into `generate()` and `stream()`:
 
   ```typescript
-  const transcription = await neurolink.transcribe({
-    audioFile: "./recording.mp3",
-    provider: "openai",
-    model: "whisper-1",
-    language: "en",
+  const result = await neurolink.generate({
+    input: { text: "Respond to the audio" },
+    provider: "vertex",
+    stt: {
+      enabled: true,
+      provider: "google-stt",
+      audio: audioBuffer,
+      language: "en-US",
+    },
   });
+  console.log("Transcription:", result.transcription?.text);
+  console.log("AI Response:", result.content);
   ```
 
+  **CLI equivalent:**
+
+  ```bash
+  neurolink generate "Respond to the audio" \
+    --provider vertex \
+    --stt \
+    --stt-provider google-stt \
+    --input-audio recording.wav
+  ```
+
+  **Available STT providers:** `whisper` / `openai-stt`, `google-stt`, `deepgram`, `azure-stt`
+
+  **CLI STT flags:** `--stt`, `--stt-provider <provider>`, `--input-audio <file>`, `--stt-language <lang>`
+
 - **Cross-provider Audio Support**
-  - Anthropic voice capabilities
-  - Azure Speech Services
-  - AWS Transcribe
+  - Anthropic voice capabilities — Planned
+  - AWS Transcribe — Planned
 
 - **File-based Audio Input**
   ```typescript
@@ -724,15 +744,15 @@ NeuroLink's audio input capabilities provide:
 
 - Real-time voice conversations via Gemini Live
 - Bidirectional audio streaming (speak and hear)
-- TTS output via Google Cloud
+- TTS output via Google Cloud, OpenAI TTS, ElevenLabs, and Azure TTS
+- STT via `generate({ stt: { ... } })` — Whisper/OpenAI STT, Google STT, Deepgram, Azure STT
 - Voice demo example application
 - PCM16LE audio format support
 
 **Planned:**
 
 - CLI voice commands (`voice chat`, `audio transcribe`)
-- OpenAI Whisper transcription
-- Cross-provider audio support
+- Anthropic and AWS Transcribe audio support
 - File-based audio processing
 
 **Next Steps:**

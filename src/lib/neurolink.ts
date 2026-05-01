@@ -170,7 +170,8 @@ import { TaskManager } from "./tasks/taskManager.js";
 import { createTaskTools } from "./tasks/tools/taskTools.js";
 import { ATTR } from "./telemetry/attributes.js";
 import { tracers } from "./telemetry/tracers.js";
-// NEW: Generate function imports
+// Voice integration imports
+import type { STTResult } from "./types/index.js";
 import {
   getConversationMessages,
   storeConversationTurn,
@@ -224,6 +225,7 @@ import {
 import { isNonNullObject } from "./utils/typeUtils.js";
 import { getWorkflow } from "./workflow/core/workflowRegistry.js";
 import { runWorkflow } from "./workflow/core/workflowRunner.js";
+// (voice imports removed — use TTSProcessor/STTProcessor/RealtimeProcessor instead)
 
 /**
  * NL-002: Classify MCP error messages into categories for AI disambiguation.
@@ -3892,10 +3894,18 @@ Current user's request: ${currentInput}`;
       !!(options.tools && Object.keys(options.tools).length > 0),
     );
 
-    this.assertInputText(
-      options.input?.text,
-      "Input text is required and must be a non-empty string",
-    );
+    // When STT audio is provided, ensure options.input exists (the transcription
+    // will supply the text inside runStandardGenerateRequest) and skip text validation.
+    const hasSttAudio = !!(options.stt?.enabled && options.stt?.audio);
+    if (hasSttAudio && !options.input) {
+      options.input = { text: "" };
+    }
+    if (!hasSttAudio) {
+      this.assertInputText(
+        options.input?.text,
+        "Input text is required and must be a non-empty string",
+      );
+    }
     this.enforceSessionBudget(options.maxBudgetUsd);
     this.applyGenerateLifecycleMiddleware(options);
     await this.applyAuthenticatedRequestContext(options);
@@ -3971,9 +3981,53 @@ Current user's request: ${currentInput}`;
       originalPrompt,
       factoryResult,
     );
+    // STT preprocessing: transcribe audio input before LLM generation
+    let sttTranscription: STTResult | undefined;
+    if (options.stt?.enabled && options.stt.audio) {
+      try {
+        // Ensure STT handlers are registered
+        if (!ProviderRegistry.isRegistered()) {
+          await ProviderRegistry.registerAllProviders();
+        }
+        const { STTProcessor } = await import("./utils/sttProcessor.js");
+        const sttProvider =
+          options.stt.provider ?? (options.provider as string) ?? "whisper";
+        sttTranscription = await STTProcessor.transcribe(
+          options.stt.audio,
+          sttProvider,
+          options.stt,
+        );
+        // Inject transcription into the LLM prompt
+        if (sttTranscription.text) {
+          const existingText =
+            textOptions.prompt || textOptions.input?.text || "";
+          if (!existingText) {
+            // No user text — use transcription directly as the prompt
+            textOptions.prompt = sttTranscription.text;
+            if (textOptions.input) {
+              textOptions.input.text = sttTranscription.text;
+            }
+          } else {
+            // User provided text — prepend transcription as context
+            const combined = `[Transcribed audio]: ${sttTranscription.text}\n\n${existingText}`;
+            if (textOptions.prompt) {
+              textOptions.prompt = combined;
+            }
+            if (textOptions.input?.text) {
+              textOptions.input.text = combined;
+            }
+          }
+        }
+      } catch (sttError) {
+        logger.error("[NeuroLink] STT transcription failed:", sttError);
+        // Don't block generation — STT is optional
+      }
+    }
+
     const textResult = await this.generateTextInternal(textOptions);
 
-    return this.finalizeGenerateRequestResult({
+    // Attach STT transcription to result
+    const generateResult = this.finalizeGenerateRequestResult({
       generateSpan,
       options,
       textOptions,
@@ -3982,6 +4036,10 @@ Current user's request: ${currentInput}`;
       originalPrompt,
       startTime,
     });
+    if (sttTranscription) {
+      generateResult.transcription = sttTranscription;
+    }
+    return generateResult;
   }
 
   private async maybeApplyGenerateOrchestration(
@@ -4101,6 +4159,7 @@ Current user's request: ${currentInput}`;
       input: options.input,
       region: options.region,
       tts: options.tts,
+      stt: options.stt,
       fileRegistry: this.fileRegistry,
       timeout: options.timeout,
       abortSignal: options.abortSignal,
@@ -4224,6 +4283,7 @@ Current user's request: ${currentInput}`;
           }
         : undefined,
       audio: textResult.audio,
+      transcription: textResult.transcription,
       video: textResult.video,
       ppt: textResult.ppt,
       ...(textResult.retries && { retries: textResult.retries }),

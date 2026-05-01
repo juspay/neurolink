@@ -398,6 +398,7 @@ export abstract class BaseProvider implements AIProvider {
         excludeTools: options.excludeTools,
         skipToolPromptInjection: options.skipToolPromptInjection,
         timeout: options.timeout,
+        stt: options.stt,
       };
 
       logger.debug(`Calling generate for fake streaming`, {
@@ -877,7 +878,7 @@ export abstract class BaseProvider implements AIProvider {
       }
       baseResult.audio = await TTSProcessor.synthesize(
         textToSynthesize,
-        options.provider ?? this.providerName,
+        options.tts.provider ?? options.provider ?? this.providerName,
         options.tts,
       );
     } catch (ttsError) {
@@ -1050,7 +1051,12 @@ export abstract class BaseProvider implements AIProvider {
       options,
     );
 
-    return this.enhanceResult(enhancedResult, options, startTime);
+    const finalResult = await this.enhanceResult(
+      enhancedResult,
+      options,
+      startTime,
+    );
+    return finalResult;
   }
 
   private async synthesizeAIResponseIfNeeded(
@@ -1062,13 +1068,14 @@ export abstract class BaseProvider implements AIProvider {
     }
 
     const aiResponse = enhancedResult.content;
-    const provider = options.provider ?? this.providerName;
-    if (!aiResponse || !provider) {
+    const ttsProvider =
+      options.tts?.provider ?? options.provider ?? this.providerName;
+    if (!aiResponse || !ttsProvider) {
       logger.warn(`TTS synthesis skipped despite being enabled`, {
         provider: this.providerName,
         hasAiResponse: !!aiResponse,
         aiResponseLength: aiResponse?.length ?? 0,
-        hasProvider: !!provider,
+        hasProvider: !!ttsProvider,
         ttsConfig: {
           enabled: options.tts?.enabled,
           useAiResponse: options.tts?.useAiResponse,
@@ -1083,7 +1090,7 @@ export abstract class BaseProvider implements AIProvider {
     try {
       const ttsResult = await TTSProcessor.synthesize(
         aiResponse,
-        provider,
+        ttsProvider,
         options.tts,
       );
       return {

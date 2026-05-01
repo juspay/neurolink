@@ -320,9 +320,25 @@ export class CLICommandFactory {
       type: "string" as const,
       description: "TTS voice to use (e.g., 'en-US-Neural2-C')",
     },
+    ttsProvider: {
+      type: "string" as const,
+      choices: ["google-ai", "vertex", "openai-tts", "elevenlabs", "azure-tts"],
+      description: "TTS provider (overrides --provider for speech synthesis)",
+    },
     ttsFormat: {
       type: "string" as const,
-      choices: ["mp3", "wav", "ogg", "opus"],
+      choices: [
+        "mp3",
+        "wav",
+        "ogg",
+        "opus",
+        "m4a",
+        "flac",
+        "webm",
+        "mp4",
+        "mpeg",
+        "mpga",
+      ],
       default: "mp3",
       description: "Audio output format",
     },
@@ -346,6 +362,26 @@ export class CLICommandFactory {
       type: "boolean" as const,
       default: false,
       description: "Auto-play generated audio",
+    },
+
+    // STT (Speech-to-Text) options
+    stt: {
+      type: "boolean" as const,
+      default: false,
+      description: "Enable speech-to-text transcription of input audio",
+    },
+    sttProvider: {
+      type: "string" as const,
+      choices: ["whisper", "deepgram", "google-stt", "azure-stt"],
+      description: "STT provider to use",
+    },
+    sttLanguage: {
+      type: "string" as const,
+      description: "Audio language code for STT (e.g., en-US)",
+    },
+    inputAudio: {
+      type: "string" as const,
+      description: "Path to audio file for STT transcription",
     },
 
     // Video Generation options (Veo 3.1)
@@ -708,11 +744,19 @@ export class CLICommandFactory {
       // TTS options
       tts: argv.tts as boolean | undefined,
       ttsVoice: argv.ttsVoice as string | undefined,
-      ttsFormat: argv.ttsFormat as "mp3" | "wav" | "ogg" | "opus" | undefined,
+      ttsProvider: argv.ttsProvider as string | undefined,
+      ttsFormat: argv.ttsFormat as
+        | import("../../lib/types/index.js").AudioFormat
+        | undefined,
       ttsSpeed: argv.ttsSpeed as number | undefined,
       ttsQuality: argv.ttsQuality as "standard" | "hd" | undefined,
       ttsOutput: argv.ttsOutput as string | undefined,
       ttsPlay: argv.ttsPlay as boolean | undefined,
+      // STT options
+      stt: argv.stt as boolean | undefined,
+      sttProvider: argv.sttProvider as string | undefined,
+      sttLanguage: argv.sttLanguage as string | undefined,
+      inputAudio: argv.inputAudio as string | undefined,
       // Video generation options (Veo 3.1)
       outputMode: argv.outputMode as "text" | "video" | "ppt" | undefined,
       videoOutput: argv.videoOutput as string | undefined,
@@ -2614,6 +2658,12 @@ export class CLICommandFactory {
         enhancedOptions,
       );
 
+      // Read audio file for STT if --input-audio is provided
+      const inputAudioPath = enhancedOptions.inputAudio as string | undefined;
+      const inputAudioBuffer = inputAudioPath
+        ? fs.readFileSync(inputAudioPath)
+        : undefined;
+
       const runGenerate = () =>
         sdk.generate({
           input: generateInput,
@@ -2682,6 +2732,7 @@ export class CLICommandFactory {
                 enabled: true,
                 useAiResponse: true,
                 voice: enhancedOptions.ttsVoice as string | undefined,
+                provider: enhancedOptions.ttsProvider as string | undefined,
                 format:
                   (enhancedOptions.ttsFormat as
                     | "mp3"
@@ -2695,6 +2746,15 @@ export class CLICommandFactory {
                   | undefined,
                 output: enhancedOptions.ttsOutput as string | undefined,
                 play: enhancedOptions.ttsPlay as boolean | undefined,
+              }
+            : undefined,
+          // STT configuration
+          stt: enhancedOptions.stt
+            ? {
+                enabled: true,
+                provider: enhancedOptions.sttProvider as string | undefined,
+                language: enhancedOptions.sttLanguage as string | undefined,
+                ...(inputAudioBuffer && { audio: inputAudioBuffer }),
               }
             : undefined,
         });
@@ -2962,6 +3022,7 @@ export class CLICommandFactory {
               enabled: true,
               useAiResponse: true,
               voice: enhancedOptions.ttsVoice as string | undefined,
+              provider: enhancedOptions.ttsProvider as string | undefined,
               format:
                 (enhancedOptions.ttsFormat as "mp3" | "wav" | "ogg" | "opus") ||
                 undefined,
@@ -2973,6 +3034,24 @@ export class CLICommandFactory {
               output: enhancedOptions.ttsOutput as string | undefined,
               play: enhancedOptions.ttsPlay as boolean | undefined,
             }
+          : undefined,
+        // STT configuration
+        stt: enhancedOptions.stt
+          ? (() => {
+              const streamSttAudioPath = enhancedOptions.inputAudio as
+                | string
+                | undefined;
+              const streamSttAudio =
+                streamSttAudioPath && fs.existsSync(streamSttAudioPath)
+                  ? fs.readFileSync(streamSttAudioPath)
+                  : undefined;
+              return {
+                enabled: true as const,
+                provider: enhancedOptions.sttProvider as string | undefined,
+                language: enhancedOptions.sttLanguage as string | undefined,
+                ...(streamSttAudio && { audio: streamSttAudio }),
+              };
+            })()
           : undefined,
       });
     const stream = await runStream();

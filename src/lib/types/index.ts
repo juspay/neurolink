@@ -50,7 +50,7 @@ export * from "./subscription.js";
 export * from "./task.js";
 export * from "./taskClassification.js";
 export * from "./tools.js";
-export * from "./tts.js";
+export * from "./voice.js";
 export * from "./universalProviderOptions.js";
 export * from "./utilities.js";
 export * from "./workflow.js";

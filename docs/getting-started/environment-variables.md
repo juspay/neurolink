@@ -987,6 +987,116 @@ LLAMACPP_MODEL=""                                # Blank = use whatever model ll
 
 ---
 
+### 16. OpenAI TTS
+
+OpenAI TTS uses the same `OPENAI_API_KEY` as the OpenAI LLM provider. No additional credentials are required.
+
+#### Required Variables
+
+```bash
+OPENAI_API_KEY="sk-proj-your-openai-api-key"  # Shared with the OpenAI LLM provider
+```
+
+#### How to Get the API Key
+
+See [### 1. OpenAI](#1-openai) above — the same key is used for both LLM and TTS.
+
+#### Supported Models
+
+- `tts-1` (default) - Optimized for speed
+- `tts-1-hd` - Optimized for audio quality
+
+---
+
+### 17. ElevenLabs TTS
+
+#### Required Variables
+
+```bash
+ELEVENLABS_API_KEY="your-elevenlabs-api-key"
+```
+
+#### How to Get ElevenLabs API Key
+
+1. Visit [ElevenLabs](https://elevenlabs.io)
+2. Sign up or log in to your account
+3. Navigate to **Profile → API Key**
+4. Copy the key
+
+#### Supported Models
+
+- `eleven_multilingual_v2` (default) - Best quality, 29 languages
+- `eleven_turbo_v2_5` - Low-latency streaming, 32 languages
+- `eleven_flash_v2_5` - Fastest, suitable for real-time use
+
+---
+
+### 18. Deepgram STT
+
+#### Required Variables
+
+```bash
+DEEPGRAM_API_KEY="your-deepgram-api-key"
+```
+
+#### How to Get Deepgram API Key
+
+1. Visit [Deepgram Console](https://console.deepgram.com)
+2. Sign up or log in to your account
+3. Navigate to **API Keys**
+4. Click **Create a New API Key**
+5. Copy the key
+
+#### Supported Models
+
+- `nova-3` (default) - Latest, highest accuracy
+- `nova-2` - High accuracy, broad language support
+- `base` - Balanced accuracy and speed
+
+---
+
+### 19. Azure Speech Services (TTS + STT)
+
+Azure Speech Services provides both text-to-speech and speech-to-text through Microsoft Azure Cognitive Services.
+
+#### Required Variables
+
+```bash
+AZURE_SPEECH_KEY="your-azure-speech-key"
+AZURE_SPEECH_REGION="eastus"              # Azure region where your Speech resource is deployed
+```
+
+#### Optional Variables
+
+```bash
+GOOGLE_API_KEY="AIza-your-google-api-key"  # Required if also using Google STT alongside Azure
+```
+
+#### How to Set Up Azure Speech Services
+
+1. Sign in to [Azure Portal](https://portal.azure.com)
+2. Create a **Speech** resource under **Azure AI services**
+3. Go to **Keys and Endpoint** in your Speech resource
+4. Copy **Key 1** and note the **Location/Region**
+5. Set `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION`
+
+#### Supported Capabilities
+
+- **TTS**: Azure Neural TTS with 400+ voices across 140+ languages
+- **STT**: Azure Speech-to-Text with real-time and batch transcription
+
+#### Environment Variables Reference
+
+| Variable              | Required | Default | Description                                   |
+| --------------------- | -------- | ------- | --------------------------------------------- |
+| `AZURE_SPEECH_KEY`    | ✅       | -       | Azure Speech Services API key                 |
+| `AZURE_SPEECH_REGION` | ✅       | -       | Azure region (e.g., `eastus`, `westeurope`)   |
+| `GOOGLE_API_KEY`      | ❌       | -       | Google API key, if using Google STT alongside |
+| `ELEVENLABS_API_KEY`  | ❌       | -       | ElevenLabs key, if using ElevenLabs alongside |
+| `DEEPGRAM_API_KEY`    | ❌       | -       | Deepgram key, if using Deepgram alongside     |
+
+---
+
 ## 🔧 Configuration Examples
 
 ### Complete .env File Example

@@ -23,6 +23,7 @@ into Neurolink:
 6. **`03-nvidia-nim.md`** — most complex (extra body params, retry-on-400). Tackle last.
 7. **`06-testing.md`** — test additions and validation strategy.
 8. **`07-implementation-order.md`** — ordered task list, milestone gates, risk mitigations.
+9. **`14-voice-speech-integration.md`** — voice/speech integration journal: TTS (OpenAI, ElevenLabs, Azure), STT (Whisper, Deepgram, Google, Azure), Realtime (OpenAI Realtime, Gemini Live). Feature integration, not a new LLM provider.
 
 ## Source-of-truth references
 
@@ -36,14 +37,15 @@ Recent commits used as templates:
 
 ## Status
 
-| Task                           | Status                                                                                      |
-| ------------------------------ | ------------------------------------------------------------------------------------------- |
-| DeepSeek implementation        | ✅ Implemented · live in `src/lib/providers/deepseek.ts`                                    |
-| NVIDIA NIM implementation      | ✅ Implemented · live in `src/lib/providers/nvidiaNim.ts`                                   |
-| LM Studio implementation       | ✅ Implemented · live in `src/lib/providers/lmStudio.ts`                                    |
-| llama.cpp implementation       | ✅ Implemented · live in `src/lib/providers/llamaCpp.ts`                                    |
-| Shared changes (types/CLI/etc) | ✅ Implemented · see [`01-shared-changes.md`](/docs/provider-integration/01-shared-changes) |
-| Tests                          | ✅ Implemented · `test/continuous-test-suite-new-providers.ts`                              |
+| Task                           | Status                                                                                                                              |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| DeepSeek implementation        | ✅ Implemented · live in `src/lib/providers/deepseek.ts`                                                                            |
+| NVIDIA NIM implementation      | ✅ Implemented · live in `src/lib/providers/nvidiaNim.ts`                                                                           |
+| LM Studio implementation       | ✅ Implemented · live in `src/lib/providers/lmStudio.ts`                                                                            |
+| llama.cpp implementation       | ✅ Implemented · live in `src/lib/providers/llamaCpp.ts`                                                                            |
+| Shared changes (types/CLI/etc) | ✅ Implemented · see [`01-shared-changes.md`](/docs/provider-integration/01-shared-changes)                                         |
+| Tests                          | ✅ Implemented · `test/continuous-test-suite-new-providers.ts`                                                                      |
+| Voice/Speech integration       | ✅ Implemented · see [`14-voice-speech-integration.md`](/docs/provider-integration/14-voice-speech-integration) · commit `27a31c32` |
 
 Each per-provider doc lists:
 

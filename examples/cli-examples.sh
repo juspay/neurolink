@@ -155,6 +155,48 @@ echo "  Set LLAMACPP_BASE_URL=http://localhost:8080/v1 and run:"
 echo "  npx @juspay/neurolink generate \"Hello\" --provider llamacpp"
 
 echo ""
+echo "=========================================="
+echo "18. 🔊 TTS (Text-to-Speech) Examples"
+echo "=========================================="
+echo "Note: TTS flags convert the AI's text response to an audio file."
+echo ""
+echo "Google TTS (default, requires GOOGLE_AI_API_KEY or Vertex credentials)..."
+npx @juspay/neurolink generate "Hello world" --provider vertex --tts --tts-voice en-US-Neural2-C --tts-output hello.mp3
+
+echo ""
+echo "OpenAI TTS (requires OPENAI_API_KEY)..."
+npx @juspay/neurolink generate "Hello world" --provider vertex --tts --tts-provider openai-tts --tts-output hello.mp3
+
+echo ""
+echo "ElevenLabs TTS (requires ELEVENLABS_API_KEY)..."
+npx @juspay/neurolink generate "Hello world" --provider vertex --tts --tts-provider elevenlabs --tts-output hello.mp3
+
+echo ""
+echo "Azure Speech TTS (requires AZURE_SPEECH_KEY and AZURE_SPEECH_REGION)..."
+npx @juspay/neurolink generate "Hello world" --provider vertex --tts --tts-provider azure-speech --tts-output hello.mp3
+
+echo ""
+echo "=========================================="
+echo "19. 🎙️  STT (Speech-to-Text) Examples"
+echo "=========================================="
+echo "Note: STT flags transcribe an audio file and feed the text to the AI."
+echo ""
+echo "Whisper STT (requires OPENAI_API_KEY)..."
+npx @juspay/neurolink generate "Respond to audio" --provider vertex --stt --stt-provider whisper --input-audio recording.wav
+
+echo ""
+echo "Deepgram STT (requires DEEPGRAM_API_KEY)..."
+npx @juspay/neurolink generate "Respond to audio" --provider vertex --stt --stt-provider deepgram --input-audio recording.wav
+
+echo ""
+echo "Google STT (requires GOOGLE_AI_API_KEY or Vertex credentials)..."
+npx @juspay/neurolink generate "Respond to audio" --provider vertex --stt --stt-provider google-stt --input-audio recording.wav
+
+echo ""
+echo "AssemblyAI STT (requires ASSEMBLYAI_API_KEY)..."
+npx @juspay/neurolink generate "Respond to audio" --provider vertex --stt --stt-provider assemblyai --input-audio recording.wav
+
+echo ""
 echo "✅ CLI Examples Complete!"
 echo ""
 echo "💡 Tips:"
@@ -169,5 +211,9 @@ echo "- Use --provider deepseek with DEEPSEEK_API_KEY for cost-efficient reasoni
 echo "- Use --provider nvidia-nim with NVIDIA_NIM_API_KEY for NVIDIA-hosted models"
 echo "- Use --provider lm-studio for local LM Studio inference (no API key needed)"
 echo "- Use --provider llamacpp for local llama-server inference (no API key needed)"
+echo "- Use --tts / --stt flags for voice pipeline (TTS/STT providers)"
+echo "- Set ELEVENLABS_API_KEY for ElevenLabs TTS"
+echo "- Set DEEPGRAM_API_KEY for Deepgram STT"
+echo "- Set AZURE_SPEECH_KEY + AZURE_SPEECH_REGION for Azure Speech TTS/STT"
 echo "- Built-in tools work in v1.7.1!"
 echo "- External server discovery working!"

@@ -291,6 +291,7 @@ export class LaminarExporter extends BaseExporter {
       [SpanType.PPT_GENERATION]: "custom",
       [SpanType.WORKFLOW]: "workflow",
       [SpanType.TTS]: "custom",
+      [SpanType.STT]: "custom",
       [SpanType.SERVER_REQUEST]: "custom",
       [SpanType.CUSTOM]: "custom",
     };

@@ -7,9 +7,19 @@
  */
 
 /**
- * Supported audio formats for TTS output
+ * Supported audio formats for TTS output and STT input
  */
-export type AudioFormat = "mp3" | "wav" | "ogg" | "opus";
+export type AudioFormat =
+  | "mp3"
+  | "wav"
+  | "ogg"
+  | "opus"
+  | "m4a"
+  | "flac"
+  | "webm"
+  | "mp4"
+  | "mpeg"
+  | "mpga";
 
 /**
  * TTS quality settings
@@ -67,6 +77,8 @@ export type TTSOptions = {
   output?: string;
   /** Auto-play audio after generation (default: false) */
   play?: boolean;
+  /** Override TTS provider (e.g., "elevenlabs", "openai-tts", "azure-tts") */
+  provider?: string;
 };
 
 /**
@@ -144,6 +156,12 @@ export const VALID_AUDIO_FORMATS: readonly AudioFormat[] = [
   "wav",
   "ogg",
   "opus",
+  "m4a",
+  "flac",
+  "webm",
+  "mp4",
+  "mpeg",
+  "mpga",
 ];
 
 /** Valid TTS quality levels as an array for runtime validation */

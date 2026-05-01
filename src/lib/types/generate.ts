@@ -19,6 +19,7 @@ import type {
 } from "./multimodal.js";
 import type { PPTGenerationResult, PPTOutputOptions } from "./ppt.js";
 import type { TTSOptions, TTSResult } from "./tts.js";
+import type { STTOptions, STTResult } from "./stt.js";
 import type {
   StandardRecord,
   ValidationSchema,
@@ -162,6 +163,25 @@ export type GenerateOptions = {
    * ```
    */
   tts?: TTSOptions;
+
+  /**
+   * Speech-to-Text (STT) configuration
+   *
+   * Enable audio transcription. When enabled, the audio provided via `stt.audio`
+   * will be transcribed to text and used as the prompt.
+   *
+   * @example
+   * ```typescript
+   * const neurolink = new NeuroLink();
+   * const result = await neurolink.generate({
+   *   input: { text: "" },
+   *   provider: "openai",
+   *   stt: { enabled: true, provider: "whisper", language: "en-US", audio: audioBuffer }
+   * });
+   * // STT transcribes the audio, result.transcription contains the transcription
+   * ```
+   */
+  stt?: STTOptions & { provider?: string; audio?: Buffer | ArrayBuffer };
 
   /**
    * Thinking/reasoning configuration for extended thinking models
@@ -734,6 +754,9 @@ export type GenerateResult = {
   /** Token count for reasoning content */
   reasoningTokens?: number;
 
+  /** STT transcription result (present when stt.enabled is true and audio input was provided) */
+  transcription?: STTResult;
+
   // NL-007: Retry metadata for observability
   retries?: {
     count: number;
@@ -957,6 +980,25 @@ export type TextGenerationOptions = {
    */
   tts?: TTSOptions;
 
+  /**
+   * Speech-to-Text (STT) configuration
+   *
+   * Enable audio transcription. When enabled, the audio provided via `stt.audio`
+   * will be transcribed to text and used as the prompt.
+   *
+   * @example
+   * ```typescript
+   * const neurolink = new NeuroLink();
+   * const result = await neurolink.generate({
+   *   input: { text: "" },
+   *   provider: "openai",
+   *   stt: { enabled: true, provider: "whisper", language: "en-US", audio: audioBuffer }
+   * });
+   * // STT transcribes the audio, result.transcription contains the transcription
+   * ```
+   */
+  stt?: STTOptions & { provider?: string; audio?: Buffer | ArrayBuffer };
+
   // NEW: Analytics and Evaluation Support
   enableEvaluation?: boolean; // Default: false - AI quality scoring
   enableAnalytics?: boolean; // Default: false - Usage tracking
@@ -1143,6 +1185,8 @@ export type TextGenerationResult = {
   analytics?: AnalyticsData;
   evaluation?: EvaluationData;
   audio?: TTSResult;
+  /** STT transcription result (present when stt input was processed) */
+  transcription?: STTResult;
   /** Video generation result */
   video?: VideoGenerationResult;
   /** PowerPoint generation result */

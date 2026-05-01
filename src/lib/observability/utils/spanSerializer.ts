@@ -287,6 +287,7 @@ export class SpanSerializer {
       [SpanType.PPT_GENERATION]: "chain",
       [SpanType.WORKFLOW]: "chain",
       [SpanType.TTS]: "chain",
+      [SpanType.STT]: "chain",
       [SpanType.SERVER_REQUEST]: "chain",
       [SpanType.CUSTOM]: "chain",
     };

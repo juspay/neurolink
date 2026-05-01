@@ -498,6 +498,121 @@ export class ProviderRegistry {
         );
         // Don't throw - TTS is optional functionality
       }
+
+      // New TTS providers
+      try {
+        const { TTSProcessor } = await import("../utils/ttsProcessor.js");
+        const { OpenAITTS } = await import("../voice/providers/OpenAITTS.js");
+        TTSProcessor.registerHandler("openai-tts", new OpenAITTS());
+      } catch {
+        /* Optional provider */
+      }
+
+      try {
+        const { TTSProcessor } = await import("../utils/ttsProcessor.js");
+        const { ElevenLabsTTS } =
+          await import("../voice/providers/ElevenLabsTTS.js");
+        const elevenLabsHandler = new ElevenLabsTTS();
+        TTSProcessor.registerHandler("elevenlabs", elevenLabsHandler);
+        TTSProcessor.registerHandler("elevenlabs-tts", elevenLabsHandler);
+      } catch {
+        /* Optional provider */
+      }
+
+      try {
+        const { TTSProcessor } = await import("../utils/ttsProcessor.js");
+        const { AzureTTS } = await import("../voice/providers/AzureTTS.js");
+        TTSProcessor.registerHandler("azure-tts", new AzureTTS());
+      } catch {
+        /* Optional provider */
+      }
+
+      // ===== STT HANDLER REGISTRATION =====
+      try {
+        const { STTProcessor } = await import("../utils/sttProcessor.js");
+
+        try {
+          const { OpenAISTT } = await import("../voice/providers/OpenAISTT.js");
+          const openAISTT = new OpenAISTT();
+          STTProcessor.registerHandler("whisper", openAISTT);
+          STTProcessor.registerHandler("openai-stt", openAISTT);
+        } catch {
+          /* Optional provider - skip if dependency missing */
+        }
+
+        try {
+          const { DeepgramSTT } =
+            await import("../voice/providers/DeepgramSTT.js");
+          STTProcessor.registerHandler("deepgram", new DeepgramSTT());
+        } catch {
+          /* Optional provider - skip if dependency missing */
+        }
+
+        try {
+          const { GoogleSTT } = await import("../voice/providers/GoogleSTT.js");
+          STTProcessor.registerHandler("google-stt", new GoogleSTT());
+        } catch {
+          /* Optional provider - skip if dependency missing */
+        }
+
+        try {
+          const { AzureSTT } = await import("../voice/providers/AzureSTT.js");
+          STTProcessor.registerHandler("azure-stt", new AzureSTT());
+        } catch {
+          /* Optional provider - skip if dependency missing */
+        }
+
+        logger.debug("STT handlers registered successfully", {
+          providers: ["whisper", "deepgram", "google-stt", "azure-stt"],
+        });
+      } catch (sttError) {
+        logger.warn(
+          "Failed to register STT handlers - STT functionality will be unavailable",
+          {
+            error:
+              sttError instanceof Error ? sttError.message : String(sttError),
+          },
+        );
+      }
+
+      // ===== REALTIME HANDLER REGISTRATION =====
+      try {
+        const { RealtimeProcessor } =
+          await import("../voice/RealtimeVoiceAPI.js");
+
+        try {
+          const { OpenAIRealtime } =
+            await import("../voice/providers/OpenAIRealtime.js");
+          RealtimeProcessor.registerHandler(
+            "openai-realtime",
+            new OpenAIRealtime(),
+          );
+        } catch {
+          // Optional provider — skip if unavailable
+        }
+
+        try {
+          const { GeminiLive } =
+            await import("../voice/providers/GeminiLive.js");
+          RealtimeProcessor.registerHandler("gemini-live", new GeminiLive());
+        } catch {
+          // Optional provider — skip if unavailable
+        }
+
+        logger.debug("Realtime handlers registered successfully", {
+          providers: ["openai-realtime", "gemini-live"],
+        });
+      } catch (realtimeError) {
+        logger.warn(
+          "Failed to register Realtime handlers - Realtime functionality will be unavailable",
+          {
+            error:
+              realtimeError instanceof Error
+                ? realtimeError.message
+                : String(realtimeError),
+          },
+        );
+      }
     } catch (error) {
       logger.error("Failed to register providers:", error);
       throw error;

@@ -24,6 +24,7 @@ import type {
   NeurolinkCredentials,
 } from "./providers.js";
 import type { TTSChunk, TTSOptions } from "./tts.js";
+import type { STTOptions } from "./stt.js";
 import type { StandardRecord, ValidationSchema } from "./aliases.js";
 import type { FileWithMetadata } from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
@@ -298,6 +299,13 @@ export type StreamOptions = {
    * ```
    */
   tts?: TTSOptions;
+
+  /**
+   * Speech-to-Text (STT) configuration for streaming
+   *
+   * When enabled, audio from `stt.audio` is transcribed before streaming begins.
+   */
+  stt?: STTOptions & { provider?: string; audio?: Buffer | ArrayBuffer };
 
   /**
    * Thinking/reasoning configuration for extended thinking models

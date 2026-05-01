@@ -2020,4 +2020,197 @@ Authentication failed
 
 ---
 
+## OpenAI TTS Configuration {#openai-tts}
+
+OpenAI TTS provides text-to-speech synthesis using the same API key as the OpenAI LLM provider. No additional credentials are required.
+
+### Basic Setup
+
+```bash
+export OPENAI_API_KEY="sk-your-openai-api-key"
+```
+
+**Note:** `OPENAI_API_KEY` is shared with the OpenAI LLM provider. No separate key is needed.
+
+### Supported Models
+
+- `tts-1` (default) - Optimized for speed, lower latency
+- `tts-1-hd` - Optimized for quality, higher fidelity audio
+
+### Supported Voices
+
+`alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
+
+### Supported Output Formats
+
+`mp3` (default), `opus`, `aac`, `flac`, `wav`, `pcm`
+
+### Usage Example
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  input: { text: "Hello, world!" },
+  tts: {
+    enabled: true,
+    provider: "openai-tts",
+    voice: "alloy",
+    format: "mp3",
+  },
+});
+```
+
+### CLI Usage
+
+```bash
+npx @juspay/neurolink generate "Hello, world!" --tts --tts-provider openai-tts
+```
+
+### Environment Variables Reference
+
+| Variable         | Required | Default | Description                         |
+| ---------------- | -------- | ------- | ----------------------------------- |
+| `OPENAI_API_KEY` | ✅       | -       | Shared with the OpenAI LLM provider |
+
+### Provider ID and Aliases
+
+- **Provider ID**: `openai-tts`
+
+---
+
+## ElevenLabs Configuration {#elevenlabs}
+
+ElevenLabs provides high-quality, multilingual text-to-speech synthesis with a wide selection of voices and voice cloning support.
+
+### Basic Setup
+
+```bash
+export ELEVENLABS_API_KEY="your-elevenlabs-api-key"
+```
+
+### How to Get ElevenLabs API Key
+
+1. Visit [ElevenLabs](https://elevenlabs.io)
+2. Sign up or log in to your account
+3. Navigate to **Profile → API Key**
+4. Copy the key
+
+### Supported Models
+
+- `eleven_multilingual_v2` (default) - Best quality, 29 languages
+- `eleven_turbo_v2_5` - Low-latency streaming, 32 languages
+- `eleven_flash_v2_5` - Fastest, suitable for real-time applications
+
+### Usage Example
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+
+const result = await neurolink.generate({
+  input: { text: "Bonjour le monde!" },
+  tts: {
+    enabled: true,
+    provider: "elevenlabs",
+    voice: "Rachel",
+    model: "eleven_multilingual_v2",
+  },
+});
+```
+
+### CLI Usage
+
+```bash
+npx @juspay/neurolink generate "Hello, world!" --tts --tts-provider elevenlabs
+```
+
+### Notes
+
+- **Multilingual support**: ElevenLabs models support up to 32 languages with natural prosody
+- **Voice cloning**: ElevenLabs supports custom voice IDs from your ElevenLabs account
+
+### Environment Variables Reference
+
+| Variable             | Required | Default | Description        |
+| -------------------- | -------- | ------- | ------------------ |
+| `ELEVENLABS_API_KEY` | ✅       | -       | ElevenLabs API key |
+
+### Provider ID and Aliases
+
+- **Provider ID**: `elevenlabs`
+
+---
+
+## Deepgram STT Configuration {#deepgram}
+
+Deepgram provides fast, accurate speech-to-text transcription with support for real-time streaming and pre-recorded audio.
+
+### Basic Setup
+
+```bash
+export DEEPGRAM_API_KEY="your-deepgram-api-key"
+```
+
+### How to Get Deepgram API Key
+
+1. Visit [Deepgram Console](https://console.deepgram.com)
+2. Sign up or log in to your account
+3. Navigate to **API Keys**
+4. Click **Create a New API Key**
+5. Copy the key
+
+### Supported Models
+
+- `nova-3` (default) - Latest, highest accuracy
+- `nova-2` - High accuracy, broad language support
+- `base` - Balanced accuracy and speed
+
+### Usage Example
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+import { readFileSync } from "fs";
+
+const neurolink = new NeuroLink();
+const audioBuffer = readFileSync("audio.wav");
+
+const result = await neurolink.generate({
+  input: { text: "Respond to what was said" },
+  stt: {
+    enabled: true,
+    provider: "deepgram",
+    audio: audioBuffer,
+    model: "nova-3",
+    language: "en",
+  },
+});
+```
+
+### CLI Usage
+
+```bash
+npx @juspay/neurolink generate "Respond to this" --stt --stt-provider deepgram --input-audio file.wav
+```
+
+### Notes
+
+- **Streaming transcription**: Deepgram supports real-time audio streaming for live transcription
+- **Language support**: Deepgram nova models support 30+ languages
+
+### Environment Variables Reference
+
+| Variable           | Required | Default | Description      |
+| ------------------ | -------- | ------- | ---------------- |
+| `DEEPGRAM_API_KEY` | ✅       | -       | Deepgram API key |
+
+### Provider ID and Aliases
+
+- **Provider ID**: `deepgram`
+
+---
+
 [← Back to Main README](../index.md) | [Next: API Reference →](./api-reference.md)

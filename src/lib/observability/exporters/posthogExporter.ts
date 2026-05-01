@@ -273,6 +273,7 @@ export class PostHogExporter extends BaseExporter {
       [SpanType.PPT_GENERATION]: "ai_ppt_generation",
       [SpanType.WORKFLOW]: "ai_workflow",
       [SpanType.TTS]: "ai_tts_synthesis",
+      [SpanType.STT]: "ai_stt_transcription",
       [SpanType.SERVER_REQUEST]: "ai_server_request",
       [SpanType.CUSTOM]: "ai_custom_span",
     };
