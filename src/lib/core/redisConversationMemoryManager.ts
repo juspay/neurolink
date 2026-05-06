@@ -1366,10 +1366,6 @@ User message: "${userMessage}"`;
       title = title.replace(/['"]/g, ""); // Remove quotes
       title = title.replace(/\.$/, ""); // Remove trailing period
 
-      if (title.length > 60) {
-        title = title.substring(0, 57) + "...";
-      }
-
       if (title.length < 3) {
         title = "New Conversation";
       }

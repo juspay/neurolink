@@ -1456,25 +1456,36 @@ async function testConversationTitleGeneration(
     await new Promise((r) => setTimeout(r, 10000));
 
     if (titleGenerated) {
-      // If event fires, assert title is non-empty string > 3 chars
       if (
-        typeof generatedTitle === "string" &&
-        generatedTitle.trim().length > 3
+        typeof generatedTitle !== "string" ||
+        generatedTitle.trim().length <= 3
       ) {
         logTest(
           "9. Conversation Title Generation",
-          "PASS",
-          `Title generated: "${generatedTitle.substring(0, 60)}"`,
+          "FAIL",
+          `Title event fired but title is too short or invalid: "${generatedTitle}"`,
         );
-        return true;
+        return false;
+      }
+
+      // Assert the title was not post-processed with a trailing ellipsis.
+      // Before the fix, titles longer than 60 chars were unconditionally truncated
+      // to 57 chars + "..." — the server must now return the complete LLM output.
+      if (generatedTitle.endsWith("...")) {
+        logTest(
+          "9. Conversation Title Generation",
+          "FAIL",
+          `Title was truncated with ellipsis, expected complete title: "${generatedTitle}"`,
+        );
+        return false;
       }
 
       logTest(
         "9. Conversation Title Generation",
-        "FAIL",
-        `Title event fired but title is too short or invalid: "${generatedTitle}"`,
+        "PASS",
+        `Complete title generated (no ellipsis): "${generatedTitle}"`,
       );
-      return false;
+      return true;
     }
 
     // Title generation is a background/optional feature — the conversation itself works.
@@ -1506,6 +1517,95 @@ async function testConversationTitleGeneration(
       /* ignore */
     }
   }
+}
+
+// ============================================================
+// TEST #9b: Title No-Ellipsis Unit Assertion
+// ============================================================
+
+async function testTitleNoEllipsis(sdk: NeuroLink): Promise<boolean | null> {
+  logTest("9b. Title No-Ellipsis (unit)", "TESTING");
+
+  // Dynamically import the manager directly so we can call generateConversationTitle
+  // without needing a full Redis-backed NeuroLink session.
+  let RedisConversationMemoryManagerClass: typeof import("../dist/core/redisConversationMemoryManager.js").RedisConversationMemoryManager;
+  try {
+    const mod = await import("../dist/core/redisConversationMemoryManager.js");
+    RedisConversationMemoryManagerClass = mod.RedisConversationMemoryManager;
+  } catch (importError) {
+    const msg =
+      importError instanceof Error ? importError.message : String(importError);
+    logTest(
+      "9b. Title No-Ellipsis (unit)",
+      "SKIP",
+      `Could not import manager: ${msg}`,
+    );
+    return null;
+  }
+
+  // Instantiate with minimal config — no Redis needed for this assertion
+  const manager = new RedisConversationMemoryManagerClass({ enabled: false });
+
+  // Use a long, descriptive prompt that would previously have triggered the 60-char truncation
+  const longUserMessage =
+    "Can you explain the differences between supervised, unsupervised, and reinforcement learning in machine learning, with examples?";
+
+  let title: string;
+  try {
+    title = await manager.generateConversationTitle(longUserMessage);
+  } catch (generateError) {
+    const msg =
+      generateError instanceof Error
+        ? generateError.message
+        : String(generateError);
+    if (isExpectedProviderError(msg)) {
+      logTest("9b. Title No-Ellipsis (unit)", "SKIP", msg);
+      return null;
+    }
+    logTest(
+      "9b. Title No-Ellipsis (unit)",
+      "FAIL",
+      `generateConversationTitle threw: ${msg}`,
+    );
+    return false;
+  }
+
+  // 1. Must be a non-empty string
+  if (typeof title !== "string" || title.trim().length === 0) {
+    logTest(
+      "9b. Title No-Ellipsis (unit)",
+      "FAIL",
+      `Expected non-empty string, got: ${JSON.stringify(title)}`,
+    );
+    return false;
+  }
+
+  // 2. Must NOT end with "..." — the core behaviour change being tested
+  if (title.endsWith("...")) {
+    logTest(
+      "9b. Title No-Ellipsis (unit)",
+      "FAIL",
+      `Title was truncated with ellipsis: "${title}"`,
+    );
+    return false;
+  }
+
+  // 3. Must be longer than 3 characters (not a degenerate fallback)
+  if (title.trim().length <= 3) {
+    logTest(
+      "9b. Title No-Ellipsis (unit)",
+      "FAIL",
+      `Title is too short to be meaningful: "${title}"`,
+    );
+    return false;
+  }
+
+  logTest(
+    "9b. Title No-Ellipsis (unit)",
+    "PASS",
+    `Complete title returned (no ellipsis): "${title}"`,
+  );
+  return true;
 }
 
 // ============================================================
@@ -2298,6 +2398,10 @@ async function runAllTests(): Promise<void> {
     {
       name: "9. Conversation Title Generation",
       fn: () => testConversationTitleGeneration(sharedSdk),
+    },
+    {
+      name: "9b. Title No-Ellipsis (unit)",
+      fn: () => testTitleNoEllipsis(sharedSdk),
     },
     { name: "10. CLI Memory Persistence", fn: testCLIMemoryPersistence },
     { name: "11. Memory Cleanup", fn: () => testMemoryCleanup(sharedSdk) },
