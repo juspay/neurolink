@@ -1827,15 +1827,15 @@ export const CONSENSUS_3_WORKFLOW: WorkflowConfig = {
     },
     {
       provider: "anthropic",
-      model: "claude-3-5-sonnet",
+      model: "claude-sonnet-4-6",
       temperature: 0.3,
-      label: "Anthropic Claude 3.5 Sonnet",
+      label: "Anthropic Claude Sonnet 4.6",
     },
     {
       provider: "google-ai",
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       temperature: 0.3,
-      label: "Google Gemini 2.5 Flash",
+      label: "Google Gemini 3 Flash",
     },
   ],
   judge: {
@@ -1910,7 +1910,7 @@ registerWorkflow({
     },
     {
       provider: "anthropic",
-      model: "claude-3-5-sonnet",
+      model: "claude-sonnet-4-6",
       systemPrompt: "You are a medical expert...",
     },
   ],

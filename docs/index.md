@@ -1,7 +1,7 @@
 <div align="center">
   <h1>🧠 NeuroLink</h1>
   <p><strong>The Enterprise AI SDK for Production Applications</strong></p>
-  <p>13 Providers | 58+ MCP Tools | HITL Security | Redis Persistence</p>
+  <p>21+ Providers | Voice (TTS/STT/Realtime) | 58+ MCP Tools | HITL Security | Redis Persistence</p>
 </div>
 
 <div align="center">
@@ -23,9 +23,9 @@ Enterprise AI development platform with unified provider access, production-read
 
 ## 🧠 What is NeuroLink?
 
-**NeuroLink is the universal AI integration platform that unifies 13 major AI providers and 100+ models under one consistent API.**
+**NeuroLink is the universal AI integration platform that unifies 21+ AI providers and 100+ models under one consistent API.**
 
-Extracted from production systems at Juspay and battle-tested at enterprise scale, NeuroLink provides a production-ready solution for integrating AI into any application. Whether you're building with OpenAI, Anthropic, Google, AWS Bedrock, Azure, or any of our 13 supported providers, NeuroLink gives you a single, consistent interface that works everywhere.
+Extracted from production systems at Juspay and battle-tested at enterprise scale, NeuroLink provides a production-ready solution for integrating AI into any application. Whether you're building with OpenAI, Anthropic, Google, AWS Bedrock, Azure, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, or any of our 21+ supported providers, NeuroLink gives you a single, consistent interface that works everywhere.
 
 **Why NeuroLink?** Switch providers with a single parameter change, leverage 64+ built-in tools and MCP servers, deploy with confidence using enterprise features like Redis memory and multi-provider failover, and optimize costs automatically with intelligent routing. Use it via our professional CLI or TypeScript SDK—whichever fits your workflow.
 
@@ -78,11 +78,11 @@ const neurolink = new NeuroLink();
 const result = await neurolink.runConsensusWorkflow({
   prompt: "Explain quantum computing",
   models: [
-    { provider: "anthropic", modelId: "claude-3-5-sonnet-20241022" },
-    { provider: "openai", modelId: "gpt-4" },
-    { provider: "google-ai", modelId: "gemini-2.0-flash-exp" },
+    { provider: "anthropic", modelId: "claude-sonnet-4-6" },
+    { provider: "openai", modelId: "gpt-4o" },
+    { provider: "google-ai", modelId: "gemini-3-flash-preview" },
   ],
-  judgeModel: { provider: "anthropic", modelId: "claude-3-5-sonnet-20241022" },
+  judgeModel: { provider: "anthropic", modelId: "claude-opus-4-7" },
   options: { temperature: 0.7 },
 });
 
@@ -175,7 +175,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 ### 🤖 AI Provider Integration
 
-**13 providers unified under one API** - Switch providers with a single parameter change.
+**21+ providers unified under one API** - Switch providers with a single parameter change.
 
 | Provider              | Models                                             | Free Tier       | Tool Support | Status        | Documentation                                                                                                       |
 | --------------------- | -------------------------------------------------- | --------------- | ------------ | ------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -194,7 +194,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 | **OpenRouter**        | 200+ Models via OpenRouter                         | Varies          | ✅ Full      | ✅ Production | [Setup Guide](getting-started/providers/openrouter.md)                                                              |
 
 **[📖 Provider Comparison Guide](reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
-**[🔬 Provider Feature Compatibility](reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 13 providers
+**[🔬 Provider Feature Compatibility](reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 21+ providers
 
 ---
 
@@ -305,7 +305,7 @@ const result = await neurolink.generate({
 - **ProcessorRegistry** - Priority-based processor selection with fallback
 - **OWASP Security** - HTML/SVG sanitization prevents XSS attacks
 - **Auto-detection** - FileDetector identifies file types by extension and content
-- **Provider-agnostic** - All processors work across all 13 AI providers
+- **Provider-agnostic** - All processors work across all 21+ AI providers
 
 **[📖 File Processors Guide](features/file-processors.md)** - Complete reference for all file types
 
@@ -433,7 +433,7 @@ node your-app.js
 
 ### 🤖 GitHub Action
 
-Run AI-powered workflows directly in GitHub Actions with 13 provider support and automatic PR/issue commenting.
+Run AI-powered workflows directly in GitHub Actions with 21+ provider support and automatic PR/issue commenting.
 
 ```yaml
 - uses: juspay/neurolink@v1
@@ -445,7 +445,7 @@ Run AI-powered workflows directly in GitHub Actions with 13 provider support and
 
 | Feature                | Description                                                                               |
 | ---------------------- | ----------------------------------------------------------------------------------------- |
-| **Multi-Provider**     | 13 providers with unified interface                                                       |
+| **Multi-Provider**     | 21+ providers with unified interface                                                      |
 | **PR/Issue Comments**  | Auto-post AI responses with intelligent updates                                           |
 | **Multimodal Support** | Attach images, PDFs, CSVs, Excel, Word, JSON, YAML, XML, HTML, SVG, code files to prompts |
 | **Cost Tracking**      | Built-in analytics and quality evaluation                                                 |
@@ -471,7 +471,7 @@ NeuroLink features intelligent model selection and cost optimization:
 npx @juspay/neurolink generate "Hello" --optimize-cost
 
 # LiteLLM specific model selection
-npx @juspay/neurolink generate "Complex analysis" --provider litellm --model "anthropic/claude-3-5-sonnet"
+npx @juspay/neurolink generate "Complex analysis" --provider litellm --model "anthropic/claude-sonnet-4-6"
 
 # Auto-select best available provider
 npx @juspay/neurolink generate "Write code" # Automatically chooses optimal provider
@@ -617,12 +617,13 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](cli/commands.md
 
 | Capability               | Highlights                                                                                                               |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| **Provider unification** | 13+ providers with automatic fallback, cost-aware routing, provider orchestration (Q3).                                  |
+| **Provider unification** | 21+ providers with automatic fallback, cost-aware routing, `providerFallback` policy, `modelChain` config.               |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types. |
-| **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging.                             |
-| **Memory & context**     | Conversation memory, Redis history export (Q4), context summarization (Q4).                                              |
-| **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output.                                     |
-| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management.                                         |
+| **Voice pipeline**       | TTS (4 providers) + STT (4 providers) + realtime APIs (OpenAI Realtime, Gemini Live).                                    |
+| **Quality & governance** | Auto-evaluation engine (14 scorers), guardrails middleware, HITL workflows, audit logging.                               |
+| **Memory & context**     | Per-user condensed memory (S3/Redis/SQLite), Redis session export, 4-stage context compaction.                           |
+| **CLI tooling**          | Loop sessions, setup wizard, config validation, Redis auto-detect, JSON output, TTS/STT flags.                           |
+| **Enterprise ops**       | Claude proxy, OTLP observability, OpenObserve dashboard, regional routing, credential management.                        |
 | **Tool ecosystem**       | MCP auto discovery, HTTP/stdio/SSE/WebSocket transports, LiteLLM hub access, SageMaker custom deployment, web search.    |
 
 ## Documentation Map

@@ -1,78 +1,101 @@
+[**NeuroLink API Reference v9.62.0**](../README.md)
+
 ---
-title: TTSResult
-description: Audio result returned from TTS synthesis
----
+
+[NeuroLink API Reference](../README.md) / TTSResult
 
 # Type Alias: TTSResult
 
-> **TTSResult**: `object`
+> **TTSResult** = `object`
 
-The audio result returned from TTS synthesis (Mode 1 direct or Mode 2 via
-`useAiResponse: true`). Populated on `result.audio` for `generate()` and
-on `await result.audio` for `stream()`.
+Defined in: [types/tts.ts:92](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L92)
 
-## Type Declaration
+TTS audio result returned from generation
+
+## Properties
 
 ### buffer
 
 > **buffer**: `Buffer`
 
-Audio data. **Note:** the field is `buffer`, not `data`.
+Defined in: [types/tts.ts:94](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L94)
+
+Audio data as Buffer
+
+---
 
 ### format
 
-> **format**: [`TTSAudioFormat`](./TTSAudioFormat.md)
+> **format**: [`TTSAudioFormat`](TTSAudioFormat.md)
 
-Audio format — one of `mp3`, `wav`, `ogg`, `opus`, `m4a`, `flac`, `webm`,
-`mp4`, `mpeg`, or `mpga`. The `pcm16` member of the shared
-[`TTSAudioFormat`](./TTSAudioFormat.md) union is reserved for raw 16-bit PCM
-streams (e.g. ElevenLabs `pcm_44100` output, OpenAI Realtime PCM output) and
-is exposed here only because some providers return raw PCM bytes without a
-RIFF/WAV header — write those to a `.pcm` file (or wrap in a WAV header
-yourself), not to a `.wav` file. Realtime PCM frames are normally carried by
-[`AudioChunk`](./AudioChunk.md) / `RealtimeAudioChunk`, not `TTSResult`.
+Defined in: [types/tts.ts:96](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L96)
+
+Audio format
+
+---
 
 ### size
 
 > **size**: `number`
 
-Audio file size in bytes (matches `buffer.length` for in-memory results).
+Defined in: [types/tts.ts:98](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L98)
+
+Audio file size in bytes
+
+---
 
 ### duration?
 
-> **duration?**: `number`
+> `optional` **duration?**: `number`
 
-Duration in seconds, when the provider can compute it without re-decoding.
+Defined in: [types/tts.ts:100](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L100)
+
+Duration in seconds (if available)
+
+---
 
 ### voice?
 
-> **voice?**: `string`
+> `optional` **voice?**: `string`
 
-Voice id used for synthesis (e.g. `"nova"`, `"en-US-JennyNeural"`).
+Defined in: [types/tts.ts:102](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L102)
+
+Voice used for generation
+
+---
 
 ### sampleRate?
 
-> **sampleRate?**: `number`
+> `optional` **sampleRate?**: `number`
 
-Sample rate in Hz.
+Defined in: [types/tts.ts:104](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L104)
+
+Sample rate in Hz
+
+---
 
 ### metadata?
 
-> **metadata?**: `object`
+> `optional` **metadata?**: `object`
 
-Provider-specific metadata. Always carries `latency` (ms); other fields
-vary by provider.
+Defined in: [types/tts.ts:106](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L106)
 
-## Example
+Performance and request metadata
 
-```typescript
-const result = await neurolink.generate({
-  input: { text: "Hello world" },
-  tts: { enabled: true, provider: "openai-tts", format: "mp3" },
-});
+#### Index Signature
 
-if (result.audio) {
-  fs.writeFileSync("./out.mp3", result.audio.buffer);
-  console.log(`${result.audio.size} bytes, ${result.audio.format}`);
-}
-```
+\[`key`: `string`\]: `unknown`
+
+Additional provider-specific metadata
+
+#### latency
+
+> **latency**: `number`
+
+Request latency in milliseconds
+
+#### provider?
+
+> `optional` **provider?**: `string`
+
+Provider name

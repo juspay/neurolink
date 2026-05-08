@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.44.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -6,88 +6,14 @@
 
 # Function: getAvailableStrategies()
 
-> **getAvailableStrategies**(): `Promise<ChunkingStrategy[]>`
+> **getAvailableStrategies**(): [`ChunkingStrategy`](../type-aliases/ChunkingStrategy.md)[]
 
-Defined in: [lib/rag/ChunkerFactory.ts:380](https://github.com/juspay/neurolink/blob/main/src/lib/rag/ChunkerFactory.ts#L380)
+Defined in: [rag/index.ts:246](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/index.ts#L246)
 
-Get all available chunking strategies
-
-Returns a list of all registered chunking strategy names (not including aliases).
-This is useful for dynamically discovering available strategies or validating
-user input.
+Get available chunking strategies
 
 ## Returns
 
-`Promise<ChunkingStrategy[]>`
+[`ChunkingStrategy`](../type-aliases/ChunkingStrategy.md)[]
 
-Array of available chunking strategy names:
-
-- `character` - Fixed-size character chunks
-- `recursive` - Recursive text splitting with ordered separators
-- `sentence` - Sentence-boundary aware splitting
-- `token` - Token-count based splitting
-- `markdown` - Markdown structure-aware splitting
-- `html` - HTML tag-aware splitting
-- `json` - JSON structure-aware splitting
-- `latex` - LaTeX environment-aware splitting
-- `semantic` - LLM-powered semantic splitting
-- `semantic-markdown` - Combines markdown splitting with semantic similarity
-
-## Examples
-
-### List all strategies
-
-```typescript
-import { getAvailableStrategies } from "@juspay/neurolink";
-
-const strategies = await getAvailableStrategies();
-console.log("Available strategies:", strategies);
-// Output: ["character", "recursive", "sentence", "token", "markdown", "html", "json", "latex", "semantic", "semantic-markdown"]
-```
-
-### Validate user-selected strategy
-
-```typescript
-import { getAvailableStrategies, createChunker } from "@juspay/neurolink";
-
-async function processWithStrategy(text: string, userStrategy: string) {
-  const strategies = await getAvailableStrategies();
-
-  if (!strategies.includes(userStrategy as ChunkingStrategy)) {
-    throw new Error(`Invalid strategy. Choose from: ${strategies.join(", ")}`);
-  }
-
-  const chunker = await createChunker(userStrategy);
-  return chunker.chunk(text);
-}
-```
-
-### Build a strategy selector UI
-
-```typescript
-import { getAvailableStrategies, getChunkerMetadata } from "@juspay/neurolink";
-
-async function buildStrategyOptions() {
-  const strategies = await getAvailableStrategies();
-
-  return strategies.map((strategy) => {
-    const metadata = getChunkerMetadata(strategy);
-    return {
-      value: strategy,
-      label: strategy,
-      description: metadata?.description,
-      useCases: metadata?.useCases,
-    };
-  });
-}
-```
-
-## Since
-
-v8.44.0
-
-## See Also
-
-- [createChunker](./createChunker.md) - Create a chunker instance
-- [chunkText](./chunkText.md) - Convenience function for chunking
-- [ChunkingStrategy](../type-aliases/ChunkingStrategy.md) - Strategy type definition
+Array of available strategy names

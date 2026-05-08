@@ -1,5 +1,5 @@
 ---
-description: Get up and running quickly with NeuroLink — the Enterprise AI Development Platform with 13+ providers, MCP support, and professional CLI.
+description: Get up and running quickly with NeuroLink — the Enterprise AI Development Platform with 21+ providers, voice (TTS/STT/realtime), MCP support, and professional CLI.
 ---
 
 # Getting Started

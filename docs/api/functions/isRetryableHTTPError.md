@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -6,9 +6,9 @@
 
 # Function: isRetryableHTTPError()
 
-> **isRetryableHTTPError**(`error`, `config`): `boolean`
+> **isRetryableHTTPError**(`error`, `config?`): `boolean`
 
-Defined in: [mcp/httpRetryHandler.ts:57](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRetryHandler.ts#L57)
+Defined in: [mcp/httpRetryHandler.ts:64](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/httpRetryHandler.ts#L64)
 
 Check if an error is retryable for HTTP operations
 
@@ -27,7 +27,7 @@ Considers:
 
 Error to check
 
-### config
+### config?
 
 [`HTTPRetryConfig`](../type-aliases/HTTPRetryConfig.md) = `DEFAULT_HTTP_RETRY_CONFIG`
 

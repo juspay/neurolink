@@ -12,7 +12,7 @@ This section showcases NeuroLink's capabilities through visual content, making i
 
 - **[Screenshots](screenshots.md)** — High-quality screenshots of CLI commands, web interfaces, and development workflows.
 - **[Videos](videos.md)** — Video demonstrations of NeuroLink features, from basic usage to advanced integrations.
-- **[Interactive Demo](interactive.md)** — Live web demonstration with all 13 providers and real AI generation capabilities.
+- **[Interactive Demo](interactive.md)** — Live web demonstration with all 21+ providers and real AI generation capabilities.
 
 ## 🚀 Quick Preview
 
@@ -114,7 +114,7 @@ Visit our [Interactive Demo](https://neurolink-demo.vercel.app) to try NeuroLink
 
 Features:
 
-- **Live AI Generation** - All 13 providers functional
+- **Live AI Generation** - All 21+ providers functional
 - **Real-time Analytics** - See costs and performance
 - **Built-in Tools** - Experience MCP integration
 - **Multiple Use Cases** - Business, creative, and technical examples

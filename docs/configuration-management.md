@@ -30,7 +30,7 @@ const configManager = new ConfigManager();
 // Update configuration (automatic backup created)
 await configManager.updateConfig({
   providers: {
-    google: { enabled: true, model: "gemini-2.5-pro" },
+    google: { enabled: true, model: "gemini-3-pro-preview" },
     openai: { enabled: true, model: "gpt-4o" },
   },
   performance: {
@@ -201,7 +201,7 @@ await configManager.updateConfig(newConfig, {
       field: 'providers.google.model',
       message: 'Model "gemini-pro-deprecated" is deprecated',
       severity: 'warning',
-      suggestion: 'Use "gemini-2.5-pro" instead'
+      suggestion: 'Use "gemini-3-pro-preview" instead'
     },
     {
       field: 'performance.timeout',

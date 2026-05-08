@@ -95,12 +95,20 @@ Key flags:
 **Text-to-Speech (TTS):**
 
 - `--tts` – enable text-to-speech output (default `false`).
-- `--ttsVoice` – TTS voice to use (e.g., `en-US-Neural2-C`).
-- `--ttsFormat` – audio output format: `mp3` (default), `wav`, `ogg`, `opus`.
+- `--ttsProvider` – TTS provider: `google-ai`, `vertex`, `openai-tts`, `elevenlabs`, `azure-tts` (overrides `--provider` for speech synthesis; default auto-selects from configured credentials).
+- `--ttsVoice` – TTS voice to use (e.g., `en-US-Neural2-C`, `Rachel` for ElevenLabs).
+- `--ttsFormat` – audio output format: `mp3` (default), `wav`, `ogg`, `opus`, `m4a`, `flac`, `webm`, `mp4`, `mpeg`, `mpga`.
 - `--ttsSpeed` – speaking rate 0.25–4.0 (default `1.0`).
 - `--ttsQuality` – audio quality level: `standard` (default) or `hd`.
 - `--ttsOutput` – save TTS audio to file (supports absolute and relative paths).
 - `--ttsPlay` – auto-play generated audio (default `false`).
+
+**Speech-to-Text (STT):**
+
+- `--stt` – enable speech-to-text transcription of input audio (default `false`).
+- `--sttProvider` – STT provider: `whisper`, `deepgram`, `google-stt`, `azure-stt` (default auto-selects from configured credentials).
+- `--input-audio` – path to input audio file for STT transcription. Implies `--stt`.
+- `--sttLanguage` – audio language code for STT (e.g., `en-US`, `es-ES`).
 
 **Extended Thinking:**
 

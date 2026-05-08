@@ -1,66 +1,117 @@
+[**NeuroLink API Reference v9.62.0**](../README.md)
+
 ---
-title: STTResult
-description: Transcription result returned from STT
----
+
+[NeuroLink API Reference](../README.md) / STTResult
 
 # Type Alias: STTResult
 
-> **STTResult**: `object`
+> **STTResult** = `object`
 
-The transcription result returned from STT. Populated on
-`result.transcription` for both `generate()` and `stream()` (set BEFORE
-the stream begins iterating).
+Defined in: [types/stt.ts:61](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L61)
 
-## Type Declaration
+STT result from transcription
+
+## Properties
 
 ### text
 
 > **text**: `string`
 
-Transcribed text. Empty string when the provider returns success but no
-transcription (e.g. silence).
+Defined in: [types/stt.ts:63](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L63)
 
-### confidence?
+Full transcribed text
 
-> **confidence?**: `number`
+---
 
-Confidence score from 0 to 1, when the provider supplies it.
+### confidence
 
-### segments?
+> **confidence**: `number`
 
-> **segments?**: `Array<object>`
+Defined in: [types/stt.ts:65](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L65)
 
-Per-segment transcription with timestamps, when the provider returns them.
+Confidence score (0-1)
+
+---
 
 ### language?
 
-> **language?**: `string`
+> `optional` **language?**: `string`
 
-Detected language code (e.g. `"en-US"`).
+Defined in: [types/stt.ts:67](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L67)
+
+Detected language code
+
+---
+
+### duration?
+
+> `optional` **duration?**: `number`
+
+Defined in: [types/stt.ts:69](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L69)
+
+Audio duration in seconds
+
+---
+
+### words?
+
+> `optional` **words?**: [`WordTiming`](WordTiming.md)[]
+
+Defined in: [types/stt.ts:71](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L71)
+
+Word-level timings
+
+---
+
+### segments?
+
+> `optional` **segments?**: [`TranscriptionSegment`](TranscriptionSegment.md)[]
+
+Defined in: [types/stt.ts:73](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L73)
+
+Transcription segments
+
+---
+
+### speakers?
+
+> `optional` **speakers?**: `string`[]
+
+Defined in: [types/stt.ts:75](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L75)
+
+Speaker labels (for diarization)
+
+---
 
 ### metadata?
 
-> **metadata?**: `object`
+> `optional` **metadata?**: `object`
 
-Provider-specific metadata. When present, `STTProcessor` always populates
-`latency` (ms) and `provider`; other fields vary by provider. The field is
-declared optional because direct handler results (without going through
-`STTProcessor`) may omit it.
+Defined in: [types/stt.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L77)
 
-## Example
+Performance metadata
 
-```typescript
-const result = await neurolink.generate({
-  input: { text: "Repeat this audio" },
-  provider: "openai",
-  stt: {
-    enabled: true,
-    provider: "whisper",
-    audio: audioBuffer,
-    format: "mp3",
-  },
-});
+#### Index Signature
 
-console.log(result.transcription?.text);
-console.log("confidence:", result.transcription?.confidence);
-```
+\[`key`: `string`\]: `unknown`
+
+Additional provider-specific metadata
+
+#### latency
+
+> **latency**: `number`
+
+Processing latency in milliseconds
+
+#### provider?
+
+> `optional` **provider?**: `string`
+
+Provider name
+
+#### model?
+
+> `optional` **model?**: `string`
+
+Model used

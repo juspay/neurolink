@@ -1,7 +1,9 @@
-# ✅ Provider-Agnostic Testing Framework - UPDATED STATUS
+> ⚠️ **HISTORICAL DOCUMENT (January 2025)** — This is a snapshot of the provider-agnostic testing milestone when 9 providers were live. The current product ships **21+ providers** (incl. voice). For the up-to-date provider list and capability matrix, see the [README](https://github.com/juspay/neurolink/blob/main/README.md) and [Provider Capabilities Audit](https://github.com/juspay/neurolink/blob/main/docs/reference/provider-capabilities-audit.md).
+
+# Provider-Agnostic Testing Framework - January 2025 Snapshot
 
 **Updated**: January 20, 2025  
-**Status**: ✅ COMPLETE SUCCESS - 9/9 PROVIDERS VERIFIED WORKING  
+**Status**: COMPLETE SUCCESS — 9/9 providers verified working at the time of writing  
 **Objective**: Complete provider testing after resolving critical configuration bug
 
 ## 🎯 **MISSION ACCOMPLISHED**
@@ -189,10 +191,10 @@ With the provider-agnostic testing framework and factory pattern complete:
 
 #### **✅ Factory Pattern Implementation Complete**
 
-- ✅ **BaseProvider**: All 10 providers extend BaseProvider (verified)
+- ✅ **BaseProvider**: All 9 providers (at the time of writing) extend BaseProvider (verified)
 - ✅ **Custom Vercel AI SDK**: Azure, HuggingFace, Ollama use custom implementations
 - ✅ **Official Vercel AI SDK**: OpenAI, Anthropic, Bedrock, Google AI, Mistral
-- ✅ **100% Success Rate**: All 9 providers tested and operational
+- ✅ **100% Success Rate**: All 9 providers in this snapshot tested and operational
 
 #### **✅ Architecture Achievements**
 

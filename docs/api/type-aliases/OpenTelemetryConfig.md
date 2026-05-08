@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OpenTelemetryConfig** = `object`
 
-Defined in: [types/observability.ts:37](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L37)
+Defined in: [types/observability.ts:175](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L175)
 
 OpenTelemetry configuration
 
@@ -18,7 +18,7 @@ OpenTelemetry configuration
 
 > **enabled**: `boolean`
 
-Defined in: [types/observability.ts:39](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L39)
+Defined in: [types/observability.ts:177](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L177)
 
 Whether OpenTelemetry is enabled
 
@@ -26,9 +26,9 @@ Whether OpenTelemetry is enabled
 
 ### endpoint?
 
-> `optional` **endpoint**: `string`
+> `optional` **endpoint?**: `string`
 
-Defined in: [types/observability.ts:41](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L41)
+Defined in: [types/observability.ts:179](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L179)
 
 OTLP endpoint URL
 
@@ -36,9 +36,9 @@ OTLP endpoint URL
 
 ### serviceName?
 
-> `optional` **serviceName**: `string`
+> `optional` **serviceName?**: `string`
 
-Defined in: [types/observability.ts:43](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L43)
+Defined in: [types/observability.ts:181](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L181)
 
 Service name for traces
 
@@ -46,8 +46,8 @@ Service name for traces
 
 ### serviceVersion?
 
-> `optional` **serviceVersion**: `string`
+> `optional` **serviceVersion?**: `string`
 
-Defined in: [types/observability.ts:45](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L45)
+Defined in: [types/observability.ts:183](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L183)
 
 Service version

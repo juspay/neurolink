@@ -1,6 +1,26 @@
-# Feature Documentation Matrix (Q4 2025)
+# Feature Documentation Matrix
 
-## High Priority Features (Customer-Facing, Undocumented)
+_Last refreshed: May 2026 (v9.62.0). Tracks doc coverage across major features. Q3/Q4 2025 entries kept for historical reference._
+
+## Recent Features (v9.x — needs ongoing audit)
+
+| Feature                                                   | Implemented | README  | Feature Guide | CLI Docs | SDK Docs | Config  | Trouble | Priority |
+| --------------------------------------------------------- | ----------- | ------- | ------------- | -------- | -------- | ------- | ------- | -------- |
+| **Multi-provider Voice (TTS/STT/realtime)** v9.62.0       | Y           | Y       | Y             | Y        | Y        | Y       | N       | **HIGH** |
+| **DeepSeek / NVIDIA NIM / LM Studio / llama.cpp** v9.60.0 | Y           | Y       | Y             | Y        | Y        | Y       | Partial | **HIGH** |
+| **ModelAccessDeniedError + checkCredentials()** v9.59.0   | Y           | Y       | Y             | Partial  | Y        | N/A     | Y       | **HIGH** |
+| **providerFallback + modelChain** v9.58.0                 | Y           | Y       | Y             | N        | Y        | Y       | N       | **HIGH** |
+| **AutoResearch** v9.53.0                                  | Y           | Y       | Y             | Y        | Y        | Y       | N       | MEDIUM   |
+| **Per-Request Credentials** v9.52.0                       | Y           | Y       | Y             | N/A      | Y        | Y       | N       | MEDIUM   |
+| **Sharp image compression** v9.50.0                       | Y           | N       | N             | N/A      | Partial  | N       | N       | LOW      |
+| **Redis URL/TLS** v9.49.0                                 | Y           | N       | N             | N/A      | Partial  | Partial | N       | LOW      |
+| **TaskManager (scheduled tasks)** v9.41.0                 | Y           | N       | Partial       | N        | Y        | Partial | N       | MEDIUM   |
+| **Multi-user memory retrieval** v9.40.0                   | Y           | N       | Y             | N        | Y        | Y       | N       | MEDIUM   |
+| **Evaluation scoring (14 scorers)** v9.37.0               | Y           | Partial | Y             | Y        | Y        | Y       | N       | MEDIUM   |
+| **Browser-compatible bundle** v9.34.0                     | Y           | N       | N             | N/A      | Partial  | N       | N       | MEDIUM   |
+| **Per-call memory control** v9.33.0                       | Y           | N       | Partial       | N        | Y        | N       | N       | LOW      |
+
+## High Priority Features (Customer-Facing, Undocumented — historical)
 
 | Feature                                | Implemented | README | Feature Guide | CLI Docs | SDK Docs | Config Coverage | Troubleshooting | Priority   |
 | -------------------------------------- | ----------- | ------ | ------------- | -------- | -------- | --------------- | --------------- | ---------- |
@@ -14,7 +34,7 @@
 | **Provider Performance Metrics**       | Y           | N      | N             | N        | N        | N               | N               | **LOW**    |
 | **Custom Middleware Development**      | Y           | N      | N             | N        | Partial  | N               | N               | **MEDIUM** |
 
-## Recently Documented Features (Q3 2025)
+## Earlier Documented Features (Q3 2025 — historical)
 
 | Feature                            | Implemented | README | Feature Guide | CLI Docs | SDK Docs | Config Coverage | Troubleshooting | Priority   |
 | ---------------------------------- | ----------- | ------ | ------------- | -------- | -------- | --------------- | --------------- | ---------- |

@@ -1,9 +1,9 @@
 # AI Provider Comparison Guide
 
-**Last Updated:** February 28, 2026
-**NeuroLink Version:** 9.14.0
+**Last Updated:** May 2026
+**NeuroLink Version:** 9.62.0
 
-Complete comparison of all 17 AI providers supported by NeuroLink, including capabilities, pricing, and use case recommendations.
+Complete comparison of all 21+ AI providers supported by NeuroLink, including capabilities, pricing, and use case recommendations. (Note: voice providers — OpenAI TTS, ElevenLabs, Deepgram, Azure Speech, Google TTS/STT, Whisper, OpenAI Realtime, Gemini Live — are documented separately under [Voice Providers](../getting-started/providers/index.md).)
 
 ---
 

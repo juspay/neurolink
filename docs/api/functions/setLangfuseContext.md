@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.42.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -6,9 +6,9 @@
 
 # Function: setLangfuseContext()
 
-> **setLangfuseContext**\<`T`\>(`context`, `callback?`): `Promise`\<`T` \| `void`\>
+> **setLangfuseContext**\<`T`\>(`context`, `callback?`): `Promise`\<`void` \| `T`\>
 
-Defined in: [services/server/ai/observability/instrumentation.ts:550](https://github.com/juspay/neurolink/blob/main/src/lib/services/server/ai/observability/instrumentation.ts#L550)
+Defined in: [services/server/ai/observability/instrumentation.ts:1369](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/services/server/ai/observability/instrumentation.ts#L1369)
 
 Set user and session context for Langfuse spans in the current async context
 
@@ -23,7 +23,7 @@ in concurrent scenarios.
 
 ### T
 
-The return type of the callback function (defaults to `void`)
+`T` = `void`
 
 ## Parameters
 
@@ -35,178 +35,69 @@ Object containing context fields to merge with existing context
 
 `string` \| `null`
 
-User identifier to attach to spans
-
 #### sessionId?
 
 `string` \| `null`
-
-Session identifier to attach to spans
 
 #### conversationId?
 
 `string` \| `null`
 
-Conversation/thread identifier for grouping related traces
-
 #### requestId?
 
 `string` \| `null`
-
-Request identifier for correlating with application logs
 
 #### traceName?
 
 `string` \| `null`
 
-Custom trace name for better organization in Langfuse UI
-
 #### metadata?
 
-`Record<string, unknown>` \| `null`
-
-Custom metadata to attach to spans as key-value pairs
+`Record`\<`string`, `unknown`\> \| `null`
 
 #### operationName?
 
 `string` \| `null`
 
-Explicit operation name for the trace. Overrides auto-detection when set.
-
-Use this to provide meaningful names like "customer-support-chat" or "code-review"
-that will appear in the trace name alongside the userId.
+Explicit operation name (overrides auto-detection)
 
 #### autoDetectOperationName?
 
 `boolean`
 
-Override the global `autoDetectOperationName` setting for this specific context.
+Override global autoDetectOperationName for this context
 
-When `undefined`, uses the global setting from `LangfuseConfig` (defaults to `true`).
-Set to `false` to disable auto-detection for this context only.
+#### customAttributes?
+
+`Record`\<`string`, `string` \| `number` \| `boolean`\>
+
+Custom attributes to set on all spans within this context
 
 ### callback?
 
-`() => T | Promise<T>`
+() => `T` \| `Promise`\<`T`\>
 
 Optional callback to run within the context scope. If omitted, context applies to current execution
 
 ## Returns
 
-`Promise`\<`T` \| `void`\>
+`Promise`\<`void` \| `T`\>
 
 The callback's return value if provided, otherwise void
 
 ## Examples
 
-### With callback - returns the result
-
-```typescript
-import { setLangfuseContext } from "@juspay/neurolink";
-
-const result = await setLangfuseContext(
-  { userId: "user123", conversationId: "conv-456" },
-  async () => {
-    return await generateText({ model: "gpt-4", prompt: "Hello" });
-  },
-);
-// result is typed as the return value of the callback
+```ts
+// With callback - returns the result
+const result = await setLangfuseContext({ userId: "user123" }, async () => {
+  return await generateText({ model: "gpt-4", prompt: "Hello" });
+});
 ```
 
-### Without callback - sets context for current execution
-
-```typescript
-import { setLangfuseContext } from "@juspay/neurolink";
-
+```ts
+// Without callback - sets context for current execution
 await setLangfuseContext({
   sessionId: "session456",
   traceName: "chat-completion",
-  metadata: { feature: "support", tier: "premium" },
 });
-// Context now applies to all subsequent spans in this async context
 ```
-
-### With full context
-
-```typescript
-import { setLangfuseContext, getLangfuseContext } from "@juspay/neurolink";
-
-await setLangfuseContext({
-  userId: "user-123",
-  sessionId: "session-456",
-  conversationId: "conv-789",
-  requestId: "req-abc",
-  traceName: "customer-support-chat",
-  metadata: {
-    feature: "support",
-    tier: "premium",
-    region: "us-east-1",
-  },
-});
-
-// Verify context was set
-const context = getLangfuseContext();
-console.log(context?.conversationId); // "conv-789"
-```
-
-### With explicit operation name
-
-```typescript
-import { setLangfuseContext } from "@juspay/neurolink";
-
-// Explicit operation name overrides auto-detection
-await setLangfuseContext(
-  {
-    userId: "user@email.com",
-    operationName: "customer-support-chat",
-  },
-  async () => {
-    // Trace name will be: "user@email.com:customer-support-chat"
-    return await generateText({ model: "gpt-4", prompt: "Help me with..." });
-  },
-);
-```
-
-### Disabling auto-detection for specific context
-
-```typescript
-import { setLangfuseContext } from "@juspay/neurolink";
-
-// Disable operation name auto-detection for this context only
-// (global setting remains unchanged for other contexts)
-await setLangfuseContext(
-  {
-    userId: "user@email.com",
-    autoDetectOperationName: false,
-  },
-  async () => {
-    // Trace name will be: "user@email.com" (legacy behavior)
-    return await streamText({ model: "gpt-4", prompt: "Stream this..." });
-  },
-);
-```
-
-### Combining explicit operation name with auto-detection off
-
-```typescript
-import { setLangfuseContext } from "@juspay/neurolink";
-
-// When both are set, operationName takes precedence
-await setLangfuseContext(
-  {
-    userId: "user@email.com",
-    operationName: "my-custom-operation",
-    autoDetectOperationName: false, // This is redundant when operationName is set
-  },
-  async () => {
-    // Trace name: "user@email.com:my-custom-operation"
-    return await generateText({ model: "gpt-4", prompt: "..." });
-  },
-);
-```
-
-## See Also
-
-- [getLangfuseContext](./getLangfuseContext.md) - Read the current context
-- [getTracer](./getTracer.md) - Get a Tracer for custom spans
-- [LangfuseConfig](../type-aliases/LangfuseConfig.md) - Configuration options

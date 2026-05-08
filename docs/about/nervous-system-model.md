@@ -12,7 +12,7 @@ NeuroLink is built around a biological metaphor — not as decoration, but as a 
 
 ### Neurons — LLM Providers
 
-Neurons are where intelligence is generated. In NeuroLink, neurons are the 13+ AI providers: Anthropic, OpenAI, Google (AI Studio + Vertex), AWS (Bedrock + SageMaker), Azure, Mistral, LiteLLM, Ollama, Hugging Face, and OpenAI-compatible endpoints.
+Neurons are where intelligence is generated. In NeuroLink, neurons are the 21+ AI providers: Anthropic, OpenAI, Google (AI Studio + Vertex), AWS (Bedrock + SageMaker), Azure, Mistral, LiteLLM, OpenRouter, Ollama, Hugging Face, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, OpenAI-compatible endpoints — plus voice neurons (OpenAI TTS, ElevenLabs, Google TTS, Azure TTS, Whisper, Deepgram, Azure STT, Google STT) and realtime neurons (OpenAI Realtime, Gemini Live).
 
 Each provider is a different type of neuron — different capabilities, different costs, different latency profiles. NeuroLink's ProviderRegistry gives you access to all of them through one interface, switchable with a single line.
 

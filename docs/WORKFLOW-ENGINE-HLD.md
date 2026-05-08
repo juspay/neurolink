@@ -375,7 +375,7 @@ type WorkflowConfig = {
 ```typescript
 type ModelConfig = {
   provider: AIProviderName; // e.g., 'openai', 'anthropic'
-  model: string; // e.g., 'gpt-4o', 'claude-3-5-sonnet'
+  model: string; // e.g., 'gpt-4o', 'claude-sonnet-4-6'
   weight?: number; // Weight for voting (0-1)
   temperature?: number; // Model temperature
   maxTokens?: number; // Max response tokens
@@ -495,8 +495,8 @@ const workflow = getWorkflow("consensus-3");
   type: 'ensemble',
   models: [
     { provider: 'openai', model: 'gpt-4o' },
-    { provider: 'anthropic', model: 'claude-3-5-sonnet' },
-    { provider: 'google-ai', model: 'gemini-2.5-flash' }
+    { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+    { provider: 'google-ai', model: 'gemini-3-flash-preview' }
   ],
   judge: {
     provider: 'openai',
@@ -525,8 +525,8 @@ const workflow = getWorkflow("consensus-3");
   name: 'Fast with Quality Fallback',
   type: 'chain',
   models: [
-    { provider: 'google-ai', model: 'gemini-2.5-flash', timeout: 5000 },
-    { provider: 'anthropic', model: 'claude-3-5-sonnet', timeout: 10000 }
+    { provider: 'google-ai', model: 'gemini-3-flash-preview', timeout: 5000 },
+    { provider: 'anthropic', model: 'claude-sonnet-4-6', timeout: 10000 }
   ],
   conditioning: {
     useConfidence: true,
@@ -550,11 +550,11 @@ const workflow = getWorkflow("consensus-3");
   type: 'ensemble',
   models: [
     { provider: 'openai', model: 'gpt-4o', temperature: 0.3 },
-    { provider: 'anthropic', model: 'claude-3-5-sonnet', temperature: 0.3 }
+    { provider: 'anthropic', model: 'claude-sonnet-4-6', temperature: 0.3 }
   ],
   judge: {
     provider: 'anthropic',
-    model: 'claude-3-5-sonnet',
+    model: 'claude-sonnet-4-6',
     criteria: ['depth', 'reasoning', 'accuracy', 'safety'],
     outputFormat: 'scores'
   },
@@ -580,12 +580,12 @@ const workflow = getWorkflow("consensus-3");
   type: 'ensemble',
   models: [
     { provider: 'openai', model: 'gpt-4o' },
-    { provider: 'anthropic', model: 'claude-3-5-sonnet' },
-    { provider: 'google-ai', model: 'gemini-2.5-pro' }
+    { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+    { provider: 'google-ai', model: 'gemini-3-pro-preview' }
   ],
   judges: [  // Multiple judges
     { provider: 'openai', model: 'gpt-4o', criteria: ['accuracy'] },
-    { provider: 'anthropic', model: 'claude-3-5-sonnet', criteria: ['safety'] }
+    { provider: 'anthropic', model: 'claude-sonnet-4-6', criteria: ['safety'] }
   ],
   conditioning: {
     useConfidence: true,
@@ -724,7 +724,7 @@ registerWorkflow({
   type: "ensemble",
   models: [
     { provider: "openai", model: "gpt-4o" },
-    { provider: "anthropic", model: "claude-3-5-sonnet" },
+    { provider: "anthropic", model: "claude-sonnet-4-6" },
   ],
 });
 

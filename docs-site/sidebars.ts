@@ -21,6 +21,7 @@ const sidebars: SidebarsConfig = {
           collapsed: true,
           items: [
             "getting-started/providers/index",
+            "getting-started/providers/openai",
             "getting-started/providers/anthropic",
             "getting-started/providers/google-ai",
             "getting-started/providers/google-vertex",
@@ -33,6 +34,10 @@ const sidebars: SidebarsConfig = {
             "getting-started/providers/sagemaker",
             "getting-started/providers/openrouter",
             "getting-started/providers/openai-compatible",
+            "getting-started/providers/deepseek",
+            "getting-started/providers/nvidia-nim",
+            "getting-started/providers/lm-studio",
+            "getting-started/providers/llamacpp",
             {
               type: "category",
               label: "Voice Providers",
@@ -84,6 +89,7 @@ const sidebars: SidebarsConfig = {
             "features/file-processors",
             "features/audio-input",
             "features/tts",
+            "features/real-time-services",
           ],
         },
         {
@@ -131,6 +137,8 @@ const sidebars: SidebarsConfig = {
           items: [
             "features/authentication-providers",
             "features/provider-orchestration",
+            "features/provider-fallback",
+            "features/credential-validation",
             "features/regional-streaming",
             "features/mcp-tools-showcase",
             "features/embeddings",

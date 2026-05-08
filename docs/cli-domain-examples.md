@@ -309,7 +309,7 @@ neurolink generate "Analyze drug interaction risks for polypharmacy patient" \
 ```bash
 neurolink generate "Assess cryptocurrency investment strategy risks" \
   --provider anthropic \
-  --model claude-3-5-sonnet-20241022 \
+  --model claude-sonnet-4-6 \
   --evaluationDomain finance \
   --enable-evaluation \
   --enable-analytics \
@@ -322,7 +322,7 @@ neurolink generate "Assess cryptocurrency investment strategy risks" \
 ```bash
 neurolink stream "Optimize supply chain logistics using AI predictions" \
   --provider google-ai \
-  --model gemini-2.5-pro \
+  --model gemini-3-pro-preview \
   --evaluationDomain analytics \
   --enable-evaluation \
   --context '{"supplyChain":"global","products":"electronics","demandVolatility":"high","inventoryTurnover":"quarterly"}'

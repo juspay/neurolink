@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -6,9 +6,9 @@
 
 # Function: withHTTPRetry()
 
-> **withHTTPRetry**\<`T`\>(`operation`, `config`): `Promise`\<`T`\>
+> **withHTTPRetry**\<`T`\>(`operation`, `config?`): `Promise`\<`T`\>
 
-Defined in: [mcp/httpRetryHandler.ts:155](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRetryHandler.ts#L155)
+Defined in: [mcp/httpRetryHandler.ts:166](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/httpRetryHandler.ts#L166)
 
 Execute an HTTP operation with retry logic
 
@@ -30,7 +30,7 @@ consistent delay calculation across the codebase.
 
 Async operation to execute with retries
 
-### config
+### config?
 
 `Partial`\<[`HTTPRetryConfig`](../type-aliases/HTTPRetryConfig.md)\> = `{}`
 

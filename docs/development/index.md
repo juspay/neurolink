@@ -55,8 +55,8 @@ This section covers everything needed for contributing to NeuroLink, understandi
     # Start development
     pnpm dev
 
-    # Run quick tests
-    pnpm test:smart
+    # Run the main suite
+    pnpm test
     ```
 
 === "Documentation Only"
@@ -173,19 +173,21 @@ test/
 ### Running Tests
 
 ```bash
-# Smart test runner (recommended)
-pnpm test:adaptive
+# Main suite (orchestrates the full integration run)
+pnpm test
 
-# Full test suite
-pnpm test:run
+# CI pipeline (test + test:client + test:hitl)
+pnpm test:ci
 
-# Specific test categories
-pnpm test:unit
-pnpm test:integration
-pnpm test:e2e
+# Domain-specific suites
+pnpm test:providers       # 21+ provider validation
+pnpm test:rag             # RAG pipeline
+pnpm test:voice           # Voice (TTS/STT)
+pnpm test:mcp             # MCP HTTP transport
+pnpm test:context         # Context compaction + file handling
 
-# With coverage
-pnpm test:coverage
+# Run a single suite directly
+npx tsx test/continuous-test-suite-<name>.ts
 ```
 
 ## 🎨 Code Style & Standards

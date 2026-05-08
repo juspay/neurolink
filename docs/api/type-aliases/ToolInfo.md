@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,14 +8,14 @@
 
 > **ToolInfo** = `object`
 
-Defined in: [types/tools.ts:96](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L96)
+Defined in: [types/tools.ts:102](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L102)
 
 Tool information with extensibility
 Moved from src/lib/mcp/contracts/mcpContract.ts
 
 ## Indexable
 
-\[`key`: `string`\]: `unknown`
+> \[`key`: `string`\]: `unknown`
 
 ## Properties
 
@@ -23,44 +23,72 @@ Moved from src/lib/mcp/contracts/mcpContract.ts
 
 > **name**: `string`
 
-Defined in: [types/tools.ts:97](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L97)
+Defined in: [types/tools.ts:103](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L103)
 
 ---
 
 ### description?
 
-> `optional` **description**: `string`
+> `optional` **description?**: `string`
 
-Defined in: [types/tools.ts:98](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L98)
+Defined in: [types/tools.ts:104](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L104)
 
 ---
 
 ### category?
 
-> `optional` **category**: `string`
+> `optional` **category?**: `string`
 
-Defined in: [types/tools.ts:99](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L99)
+Defined in: [types/tools.ts:105](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L105)
 
 ---
 
 ### serverId?
 
-> `optional` **serverId**: `string`
+> `optional` **serverId?**: `string`
 
-Defined in: [types/tools.ts:100](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L100)
+Defined in: [types/tools.ts:106](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L106)
 
 ---
 
 ### inputSchema?
 
-> `optional` **inputSchema**: `StandardRecord`
+> `optional` **inputSchema?**: [`StandardRecord`](StandardRecord.md)
 
-Defined in: [types/tools.ts:101](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L101)
+Defined in: [types/tools.ts:107](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L107)
 
 ---
 
 ### outputSchema?
 
-> `optional` **outputSchema**: `StandardRecord`
+> `optional` **outputSchema?**: [`StandardRecord`](StandardRecord.md)
 
-Defined in: [types/tools.ts:102](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L102)
+Defined in: [types/tools.ts:108](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L108)
+
+---
+
+### annotations?
+
+> `optional` **annotations?**: [`MCPToolAnnotations`](MCPToolAnnotations.md)
+
+Defined in: [types/tools.ts:110](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L110)
+
+MCP tool annotations (safety hints, metadata). Auto-inferred when mcp.annotations.autoInfer is enabled.
+
+---
+
+### timeoutMs?
+
+> `optional` **timeoutMs?**: `number`
+
+Defined in: [types/tools.ts:112](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L112)
+
+Per-tool timeout in milliseconds, set at registration time
+
+---
+
+### maxRetries?
+
+> `optional` **maxRetries?**: `number`
+
+Defined in: [types/tools.ts:113](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L113)

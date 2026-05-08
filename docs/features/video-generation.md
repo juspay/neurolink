@@ -393,7 +393,7 @@ const analysis = await neurolink.generate({
     images: [await readFile("product-image.jpg")],
   },
   provider: "vertex",
-  model: "gemini-2.5-flash",
+  model: "gemini-3-flash-preview",
 });
 
 console.log("AI Video Concept:", analysis.content);

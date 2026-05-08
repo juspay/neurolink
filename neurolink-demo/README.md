@@ -6,7 +6,7 @@
 - [📞 Support](#-support)
 <!-- /TOC -->
 
-🧠 **Complete working demo showcasing the NeuroLink SDK with 9 major AI providers**
+🧠 **Complete working demo showcasing the NeuroLink SDK with 21+ AI providers**
 
 ## 🚀 Quick Start
 
@@ -37,7 +37,7 @@ AWS_ACCESS_KEY_ID=your_aws_access_key
 AWS_SECRET_ACCESS_KEY=your_aws_secret_key
 AWS_SESSION_TOKEN=your-session-token  # If using temporary credentials
 AWS_REGION=us-east-2
-BEDROCK_MODEL=arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0
+BEDROCK_MODEL=arn:aws:bedrock:us-east-2:YOUR_AWS_ACCOUNT_ID:inference-profile/us.anthropic.claude-sonnet-4-5-20250929-v1:0
 
 # Google Vertex AI Configuration (choose one authentication method)
 GOOGLE_VERTEX_PROJECT=your_project_id
@@ -55,11 +55,11 @@ GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 
 # Google AI Studio Configuration
 GOOGLE_AI_API_KEY=AIza-your-google-ai-api-key
-GOOGLE_AI_MODEL=gemini-2.5-pro
+GOOGLE_AI_MODEL=gemini-3-flash-preview
 
 # Anthropic Configuration
 ANTHROPIC_API_KEY=sk-ant-your-anthropic-key
-ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+ANTHROPIC_MODEL=claude-sonnet-4-6
 
 # Azure OpenAI Configuration
 AZURE_OPENAI_API_KEY=your_azure_api_key
@@ -78,6 +78,27 @@ OLLAMA_MODEL=llama2
 # Mistral AI Configuration
 MISTRAL_API_KEY=your_mistral_api_key
 MISTRAL_MODEL=mistral-small
+
+# OpenRouter Configuration (300+ models)
+OPENROUTER_API_KEY=sk-or-your-openrouter-key
+
+# DeepSeek Configuration (V3, R1)
+DEEPSEEK_API_KEY=sk-your-deepseek-key
+
+# NVIDIA NIM Configuration (Llama 3.3 70B, 400+ catalog models)
+NVIDIA_API_KEY=nvapi-your-nvidia-key
+
+# LM Studio Configuration (local)
+LMSTUDIO_BASE_URL=http://localhost:1234/v1
+
+# llama.cpp Configuration (local GGUF via llama-server)
+LLAMA_CPP_BASE_URL=http://localhost:8080/v1
+
+# Voice — TTS/STT Providers
+ELEVENLABS_API_KEY=sk-your-elevenlabs-key
+DEEPGRAM_API_KEY=your-deepgram-key
+AZURE_SPEECH_KEY=your-azure-speech-key
+AZURE_SPEECH_REGION=eastus
 
 # Demo Configuration
 PORT=9876

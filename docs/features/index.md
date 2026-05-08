@@ -14,6 +14,9 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 | Feature                                                                     | Description                                                                                                                                                                                  |
 | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Real-time Voice Services](/docs/features/real-time-services)**           | Bidirectional realtime voice APIs — OpenAI Realtime and Gemini Live. Full-duplex audio streaming with tool calls, barge-in, and interruption.                                                |
+| **[Provider Fallback & Model Chains](/docs/features/provider-fallback)**    | `providerFallback` callback + `modelChain` config (v9.58.0) — centralized multi-provider fallback policy for resilient AI workflows.                                                         |
+| **[Credential Validation](/docs/features/credential-validation)**           | Pre-flight `sdk.checkCredentials()` API + typed `ModelAccessDeniedError` (v9.59.0) — actionable credential errors and validation before first call.                                          |
 | **[AutoResearch](autoresearch.md)**                                         | Autonomous AI experiment engine: proposes code changes, runs experiments, evaluates metrics, keeps improvements — runs unattended for hours.                                                 |
 | **[MCP Enhancements](mcp-enhancements.md)**                                 | Advanced MCP features: ToolRouter, ToolCache, RequestBatcher, tool annotations, elicitation protocol, and custom MCP server creation.                                                        |
 | **[PPT Generation](ppt-generation.md)**                                     | Generate professional PowerPoint presentations from text prompts with 35 slide types, 5 themes, and optional AI images.                                                                      |
@@ -47,7 +50,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 ---
 
-## Core Features (Q4 2025)
+## Core Features (shipped 2025)
 
 | Feature                                                  | Description                                                                                        |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -64,7 +67,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 ---
 
-## Core Features (Q3 2025)
+## Earlier Core Features (shipped Q3 2025)
 
 | Feature                                                       | Description                                                                                      |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -83,35 +86,44 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 | Category                 | Features                                                                                                           | Documentation                                                                                                                            |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Provider unification** | 14+ providers with automatic failover, cost-aware routing, provider orchestration (Q3)                             | [Provider Setup](../getting-started/provider-setup.md)                                                                                   |
+| **Provider unification** | 21+ providers with automatic failover, cost-aware routing, `providerFallback` policy, `modelChain` config          | [Provider Setup](../getting-started/provider-setup.md)                                                                                   |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents + Office files across providers with auto-detection for mixed file types. | [Multimodal Guide](multimodal-chat.md), [CSV Support](csv-support.md), [PDF Support](pdf-support.md), [Office Docs](office-documents.md) |
-| **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging                        | [Auto Evaluation](auto-evaluation.md), [Guardrails](guardrails.md), [HITL](hitl.md)                                                      |
-| **Memory & context**     | Conversation memory, per-user memory, Mem0 integration, Redis history export (Q4), context summarization (Q4)      | [Conversation Memory](../conversation-memory.md), [Memory](memory.md), [Redis Export](conversation-history.md)                           |
-| **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output                                | [CLI Loop](cli-loop-sessions.md), [CLI Commands](../cli/commands.md)                                                                     |
-| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, configuration management                                    | [Enterprise Proxy](../enterprise-proxy-setup.md), [Observability](observability.md)                                                      |
+| **Voice pipeline**       | TTS (4 providers) + STT (4 providers) + realtime APIs (OpenAI Realtime, Gemini Live)                               | [TTS Guide](tts.md), [STT Guide](audio-input.md), [Realtime Services](/docs/features/real-time-services)                                 |
+| **Quality & governance** | Auto-evaluation engine (14 scorers), guardrails middleware, HITL workflows, audit logging                          | [Auto Evaluation](auto-evaluation.md), [Guardrails](guardrails.md), [HITL](hitl.md)                                                      |
+| **Memory & context**     | Per-user condensed memory (S3/Redis/SQLite), Redis session export, 4-stage context compaction                      | [Conversation Memory](../conversation-memory.md), [Memory](memory.md), [Redis Export](conversation-history.md)                           |
+| **CLI tooling**          | Loop sessions, setup wizard, config validation, Redis auto-detect, JSON output, TTS/STT flags                      | [CLI Loop](cli-loop-sessions.md), [CLI Commands](../cli/commands.md)                                                                     |
+| **Enterprise ops**       | Claude proxy, OTLP observability, OpenObserve dashboard, regional routing, credential management                   | [Enterprise Proxy](../enterprise-proxy-setup.md), [Observability](observability.md)                                                      |
 | **Tool ecosystem**       | MCP auto discovery, LiteLLM hub access, SageMaker custom deployment, web search                                    | [MCP Integration](../advanced/mcp-integration.md), [MCP Catalog](../guides/mcp/server-catalog.md)                                        |
 
 ---
 
 ## AI Provider Integration
 
-NeuroLink supports **13 AI providers** with unified API access:
+NeuroLink supports **21+ AI providers** with unified API access:
 
-| Provider              | Key Features                            | Free Tier    | Tool Support | Status     | Documentation                                                                                               |
-| --------------------- | --------------------------------------- | ------------ | ------------ | ---------- | ----------------------------------------------------------------------------------------------------------- |
-| **OpenAI**            | GPT-4o, GPT-4o-mini, o1 models          | No           | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#openai)                                                  |
-| **Anthropic**         | Claude 4.6, 4.5/4.0 Sonnet, Opus, Haiku | No           | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#anthropic), [Subscription Guide](claude-subscription.md) |
-| **Google AI**         | Gemini 2.5 Flash/Pro                    | Free Tier    | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#google-ai)                                               |
-| **AWS Bedrock**       | Claude, Titan, Llama, Nova              | No           | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#bedrock)                                                 |
-| **Google Vertex**     | Gemini via GCP                          | No           | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#vertex)                                                  |
-| **Azure OpenAI**      | GPT-4, GPT-4o, o1                       | No           | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#azure)                                                   |
-| **LiteLLM**           | 100+ models unified                     | Varies       | Full         | Production | [Integration Guide](../litellm-integration.md)                                                              |
-| **AWS SageMaker**     | Custom deployed models                  | No           | Full         | Production | [Integration Guide](../sagemaker-integration.md)                                                            |
-| **Mistral AI**        | Mistral Large, Small                    | Free Tier    | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#mistral)                                                 |
-| **Hugging Face**      | 100,000+ models                         | Free         | Partial      | Production | [Setup Guide](../getting-started/provider-setup.md#huggingface)                                             |
-| **Ollama**            | Local models                            | Free (Local) | Partial      | Production | [Setup Guide](../getting-started/provider-setup.md#ollama)                                                  |
-| **OpenAI Compatible** | Any compatible endpoint                 | Varies       | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#openai-compatible)                                       |
-| **OpenRouter**        | 300+ models via unified API             | Free Tier    | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#openrouter)                                              |
+| Provider              | Key Features                             | Free Tier    | Tool Support | Status     | Documentation                                                                                               |
+| --------------------- | ---------------------------------------- | ------------ | ------------ | ---------- | ----------------------------------------------------------------------------------------------------------- |
+| **OpenAI**            | GPT-4o, GPT-4o-mini, o1 models           | No           | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#openai)                                                  |
+| **Anthropic**         | Claude 4.6, 4.5/4.0 Sonnet, Opus, Haiku  | No           | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#anthropic), [Subscription Guide](claude-subscription.md) |
+| **Google AI**         | Gemini 3 Flash/Pro, Gemini 2.5 Flash/Pro | Free Tier    | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#google-ai)                                               |
+| **AWS Bedrock**       | Claude, Titan, Llama, Nova               | No           | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#bedrock)                                                 |
+| **Google Vertex**     | Gemini via GCP                           | No           | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#vertex)                                                  |
+| **Azure OpenAI**      | GPT-4, GPT-4o, o1                        | No           | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#azure)                                                   |
+| **LiteLLM**           | 100+ models unified                      | Varies       | Full         | Production | [Integration Guide](../litellm-integration.md)                                                              |
+| **AWS SageMaker**     | Custom deployed models                   | No           | Full         | Production | [Integration Guide](../sagemaker-integration.md)                                                            |
+| **Mistral AI**        | Mistral Large, Small                     | Free Tier    | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#mistral)                                                 |
+| **Hugging Face**      | 100,000+ models                          | Free         | Partial      | Production | [Setup Guide](../getting-started/provider-setup.md#huggingface)                                             |
+| **Ollama**            | Local models                             | Free (Local) | Partial      | Production | [Setup Guide](../getting-started/provider-setup.md#ollama)                                                  |
+| **OpenAI Compatible** | Any compatible endpoint                  | Varies       | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#openai-compatible)                                       |
+| **OpenRouter**        | 300+ models via unified API              | Free Tier    | Full         | Production | [Setup Guide](../getting-started/provider-setup.md#openrouter)                                              |
+| **DeepSeek**          | DeepSeek V3, R1                          | No           | Full         | Production | [Setup Guide](../getting-started/providers/deepseek.md)                                                     |
+| **NVIDIA NIM**        | Llama 3.3 70B, 400+ catalog models       | No           | Full         | Production | [Setup Guide](../getting-started/providers/nvidia-nim.md)                                                   |
+| **LM Studio**         | Any model loaded in LM Studio (local)    | Free (Local) | Full         | Production | [Setup Guide](../getting-started/providers/lm-studio.md)                                                    |
+| **llama.cpp**         | Any GGUF model via llama-server (local)  | Free (Local) | Full         | Production | [Setup Guide](../getting-started/providers/llamacpp.md)                                                     |
+| **OpenAI TTS**        | TTS-1, TTS-1-HD, GPT-4o Audio            | No           | N/A          | Production | [Setup Guide](../getting-started/providers/openai-tts.md)                                                   |
+| **ElevenLabs**        | Multilingual v2, Turbo v2.5, Flash v2.5  | Free Tier    | N/A          | Production | [Setup Guide](../getting-started/providers/elevenlabs.md)                                                   |
+| **Deepgram**          | Nova-3, Nova-2, Enhanced (STT)           | Free Tier    | N/A          | Production | [Setup Guide](../getting-started/providers/deepgram.md)                                                     |
+| **Azure Speech**      | Azure Cognitive Services TTS + STT       | No           | N/A          | Production | [Setup Guide](../getting-started/providers/azure-speech.md)                                                 |
 
 **[Provider Comparison Guide](../reference/provider-comparison.md)** - Full feature matrix
 

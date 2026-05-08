@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.42.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LangfuseConfig** = `object`
 
-Defined in: [types/observability.ts:68](https://github.com/juspay/neurolink/blob/main/src/lib/types/observability.ts#L68)
+Defined in: [types/observability.ts:71](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L71)
 
 Langfuse observability configuration
 
@@ -18,7 +18,7 @@ Langfuse observability configuration
 
 > **enabled**: `boolean`
 
-Defined in: [types/observability.ts:12](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L12)
+Defined in: [types/observability.ts:73](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L73)
 
 Whether Langfuse is enabled
 
@@ -28,7 +28,7 @@ Whether Langfuse is enabled
 
 > **publicKey**: `string`
 
-Defined in: [types/observability.ts:14](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L14)
+Defined in: [types/observability.ts:75](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L75)
 
 Langfuse public key
 
@@ -38,7 +38,7 @@ Langfuse public key
 
 > **secretKey**: `string`
 
-Defined in: [types/observability.ts:21](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L21)
+Defined in: [types/observability.ts:82](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L82)
 
 Langfuse secret key
 
@@ -51,9 +51,9 @@ Do NOT log, expose, or share this key. Follow best practices for secret manageme
 
 ### baseUrl?
 
-> `optional` **baseUrl**: `string`
+> `optional` **baseUrl?**: `string`
 
-Defined in: [types/observability.ts:23](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L23)
+Defined in: [types/observability.ts:84](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L84)
 
 Langfuse base URL (default: https://cloud.langfuse.com)
 
@@ -61,9 +61,9 @@ Langfuse base URL (default: https://cloud.langfuse.com)
 
 ### environment?
 
-> `optional` **environment**: `string`
+> `optional` **environment?**: `string`
 
-Defined in: [types/observability.ts:25](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L25)
+Defined in: [types/observability.ts:86](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L86)
 
 Environment name (e.g., dev, staging, prod)
 
@@ -71,9 +71,9 @@ Environment name (e.g., dev, staging, prod)
 
 ### release?
 
-> `optional` **release**: `string`
+> `optional` **release?**: `string`
 
-Defined in: [types/observability.ts:27](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L27)
+Defined in: [types/observability.ts:88](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L88)
 
 Release/version identifier
 
@@ -81,9 +81,9 @@ Release/version identifier
 
 ### userId?
 
-> `optional` **userId**: `string`
+> `optional` **userId?**: `string`
 
-Defined in: [types/observability.ts:29](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L29)
+Defined in: [types/observability.ts:90](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L90)
 
 Optional default user id to attach to spans
 
@@ -91,9 +91,9 @@ Optional default user id to attach to spans
 
 ### sessionId?
 
-> `optional` **sessionId**: `string`
+> `optional` **sessionId?**: `string`
 
-Defined in: [types/observability.ts:31](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L31)
+Defined in: [types/observability.ts:92](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L92)
 
 Optional default session id to attach to spans
 
@@ -101,9 +101,9 @@ Optional default session id to attach to spans
 
 ### useExternalTracerProvider?
 
-> `optional` **useExternalTracerProvider**: `boolean`
+> `optional` **useExternalTracerProvider?**: `boolean`
 
-Defined in: [types/observability.ts:43](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L43)
+Defined in: [types/observability.ts:104](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L104)
 
 If true, NeuroLink will NOT create or register its own TracerProvider.
 Instead, it will only create the LangfuseSpanProcessor and ContextEnricher,
@@ -113,15 +113,17 @@ Use this when your application already has OpenTelemetry instrumentation.
 
 #### Default
 
-`false`
+```ts
+false;
+```
 
 ---
 
 ### autoDetectExternalProvider?
 
-> `optional` **autoDetectExternalProvider**: `boolean`
+> `optional` **autoDetectExternalProvider?**: `boolean`
 
-Defined in: [types/observability.ts:110](https://github.com/juspay/neurolink/blob/main/src/lib/types/observability.ts#L110)
+Defined in: [types/observability.ts:114](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L114)
 
 If true, NeuroLink will automatically detect if a TracerProvider is already
 registered globally and skip its own registration to avoid conflicts.
@@ -130,33 +132,59 @@ This is a convenience option that combines well with useExternalTracerProvider.
 
 #### Default
 
-`false`
+```ts
+false;
+```
+
+---
+
+### skipLangfuseSpanProcessor?
+
+> `optional` **skipLangfuseSpanProcessor?**: `boolean`
+
+Defined in: [types/observability.ts:125](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L125)
+
+If true, NeuroLink will NOT register its own LangfuseSpanProcessor with the
+global TracerProvider when using external provider mode. Only the ContextEnricher
+will be registered. Use this when the host application already registers a
+LangfuseSpanProcessor (e.g., via a DeferredSpanProcessor) to prevent duplicate
+trace exports to Langfuse.
+
+#### Default
+
+```ts
+false;
+```
 
 ---
 
 ### autoDetectOperationName?
 
-> `optional` **autoDetectOperationName**: `boolean`
+> `optional` **autoDetectOperationName?**: `boolean`
 
-Defined in: [types/observability.ts:133](https://github.com/juspay/neurolink/blob/main/src/lib/types/observability.ts#L133)
+Defined in: [types/observability.ts:147](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L147)
 
 Enable auto-detection of operation names from span names.
 
-When `true` (default), AI operation spans (`ai.streamText`, `ai.generateText`, etc.)
+When true (default), AI operation spans (ai.streamText, ai.generateText, etc.)
 will have their operation name automatically extracted and included in the
 trace name.
 
 #### Default
 
-`true`
+```ts
+true;
+```
 
 #### Examples
 
-```typescript
+```ts
 // With auto-detection enabled (default):
 // Span "ai.streamText" + userId "user@email.com"
 // → Trace name: "user@email.com:ai.streamText"
+```
 
+```ts
 // With auto-detection disabled:
 // → Trace name: "user@email.com" (legacy behavior)
 ```
@@ -165,35 +193,33 @@ trace name.
 
 ### traceNameFormat?
 
-> `optional` **traceNameFormat**: [`TraceNameFormat`](./TraceNameFormat.md)
+> `optional` **traceNameFormat?**: [`TraceNameFormat`](TraceNameFormat.md)
 
-Defined in: [types/observability.ts:155](https://github.com/juspay/neurolink/blob/main/src/lib/types/observability.ts#L155)
+Defined in: [types/observability.ts:169](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L169)
 
 Format for trace names in Langfuse.
 
-Controls how `userId` and `operationName` are combined to form the trace name.
+Controls how userId and operationName are combined to form the trace name.
 Can be a predefined format string or a custom function for full control.
 
 #### Default
 
-`"userId:operationName"`
+```ts
+"userId:operationName";
+```
 
 #### Examples
 
-```typescript
+```ts
 // Predefined formats:
 traceNameFormat: "userId:operationName"; // "user@email.com:ai.streamText"
 traceNameFormat: "operationName:userId"; // "ai.streamText:user@email.com"
 traceNameFormat: "operationName"; // "ai.streamText"
 traceNameFormat: "userId"; // "user@email.com" (legacy)
+```
 
+```ts
 // Custom function:
 traceNameFormat: (ctx) => `[${ctx.operationName || "unknown"}] ${ctx.userId}`;
 // → "[ai.streamText] user@email.com"
 ```
-
-## See Also
-
-- [TraceNameFormat](./TraceNameFormat.md) - Type definition for trace name formats
-- [setLangfuseContext](../functions/setLangfuseContext.md) - Set context for spans
-- [getSpanProcessors](../functions/getSpanProcessors.md) - Get span processors for external provider mode

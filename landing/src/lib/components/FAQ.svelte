@@ -5,7 +5,7 @@
     {
       question: "What is NeuroLink?",
       answer:
-        "NeuroLink is an open-source TypeScript AI SDK that provides unified access to 13+ AI providers (OpenAI, Anthropic, Google, AWS Bedrock, Azure, Mistral, and more) through a single consistent API. It includes RAG processing, MCP integration, multi-agent workflows, voice support, and handles 50+ file types — all in one npm package.",
+        "NeuroLink is an open-source TypeScript AI SDK that provides unified access to 21+ AI providers (OpenAI, Anthropic, Google, AWS Bedrock, Azure, Mistral, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, and more) through a single consistent API. It includes RAG processing, MCP integration, multi-agent workflows, voice (TTS/STT/realtime), and handles 50+ file types — all in one npm package.",
     },
     {
       question: "Is NeuroLink free to use?",
@@ -20,7 +20,7 @@
     {
       question: "What AI providers does NeuroLink support?",
       answer:
-        "NeuroLink supports 13+ providers including OpenAI, Anthropic Claude, Google AI Studio (Gemini), Google Vertex AI, AWS Bedrock, Azure OpenAI, Mistral, LiteLLM (100+ models via proxy), Ollama (local models), Hugging Face, AWS SageMaker, OpenRouter, and any OpenAI-compatible endpoint. Switch providers with a single config change — no code modifications needed.",
+        "NeuroLink supports 21+ providers including OpenAI, Anthropic Claude, Google AI Studio (Gemini), Google Vertex AI, AWS Bedrock, Azure OpenAI, Mistral, LiteLLM (100+ models via proxy), Ollama (local models), Hugging Face, AWS SageMaker, OpenRouter, DeepSeek (V3/R1), NVIDIA NIM (400+ catalog models), LM Studio (local), llama.cpp (local GGUF), and any OpenAI-compatible endpoint. Voice: OpenAI TTS, ElevenLabs, Google TTS, Azure TTS, Whisper, Deepgram, Azure STT, Google STT. Switch providers with a single config change — no code modifications needed.",
     },
     {
       question: "Where did NeuroLink come from?",
@@ -50,7 +50,7 @@
     {
       question: "How does NeuroLink handle streaming?",
       answer:
-        "NeuroLink supports 4 streaming patterns with 24 event types: real-time text streaming, tool call streaming, structured output streaming, and image generation streaming. All patterns include backpressure control, error recovery, and work consistently across all 13+ providers through a unified stream() API.",
+        "NeuroLink supports 4 streaming patterns with 24 event types: real-time text streaming, tool call streaming, structured output streaming, and image generation streaming. All patterns include backpressure control, error recovery, and work consistently across all 21+ providers through a unified stream() API.",
     },
     {
       question: "Can NeuroLink build multi-agent systems?",

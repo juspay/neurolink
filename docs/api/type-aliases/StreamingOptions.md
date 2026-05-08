@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StreamingOptions** = `object`
 
-Defined in: [types/streamTypes.ts:49](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/streamTypes.ts#L49)
+Defined in: [types/stream.ts:63](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L63)
 
 Options for AI requests with unified provider configuration
 
@@ -18,28 +18,28 @@ Options for AI requests with unified provider configuration
 
 > **providers**: [`AIModelProviderConfig`](AIModelProviderConfig.md)[]
 
-Defined in: [types/streamTypes.ts:50](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/streamTypes.ts#L50)
+Defined in: [types/stream.ts:64](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L64)
 
 ---
 
 ### temperature?
 
-> `optional` **temperature**: `number`
+> `optional` **temperature?**: `number`
 
-Defined in: [types/streamTypes.ts:51](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/streamTypes.ts#L51)
+Defined in: [types/stream.ts:65](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L65)
 
 ---
 
 ### maxTokens?
 
-> `optional` **maxTokens**: `number`
+> `optional` **maxTokens?**: `number`
 
-Defined in: [types/streamTypes.ts:52](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/streamTypes.ts#L52)
+Defined in: [types/stream.ts:66](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L66)
 
 ---
 
 ### systemPrompt?
 
-> `optional` **systemPrompt**: `string`
+> `optional` **systemPrompt?**: `string`
 
-Defined in: [types/streamTypes.ts:53](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/streamTypes.ts#L53)
+Defined in: [types/stream.ts:67](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L67)

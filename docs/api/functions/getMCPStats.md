@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **getMCPStats**(): `Promise`\<\{ `initialized`: `boolean`; `pluginsDiscovered`: `number`; `pluginsBySource`: `Record`\<`string`, `number`\>; `availablePlugins`: `string`[]; \}\>
 
-Defined in: [mcp/index.ts:88](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/index.ts#L88)
+Defined in: [mcp/index.ts:222](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/index.ts#L222)
 
 Get MCP ecosystem statistics - simplified
 

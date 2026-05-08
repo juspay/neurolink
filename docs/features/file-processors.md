@@ -405,7 +405,7 @@ try {
 
 ## Provider Compatibility
 
-All file processors work across all 13 AI providers. The processed content is formatted as text that any provider can understand:
+All file processors work across all 21+ AI providers. The processed content is formatted as text that any provider can understand:
 
 | Provider          | Documents | Data | Markup | Code | Config |
 | ----------------- | --------- | ---- | ------ | ---- | ------ |

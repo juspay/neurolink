@@ -10,12 +10,12 @@ Common questions and answers about NeuroLink usage, configuration, and troublesh
 
 ### Q: Which AI providers does NeuroLink support?
 
-**A:** NeuroLink supports 13 AI providers:
+**A:** NeuroLink supports 21+ AI providers:
 
 - **OpenAI** (GPT-4o, GPT-4.1, o3, o4-mini)
-- **Google AI Studio** (Gemini 2.5 Pro/Flash, Gemini 3)
-- **Google Vertex AI** (Gemini, Claude via Vertex)
-- **Anthropic** (Claude Opus 4, Sonnet 4, 3.5 Sonnet)
+- **Google AI Studio** (Gemini 3 Flash/Pro, Gemini 2.5 Pro/Flash)
+- **Google Vertex AI** (Gemini 3, Claude via Vertex)
+- **Anthropic** (Claude Opus 4.7, Sonnet 4.6, 4.5 Opus/Sonnet/Haiku)
 - **AWS Bedrock** (Claude, Titan, Nova models)
 - **Azure OpenAI** (GPT models)
 - **Hugging Face** (Open source models)
@@ -24,7 +24,21 @@ Common questions and answers about NeuroLink usage, configuration, and troublesh
 - **LiteLLM** (100+ models via proxy)
 - **AWS SageMaker** (Custom endpoints)
 - **OpenAI-compatible** (Any OpenAI-API-compatible endpoint)
-- **Gateway** (69+ providers via gateway)
+- **OpenRouter** (300+ models via OpenRouter)
+- **DeepSeek** (DeepSeek V3, R1)
+- **NVIDIA NIM** (Llama 3.3 70B, 400+ catalog models)
+- **LM Studio** (Local models loaded in LM Studio)
+- **llama.cpp** (Local GGUF models via llama-server)
+
+Voice providers:
+
+- **OpenAI TTS** (TTS-1, TTS-1-HD, GPT-4o Audio)
+- **ElevenLabs** (Multilingual v2, Turbo v2.5, Flash v2.5)
+- **Deepgram** (Nova-3, Nova-2, Enhanced — STT)
+- **Azure Speech** (Azure Cognitive Services TTS + STT)
+- **Google TTS / STT** (Google Cloud Speech)
+- **Whisper** (OpenAI Whisper — STT)
+- **OpenAI Realtime** + **Gemini Live** (realtime voice APIs)
 
 ### Q: Do I need to install anything?
 

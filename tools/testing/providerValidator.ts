@@ -2,7 +2,7 @@
 
 /**
  * NeuroLink Provider Validation System
- * Advanced testing for all 9 AI providers with performance benchmarking
+ * Advanced testing for all 21+ AI providers with performance benchmarking
  * Part of Developer Experience Enhancement Plan 2.0 - Phase 3A
  */
 

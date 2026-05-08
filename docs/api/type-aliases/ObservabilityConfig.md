@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ObservabilityConfig** = `object`
 
-Defined in: [types/observability.ts:51](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L51)
+Defined in: [types/observability.ts:189](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L189)
 
 Complete observability configuration for Neurolink SDK
 
@@ -16,9 +16,9 @@ Complete observability configuration for Neurolink SDK
 
 ### langfuse?
 
-> `optional` **langfuse**: [`LangfuseConfig`](LangfuseConfig.md)
+> `optional` **langfuse?**: [`LangfuseConfig`](LangfuseConfig.md)
 
-Defined in: [types/observability.ts:53](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L53)
+Defined in: [types/observability.ts:191](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L191)
 
 Langfuse configuration
 
@@ -26,8 +26,8 @@ Langfuse configuration
 
 ### openTelemetry?
 
-> `optional` **openTelemetry**: [`OpenTelemetryConfig`](OpenTelemetryConfig.md)
+> `optional` **openTelemetry?**: [`OpenTelemetryConfig`](OpenTelemetryConfig.md)
 
-Defined in: [types/observability.ts:55](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/observability.ts#L55)
+Defined in: [types/observability.ts:193](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L193)
 
 OpenTelemetry configuration

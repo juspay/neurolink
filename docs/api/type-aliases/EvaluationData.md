@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EvaluationData** = `object`
 
-Defined in: [types/evaluation.ts:29](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L29)
+Defined in: [types/evaluation.ts:44](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L44)
 
 Response quality evaluation scores - Comprehensive evaluation type
 
@@ -18,7 +18,7 @@ Response quality evaluation scores - Comprehensive evaluation type
 
 > **relevance**: `number`
 
-Defined in: [types/evaluation.ts:31](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L31)
+Defined in: [types/evaluation.ts:46](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L46)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluation.ts:31](https://github.com/juspay/neurolink/blob/1b
 
 > **accuracy**: `number`
 
-Defined in: [types/evaluation.ts:32](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L32)
+Defined in: [types/evaluation.ts:47](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L47)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/evaluation.ts:32](https://github.com/juspay/neurolink/blob/1b
 
 > **completeness**: `number`
 
-Defined in: [types/evaluation.ts:33](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L33)
+Defined in: [types/evaluation.ts:48](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L48)
 
 ---
 
@@ -42,47 +42,47 @@ Defined in: [types/evaluation.ts:33](https://github.com/juspay/neurolink/blob/1b
 
 > **overall**: `number`
 
-Defined in: [types/evaluation.ts:34](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L34)
+Defined in: [types/evaluation.ts:49](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L49)
 
 ---
 
 ### domainAlignment?
 
-> `optional` **domainAlignment**: `number`
+> `optional` **domainAlignment?**: `number`
 
-Defined in: [types/evaluation.ts:35](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L35)
+Defined in: [types/evaluation.ts:50](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L50)
 
 ---
 
 ### terminologyAccuracy?
 
-> `optional` **terminologyAccuracy**: `number`
+> `optional` **terminologyAccuracy?**: `number`
 
-Defined in: [types/evaluation.ts:36](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L36)
+Defined in: [types/evaluation.ts:51](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L51)
 
 ---
 
 ### toolEffectiveness?
 
-> `optional` **toolEffectiveness**: `number`
+> `optional` **toolEffectiveness?**: `number`
 
-Defined in: [types/evaluation.ts:37](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L37)
+Defined in: [types/evaluation.ts:52](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L52)
 
 ---
 
 ### responseContent?
 
-> `optional` **responseContent**: `string`
+> `optional` **responseContent?**: `string`
 
-Defined in: [types/evaluation.ts:40](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L40)
+Defined in: [types/evaluation.ts:55](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L55)
 
 ---
 
 ### queryContent?
 
-> `optional` **queryContent**: `string`
+> `optional` **queryContent?**: `string`
 
-Defined in: [types/evaluation.ts:41](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L41)
+Defined in: [types/evaluation.ts:56](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L56)
 
 ---
 
@@ -90,15 +90,15 @@ Defined in: [types/evaluation.ts:41](https://github.com/juspay/neurolink/blob/1b
 
 > **isOffTopic**: `boolean`
 
-Defined in: [types/evaluation.ts:44](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L44)
+Defined in: [types/evaluation.ts:59](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L59)
 
 ---
 
 ### alertSeverity
 
-> **alertSeverity**: `AlertSeverity`
+> **alertSeverity**: [`AlertSeverity`](AlertSeverity.md)
 
-Defined in: [types/evaluation.ts:45](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L45)
+Defined in: [types/evaluation.ts:60](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L60)
 
 ---
 
@@ -106,15 +106,15 @@ Defined in: [types/evaluation.ts:45](https://github.com/juspay/neurolink/blob/1b
 
 > **reasoning**: `string`
 
-Defined in: [types/evaluation.ts:46](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L46)
+Defined in: [types/evaluation.ts:61](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L61)
 
 ---
 
 ### suggestedImprovements?
 
-> `optional` **suggestedImprovements**: `string`
+> `optional` **suggestedImprovements?**: `string`
 
-Defined in: [types/evaluation.ts:47](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L47)
+Defined in: [types/evaluation.ts:62](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L62)
 
 ---
 
@@ -122,7 +122,7 @@ Defined in: [types/evaluation.ts:47](https://github.com/juspay/neurolink/blob/1b
 
 > **evaluationModel**: `string`
 
-Defined in: [types/evaluation.ts:50](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L50)
+Defined in: [types/evaluation.ts:65](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L65)
 
 ---
 
@@ -130,39 +130,39 @@ Defined in: [types/evaluation.ts:50](https://github.com/juspay/neurolink/blob/1b
 
 > **evaluationTime**: `number`
 
-Defined in: [types/evaluation.ts:51](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L51)
+Defined in: [types/evaluation.ts:66](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L66)
 
 ---
 
 ### evaluationDomain?
 
-> `optional` **evaluationDomain**: `string`
+> `optional` **evaluationDomain?**: `string`
 
-Defined in: [types/evaluation.ts:52](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L52)
+Defined in: [types/evaluation.ts:67](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L67)
 
 ---
 
 ### evaluationProvider?
 
-> `optional` **evaluationProvider**: `string`
+> `optional` **evaluationProvider?**: `string`
 
-Defined in: [types/evaluation.ts:55](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L55)
+Defined in: [types/evaluation.ts:70](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L70)
 
 ---
 
 ### evaluationAttempt?
 
-> `optional` **evaluationAttempt**: `number`
+> `optional` **evaluationAttempt?**: `number`
 
-Defined in: [types/evaluation.ts:56](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L56)
+Defined in: [types/evaluation.ts:71](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L71)
 
 ---
 
 ### evaluationConfig?
 
-> `optional` **evaluationConfig**: `object`
+> `optional` **evaluationConfig?**: `object`
 
-Defined in: [types/evaluation.ts:57](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L57)
+Defined in: [types/evaluation.ts:72](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L72)
 
 #### mode
 
@@ -180,9 +180,9 @@ Defined in: [types/evaluation.ts:57](https://github.com/juspay/neurolink/blob/1b
 
 ### domainConfig?
 
-> `optional` **domainConfig**: `object`
+> `optional` **domainConfig?**: `object`
 
-Defined in: [types/evaluation.ts:64](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L64)
+Defined in: [types/evaluation.ts:79](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L79)
 
 #### domainName
 
@@ -206,15 +206,15 @@ Defined in: [types/evaluation.ts:64](https://github.com/juspay/neurolink/blob/1b
 
 #### evaluationCriteria?
 
-> `optional` **evaluationCriteria**: `Record`\<`string`, `unknown`\>
+> `optional` **evaluationCriteria?**: `Record`\<`string`, `unknown`\>
 
 ---
 
 ### domainEvaluation?
 
-> `optional` **domainEvaluation**: `object`
+> `optional` **domainEvaluation?**: `object`
 
-Defined in: [types/evaluation.ts:74](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/evaluation.ts#L74)
+Defined in: [types/evaluation.ts:89](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L89)
 
 #### domainRelevance
 

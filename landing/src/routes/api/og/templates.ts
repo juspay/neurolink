@@ -113,7 +113,7 @@ export function getTemplate(params: OGParams): string {
     case "sdk":
       return sdkTemplate(
         params.method || "generate()",
-        params.subtitle || "Unified API for 13+ AI providers",
+        params.subtitle || "Unified API for 21+ AI providers",
       );
     case "examples":
       return examplesTemplate(

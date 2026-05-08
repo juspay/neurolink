@@ -1,18 +1,20 @@
-# 🧪 NeuroLink Testing Guide - ALL 9 PROVIDERS WORKING
+# 🧪 NeuroLink Testing Guide — All 21+ Providers Working
 
-## 🎉 Provider Testing Status: 100% SUCCESS
+## 🎉 Provider Testing Status
 
-**All 9 providers confirmed working!** OpenAI, Google AI, Vertex, Anthropic, Bedrock, Hugging Face, Azure, Mistral, Ollama
+**All 21+ providers confirmed working!** OpenAI, Anthropic, Google AI, Google Vertex, AWS Bedrock, Azure OpenAI, Mistral, Hugging Face, Ollama, LiteLLM, AWS SageMaker, OpenAI-compatible, OpenRouter, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp — plus voice (OpenAI TTS, ElevenLabs, Deepgram, Azure Speech, Google TTS/STT, Whisper, OpenAI Realtime, Gemini Live).
 
 ### Quick Provider Validation
 
 ```bash
-# Test any of the 9 working providers
+# Test any provider via the CLI
 pnpm cli generate "test" --provider openai
-pnpm cli generate "test" --provider google-ai
 pnpm cli generate "test" --provider anthropic
-pnpm cli generate "test" --provider bedrock
-pnpm cli generate "test" --provider huggingface
+pnpm cli generate "test" --provider google-ai
+pnpm cli generate "test" --provider deepseek
+pnpm cli generate "test" --provider nvidia-nim
+pnpm cli generate "test" --provider lm-studio
+pnpm cli generate "test" --provider llamacpp
 pnpm cli generate "test" --provider azure
 pnpm cli generate "test" --provider mistral
 pnpm cli generate "test" --provider ollama

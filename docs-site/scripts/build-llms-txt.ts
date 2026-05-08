@@ -264,17 +264,44 @@ function truncateContent(content: string, maxChars: number): string {
     return content;
   }
 
-  // Try to cut at a sentence boundary
   const truncated = content.substring(0, maxChars);
-  const lastPeriod = truncated.lastIndexOf(".");
-  const lastNewline = truncated.lastIndexOf("\n");
+  const trailer = "\n\n[Content truncated - see llms-full.txt for complete documentation]";
 
-  const cutPoint = Math.max(lastPeriod, lastNewline);
-  if (cutPoint > maxChars * 0.5) {
-    return truncated.substring(0, cutPoint + 1) + "\n\n[Content truncated - see llms-full.txt for complete documentation]";
+  // Prefer breaking at a newline (paragraph) boundary — never split mid-line
+  // because mid-line cuts can land inside a markdown link or URL.
+  const lastNewline = truncated.lastIndexOf("\n");
+  if (lastNewline > maxChars * 0.5) {
+    return truncated.substring(0, lastNewline) + trailer;
   }
 
-  return truncated + "...\n\n[Content truncated - see llms-full.txt for complete documentation]";
+  // No newline boundary in the back half — fall back to the last sentence
+  // boundary that is NOT inside a URL or markdown link.
+  for (let i = truncated.length - 1; i > maxChars * 0.5; i--) {
+    if (truncated[i] === "." && truncated[i + 1] === " ") {
+      // Bail if the period sits inside a URL ("https://" appears between
+      // the previous whitespace and this position).
+      const tail = truncated.substring(0, i);
+      const lastWhitespace = Math.max(
+        tail.lastIndexOf(" "),
+        tail.lastIndexOf("\n"),
+      );
+      const segment = tail.substring(lastWhitespace + 1);
+      if (!/^https?:\/\//.test(segment) && !segment.includes("](")) {
+        return truncated.substring(0, i + 1) + trailer;
+      }
+    }
+  }
+
+  // Last resort: cut at the last whitespace boundary so we never split a URL.
+  const lastWhitespace = Math.max(
+    truncated.lastIndexOf(" "),
+    truncated.lastIndexOf("\n"),
+  );
+  if (lastWhitespace > 0) {
+    return truncated.substring(0, lastWhitespace) + "..." + trailer;
+  }
+
+  return trailer.trimStart();
 }
 
 /**

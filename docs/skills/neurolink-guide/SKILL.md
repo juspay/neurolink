@@ -7,7 +7,7 @@ allowed-tools: Read, Grep, Glob
 
 # NeuroLink Usage Guide
 
-NeuroLink is an enterprise AI development platform providing unified access to 13+ AI providers through a single API. It ships as both a TypeScript SDK (`@juspay/neurolink`) and a professional CLI.
+NeuroLink is an enterprise AI development platform providing unified access to 21+ AI providers (text, voice, multimodal) through a single API. It ships as both a TypeScript SDK (`@juspay/neurolink`) and a professional CLI.
 
 ## Quick Navigation
 

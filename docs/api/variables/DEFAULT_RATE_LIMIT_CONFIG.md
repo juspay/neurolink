@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -6,9 +6,9 @@
 
 # Variable: DEFAULT_RATE_LIMIT_CONFIG
 
-> `const` **DEFAULT_RATE_LIMIT_CONFIG**: [`RateLimitConfig`](../type-aliases/RateLimitConfig.md)
+> `const` **DEFAULT_RATE_LIMIT_CONFIG**: [`TokenBucketRateLimitConfig`](../type-aliases/TokenBucketRateLimitConfig.md)
 
-Defined in: [mcp/httpRateLimiter.ts:14](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRateLimiter.ts#L14)
+Defined in: [mcp/httpRateLimiter.ts:23](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/httpRateLimiter.ts#L23)
 
 Default rate limit configuration
 Provides sensible defaults for most MCP HTTP transport use cases

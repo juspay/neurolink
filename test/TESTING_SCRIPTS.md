@@ -34,6 +34,18 @@ npx tsx test/continuous-test-suite.ts --provider <provider-name>
 - `ollama` - Ollama (local models)
 - `litellm` - LiteLLM proxy
 - `sagemaker` - AWS SageMaker
+- `openrouter` - OpenRouter (300+ models)
+- `openai-compatible` - Any OpenAI-compatible endpoint
+- `deepseek` - DeepSeek (V3, R1)
+- `nvidia-nim` - NVIDIA NIM (Llama 3.3 70B, 400+ models)
+- `lm-studio` - LM Studio (local)
+- `llamacpp` - llama.cpp (local GGUF)
+
+Voice providers (tested via dedicated suites, see below):
+
+- `openai-tts`, `elevenlabs`, `google-tts`, `azure-tts` (TTS — `pnpm test:tts`)
+- `whisper`, `deepgram`, `azure-stt`, `google-stt` (STT — `pnpm test:voice`)
+- `openai-realtime`, `gemini-live` (realtime — `pnpm test:voice-server`)
 
 #### Test Coverage
 

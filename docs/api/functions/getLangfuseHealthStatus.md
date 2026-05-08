@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **getLangfuseHealthStatus**(): `object`
 
-Defined in: [services/server/ai/observability/instrumentation.ts:208](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/services/server/ai/observability/instrumentation.ts#L208)
+Defined in: [services/server/ai/observability/instrumentation.ts:1310](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/services/server/ai/observability/instrumentation.ts#L1310)
 
 Get health status for Langfuse observability
 
@@ -16,17 +16,19 @@ Get health status for Langfuse observability
 
 `object`
 
+Health status object with initialization and configuration details
+
 ### isHealthy
 
-> **isHealthy**: `boolean` \| `undefined`
+> **isHealthy**: `boolean`
 
 ### initialized
 
-> **initialized**: `boolean` = `isInitialized`
+> **initialized**: `boolean`
 
 ### credentialsValid
 
-> **credentialsValid**: `boolean` = `isCredentialsValid`
+> **credentialsValid**: `boolean`
 
 ### enabled
 
@@ -36,6 +38,22 @@ Get health status for Langfuse observability
 
 > **hasProcessor**: `boolean`
 
-### config
+### usingExternalProvider
 
-> **config**: \{ `baseUrl`: `string`; `environment`: `string`; `release`: `string`; \} \| `undefined`
+> **usingExternalProvider**: `boolean`
+
+### config?
+
+> `optional` **config?**: `object`
+
+#### config.baseUrl
+
+> **baseUrl**: `string`
+
+#### config.environment
+
+> **environment**: `string`
+
+#### config.release
+
+> **release**: `string`

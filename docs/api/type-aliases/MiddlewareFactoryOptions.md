@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MiddlewareFactoryOptions** = `object`
 
-Defined in: [types/middlewareTypes.ts:147](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L147)
+Defined in: [types/middleware.ts:151](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L151)
 
 Factory options for middleware
 
@@ -16,9 +16,9 @@ Factory options for middleware
 
 ### middleware?
 
-> `optional` **middleware**: [`NeuroLinkMiddleware`](NeuroLinkMiddleware.md)[]
+> `optional` **middleware?**: [`NeuroLinkMiddleware`](NeuroLinkMiddleware.md)[]
 
-Defined in: [types/middlewareTypes.ts:149](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L149)
+Defined in: [types/middleware.ts:153](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L153)
 
 Custom middleware to register on initialization
 
@@ -26,9 +26,9 @@ Custom middleware to register on initialization
 
 ### enabledMiddleware?
 
-> `optional` **enabledMiddleware**: `string`[]
+> `optional` **enabledMiddleware?**: `string`[]
 
-Defined in: [types/middlewareTypes.ts:151](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L151)
+Defined in: [types/middleware.ts:155](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L155)
 
 Enable specific middleware
 
@@ -36,9 +36,9 @@ Enable specific middleware
 
 ### disabledMiddleware?
 
-> `optional` **disabledMiddleware**: `string`[]
+> `optional` **disabledMiddleware?**: `string`[]
 
-Defined in: [types/middlewareTypes.ts:153](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L153)
+Defined in: [types/middleware.ts:157](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L157)
 
 Disable specific middleware
 
@@ -46,9 +46,9 @@ Disable specific middleware
 
 ### middlewareConfig?
 
-> `optional` **middlewareConfig**: `Record`\<`string`, [`MiddlewareConfig`](MiddlewareConfig.md)\>
+> `optional` **middlewareConfig?**: `Record`\<`string`, [`MiddlewareConfig`](MiddlewareConfig.md)\>
 
-Defined in: [types/middlewareTypes.ts:155](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L155)
+Defined in: [types/middleware.ts:159](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L159)
 
 Middleware configurations
 
@@ -56,9 +56,9 @@ Middleware configurations
 
 ### preset?
 
-> `optional` **preset**: `string`
+> `optional` **preset?**: `string`
 
-Defined in: [types/middlewareTypes.ts:157](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L157)
+Defined in: [types/middleware.ts:161](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L161)
 
 Use a preset configuration
 
@@ -66,26 +66,26 @@ Use a preset configuration
 
 ### global?
 
-> `optional` **global**: `object`
+> `optional` **global?**: `object`
 
-Defined in: [types/middlewareTypes.ts:159](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L159)
+Defined in: [types/middleware.ts:163](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L163)
 
 Global middleware settings
 
 #### maxExecutionTime?
 
-> `optional` **maxExecutionTime**: `number`
+> `optional` **maxExecutionTime?**: `number`
 
 Maximum execution time for middleware chain
 
 #### continueOnError?
 
-> `optional` **continueOnError**: `boolean`
+> `optional` **continueOnError?**: `boolean`
 
 Whether to continue on middleware errors
 
 #### collectStats?
 
-> `optional` **collectStats**: `boolean`
+> `optional` **collectStats?**: `boolean`
 
 Whether to collect execution statistics

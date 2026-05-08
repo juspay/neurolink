@@ -1,56 +1,43 @@
+[**NeuroLink API Reference v9.62.0**](../README.md)
+
 ---
-title: AudioChunk
-description: Raw PCM audio chunk for live realtime streaming (Gemini Live, OpenAI Realtime)
----
+
+[NeuroLink API Reference](../README.md) / AudioChunk
 
 # Type Alias: AudioChunk
 
-> **AudioChunk**: `object`
+> **AudioChunk** = `object`
 
-Raw PCM audio frame used by realtime providers (Gemini Live, OpenAI
-Realtime). **Distinct from [`TTSChunk`](./TTSChunk.md)**: AudioChunk
-carries un-encoded PCM samples for live audio playback, while TTSChunk
-carries encoded audio (MP3/WAV/etc.) from a TTS Mode 2 stream.
+Defined in: [types/stream.ts:146](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L146)
 
-## Type Declaration
+## Properties
 
 ### data
 
 > **data**: `Buffer`
 
-Raw PCM bytes (no RIFF header, no MP3 framing).
+Defined in: [types/stream.ts:147](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L147)
+
+---
 
 ### sampleRateHz
 
 > **sampleRateHz**: `number`
 
-Sample rate in Hz. Gemini Live typically emits at 24000.
+Defined in: [types/stream.ts:148](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L148)
+
+---
 
 ### channels
 
 > **channels**: `number`
 
-Number of channels. Currently always 1 (mono).
+Defined in: [types/stream.ts:149](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L149)
+
+---
 
 ### encoding
 
-> **encoding**: `PCMEncoding`
+> **encoding**: [`PCMEncoding`](PCMEncoding.md)
 
-PCM encoding format — typically `"PCM16LE"`.
-
-## Note
-
-OpenAI Realtime emits PCM frames with `format: "pcm16"` on its
-`RealtimeAudioChunk` shape (also raw PCM). Do not pass either type to a
-WAV duration parser without first wrapping the bytes in a RIFF header.
-
-## Example
-
-```typescript
-for await (const chunk of streamResult.stream) {
-  if (chunk.type === "audio" && "sampleRateHz" in chunk.audio) {
-    // chunk.audio is an AudioChunk (live PCM)
-    speakerOut.write(chunk.audio.data);
-  }
-}
-```
+Defined in: [types/stream.ts:150](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L150)

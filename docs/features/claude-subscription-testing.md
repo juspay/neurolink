@@ -426,32 +426,25 @@ if (metadata?.rateLimit) {
 
 ---
 
-## 4. Integration Tests
+## 4. Credential & Subscription Tests
 
 ### Running the Tests
 
-The subscription integration tests are in a single test file. There is no dedicated `test:subscription` script; run them directly with vitest:
+Anthropic subscription scenarios — OAuth, API key, tier validation — are exercised by the `test:credentials` suite:
 
 ```bash
-# Run all subscription integration tests
-pnpm vitest run test/integration/anthropic-subscription.test.ts
+# Run the credentials suite (includes Claude subscription scenarios)
+pnpm run test:credentials
 
-# Run with verbose output
-pnpm vitest run test/integration/anthropic-subscription.test.ts --reporter=verbose
-
-# Run a specific top-level suite by name
-pnpm vitest run test/integration/anthropic-subscription.test.ts -t "1. OAuth Flow Tests"
-
-# Run with coverage
-pnpm run test:coverage
-
-# Run all integration tests (includes this file among others)
-pnpm run test:integration
+# Or run the underlying tsx file directly with extra logging
+DEBUG=1 npx tsx test/continuous-test-suite-credentials.ts
 ```
 
-### Test File Structure
+> **Note:** NeuroLink does not use vitest; all tests are tsx scripts orchestrated via the `continuous-test-suite-*.ts` files. There is no `test:coverage` / `test:integration` / `test:subscription` script — see [`test/TESTING_SCRIPTS.md`](https://github.com/juspay/neurolink/blob/main/test/TESTING_SCRIPTS.md) for the full list of available suites.
 
-The test file is located at `test/integration/anthropic-subscription.test.ts` and contains **99 test cases** organized across **7 top-level describe blocks** with nested sub-describes. Here is the complete structure:
+### Test Coverage
+
+The credentials suite (`test/continuous-test-suite-credentials.ts`) covers the scenarios below. The numbered list is illustrative of the OAuth/API-key/tier dimensions tested; consult the source for the authoritative inventory.
 
 #### 1. OAuth Flow Tests (21 tests)
 
@@ -961,16 +954,16 @@ pnpm run cli -- generate "ping" --provider anthropic --max-tokens 10
 
 ## 8. Key Source Files
 
-| File                                              | Purpose                                                     |
-| ------------------------------------------------- | ----------------------------------------------------------- |
-| `test/integration/anthropic-subscription.test.ts` | Integration test file (99 tests, 7 suites)                  |
-| `src/lib/providers/anthropic.ts`                  | AnthropicProvider with OAuth, tier, beta support            |
-| `src/lib/auth/anthropicOAuth.ts`                  | AnthropicOAuth class, PKCE, token exchange/refresh          |
-| `src/lib/auth/tokenStore.ts`                      | TokenStore class, file-based multi-provider storage         |
-| `src/lib/mcp/auth/tokenStorage.ts`                | InMemoryTokenStorage, isTokenExpired, calculateExpiresAt    |
-| `src/lib/types/subscriptionTypes.ts`              | Type definitions (OAuthToken, ClaudeSubscriptionTier, etc.) |
-| `src/lib/models/anthropicModels.ts`               | AnthropicModel enum, tier access, model metadata            |
-| `src/lib/constants/enums.ts`                      | AnthropicModels enum, AnthropicBetaFeature enum             |
+| File                                        | Purpose                                                                       |
+| ------------------------------------------- | ----------------------------------------------------------------------------- |
+| `test/continuous-test-suite-credentials.ts` | Credentials and subscription test suite (run via `pnpm run test:credentials`) |
+| `src/lib/providers/anthropic.ts`            | AnthropicProvider with OAuth, tier, beta support                              |
+| `src/lib/auth/anthropicOAuth.ts`            | AnthropicOAuth class, PKCE, token exchange/refresh                            |
+| `src/lib/auth/tokenStore.ts`                | TokenStore class, file-based multi-provider storage                           |
+| `src/lib/mcp/auth/tokenStorage.ts`          | InMemoryTokenStorage, isTokenExpired, calculateExpiresAt                      |
+| `src/lib/types/subscription.ts`             | Type definitions (OAuthToken, ClaudeSubscriptionTier, etc.)                   |
+| `src/lib/models/anthropicModels.ts`         | AnthropicModel enum, tier access, model metadata                              |
+| `src/lib/constants/enums.ts`                | AnthropicModels enum, AnthropicBetaFeature enum                               |
 
 ---
 

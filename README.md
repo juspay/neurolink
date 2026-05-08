@@ -26,9 +26,9 @@ for await (const chunk of result.stream) {
 
 ## 🧠 What is NeuroLink?
 
-**NeuroLink is the universal AI integration platform that unifies 17 major AI providers and 100+ models under one consistent API.**
+**NeuroLink is the universal AI integration platform that unifies 21+ AI providers and 100+ models under one consistent API.**
 
-Extracted from production systems at Juspay and battle-tested at enterprise scale, NeuroLink provides a production-ready solution for integrating AI into any application. Whether you're building with OpenAI, Anthropic, Google, AWS Bedrock, Azure, or any of our 13 supported providers, NeuroLink gives you a single, consistent interface that works everywhere.
+Extracted from production systems at Juspay and battle-tested at enterprise scale, NeuroLink provides a production-ready solution for integrating AI into any application. Whether you're building with OpenAI, Anthropic, Google, AWS Bedrock, Azure, or any of our 21+ supported providers, NeuroLink gives you a single, consistent interface that works everywhere.
 
 **Why NeuroLink?** Switch providers with a single parameter change, leverage 64+ built-in tools and MCP servers, deploy with confidence using enterprise features like Redis memory and multi-provider failover, and optimize costs automatically with intelligent routing. Use it via our professional CLI or TypeScript SDK—whichever fits your workflow.
 
@@ -40,63 +40,63 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 
 ## What's New (Q1 2026)
 
-| Feature                             | Version    | Description                                                                                                                                                                                                          | Guide                                                                          |
-| ----------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| **Multi-Provider Voice (TTS/STT)**  | unreleased | 4 TTS providers (OpenAI TTS, ElevenLabs, Google TTS, Azure TTS) + 4 STT providers (Whisper, Deepgram, Azure STT, Google STT) + 2 realtime APIs (OpenAI Realtime, Gemini Live). CLI `--tts` / `--stt` flags.          | [TTS Guide](docs/features/tts.md) \| [STT Guide](docs/features/audio-input.md) |
-| **Gemini 3 Multi-turn Tool Fix**    | v9.49.0    | Fixed multi-step agentic tool calling on Vertex AI Gemini 3 models. Correct `thoughtSignature` replay, `stepIndex` parallel-call grouping, `executionId` session isolation, 5-min timeout, silent-timeout surfacing. | [Vertex AI Guide](docs/getting-started/providers/google-vertex.md)             |
-| **AutoResearch**                    | v9.17.0    | Autonomous AI experiment engine: proposes code changes, runs experiments, evaluates metrics, keeps improvements — unattended for hours.                                                                              | [AutoResearch Guide](docs/features/autoresearch.md)                            |
-| **MCP Enhancements**                | v9.16.0    | Advanced MCP features: tool routing, result caching, request batching, annotations, elicitation, custom server base, multi-server management                                                                         | [MCP Enhancements Guide](docs/features/mcp-enhancements.md)                    |
-| **Memory**                          | v9.12.0    | Per-user condensed memory that persists across conversations. LLM-powered condensation with S3, Redis, or SQLite backends.                                                                                           | [Memory Guide](docs/features/memory.md)                                        |
-| **Context Window Management**       | v9.2.0     | 4-stage compaction pipeline with auto-detection, budget gate at 80% usage, per-provider token estimation                                                                                                             | [Context Compaction Guide](docs/features/context-compaction.md)                |
-| **Tool Execution Control**          | v9.3.0     | `prepareStep` and `toolChoice` support for per-step tool enforcement in multi-step agentic loops. API-level control over tool calls.                                                                                 | [API Reference](docs/api/type-aliases/GenerateOptions.md#preparestep)          |
-| **File Processor System**           | v9.1.0     | 17+ file type processors with ProcessorRegistry, security sanitization, SVG text injection                                                                                                                           | [File Processors Guide](docs/features/file-processors.md)                      |
-| **RAG with generate()/stream()**    | v9.2.0     | Pass `rag: { files }` to generate/stream for automatic document chunking, embedding, and AI-powered search. 10 chunking strategies, hybrid search, reranking.                                                        | [RAG Guide](docs/features/rag.md)                                              |
-| **External TracerProvider Support** | v8.43.0    | Integrate NeuroLink with existing OpenTelemetry instrumentation. Prevents duplicate registration conflicts.                                                                                                          | [Observability Guide](docs/features/observability.md)                          |
-| **Server Adapters**                 | v8.43.0    | Multi-framework HTTP server with Hono, Express, Fastify, Koa support. Full CLI for server management with foreground/background modes.                                                                               | [Server Adapters Guide](docs/guides/server-adapters/index.md)                  |
-| **Title Generation Events**         | v8.38.0    | Emit `conversation:titleGenerated` event when conversation title is generated. Supports custom title prompts via `NEUROLINK_TITLE_PROMPT`.                                                                           | [Conversation Memory Guide](docs/conversation-memory.md)                       |
-| **Video Generation with Veo**       | v8.32.0    | Video generation using Veo 3.1 (`veo-3.1`). Realistic video generation with many parameter options                                                                                                                   | [Video Generation Guide](docs/features/video-generation.md)                    |
-| **Image Generation with Gemini**    | v8.31.0    | Native image generation using Gemini 2.0 Flash Experimental (`imagen-3.0-generate-002`). High-quality image synthesis directly from Google AI.                                                                       | [Image Generation Guide](docs/image-generation-streaming.md)                   |
-| **HTTP/Streamable HTTP Transport**  | v8.29.0    | Connect to remote MCP servers via HTTP with authentication headers, automatic retry with exponential backoff, and configurable rate limiting.                                                                        | [HTTP Transport Guide](docs/mcp-http-transport.md)                             |
-
-- **Multi-Provider Voice (TTS/STT)** – Full voice pipeline with 4 TTS providers (OpenAI TTS, ElevenLabs, Google TTS, Azure TTS), 4 STT providers (Whisper, Deepgram, Azure STT, Google STT), and 2 realtime APIs (OpenAI Realtime, Gemini Live). Pass `--tts` / `--stt` flags in the CLI or configure via `tts` / `stt` in the SDK. → [TTS Guide](docs/features/tts.md) | [STT Guide](docs/features/audio-input.md) | [Realtime Guide](docs/features/real-time-services.md)
-- **AutoResearch** – Autonomous AI experiment engine inspired by Karpathy's autoresearch. Phase-gated tool access, git-backed safety, deterministic metric evaluation, and TaskManager integration for continuous unattended research. 12 research tools, 10 typed events, 9 CLI subcommands. → [AutoResearch Guide](docs/features/autoresearch.md)
-- **Memory** – Per-user condensed memory that persists across all conversations. Automatically retrieves and stores memory on each `generate()`/`stream()` call. Supports S3, Redis, and SQLite storage with LLM-powered condensation. → [Memory Guide](docs/features/memory.md)
-- **External TracerProvider Support** – Integrate NeuroLink with applications that already have OpenTelemetry instrumentation. Supports auto-detection and manual configuration. → [Observability Guide](docs/features/observability.md)
-- **Claude Proxy Telemetry** – Bootstrap a local OpenObserve + OTEL collector stack with `neurolink proxy telemetry setup`, import the maintained NeuroLink Proxy Observability dashboard, and inspect proxy logs, traces, metrics, cache reuse, and routing behavior. → [Claude Proxy Guide](docs/features/claude-proxy.md) | [Proxy Observability Guide](docs/features/claude-proxy-observability.md)
-- **Server Adapters** – Deploy NeuroLink as an HTTP API server with your framework of choice (Hono, Express, Fastify, Koa). Full CLI support with `serve` and `server` commands for foreground/background modes, route management, and OpenAPI generation. → [Server Adapters Guide](docs/guides/server-adapters/index.md)
-- **Title Generation Events** – Emit real-time events when conversation titles are auto-generated. Listen to `conversation:titleGenerated` for session tracking. → [Conversation Memory Guide](docs/conversation-memory.md#title-generation-events)
-- **Custom Title Prompts** – Customize conversation title generation with `NEUROLINK_TITLE_PROMPT` environment variable. Use `${userMessage}` placeholder for dynamic prompts. → [Conversation Memory Guide](docs/conversation-memory.md#customizing-the-title-prompt)
-- **Video Generation** – Transform images into 8-second videos with synchronized audio using Google Veo 3.1 via Vertex AI. Supports 720p/1080p resolutions, portrait/landscape aspect ratios. → [Video Generation Guide](docs/features/video-generation.md)
-- **PPT Generation** – Create professional PowerPoint presentations from text prompts with 35 slide types (title, content, charts, timelines, dashboards, composite layouts), 5 themes, and optional AI-generated images. Works with Vertex AI, OpenAI, Anthropic, Google AI, Azure, and Bedrock. → [PPT Generation Guide](docs/features/ppt-generation.md)
-- **Image Generation** – Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio. Supports streaming mode with automatic file saving. → [Image Generation Guide](docs/image-generation-streaming.md)
-- **RAG with generate()/stream()** – Just pass `rag: { files: ["./docs/guide.md"] }` to `generate()` or `stream()`. NeuroLink auto-chunks, embeds, and creates a search tool the AI can invoke. 10 chunking strategies, hybrid search, 5 reranker types. → [RAG Guide](docs/features/rag.md)
-- **HTTP/Streamable HTTP Transport for MCP** – Connect to remote MCP servers via HTTP with authentication headers, retry logic, and rate limiting. → [HTTP Transport Guide](docs/mcp-http-transport.md)
-- 🧠 **Gemini 3 Native Multi-turn Tool Calling** — Fixed multi-step agentic tool calling for Gemini 3 models on Vertex AI. The native `@google/genai` path now correctly replays `thoughtSignature` as a sibling field on each `functionCall` part, groups parallel tool calls by `stepIndex`, enforces a 5-minute default timeout on the generate path, and surfaces silent timeouts as proper `TimeoutError` instead of empty responses. Multi-execution session overlap (where `continueOrchestratorWorkflow` restarts the loop on the same `sessionId`) is addressed by an `executionId` per invocation as a composite grouping key — this prevents tool calls from two different executions colliding into the same Gemini model turn and causing the model to return 0 function calls.
-- 🧠 **Gemini 3 Preview Support** - Full support for gemini-3-flash-preview and gemini-3-pro-preview with extended thinking capabilities
-- 🎯 **Tool Execution Control** – Use `prepareStep` to enforce specific tool calls, change the LLM models per step in multi-step agentic executions. Prevents LLMs from skipping required tools. Use `toolChoice` for static control, or `prepareStep` for dynamic per-step logic. → [GenerateOptions Reference](docs/api/type-aliases/GenerateOptions.md#preparestep)
-- **Structured Output with Zod Schemas** – Type-safe JSON generation with automatic validation using `schema` + `output.format: "json"` in `generate()`. → [Structured Output Guide](docs/features/structured-output.md)
-- **CSV File Support** – Attach CSV files to prompts for AI-powered data analysis with auto-detection. → [CSV Guide](docs/features/multimodal-chat.md#csv-file-support)
-- **PDF File Support** – Process PDF documents with native visual analysis for Vertex AI, Anthropic, Bedrock, AI Studio. → [PDF Guide](docs/features/pdf-support.md)
-- **50+ File Types** – Process Excel, Word, RTF, JSON, YAML, XML, HTML, SVG, Markdown, and 50+ code languages with intelligent content extraction. → [File Processors Guide](docs/features/file-processors.md)
-- **LiteLLM Integration** – Access 100+ AI models from all major providers through unified interface. → [Setup Guide](docs/litellm-integration.md)
-- **SageMaker Integration** – Deploy and use custom trained models on AWS infrastructure. → [Setup Guide](docs/sagemaker-integration.md)
-- **OpenRouter Integration** – Access 300+ models from OpenAI, Anthropic, Google, Meta, and more through a single unified API. → [Setup Guide](docs/getting-started/providers/openrouter.md)
-- **Human-in-the-loop workflows** – Pause generation for user approval/input before tool execution. → [HITL Guide](docs/features/hitl.md)
-- **Guardrails middleware** – Block PII, profanity, and unsafe content with built-in filtering. → [Guardrails Guide](docs/features/guardrails.md)
-- **Context summarization** – Automatic conversation compression for long-running sessions. → [Summarization Guide](docs/context-summarization.md)
-- **MCP Enhancements** – 14 production-grade modules: tool routing (6 strategies), result caching (LRU/FIFO/LFU), request batching, tool annotations with auto-inference, middleware chain, elicitation protocol, multi-server management, and more. → [MCP Enhancements Guide](docs/features/mcp-enhancements.md)
-- **Redis conversation export** – Export full session history as JSON for analytics and debugging. → [History Guide](docs/features/conversation-history.md)
+| Feature                            | Version | Description                                                                                                                                                                    | Guide                                                                                                                                   |
+| ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Multi-Provider Voice (TTS/STT)** | v9.62.0 | 4 TTS providers (OpenAI TTS, ElevenLabs, Google TTS, Azure TTS) + 4 STT providers (Whisper, Deepgram, Azure STT, Google STT) + 2 realtime APIs (OpenAI Realtime, Gemini Live). | [TTS Guide](docs/features/tts.md) \| [STT Guide](docs/features/audio-input.md) \| [Realtime Guide](docs/features/real-time-services.md) |
+| **4 New Providers**                | v9.60.0 | DeepSeek (V3/R1), NVIDIA NIM (400+ catalog), LM Studio (local), llama.cpp (GGUF local).                                                                                        | [Provider Setup](docs/getting-started/provider-setup.md)                                                                                |
+| **ModelAccessDeniedError**         | v9.59.0 | Typed `ModelAccessDeniedError` + `sdk.checkCredentials()` API for proactive credential validation before first call.                                                           | [Error Reference](docs/reference/troubleshooting.md)                                                                                    |
+| **Provider Fallback Policy**       | v9.58.0 | `providerFallback` callback + `modelChain` config for centralized multi-provider fallback logic.                                                                               | [Advanced Guide](docs/advanced/index.md)                                                                                                |
+| **Per-Request Credentials**        | v9.52.0 | Pass credentials per-call or per-instance for all providers. Per-call overrides instance; instance overrides env vars.                                                         | [Credentials Guide](docs/features/per-request-credentials.md)                                                                           |
+| **AutoResearch**                   | v9.53.0 | Autonomous AI experiment engine: proposes code changes, runs experiments, evaluates metrics — unattended for hours.                                                            | [AutoResearch Guide](docs/features/autoresearch.md)                                                                                     |
+| **Gemini 3 Multi-turn Tool Fix**   | v9.49.0 | Fixed multi-step agentic tool calling on Vertex AI Gemini 3. Correct `thoughtSignature` replay, `stepIndex` grouping, `executionId` session isolation, 5-min timeout.          | [Vertex AI Guide](docs/getting-started/providers/google-vertex.md)                                                                      |
+| **MCP Enhancements**               | v9.16.0 | Tool routing (6 strategies), result caching (LRU/FIFO/LFU), request batching, annotations, elicitation protocol, multi-server management.                                      | [MCP Enhancements Guide](docs/features/mcp-enhancements.md)                                                                             |
+| **Memory**                         | v9.12.0 | Per-user condensed memory across conversations. LLM-powered condensation with S3, Redis, or SQLite.                                                                            | [Memory Guide](docs/features/memory.md)                                                                                                 |
+| **Context Window Management**      | v9.2.0  | 4-stage compaction pipeline with budget gate at 80% usage, per-provider token estimation.                                                                                      | [Context Compaction Guide](docs/features/context-compaction.md)                                                                         |
+| **Tool Execution Control**         | v9.3.0  | `prepareStep` and `toolChoice` for per-step tool enforcement in multi-step agentic loops.                                                                                      | [API Reference](docs/api/type-aliases/GenerateOptions.md#preparestep)                                                                   |
+| **File Processor System**          | v9.1.0  | 17+ file type processors with ProcessorRegistry, security sanitization, SVG text injection.                                                                                    | [File Processors Guide](docs/features/file-processors.md)                                                                               |
+| **RAG with generate()/stream()**   | v9.2.0  | Pass `rag: { files }` for automatic document chunking, embedding, and AI-powered search. 10 chunking strategies, hybrid search, reranking.                                     | [RAG Guide](docs/features/rag.md)                                                                                                       |
 
 ```typescript
-// Image Generation with Gemini (v8.31.0)
-const image = await neurolink.generate({
-  input: { text: "A futuristic cityscape" },
-  provider: "google-ai",
-  model: "imagen-3.0-generate-002",
-});
-console.log(image.imageOutput?.base64); // Base64-encoded image
+// Multi-Provider Voice (v9.62.0) — TTS + STT
+// Voice is configured via the `tts` / `stt` options on generate() / stream(),
+// not via dedicated synthesizeSpeech / transcribeAudio methods.
 
-// AutoResearch — autonomous experiment loop (v9.17.0)
+// Text in, audio out (TTS)
+const result = await neurolink.generate({
+  input: { text: "Hello from NeuroLink" },
+  provider: "vertex",
+  tts: {
+    enabled: true,
+    voice: "en-US-Neural2-C",
+    format: "mp3",
+    output: "./output.mp3", // optional: save to disk
+    provider: "elevenlabs", // optional override: openai-tts | elevenlabs | google-ai | vertex | azure-tts
+  },
+});
+// result.audio: { buffer: Buffer, format: "mp3", ... }
+
+// Audio in (STT), text out
+const transcript = await neurolink.generate({
+  input: { text: "Transcribe and summarize" },
+  provider: "openai",
+  stt: {
+    enabled: true,
+    audio: audioBuffer, // Buffer of the audio file
+    provider: "whisper", // whisper | deepgram | google-stt | azure-stt
+    language: "en-US",
+  },
+});
+
+// Real-time bidirectional voice (OpenAI Realtime / Gemini Live)
+import { RealtimeProcessor } from "@juspay/neurolink";
+
+await RealtimeProcessor.connect(
+  "openai-realtime",
+  { provider: "openai-realtime", model: "gpt-4o-realtime-preview" },
+  { onAudio, onTranscript, onError, onFunctionCall },
+);
+
+// AutoResearch — autonomous experiment loop (v9.53.0)
 import { resolveConfig, ResearchWorker } from "@juspay/neurolink/autoresearch";
 
 const config = resolveConfig({
@@ -113,29 +113,51 @@ const worker = new ResearchWorker(config);
 await worker.initialize("experiment-1");
 const result = await worker.runExperimentCycle("Try lower learning rate");
 
-// HTTP Transport for Remote MCP (v8.29.0)
-await neurolink.addExternalMCPServer("remote-tools", {
-  transport: "http",
-  url: "https://mcp.example.com/v1",
-  headers: { Authorization: "Bearer token" },
-  retries: 3,
-  timeout: 15000,
+// Provider Fallback Policy (v9.58.0) — fires only on ModelAccessDeniedError
+import { NeuroLink, ModelAccessDeniedError } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink({
+  // Async callback. Single error arg. Return null to give up,
+  // or { provider?, model? } to retry with a substitute.
+  providerFallback: async (error) => {
+    if (
+      error instanceof ModelAccessDeniedError &&
+      error.allowedModels?.length
+    ) {
+      return { model: error.allowedModels[0] };
+    }
+    return null;
+  },
+  // Sugar over providerFallback: if no callback is set, NeuroLink walks this list
+  // on each access denial. modelChain is `string[]` only (model names; same provider).
+  modelChain: ["claude-opus-4-7", "claude-sonnet-4-6", "gpt-4o"],
 });
 ```
 
 ---
 
 <details>
-<summary><strong>Previous Updates (Q4 2025)</strong></summary>
+<summary><strong>Previous Updates (Q3–Q4 2025)</strong></summary>
 
-- **Image Generation** – Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio. → [Guide](docs/image-generation-streaming.md)
-- **Gemini 3 Preview Support** - Full support for `gemini-3-flash-preview` and `gemini-3-pro-preview` with extended thinking
-- **Structured Output with Zod Schemas** – Type-safe JSON generation with automatic validation. → [Guide](docs/features/structured-output.md)
-- **CSV & PDF File Support** – Attach CSV/PDF files to prompts with auto-detection. → [CSV](docs/features/multimodal-chat.md#csv-file-support) | [PDF](docs/features/pdf-support.md)
-- **LiteLLM & SageMaker** – Access 100+ models via LiteLLM, deploy custom models on SageMaker. → [LiteLLM](docs/litellm-integration.md) | [SageMaker](docs/sagemaker-integration.md)
-- **OpenRouter Integration** – Access 300+ models through a single unified API. → [Guide](docs/getting-started/providers/openrouter.md)
-- **HITL & Guardrails** – Human-in-the-loop approval workflows and content filtering middleware. → [HITL](docs/features/hitl.md) | [Guardrails](docs/features/guardrails.md)
-- **Redis & Context Management** – Session export, conversation history, and automatic summarization. → [History](docs/features/conversation-history.md)
+- **Sharp image compression** (v9.50.0) – Automatic image compression for AI providers via the sharp library; reduces upload bandwidth and bypasses provider size limits.
+- **Redis URL/TLS** (v9.49.0) – Redis URL-based connections with TLS support for secure conversation memory in production.
+- **TaskManager** (v9.41.0) – Scheduled and self-running AI tasks; cron-style execution with state checkpointing.
+- **Multi-user memory retrieval** (v9.40.0) – Per-user memory storage and retrieval with customizable prompts.
+- **Evaluation Scoring (14 scorers)** (v9.37.0) – Modular evaluation system with 14 scorers, pipelines, and CLI for offline quality assessment.
+- **Browser-compatible bundle** (v9.34.0) – Client-side SDK bundle for browser use; no Node.js dependency for the core API.
+- **Per-call memory control** (v9.33.0) – Read/write memory control per `generate()` and `stream()` call.
+- **Server Adapters** (v8.43.0) – HTTP server with Hono, Express, Fastify, Koa. Foreground/background modes, route management, OpenAPI generation. → [Guide](docs/guides/server-adapters/index.md)
+- **External TracerProvider** (v8.43.0) – Integrate NeuroLink with existing OpenTelemetry setups. → [Guide](docs/features/observability.md)
+- **Title Generation Events** (v8.38.0) – `conversation:titleGenerated` event + `NEUROLINK_TITLE_PROMPT` custom titles. → [Guide](docs/conversation-memory.md)
+- **Video Generation with Veo** (v8.32.0) – Video generation via Google Veo 3.1 on Vertex AI. 720p/1080p, portrait/landscape. → [Guide](docs/features/video-generation.md)
+- **Image Generation** (v8.31.0) – Native image generation with Gemini and Imagen models. → [Guide](docs/image-generation-streaming.md)
+- **HTTP/Streamable HTTP Transport** (v8.29.0) – Remote MCP servers via HTTP with auth headers, retry, rate limiting. → [Guide](docs/mcp-http-transport.md)
+- **PPT Generation** – 35 slide types, 5 themes, optional AI-generated images. Works across all major providers. → [Guide](docs/features/ppt-generation.md)
+- **Structured Output with Zod** – Type-safe JSON via `schema` + `output.format: "json"`. → [Guide](docs/features/structured-output.md)
+- **CSV & PDF File Support** – Attach CSV/PDF with auto-detection. PDF: native visual analysis on Vertex, Anthropic, Bedrock, AI Studio. → [CSV](docs/features/multimodal-chat.md#csv-file-support) | [PDF](docs/features/pdf-support.md)
+- **LiteLLM, SageMaker & OpenRouter** – 100+ models via LiteLLM, custom endpoints on SageMaker, 300+ via OpenRouter. → [LiteLLM](docs/litellm-integration.md) | [SageMaker](docs/sagemaker-integration.md)
+- **HITL & Guardrails** – Human-in-the-loop approval workflows and content filtering. → [HITL](docs/features/hitl.md) | [Guardrails](docs/features/guardrails.md)
+- **Redis Conversation Export** – Export full session history as JSON for analytics and audit. → [Guide](docs/features/conversation-history.md)
 
 </details>
 
@@ -197,7 +219,7 @@ npx @juspay/neurolink --help
 
 ### Configuration
 
-NeuroLink works with 17+ AI providers. You'll need at least one API key to get started:
+NeuroLink works with 21+ AI providers. You'll need at least one API key to get started:
 
 **Option 1: Interactive Setup (Recommended)**
 
@@ -384,7 +406,7 @@ const result = await neurolink.generate({
 ### Next Steps
 
 - **[Complete Documentation](https://docs.neurolink.ink)** - Comprehensive guides and API reference
-- **[Provider Setup Guide](docs/getting-started/provider-setup.md)** - Configure all 17 providers
+- **[Provider Setup Guide](docs/getting-started/provider-setup.md)** - Configure all 21+ providers
 - **[SDK API Reference](docs/sdk/api-reference.md)** - Full TypeScript API documentation
 - **[CLI Command Reference](docs/cli/commands.md)** - Complete CLI documentation
 - **[Example Projects](docs/examples/index.md)** - Real-world integration examples
@@ -416,34 +438,34 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 ### 🤖 AI Provider Integration
 
-**17 providers unified under one API** - Switch providers with a single parameter change.
+**21+ providers unified under one API** - Switch providers with a single parameter change.
 
-| Provider              | Models                                             | Free Tier       | Tool Support | Status        | Documentation                                                                                                                 |
-| --------------------- | -------------------------------------------------- | --------------- | ------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **OpenAI**            | GPT-4o, GPT-4o-mini, o1                            | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai)                                                                  |
-| **Anthropic**         | Claude 4.5 Opus/Sonnet/Haiku, Claude 4 Opus/Sonnet | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#anthropic) \| [Subscription Guide](docs/features/claude-subscription.md) |
-| **Google AI Studio**  | Gemini 3 Flash/Pro, Gemini 2.5 Flash/Pro           | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#google-ai)                                                               |
-| **AWS Bedrock**       | Claude, Titan, Llama, Nova                         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#bedrock)                                                                 |
-| **Google Vertex**     | Gemini 3/2.5 (gemini-3-\*-preview)                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#vertex)                                                                  |
-| **Azure OpenAI**      | GPT-4, GPT-4o, o1                                  | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure)                                                                   |
-| **LiteLLM**           | 100+ models unified                                | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/litellm-integration.md)                                                                                    |
-| **AWS SageMaker**     | Custom deployed models                             | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/sagemaker-integration.md)                                                                                  |
-| **Mistral AI**        | Mistral Large, Small                               | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#mistral)                                                                 |
-| **Hugging Face**      | 100,000+ models                                    | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#huggingface)                                                             |
-| **Ollama**            | Local models (Llama, Mistral)                      | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)                                                                  |
-| **OpenAI Compatible** | Any OpenAI-compatible endpoint                     | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-compatible)                                                       |
-| **OpenRouter**        | 200+ Models via OpenRouter                         | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/providers/openrouter.md)                                                                   |
-| **DeepSeek**          | deepseek-chat (V3), deepseek-reasoner (R1)         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#deepseek)                                                                |
-| **NVIDIA NIM**        | Llama 3.3 70B, 400+ catalog models                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#nvidia-nim)                                                              |
-| **LM Studio**         | Any model loaded in LM Studio (local)              | ✅ Free (Local) | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#lm-studio)                                                               |
-| **llama.cpp**         | Any GGUF model served by llama-server (local)      | ✅ Free (Local) | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#llamacpp)                                                                |
-| **OpenAI TTS**        | TTS-1, TTS-1-HD, GPT-4o Audio                      | ❌              | N/A          | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-tts)                                                              |
-| **ElevenLabs**        | Multilingual v2, Turbo v2.5, Flash v2.5            | ✅ Free Tier    | N/A          | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#elevenlabs)                                                              |
-| **Deepgram**          | Nova-3, Nova-2, Enhanced, Base (STT)               | ✅ Free Tier    | N/A          | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#deepgram)                                                                |
-| **Azure Speech**      | Azure Cognitive Services TTS + STT                 | ❌              | N/A          | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure-speech)                                                            |
+| Provider              | Models                                                                     | Free Tier       | Tool Support | Status        | Documentation                                                                                                                 |
+| --------------------- | -------------------------------------------------------------------------- | --------------- | ------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **OpenAI**            | GPT-4o, GPT-4o-mini, o1                                                    | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai)                                                                  |
+| **Anthropic**         | Claude 4.6 Opus/Sonnet, Claude 4.5 Opus/Sonnet/Haiku, Claude 4 Opus/Sonnet | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#anthropic) \| [Subscription Guide](docs/features/claude-subscription.md) |
+| **Google AI Studio**  | Gemini 3 Flash/Pro, Gemini 2.5 Flash/Pro                                   | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#google-ai)                                                               |
+| **AWS Bedrock**       | Claude, Titan, Llama, Nova                                                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#bedrock)                                                                 |
+| **Google Vertex**     | Gemini 3/2.5 (gemini-3-\*-preview)                                         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#vertex)                                                                  |
+| **Azure OpenAI**      | GPT-4, GPT-4o, o1                                                          | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure)                                                                   |
+| **LiteLLM**           | 100+ models unified                                                        | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/litellm-integration.md)                                                                                    |
+| **AWS SageMaker**     | Custom deployed models                                                     | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/sagemaker-integration.md)                                                                                  |
+| **Mistral AI**        | Mistral Large, Small                                                       | ✅ Free Tier    | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#mistral)                                                                 |
+| **Hugging Face**      | 100,000+ models                                                            | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#huggingface)                                                             |
+| **Ollama**            | Local models (Llama, Mistral)                                              | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)                                                                  |
+| **OpenAI Compatible** | Any OpenAI-compatible endpoint                                             | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-compatible)                                                       |
+| **OpenRouter**        | 200+ Models via OpenRouter                                                 | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/providers/openrouter.md)                                                                   |
+| **DeepSeek**          | deepseek-chat (V3), deepseek-reasoner (R1)                                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#deepseek)                                                                |
+| **NVIDIA NIM**        | Llama 3.3 70B, 400+ catalog models                                         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#nvidia-nim)                                                              |
+| **LM Studio**         | Any model loaded in LM Studio (local)                                      | ✅ Free (Local) | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#lm-studio)                                                               |
+| **llama.cpp**         | Any GGUF model served by llama-server (local)                              | ✅ Free (Local) | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#llamacpp)                                                                |
+| **OpenAI TTS**        | TTS-1, TTS-1-HD, GPT-4o Audio                                              | ❌              | N/A          | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-tts)                                                              |
+| **ElevenLabs**        | Multilingual v2, Turbo v2.5, Flash v2.5                                    | ✅ Free Tier    | N/A          | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#elevenlabs)                                                              |
+| **Deepgram**          | Nova-3, Nova-2, Enhanced, Base (STT)                                       | ✅ Free Tier    | N/A          | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#deepgram)                                                                |
+| **Azure Speech**      | Azure Cognitive Services TTS + STT                                         | ❌              | N/A          | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure-speech)                                                            |
 
 **[📖 Provider Comparison Guide](docs/reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
-**[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 13 providers
+**[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 21+ providers
 
 ---
 
@@ -599,7 +621,7 @@ const result = await neurolink.generate({
 - **ProcessorRegistry** - Priority-based processor selection with fallback
 - **OWASP Security** - HTML/SVG sanitization prevents XSS attacks
 - **Auto-detection** - FileDetector identifies file types by extension and content
-- **Provider-agnostic** - All processors work across all 17 AI providers
+- **Provider-agnostic** - All processors work across all 21+ AI providers
 
 **[📖 File Processors Guide](docs/features/file-processors.md)** - Complete reference for all file types
 
@@ -729,7 +751,7 @@ node your-app.js
 
 ### 🤖 GitHub Action
 
-Run AI-powered workflows directly in GitHub Actions with 13 provider support and automatic PR/issue commenting.
+Run AI-powered workflows directly in GitHub Actions with 21+ provider support and automatic PR/issue commenting.
 
 ```yaml
 - uses: juspay/neurolink@v1
@@ -741,7 +763,7 @@ Run AI-powered workflows directly in GitHub Actions with 13 provider support and
 
 | Feature                | Description                                                                               |
 | ---------------------- | ----------------------------------------------------------------------------------------- |
-| **Multi-Provider**     | 17 providers with unified interface                                                       |
+| **Multi-Provider**     | 21+ providers with unified interface                                                      |
 | **PR/Issue Comments**  | Auto-post AI responses with intelligent updates                                           |
 | **Multimodal Support** | Attach images, PDFs, CSVs, Excel, Word, JSON, YAML, XML, HTML, SVG, code files to prompts |
 | **Cost Tracking**      | Built-in analytics and quality evaluation                                                 |
@@ -767,7 +789,7 @@ NeuroLink features intelligent model selection and cost optimization:
 npx @juspay/neurolink generate "Hello" --optimize-cost
 
 # LiteLLM specific model selection
-npx @juspay/neurolink generate "Complex analysis" --provider litellm --model "anthropic/claude-3-5-sonnet"
+npx @juspay/neurolink generate "Complex analysis" --provider litellm --model "anthropic/claude-sonnet-4-6"
 
 # Auto-select best available provider
 npx @juspay/neurolink generate "Write code" # Automatically chooses optimal provider
@@ -934,12 +956,13 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 | Capability               | Highlights                                                                                                               |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| **Provider unification** | 17+ providers with automatic fallback, cost-aware routing, provider orchestration (Q3).                                  |
+| **Provider unification** | 21+ providers with automatic fallback, cost-aware routing, `providerFallback` policy, `modelChain` config.               |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types. |
-| **Quality & governance** | Auto-evaluation engine (Q3), guardrails middleware (Q4), HITL workflows (Q4), audit logging.                             |
-| **Memory & context**     | Conversation memory, Redis history export (Q4), context summarization (Q4).                                              |
-| **CLI tooling**          | Loop sessions (Q3), setup wizard, config validation, Redis auto-detect, JSON output.                                     |
-| **Enterprise ops**       | Proxy support, regional routing (Q3), telemetry hooks, local OpenObserve dashboard setup, configuration management.      |
+| **Voice pipeline**       | TTS (4 providers) + STT (4 providers) + realtime voice APIs (OpenAI Realtime, Gemini Live).                              |
+| **Quality & governance** | Auto-evaluation engine (14 scorers), guardrails middleware, HITL workflows, audit logging.                               |
+| **Memory & context**     | Per-user condensed memory (S3/Redis/SQLite), Redis session export, 4-stage context compaction.                           |
+| **CLI tooling**          | Loop sessions, setup wizard, config validation, Redis auto-detect, JSON output, TTS/STT flags.                           |
+| **Enterprise ops**       | Claude proxy, OTLP observability, OpenObserve dashboard, regional routing, credential management.                        |
 | **Tool ecosystem**       | MCP auto discovery, HTTP/stdio/SSE/WebSocket transports, LiteLLM hub access, SageMaker custom deployment, web search.    |
 
 ## Documentation Map

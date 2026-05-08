@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.44.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,13 +8,9 @@
 
 > **MDocumentConfig** = `object`
 
-Defined in: [lib/rag/types.ts:770](https://github.com/juspay/neurolink/blob/main/src/lib/rag/types.ts#L770)
+Defined in: [types/rag.ts:1440](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1440)
 
-Configuration options for MDocument initialization. Specifies the document type and optional custom metadata.
-
-## Since
-
-v8.44.0
+MDocument configuration
 
 ## Properties
 
@@ -22,43 +18,16 @@ v8.44.0
 
 > **type**: [`DocumentType`](DocumentType.md)
 
-Document type for processing strategy selection
+Defined in: [types/rag.ts:1442](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1442)
+
+Document type
 
 ---
 
 ### metadata?
 
-> `optional` **metadata**: `Record<string, unknown>`
+> `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Custom metadata to attach to the document and propagate to chunks
+Defined in: [types/rag.ts:1444](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1444)
 
-## Example
-
-```typescript
-import { MDocument, type MDocumentConfig } from "@juspay/neurolink";
-
-// Basic configuration
-const config: MDocumentConfig = {
-  type: "markdown",
-};
-
-const doc = new MDocument(markdownContent, config);
-
-// With custom metadata
-const configWithMetadata: MDocumentConfig = {
-  type: "html",
-  metadata: {
-    source: "https://example.com/article",
-    author: "Jane Doe",
-    publishedAt: "2024-01-15",
-    tags: ["ai", "machine-learning"],
-  },
-};
-
-const docWithMeta = new MDocument(htmlContent, configWithMetadata);
-
-// Metadata is preserved through processing
-await docWithMeta.chunk({ strategy: "html" });
-const chunks = docWithMeta.getChunks();
-// Each chunk inherits document metadata
-```
+Custom metadata

@@ -29,7 +29,7 @@ We're uniquely positioned to become the **universal substrate** for these innova
 
 ## Technical Evolution Progress
 
-## Phase 0: Foundation Complete ✅ (Q3 2025)
+## Phase 0: Foundation ✅ (shipped Q3 2025)
 
 _"Production-Ready AI SDK: Enterprise Foundation Established"_
 
@@ -109,80 +109,73 @@ class ContextFactory {
 
 ## Three-Phase Future Evolution
 
-## Phase 1: Multimodal Foundation (Q3 2025)
+## Phase 1: Multimodal Foundation ✅ (shipped Q3 2025)
 
 _"Beyond Text: Universal AI Interface"_
 
-### Core Mission
+### What Shipped
 
-Transform NeuroLink from text-only to **universal multimodal AI orchestrator** supporting every input/output modality.
-
-### Technical Capabilities to Build
-
-#### 1. **Universal Modality Support**
+NeuroLink ships a single multimodal `generate()` API that accepts text, images, PDFs, audio (STT), and video frames as content blocks on the same call, with TTS for output. Real-time voice ships via `RealtimeProcessor`.
 
 ```typescript
-// Vision: Single interface for all AI modalities
+import { NeuroLink, RealtimeProcessor } from "@juspay/neurolink";
+
 const neurolink = new NeuroLink();
 
-// Text generation (current)
-await neurolink.generate({ input: { text: "Explain quantum computing" } });
+// Text + image (vision) on a single call
+await neurolink.generate({
+  input: {
+    text: "What's in this image?",
+    files: ["./photo.jpg"],
+  },
+  provider: "anthropic",
+});
 
-// Image analysis (new)
-await neurolink.analyzeImage(imageBuffer, "What's in this image?");
+// Audio in (STT), text out
+await neurolink.generate({
+  input: { text: "Transcribe and summarize" },
+  provider: "openai",
+  stt: { enabled: true, audio: audioBuffer, provider: "whisper" },
+});
 
-// Audio processing (new)
-await neurolink.processAudio(audioStream, "transcribe-and-summarize");
+// Text in, audio out (TTS)
+await neurolink.generate({
+  input: { text: "Hello, world." },
+  provider: "vertex",
+  tts: { enabled: true, voice: "en-US-Neural2-C", format: "mp3" },
+});
+// result.audio: { buffer: Buffer, format: "mp3", ... }
 
-// Video understanding (new)
-await neurolink.analyzeVideo(videoFile, "extract-key-moments");
-
-// Cross-modal reasoning (revolutionary)
-await neurolink.reasonAcross({
-  image: productPhoto,
-  text: "Customer reviews",
-  audio: callRecording,
-  task: "Generate marketing insights",
+// Real-time bidirectional voice (OpenAI Realtime / Gemini Live)
+const session = await RealtimeProcessor.connect("openai-realtime", config, {
+  onAudio: (chunk) => speaker.write(chunk.audio),
+  onTranscript: (text, isFinal) => console.log(text),
 });
 ```
 
-#### 2. **Real-time Processing Pipeline**
+Shipped components:
 
-- **Streaming Everything**: Not just text - images, audio, video in real-time
-- **Pipeline Orchestration**: Chain multiple AI operations seamlessly
-- **Smart Caching**: Vector embeddings, model outputs, cross-modal representations
-- **Automatic Optimization**: Route requests based on speed/quality trade-offs
+- `src/lib/utils/messageBuilder.ts` — content-block construction across modalities
+- `src/lib/adapters/providerImageAdapter.ts` — per-provider vision capability mapping
+- `src/lib/processors/` — 17+ file processors (PDF, Excel, Word, RTF, JSON/YAML/XML, video, archives, …)
+- `src/lib/voice/RealtimeVoiceAPI.ts` — OpenAI Realtime + Gemini Live transports
+- `src/lib/adapters/tts/` — Google TTS, OpenAI TTS, ElevenLabs, Cartesia, Azure TTS handlers
 
-#### 3. **Edge Computing Integration**
+### Technical Challenges Solved
 
-```typescript
-// Deploy anywhere: cloud, edge, mobile, embedded
-const config = {
-  deployment: {
-    edge: ["cloudflare-workers", "vercel-edge", "mobile-devices"],
-    fallback: "cloud-providers",
-    optimization: "latency-first",
-  },
-};
-```
+1. **Cross-Provider Modality Mapping**: `ProviderImageAdapter.VISION_CAPABILITIES` maps modality support per provider; `MessageBuilder` formats per-provider content arrays.
+2. **Real-time Streaming**: `RealtimeProcessor` provides full-duplex audio + tool calls.
+3. **Cost Optimization**: `providerFallback` callback + `modelChain` config let callers route on model-access denial.
 
-#### 4. **Developer Experience Revolution**
+### Not Shipped (still research / future)
 
-- **React/Vue/Angular Hooks**: `useMultimodalAI()`, `useImageAnalysis()`
-- **Visual Pipeline Builder**: Drag-and-drop AI workflow creation
-- **Real-time Playground**: Test multimodal combinations instantly
-- **Auto-documentation**: Self-documenting AI pipelines
-
-### Technical Challenges to Solve
-
-1. **Cross-Provider Modality Mapping**: Each provider has different image/audio APIs
-2. **Real-time Streaming**: Coordinating multiple data streams efficiently
-3. **Edge Deployment**: Model quantization and deployment automation
-4. **Cost Optimization**: Smart routing between expensive/cheap modalities
+- Visual pipeline builder
+- React/Vue/Angular hooks (`useMultimodalAI`, etc.) — community-buildable on top of the SDK
+- Edge deployment automation
 
 ---
 
-## Phase 2: Autonomous Agent Orchestration (Q4 2025)
+## Phase 2: Autonomous Agent Orchestration ✅ (shipped Q4 2025)
 
 _"From Tools to Agents: Self-Coordinating AI Systems"_
 
@@ -190,69 +183,19 @@ _"From Tools to Agents: Self-Coordinating AI Systems"_
 
 Enable developers to build **autonomous AI agent networks** that can handle complex, multi-step workflows without human intervention.
 
-### Technical Capabilities to Build
+### What Shipped
 
-#### 1. **Agent Framework Integration**
+- **Agent network primitives**: `AgentNetwork`, `RoutingAgent`, and `AgentExposureManager` (`src/lib/agents/`) provide multi-agent orchestration with routing strategies and a shared tool/MCP surface.
+- **Workflow orchestration engine**: `src/lib/workflow/` ships nodes, conditional edges, parallel branches, retry policies, HITL approval steps, and checkpoint persistence. The engine is documented in [`docs/WORKFLOW-ENGINE-LLD.md`](https://github.com/juspay/neurolink/blob/main/docs/WORKFLOW-ENGINE-LLD.md).
+- **Persistent memory**: `src/lib/memory/` ships in-memory + Redis stores, with multi-user support, per-call memory overrides, summarization-driven compaction, and automatic context budget enforcement (`BudgetChecker` + `ContextCompactor`).
+- **Integration ecosystem**: 58+ MCP servers discoverable via the MCP registry; database, file-system, GitHub, Slack tooling all bridge through the MCP transport layer (`stdio`, `http`, `sse`, `websocket`).
+- **HITL middleware**: tool-call approval flow ships in `src/lib/middleware/hitl/`, integrated with both text generation and realtime voice sessions.
 
-```typescript
-// Vision: Orchestrate multiple AI agents seamlessly
-const agentNetwork = new NeuroLinkAgents({
-  agents: [
-    { role: "data-analyst", capabilities: ["text", "charts", "sql"] },
-    { role: "content-creator", capabilities: ["text", "images", "video"] },
-    { role: "coordinator", capabilities: ["workflow", "decision-making"] },
-  ],
-  collaboration: "autonomous",
-});
+### Not Shipped (still research / future)
 
-// Complex workflow handled automatically
-const result = await agentNetwork.execute({
-  task: "Analyze Q4 sales data and create marketing campaign",
-  inputs: { salesDB: connection, brandGuidelines: document },
-  outputs: ["executive-summary", "campaign-assets", "budget-proposal"],
-});
-```
-
-#### 2. **Workflow Orchestration Engine**
-
-- **Visual Workflow Designer**: Node-based agent coordination
-- **Conditional Logic**: If/then/else for AI decision trees
-- **Error Recovery**: Automatic retries, fallback strategies, escalation
-- **Human-in-Loop**: Seamless handoff when agents need guidance
-- **Parallel Execution**: Multiple agents working simultaneously
-
-#### 3. **Memory and Context Systems**
-
-```typescript
-// Persistent agent memory across conversations
-const persistentAgent = new NeuroLinkAgent({
-  memory: {
-    type: "vector-database",
-    retention: "permanent",
-    context: "project-aware",
-  },
-  learning: {
-    fromInteractions: true,
-    fromOutcomes: true,
-    crossAgentSharing: true,
-  },
-});
-```
-
-#### 4. **Integration Ecosystem**
-
-- **API Connectors**: Automatically integrate with 1000+ services
-- **Database Adapters**: Direct SQL/NoSQL query capabilities
-- **File System Access**: Read/write/organize files intelligently
-- **Communication Tools**: Slack, email, Teams integration
-- **Development Tools**: Git, CI/CD, monitoring systems
-
-### Indispensability Factors
-
-1. **Universal Agent Language**: Any AI model becomes an agent in our system
-2. **Cross-System Intelligence**: Agents understand your entire tech stack
-3. **Zero Configuration**: Auto-discovery of available resources and capabilities
-4. **Infinite Scalability**: From single agent to thousands, seamlessly
+- Visual workflow designer (the engine has a programmatic API; no drag-and-drop UI yet)
+- Auto-discovery for "1000+ services" (MCP makes this user-configurable but not automatic)
+- Cross-agent learning loops (memory is per-conversation, not cross-agent learning)
 
 ---
 

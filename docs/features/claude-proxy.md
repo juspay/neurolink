@@ -133,7 +133,7 @@ When all Claude accounts are rate-limited, the proxy walks the fallback chain de
 routing:
   fallback-chain:
     - provider: google-ai
-      model: gemini-2.5-flash
+      model: gemini-3-flash-preview
     - provider: openai
       model: gpt-4o
 ```
@@ -167,13 +167,13 @@ routing:
   # Model mappings: remap incoming model names to different providers
   model-mappings:
     - from: claude-sonnet-4-20250514
-      to: gemini-2.5-pro
+      to: gemini-3-pro-preview
       provider: google-ai
 
   # Fallback chain: try these when all Claude accounts are exhausted
   fallback-chain:
     - provider: google-ai
-      model: gemini-2.5-flash
+      model: gemini-3-flash-preview
     - provider: openai
       model: gpt-4o
 

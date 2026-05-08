@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AnalyticsData** = `object`
 
-Defined in: [types/analytics.ts:34](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/analytics.ts#L34)
+Defined in: [types/analytics.ts:34](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L34)
 
 Analytics data structure (consolidated from core analytics)
 
@@ -18,23 +18,23 @@ Analytics data structure (consolidated from core analytics)
 
 > **provider**: `string`
 
-Defined in: [types/analytics.ts:35](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/analytics.ts#L35)
+Defined in: [types/analytics.ts:35](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L35)
 
 ---
 
 ### model?
 
-> `optional` **model**: `string`
+> `optional` **model?**: `string`
 
-Defined in: [types/analytics.ts:36](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/analytics.ts#L36)
+Defined in: [types/analytics.ts:36](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L36)
 
 ---
 
 ### tokenUsage
 
-> **tokenUsage**: `TokenUsage`
+> **tokenUsage**: [`TokenUsage`](TokenUsage.md)
 
-Defined in: [types/analytics.ts:37](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/analytics.ts#L37)
+Defined in: [types/analytics.ts:37](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L37)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/analytics.ts:37](https://github.com/juspay/neurolink/blob/1be
 
 > **requestDuration**: `number`
 
-Defined in: [types/analytics.ts:38](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/analytics.ts#L38)
+Defined in: [types/analytics.ts:38](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L38)
 
 ---
 
@@ -50,20 +50,20 @@ Defined in: [types/analytics.ts:38](https://github.com/juspay/neurolink/blob/1be
 
 > **timestamp**: `string`
 
-Defined in: [types/analytics.ts:39](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/analytics.ts#L39)
+Defined in: [types/analytics.ts:39](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L39)
 
 ---
 
 ### cost?
 
-> `optional` **cost**: `number`
+> `optional` **cost?**: `number`
 
-Defined in: [types/analytics.ts:40](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/analytics.ts#L40)
+Defined in: [types/analytics.ts:40](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L40)
 
 ---
 
 ### context?
 
-> `optional` **context**: `JsonValue`
+> `optional` **context?**: [`JsonValue`](JsonValue.md)
 
-Defined in: [types/analytics.ts:41](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/analytics.ts#L41)
+Defined in: [types/analytics.ts:41](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L41)

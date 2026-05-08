@@ -273,113 +273,67 @@ NeuroLink has a comprehensive testing suite to ensure reliability across all AI 
 
 ### 🚀 Quick Start Testing
 
+All test suites run via `tsx` (not vitest, despite a `vitest.config.ts` existing in the repo). Suites are real integration runs against `test/continuous-test-suite-*.ts` orchestrators.
+
 ```bash
-# Interactive testing (recommended for development)
+# Main suite — orchestrates the full integration run
 pnpm test
 
-# Non-interactive testing (CI/CD)
-pnpm test:run
+# CI pipeline (test + test:client)
+pnpm test:ci
 ```
 
 ### 📋 Test Categories & Commands
 
-#### **Core Testing Commands**
-
 ```bash
-# Basic testing
-pnpm test              # Interactive vitest with watch mode
-pnpm test:run          # Non-interactive vitest run
+# Domain-specific suites
+pnpm test:client          # SDK client suite
+pnpm test:context         # Context compaction + file handling
+pnpm test:mcp             # MCP HTTP transport
+pnpm test:rag             # RAG (chunking, search, reranking)
+pnpm test:providers       # Provider validation
+pnpm test:new-providers   # DeepSeek, NVIDIA NIM, LM Studio, llama.cpp
+pnpm test:media           # Media generation (image, video)
+pnpm test:memory          # Memory persistence
+pnpm test:tts             # Text-to-speech providers
+pnpm test:voice           # Multi-provider voice (TTS + STT)
+pnpm test:voice-server    # Real-time voice agent server
+pnpm test:observability   # Tracing + telemetry
+pnpm test:hitl            # Human-in-the-loop workflows
+pnpm test:credentials     # Per-request credentials
+pnpm test:evaluation      # Evaluation scorers
+pnpm test:middleware      # Middleware chain
+pnpm test:workflow        # Workflow engine
+pnpm test:ppt             # PowerPoint generation
+pnpm test:servers         # HTTP server adapters
+pnpm test:tracing         # OpenTelemetry traces
+pnpm test:proxy           # Claude proxy
+pnpm test:bugfixes        # Regression fixtures
 
-# Enhanced testing suite
-pnpm test:smart        # Adaptive test runner with intelligence
-pnpm test:providers    # Validate all AI providers
-pnpm test:performance  # Performance benchmarks
-pnpm test:coverage     # Coverage analysis with reports
-pnpm test:ci           # Complete CI pipeline testing
-```
-
-#### **Specialized Testing**
-
-```bash
-# Dynamic model testing
-pnpm test:dynamicModels    # Test dynamic model configurations
-
-# Development utilities
-pnpm modelServer           # Start model validation server
+# Run a single suite directly
+npx tsx test/continuous-test-suite-<name>.ts
 ```
 
 ### 📁 Test File Structure
 
-The test suite is organized into logical categories:
-
 ```
 test/
-├── analyticsFeatures.ts           # Analytics functionality tests
-├── basicFunctionality.ts          # Core feature validation
-├── errorHandling.ts               # Error handling scenarios
-├── evaluationFeatures.ts          # AI evaluation system tests
-├── streamingValidation.ts         # Streaming functionality
-├── sdkComprehensive.ts            # SDK integration tests
-├── parameterValidation.ts         # Input validation tests
-├── contextIntegration.ts          # Context management tests
-├── universalProvider.ts           # Cross-provider compatibility
-├── mcp/                           # Model Context Protocol tests
-│   ├── manualConfig/              # Manual configuration tests
-│   ├── toolIntegration/           # Tool integration tests
-│   └── providers/                 # Provider-specific MCP tests
-├── providers/                     # Provider-specific tests
-│   ├── litellm.test.ts           # LiteLLM integration
-│   └── sagemaker.test.ts         # AWS SageMaker integration
-├── sdkTools/                      # SDK tool functionality
-├── streaming/                     # Streaming performance tests
-└── utils/                         # Testing utilities
+├── continuous-test-suite.ts                 # Main orchestrator (pnpm test)
+├── continuous-test-suite-<domain>.ts        # Per-domain suites (mcp, rag, voice, etc.)
+├── continuous-test-suite-issue-NN-*.ts      # Regression fixtures for tracked issues
+└── fixtures/                                # CSVs, PDFs, PNG, JSON used by suites
 ```
+
+Each domain suite is a self-contained `tsx` script that exits non-zero on failure. There is no vitest runner; do not write `*.test.ts` files using `vi.mock` or `describe/it` blocks — they will not be picked up.
 
 ### 🧪 Testing Best Practices
 
 #### **For New Features**
 
-1. **Add unit tests** for core functionality
-2. **Add integration tests** for provider compatibility
-3. **Test error scenarios** and edge cases
-4. **Verify performance** doesn't regress
-
-#### **For AI Provider Integration**
-
-```ts
-// Use the established mocking pattern
-import { vi } from "vitest";
-
-vi.mock("@ai-sdk/openai", () => ({
-  openai: vi.fn().mockReturnValue({
-    // Mock implementation
-  }),
-}));
-
-// Test both success and failure scenarios
-describe("YourProvider", () => {
-  it("should generate text successfully", async () => {
-    // Test implementation
-  });
-
-  it("should handle errors gracefully", async () => {
-    // Error scenario testing
-  });
-});
-```
-
-#### **For MCP (Model Context Protocol) Features**
-
-```bash
-# Test MCP tool integration
-pnpm vitest test/mcp/toolIntegration --run
-
-# Test manual configuration loading
-pnpm vitest test/mcp/manualConfig --run
-
-# Test provider MCP support
-pnpm vitest test/mcp/providers --run
-```
+1. **Add to the closest existing suite** (e.g. provider work → `continuous-test-suite-providers.ts`)
+2. **Or create a new suite** `test/continuous-test-suite-<name>.ts` and add a matching `test:<name>` script in `package.json`
+3. **Test error scenarios and edge cases** — assertions inside the suite throw on failure
+4. **Real integration runs preferred** — these suites hit live provider APIs when credentials are present
 
 ### 🔧 Testing Environment Setup
 
@@ -405,27 +359,28 @@ pnpm cli --version
 #### **Development Workflow**
 
 ```bash
-# Start with interactive testing
+# Run the main suite
 pnpm test
 
-# Focus on specific test files
-pnpm vitest test/basicFunctionality.ts
+# Focus on a specific domain suite
+npx tsx test/continuous-test-suite-providers.ts
+npx tsx test/continuous-test-suite-rag.ts
 
-# Watch specific test categories
-pnpm vitest test/mcp --watch
+# Run an individual issue regression suite
+npx tsx test/continuous-test-suite-issue-01-model-access.ts
 ```
 
 #### **CI/CD Workflow**
 
 ```bash
-# Complete validation pipeline
+# Complete CI pipeline (test + test:client + test:hitl)
 pnpm test:ci
 
-# Individual validation steps
-pnpm test:run              # Core test suite
-pnpm test:providers        # Provider validation
-pnpm test:performance      # Performance benchmarks
-pnpm test:coverage         # Coverage analysis
+# Individual domain validations
+pnpm test:providers       # 21+ provider validation
+pnpm test:performance     # Performance benchmarks (tools/testing/performanceMonitor.ts)
+pnpm test:voice           # Voice (TTS/STT) validation
+pnpm test:rag             # RAG pipeline validation
 ```
 
 ### 📊 Performance Expectations
@@ -445,8 +400,8 @@ pnpm test:coverage         # Coverage analysis
 **Tests timeout or fail:**
 
 ```bash
-# Run individual test files
-pnpm vitest test/basicFunctionality.ts --run
+# Run an individual suite directly with tsx
+npx tsx test/continuous-test-suite-<name>.ts
 
 # Check environment setup
 pnpm run env:validate
@@ -455,10 +410,10 @@ pnpm run env:validate
 **Provider-specific failures:**
 
 ```bash
-# Test specific provider
+# Test a specific provider via CLI
 pnpm cli generate "test" --provider google-ai
 
-# Validate provider configuration
+# Run full provider validation suite
 pnpm test:providers
 ```
 
@@ -468,28 +423,21 @@ pnpm test:providers
 # Clean and rebuild
 pnpm clean
 pnpm build
-pnpm test:run
+pnpm test
 ```
 
 ### 📈 Test Coverage
 
-We maintain high test coverage across:
+We maintain integration coverage across:
 
-- ✅ **Core functionality** - All primary features tested
-- ✅ **Provider integration** - All 9 AI providers validated
-- ✅ **Error handling** - Graceful failure scenarios
-- ✅ **Performance** - Response time and throughput benchmarks
-- ✅ **MCP integration** - Tool orchestration and configuration
-- ✅ **CLI functionality** - Command-line interface validation
-- ✅ **SDK features** - Software development kit testing
-
-Check current coverage:
-
-```bash
-pnpm test:coverage
-```
-
-> **Target:** Maintain at least **90 %** line and branch coverage across the codebase.
+- ✅ **Core functionality** — All primary features tested
+- ✅ **Provider integration** — All 21+ AI providers validated
+- ✅ **Voice pipeline** — TTS, STT, and realtime voice servers
+- ✅ **Error handling** — Graceful failure scenarios
+- ✅ **MCP integration** — Tool orchestration and configuration
+- ✅ **CLI functionality** — Command-line interface validation
+- ✅ **SDK features** — Software development kit testing
+- ✅ **Regressions** — Pinned issue suites (`continuous-test-suite-issue-*.ts`)
 
 ### 🧑‍💻 Manual CLI & SDK Testing
 

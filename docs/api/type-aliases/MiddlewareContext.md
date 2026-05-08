@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MiddlewareContext** = `object`
 
-Defined in: [types/middlewareTypes.ts:63](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L63)
+Defined in: [types/middleware.ts:66](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L66)
 
 Context passed to middleware for decision making
 
@@ -18,7 +18,7 @@ Context passed to middleware for decision making
 
 > **provider**: `string`
 
-Defined in: [types/middlewareTypes.ts:65](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L65)
+Defined in: [types/middleware.ts:68](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L68)
 
 Provider name
 
@@ -28,7 +28,7 @@ Provider name
 
 > **model**: `string`
 
-Defined in: [types/middlewareTypes.ts:67](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L67)
+Defined in: [types/middleware.ts:70](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L70)
 
 Model name
 
@@ -38,7 +38,7 @@ Model name
 
 > **options**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/middlewareTypes.ts:69](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L69)
+Defined in: [types/middleware.ts:72](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L72)
 
 Request options
 
@@ -46,26 +46,26 @@ Request options
 
 ### session?
 
-> `optional` **session**: `object`
+> `optional` **session?**: `object`
 
-Defined in: [types/middlewareTypes.ts:71](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L71)
+Defined in: [types/middleware.ts:74](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L74)
 
 Session information
 
 #### sessionId?
 
-> `optional` **sessionId**: `string`
+> `optional` **sessionId?**: `string`
 
 #### userId?
 
-> `optional` **userId**: `string`
+> `optional` **userId?**: `string`
 
 ---
 
 ### metadata?
 
-> `optional` **metadata**: `Record`\<`string`, `JsonValue`\>
+> `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/middlewareTypes.ts:76](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/middlewareTypes.ts#L76)
+Defined in: [types/middleware.ts:79](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L79)
 
 Additional metadata

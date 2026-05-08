@@ -413,14 +413,14 @@ export { prepareRAGTool } from "./rag/ragIntegration.js";
 ## Testing
 
 ```bash
-# Run RAG tests
+# Run the full RAG suite (canonical entry point)
 pnpm run test:rag
 
-# Run specific test suites
-pnpm vitest run test/rag/chunkers.test.ts
-pnpm vitest run test/rag/reranker.test.ts
-pnpm vitest run test/rag/metadata.test.ts
+# Run the suite directly with tsx if you want extra logging
+npx tsx test/continuous-test-suite-rag.ts
 ```
+
+> NeuroLink runs all suites via `tsx`; there is no vitest runner. RAG-specific scenarios (chunkers, rerankers, metadata) are exercised by `continuous-test-suite-rag.ts`.
 
 ## Related Documentation
 

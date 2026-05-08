@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.44.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -6,95 +6,16 @@
 
 # Class: MDocument
 
-Defined in: [src/lib/rag/document/MDocument.ts:63](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L63)
+Defined in: [rag/document/MDocument.ts:46](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L46)
 
-Fluent document class for RAG processing with chainable methods for chunking, embedding, and metadata extraction.
+MDocument class for comprehensive document processing
 
-## Description
+Provides a chainable API for:
 
-MDocument provides a builder-pattern interface for document processing using the Factory + Registry pattern. It supports multiple document types (text, markdown, HTML, JSON, LaTeX, CSV) and maintains processing history throughout the document lifecycle.
-
-Key features:
-
-- Static factory methods for different document types
-- Chainable async methods for processing pipelines
-- Multiple chunking strategies via ChunkerRegistry
-- LLM-based metadata extraction (title, summary, keywords)
-- Embedding generation with configurable providers
-- Full serialization/deserialization support
-- Processing history tracking
-
-## Examples
-
-### Basic Document Processing
-
-```typescript
-import { MDocument } from "@juspay/neurolink";
-
-// Create document from markdown content
-const doc = MDocument.fromMarkdown(markdownContent);
-
-// Chunk the document
-await doc.chunk({
-  strategy: "markdown",
-  config: { maxSize: 500, headerLevels: [1, 2, 3] },
-});
-
-// Get the resulting chunks
-const chunks = doc.getChunks();
-console.log(`Generated ${chunks.length} chunks`);
-```
-
-### Fluent Processing Chain
-
-```typescript
-import { MDocument } from "@juspay/neurolink";
-
-const doc = await MDocument.fromText(content).chunk({
-  strategy: "recursive",
-  config: { maxSize: 1000, overlap: 200 },
-});
-
-await doc.extractMetadata({
-  title: true,
-  summary: true,
-  keywords: true,
-});
-
-await doc.embed("openai", "text-embedding-3-small");
-
-// Access results
-const chunks = doc.getChunks();
-const embeddings = doc.getEmbeddings();
-const history = doc.getHistory();
-```
-
-### Processing with Custom Metadata
-
-```typescript
-const doc = MDocument.fromHTML(htmlContent, {
-  source: "https://example.com/page",
-  author: "John Doe",
-  category: "documentation",
-});
-
-await doc.chunk({ strategy: "html" });
-doc.setMetadata("processedAt", new Date().toISOString());
-
-console.log(doc.getMetadata());
-```
-
-### Serialization and Restoration
-
-```typescript
-// Serialize document state
-const serialized = doc.toJSON();
-const jsonString = JSON.stringify(serialized);
-
-// Restore from serialized state
-const restored = MDocument.fromJSON(JSON.parse(jsonString));
-console.log(restored.getChunks()); // Chunks are preserved
-```
+- Loading documents from various sources
+- Chunking with multiple strategies
+- Metadata extraction using LLMs
+- Embedding generation
 
 ## Constructors
 
@@ -102,9 +23,9 @@ console.log(restored.getChunks()); // Chunks are preserved
 
 > **new MDocument**(`content`, `config?`): `MDocument`
 
-Defined in: [src/lib/rag/document/MDocument.ts:72](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L72)
+Defined in: [rag/document/MDocument.ts:55](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L55)
 
-Create a new MDocument instance.
+Create a new MDocument instance
 
 #### Parameters
 
@@ -118,21 +39,21 @@ Document content
 
 [`MDocumentConfig`](../type-aliases/MDocumentConfig.md)
 
-Document configuration including type and metadata
+Document configuration
 
 #### Returns
 
 `MDocument`
 
-## Static Factory Methods
+## Methods
 
 ### fromText()
 
 > `static` **fromText**(`text`, `metadata?`): `MDocument`
 
-Defined in: [src/lib/rag/document/MDocument.ts:98](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L98)
+Defined in: [rag/document/MDocument.ts:81](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L81)
 
-Create MDocument from plain text.
+Create MDocument from plain text
 
 #### Parameters
 
@@ -144,21 +65,15 @@ Plain text content
 
 ##### metadata?
 
-`Record<string, unknown>`
+`Record`\<`string`, `unknown`\>
 
-Optional metadata to attach
+Optional metadata
 
 #### Returns
 
 `MDocument`
 
-New MDocument instance with type "text"
-
-#### Example
-
-```typescript
-const doc = MDocument.fromText("Hello world", { source: "greeting.txt" });
-```
+MDocument instance
 
 ---
 
@@ -166,9 +81,9 @@ const doc = MDocument.fromText("Hello world", { source: "greeting.txt" });
 
 > `static` **fromMarkdown**(`markdown`, `metadata?`): `MDocument`
 
-Defined in: [src/lib/rag/document/MDocument.ts:108](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L108)
+Defined in: [rag/document/MDocument.ts:91](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L91)
 
-Create MDocument from markdown content.
+Create MDocument from markdown content
 
 #### Parameters
 
@@ -180,22 +95,15 @@ Markdown content
 
 ##### metadata?
 
-`Record<string, unknown>`
+`Record`\<`string`, `unknown`\>
 
-Optional metadata to attach
+Optional metadata
 
 #### Returns
 
 `MDocument`
 
-New MDocument instance with type "markdown"
-
-#### Example
-
-```typescript
-const doc = MDocument.fromMarkdown("# Title\n\nContent here");
-await doc.chunk({ strategy: "markdown" });
-```
+MDocument instance
 
 ---
 
@@ -203,9 +111,9 @@ await doc.chunk({ strategy: "markdown" });
 
 > `static` **fromHTML**(`html`, `metadata?`): `MDocument`
 
-Defined in: [src/lib/rag/document/MDocument.ts:121](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L121)
+Defined in: [rag/document/MDocument.ts:104](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L104)
 
-Create MDocument from HTML content.
+Create MDocument from HTML content
 
 #### Parameters
 
@@ -217,22 +125,15 @@ HTML content
 
 ##### metadata?
 
-`Record<string, unknown>`
+`Record`\<`string`, `unknown`\>
 
-Optional metadata to attach
+Optional metadata
 
 #### Returns
 
 `MDocument`
 
-New MDocument instance with type "html"
-
-#### Example
-
-```typescript
-const doc = MDocument.fromHTML("<div><p>Content</p></div>");
-await doc.chunk({ strategy: "html", config: { extractTextOnly: true } });
-```
+MDocument instance
 
 ---
 
@@ -240,36 +141,29 @@ await doc.chunk({ strategy: "html", config: { extractTextOnly: true } });
 
 > `static` **fromJSONContent**(`json`, `metadata?`): `MDocument`
 
-Defined in: [src/lib/rag/document/MDocument.ts:131](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L131)
+Defined in: [rag/document/MDocument.ts:114](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L114)
 
-Create MDocument from JSON content.
+Create MDocument from JSON content
 
 #### Parameters
 
 ##### json
 
-`string | object`
+`string` \| `object`
 
-JSON string or object (will be stringified)
+JSON string or object
 
 ##### metadata?
 
-`Record<string, unknown>`
+`Record`\<`string`, `unknown`\>
 
-Optional metadata to attach
+Optional metadata
 
 #### Returns
 
 `MDocument`
 
-New MDocument instance with type "json"
-
-#### Example
-
-```typescript
-const doc = MDocument.fromJSONContent({ users: [...], config: {...} });
-await doc.chunk({ strategy: "json", config: { splitKeys: ["users"] } });
-```
+MDocument instance
 
 ---
 
@@ -277,9 +171,9 @@ await doc.chunk({ strategy: "json", config: { splitKeys: ["users"] } });
 
 > `static` **fromLaTeX**(`latex`, `metadata?`): `MDocument`
 
-Defined in: [src/lib/rag/document/MDocument.ts:146](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L146)
+Defined in: [rag/document/MDocument.ts:129](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L129)
 
-Create MDocument from LaTeX content.
+Create MDocument from LaTeX content
 
 #### Parameters
 
@@ -291,22 +185,15 @@ LaTeX content
 
 ##### metadata?
 
-`Record<string, unknown>`
+`Record`\<`string`, `unknown`\>
 
-Optional metadata to attach
+Optional metadata
 
 #### Returns
 
 `MDocument`
 
-New MDocument instance with type "latex"
-
-#### Example
-
-```typescript
-const doc = MDocument.fromLaTeX("\\section{Introduction}\nContent...");
-await doc.chunk({ strategy: "latex" });
-```
+MDocument instance
 
 ---
 
@@ -314,9 +201,9 @@ await doc.chunk({ strategy: "latex" });
 
 > `static` **fromCSV**(`csv`, `metadata?`): `MDocument`
 
-Defined in: [src/lib/rag/document/MDocument.ts:159](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L159)
+Defined in: [rag/document/MDocument.ts:142](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L142)
 
-Create MDocument from CSV content.
+Create MDocument from CSV content
 
 #### Parameters
 
@@ -328,69 +215,25 @@ CSV content
 
 ##### metadata?
 
-`Record<string, unknown>`
+`Record`\<`string`, `unknown`\>
 
-Optional metadata to attach
+Optional metadata
 
 #### Returns
 
 `MDocument`
 
-New MDocument instance with type "csv"
+MDocument instance
 
 ---
 
-### fromJSON()
+### chunk()
 
-> `static` **fromJSON**(`json`): `MDocument`
+> **chunk**(`params?`): `Promise`\<`MDocument`\>
 
-Defined in: [src/lib/rag/document/MDocument.ts:486](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L486)
+Defined in: [rag/document/MDocument.ts:155](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L155)
 
-Create MDocument from serialized JSON (deserialization).
-
-Restores a previously serialized MDocument including its chunks, history, and metadata.
-
-#### Parameters
-
-##### json
-
-Serialized document data
-
-| Property    | Type                                              | Description                 |
-| ----------- | ------------------------------------------------- | --------------------------- |
-| `id?`       | `string`                                          | Document ID to restore      |
-| `content`   | `string`                                          | Document content            |
-| `type`      | [`DocumentType`](../type-aliases/DocumentType.md) | Document type               |
-| `metadata?` | `Record<string, unknown>`                         | Document metadata           |
-| `chunks?`   | [`Chunk`](../type-aliases/Chunk.md)[]             | Previously generated chunks |
-| `history?`  | `string[]`                                        | Processing history          |
-
-#### Returns
-
-`MDocument`
-
-Restored MDocument instance
-
-#### Example
-
-```typescript
-const serialized = existingDoc.toJSON();
-const restored = MDocument.fromJSON(serialized);
-```
-
-## Instance Methods
-
-### Core Processing Methods
-
-#### chunk()
-
-> **chunk**(`params?`): `Promise<MDocument>`
-
-Defined in: [src/lib/rag/document/MDocument.ts:172](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L172)
-
-Chunk the document using the specified strategy.
-
-Uses ChunkerRegistry to get the appropriate chunker. If no strategy is specified, automatically selects the best strategy based on document type.
+Chunk the document using specified strategy
 
 #### Parameters
 
@@ -400,37 +243,21 @@ Uses ChunkerRegistry to get the appropriate chunker. If no strategy is specified
 
 Chunking parameters
 
-| Property    | Type                                                      | Description                                      |
-| ----------- | --------------------------------------------------------- | ------------------------------------------------ |
-| `strategy?` | [`ChunkingStrategy`](../type-aliases/ChunkingStrategy.md) | Strategy to use (auto-detected if not specified) |
-| `config?`   | [`ChunkerConfig`](../type-aliases/ChunkerConfig.md)       | Strategy-specific configuration                  |
-
 #### Returns
 
-`Promise<MDocument>`
+`Promise`\<`MDocument`\>
 
 This MDocument instance (for chaining)
 
-#### Example
-
-```typescript
-await doc.chunk({
-  strategy: "recursive",
-  config: { maxSize: 1000, overlap: 200, separators: ["\n\n", "\n", " "] },
-});
-```
-
 ---
 
-#### extractMetadata()
+### extractMetadata()
 
-> **extractMetadata**(`params`, `options?`): `Promise<MDocument>`
+> **extractMetadata**(`params`, `options?`): `Promise`\<`MDocument`\>
 
-Defined in: [src/lib/rag/document/MDocument.ts:211](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L211)
+Defined in: [rag/document/MDocument.ts:194](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L194)
 
-Extract metadata from chunks using LLM.
-
-Requires `chunk()` to be called first. Uses LLMMetadataExtractor to analyze chunks and extract titles, summaries, keywords, or custom fields.
+Extract metadata from chunks using LLM
 
 #### Parameters
 
@@ -438,257 +265,205 @@ Requires `chunk()` to be called first. Uses LLMMetadataExtractor to analyze chun
 
 [`ExtractParams`](../type-aliases/ExtractParams.md)
 
-Extraction parameters specifying what to extract
-
-| Property    | Type                                | Description              |
-| ----------- | ----------------------------------- | ------------------------ |
-| `title?`    | `boolean \| TitleExtractorConfig`   | Extract document title   |
-| `summary?`  | `boolean \| SummaryExtractorConfig` | Extract summary          |
-| `keywords?` | `boolean \| KeywordExtractorConfig` | Extract keywords         |
-| `custom?`   | `CustomSchemaExtractorConfig`       | Custom schema extraction |
+Extraction parameters
 
 ##### options?
 
 Extractor options
 
-| Property     | Type     | Description               |
-| ------------ | -------- | ------------------------- |
-| `provider?`  | `string` | LLM provider name         |
-| `modelName?` | `string` | Model name for extraction |
+###### provider?
+
+`string`
+
+###### modelName?
+
+`string`
 
 #### Returns
 
-`Promise<MDocument>`
+`Promise`\<`MDocument`\>
 
 This MDocument instance (for chaining)
 
-#### Example
-
-```typescript
-await doc.chunk({ strategy: "recursive" });
-await doc.extractMetadata(
-  { title: true, summary: true, keywords: { maxKeywords: 10 } },
-  { provider: "openai", modelName: "gpt-4" },
-);
-```
-
 ---
 
-#### embed()
+### embed()
 
-> **embed**(`provider?`, `modelName?`): `Promise<MDocument>`
+> **embed**(`provider?`, `modelName?`): `Promise`\<`MDocument`\>
 
-Defined in: [src/lib/rag/document/MDocument.ts:267](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L267)
+Defined in: [rag/document/MDocument.ts:250](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L250)
 
-Generate embeddings for all chunks.
-
-Requires `chunk()` to be called first. Embeddings are stored both in the document state and on each chunk object.
+Generate embeddings for all chunks
 
 #### Parameters
 
 ##### provider?
 
-`string`
+`string` = `"openai"`
 
-Embedding provider name (uses NEUROLINK_PROVIDER env var or "vertex" if not specified)
+Embedding provider name
 
 ##### modelName?
 
-`string`
+`string` = `"text-embedding-3-small"`
 
-Embedding model name (uses VERTEX_MODEL env var or "gemini-2.5-flash" for Vertex, provider-specific defaults for others)
+Embedding model name
 
 #### Returns
 
-`Promise<MDocument>`
+`Promise`\<`MDocument`\>
 
 This MDocument instance (for chaining)
 
-#### Throws
+---
 
-When provider does not support embeddings
-
-#### Example
-
-```typescript
-await doc.chunk({ strategy: "recursive" });
-await doc.embed("openai", "text-embedding-3-small");
-
-const embeddings = doc.getEmbeddings();
-console.log(
-  `Generated ${embeddings.length} embeddings of dimension ${embeddings[0].length}`,
-);
-```
-
-### Accessor Methods
-
-#### getId()
+### getId()
 
 > **getId**(): `string`
 
-Defined in: [src/lib/rag/document/MDocument.ts:330](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L330)
+Defined in: [rag/document/MDocument.ts:312](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L312)
 
-Get the unique document ID.
+Get document ID
 
 #### Returns
 
 `string`
 
-UUID assigned at document creation
-
 ---
 
-#### getContent()
+### getContent()
 
 > **getContent**(): `string`
 
-Defined in: [src/lib/rag/document/MDocument.ts:337](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L337)
+Defined in: [rag/document/MDocument.ts:319](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L319)
 
-Get raw document content.
+Get raw document content
 
 #### Returns
 
 `string`
 
-Original document content
-
 ---
 
-#### getType()
+### getType()
 
 > **getType**(): [`DocumentType`](../type-aliases/DocumentType.md)
 
-Defined in: [src/lib/rag/document/MDocument.ts:344](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L344)
+Defined in: [rag/document/MDocument.ts:326](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L326)
 
-Get document type.
+Get document type
 
 #### Returns
 
 [`DocumentType`](../type-aliases/DocumentType.md)
 
-Document type ("text", "markdown", "html", "json", "latex", "csv")
-
 ---
 
-#### getMetadata()
+### getMetadata()
 
-> **getMetadata**(): `Record<string, unknown>`
+> **getMetadata**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [src/lib/rag/document/MDocument.ts:351](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L351)
+Defined in: [rag/document/MDocument.ts:333](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L333)
 
-Get document metadata.
+Get document metadata
 
 #### Returns
 
-`Record<string, unknown>`
-
-Copy of document metadata object
+`Record`\<`string`, `unknown`\>
 
 ---
 
-#### getChunks()
+### getChunks()
 
 > **getChunks**(): [`Chunk`](../type-aliases/Chunk.md)[]
 
-Defined in: [src/lib/rag/document/MDocument.ts:358](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L358)
+Defined in: [rag/document/MDocument.ts:340](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L340)
 
-Get processed chunks.
+Get processed chunks
 
 #### Returns
 
 [`Chunk`](../type-aliases/Chunk.md)[]
 
-Copy of chunks array (empty if `chunk()` not called)
-
 ---
 
-#### getEmbeddings()
+### getEmbeddings()
 
-> **getEmbeddings**(): `number[][]`
+> **getEmbeddings**(): `number`[][]
 
-Defined in: [src/lib/rag/document/MDocument.ts:365](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L365)
+Defined in: [rag/document/MDocument.ts:347](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L347)
 
-Get chunk embeddings.
+Get chunk embeddings
 
 #### Returns
 
-`number[][]`
-
-Copy of embeddings array (empty if `embed()` not called)
+`number`[][]
 
 ---
 
-#### getHistory()
+### getHistory()
 
-> **getHistory**(): `string[]`
+> **getHistory**(): `string`[]
 
-Defined in: [src/lib/rag/document/MDocument.ts:372](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L372)
+Defined in: [rag/document/MDocument.ts:354](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L354)
 
-Get processing history.
+Get processing history
 
 #### Returns
 
-`string[]`
-
-Array of processing steps (e.g., ["created", "chunked:recursive", "embedded:openai:text-embedding-3-small"])
+`string`[]
 
 ---
 
-#### isChunked()
+### isChunked()
 
 > **isChunked**(): `boolean`
 
-Defined in: [src/lib/rag/document/MDocument.ts:379](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L379)
+Defined in: [rag/document/MDocument.ts:361](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L361)
 
-Check if document has been chunked.
+Check if document has been chunked
 
 #### Returns
 
 `boolean`
 
-True if chunks have been generated
-
 ---
 
-#### hasEmbeddings()
+### hasEmbeddings()
 
 > **hasEmbeddings**(): `boolean`
 
-Defined in: [src/lib/rag/document/MDocument.ts:386](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L386)
+Defined in: [rag/document/MDocument.ts:368](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L368)
 
-Check if document has embeddings.
+Check if document has embeddings
 
 #### Returns
 
 `boolean`
 
-True if embeddings have been generated
-
 ---
 
-#### getChunkCount()
+### getChunkCount()
 
 > **getChunkCount**(): `number`
 
-Defined in: [src/lib/rag/document/MDocument.ts:393](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L393)
+Defined in: [rag/document/MDocument.ts:375](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L375)
 
-Get chunk count.
+Get chunk count
 
 #### Returns
 
 `number`
 
-Number of chunks (0 if not chunked)
+---
 
-### Transformation Methods
-
-#### setMetadata()
+### setMetadata()
 
 > **setMetadata**(`key`, `value`): `MDocument`
 
-Defined in: [src/lib/rag/document/MDocument.ts:407](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L407)
+Defined in: [rag/document/MDocument.ts:389](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L389)
 
-Set a single metadata key-value pair.
+Set document metadata
 
 #### Parameters
 
@@ -712,21 +487,21 @@ This MDocument instance (for chaining)
 
 ---
 
-#### mergeMetadata()
+### mergeMetadata()
 
 > **mergeMetadata**(`metadata`): `MDocument`
 
-Defined in: [src/lib/rag/document/MDocument.ts:417](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L417)
+Defined in: [rag/document/MDocument.ts:399](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L399)
 
-Merge metadata into document.
+Merge metadata into document
 
 #### Parameters
 
 ##### metadata
 
-`Record<string, unknown>`
+`Record`\<`string`, `unknown`\>
 
-Metadata object to merge
+Metadata to merge
 
 #### Returns
 
@@ -736,21 +511,19 @@ This MDocument instance (for chaining)
 
 ---
 
-#### filterChunks()
+### filterChunks()
 
 > **filterChunks**(`predicate`): `MDocument`
 
-Defined in: [src/lib/rag/document/MDocument.ts:427](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L427)
+Defined in: [rag/document/MDocument.ts:409](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L409)
 
-Filter chunks based on predicate.
-
-Creates a new MDocument with filtered chunks. Corresponding embeddings are also filtered.
+Filter chunks based on predicate
 
 #### Parameters
 
 ##### predicate
 
-`(chunk: Chunk) => boolean`
+(`chunk`) => `boolean`
 
 Filter function
 
@@ -760,29 +533,21 @@ Filter function
 
 New MDocument with filtered chunks
 
-#### Example
-
-```typescript
-const filtered = doc.filterChunks((chunk) => chunk.text.length > 100);
-```
-
 ---
 
-#### mapChunks()
+### mapChunks()
 
 > **mapChunks**(`transform`): `MDocument`
 
-Defined in: [src/lib/rag/document/MDocument.ts:445](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L445)
+Defined in: [rag/document/MDocument.ts:427](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L427)
 
-Map transformation over chunks.
-
-Creates a new MDocument with transformed chunks.
+Map transformation over chunks
 
 #### Parameters
 
 ##### transform
 
-`(chunk: Chunk) => Chunk`
+(`chunk`) => [`Chunk`](../type-aliases/Chunk.md)
 
 Transform function
 
@@ -792,57 +557,86 @@ Transform function
 
 New MDocument with transformed chunks
 
-#### Example
+---
 
-```typescript
-const transformed = doc.mapChunks((chunk) => ({
-  ...chunk,
-  text: chunk.text.toLowerCase(),
-}));
-```
-
-### Serialization Methods
-
-#### toJSON()
+### toJSON()
 
 > **toJSON**(): `object`
 
-Defined in: [src/lib/rag/document/MDocument.ts:463](https://github.com/juspay/neurolink/blob/feat/rag-processing/src/lib/rag/document/MDocument.ts#L463)
+Defined in: [rag/document/MDocument.ts:445](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L445)
 
-Convert to plain object for serialization.
+Convert to plain object for serialization
 
 #### Returns
 
 `object`
 
-Serializable object with all document state
+##### id
 
-| Property   | Type                                              |
-| ---------- | ------------------------------------------------- |
-| `id`       | `string`                                          |
-| `content`  | `string`                                          |
-| `type`     | [`DocumentType`](../type-aliases/DocumentType.md) |
-| `metadata` | `Record<string, unknown>`                         |
-| `chunks`   | [`Chunk`](../type-aliases/Chunk.md)[]             |
-| `history`  | `string[]`                                        |
+> **id**: `string`
 
-## Properties
+##### content
 
-| Property           | Type                                              | Description                                            |
-| ------------------ | ------------------------------------------------- | ------------------------------------------------------ |
-| `documentId`       | `string`                                          | Unique document identifier (UUID)                      |
-| `state.content`    | `string`                                          | Raw document content                                   |
-| `state.type`       | [`DocumentType`](../type-aliases/DocumentType.md) | Document type (text, markdown, html, json, latex, csv) |
-| `state.metadata`   | `Record<string, unknown>`                         | Document metadata including documentId and createdAt   |
-| `state.chunks`     | [`Chunk`](../type-aliases/Chunk.md)[]             | Processed chunks (populated after `chunk()`)           |
-| `state.embeddings` | `number[][]`                                      | Embedding vectors (populated after `embed()`)          |
-| `state.history`    | `string[]`                                        | Processing history log                                 |
+> **content**: `string`
 
-## See Also
+##### type
 
-- [loadDocument](../functions/loadDocument.md) - Load documents from files
-- [Chunk](../type-aliases/Chunk.md) - Chunk type definition
-- [ChunkingStrategy](../type-aliases/ChunkingStrategy.md) - Available chunking strategies
-- [ChunkerConfig](../type-aliases/ChunkerConfig.md) - Chunker configuration options
-- [ExtractParams](../type-aliases/ExtractParams.md) - Metadata extraction parameters
-- [DocumentType](../type-aliases/DocumentType.md) - Supported document types
+> **type**: [`DocumentType`](../type-aliases/DocumentType.md)
+
+##### metadata
+
+> **metadata**: `Record`\<`string`, `unknown`\>
+
+##### chunks
+
+> **chunks**: [`Chunk`](../type-aliases/Chunk.md)[]
+
+##### history
+
+> **history**: `string`[]
+
+---
+
+### fromJSON()
+
+> `static` **fromJSON**(`json`): `MDocument`
+
+Defined in: [rag/document/MDocument.ts:468](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/MDocument.ts#L468)
+
+Create MDocument from serialized JSON
+
+#### Parameters
+
+##### json
+
+Serialized document data
+
+###### id?
+
+`string`
+
+###### content
+
+`string`
+
+###### type
+
+[`DocumentType`](../type-aliases/DocumentType.md)
+
+###### metadata?
+
+`Record`\<`string`, `unknown`\>
+
+###### chunks?
+
+[`Chunk`](../type-aliases/Chunk.md)[]
+
+###### history?
+
+`string`[]
+
+#### Returns
+
+`MDocument`
+
+MDocument instance

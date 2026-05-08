@@ -6,7 +6,7 @@ While Vercel AI SDK is excellent for Next.js applications, NeuroLink offers broa
 
 | Benefit                 | Vercel AI SDK                  | NeuroLink                                |
 | ----------------------- | ------------------------------ | ---------------------------------------- |
-| **Multi-Provider**      | Separate packages per provider | 13 providers in single package           |
+| **Multi-Provider**      | Separate packages per provider | 21+ providers in single package          |
 | **Framework Support**   | Optimized for Next.js          | Next.js, SvelteKit, Express, any Node.js |
 | **Tool Integration**    | Function calling only          | MCP (58+ servers) + function calling     |
 | **Enterprise Features** | Basic                          | HITL, Redis memory, middleware, failover |
@@ -354,7 +354,7 @@ const result = await neurolink.generate({
 
 **Benefits:**
 
-- Single package for all 13 providers
+- Single package for all 21+ providers
 - Runtime provider switching
 - Automatic failover
 - No need to install separate packages

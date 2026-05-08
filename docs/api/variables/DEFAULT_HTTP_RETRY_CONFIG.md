@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,6 +8,6 @@
 
 > `const` **DEFAULT_HTTP_RETRY_CONFIG**: [`HTTPRetryConfig`](../type-aliases/HTTPRetryConfig.md)
 
-Defined in: [mcp/httpRetryHandler.ts:15](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/mcp/httpRetryHandler.ts#L15)
+Defined in: [mcp/httpRetryHandler.ts:22](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/httpRetryHandler.ts#L22)
 
 Default HTTP retry configuration

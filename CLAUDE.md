@@ -16,7 +16,7 @@ Guidance for Claude Code when working in this repository.
 
 ## Project Overview
 
-NeuroLink is a unified AI development platform shipping as both a **TypeScript SDK** and **CLI**. It wraps 13+ AI providers (OpenAI, Anthropic, Google AI Studio, Vertex, AWS Bedrock, Azure, Mistral, LiteLLM, SageMaker, Hugging Face, Ollama, OpenAI-compatible) behind a single consistent API, with full MCP support, multimodal file processing, RAG pipelines, observability, and a workflow engine.
+NeuroLink is a unified AI development platform shipping as both a **TypeScript SDK** and **CLI**. It wraps 21+ AI providers (OpenAI, Anthropic, Google AI Studio, Vertex, AWS Bedrock, Azure, Mistral, LiteLLM, SageMaker, Hugging Face, Ollama, OpenAI-compatible, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, OpenRouter, ElevenLabs, Deepgram, Azure Speech, and more) behind a single consistent API, with full MCP support, multimodal file processing, voice (TTS/STT/realtime), RAG pipelines, observability, and a workflow engine.
 
 ---
 
@@ -82,10 +82,10 @@ Registry →  holds factory functions (via dynamic import)
 src/
 ├── lib/
 │   ├── neurolink.ts          # Main SDK entry point
-│   ├── providers/            # 13 AI provider implementations
+│   ├── providers/            # 21+ AI provider implementations
 │   ├── factories/            # ProviderFactory + ProviderRegistry
 │   ├── core/                 # BaseProvider, constants, infrastructure
-│   ├── adapters/             # Provider-specific content adapters (image, TTS)
+│   ├── adapters/             # Provider-specific content adapters (image, TTS, video)
 │   ├── utils/                # MessageBuilder, FileDetector, transformations
 │   ├── types/                # ALL type definitions (28+ files)
 │   ├── mcp/                  # MCPToolRegistry, client factory, HTTP transport
@@ -143,25 +143,26 @@ User input (text + files)
 
 ## Key Files
 
-| File                                               | Purpose                                                        |
-| -------------------------------------------------- | -------------------------------------------------------------- |
-| `src/lib/neurolink.ts`                             | Main SDK class — orchestrates everything                       |
-| `src/lib/factories/providerRegistry.ts`            | Provider registration (use dynamic imports here)               |
-| `src/lib/core/baseProvider.ts`                     | Base class all providers extend; central `stream()` tool merge |
-| `src/lib/utils/messageBuilder.ts`                  | Constructs messages; handles all file types                    |
-| `src/lib/adapters/providerImageAdapter.ts`         | Per-provider multimodal formatting + vision capability map     |
-| `src/lib/mcp/toolRegistry.ts`                      | Tool management + MCP server registry                          |
-| `src/lib/mcp/mcpClientFactory.ts`                  | Creates MCP clients for all transport types                    |
-| `src/lib/processors/registry/ProcessorRegistry.ts` | Selects file processor by MIME type + priority                 |
-| `src/lib/types/index.ts`                           | Main type exports (start here for any type lookup)             |
-| `src/lib/types/providers.ts`                       | `AIProvider` interface, `AIProviderName` enum                  |
-| `src/lib/types/mcpTypes.ts`                        | `MCPTransportType` and MCP config types                        |
-| `src/lib/constants/contextWindows.ts`              | Per-provider, per-model context window sizes                   |
-| `src/lib/context/contextCompactor.ts`              | Multi-stage context reduction orchestrator                     |
-| `src/lib/context/budgetChecker.ts`                 | Pre-call budget validation                                     |
-| `src/lib/rag/ragIntegration.ts`                    | `prepareRAGTool()` — auto RAG setup for generate/stream        |
-| `src/cli/factories/commandFactory.ts`              | All CLI command options and flag definitions                   |
-| `src/lib/server/routes/agentRoutes.ts`             | HTTP server routes including `/api/agent/embed`                |
+| File                                               | Purpose                                                            |
+| -------------------------------------------------- | ------------------------------------------------------------------ |
+| `src/lib/neurolink.ts`                             | Main SDK class — orchestrates everything                           |
+| `src/lib/factories/providerRegistry.ts`            | Provider registration (use dynamic imports here)                   |
+| `src/lib/core/baseProvider.ts`                     | Base class all providers extend; central `stream()` tool merge     |
+| `src/lib/utils/messageBuilder.ts`                  | Constructs messages; handles all file types                        |
+| `src/lib/adapters/providerImageAdapter.ts`         | Per-provider multimodal formatting + vision capability map         |
+| `src/lib/adapters/tts/`                            | TTS provider handlers (Google TTS, Cartesia); new handlers go here |
+| `src/lib/mcp/toolRegistry.ts`                      | Tool management + MCP server registry                              |
+| `src/lib/mcp/mcpClientFactory.ts`                  | Creates MCP clients for all transport types                        |
+| `src/lib/processors/registry/ProcessorRegistry.ts` | Selects file processor by MIME type + priority                     |
+| `src/lib/types/index.ts`                           | Main type exports (start here for any type lookup)                 |
+| `src/lib/types/providers.ts`                       | `AIProvider` interface, `AIProviderName` enum                      |
+| `src/lib/types/mcp.ts`                             | `MCPTransportType` and MCP config types                            |
+| `src/lib/constants/contextWindows.ts`              | Per-provider, per-model context window sizes                       |
+| `src/lib/context/contextCompactor.ts`              | Multi-stage context reduction orchestrator                         |
+| `src/lib/context/budgetChecker.ts`                 | Pre-call budget validation                                         |
+| `src/lib/rag/ragIntegration.ts`                    | `prepareRAGTool()` — auto RAG setup for generate/stream            |
+| `src/cli/factories/commandFactory.ts`              | All CLI command options and flag definitions                       |
+| `src/lib/server/routes/agentRoutes.ts`             | HTTP server routes including `/api/agent/embed`                    |
 
 ---
 

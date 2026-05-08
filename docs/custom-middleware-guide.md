@@ -558,7 +558,7 @@ const pricing = {
     inputTokenPrice: 0.0015,
     outputTokenPrice: 0.002,
   },
-  "claude-3-5-sonnet": {
+  "claude-sonnet-4-6": {
     inputTokenPrice: 0.003,
     outputTokenPrice: 0.015,
   },

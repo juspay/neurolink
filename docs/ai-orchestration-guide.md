@@ -521,7 +521,7 @@ const orchestrator = new DynamicOrchestrator({
   registry: mcpRegistry,
   config: {
     aiProvider: "google-ai",
-    model: "gemini-2.5-pro",
+    model: "gemini-3-pro-preview",
     planningPrompts: {
       systemPrompt: "You are an expert tool orchestrator...",
     },

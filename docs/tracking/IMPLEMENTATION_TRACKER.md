@@ -1,5 +1,11 @@
 # 🚀 NEUROLINK COMPREHENSIVE FIX IMPLEMENTATION TRACKER
 
+> **⚠️ HISTORICAL DOCUMENT (August 2025)**
+>
+> This audit was conducted when NeuroLink shipped 9 providers. The current package (v9.62.0, May 2026) supports 21+ providers including DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, plus voice (TTS/STT/realtime). References to "9 providers" or "8/9 working" in this file reflect the state at time of analysis.
+>
+> For current capabilities see [README on GitHub](https://github.com/juspay/neurolink/blob/main/README.md) and [Provider Capabilities Audit](https://github.com/juspay/neurolink/blob/main/docs/reference/provider-capabilities-audit.md).
+
 **Created**: August 3, 2025  
 **Status**: ✅ **IMPLEMENTATION SUCCESS** (Factory Pattern & Types Approach Validated)  
 **Overall Progress**: ~95% (All major features working in local build)  

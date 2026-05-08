@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.42.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,99 +8,167 @@
 
 > **LangfuseSpanAttributes** = `object`
 
-Defined in: [types/observability.ts:14](https://github.com/juspay/neurolink/blob/main/src/lib/types/observability.ts#L14)
+Defined in: [types/observability.ts:40](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L40)
 
 Standard GenAI semantic convention attributes from OpenTelemetry
+These are the attributes that Vercel AI SDK's experimental_telemetry creates
 
-These are the attributes that Vercel AI SDK's `experimental_telemetry` creates on spans.
-NeuroLink's ContextEnricher reads these attributes in `onEnd()` to log token usage
-and other GenAI-specific metrics.
+## See
+
+https://opentelemetry.io/docs/specs/semconv/gen-ai/
+
+## Indexable
+
+> \[`key`: `string`\]: `AttributeValue` \| `undefined`
 
 ## Properties
 
-### Core GenAI Attributes
+### gen_ai.system?
 
-These follow the OpenTelemetry GenAI semantic conventions:
+> `optional` **gen_ai.system?**: `string`
 
-| Property                         | Type       | Description                                           |
-| -------------------------------- | ---------- | ----------------------------------------------------- |
-| `gen_ai.system`                  | `string`   | AI system/provider name (e.g., "openai", "anthropic") |
-| `gen_ai.request.model`           | `string`   | Model name used in request                            |
-| `gen_ai.response.model`          | `string`   | Actual model used in response                         |
-| `gen_ai.request.max_tokens`      | `number`   | Max tokens requested                                  |
-| `gen_ai.request.temperature`     | `number`   | Temperature setting                                   |
-| `gen_ai.request.top_p`           | `number`   | Top-p sampling setting                                |
-| `gen_ai.usage.input_tokens`      | `number`   | Input/prompt tokens used                              |
-| `gen_ai.usage.output_tokens`     | `number`   | Output/completion tokens used                         |
-| `gen_ai.usage.total_tokens`      | `number`   | Total tokens used                                     |
-| `gen_ai.response.finish_reasons` | `string[]` | Finish reasons from model                             |
-| `gen_ai.prompt`                  | `string`   | The prompt sent (if enabled)                          |
-| `gen_ai.completion`              | `string`   | The completion received (if enabled)                  |
+Defined in: [types/observability.ts:42](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L42)
 
-### Vercel AI SDK Specific Attributes
+---
 
-Additional attributes created by Vercel AI SDK's telemetry:
+### gen_ai.request.model?
 
-| Property                    | Type     | Description                       |
-| --------------------------- | -------- | --------------------------------- |
-| `ai.model.id`               | `string` | Model identifier                  |
-| `ai.model.provider`         | `string` | Provider identifier               |
-| `ai.operationId`            | `string` | Operation identifier              |
-| `ai.telemetry.functionId`   | `string` | Function identifier for telemetry |
-| `ai.finishReason`           | `string` | Why generation finished           |
-| `ai.usage.promptTokens`     | `number` | Prompt tokens (alias)             |
-| `ai.usage.completionTokens` | `number` | Completion tokens (alias)         |
+> `optional` **gen_ai.request.model?**: `string`
 
-### Custom Attributes
+Defined in: [types/observability.ts:43](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L43)
 
-The type also allows arbitrary custom attributes:
+---
 
-```typescript
-[key: string]: unknown
-```
+### gen_ai.response.model?
 
-## Example Usage
+> `optional` **gen_ai.response.model?**: `string`
 
-```typescript
-import type { LangfuseSpanAttributes } from "@juspay/neurolink";
+Defined in: [types/observability.ts:44](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L44)
 
-// Type-safe attribute access
-function logTokenUsage(attributes: LangfuseSpanAttributes) {
-  const inputTokens =
-    attributes["gen_ai.usage.input_tokens"] ??
-    attributes["ai.usage.promptTokens"];
+---
 
-  const outputTokens =
-    attributes["gen_ai.usage.output_tokens"] ??
-    attributes["ai.usage.completionTokens"];
+### gen_ai.request.max_tokens?
 
-  console.log(`Tokens: ${inputTokens} in, ${outputTokens} out`);
-}
+> `optional` **gen_ai.request.max_tokens?**: `number`
 
-// Check if span is GenAI-related
-function isGenAISpan(attributes: LangfuseSpanAttributes): boolean {
-  return !!(
-    attributes["gen_ai.system"] ||
-    attributes["ai.model.id"] ||
-    attributes["gen_ai.request.model"]
-  );
-}
-```
+Defined in: [types/observability.ts:45](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L45)
 
-## How NeuroLink Uses These
+---
 
-NeuroLink's `ContextEnricher` span processor reads these attributes in its `onEnd()` method:
+### gen_ai.request.temperature?
 
-1. Detects GenAI spans by checking for `gen_ai.system`, `ai.model.id`, or `gen_ai.request.model`
-2. Logs the model and provider for debugging
-3. Captures token usage metrics for observability
-4. Enriches spans with Langfuse context (userId, sessionId, etc.)
+> `optional` **gen_ai.request.temperature?**: `number`
 
-This enables automatic capture of AI operation metrics when using Vercel AI SDK's
-`experimental_telemetry` feature with NeuroLink's Langfuse integration.
+Defined in: [types/observability.ts:46](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L46)
 
-## See Also
+---
 
-- [setLangfuseContext](../functions/setLangfuseContext.md) - Set context for spans
-- [LangfuseConfig](./LangfuseConfig.md) - Langfuse configuration
-- [getSpanProcessors](../functions/getSpanProcessors.md) - Get span processors
+### gen_ai.request.top_p?
+
+> `optional` **gen_ai.request.top_p?**: `number`
+
+Defined in: [types/observability.ts:47](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L47)
+
+---
+
+### gen_ai.usage.input_tokens?
+
+> `optional` **gen_ai.usage.input_tokens?**: `number`
+
+Defined in: [types/observability.ts:48](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L48)
+
+---
+
+### gen_ai.usage.output_tokens?
+
+> `optional` **gen_ai.usage.output_tokens?**: `number`
+
+Defined in: [types/observability.ts:49](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L49)
+
+---
+
+### gen_ai.usage.total_tokens?
+
+> `optional` **gen_ai.usage.total_tokens?**: `number`
+
+Defined in: [types/observability.ts:50](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L50)
+
+---
+
+### gen_ai.response.finish_reasons?
+
+> `optional` **gen_ai.response.finish_reasons?**: `string`[]
+
+Defined in: [types/observability.ts:51](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L51)
+
+---
+
+### gen_ai.prompt?
+
+> `optional` **gen_ai.prompt?**: `string`
+
+Defined in: [types/observability.ts:52](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L52)
+
+---
+
+### gen_ai.completion?
+
+> `optional` **gen_ai.completion?**: `string`
+
+Defined in: [types/observability.ts:53](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L53)
+
+---
+
+### ai.model.id?
+
+> `optional` **ai.model.id?**: `string`
+
+Defined in: [types/observability.ts:56](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L56)
+
+---
+
+### ai.model.provider?
+
+> `optional` **ai.model.provider?**: `string`
+
+Defined in: [types/observability.ts:57](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L57)
+
+---
+
+### ai.operationId?
+
+> `optional` **ai.operationId?**: `string`
+
+Defined in: [types/observability.ts:58](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L58)
+
+---
+
+### ai.telemetry.functionId?
+
+> `optional` **ai.telemetry.functionId?**: `string`
+
+Defined in: [types/observability.ts:59](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L59)
+
+---
+
+### ai.finishReason?
+
+> `optional` **ai.finishReason?**: `string`
+
+Defined in: [types/observability.ts:60](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L60)
+
+---
+
+### ai.usage.promptTokens?
+
+> `optional` **ai.usage.promptTokens?**: `number`
+
+Defined in: [types/observability.ts:61](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L61)
+
+---
+
+### ai.usage.completionTokens?
+
+> `optional` **ai.usage.completionTokens?**: `number`
+
+Defined in: [types/observability.ts:62](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L62)

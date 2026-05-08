@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DiscoveredMcp**\<`TTools`\> = `object`
 
-Defined in: [types/mcpTypes.ts:516](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L516)
+Defined in: [types/mcp.ts:528](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L528)
 
 Discovered MCP server/plugin definition
 Moved from src/lib/mcp/contracts/mcpContract.ts
@@ -17,11 +17,11 @@ Moved from src/lib/mcp/contracts/mcpContract.ts
 
 ### TTools
 
-`TTools` = `StandardRecord`
+`TTools` = [`StandardRecord`](StandardRecord.md)
 
 ## Indexable
 
-\[`key`: `string`\]: `unknown`
+> \[`key`: `string`\]: `unknown`
 
 ## Properties
 
@@ -29,36 +29,36 @@ Moved from src/lib/mcp/contracts/mcpContract.ts
 
 > **metadata**: [`McpMetadata`](McpMetadata.md)
 
-Defined in: [types/mcpTypes.ts:517](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L517)
+Defined in: [types/mcp.ts:529](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L529)
 
 ---
 
 ### tools?
 
-> `optional` **tools**: `TTools`
+> `optional` **tools?**: `TTools`
 
-Defined in: [types/mcpTypes.ts:518](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L518)
+Defined in: [types/mcp.ts:530](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L530)
 
 ---
 
 ### capabilities?
 
-> `optional` **capabilities**: `string`[]
+> `optional` **capabilities?**: `string`[]
 
-Defined in: [types/mcpTypes.ts:519](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L519)
+Defined in: [types/mcp.ts:531](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L531)
 
 ---
 
 ### version?
 
-> `optional` **version**: `string`
+> `optional` **version?**: `string`
 
-Defined in: [types/mcpTypes.ts:520](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L520)
+Defined in: [types/mcp.ts:532](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L532)
 
 ---
 
 ### configuration?
 
-> `optional` **configuration**: `Record`\<`string`, `string` \| `number` \| `boolean`\>
+> `optional` **configuration?**: `Record`\<`string`, `string` \| `number` \| `boolean`\>
 
-Defined in: [types/mcpTypes.ts:521](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/mcpTypes.ts#L521)
+Defined in: [types/mcp.ts:533](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L533)

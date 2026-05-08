@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AIProvider** = `object`
 
-Defined in: [types/providers.ts:296](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/providers.ts#L296)
+Defined in: [types/providers.ts:597](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L597)
 
 AI Provider type with flexible parameter support
 
@@ -16,75 +16,75 @@ AI Provider type with flexible parameter support
 
 ### stream()
 
-> **stream**(`optionsOrPrompt`, `analysisSchema?`): `Promise`\<`StreamResult`\>
+> **stream**(`optionsOrPrompt`, `analysisSchema?`): `Promise`\<[`StreamResult`](StreamResult.md)\>
 
-Defined in: [types/providers.ts:298](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/providers.ts#L298)
+Defined in: [types/providers.ts:599](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L599)
 
 #### Parameters
 
 ##### optionsOrPrompt
 
-`string` | [`StreamOptions`](#)
+`string` \| [`StreamOptions`](StreamOptions.md)
 
 ##### analysisSchema?
 
-`ValidationSchema`
+[`ValidationSchema`](ValidationSchema.md)
 
 #### Returns
 
-`Promise`\<`StreamResult`\>
+`Promise`\<[`StreamResult`](StreamResult.md)\>
 
 ---
 
 ### generate()
 
-> **generate**(`optionsOrPrompt`, `analysisSchema?`): `Promise`\<`EnhancedGenerateResult` \| `null`\>
+> **generate**(`optionsOrPrompt`, `analysisSchema?`): `Promise`\<[`EnhancedGenerateResult`](EnhancedGenerateResult.md) \| `null`\>
 
-Defined in: [types/providers.ts:303](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/providers.ts#L303)
+Defined in: [types/providers.ts:604](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L604)
 
 #### Parameters
 
 ##### optionsOrPrompt
 
-`string` | [`TextGenerationOptions`](TextGenerationOptions.md)
+`string` \| [`TextGenerationOptions`](TextGenerationOptions.md)
 
 ##### analysisSchema?
 
-`ValidationSchema`
+[`ValidationSchema`](ValidationSchema.md)
 
 #### Returns
 
-`Promise`\<`EnhancedGenerateResult` \| `null`\>
+`Promise`\<[`EnhancedGenerateResult`](EnhancedGenerateResult.md) \| `null`\>
 
 ---
 
 ### gen()
 
-> **gen**(`optionsOrPrompt`, `analysisSchema?`): `Promise`\<`EnhancedGenerateResult` \| `null`\>
+> **gen**(`optionsOrPrompt`, `analysisSchema?`): `Promise`\<[`EnhancedGenerateResult`](EnhancedGenerateResult.md) \| `null`\>
 
-Defined in: [types/providers.ts:308](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/providers.ts#L308)
+Defined in: [types/providers.ts:609](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L609)
 
 #### Parameters
 
 ##### optionsOrPrompt
 
-`string` | [`TextGenerationOptions`](TextGenerationOptions.md)
+`string` \| [`TextGenerationOptions`](TextGenerationOptions.md)
 
 ##### analysisSchema?
 
-`ValidationSchema`
+[`ValidationSchema`](ValidationSchema.md)
 
 #### Returns
 
-`Promise`\<`EnhancedGenerateResult` \| `null`\>
+`Promise`\<[`EnhancedGenerateResult`](EnhancedGenerateResult.md) \| `null`\>
 
 ---
 
 ### embed()
 
-> **embed**(`text`, `modelName?`): `Promise`\<`number[]`\>
+> **embed**(`text`, `modelName?`): `Promise`\<`number`[]\>
 
-Generate an embedding vector for a single text. Throws if the provider does not support embeddings.
+Defined in: [types/providers.ts:614](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L614)
 
 #### Parameters
 
@@ -98,21 +98,21 @@ Generate an embedding vector for a single text. Throws if the provider does not 
 
 #### Returns
 
-`Promise`\<`number[]`\>
+`Promise`\<`number`[]\>
 
 ---
 
 ### embedMany()
 
-> **embedMany**(`texts`, `modelName?`): `Promise`\<`number[][]`\>
+> **embedMany**(`texts`, `modelName?`): `Promise`\<`number`[][]\>
 
-Generate embedding vectors for multiple texts in a single batch. The AI SDK automatically handles chunking for models with batch limits.
+Defined in: [types/providers.ts:616](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L616)
 
 #### Parameters
 
 ##### texts
 
-`string[]`
+`string`[]
 
 ##### modelName?
 
@@ -120,7 +120,7 @@ Generate embedding vectors for multiple texts in a single batch. The AI SDK auto
 
 #### Returns
 
-`Promise`\<`number[][]`\>
+`Promise`\<`number`[][]\>
 
 ---
 
@@ -128,7 +128,7 @@ Generate embedding vectors for multiple texts in a single batch. The AI SDK auto
 
 > **setupToolExecutor**(`sdk`, `functionTag`): `void`
 
-Defined in: [types/providers.ts:314](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/providers.ts#L314)
+Defined in: [types/providers.ts:619](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L619)
 
 #### Parameters
 
@@ -145,6 +145,27 @@ Defined in: [types/providers.ts:314](https://github.com/juspay/neurolink/blob/1b
 ##### functionTag
 
 `string`
+
+#### Returns
+
+`void`
+
+---
+
+### setTraceContext()
+
+> **setTraceContext**(`ctx`): `void`
+
+Defined in: [types/providers.ts:631](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L631)
+
+Propagate trace context from NeuroLink SDK for parent-child span hierarchy.
+Use this method instead of accessing `_traceContext` directly.
+
+#### Parameters
+
+##### ctx
+
+\{ `traceId`: `string`; `parentSpanId`: `string`; \} \| `null`
 
 #### Returns
 

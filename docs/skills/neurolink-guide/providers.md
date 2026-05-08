@@ -1,8 +1,8 @@
 # NeuroLink Provider Configuration
 
-NeuroLink supports 13 AI providers through a unified API. Configure providers via environment variables.
+NeuroLink supports 21+ AI providers through a unified API. This page highlights the most commonly-configured text providers — see the [README provider table](https://github.com/juspay/neurolink/blob/main/README.md#supported-ai-providers) and the [Provider Capabilities Audit](https://github.com/juspay/neurolink/blob/main/docs/reference/provider-capabilities-audit.md) for the full matrix, including newer text providers (DeepSeek, NVIDIA NIM, LM Studio, llama.cpp) and voice providers (OpenAI TTS, ElevenLabs, Deepgram, Azure Speech, Whisper, OpenAI Realtime, Gemini Live).
 
-## Supported Providers
+## Common Providers
 
 | Provider         | Enum Name      | Aliases        | Default Model                           |
 | ---------------- | -------------- | -------------- | --------------------------------------- |

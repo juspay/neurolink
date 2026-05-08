@@ -1,9 +1,11 @@
 # Provider Capabilities Audit
 
-Comprehensive audit of all 13 AI providers supported by NeuroLink. This document serves as the source of truth for understanding each provider's capabilities, limitations, and configuration requirements.
+Capability audit for the **13 text/multimodal AI providers** historically tracked in this matrix. NeuroLink ships **21+ providers** in total — the additional providers added since this audit was first written (DeepSeek, NVIDIA NIM, LM Studio, llama.cpp) and the voice providers (OpenAI TTS, ElevenLabs, Deepgram, Azure Speech, Whisper, OpenAI Realtime, Gemini Live) are documented in the per-provider docs under [/docs/providers/](https://github.com/juspay/neurolink/tree/main/docs/providers) and the [Voice Features](https://github.com/juspay/neurolink/blob/main/docs/features/index.md#voice) index, not in this capability matrix.
 
-**Last Updated:** January 1, 2026
-**NeuroLink Version:** 8.26.1
+For the canonical product surface, see the [README](https://github.com/juspay/neurolink/blob/main/README.md).
+
+**Last Updated:** May 2026
+**NeuroLink Version:** 9.62.0
 
 ---
 
@@ -462,9 +464,7 @@ BEDROCK_MODEL=anthropic.claude-3-sonnet-20240229-v1:0
 
 #### Streaming ⚠️
 
-- **Not fully implemented** (as of v8.26.1)
-- Coming in next phase
-- Returns 501 error currently
+- **Not fully implemented for SageMaker custom endpoints**. Streaming returns a 501 error from SageMaker custom inference endpoints; non-streaming generation works.
 
 #### Tool Calling ✓
 
@@ -1098,7 +1098,13 @@ Providers are registered via dynamic imports in `ProviderRegistry`:
 
 ## Version History
 
-- **v8.26.1** (January 2026) - Current version, 13 providers
+- **v9.62.0** (May 2026) - Multi-provider voice (TTS/STT/realtime); 21+ providers
+- **v9.60.0** (April 2026) - Added DeepSeek, NVIDIA NIM, LM Studio, llama.cpp providers
+- **v9.59.0** - Typed `ModelAccessDeniedError` + `sdk.checkCredentials()`
+- **v9.58.0** - `providerFallback` callback + `modelChain` config
+- **v9.53.0** - AutoResearch autonomous experiment engine
+- **v9.52.0** - Per-request and per-instance credentials for all providers
+- **v8.26.1** (January 2026) - 13 providers (historical)
 - **v8.26.0** - Added video output types
 - **v8.25.0** - Gemini 3 support improvements
 - **v8.24.0** - Enhanced provider capabilities

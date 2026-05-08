@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
 
   const stats = [
-    { value: 13, suffix: "+", label: "Stream Sources" },
+    { value: 21, suffix: "+", label: "Stream Sources" },
     { value: 100, suffix: "+", label: "Active Neurons" },
     { value: 58, suffix: "+", label: "Synapse Tools" },
     { value: 50, suffix: "+", label: "Knowledge Formats" },

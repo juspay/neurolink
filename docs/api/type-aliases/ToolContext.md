@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolContext** = `object`
 
-Defined in: [types/tools.ts:177](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L177)
+Defined in: [types/tools.ts:229](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L229)
 
 Tool execution context
 
@@ -16,30 +16,30 @@ Tool execution context
 
 ### sessionId?
 
-> `optional` **sessionId**: `string`
+> `optional` **sessionId?**: `string`
 
-Defined in: [types/tools.ts:178](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L178)
+Defined in: [types/tools.ts:230](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L230)
 
 ---
 
 ### userId?
 
-> `optional` **userId**: `string`
+> `optional` **userId?**: `string`
 
-Defined in: [types/tools.ts:179](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L179)
+Defined in: [types/tools.ts:231](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L231)
 
 ---
 
 ### aiProvider?
 
-> `optional` **aiProvider**: `string`
+> `optional` **aiProvider?**: `string`
 
-Defined in: [types/tools.ts:180](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L180)
+Defined in: [types/tools.ts:232](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L232)
 
 ---
 
 ### metadata?
 
-> `optional` **metadata**: `ToolExecutionMetadata`
+> `optional` **metadata?**: [`ToolExecutionMetadata`](ToolExecutionMetadata.md)
 
-Defined in: [types/tools.ts:181](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L181)
+Defined in: [types/tools.ts:233](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L233)

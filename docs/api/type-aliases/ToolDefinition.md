@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolDefinition**\<`TArgs`, `TResult`\> = `object`
 
-Defined in: [types/tools.ts:331](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L331)
+Defined in: [types/tools.ts:402](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L402)
 
 Tool definition type
 
@@ -16,11 +16,11 @@ Tool definition type
 
 ### TArgs
 
-`TArgs` = `ToolArgs`
+`TArgs` = [`ToolArgs`](ToolArgs.md)
 
 ### TResult
 
-`TResult` = `JsonValue`
+`TResult` = [`JsonValue`](JsonValue.md)
 
 ## Properties
 
@@ -28,31 +28,31 @@ Tool definition type
 
 > **description**: `string`
 
-Defined in: [types/tools.ts:332](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L332)
+Defined in: [types/tools.ts:403](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L403)
 
 ---
 
 ### parameters?
 
-> `optional` **parameters**: `ToolParameterSchema`
+> `optional` **parameters?**: [`ToolParameterSchema`](ToolParameterSchema.md)
 
-Defined in: [types/tools.ts:333](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L333)
+Defined in: [types/tools.ts:404](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L404)
 
 ---
 
 ### metadata?
 
-> `optional` **metadata**: `ToolMetadata`
+> `optional` **metadata?**: [`ToolMetadata`](ToolMetadata.md)
 
-Defined in: [types/tools.ts:334](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L334)
+Defined in: [types/tools.ts:405](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L405)
 
 ---
 
-### execute()
+### execute
 
 > **execute**: (`params`, `context?`) => `Promise`\<[`ToolResult`](ToolResult.md)\<`TResult`\>\> \| [`ToolResult`](ToolResult.md)\<`TResult`\>
 
-Defined in: [types/tools.ts:335](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L335)
+Defined in: [types/tools.ts:406](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L406)
 
 #### Parameters
 

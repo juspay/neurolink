@@ -327,7 +327,7 @@ async function handleAIRequest(req: Request) {
 | `src/lib/types/generateTypes.ts`        | `GenerateOptions.credentials` + `TextGenerationOptions.credentials` fields |
 | `src/lib/types/streamTypes.ts`          | `StreamOptions.credentials` field                                          |
 | `src/lib/factories/providerFactory.ts`  | Per-provider credential slice extraction                                   |
-| `src/lib/factories/providerRegistry.ts` | All 13 provider factory registrations                                      |
+| `src/lib/factories/providerRegistry.ts` | All 21+ provider factory registrations                                     |
 | `src/lib/neurolink.ts`                  | `resolveCredentials()` merge helper + `generate()`/`stream()` threading    |
 
 ## See Also

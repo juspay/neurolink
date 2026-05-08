@@ -41,7 +41,7 @@ export LITELLM_API_KEY="sk-anything"  # Any value works for local proxy
 npx @juspay/neurolink generate "Hello from OpenAI" --provider litellm --model "openai/gpt-4o"
 
 # Access Anthropic models via LiteLLM
-npx @juspay/neurolink generate "Hello from Claude" --provider litellm --model "anthropic/claude-3-5-sonnet"
+npx @juspay/neurolink generate "Hello from Claude" --provider litellm --model "anthropic/claude-sonnet-4-6"
 
 # Access Google models via LiteLLM
 npx @juspay/neurolink generate "Hello from Gemini" --provider litellm --model "google/gemini-2.0-flash"
@@ -70,7 +70,7 @@ const openaiProvider = await AIProviderFactory.createProvider(
 );
 const claudeProvider = await AIProviderFactory.createProvider(
   "litellm",
-  "anthropic/claude-3-5-sonnet",
+  "anthropic/claude-sonnet-4-6",
 );
 const geminiProvider = await AIProviderFactory.createProvider(
   "litellm",
@@ -89,7 +89,7 @@ Access models from all major providers through one interface:
 async function compareModels(prompt: string) {
   const models = [
     "openai/gpt-4o",
-    "anthropic/claude-3-5-sonnet",
+    "anthropic/claude-sonnet-4-6",
     "google/gemini-2.0-flash",
     "mistral/mistral-large",
   ];
@@ -133,7 +133,7 @@ const cheapProvider = await AIProviderFactory.createProvider(
 // Use premium models for complex reasoning
 const premiumProvider = await AIProviderFactory.createProvider(
   "litellm",
-  "anthropic/claude-3-5-sonnet",
+  "anthropic/claude-sonnet-4-6",
 );
 
 // Let LiteLLM choose optimal model based on configuration
@@ -155,7 +155,7 @@ model_list:
 
   - model_name: gpt-4  # Fallback to Anthropic
     litellm_params:
-      model: claude-3-5-sonnet-20241022
+      model: claude-sonnet-4-6
       api_key: os.environ/ANTHROPIC_API_KEY
 ```
 
@@ -167,7 +167,7 @@ model_list:
 | ------------- | ----------------------------- | ------------------- | ---------- |
 | **OpenAI**    | `openai/gpt-4o`               | General purpose     | Medium     |
 |               | `openai/gpt-4o-mini`          | Cost-effective      | Low        |
-| **Anthropic** | `anthropic/claude-3-5-sonnet` | Complex reasoning   | High       |
+| **Anthropic** | `anthropic/claude-sonnet-4-6` | Complex reasoning   | High       |
 |               | `anthropic/claude-3-haiku`    | Fast responses      | Low        |
 | **Google**    | `google/gemini-2.0-flash`     | Multimodal          | Medium     |
 |               | `vertex_ai/gemini-pro`        | Enterprise          | High       |
@@ -181,7 +181,7 @@ model_list:
 npx @juspay/neurolink generate "Simple question" --provider litellm --model "openai/gpt-4o-mini"
 
 # Complex reasoning tasks
-npx @juspay/neurolink generate "Complex analysis" --provider litellm --model "anthropic/claude-3-5-sonnet"
+npx @juspay/neurolink generate "Complex analysis" --provider litellm --model "anthropic/claude-sonnet-4-6"
 
 # Multimodal tasks
 npx @juspay/neurolink generate "Describe this image" --provider litellm --model "google/gemini-2.0-flash"
@@ -205,9 +205,9 @@ model_list:
       api_key: os.environ/OPENAI_API_KEY
 
   # Anthropic Models
-  - model_name: anthropic/claude-3-5-sonnet
+  - model_name: anthropic/claude-sonnet-4-6
     litellm_params:
-      model: claude-3-5-sonnet-20241022
+      model: claude-sonnet-4-6
       api_key: os.environ/ANTHROPIC_API_KEY
 
   # Google Models

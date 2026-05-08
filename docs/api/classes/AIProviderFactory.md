@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: AIProviderFactory
 
-Defined in: [core/factory.ts:18](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/core/factory.ts#L18)
+Defined in: [core/factory.ts:25](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/factory.ts#L25)
 
 Factory for creating AI provider instances with centralized configuration
 
@@ -24,9 +24,9 @@ Factory for creating AI provider instances with centralized configuration
 
 ### createProvider()
 
-> `static` **createProvider**(`providerName`, `modelName?`, `enableMCP?`, `sdk?`, `region?`): `Promise`\<[`AIProvider`](../type-aliases/AIProvider.md)\>
+> `static` **createProvider**(`providerName`, `modelName?`, `enableMCP?`, `sdk?`, `region?`, `credentials?`): `Promise`\<[`AIProvider`](../type-aliases/AIProvider.md)\>
 
-Defined in: [core/factory.ts:81](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/core/factory.ts#L81)
+Defined in: [core/factory.ts:297](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/factory.ts#L297)
 
 Create a provider instance for the specified provider type
 
@@ -40,9 +40,9 @@ Name of the provider ('vertex', 'bedrock', 'openai')
 
 ##### modelName?
 
-Optional model name override
+`string` \| `null`
 
-`string` | `null`
+Optional model name override
 
 ##### enableMCP?
 
@@ -52,7 +52,7 @@ Optional flag to enable MCP integration (default: true)
 
 ##### sdk?
 
-`UnknownRecord`
+[`UnknownRecord`](../type-aliases/UnknownRecord.md)
 
 SDK instance
 
@@ -61,6 +61,10 @@ SDK instance
 `string`
 
 Optional region override for cloud providers
+
+##### credentials?
+
+[`NeurolinkCredentials`](../type-aliases/NeurolinkCredentials.md)
 
 #### Returns
 
@@ -74,7 +78,7 @@ AIProvider instance
 
 > `static` **createProviderWithModel**(`provider`, `model`): `Promise`\<[`AIProvider`](../type-aliases/AIProvider.md)\>
 
-Defined in: [core/factory.ts:346](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/core/factory.ts#L346)
+Defined in: [core/factory.ts:423](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/factory.ts#L423)
 
 Create a provider instance with specific provider enum and model
 
@@ -104,7 +108,7 @@ AIProvider instance
 
 > `static` **createBestProvider**(`requestedProvider?`, `modelName?`, `enableMCP?`, `sdk?`): `Promise`\<[`AIProvider`](../type-aliases/AIProvider.md)\>
 
-Defined in: [core/factory.ts:388](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/core/factory.ts#L388)
+Defined in: [core/factory.ts:465](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/factory.ts#L465)
 
 Create the best available provider automatically
 
@@ -118,9 +122,9 @@ Optional preferred provider
 
 ##### modelName?
 
-Optional model name override
+`string` \| `null`
 
-`string` | `null`
+Optional model name override
 
 ##### enableMCP?
 
@@ -130,7 +134,7 @@ Optional flag to enable MCP integration (default: true)
 
 ##### sdk?
 
-`UnknownRecord`
+[`UnknownRecord`](../type-aliases/UnknownRecord.md)
 
 #### Returns
 
@@ -142,9 +146,9 @@ AIProvider instance
 
 ### createProviderWithFallback()
 
-> `static` **createProviderWithFallback**(`primaryProvider`, `fallbackProvider`, `modelName?`, `enableMCP?`): `Promise`\<`ProviderPairResult`\<[`AIProvider`](../type-aliases/AIProvider.md)\>\>
+> `static` **createProviderWithFallback**(`primaryProvider`, `fallbackProvider`, `modelName?`, `enableMCP?`): `Promise`\<[`ProviderPairResult`](../type-aliases/ProviderPairResult.md)\<[`AIProvider`](../type-aliases/AIProvider.md)\>\>
 
-Defined in: [core/factory.ts:428](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/core/factory.ts#L428)
+Defined in: [core/factory.ts:505](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/factory.ts#L505)
 
 Create primary and fallback provider instances
 
@@ -164,9 +168,9 @@ Fallback provider name
 
 ##### modelName?
 
-Optional model name override
+`string` \| `null`
 
-`string` | `null`
+Optional model name override
 
 ##### enableMCP?
 
@@ -176,6 +180,6 @@ Optional flag to enable MCP integration (default: true)
 
 #### Returns
 
-`Promise`\<`ProviderPairResult`\<[`AIProvider`](../type-aliases/AIProvider.md)\>\>
+`Promise`\<[`ProviderPairResult`](../type-aliases/ProviderPairResult.md)\<[`AIProvider`](../type-aliases/AIProvider.md)\>\>
 
 Object with primary and fallback providers

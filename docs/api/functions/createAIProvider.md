@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,14 +8,14 @@
 
 > **createAIProvider**(`providerName?`, `modelName?`): `Promise`\<[`AIProvider`](../type-aliases/AIProvider.md)\>
 
-Defined in: [index.ts:158](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/index.ts#L158)
+Defined in: [index.ts:291](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/index.ts#L291)
 
 Quick start factory function for creating AI provider instances.
 
 Creates a configured AI provider instance ready for immediate use.
-Supports all 13 providers: OpenAI, Anthropic, Google AI Studio,
+Supports 14+ providers: OpenAI, Anthropic, Google AI Studio,
 Google Vertex, AWS Bedrock, AWS SageMaker, Azure OpenAI, Hugging Face,
-LiteLLM, Mistral, Ollama, OpenAI Compatible, and OpenRouter.
+LiteLLM, Mistral, Ollama, OpenAI Compatible, OpenRouter, and more.
 
 ## Parameters
 
@@ -47,7 +47,7 @@ const result = await provider.stream({ input: { text: "Hello, AI!" } });
 ```
 
 ```typescript
-const provider = await createAIProvider("vertex", "gemini-3-flash");
+const provider = await createAIProvider("vertex", "gemini-3-flash-preview");
 ```
 
 ## See

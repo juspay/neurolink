@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.44.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,99 +8,36 @@
 
 > **ChunkParams** = `object`
 
-Defined in: [lib/rag/types.ts:780](https://github.com/juspay/neurolink/blob/main/src/lib/rag/types.ts#L780)
+Defined in: [types/rag.ts:1450](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1450)
 
-Parameters for document chunking operations. Combines strategy selection, strategy-specific configuration, and optional metadata extraction.
-
-## Since
-
-v8.44.0
+Chunk parameters for MDocument
 
 ## Properties
 
 ### strategy?
 
-> `optional` **strategy**: [`ChunkingStrategy`](ChunkingStrategy.md)
+> `optional` **strategy?**: [`ChunkingStrategy`](ChunkingStrategy.md)
 
-Chunking strategy to use. Defaults to an appropriate strategy based on document type.
+Defined in: [types/rag.ts:1452](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1452)
 
-Available strategies:
-
-- `"character"` - Simple character-based splitting
-- `"recursive"` - Smart recursive splitting with multiple separators
-- `"sentence"` - Sentence-aware splitting
-- `"token"` - Token-aware splitting using tokenizer
-- `"markdown"` - Markdown structure-aware splitting
-- `"html"` - HTML DOM structure-aware splitting
-- `"json"` - JSON structure-aware splitting
-- `"latex"` - LaTeX document structure-aware splitting
-- `"semantic"` - LLM-based semantic splitting
-- `"semantic-markdown"` - Semantic splitting for markdown
+Chunking strategy to use
 
 ---
 
 ### config?
 
-> `optional` **config**: [`ChunkerConfig`](ChunkerConfig.md)
+> `optional` **config?**: [`ChunkerConfig`](ChunkerConfig.md)
 
-Strategy-specific configuration options including maxSize, overlap, and strategy-specific settings.
+Defined in: [types/rag.ts:1454](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1454)
+
+Strategy-specific configuration
 
 ---
 
 ### extract?
 
-> `optional` **extract**: [`ExtractParams`](ExtractParams.md)
+> `optional` **extract?**: [`ExtractParams`](ExtractParams.md)
 
-Metadata extraction options to apply during chunking
+Defined in: [types/rag.ts:1456](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1456)
 
-## Example
-
-```typescript
-import { MDocument, type ChunkParams } from "@juspay/neurolink";
-
-const doc = MDocument.fromMarkdown(content);
-
-// Basic chunking with defaults
-await doc.chunk();
-
-// Recursive chunking with custom settings
-const params: ChunkParams = {
-  strategy: "recursive",
-  config: {
-    maxSize: 1000,
-    overlap: 200,
-    separators: ["\n\n", "\n", ". ", " "],
-  },
-};
-await doc.chunk(params);
-
-// Markdown-aware chunking
-await doc.chunk({
-  strategy: "markdown",
-  config: {
-    headerLevels: [1, 2, 3],
-    preserveCodeBlocks: true,
-    includeHeader: true,
-  },
-});
-
-// Token-based chunking for LLM context windows
-await doc.chunk({
-  strategy: "token",
-  config: {
-    maxTokens: 512,
-    tokenOverlap: 50,
-    tokenizer: "cl100k_base",
-  },
-});
-
-// Semantic chunking with LLM
-await doc.chunk({
-  strategy: "semantic",
-  config: {
-    modelName: "gpt-4o-mini",
-    provider: "openai",
-    similarityThreshold: 0.8,
-  },
-});
-```
+Metadata extraction options

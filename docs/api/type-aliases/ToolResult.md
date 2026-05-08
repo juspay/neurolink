@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -6,9 +6,9 @@
 
 # Type Alias: ToolResult\<T\>
 
-> **ToolResult**\<`T`\> = `Result`\<`T`, `ErrorInfo` \| `string`\> & `object`
+> **ToolResult**\<`T`\> = [`Result`](Result.md)\<`T`, [`ErrorInfo`](ErrorInfo.md) \| `string`\> & `object`
 
-Defined in: [types/tools.ts:243](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/types/tools.ts#L243)
+Defined in: [types/tools.ts:295](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L295)
 
 Tool execution result
 
@@ -20,22 +20,22 @@ Tool execution result
 
 ### data?
 
-> `optional` **data**: `T` \| `null`
+> `optional` **data?**: `T` \| `null`
 
 ### error?
 
-> `optional` **error**: `ErrorInfo` \| `string`
+> `optional` **error?**: [`ErrorInfo`](ErrorInfo.md) \| `string`
 
 ### usage?
 
-> `optional` **usage**: `ToolResultUsage`
+> `optional` **usage?**: [`ToolResultUsage`](ToolResultUsage.md)
 
 ### metadata?
 
-> `optional` **metadata**: `ToolResultMetadata`
+> `optional` **metadata?**: [`ToolResultMetadata`](ToolResultMetadata.md)
 
 ## Type Parameters
 
 ### T
 
-`T` = `JsonValue` \| `unknown`
+`T` = [`JsonValue`](JsonValue.md) \| `unknown`

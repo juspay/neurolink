@@ -8,9 +8,9 @@ const PROVIDERS = [
   "OpenAI",
   "Anthropic",
   "Google AI",
+  "Vertex AI",
   "AWS Bedrock",
   "Azure",
-  "Vertex AI",
   "Mistral",
   "Ollama",
   "LiteLLM",
@@ -18,12 +18,20 @@ const PROVIDERS = [
   "SageMaker",
   "OpenRouter",
   "OpenAI-Compatible",
+  "DeepSeek",
+  "NVIDIA NIM",
+  "LM Studio",
+  "llama.cpp",
+  "ElevenLabs",
+  "Deepgram",
+  "Azure Speech",
+  "OpenAI TTS",
 ];
 
 const QUICK_LINKS = [
   {
     title: "SDK Guide",
-    description: "Unified API for 13+ providers",
+    description: "Unified API for 21+ providers",
     href: "/docs/sdk",
     icon: "📦",
   },
@@ -88,7 +96,7 @@ const ai = new NeuroLink();
 const result = await ai.generate({
   prompt: "Explain quantum computing",
   provider: "anthropic",
-  model: "claude-sonnet-4-20250514",
+  model: "claude-sonnet-4-6",
 });
 
 console.log(result.content);`;
@@ -97,7 +105,7 @@ const FAQ_ITEMS = [
   {
     question: "What is NeuroLink?",
     answer:
-      "NeuroLink is an enterprise AI development platform that provides unified access to 13+ AI providers (OpenAI, Anthropic, Google AI, AWS Bedrock, Azure, and more) through a single TypeScript SDK and professional CLI. It is extracted from production systems at Juspay and battle-tested at enterprise scale.",
+      "NeuroLink is an enterprise AI development platform that provides unified access to 21+ AI providers (OpenAI, Anthropic, Google AI, AWS Bedrock, Azure, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, plus voice providers like ElevenLabs, Deepgram, and more) through a single TypeScript SDK and professional CLI. It is extracted from production systems at Juspay and battle-tested at enterprise scale.",
   },
   {
     question: "How is NeuroLink different from LangChain or Vercel AI SDK?",
@@ -112,7 +120,7 @@ const FAQ_ITEMS = [
   {
     question: "What AI providers does NeuroLink support?",
     answer:
-      "NeuroLink supports 13+ providers including OpenAI, Anthropic, Google AI Studio, Google Vertex AI, AWS Bedrock, Azure OpenAI, Mistral, Ollama, LiteLLM, HuggingFace, SageMaker, OpenRouter, and any OpenAI-compatible endpoint. Switching providers requires changing a single parameter.",
+      "NeuroLink supports 21+ providers including OpenAI, Anthropic, Google AI Studio, Google Vertex AI, AWS Bedrock, Azure OpenAI, Mistral, Ollama, LiteLLM, HuggingFace, SageMaker, OpenRouter, DeepSeek, NVIDIA NIM (400+ catalog models), LM Studio (local), llama.cpp (local GGUF), and any OpenAI-compatible endpoint. Voice: OpenAI TTS, ElevenLabs, Google TTS, Azure TTS, Whisper, Deepgram, Azure STT, Google STT. Switching providers requires changing a single parameter.",
   },
   {
     question: "Does NeuroLink support MCP (Model Context Protocol)?",
@@ -143,7 +151,7 @@ export default function Home(): React.JSX.Element {
   return (
     <Layout
       title="NeuroLink - The Nervous System Pipe for AI Streams"
-      description="The pipe layer for the AI nervous system. Stream tokens, data, tools, and context from 13+ providers through pluggable connectors."
+      description="The pipe layer for the AI nervous system. Stream tokens, data, tools, voice, and context from 21+ providers through pluggable connectors."
     >
       <Head>
         <script type="application/ld+json">{JSON.stringify(FAQ_JSONLD)}</script>
@@ -199,8 +207,8 @@ export default function Home(): React.JSX.Element {
               <span className={styles.routingCardLabel}>THE PIPE</span>
               <p className={styles.routingCardTitle}>Start with the pipe</p>
               <p className={styles.routingCardDesc}>
-                Unified API for 13+ AI providers. Token streams, memory, tools,
-                RAG — one consistent interface.
+                Unified API for 21+ AI providers. Token streams, voice, memory,
+                tools, RAG — one consistent interface.
               </p>
             </a>
             <a href="/docs/features/mcp-tools" className={styles.routingCard}>

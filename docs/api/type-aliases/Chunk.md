@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.44.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,9 +8,9 @@
 
 > **Chunk** = `object`
 
-Defined in: [lib/rag/types.ts:64](https://github.com/juspay/neurolink/blob/main/src/lib/rag/types.ts#L64)
+Defined in: [types/rag.ts:762](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L762)
 
-Base chunk result with text and metadata. Represents a segment of a document after chunking, containing the text content, unique identifier, associated metadata, and optionally an embedding vector.
+Base chunk result with text and metadata
 
 ## Properties
 
@@ -18,7 +18,7 @@ Base chunk result with text and metadata. Represents a segment of a document aft
 
 > **id**: `string`
 
-Defined in: [lib/rag/types.ts:66](https://github.com/juspay/neurolink/blob/main/src/lib/rag/types.ts#L66)
+Defined in: [types/rag.ts:764](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L764)
 
 Unique identifier for the chunk
 
@@ -28,7 +28,7 @@ Unique identifier for the chunk
 
 > **text**: `string`
 
-Defined in: [lib/rag/types.ts:68](https://github.com/juspay/neurolink/blob/main/src/lib/rag/types.ts#L68)
+Defined in: [types/rag.ts:766](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L766)
 
 The text content of the chunk
 
@@ -38,41 +38,16 @@ The text content of the chunk
 
 > **metadata**: [`ChunkMetadata`](ChunkMetadata.md)
 
-Defined in: [lib/rag/types.ts:70](https://github.com/juspay/neurolink/blob/main/src/lib/rag/types.ts#L70)
+Defined in: [types/rag.ts:768](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L768)
 
-Metadata associated with the chunk, including source document information and position
+Metadata associated with the chunk
 
 ---
 
 ### embedding?
 
-> `optional` **embedding**: `number[]`
+> `optional` **embedding?**: `number`[]
 
-Defined in: [lib/rag/types.ts:72](https://github.com/juspay/neurolink/blob/main/src/lib/rag/types.ts#L72)
+Defined in: [types/rag.ts:770](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L770)
 
-Optional embedding vector (populated after embedding generation)
-
-## Example
-
-```typescript
-import { Chunk } from "@juspay/neurolink";
-
-const chunk: Chunk = {
-  id: "doc-001-chunk-0",
-  text: "RAG (Retrieval-Augmented Generation) enhances LLM responses by incorporating relevant context from external knowledge bases.",
-  metadata: {
-    documentId: "doc-001",
-    source: "rag-overview.md",
-    chunkIndex: 0,
-    totalChunks: 5,
-    startPosition: 0,
-    endPosition: 125,
-    documentType: "markdown"
-  },
-  embedding: [0.023, -0.156, 0.089, ...] // 1536-dimensional vector
-};
-```
-
-## Since
-
-v8.44.0
+Optional embedding vector (populated after embedding)

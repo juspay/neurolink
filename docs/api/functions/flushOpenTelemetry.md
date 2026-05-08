@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v8.32.0**](../README.md)
+[**NeuroLink API Reference v9.62.0**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **flushOpenTelemetry**(): `Promise`\<`void`\>
 
-Defined in: [services/server/ai/observability/instrumentation.ts:137](https://github.com/juspay/neurolink/blob/1be79595b7d7307795c98da4267c1728cb50033d/src/lib/services/server/ai/observability/instrumentation.ts#L137)
+Defined in: [services/server/ai/observability/instrumentation.ts:1148](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/services/server/ai/observability/instrumentation.ts#L1148)
 
 Flush all pending spans to Langfuse
 

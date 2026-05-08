@@ -488,17 +488,17 @@ neurolink publish plugin --registry community
 - Week 5-8: Template system and multi-language support
 - Week 9-12: Advanced user workflow optimizations
 
-### Phase 4: Advanced Features (Q3)
+### Phase 4: Advanced Features ✅ (shipped Q4 2025)
 
-- Week 1-6: Plugin architecture design and implementation
-- Week 7-10: Advanced parallel processing
-- Week 11-12: Enterprise configuration management
+- Plugin architecture: shipped via the MCP server registry + custom-tool registration in `src/lib/mcp/`.
+- Advanced parallel processing: shipped via the workflow engine in `src/lib/workflow/`.
+- Enterprise configuration management: shipped via the configuration manager in `src/lib/config/` (multi-source merge, per-call credential overrides).
 
-### Phase 5: Distribution & Adoption (Q4)
+### Phase 5: Distribution & Adoption ✅ (shipped Q1 2026)
 
-- Week 1-4: Multi-channel distribution setup
-- Week 5-8: Auto-update and performance optimization
-- Week 9-12: Community framework and ecosystem development
+- Multi-channel distribution: shipped — `@juspay/neurolink` on npm, browser bundle (`dist/browser.js`), Docusaurus docs site, landing site.
+- Auto-update and performance: shipped via semantic-release and the build-step llms.txt / search-index pipeline.
+- Community framework and ecosystem: shipped — public GitHub repo, contributor guide, issue templates, MCP plugin docs.
 
 ## Conclusion
 

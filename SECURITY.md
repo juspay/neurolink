@@ -6,9 +6,9 @@ We release security updates for the following versions of NeuroLink:
 
 | Version | Supported          | Status              |
 | ------- | ------------------ | ------------------- |
-| 8.x     | :white_check_mark: | Active development  |
-| 7.x     | :warning:          | Security fixes only |
-| < 7.0   | :x:                | No longer supported |
+| 9.x     | :white_check_mark: | Active development  |
+| 8.x     | :warning:          | Security fixes only |
+| < 8.0   | :x:                | No longer supported |
 
 ## Reporting a Vulnerability
 

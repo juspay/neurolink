@@ -57,7 +57,7 @@ await client.stream(
   {
     input: { text: "Tell me a story" },
     provider: "anthropic",
-    model: "claude-3-5-sonnet",
+    model: "claude-sonnet-4-6",
   },
   {
     onText: (text) => process.stdout.write(text),
@@ -349,7 +349,7 @@ console.log(result.text);
 
 // Streaming generation
 const stream = await streamText({
-  model: neurolink("claude-3-5-sonnet"),
+  model: neurolink("claude-sonnet-4-6"),
   prompt: "Write a short poem about TypeScript",
 });
 
@@ -358,7 +358,7 @@ for await (const chunk of stream.textStream) {
 }
 ```
 
-The provider automatically infers the upstream AI provider from the model ID (e.g., `gpt-4o` maps to OpenAI, `claude-3-5-sonnet` to Anthropic, `gemini-2.5-flash` to Google AI).
+The provider automatically infers the upstream AI provider from the model ID (e.g., `gpt-4o` maps to OpenAI, `claude-sonnet-4-6` to Anthropic, `gemini-3-flash-preview` to Google AI).
 
 ### createNeuroLinkModel
 
