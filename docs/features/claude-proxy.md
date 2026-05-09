@@ -125,6 +125,18 @@ Account sources are checked in priority order:
 2. **Legacy credentials file** (`~/.neurolink/anthropic-credentials.json`) -- only if no TokenStore accounts exist
 3. **Environment variable** (`ANTHROPIC_API_KEY`) -- only if no other accounts exist
 
+#### Designating a primary (home) account
+
+By default the "first" account is the first key in token-store insertion order. To override this without re-OAuthing or editing the encrypted token store, set `routing.primary-account` in the proxy config. The proxy resolves the email to a stable token-store key per request, so the choice survives account additions/removals and only takes effect when that account is currently authenticated:
+
+```bash
+neurolink auth set-primary alice@example.com
+neurolink proxy stop && neurolink proxy start
+curl http://127.0.0.1:55669/status   # stats.primaryAccount.label = alice@example.com
+```
+
+After a 429 cools off, traffic returns to the configured primary (not literal index 0). When the configured account is missing or disabled, the proxy logs a warning at startup and falls back to insertion-order index 0. See the [config reference](./claude-proxy-config-reference.md#neurolink-auth-set-primary) for the full CLI surface (`set-primary` / `get-primary` / `clear-primary`).
+
 ### Fallback Chain
 
 When all Claude accounts are rate-limited, the proxy walks the fallback chain defined in the config file. Each fallback entry specifies a provider and model:

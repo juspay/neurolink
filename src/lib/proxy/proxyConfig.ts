@@ -437,6 +437,22 @@ function parseRoutingConfig(
     result.passthroughModels = rawPassthrough.map(String);
   }
 
+  // Primary account (accept kebab-case or camelCase). Email or label of the
+  // Anthropic account that should be tried first ("home"). Resolved to a
+  // stable key (anthropic:<email>) at proxy boot; absence preserves the
+  // pre-existing insertion-order behavior.
+  const rawPrimary = (raw["primary-account"] ?? raw.primaryAccount) as unknown;
+  if (rawPrimary !== undefined) {
+    if (typeof rawPrimary === "string" && rawPrimary.trim() !== "") {
+      result.primaryAccount = rawPrimary.trim();
+    } else {
+      logger.warn(
+        `[proxy-config] Ignoring routing.primaryAccount: expected non-empty ` +
+          `string, got ${typeof rawPrimary}`,
+      );
+    }
+  }
+
   return result;
 }
 

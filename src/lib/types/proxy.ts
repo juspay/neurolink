@@ -1195,10 +1195,36 @@ export type UpdateState = {
 // YAML LOADER (from proxy/proxyConfig.ts)
 // =============================================================================
 
-/** Shape of the dynamically-imported js-yaml module. */
+/** Shape of the dynamically-imported js-yaml module. `dump` is optional —
+ *  read-only consumers (proxy config loader) only need `load`; writers
+ *  (CLI primary-account commands) check `dump` before calling. */
 export type YamlModule = {
   load(content: string): unknown;
-  default?: { load(content: string): unknown };
+  dump?: (obj: unknown, opts?: Record<string, unknown>) => string;
+  default?: {
+    load(content: string): unknown;
+    dump?: (obj: unknown, opts?: Record<string, unknown>) => string;
+  };
+};
+
+/** Snapshot of a parsed proxy config file used by CLI primary-account
+ *  read/edit/write helpers. Tracks the original format and whether comments
+ *  were present (so the CLI can warn that comments will not round-trip). */
+export type CliProxyConfigDoc = {
+  data: Record<string, unknown>;
+  format: "yaml" | "json";
+  hadComments: boolean;
+};
+
+/** Primary-account info exposed by the proxy `/status` endpoint.
+ *  `source` is "configured" when the operator's `routing.primaryAccount` is
+ *  authenticated and enabled, otherwise "fallback" — either no primary set
+ *  or the configured one is missing/disabled. */
+export type ProxyStatusPrimaryAccount = {
+  configured: string | null;
+  key: string | null;
+  label: string | null;
+  source: "configured" | "fallback";
 };
 
 // =============================================================================

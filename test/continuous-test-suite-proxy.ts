@@ -19,6 +19,10 @@ import { spawn, ChildProcess } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ============================================================================
 // Types
@@ -1387,6 +1391,439 @@ async function testProxyShutdown(): Promise<boolean | null> {
 }
 
 // ============================================================================
+// Tests: Primary account selection (in-process unit-style)
+// ============================================================================
+
+async function testPrimaryResolveHomeIndex(): Promise<boolean | null> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+
+  type Acct = { key: string; label: string; token: string; type: "oauth" };
+  const accts: Acct[] = [
+    { key: "anthropic:a@test", label: "a@test", token: "t", type: "oauth" },
+    { key: "anthropic:b@test", label: "b@test", token: "t", type: "oauth" },
+    { key: "anthropic:c@test", label: "c@test", token: "t", type: "oauth" },
+  ];
+
+  // Case: no key configured → 0
+  __testHooks.setConfiguredPrimaryAccountKey(undefined);
+  if (__testHooks.resolveHomeIndex(accts) !== 0) {
+    log("resolveHomeIndex: undefined key did not return 0", "red");
+    return false;
+  }
+
+  // Case: key resolves to its index
+  __testHooks.setConfiguredPrimaryAccountKey("anthropic:b@test");
+  if (__testHooks.resolveHomeIndex(accts) !== 1) {
+    log(
+      "resolveHomeIndex: did not return correct index for present key",
+      "red",
+    );
+    return false;
+  }
+
+  // Case: key not in list → 0
+  __testHooks.setConfiguredPrimaryAccountKey("anthropic:missing@test");
+  if (__testHooks.resolveHomeIndex(accts) !== 0) {
+    log("resolveHomeIndex: missing key did not fall back to 0", "red");
+    return false;
+  }
+
+  // Case: empty enabledAccounts → 0
+  __testHooks.setConfiguredPrimaryAccountKey("anthropic:b@test");
+  if (__testHooks.resolveHomeIndex([]) !== 0) {
+    log("resolveHomeIndex: empty list did not return 0", "red");
+    return false;
+  }
+
+  __testHooks.resetAllRuntimeState();
+  log("resolveHomeIndex: all 4 cases passed", "green");
+  return true;
+}
+
+async function testPrimaryMaybeResetToHome(): Promise<boolean | null> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+
+  type Acct = { key: string; label: string; token: string; type: "oauth" };
+  const accts: Acct[] = [
+    { key: "anthropic:a@test", label: "a@test", token: "t", type: "oauth" },
+    { key: "anthropic:b@test", label: "b@test", token: "t", type: "oauth" },
+    { key: "anthropic:c@test", label: "c@test", token: "t", type: "oauth" },
+  ];
+
+  // Configure home as index 1 (b), simulate rotation to 2, expect reset to 1.
+  __testHooks.setConfiguredPrimaryAccountKey("anthropic:b@test");
+  __testHooks.setPrimaryAccountIndex(2);
+  __testHooks.maybeResetPrimaryToHome(accts);
+  if (__testHooks.getPrimaryAccountIndex() !== 1) {
+    log(
+      `maybeResetPrimaryToHome: expected index 1 after reset to home, got ${__testHooks.getPrimaryAccountIndex()}`,
+      "red",
+    );
+    return false;
+  }
+
+  // Already at home → no-op
+  __testHooks.maybeResetPrimaryToHome(accts);
+  if (__testHooks.getPrimaryAccountIndex() !== 1) {
+    log("maybeResetPrimaryToHome: should have stayed at home", "red");
+    return false;
+  }
+
+  // Home is cooling → does NOT reset
+  __testHooks.setPrimaryAccountIndex(2);
+  __testHooks.setAccountRuntimeState("anthropic:b@test", {
+    coolingUntil: Date.now() + 60_000,
+  });
+  __testHooks.maybeResetPrimaryToHome(accts);
+  if (__testHooks.getPrimaryAccountIndex() !== 2) {
+    log(
+      "maybeResetPrimaryToHome: should NOT have reset while home cooling",
+      "red",
+    );
+    return false;
+  }
+
+  // Cooling expires → resets
+  __testHooks.setAccountRuntimeState("anthropic:b@test", {
+    coolingUntil: Date.now() - 1_000,
+  });
+  __testHooks.maybeResetPrimaryToHome(accts);
+  if (__testHooks.getPrimaryAccountIndex() !== 1) {
+    log(
+      "maybeResetPrimaryToHome: should have reset after cooling expired",
+      "red",
+    );
+    return false;
+  }
+
+  // Configured key absent in enabledAccounts → home falls back to 0
+  __testHooks.resetAllRuntimeState();
+  __testHooks.setConfiguredPrimaryAccountKey("anthropic:missing@test");
+  __testHooks.setPrimaryAccountIndex(2);
+  __testHooks.maybeResetPrimaryToHome(accts);
+  if (__testHooks.getPrimaryAccountIndex() !== 0) {
+    log(
+      `maybeResetPrimaryToHome: missing key should fall back to 0, got ${__testHooks.getPrimaryAccountIndex()}`,
+      "red",
+    );
+    return false;
+  }
+
+  __testHooks.resetAllRuntimeState();
+  log("maybeResetPrimaryToHome: 5 cases passed", "green");
+  return true;
+}
+
+// ============================================================================
+// Tests: parseRoutingConfig.primaryAccount field
+// ============================================================================
+
+async function testParseRoutingPrimaryAccount(): Promise<boolean | null> {
+  const { parseRoutingConfig: _parseRoutingConfig } =
+    (await import("../src/lib/proxy/proxyConfig.js")) as {
+      parseRoutingConfig?: unknown;
+    };
+
+  // parseRoutingConfig is internal; skip if not exported
+  if (typeof _parseRoutingConfig !== "function") {
+    log(
+      "parseRoutingConfig is not exported; verifying via loadProxyConfig instead",
+      "yellow",
+    );
+    return await testParseRoutingPrimaryViaLoad();
+  }
+  const parseRoutingConfig = _parseRoutingConfig as (
+    raw: Record<string, unknown> | undefined,
+  ) => { primaryAccount?: string } | undefined;
+
+  const cases: Array<{
+    name: string;
+    input: Record<string, unknown>;
+    expected: string | undefined;
+  }> = [
+    {
+      name: "camelCase",
+      input: { primaryAccount: "user@example.com" },
+      expected: "user@example.com",
+    },
+    {
+      name: "kebab-case",
+      input: { "primary-account": "user@example.com" },
+      expected: "user@example.com",
+    },
+    {
+      name: "trim",
+      input: { primaryAccount: "  user@example.com  " },
+      expected: "user@example.com",
+    },
+    {
+      name: "empty string rejected",
+      input: { primaryAccount: "" },
+      expected: undefined,
+    },
+    {
+      name: "non-string rejected",
+      input: { primaryAccount: 42 },
+      expected: undefined,
+    },
+    {
+      name: "absent",
+      input: {},
+      expected: undefined,
+    },
+  ];
+
+  for (const c of cases) {
+    const result = parseRoutingConfig(c.input);
+    if (result?.primaryAccount !== c.expected) {
+      log(
+        `parseRoutingConfig: ${c.name} failed: expected ${String(c.expected)}, got ${String(result?.primaryAccount)}`,
+        "red",
+      );
+      return false;
+    }
+  }
+  log(`parseRoutingConfig: ${cases.length} cases passed`, "green");
+  return true;
+}
+
+/** Fallback when parseRoutingConfig isn't exported: write a config and run
+ *  loadProxyConfig (always exported), checking the parsed result. Uses JSON
+ *  config files so the test does not depend on js-yaml being installed. */
+async function testParseRoutingPrimaryViaLoad(): Promise<boolean | null> {
+  const { loadProxyConfig } = await import("../src/lib/proxy/proxyConfig.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "proxy-prim-"));
+  try {
+    const kebabPath = path.join(tmpDir, "kebab.json");
+    fs.writeFileSync(
+      kebabPath,
+      JSON.stringify({
+        accounts: { anthropic: [] },
+        routing: { "primary-account": "user@example.com" },
+      }),
+      "utf-8",
+    );
+    const cfg = (await loadProxyConfig(kebabPath)) as {
+      routing?: { primaryAccount?: string };
+    };
+    if (cfg.routing?.primaryAccount !== "user@example.com") {
+      log(
+        `loadProxyConfig kebab: got ${String(cfg.routing?.primaryAccount)}`,
+        "red",
+      );
+      return false;
+    }
+
+    const camelPath = path.join(tmpDir, "camel.json");
+    fs.writeFileSync(
+      camelPath,
+      JSON.stringify({
+        accounts: { anthropic: [] },
+        routing: { primaryAccount: "  user@example.com  " },
+      }),
+      "utf-8",
+    );
+    const cfg2 = (await loadProxyConfig(camelPath)) as {
+      routing?: { primaryAccount?: string };
+    };
+    if (cfg2.routing?.primaryAccount !== "user@example.com") {
+      log(
+        `loadProxyConfig camel+trim: got ${String(cfg2.routing?.primaryAccount)}`,
+        "red",
+      );
+      return false;
+    }
+
+    log("parseRoutingConfig via load: kebab/camel/trim passed", "green");
+    return true;
+  } finally {
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// ============================================================================
+// Tests: /status stats.primaryAccount additive guarantee
+// ============================================================================
+
+async function testStatusPrimaryAccountFallback(): Promise<boolean | null> {
+  // The test proxy is started in testProxyStartup without a routing.primaryAccount
+  // configured (no --config arg). Verify /status reports source="fallback" and a
+  // sensible label, proving the additive guarantee: existing operators see no
+  // behavior change from the new field's absence.
+  try {
+    const resp = await fetchProxy("/status");
+    if (!resp.ok) {
+      log(`/status returned ${resp.status}`, "red");
+      return false;
+    }
+    const body = (await resp.json()) as {
+      stats?: {
+        primaryAccount?: {
+          configured: string | null;
+          key: string | null;
+          label: string | null;
+          source: string;
+        };
+      };
+    };
+    const pa = body.stats?.primaryAccount;
+    if (!pa) {
+      log("Status response missing stats.primaryAccount", "red");
+      return false;
+    }
+    if (pa.source !== "fallback") {
+      log(
+        `Expected source="fallback" with no primary configured, got "${pa.source}"`,
+        "red",
+      );
+      return false;
+    }
+    if (pa.configured !== null) {
+      log(
+        `Expected configured=null with no primary configured, got "${pa.configured}"`,
+        "red",
+      );
+      return false;
+    }
+    log(
+      `stats.primaryAccount fallback OK: label=${String(pa.label)} key=${String(pa.key)}`,
+      "green",
+    );
+    return true;
+  } catch (err) {
+    log(
+      `Status primary fallback error: ${err instanceof Error ? err.message : String(err)}`,
+      "red",
+    );
+    return false;
+  }
+}
+
+// ============================================================================
+// Tests: CLI auth set-primary / get-primary / clear-primary roundtrip
+// ============================================================================
+
+async function testCliPrimaryRoundtrip(): Promise<boolean | null> {
+  const cliPath = path.join(__dirname, "..", "dist", "cli", "index.js");
+  if (!fs.existsSync(cliPath)) {
+    log(`CLI not built at ${cliPath}; run pnpm run build:cli first`, "yellow");
+    return null;
+  }
+
+  // Use a .json path so the test does not depend on js-yaml being installed.
+  // The CLI auth handlers detect format from the extension; behavior is
+  // identical for production YAML configs (verified manually).
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "proxy-prim-cli-"));
+  const cfgPath = path.join(tmpDir, "proxy-config.json");
+  const email = "primary-test@example.com";
+
+  const runCli = (
+    args: string[],
+  ): Promise<{ code: number; stdout: string; stderr: string }> =>
+    new Promise((resolve) => {
+      const child = spawn(process.execPath, [cliPath, ...args], {
+        env: { ...process.env, NEUROLINK_NO_COLOR: "1" },
+      });
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (d) => (stdout += d.toString()));
+      child.stderr.on("data", (d) => (stderr += d.toString()));
+      child.on("close", (code) =>
+        resolve({ code: code ?? -1, stdout, stderr }),
+      );
+    });
+
+  try {
+    // 1. set-primary writes the field
+    const setRes = await runCli([
+      "auth",
+      "set-primary",
+      email,
+      "--config",
+      cfgPath,
+    ]);
+    if (setRes.code !== 0) {
+      log(`set-primary exited ${setRes.code}: ${setRes.stderr}`, "red");
+      return false;
+    }
+    if (!fs.existsSync(cfgPath)) {
+      log("set-primary did not create the config file", "red");
+      return false;
+    }
+    const yamlContent = fs.readFileSync(cfgPath, "utf-8");
+    if (!yamlContent.includes(email)) {
+      log(`Config does not contain ${email}: ${yamlContent}`, "red");
+      return false;
+    }
+    if (!/primary-account/.test(yamlContent)) {
+      log(
+        `Config does not contain kebab key 'primary-account': ${yamlContent}`,
+        "red",
+      );
+      return false;
+    }
+
+    // 2. get-primary reads it back
+    const getRes = await runCli(["auth", "get-primary", "--config", cfgPath]);
+    if (getRes.code !== 0) {
+      log(`get-primary exited ${getRes.code}: ${getRes.stderr}`, "red");
+      return false;
+    }
+    if (!getRes.stdout.includes(email)) {
+      log(`get-primary output missing ${email}: ${getRes.stdout}`, "red");
+      return false;
+    }
+
+    // 3. clear-primary removes the field
+    const clrRes = await runCli(["auth", "clear-primary", "--config", cfgPath]);
+    if (clrRes.code !== 0) {
+      log(`clear-primary exited ${clrRes.code}: ${clrRes.stderr}`, "red");
+      return false;
+    }
+    const yamlAfter = fs.readFileSync(cfgPath, "utf-8");
+    if (
+      yamlAfter.includes(email) ||
+      /primary-account|primaryAccount/.test(yamlAfter)
+    ) {
+      log(`clear-primary did not remove the field: ${yamlAfter}`, "red");
+      return false;
+    }
+
+    // 4. clear-primary is idempotent
+    const clrRes2 = await runCli([
+      "auth",
+      "clear-primary",
+      "--config",
+      cfgPath,
+    ]);
+    if (clrRes2.code !== 0) {
+      log(
+        `clear-primary (idempotent) exited ${clrRes2.code}: ${clrRes2.stderr}`,
+        "red",
+      );
+      return false;
+    }
+
+    log("CLI primary roundtrip: set/get/clear/clear all passed", "green");
+    return true;
+  } finally {
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// ============================================================================
 // Test Registration
 // ============================================================================
 
@@ -1409,6 +1846,35 @@ const tests: TestFunction[] = [
     category: "proxy-infra",
   },
   { name: "Count Tokens", fn: testProxyCountTokens, category: "proxy-infra" },
+
+  // Primary account selection (run BEFORE API tests so /status fetches
+  // happen while the proxy is still healthy — the upstream API tests
+  // can hang on auth and break subsequent fetches).
+  {
+    name: "Primary: resolveHomeIndex",
+    fn: testPrimaryResolveHomeIndex,
+    category: "proxy-primary",
+  },
+  {
+    name: "Primary: maybeResetPrimaryToHome",
+    fn: testPrimaryMaybeResetToHome,
+    category: "proxy-primary",
+  },
+  {
+    name: "Primary: parseRoutingConfig.primaryAccount",
+    fn: testParseRoutingPrimaryAccount,
+    category: "proxy-primary",
+  },
+  {
+    name: "Primary: /status fallback (no primary configured)",
+    fn: testStatusPrimaryAccountFallback,
+    category: "proxy-primary",
+  },
+  {
+    name: "Primary: CLI set-primary/get-primary/clear-primary roundtrip",
+    fn: testCliPrimaryRoundtrip,
+    category: "proxy-primary",
+  },
 
   // Error Handling
   {

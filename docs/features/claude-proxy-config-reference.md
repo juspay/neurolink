@@ -250,6 +250,67 @@ neurolink auth enable anthropic:1-VjRIq
 
 Run `neurolink auth list` to see all accounts and their current status.
 
+### `neurolink auth set-primary`
+
+Designate the proxy's primary (home) Anthropic account by email/label. Writes `routing.primary-account` to the proxy config YAML; the proxy reads it on startup and tries this account first under fill-first (or uses it as the home reference under round-robin). Does **not** touch the encrypted token store and does **not** require re-OAuthing any account.
+
+| Argument   | Type     | Required | Description                                                               |
+| ---------- | -------- | -------- | ------------------------------------------------------------------------- |
+| `<email>`  | `string` | **Yes**  | Email/label of the Anthropic account to make primary.                     |
+| `--config` | `string` | No       | Path to the proxy config file. Default: `~/.neurolink/proxy-config.yaml`. |
+
+If the email is not currently authenticated in the token store, the command still writes the field and prints a warning — the setting activates automatically once the account is added via `auth login --add`. If a proxy is currently running, a restart hint is printed.
+
+**Examples:**
+
+```bash
+# Make alice@example.com primary in the default config
+neurolink auth set-primary alice@example.com
+
+# Use a non-default config path
+neurolink auth set-primary alice@example.com --config ./proxy.yaml
+```
+
+> Note: writing YAML uses `js-yaml.dump`, which does not preserve comments. The command prints a warning before writing if the existing file contains comments. JSON config paths preserve everything except whitespace.
+
+### `neurolink auth get-primary`
+
+Show the proxy's currently configured primary account (and whether it is authenticated).
+
+| Argument   | Type     | Required | Description                                                               |
+| ---------- | -------- | -------- | ------------------------------------------------------------------------- |
+| `--config` | `string` | No       | Path to the proxy config file. Default: `~/.neurolink/proxy-config.yaml`. |
+
+**Examples:**
+
+```bash
+neurolink auth get-primary
+```
+
+Output (when configured and authenticated):
+
+```
+Configured primary: alice@example.com
+Status: authenticated (anthropic:alice@example.com present in token store)
+Source: /Users/.../.neurolink/proxy-config.yaml
+```
+
+### `neurolink auth clear-primary`
+
+Remove `routing.primary-account` (and `routing.primaryAccount`) from the proxy config. The proxy reverts to insertion-order fallback on next start.
+
+| Argument   | Type     | Required | Description                                                               |
+| ---------- | -------- | -------- | ------------------------------------------------------------------------- |
+| `--config` | `string` | No       | Path to the proxy config file. Default: `~/.neurolink/proxy-config.yaml`. |
+
+**Examples:**
+
+```bash
+neurolink auth clear-primary
+```
+
+Idempotent — clearing when no primary is configured prints `No primary account was configured.` and exits 0.
+
 ---
 
 ## 2. Config File (`~/.neurolink/proxy-config.yaml`)
@@ -324,6 +385,19 @@ accounts:
 routing:
   # Account selection strategy: "round-robin" | "fill-first"
   strategy: "fill-first"
+
+  # Primary (home) account: under fill-first this account is tried first;
+  # under round-robin it is the home reference for cooling resets and the
+  # starting offset on member-count changes. Resolved per-request to a
+  # stable token-store key (anthropic:<email>); a numeric index is never
+  # persisted, so reordering accounts in the token store is irrelevant.
+  # When omitted the proxy falls back to insertion-order index 0.
+  # Accepts: primary-account (kebab) or primaryAccount (camel).
+  # Manage via:
+  #   neurolink auth set-primary <email>
+  #   neurolink auth get-primary
+  #   neurolink auth clear-primary
+  primary-account: "alice@example.com"
 
   # Model mappings: remap incoming model names to different provider/model pairs
   # Accepts: model-mappings (kebab) or modelMappings (camel)
@@ -417,12 +491,13 @@ cloaking:
 
 #### Routing Fields
 
-| Field                                      | Type                            | Default  | Required | Description                                                                                                       |
-| ------------------------------------------ | ------------------------------- | -------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
-| `strategy`                                 | `"round-robin" \| "fill-first"` | _(none)_ | No       | Account selection strategy. `round-robin` rotates across accounts. `fill-first` uses one account until exhausted. |
-| `model-mappings` / `modelMappings`         | `ModelMapping[]`                | `[]`     | No       | Array of model-to-model remapping rules.                                                                          |
-| `fallback-chain` / `fallbackChain`         | `FallbackEntry[]`               | `[]`     | No       | Ordered list of alternative providers to try when primary accounts are exhausted.                                 |
-| `passthrough-models` / `passthroughModels` | `string[]`                      | `[]`     | No       | Model IDs that bypass routing and go directly to Anthropic.                                                       |
+| Field                                      | Type                            | Default  | Required | Description                                                                                                                                                                                                                                                                    |
+| ------------------------------------------ | ------------------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `strategy`                                 | `"round-robin" \| "fill-first"` | _(none)_ | No       | Account selection strategy. `round-robin` rotates across accounts. `fill-first` uses one account until exhausted.                                                                                                                                                              |
+| `primary-account` / `primaryAccount`       | `string`                        | _(none)_ | No       | Email/label of the Anthropic account to treat as primary (home). Resolved per-request to `anthropic:<email>`; falls back to insertion-order index 0 when absent or when the configured account isn't currently authenticated. Manage via `neurolink auth set-primary <email>`. |
+| `model-mappings` / `modelMappings`         | `ModelMapping[]`                | `[]`     | No       | Array of model-to-model remapping rules.                                                                                                                                                                                                                                       |
+| `fallback-chain` / `fallbackChain`         | `FallbackEntry[]`               | `[]`     | No       | Ordered list of alternative providers to try when primary accounts are exhausted.                                                                                                                                                                                              |
+| `passthrough-models` / `passthroughModels` | `string[]`                      | `[]`     | No       | Model IDs that bypass routing and go directly to Anthropic.                                                                                                                                                                                                                    |
 
 #### ModelMapping Fields
 

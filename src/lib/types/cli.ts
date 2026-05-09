@@ -993,6 +993,10 @@ export type AuthCommandArgs = BaseCommandArgs & {
   label?: string;
   account?: string;
   force?: boolean;
+  /** Path to the proxy config YAML, used by set-/get-/clear-primary */
+  config?: string;
+  /** Email passed to `auth set-primary <email>` */
+  email?: string;
   /** Yargs positional arguments */
   _?: (string | number)[];
 };

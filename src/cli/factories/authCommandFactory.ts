@@ -114,6 +114,34 @@ export class AuthCommandFactory {
             },
           )
           .command(
+            "set-primary <email>",
+            "Set the proxy's primary (home) Anthropic account",
+            (yargs) => this.buildSetPrimaryOptions(yargs),
+            async (argv) => {
+              const { handleSetPrimary } = await import("../commands/auth.js");
+              await handleSetPrimary(argv as AuthCommandArgs);
+            },
+          )
+          .command(
+            "get-primary",
+            "Show the proxy's currently configured primary account",
+            (yargs) => this.buildPrimaryConfigOption(yargs),
+            async (argv) => {
+              const { handleGetPrimary } = await import("../commands/auth.js");
+              await handleGetPrimary(argv as AuthCommandArgs);
+            },
+          )
+          .command(
+            "clear-primary",
+            "Clear the proxy's configured primary account",
+            (yargs) => this.buildPrimaryConfigOption(yargs),
+            async (argv) => {
+              const { handleClearPrimary } =
+                await import("../commands/auth.js");
+              await handleClearPrimary(argv as AuthCommandArgs);
+            },
+          )
+          .command(
             "providers",
             "List available authentication providers",
             (yargs) =>
@@ -207,6 +235,18 @@ export class AuthCommandFactory {
           .example(
             "$0 auth enable anthropic:1-VjRIq",
             "Re-enable a disabled account",
+          )
+          .example(
+            "$0 auth set-primary alice@example.com",
+            "Make alice@example.com the proxy's primary (home) account",
+          )
+          .example(
+            "$0 auth get-primary",
+            "Show the proxy's currently configured primary account",
+          )
+          .example(
+            "$0 auth clear-primary",
+            "Remove the configured primary account (use insertion-order fallback)",
           )
           .help();
       },
@@ -398,6 +438,43 @@ export class AuthCommandFactory {
         "$0 auth enable anthropic:1-VjRIq",
         "Re-enable a disabled account",
       );
+  }
+
+  /**
+   * Build options for set-primary subcommand
+   */
+  private static buildSetPrimaryOptions(yargs: Argv): Argv {
+    return yargs
+      .positional("email", {
+        type: "string",
+        description:
+          "Email/label of the Anthropic account to make primary (home)",
+        demandOption: true,
+      })
+      .option("config", {
+        type: "string",
+        description:
+          "Path to the proxy config YAML (default: ~/.neurolink/proxy-config.yaml)",
+      })
+      .example(
+        "$0 auth set-primary alice@example.com",
+        "Write routing.primary-account to the default proxy config",
+      )
+      .example(
+        "$0 auth set-primary alice@example.com --config ./proxy.yaml",
+        "Use a non-default config path",
+      );
+  }
+
+  /**
+   * Build options for get-primary / clear-primary subcommands.
+   */
+  private static buildPrimaryConfigOption(yargs: Argv): Argv {
+    return yargs.option("config", {
+      type: "string",
+      description:
+        "Path to the proxy config YAML (default: ~/.neurolink/proxy-config.yaml)",
+    });
   }
 
   /**

@@ -111,6 +111,11 @@ const BLOCKED_UPSTREAM_HEADERS = new Set([
 let primaryAccountIndex = 0;
 /** Track account count so we can reset primaryAccountIndex when it changes. */
 let lastKnownAccountCount = 0;
+/** Stable account key (e.g. "anthropic:user@example.com") of the configured
+ *  home/primary account. Set once at proxy boot from routing.primaryAccount.
+ *  When undefined, home semantics fall back to enabledAccounts[0] (insertion
+ *  order) — preserves pre-existing behavior. */
+let configuredPrimaryAccountKey: string | undefined;
 
 const MAX_AUTH_RETRIES = 5;
 const MAX_CONSECUTIVE_REFRESH_FAILURES = 15;
@@ -157,27 +162,48 @@ function advancePrimaryIfCurrent(
   primaryAccountIndex = (primaryAccountIndex + 1) % enabledCount;
 }
 
-/** If the configured home primary (index 0) is no longer cooling, reset
- *  primaryAccountIndex back to 0 so traffic returns to the preferred account
- *  once its rate limit window expires. Called at the start of each request. */
+/** Resolve the configured primary's stable key to its current index in the
+ *  request's enabledAccounts list. Returns 0 (insertion-order fallback) when
+ *  no key is configured or the key cannot be matched (account disabled/
+ *  removed). The resolution is per-request because enabledAccounts membership
+ *  can shift between requests. */
+function resolveHomeIndex(enabledAccounts: ProxyPassthroughAccount[]): number {
+  if (!configuredPrimaryAccountKey) {
+    return 0;
+  }
+  const idx = enabledAccounts.findIndex(
+    (a) => a.key === configuredPrimaryAccountKey,
+  );
+  return idx >= 0 ? idx : 0;
+}
+
+/** If the configured home primary is no longer cooling, reset
+ *  primaryAccountIndex back to its index so traffic returns to the preferred
+ *  account once its rate limit window expires. Called at the start of each
+ *  request. Home is resolved fresh per call via resolveHomeIndex. */
 function maybeResetPrimaryToHome(
   enabledAccounts: ProxyPassthroughAccount[],
 ): void {
-  if (enabledAccounts.length <= 1 || primaryAccountIndex === 0) {
+  if (enabledAccounts.length <= 1) {
     return;
   }
-  const homeState = accountRuntimeState.get(enabledAccounts[0].key);
+  const homeIndex = resolveHomeIndex(enabledAccounts);
+  if (primaryAccountIndex === homeIndex) {
+    return;
+  }
+  const homeAccount = enabledAccounts[homeIndex];
+  const homeState = accountRuntimeState.get(homeAccount.key);
   if (
     !homeState ||
     !homeState.coolingUntil ||
     Date.now() >= homeState.coolingUntil
   ) {
     // Home account is no longer cooling — reset to it
-    primaryAccountIndex = 0;
+    primaryAccountIndex = homeIndex;
     if (homeState?.coolingUntil) {
       homeState.coolingUntil = undefined;
       logger.always(
-        `[proxy] home primary account=${enabledAccounts[0].label} cooling expired, resetting primaryAccountIndex to 0`,
+        `[proxy] home primary account=${homeAccount.label} cooling expired, resetting primaryAccountIndex to ${homeIndex}`,
       );
     }
   }
@@ -1704,7 +1730,7 @@ async function loadClaudeProxyAccounts(args: {
     accountStrategy === "round-robin" &&
     orderedAccounts.length !== lastKnownAccountCount
   ) {
-    primaryAccountIndex = 0;
+    primaryAccountIndex = resolveHomeIndex(orderedAccounts);
     lastKnownAccountCount = orderedAccounts.length;
   }
   if (orderedAccounts.length > 1) {
@@ -4717,7 +4743,9 @@ export function createClaudeProxyRoutes(
   basePath: string = "",
   accountStrategy: "round-robin" | "fill-first" = "fill-first",
   passthroughMode: boolean = false,
+  primaryAccountKey?: string,
 ): RouteGroup {
+  configuredPrimaryAccountKey = primaryAccountKey;
   return {
     prefix: `${basePath}/v1`,
     routes: [
@@ -5330,3 +5358,38 @@ export function isTransientHttpFailure(
     normalized.includes("internal server error")
   );
 }
+
+// ---------------------------------------------------------------------------
+// Test hooks (not part of the public SDK API). Only consumed by the proxy
+// continuous-test-suite to drive the in-process resolver/reset logic without
+// spinning up a full proxy. Keep this surface small.
+// ---------------------------------------------------------------------------
+
+export const __testHooks = {
+  resolveHomeIndex,
+  maybeResetPrimaryToHome,
+  setConfiguredPrimaryAccountKey: (key: string | undefined): void => {
+    configuredPrimaryAccountKey = key;
+  },
+  getConfiguredPrimaryAccountKey: (): string | undefined =>
+    configuredPrimaryAccountKey,
+  setPrimaryAccountIndex: (index: number): void => {
+    primaryAccountIndex = index;
+  },
+  getPrimaryAccountIndex: (): number => primaryAccountIndex,
+  setAccountRuntimeState: (
+    key: string,
+    state: Partial<RuntimeAccountState>,
+  ): void => {
+    const existing =
+      accountRuntimeState.get(key) ?? getOrCreateRuntimeState(key);
+    Object.assign(existing, state);
+    accountRuntimeState.set(key, existing);
+  },
+  resetAllRuntimeState: (): void => {
+    accountRuntimeState.clear();
+    primaryAccountIndex = 0;
+    lastKnownAccountCount = 0;
+    configuredPrimaryAccountKey = undefined;
+  },
+};

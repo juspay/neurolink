@@ -40,9 +40,11 @@ import type {
   AccountQuota,
   AuthCommandArgs,
   AuthStatusResult,
+  CliProxyConfigDoc,
   OAuthTokens as OAuthTokensType,
   StoredCredentials,
   SupportedProvider,
+  YamlModule,
 } from "../../lib/types/index.js";
 import { loadAccountQuotas } from "../../lib/proxy/accountQuota.js";
 
@@ -938,6 +940,350 @@ export async function handleEnable(argv: AuthCommandArgs): Promise<void> {
     logger.error(chalk.red("Failed to enable account:"));
     logger.error(
       chalk.red(error instanceof Error ? error.message : "Unknown error"),
+    );
+    process.exit(1);
+  }
+}
+
+// =============================================================================
+// PRIMARY ACCOUNT (proxy routing.primaryAccount in YAML)
+// =============================================================================
+
+const DEFAULT_PROXY_CONFIG_PATH = path.join(
+  NEUROLINK_CONFIG_DIR,
+  "proxy-config.yaml",
+);
+
+/** Lazy-load js-yaml. Returns undefined if unavailable; callers that need YAML
+ *  output (rather than JSON fallback) should error with install guidance. */
+async function tryLoadJsYaml(): Promise<YamlModule | undefined> {
+  try {
+    return (await import(/* @vite-ignore */ "js-yaml" as string)) as YamlModule;
+  } catch {
+    return undefined;
+  }
+}
+
+function isYamlPath(p: string): boolean {
+  const lower = p.toLowerCase();
+  return lower.endsWith(".yaml") || lower.endsWith(".yml");
+}
+
+/** Read and parse a proxy config file. Returns an empty object when the file
+ *  doesn't exist (caller can mutate and write). Detects YAML vs JSON by
+ *  extension; falls back to JSON parsing if js-yaml is unavailable for a YAML
+ *  file (errors loudly if neither parser can read it). */
+async function readProxyConfigFile(
+  filePath: string,
+): Promise<CliProxyConfigDoc> {
+  const yamlExpected = isYamlPath(filePath);
+  let raw: string | undefined;
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      return {
+        data: {},
+        format: yamlExpected ? "yaml" : "json",
+        hadComments: false,
+      };
+    }
+    throw err;
+  }
+
+  const hadComments = /^\s*#/m.test(raw);
+  if (yamlExpected) {
+    const yaml = await tryLoadJsYaml();
+    if (yaml) {
+      const parsed = yaml.default?.load?.(raw) ?? yaml.load(raw);
+      return {
+        data:
+          parsed && typeof parsed === "object"
+            ? (parsed as Record<string, unknown>)
+            : {},
+        format: "yaml",
+        hadComments,
+      };
+    }
+    // YAML expected but js-yaml absent — try JSON
+    try {
+      return { data: JSON.parse(raw), format: "json", hadComments };
+    } catch {
+      throw new Error(
+        `Cannot edit ${filePath}: js-yaml is not installed and the file is ` +
+          `not valid JSON. Install js-yaml (pnpm add -D js-yaml) or convert ` +
+          `the file to JSON.`,
+      );
+    }
+  }
+  return { data: JSON.parse(raw), format: "json", hadComments };
+}
+
+/** Serialize and write a proxy config file. */
+async function writeProxyConfigFile(
+  filePath: string,
+  doc: CliProxyConfigDoc,
+): Promise<void> {
+  let serialized: string;
+  if (doc.format === "yaml") {
+    const yaml = await tryLoadJsYaml();
+    if (!yaml) {
+      throw new Error(
+        `Cannot write ${filePath} as YAML: js-yaml is not installed. ` +
+          `Install it (pnpm add -D js-yaml) or use a .json config path.`,
+      );
+    }
+    const dump = yaml.default?.dump ?? yaml.dump;
+    if (!dump) {
+      throw new Error(
+        `Cannot write ${filePath} as YAML: js-yaml module does not expose ` +
+          `a dump function (unexpected version).`,
+      );
+    }
+    serialized = dump(doc.data, {
+      lineWidth: 100,
+      noRefs: true,
+    });
+  } else {
+    serialized = `${JSON.stringify(doc.data, null, 2)}\n`;
+  }
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(filePath, serialized, "utf-8");
+}
+
+function getRoutingObject(
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  const routing = data.routing;
+  if (routing && typeof routing === "object" && !Array.isArray(routing)) {
+    return routing as Record<string, unknown>;
+  }
+  const fresh: Record<string, unknown> = {};
+  data.routing = fresh;
+  return fresh;
+}
+
+function readPrimaryFromRouting(
+  routing: Record<string, unknown> | undefined,
+): string | undefined {
+  if (!routing) {
+    return undefined;
+  }
+  const kebab = routing["primary-account"];
+  if (typeof kebab === "string" && kebab.trim() !== "") {
+    return kebab.trim();
+  }
+  const camel = routing.primaryAccount;
+  if (typeof camel === "string" && camel.trim() !== "") {
+    return camel.trim();
+  }
+  return undefined;
+}
+
+/** Best-effort detection of a running proxy. Mirrors `proxy status` semantics
+ *  without importing the proxy module. */
+function detectRunningProxyPid(): number | undefined {
+  try {
+    const stateFile = path.join(NEUROLINK_CONFIG_DIR, "proxy-state.json");
+    if (!fs.existsSync(stateFile)) {
+      return undefined;
+    }
+    const parsed = JSON.parse(fs.readFileSync(stateFile, "utf-8")) as {
+      pid?: number;
+    };
+    if (!parsed.pid || typeof parsed.pid !== "number") {
+      return undefined;
+    }
+    process.kill(parsed.pid, 0);
+    return parsed.pid;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Handle the set-primary subcommand
+ * `neurolink auth set-primary <email> [--config <path>]`
+ *
+ * Writes routing.primary-account to the proxy config YAML so the proxy
+ * tries this account first under fill-first/round-robin home semantics.
+ * Does not touch the token store.
+ */
+export async function handleSetPrimary(argv: AuthCommandArgs): Promise<void> {
+  const email =
+    argv.email ?? (argv._ && argv._[2] ? String(argv._[2]) : undefined);
+  if (!email || email.trim() === "") {
+    logger.error(chalk.red("Missing required argument: <email>"));
+    logger.always(
+      chalk.blue(
+        "\nUsage: neurolink auth set-primary <email> [--config <path>]\n" +
+          "Run 'neurolink auth list' to see authenticated accounts.\n",
+      ),
+    );
+    process.exit(1);
+  }
+  const trimmed = email.trim();
+  const filePath = argv.config ?? DEFAULT_PROXY_CONFIG_PATH;
+
+  try {
+    const doc = await readProxyConfigFile(filePath);
+    if (doc.hadComments) {
+      logger.always(
+        chalk.yellow(
+          `⚠ Note: existing YAML comments in ${filePath} will not be preserved.`,
+        ),
+      );
+    }
+    const routing = getRoutingObject(doc.data);
+    delete routing.primaryAccount;
+    routing["primary-account"] = trimmed;
+    await writeProxyConfigFile(filePath, doc);
+
+    logger.always(chalk.green(`✓ Set primary account → ${trimmed}`));
+    logger.always(chalk.green(`✓ Saved to ${filePath}`));
+
+    // Token-store presence check (non-fatal)
+    const compoundKey = `anthropic:${trimmed}`;
+    const known = await defaultTokenStore.listByPrefix("anthropic:");
+    if (!known.includes(compoundKey)) {
+      logger.always("");
+      logger.always(
+        chalk.yellow(
+          "⚠ This account is not currently authenticated. Run\n" +
+            "  `neurolink auth login --add` to add it. The proxy will fall\n" +
+            "  back to the first enabled account until then.",
+        ),
+      );
+    }
+
+    // Restart hint
+    const pid = detectRunningProxyPid();
+    if (pid) {
+      logger.always("");
+      logger.always(
+        chalk.yellow(
+          `⚠ A proxy is currently running (PID ${pid}). Restart it to pick\n` +
+            "  up the change: `neurolink proxy stop && neurolink proxy start`.",
+        ),
+      );
+    }
+  } catch (err) {
+    logger.error(chalk.red("Failed to set primary account:"));
+    logger.error(
+      chalk.red(err instanceof Error ? err.message : "Unknown error"),
+    );
+    process.exit(1);
+  }
+}
+
+/**
+ * Handle the get-primary subcommand
+ * `neurolink auth get-primary [--config <path>]`
+ */
+export async function handleGetPrimary(argv: AuthCommandArgs): Promise<void> {
+  const filePath = argv.config ?? DEFAULT_PROXY_CONFIG_PATH;
+  try {
+    if (!fs.existsSync(filePath)) {
+      logger.always(chalk.blue(`No proxy config file found at ${filePath}.`));
+      logger.always(
+        "Falling back to insertion-order index 0 (no primary configured).",
+      );
+      return;
+    }
+    const doc = await readProxyConfigFile(filePath);
+    const routing =
+      typeof doc.data.routing === "object" && doc.data.routing
+        ? (doc.data.routing as Record<string, unknown>)
+        : undefined;
+    const primary = readPrimaryFromRouting(routing);
+    if (!primary) {
+      logger.always(
+        chalk.blue(
+          `No primary account configured. Falling back to insertion-order ` +
+            `index 0.`,
+        ),
+      );
+      logger.always(
+        `Source: ${filePath} (no \`routing.primaryAccount\` field)`,
+      );
+      return;
+    }
+    const compoundKey = `anthropic:${primary}`;
+    const known = await defaultTokenStore.listByPrefix("anthropic:");
+    const present = known.includes(compoundKey);
+    logger.always(chalk.bold(`Configured primary: ${primary}`));
+    logger.always(
+      `Status: ${
+        present
+          ? chalk.green(`authenticated (${compoundKey} present in token store)`)
+          : chalk.yellow(
+              `not authenticated (token store has no ${compoundKey})`,
+            )
+      }`,
+    );
+    logger.always(`Source: ${filePath}`);
+  } catch (err) {
+    logger.error(chalk.red("Failed to read primary account:"));
+    logger.error(
+      chalk.red(err instanceof Error ? err.message : "Unknown error"),
+    );
+    process.exit(1);
+  }
+}
+
+/**
+ * Handle the clear-primary subcommand
+ * `neurolink auth clear-primary [--config <path>]`
+ */
+export async function handleClearPrimary(argv: AuthCommandArgs): Promise<void> {
+  const filePath = argv.config ?? DEFAULT_PROXY_CONFIG_PATH;
+  try {
+    if (!fs.existsSync(filePath)) {
+      logger.always(chalk.blue(`No proxy config file found at ${filePath}.`));
+      logger.always("Nothing to clear.");
+      return;
+    }
+    const doc = await readProxyConfigFile(filePath);
+    const routing =
+      typeof doc.data.routing === "object" && doc.data.routing
+        ? (doc.data.routing as Record<string, unknown>)
+        : undefined;
+    const before = readPrimaryFromRouting(routing);
+    if (!before || !routing) {
+      logger.always(chalk.blue("No primary account was configured."));
+      return;
+    }
+    if (doc.hadComments) {
+      logger.always(
+        chalk.yellow(
+          `⚠ Note: existing YAML comments in ${filePath} will not be preserved.`,
+        ),
+      );
+    }
+    delete routing.primaryAccount;
+    delete routing["primary-account"];
+    await writeProxyConfigFile(filePath, doc);
+    logger.always(chalk.green(`✓ Cleared primary account (was: ${before})`));
+    logger.always(chalk.green(`✓ Saved to ${filePath}`));
+
+    const pid = detectRunningProxyPid();
+    if (pid) {
+      logger.always("");
+      logger.always(
+        chalk.yellow(
+          `⚠ A proxy is currently running (PID ${pid}). Restart it to pick\n` +
+            "  up the change: `neurolink proxy stop && neurolink proxy start`.",
+        ),
+      );
+    }
+  } catch (err) {
+    logger.error(chalk.red("Failed to clear primary account:"));
+    logger.error(
+      chalk.red(err instanceof Error ? err.message : "Unknown error"),
     );
     process.exit(1);
   }

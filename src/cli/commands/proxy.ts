@@ -39,6 +39,7 @@ import type {
   ProxyStartStrategy,
   ProxyState,
   ProxyStatusArgs,
+  ProxyStatusPrimaryAccount,
   ProxyTelemetryAction,
   ProxyTelemetryArgs,
   StatusStats,
@@ -116,6 +117,58 @@ function getProcessStatus(pid: number): "running" | "not_running" | "unknown" {
     }
     return "not_running";
   }
+}
+
+/** Resolve the primary-account info shown in /status. Reads the operator's
+ *  configured email from proxy config and cross-checks it against the token
+ *  store; falls back to the first enabled anthropic account when not set or
+ *  when the configured account isn't currently usable. */
+async function resolveStatusPrimaryAccount(
+  proxyConfig: LoadedProxyConfig | null,
+): Promise<ProxyStatusPrimaryAccount> {
+  const configured = proxyConfig?.routing?.primaryAccount?.trim() || null;
+  let enabledAnthropicKeys: string[] = [];
+  try {
+    const { tokenStore } = await import("../../lib/auth/tokenStore.js");
+    const all = await tokenStore.listByPrefix("anthropic:");
+    const filtered: string[] = [];
+    for (const key of all) {
+      const disabled = await tokenStore.isDisabled(key);
+      if (!disabled) {
+        filtered.push(key);
+      }
+    }
+    enabledAnthropicKeys = filtered;
+  } catch (err) {
+    logger.debug(
+      `[proxy] /status: failed to enumerate anthropic accounts: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+
+  if (configured) {
+    const configuredKey = `anthropic:${configured}`;
+    if (enabledAnthropicKeys.includes(configuredKey)) {
+      return {
+        configured,
+        key: configuredKey,
+        label: configured,
+        source: "configured",
+      };
+    }
+  }
+
+  const fallbackKey = enabledAnthropicKeys[0] ?? null;
+  const fallbackLabel = fallbackKey
+    ? (fallbackKey.split(":")[1] ?? null)
+    : null;
+  return {
+    configured,
+    key: fallbackKey,
+    label: fallbackLabel,
+    source: "fallback",
+  };
 }
 
 /**
@@ -750,6 +803,7 @@ async function loadProxyStartConfiguration(
   strategy: ProxyStartStrategy;
   modelRouter: ModelRouter | undefined;
   passthrough: boolean;
+  primaryAccountKey: string | undefined;
 }> {
   const configPath =
     argv.config ?? join(homedir(), ".neurolink", "proxy-config.yaml");
@@ -794,13 +848,52 @@ async function loadProxyStartConfiguration(
     });
   }
 
+  const primaryAccountKey = await resolveBootPrimaryAccountKey(
+    proxyConfig?.routing?.primaryAccount,
+  );
+
   return {
     configPath,
     proxyConfig,
     strategy,
     modelRouter,
     passthrough: argv.passthrough ?? false,
+    primaryAccountKey,
   };
+}
+
+/** Resolve the operator's configured primary email to a stable token-store
+ *  key (anthropic:<email>). Cross-checks the token store and emits a one-time
+ *  startup warning if the configured account isn't authenticated — but still
+ *  returns the key so it activates automatically once the user runs
+ *  `auth login --add`. */
+async function resolveBootPrimaryAccountKey(
+  primaryEmail: string | undefined,
+): Promise<string | undefined> {
+  const trimmed = primaryEmail?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const key = `anthropic:${trimmed}`;
+  try {
+    const { tokenStore } = await import("../../lib/auth/tokenStore.js");
+    const known = await tokenStore.listByPrefix("anthropic:");
+    if (!known.includes(key)) {
+      logger.warn(
+        `[proxy] WARN: configured routing.primaryAccount=${trimmed} not ` +
+          `found in token store; falling back to first enabled account. ` +
+          `Run \`neurolink auth login --add\` to authenticate it, or ` +
+          `\`neurolink auth clear-primary\` to remove the setting.`,
+      );
+    }
+  } catch (err) {
+    logger.debug(
+      `[proxy] could not validate primary account against token store: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+  return key;
 }
 
 async function createProxyStartApp(params: {
@@ -811,6 +904,7 @@ async function createProxyStartApp(params: {
   port: number;
   host: string;
   proxyConfig: LoadedProxyConfig | null;
+  primaryAccountKey: string | undefined;
 }) {
   const { createClaudeProxyRoutes } =
     await import("../../lib/server/routes/claudeProxyRoutes.js");
@@ -841,6 +935,7 @@ async function createProxyStartApp(params: {
     "",
     params.strategy,
     params.passthrough,
+    params.primaryAccountKey,
   );
 
   for (const route of routeGroup.routes) {
@@ -998,6 +1093,9 @@ async function createProxyStartApp(params: {
       passthrough: params.passthrough,
       version: PROXY_VERSION,
     });
+    const primaryAccount = await resolveStatusPrimaryAccount(
+      params.proxyConfig,
+    );
     return c.json({
       status: "running",
       ready: health.ready,
@@ -1026,6 +1124,7 @@ async function createProxyStartApp(params: {
           rateLimits: account.rateLimitCount,
           cooling: false, // No persistent cooldown — always active
         })),
+        primaryAccount,
       },
       config: params.proxyConfig
         ? { hasRouting: !!params.proxyConfig.routing }
@@ -1384,8 +1483,13 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
     const { neurolink, cleanupLogs } = await createProxyNeurolinkRuntime(
       devPaths?.logsDir,
     );
-    const { proxyConfig, strategy, modelRouter, passthrough } =
-      await loadProxyStartConfiguration(argv, spinner);
+    const {
+      proxyConfig,
+      strategy,
+      modelRouter,
+      passthrough,
+      primaryAccountKey,
+    } = await loadProxyStartConfiguration(argv, spinner);
 
     if (spinner) {
       spinner.text = "Configuring server...";
@@ -1401,6 +1505,7 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       port,
       host,
       proxyConfig,
+      primaryAccountKey,
     });
 
     await initializeProxyOpenTelemetry();

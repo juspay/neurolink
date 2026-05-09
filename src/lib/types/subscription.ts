@@ -1117,6 +1117,11 @@ export type ProxyRoutingConfig = {
   modelMappings: ModelMapping[];
   fallbackChain: FallbackEntry[];
   passthroughModels?: string[];
+  /** Email/label of the Anthropic account that should be tried first
+   *  ("home"). When absent, falls back to insertion-order index 0.
+   *  Resolved per-request to a stable key (anthropic:<email>); does not
+   *  encode an index. */
+  primaryAccount?: string;
 };
 
 /** Cloaking plugin config */
