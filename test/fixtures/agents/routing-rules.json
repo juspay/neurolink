@@ -1,0 +1,311 @@
+{
+  "description": "Test fixtures for Multi-Agent Network routing — routing is implemented via LLM system prompt (agents-as-tools pattern), not a RouterAgent class",
+  "version": "2.0.0",
+  "routingRules": {
+    "codeAnalysis": {
+      "id": "route-code-analysis",
+      "name": "Code Analysis Routing",
+      "patterns": [
+        "analyze code",
+        "find bugs",
+        "security scan",
+        "code review",
+        "lint",
+        "static analysis"
+      ],
+      "keywords": [
+        "code",
+        "function",
+        "class",
+        "bug",
+        "vulnerability",
+        "security"
+      ],
+      "targetAgent": "code-analyzer",
+      "priority": 1,
+      "confidence": 0.9
+    },
+    "dataProcessing": {
+      "id": "route-data-processing",
+      "name": "Data Processing Routing",
+      "patterns": [
+        "transform data",
+        "parse csv",
+        "convert json",
+        "process file",
+        "data pipeline"
+      ],
+      "keywords": [
+        "data",
+        "csv",
+        "json",
+        "xml",
+        "transform",
+        "parse",
+        "convert"
+      ],
+      "targetAgent": "data-processor",
+      "priority": 2,
+      "confidence": 0.85
+    },
+    "research": {
+      "id": "route-research",
+      "name": "Research Routing",
+      "patterns": [
+        "research topic",
+        "find information",
+        "search for",
+        "investigate",
+        "gather data"
+      ],
+      "keywords": [
+        "research",
+        "find",
+        "search",
+        "investigate",
+        "information",
+        "learn"
+      ],
+      "targetAgent": "researcher",
+      "priority": 3,
+      "confidence": 0.8
+    },
+    "validation": {
+      "id": "route-validation",
+      "name": "Validation Routing",
+      "patterns": [
+        "validate input",
+        "check schema",
+        "verify format",
+        "ensure compliance"
+      ],
+      "keywords": [
+        "validate",
+        "verify",
+        "check",
+        "schema",
+        "format",
+        "compliance"
+      ],
+      "targetAgent": "validator",
+      "priority": 4,
+      "confidence": 0.85
+    },
+    "coordination": {
+      "id": "route-coordination",
+      "name": "Coordination Routing",
+      "patterns": [
+        "coordinate tasks",
+        "manage workflow",
+        "orchestrate",
+        "delegate work"
+      ],
+      "keywords": [
+        "coordinate",
+        "manage",
+        "orchestrate",
+        "delegate",
+        "workflow",
+        "plan"
+      ],
+      "targetAgent": "coordinator",
+      "priority": 5,
+      "confidence": 0.75
+    }
+  },
+  "routingDecisions": {
+    "simpleMatch": {
+      "input": "Analyze this TypeScript function for bugs",
+      "expectedDecision": {
+        "selectedAgent": "code-analyzer",
+        "confidence": 0.95,
+        "reasoning": "Input contains 'analyze' and 'bugs' keywords matching code analysis patterns",
+        "alternativeAgents": []
+      }
+    },
+    "ambiguousMatch": {
+      "input": "Check the data format in this code",
+      "expectedDecision": {
+        "selectedAgent": "validator",
+        "confidence": 0.7,
+        "reasoning": "Input matches both validation and code analysis patterns",
+        "alternativeAgents": ["code-analyzer", "data-processor"]
+      }
+    },
+    "multiAgentTask": {
+      "input": "Research best practices then analyze our codebase",
+      "expectedDecision": {
+        "selectedAgent": "coordinator",
+        "confidence": 0.85,
+        "reasoning": "Complex task requiring multiple agents should be coordinated",
+        "decomposedTasks": [
+          { "agent": "researcher", "task": "Research best practices" },
+          {
+            "agent": "code-analyzer",
+            "task": "Analyze codebase against best practices"
+          }
+        ]
+      }
+    },
+    "noMatch": {
+      "input": "Tell me a joke about programming",
+      "expectedDecision": {
+        "selectedAgent": "coordinator",
+        "confidence": 0.5,
+        "reasoning": "No specific routing pattern matched, falling back to coordinator",
+        "isFallback": true
+      }
+    },
+    "highConfidence": {
+      "input": "Scan this code for SQL injection vulnerabilities",
+      "expectedDecision": {
+        "selectedAgent": "code-analyzer",
+        "confidence": 0.98,
+        "reasoning": "Strong match for security-related code analysis",
+        "alternativeAgents": []
+      }
+    },
+    "lowConfidence": {
+      "input": "Help me with this",
+      "expectedDecision": {
+        "selectedAgent": "coordinator",
+        "confidence": 0.3,
+        "reasoning": "Vague input with no clear routing signals",
+        "isFallback": true,
+        "requiresClarification": true
+      }
+    }
+  },
+  "confidenceThresholds": {
+    "high": {
+      "threshold": 0.9,
+      "action": "route-directly",
+      "description": "High confidence - route directly to target agent"
+    },
+    "medium": {
+      "threshold": 0.7,
+      "action": "route-with-monitoring",
+      "description": "Medium confidence - route but monitor for potential re-routing"
+    },
+    "low": {
+      "threshold": 0.5,
+      "action": "request-clarification",
+      "description": "Low confidence - may need user clarification"
+    },
+    "very-low": {
+      "threshold": 0.3,
+      "action": "fallback-to-coordinator",
+      "description": "Very low confidence - use fallback coordinator"
+    }
+  },
+  "routingStrategies": {
+    "system-prompt": {
+      "description": "Routing is implemented as a system prompt — each agent is exposed as an ai SDK tool and the router model picks which agent tool(s) to call",
+      "implementation": "AgentNetwork.buildRouterSystemPrompt() + AgentNetwork.buildAgentTools()",
+      "pros": [
+        "Handles novel inputs",
+        "Context-aware",
+        "Flexible",
+        "No separate RouterAgent class needed"
+      ],
+      "cons": ["Higher latency on first hop", "Requires LLM call"]
+    },
+    "custom-instructions": {
+      "description": "Supply RouterConfig.instructions to override the default routing prompt",
+      "implementation": "AgentNetworkConfig.router.instructions",
+      "pros": ["Domain-specific guidance", "Predictable for known patterns"],
+      "cons": ["Requires prompt maintenance"]
+    }
+  },
+  "testCases": {
+    "exactPatternMatch": [
+      {
+        "input": "analyze code",
+        "expectedAgent": "code-analyzer",
+        "expectedConfidence": 0.9
+      },
+      {
+        "input": "transform data",
+        "expectedAgent": "data-processor",
+        "expectedConfidence": 0.85
+      },
+      {
+        "input": "research topic",
+        "expectedAgent": "researcher",
+        "expectedConfidence": 0.8
+      },
+      {
+        "input": "validate input",
+        "expectedAgent": "validator",
+        "expectedConfidence": 0.85
+      }
+    ],
+    "keywordMatch": [
+      { "input": "Find bugs in my function", "expectedAgent": "code-analyzer" },
+      {
+        "input": "Convert this CSV to JSON",
+        "expectedAgent": "data-processor"
+      },
+      { "input": "I need information about AI", "expectedAgent": "researcher" },
+      { "input": "Check if this schema is valid", "expectedAgent": "validator" }
+    ],
+    "negativeTests": [
+      { "input": "", "shouldFail": true, "reason": "Empty input" },
+      { "input": "   ", "shouldFail": true, "reason": "Whitespace only" },
+      { "input": null, "shouldFail": true, "reason": "Null input" }
+    ],
+    "edgeCases": [
+      {
+        "input": "analyze data in code",
+        "description": "Multiple keyword matches",
+        "acceptableAgents": ["code-analyzer", "data-processor"]
+      },
+      {
+        "input": "ANALYZE CODE",
+        "description": "Case insensitivity test",
+        "expectedAgent": "code-analyzer"
+      },
+      {
+        "input": "Can you analyze this code?",
+        "description": "Question format",
+        "expectedAgent": "code-analyzer"
+      },
+      {
+        "input": "I want to analyze code and then validate the results",
+        "description": "Multi-step task",
+        "expectedAgent": "coordinator"
+      }
+    ],
+    "priorityTests": [
+      {
+        "input": "analyze and validate code",
+        "description": "Both code-analyzer and validator match",
+        "expectedAgent": "code-analyzer",
+        "reason": "code-analyzer has higher priority (1) than validator (4)"
+      },
+      {
+        "input": "process data and research findings",
+        "description": "Both data-processor and researcher match",
+        "expectedAgent": "data-processor",
+        "reason": "data-processor has higher priority (2) than researcher (3)"
+      }
+    ]
+  },
+  "fallbackBehavior": {
+    "whenNoMatch": {
+      "action": "delegate-to-coordinator",
+      "coordinator": "coordinator",
+      "reason": "Coordinator can decompose unclear tasks"
+    },
+    "whenLowConfidence": {
+      "action": "request-clarification",
+      "clarificationPrompt": "I'm not sure which agent would best handle your request. Could you provide more details about what you'd like to accomplish?",
+      "maxClarificationAttempts": 2
+    },
+    "whenAgentUnavailable": {
+      "action": "try-alternative",
+      "maxAlternatives": 3,
+      "escalateIfAllFail": true
+    }
+  }
+}
