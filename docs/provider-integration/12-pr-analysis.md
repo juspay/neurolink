@@ -35,7 +35,7 @@ All four:
 
 - Extend `BaseProvider`
 - Use `createOpenAI(...).chat()` for /v1/chat/completions endpoint (NOT /v1/responses)
-- Wrap `streamText` with `withClientSpan` for OTEL tracing
+- Wrap `streamText` with `withClientStreamSpan` for OTEL tracing (NOT `withClientSpan` — that ends the span when the callback returns, before the iterable is consumed; for streaming use the `*StreamSpan` variant that wraps the returned iterable)
 - Emit `neurolink.provider.stream` span with proper `gen_ai.*` attrs
 - Use `makeLoggingFetch` to capture upstream non-2xx response bodies
 - Implement all 5 `BaseProvider` abstract methods (executeStream, getProviderName, getDefaultModel, getAISDKModel, formatProviderError)

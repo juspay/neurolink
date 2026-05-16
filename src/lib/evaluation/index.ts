@@ -40,6 +40,11 @@ export {
   getEvaluatorRegistry,
 } from "./EvaluatorRegistry.js";
 
+// Re-export internal RAGAS classes so callers (and the evaluation test
+// suite) can instantiate them directly from the public surface.
+export { RAGASEvaluator } from "./ragasEvaluator.js";
+export { RetryManager } from "./retryManager.js";
+
 /**
  * A centralized class for performing response evaluations. It supports different
  * evaluation strategies, with RAGAS-style model-based evaluation as the default.

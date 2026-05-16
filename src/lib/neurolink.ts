@@ -531,7 +531,37 @@ export function markStreamProviderEmittedGenerationEnd(
   }
 }
 
+/**
+ * Symbol-based brand for cross-module identification without circular imports.
+ *
+ * Provider constructors receive `sdk?: unknown` (the factory layer's
+ * contract). Rather than duck-typing via `"getInMemoryServers" in sdk`,
+ * use `isNeuroLink(value)` from this module to do a brand check —
+ * survives minification AND doesn't rely on method-name stability.
+ */
+export const NEUROLINK_BRAND: unique symbol = Symbol.for(
+  "@juspay/neurolink/sdk-brand",
+);
+
+/**
+ * Type-guard for opaque values that should be a {@link NeuroLink} instance.
+ *
+ * Designed for the provider-factory boundary where TS can't carry the type
+ * through `UnknownRecord` without forcing every caller into a circular
+ * dependency. Cheap to call and unaffected by minification.
+ */
+export function isNeuroLink(value: unknown): value is NeuroLink {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as Record<symbol, unknown>)[NEUROLINK_BRAND] === true
+  );
+}
+
 export class NeuroLink {
+  /** @internal Brand for cross-module identification — see {@link isNeuroLink}. */
+  readonly [NEUROLINK_BRAND] = true as const;
+
   private mcpInitialized = false;
   private mcpSkipped = false;
   private mcpInitPromise: Promise<void> | null = null;
@@ -3976,6 +4006,13 @@ Current user's request: ${currentInput}`;
         ? { input: { text: optionsOrPrompt } }
         : ({ ...optionsOrPrompt } as GenerateOptions);
 
+    // Normalise: all downstream code assumes options.input is defined.
+    // Media-only callers may omit `input` entirely (or pass `input: {}`);
+    // synthesise an empty shell so the rest of the pipeline can rely on it.
+    if (!options.input) {
+      options.input = {};
+    }
+
     // Dynamic argument resolution — resolve any function-valued options before downstream use
     await this.resolveDynamicOptions(options as Record<string, unknown>);
 
@@ -3998,13 +4035,30 @@ Current user's request: ${currentInput}`;
       !!(options.tools && Object.keys(options.tools).length > 0),
     );
 
-    // When STT audio is provided, ensure options.input exists (the transcription
-    // will supply the text inside runStandardGenerateRequest) and skip text validation.
+    // Ensure options.input is always an object — callers may omit it for
+    // media-only modes (avatar / music / video) or STT flows. Downstream code
+    // accesses it unconditionally, so we guarantee a non-null object here and
+    // rely on the per-mode checks below to populate / validate the text field.
+    options.input ??= {};
+
+    // When STT audio is provided, ensure options.input.text is initialised
+    // (the transcription will supply the text inside runStandardGenerateRequest).
     const hasSttAudio = !!(options.stt?.enabled && options.stt?.audio);
-    if (hasSttAudio && !options.input) {
-      options.input = { text: "" };
+    if (hasSttAudio && !options.input.text) {
+      options.input.text = "";
     }
-    if (!hasSttAudio) {
+    // Modality dispatch (video / avatar / music) carries the prompt inside
+    // `output.{video|avatar|music}` — input.text is not meaningful for these
+    // modes. Synthesize an empty input.text and skip validation, mirroring
+    // the STT-audio exception above.
+    const isMediaModalityMode =
+      options.output?.mode === "video" ||
+      options.output?.mode === "avatar" ||
+      options.output?.mode === "music";
+    if (isMediaModalityMode && !options.input.text) {
+      options.input.text = "";
+    }
+    if (!hasSttAudio && !isMediaModalityMode) {
       this.assertInputText(
         options.input?.text,
         "Input text is required and must be a non-empty string",
@@ -4022,6 +4076,20 @@ Current user's request: ${currentInput}`;
     generateSpan: ReturnType<typeof tracers.sdk.startSpan>,
   ): Promise<GenerateResult | null> {
     if (options.workflow || options.workflowConfig) {
+      // Workflow engine operates on text; media generation modes (avatar, music,
+      // video, ppt) use dedicated code paths and are incompatible with workflows.
+      const workflowMediaMode = options.output?.mode;
+      if (
+        workflowMediaMode === "avatar" ||
+        workflowMediaMode === "music" ||
+        workflowMediaMode === "video" ||
+        workflowMediaMode === "ppt"
+      ) {
+        throw new Error(
+          `Workflow mode is not compatible with output.mode="${workflowMediaMode}". ` +
+            'Remove the workflow config or use output.mode="text".',
+        );
+      }
       if (options.stt?.enabled && options.stt?.audio) {
         // prepareGenerateRequest synthesizes input.text = "" for audio-only
         // calls, so without this guard generateWithWorkflow runs with an
@@ -4037,6 +4105,14 @@ Current user's request: ${currentInput}`;
       }
       return this.generateWithWorkflow(options);
     }
+    if (options.output?.mode === "music") {
+      return this.generateWithMusic(options, generateSpan);
+    }
+
+    if (options.output?.mode === "avatar") {
+      return this.generateWithAvatar(options, generateSpan);
+    }
+
     if (options.output?.mode !== "ppt") {
       return null;
     }
@@ -4199,7 +4275,7 @@ Current user's request: ${currentInput}`;
         originalProvider: options.provider || "auto",
         orchestratedProvider: orchestratedOptions.provider,
         orchestratedModel: orchestratedOptions.model,
-        prompt: options.input.text.substring(0, 100),
+        prompt: (options.input?.text ?? "").substring(0, 100),
       });
       Object.assign(options, orchestratedOptions);
       if (orchestratedOptions.model) {
@@ -4254,7 +4330,16 @@ Current user's request: ${currentInput}`;
       }
     }
 
+    // Media-only modes (avatar, music, video, ppt) do not have a meaningful
+    // text prompt to augment with memory — skip injection to avoid corrupting
+    // the empty/synthesized input.text that was set for these modes.
+    const mediaOnlyMode =
+      options.output?.mode === "avatar" ||
+      options.output?.mode === "music" ||
+      options.output?.mode === "video" ||
+      options.output?.mode === "ppt";
     if (
+      mediaOnlyMode ||
       !this.shouldReadMemory(options.memory, options.context?.userId) ||
       !options.context?.userId
     ) {
@@ -4262,11 +4347,13 @@ Current user's request: ${currentInput}`;
     }
 
     try {
-      options.input.text = await this.retrieveMemory(
-        options.input.text,
-        options.context.userId as string,
-        options.memory?.additionalUsers,
-      );
+      if (options.input) {
+        options.input.text = await this.retrieveMemory(
+          options.input.text ?? "",
+          options.context.userId as string,
+          options.memory?.additionalUsers,
+        );
+      }
       logger.debug("Memory retrieval successful (generate)");
     } catch (error) {
       logger.warn("Memory retrieval failed (generate):", error);
@@ -4279,7 +4366,7 @@ Current user's request: ${currentInput}`;
     factoryResult: ReturnType<typeof processFactoryOptions>,
   ): Promise<TextGenerationOptions> {
     const baseOptions: TextGenerationOptions = {
-      prompt: options.input.text,
+      prompt: options.input?.text,
       provider: options.provider as AIProviderName,
       model: options.model,
       temperature: options.temperature,
@@ -4342,13 +4429,13 @@ Current user's request: ${currentInput}`;
     }
 
     const { toolResults, enhancedPrompt } = await this.detectAndExecuteTools(
-      textOptions.prompt || options.input.text,
+      textOptions.prompt || options.input?.text || "",
       factoryResult.domainType,
     );
     if (enhancedPrompt !== textOptions.prompt) {
       textOptions.prompt = enhancedPrompt;
       logger.debug("Enhanced prompt with tool results", {
-        originalLength: options.input.text.length,
+        originalLength: (options.input?.text ?? "").length,
         enhancedLength: enhancedPrompt.length,
         toolResults: toolResults.length,
       });
@@ -4376,27 +4463,38 @@ Current user's request: ${currentInput}`;
       startTime,
     } = params;
 
-    this.emitter.emit("generation:end", {
-      provider: textResult.provider,
-      responseTime: Date.now() - startTime,
-      toolsUsed: textResult.toolsUsed,
-      timestamp: Date.now(),
-      result: textResult,
-      // Use the effective prompt (which already incorporates STT-transcribed
-      // text for audio-only calls) so observers see the real prompt instead
-      // of an empty string. Falls back through the same chain as before for
-      // text-only calls.
-      prompt:
-        originalPrompt ||
-        options.input?.text ||
-        (options as Record<string, unknown>).prompt,
-      temperature: textOptions.temperature,
-      maxTokens: textOptions.maxTokens,
-      // A2 fix: Signal that Pipeline A (AI SDK → @langfuse/otel) already
-      // creates a GENERATION observation for this call. The generation:end
-      // listener should skip creating a duplicate Pipeline B span.
-      pipelineAHandled: true,
-    });
+    // Skip the top-level `generation:end` emission when the provider already
+    // emitted it from its native generate path (Vertex / Google AI Studio).
+    // Without this guard, native-path providers would surface TWO events
+    // per generate call (Pipeline A path: 1 from provider native + 1 here;
+    // standard AI-SDK path: 1 here). The observability suite asserts on
+    // emission count and would (and did) fail.
+    const nativeAlreadyEmitted = !!(
+      textResult as { _generationEndEmitted?: boolean }
+    )._generationEndEmitted;
+    if (!nativeAlreadyEmitted) {
+      this.emitter.emit("generation:end", {
+        provider: textResult.provider,
+        responseTime: Date.now() - startTime,
+        toolsUsed: textResult.toolsUsed,
+        timestamp: Date.now(),
+        result: textResult,
+        // Use the effective prompt (which already incorporates STT-transcribed
+        // text for audio-only calls) so observers see the real prompt instead
+        // of an empty string. Falls back through the same chain as before for
+        // text-only calls.
+        prompt:
+          originalPrompt ||
+          options.input?.text ||
+          (options as Record<string, unknown>).prompt,
+        temperature: textOptions.temperature,
+        maxTokens: textOptions.maxTokens,
+        // A2 fix: Signal that Pipeline A (AI SDK → @langfuse/otel) already
+        // creates a GENERATION observation for this call. The generation:end
+        // listener should skip creating a duplicate Pipeline B span.
+        pipelineAHandled: true,
+      });
+    }
     this.emitter.emit("response:end", textResult.content || "");
     this.emitter.emit(
       "message",
@@ -4441,6 +4539,8 @@ Current user's request: ${currentInput}`;
       audio: textResult.audio,
       transcription: textResult.transcription,
       video: textResult.video,
+      avatar: textResult.avatar,
+      music: textResult.music,
       ppt: textResult.ppt,
       // Forward reasoning/reasoningTokens from the provider layer.
       // BaseProvider's GenerationHandler extracts these from AI-SDK reasoning
@@ -4620,6 +4720,86 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * Dispatch a music-generation request to the registered music handler
+   * for the provider named in `options.output.music.provider`.
+   */
+  private async generateWithMusic(
+    options: GenerateOptions,
+    generateSpan: ReturnType<typeof tracers.sdk.startSpan>,
+  ): Promise<GenerateResult> {
+    const startTime = Date.now();
+    const musicOptions = options.output?.music;
+    if (!musicOptions) {
+      throw new Error(
+        'output.mode="music" requires output.music with at least { provider, prompt }.',
+      );
+    }
+    const providerName = musicOptions.provider;
+    if (!providerName) {
+      throw new Error(
+        'output.music.provider is required (e.g. "beatoven", "elevenlabs-music", "lyria", "replicate").',
+      );
+    }
+    const { MusicProcessor } = await import("./utils/musicProcessor.js");
+    const musicResult = await MusicProcessor.generate(providerName, {
+      ...musicOptions,
+      prompt: musicOptions.prompt ?? options.input?.text ?? "",
+    });
+    generateSpan.setAttribute("neurolink.music.provider", providerName);
+    generateSpan.setAttribute("neurolink.music.bytes", musicResult.size);
+    generateSpan.setStatus({ code: SpanStatusCode.OK });
+    return {
+      content: `Music generated (${providerName}, ${musicResult.size} bytes, ${musicResult.format}).`,
+      finishReason: "stop",
+      provider: providerName,
+      model: musicResult.metadata?.model ?? providerName,
+      usage: undefined,
+      responseTime: Date.now() - startTime,
+      music: musicResult,
+    };
+  }
+
+  /**
+   * Dispatch an avatar (lip-sync) request to the registered avatar handler
+   * for the provider named in `options.output.avatar.provider`.
+   */
+  private async generateWithAvatar(
+    options: GenerateOptions,
+    generateSpan: ReturnType<typeof tracers.sdk.startSpan>,
+  ): Promise<GenerateResult> {
+    const startTime = Date.now();
+    const avatarOptions = options.output?.avatar;
+    if (!avatarOptions) {
+      throw new Error(
+        'output.mode="avatar" requires output.avatar with at least { provider, image, audio|text }.',
+      );
+    }
+    const providerName = avatarOptions.provider;
+    if (!providerName) {
+      throw new Error(
+        'output.avatar.provider is required (e.g. "d-id", "heygen", "replicate").',
+      );
+    }
+    const { AvatarProcessor } = await import("./utils/avatarProcessor.js");
+    const avatarResult = await AvatarProcessor.generate(
+      providerName,
+      avatarOptions,
+    );
+    generateSpan.setAttribute("neurolink.avatar.provider", providerName);
+    generateSpan.setAttribute("neurolink.avatar.bytes", avatarResult.size);
+    generateSpan.setStatus({ code: SpanStatusCode.OK });
+    return {
+      content: `Avatar generated (${providerName}, ${avatarResult.size} bytes, ${avatarResult.format}).`,
+      finishReason: "stop",
+      provider: providerName,
+      model: avatarResult.metadata?.model ?? providerName,
+      usage: undefined,
+      responseTime: Date.now() - startTime,
+      avatar: avatarResult,
+    };
+  }
+
+  /**
    * Generate with workflow engine integration
    * Returns both original and processed responses for AB testing
    */
@@ -4631,7 +4811,7 @@ Current user's request: ${currentInput}`;
     logger.debug("[NeuroLink] Executing workflow generation", {
       workflowId: options.workflow,
       hasInlineConfig: !!options.workflowConfig,
-      prompt: options.input.text.substring(0, 100),
+      prompt: (options.input?.text ?? "").substring(0, 100),
       startTime: workflowStartTime,
     });
 
@@ -4653,7 +4833,7 @@ Current user's request: ${currentInput}`;
 
     // Execute workflow
     const workflowResult = await runWorkflow(workflowConfig, {
-      prompt: options.input.text,
+      prompt: options.input?.text ?? "",
       conversationHistory:
         options.conversationMessages
           ?.filter((m) => m.role === "user" || m.role === "assistant")
@@ -4750,7 +4930,7 @@ Current user's request: ${currentInput}`;
     logger.debug("[NeuroLink] Executing workflow streaming (progressive)", {
       workflowId: options.workflow,
       hasInlineConfig: !!options.workflowConfig,
-      prompt: options.input.text.substring(0, 100),
+      prompt: (options.input?.text ?? "").substring(0, 100),
     });
 
     // Determine workflow configuration
@@ -4773,7 +4953,7 @@ Current user's request: ${currentInput}`;
 
     // Execute workflow with progressive streaming
     const workflowStream = runWorkflowWithStreaming(workflowConfig, {
-      prompt: options.input.text,
+      prompt: options.input?.text ?? "",
       conversationHistory:
         options.conversationMessages
           ?.filter((m) => m.role === "user" || m.role === "assistant")
@@ -6353,6 +6533,8 @@ Current user's request: ${currentInput}`;
       ),
       audio: result.audio,
       video: result.video,
+      avatar: result.avatar,
+      music: result.music,
       ppt: result.ppt,
       imageOutput: result.imageOutput,
       analytics: result.analytics,
@@ -6362,7 +6544,12 @@ Current user's request: ${currentInput}`;
       // OpenAI o1) actually receive it.
       reasoning: result.reasoning,
       reasoningTokens: result.reasoningTokens,
-    };
+      // Propagate the native-emission flag so finalizeGenerateRequestResult
+      // skips the public top-level `generation:end` emission when the
+      // provider already emitted it itself (Vertex / Google AI Studio).
+      _generationEndEmitted: (result as { _generationEndEmitted?: boolean })
+        ._generationEndEmitted,
+    } as TextGenerationResult & { _generationEndEmitted?: boolean };
   }
 
   /**
@@ -6719,6 +6906,8 @@ Current user's request: ${currentInput}`;
           evaluation: result.evaluation,
           audio: result.audio,
           video: result.video,
+          avatar: result.avatar,
+          music: result.music,
           ppt: result.ppt,
           // CRITICAL FIX: Include imageOutput for image generation models
           imageOutput: result.imageOutput,
@@ -6727,7 +6916,10 @@ Current user's request: ${currentInput}`;
           // thought parts, OpenAI o1) actually receive it.
           reasoning: result.reasoning,
           reasoningTokens: result.reasoningTokens,
-        };
+          // Propagate native-emission flag — see attemptMCPGeneration comment.
+          _generationEndEmitted: (result as { _generationEndEmitted?: boolean })
+            ._generationEndEmitted,
+        } as TextGenerationResult & { _generationEndEmitted?: boolean };
       } catch (error) {
         // Immediately propagate AbortError — never fall back to next provider on abort
         if (isAbortError(error)) {
@@ -7797,15 +7989,37 @@ Current user's request: ${currentInput}`;
         streamResult.usage = streamUsage;
       }
       if (!streamResult.analytics) {
-        streamResult.analytics =
-          streamAnalytics instanceof Promise
-            ? await streamAnalytics
-            : streamAnalytics;
+        // CRITICAL: do NOT `await` a Promise-typed analytics here. Bedrock
+        // resolves its analytics from the stream's `finally` block — it
+        // only completes once the consumer has fully iterated the stream.
+        // Awaiting it before returning the StreamResult deadlocks: caller
+        // can't iterate (no stream yet), analytics can't resolve (no
+        // iteration). Pass the Promise through to the consumer instead;
+        // they (or the cost listener below) can await it after consumption.
+        //
+        // The outer StreamResult type (StreamResult.analytics in
+        // src/lib/types/stream.ts) explicitly allows `AnalyticsData |
+        // Promise<AnalyticsData>` — the cast widens the local
+        // `processStreamResult` return type which only declares the
+        // resolved shape.
+        (streamResult as { analytics?: typeof streamAnalytics }).analytics =
+          streamAnalytics;
       }
 
-      if (streamResult.analytics?.cost && streamResult.analytics.cost > 0) {
-        this._sessionCostUsd += streamResult.analytics.cost;
-      }
+      // The cost listener wants a resolved cost, but if the provider gave
+      // us a Promise (Bedrock) we can't tax the stream's return path on it.
+      // Defer cost accumulation: resolve in the background once the analytics
+      // Promise settles. Synchronous analytics (most providers) still fire
+      // immediately because Promise.resolve(non-promise) is sync-ish.
+      Promise.resolve(streamResult.analytics)
+        .then((analytics) => {
+          if (analytics?.cost && analytics.cost > 0) {
+            this._sessionCostUsd += analytics.cost;
+          }
+        })
+        .catch(() => {
+          /* analytics rejection is non-fatal — cost stays unupdated */
+        });
 
       this.emitStreamEndEvents(streamResult);
 
@@ -7957,7 +8171,7 @@ Current user's request: ${currentInput}`;
     ) {
       try {
         options.input.text = await this.retrieveMemory(
-          options.input.text,
+          options.input.text ?? "",
           options.context.userId as string,
           options.memory?.additionalUsers,
         );

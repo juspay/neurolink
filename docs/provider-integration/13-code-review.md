@@ -111,7 +111,7 @@ The doc's "Iteration table" mentions `test-results-v{2..13}/` paths that no long
 
 1. **Clean separation of concerns:** new providers in their own files, registrations in registry, types in canonical location — exactly what CLAUDE.md prescribes.
 2. **Comprehensive error formatting:** each provider's `formatProviderError` covers auth, rate limit, model-not-found, balance/quota, network — with friendly URLs to fix.
-3. **OTEL tracing wrapper consistent:** all 4 use `withClientSpan` with proper `gen_ai.*` attrs (matches existing providers like openAI.ts).
+3. **OTEL tracing wrapper consistent:** all 4 use `withClientStreamSpan` with proper `gen_ai.*` attrs (matches existing providers like openAI.ts). NOTE: this used to recommend `withClientSpan`; that helper ends the span when its callback resolves, which captures only setup time for streaming methods. Always prefer the `*StreamSpan` variant for `executeStream`.
 4. **The `_default` pricing fix is well-scoped:** filters `_default` out of prefix matches, only used as last-resort fallback. Doesn't affect existing per-model entries.
 5. **Test-infra fixes have clear comments** explaining the bug (Budget=0) and the rationale for the 8192→1024 number.
 6. **Documentation is thorough:** 13 markdown files including architecture, per-provider notes, testing, and a full failure investigation report.

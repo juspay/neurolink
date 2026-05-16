@@ -13,6 +13,11 @@ import type {
   StreamResult,
   NeurolinkCredentials,
 } from "../types/index.js";
+import {
+  AuthenticationError,
+  NetworkError,
+  ProviderError,
+} from "../types/index.js";
 
 import { logger } from "../utils/logger.js";
 import {
@@ -165,7 +170,7 @@ export class AzureOpenAIProvider extends BaseProvider {
 
   protected formatProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
-      return new Error(`Azure OpenAI request timed out: ${error.message}`);
+      return new NetworkError(`Request timed out: ${error.message}`, "azure");
     }
     const errorObj = error as UnknownRecord;
     if (
@@ -173,13 +178,16 @@ export class AzureOpenAIProvider extends BaseProvider {
       typeof errorObj.message === "string" &&
       errorObj.message.includes("401")
     ) {
-      return new Error("Invalid Azure OpenAI API key or endpoint.");
+      return new AuthenticationError(
+        "Invalid Azure OpenAI API key or endpoint.",
+        "azure",
+      );
     }
     const message =
       errorObj?.message && typeof errorObj.message === "string"
         ? errorObj.message
         : "Unknown error";
-    return new Error(`Azure OpenAI error: ${message}`);
+    return new ProviderError(`Azure OpenAI error: ${message}`, "azure");
   }
 
   // executeGenerate removed - BaseProvider handles all generation with tools

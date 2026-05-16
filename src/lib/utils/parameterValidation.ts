@@ -408,10 +408,24 @@ export function validateTextGenerationOptions(
 
   const opts = options as Partial<TextGenerationOptions>;
 
-  // Validate prompt
-  const promptError = validateRequiredString(opts.prompt, "prompt", 1);
-  if (promptError) {
-    errors.push(promptError);
+  // Modality dispatch (output.mode === 'video' | 'avatar' | 'music') carries
+  // its own typed prompt inside `output.{video|avatar|music}`. The textual
+  // prompt is irrelevant for these modes, so skip the prompt-required check.
+  // Same exemption applies for STT-driven flows where `input.text` is
+  // synthesized from transcription downstream.
+  const outputMode = (opts as { output?: { mode?: string } }).output?.mode;
+  const isMediaModalityMode =
+    outputMode === "video" || outputMode === "avatar" || outputMode === "music";
+  const hasSttAudio = !!(
+    opts as { stt?: { enabled?: boolean; audio?: unknown } }
+  ).stt?.audio;
+
+  // Validate prompt (skipped for modality dispatch + STT-driven flows)
+  if (!isMediaModalityMode && !hasSttAudio) {
+    const promptError = validateRequiredString(opts.prompt, "prompt", 1);
+    if (promptError) {
+      errors.push(promptError);
+    }
   }
 
   if (opts.prompt && opts.prompt.length > SYSTEM_LIMITS.MAX_PROMPT_LENGTH) {

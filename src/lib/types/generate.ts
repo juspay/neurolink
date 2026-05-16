@@ -20,6 +20,8 @@ import type {
 import type { PPTGenerationResult, PPTOutputOptions } from "./ppt.js";
 import type { TTSOptions, TTSResult } from "./tts.js";
 import type { STTOptions, STTResult } from "./stt.js";
+import type { AvatarOptions, AvatarResult } from "./avatar.js";
+import type { MusicOptions, MusicResult } from "./music.js";
 import type {
   StandardRecord,
   ValidationSchema,
@@ -34,8 +36,14 @@ import type { WorkflowConfig } from "./workflow.js";
  * Supports multimodal content while maintaining backward compatibility
  */
 export type GenerateOptions = {
-  input: {
-    text: string;
+  /**
+   * Input content for generation. Optional for media-only modes (avatar, music,
+   * video) where all configuration lives in `output`; the SDK synthesises an
+   * empty `input` automatically when this field is omitted.
+   */
+  input?: {
+    /** Prompt text. Optional for media-only modes (avatar, music) that are driven by uploaded files rather than a prompt. */
+    text?: string;
     /**
      * Images to include in the request.
      * Supports simple image data (Buffer, string) or objects with alt text for accessibility.
@@ -96,8 +104,10 @@ export type GenerateOptions = {
      * - "text": Standard text generation (default)
      * - "video": Video generation using models like Veo 3.1
      * - "ppt": PowerPoint presentation generation
+     * - "avatar": Talking-head / lip-sync video (D-ID, HeyGen, Replicate-MuseTalk)
+     * - "music": Music / sound generation (Beatoven, ElevenLabs Music, Lyria, Replicate)
      */
-    mode?: "text" | "video" | "ppt";
+    mode?: "text" | "video" | "ppt" | "avatar" | "music";
     /**
      * Video generation configuration (used when mode is "video")
      * Requires an input image and text prompt
@@ -113,6 +123,17 @@ export type GenerateOptions = {
      * Controls transition prompts, durations, and concurrency.
      */
     director?: DirectorModeOptions;
+    /**
+     * Avatar generation configuration (used when mode is "avatar")
+     * Combines a portrait image with audio (or text via TTS) to produce
+     * a lip-synced talking-head video.
+     */
+    avatar?: AvatarOptions;
+    /**
+     * Music generation configuration (used when mode is "music")
+     * Generates music / sound from a text prompt.
+     */
+    music?: MusicOptions;
   };
 
   // CSV processing options
@@ -652,6 +673,14 @@ export type GenerateResult = {
    */
   video?: VideoGenerationResult;
   /**
+   * Avatar (talking-head) generation result (present when output.mode is "avatar")
+   */
+  avatar?: AvatarResult;
+  /**
+   * Music generation result (present when output.mode is "music")
+   */
+  music?: MusicResult;
+  /**
    * PowerPoint generation result (present when output.mode is "ppt")
    *
    * @example
@@ -821,7 +850,8 @@ export type TextGenerationOptions = {
    * Supports text, images, and other multimodal inputs.
    */
   input?: {
-    text: string;
+    /** Prompt text. Optional for media-only modes (avatar, music) that are driven by uploaded files rather than a prompt. */
+    text?: string;
     /**
      * Images to include in the request.
      * For video generation, the first image is used as the source frame.
@@ -863,8 +893,10 @@ export type TextGenerationOptions = {
      * - "text": Standard text generation (default)
      * - "video": Video generation using models like Veo 3.1
      * - "ppt": PowerPoint presentation generation
+     * - "avatar": Talking-head / lip-sync video (D-ID, HeyGen, Replicate-MuseTalk)
+     * - "music": Music / sound generation (Beatoven, ElevenLabs Music, Lyria, Replicate)
      */
-    mode?: "text" | "video" | "ppt";
+    mode?: "text" | "video" | "ppt" | "avatar" | "music";
     /**
      * Video generation configuration (used when mode is "video")
      */
@@ -877,6 +909,14 @@ export type TextGenerationOptions = {
      * Director Mode configuration (only used when input.segments is provided)
      */
     director?: DirectorModeOptions;
+    /**
+     * Avatar generation configuration (used when mode is "avatar")
+     */
+    avatar?: AvatarOptions;
+    /**
+     * Music generation configuration (used when mode is "music")
+     */
+    music?: MusicOptions;
   };
   tools?: Record<string, Tool>; // Enable MCP tools integration
   /**
@@ -1210,6 +1250,10 @@ export type TextGenerationResult = {
   transcription?: STTResult;
   /** Video generation result */
   video?: VideoGenerationResult;
+  /** Avatar (talking-head) generation result */
+  avatar?: AvatarResult;
+  /** Music generation result */
+  music?: MusicResult;
   /** PowerPoint generation result */
   ppt?: PPTGenerationResult;
   /** Image generation output */
@@ -1248,4 +1292,14 @@ export type ModelAliasConfig = {
       reason?: string;
     }
   >;
+};
+
+/**
+ * Internal alias used by messageBuilder helpers after the entry-point
+ * (`buildMultimodalMessagesArray`) has guaranteed that `input` is non-null.
+ * All private helper functions that receive post-normalised options should
+ * accept this type to avoid repetitive null checks on every `input.*` access.
+ */
+export type GenerateOptionsNormalized = GenerateOptions & {
+  input: NonNullable<GenerateOptions["input"]>;
 };

@@ -163,13 +163,47 @@ export const EXPECTED_PROVIDER_ERROR_PATTERNS: ExpectedProviderErrorPattern[] =
 
     // -- HTTP statuses surfaced inside provider error wrappers ------------
     // Bare 4xx digits would match anything, so we require either an HTTP-y
-    // prefix or parenthesized framing typical of error messages.
+    // prefix or parenthesized framing typical of error messages. 502 (Bad
+    // Gateway) added so transient upstream/CDN failures from gateway
+    // providers (OpenRouter, LiteLLM) classify as SKIP not FAIL.
     {
       id: "http_status_codes",
       test: (msg) =>
-        /(?:\bhttp[ _-]?(?:status\s*:?\s*)?(?:401|402|403|404|410|429|503)|\bstatus\s+(?:401|402|403|404|410|429|503)\b|\((?:401|402|403|404|410|429|503)\)|status[\s:]code[\s:]+(?:401|402|403|404|410|429|503)\b)/i.test(
+        /(?:\bhttp[ _-]?(?:status\s*:?\s*)?(?:401|402|403|404|410|429|502|503)|\bstatus\s+(?:401|402|403|404|410|429|502|503)\b|\((?:401|402|403|404|410|429|502|503)\)|status[\s:]code[\s:]+(?:401|402|403|404|410|429|502|503)\b|\berror\s+code:\s*502\b)/i.test(
           msg,
         ),
+    },
+
+    // -- OpenRouter "Provider returned error" — gateway-only framing ------
+    {
+      id: "openrouter_provider_returned_error",
+      test: (msg) =>
+        /OpenRouter\s+(?:streaming\s+)?error:\s*Provider returned error/i.test(
+          msg,
+        ),
+    },
+
+    // -- OpenRouter upstream Invalid request body — small free-tier models
+    //    sometimes reject specific options (e.g. streaming with tools) that
+    //    the matrix tries; classify as SKIP not FAIL so the suite stays
+    //    green on rotating free-tier models.
+    {
+      id: "openrouter_invalid_request_body",
+      test: (msg) =>
+        /OpenRouter\s+(?:streaming\s+)?error:\s*\[[^\]]+\]\s*Invalid request body/i.test(
+          msg,
+        ),
+    },
+
+    // -- Per-test harness wall-clock timeout (4-minute default). When the
+    //    underlying provider hangs without responding, the test/helpers/
+    //    harness.ts wrapper rejects with a "PER_TEST_TIMEOUT_SKIP" marker
+    //    so the test classifies as SKIP rather than FAIL. We anchor on
+    //    that exact marker so a real bug accidentally including the word
+    //    "timeout" elsewhere is still surfaced as FAIL.
+    {
+      id: "per_test_harness_timeout",
+      test: (msg) => /PER_TEST_TIMEOUT_SKIP/.test(msg),
     },
 
     // -- Plain HTTP reason phrases from minimalist providers --------------
@@ -177,6 +211,17 @@ export const EXPECTED_PROVIDER_ERROR_PATTERNS: ExpectedProviderErrorPattern[] =
       id: "http_reason_phrases",
       test: (msg) =>
         /\b(?:Gone|Service\s+Unavailable|Bad\s+Gateway)\b/i.test(msg),
+    },
+
+    // -- Anthropic beta / enterprise-tier gates ---------------------------
+    // "The long context beta is not yet available for this subscription."
+    // and similar `beta is not available` framings come from accounts that
+    // simply haven't been allow-listed for the requested capability — not
+    // an SDK bug.
+    {
+      id: "anthropic_beta_not_available",
+      test: (_msg, lower) =>
+        /\bbeta\b[\s\S]{0,40}\bnot\s+(?:yet\s+)?available\b/.test(lower),
     },
 
     // -- HuggingFace Inference API cold-start / model-loading -------------

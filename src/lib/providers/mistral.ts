@@ -4,7 +4,7 @@ import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
-import type { NeuroLink } from "../neurolink.js";
+import { isNeuroLink } from "../neurolink.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type {
   UnknownRecord,
@@ -12,6 +12,12 @@ import type {
   StreamOptions,
   StreamResult,
   ValidationSchema,
+} from "../types/index.js";
+import {
+  AuthenticationError,
+  NetworkError,
+  ProviderError,
+  RateLimitError,
 } from "../types/index.js";
 
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
@@ -53,16 +59,9 @@ export class MistralProvider extends BaseProvider {
     credentials?: NeurolinkCredentials["mistral"],
   ) {
     // Type guard for NeuroLink parameter validation
-    const validatedNeurolink =
-      sdk && typeof sdk === "object" && "getInMemoryServers" in sdk
-        ? sdk
-        : undefined;
+    const validatedNeurolink = isNeuroLink(sdk) ? sdk : undefined;
 
-    super(
-      modelName,
-      "mistral" as AIProviderName,
-      validatedNeurolink as NeuroLink | undefined,
-    );
+    super(modelName, "mistral" as AIProviderName, validatedNeurolink);
 
     // Initialize Mistral model with API key validation and proxy support
     const apiKey = credentials?.apiKey ?? getMistralApiKey();
@@ -214,7 +213,7 @@ export class MistralProvider extends BaseProvider {
 
   public formatProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
-      return new Error(`Mistral request timed out: ${error.message}`);
+      return new NetworkError(`Request timed out: ${error.message}`, "mistral");
     }
 
     const errorRecord = error as UnknownRecord;
@@ -227,16 +226,17 @@ export class MistralProvider extends BaseProvider {
       message.includes("API_KEY_INVALID") ||
       message.includes("Invalid API key")
     ) {
-      return new Error(
+      return new AuthenticationError(
         "Invalid Mistral API key. Please check your MISTRAL_API_KEY environment variable.",
+        "mistral",
       );
     }
 
     if (message.includes("Rate limit exceeded")) {
-      return new Error("Mistral rate limit exceeded");
+      return new RateLimitError("Mistral rate limit exceeded", "mistral");
     }
 
-    return new Error(`Mistral error: ${message}`);
+    return new ProviderError(`Mistral error: ${message}`, "mistral");
   }
 
   /**

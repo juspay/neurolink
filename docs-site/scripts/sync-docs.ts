@@ -1338,6 +1338,66 @@ const LINK_MAPPINGS: Record<string, string> = {
   "functions/getBestProvider": "/api/functions/getBestProvider",
   "functions/getAvailableProviders": "/api/functions/getAvailableProviders",
   "functions/isValidProvider": "/api/functions/isValidProvider",
+
+  // ── New provider getting-started guides (feat/more-providers) ─────────
+  xai: "/getting-started/providers/xai",
+  groq: "/getting-started/providers/groq",
+  replicate: "/getting-started/providers/replicate",
+  voyage: "/getting-started/providers/voyage",
+  stability: "/getting-started/providers/stability",
+  "fish-audio": "/getting-started/providers/fish-audio",
+  cohere: "/getting-started/providers/cohere",
+  jina: "/getting-started/providers/jina",
+  "together-ai": "/getting-started/providers/together-ai",
+  together: "/getting-started/providers/together-ai",
+  fireworks: "/getting-started/providers/fireworks",
+  perplexity: "/getting-started/providers/perplexity",
+  cloudflare: "/getting-started/providers/cloudflare",
+  ideogram: "/getting-started/providers/ideogram",
+  recraft: "/getting-started/providers/recraft",
+  heygen: "/getting-started/providers/heygen",
+  "d-id": "/getting-started/providers/d-id",
+  did: "/getting-started/providers/d-id",
+  musetalk: "/getting-started/providers/musetalk",
+  lyria: "/getting-started/providers/lyria",
+  beatoven: "/getting-started/providers/beatoven",
+  "elevenlabs-music": "/getting-started/providers/elevenlabs-music",
+  kling: "/getting-started/providers/kling",
+  runway: "/getting-started/providers/runway",
+
+  // ── New provider-integration guides + their cross-refs ────────────────
+  "00-architecture": "/provider-integration/00-architecture",
+  "01-shared-changes": "/provider-integration/01-shared-changes",
+  "02-deepseek": "/provider-integration/02-deepseek",
+  "03-nvidia-nim": "/provider-integration/03-nvidia-nim",
+  "04-lm-studio": "/provider-integration/04-lm-studio",
+  "05-llamacpp": "/provider-integration/05-llamacpp",
+  "06-testing": "/provider-integration/06-testing",
+  "07-implementation-order": "/provider-integration/07-implementation-order",
+  "08-feature-matrix": "/provider-integration/08-feature-matrix",
+  "09-test-suite-spec": "/provider-integration/09-test-suite-spec",
+  "10-test-results-final": "/provider-integration/10-test-results-final",
+  "11-test-failure-investigation":
+    "/provider-integration/11-test-failure-investigation",
+  "12-pr-analysis": "/provider-integration/12-pr-analysis",
+  "13-code-review": "/provider-integration/13-code-review",
+  "14-voice-speech-integration":
+    "/provider-integration/14-voice-speech-integration",
+  "15-adding-llm-provider": "/provider-integration/15-adding-llm-provider",
+  "16-adding-tts-provider": "/provider-integration/16-adding-tts-provider",
+  "17-adding-stt-provider": "/provider-integration/17-adding-stt-provider",
+  "18-adding-realtime-provider":
+    "/provider-integration/18-adding-realtime-provider",
+  "19-adding-video-provider": "/provider-integration/19-adding-video-provider",
+  "20-adding-image-gen-provider":
+    "/provider-integration/20-adding-image-gen-provider",
+  "21-adding-new-modality": "/provider-integration/21-adding-new-modality",
+  "22-adding-multimodal-provider":
+    "/provider-integration/22-adding-multimodal-provider",
+  CHECKLIST: "/provider-integration/checklist",
+  checklist: "/provider-integration/checklist",
+  "SAFETY-PRIMITIVES": "/provider-integration/safety-primitives",
+  "safety-primitives": "/provider-integration/safety-primitives",
 };
 
 /**

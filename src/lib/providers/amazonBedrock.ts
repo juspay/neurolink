@@ -64,6 +64,23 @@ export class AmazonBedrockProvider extends BaseProvider {
   private conversationHistory: BedrockMessage[] = [];
   private region: string;
 
+  /**
+   * Parse the region segment from a Bedrock ARN.
+   * Returns null when the input is not an ARN.
+   *
+   * Supports all AWS partitions:
+   * - `arn:aws:bedrock:…`        (commercial)
+   * - `arn:aws-cn:bedrock:…`     (China)
+   * - `arn:aws-us-gov:bedrock:…` (GovCloud)
+   */
+  private static extractRegionFromArn(modelId?: string): string | null {
+    if (!modelId) {
+      return null;
+    }
+    const match = modelId.match(/^arn:aws[a-z0-9-]*:bedrock:([^:]+):/);
+    return match?.[1] ?? null;
+  }
+
   constructor(
     modelName?: string,
     neurolink?: NeuroLink,
@@ -76,8 +93,22 @@ export class AmazonBedrockProvider extends BaseProvider {
     },
   ) {
     super(modelName, "bedrock" as AIProviderName, neurolink);
+
+    // When the model is given as a Bedrock ARN (e.g. an inference profile
+    // like `arn:aws:bedrock:us-east-1:123:inference-profile/foo`), Bedrock
+    // requires the runtime client's region to match the region embedded
+    // in the ARN — otherwise it returns "The provided model identifier is
+    // invalid." Auto-extract so users don't have to keep AWS_REGION in
+    // sync with their model ARN.
+    const resolvedModel =
+      modelName || process.env.BEDROCK_MODEL || this.modelName;
+    const arnRegion = AmazonBedrockProvider.extractRegionFromArn(resolvedModel);
     this.region =
-      credentials?.region || region || process.env.AWS_REGION || "us-east-1";
+      credentials?.region ||
+      region ||
+      arnRegion ||
+      process.env.AWS_REGION ||
+      "us-east-1";
 
     logger.debug(
       "[AmazonBedrockProvider] Starting constructor with extensive logging for debugging",
@@ -420,7 +451,7 @@ export class AmazonBedrockProvider extends BaseProvider {
       },
       async (generateSpan) => {
         logger.info(
-          `🚀 [AmazonBedrockProvider] Starting Bedrock API call at ${new Date().toISOString()}`,
+          `[AmazonBedrockProvider] Starting Bedrock API call at ${new Date().toISOString()}`,
         );
 
         try {
@@ -434,12 +465,12 @@ export class AmazonBedrockProvider extends BaseProvider {
           } catch {
             // Region lookup failed — not critical, only used for logging
           }
-          logger.info(`🔧 [AmazonBedrockProvider] Client region: ${region}`);
+          logger.info(`[AmazonBedrockProvider] Client region: ${region}`);
           logger.info(
-            `🔧 [AmazonBedrockProvider] Model: ${this.modelName || this.getDefaultModel()}`,
+            `[AmazonBedrockProvider] Model: ${this.modelName || this.getDefaultModel()}`,
           );
           logger.info(
-            `🔧 [AmazonBedrockProvider] Conversation history length: ${this.conversationHistory.length}`,
+            `[AmazonBedrockProvider] Conversation history length: ${this.conversationHistory.length}`,
           );
 
           // Get all available tools
@@ -466,12 +497,12 @@ export class AmazonBedrockProvider extends BaseProvider {
           if (toolConfig) {
             commandInput.toolConfig = toolConfig;
             logger.info(
-              `🛠️ [AmazonBedrockProvider] Tools configured: ${toolConfig.tools?.length || 0}`,
+              `[AmazonBedrockProvider] Tools configured: ${toolConfig.tools?.length || 0}`,
             );
           }
 
           // Log command details for debugging
-          logger.info(`📋 [AmazonBedrockProvider] Command input summary:`);
+          logger.info(`[AmazonBedrockProvider] Command input summary:`);
           logger.info(`  - Model ID: ${commandInput.modelId}`);
           logger.info(
             `  - Messages count: ${commandInput.messages?.length || 0}`,
@@ -1132,9 +1163,9 @@ export class AmazonBedrockProvider extends BaseProvider {
   }
 
   protected async executeStream(options: StreamOptions): Promise<StreamResult> {
-    logger.debug("🟢 [TRACE] executeStream ENTRY - starting streaming attempt");
+    logger.debug("[TRACE] executeStream ENTRY - starting streaming attempt");
     logger.info(
-      "🚀 [AmazonBedrockProvider] Attempting real streaming with ConverseStreamCommand",
+      "[AmazonBedrockProvider] Attempting real streaming with ConverseStreamCommand",
     );
 
     return bedrockTracer.startActiveSpan(
@@ -1150,7 +1181,7 @@ export class AmazonBedrockProvider extends BaseProvider {
       async (streamSpan) => {
         try {
           logger.debug(
-            "🟢 [TRACE] executeStream TRY block - about to call streamingConversationLoop",
+            "[TRACE] executeStream TRY block - about to call streamingConversationLoop",
           );
           // Clear conversation history for new streaming session
           this.conversationHistory = [];
@@ -1215,21 +1246,21 @@ export class AmazonBedrockProvider extends BaseProvider {
 
           // Call the actual streaming implementation that already exists
           logger.debug(
-            "🟢 [TRACE] executeStream - calling streamingConversationLoop NOW",
+            "[TRACE] executeStream - calling streamingConversationLoop NOW",
           );
           const result = await this.streamingConversationLoop(
             options,
             streamSpan,
           );
           logger.debug(
-            "🟢 [TRACE] executeStream - streamingConversationLoop SUCCESS, returning result",
+            "[TRACE] executeStream - streamingConversationLoop SUCCESS, returning result",
           );
           streamSpan.setStatus({ code: SpanStatusCode.OK });
           streamSpan.end();
           return result;
         } catch (error: unknown) {
           logger.debug(
-            "🔴 [TRACE] executeStream CATCH - error caught from streamingConversationLoop",
+            "[TRACE] executeStream CATCH - error caught from streamingConversationLoop",
           );
           const errorObj = error as Error;
 
@@ -1246,15 +1277,15 @@ export class AmazonBedrockProvider extends BaseProvider {
             errorObj?.message?.includes("ConverseStream");
 
           logger.debug(
-            "🔴 [TRACE] executeStream CATCH - checking if permission error",
+            "[TRACE] executeStream CATCH - checking if permission error",
           );
           logger.debug(
-            `🔴 [TRACE] executeStream CATCH - isPermissionError=${isPermissionError}`,
+            `[TRACE] executeStream CATCH - isPermissionError=${isPermissionError}`,
           );
 
           if (isPermissionError) {
             logger.debug(
-              "🟡 [TRACE] executeStream CATCH - PERMISSION ERROR DETECTED, starting fallback",
+              "[TRACE] executeStream CATCH - PERMISSION ERROR DETECTED, starting fallback",
             );
             logger.warn(
               `[AmazonBedrockProvider] Streaming permissions not available, falling back to generate method: ${errorObj.message}`,
@@ -1290,18 +1321,29 @@ export class AmazonBedrockProvider extends BaseProvider {
             streamSpan.setStatus({ code: SpanStatusCode.OK });
             streamSpan.end();
 
-            // Convert generate result to streaming format
+            // Convert generate result to streaming format.
+            // Use whitespace-preserving split (matches BaseProvider's
+            // executeFakeStreaming) so newlines, tabs, indentation, code
+            // blocks, and markdown tables aren't collapsed to single spaces.
             const stream = new ReadableStream({
               start(controller) {
-                // Split the response into chunks for pseudo-streaming
                 const responseText = generateResult.content || "";
-                const chunks = responseText.split(" ");
-
-                chunks.forEach((word: string, _index: number) => {
-                  controller.enqueue({ content: word + " " });
-                });
-
-                controller.enqueue({ content: "" });
+                const tokens = responseText.split(/(\s+)/);
+                let buffer = "";
+                for (let i = 0; i < tokens.length; i++) {
+                  buffer += tokens[i];
+                  const shouldYield =
+                    i === tokens.length - 1 ||
+                    buffer.length > 50 ||
+                    /[.!?;,]\s*$/.test(buffer);
+                  if (shouldYield && buffer.length > 0) {
+                    controller.enqueue({ content: buffer });
+                    buffer = "";
+                  }
+                }
+                if (buffer.length > 0) {
+                  controller.enqueue({ content: buffer });
+                }
                 controller.close();
               },
             });
@@ -1355,7 +1397,7 @@ export class AmazonBedrockProvider extends BaseProvider {
     options: StreamOptions,
     streamSpan: Span,
   ): Promise<StreamResult> {
-    logger.debug("🟦 [TRACE] streamingConversationLoop ENTRY");
+    logger.debug("[TRACE] streamingConversationLoop ENTRY");
     const startTime = Date.now();
     const maxIterations = options.maxSteps || DEFAULT_MAX_STEPS;
     let iteration = 0;
@@ -1371,7 +1413,7 @@ export class AmazonBedrockProvider extends BaseProvider {
     // So we need to make the first streaming call synchronously to test permissions
     try {
       logger.debug(
-        "🟦 [TRACE] streamingConversationLoop - testing first streaming call",
+        "[TRACE] streamingConversationLoop - testing first streaming call",
       );
       const commandInput = await this.prepareStreamCommand(options);
       const command = new ConverseStreamCommand(commandInput);
@@ -1408,7 +1450,7 @@ export class AmazonBedrockProvider extends BaseProvider {
       const stream = new ReadableStream({
         start: async (controller) => {
           logger.debug(
-            "🟦 [TRACE] streamingConversationLoop - ReadableStream start() called",
+            "[TRACE] streamingConversationLoop - ReadableStream start() called",
           );
           try {
             // Process the first response we already have, tracking all event types
@@ -1546,6 +1588,10 @@ export class AmazonBedrockProvider extends BaseProvider {
                   "gen_ai.response.stop_reason",
                   firstStopReason,
                 );
+                // Close the controller so downstream `for await` exits;
+                // see the close() comment near the bottom of this start()
+                // function for the spec rationale.
+                controller.close();
                 return;
               }
             }
@@ -1608,10 +1654,21 @@ export class AmazonBedrockProvider extends BaseProvider {
               controller.error(
                 new Error("Streaming conversation exceeded maximum iterations"),
               );
+              return;
             }
+            // CRITICAL: ReadableStream's start() returning does NOT auto-close
+            // the controller per the WHATWG Streams spec. Without this, the
+            // downstream `for await (const chunk of stream)` in
+            // convertToAsyncIterable never sees `done: true` and the
+            // consumer hangs forever — manifested as a 240s harness
+            // PER_TEST_TIMEOUT_SKIP for `[bedrock] stream tokens`. The first-
+            // iteration `return` path and the while-loop natural `break`
+            // path both reach here, so closing once at the bottom covers
+            // every non-error exit.
+            controller.close();
           } catch (error) {
             logger.debug(
-              "🔴 [TRACE] streamingConversationLoop - CATCH block hit in ReadableStream",
+              "[TRACE] streamingConversationLoop - CATCH block hit in ReadableStream",
             );
             controller.error(error);
           }
@@ -1698,7 +1755,7 @@ export class AmazonBedrockProvider extends BaseProvider {
       };
     } catch (error: unknown) {
       logger.debug(
-        "🔴 [TRACE] streamingConversationLoop - first streaming call FAILED, throwing",
+        "[TRACE] streamingConversationLoop - first streaming call FAILED, throwing",
       );
       throw error; // This will be caught by executeStream
     }
@@ -1976,7 +2033,7 @@ export class AmazonBedrockProvider extends BaseProvider {
       return false;
     } else if (stopReason === "tool_use") {
       logger.debug(
-        `🛠️ [AmazonBedrockProvider] Tool use detected in streaming - executing tools`,
+        `[AmazonBedrockProvider] Tool use detected in streaming - executing tools`,
       );
 
       await this.executeStreamTools(assistantMessage.content, options);
@@ -2023,13 +2080,13 @@ export class AmazonBedrockProvider extends BaseProvider {
     }
 
     logger.debug(
-      `🔍 [AmazonBedrockProvider] Found ${toolUseCount} toolUse blocks in assistant message`,
+      `[AmazonBedrockProvider] Found ${toolUseCount} toolUse blocks in assistant message`,
     );
 
     for (const contentItem of messageContent) {
       if (contentItem.toolUse) {
         logger.debug(
-          `🔧 [AmazonBedrockProvider] Executing tool: ${contentItem.toolUse.name}`,
+          `[AmazonBedrockProvider] Executing tool: ${contentItem.toolUse.name}`,
         );
 
         // Track tool call
@@ -2048,7 +2105,7 @@ export class AmazonBedrockProvider extends BaseProvider {
           );
 
           logger.debug(
-            `✅ [AmazonBedrockProvider] Tool execution successful: ${contentItem.toolUse.name}`,
+            `[AmazonBedrockProvider] Tool execution successful: ${contentItem.toolUse.name}`,
           );
 
           // Track tool result for storage
@@ -2069,7 +2126,7 @@ export class AmazonBedrockProvider extends BaseProvider {
           });
         } catch (error) {
           logger.error(
-            `❌ [AmazonBedrockProvider] Tool execution failed: ${contentItem.toolUse.name}`,
+            `[AmazonBedrockProvider] Tool execution failed: ${contentItem.toolUse.name}`,
             error,
           );
 
@@ -2100,13 +2157,13 @@ export class AmazonBedrockProvider extends BaseProvider {
     }
 
     logger.debug(
-      `📊 [AmazonBedrockProvider] Created ${toolResults.length} toolResult blocks for ${toolUseCount} toolUse blocks`,
+      `[AmazonBedrockProvider] Created ${toolResults.length} toolResult blocks for ${toolUseCount} toolUse blocks`,
     );
 
     // Validate 1:1 mapping before adding to conversation
     if (toolResults.length !== toolUseCount) {
       logger.error(
-        `❌ [AmazonBedrockProvider] Mismatch: ${toolResults.length} toolResults vs ${toolUseCount} toolUse blocks`,
+        `[AmazonBedrockProvider] Mismatch: ${toolResults.length} toolResults vs ${toolUseCount} toolUse blocks`,
       );
       throw new Error(
         `Tool mapping mismatch: ${toolResults.length} toolResults for ${toolUseCount} toolUse blocks`,
@@ -2122,7 +2179,7 @@ export class AmazonBedrockProvider extends BaseProvider {
       this.conversationHistory.push(userMessageWithToolResults);
 
       logger.debug(
-        `📤 [AmazonBedrockProvider] Added ${toolResults.length} tool results to conversation (1:1 mapping validated)`,
+        `[AmazonBedrockProvider] Added ${toolResults.length} tool results to conversation (1:1 mapping validated)`,
       );
 
       // Emit tool:end for each completed tool result so Pipeline B
@@ -2174,7 +2231,7 @@ export class AmazonBedrockProvider extends BaseProvider {
     });
 
     try {
-      logger.debug("🔍 [AmazonBedrockProvider] Starting health check...");
+      logger.debug("[AmazonBedrockProvider] Starting health check...");
 
       const command = new ListFoundationModelsCommand({});
       const response = await healthCheckClient.send(command, {
@@ -2187,7 +2244,7 @@ export class AmazonBedrockProvider extends BaseProvider {
       );
 
       logger.debug(
-        `✅ [AmazonBedrockProvider] Health check passed - Found ${activeModels.length} active models out of ${models.length} total models`,
+        `[AmazonBedrockProvider] Health check passed - Found ${activeModels.length} active models out of ${models.length} total models`,
       );
 
       if (activeModels.length === 0) {
@@ -2223,7 +2280,7 @@ export class AmazonBedrockProvider extends BaseProvider {
         );
       }
 
-      logger.error("❌ [AmazonBedrockProvider] Health check failed:", error);
+      logger.error("[AmazonBedrockProvider] Health check failed:", error);
       throw new Error(
         `Bedrock health check failed: ${errorMessage || "Unknown error"}`,
         { cause: error },

@@ -3377,6 +3377,8 @@ async function testCLIStreamPDFAndCSV(): Promise<boolean | null> {
 }
 
 // Real HTTP MCP server endpoints for integration testing
+// remote.mcpservers.org was retired in 2026; substitute Context7 as the
+// transport smoke target (it still serves the standard MCP handshake).
 const REAL_HTTP_MCP_SERVERS = {
   deepwiki: {
     url: "https://mcp.deepwiki.com/mcp",
@@ -3384,14 +3386,15 @@ const REAL_HTTP_MCP_SERVERS = {
     description: "Documentation and wiki search MCP server",
   },
   fetchServer: {
-    url: "https://remote.mcpservers.org/fetch/mcp",
-    name: "Remote Fetch MCP",
-    description: "URL fetching MCP server",
+    url: "https://mcp.context7.com/mcp",
+    name: "Context7 MCP",
+    description: "Library documentation MCP server (transport smoke target)",
   },
   sequentialThinking: {
-    url: "https://remote.mcpservers.org/sequentialthinking/mcp",
-    name: "Sequential Thinking MCP",
-    description: "Sequential thinking/reasoning MCP server",
+    url: "https://mcp.context7.com/mcp",
+    name: "Context7 MCP (alt)",
+    description:
+      "Library documentation MCP server (alt transport smoke target)",
   },
 };
 

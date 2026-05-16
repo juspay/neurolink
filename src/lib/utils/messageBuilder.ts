@@ -778,6 +778,7 @@ function enforceFileBudget(
   provider: string,
   model: string,
 ): void {
+  options.input ??= {};
   if (!options.input.files || options.input.files.length === 0) {
     return;
   }
@@ -854,6 +855,7 @@ function appendDetectedFileResult(
   file: FileInput,
   options: GenerateOptions,
 ): void {
+  options.input ??= {};
   const filename = extractFilename(file);
 
   if (result.type === "csv") {
@@ -985,6 +987,7 @@ export async function processUnifiedFilesArray(
   maxSize: number,
   provider: string,
 ): Promise<void> {
+  options.input ??= {};
   if (!options.input.files || options.input.files.length === 0) {
     return;
   }
@@ -1006,7 +1009,12 @@ export async function processUnifiedFilesArray(
         `[NEUROLINK] Processing ${totalFiles} file(s) with auto-detection`,
       );
 
-      options.input.text = options.input.text || "";
+      // `options.input` was guaranteed non-null by the `??= {}` guard at the
+      // top of processUnifiedFilesArray; re-assert here so TypeScript is happy
+      // inside this withSpan closure (it doesn't track mutations across closures).
+      options.input ??= {};
+      const inp2 = options.input;
+      inp2.text = inp2.text || "";
       let includedCount = 0;
 
       const fileRegistry = options.fileRegistry as
@@ -1087,7 +1095,7 @@ export async function processUnifiedFilesArray(
       if (fileRegistry && fileRegistry.size > 0) {
         const previewText = await fileRegistry.generatePromptPreview();
         if (previewText) {
-          options.input.text = (options.input.text || "") + previewText;
+          inp2.text = (inp2.text || "") + previewText;
           logger.info(
             `[FileDetector] Injected previews for ${fileRegistry.size} lazily-registered file(s)`,
           );
@@ -1095,10 +1103,7 @@ export async function processUnifiedFilesArray(
         const registeredFiles = fileRegistry.list();
         for (const ref of registeredFiles) {
           if (ref.extractedImages && ref.extractedImages.length > 0) {
-            options.input.images = [
-              ...(options.input.images || []),
-              ...ref.extractedImages,
-            ];
+            inp2.images = [...(inp2.images || []), ...ref.extractedImages];
             logger.info(
               `[FileDetector] Injected ${ref.extractedImages.length} extracted images from "${ref.filename}"`,
             );
@@ -1138,6 +1143,7 @@ export async function processUnifiedFilesArray(
 async function processExplicitCsvFiles(
   options: GenerateOptions,
 ): Promise<void> {
+  options.input ??= {};
   if (!options.input.csvFiles || options.input.csvFiles.length === 0) {
     return;
   }
@@ -1192,6 +1198,7 @@ function enforcePostProcessingBudget(
   provider: string,
   model: string,
 ): void {
+  options.input ??= {};
   if (!options.input.text) {
     return;
   }
@@ -1248,6 +1255,7 @@ async function processExplicitPdfFiles(
 ): Promise<
   Array<{ buffer: Buffer; filename: string; pageCount?: number | null }>
 > {
+  options.input ??= {};
   const pdfFiles: Array<{
     buffer: Buffer;
     filename: string;
@@ -1300,6 +1308,7 @@ function buildMultimodalSystemPrompt(
   options: GenerateOptions,
   hasPDFFiles: boolean,
 ): string {
+  options.input ??= {};
   let systemPrompt = options.systemPrompt?.trim() || "";
 
   const hasConversationHistory =
@@ -1312,10 +1321,11 @@ function buildMultimodalSystemPrompt(
     systemPrompt = `${systemPrompt.trim()}${STRUCTURED_OUTPUT_INSTRUCTIONS}`;
   }
 
+  const inp = options.input;
   const hasCSVFiles =
-    (options.input.csvFiles && options.input.csvFiles.length > 0) ||
-    (options.input.files &&
-      options.input.files.some((f) =>
+    (inp.csvFiles && inp.csvFiles.length > 0) ||
+    (inp.files &&
+      inp.files.some((f) =>
         typeof f === "string" ? f.toLowerCase().endsWith(".csv") : false,
       ));
 
@@ -1349,6 +1359,17 @@ export async function buildMultimodalMessagesArray(
   provider: string,
   model: string,
 ): Promise<MultimodalChatMessage[]> {
+  // Media-only callers (avatar / music / video) may omit `input` entirely.
+  // Normalise to an empty object so all sub-functions can access input.*
+  // without defensive null checks on every field access.
+  if (!options.input) {
+    options.input = {};
+  }
+  // After normalisation `input` is guaranteed non-undefined. Capture it in a
+  // local const so TypeScript sees the definite (non-optional) type in the
+  // rest of this function, avoiding 60+ "possibly undefined" errors.
+  const inp = options.input;
+
   // Compute provider-specific max PDF size once for consistent validation
   const pdfConfig = PDFProcessor.getProviderConfig(provider);
   const maxSize = pdfConfig
@@ -1372,22 +1393,21 @@ export async function buildMultimodalMessagesArray(
 
   // Check if this is a multimodal request
   const hasImages =
-    (options.input.images && options.input.images.length > 0) ||
-    (options.input.content &&
-      options.input.content.some((c) => c.type === "image"));
+    (inp.images && inp.images.length > 0) ||
+    (inp.content && inp.content.some((c) => c.type === "image"));
 
   const hasPDFs = pdfFiles.length > 0;
 
   // If no images or PDFs, use standard message building and convert to MultimodalChatMessage[]
   if (!hasImages && !hasPDFs) {
-    if (options.input.csvFiles) {
-      options.input.csvFiles = [];
+    if (inp.csvFiles) {
+      inp.csvFiles = [];
     }
-    if (options.input.pdfFiles) {
-      options.input.pdfFiles = [];
+    if (inp.pdfFiles) {
+      inp.pdfFiles = [];
     }
-    if (options.input.files) {
-      options.input.files = [];
+    if (inp.files) {
+      inp.files = [];
     }
 
     const standardMessages = await buildMessagesArray(
@@ -1500,25 +1520,22 @@ export async function buildMultimodalMessagesArray(
   try {
     let userContent: string | unknown;
 
-    if (options.input.content && options.input.content.length > 0) {
+    if (inp.content && inp.content.length > 0) {
       userContent = await convertContentToProviderFormat(
-        options.input.content,
+        inp.content,
         provider,
         model,
       );
-    } else if (
-      (options.input.images && options.input.images.length > 0) ||
-      pdfFiles.length > 0
-    ) {
+    } else if ((inp.images && inp.images.length > 0) || pdfFiles.length > 0) {
       userContent = await convertMultimodalToProviderFormat(
-        options.input.text,
-        options.input.images || [],
+        inp.text ?? "",
+        inp.images || [],
         pdfFiles,
         provider,
         model,
       );
     } else {
-      userContent = options.input.text;
+      userContent = inp.text;
     }
 
     if (typeof userContent === "string") {
@@ -1542,7 +1559,7 @@ export async function buildMultimodalMessagesArray(
       provider,
       model,
       hasImages,
-      imageCount: options.input.images?.length || 0,
+      imageCount: inp.images?.length || 0,
     });
     throw error;
   }

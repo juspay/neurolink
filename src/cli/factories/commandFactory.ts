@@ -119,6 +119,28 @@ export class CLICommandFactory {
         "lms",
         "llamacpp",
         "llama.cpp",
+        "xai",
+        "grok",
+        "groq",
+        "cohere",
+        "together-ai",
+        "together",
+        "fireworks",
+        "perplexity",
+        "pplx",
+        "cloudflare",
+        "workers-ai",
+        "cf-ai",
+        "replicate",
+        "voyage",
+        "voyage-ai",
+        "jina",
+        "jina-ai",
+        "stability",
+        "stability-ai",
+        "sd",
+        "ideogram",
+        "recraft",
       ],
       default: "auto",
       description:
@@ -416,13 +438,18 @@ export class CLICommandFactory {
       description: "Path to audio file for STT transcription",
     },
 
-    // Video Generation options (Veo 3.1)
+    // Video Generation options (Veo 3.1, Kling, Runway, Replicate)
     outputMode: {
       type: "string" as const,
-      choices: ["text", "video", "ppt"],
+      choices: ["text", "video", "ppt", "avatar", "music"],
       default: "text",
       description:
-        "Output mode: 'text' for standard generation, 'video' for video, 'ppt' for presentation",
+        "Output mode: 'text' (default), 'video' (Veo/Kling/Runway/Replicate), 'ppt' (presentation), 'avatar' (D-ID/HeyGen/MuseTalk talking-head), 'music' (Beatoven/ElevenLabs/Lyria/MusicGen)",
+    },
+    videoProvider: {
+      type: "string" as const,
+      description:
+        "Video provider override (e.g., 'vertex' (default), 'kling', 'runway', 'replicate')",
     },
     videoOutput: {
       type: "string" as const,
@@ -432,25 +459,101 @@ export class CLICommandFactory {
     videoResolution: {
       type: "string" as const,
       choices: ["720p", "1080p"],
-      default: "720p",
-      description: "Video output resolution (720p or 1080p)",
+      description:
+        "Video output resolution (720p or 1080p; provider default applied if omitted)",
     },
     videoLength: {
       type: "number" as const,
       choices: [4, 6, 8],
-      default: 4,
-      description: "Video duration in seconds (4, 6, or 8)",
+      description:
+        "Video duration in seconds (4, 6, or 8; provider default applied if omitted)",
     },
     videoAspectRatio: {
       type: "string" as const,
       choices: ["9:16", "16:9"],
-      default: "16:9",
-      description: "Video aspect ratio (9:16 for portrait, 16:9 for landscape)",
+      description:
+        "Video aspect ratio (9:16 for portrait, 16:9 for landscape; provider default applied if omitted)",
     },
     videoAudio: {
       type: "boolean" as const,
-      default: true,
-      description: "Enable/disable audio generation in video",
+      description:
+        "Enable/disable audio generation in video (provider default applied if omitted)",
+    },
+
+    // Avatar Generation options (D-ID, HeyGen, MuseTalk via Replicate)
+    avatarProvider: {
+      type: "string" as const,
+      description:
+        "Avatar provider (e.g., 'd-id' (default), 'heygen', 'replicate', 'musetalk')",
+    },
+    avatarImage: {
+      type: "string" as const,
+      description:
+        "Path to source portrait image (or HeyGen avatar id when --avatarProvider heygen)",
+    },
+    avatarAudio: {
+      type: "string" as const,
+      description: "Path to narration audio (alternative to --avatarText)",
+    },
+    avatarText: {
+      type: "string" as const,
+      description:
+        "Text the avatar should speak (the provider runs TTS internally)",
+    },
+    avatarVoice: {
+      type: "string" as const,
+      description:
+        "Voice id for TTS-driven avatars (provider-specific catalog id)",
+    },
+    avatarQuality: {
+      type: "string" as const,
+      choices: ["standard", "hd"],
+      description:
+        "Avatar output quality preset (provider default applied if omitted)",
+    },
+    avatarFormat: {
+      type: "string" as const,
+      choices: ["mp4", "webm", "mov"],
+      description:
+        "Avatar video output format (provider default applied if omitted)",
+    },
+    avatarOutput: {
+      type: "string" as const,
+      description: "Path to save generated avatar video (e.g., ./avatar.mp4)",
+    },
+
+    // Music Generation options (Beatoven, ElevenLabs, Lyria, MusicGen via Replicate)
+    musicProvider: {
+      type: "string" as const,
+      description:
+        "Music provider (e.g., 'beatoven' (default), 'elevenlabs-music', 'lyria', 'replicate', 'musicgen')",
+    },
+    musicDuration: {
+      type: "number" as const,
+      description: "Music duration in seconds (provider-clamped)",
+    },
+    musicFormat: {
+      type: "string" as const,
+      choices: ["mp3", "wav", "flac", "ogg"],
+      description: "Music output format",
+    },
+    musicGenre: {
+      type: "string" as const,
+      description:
+        "Music genre hint (e.g., 'ambient', 'cinematic', 'electronic')",
+    },
+    musicMood: {
+      type: "string" as const,
+      description:
+        "Music mood hint (e.g., 'uplifting', 'tense', 'melancholic')",
+    },
+    musicTempo: {
+      type: "number" as const,
+      description: "Music tempo in BPM",
+    },
+    musicOutput: {
+      type: "string" as const,
+      description: "Path to save generated music (e.g., ./track.mp3)",
     },
 
     // PPT Generation options
@@ -805,12 +908,41 @@ export class CLICommandFactory {
       sttLanguage: argv.sttLanguage as string | undefined,
       inputAudio: argv.inputAudio as string | undefined,
       // Video generation options (Veo 3.1)
-      outputMode: argv.outputMode as "text" | "video" | "ppt" | undefined,
+      outputMode: argv.outputMode as
+        | "text"
+        | "video"
+        | "ppt"
+        | "avatar"
+        | "music"
+        | undefined,
+      videoProvider: argv.videoProvider as string | undefined,
       videoOutput: argv.videoOutput as string | undefined,
       videoResolution: argv.videoResolution as "720p" | "1080p" | undefined,
       videoLength: argv.videoLength as 4 | 6 | 8 | undefined,
       videoAspectRatio: argv.videoAspectRatio as "9:16" | "16:9" | undefined,
       videoAudio: argv.videoAudio as boolean | undefined,
+      // Avatar generation options
+      avatarProvider: argv.avatarProvider as string | undefined,
+      avatarImage: argv.avatarImage as string | undefined,
+      avatarAudio: argv.avatarAudio as string | undefined,
+      avatarText: argv.avatarText as string | undefined,
+      avatarVoice: argv.avatarVoice as string | undefined,
+      avatarQuality: argv.avatarQuality as "standard" | "hd" | undefined,
+      avatarFormat: argv.avatarFormat as "mp4" | "webm" | "mov" | undefined,
+      avatarOutput: argv.avatarOutput as string | undefined,
+      // Music generation options
+      musicProvider: argv.musicProvider as string | undefined,
+      musicDuration: argv.musicDuration as number | undefined,
+      musicFormat: argv.musicFormat as
+        | "mp3"
+        | "wav"
+        | "flac"
+        | "ogg"
+        | undefined,
+      musicGenre: argv.musicGenre as string | undefined,
+      musicMood: argv.musicMood as string | undefined,
+      musicTempo: argv.musicTempo as number | undefined,
+      musicOutput: argv.musicOutput as string | undefined,
       // PPT generation options
       pptPages: argv.pptPages as number | undefined,
       pptTheme: argv.pptTheme as
@@ -1092,24 +1224,15 @@ export class CLICommandFactory {
     const userEnabledTools = !argv.disableTools; // Tools are enabled by default
     enhancedOptions.disableTools = true;
 
-    // Auto-set provider to vertex for video generation if not explicitly specified
-    if (!enhancedOptions.provider) {
-      enhancedOptions.provider = "vertex";
+    // Resolve video provider from explicit --videoProvider first, then top-level --provider, then default to vertex.
+    if (!enhancedOptions.videoProvider) {
+      enhancedOptions.videoProvider =
+        (enhancedOptions.provider as string | undefined) ?? "vertex";
       if (options.debug) {
         logger.debug(
-          "Auto-setting provider to 'vertex' for video generation mode",
+          `Auto-setting video provider to '${enhancedOptions.videoProvider}' for video generation mode`,
         );
       }
-    } else if (enhancedOptions.provider !== "vertex") {
-      // Warn if user specified a non-vertex provider
-      if (!options.quiet) {
-        logger.always(
-          chalk.yellow(
-            `⚠️  Warning: Video generation only supports Vertex AI. Overriding provider '${enhancedOptions.provider}' to 'vertex'.`,
-          ),
-        );
-      }
-      enhancedOptions.provider = "vertex";
     }
 
     // Auto-set model to veo-3.1 if not explicitly specified
@@ -1264,6 +1387,88 @@ export class CLICommandFactory {
       }
     } catch (error) {
       handleError(error as Error, "Video Output");
+    }
+  }
+
+  /**
+   * Helper method to handle avatar video file output.
+   * Saves the generated avatar buffer to --avatarOutput path when provided.
+   */
+  private static async handleAvatarOutput(
+    result: CliGenerateResult | unknown,
+    options: BaseCommandArgs & Record<string, unknown>,
+  ): Promise<void> {
+    const avatarOutputPath = options.avatarOutput as string | undefined;
+    if (!avatarOutputPath) {
+      return;
+    }
+    if (!result || typeof result !== "object") {
+      return;
+    }
+    const generateResult = result as CliGenerateResult;
+    const avatar = generateResult.avatar;
+    if (!avatar) {
+      if (!options.quiet) {
+        logger.always(
+          chalk.yellow(
+            "⚠️  No avatar video available in result. Avatar generation may not be enabled or the request failed.",
+          ),
+        );
+      }
+      return;
+    }
+    try {
+      fs.writeFileSync(avatarOutputPath, avatar.buffer);
+      if (!options.quiet) {
+        const sizeStr = formatFileSize(avatar.size);
+        logger.always(
+          chalk.green(
+            `👤 Avatar video saved to: ${avatarOutputPath} (${sizeStr})`,
+          ),
+        );
+      }
+    } catch (error) {
+      handleError(error as Error, "Avatar Output");
+    }
+  }
+
+  /**
+   * Helper method to handle music audio file output.
+   * Saves the generated music buffer to --musicOutput path when provided.
+   */
+  private static async handleMusicOutput(
+    result: CliGenerateResult | unknown,
+    options: BaseCommandArgs & Record<string, unknown>,
+  ): Promise<void> {
+    const musicOutputPath = options.musicOutput as string | undefined;
+    if (!musicOutputPath) {
+      return;
+    }
+    if (!result || typeof result !== "object") {
+      return;
+    }
+    const generateResult = result as CliGenerateResult;
+    const music = generateResult.music;
+    if (!music) {
+      if (!options.quiet) {
+        logger.always(
+          chalk.yellow(
+            "⚠️  No music available in result. Music generation may not be enabled or the request failed.",
+          ),
+        );
+      }
+      return;
+    }
+    try {
+      fs.writeFileSync(musicOutputPath, music.buffer);
+      if (!options.quiet) {
+        const sizeStr = formatFileSize(music.size);
+        logger.always(
+          chalk.green(`🎵 Music saved to: ${musicOutputPath} (${sizeStr})`),
+        );
+      }
+    } catch (error) {
+      handleError(error as Error, "Music Output");
     }
   }
 
@@ -1898,6 +2103,19 @@ export class CLICommandFactory {
                 "nvidia-nim",
                 "lm-studio",
                 "llamacpp",
+                "xai",
+                "groq",
+                "cohere",
+                "together-ai",
+                "fireworks",
+                "perplexity",
+                "cloudflare",
+                "replicate",
+                "voyage",
+                "jina",
+                "stability",
+                "ideogram",
+                "recraft",
               ],
             })
             .option("list", {
@@ -2355,15 +2573,19 @@ export class CLICommandFactory {
   }
 
   /**
-   * Detect output mode (video, ppt, or text) based on CLI arguments
+   * Detect output mode (video, ppt, avatar, music, or text) based on CLI arguments
    */
   private static detectGenerateOutputMode(
     argv: GenerateCommandArgs,
     options: BaseCommandArgs & Record<string, unknown>,
-  ): { isVideoMode: boolean; isPPTMode: boolean; spinnerMessage: string } {
+  ): {
+    isVideoMode: boolean;
+    isPPTMode: boolean;
+    isAvatarMode: boolean;
+    isMusicMode: boolean;
+    spinnerMessage: string;
+  } {
     const outputMode = (options as Record<string, unknown>).outputMode;
-
-    const isVideoMode = outputMode === "video";
 
     const hasPPTFlags =
       argv.pptPages !== undefined ||
@@ -2375,24 +2597,67 @@ export class CLICommandFactory {
       argv.pptNoImages === true;
 
     const hasVideoSignals =
-      outputMode === "video" || argv.videoOutput !== undefined;
+      outputMode === "video" ||
+      argv.videoOutput !== undefined ||
+      argv.videoProvider !== undefined ||
+      argv.videoLength !== undefined ||
+      argv.videoResolution !== undefined ||
+      argv.videoAspectRatio !== undefined;
     const hasPPTSignals = outputMode === "ppt" || hasPPTFlags;
+    const hasAvatarSignals =
+      outputMode === "avatar" ||
+      argv.avatarProvider !== undefined ||
+      argv.avatarImage !== undefined ||
+      argv.avatarText !== undefined ||
+      argv.avatarAudio !== undefined ||
+      argv.avatarVoice !== undefined ||
+      argv.avatarOutput !== undefined;
+    const hasMusicSignals =
+      outputMode === "music" ||
+      argv.musicProvider !== undefined ||
+      argv.musicGenre !== undefined ||
+      argv.musicMood !== undefined ||
+      argv.musicDuration !== undefined ||
+      argv.musicTempo !== undefined ||
+      argv.musicOutput !== undefined;
 
-    if (hasVideoSignals && hasPPTSignals) {
+    const activeModes = [
+      hasVideoSignals,
+      hasPPTSignals,
+      hasAvatarSignals,
+      hasMusicSignals,
+    ].filter(Boolean).length;
+
+    if (activeModes > 1) {
       throw new Error(
-        "Conflicting output mode signals detected. Use either video mode (--outputMode video, optionally with --videoOutput) or PPT mode (--outputMode ppt / --ppt* flags), not both.",
+        "Conflicting output mode signals detected. Use exactly one of video / ppt / avatar / music modes (or text).",
       );
     }
 
-    const isPPTMode = outputMode === "ppt" || hasPPTFlags;
+    // Derive mode flags from the full signal set so that flag-only invocations
+    // (e.g. --videoOutput without --output-mode video) are handled correctly.
+    const isVideoMode = hasVideoSignals;
+    const isAvatarMode = hasAvatarSignals;
+    const isMusicMode = hasMusicSignals;
+    const isPPTMode = hasPPTSignals;
 
     const spinnerMessage = isVideoMode
       ? "🎬 Generating video... (this may take 1-2 minutes)"
       : isPPTMode
         ? "📊 Generating presentation... (this may take 2-5 minutes)"
-        : "🤖 Generating text...";
+        : isAvatarMode
+          ? "👤 Generating avatar video... (this may take 1-3 minutes)"
+          : isMusicMode
+            ? "🎵 Generating music... (this may take 30s-2 minutes)"
+            : "🤖 Generating text...";
 
-    return { isVideoMode, isPPTMode, spinnerMessage };
+    return {
+      isVideoMode,
+      isPPTMode,
+      isAvatarMode,
+      isMusicMode,
+      spinnerMessage,
+    };
   }
 
   /**
@@ -2483,11 +2748,14 @@ export class CLICommandFactory {
     isVideoMode: boolean,
     isPPTMode: boolean,
     enhancedOptions: BaseCommandArgs & Record<string, unknown>,
+    isAvatarMode = false,
+    isMusicMode = false,
   ): Record<string, unknown> | undefined {
     if (isVideoMode) {
       return {
         mode: "video" as const,
         video: {
+          provider: enhancedOptions.videoProvider as string | undefined,
           resolution: enhancedOptions.videoResolution as
             | "720p"
             | "1080p"
@@ -2498,6 +2766,50 @@ export class CLICommandFactory {
             | "16:9"
             | undefined,
           audio: enhancedOptions.videoAudio as boolean | undefined,
+        },
+      };
+    }
+
+    if (isAvatarMode) {
+      return {
+        mode: "avatar" as const,
+        avatar: {
+          provider: enhancedOptions.avatarProvider as string | undefined,
+          image: enhancedOptions.avatarImage as string | undefined,
+          audio: enhancedOptions.avatarAudio as string | undefined,
+          text: enhancedOptions.avatarText as string | undefined,
+          voice: enhancedOptions.avatarVoice as string | undefined,
+          quality: enhancedOptions.avatarQuality as
+            | "standard"
+            | "hd"
+            | undefined,
+          format: enhancedOptions.avatarFormat as
+            | "mp4"
+            | "webm"
+            | "mov"
+            | undefined,
+          output: enhancedOptions.avatarOutput as string | undefined,
+        },
+      };
+    }
+
+    if (isMusicMode) {
+      return {
+        mode: "music" as const,
+        music: {
+          prompt: "", // Filled in from input.text/prompt by baseProvider
+          provider: enhancedOptions.musicProvider as string | undefined,
+          duration: enhancedOptions.musicDuration as number | undefined,
+          format: enhancedOptions.musicFormat as
+            | "mp3"
+            | "wav"
+            | "flac"
+            | "ogg"
+            | undefined,
+          genre: enhancedOptions.musicGenre as string | undefined,
+          mood: enhancedOptions.musicMood as string | undefined,
+          tempo: enhancedOptions.musicTempo as number | undefined,
+          output: enhancedOptions.musicOutput as string | undefined,
         },
       };
     }
@@ -2543,16 +2855,25 @@ export class CLICommandFactory {
   private static async handleGenerateSuccess(
     result: CliGenerateResult | unknown,
     options: BaseCommandArgs & Record<string, unknown>,
-    isVideoMode: boolean,
-    isPPTMode: boolean,
+    modes: {
+      isVideoMode: boolean;
+      isPPTMode: boolean;
+      isAvatarMode: boolean;
+      isMusicMode: boolean;
+    },
     spinner: ReturnType<typeof ora> | null,
   ): Promise<void> {
+    const { isVideoMode, isPPTMode, isAvatarMode, isMusicMode } = modes;
     const genResult = result as CliGenerateResult;
     if (spinner) {
       if (isVideoMode) {
         spinner.succeed(chalk.green("✅ Video generated successfully!"));
       } else if (isPPTMode) {
         spinner.succeed(chalk.green("✅ Presentation generated successfully!"));
+      } else if (isAvatarMode) {
+        spinner.succeed(chalk.green("✅ Avatar video generated successfully!"));
+      } else if (isMusicMode) {
+        spinner.succeed(chalk.green("✅ Music generated successfully!"));
       } else {
         spinner.succeed(chalk.green("✅ Text generated successfully!"));
       }
@@ -2566,12 +2887,14 @@ export class CLICommandFactory {
       );
     }
 
-    if (!isVideoMode && !isPPTMode) {
+    if (!isVideoMode && !isPPTMode && !isAvatarMode && !isMusicMode) {
       CLICommandFactory.handleOutput(genResult, options);
     }
 
     await CLICommandFactory.handleTTSOutput(genResult, options);
     await CLICommandFactory.handleVideoOutput(genResult, options);
+    await CLICommandFactory.handleAvatarOutput(genResult, options);
+    await CLICommandFactory.handleMusicOutput(genResult, options);
     await CLICommandFactory.handlePPTOutput(genResult, options);
 
     if (options.debug) {
@@ -2609,8 +2932,13 @@ export class CLICommandFactory {
     const options = CLICommandFactory.processOptions(argv);
 
     // Detect output mode
-    const { isVideoMode, isPPTMode, spinnerMessage } =
-      CLICommandFactory.detectGenerateOutputMode(argv, options);
+    const {
+      isVideoMode,
+      isPPTMode,
+      isAvatarMode,
+      isMusicMode,
+      spinnerMessage,
+    } = CLICommandFactory.detectGenerateOutputMode(argv, options);
 
     const spinner = argv.quiet ? null : ora(spinnerMessage).start();
 
@@ -2709,6 +3037,8 @@ export class CLICommandFactory {
         isVideoMode,
         isPPTMode,
         enhancedOptions,
+        isAvatarMode,
+        isMusicMode,
       );
 
       // Read audio file for STT if --input-audio is provided.
@@ -2829,8 +3159,7 @@ export class CLICommandFactory {
       await CLICommandFactory.handleGenerateSuccess(
         result,
         options,
-        isVideoMode,
-        isPPTMode,
+        { isVideoMode, isPPTMode, isAvatarMode, isMusicMode },
         spinner,
       );
     } catch (error) {
@@ -4105,7 +4434,7 @@ export class CLICommandFactory {
         "        generate|gen)\n" +
         '            case "${prev}" in\n' +
         "                --provider|-p)\n" +
-        '                    COMPREPLY=( $(compgen -W "auto openai openai-compatible openrouter or bedrock vertex googleVertex anthropic anthropic-subscription azure google-ai google-ai-studio huggingface ollama mistral litellm sagemaker deepseek ds nvidia-nim nim lm-studio lmstudio llamacpp llama.cpp" -- ${cur}) )\n' +
+        '                    COMPREPLY=( $(compgen -W "auto openai openai-compatible openrouter or bedrock vertex googleVertex anthropic anthropic-subscription azure google-ai google-ai-studio huggingface ollama mistral litellm sagemaker deepseek ds nvidia-nim nim lm-studio lmstudio llamacpp llama.cpp xai grok groq cohere together-ai together fireworks perplexity pplx cloudflare workers-ai cf-ai replicate voyage voyage-ai jina jina-ai stability stability-ai sd ideogram recraft" -- ${cur}) )\n' +
         "                    return 0\n" +
         "                    ;;\n" +
         "                --format|-f|--output-format)\n" +

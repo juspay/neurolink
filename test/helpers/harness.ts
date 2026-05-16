@@ -124,6 +124,15 @@ export type DefineSuiteOpts = {
   defaultModel?: string;
   /** Inter-test delay in ms. Default: 0. */
   interTestDelayMs?: number;
+  /**
+   * Per-test wall-clock cap in ms. When a single `test()` body exceeds this,
+   * the suite aborts the test (treats it as FAIL) and proceeds with the next
+   * one. Without this, an upstream endpoint that accepts a connection but
+   * never responds blocks the entire suite indefinitely (observed against
+   * litellm's `team not allowed to access model` path on tool-calling tests).
+   * Default: 240_000 (4 minutes).
+   */
+  perTestTimeoutMs?: number;
 };
 
 function resolveOpts(name: string, defs: DefineSuiteOpts): SuiteOpts {
@@ -346,12 +355,34 @@ export function defineSuite(
   const failures: { name: string; error: string }[] = [];
   const startedAt = Date.now();
 
+  const perTestTimeoutMs = defs.perTestTimeoutMs ?? 240_000;
+  // Sentinel used by the per-test timeout below; classified as SKIP (not
+  // FAIL) because the harness can't tell the difference between an SDK bug
+  // and an upstream that simply never responded.
+  const PER_TEST_TIMEOUT_SKIP_MARKER = "PER_TEST_TIMEOUT_SKIP";
+
   const test = async (testName: string, fn: TestFn): Promise<void> => {
+    let timeoutId: NodeJS.Timeout | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(
+          new Error(
+            `SKIP: ${PER_TEST_TIMEOUT_SKIP_MARKER} — ${testName} exceeded ${perTestTimeoutMs}ms — upstream likely hung; aborting test`,
+          ),
+        );
+      }, perTestTimeoutMs);
+    });
     try {
-      await fn();
+      await Promise.race([fn(), timeoutPromise]);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       passed++;
       console.log(`  ${colors.green}✓${colors.reset} ${testName}`);
     } catch (err) {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       const msg = err instanceof Error ? err.message : String(err);
       const isSkip =
         err instanceof Skip ||

@@ -99,6 +99,8 @@ export default [
       "neurolink/no-type-export-outside-types": "error", // Rule 12
       "neurolink/barrel-type-imports": "error", // Rule 13
       "neurolink/no-local-type-alias": "error", // Rule 2 (strict)
+      "neurolink/no-inline-secret-regex": "error", // Review H04 — secret-redaction must go through logSanitize
+      "neurolink/provider-typed-errors": "error", // Review M08 — formatProviderError must return typed errors
 
       // Disable base rules that are covered by TypeScript
       "no-unused-vars": "off",
@@ -290,6 +292,11 @@ export default [
       "docs-site/build/**",
       // Exclude compiled MCP server output files
       "docs-site/mcp-server/**/*.js",
+      // Test scratch directories (suite-local temp files that come and go
+      // during runs; eslint racing them produces ENOENT errors)
+      "test/.tmp/**",
+      "test/.tmp-*/**",
+      ".tmp-tests/**",
     ],
   },
 ];

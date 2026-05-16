@@ -152,6 +152,23 @@ export {
 } from "./utils/providerUtils.js";
 // TTS utilities
 export { TTSProcessor } from "./utils/ttsProcessor.js";
+export { TTS_ERROR_CODES, TTSError } from "./utils/ttsProcessor.js";
+
+// Video utilities
+export { VideoProcessor } from "./utils/videoProcessor.js";
+export { VIDEO_ERROR_CODES, VideoError } from "./utils/videoProcessor.js";
+
+// Avatar / lip-sync utilities
+export { AvatarProcessor } from "./utils/avatarProcessor.js";
+export { AVATAR_ERROR_CODES, AvatarError } from "./utils/avatarProcessor.js";
+
+// Music utilities
+export { MusicProcessor } from "./utils/musicProcessor.js";
+export { MUSIC_ERROR_CODES, MusicError } from "./utils/musicProcessor.js";
+
+// Provider registry (for tests, advanced consumers, and tools that need to
+// invoke registerAllProviders() outside of constructing a NeuroLink instance)
+export { ProviderRegistry } from "./factories/providerRegistry.js";
 
 // Main NeuroLink wrapper class and diagnostic types
 import { NeuroLink } from "./neurolink.js";
@@ -729,6 +746,9 @@ export {
   ScorerBuilder,
   Scorers,
   ScorerRegistry,
+  // RAGAS evaluator + retry manager (legacy + still-supported classes).
+  RAGASEvaluator,
+  RetryManager,
 } from "./evaluation/index.js";
 
 // ============================================================================

@@ -495,30 +495,66 @@ function validateContentPlan(
 
 /**
  * Parse AI response to extract JSON
- * Handles markdown code blocks and raw JSON
+ * Handles markdown code blocks (anywhere in the response), preambles like
+ * "Here is the JSON:", and raw JSON.
  */
 function parseAIResponse(content: string): unknown {
-  let jsonString = content.trim();
+  const trimmed = content.trim();
 
-  // Strip markdown code fences if present
-  if (jsonString.startsWith("```")) {
-    jsonString = jsonString
-      .replace(/^```(?:json)?\s*\n?/, "")
-      .replace(/\n?```\s*$/, "");
+  const candidates: string[] = [];
+
+  // 1) Extract first ```json ... ``` block from anywhere in the response.
+  const fenceBlock = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (fenceBlock && fenceBlock[1]) {
+    candidates.push(fenceBlock[1].trim());
   }
 
-  try {
-    return JSON.parse(jsonString);
-  } catch (error) {
-    throw new PPTError(
-      `Failed to parse AI response as JSON: ${error instanceof Error ? error.message : String(error)}`,
-      PPT_ERROR_CODES.INVALID_AI_RESPONSE,
-      {
-        contentPreview: content.substring(0, 500),
-        parseError: error instanceof Error ? error.message : String(error),
-      },
+  // 2) Strict leading-fence strip (legacy behaviour).
+  if (trimmed.startsWith("```")) {
+    candidates.push(
+      trimmed.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, ""),
     );
   }
+
+  // 3) Slice from first '{' or '[' to its matching close — handles preambles
+  //    like "Here is the presentation plan:\n{ ... }".
+  const firstObj = trimmed.indexOf("{");
+  const firstArr = trimmed.indexOf("[");
+  const firstStruct =
+    firstObj === -1
+      ? firstArr
+      : firstArr === -1
+        ? firstObj
+        : Math.min(firstObj, firstArr);
+  if (firstStruct > 0) {
+    const openChar = trimmed[firstStruct];
+    const closeChar = openChar === "{" ? "}" : "]";
+    const lastClose = trimmed.lastIndexOf(closeChar);
+    if (lastClose > firstStruct) {
+      candidates.push(trimmed.slice(firstStruct, lastClose + 1));
+    }
+  }
+
+  // 4) Raw input as last resort.
+  candidates.push(trimmed);
+
+  const errors: string[] = [];
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  throw new PPTError(
+    `Failed to parse AI response as JSON: ${errors[errors.length - 1]}`,
+    PPT_ERROR_CODES.INVALID_AI_RESPONSE,
+    {
+      contentPreview: content.substring(0, 500),
+      parseError: errors.join(" | "),
+    },
+  );
 }
 
 // ============================================================================

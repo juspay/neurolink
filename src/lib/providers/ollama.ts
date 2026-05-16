@@ -28,7 +28,7 @@ import {
   NetworkError,
   ProviderError,
 } from "../types/index.js";
-import { tracers, ATTR, withClientSpan } from "../telemetry/index.js";
+import { tracers, ATTR, withClientStreamSpan } from "../telemetry/index.js";
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { TimeoutError } from "../utils/timeout.js";
 
@@ -866,7 +866,7 @@ export class OllamaProvider extends BaseProvider {
     options: StreamOptions,
     _analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
-    return withClientSpan(
+    return withClientStreamSpan(
       {
         name: "neurolink.provider.stream",
         tracer: tracers.provider,
@@ -947,7 +947,7 @@ export class OllamaProvider extends BaseProvider {
           }
           conversationHistory.push({
             role: "user",
-            content: options.input.text,
+            content: options.input.text ?? "",
           });
         }
 
@@ -1163,6 +1163,8 @@ export class OllamaProvider extends BaseProvider {
           },
         };
       },
+      (r) => r.stream,
+      (r, wrapped) => ({ ...r, stream: wrapped }),
     );
   }
 
@@ -1174,7 +1176,7 @@ export class OllamaProvider extends BaseProvider {
     options: StreamOptions,
     _analysisSchema?: ZodUnknownSchema | Schema<unknown>,
   ): Promise<StreamResult> {
-    return withClientSpan(
+    return withClientStreamSpan(
       {
         name: "neurolink.provider.stream",
         tracer: tracers.provider,
@@ -1239,7 +1241,7 @@ export class OllamaProvider extends BaseProvider {
 
             messages.push({ role: "user", content });
           } else {
-            messages.push({ role: "user", content: options.input.text });
+            messages.push({ role: "user", content: options.input.text ?? "" });
           }
 
           const requestUrl = `${this.baseUrl}/v1/chat/completions`;
@@ -1384,6 +1386,8 @@ export class OllamaProvider extends BaseProvider {
           };
         }
       },
+      (r) => r.stream,
+      (r, wrapped) => ({ ...r, stream: wrapped }),
     );
   }
 

@@ -31,5 +31,7 @@ module.exports = {
     "no-type-export-outside-types": require("./no-type-export-outside-types.cjs"),
     "barrel-type-imports": require("./barrel-type-imports.cjs"),
     "no-local-type-alias": require("./no-local-type-alias.cjs"),
+    "no-inline-secret-regex": require("./no-inline-secret-regex.cjs"),
+    "provider-typed-errors": require("./provider-typed-errors.cjs"),
   },
 };

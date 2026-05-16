@@ -6,14 +6,22 @@ import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import type { NeuroLink } from "../neurolink.js";
+import { isNeuroLink } from "../neurolink.js";
 import { createProxyFetch, maskProxyUrl } from "../proxy/proxyFetch.js";
-import { tracers, ATTR, withClientSpan } from "../telemetry/index.js";
+import { tracers, ATTR, withClientStreamSpan } from "../telemetry/index.js";
 import type {
   UnknownRecord,
   NeurolinkCredentials,
   StreamOptions,
   StreamResult,
   ValidationSchema,
+} from "../types/index.js";
+import {
+  AuthenticationError,
+  InvalidModelError,
+  NetworkError,
+  ProviderError,
+  RateLimitError,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import {
@@ -89,10 +97,7 @@ export class DeepSeekProvider extends BaseProvider {
     _region?: string,
     credentials?: NeurolinkCredentials["deepseek"],
   ) {
-    const validatedNeurolink =
-      sdk && typeof sdk === "object" && "getInMemoryServers" in sdk
-        ? sdk
-        : undefined;
+    const validatedNeurolink = isNeuroLink(sdk) ? sdk : undefined;
 
     super(
       modelName,
@@ -193,7 +198,7 @@ export class DeepSeekProvider extends BaseProvider {
     options: StreamOptions,
     _analysisSchema?: ValidationSchema,
   ): Promise<StreamResult> {
-    return withClientSpan(
+    return withClientStreamSpan(
       {
         name: "neurolink.provider.stream",
         tracer: tracers.provider,
@@ -205,6 +210,8 @@ export class DeepSeekProvider extends BaseProvider {
         },
       },
       async () => this.executeStreamInner(options),
+      (r) => r.stream,
+      (r, wrapped) => ({ ...r, stream: wrapped }),
     );
   }
 
@@ -322,7 +329,10 @@ export class DeepSeekProvider extends BaseProvider {
 
   protected formatProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
-      return new Error(`DeepSeek request timed out: ${error.message}`);
+      return new NetworkError(
+        `Request timed out: ${error.message}`,
+        "deepseek",
+      );
     }
     const errorRecord = error as UnknownRecord;
     const message =
@@ -335,28 +345,31 @@ export class DeepSeekProvider extends BaseProvider {
       message.includes("Authentication") ||
       message.includes("401")
     ) {
-      return new Error(
+      return new AuthenticationError(
         "Invalid DeepSeek API key. Please check your DEEPSEEK_API_KEY environment variable.",
+        "deepseek",
       );
     }
     if (message.includes("rate limit") || message.includes("429")) {
-      return new Error("DeepSeek rate limit exceeded");
+      return new RateLimitError("DeepSeek rate limit exceeded", "deepseek");
     }
     if (
       message.includes("Insufficient Balance") ||
       message.includes("insufficient_balance") ||
       message.includes("402")
     ) {
-      return new Error(
+      return new ProviderError(
         "DeepSeek account has insufficient balance. Top up at https://platform.deepseek.com/usage",
+        "deepseek",
       );
     }
     if (message.includes("model_not_found") || message.includes("404")) {
-      return new Error(
+      return new InvalidModelError(
         `DeepSeek model '${this.modelName}' not found. Use 'deepseek-chat' or 'deepseek-reasoner'.`,
+        "deepseek",
       );
     }
-    return new Error(`DeepSeek error: ${message}`);
+    return new ProviderError(`DeepSeek error: ${message}`, "deepseek");
   }
 
   async validateConfiguration(): Promise<boolean> {

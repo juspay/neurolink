@@ -56,6 +56,107 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   llamacpp: {
     _default: 8_192,
   },
+  xai: {
+    _default: 131_072,
+    "grok-3": 131_072,
+    "grok-3-mini": 131_072,
+    "grok-2-latest": 131_072,
+    "grok-2-vision-latest": 32_768,
+    "grok-beta": 131_072,
+  },
+  groq: {
+    _default: 128_000,
+    "llama-3.3-70b-versatile": 131_072,
+    "llama-3.1-8b-instant": 128_000,
+    "llama-3.2-90b-vision-preview": 128_000,
+    "llama-3.2-11b-vision-preview": 128_000,
+    "llama-guard-3-8b": 8_192,
+    "gemma2-9b-it": 8_192,
+    "mixtral-8x7b-32768": 32_768,
+  },
+  cohere: {
+    _default: 128_000,
+    "command-r-plus": 128_000,
+    "command-r": 128_000,
+    "command-r7b-12-2024": 128_000,
+  },
+  "together-ai": {
+    _default: 128_000,
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": 128_000,
+    "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": 128_000,
+    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": 128_000,
+    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo": 128_000,
+    "mistralai/Mixtral-8x22B-Instruct-v0.1": 65_536,
+    "mistralai/Mixtral-8x7B-Instruct-v0.1": 32_768,
+    "Qwen/Qwen2.5-72B-Instruct-Turbo": 32_768,
+    "Qwen/Qwen2.5-Coder-32B-Instruct": 32_768,
+    "deepseek-ai/DeepSeek-R1": 64_000,
+    "deepseek-ai/DeepSeek-V3": 64_000,
+    "google/gemma-2-27b-it": 8_192,
+    "microsoft/WizardLM-2-8x22B": 65_536,
+  },
+  fireworks: {
+    _default: 128_000,
+    "accounts/fireworks/models/llama-v3p1-70b-instruct": 131_072,
+    "accounts/fireworks/models/llama-v3p1-405b-instruct": 128_000,
+    "accounts/fireworks/models/llama-v3p1-8b-instruct": 128_000,
+    "accounts/fireworks/models/llama-v3p3-70b-instruct": 128_000,
+    "accounts/fireworks/models/mixtral-8x22b-instruct": 65_536,
+    "accounts/fireworks/models/qwen2p5-72b-instruct": 32_768,
+    "accounts/fireworks/models/qwen2p5-coder-32b-instruct": 32_768,
+    "accounts/fireworks/models/deepseek-v3": 64_000,
+  },
+  perplexity: {
+    _default: 127_000,
+    sonar: 127_000,
+    "sonar-pro": 200_000,
+    "sonar-reasoning": 127_000,
+    "sonar-reasoning-pro": 127_000,
+    "sonar-deep-research": 200_000,
+  },
+  cloudflare: {
+    _default: 8_192,
+    "@cf/meta/llama-3.3-70b-instruct-fp8-fast": 24_000,
+    "@cf/meta/llama-3.1-70b-instruct": 24_000,
+    "@cf/meta/llama-3.1-8b-instruct-fast": 24_000,
+    "@cf/meta/llama-3.2-11b-vision-instruct": 24_000,
+    "@cf/mistral/mistral-7b-instruct-v0.2": 32_768,
+    "@cf/qwen/qwen1.5-14b-chat-awq": 7_500,
+    "@cf/google/gemma-2b-it-lora": 4_096,
+  },
+  replicate: {
+    // Per-model — Replicate hosts arbitrary models; sensible default.
+    _default: 32_768,
+  },
+  voyage: {
+    // Voyage embeddings: max input tokens vary 16K-32K per model
+    _default: 32_000,
+    "voyage-3.5": 32_000,
+    "voyage-3.5-lite": 32_000,
+    "voyage-3-large": 32_000,
+    "voyage-code-3": 32_000,
+    "voyage-finance-2": 32_000,
+    "voyage-law-2": 16_000,
+    "voyage-multilingual-2": 32_000,
+  },
+  jina: {
+    // Jina embeddings: 8K input tokens for v3; 8K for v2; 32K for ColBERT-v2
+    _default: 8_192,
+    "jina-embeddings-v3": 8_192,
+    "jina-embeddings-v2-base-en": 8_192,
+    "jina-embeddings-v2-small-en": 8_192,
+    "jina-colbert-v2": 32_000,
+  },
+  stability: {
+    // Image-gen — context is prompt length only; ~2000 char limit
+    _default: 2_000,
+  },
+  ideogram: {
+    _default: 2_000,
+  },
+  recraft: {
+    _default: 2_000,
+  },
   anthropic: {
     _default: 200_000,
     // Claude 4.6 (Feb 2026) — 1M context window

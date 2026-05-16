@@ -66,7 +66,13 @@ import {
 import { createNativeThinkingConfig } from "../utils/thinkingConfig.js";
 import { TimeoutError } from "../utils/async/index.js";
 import { prependConversationMessages } from "./googleNativeGemini3.js";
-import { ATTR, tracers, withClientSpan, withSpan } from "../telemetry/index.js";
+import {
+  ATTR,
+  tracers,
+  withClientSpan,
+  withClientStreamSpan,
+  withSpan,
+} from "../telemetry/index.js";
 import { calculateCost } from "../utils/pricing.js";
 
 // Import proper types for multimodal message handling
@@ -90,6 +96,116 @@ const hasAnthropicSupport = (): boolean => {
   // Actual availability is checked at runtime when creating the client
   return true;
 };
+
+/**
+ * Recursively strip JSON-schema fields that Vertex Gemini's function-call
+ * validator rejects with 400 INVALID_ARGUMENT. Vertex implements OpenAPI 3.0
+ * Schema strictly and rejects extension fields that the broader JSON Schema
+ * spec allows. The fields stripped here have no semantic meaning for the
+ * model, so removing them is safe for every caller.
+ *
+ * Fields removed:
+ * - `additionalProperties` — extension; Vertex rejects on any nested object.
+ * - `default` — Vertex rejects defaults on object/array-typed properties and
+ *   on properties that are also marked `required`. Safest to strip globally
+ *   because the model never inspects them.
+ * - `$schema`, `$id`, `$ref`, `definitions`, `$defs` — JSON-Schema-meta
+ *   fields that Vertex doesn't recognise.
+ * - `examples` — accepted by some Gemini variants but not 2.5-flash; strip
+ *   to avoid the model rejecting tool schemas under that path.
+ */
+function stripAdditionalPropertiesDeep(
+  schema: Record<string, unknown> | undefined,
+): void {
+  if (!schema || typeof schema !== "object") {
+    return;
+  }
+  const FIELDS_TO_STRIP = [
+    "additionalProperties",
+    "default",
+    "$schema",
+    "$id",
+    "$ref",
+    "definitions",
+    "$defs",
+    "examples",
+  ] as const;
+  for (const field of FIELDS_TO_STRIP) {
+    if (field in schema) {
+      delete (schema as Record<string, unknown>)[field];
+    }
+  }
+  // JSON Schema Draft-4 `exclusiveMinimum: true` / `exclusiveMaximum: true`
+  // (boolean form) is rejected by Vertex's OpenAPI 3.0 validator, which
+  // expects a numeric bound. zod-to-json-schema's openApi3 target still
+  // emits the Draft-4 form for `z.number().positive()` etc. Translate the
+  // boolean form into the numeric form when paired with `minimum` /
+  // `maximum`; otherwise drop it (the model doesn't validate, so the
+  // constraint is informational only).
+  if (typeof schema.exclusiveMinimum === "boolean") {
+    if (
+      schema.exclusiveMinimum === true &&
+      typeof schema.minimum === "number"
+    ) {
+      schema.exclusiveMinimum = schema.minimum;
+      delete schema.minimum;
+    } else {
+      delete schema.exclusiveMinimum;
+    }
+  }
+  if (typeof schema.exclusiveMaximum === "boolean") {
+    if (
+      schema.exclusiveMaximum === true &&
+      typeof schema.maximum === "number"
+    ) {
+      schema.exclusiveMaximum = schema.maximum;
+      delete schema.maximum;
+    } else {
+      delete schema.exclusiveMaximum;
+    }
+  }
+  // Strip `maximum` values that exceed int32 range — Vertex's protobuf
+  // serializer treats `type: "integer"` as int32 and rejects bounds beyond
+  // 2^31. zod's `.positive().int()` emits Number.MAX_SAFE_INTEGER as the
+  // upper bound (8.9e15), which trips this. The constraint is informational
+  // for the model anyway, so dropping it is safe.
+  const INT32_MAX = 2147483647;
+  if (typeof schema.maximum === "number" && schema.maximum > INT32_MAX) {
+    delete schema.maximum;
+  }
+  if (typeof schema.minimum === "number" && schema.minimum < -INT32_MAX) {
+    delete schema.minimum;
+  }
+  if (schema.properties && typeof schema.properties === "object") {
+    for (const child of Object.values(
+      schema.properties as Record<string, unknown>,
+    )) {
+      if (child && typeof child === "object") {
+        stripAdditionalPropertiesDeep(child as Record<string, unknown>);
+      }
+    }
+  }
+  if (schema.items && typeof schema.items === "object") {
+    if (Array.isArray(schema.items)) {
+      for (const item of schema.items) {
+        if (item && typeof item === "object") {
+          stripAdditionalPropertiesDeep(item as Record<string, unknown>);
+        }
+      }
+    } else {
+      stripAdditionalPropertiesDeep(schema.items as Record<string, unknown>);
+    }
+  }
+  for (const key of ["allOf", "anyOf", "oneOf"] as const) {
+    if (Array.isArray(schema[key])) {
+      for (const branch of schema[key] as unknown[]) {
+        if (branch && typeof branch === "object") {
+          stripAdditionalPropertiesDeep(branch as Record<string, unknown>);
+        }
+      }
+    }
+  }
+}
 
 // Configuration helpers - now using consolidated utility
 const getVertexProjectId = (): string => {
@@ -852,7 +968,7 @@ export class GoogleVertexProvider extends BaseProvider {
     // the test:tracing observability harness sees the same span hierarchy
     // it sees for AI Studio. BaseProvider.stream does NOT emit this span
     // for any provider — each native provider has to add it itself.
-    return withClientSpan(
+    return withClientStreamSpan(
       {
         name: "neurolink.provider.stream",
         tracer: tracers.provider,
@@ -941,6 +1057,8 @@ export class GoogleVertexProvider extends BaseProvider {
           throw error;
         }
       },
+      (r) => r.stream,
+      (r, wrapped) => ({ ...r, stream: wrapped }),
     );
   }
 
@@ -1041,8 +1159,11 @@ export class GoogleVertexProvider extends BaseProvider {
       parts: VertexNativePart[];
     }> = [];
 
-    // Build user message parts - start with text
-    const userParts: VertexNativePart[] = [{ text: options.input.text }];
+    // Build user message parts - start with text.
+    // `options.input.text` is `string | undefined` in strict mode; the
+    // VertexNativePart `text` field requires `string`, so coerce to "" if
+    // unset (the multimodal-only path still appends other parts below).
+    const userParts: VertexNativePart[] = [{ text: options.input.text ?? "" }];
 
     // Add PDF files as inlineData parts if present
     // Cast input to access multimodal properties that may exist at runtime
@@ -1212,6 +1333,12 @@ export class GoogleVertexProvider extends BaseProvider {
           // ensureNestedSchemaTypes recursively adds missing type fields to tool schemas
           // Note: convertZodToJsonSchema now uses openApi3 target which produces nullable: true
           const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
+          // Strip `additionalProperties` recursively — Vertex Gemini's
+          // function-call validator rejects it on object schemas (returns
+          // 400 INVALID_ARGUMENT) even though it's valid OpenAPI 3. The
+          // field has no semantic meaning to the model, so dropping it
+          // before send is safe for every caller.
+          stripAdditionalPropertiesDeep(typedSchema);
           decl.parametersJsonSchema = typedSchema;
         }
 
@@ -1924,6 +2051,12 @@ export class GoogleVertexProvider extends BaseProvider {
           // ensureNestedSchemaTypes recursively adds missing type fields to tool schemas
           // Note: convertZodToJsonSchema now uses openApi3 target which produces nullable: true
           const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
+          // Strip `additionalProperties` recursively — Vertex Gemini's
+          // function-call validator rejects it on object schemas (returns
+          // 400 INVALID_ARGUMENT) even though it's valid OpenAPI 3. The
+          // field has no semantic meaning to the model, so dropping it
+          // before send is safe for every caller.
+          stripAdditionalPropertiesDeep(typedSchema);
           decl.parametersJsonSchema = typedSchema;
         }
 
@@ -3698,6 +3831,24 @@ export class GoogleVertexProvider extends BaseProvider {
           return videoResult;
         }
 
+        // TTS direct-synthesis mode: when caller passes `tts.enabled` without
+        // `tts.useAiResponse`, route to the shared `handleDirectTTSSynthesis`
+        // (synthesise the input text directly; no LLM call). BaseProvider's
+        // standard generate() does the same dispatch — we replicate it here
+        // because Vertex's override bypasses that path.
+        if (options.tts?.enabled && !options.tts?.useAiResponse) {
+          logger.info(
+            "[GoogleVertex] Routing TTS direct-synthesis to handleDirectTTSSynthesis",
+            { model: modelName },
+          );
+          const ttsResult = await this.handleDirectTTSSynthesis(
+            options,
+            generateStartTime,
+          );
+          this.emitGenerationEnd(modelName, ttsResult, generateStartTime, true);
+          return ttsResult;
+        }
+
         // Check if this is an image generation model - route to executeImageGeneration without tools
         const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
           modelName.toLowerCase().startsWith(m.toLowerCase()),
@@ -3788,32 +3939,54 @@ export class GoogleVertexProvider extends BaseProvider {
 
         try {
           let result: EnhancedGenerateResult;
-          // Route Claude models to native Anthropic SDK
-          if (isAnthropicModel(modelName)) {
-            logger.info(
-              "[GoogleVertex] Routing Claude generate to native @anthropic-ai/vertex-sdk",
-              {
-                model: modelName,
-                totalToolCount: Object.keys(mergedOptions.tools).length,
+          // Wrap the actual native generate call in `neurolink.executeGeneration`
+          // so the observability span chain (tested by
+          // "Tracing: Generate Span Chain") sees a third inner span on the
+          // native @google/genai / @anthropic-ai/vertex-sdk path — Pipeline A
+          // gets this for free from GenerationHandler.executeGeneration.
+          result = await withSpan(
+            {
+              name: "neurolink.executeGeneration",
+              tracer: tracers.provider,
+              attributes: {
+                [ATTR.GEN_AI_SYSTEM]: this.providerName,
+                [ATTR.GEN_AI_MODEL]: modelName,
+                "neurolink.path": isAnthropicModel(modelName)
+                  ? "native.anthropic"
+                  : "native.google-genai",
               },
-            );
-            result = await this.executeNativeAnthropicGenerate(mergedOptions);
-          } else {
-            // ALL Gemini models use native @google/genai SDK
-            logger.info(
-              "[GoogleVertex] Routing Gemini generate to native @google/genai",
-              {
-                model: modelName,
-                totalToolCount: Object.keys(mergedOptions.tools).length,
-              },
-            );
-            result = await this.executeNativeGemini3Generate(mergedOptions);
-          }
+            },
+            async () => {
+              if (isAnthropicModel(modelName)) {
+                logger.info(
+                  "[GoogleVertex] Routing Claude generate to native @anthropic-ai/vertex-sdk",
+                  {
+                    model: modelName,
+                    totalToolCount: Object.keys(mergedOptions.tools).length,
+                  },
+                );
+                return this.executeNativeAnthropicGenerate(mergedOptions);
+              }
+              logger.info(
+                "[GoogleVertex] Routing Gemini generate to native @google/genai",
+                {
+                  model: modelName,
+                  totalToolCount: Object.keys(mergedOptions.tools).length,
+                },
+              );
+              return this.executeNativeGemini3Generate(mergedOptions);
+            },
+          );
           this.attachUsageAndCostAttributes(
             generateSpan,
             modelName,
             result?.usage,
           );
+          // Pipe through TTS-of-AI-response when caller asks for it. The
+          // shared `synthesizeAIResponseIfNeeded` no-ops when tts is not
+          // enabled / useAiResponse is false, so the cost is zero on
+          // non-TTS paths.
+          result = await this.synthesizeAIResponseIfNeeded(result, options);
           // Fire onFinish lifecycle callback for the native generate path.
           // Pipeline A providers get this for free via the AI SDK middleware
           // wrapper (LifecycleMiddleware); native @google/genai bypasses
@@ -4145,6 +4318,14 @@ export class GoogleVertexProvider extends BaseProvider {
         ? { error: error instanceof Error ? error.message : String(error) }
         : {}),
     });
+    // Mark on the result so the SDK-level runStandardGenerateRequest knows
+    // this provider already emitted `generation:end` itself and skips its
+    // own duplicate emission. Without this flag the public event listener
+    // (and the observability test) would see two events per generate call.
+    if (result && typeof result === "object") {
+      (result as { _generationEndEmitted?: boolean })._generationEndEmitted =
+        true;
+    }
   }
 
   protected formatProviderError(error: unknown): Error {

@@ -19,6 +19,10 @@ export const VIDEO_ERROR_CODES = {
   GENERATION_FAILED: "VIDEO_GENERATION_FAILED",
   /** Provider (Vertex AI) not properly configured */
   PROVIDER_NOT_CONFIGURED: "VIDEO_PROVIDER_NOT_CONFIGURED",
+  /** Provider name not registered with VideoProcessor */
+  PROVIDER_NOT_SUPPORTED: "VIDEO_PROVIDER_NOT_SUPPORTED",
+  /** Selected provider's handler does not implement generateTransition */
+  TRANSITION_NOT_SUPPORTED: "VIDEO_TRANSITION_NOT_SUPPORTED",
   /** Polling for video completion timed out */
   POLL_TIMEOUT: "VIDEO_POLL_TIMEOUT",
   /**

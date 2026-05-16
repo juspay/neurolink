@@ -3,7 +3,12 @@
 export { TelemetryService } from "./telemetryService.js";
 export { tracers } from "./tracers.js";
 
-export { withSpan, withClientSpan } from "./withSpan.js";
+export {
+  withSpan,
+  withClientSpan,
+  withStreamSpan,
+  withClientStreamSpan,
+} from "./withSpan.js";
 export { ATTR } from "./attributes.js";
 import { logger } from "../utils/logger.js";
 

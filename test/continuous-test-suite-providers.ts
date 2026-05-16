@@ -160,6 +160,13 @@ function isExpectedProviderError(msg: string): boolean {
     // AWS Bedrock without working credentials.
     "security token",
     "unrecognizedclientexception",
+    // Modality-only providers (embedding / image / reranking / async-prediction)
+    // — expected when the test cycles them through generate()/stream().
+    "embedding-only provider",
+    "image-generation-only provider",
+    "embeddings + reranking provider",
+    "predictions api, not the ai sdk chat models",
+    "chat completions are not available",
   ].some((p) => lowerMsg.includes(p));
 }
 
@@ -2063,6 +2070,19 @@ async function testModelRegistryCompleteness(): Promise<boolean | null> {
       "nvidia-nim",
       "lm-studio",
       "llamacpp",
+      "xai",
+      "groq",
+      "cohere",
+      "together-ai",
+      "fireworks",
+      "perplexity",
+      "cloudflare",
+      "voyage",
+      "jina",
+      "stability",
+      "ideogram",
+      "recraft",
+      "replicate",
     ];
 
     // Check AIProviderName enum exists

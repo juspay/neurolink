@@ -481,6 +481,34 @@ const VISION_CAPABILITIES = {
     "qwen2-vl",
     "phi-3-vision",
   ],
+  // xAI: only grok-2-vision is multimodal today
+  xai: ["grok-2-vision-latest"],
+  // Groq: vision models are explicit "*-vision-preview" variants
+  groq: ["llama-3.2-90b-vision-preview", "llama-3.2-11b-vision-preview"],
+  // Cohere: command-r* are text-only (no vision); empty list
+  cohere: [] as readonly string[],
+  // Together AI: text-only by default; add vision variants if/when used.
+  "together-ai": [] as readonly string[],
+  // Fireworks: vision via Phi-3-Vision and Llama 3.2 vision variants.
+  fireworks: [
+    "accounts/fireworks/models/phi-3-vision-128k-instruct",
+    "accounts/fireworks/models/llama-v3p2-90b-vision-instruct",
+    "accounts/fireworks/models/llama-v3p2-11b-vision-instruct",
+  ],
+  // Perplexity Sonar — text-only with web grounding.
+  perplexity: [] as readonly string[],
+  // Cloudflare: explicit vision variants only.
+  cloudflare: ["@cf/meta/llama-3.2-11b-vision-instruct"],
+  // Replicate: vision capability depends on the specific model id.
+  replicate: ["llava", "llama-3.2-vision", "moondream", "qwen2-vl"],
+  // Voyage / Jina — embedding-only, not multimodal in this sense.
+  voyage: [] as readonly string[],
+  jina: [] as readonly string[],
+  // Stability / Ideogram / Recraft — image-OUTPUT, not image-INPUT.
+  // VISION_CAPABILITIES tracks reference-image input support.
+  stability: [] as readonly string[],
+  ideogram: [] as readonly string[],
+  recraft: [] as readonly string[],
 } as const;
 
 /**

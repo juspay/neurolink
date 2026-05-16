@@ -211,7 +211,8 @@ export type StreamChunk =
 
 export type StreamOptions = {
   input: {
-    text: string;
+    /** Prompt text. Optional for media-only modes (avatar, music) that are driven by uploaded files rather than a prompt. */
+    text?: string;
     audio?: AudioInputSpec;
     /**
      * Images to include in the request.

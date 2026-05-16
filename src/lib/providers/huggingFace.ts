@@ -20,6 +20,13 @@ import type {
   StreamOptions,
   StreamResult,
 } from "../types/index.js";
+import {
+  AuthenticationError,
+  InvalidModelError,
+  NetworkError,
+  ProviderError,
+  RateLimitError,
+} from "../types/index.js";
 
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { logger } from "../utils/logger.js";
@@ -331,7 +338,7 @@ export class HuggingFaceProvider extends BaseProvider {
     // If model doesn't support tools, disable them completely
     if (!modelSupportsTools) {
       return {
-        prompt: options.input.text,
+        prompt: options.input.text ?? "",
         system: options.systemPrompt,
         tools: undefined,
         toolChoice: undefined,
@@ -350,7 +357,7 @@ export class HuggingFaceProvider extends BaseProvider {
       : undefined;
 
     return {
-      prompt: options.input.text,
+      prompt: options.input.text ?? "",
       system: enhancedSystemPrompt,
       tools: formattedTools,
       toolChoice: formattedTools ? (options.toolChoice ?? "auto") : undefined,
@@ -448,7 +455,10 @@ Available tools will be provided in the function calling format. Use them when t
    */
   public formatProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
-      return new Error(`HuggingFace request timed out: ${error.message}`);
+      return new NetworkError(
+        `Request timed out: ${error.message}`,
+        "huggingface",
+      );
     }
 
     const errorObj = error as UnknownRecord;
@@ -462,30 +472,37 @@ Available tools will be provided in the function calling format. Use them when t
       message.includes("API_TOKEN_INVALID") ||
       message.includes("Invalid token")
     ) {
-      return new Error(
-        "❌ Invalid HuggingFace API token. Please check your HUGGINGFACE_API_KEY environment variable.",
+      return new AuthenticationError(
+        "Invalid HuggingFace API token. Please check your HUGGINGFACE_API_KEY environment variable.",
+        "huggingface",
       );
     }
 
     if (message.includes("rate limit")) {
-      return new Error(
-        "❌ HuggingFace rate limit exceeded. Consider using a paid plan or try again later.",
+      return new RateLimitError(
+        "HuggingFace rate limit exceeded. Consider using a paid plan or try again later.",
+        "huggingface",
       );
     }
 
     if (message.includes("model") && message.includes("not found")) {
-      return new Error(
-        `❌ HuggingFace model '${this.modelName}' not found.\n\nSuggestions:\n1. Check model name spelling\n2. Ensure model exists on HuggingFace Hub\n3. For tool calling, use: Llama-3.1-8B-Instruct, Hermes-3-Llama-3.2-3B, or CodeLlama-34b-Instruct-hf`,
+      return new InvalidModelError(
+        `HuggingFace model '${this.modelName}' not found.\n\nSuggestions:\n1. Check model name spelling\n2. Ensure model exists on HuggingFace Hub\n3. For tool calling, use: Llama-3.1-8B-Instruct, Hermes-3-Llama-3.2-3B, or CodeLlama-34b-Instruct-hf`,
+        "huggingface",
       );
     }
 
     if (message.includes("function") || message.includes("tool")) {
-      return new Error(
-        `❌ HuggingFace tool calling error: ${message}\n\nNotes:\n1. Ensure you're using a tool-capable model (Llama-3.1+, Hermes-3+, CodeLlama)\n2. Check that your model supports function calling\n3. Verify tool schema format is correct`,
+      return new ProviderError(
+        `HuggingFace tool calling error: ${message}\n\nNotes:\n1. Ensure you're using a tool-capable model (Llama-3.1+, Hermes-3+, CodeLlama)\n2. Check that your model supports function calling\n3. Verify tool schema format is correct`,
+        "huggingface",
       );
     }
 
-    return new Error(`❌ HuggingFace Provider Error: ${message}`);
+    return new ProviderError(
+      `HuggingFace Provider Error: ${message}`,
+      "huggingface",
+    );
   }
 
   public getProviderName(): AIProviderName {

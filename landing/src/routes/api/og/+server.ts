@@ -40,7 +40,10 @@ export const GET: RequestHandler = async ({ url }) => {
 
   const vdom = html(markup);
 
-  const svg = await satori(vdom, {
+  // satori-html returns a VNode that satori accepts via its untyped JSX
+  // surface, but TypeScript can't bridge the two type names. Cast through
+  // `unknown` per the satori-html recommended pattern.
+  const svg = await satori(vdom as unknown as Parameters<typeof satori>[0], {
     width: 1200,
     height: 630,
     fonts,
@@ -50,7 +53,10 @@ export const GET: RequestHandler = async ({ url }) => {
     fitTo: { mode: "width", value: 1200 },
   });
   const pngData = resvg.render();
-  const pngBuffer = pngData.asPng();
+  // resvg-wasm returns `Uint8Array<ArrayBufferLike>`; Response's BodyInit
+  // wants a tighter `Uint8Array<ArrayBuffer>`. Wrap to re-narrow the
+  // underlying buffer type without copying.
+  const pngBuffer = new Uint8Array(pngData.asPng());
 
   return new Response(pngBuffer, {
     headers: {

@@ -1111,7 +1111,7 @@ export abstract class BaseProvider implements AIProvider {
     }
   }
 
-  private async handleDirectTTSSynthesis(
+  protected async handleDirectTTSSynthesis(
     options: TextGenerationOptions,
     startTime: number,
   ): Promise<EnhancedGenerateResult> {
@@ -1256,8 +1256,16 @@ export abstract class BaseProvider implements AIProvider {
     messages: ModelMessage[],
     tools: Record<string, Tool>,
   ): Promise<EnhancedGenerateResult> {
+    // Apply a defensive default timeout (3 min) when the caller didn't pass
+    // one. Without this guard, AI SDK's generateText() will wait forever on
+    // an upstream that accepts the connection but never produces a response
+    // (observed against the litellm gateway when a request triggers the
+    // team-access denial path — connection stays open, no response is sent,
+    // and the matrix test hangs the entire suite). Callers can still pass
+    // a larger value (e.g. video generation passes 10 min).
+    const effectiveTimeout = options.timeout ?? 180_000;
     const timeoutController = createTimeoutController(
-      options.timeout,
+      effectiveTimeout,
       this.providerName,
       "generate",
     );
@@ -1310,7 +1318,7 @@ export abstract class BaseProvider implements AIProvider {
     return finalResult;
   }
 
-  private async synthesizeAIResponseIfNeeded(
+  protected async synthesizeAIResponseIfNeeded(
     enhancedResult: EnhancedGenerateResult,
     options: TextGenerationOptions,
   ): Promise<EnhancedGenerateResult> {
@@ -1456,8 +1464,9 @@ export abstract class BaseProvider implements AIProvider {
     );
     throw new Error(
       `Embedding generation is not supported by the ${this.providerName} provider. ` +
-        `Supported providers: openai, vertex/google, bedrock. ` +
+        `Supported providers: openai, vertex/google, bedrock, cohere, voyage, jina. ` +
         `Use an embedding model like text-embedding-3-small (OpenAI), text-embedding-004 (Vertex), ` +
+        `embed-english-v3.0 (Cohere), voyage-3 (Voyage), jina-embeddings-v3 (Jina), ` +
         `or amazon.titan-embed-text-v2:0 (Bedrock).`,
     );
   }
@@ -1483,9 +1492,10 @@ export abstract class BaseProvider implements AIProvider {
     );
     throw new Error(
       `Batch embedding generation is not supported by the ${this.providerName} provider. ` +
-        `Supported providers: openai, googleAiStudio, vertex/google, bedrock. ` +
+        `Supported providers: openai, googleAiStudio, vertex/google, bedrock, cohere, voyage, jina. ` +
         `Use an embedding model like text-embedding-3-small (OpenAI), gemini-embedding-001 (Google AI), ` +
-        `text-embedding-004 (Vertex), or amazon.titan-embed-text-v2:0 (Bedrock).`,
+        `text-embedding-004 (Vertex), embed-english-v3.0 (Cohere), voyage-3 (Voyage), ` +
+        `jina-embeddings-v3 (Jina), or amazon.titan-embed-text-v2:0 (Bedrock).`,
     );
   }
 

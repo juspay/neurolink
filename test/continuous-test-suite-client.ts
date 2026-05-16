@@ -118,6 +118,40 @@ function isExpectedProviderError(msg: string): boolean {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let serverInstance: any = null;
 
+/**
+ * Probe whether the upstream LLM provider is reachable enough to satisfy
+ * an end-to-end Client.generate() / Client.stream() round-trip. Returns
+ * `true` if the test should SKIP. Only does a real probe for `ollama` /
+ * `lmstudio` / `llamacpp` (local-only daemons); other providers fall
+ * through and rely on credential checks inside the SDK.
+ */
+async function isUpstreamProviderUnreachable(
+  provider: string,
+): Promise<boolean> {
+  if (
+    provider === "ollama" ||
+    provider === "lm-studio" ||
+    provider === "llamacpp"
+  ) {
+    const url =
+      provider === "ollama"
+        ? "http://localhost:11434/api/version"
+        : provider === "lm-studio"
+          ? "http://localhost:1234/v1/models"
+          : "http://localhost:8080/v1/models";
+    try {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 500);
+      const r = await fetch(url, { signal: ctl.signal });
+      clearTimeout(timer);
+      return !r.ok;
+    } catch {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Compute the server URL from the current TEST_CONFIG (must be called after CLI args are parsed). */
 function getServerUrl(): string {
   return `http://localhost:${TEST_CONFIG.serverPort}`;
@@ -209,6 +243,18 @@ async function testClientGenerate(): Promise<boolean | null> {
   logSection("Test #2: Client.generate()");
   logTest("Generate text via HTTP client", "TESTING");
 
+  // When TEST_PROVIDER is ollama (default) but no Ollama daemon is running,
+  // the upstream call returns empty content. SKIP rather than FAIL — this is
+  // a test-env gap, not a client/server bug.
+  if (await isUpstreamProviderUnreachable(TEST_CONFIG.provider)) {
+    logTest(
+      "Generate text via HTTP client",
+      "SKIP",
+      `${TEST_CONFIG.provider} provider unreachable in this environment`,
+    );
+    return null;
+  }
+
   try {
     const { createClient } = await import("../src/lib/client/index.js");
 
@@ -251,6 +297,15 @@ async function testClientGenerate(): Promise<boolean | null> {
 async function testClientStream(): Promise<boolean | null> {
   logSection("Test #3: Client.stream()");
   logTest("Stream text via HTTP client", "TESTING");
+
+  if (await isUpstreamProviderUnreachable(TEST_CONFIG.provider)) {
+    logTest(
+      "Stream text via HTTP client",
+      "SKIP",
+      `${TEST_CONFIG.provider} provider unreachable in this environment`,
+    );
+    return null;
+  }
 
   try {
     const { createClient } = await import("../src/lib/client/index.js");

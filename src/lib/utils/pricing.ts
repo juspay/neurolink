@@ -298,6 +298,177 @@ const PRICING: Record<
   llamacpp: {
     _default: { input: 0, output: 0 },
   },
+  xai: {
+    _default: { input: 3.0 / 1_000_000, output: 15.0 / 1_000_000 },
+    "grok-3": { input: 3.0 / 1_000_000, output: 15.0 / 1_000_000 },
+    "grok-3-mini": { input: 0.3 / 1_000_000, output: 0.5 / 1_000_000 },
+    "grok-2-latest": { input: 2.0 / 1_000_000, output: 10.0 / 1_000_000 },
+    "grok-2-vision-latest": {
+      input: 2.0 / 1_000_000,
+      output: 10.0 / 1_000_000,
+    },
+    "grok-beta": { input: 5.0 / 1_000_000, output: 15.0 / 1_000_000 },
+  },
+  groq: {
+    _default: { input: 0.59 / 1_000_000, output: 0.79 / 1_000_000 },
+    "llama-3.3-70b-versatile": {
+      input: 0.59 / 1_000_000,
+      output: 0.79 / 1_000_000,
+    },
+    "llama-3.1-8b-instant": {
+      input: 0.05 / 1_000_000,
+      output: 0.08 / 1_000_000,
+    },
+    "llama-3.2-90b-vision-preview": {
+      input: 0.9 / 1_000_000,
+      output: 0.9 / 1_000_000,
+    },
+    "llama-3.2-11b-vision-preview": {
+      input: 0.18 / 1_000_000,
+      output: 0.18 / 1_000_000,
+    },
+    "gemma2-9b-it": { input: 0.2 / 1_000_000, output: 0.2 / 1_000_000 },
+    "mixtral-8x7b-32768": {
+      input: 0.24 / 1_000_000,
+      output: 0.24 / 1_000_000,
+    },
+  },
+  cohere: {
+    _default: { input: 2.5 / 1_000_000, output: 10.0 / 1_000_000 },
+    "command-r-plus": { input: 2.5 / 1_000_000, output: 10.0 / 1_000_000 },
+    "command-r": { input: 0.15 / 1_000_000, output: 0.6 / 1_000_000 },
+    "command-r7b-12-2024": {
+      input: 0.0375 / 1_000_000,
+      output: 0.15 / 1_000_000,
+    },
+  },
+  "together-ai": {
+    _default: { input: 0.88 / 1_000_000, output: 0.88 / 1_000_000 },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      input: 0.88 / 1_000_000,
+      output: 0.88 / 1_000_000,
+    },
+    "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": {
+      input: 3.5 / 1_000_000,
+      output: 3.5 / 1_000_000,
+    },
+    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": {
+      input: 0.88 / 1_000_000,
+      output: 0.88 / 1_000_000,
+    },
+    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo": {
+      input: 0.18 / 1_000_000,
+      output: 0.18 / 1_000_000,
+    },
+    "mistralai/Mixtral-8x22B-Instruct-v0.1": {
+      input: 1.2 / 1_000_000,
+      output: 1.2 / 1_000_000,
+    },
+    "mistralai/Mixtral-8x7B-Instruct-v0.1": {
+      input: 0.6 / 1_000_000,
+      output: 0.6 / 1_000_000,
+    },
+    "Qwen/Qwen2.5-72B-Instruct-Turbo": {
+      input: 1.2 / 1_000_000,
+      output: 1.2 / 1_000_000,
+    },
+    "deepseek-ai/DeepSeek-R1": {
+      input: 7.0 / 1_000_000,
+      output: 7.0 / 1_000_000,
+    },
+    "deepseek-ai/DeepSeek-V3": {
+      input: 1.25 / 1_000_000,
+      output: 1.25 / 1_000_000,
+    },
+  },
+  fireworks: {
+    _default: { input: 0.9 / 1_000_000, output: 0.9 / 1_000_000 },
+    "accounts/fireworks/models/llama-v3p1-70b-instruct": {
+      input: 0.9 / 1_000_000,
+      output: 0.9 / 1_000_000,
+    },
+    "accounts/fireworks/models/llama-v3p1-405b-instruct": {
+      input: 3.0 / 1_000_000,
+      output: 3.0 / 1_000_000,
+    },
+    "accounts/fireworks/models/llama-v3p1-8b-instruct": {
+      input: 0.2 / 1_000_000,
+      output: 0.2 / 1_000_000,
+    },
+    "accounts/fireworks/models/llama-v3p3-70b-instruct": {
+      input: 0.9 / 1_000_000,
+      output: 0.9 / 1_000_000,
+    },
+    "accounts/fireworks/models/mixtral-8x22b-instruct": {
+      input: 1.2 / 1_000_000,
+      output: 1.2 / 1_000_000,
+    },
+    "accounts/fireworks/models/qwen2p5-72b-instruct": {
+      input: 0.9 / 1_000_000,
+      output: 0.9 / 1_000_000,
+    },
+    "accounts/fireworks/models/qwen2p5-coder-32b-instruct": {
+      input: 0.9 / 1_000_000,
+      output: 0.9 / 1_000_000,
+    },
+    "accounts/fireworks/models/deepseek-v3": {
+      input: 0.75 / 1_000_000,
+      output: 3.0 / 1_000_000,
+    },
+  },
+  perplexity: {
+    _default: { input: 1.0 / 1_000_000, output: 1.0 / 1_000_000 },
+    sonar: { input: 1.0 / 1_000_000, output: 1.0 / 1_000_000 },
+    "sonar-pro": { input: 3.0 / 1_000_000, output: 15.0 / 1_000_000 },
+    "sonar-reasoning": { input: 1.0 / 1_000_000, output: 5.0 / 1_000_000 },
+    "sonar-reasoning-pro": {
+      input: 2.0 / 1_000_000,
+      output: 8.0 / 1_000_000,
+    },
+    "sonar-deep-research": {
+      input: 2.0 / 1_000_000,
+      output: 8.0 / 1_000_000,
+    },
+  },
+  cloudflare: {
+    // Cloudflare bills per "neuron"; symbolic per-token rate so cost
+    // attribution dashboards have non-zero values.
+    _default: { input: 0.011 / 1_000_000, output: 0.011 / 1_000_000 },
+  },
+  replicate: {
+    // Replicate bills per compute-second, not per-token. Symbolic rate.
+    _default: { input: 0.5 / 1_000_000, output: 1.5 / 1_000_000 },
+  },
+  voyage: {
+    // Voyage bills per million input tokens — output dimension is the
+    // embedding vector, not generated tokens. We charge to input only.
+    _default: { input: 0.18 / 1_000_000, output: 0 },
+    "voyage-3.5": { input: 0.06 / 1_000_000, output: 0 },
+    "voyage-3.5-lite": { input: 0.02 / 1_000_000, output: 0 },
+    "voyage-3-large": { input: 0.18 / 1_000_000, output: 0 },
+    "voyage-code-3": { input: 0.18 / 1_000_000, output: 0 },
+    "voyage-finance-2": { input: 0.12 / 1_000_000, output: 0 },
+    "voyage-law-2": { input: 0.12 / 1_000_000, output: 0 },
+    "voyage-multilingual-2": { input: 0.12 / 1_000_000, output: 0 },
+  },
+  jina: {
+    _default: { input: 0.02 / 1_000_000, output: 0 },
+    "jina-embeddings-v3": { input: 0.02 / 1_000_000, output: 0 },
+    "jina-reranker-v2-base-multilingual": {
+      input: 0.05 / 1_000_000,
+      output: 0,
+    },
+  },
+  stability: {
+    // Stability AI bills per image; symbolic per-token rate.
+    _default: { input: 0, output: 0.04 / 1_000 },
+  },
+  ideogram: {
+    _default: { input: 0, output: 0.08 / 1_000 },
+  },
+  recraft: {
+    _default: { input: 0, output: 0.04 / 1_000 },
+  },
 };
 
 /**
@@ -327,6 +498,28 @@ const PROVIDER_ALIASES: Record<string, string> = {
   nvidia: "nvidia-nim",
   lmstudio: "lm-studio",
   llamacpp: "llamacpp",
+  xai: "xai",
+  grok: "xai",
+  groq: "groq",
+  cohere: "cohere",
+  togetherai: "together-ai",
+  together: "together-ai",
+  fireworks: "fireworks",
+  perplexity: "perplexity",
+  pplx: "perplexity",
+  cloudflare: "cloudflare",
+  workersai: "cloudflare",
+  cfai: "cloudflare",
+  replicate: "replicate",
+  voyage: "voyage",
+  voyageai: "voyage",
+  jina: "jina",
+  jinaai: "jina",
+  stability: "stability",
+  stabilityai: "stability",
+  sd: "stability",
+  ideogram: "ideogram",
+  recraft: "recraft",
 };
 
 /**

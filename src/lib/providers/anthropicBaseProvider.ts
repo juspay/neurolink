@@ -161,7 +161,7 @@ export class AnthropicProviderV2 extends BaseProvider {
       try {
         result = streamText({
           model,
-          prompt: options.input.text,
+          prompt: options.input.text ?? "",
           system: options.systemPrompt,
           temperature: options.temperature,
           maxOutputTokens: options.maxTokens, // No default limit - unlimited unless specified

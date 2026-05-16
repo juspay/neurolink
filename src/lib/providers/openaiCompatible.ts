@@ -21,6 +21,13 @@ import type {
   StreamResult,
   ZodUnknownSchema,
 } from "../types/index.js";
+import {
+  AuthenticationError,
+  InvalidModelError,
+  NetworkError,
+  ProviderError,
+  RateLimitError,
+} from "../types/index.js";
 
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { logger } from "../utils/logger.js";
@@ -184,7 +191,10 @@ export class OpenAICompatibleProvider extends BaseProvider {
 
   protected formatProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
-      return new Error(`OpenAI Compatible request timed out: ${error.message}`);
+      return new NetworkError(
+        `Request timed out: ${error.message}`,
+        "openai-compatible",
+      );
     }
 
     // Check for timeout by error name and message as fallback
@@ -194,8 +204,9 @@ export class OpenAICompatibleProvider extends BaseProvider {
       (typeof errorRecord?.message === "string" &&
         errorRecord.message.includes("Timeout"))
     ) {
-      return new Error(
-        `OpenAI Compatible request timed out: ${errorRecord?.message || "Unknown timeout"}`,
+      return new NetworkError(
+        `Request timed out: ${errorRecord?.message || "Unknown timeout"}`,
+        "openai-compatible",
       );
     }
 
@@ -204,8 +215,9 @@ export class OpenAICompatibleProvider extends BaseProvider {
         errorRecord.message.includes("ECONNREFUSED") ||
         errorRecord.message.includes("Failed to fetch")
       ) {
-        return new Error(
+        return new NetworkError(
           `OpenAI Compatible endpoint not available. Please check your OPENAI_COMPATIBLE_BASE_URL: ${this.config.baseURL}`,
+          "openai-compatible",
         );
       }
 
@@ -214,14 +226,16 @@ export class OpenAICompatibleProvider extends BaseProvider {
         errorRecord.message.includes("Invalid API key") ||
         errorRecord.message.includes("Unauthorized")
       ) {
-        return new Error(
+        return new AuthenticationError(
           "Invalid OpenAI Compatible API key. Please check your OPENAI_COMPATIBLE_API_KEY environment variable.",
+          "openai-compatible",
         );
       }
 
       if (errorRecord.message.includes("rate limit")) {
-        return new Error(
+        return new RateLimitError(
           "OpenAI Compatible rate limit exceeded. Please try again later.",
+          "openai-compatible",
         );
       }
 
@@ -230,15 +244,17 @@ export class OpenAICompatibleProvider extends BaseProvider {
         (errorRecord.message.includes("not found") ||
           errorRecord.message.includes("does not exist"))
       ) {
-        return new Error(
+        return new InvalidModelError(
           `Model '${this.modelName}' not available on OpenAI Compatible endpoint. ` +
             "Please check available models or use getAvailableModels() to see supported models.",
+          "openai-compatible",
         );
       }
     }
 
-    return new Error(
+    return new ProviderError(
       `OpenAI Compatible error: ${errorRecord?.message || "Unknown error"}`,
+      "openai-compatible",
     );
   }
 

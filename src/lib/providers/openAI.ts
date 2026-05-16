@@ -16,7 +16,9 @@ import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import type { NeuroLink } from "../neurolink.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type {
+  EnhancedGenerateResult,
   UnknownRecord,
+  TextGenerationOptions,
   ToolWithLegacyParams,
   ValidationSchema,
   StreamOptions,
@@ -50,6 +52,8 @@ import {
 } from "../utils/timeout.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
+import { MAX_IMAGE_BYTES, readBoundedBuffer } from "../utils/sizeGuard.js";
+import { assertSafeUrl } from "../utils/ssrfGuard.js";
 import { getModelId } from "./providerTypeUtils.js";
 
 /**
@@ -941,6 +945,232 @@ export class OpenAIProvider extends BaseProvider {
 
       throw this.handleProviderError(error);
     }
+  }
+
+  /**
+   * Image generation via the OpenAI Images API (`/v1/images/generations`).
+   *
+   * Supports `gpt-image-1`, `dall-e-3`, and `dall-e-2`. The three models
+   * differ in which body params they accept:
+   *
+   * - `gpt-image-1` returns base64 by default; does NOT accept `response_format`.
+   * - `dall-e-3` / `dall-e-2` accept `response_format: "b64_json"` to get base64.
+   * - `dall-e-2` does NOT accept `quality` / `style`.
+   *
+   * The model is taken from `options.model || this.modelName`.
+   *
+   * @see https://platform.openai.com/docs/api-reference/images/create
+   */
+  protected override async executeImageGeneration(
+    options: TextGenerationOptions,
+  ): Promise<EnhancedGenerateResult> {
+    const startTime = Date.now();
+    const prompt = options.prompt ?? options.input?.text ?? "";
+    if (!prompt.trim()) {
+      throw new Error(
+        "OpenAI image generation requires a prompt (input.text or prompt)",
+      );
+    }
+
+    const model = options.model ?? this.modelName;
+    const apiKey = this.credentials?.apiKey ?? getOpenAIApiKey();
+    const baseURL = (
+      this.credentials?.baseURL ??
+      process.env.OPENAI_BASE_URL ??
+      "https://api.openai.com/v1"
+    ).replace(/\/$/, "");
+
+    // Image-gen extras live on `options` but are not part of the strict
+    // TextGenerationOptions shape — cast to a permissive type to read them.
+    const extras = options as TextGenerationOptions & {
+      aspectRatio?: string;
+      numberOfImages?: number;
+      quality?: string;
+      style?: string;
+      size?: string;
+    };
+
+    // Map aspect ratio to OpenAI's `size` parameter. gpt-image-1 supports
+    // 1024x1024 / 1024x1536 / 1536x1024 / auto; dall-e-3 supports
+    // 1024x1024 / 1792x1024 / 1024x1792; dall-e-2 supports 256x256 /
+    // 512x512 / 1024x1024. We pick safe defaults and let users override
+    // via `extras.size` directly.
+    const size =
+      extras.size ?? this.aspectRatioToOpenAISize(extras.aspectRatio, model);
+
+    // Clamp n per-model: gpt-image-1 and dall-e-3 only support n=1;
+    // dall-e-2 supports n=1..10; default to 1 for any future models.
+    const rawN = extras.numberOfImages ?? 1;
+    let clampedN: number;
+    if (model === "gpt-image-1" || model.startsWith("dall-e-3")) {
+      clampedN = 1;
+    } else if (model.startsWith("dall-e-2")) {
+      clampedN = Math.min(Math.max(rawN, 1), 10);
+    } else {
+      clampedN = 1;
+    }
+    const n = clampedN;
+
+    const body: Record<string, unknown> = {
+      model,
+      prompt,
+      n,
+      size,
+    };
+
+    if (model === "gpt-image-1") {
+      // gpt-image-1 always returns base64; rejects `response_format`.
+      if (extras.quality) {
+        body.quality = extras.quality;
+      }
+    } else if (model.startsWith("dall-e-3")) {
+      body.response_format = "b64_json";
+      if (extras.quality) {
+        body.quality = extras.quality;
+      }
+      if (extras.style) {
+        body.style = extras.style;
+      }
+    } else {
+      // dall-e-2 (and forward-compat default).
+      body.response_format = "b64_json";
+    }
+
+    const REQUEST_TIMEOUT_MS = 120_000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      const proxyFetch = createProxyFetch();
+      response = await proxyFetch(`${baseURL}/images/generations`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new Error(
+          `OpenAI image generation timed out after ${REQUEST_TIMEOUT_MS / 1000}s`,
+          { cause: err },
+        );
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `OpenAI image generation failed: ${response.status} — ${text}`,
+      );
+    }
+
+    const data = (await response.json()) as {
+      created?: number;
+      data?: Array<{
+        b64_json?: string;
+        url?: string;
+        revised_prompt?: string;
+      }>;
+    };
+
+    const first = data.data?.[0];
+    if (!first) {
+      throw new Error("OpenAI image generation returned no images");
+    }
+
+    let base64: string | undefined = first.b64_json;
+    // dall-e-2 with `response_format: "b64_json"` should always include
+    // b64_json. If a hosted URL came back instead (e.g. older keys, or
+    // url-mode), download it inline so callers always get base64.
+    if (!base64 && first.url) {
+      // Guard the API-returned URL before fetching (provider-returned URLs
+      // carry the same SSRF risk as caller-supplied ones).
+      await assertSafeUrl(first.url);
+      const proxyFetch = createProxyFetch();
+      const dlController = new AbortController();
+      const dlTimeoutId = setTimeout(() => dlController.abort(), 60_000);
+      let imgResp: Response;
+      try {
+        imgResp = await proxyFetch(first.url, { signal: dlController.signal });
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") {
+          throw new Error("OpenAI image URL download timed out after 60s", {
+            cause: err,
+          });
+        }
+        throw err;
+      } finally {
+        clearTimeout(dlTimeoutId);
+      }
+      if (!imgResp.ok) {
+        throw new Error(
+          `OpenAI image generation: failed to fetch hosted URL ${first.url} (${imgResp.status})`,
+        );
+      }
+      const buf = await readBoundedBuffer(
+        imgResp,
+        MAX_IMAGE_BYTES,
+        "OpenAI image fallback",
+      );
+      base64 = buf.toString("base64");
+    }
+
+    if (!base64) {
+      throw new Error(
+        "OpenAI image generation returned neither b64_json nor a URL",
+      );
+    }
+
+    const generationTimeMs = Date.now() - startTime;
+    logger.info(
+      `[OpenAIProvider] Generated image (${base64.length} base64 chars) in ${generationTimeMs}ms — model ${model}`,
+    );
+
+    return {
+      content: first.revised_prompt ?? prompt,
+      provider: this.providerName,
+      model,
+      usage: { input: 0, output: 0, total: 0 },
+      imageOutput: { base64 },
+    };
+  }
+
+  /**
+   * Map a NeuroLink-style aspect ratio (e.g. "16:9") to the OpenAI
+   * `size` parameter accepted by the active image model. Falls back to
+   * the per-model square default when the ratio is unknown.
+   */
+  private aspectRatioToOpenAISize(
+    aspectRatio: string | undefined,
+    model: string,
+  ): string {
+    if (model === "gpt-image-1") {
+      if (aspectRatio === "16:9" || aspectRatio === "3:2") {
+        return "1536x1024";
+      }
+      if (aspectRatio === "9:16" || aspectRatio === "2:3") {
+        return "1024x1536";
+      }
+      return "1024x1024";
+    }
+    if (model.startsWith("dall-e-3")) {
+      if (aspectRatio === "16:9" || aspectRatio === "3:2") {
+        return "1792x1024";
+      }
+      if (aspectRatio === "9:16" || aspectRatio === "2:3") {
+        return "1024x1792";
+      }
+      return "1024x1024";
+    }
+    // dall-e-2 — only square sizes supported.
+    return "1024x1024";
   }
 }
 

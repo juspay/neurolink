@@ -138,6 +138,143 @@ Access frontier models via hosted cloud inference APIs:
 
 [Setup Guide →](../../getting-started/provider-setup.md#nvidia-nim)
 
+### [xAI Grok](xai.md)
+
+**Grok 3 / 3 Mini / 2 / 2 Vision via api.x.ai**
+
+- 🧠 Grok 3 — flagship reasoning + coding
+- ⚡ Grok 3 Mini — faster + cheaper
+- 👁️ Grok 2 Vision — multimodal text + images
+- 🔑 API key from [console.x.ai](https://console.x.ai/)
+- 🔄 Aliases: `grok`
+
+[Setup Guide →](xai.md)
+
+### [Groq](groq.md)
+
+**Sub-100ms inference via LPU acceleration**
+
+- ⚡ <100ms TTFT — fastest hosted inference available
+- 🦙 Llama 3.3 70B Versatile (default), Llama 3.1 8B Instant, Mixtral, Gemma 2
+- 👁️ Llama 3.2 vision-preview variants for multimodal
+- 🔑 API key from [console.groq.com/keys](https://console.groq.com/keys)
+
+[Setup Guide →](groq.md)
+
+### Together AI
+
+**Hosted open-model gateway**
+
+- 📚 Llama 3.3 / 3.1 (8B–405B), Mixtral, Qwen 2.5, DeepSeek R1/V3, WizardLM
+- ⚡ Turbo variants for low latency
+- 🔑 API key from [api.together.xyz/settings/api-keys](https://api.together.xyz/settings/api-keys)
+- 🔄 Aliases: `together`
+
+### Fireworks AI
+
+**Fast open-model serving**
+
+- 🔥 Llama v3.1 70B/405B, Mixtral 8x22B, Qwen 2.5 Coder, DeepSeek V3
+- 👁️ Phi-3-Vision and Llama 3.2 vision variants
+- 🔑 API key from [fireworks.ai/account/api-keys](https://fireworks.ai/account/api-keys)
+
+### Perplexity
+
+**Sonar models with built-in web grounding**
+
+- 🌐 sonar / sonar-pro / sonar-reasoning / sonar-deep-research
+- 📚 Built-in web search + citations
+- 🔑 API key from [perplexity.ai/settings/api](https://www.perplexity.ai/settings/api)
+- 🔄 Aliases: `pplx`
+
+### Cloudflare Workers AI
+
+**Edge-served open models**
+
+- 🌍 Lowest cost tier — bills per "neuron" not token
+- 🦙 Llama 3.3 70B FP8, Llama 3.1, Mistral, Qwen, Gemma
+- 🔑 Token from [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) (Workers AI Read+Write)
+- ⚠️ Requires both `CLOUDFLARE_API_KEY` AND `CLOUDFLARE_ACCOUNT_ID`
+- 🔄 Aliases: `workers-ai`, `cf-ai`
+
+### Cohere
+
+**Command R / R+ chat + Embed v3 / Rerank v3 (RAG-essential)**
+
+- 💬 Command R+ flagship + Command R + Command R7B
+- 🔍 Embed v3 (English / multilingual) + Rerank v3 — top-tier RAG
+- 🔑 API key from [dashboard.cohere.com/api-keys](https://dashboard.cohere.com/api-keys)
+
+### [Replicate](replicate.md)
+
+**Multi-modal gateway — LLM + image + video + avatar + music in one auth**
+
+- 🎯 One `REPLICATE_API_TOKEN` for 5 modalities
+- 📚 Llama 3.1 70B/405B, Mistral, Mixtral
+- 🎨 FLUX 1.1 Pro, SDXL, Stable Diffusion 3.5
+- 🎬 Wan-Alpha video, MuseTalk avatar, MusicGen music
+- 🔑 Token from [replicate.com/account/api-tokens](https://replicate.com/account/api-tokens)
+
+[Setup Guide →](replicate.md)
+
+---
+
+## 🔍 Embedding-Only Providers
+
+Specialised embedding providers for RAG / retrieval pipelines (no chat):
+
+### [Voyage AI](voyage.md)
+
+**Top-tier RAG embeddings**
+
+- 📊 voyage-3-large flagship; voyage-3.5 default; voyage-code-3 for code
+- 🌍 voyage-multilingual-2 + domain-tuned (finance, law)
+- 🔑 API key from [dash.voyageai.com/api-keys](https://dash.voyageai.com/api-keys)
+
+[Setup Guide →](voyage.md)
+
+### Jina AI
+
+**Embeddings + reranking**
+
+- 📊 jina-embeddings-v3 multilingual flagship
+- 🔄 jina-reranker-v2 for retrieval reranking
+- 🔍 jina-colbert-v2 late-interaction retrieval
+- 🔑 API key from [jina.ai](https://jina.ai/?sui=apikey)
+
+---
+
+## 🎨 Direct Image Generation
+
+Specialised image-gen providers (in addition to Vertex Imagen / OpenAI DALL-E / Anthropic / Bedrock):
+
+### [Stability AI](stability.md)
+
+**Stable Image Ultra/Core + SD 3.5 family**
+
+- 🎨 Stable Image Ultra (flagship), Core (fast), SD 3.5 Large/Large-Turbo/Medium
+- 🖼️ PNG output, aspect-ratio + negative-prompt + seed support
+- 🔑 API key from [platform.stability.ai/account/keys](https://platform.stability.ai/account/keys)
+- 🔄 Aliases: `stability-ai`, `sd`
+
+[Setup Guide →](stability.md)
+
+### Ideogram
+
+**Strong typography + design-focused image generation**
+
+- 📝 V3 default; V2/V2-Turbo/V1 also supported
+- 🎨 magic_prompt + style + aspect_ratio controls
+- 🔑 API key from [developer.ideogram.ai](https://developer.ideogram.ai/)
+
+### Recraft
+
+**Vector / illustration-focused image generation**
+
+- 🎨 recraftv3 (raster), recraftv3-svg (vector), recraftv2
+- 📐 OpenAI-compat shape + style + size controls
+- 🔑 API token from [recraft.ai/api](https://www.recraft.ai/api)
+
 ---
 
 ## 💻 Local Providers
@@ -261,6 +398,18 @@ Synthesize speech, transcribe audio, or run live voice sessions. Voice providers
 
 [Setup Guide →](./azure-speech.md)
 
+#### [Fish Audio](./fish-audio.md)
+
+**Low-cost TTS with 15s voice cloning**
+
+- 💰 ~80% cheaper than ElevenLabs
+- 🎭 15-second reference audio → custom voice
+- 🌍 14 languages
+- 🎼 Formats: MP3, WAV, PCM16 (raw)
+- 🔑 Auth: API Key (`FISH_AUDIO_API_KEY`)
+
+[Setup Guide →](./fish-audio.md)
+
 ---
 
 ### Speech-to-Text (STT)
@@ -336,6 +485,42 @@ Realtime providers maintain a persistent bidirectional WebSocket connection, ena
 - 🔑 Auth: API Key (`GOOGLE_AI_API_KEY` or `GEMINI_API_KEY`)
 
 [Setup Guide →](../provider-setup.md)
+
+---
+
+## 🎬 Video Generation
+
+Image-to-video and text-to-video providers (use via `output: { mode: "video" }`):
+
+- **Vertex Veo 3.1** (default) — `--videoProvider vertex`
+- **Kling** (PiAPI) — `--videoProvider kling` ([details](../../provider-integration/19-adding-video-provider.md))
+- **Runway** (Gen-3 Alpha / Gen-4 Turbo) — `--videoProvider runway`
+- **Replicate** — Wan-Alpha + many others — `--videoProvider replicate` ([guide](replicate.md))
+
+See [Video Generation feature page](../../features/video-generation.md) for the full SDK / CLI surface.
+
+---
+
+## 👤 Avatar / Lip-Sync Generation
+
+Talking-head video synthesis from a portrait image + audio (use via `output: { mode: "avatar" }`):
+
+- **D-ID** — `--avatarProvider d-id` (text-driven via Microsoft voices, or audio-driven)
+- **HeyGen** — `--avatarProvider heygen` (HeyGen avatar catalog id required)
+- **Replicate (MuseTalk)** — `--avatarProvider replicate` or `musetalk` ([guide](replicate.md))
+
+See [`docs/provider-integration/21-adding-new-modality.md`](../../provider-integration/21-adding-new-modality.md) for the architectural pattern.
+
+---
+
+## 🎵 Music / Sound Generation
+
+Music + sound-effect generation (use via `output: { mode: "music" }`):
+
+- **Beatoven.ai** — `--musicProvider beatoven` (royalty-free background music)
+- **ElevenLabs Music** — `--musicProvider elevenlabs-music` (short SFX / loops up to 22s; same `ELEVENLABS_API_KEY` as TTS)
+- **Lyria 3 Pro** (Google) — `--musicProvider lyria`
+- **Replicate (MusicGen)** — `--musicProvider replicate` or `musicgen` ([guide](replicate.md))
 
 ---
 

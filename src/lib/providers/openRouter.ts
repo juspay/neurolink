@@ -24,6 +24,13 @@ import type {
   StreamResult,
   StreamTextResult,
 } from "../types/index.js";
+import {
+  AuthenticationError,
+  InvalidModelError,
+  NetworkError,
+  ProviderError,
+  RateLimitError,
+} from "../types/index.js";
 import { isAbortError } from "../utils/errorHandling.js";
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { logger } from "../utils/logger.js";
@@ -168,7 +175,10 @@ export class OpenRouterProvider extends BaseProvider {
 
   public formatProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
-      return new Error(`OpenRouter request timed out: ${error.message}`);
+      return new NetworkError(
+        `Request timed out: ${error.message}`,
+        "openrouter",
+      );
     }
 
     // Check for timeout by error name and message as fallback
@@ -178,8 +188,9 @@ export class OpenRouterProvider extends BaseProvider {
       (typeof errorRecord?.message === "string" &&
         errorRecord.message.includes("Timeout"))
     ) {
-      return new Error(
-        `OpenRouter request timed out: ${errorRecord?.message || "Unknown timeout"}`,
+      return new NetworkError(
+        `Request timed out: ${errorRecord?.message || "Unknown timeout"}`,
+        "openrouter",
       );
     }
     if (typeof errorRecord?.message === "string") {
@@ -187,8 +198,9 @@ export class OpenRouterProvider extends BaseProvider {
         errorRecord.message.includes("ECONNREFUSED") ||
         errorRecord.message.includes("Failed to fetch")
       ) {
-        return new Error(
+        return new NetworkError(
           "OpenRouter API not available. Please check your network connection and try again.",
+          "openrouter",
         );
       }
 
@@ -198,15 +210,17 @@ export class OpenRouterProvider extends BaseProvider {
         errorRecord.message.includes("invalid_api_key") ||
         errorRecord.message.includes("Unauthorized")
       ) {
-        return new Error(
+        return new AuthenticationError(
           "Invalid OpenRouter API key. Please check your OPENROUTER_API_KEY environment variable. " +
             "Get your key at https://openrouter.ai/keys",
+          "openrouter",
         );
       }
 
       if (errorRecord.message.includes("rate limit")) {
-        return new Error(
+        return new RateLimitError(
           "OpenRouter rate limit exceeded. Please try again later or upgrade your account at https://openrouter.ai/credits",
+          "openrouter",
         );
       }
 
@@ -214,15 +228,17 @@ export class OpenRouterProvider extends BaseProvider {
         errorRecord.message.includes("model") &&
         errorRecord.message.includes("not found")
       ) {
-        return new Error(
+        return new InvalidModelError(
           `Model '${this.modelName}' not available on OpenRouter. ` +
             "Browse available models at https://openrouter.ai/models",
+          "openrouter",
         );
       }
 
       if (errorRecord.message.includes("insufficient_credits")) {
-        return new Error(
+        return new ProviderError(
           "Insufficient OpenRouter credits. Add credits at https://openrouter.ai/credits",
+          "openrouter",
         );
       }
 
@@ -230,10 +246,11 @@ export class OpenRouterProvider extends BaseProvider {
       // This is distinct from tool errors: it can happen on any request when the
       // model has no available providers on OpenRouter (e.g., free-tier model down).
       if (errorRecord.message.includes("No endpoints found")) {
-        return new Error(
+        return new InvalidModelError(
           `No endpoints found for model '${this.modelName}' on OpenRouter. ` +
             "The model may be temporarily unavailable or does not support the requested parameters. " +
             "Try a different model or check availability at https://openrouter.ai/models",
+          "openrouter",
         );
       }
 
@@ -244,7 +261,7 @@ export class OpenRouterProvider extends BaseProvider {
         errorRecord.message.includes("function_call") ||
         errorRecord.message.includes("tools are not supported")
       ) {
-        return new Error(
+        return new ProviderError(
           `Model '${this.modelName}' does not support tool calling. ` +
             "Use a tool-capable model like:\n" +
             "  • google/gemini-2.0-flash-exp:free (free)\n" +
@@ -253,12 +270,14 @@ export class OpenRouterProvider extends BaseProvider {
             "  • openai/gpt-4o (paid)\n" +
             "Or use --disableTools flag. " +
             "See all tool-capable models at https://openrouter.ai/models?supported_parameters=tools",
+          "openrouter",
         );
       }
     }
 
-    return new Error(
+    return new ProviderError(
       `OpenRouter error: ${errorRecord?.message || "Unknown error"}`,
+      "openrouter",
     );
   }
 
@@ -371,7 +390,12 @@ export class OpenRouterProvider extends BaseProvider {
         messages: messages,
         temperature: options.temperature,
         maxRetries: 0, // Disable SDK retries - let caller handle rate limit retries with delays
-        ...(options.maxTokens && { maxTokens: options.maxTokens }),
+        // AI SDK v6 renamed `maxTokens` to `maxOutputTokens` — using the old
+        // name here is a silent no-op, so OpenRouter sees no cap and applies
+        // the model's full output max (typically 64K+ tokens) to its pre-bill
+        // affordability check. That trips "This request requires more credits"
+        // even on cheap models when the account balance is low.
+        ...(options.maxTokens && { maxOutputTokens: options.maxTokens }),
         ...(shouldUseTools &&
           Object.keys(tools).length > 0 && {
             tools,

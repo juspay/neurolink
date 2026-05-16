@@ -16,10 +16,15 @@ export class ExperimentRunner {
   async run(): Promise<ExperimentSummary> {
     const logPath = path.join(this.config.repoPath, this.config.logPath);
 
-    // Redact potential inline env vars or tokens before logging
+    // Redact potential inline env vars or tokens before logging.
+    // sanitizeForLog handles in-string `Bearer`/`Token`/`sk-` patterns but
+    // not CLI flag forms like `--token foo` (which is a different shape —
+    // separate argv tokens rather than concatenated values). The flag-form
+    // redactor below is narrowly scoped; not the H04 anti-pattern.
     const redactedCmd = this.config.runCommand
       .replace(/[A-Z_]+=\S+\s/g, (m) => m.split("=")[0] + "=*** ")
       .replace(
+        // eslint-disable-next-line neurolink/no-inline-secret-regex -- narrowly-scoped CLI-flag redactor
         /--(?:token|key|secret|password)\s+\S+/gi,
         (m) => m.split(/\s+/)[0] + " ***",
       );

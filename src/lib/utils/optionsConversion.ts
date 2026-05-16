@@ -19,8 +19,9 @@ export function convertGenerateToStreamOptions(
   generateOptions: GenerateOptions,
 ): StreamOptions {
   const streamOptions: StreamOptions = {
-    // Core input mapping
-    input: generateOptions.input,
+    // Core input mapping — GenerateOptions.input is optional (media-only callers
+    // may omit it); fall back to an empty object so StreamOptions stays valid.
+    input: generateOptions.input ?? {},
 
     // Provider and model settings
     provider: generateOptions.provider,

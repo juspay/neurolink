@@ -718,27 +718,49 @@ export function mapClaudeErrorTypeToStatus(errorType?: string): number {
 }
 
 async function ensureProxyStartAllowed(spinner: ProxySpinner): Promise<void> {
+  const ignoreLaunchd =
+    process.env.NEUROLINK_PROXY_IGNORE_LAUNCHD === "1" ||
+    process.env.NEUROLINK_PROXY_IGNORE_LAUNCHD === "true";
   const existingState = loadProxyState();
   if (existingState) {
     if (isProcessRunning(existingState.pid)) {
-      if (spinner) {
-        spinner.fail(
-          chalk.red(
-            `Proxy already running on port ${existingState.port} (PID: ${existingState.pid})`,
+      // Test / dev escape hatch: when NEUROLINK_PROXY_IGNORE_LAUNCHD is set,
+      // allow starting a second proxy on the test's requested port even if
+      // a launchd-managed instance is using a different port (its state
+      // file is what we hit here). The shared port-conflict surface remains
+      // — node will fail to bind if the requested port is actually busy.
+      if (!ignoreLaunchd) {
+        if (spinner) {
+          spinner.fail(
+            chalk.red(
+              `Proxy already running on port ${existingState.port} (PID: ${existingState.pid})`,
+            ),
+          );
+        }
+        logger.always(
+          chalk.yellow(
+            "Stop it first or use 'neurolink proxy status' to inspect",
           ),
         );
+        process.exit(process.ppid === 1 ? 0 : 1);
       }
-      logger.always(
-        chalk.yellow(
-          "Stop it first or use 'neurolink proxy status' to inspect",
-        ),
-      );
-      process.exit(process.ppid === 1 ? 0 : 1);
+    } else {
+      clearProxyState();
     }
-    clearProxyState();
   }
 
   if (process.ppid === 1 || !(await isLaunchdManaging())) {
+    return;
+  }
+
+  // Test / dev escape hatch: when starting on an explicit non-default port,
+  // the launchd-managed proxy (typically on its own port) cannot conflict.
+  // Setting `NEUROLINK_PROXY_IGNORE_LAUNCHD=1` lets the test suite start a
+  // standalone proxy alongside the launchd one without removing the daemon.
+  if (
+    process.env.NEUROLINK_PROXY_IGNORE_LAUNCHD === "1" ||
+    process.env.NEUROLINK_PROXY_IGNORE_LAUNCHD === "true"
+  ) {
     return;
   }
 

@@ -161,14 +161,47 @@ export type AudioContent = {
  * ```
  */
 export type VideoOutputOptions = {
+  /**
+   * Per-call cancellation signal forwarded to provider requests and polling
+   * loops. When aborted, long-running video generation is interrupted and
+   * the handler throws a non-retriable abort error.
+   */
+  abortSignal?: AbortSignal;
+  /**
+   * Override the video-gen provider. Defaults to "vertex" or to the LLM
+   * provider name if it is also a registered video handler.
+   *
+   * Registered providers are managed via `VideoProcessor.registerHandler`
+   * (see src/lib/utils/videoProcessor.ts). Examples: "vertex", "kling",
+   * "runway", "replicate".
+   */
+  provider?: string;
+  /**
+   * Specific model to use within the provider. Provider-specific shape
+   * (e.g. "veo-3.1-generate-001" for vertex; "atonamy/wan-alpha:..." for
+   * replicate).
+   */
+  model?: string;
   /** Output resolution - "720p" (1280x720) or "1080p" (1920x1080) */
   resolution?: "720p" | "1080p";
   /** Video duration in seconds (4, 6, or 8 seconds supported) */
   length?: 4 | 6 | 8;
-  /** Aspect ratio - "9:16" for portrait or "16:9" for landscape */
-  aspectRatio?: "9:16" | "16:9";
+  /** Aspect ratio - "9:16" for portrait, "16:9" for landscape, "1:1" for square */
+  aspectRatio?: "9:16" | "16:9" | "1:1";
   /** Enable audio generation (default: true) */
   audio?: boolean;
+  /**
+   * Publicly accessible URL of the input image.
+   * Required by providers that do not accept inline base64 data (e.g. PiAPI Kling).
+   * When provided and the provider requires a URL, this takes precedence over the
+   * `image` Buffer argument passed to `generate()`.
+   */
+  imageUrl?: string;
+  /**
+   * Per-call provider credentials. Takes precedence over instance-level
+   * credentials set at construction time, which in turn override env vars.
+   */
+  credentials?: import("./providers.js").NeurolinkCredentials;
 };
 
 // ============================================

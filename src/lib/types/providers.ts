@@ -185,6 +185,86 @@ export type NeurolinkCredentials = {
   // behind an auth-proxying reverse-proxy.
   lmStudio?: { apiKey?: string; baseURL?: string };
   llamacpp?: { apiKey?: string; baseURL?: string };
+  xai?: { apiKey?: string; baseURL?: string };
+  groq?: { apiKey?: string; baseURL?: string };
+  cohere?: { apiKey?: string; baseURL?: string };
+  together?: { apiKey?: string; baseURL?: string };
+  fireworks?: { apiKey?: string; baseURL?: string };
+  perplexity?: { apiKey?: string; baseURL?: string };
+  cloudflare?: { apiKey?: string; accountId?: string; baseURL?: string };
+  replicate?: { apiToken?: string; baseUrl?: string };
+  voyage?: { apiKey?: string; baseURL?: string };
+  jina?: { apiKey?: string; baseURL?: string };
+  stability?: { apiKey?: string; baseURL?: string };
+  ideogram?: { apiKey?: string; baseURL?: string };
+  recraft?: { apiKey?: string; baseURL?: string };
+};
+
+/**
+ * Voyage AI /embeddings response shape.
+ */
+export type VoyageEmbeddingsResponse = {
+  object: "list";
+  data: { object: "embedding"; embedding: number[]; index: number }[];
+  model: string;
+  usage?: { total_tokens?: number };
+};
+
+/**
+ * Jina AI /embeddings response shape (compatible with OpenAI's shape).
+ */
+export type JinaEmbeddingsResponse = {
+  object?: string;
+  data: { object?: string; embedding: number[]; index: number }[];
+  model?: string;
+  usage?: { total_tokens?: number; prompt_tokens?: number };
+};
+
+/**
+ * Jina AI /rerank response shape.
+ */
+export type JinaRerankResponse = {
+  model?: string;
+  results: {
+    index: number;
+    relevance_score: number;
+    document?: { text?: string };
+  }[];
+  usage?: { total_tokens?: number };
+};
+
+/**
+ * Stability AI /v2beta/stable-image/generate/{model} response shape
+ * (returns either binary directly, or JSON with base64 when Accept is set
+ * to application/json). We always request JSON for uniformity.
+ */
+export type StabilityImageResponse = {
+  image?: string; // base64
+  finish_reason?: "SUCCESS" | "ERROR" | "CONTENT_FILTERED";
+  seed?: number;
+};
+
+/**
+ * Ideogram /api/v1/ideogram-v3/generate response shape.
+ */
+export type IdeogramImageResponse = {
+  created?: string;
+  data: {
+    prompt?: string;
+    resolution?: string;
+    is_image_safe?: boolean;
+    seed?: number;
+    url?: string;
+    style_type?: string;
+  }[];
+};
+
+/**
+ * Recraft /v1/images/generations response shape.
+ */
+export type RecraftImageResponse = {
+  created?: number;
+  data: { url?: string; b64_json?: string; image_id?: string }[];
 };
 
 /**

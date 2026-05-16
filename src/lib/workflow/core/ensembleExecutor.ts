@@ -188,19 +188,39 @@ async function executeModel(
     const resolvedSystemPrompt =
       systemPrompt || model.systemPrompt || workflowDefaultSystemPrompt;
 
-    // Execute with timeout
-    const result = await executeWithTimeout(
-      async () => {
-        return await provider.generate({
-          prompt,
-          systemPrompt: resolvedSystemPrompt,
-          temperature: model.temperature,
-          maxTokens: model.maxTokens,
-        });
-      },
-      timeout,
-      `Model ${model.provider}/${model.model} timed out after ${timeout}ms`,
-    );
+    // Execute with timeout. Some upstream LLM endpoints (notably Vertex
+    // under high parallel load) occasionally respond with an empty
+    // assistant message instead of content; retry once before giving up so
+    // a transient empty response doesn't cascade into an empty ensemble
+    // result that downstream tests + judges have no way to evaluate.
+    let result: Awaited<ReturnType<typeof provider.generate>>;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 2;
+    /* eslint-disable no-constant-condition */
+    while (true) {
+      attempts++;
+      result = await executeWithTimeout(
+        async () => {
+          return await provider.generate({
+            prompt,
+            systemPrompt: resolvedSystemPrompt,
+            temperature: model.temperature,
+            maxTokens: model.maxTokens,
+          });
+        },
+        timeout,
+        `Model ${model.provider}/${model.model} timed out after ${timeout}ms`,
+      );
+      const contentLen = result?.content?.length ?? 0;
+      if (contentLen > 0 || attempts >= MAX_ATTEMPTS) {
+        break;
+      }
+      logger.warn(
+        `[${functionTag}] Model returned empty content — retrying once`,
+        { provider: model.provider, model: model.model, attempt: attempts },
+      );
+    }
+    /* eslint-enable no-constant-condition */
 
     const responseTime = Date.now() - startTime;
 

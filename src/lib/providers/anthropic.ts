@@ -452,12 +452,43 @@ export class AnthropicProvider extends BaseProvider {
       const apiKeyToUse =
         credentials?.apiKey ?? config?.apiKey ?? getAnthropicApiKey();
 
+      // The Vercel AI SDK builds `${baseURL}/messages` (no version prefix).
+      // Anthropic's REST API lives under `/v1/messages`, so a user-supplied
+      // bare host like `http://localhost:55669` 404s. Normalize: if the
+      // baseURL doesn't already end with `/vN`, append `/v1`.
+      //
+      // CAVEAT: this heuristic assumes the proxy exposes Anthropic-compatible
+      // endpoints rooted at `/vN/...`. Path-rooted proxies like
+      // `https://proxy.example.com/anthropic` will be silently rewritten to
+      // `…/anthropic/v1` and 404 if the proxy doesn't expose that path. To
+      // disable auto-append, set `ANTHROPIC_BASE_URL` explicitly ending in a
+      // version segment (e.g. `https://api.anthropic.com/v1`).
+      const normalizedBaseURL = (() => {
+        const raw = process.env.ANTHROPIC_BASE_URL;
+        if (!raw) {
+          return undefined;
+        }
+        const trimmed = raw.replace(/\/+$/, "");
+        if (/\/v\d+$/.test(trimmed)) {
+          return trimmed;
+        }
+        logger.warn(
+          "[AnthropicProvider] ANTHROPIC_BASE_URL does not end with /vN; " +
+            "appending /v1 so the Vercel AI SDK can build /messages correctly. " +
+            "To silence this warning, set ANTHROPIC_BASE_URL with an explicit " +
+            "version segment (e.g. https://api.anthropic.com/v1). " +
+            "If your proxy exposes Anthropic at a custom path that doesn't " +
+            "expose /v1/messages, the auto-append will produce a 404 — pass " +
+            "the full path including the version explicitly.",
+          { baseURL: raw, rewrittenTo: `${trimmed}/v1` },
+        );
+        return `${trimmed}/v1`;
+      })();
+
       anthropic = createAnthropic({
         apiKey: apiKeyToUse,
         headers,
-        ...(process.env.ANTHROPIC_BASE_URL && {
-          baseURL: process.env.ANTHROPIC_BASE_URL,
-        }),
+        ...(normalizedBaseURL && { baseURL: normalizedBaseURL }),
         fetch: createProxyFetch(),
       });
 
@@ -515,13 +546,24 @@ export class AnthropicProvider extends BaseProvider {
 
     if (this.enableBetaFeatures) {
       if (usingProxy) {
-        headers["anthropic-beta"] = [
+        // The 1M-context beta requires a plan upgrade on most accounts;
+        // surfacing it by default forces a "The long context beta is not
+        // yet available for this subscription." failure for everyone else.
+        // Gate behind ANTHROPIC_ENABLE_LONG_CONTEXT_BETA=1 so default-tier
+        // accounts (and CI) can use the proxy without the gated feature.
+        const longContextOptIn =
+          process.env.ANTHROPIC_ENABLE_LONG_CONTEXT_BETA === "1" ||
+          process.env.ANTHROPIC_ENABLE_LONG_CONTEXT_BETA === "true";
+        const betas = [
           ...CLAUDE_CODE_OAUTH_BETAS,
           "fine-grained-tool-streaming-2025-05-14",
-          "context-1m-2025-08-07",
           "interleaved-thinking-2025-05-14",
           "redact-thinking-2026-02-12",
-        ].join(",");
+        ];
+        if (longContextOptIn) {
+          betas.push("context-1m-2025-08-07");
+        }
+        headers["anthropic-beta"] = betas.join(",");
       } else {
         headers["anthropic-beta"] = ANTHROPIC_BETA_HEADERS["anthropic-beta"];
       }
@@ -552,8 +594,14 @@ export class AnthropicProvider extends BaseProvider {
    * ```
    */
   public validateModelAccess(model: string): boolean {
-    // Proxy mode: bypass tier validation entirely — the proxy handles model access
+    // Proxy mode: bypass tier validation entirely — the proxy handles model
+    // access. Log at debug level so users can tell why an unknown model name
+    // "validated" when their proxy may not actually expose it.
     if (process.env.ANTHROPIC_BASE_URL) {
+      logger.debug(
+        "[validateModelAccess] Bypassing tier check (ANTHROPIC_BASE_URL set — proxy enforces access)",
+        { model },
+      );
       return true;
     }
 
@@ -701,6 +749,14 @@ export class AnthropicProvider extends BaseProvider {
         REFRESH_TIMEOUT_MS,
       );
 
+      // User-Agent is set to CLAUDE_CLI_USER_AGENT so the refresh request
+      // matches what the official Claude CLI / CLIProxyAPI sends. Anthropic
+      // gates parts of the OAuth flow on this UA (the same `client_id` is
+      // rejected by `ANTHROPIC_TOKEN_URL` if the UA looks like a generic
+      // SDK), so this is required for OAuth refresh to succeed — not a
+      // cosmetic choice. If Anthropic ever publishes a separate UA for
+      // third-party OAuth clients, switch to that. See `auth/anthropicOAuth.ts`
+      // for the source of `CLAUDE_CLI_USER_AGENT` / `CLAUDE_CODE_CLIENT_ID`.
       const response = await fetch(ANTHROPIC_TOKEN_URL, {
         method: "POST",
         headers: {

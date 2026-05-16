@@ -6,8 +6,9 @@ import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import type { NeuroLink } from "../neurolink.js";
+import { isNeuroLink } from "../neurolink.js";
 import { createProxyFetch, maskProxyUrl } from "../proxy/proxyFetch.js";
-import { tracers, ATTR, withClientSpan } from "../telemetry/index.js";
+import { tracers, ATTR, withClientStreamSpan } from "../telemetry/index.js";
 import type {
   UnknownRecord,
   NeurolinkCredentials,
@@ -15,6 +16,13 @@ import type {
   StreamOptions,
   StreamResult,
   ValidationSchema,
+} from "../types/index.js";
+import {
+  AuthenticationError,
+  InvalidModelError,
+  NetworkError,
+  ProviderError,
+  RateLimitError,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import {
@@ -28,6 +36,8 @@ import {
   TimeoutError,
 } from "../utils/timeout.js";
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
+import { resolveToolChoice } from "../utils/toolChoice.js";
+import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
 
 /**
  * Decide whether a NIM 400 response body is a rejection of the named
@@ -188,8 +198,6 @@ const makeLoggingFetch = (provider: string): typeof fetch => {
     return response;
   }) as typeof fetch;
 };
-import { resolveToolChoice } from "../utils/toolChoice.js";
-import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
 
 const NVIDIA_NIM_DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1";
 
@@ -298,10 +306,7 @@ export class NvidiaNimProvider extends BaseProvider {
     _region?: string,
     credentials?: NeurolinkCredentials["nvidiaNim"],
   ) {
-    const validatedNeurolink =
-      sdk && typeof sdk === "object" && "getInMemoryServers" in sdk
-        ? sdk
-        : undefined;
+    const validatedNeurolink = isNeuroLink(sdk) ? sdk : undefined;
 
     super(
       modelName,
@@ -360,7 +365,7 @@ export class NvidiaNimProvider extends BaseProvider {
     options: StreamOptions,
     _analysisSchema?: ValidationSchema,
   ): Promise<StreamResult> {
-    return withClientSpan(
+    return withClientStreamSpan(
       {
         name: "neurolink.provider.stream",
         tracer: tracers.provider,
@@ -372,6 +377,8 @@ export class NvidiaNimProvider extends BaseProvider {
         },
       },
       async () => this.executeStreamInner(options),
+      (r) => r.stream,
+      (r, wrapped) => ({ ...r, stream: wrapped }),
     );
   }
 
@@ -580,7 +587,10 @@ export class NvidiaNimProvider extends BaseProvider {
 
   protected formatProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
-      return new Error(`NVIDIA NIM request timed out: ${error.message}`);
+      return new NetworkError(
+        `Request timed out: ${error.message}`,
+        "nvidia-nim",
+      );
     }
     const errorRecord = error as UnknownRecord;
     const message =
@@ -603,22 +613,27 @@ export class NvidiaNimProvider extends BaseProvider {
       message.includes("401") ||
       message.includes("Unauthorized")
     ) {
-      return new Error(
+      return new AuthenticationError(
         "Invalid NVIDIA NIM API key. Get one at https://build.nvidia.com/settings/api-keys",
+        "nvidia-nim",
       );
     }
     if (message.includes("rate limit") || message.includes("429")) {
-      return new Error("NVIDIA NIM rate limit exceeded");
+      return new RateLimitError("NVIDIA NIM rate limit exceeded", "nvidia-nim");
     }
     if (message.includes("404") || message.includes("model_not_found")) {
-      return new Error(
+      return new InvalidModelError(
         `NVIDIA NIM model '${this.modelName}' not available. Browse the catalog at https://build.nvidia.com/models`,
+        "nvidia-nim",
       );
     }
     if (message.includes("quota") || message.includes("403")) {
-      return new Error("NVIDIA NIM quota exceeded for your account");
+      return new ProviderError(
+        "NVIDIA NIM quota exceeded for your account",
+        "nvidia-nim",
+      );
     }
-    return new Error(`NVIDIA NIM error: ${message}`);
+    return new ProviderError(`NVIDIA NIM error: ${message}`, "nvidia-nim");
   }
 
   async validateConfiguration(): Promise<boolean> {

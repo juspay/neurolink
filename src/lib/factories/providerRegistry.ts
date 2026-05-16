@@ -23,6 +23,19 @@ import {
   DeepSeekModels,
   NvidiaNimModels,
   OpenRouterModels,
+  XaiModels,
+  GroqModels,
+  CohereModels,
+  TogetherAIModels,
+  FireworksModels,
+  PerplexityModels,
+  CloudflareModels,
+  VoyageModels,
+  JinaModels,
+  StabilityModels,
+  IdeogramModels,
+  RecraftModels,
+  ReplicateModels,
 } from "../constants/enums.js";
 
 /**
@@ -491,6 +504,317 @@ export class ProviderRegistry {
         process.env.LLAMACPP_MODEL || undefined,
         ["llamacpp", "llama.cpp", "llama-cpp"],
       );
+      // Register xAI Grok provider
+      ProviderFactory.registerProvider(
+        AIProviderName.XAI,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const xaiCreds = credentials as NeurolinkCredentials["xai"];
+          const { XaiProvider } = await import("../providers/xai.js");
+          return new XaiProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            xaiCreds,
+          );
+        },
+        process.env.XAI_MODEL || XaiModels.GROK_3,
+        ["xai", "grok"],
+      );
+
+      // Register Groq provider
+      ProviderFactory.registerProvider(
+        AIProviderName.GROQ,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const groqCreds = credentials as NeurolinkCredentials["groq"];
+          const { GroqProvider } = await import("../providers/groq.js");
+          return new GroqProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            groqCreds,
+          );
+        },
+        process.env.GROQ_MODEL || GroqModels.LLAMA_3_3_70B_VERSATILE,
+        ["groq"],
+      );
+
+      // Register Cohere provider
+      ProviderFactory.registerProvider(
+        AIProviderName.COHERE,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const cohereCreds = credentials as NeurolinkCredentials["cohere"];
+          const { CohereProvider } = await import("../providers/cohere.js");
+          return new CohereProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            cohereCreds,
+          );
+        },
+        process.env.COHERE_MODEL || CohereModels.COMMAND_R_PLUS,
+        ["cohere"],
+      );
+
+      // Register Together AI provider
+      ProviderFactory.registerProvider(
+        AIProviderName.TOGETHER_AI,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const togetherCreds = credentials as NeurolinkCredentials["together"];
+          const { TogetherAIProvider } =
+            await import("../providers/togetherAi.js");
+          return new TogetherAIProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            togetherCreds,
+          );
+        },
+        process.env.TOGETHER_MODEL ||
+          TogetherAIModels.LLAMA_3_3_70B_INSTRUCT_TURBO,
+        ["together-ai", "together"],
+      );
+
+      // Register Fireworks AI provider
+      ProviderFactory.registerProvider(
+        AIProviderName.FIREWORKS,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const fireworksCreds =
+            credentials as NeurolinkCredentials["fireworks"];
+          const { FireworksProvider } =
+            await import("../providers/fireworks.js");
+          return new FireworksProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            fireworksCreds,
+          );
+        },
+        process.env.FIREWORKS_MODEL || FireworksModels.DEEPSEEK_V4_PRO,
+        ["fireworks"],
+      );
+
+      // Register Perplexity provider
+      ProviderFactory.registerProvider(
+        AIProviderName.PERPLEXITY,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const perplexityCreds =
+            credentials as NeurolinkCredentials["perplexity"];
+          const { PerplexityProvider } =
+            await import("../providers/perplexity.js");
+          return new PerplexityProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            perplexityCreds,
+          );
+        },
+        process.env.PERPLEXITY_MODEL || PerplexityModels.SONAR,
+        ["perplexity", "pplx"],
+      );
+
+      // Register Cloudflare Workers AI provider
+      ProviderFactory.registerProvider(
+        AIProviderName.CLOUDFLARE,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const cloudflareCreds =
+            credentials as NeurolinkCredentials["cloudflare"];
+          const { CloudflareProvider } =
+            await import("../providers/cloudflare.js");
+          return new CloudflareProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            cloudflareCreds,
+          );
+        },
+        process.env.CLOUDFLARE_MODEL || CloudflareModels.LLAMA_3_3_70B_FAST,
+        ["cloudflare", "workers-ai", "cf-ai"],
+      );
+
+      // Register Voyage AI embeddings provider
+      ProviderFactory.registerProvider(
+        AIProviderName.VOYAGE,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const voyageCreds = credentials as NeurolinkCredentials["voyage"];
+          const { VoyageProvider } = await import("../providers/voyage.js");
+          return new VoyageProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            voyageCreds,
+          );
+        },
+        process.env.VOYAGE_MODEL || VoyageModels.VOYAGE_3_5,
+        ["voyage", "voyage-ai"],
+      );
+
+      // Register Jina AI embeddings + reranking provider
+      ProviderFactory.registerProvider(
+        AIProviderName.JINA,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const jinaCreds = credentials as NeurolinkCredentials["jina"];
+          const { JinaProvider } = await import("../providers/jina.js");
+          return new JinaProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            jinaCreds,
+          );
+        },
+        process.env.JINA_MODEL || JinaModels.JINA_EMBEDDINGS_V3,
+        ["jina", "jina-ai"],
+      );
+
+      // Register Stability AI image-gen provider
+      ProviderFactory.registerProvider(
+        AIProviderName.STABILITY,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const stabilityCreds =
+            credentials as NeurolinkCredentials["stability"];
+          const { StabilityProvider } =
+            await import("../providers/stability.js");
+          return new StabilityProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            stabilityCreds,
+          );
+        },
+        process.env.STABILITY_MODEL || StabilityModels.STABLE_IMAGE_ULTRA,
+        ["stability", "stability-ai", "sd"],
+      );
+
+      // Register Ideogram image-gen provider
+      ProviderFactory.registerProvider(
+        AIProviderName.IDEOGRAM,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const ideogramCreds = credentials as NeurolinkCredentials["ideogram"];
+          const { IdeogramProvider } = await import("../providers/ideogram.js");
+          return new IdeogramProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            ideogramCreds,
+          );
+        },
+        process.env.IDEOGRAM_MODEL || IdeogramModels.IDEOGRAM_V3,
+        ["ideogram"],
+      );
+
+      // Register Replicate LLM provider (multi-modal — also serves video /
+      // avatar / music handlers via dedicated processors registered below)
+      ProviderFactory.registerProvider(
+        AIProviderName.REPLICATE,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const replicateCreds =
+            credentials as NeurolinkCredentials["replicate"];
+          const { ReplicateProvider } =
+            await import("../providers/replicate.js");
+          return new ReplicateProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            replicateCreds,
+          );
+        },
+        process.env.REPLICATE_MODEL || ReplicateModels.LLAMA_3_70B_INSTRUCT,
+        ["replicate"],
+      );
+
+      // Register Recraft image-gen provider
+      ProviderFactory.registerProvider(
+        AIProviderName.RECRAFT,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: UnknownRecord,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const recraftCreds = credentials as NeurolinkCredentials["recraft"];
+          const { RecraftProvider } = await import("../providers/recraft.js");
+          return new RecraftProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            recraftCreds,
+          );
+        },
+        process.env.RECRAFT_MODEL || RecraftModels.RECRAFT_V3,
+        ["recraft"],
+      );
 
       logger.debug("All AI providers registered successfully");
 
@@ -676,6 +1000,170 @@ export class ProviderRegistry {
               realtimeError instanceof Error
                 ? realtimeError.message
                 : String(realtimeError),
+          },
+        );
+      }
+
+      // ===== VIDEO HANDLER REGISTRATION =====
+      try {
+        const { VideoProcessor } = await import("../utils/videoProcessor.js");
+
+        try {
+          const { VertexVideoHandler } =
+            await import("../adapters/video/vertexVideoHandler.js");
+          VideoProcessor.registerHandler("vertex", new VertexVideoHandler());
+        } catch (err) {
+          logger.debug(
+            `[ProviderRegistry] vertex video registration skipped: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
+        try {
+          const { KlingVideoHandler } =
+            await import("../adapters/video/klingVideoHandler.js");
+          VideoProcessor.registerHandler("kling", new KlingVideoHandler());
+        } catch (err) {
+          logger.debug(
+            `[ProviderRegistry] kling video registration skipped: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
+        try {
+          const { RunwayVideoHandler } =
+            await import("../adapters/video/runwayVideoHandler.js");
+          VideoProcessor.registerHandler("runway", new RunwayVideoHandler());
+        } catch (err) {
+          logger.debug(
+            `[ProviderRegistry] runway video registration skipped: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
+        try {
+          const { ReplicateVideoHandler } =
+            await import("../adapters/video/replicateVideoHandler.js");
+          VideoProcessor.registerHandler(
+            "replicate",
+            new ReplicateVideoHandler(),
+          );
+        } catch (err) {
+          logger.debug(
+            `[ProviderRegistry] replicate video registration skipped: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
+        logger.debug("Video handlers registered");
+      } catch (err) {
+        logger.warn(
+          `[ProviderRegistry] video registration block failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // ===== AVATAR HANDLER REGISTRATION =====
+      try {
+        const { AvatarProcessor } = await import("../utils/avatarProcessor.js");
+
+        try {
+          const { DIDAvatar } =
+            await import("../avatar/providers/DIDAvatar.js");
+          AvatarProcessor.registerHandler("d-id", new DIDAvatar());
+        } catch (err) {
+          logger.debug(
+            `[ProviderRegistry] d-id avatar registration skipped: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
+        try {
+          const { ReplicateAvatar } =
+            await import("../avatar/providers/ReplicateAvatar.js");
+          const replicateAvatar = new ReplicateAvatar();
+          AvatarProcessor.registerHandler("replicate", replicateAvatar);
+          AvatarProcessor.registerHandler("musetalk", replicateAvatar);
+        } catch (err) {
+          logger.debug(
+            `[ProviderRegistry] replicate avatar registration skipped: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
+        try {
+          const { HeyGenAvatar } =
+            await import("../avatar/providers/HeyGenAvatar.js");
+          AvatarProcessor.registerHandler("heygen", new HeyGenAvatar());
+        } catch (err) {
+          logger.debug(
+            `[ProviderRegistry] heygen avatar registration skipped: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
+        logger.debug("Avatar handlers registered");
+      } catch (avatarError) {
+        logger.warn(
+          "Failed to register Avatar handlers - Avatar functionality will be unavailable",
+          {
+            error:
+              avatarError instanceof Error
+                ? avatarError.message
+                : String(avatarError),
+          },
+        );
+      }
+
+      // ===== MUSIC HANDLER REGISTRATION =====
+      try {
+        const { MusicProcessor } = await import("../utils/musicProcessor.js");
+
+        try {
+          const { BeatovenMusic } =
+            await import("../music/providers/BeatovenMusic.js");
+          MusicProcessor.registerHandler("beatoven", new BeatovenMusic());
+        } catch (err) {
+          logger.debug(
+            `[ProviderRegistry] beatoven music registration skipped: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
+        try {
+          const { ReplicateMusic } =
+            await import("../music/providers/ReplicateMusic.js");
+          const replicateMusic = new ReplicateMusic();
+          MusicProcessor.registerHandler("replicate", replicateMusic);
+          MusicProcessor.registerHandler("musicgen", replicateMusic);
+        } catch (err) {
+          logger.debug(
+            `[ProviderRegistry] replicate music registration skipped: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
+        try {
+          const { ElevenLabsMusic } =
+            await import("../music/providers/ElevenLabsMusic.js");
+          const elevenLabsMusic = new ElevenLabsMusic();
+          MusicProcessor.registerHandler("elevenlabs-music", elevenLabsMusic);
+          MusicProcessor.registerHandler("elevenlabs-sound", elevenLabsMusic);
+        } catch (err) {
+          logger.debug(
+            `[ProviderRegistry] elevenlabs-music registration skipped: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
+        try {
+          const { LyriaMusic } =
+            await import("../music/providers/LyriaMusic.js");
+          MusicProcessor.registerHandler("lyria", new LyriaMusic());
+        } catch (err) {
+          logger.debug(
+            `[ProviderRegistry] lyria music registration skipped: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+
+        logger.debug("Music handlers registered");
+      } catch (musicError) {
+        logger.warn(
+          "Failed to register Music handlers - Music functionality will be unavailable",
+          {
+            error:
+              musicError instanceof Error
+                ? musicError.message
+                : String(musicError),
           },
         );
       }

@@ -207,7 +207,16 @@ async function startProxy(): Promise<boolean> {
       [cliPath, "proxy", "start", "--port", String(PROXY_PORT), "--quiet"],
       {
         stdio: ["ignore", "pipe", "pipe"],
-        env: { ...process.env, NEUROLINK_SKIP_MCP: "true" },
+        env: {
+          ...process.env,
+          NEUROLINK_SKIP_MCP: "true",
+          // Allow the test to start its own proxy on PROXY_PORT (9876)
+          // alongside a launchd-managed daemon on a different port (the
+          // typical default). Without this opt-in, the proxy CLI refuses
+          // to start whenever launchd is managing any instance — even on
+          // a different port — and the entire suite SKIPs.
+          NEUROLINK_PROXY_IGNORE_LAUNCHD: "1",
+        },
       },
     );
 

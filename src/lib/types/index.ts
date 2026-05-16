@@ -70,3 +70,12 @@ export * from "./streamDedup.js";
 
 // Curator P3-6: NoOutputGeneratedError sentinel chunk shape
 export * from "./noOutputSentinel.js";
+
+// New modality categories (M9.1+)
+export * from "./video.js";
+export * from "./avatar.js";
+export * from "./music.js";
+export * from "./replicate.js";
+
+// Safe-fetch helper types (SSRF-hardened download)
+export * from "./safeFetch.js";

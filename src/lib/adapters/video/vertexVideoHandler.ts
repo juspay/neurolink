@@ -311,7 +311,7 @@ function detectMimeType(image: Buffer): string {
  */
 function calculateDimensions(
   resolution: "720p" | "1080p",
-  aspectRatio: "9:16" | "16:9",
+  aspectRatio: "9:16" | "16:9" | "1:1" | string,
 ): { width: number; height: number } {
   if (resolution === "1080p") {
     return aspectRatio === "9:16"
@@ -759,24 +759,13 @@ export async function generateTransitionWithVertex(
   lastFrame: Buffer,
   prompt: string,
   options: {
-    aspectRatio?: "9:16" | "16:9";
+    aspectRatio?: "9:16" | "16:9" | "1:1" | string;
     resolution?: "720p" | "1080p";
     audio?: boolean;
   } = {},
   durationSeconds: 4 | 6 | 8 = 4,
   region?: string,
 ): Promise<Buffer> {
-  if (!isVertexVideoConfigured()) {
-    throw new VideoError({
-      code: VIDEO_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
-      message:
-        "Vertex AI credentials not configured for transition generation.",
-      category: ErrorCategory.CONFIGURATION,
-      severity: ErrorSeverity.HIGH,
-      retriable: false,
-    });
-  }
-
   const config = await getVertexConfig();
   const project = config.project;
   const location = region || config.location;
@@ -984,4 +973,68 @@ async function pollTransitionOperation(
     location,
     timeoutMs,
   );
+}
+
+// ============================================================================
+// VIDEO HANDLER CLASS WRAPPER (registered with VideoProcessor)
+// ============================================================================
+
+import type {
+  VideoHandler,
+  VideoTransitionOptions,
+} from "../../types/index.js";
+
+/**
+ * Class wrapper around the standalone Vertex Veo functions, conforming to
+ * the `VideoHandler` contract so it can register with `VideoProcessor`.
+ *
+ * The free functions (`generateVideoWithVertex`, `generateTransitionWithVertex`,
+ * `isVertexVideoConfigured`) are kept exported for backward compatibility —
+ * external callers (Director's `directorPipeline.ts`, test scripts) reference
+ * them directly.
+ */
+export class VertexVideoHandler implements VideoHandler {
+  public readonly maxDurationSeconds = 8;
+  public readonly supportedAspectRatios: readonly ("9:16" | "16:9")[] = [
+    "9:16",
+    "16:9",
+  ];
+  public readonly supportedResolutions: readonly ("720p" | "1080p")[] = [
+    "720p",
+    "1080p",
+  ];
+
+  isConfigured(): boolean {
+    return isVertexVideoConfigured();
+  }
+
+  generate(
+    image: Buffer,
+    prompt: string,
+    options: VideoOutputOptions,
+    region?: string,
+  ): Promise<VideoGenerationResult> {
+    return generateVideoWithVertex(image, prompt, options, region);
+  }
+
+  generateTransition(
+    firstFrame: Buffer,
+    lastFrame: Buffer,
+    prompt: string,
+    options?: VideoTransitionOptions,
+    region?: string,
+  ): Promise<Buffer> {
+    return generateTransitionWithVertex(
+      firstFrame,
+      lastFrame,
+      prompt,
+      {
+        aspectRatio: options?.aspectRatio,
+        resolution: options?.resolution,
+        audio: options?.audio,
+      },
+      options?.durationSeconds ?? 4,
+      region,
+    );
+  }
 }

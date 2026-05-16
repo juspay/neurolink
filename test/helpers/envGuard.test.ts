@@ -288,6 +288,36 @@ const MUST_SKIP: Case[] = [
     name: "SDK fallback chain exhausted with empty chunks",
     msg: "Fallback provider vertex also returned 0 real output chunks (chunkCount=0, sentinel-only or empty)",
   },
+
+  // Anthropic beta / enterprise-tier gates
+  {
+    name: "Anthropic long context beta not available",
+    msg: "[anthropic] Anthropic error: The long context beta is not yet available for this subscription.",
+  },
+
+  // HTTP 502 Bad Gateway (transient gateway failure)
+  {
+    name: "HTTP 502 Bad Gateway in OpenRouter error",
+    msg: "[openrouter] OpenRouter error: [Crucible] error code: 502",
+  },
+
+  // OpenRouter generic gateway error
+  {
+    name: "OpenRouter Provider returned error (gateway)",
+    msg: "OpenRouter streaming error: Provider returned error",
+  },
+
+  // OpenRouter upstream model rejected body shape
+  {
+    name: "OpenRouter [Liquid] Invalid request body",
+    msg: "OpenRouter streaming error: [Liquid] Invalid request body",
+  },
+
+  // Harness per-test wall-clock timeout marker (provider hung)
+  {
+    name: "Per-test timeout SKIP",
+    msg: "SKIP: PER_TEST_TIMEOUT_SKIP — [bedrock] stream tokens exceeded 240000ms — upstream likely hung; aborting test",
+  },
 ];
 
 // ── Hypothetical SDK bug strings — must NOT match (so a real bug is reported) ─

@@ -9,6 +9,8 @@ import type { ToolCall, ToolResult } from "./tools.js";
 import type { TTSResult } from "./tts.js";
 import type { VideoGenerationResult } from "./multimodal.js";
 import type { PPTGenerationResult } from "./ppt.js";
+import type { AvatarResult } from "./avatar.js";
+import type { MusicResult } from "./music.js";
 import type { OAuthTokens } from "./auth.js";
 import type { ClaudeSubscriptionTier } from "./subscription.js";
 import type { ServerFramework } from "./server.js";
@@ -433,6 +435,10 @@ export type CliGenerateResult = CommandResult & {
   audio?: TTSResult;
   /** Video generation result when video mode is enabled */
   video?: VideoGenerationResult;
+  /** Avatar (talking-head) generation result when avatar mode is enabled */
+  avatar?: AvatarResult;
+  /** Music generation result when music mode is enabled */
+  music?: MusicResult;
   /** PPT generation result when ppt mode is enabled */
   ppt?: PPTGenerationResult;
   imageOutput?: {

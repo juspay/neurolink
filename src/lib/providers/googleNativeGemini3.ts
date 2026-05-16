@@ -219,6 +219,43 @@ export function sanitizeSchemaForGemini(
     }
   }
 
+  // JSON Schema Draft-4 `exclusiveMinimum: true` / `exclusiveMaximum: true`
+  // (boolean form) is rejected by Gemini's OpenAPI 3.0 validator, which
+  // expects a numeric bound. zod-to-json-schema's openApi3 target still
+  // emits the Draft-4 form for `z.number().positive()` etc. Translate to
+  // the numeric form when paired with `minimum`/`maximum`, or drop.
+  if (typeof result.exclusiveMinimum === "boolean") {
+    if (
+      result.exclusiveMinimum === true &&
+      typeof result.minimum === "number"
+    ) {
+      result.exclusiveMinimum = result.minimum;
+      delete result.minimum;
+    } else {
+      delete result.exclusiveMinimum;
+    }
+  }
+  if (typeof result.exclusiveMaximum === "boolean") {
+    if (
+      result.exclusiveMaximum === true &&
+      typeof result.maximum === "number"
+    ) {
+      result.exclusiveMaximum = result.maximum;
+      delete result.maximum;
+    } else {
+      delete result.exclusiveMaximum;
+    }
+  }
+  // Clamp `maximum`/`minimum` past int32 — Gemini's protobuf serializer
+  // treats `type: "integer"` as int32 and rejects bounds beyond ~2.1e9.
+  const INT32_MAX = 2147483647;
+  if (typeof result.maximum === "number" && result.maximum > INT32_MAX) {
+    delete result.maximum;
+  }
+  if (typeof result.minimum === "number" && result.minimum < -INT32_MAX) {
+    delete result.minimum;
+  }
+
   return result;
 }
 

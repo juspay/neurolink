@@ -4,9 +4,10 @@ import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
-import type { NeuroLink } from "../neurolink.js";
-import { createProxyFetch, maskProxyUrl } from "../proxy/proxyFetch.js";
-import { tracers, ATTR, withClientSpan } from "../telemetry/index.js";
+import { isNeuroLink } from "../neurolink.js";
+import { createProxyFetch } from "../proxy/proxyFetch.js";
+import { createLoggingFetch } from "../utils/loggingFetch.js";
+import { tracers, ATTR, withClientStreamSpan } from "../telemetry/index.js";
 import type {
   UnknownRecord,
   NeurolinkCredentials,
@@ -15,6 +16,7 @@ import type {
   StreamResult,
   ValidationSchema,
 } from "../types/index.js";
+import { NetworkError, ProviderError } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import {
   composeAbortSignals,
@@ -24,43 +26,6 @@ import {
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
-
-const makeLoggingFetch = (provider: string): typeof fetch => {
-  const base = createProxyFetch();
-  return (async (input, init) => {
-    const url =
-      typeof input === "string"
-        ? input
-        : input instanceof URL
-          ? input.toString()
-          : input.url;
-    const reqSize =
-      init?.body && typeof init.body === "string" ? init.body.length : 0;
-    const response = await base(input, init);
-    if (!response.ok) {
-      // Mask any embedded credentials / signed query params before logging.
-      // Fall back to "<redacted>" rather than the raw URL on a masking miss.
-      const safeUrl = maskProxyUrl(url) ?? "<redacted>";
-      // Don't log the raw upstream body — it can echo prompt fragments or
-      // tool payloads. Log size + status + URL only. Opt into bodies via
-      // NEUROLINK_DEBUG_HTTP=1 for local debugging.
-      if (process.env.NEUROLINK_DEBUG_HTTP === "1") {
-        const clone = response.clone();
-        const body = await clone.text().catch(() => "<unreadable>");
-        logger.warn(`[${provider}] upstream ${response.status}`, {
-          url: safeUrl,
-          body: body.slice(0, 800),
-          reqSize,
-        });
-      } else {
-        logger.warn(
-          `[${provider}] upstream ${response.status} url=${safeUrl} reqSize=${reqSize}`,
-        );
-      }
-    }
-    return response;
-  }) as typeof fetch;
-};
 
 const LLAMACPP_DEFAULT_BASE_URL = "http://localhost:8080/v1";
 const LLAMACPP_PLACEHOLDER_KEY = "llamacpp";
@@ -93,16 +58,9 @@ export class LlamaCppProvider extends BaseProvider {
     _region?: string,
     credentials?: NeurolinkCredentials["llamacpp"],
   ) {
-    const validatedNeurolink =
-      sdk && typeof sdk === "object" && "getInMemoryServers" in sdk
-        ? sdk
-        : undefined;
+    const validatedNeurolink = isNeuroLink(sdk) ? sdk : undefined;
 
-    super(
-      modelName,
-      "llamacpp" as AIProviderName,
-      validatedNeurolink as NeuroLink | undefined,
-    );
+    super(modelName, "llamacpp" as AIProviderName, validatedNeurolink);
     this.requestedModelName = modelName;
 
     this.baseURL = credentials?.baseURL ?? getLlamaCppBaseURL();
@@ -117,7 +75,7 @@ export class LlamaCppProvider extends BaseProvider {
     this.llamaCppClient = createOpenAI({
       baseURL: this.baseURL,
       apiKey: this.apiKey,
-      fetch: makeLoggingFetch("llamacpp"),
+      fetch: createLoggingFetch("llamacpp"),
     });
 
     logger.debug("llama.cpp Provider initialized", {
@@ -220,7 +178,7 @@ export class LlamaCppProvider extends BaseProvider {
     // Pass the caller's abort signal so user cancellation / per-request
     // timeouts are honored during the discovery probe.
     await this.getAISDKModel(options.abortSignal);
-    return withClientSpan(
+    return withClientStreamSpan(
       {
         name: "neurolink.provider.stream",
         tracer: tracers.provider,
@@ -233,6 +191,8 @@ export class LlamaCppProvider extends BaseProvider {
         },
       },
       async () => this.executeStreamInner(options),
+      (r) => r.stream,
+      (r, wrapped) => ({ ...r, stream: wrapped }),
     );
   }
 
@@ -336,7 +296,10 @@ export class LlamaCppProvider extends BaseProvider {
 
   protected formatProviderError(error: unknown): Error {
     if (error instanceof TimeoutError) {
-      return new Error(`llama.cpp request timed out: ${error.message}`);
+      return new NetworkError(
+        `Request timed out: ${error.message}`,
+        "llamacpp",
+      );
     }
     const errorRecord = error as UnknownRecord;
     const message =
@@ -352,17 +315,19 @@ export class LlamaCppProvider extends BaseProvider {
       message.includes("Failed to fetch") ||
       message.includes("fetch failed")
     ) {
-      return new Error(
+      return new NetworkError(
         `llama.cpp server not reachable at ${this.baseURL}. ` +
           "Start it with: ./llama-server -m model.gguf --port 8080",
+        "llamacpp",
       );
     }
     if (message.includes("400")) {
-      return new Error(
+      return new ProviderError(
         "llama.cpp rejected the request. Common cause: model doesn't support tools (start llama-server with --jinja for tool support).",
+        "llamacpp",
       );
     }
-    return new Error(`llama.cpp error: ${message}`);
+    return new ProviderError(`llama.cpp error: ${message}`, "llamacpp");
   }
 
   async validateConfiguration(): Promise<boolean> {

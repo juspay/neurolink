@@ -23,6 +23,19 @@ export enum AIProviderName {
   NVIDIA_NIM = "nvidia-nim",
   LM_STUDIO = "lm-studio",
   LLAMACPP = "llamacpp",
+  XAI = "xai",
+  GROQ = "groq",
+  COHERE = "cohere",
+  TOGETHER_AI = "together-ai",
+  FIREWORKS = "fireworks",
+  PERPLEXITY = "perplexity",
+  CLOUDFLARE = "cloudflare",
+  REPLICATE = "replicate",
+  VOYAGE = "voyage",
+  JINA = "jina",
+  STABILITY = "stability",
+  IDEOGRAM = "ideogram",
+  RECRAFT = "recraft",
   AUTO = "auto",
 }
 
@@ -328,6 +341,11 @@ export enum OpenAIModels {
 
   // Legacy Models
   GPT_3_5_TURBO = "gpt-3.5-turbo",
+
+  // Image Generation Models — routed through executeImageGeneration()
+  GPT_IMAGE_1 = "gpt-image-1",
+  DALL_E_3 = "dall-e-3",
+  DALL_E_2 = "dall-e-2",
 }
 
 /**
@@ -1081,6 +1099,274 @@ export enum LMStudioModels {
 export enum LlamaCppModels {
   /** Sentinel value — uses the model loaded by the llama-server process */
   AUTO_DISCOVER = "",
+}
+
+/**
+ * xAI Grok models — accessible at api.x.ai/v1 (OpenAI-compatible).
+ * @see https://docs.x.ai/docs/models
+ */
+export enum XaiModels {
+  /** Latest Grok 3 — flagship; best for complex reasoning */
+  GROK_3 = "grok-3",
+  /** Grok 3 Mini — faster + cheaper variant of Grok 3 */
+  GROK_3_MINI = "grok-3-mini",
+  /** Grok 2 latest — previous flagship; still supported */
+  GROK_2_LATEST = "grok-2-latest",
+  /** Grok 2 Vision — multimodal (text + images) */
+  GROK_2_VISION_LATEST = "grok-2-vision-latest",
+  /** Grok beta — pre-release / experimental access */
+  GROK_BETA = "grok-beta",
+}
+
+/**
+ * Groq-hosted models — Llama / Mistral / Gemma at sub-100ms inference.
+ * @see https://console.groq.com/docs/models
+ */
+export enum GroqModels {
+  /** Llama 3.3 70B Versatile — production default */
+  LLAMA_3_3_70B_VERSATILE = "llama-3.3-70b-versatile",
+  /** Llama 3.1 8B Instant — low-latency tier */
+  LLAMA_3_1_8B_INSTANT = "llama-3.1-8b-instant",
+  /** Gemma 2 9B IT — Google's lightweight instruct model */
+  GEMMA_2_9B_IT = "gemma2-9b-it",
+  /** Mixtral 8x7B 32K — Mistral's MoE model */
+  MIXTRAL_8X7B_32768 = "mixtral-8x7b-32768",
+  /** Llama Guard 3 8B — safety classifier */
+  LLAMA_GUARD_3_8B = "llama-guard-3-8b",
+  /** Llama 3.2 90B Vision Preview — multimodal */
+  LLAMA_3_2_90B_VISION_PREVIEW = "llama-3.2-90b-vision-preview",
+  /** Llama 3.2 11B Vision Preview — smaller multimodal */
+  LLAMA_3_2_11B_VISION_PREVIEW = "llama-3.2-11b-vision-preview",
+}
+
+/**
+ * Cohere Command + Embed models.
+ * @see https://docs.cohere.com/docs/models
+ *
+ * Note: bare aliases `command-r` and `command-r-plus` were retired on
+ * September 15, 2025. Use the dated variants instead.
+ */
+export enum CohereModels {
+  /** Command A (March 2025) — current flagship chat model */
+  COMMAND_A = "command-a-03-2025",
+  /** Command A Reasoning (Aug 2025) — explicit reasoning traces */
+  COMMAND_A_REASONING = "command-a-reasoning-08-2025",
+  /** Command R+ dated (Aug 2024) — last supported R+ variant */
+  COMMAND_R_PLUS = "command-r-plus-08-2024",
+  /** Command R dated (Aug 2024) — last supported R variant */
+  COMMAND_R = "command-r-08-2024",
+  /** Command R7B (Dec 2024) — most compact */
+  COMMAND_R7B = "command-r7b-12-2024",
+  /** Embed v3 multilingual */
+  EMBED_MULTILINGUAL_V3 = "embed-multilingual-v3.0",
+  /** Embed v3 English */
+  EMBED_ENGLISH_V3 = "embed-english-v3.0",
+  /** Rerank v3 multilingual */
+  RERANK_MULTILINGUAL_V3 = "rerank-multilingual-v3.0",
+  /** Rerank v3 English */
+  RERANK_ENGLISH_V3 = "rerank-english-v3.0",
+}
+
+/**
+ * Together AI hosted models — open-model gateway.
+ * @see https://docs.together.ai/docs/serverless-models
+ */
+export enum TogetherAIModels {
+  /** Llama 3.3 70B Instruct Turbo — production default */
+  LLAMA_3_3_70B_INSTRUCT_TURBO = "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+  /** Llama 3.1 405B Instruct Turbo — flagship size */
+  LLAMA_3_1_405B_INSTRUCT_TURBO = "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
+  /** Llama 3.1 70B Instruct Turbo */
+  LLAMA_3_1_70B_INSTRUCT_TURBO = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+  /** Llama 3.1 8B Instruct Turbo — fastest */
+  LLAMA_3_1_8B_INSTRUCT_TURBO = "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+  /** Mixtral 8x22B Instruct */
+  MIXTRAL_8X22B_INSTRUCT = "mistralai/Mixtral-8x22B-Instruct-v0.1",
+  /** Mixtral 8x7B Instruct */
+  MIXTRAL_8X7B_INSTRUCT = "mistralai/Mixtral-8x7B-Instruct-v0.1",
+  /** Qwen 2.5 72B Instruct Turbo */
+  QWEN_2_5_72B_INSTRUCT_TURBO = "Qwen/Qwen2.5-72B-Instruct-Turbo",
+  /** Qwen 2.5 Coder 32B Instruct */
+  QWEN_2_5_CODER_32B = "Qwen/Qwen2.5-Coder-32B-Instruct",
+  /** DeepSeek R1 — reasoning */
+  DEEPSEEK_R1 = "deepseek-ai/DeepSeek-R1",
+  /** DeepSeek V3 */
+  DEEPSEEK_V3 = "deepseek-ai/DeepSeek-V3",
+  /** Google Gemma 2 27B IT */
+  GEMMA_2_27B_IT = "google/gemma-2-27b-it",
+  /** WizardLM 2 8x22B */
+  WIZARDLM_2_8X22B = "microsoft/WizardLM-2-8x22B",
+}
+
+/**
+ * Fireworks AI hosted models — fast open-model serving.
+ * @see https://fireworks.ai/models
+ *
+ * Note: the older Llama / Mixtral / Qwen 2.5 generation was rotated
+ * out of Fireworks' serverless tier. Current shipping defaults below.
+ */
+export enum FireworksModels {
+  /** DeepSeek V4 Pro — current general-purpose default */
+  DEEPSEEK_V4_PRO = "accounts/fireworks/models/deepseek-v4-pro",
+  /** GLM 5.1 — Zhipu flagship */
+  GLM_5P1 = "accounts/fireworks/models/glm-5p1",
+  /** GLM 5 — broader coverage */
+  GLM_5 = "accounts/fireworks/models/glm-5",
+  /** Kimi K2.6 — Moonshot flagship */
+  KIMI_K2P6 = "accounts/fireworks/models/kimi-k2p6",
+  /** Kimi K2.5 — preceding Kimi */
+  KIMI_K2P5 = "accounts/fireworks/models/kimi-k2p5",
+  /** GPT-OSS 120B — Apache-2.0 OpenAI weights */
+  GPT_OSS_120B = "accounts/fireworks/models/gpt-oss-120b",
+}
+
+/**
+ * Perplexity Sonar models — built-in web grounding.
+ * @see https://docs.perplexity.ai/guides/model-cards
+ */
+export enum PerplexityModels {
+  /** Sonar — production default with web search */
+  SONAR = "sonar",
+  /** Sonar Pro — better reasoning + larger context */
+  SONAR_PRO = "sonar-pro",
+  /** Sonar Reasoning — explicit reasoning traces */
+  SONAR_REASONING = "sonar-reasoning",
+  /** Sonar Reasoning Pro — flagship reasoning + web */
+  SONAR_REASONING_PRO = "sonar-reasoning-pro",
+  /** Sonar Deep Research — long-form research with citations */
+  SONAR_DEEP_RESEARCH = "sonar-deep-research",
+}
+
+/**
+ * Cloudflare Workers AI models — edge-served open models.
+ * @see https://developers.cloudflare.com/workers-ai/models/
+ */
+export enum CloudflareModels {
+  /** Llama 3.3 70B Instruct (FP8 fast) */
+  LLAMA_3_3_70B_FAST = "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  /** Llama 3.1 70B Instruct */
+  LLAMA_3_1_70B_INSTRUCT = "@cf/meta/llama-3.1-70b-instruct",
+  /** Llama 3.1 8B Instruct fast */
+  LLAMA_3_1_8B_FAST = "@cf/meta/llama-3.1-8b-instruct-fast",
+  /** Llama 3.2 11B Vision Instruct */
+  LLAMA_3_2_11B_VISION = "@cf/meta/llama-3.2-11b-vision-instruct",
+  /** Mistral 7B Instruct v0.2 */
+  MISTRAL_7B_INSTRUCT_V0_2 = "@cf/mistral/mistral-7b-instruct-v0.2",
+  /** Qwen 1.5 14B Chat AWQ */
+  QWEN_1P5_14B_CHAT_AWQ = "@cf/qwen/qwen1.5-14b-chat-awq",
+  /** Gemma 2B IT */
+  GEMMA_2B_IT_LORA = "@cf/google/gemma-2b-it-lora",
+}
+
+/**
+ * Voyage AI embedding models — top-tier RAG embedders.
+ * @see https://docs.voyageai.com/docs/embeddings
+ */
+export enum VoyageModels {
+  /** Voyage 3.5 — latest general-purpose (default) */
+  VOYAGE_3_5 = "voyage-3.5",
+  /** Voyage 3.5 Lite — smaller / cheaper */
+  VOYAGE_3_5_LITE = "voyage-3.5-lite",
+  /** Voyage 3 Large — flagship size */
+  VOYAGE_3_LARGE = "voyage-3-large",
+  /** Voyage Code 3 — code-tuned */
+  VOYAGE_CODE_3 = "voyage-code-3",
+  /** Voyage Finance 2 — domain-tuned */
+  VOYAGE_FINANCE_2 = "voyage-finance-2",
+  /** Voyage Law 2 — domain-tuned */
+  VOYAGE_LAW_2 = "voyage-law-2",
+  /** Voyage Multilingual 2 */
+  VOYAGE_MULTILINGUAL_2 = "voyage-multilingual-2",
+}
+
+/**
+ * Jina AI embedding + reranking models.
+ * @see https://jina.ai/embeddings/
+ */
+export enum JinaModels {
+  /** Jina Embeddings v3 — flagship multilingual (default) */
+  JINA_EMBEDDINGS_V3 = "jina-embeddings-v3",
+  /** Jina Embeddings v2 base English */
+  JINA_EMBEDDINGS_V2_BASE_EN = "jina-embeddings-v2-base-en",
+  /** Jina Embeddings v2 small English */
+  JINA_EMBEDDINGS_V2_SMALL_EN = "jina-embeddings-v2-small-en",
+  /** Jina Embeddings v2 base code */
+  JINA_EMBEDDINGS_V2_BASE_CODE = "jina-embeddings-v2-base-code",
+  /** Jina Embeddings v2 base multilingual */
+  JINA_EMBEDDINGS_V2_BASE_MULTILINGUAL = "jina-embeddings-v2-base-zh",
+  /** Jina ColBERT v2 — late-interaction retrieval */
+  JINA_COLBERT_V2 = "jina-colbert-v2",
+  /** Jina Reranker v2 base multilingual */
+  JINA_RERANKER_V2_BASE_MULTILINGUAL = "jina-reranker-v2-base-multilingual",
+  /** Jina Reranker v1 turbo English */
+  JINA_RERANKER_V1_TURBO_EN = "jina-reranker-v1-turbo-en",
+}
+
+/**
+ * Stability AI image generation models (api.stability.ai).
+ * @see https://platform.stability.ai/docs/api-reference
+ */
+export enum StabilityModels {
+  /** Stable Image Ultra — flagship quality (default) */
+  STABLE_IMAGE_ULTRA = "stable-image-ultra",
+  /** Stable Image Core — fast tier */
+  STABLE_IMAGE_CORE = "stable-image-core",
+  /** Stable Diffusion 3.5 Large */
+  SD_3_5_LARGE = "sd3.5-large",
+  /** Stable Diffusion 3.5 Large Turbo */
+  SD_3_5_LARGE_TURBO = "sd3.5-large-turbo",
+  /** Stable Diffusion 3.5 Medium */
+  SD_3_5_MEDIUM = "sd3.5-medium",
+}
+
+/**
+ * Ideogram image generation models.
+ * @see https://docs.ideogram.ai/api-reference/api-reference/post-v-1-ideogram-v-3-generate
+ */
+export enum IdeogramModels {
+  /** Ideogram V3 — latest with strong typography (default) */
+  IDEOGRAM_V3 = "V_3",
+  /** Ideogram V2 */
+  IDEOGRAM_V2 = "V_2",
+  /** Ideogram V2 Turbo — fast tier */
+  IDEOGRAM_V2_TURBO = "V_2_TURBO",
+  /** Ideogram V1 */
+  IDEOGRAM_V1 = "V_1",
+}
+
+/**
+ * Recraft image generation models — vector / illustration focus.
+ * @see https://www.recraft.ai/docs
+ */
+export enum RecraftModels {
+  /** Recraft V3 — flagship raster (default) */
+  RECRAFT_V3 = "recraftv3",
+  /** Recraft V3 SVG — vector output */
+  RECRAFT_V3_SVG = "recraftv3-svg",
+  /** Recraft V2 */
+  RECRAFT_V2 = "recraftv2",
+}
+
+/**
+ * Replicate hosted models (LLMs only — image / video / avatar / music
+ * accessed via dedicated handlers).
+ *
+ * Replicate accepts arbitrary `owner/name` or `owner/name:version`; this
+ * enum lists popular LLM defaults. Pass any model id via `--model`.
+ *
+ * @see https://replicate.com/explore
+ */
+export enum ReplicateModels {
+  /** Meta Llama 3.1 405B Instruct */
+  LLAMA_3_1_405B_INSTRUCT = "meta/meta-llama-3.1-405b-instruct",
+  /** Meta Llama 3 70B Instruct (stable; the meta-llama-3.1-70b variant was retired upstream) */
+  LLAMA_3_70B_INSTRUCT = "meta/meta-llama-3-70b-instruct",
+  /** Meta Llama 3 8B Instruct */
+  LLAMA_3_8B_INSTRUCT = "meta/meta-llama-3-8b-instruct",
+  /** Mistral 7B Instruct v0.2 */
+  MISTRAL_7B_INSTRUCT_V02 = "mistralai/mistral-7b-instruct-v0.2",
+  /** Mixtral 8x7B Instruct v0.1 */
+  MIXTRAL_8X7B_INSTRUCT_V01 = "mistralai/mixtral-8x7b-instruct-v0.1",
 }
 
 // ============================================================================

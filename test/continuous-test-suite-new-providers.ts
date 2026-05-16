@@ -259,10 +259,12 @@ const PROVIDERS: readonly ProviderUnderTest[] = [
     name: "nvidia-nim",
     available: HAS_NIM,
     unavailableReason: "NVIDIA_NIM_API_KEY not set",
-    // DeepSeek-R1 hosted on NIM emits proper <think>...</think> reasoning
-    // markers (E1 thinking.high asserts on those). The previous nemotron
-    // model returned content but no reasoning signal, causing E1 to skip.
-    reasoningModel: "deepseek-ai/deepseek-r1",
+    // DeepSeek-R1-Distill emits proper <think>...</think> reasoning markers
+    // (E1 thinking.high asserts on those). The full deepseek-ai/deepseek-r1
+    // route returned 404 on NIM as of 2026-05; the 70B-Llama distill is the
+    // stable replacement and still emits reasoning. Previous nemotron model
+    // returned content but no reasoning signal, causing E1 to skip.
+    reasoningModel: "deepseek-ai/deepseek-r1-distill-llama-70b",
     visionModel: "meta/llama-3.2-90b-vision-instruct",
     // Pin a tool-trained NIM model for B2 stream-with-tools (the previous
     // default landed on a model that declined to call tools).

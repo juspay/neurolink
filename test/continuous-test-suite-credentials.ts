@@ -477,6 +477,19 @@ async function testProviderScopedCredentials(): Promise<void> {
       "nvidia-nim", // matches the registered provider name verbatim
       "lm-studio", // matches the registered provider name verbatim
       "llamacpp",
+      "xai",
+      "groq",
+      "cohere",
+      "together-ai",
+      "fireworks",
+      "perplexity",
+      "cloudflare",
+      "voyage",
+      "jina",
+      "stability",
+      "ideogram",
+      "recraft",
+      "replicate",
     ];
 
     // Strip hyphens / underscores so e.g. "nvidia-nim" matches a provider

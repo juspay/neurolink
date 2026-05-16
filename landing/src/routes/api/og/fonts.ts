@@ -1,3 +1,5 @@
+import type { FontOptions } from "satori";
+
 let fontCache: ArrayBuffer[] | null = null;
 
 const INTER_FONTS = [
@@ -18,9 +20,11 @@ const INTER_FONTS = [
   },
 ];
 
-export async function loadFonts(): Promise<
-  { name: string; data: ArrayBuffer; weight: number; style: string }[]
-> {
+// Return as `FontOptions[]` directly so satori's stricter `weight` /
+// `style` literal unions are preserved through the call chain (was being
+// widened to `number` / `string` by the public return-type annotation,
+// causing assignability errors at the satori call site).
+export async function loadFonts(): Promise<FontOptions[]> {
   if (fontCache) {
     return fontCache.map((data, i) => ({
       name: "Inter",

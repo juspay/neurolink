@@ -9,7 +9,13 @@ import { BaseProvider } from "../core/baseProvider.js";
 import { IMAGE_GENERATION_MODELS } from "../core/constants.js";
 import { processUnifiedFilesArray } from "../utils/messageBuilder.js";
 import type { NeuroLink } from "../neurolink.js";
-import { ATTR, tracers, withClientSpan } from "../telemetry/index.js";
+import {
+  ATTR,
+  tracers,
+  withClientSpan,
+  withClientStreamSpan,
+  withSpan,
+} from "../telemetry/index.js";
 import type {
   AnalyticsData,
   UnknownRecord,
@@ -660,7 +666,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
   ): Promise<StreamResult> {
     const modelName = options.model || this.modelName;
 
-    return withClientSpan(
+    return withClientStreamSpan(
       {
         name: "neurolink.provider.stream",
         tracer: tracers.provider,
@@ -970,6 +976,8 @@ export class GoogleAIStudioProvider extends BaseProvider {
           // Timeout controller cleanup is managed inside the background loop
         }
       },
+      (r) => r.stream,
+      (r, wrapped) => ({ ...r, stream: wrapped }),
     );
   }
 
@@ -1278,6 +1286,17 @@ export class GoogleAIStudioProvider extends BaseProvider {
       return this.executeImageGeneration(options);
     }
 
+    // TTS direct-synthesis mode: synthesise the input text directly (no LLM
+    // call). BaseProvider.runGenerateInActiveContext does the same dispatch
+    // — replicated here because AI Studio's override bypasses that path.
+    if (options.tts?.enabled && !options.tts?.useAiResponse) {
+      logger.info(
+        "[GoogleAIStudio] Routing TTS direct-synthesis to handleDirectTTSSynthesis",
+        { model: modelName },
+      );
+      return this.handleDirectTTSSynthesis(options, Date.now());
+    }
+
     // Process the unified `input.files` array before routing to the
     // native SDK. BaseProvider.generate() runs this preprocessing via
     // buildMultimodalMessagesArray, but AI Studio's override skips it,
@@ -1351,7 +1370,26 @@ export class GoogleAIStudioProvider extends BaseProvider {
       (mergedOptions as { prompt?: string }).prompt ||
       "";
     try {
-      const result = await this.executeNativeGemini3Generate(mergedOptions);
+      // Wrap in `neurolink.executeGeneration` so the observability span
+      // chain (Test: Generate Span Chain) sees a third inner span on the
+      // native @google/genai path — Pipeline A providers get this from
+      // GenerationHandler.executeGeneration; the native path bypasses
+      // GenerationHandler so we add the span here.
+      let result = await withSpan(
+        {
+          name: "neurolink.executeGeneration",
+          tracer: tracers.provider,
+          attributes: {
+            [ATTR.GEN_AI_SYSTEM]: this.providerName,
+            [ATTR.GEN_AI_MODEL]: modelName,
+            "neurolink.path": "native.google-genai",
+          },
+        },
+        async () => this.executeNativeGemini3Generate(mergedOptions),
+      );
+      // Pipe through TTS-of-AI-response when caller asks for it. No-op when
+      // tts is disabled or useAiResponse is false.
+      result = await this.synthesizeAIResponseIfNeeded(result, options);
       this.emitPipelineBGenerationEvent(
         modelName,
         result,
@@ -1396,6 +1434,14 @@ export class GoogleAIStudioProvider extends BaseProvider {
       result?.usage && typeof result.usage === "object"
         ? result.usage
         : { input: 0, output: 0, total: 0 };
+    // Mark on the result so the SDK-level runStandardGenerateRequest knows
+    // this provider already emitted `generation:end` itself and skips its
+    // own duplicate emission. Without this flag the public event listener
+    // (and the observability test) would see two events per generate call.
+    if (result && typeof result === "object") {
+      (result as { _generationEndEmitted?: boolean })._generationEndEmitted =
+        true;
+    }
     emitter.emit("generation:end", {
       provider: this.providerName,
       responseTime: Date.now() - startTime,

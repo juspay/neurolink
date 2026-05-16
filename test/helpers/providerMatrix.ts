@@ -139,11 +139,21 @@ export const PROVIDERS: Record<string, ProviderEntry> = {
   },
   bedrock: {
     name: "bedrock",
-    // claude-haiku-4-5-* requires a pre-provisioned cross-region inference
-    // profile ARN — direct on-demand invocation 400s. Pin the matrix to the
-    // older haiku that supports plain on-demand calls so the suite works for
-    // any tester with vanilla Bedrock credentials.
-    defaultModel: "anthropic.claude-3-5-haiku-20241022-v1:0",
+    // claude-3-haiku-20240307 is the oldest on-demand Anthropic model on
+    // Bedrock and is currently the only one available in every region
+    // (including ap-south-1). Newer haiku/sonnet builds require pre-
+    // provisioned cross-region inference profile ARNs, and large reasoning
+    // models (Sonnet 4.6) can take >4 minutes per stream call which trips
+    // the harness per-test timeout.
+    //
+    // BEDROCK_MATRIX_MODEL env var overrides this for testers whose region
+    // exposes a newer cheap model. Intentionally NOT honoring the broader
+    // BEDROCK_MODEL env var — that is typically set to a Sonnet-class
+    // model for production agentic work, which is overkill (and far too
+    // slow to stream) for capability matrix sweeps.
+    defaultModel:
+      process.env.BEDROCK_MATRIX_MODEL ||
+      "anthropic.claude-3-haiku-20240307-v1:0",
     embeddingModel: "amazon.titan-embed-text-v2:0",
     envVars: ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
     text: true,
@@ -241,12 +251,14 @@ export const PROVIDERS: Record<string, ProviderEntry> = {
   },
   openrouter: {
     name: "openrouter",
-    // The previous default `google/gemma-3-4b-it:free` was retired by
-    // OpenRouter and now 404s with "No endpoints found for model" for every
-    // caller. Pin to a current-generation Anthropic model that's reliably
-    // available — the same value the SDK falls back to when OPENROUTER_MODEL
-    // isn't set, so matrix and SDK agree.
-    defaultModel: "anthropic/claude-sonnet-4.5",
+    // OpenRouter's free-tier catalog is unreliable: free models rotate,
+    // get rate-limited upstream, or simply reject specific request shapes
+    // (e.g. `liquid/lfm-2.5-1.2b-instruct:free` 400s on stream). We pin
+    // the matrix to a cheap pay-as-you-go model that supports every
+    // capability the matrix exercises — generate, stream, tool calling,
+    // and structured output. `meta-llama/llama-3.1-8b-instruct` runs
+    // ~1-12s per call and costs fractions of a cent.
+    defaultModel: "meta-llama/llama-3.1-8b-instruct",
     envVars: ["OPENROUTER_API_KEY"],
     text: true,
     streaming: true,
@@ -263,7 +275,11 @@ export const PROVIDERS: Record<string, ProviderEntry> = {
   },
   litellm: {
     name: "litellm",
-    defaultModel: "open-large",
+    // `open-large` was hanging on the LiteLLM gateway against this team's
+    // routing (no response, no timeout), forcing the suite to wait its full
+    // 3-min SDK timeout per test. `kimi-latest` is in the team's allowed
+    // model list AND responds in ~1s, so the matrix completes deterministically.
+    defaultModel: "kimi-latest",
     envVars: ["LITELLM_BASE_URL"],
     text: true,
     streaming: true,
@@ -384,6 +400,239 @@ export const PROVIDERS: Record<string, ProviderEntry> = {
     thinking: false,
     imageGeneration: false,
     videoGeneration: false,
+    tts: false,
+  },
+  xai: {
+    name: "xai",
+    defaultModel: "grok-3",
+    envVars: ["XAI_API_KEY"],
+    text: true,
+    streaming: true,
+    tools: true,
+    toolsWithStreaming: true,
+    structuredOutput: true,
+    structuredOutputWithTools: true,
+    vision: true, // grok-2-vision / grok-vision-beta
+    embeddings: false,
+    thinking: false,
+    imageGeneration: false,
+    videoGeneration: false,
+    tts: false,
+  },
+  groq: {
+    name: "groq",
+    defaultModel: "meta-llama/llama-4-scout-17b-16e-instruct",
+    envVars: ["GROQ_API_KEY"],
+    text: true,
+    streaming: true,
+    tools: true,
+    toolsWithStreaming: true,
+    structuredOutput: true,
+    structuredOutputWithTools: false, // Groq's JSON-mode + tool-calling can't coexist
+    vision: true, // llama-3.2-11b-vision-preview, llama-3.2-90b-vision-preview
+    embeddings: false,
+    thinking: false,
+    imageGeneration: false,
+    videoGeneration: false,
+    tts: false,
+  },
+  cohere: {
+    name: "cohere",
+    // Use the dated variant — the bare `command-r-plus` alias was retired
+    // on 2025-09-15 and now returns 404 from the Cohere endpoint.
+    defaultModel: "command-r-plus-08-2024",
+    embeddingModel: "embed-english-v3.0",
+    envVars: ["COHERE_API_KEY"],
+    text: true,
+    streaming: true,
+    tools: true,
+    toolsWithStreaming: true,
+    structuredOutput: true,
+    structuredOutputWithTools: true,
+    vision: false,
+    embeddings: true,
+    thinking: false,
+    imageGeneration: false,
+    videoGeneration: false,
+    tts: false,
+  },
+  "together-ai": {
+    name: "together-ai",
+    defaultModel: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    envVars: ["TOGETHER_AI_API_KEY"],
+    text: true,
+    streaming: true,
+    tools: true,
+    toolsWithStreaming: true,
+    structuredOutput: true,
+    structuredOutputWithTools: true,
+    vision: true, // Llama-3.2-90B-Vision-Instruct-Turbo
+    embeddings: false,
+    thinking: false,
+    imageGeneration: true, // Flux models hosted via Together
+    videoGeneration: false,
+    tts: false,
+  },
+  fireworks: {
+    name: "fireworks",
+    // Fireworks serverless catalog is gated per-account; the previously-
+    // deployed `deepseek-v3p1` was retired upstream and `llama-v3p3-70b`
+    // returns "Model not found, inaccessible, and/or not deployed" on this
+    // team. `kimi-k2p5` is in the account's currently-deployed list and
+    // responds reliably for chat + tool calling + structured output.
+    defaultModel: "accounts/fireworks/models/kimi-k2p5",
+    envVars: ["FIREWORKS_API_KEY"],
+    text: true,
+    streaming: true,
+    tools: true,
+    toolsWithStreaming: true,
+    structuredOutput: true,
+    structuredOutputWithTools: true,
+    vision: true, // llama-v3p2-90b-vision-instruct
+    embeddings: false,
+    thinking: false,
+    imageGeneration: false,
+    videoGeneration: false,
+    tts: false,
+  },
+  perplexity: {
+    name: "perplexity",
+    defaultModel: "sonar",
+    envVars: ["PERPLEXITY_API_KEY"],
+    text: true,
+    streaming: true,
+    tools: false, // Perplexity Sonar models don't expose tool/function calling
+    toolsWithStreaming: false,
+    structuredOutput: false,
+    structuredOutputWithTools: false,
+    vision: false,
+    embeddings: false,
+    thinking: false,
+    imageGeneration: false,
+    videoGeneration: false,
+    tts: false,
+  },
+  cloudflare: {
+    name: "cloudflare",
+    defaultModel: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    envVars: ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"],
+    text: true,
+    streaming: true,
+    tools: true, // most Workers AI chat models support function calling
+    toolsWithStreaming: true,
+    structuredOutput: false,
+    structuredOutputWithTools: false,
+    vision: false,
+    embeddings: false,
+    thinking: false,
+    imageGeneration: false,
+    videoGeneration: false,
+    tts: false,
+  },
+  voyage: {
+    name: "voyage",
+    defaultModel: "voyage-3.5",
+    embeddingModel: "voyage-3.5",
+    envVars: ["VOYAGE_API_KEY"],
+    text: false, // Voyage is embeddings-only — no chat completion endpoint
+    streaming: false,
+    tools: false,
+    toolsWithStreaming: false,
+    structuredOutput: false,
+    structuredOutputWithTools: false,
+    vision: false,
+    embeddings: true,
+    thinking: false,
+    imageGeneration: false,
+    videoGeneration: false,
+    tts: false,
+  },
+  jina: {
+    name: "jina",
+    defaultModel: "jina-embeddings-v3",
+    embeddingModel: "jina-embeddings-v3",
+    envVars: ["JINA_API_KEY"],
+    text: false, // Jina exposes embeddings + reranking — no chat completion
+    streaming: false,
+    tools: false,
+    toolsWithStreaming: false,
+    structuredOutput: false,
+    structuredOutputWithTools: false,
+    vision: false,
+    embeddings: true,
+    thinking: false,
+    imageGeneration: false,
+    videoGeneration: false,
+    tts: false,
+  },
+  stability: {
+    name: "stability",
+    defaultModel: "stable-image-ultra",
+    envVars: ["STABILITY_API_KEY"],
+    text: false, // Stability is image-generation only
+    streaming: false,
+    tools: false,
+    toolsWithStreaming: false,
+    structuredOutput: false,
+    structuredOutputWithTools: false,
+    vision: false,
+    embeddings: false,
+    thinking: false,
+    imageGeneration: true,
+    videoGeneration: false,
+    tts: false,
+  },
+  ideogram: {
+    name: "ideogram",
+    defaultModel: "ideogram-v3",
+    envVars: ["IDEOGRAM_API_KEY"],
+    text: false, // Ideogram is image-generation only
+    streaming: false,
+    tools: false,
+    toolsWithStreaming: false,
+    structuredOutput: false,
+    structuredOutputWithTools: false,
+    vision: false,
+    embeddings: false,
+    thinking: false,
+    imageGeneration: true,
+    videoGeneration: false,
+    tts: false,
+  },
+  recraft: {
+    name: "recraft",
+    defaultModel: "recraft-v3",
+    envVars: ["RECRAFT_API_KEY"],
+    text: false, // Recraft is image-generation only
+    streaming: false,
+    tools: false,
+    toolsWithStreaming: false,
+    structuredOutput: false,
+    structuredOutputWithTools: false,
+    vision: false,
+    embeddings: false,
+    thinking: false,
+    imageGeneration: true,
+    videoGeneration: false,
+    tts: false,
+  },
+  replicate: {
+    name: "replicate",
+    defaultModel: "meta/meta-llama-3-70b-instruct",
+    envVars: ["REPLICATE_API_TOKEN"],
+    // Replicate runs via the Predictions API; the chat-completion bridge is
+    // best-effort and many models simply aren't OpenAI-compatible.
+    text: true,
+    streaming: false, // Predictions API polls; no SSE stream
+    tools: false,
+    toolsWithStreaming: false,
+    structuredOutput: false,
+    structuredOutputWithTools: false,
+    vision: false,
+    embeddings: false,
+    thinking: false,
+    imageGeneration: true, // Flux / SDXL etc. via Predictions
+    videoGeneration: true, // Veo / Kling / Runway via Predictions
     tts: false,
   },
 };
