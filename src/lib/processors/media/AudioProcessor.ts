@@ -46,6 +46,7 @@ import type {
 } from "../../types/index.js";
 import { SIZE_LIMITS_MB } from "../config/index.js";
 import { FileErrorCode } from "../errors/index.js";
+import { withTimeout } from "../../utils/timeout.js";
 
 let _musicMetadata: typeof import("music-metadata") | null = null;
 async function loadMusicMetadata() {
@@ -422,16 +423,25 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
     try {
       // Dynamic imports to avoid loading these modules when transcription is not needed
       const [{ createOpenAI }, { experimental_transcribe }] = await Promise.all(
-        [import("@ai-sdk/openai"), import("ai")],
+        [import("@ai-sdk/openai"), import("../../utils/generation.js")],
       );
 
       const openai = createOpenAI({ apiKey });
       const model = openai.transcription("whisper-1");
 
-      const result = await experimental_transcribe({
-        model,
-        audio: buffer,
-      });
+      // Wrap in withTimeout — large audio files can take a while, but a
+      // stalled request shouldn't block the processor forever. The outer
+      // catch swallows any error (transcription is best-effort), so a
+      // TimeoutError ends up in the same fallback path as other failures.
+      const result = await withTimeout(
+        experimental_transcribe({
+          model,
+          audio: buffer,
+        }),
+        AUDIO_CONFIG.TRANSCRIPTION_TIMEOUT_MS,
+        "openai-whisper",
+        "generate",
+      );
 
       if (result.text && result.text.trim().length > 0) {
         return {

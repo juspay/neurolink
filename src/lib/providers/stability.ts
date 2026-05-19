@@ -1,4 +1,3 @@
-import type { LanguageModel } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import { StabilityModels } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -21,6 +20,7 @@ import {
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { getProviderModel } from "../utils/providerConfig.js";
+import type { LanguageModel } from "../types/index.js";
 
 const STABILITY_DEFAULT_BASE_URL = "https://api.stability.ai";
 const REQUEST_TIMEOUT_MS = 120_000;

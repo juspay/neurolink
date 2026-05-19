@@ -1,11 +1,3 @@
-/**
- * @file Implements the ContextBuilder class for creating rich evaluation context.
- */
-
-import type {
-  LanguageModelV3CallOptions,
-  LanguageModelV3Message,
-} from "@ai-sdk/provider";
 import type {
   EnhancedEvaluationContext,
   QueryIntentAnalysis,
@@ -18,6 +10,10 @@ import type {
   JsonValue,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import type {
+  LanguageModelV3CallOptions,
+  LanguageModelV3Message,
+} from "../types/index.js";
 
 /**
  * Builds the enhanced context required for a RAGAS-style evaluation.

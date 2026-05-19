@@ -11,12 +11,16 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { tool } from "ai";
 import { z } from "zod";
-import type { ExperimentRecord, ResearchToolsDeps } from "../types/index.js";
+import type {
+  ExperimentRecord,
+  ResearchToolsDeps,
+  Tool,
+} from "../types/index.js";
 import { withTimeout } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
 import { parseExperimentSummary } from "./summaryParser.js";
+import { tool } from "../utils/tool.js";
 
 /**
  * Create research management tools bound to a research session.
@@ -34,7 +38,9 @@ import { parseExperimentSummary } from "./summaryParser.js";
  * // tools.research_get_context, tools.research_read_file, etc.
  * ```
  */
-export function createResearchTools(deps: ResearchToolsDeps) {
+export function createResearchTools(
+  deps: ResearchToolsDeps,
+): Record<string, Tool> {
   const { config, stateStore, repoPolicy, runner, recorder } = deps;
 
   return {

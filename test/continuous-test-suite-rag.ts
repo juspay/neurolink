@@ -54,7 +54,13 @@ const generateStreamTests: FixtureTest[] = loadJsonFixture(
 );
 const cliTests: FixtureTest[] = loadJsonFixture("cli-tests.json", []);
 
-import type { Tool } from "ai";
+import type {
+  Chunk,
+  ChunkingStrategy,
+  RerankerType,
+  Tool,
+  VectorQueryResult,
+} from "../src/lib/types/index.js";
 import type { z } from "zod";
 import { NeuroLink } from "../src/lib/neurolink.js";
 // Import RAG components
@@ -73,7 +79,6 @@ import {
   getChunker,
   getChunkerMetadata as getRegistryChunkerMetadata,
 } from "../src/lib/rag/ChunkerRegistry.js";
-import type { RerankerType } from "../src/lib/rag/reranker/RerankerFactory.js";
 import {
   createReranker,
   getAvailableRerankerTypes,
@@ -99,12 +104,6 @@ import {
   createVectorQueryTool,
   InMemoryVectorStore,
 } from "../src/lib/rag/retrieval/vectorQueryTool.js";
-import type {
-  Chunk,
-  ChunkingStrategy,
-  VectorQueryResult,
-} from "../src/lib/rag/types.js";
-
 // ============================================================================
 // Test Configuration
 // ============================================================================

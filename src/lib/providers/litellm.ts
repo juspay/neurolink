@@ -1,14 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import {
-  type LanguageModel,
-  NoOutputGeneratedError,
-  Output,
-  type Schema,
-  stepCountIs,
-  streamText,
-  type Tool,
-} from "ai";
 import type { ZodType } from "zod";
 import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -48,9 +39,14 @@ import {
   composeAbortSignals,
   createTimeoutController,
   TimeoutError,
+  withTimeout,
 } from "../utils/timeout.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { getModelId } from "./providerTypeUtils.js";
+import type { LanguageModel, Schema, Tool } from "../types/index.js";
+import { NoOutputGeneratedError } from "../utils/generationErrors.js";
+import { Output, stepCountIs } from "../utils/tool.js";
+import { streamText } from "../utils/generation.js";
 
 const streamTracer = trace.getTracer("neurolink.provider.litellm");
 
@@ -629,7 +625,7 @@ export class LiteLLMProvider extends BaseProvider {
    * Uses the LiteLLM proxy with OpenAI-compatible embedding API
    */
   async embed(text: string, modelName?: string): Promise<number[]> {
-    const { embed: aiEmbed } = await import("ai");
+    const { embed: aiEmbed } = await import("../utils/generation.js");
     const { createOpenAI } = await import("@ai-sdk/openai");
     const config = getLiteLLMConfig();
     const embeddingModelName =
@@ -644,7 +640,15 @@ export class LiteLLMProvider extends BaseProvider {
     });
 
     const embeddingModel = customOpenAI.textEmbeddingModel(embeddingModelName);
-    const result = await aiEmbed({ model: embeddingModel, value: text });
+    // Wrap in withTimeout so stalled upstream embedding requests abort instead
+    // of hanging forever. 30s matches the default for embedding endpoints
+    // across the OpenAI-compatible cluster.
+    const result = await withTimeout(
+      aiEmbed({ model: embeddingModel, value: text }),
+      30_000,
+      "litellm",
+      "generate",
+    );
     return result.embedding;
   }
 
@@ -653,7 +657,7 @@ export class LiteLLMProvider extends BaseProvider {
    * Uses the LiteLLM proxy with OpenAI-compatible embedding API
    */
   async embedMany(texts: string[], modelName?: string): Promise<number[][]> {
-    const { embedMany: aiEmbedMany } = await import("ai");
+    const { embedMany: aiEmbedMany } = await import("../utils/generation.js");
     const { createOpenAI } = await import("@ai-sdk/openai");
     const config = getLiteLLMConfig();
     const embeddingModelName =
@@ -668,7 +672,13 @@ export class LiteLLMProvider extends BaseProvider {
     });
 
     const embeddingModel = customOpenAI.textEmbeddingModel(embeddingModelName);
-    const result = await aiEmbedMany({ model: embeddingModel, values: texts });
+    // Wrap in withTimeout so a single slow batch doesn't hang indefinitely.
+    const result = await withTimeout(
+      aiEmbedMany({ model: embeddingModel, values: texts }),
+      30_000,
+      "litellm",
+      "generate",
+    );
     return result.embeddings;
   }
 

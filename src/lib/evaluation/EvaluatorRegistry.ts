@@ -4,7 +4,6 @@
  */
 
 import { BaseRegistry } from "../core/infrastructure/index.js";
-import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
 import type {
   EvaluationStrategyConfig,
   EvaluationStrategyFunction,
@@ -13,6 +12,7 @@ import type {
 } from "../types/index.js";
 import { createStrategyNotFoundError } from "./errors/EvaluationError.js";
 import { withTimeout, ErrorFactory } from "../utils/errorHandling.js";
+import type { LanguageModelV3CallOptions } from "../types/index.js";
 
 /**
  * Registry for evaluation strategies.

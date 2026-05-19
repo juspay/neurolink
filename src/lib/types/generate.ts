@@ -1,4 +1,3 @@
-import type { Schema, Tool, ToolChoice, StepResult, LanguageModel } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import type { RAGConfig } from "./rag.js";
 import type { AnalyticsData, TokenUsage } from "./analytics.js";
@@ -30,6 +29,8 @@ import type {
 import type { NeurolinkCredentials } from "./providers.js";
 import type { FileWithMetadata } from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
+import type { Schema, Tool, ToolChoice } from "./tools.js";
+import type { StepResult, LanguageModel } from "./providers.js";
 
 /**
  * Generate function options type - Primary method for content generation

@@ -1,15 +1,3 @@
-/**
- * Claude Messages API format conversion layer.
- *
- * Provides a request parser (Claude -> NeuroLink), a response serializer
- * (NeuroLink -> Claude), a streaming SSE state machine, and an error
- * envelope helper.  Together they allow NeuroLink to act as a
- * drop-in Claude API proxy.
- *
- * Reference: https://docs.anthropic.com/en/api/messages
- */
-
-import { jsonSchema, tool } from "ai";
 import { randomBytes } from "crypto";
 import type {
   ClaudeContentBlock,
@@ -28,6 +16,7 @@ import type {
   StreamLifecycleState,
 } from "../types/index.js";
 import { normalizeJsonSchemaObject } from "../utils/schemaConversion.js";
+import { jsonSchema, tool } from "../utils/tool.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

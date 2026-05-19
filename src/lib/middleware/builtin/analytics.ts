@@ -1,9 +1,9 @@
-import type { LanguageModelMiddleware } from "ai";
 import type {
   NeuroLinkMiddleware,
   NeuroLinkMiddlewareMetadata,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
+import type { LanguageModelMiddleware } from "../../types/index.js";
 
 /**
  * Create analytics middleware for tracking AI model usage

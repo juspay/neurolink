@@ -36,6 +36,26 @@
 import type { HippocampusMemory, HippocampusStorageConfig } from "./memory.js";
 import type { ObservabilityConfig } from "./observability.js";
 
+// Message and content primitives. Today these resolve through the upstream
+// generation library; the layout is stable enough for consumers to import
+// from the package barrel without caring about the source module.
+export type {
+  ModelMessage,
+  SystemModelMessage,
+  UserModelMessage,
+  AssistantModelMessage,
+  ToolModelMessage,
+  TextPart,
+  ImagePart,
+  FilePart,
+  ToolCallPart,
+  ToolResultPart,
+  AssistantContent,
+  UserContent,
+  ToolContent,
+  DataContent,
+} from "ai";
+
 /**
  * Legacy public alias for the Hippocampus storage configuration.
  * The structural definition lives in `./memory.ts`; this re-export keeps

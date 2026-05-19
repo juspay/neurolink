@@ -65,6 +65,9 @@ const BANNED_PACKAGES = [
   "@ai-sdk/google",
   "@ai-sdk/google-vertex",
   "@ai-sdk/google-vertex/anthropic",
+  // Listed but never imported anywhere in source — guard against accidental
+  // reintroduction. ollama.ts speaks the native HTTP API directly.
+  "ollama-ai-provider",
 ] as const;
 
 type Severity = "error" | "warning";

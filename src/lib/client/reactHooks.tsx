@@ -27,7 +27,6 @@ import {
 import type { ReactNode } from "react";
 
 import type {
-  ClientConfig,
   ClientApiError,
   NeuroLinkProviderProps,
   UseChatOptions,
@@ -361,7 +360,9 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     ) => {
       e?.preventDefault?.();
 
-      if (!input.trim()) return;
+      if (!input.trim()) {
+        return;
+      }
 
       const message: Omit<ChatMessage, "id" | "createdAt"> = {
         role: "user",
@@ -384,7 +385,9 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     const lastUserMessageIndex = currentMessages.findLastIndex(
       (m: ChatMessage) => m.role === "user",
     );
-    if (lastUserMessageIndex === -1) return null;
+    if (lastUserMessageIndex === -1) {
+      return null;
+    }
 
     const lastUserMessage = currentMessages[lastUserMessageIndex];
 
@@ -977,7 +980,9 @@ export function useVoice(options: UseVoiceOptions = {}): UseVoiceReturn {
 
   // Check browser support
   const isSupported = useMemo(() => {
-    if (typeof window === "undefined") return false;
+    if (typeof window === "undefined") {
+      return false;
+    }
     const hasSpeechRecognition =
       "SpeechRecognition" in window || "webkitSpeechRecognition" in window;
     const hasSpeechSynthesis = "speechSynthesis" in window;
@@ -988,7 +993,9 @@ export function useVoice(options: UseVoiceOptions = {}): UseVoiceReturn {
    * Initialize speech recognition
    */
   const initRecognition = useCallback(() => {
-    if (typeof window === "undefined") return null;
+    if (typeof window === "undefined") {
+      return null;
+    }
 
     const SpeechRecognitionCtor =
       (
@@ -1002,7 +1009,9 @@ export function useVoice(options: UseVoiceOptions = {}): UseVoiceReturn {
         }
       ).webkitSpeechRecognition;
 
-    if (!SpeechRecognitionCtor) return null;
+    if (!SpeechRecognitionCtor) {
+      return null;
+    }
 
     const recognition = new SpeechRecognitionCtor();
     recognition.continuous = true;
@@ -1047,7 +1056,9 @@ export function useVoice(options: UseVoiceOptions = {}): UseVoiceReturn {
    * Start listening for voice input
    */
   const startListening = useCallback(() => {
-    if (!enableSpeechRecognition) return;
+    if (!enableSpeechRecognition) {
+      return;
+    }
 
     if (!recognitionRef.current) {
       recognitionRef.current = initRecognition();
@@ -1076,7 +1087,9 @@ export function useVoice(options: UseVoiceOptions = {}): UseVoiceReturn {
    */
   const speak = useCallback(
     async (text: string): Promise<void> => {
-      if (typeof window === "undefined") return;
+      if (typeof window === "undefined") {
+        return;
+      }
 
       setIsSpeaking(true);
       onSpeechStart?.();
@@ -1286,7 +1299,9 @@ export function useStream(options: UseStreamOptions = {}): UseStreamReturn {
 
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            break;
+          }
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");

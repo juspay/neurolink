@@ -1344,7 +1344,8 @@ generate({
   - `ai`: Core AI utilities from Vercel
   - `@ai-sdk/openai`: OpenAI integration
   - `@ai-sdk/amazonBedrock`: Amazon Bedrock integration
-  - `@ai-sdk/googleVertex`: Google Vertex AI integration
+  - `@google/genai`: Google AI Studio and Vertex AI Gemini provider (native SDK; replaced `@ai-sdk/google-vertex` in v9.64.0, commit `076b9f4c`)
+  - `@anthropic-ai/vertex-sdk`: Claude on Vertex AI (native SDK; replaced `@ai-sdk/google-vertex/anthropic` in v9.64.0)
   - `zod`: Schema validation
 
 ## Development Environment
@@ -1502,10 +1503,10 @@ pnpm test
 
 ## Known Technical Debt
 
-1. **Google Vertex AI Anthropic Import**: The Google Vertex AI provider imports `@ai-sdk/googleVertex/anthropic` which is not exported by the Google Vertex package. This needs to be fixed in a future release.
+1. **Error Handling Consistency**: Error handling could be more consistent across providers, especially for network errors and rate limiting.
 
-2. **Error Handling Consistency**: Error handling could be more consistent across providers, especially for network errors and rate limiting.
+2. **Documentation Coverage**: Not all error scenarios are fully documented with examples.
 
-3. **Documentation Coverage**: Not all error scenarios are fully documented with examples.
+3. **Test Coverage**: More comprehensive test coverage for edge cases needed.
 
-4. **Test Coverage**: More comprehensive test coverage for edge cases needed.
+> **Resolved (v9.64.0):** ~~Google Vertex AI Anthropic Import~~ — `googleVertex.ts` migrated off `@ai-sdk/google-vertex/anthropic` (which was never exported by the upstream package) to native `@google/genai` + `@anthropic-ai/vertex-sdk` (commit `076b9f4c`). `scripts/check-banned-deps.ts` blocks any reintroduction of `@ai-sdk/google-vertex*` at the source level.

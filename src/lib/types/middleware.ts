@@ -1,4 +1,3 @@
-import type { LanguageModelMiddleware } from "ai";
 import type { JsonValue } from "../types/common.js";
 import type { EvaluationData, GetPromptFunction } from "./evaluation.js";
 import type {
@@ -6,6 +5,36 @@ import type {
   RouteDefinition,
   ServerContext,
 } from "./server.js";
+
+// Middleware contract + low-level V3 protocol shapes. Today these resolve
+// through the upstream generation library; consumers should import via the
+// package barrel.
+//
+// `LanguageModelMiddleware` is both re-exported (for consumers) and used as a
+// constraint in `NeuroLinkMiddleware` below — aliasing the local binding keeps
+// the two roles textually distinct.
+import type { LanguageModelMiddleware as BaseLanguageModelMiddleware } from "ai";
+export type { LanguageModelMiddleware } from "ai";
+export type {
+  LanguageModelV3,
+  LanguageModelV3CallOptions,
+  LanguageModelV3Message,
+  LanguageModelV3StreamPart,
+  LanguageModelV3ToolCall,
+  LanguageModelV3ToolChoice,
+  LanguageModelV3Source,
+  LanguageModelV3Middleware,
+  JSONSchema7,
+} from "@ai-sdk/provider";
+
+import type { LanguageModelV3 } from "@ai-sdk/provider";
+export type LanguageModelV3GenerateResult = Awaited<
+  ReturnType<LanguageModelV3["doGenerate"]>
+>;
+export type LanguageModelV3StreamResult = Awaited<
+  ReturnType<LanguageModelV3["doStream"]>
+>;
+
 /**
  * Metadata type for NeuroLink middleware
  * Provides additional information about middleware without affecting execution
@@ -29,7 +58,7 @@ export type NeuroLinkMiddlewareMetadata = {
  * NeuroLink middleware with metadata
  * Combines standard AI SDK middleware with NeuroLink-specific metadata
  */
-export type NeuroLinkMiddleware = LanguageModelMiddleware & {
+export type NeuroLinkMiddleware = BaseLanguageModelMiddleware & {
   /** Middleware metadata */
   readonly metadata: NeuroLinkMiddlewareMetadata;
 };
@@ -223,7 +252,7 @@ export type MiddlewareRegistryEntry = {
  */
 export type MiddlewareFactory = (
   config: Record<string, unknown>,
-) => LanguageModelMiddleware;
+) => BaseLanguageModelMiddleware;
 
 /**
  * Middleware validation result

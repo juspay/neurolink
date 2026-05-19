@@ -72,8 +72,10 @@ export default [
     },
   },
   {
-    // TypeScript files in src/ directory (use project-based linting)
-    files: ["src/**/*.ts"],
+    // TypeScript files in src/ directory (use project-based linting). Includes
+    // .tsx so import-discipline (no-restricted-imports / no-restricted-syntax)
+    // and the neurolink custom rules apply uniformly across React components.
+    files: ["src/**/*.ts", "src/**/*.tsx"],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
@@ -101,6 +103,44 @@ export default [
       "neurolink/no-local-type-alias": "error", // Rule 2 (strict)
       "neurolink/no-inline-secret-regex": "error", // Review H04 — secret-redaction must go through logSanitize
       "neurolink/provider-typed-errors": "error", // Review M08 — formatProviderError must return typed errors
+
+      // Import discipline: route all "ai" / "@ai-sdk/provider" usage through the
+      // seam files in src/lib/utils/{generation,generationErrors,tool}.ts and
+      // src/lib/types/{conversation,tools,providers,middleware}.ts. The seam
+      // files themselves get an override below.
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "ai",
+              message:
+                "Import via the seam: src/lib/utils/{generation,generationErrors,tool}.ts for runtime values and src/lib/types/{conversation,tools,providers,middleware}.ts for types.",
+            },
+            {
+              name: "@ai-sdk/provider",
+              message:
+                "Import protocol types via src/lib/types/middleware.ts and APICallError via src/lib/utils/generationErrors.ts.",
+            },
+          ],
+        },
+      ],
+      // `no-restricted-imports` does NOT report dynamic ImportExpression
+      // (`import("ai")`); catch those via AST selector so the seam is also
+      // enforced for lazy / circular-dep-avoidance imports.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "ImportExpression[source.value='ai']",
+          message:
+            "Dynamic import('ai') must go through the seam: src/lib/utils/{generation,generationErrors,tool}.ts.",
+        },
+        {
+          selector: "ImportExpression[source.value='@ai-sdk/provider']",
+          message:
+            "Dynamic import('@ai-sdk/provider') must go through the seam: src/lib/types/middleware.ts (types) or src/lib/utils/generationErrors.ts (runtime).",
+        },
+      ],
 
       // Disable base rules that are covered by TypeScript
       "no-unused-vars": "off",
@@ -221,6 +261,25 @@ export default [
     files: ["src/lib/utils/logger.ts"],
     rules: {
       "no-console": "off", // Logger implementation needs console access
+    },
+  },
+  {
+    // Seam files — these are the only files allowed to import from "ai" /
+    // "@ai-sdk/provider" directly (static OR dynamic). Every other file in
+    // src/ must route through these (see no-restricted-imports and
+    // no-restricted-syntax above).
+    files: [
+      "src/lib/utils/generation.ts",
+      "src/lib/utils/generationErrors.ts",
+      "src/lib/utils/tool.ts",
+      "src/lib/types/conversation.ts",
+      "src/lib/types/tools.ts",
+      "src/lib/types/providers.ts",
+      "src/lib/types/middleware.ts",
+    ],
+    rules: {
+      "no-restricted-imports": "off",
+      "no-restricted-syntax": "off",
     },
   },
   {

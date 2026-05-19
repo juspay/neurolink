@@ -1,5 +1,3 @@
-import { generateText } from "ai";
-import type { LanguageModelMiddleware } from "ai";
 import type {
   NeuroLinkMiddleware,
   NeuroLinkMiddlewareMetadata,
@@ -12,6 +10,8 @@ import {
   handlePrecallGuardrails,
 } from "../utils/guardrailsUtils.js";
 import { logger } from "../../utils/logger.js";
+import { generateText } from "../../utils/generation.js";
+import type { LanguageModelMiddleware } from "../../types/index.js";
 
 /**
  * Create Guardrails AI middleware for content filtering and policy enforcement

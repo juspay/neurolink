@@ -1,5 +1,4 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { type LanguageModel, stepCountIs, streamText } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import { GroqModels } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -35,6 +34,9 @@ import {
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
+import type { LanguageModel } from "../types/index.js";
+import { stepCountIs } from "../utils/tool.js";
+import { streamText } from "../utils/generation.js";
 
 const GROQ_DEFAULT_BASE_URL = "https://api.groq.com/openai/v1";
 

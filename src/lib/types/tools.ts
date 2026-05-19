@@ -4,7 +4,6 @@
  */
 
 import { z } from "zod";
-import type { Tool } from "ai";
 import type {
   ErrorInfo,
   JsonObject,
@@ -21,6 +20,24 @@ import type { ValidationError } from "../utils/parameterValidation.js";
 import type { MCPToolAnnotations } from "./mcp.js";
 import type { Logger } from "./utilities.js";
 import type { HITLExecutionState } from "./hitl.js";
+
+// Tool + schema primitives. Today these resolve through the upstream generation
+// library; consumers should import via the package barrel.
+import type { Tool } from "ai";
+export type {
+  Tool,
+  ToolSet,
+  ToolChoice,
+  ToolCallOptions,
+  ToolExecuteFunction,
+  ToolApprovalRequest,
+  ToolApprovalResponse,
+  InferToolInput,
+  InferToolOutput,
+  Schema,
+  FlexibleSchema,
+  InferSchema,
+} from "ai";
 
 /**
  * Commonly used Zod schema type aliases for cleaner type declarations

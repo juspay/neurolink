@@ -1,19 +1,3 @@
-/**
- * Message Builder Module
- *
- * Handles all message construction logic for AI providers.
- * Extracted from BaseProvider to follow Single Responsibility Principle.
- *
- * Responsibilities:
- * - Building messages from text generation options
- * - Building messages from stream options
- * - Multimodal input detection
- * - Message format conversion (to ModelMessage[])
- *
- * @module core/modules/MessageBuilder
- */
-
-import type { ModelMessage } from "ai";
 import { tracers, ATTR, withSpan } from "../../telemetry/index.js";
 import type {
   AIProviderName,
@@ -27,6 +11,7 @@ import {
   buildMessagesArray,
   buildMultimodalMessagesArray,
 } from "../../utils/messageBuilder.js";
+import type { ModelMessage } from "../../types/index.js";
 
 /**
  * Compute total content length across all messages for span attributes.

@@ -1,6 +1,5 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import { type LanguageModel, stepCountIs, streamText, type Tool } from "ai";
 import {
   existsSync,
   mkdirSync,
@@ -68,6 +67,9 @@ import {
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { getModelId } from "./providerTypeUtils.js";
+import type { LanguageModel, Tool } from "../types/index.js";
+import { stepCountIs } from "../utils/tool.js";
+import { streamText } from "../utils/generation.js";
 
 /**
  * Beta headers for Claude Code integration.

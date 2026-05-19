@@ -20,7 +20,6 @@ import {
   OpenAIModels,
   VertexModels,
 } from "../constants/enums.js";
-import type { Tool } from "ai";
 import type { ValidationSchema } from "./aliases.js";
 import type {
   EnhancedGenerateResult,
@@ -38,6 +37,25 @@ import type {
   SubscriptionInfo,
   OAuthToken,
 } from "./subscription.js";
+import type { Tool } from "./tools.js";
+
+// Language-model handles, embedding/image models, and generation-result shapes.
+// Today these resolve through the upstream generation library; consumers should
+// import via the package barrel.
+export type {
+  LanguageModel,
+  EmbeddingModel,
+  ImageModel,
+  GenerateTextResult,
+  StepResult,
+  ToolCallRepairFunction,
+  PrepareStepFunction,
+  PrepareStepResult,
+  FinishReason,
+  LanguageModelUsage,
+  LanguageModelRequestMetadata,
+  LanguageModelResponseMetadata,
+} from "ai";
 
 // Re-export subscription types for convenience
 export type {

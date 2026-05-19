@@ -1,4 +1,3 @@
-import type { LanguageModel } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import { RecraftModels } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -27,6 +26,7 @@ import {
 } from "../utils/providerConfig.js";
 import { MAX_IMAGE_BYTES, readBoundedBuffer } from "../utils/sizeGuard.js";
 import { assertSafeUrl } from "../utils/ssrfGuard.js";
+import type { LanguageModel } from "../types/index.js";
 
 const RECRAFT_DEFAULT_BASE_URL = "https://external.api.recraft.ai/v1";
 const REQUEST_TIMEOUT_MS = 120_000;

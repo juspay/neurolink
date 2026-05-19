@@ -1,13 +1,4 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import {
-  type LanguageModel,
-  NoOutputGeneratedError,
-  Output,
-  type Schema,
-  stepCountIs,
-  streamText,
-  type Tool,
-} from "ai";
 import type { ZodType } from "zod";
 import { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -46,6 +37,10 @@ import {
   TimeoutError,
 } from "../utils/timeout.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
+import type { LanguageModel, Schema, Tool } from "../types/index.js";
+import { NoOutputGeneratedError } from "../utils/generationErrors.js";
+import { Output, stepCountIs } from "../utils/tool.js";
+import { streamText } from "../utils/generation.js";
 
 // Constants
 const MODELS_DISCOVERY_TIMEOUT_MS = 5000; // 5 seconds for model discovery

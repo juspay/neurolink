@@ -154,10 +154,21 @@ if (typeof globalThis.global === "undefined") {
 // @ts-ignore - esbuild resolves .ts extensions
 export * from "../lib/index.js";
 
-// === Re-export AI SDK provider creators (for direct browser use) ===
+// === Provider creators (for direct browser use) ===
+// Public browser-bundle API surface. Phase 5+ of memory-bank/native-runtime/
+// replaces these with native equivalents under the same public names
+// (success criterion #5).
 export { createAnthropic, anthropic } from "@ai-sdk/anthropic";
 export { createOpenAI, openai } from "@ai-sdk/openai";
 export { createMistral, mistral } from "@ai-sdk/mistral";
 
-// === Core AI SDK functions ===
-export { generateText, streamText, generateObject, streamObject } from "ai";
+// === Core generation functions ===
+// Routed through the internal seam (utils/generation.ts) so the browser bundle
+// picks up any future Phase 5+ replacement automatically without a separate
+// edit here. Function identity is unchanged today.
+export {
+  generateText,
+  streamText,
+  generateObject,
+  streamObject,
+} from "../lib/utils/generation.js";

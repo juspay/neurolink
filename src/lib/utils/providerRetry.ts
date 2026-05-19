@@ -15,8 +15,8 @@
  */
 
 import { type Span } from "@opentelemetry/api";
-import { APICallError } from "@ai-sdk/provider";
 import { logger } from "./logger.js";
+import { APICallError } from "./generationErrors.js";
 
 /** Maximum number of retry attempts after the initial call (total = 1 + MAX_PROVIDER_RETRIES). */
 export const MAX_PROVIDER_RETRIES = 2;

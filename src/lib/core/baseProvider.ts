@@ -1,12 +1,4 @@
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import type {
-  LanguageModel,
-  ModelMessage,
-  Tool,
-  ToolCallRepairFunction,
-  ToolSet,
-} from "ai";
-import { generateText } from "ai";
 import { directAgentTools } from "../agent/directTools.js";
 import type { AIProviderName } from "../constants/enums.js";
 import { IMAGE_GENERATION_MODELS } from "../core/constants.js";
@@ -58,6 +50,14 @@ import { StreamHandler } from "./modules/StreamHandler.js";
 import { TelemetryHandler } from "./modules/TelemetryHandler.js";
 import { ToolsManager } from "./modules/ToolsManager.js";
 import { Utilities } from "./modules/Utilities.js";
+import type {
+  LanguageModel,
+  ModelMessage,
+  Tool,
+  ToolCallRepairFunction,
+  ToolSet,
+} from "../types/index.js";
+import { generateText } from "../utils/generation.js";
 
 /**
  * Abstract base class for all AI providers

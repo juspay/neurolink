@@ -1,4 +1,3 @@
-import type { LanguageModel } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import {
   ErrorCategory,
@@ -28,6 +27,7 @@ import {
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
+import type { LanguageModel } from "../types/index.js";
 
 const getDefaultReplicateModel = (): string =>
   getProviderModel("REPLICATE_MODEL", ReplicateModels.LLAMA_3_70B_INSTRUCT);

@@ -1,31 +1,14 @@
-/**
- * On-Demand File Access Tools
- *
- * Exposes file operations as LLM tools via the Vercel AI SDK `tool()` pattern.
- * These tools allow the LLM to access file content lazily — only reading
- * the specific sections, lines, or search results it needs.
- *
- * Tools:
- * - list_attached_files: List all registered files with metadata
- * - read_file_section: Read specific line range with token budget
- * - search_in_file: Search for patterns within a file
- * - get_file_preview: Get the preview/summary of a file
- * - extract_file_content: Targeted extraction for any file type (video frames,
- *     PDF pages, spreadsheet ranges, archive entries, PPTX slides)
- *
- * @module files/fileTools
- */
-
-import { tool } from "ai";
 import { z } from "zod";
 import type { FileReferenceRegistry } from "./fileReferenceRegistry.js";
+import { tool } from "../utils/tool.js";
 
 /**
  * Create file access tools bound to a FileReferenceRegistry instance.
  *
  * These tools follow the same pattern as the existing directAgentTools
  * (getCurrentTime, readFile, etc.) in src/lib/agent/directTools.ts.
- * They use `tool()` from the Vercel AI SDK with zod parameter schemas.
+ * They use NeuroLink's `tool()` helper from `../utils/tool.js` with Zod
+ * parameter schemas.
  *
  * @param registry - The FileReferenceRegistry instance to bind to
  * @returns Record of tool name to tool definition

@@ -1,4 +1,3 @@
-import type { LanguageModel } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import { IdeogramModels } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -24,6 +23,7 @@ import {
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
+import type { LanguageModel } from "../types/index.js";
 
 const IDEOGRAM_DEFAULT_BASE_URL = "https://api.ideogram.ai";
 const REQUEST_TIMEOUT_MS = 120_000;

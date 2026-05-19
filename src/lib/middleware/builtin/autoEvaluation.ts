@@ -1,11 +1,3 @@
-/**
- * @file Implements the Auto-Evaluation Middleware for ensuring response quality.
- */
-
-import type {
-  LanguageModelV3CallOptions,
-  LanguageModelV3StreamPart,
-} from "@ai-sdk/provider";
 import type {
   NeuroLinkMiddleware,
   NeuroLinkMiddlewareMetadata,
@@ -14,9 +6,12 @@ import type {
   StandardRecord,
 } from "../../types/index.js";
 import { Evaluator } from "../../evaluation/index.js";
-import type { LanguageModelMiddleware } from "ai";
-
 import { logger } from "../../utils/logger.js";
+import type {
+  LanguageModelV3CallOptions,
+  LanguageModelV3StreamPart,
+} from "../../types/index.js";
+import type { LanguageModelMiddleware } from "../../types/index.js";
 
 /**
  * Creates the Auto-Evaluation middleware, which intercepts generation requests

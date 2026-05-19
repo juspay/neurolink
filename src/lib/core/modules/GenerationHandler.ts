@@ -14,13 +14,6 @@
  */
 
 import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
-import type {
-  LanguageModel,
-  ModelMessage,
-  PrepareStepFunction,
-  Tool,
-} from "ai";
-import { generateText, NoObjectGeneratedError, Output, stepCountIs } from "ai";
 import { getModelId } from "../../providers/providerTypeUtils.js";
 import { tracers } from "../../telemetry/tracers.js";
 import type {
@@ -46,6 +39,15 @@ import {
   extractTokenUsage,
 } from "../../utils/tokenUtils.js";
 import { DEFAULT_MAX_STEPS } from "../constants.js";
+import type {
+  LanguageModel,
+  ModelMessage,
+  PrepareStepFunction,
+  Tool,
+} from "../../types/index.js";
+import { NoObjectGeneratedError } from "../../utils/generationErrors.js";
+import { Output, stepCountIs } from "../../utils/tool.js";
+import { generateText } from "../../utils/generation.js";
 
 const genTracer = tracers.generation;
 

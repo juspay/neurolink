@@ -13,12 +13,6 @@ import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { extname } from "node:path";
 import {
-  type ToolExecuteFunction,
-  jsonSchema as aiJsonSchema,
-  tool as createAISDKTool,
-  type Tool,
-} from "ai";
-import {
   DEFAULT_MAX_STEPS,
   DEFAULT_TOOL_MAX_RETRIES,
 } from "../core/constants.js";
@@ -50,6 +44,11 @@ import {
 } from "../utils/schemaConversion.js";
 
 import { createNativeThinkingConfig } from "../utils/thinkingConfig.js";
+import type { ToolExecuteFunction, Tool } from "../types/index.js";
+import {
+  jsonSchema as aiJsonSchema,
+  tool as createAISDKTool,
+} from "../utils/tool.js";
 
 // ── Functions ──
 

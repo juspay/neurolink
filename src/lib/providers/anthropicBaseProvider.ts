@@ -1,12 +1,5 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import {
-  type LanguageModel,
-  NoOutputGeneratedError,
-  type Schema,
-  streamText,
-  type Tool,
-} from "ai";
 import type { ZodType } from "zod";
 import { type AIProviderName, AnthropicModels } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -35,6 +28,9 @@ import {
 } from "../utils/timeout.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { getModelId } from "./providerTypeUtils.js";
+import type { LanguageModel, Schema, Tool } from "../types/index.js";
+import { NoOutputGeneratedError } from "../utils/generationErrors.js";
+import { streamText } from "../utils/generation.js";
 
 const streamTracer = trace.getTracer("neurolink.provider.anthropic");
 

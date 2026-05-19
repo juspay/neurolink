@@ -11,6 +11,7 @@
     "strict": true,
     "noImplicitReturns": true,
     "allowSyntheticDefaultImports": true,
+    "stripInternal": true,
     "types": ["vite/client", "@sveltejs/kit", "vitest/globals", "node"],
     "jsx": "react-jsx"
   },

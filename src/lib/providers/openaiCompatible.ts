@@ -1,12 +1,4 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import {
-  type LanguageModel,
-  NoOutputGeneratedError,
-  type Schema,
-  stepCountIs,
-  streamText,
-  type Tool,
-} from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
@@ -43,6 +35,10 @@ import {
 } from "../utils/timeout.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
+import type { LanguageModel, Schema, Tool } from "../types/index.js";
+import { NoOutputGeneratedError } from "../utils/generationErrors.js";
+import { stepCountIs } from "../utils/tool.js";
+import { streamText } from "../utils/generation.js";
 
 // Constants
 const FALLBACK_OPENAI_COMPATIBLE_MODEL = "gpt-3.5-turbo";

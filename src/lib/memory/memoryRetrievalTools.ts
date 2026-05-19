@@ -1,17 +1,7 @@
-/**
- * Memory retrieval tools for LLM access to conversation history.
- * Enables the AI to retrieve full tool outputs, review previous messages,
- * and search conversation memory.
- *
- * Follows the createFileTools() factory pattern from files/fileTools.ts.
- * @module
- */
-
-import { tool } from "ai";
 import { SpanStatusCode } from "@opentelemetry/api";
 import { z } from "zod";
 import type { RedisConversationMemoryManager } from "../core/redisConversationMemoryManager.js";
-import type { ArtifactStore } from "../types/index.js";
+import type { ArtifactStore, Tool } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { withTimeout } from "../utils/errorHandling.js";
 import {
@@ -22,6 +12,8 @@ import {
 } from "../observability/index.js";
 import { withSpan } from "../telemetry/withSpan.js";
 import { tracers } from "../telemetry/tracers.js";
+import { tool } from "../utils/tool.js";
+
 /** Maximum characters returned per retrieval request */
 const DEFAULT_RETRIEVAL_LIMIT = 50_000;
 
@@ -44,7 +36,7 @@ const MAX_SEARCH_MATCHES = 50;
 export function createMemoryRetrievalTools(
   memoryManager: RedisConversationMemoryManager | undefined,
   artifactStore?: ArtifactStore,
-) {
+): Record<string, Tool> {
   return {
     retrieve_context: tool({
       description:

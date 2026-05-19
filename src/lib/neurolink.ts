@@ -35,6 +35,10 @@ import {
 } from "./constants/index.js";
 import { checkContextBudget } from "./context/budgetChecker.js";
 import { ContextCompactor } from "./context/contextCompactor.js";
+import {
+  InvalidToolInputError,
+  NoSuchToolError,
+} from "./utils/generationErrors.js";
 import type {
   CompactionConfig,
   CompactionResult,
@@ -5829,6 +5833,55 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * Non-retryable tool-error predicate shared by `performMCPGenerationRetries`
+   * and `tryMCPGeneration`. Returns `true` when the error indicates the model
+   * hallucinated a tool name or sent invalid arguments — retrying would
+   * re-trigger the same deterministic failure with the same tool set.
+   *
+   * Belt-and-suspenders: prefers class-identity `.isInstance()` (stable across
+   * Phase 5+ native substitution) but falls back to `error.name` and message
+   * substring checks so cross-module-boundary errors (Jest, bundlers, wrapped
+   * errors) are still caught. The name fallback covers both
+   * `AI_InvalidToolInputError` (current v5/v6 SDK) and the legacy
+   * `AI_InvalidToolArgumentsError` (v4).
+   */
+  private static isNonRetryableToolError(error: unknown): boolean {
+    // Class-identity path: only meaningful when the throw really is an Error.
+    if (
+      error instanceof Error &&
+      (NoSuchToolError.isInstance(error) ||
+        InvalidToolInputError.isInstance(error))
+    ) {
+      return true;
+    }
+
+    // Duck-type fallback for non-Error throws, wrapped errors, or values that
+    // serialize to JSON without preserving the prototype chain. Extract name
+    // and message defensively — `error` may be `null`, a string, or an object
+    // with non-string `name`/`message` properties.
+    const errAny = error as
+      | { name?: unknown; message?: unknown }
+      | null
+      | undefined;
+    const maybeName =
+      errAny && typeof errAny.name === "string" ? errAny.name : "";
+    const maybeMessage =
+      errAny && typeof errAny.message === "string"
+        ? errAny.message
+        : String(error ?? "");
+
+    return (
+      maybeName === "AI_NoSuchToolError" ||
+      maybeName === "AI_InvalidToolInputError" ||
+      maybeName === "AI_InvalidToolArgumentsError" ||
+      maybeMessage.includes("NoSuchToolError") ||
+      maybeMessage.includes("InvalidToolInputError") ||
+      maybeMessage.includes("InvalidToolArgumentsError") ||
+      maybeMessage.includes("Model tried to call unavailable tool")
+    );
+  }
+
+  /**
    * Perform MCP generation with retry logic
    */
   private async performMCPGenerationRetries(
@@ -5918,16 +5971,10 @@ Current user's request: ${currentInput}`;
           },
         );
 
-        // Check for non-retryable errors — skip remaining retries immediately
-        // NoSuchToolError / InvalidToolArgumentsError from Vercel AI SDK are never
-        // retryable — the model hallucinated a tool name or gave bad params, and
-        // the same tools would be passed on every retry.
-        const isToolError =
-          error instanceof Error &&
-          (error.name === "AI_NoSuchToolError" ||
-            error.name === "AI_InvalidToolArgumentsError" ||
-            error.message.includes("NoSuchToolError") ||
-            error.message.includes("Model tried to call unavailable tool"));
+        // Check for non-retryable errors — see NeuroLink.isNonRetryableToolError.
+        // Skipping remaining retries when the model hallucinated a tool name or
+        // sent bad arguments avoids re-triggering the same deterministic failure.
+        const isToolError = NeuroLink.isNonRetryableToolError(error);
 
         const isNonRetryable =
           isContextOverflowError(error) ||
@@ -6031,16 +6078,10 @@ Current user's request: ${currentInput}`;
         throw error;
       }
 
-      // Propagate non-retryable errors (NoSuchToolError, InvalidToolArgumentsError)
-      // so the caller's retry loop can detect them and break immediately instead
-      // of retrying the same deterministic failure.
-      const isToolError =
-        error instanceof Error &&
-        (error.name === "AI_NoSuchToolError" ||
-          error.name === "AI_InvalidToolArgumentsError" ||
-          (error.message &&
-            (error.message.includes("NoSuchToolError") ||
-              error.message.includes("Model tried to call unavailable tool"))));
+      // Propagate non-retryable tool errors — see NeuroLink.isNonRetryableToolError.
+      // The caller's retry loop detects this and breaks immediately instead of
+      // retrying the same deterministic failure.
+      const isToolError = NeuroLink.isNonRetryableToolError(error);
       if (isToolError) {
         mcpLogger.warn(
           `[${functionTag}] Non-retryable tool error, rethrowing`,

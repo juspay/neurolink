@@ -1,6 +1,3 @@
-import { wrapLanguageModel } from "ai";
-import type { LanguageModel } from "ai";
-import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type {
   MiddlewareContext,
   MiddlewareConfig,
@@ -17,6 +14,9 @@ import { createGuardrailsMiddleware } from "./builtin/guardrails.js";
 import { createAutoEvaluationMiddleware } from "./builtin/autoEvaluation.js";
 import { createLifecycleMiddleware } from "./builtin/lifecycle.js";
 import { logger } from "../utils/logger.js";
+import { wrapLanguageModel } from "../utils/generation.js";
+import type { LanguageModel } from "../types/index.js";
+import type { LanguageModelV3 } from "../types/index.js";
 
 /**
  * Middleware factory for creating and applying middleware chains.

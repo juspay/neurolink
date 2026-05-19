@@ -1,4 +1,3 @@
-import type { LanguageModel, Schema } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import { createAnalytics } from "../core/analytics.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -16,6 +15,7 @@ import type {
   OllamaToolResult,
   StreamOptions,
   StreamResult,
+  Tool,
   ToolArgs,
   ZodUnknownSchema,
 } from "../types/index.js";
@@ -31,6 +31,7 @@ import {
 import { tracers, ATTR, withClientStreamSpan } from "../telemetry/index.js";
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { TimeoutError } from "../utils/timeout.js";
+import type { LanguageModel, Schema } from "../types/index.js";
 
 // Model version constants (configurable via environment)
 const DEFAULT_OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.1:8b";
@@ -886,8 +887,7 @@ export class OllamaProvider extends BaseProvider {
         // Get all available tools (direct + MCP + external)
         // BaseProvider.stream() pre-merges base tools + external tools into options.tools
         const allTools =
-          (options.tools as Record<string, import("ai").Tool>) ||
-          (await this.getAllTools());
+          (options.tools as Record<string, Tool>) || (await this.getAllTools());
         // Convert tools to Ollama format
         const ollamaTools = this.convertToolsToOllamaFormat(allTools);
 
@@ -1739,7 +1739,7 @@ export class OllamaProvider extends BaseProvider {
    * Convert AI SDK tools to ToolDefinition format
    */
   private convertAISDKToolsToToolDefinitions(
-    aiTools: Record<string, import("ai").Tool>,
+    aiTools: Record<string, Tool>,
   ): Record<
     string,
     import("../types/index.js").ToolDefinition<ToolArgs, JsonValue>

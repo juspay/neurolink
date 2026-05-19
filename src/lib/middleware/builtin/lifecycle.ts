@@ -1,18 +1,3 @@
-/**
- * Lifecycle Middleware
- *
- * Provides onFinish, onError, and onChunk callbacks for observing
- * generation and streaming lifecycle events.
- *
- * This middleware is automatically enabled when lifecycle callbacks
- * (onFinish, onError, onChunk) are passed in GenerateOptions or StreamOptions.
- */
-
-import type { LanguageModelMiddleware } from "ai";
-import type {
-  LanguageModelV3GenerateResult,
-  LanguageModelV3StreamResult,
-} from "@ai-sdk/provider";
 import type {
   NeuroLinkMiddleware,
   NeuroLinkMiddlewareMetadata,
@@ -21,6 +6,11 @@ import type {
 import { logger } from "../../utils/logger.js";
 import { isRecoverableError } from "../../utils/errorHandling.js";
 import { fireOnErrorOnce } from "../../utils/lifecycleCallbacks.js";
+import type { LanguageModelMiddleware } from "../../types/index.js";
+import type {
+  LanguageModelV3GenerateResult,
+  LanguageModelV3StreamResult,
+} from "../../types/index.js";
 
 /**
  * Normalize a thrown value to an `Error` while preserving structured

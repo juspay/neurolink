@@ -1,14 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import {
-  embed,
-  embedMany,
-  type LanguageModel,
-  NoOutputGeneratedError,
-  stepCountIs,
-  streamText,
-  type Tool,
-} from "ai";
 import { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
@@ -55,6 +46,10 @@ import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { MAX_IMAGE_BYTES, readBoundedBuffer } from "../utils/sizeGuard.js";
 import { assertSafeUrl } from "../utils/ssrfGuard.js";
 import { getModelId } from "./providerTypeUtils.js";
+import type { LanguageModel, Tool } from "../types/index.js";
+import { NoOutputGeneratedError } from "../utils/generationErrors.js";
+import { stepCountIs } from "../utils/tool.js";
+import { embed, embedMany, streamText } from "../utils/generation.js";
 
 /**
  * Retrieve a tool's schema, handling both AI SDK v6 (`inputSchema`) and

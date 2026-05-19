@@ -1,11 +1,3 @@
-/**
- * Amazon SageMaker Provider Implementation (Simplified)
- *
- * This module provides a simplified SageMaker provider that extends BaseProvider
- * and integrates with the NeuroLink ecosystem using existing patterns.
- */
-
-import type { LanguageModel, Schema } from "ai";
 import type { ZodType } from "zod";
 import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -30,6 +22,7 @@ import {
 } from "./sagemaker/config.js";
 import { handleSageMakerError, SageMakerError } from "./sagemaker/errors.js";
 import { SageMakerLanguageModel } from "./sagemaker/language-model.js";
+import type { LanguageModel, Schema } from "../types/index.js";
 
 /**
  * Amazon SageMaker Provider extending BaseProvider

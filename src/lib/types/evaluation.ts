@@ -1,9 +1,3 @@
-/**
- * Evaluation type definitions for NeuroLink
- * Provider performance tracking, evaluation configurations, and provider optimization types
- */
-
-import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
 import type { TokenUsage } from "./analytics.js";
 import type { GenerateResult } from "./generate.js";
 import type { ToolExecution } from "./tools.js";
@@ -17,6 +11,7 @@ import type {
   ScoreResult,
   ScorerInput,
 } from "./scorer.js";
+import type { LanguageModelV3CallOptions } from "./middleware.js";
 
 /**
  * Evaluation provider type as specified in core module refactoring

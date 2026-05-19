@@ -1,5 +1,4 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { type LanguageModel, stepCountIs, streamText, type Tool } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import { DeepSeekModels } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -37,6 +36,9 @@ import {
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
+import type { LanguageModel, Tool } from "../types/index.js";
+import { stepCountIs } from "../utils/tool.js";
+import { streamText } from "../utils/generation.js";
 
 const makeLoggingFetch = (provider: string): typeof fetch => {
   const base = createProxyFetch();

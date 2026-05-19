@@ -1,19 +1,9 @@
-/**
- * Built-in agent tools for TaskManager.
- *
- * These tools allow the AI to self-schedule, manage, and inspect tasks
- * during conversations. Created per-instance via `createTaskTools()` factory,
- * following the same pattern as `createFileTools()` in files/fileTools.ts.
- *
- * @module tasks/tools/taskTools
- */
-
-import { tool } from "ai";
 import { z } from "zod";
 import { logger } from "../../utils/logger.js";
 import { TaskError } from "../errors.js";
 import type { TaskManager } from "../taskManager.js";
-import type { TaskSchedule } from "../../types/index.js";
+import type { TaskSchedule, Tool } from "../../types/index.js";
+import { tool } from "../../utils/tool.js";
 
 /**
  * Parse a schedule object from tool input.
@@ -83,7 +73,7 @@ function parseSchedule(input: Record<string, unknown>): TaskSchedule {
  * // tools.createTask, tools.listTasks, tools.getTaskRuns, etc.
  * ```
  */
-export function createTaskTools(manager: TaskManager) {
+export function createTaskTools(manager: TaskManager): Record<string, Tool> {
   return {
     createTask: tool({
       description:

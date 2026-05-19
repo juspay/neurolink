@@ -173,3 +173,6 @@ docs-site/static/search-index.json
 .type-consolidation/
 .tmp-tests/
 .proof-of-work/
+
+# Local working notes for the AI SDK removal migration (not for upstream)
+memory-bank/native-runtime/

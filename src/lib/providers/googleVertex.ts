@@ -4,7 +4,6 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import type { ZodType } from "zod";
-import { type Schema, type LanguageModel, type Tool } from "ai";
 import type { AnthropicVertex as AnthropicVertexType } from "@anthropic-ai/vertex-sdk";
 import {
   AIProviderName,
@@ -82,6 +81,7 @@ import {
 } from "../telemetry/index.js";
 import { calculateCost } from "../utils/pricing.js";
 import { transformToolExecutions } from "../utils/transformationUtils.js";
+import type { Schema, LanguageModel, Tool } from "../types/index.js";
 
 // Import proper types for multimodal message handling
 

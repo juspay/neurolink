@@ -28,6 +28,7 @@ import type {
   JsonValue,
   StreamOptions,
   StreamResult,
+  Tool,
   ToolArgs,
   ToolDefinition,
   ZodUnknownSchema,
@@ -959,7 +960,7 @@ export class AmazonBedrockProvider extends BaseProvider {
   }
 
   private convertAISDKToolsToToolDefinitions(
-    aiTools: Record<string, import("ai").Tool>,
+    aiTools: Record<string, Tool>,
   ): Record<string, ToolDefinition<ToolArgs, JsonValue>> {
     const result: Record<string, ToolDefinition<ToolArgs, JsonValue>> = {};
 
@@ -1800,8 +1801,7 @@ export class AmazonBedrockProvider extends BaseProvider {
     // Get all available tools
     // BaseProvider.stream() pre-merges base tools + external tools into options.tools
     const aiTools =
-      (options.tools as Record<string, import("ai").Tool>) ||
-      (await this.getAllTools());
+      (options.tools as Record<string, Tool>) || (await this.getAllTools());
     const allTools = this.convertAISDKToolsToToolDefinitions(aiTools);
     const toolConfig = this.formatToolsForBedrock(allTools);
 

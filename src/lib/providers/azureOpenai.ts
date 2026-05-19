@@ -1,5 +1,4 @@
 import { createAzure } from "@ai-sdk/azure";
-import { type LanguageModel, stepCountIs, streamText, type Tool } from "ai";
 import { type AIProviderName, APIVersions } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
@@ -31,6 +30,9 @@ import {
   TimeoutError,
 } from "../utils/timeout.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
+import type { LanguageModel, Tool } from "../types/index.js";
+import { stepCountIs } from "../utils/tool.js";
+import { streamText } from "../utils/generation.js";
 
 export class AzureOpenAIProvider extends BaseProvider {
   private apiKey: string;

@@ -11,7 +11,7 @@ import {
   extractTokenUsage,
   createEmptyTokenUsage,
 } from "../utils/tokenUtils.js";
-import { NoOutputGeneratedError } from "ai";
+import { NoOutputGeneratedError } from "../utils/generationErrors.js";
 
 /**
  * Base implementation for collecting analytics from Vercel AI SDK stream results

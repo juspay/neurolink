@@ -1,9 +1,3 @@
-/**
- * Direct Tool Definitions for NeuroLink CLI Agent
- * Simple, reliable tools that work immediately with Vercel AI SDK
- */
-
-import { tool } from "ai";
 import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
@@ -16,8 +10,10 @@ import type {
   AllToolsMap,
   BasicToolsMap,
   FilesystemToolsMap,
+  Tool,
   UtilityToolsMap,
 } from "../types/index.js";
+import { tool } from "../utils/tool.js";
 
 const MAX_OUTPUT_BYTES = 102400; // 100KB
 
@@ -846,7 +842,7 @@ export const directAgentTools = {
  * Import this directly when you need bash execution capabilities:
  *   import { bashTool } from '../agent/directTools.js';
  */
-export const bashTool = tool({
+export const bashTool: Tool = tool({
   description:
     "Execute a bash/shell command and return stdout, stderr, and exit code. Supports full shell syntax including pipes, redirects, and variable expansion. Requires HITL confirmation when enabled.",
   inputSchema: z.object({

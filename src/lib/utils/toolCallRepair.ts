@@ -1,22 +1,6 @@
-/**
- * Schema-Driven Tool Call Repair (BZ-665)
- *
- * Implements `experimental_repairToolCall` for the Vercel AI SDK.
- * When an LLM sends a wrong tool name or wrong parameter names,
- * this module attempts deterministic, schema-driven repair:
- *
- *  1. Tool name: case-insensitive → substring → Levenshtein
- *  2. Param names: compare against JSON schema properties dynamically
- *  3. Type coercion: string→number, JSON string→object/array per schema
- *
- * Zero static alias maps. The tool's JSON schema is the only source of truth.
- *
- * @module utils/toolCallRepair
- */
-
-import type { ToolCallRepairFunction, ToolSet } from "ai";
-import type { JSONSchema7, LanguageModelV3ToolCall } from "@ai-sdk/provider";
 import { logger } from "./logger.js";
+import type { ToolCallRepairFunction, ToolSet } from "../types/index.js";
+import type { JSONSchema7, LanguageModelV3ToolCall } from "../types/index.js";
 
 /**
  * Create an `experimental_repairToolCall` handler for streamText/generateText.
@@ -26,7 +10,7 @@ export function createToolCallRepair(): ToolCallRepairFunction<ToolSet> {
   return async ({ toolCall, tools, inputSchema, error }) => {
     // Import error classes lazily to avoid circular deps at module level
     const { NoSuchToolError: NoSuchTool, InvalidToolInputError: InvalidInput } =
-      await import("ai");
+      await import("./generationErrors.js");
 
     if (NoSuchTool.isInstance(error)) {
       return repairToolName(toolCall, Object.keys(tools));

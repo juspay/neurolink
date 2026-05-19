@@ -1,4 +1,3 @@
-import type { LanguageModelMiddleware } from "ai";
 import type {
   NeuroLinkMiddleware,
   MiddlewareConfig,
@@ -7,6 +6,7 @@ import type {
   MiddlewareExecutionResult,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import type { LanguageModelMiddleware } from "../types/index.js";
 
 /**
  * Manages the registration, configuration, and execution of middleware for a single factory instance.

@@ -1,12 +1,6 @@
-/**
- * Shared type utilities for AI SDK provider integration.
- *
- * Provides type-safe helpers to bridge between the AI SDK's generic types
- * and NeuroLink's internal type system without resorting to `as any` casts.
- */
-
-import type { LanguageModel, streamText } from "ai";
 import type { StreamTextResult, LanguageModelObject } from "../types/index.js";
+import type { LanguageModel } from "../types/index.js";
+import type { streamText } from "../utils/generation.js";
 
 /**
  * Type guard: checks whether a LanguageModel value is an object with `modelId`

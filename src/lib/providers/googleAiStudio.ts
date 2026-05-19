@@ -1,4 +1,3 @@
-import { type LanguageModel, type Schema, type Tool } from "ai";
 import {
   type AIProviderName,
   ErrorCategory,
@@ -69,6 +68,7 @@ import {
   pushModelResponseToHistory,
 } from "./googleNativeGemini3.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
+import type { LanguageModel, Schema, Tool } from "../types/index.js";
 
 // Google AI Live API types now imported from ../types/providerSpecific.js
 

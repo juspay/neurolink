@@ -1,18 +1,3 @@
-/**
- * Message Builder Utility
- * Centralized logic for building message arrays from TextGenerationOptions
- * Enhanced with multimodal support for images
- */
-
-import type {
-  AssistantModelMessage,
-  ModelMessage,
-  SystemModelMessage,
-  UserModelMessage,
-  FilePart,
-  ImagePart,
-  TextPart,
-} from "ai";
 import { existsSync, readFileSync, statSync } from "fs";
 import { getGlobalDispatcher, interceptors, request } from "undici";
 import {
@@ -49,6 +34,15 @@ import { logger } from "./logger.js";
 import { PDFImageConverter, PDFProcessor } from "./pdfProcessor.js";
 import { urlDownloadRateLimiter } from "./rateLimiter.js";
 import { estimateTokens } from "./tokenEstimation.js";
+import type {
+  AssistantModelMessage,
+  ModelMessage,
+  SystemModelMessage,
+  UserModelMessage,
+  FilePart,
+  ImagePart,
+  TextPart,
+} from "../types/index.js";
 
 // ---------------------------------------------------------------------------
 // SDK-7: Lightweight file-type inference helpers for budget estimation

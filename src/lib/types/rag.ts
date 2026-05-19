@@ -1,3 +1,5 @@
+import type { Tool } from "./tools.js";
+
 /**
  * RAG Type Definitions
  *
@@ -610,9 +612,6 @@ export type RAGCircuitBreakerEvents = {
 // =============================================================================
 // RAG INTEGRATION TYPES (moved from rag/ragIntegration.ts)
 // =============================================================================
-
-import type { Tool } from "ai";
-
 /** Prepared RAG tool ready for injection into generate/stream. */
 export type RAGPreparedTool = {
   /** The tool to inject into the tools Record */

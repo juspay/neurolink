@@ -1,23 +1,9 @@
-/**
- * Curator P3-6: shared builder for the `NoOutputGeneratedError` sentinel
- * chunk. Each provider's stream-transformation generator catches the AI
- * SDK's `NoOutputGeneratedError` and yields this sentinel so downstream
- * telemetry has finish reason + token usage + provider error context
- * instead of just `{ noOutput: true, errorType: "..." }`.
- *
- * The AI SDK rejects `result.finishReason` / `result.totalUsage` in this
- * branch today (see `ai/src/generate-text/stream-text.ts` ~L1078); we
- * still attempt to await them so a future SDK version surfacing partial
- * values populates the sentinel automatically. When they reject we keep
- * conservative defaults (`finishReason: "error"`, zero usage).
- */
-
-import { NoOutputGeneratedError } from "ai";
 import { trace, context as otelContext } from "@opentelemetry/api";
 import type {
   StreamNoOutputSentinel,
   StreamNoOutputSentinelResultLike,
 } from "../types/index.js";
+import { NoOutputGeneratedError } from "./generationErrors.js";
 
 export async function buildNoOutputSentinel(
   error: unknown,

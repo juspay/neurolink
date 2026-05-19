@@ -1,4 +1,3 @@
-import type { LanguageModel, StepResult, Tool, ToolChoice } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import type { EvaluationData } from "./evaluation.js";
 import type { RAGConfig } from "./rag.js";
@@ -28,6 +27,8 @@ import type { STTOptions, STTResult } from "./stt.js";
 import type { StandardRecord, ValidationSchema } from "./aliases.js";
 import type { FileWithMetadata } from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
+import type { LanguageModel, StepResult } from "./providers.js";
+import type { Tool, ToolChoice } from "./tools.js";
 
 /**
  * Progress tracking and metadata for streaming operations

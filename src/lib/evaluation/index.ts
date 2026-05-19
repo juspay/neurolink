@@ -1,8 +1,3 @@
-/**
- * @file This file exports the main Evaluator class, which serves as the central entry point for the evaluation system.
- */
-
-import type { LanguageModelV3CallOptions } from "@ai-sdk/provider";
 import type {
   EvaluationData,
   GenerateResult,
@@ -14,6 +9,7 @@ import type {
 import { ContextBuilder } from "./contextBuilder.js";
 import { RAGASEvaluator } from "./ragasEvaluator.js";
 import { mapToEvaluationData } from "./scoring.js";
+import type { LanguageModelV3CallOptions } from "../types/index.js";
 
 // Re-export errors
 export * from "./errors/index.js";

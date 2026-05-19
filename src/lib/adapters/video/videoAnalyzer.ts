@@ -15,7 +15,7 @@ import {
 import { logger } from "../../utils/logger.js";
 import { readFile } from "node:fs/promises";
 import { NeuroLinkError, ErrorFactory } from "../../utils/errorHandling.js";
-import type { ModelMessage } from "ai";
+import type { ModelMessage } from "../../types/index.js";
 
 // ---------------------------------------------------------------------------
 // Shared config

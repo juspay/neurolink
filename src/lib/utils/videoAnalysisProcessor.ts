@@ -1,14 +1,6 @@
-/**
- * Video Analysis Processor
- *
- * Formats video analysis results into human-readable text
- *
- * @module utils/videoAnalysisProcessor
- */
-
-import type { ModelMessage } from "ai";
 import { AIProviderName } from "../constants/enums.js";
 import { logger } from "./logger.js";
+import type { ModelMessage } from "../types/index.js";
 
 /**
  * Check if messages contain video frames (images)

@@ -1,13 +1,3 @@
-/**
- * RAG Integration for generate() and stream()
- *
- * Provides automatic RAG pipeline setup when `rag` config is provided
- * in GenerateOptions or StreamOptions. Handles file loading, chunking,
- * embedding generation, vector storage, and tool creation internally
- * so developers only need to pass `rag: { files: [...] }`.
- */
-
-import type { Tool } from "ai";
 import { existsSync, readFileSync } from "fs";
 import { extname, resolve } from "path";
 import { z } from "zod";
@@ -31,6 +21,8 @@ import type {
 } from "../types/index.js";
 import { withSpan } from "../telemetry/withSpan.js";
 import { tracers } from "../telemetry/tracers.js";
+import type { Tool } from "../types/index.js";
+
 /**
  * Maps file extensions to recommended chunking strategies
  */

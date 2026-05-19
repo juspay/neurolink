@@ -1,5 +1,4 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { type LanguageModel, stepCountIs, streamText, type Tool } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import { NvidiaNimModels } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -38,6 +37,9 @@ import {
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
+import type { LanguageModel, Tool } from "../types/index.js";
+import { stepCountIs } from "../utils/tool.js";
+import { streamText } from "../utils/generation.js";
 
 /**
  * Decide whether a NIM 400 response body is a rejection of the named

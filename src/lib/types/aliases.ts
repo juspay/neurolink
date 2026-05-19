@@ -4,9 +4,9 @@
  */
 
 import type { ZodTypeAny } from "zod";
-import type { Schema } from "ai";
 import type { JsonValue, Result, AsyncFunction } from "./common.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import type { Schema } from "./tools.js";
 
 // ============================================================================
 // ZOD TYPE ALIASES

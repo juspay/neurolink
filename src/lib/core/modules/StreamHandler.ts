@@ -41,7 +41,7 @@ import {
 import { STEP_LIMITS } from "../constants.js";
 import { createAnalytics } from "../analytics.js";
 import { nanoid } from "nanoid";
-import { NoOutputGeneratedError } from "ai";
+import { NoOutputGeneratedError } from "../../utils/generationErrors.js";
 
 /**
  * StreamHandler class - Handles streaming operations for AI providers

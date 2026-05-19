@@ -1,5 +1,4 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { type LanguageModel, stepCountIs, streamText, type Tool } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import { XaiModels } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -36,6 +35,9 @@ import {
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
+import type { LanguageModel, Tool } from "../types/index.js";
+import { stepCountIs } from "../utils/tool.js";
+import { streamText } from "../utils/generation.js";
 
 /**
  * Logging fetch wrapper — masks the proxy URL on non-2xx responses so

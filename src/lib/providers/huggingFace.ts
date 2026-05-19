@@ -1,14 +1,4 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import {
-  type LanguageModel,
-  NoOutputGeneratedError,
-  type Schema,
-  stepCountIs,
-  streamText,
-  type Tool,
-  type ToolChoice,
-  type ToolSet,
-} from "ai";
 import type { ZodType } from "zod";
 import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
@@ -46,6 +36,16 @@ import {
   TimeoutError,
 } from "../utils/timeout.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
+import type {
+  LanguageModel,
+  Schema,
+  Tool,
+  ToolChoice,
+  ToolSet,
+} from "../types/index.js";
+import { NoOutputGeneratedError } from "../utils/generationErrors.js";
+import { stepCountIs } from "../utils/tool.js";
+import { streamText } from "../utils/generation.js";
 
 // Configuration helpers - now using consolidated utility
 const getHuggingFaceApiKey = (): string => {

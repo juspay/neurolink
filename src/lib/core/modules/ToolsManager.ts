@@ -1,22 +1,3 @@
-/**
- * Tools Manager Module
- *
- * Handles all tool registration, discovery, and execution for AI providers.
- * Extracted from BaseProvider to follow Single Responsibility Principle.
- *
- * Responsibilities:
- * - Tool registration (direct, custom, MCP, external MCP)
- * - Tool discovery and aggregation
- * - Tool creation from definitions and schemas
- * - Tool executor setup
- * - Session context management for MCP tools
- * - Event emission wrapping for tool execution
- *
- * @module core/modules/ToolsManager
- */
-
-import type { Tool } from "ai";
-import { tool as createAISDKTool, jsonSchema } from "ai";
 import { z } from "zod";
 import { createToolEventPayload } from "../toolEvents.js";
 import type {
@@ -34,6 +15,8 @@ import { getKeyCount } from "../../utils/transformationUtils.js";
 import { convertJsonSchemaToZod } from "../../utils/schemaConversion.js";
 import { generateToolOutputPreview } from "../../context/toolOutputLimits.js";
 import type { NeuroLink } from "../../neurolink.js";
+import type { Tool } from "../../types/index.js";
+import { tool as createAISDKTool, jsonSchema } from "../../utils/tool.js";
 
 /**
  * ToolsManager class - Handles all tool management operations

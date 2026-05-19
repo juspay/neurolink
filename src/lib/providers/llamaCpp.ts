@@ -1,5 +1,4 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { type LanguageModel, stepCountIs, streamText, type Tool } from "ai";
 import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
@@ -26,6 +25,9 @@ import {
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
+import type { LanguageModel, Tool } from "../types/index.js";
+import { stepCountIs } from "../utils/tool.js";
+import { streamText } from "../utils/generation.js";
 
 const LLAMACPP_DEFAULT_BASE_URL = "http://localhost:8080/v1";
 const LLAMACPP_PLACEHOLDER_KEY = "llamacpp";

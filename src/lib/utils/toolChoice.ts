@@ -1,4 +1,4 @@
-import type { Tool, ToolChoice } from "ai";
+import type { Tool, ToolChoice } from "../types/index.js";
 
 export function resolveToolChoice(
   options: {

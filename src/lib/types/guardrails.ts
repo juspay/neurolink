@@ -1,4 +1,4 @@
-import type { LanguageModel } from "ai";
+import type { LanguageModel } from "./providers.js";
 
 /**
  * Result from precall evaluation of user input
