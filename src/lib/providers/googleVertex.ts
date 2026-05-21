@@ -1,3 +1,4 @@
+/* eslint-disable max-lines-per-function */
 // Native SDK imports - no more @ai-sdk/google-vertex dependency
 import fs from "fs";
 import path from "path";
@@ -16,6 +17,7 @@ import {
   DEFAULT_TOOL_MAX_RETRIES,
   GLOBAL_LOCATION_MODELS,
   IMAGE_GENERATION_MODELS,
+  TOOL_STORAGE_TIMEOUT_MS,
 } from "../core/constants.js";
 import { ModelConfigurationManager } from "../core/modelConfiguration.js";
 import type { NeuroLink } from "../neurolink.js";
@@ -64,8 +66,13 @@ import {
   ensureNestedSchemaTypes,
 } from "../utils/schemaConversion.js";
 import { createNativeThinkingConfig } from "../utils/thinkingConfig.js";
-import { TimeoutError } from "../utils/async/index.js";
-import { prependConversationMessages } from "./googleNativeGemini3.js";
+import { TimeoutError, withTimeout } from "../utils/async/index.js";
+import { parseTimeout } from "../utils/timeout.js";
+import {
+  createTextChannel,
+  extractThoughtSignature,
+  prependConversationMessages,
+} from "./googleNativeGemini3.js";
 import {
   ATTR,
   tracers,
@@ -74,6 +81,7 @@ import {
   withSpan,
 } from "../telemetry/index.js";
 import { calculateCost } from "../utils/pricing.js";
+import { transformToolExecutions } from "../utils/transformationUtils.js";
 
 // Import proper types for multimodal message handling
 
@@ -1510,6 +1518,15 @@ export class GoogleVertexProvider extends BaseProvider {
       toolName: string;
       args: Record<string, unknown>;
     }> = [];
+    // Mirrors the generate-path shape so StreamResult.toolExecutions can be
+    // populated (parity with AI-SDK-driven providers) and so the storage
+    // hook can persist actual tool outputs rather than the placeholder
+    // "success" string used by flushPendingToolData's default fallback.
+    const toolExecutions: Array<{
+      name: string;
+      input: Record<string, unknown>;
+      output: unknown;
+    }> = [];
     let step = 0;
 
     // Track structured output from final_result tool (when using final_result pattern)
@@ -1668,9 +1685,21 @@ export class GoogleVertexProvider extends BaseProvider {
         const functionResponses: Array<{
           functionResponse: { name: string; response: unknown };
         }> = [];
+        // Per-step bookkeeping for conversation-memory storage.
+        const stepStorageCalls: Array<{
+          toolName: string;
+          args: Record<string, unknown>;
+        }> = [];
+        const stepStorageResults: Array<{
+          toolName: string;
+          output: unknown;
+        }> = [];
 
+        // Note: tool:start / tool:end events are emitted by ToolsManager's
+        // wrapped `execute` (see ToolsManager.ts:355) — no inline emit needed.
         for (const call of stepFunctionCalls) {
           allToolCalls.push({ toolName: call.name, args: call.args });
+          stepStorageCalls.push({ toolName: call.name, args: call.args });
 
           // Check if this tool has already exceeded retry limit
           const failedInfo = failedTools.get(call.name);
@@ -1678,15 +1707,25 @@ export class GoogleVertexProvider extends BaseProvider {
             logger.warn(
               `[GoogleVertex] Tool "${call.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
             );
+            const errorPayload = {
+              error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
+              status: "permanently_failed",
+              do_not_retry: true,
+            };
             functionResponses.push({
               functionResponse: {
                 name: call.name,
-                response: {
-                  error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
-                  status: "permanently_failed",
-                  do_not_retry: true,
-                },
+                response: errorPayload,
               },
+            });
+            toolExecutions.push({
+              name: call.name,
+              input: call.args,
+              output: errorPayload,
+            });
+            stepStorageResults.push({
+              toolName: call.name,
+              output: errorPayload,
             });
             continue;
           }
@@ -1701,8 +1740,17 @@ export class GoogleVertexProvider extends BaseProvider {
                 abortSignal: undefined as AbortSignal | undefined,
               };
               const result = await execute(call.args, toolOptions);
+              toolExecutions.push({
+                name: call.name,
+                input: call.args,
+                output: result,
+              });
               functionResponses.push({
                 functionResponse: { name: call.name, response: { result } },
+              });
+              stepStorageResults.push({
+                toolName: call.name,
+                output: result,
               });
             } catch (error) {
               const errorMessage =
@@ -1725,36 +1773,88 @@ export class GoogleVertexProvider extends BaseProvider {
               const isPermanentFailure =
                 currentFailInfo.count >= DEFAULT_TOOL_MAX_RETRIES;
 
+              const errorPayload = {
+                error: isPermanentFailure
+                  ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
+                  : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
+                status: isPermanentFailure ? "permanently_failed" : "failed",
+                do_not_retry: isPermanentFailure,
+                retry_count: currentFailInfo.count,
+                max_retries: DEFAULT_TOOL_MAX_RETRIES,
+              };
               functionResponses.push({
                 functionResponse: {
                   name: call.name,
-                  response: {
-                    error: isPermanentFailure
-                      ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
-                      : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
-                    status: isPermanentFailure
-                      ? "permanently_failed"
-                      : "failed",
-                    do_not_retry: isPermanentFailure,
-                    retry_count: currentFailInfo.count,
-                    max_retries: DEFAULT_TOOL_MAX_RETRIES,
-                  },
+                  response: errorPayload,
                 },
+              });
+              toolExecutions.push({
+                name: call.name,
+                input: call.args,
+                output: errorPayload,
+              });
+              stepStorageResults.push({
+                toolName: call.name,
+                output: errorPayload,
               });
             }
           } else {
             // Tool not found is a permanent error
+            const errorPayload = {
+              error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
+              status: "permanently_failed",
+              do_not_retry: true,
+            };
             functionResponses.push({
               functionResponse: {
                 name: call.name,
-                response: {
-                  error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
-                  status: "permanently_failed",
-                  do_not_retry: true,
-                },
+                response: errorPayload,
               },
             });
+            toolExecutions.push({
+              name: call.name,
+              input: call.args,
+              output: errorPayload,
+            });
+            stepStorageResults.push({
+              toolName: call.name,
+              output: errorPayload,
+            });
           }
+        }
+
+        // Persist this step's tool calls/results into conversation memory.
+        // Without this, tool_call / tool_result rows never reach Redis and
+        // the chat-history UI loses every tool invocation.
+        //
+        // `thoughtSignature` rides as a sibling on the first call of the
+        // step — Gemini 3 needs it to match thinking patterns when the
+        // conversation is replayed on the next turn.
+        if (stepStorageCalls.length > 0 || stepStorageResults.length > 0) {
+          const stepThoughtSig = extractThoughtSignature(rawResponseParts);
+          withTimeout(
+            this.handleToolExecutionStorage(
+              stepStorageCalls.map((c, i) => ({
+                ...c,
+                ...(i === 0 && stepThoughtSig
+                  ? { thoughtSignature: stepThoughtSig }
+                  : {}),
+                stepIndex: step,
+              })),
+              stepStorageResults.map((r) => ({ ...r, stepIndex: step })),
+              options,
+              new Date(),
+            ),
+            TOOL_STORAGE_TIMEOUT_MS,
+            "tool storage write timed out",
+          ).catch((error: unknown) => {
+            logger.warn(
+              "[GoogleVertex] Failed to store native Gemini stream tool executions",
+              {
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
+          });
         }
 
         // The @google/genai SDK only accepts "user" and "model" as valid
@@ -1810,6 +1910,9 @@ export class GoogleVertexProvider extends BaseProvider {
     const externalToolCalls = allToolCalls.filter(
       (tc) => tc.toolName !== "final_result",
     );
+    const externalToolExecutions = toolExecutions.filter(
+      (te) => te.name !== "final_result",
+    );
 
     const result: StreamResult = {
       stream: createTextStream(),
@@ -1824,6 +1927,14 @@ export class GoogleVertexProvider extends BaseProvider {
         toolName: tc.toolName,
         args: tc.args,
       })),
+      // Surface tools-used + execution summary so `hasToolActivity` in
+      // conversationMemory.ts evaluates true for tool-only stream turns
+      // (assistant text empty but tools ran) and downstream consumers see
+      // the same shape AI-SDK-driven providers expose.
+      toolsUsed: externalToolCalls.map((tc) => tc.toolName),
+      toolExecutions: transformToolExecutions(
+        externalToolExecutions,
+      ) as unknown as StreamResult["toolExecutions"],
       metadata: {
         streamId: `native-vertex-${Date.now()}`,
         startTime,
@@ -2379,6 +2490,10 @@ export class GoogleVertexProvider extends BaseProvider {
         const functionResponses: Array<{
           functionResponse: { name: string; response: unknown };
         }> = [];
+        const toolCallsBefore = allToolCalls.length;
+        const toolExecsBefore = toolExecutions.length;
+        // Note: tool:start / tool:end events are emitted by ToolsManager's
+        // wrapped `execute` (see ToolsManager.ts:355) — no inline emit needed.
 
         for (const call of stepFunctionCalls) {
           allToolCalls.push({ toolName: call.name, args: call.args });
@@ -2502,6 +2617,45 @@ export class GoogleVertexProvider extends BaseProvider {
           }
         }
 
+        // Persist this step's tool calls/results into conversation memory.
+        // Without this, tool_call / tool_result rows never reach Redis and
+        // the chat-history UI loses every tool invocation. The first call
+        // of the step carries the step's `thoughtSignature` so Gemini 3 can
+        // match thinking patterns on replay.
+        const stepToolCalls = allToolCalls.slice(toolCallsBefore);
+        const stepToolExecs = toolExecutions.slice(toolExecsBefore);
+        if (stepToolCalls.length > 0 || stepToolExecs.length > 0) {
+          const stepThoughtSig = extractThoughtSignature(rawResponseParts);
+          withTimeout(
+            this.handleToolExecutionStorage(
+              stepToolCalls.map((tc, i) => ({
+                toolName: tc.toolName,
+                args: tc.args,
+                ...(i === 0 && stepThoughtSig
+                  ? { thoughtSignature: stepThoughtSig }
+                  : {}),
+                stepIndex: step,
+              })),
+              stepToolExecs.map((te) => ({
+                toolName: te.name,
+                output: te.output,
+                stepIndex: step,
+              })),
+              options,
+              new Date(),
+            ),
+            TOOL_STORAGE_TIMEOUT_MS,
+            "tool storage write timed out",
+          ).catch((error: unknown) => {
+            logger.warn(
+              "[GoogleVertex] Failed to store native Gemini generate tool executions",
+              {
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
+          });
+        }
+
         // The @google/genai SDK only accepts "user" and "model" as valid
         // roles in contents — function/tool responses must use role: "user"
         // (matching the SDK's automaticFunctionCalling implementation and
@@ -2549,7 +2703,7 @@ export class GoogleVertexProvider extends BaseProvider {
       },
       responseTime,
       toolsUsed: externalToolCalls.map((tc) => tc.toolName),
-      toolExecutions: externalToolExecutions,
+      toolExecutions: transformToolExecutions(externalToolExecutions),
       enhancedWithTools: externalToolCalls.length > 0,
     };
 
@@ -2600,7 +2754,15 @@ export class GoogleVertexProvider extends BaseProvider {
     // Build messages from input
     const messages: VertexAnthropicMessage[] = [];
 
-    // Add conversation history if present
+    // Add conversation history if present.
+    //
+    // Intentionally text-only. Anthropic's API rejects messages where a
+    // tool_use_id reference appears without its matching tool_use in the
+    // same turn — so synthesising tool_use / tool_result blocks from
+    // stored ChatMessages risks emitting orphaned references that fail
+    // validation. Tool rows are still persisted to Redis (chat-history
+    // UI renders them) but they don't re-enter the model's context on
+    // subsequent turns.
     if (
       options.conversationMessages &&
       options.conversationMessages.length > 0
@@ -2770,10 +2932,7 @@ export class GoogleVertexProvider extends BaseProvider {
 
     // Convert tools to Anthropic format if present
     let tools: VertexAnthropicTool[] | undefined;
-    const executeMap = new Map<
-      string,
-      (params: Record<string, unknown>) => Promise<unknown>
-    >();
+    const executeMap = new Map<string, Tool["execute"]>();
 
     if (
       options.tools &&
@@ -2810,12 +2969,7 @@ export class GoogleVertexProvider extends BaseProvider {
         tools.push(anthropicTool);
 
         if (tool.execute) {
-          executeMap.set(
-            name,
-            tool.execute as (
-              params: Record<string, unknown>,
-            ) => Promise<unknown>,
-          );
+          executeMap.set(name, tool.execute);
         }
       }
 
@@ -2905,204 +3059,349 @@ export class GoogleVertexProvider extends BaseProvider {
         }),
     };
 
-    // Handle tool calling loop with max steps
+    // ── Real-time streaming via stream.on('text', ...) ────────────────────
+    //
+    // The Anthropic SDK exposes per-delta streaming through `stream.on('text', listener)`:
+    // each content_block_delta SSE event fires the listener synchronously
+    // with that token's text — typically ~10 chars per delta, ~26ms apart
+    // on Claude Haiku. Awaiting `stream.finalMessage()` here would buffer
+    // the entire response before yielding anything; the listener pattern
+    // keeps the wire and the consumer in lockstep instead.
+    //
+    // Structure: push-channel + background agentic loop, returning the
+    // StreamResult immediately so callers can iterate `channel.iterable`
+    // while generation is still in progress. Mirrors the executeStream
+    // pattern in googleAiStudio.ts.
+
     const maxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
-    let step = 0;
-    let finalText = "";
-    let structuredOutput: Record<string, unknown> | undefined;
     const allToolCalls: Array<{
       toolName: string;
       args: Record<string, unknown>;
     }> = [];
-    // Track each Anthropic text block separately so the returned async
-    // iterable yields multiple chunks. The chunk-count smoke test fails
-    // when an entire response collapses into a single yield, even though
-    // the upstream stream is genuinely incremental.
-    const allTextBlocks: string[] = [];
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-    const currentMessages = [...messages];
+    const toolExecutions: Array<{
+      name: string;
+      input: Record<string, unknown>;
+      output: unknown;
+    }> = [];
 
-    while (step < maxSteps) {
-      step++;
+    const channel = createTextChannel();
+
+    // Mutable holders the StreamResult references. Background loop updates
+    // these as state progresses; consumer reads them after iterating the
+    // stream to completion (channel.close() is called AFTER mutations).
+    const usage = { input: 0, output: 0, total: 0 };
+    const metadata = {
+      streamId: `native-anthropic-vertex-${Date.now()}`,
+      startTime,
+      responseTime: 0,
+      totalToolExecutions: 0,
+    };
+    const toolsUsedRef: string[] = [];
+    const structuredOutputRef: { value?: Record<string, unknown> } = {};
+
+    // Track the active Anthropic stream so options.abortSignal can cancel it
+    // mid-flight (pre-rewrite code had no abort handling — fixed for free).
+    let activeStream:
+      | Awaited<ReturnType<typeof client.messages.stream>>
+      | undefined;
+    const abortHandler = () => {
+      try {
+        activeStream?.controller.abort();
+      } catch {
+        /* ignore — stream may already be finalized */
+      }
+    };
+    options.abortSignal?.addEventListener("abort", abortHandler);
+
+    // Defensive upper bound: if neither the caller nor the SDK ever fires,
+    // abort the stream after the configured timeout so a stalled
+    // Vertex/Anthropic endpoint can't hang forever. options.timeout wins
+    // if set; otherwise 5 min — generous for tool-heavy turns.
+    const streamTimeoutMs = parseTimeout(options.timeout) ?? 300_000;
+    const streamTimeoutHandle = setTimeout(() => {
+      logger.warn(
+        `[GoogleVertex] Anthropic stream exceeded ${streamTimeoutMs}ms — aborting`,
+      );
+      abortHandler();
+    }, streamTimeoutMs);
+
+    const loopPromise = (async () => {
+      let step = 0;
+      const currentMessages = [...messages];
 
       try {
-        // Use streaming API
-        const stream = await client.messages.stream({
-          ...requestParams,
-          messages: currentMessages as Parameters<
-            typeof client.messages.stream
-          >[0]["messages"],
-        });
-
-        // Collect the full response
-        const response = await stream.finalMessage();
-
-        // Update token counts
-        totalInputTokens += response.usage?.input_tokens || 0;
-        totalOutputTokens += response.usage?.output_tokens || 0;
-
-        // Check if we need to handle tool use
-        const toolUseBlocks = (
-          response.content as VertexAnthropicContentBlock[]
-        ).filter(
-          (
-            block,
-          ): block is {
-            type: "tool_use";
-            id: string;
-            name: string;
-            input: Record<string, unknown>;
-          } => block.type === "tool_use",
-        );
-
-        // Check for final_result tool call (for structured output)
-        if (useFinalResultTool) {
-          const finalResultCall = toolUseBlocks.find(
-            (block) => block.name === "final_result",
-          );
-          if (finalResultCall) {
-            // Extract structured output and convert to JSON string for finalText
-            structuredOutput = finalResultCall.input;
-            finalText = JSON.stringify(structuredOutput);
-            logger.debug(
-              "[GoogleVertex] Extracted structured output from final_result tool (stream)",
-              { keys: Object.keys(structuredOutput) },
-            );
-            break; // We have the structured output, we're done
+        while (step < maxSteps) {
+          if (options.abortSignal?.aborted) {
+            throw new Error("Stream aborted by caller");
           }
-        }
+          step++;
 
-        // Extract text from response
-        const textBlocks = (
-          response.content as VertexAnthropicContentBlock[]
-        ).filter(
-          (block): block is { type: "text"; text: string } =>
-            block.type === "text",
-        );
-        const responseText = textBlocks.map((b) => b.text).join("");
-        // Preserve each Anthropic text block separately so the
-        // consumer-visible stream yields multiple chunks (one per block).
-        for (const tb of textBlocks) {
-          if (tb.text.length > 0) {
-            allTextBlocks.push(tb.text);
-          }
-        }
+          const stream = await client.messages.stream({
+            ...requestParams,
+            messages: currentMessages as Parameters<
+              typeof client.messages.stream
+            >[0]["messages"],
+          });
+          activeStream = stream;
 
-        if (toolUseBlocks.length === 0) {
-          // No tool calls, we're done
-          finalText = responseText || finalText;
-          break;
-        }
-
-        // Handle tool calls
-        const toolResults: Array<{
-          type: "tool_result";
-          tool_use_id: string;
-          content: string;
-        }> = [];
-
-        for (const toolUse of toolUseBlocks) {
-          allToolCalls.push({
-            toolName: toolUse.name,
-            args: toolUse.input,
+          // Forward each text delta to the consumer as it arrives. The
+          // Anthropic SDK fires this listener synchronously for every
+          // content_block_delta SSE event, so the channel sees bytes at
+          // the same cadence the wire delivers them.
+          stream.on("text", (delta: string) => {
+            if (delta.length > 0) {
+              channel.push(delta);
+            }
           });
 
-          const execute = executeMap.get(toolUse.name);
-          if (execute) {
-            try {
-              const result = await execute(toolUse.input);
-              toolResults.push({
-                type: "tool_result",
-                tool_use_id: toolUse.id,
-                content:
-                  typeof result === "string" ? result : JSON.stringify(result),
+          // finalMessage() resolves AFTER message_stop. By then the listener
+          // has already fired for every delta — awaiting here doesn't block
+          // visible streaming, it just gives us the structured response
+          // shape needed for tool_use block extraction.
+          const response = await stream.finalMessage();
+          activeStream = undefined;
+
+          usage.input += response.usage?.input_tokens || 0;
+          usage.output += response.usage?.output_tokens || 0;
+          usage.total = usage.input + usage.output;
+
+          const toolUseBlocks = (
+            response.content as VertexAnthropicContentBlock[]
+          ).filter(
+            (
+              block,
+            ): block is {
+              type: "tool_use";
+              id: string;
+              name: string;
+              input: Record<string, unknown>;
+            } => block.type === "tool_use",
+          );
+
+          // Structured-output pattern: when the model returns the
+          // final_result tool call, push its arguments as JSON and stop.
+          // Single-shot yield so callers consuming the stream still see
+          // the structured value.
+          if (useFinalResultTool) {
+            const finalResultCall = toolUseBlocks.find(
+              (block) => block.name === "final_result",
+            );
+            if (finalResultCall) {
+              structuredOutputRef.value = finalResultCall.input;
+              channel.push(JSON.stringify(finalResultCall.input));
+              logger.debug(
+                "[GoogleVertex] Extracted structured output from final_result tool (stream)",
+                { keys: Object.keys(finalResultCall.input) },
+              );
+              break;
+            }
+          }
+
+          // No tools — pure text turn. Listener already pushed all deltas;
+          // loop terminates and channel.close() flushes the consumer.
+          if (toolUseBlocks.length === 0) {
+            break;
+          }
+
+          // Tool execution loop. tool:start / tool:end events fire from
+          // ToolsManager's wrapped execute (ToolsManager.ts:355) — no inline
+          // emit needed.
+          const toolResults: Array<{
+            type: "tool_result";
+            tool_use_id: string;
+            content: string;
+          }> = [];
+          // Per-step bookkeeping for conversation-memory storage.
+          const stepStorageCalls: Array<{
+            toolCallId: string;
+            toolName: string;
+            args: Record<string, unknown>;
+          }> = [];
+          const stepStorageResults: Array<{
+            toolCallId: string;
+            toolName: string;
+            output: unknown;
+          }> = [];
+          // Note: tool:start / tool:end events are emitted by ToolsManager's
+          // wrapped `execute` (see ToolsManager.ts:355) — no inline emit needed.
+          for (const toolUse of toolUseBlocks) {
+            allToolCalls.push({
+              toolName: toolUse.name,
+              args: toolUse.input,
+            });
+            toolsUsedRef.push(toolUse.name);
+            stepStorageCalls.push({
+              toolCallId: toolUse.id,
+              toolName: toolUse.name,
+              args: toolUse.input,
+            });
+
+            const execute = executeMap.get(toolUse.name);
+            if (execute) {
+              try {
+                const toolOptions = {
+                  toolCallId: toolUse.id,
+                  messages: [],
+                  abortSignal: options.abortSignal,
+                };
+                const result = await execute(toolUse.input, toolOptions);
+                toolExecutions.push({
+                  name: toolUse.name,
+                  input: toolUse.input,
+                  output: result,
+                });
+                // Anthropic requires tool_result.content to be a string.
+                // JSON.stringify returns undefined for undefined/function/symbol,
+                // so coerce defensively to keep the follow-up turn valid.
+                const resultContent =
+                  typeof result === "string"
+                    ? result
+                    : (JSON.stringify(result ?? null) ?? String(result));
+                toolResults.push({
+                  type: "tool_result",
+                  tool_use_id: toolUse.id,
+                  content: resultContent,
+                });
+                stepStorageResults.push({
+                  toolCallId: toolUse.id,
+                  toolName: toolUse.name,
+                  output: result,
+                });
+              } catch (err) {
+                const errMsg = `Error executing tool "${toolUse.name}": ${err instanceof Error ? err.message : String(err)}`;
+                const errorPayload = { error: errMsg };
+                toolExecutions.push({
+                  name: toolUse.name,
+                  input: toolUse.input,
+                  output: errorPayload,
+                });
+                toolResults.push({
+                  type: "tool_result",
+                  tool_use_id: toolUse.id,
+                  content: errMsg,
+                });
+                stepStorageResults.push({
+                  toolCallId: toolUse.id,
+                  toolName: toolUse.name,
+                  output: errorPayload,
+                });
+              }
+            } else {
+              const errMsg = `TOOL_NOT_FOUND: The tool "${toolUse.name}" does not exist.`;
+              const errorPayload = { error: errMsg };
+              toolExecutions.push({
+                name: toolUse.name,
+                input: toolUse.input,
+                output: errorPayload,
               });
-            } catch (err) {
               toolResults.push({
                 type: "tool_result",
                 tool_use_id: toolUse.id,
-                content: `Error executing tool: ${err instanceof Error ? err.message : String(err)}`,
+                content: errMsg,
+              });
+              stepStorageResults.push({
+                toolCallId: toolUse.id,
+                toolName: toolUse.name,
+                output: errorPayload,
               });
             }
-          } else {
-            toolResults.push({
-              type: "tool_result",
-              tool_use_id: toolUse.id,
-              content: `TOOL_NOT_FOUND: The tool "${toolUse.name}" does not exist.`,
+          }
+
+          // Persist this step's tool calls/results into conversation memory.
+          // Without this hook, tool rows never land in Redis and the
+          // chat-history UI loses every tool invocation.
+          if (stepStorageCalls.length > 0 || stepStorageResults.length > 0) {
+            withTimeout(
+              this.handleToolExecutionStorage(
+                stepStorageCalls.map((c) => ({ ...c, stepIndex: step })),
+                stepStorageResults.map((r) => ({ ...r, stepIndex: step })),
+                options,
+                new Date(),
+              ),
+              TOOL_STORAGE_TIMEOUT_MS,
+              "tool storage write timed out",
+            ).catch((error: unknown) => {
+              logger.warn(
+                "[GoogleVertex] Failed to store native Anthropic stream tool executions",
+                {
+                  error: error instanceof Error ? error.message : String(error),
+                },
+              );
             });
           }
+
+          // Continue the loop: assistant turn + tool_result user turn.
+          // Filter server_tool_use blocks (Anthropic API rejects them in
+          // subsequent message turns).
+          const assistantContent = response.content.filter(
+            (block: { type: string }) => block.type !== "server_tool_use",
+          ) as (typeof currentMessages)[number]["content"];
+          currentMessages.push({
+            role: "assistant",
+            content: assistantContent,
+          });
+          currentMessages.push({
+            role: "user",
+            content: toolResults,
+          });
         }
 
-        // Add assistant message and tool results to continue the loop
-        // Filter out server_tool_use blocks that the Anthropic API doesn't accept in messages
-        const assistantContent = response.content.filter(
-          (block: { type: string }) => block.type !== "server_tool_use",
-        ) as (typeof currentMessages)[number]["content"];
-        currentMessages.push({
-          role: "assistant",
-          content: assistantContent,
-        });
-        currentMessages.push({
-          role: "user",
-          content: toolResults,
-        });
-
-        // Store last text in case we hit max steps
-        if (responseText) {
-          finalText = responseText;
-        }
-      } catch (error) {
-        logger.error("[GoogleVertex] Native Anthropic SDK stream error", error);
-        throw this.handleProviderError(error);
+        metadata.responseTime = Date.now() - startTime;
+        metadata.totalToolExecutions = allToolCalls.filter(
+          (tc) => tc.toolName !== "final_result",
+        ).length;
+        channel.close();
+      } catch (err) {
+        logger.error("[GoogleVertex] Native Anthropic SDK stream error", err);
+        channel.error(this.handleProviderError(err));
+      } finally {
+        options.abortSignal?.removeEventListener("abort", abortHandler);
+        clearTimeout(streamTimeoutHandle);
       }
-    }
-
-    const responseTime = Date.now() - startTime;
-
-    // Yield each text block separately so the CLI receives multiple
-    // stream chunks instead of a single coalesced buffer. The Anthropic
-    // SDK gives us discrete text blocks; collapsing them into one chunk
-    // breaks the chunk-count smoke test even though the upstream
-    // streaming is real.
-    const finalContentBlocks = (() => {
-      if (structuredOutput) {
-        return [finalText];
-      }
-      if (allTextBlocks.length > 0) {
-        return allTextBlocks;
-      }
-      return finalText ? [finalText] : [];
     })();
+    // Suppress unhandled-rejection: errors funnel through channel.error()
+    // and surface when the consumer iterates the stream.
+    loopPromise.catch(() => undefined);
 
-    async function* createTextStream(): AsyncIterable<{ content: string }> {
-      for (const part of finalContentBlocks) {
-        if (part.length > 0) {
-          yield { content: part };
-        }
-      }
-    }
-
-    return {
-      stream: createTextStream(),
+    // Return StreamResult IMMEDIATELY — caller's for-await can begin
+    // iterating channel.iterable while the background loop is still
+    // generating. usage / metadata / toolCalls / toolExecutions are mutable
+    // references that the loop fills in over time; the consumer reads them
+    // after iteration completes (after channel.close() has fired).
+    const result: StreamResult = {
+      stream: channel.iterable,
       provider: this.providerName,
       model: modelName,
-      usage: {
-        input: totalInputTokens,
-        output: totalOutputTokens,
-        total: totalInputTokens + totalOutputTokens,
-      },
-      toolCalls: allToolCalls.map((tc) => ({
-        toolName: tc.toolName,
-        args: tc.args,
-      })),
-      metadata: {
-        streamId: `native-anthropic-vertex-${Date.now()}`,
-        startTime,
-        responseTime,
-        totalToolExecutions: allToolCalls.length,
-      },
+      usage,
+      metadata,
     };
+
+    Object.defineProperty(result, "toolCalls", {
+      enumerable: true,
+      configurable: true,
+      get: () => allToolCalls.filter((tc) => tc.toolName !== "final_result"),
+    });
+    Object.defineProperty(result, "toolsUsed", {
+      enumerable: true,
+      configurable: true,
+      get: () => toolsUsedRef.filter((name) => name !== "final_result"),
+    });
+    Object.defineProperty(result, "toolExecutions", {
+      enumerable: true,
+      configurable: true,
+      get: () =>
+        transformToolExecutions(
+          toolExecutions.filter((te) => te.name !== "final_result"),
+        ) as unknown as StreamResult["toolExecutions"],
+    });
+
+    Object.defineProperty(result, "structuredOutput", {
+      enumerable: true,
+      configurable: true,
+      get: () => structuredOutputRef.value,
+    });
+
+    return result;
   }
 
   /**
@@ -3136,6 +3435,9 @@ export class GoogleVertexProvider extends BaseProvider {
     // the older surface. The Vertex Claude STREAM path already follows this
     // priority — keeping the GENERATE path on `conversationHistory` only
     // would silently drop multi-turn context for memory/loop sessions.
+    // Intentionally text-only: see the stream sibling for the rationale —
+    // synthesising tool_use / tool_result blocks from stored ChatMessages
+    // risks emitting orphaned references that Anthropic's API rejects.
     const historyMessages =
       options.conversationMessages && options.conversationMessages.length > 0
         ? options.conversationMessages
@@ -3308,10 +3610,7 @@ export class GoogleVertexProvider extends BaseProvider {
 
     // Convert tools to Anthropic format if present
     let tools: VertexAnthropicTool[] | undefined;
-    const executeMap = new Map<
-      string,
-      (params: Record<string, unknown>) => Promise<unknown>
-    >();
+    const executeMap = new Map<string, Tool["execute"]>();
     const toolExecutions: Array<{
       name: string;
       input: Record<string, unknown>;
@@ -3356,12 +3655,7 @@ export class GoogleVertexProvider extends BaseProvider {
         tools.push(anthropicTool);
 
         if (tool.execute) {
-          executeMap.set(
-            name,
-            tool.execute as (
-              params: Record<string, unknown>,
-            ) => Promise<unknown>,
-          );
+          executeMap.set(name, tool.execute);
         }
       }
     }
@@ -3458,12 +3752,20 @@ export class GoogleVertexProvider extends BaseProvider {
       step++;
 
       try {
-        const response = await client.messages.create({
-          ...requestParams,
-          messages: currentMessages as Parameters<
-            typeof client.messages.create
-          >[0]["messages"],
-        });
+        // Bound the SDK wait so a stalled Vertex/Anthropic call can't hang
+        // generate forever. options.timeout wins if set, otherwise default
+        // to 5 min — generous for tool-heavy turns.
+        const generateTimeoutMs = parseTimeout(options.timeout) ?? 300_000;
+        const response = await withTimeout(
+          client.messages.create({
+            ...requestParams,
+            messages: currentMessages as Parameters<
+              typeof client.messages.create
+            >[0]["messages"],
+          }),
+          generateTimeoutMs,
+          "Anthropic generate timed out",
+        );
 
         // Update token counts
         totalInputTokens += response.usage?.input_tokens || 0;
@@ -3521,9 +3823,28 @@ export class GoogleVertexProvider extends BaseProvider {
           tool_use_id: string;
           content: string;
         }> = [];
-
+        // Per-step bookkeeping for conversation-memory storage. Tracks calls
+        // and results for ONLY the tools fired in this step so the storage
+        // hook can tag them with the current stepIndex.
+        const stepStorageCalls: Array<{
+          toolCallId: string;
+          toolName: string;
+          args: Record<string, unknown>;
+        }> = [];
+        const stepStorageResults: Array<{
+          toolCallId: string;
+          toolName: string;
+          output: unknown;
+        }> = [];
+        // Note: tool:start / tool:end events are emitted by ToolsManager's
+        // wrapped `execute` (see ToolsManager.ts:355) — no inline emit needed.
         for (const toolUse of toolUseBlocks) {
           allToolCalls.push({
+            toolName: toolUse.name,
+            args: toolUse.input,
+          });
+          stepStorageCalls.push({
+            toolCallId: toolUse.id,
             toolName: toolUse.name,
             args: toolUse.input,
           });
@@ -3531,32 +3852,96 @@ export class GoogleVertexProvider extends BaseProvider {
           const execute = executeMap.get(toolUse.name);
           if (execute) {
             try {
-              const result = await execute(toolUse.input);
+              const toolOptions = {
+                toolCallId: toolUse.id,
+                messages: [],
+                abortSignal: options.abortSignal,
+              };
+              const result = await execute(toolUse.input, toolOptions);
               toolExecutions.push({
                 name: toolUse.name,
                 input: toolUse.input,
                 output: result,
               });
+              // Anthropic requires tool_result.content to be a string.
+              // JSON.stringify returns undefined for undefined/function/symbol,
+              // so coerce defensively to keep the follow-up turn valid.
+              const resultContent =
+                typeof result === "string"
+                  ? result
+                  : (JSON.stringify(result ?? null) ?? String(result));
               toolResults.push({
                 type: "tool_result",
                 tool_use_id: toolUse.id,
-                content:
-                  typeof result === "string" ? result : JSON.stringify(result),
+                content: resultContent,
+              });
+              stepStorageResults.push({
+                toolCallId: toolUse.id,
+                toolName: toolUse.name,
+                output: result,
               });
             } catch (err) {
+              const errMsg = `Error executing tool "${toolUse.name}": ${err instanceof Error ? err.message : String(err)}`;
+              const errorPayload = { error: errMsg };
+              toolExecutions.push({
+                name: toolUse.name,
+                input: toolUse.input,
+                output: errorPayload,
+              });
               toolResults.push({
                 type: "tool_result",
                 tool_use_id: toolUse.id,
-                content: `Error executing tool: ${err instanceof Error ? err.message : String(err)}`,
+                content: errMsg,
+              });
+              stepStorageResults.push({
+                toolCallId: toolUse.id,
+                toolName: toolUse.name,
+                output: errorPayload,
               });
             }
           } else {
+            const errMsg = `TOOL_NOT_FOUND: The tool "${toolUse.name}" does not exist.`;
+            const errorPayload = { error: errMsg };
+            toolExecutions.push({
+              name: toolUse.name,
+              input: toolUse.input,
+              output: errorPayload,
+            });
             toolResults.push({
               type: "tool_result",
               tool_use_id: toolUse.id,
-              content: `TOOL_NOT_FOUND: The tool "${toolUse.name}" does not exist.`,
+              content: errMsg,
+            });
+            stepStorageResults.push({
+              toolCallId: toolUse.id,
+              toolName: toolUse.name,
+              output: errorPayload,
             });
           }
+        }
+
+        // Persist this step's tool calls/results into conversation memory.
+        // Without this, tool_call / tool_result rows never reach Redis and
+        // the chat-history UI loses every tool invocation.
+        // Fire-and-forget — storage failures must not break generation.
+        if (stepStorageCalls.length > 0 || stepStorageResults.length > 0) {
+          withTimeout(
+            this.handleToolExecutionStorage(
+              stepStorageCalls.map((c) => ({ ...c, stepIndex: step })),
+              stepStorageResults.map((r) => ({ ...r, stepIndex: step })),
+              options,
+              new Date(),
+            ),
+            TOOL_STORAGE_TIMEOUT_MS,
+            "tool storage write timed out",
+          ).catch((error: unknown) => {
+            logger.warn(
+              "[GoogleVertex] Failed to store native Anthropic generate tool executions",
+              {
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
+          });
         }
 
         // Add assistant message and tool results to continue the loop
@@ -3587,6 +3972,12 @@ export class GoogleVertexProvider extends BaseProvider {
     }
 
     const responseTime = Date.now() - startTime;
+    const externalToolCalls = allToolCalls.filter(
+      (tc) => tc.toolName !== "final_result",
+    );
+    const externalToolExecutions = toolExecutions.filter(
+      (te) => te.name !== "final_result",
+    );
 
     const result: EnhancedGenerateResult = {
       content: finalText,
@@ -3598,9 +3989,9 @@ export class GoogleVertexProvider extends BaseProvider {
         total: totalInputTokens + totalOutputTokens,
       },
       responseTime,
-      toolsUsed: allToolCalls.map((tc) => tc.toolName),
-      toolExecutions,
-      enhancedWithTools: allToolCalls.length > 0,
+      toolsUsed: externalToolCalls.map((tc) => tc.toolName),
+      toolExecutions: transformToolExecutions(externalToolExecutions),
+      enhancedWithTools: externalToolCalls.length > 0,
     };
 
     // Route through enhanceResult so analytics/evaluation/tracing are picked

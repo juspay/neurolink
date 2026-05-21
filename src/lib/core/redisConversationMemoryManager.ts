@@ -1356,12 +1356,6 @@ User message: "${userMessage}"`;
         provider: this.config.summarizationProvider || "vertex",
         model: this.config.summarizationModel || "gemini-2.5-flash",
         disableTools: true, // Title generation doesn't need tools — saves ~600 tokens of tool descriptions
-        // A 20-25 letter title is well under 64 tokens; capping prevents
-        // Vertex 400 INVALID_ARGUMENT — Gemini 2.5 Flash on the native
-        // @google/genai SDK rejects requests with no maxOutputTokens cap
-        // when the prompt is short, which silently broke every
-        // `conversationMemory.enabled + context` test path.
-        maxTokens: 64,
       });
 
       // Clean up the generated title

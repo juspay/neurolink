@@ -683,9 +683,17 @@ export const directAgentTools = {
 
   websearchGrounding: tool({
     description:
-      "Search the web for current information using Google Search grounding. Returns raw search data for AI processing.",
+      "Performs a Google Search and returns a summarized answer with source citations. Always check the current date before constructing the query. Use whenever the answer depends on time-sensitive facts or requires verification against real-world sources.",
     inputSchema: z.object({
-      query: z.string().describe("Search query to find information about"),
+      query: z
+        .string()
+        .trim()
+        .min(1, { message: "must be a non-empty search string" })
+        .refine((v) => v.toLowerCase() !== "undefined", {
+          message:
+            'must not be the literal string "undefined" — pass a real search query',
+        })
+        .describe("The search query string to look up on the web."),
       maxResults: z
         .number()
         .optional()
@@ -722,7 +730,9 @@ export const directAgentTools = {
           location: projectLocation,
         });
 
-        const websearchModel = "gemini-2.5-flash-lite";
+        const websearchModel =
+          process.env.NEUROLINK_WEBSEARCH_MODEL?.trim() ||
+          "gemini-2.5-flash-lite";
 
         const model = vertex_ai.getGenerativeModel({
           model: websearchModel,

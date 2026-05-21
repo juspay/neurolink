@@ -655,3 +655,20 @@ export type ProviderDetails = {
   provider: string;
   model: string;
 };
+
+/**
+ * Reduced ChatMessage shape used by callers (typically tests and history
+ * reconstructors) that pass synthetic entries into the Gemini history
+ * reconstructor without filling every `ChatMessage` field. Mirrors the
+ * fields actually read by `prependConversationMessages`.
+ */
+export type MinimalChatMessage = {
+  role: ChatMessage["role"];
+  content: string;
+  tool?: string;
+  args?: Record<string, unknown>;
+  metadata?: {
+    stepIndex?: number;
+    thoughtSignature?: string;
+  };
+};

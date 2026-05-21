@@ -6,7 +6,10 @@ import {
   GoogleAIModels,
 } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
-import { IMAGE_GENERATION_MODELS } from "../core/constants.js";
+import {
+  IMAGE_GENERATION_MODELS,
+  TOOL_STORAGE_TIMEOUT_MS,
+} from "../core/constants.js";
 import { processUnifiedFilesArray } from "../utils/messageBuilder.js";
 import type { NeuroLink } from "../neurolink.js";
 import {
@@ -46,7 +49,9 @@ import {
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
+import { withTimeout } from "../utils/async/index.js";
 import { estimateTokens } from "../utils/tokenEstimation.js";
+import { transformToolExecutions } from "../utils/transformationUtils.js";
 import {
   buildGeminiResponseSchema,
   buildNativeConfig,
@@ -58,6 +63,7 @@ import {
   buildUserPartsWithMultimodal,
   executeNativeToolCalls,
   extractTextFromParts,
+  extractThoughtSignature,
   handleMaxStepsTermination,
   prependConversationMessages,
   pushModelResponseToHistory,
@@ -786,6 +792,14 @@ export class GoogleAIStudioProvider extends BaseProvider {
             toolName: string;
             args: Record<string, unknown>;
           }> = [];
+          // Mirror the Vertex Gemini stream path: track tool executions so
+          // the storage hook can persist real outputs and StreamResult can
+          // surface toolsUsed/toolExecutions for tool-bearing turns.
+          const toolExecutions: Array<{
+            name: string;
+            input: Record<string, unknown>;
+            output: unknown;
+          }> = [];
 
           // analyticsResolvers lets the background loop settle the analytics
           // promise once token counts are known (after the loop completes).
@@ -885,14 +899,63 @@ export class GoogleAIStudioProvider extends BaseProvider {
                     chunkResult.stepFunctionCalls,
                   );
 
+                  const toolCallsBefore = allToolCalls.length;
+                  const toolExecsBefore = toolExecutions.length;
                   const functionResponses = await executeNativeToolCalls(
                     "[GoogleAIStudio]",
                     chunkResult.stepFunctionCalls,
                     executeMap,
                     failedTools,
                     allToolCalls,
-                    { abortSignal: composedSignal, originalNameMap },
+                    {
+                      abortSignal: composedSignal,
+                      originalNameMap,
+                      toolExecutions,
+                    },
                   );
+
+                  // Persist this step's tool calls/results into conversation
+                  // memory. Without this, tool_call / tool_result rows never
+                  // reach Redis and the chat-history UI loses every tool
+                  // invocation.
+                  const stepToolCalls = allToolCalls.slice(toolCallsBefore);
+                  const stepToolExecs = toolExecutions.slice(toolExecsBefore);
+                  if (stepToolCalls.length > 0 || stepToolExecs.length > 0) {
+                    const stepThoughtSig = extractThoughtSignature(
+                      chunkResult.rawResponseParts,
+                    );
+                    withTimeout(
+                      this.handleToolExecutionStorage(
+                        stepToolCalls.map((tc, i) => ({
+                          toolName: tc.toolName,
+                          args: tc.args,
+                          ...(i === 0 && stepThoughtSig
+                            ? { thoughtSignature: stepThoughtSig }
+                            : {}),
+                          stepIndex: step,
+                        })),
+                        stepToolExecs.map((te) => ({
+                          toolName: te.name,
+                          output: te.output,
+                          stepIndex: step,
+                        })),
+                        options,
+                        new Date(),
+                      ),
+                      TOOL_STORAGE_TIMEOUT_MS,
+                      "tool storage write timed out",
+                    ).catch((error: unknown) => {
+                      logger.warn(
+                        "[GoogleAIStudio] Failed to store native tool executions",
+                        {
+                          error:
+                            error instanceof Error
+                              ? error.message
+                              : String(error),
+                        },
+                      );
+                    });
+                  }
 
                   // Add function responses to history — the @google/genai SDK
                   // only accepts "user" and "model" as valid roles in contents.
@@ -964,7 +1027,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
           // forwarded to the channel and will surface when the caller iterates.
           loopPromise.catch(() => undefined);
 
-          return {
+          const result: StreamResult = {
             stream: channel.iterable,
             provider: this.providerName,
             model: modelName,
@@ -972,6 +1035,23 @@ export class GoogleAIStudioProvider extends BaseProvider {
             analytics: analyticsPromise,
             metadata,
           };
+          // Surface tools-used + executions via getters so they resolve at
+          // access time, after the background loop has populated the live
+          // arrays. Same lazy pattern used for `structuredOutput` elsewhere.
+          Object.defineProperty(result, "toolsUsed", {
+            enumerable: true,
+            configurable: true,
+            get: () => allToolCalls.map((tc) => tc.toolName),
+          });
+          Object.defineProperty(result, "toolExecutions", {
+            enumerable: true,
+            configurable: true,
+            get: () =>
+              transformToolExecutions(
+                toolExecutions,
+              ) as unknown as StreamResult["toolExecutions"],
+          });
+          return result;
         } finally {
           // Timeout controller cleanup is managed inside the background loop
         }
@@ -1182,6 +1262,8 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 chunkResult.stepFunctionCalls,
               );
 
+              const toolCallsBefore = allToolCalls.length;
+              const toolExecsBefore = toolExecutions.length;
               const functionResponses = await executeNativeToolCalls(
                 "[GoogleAIStudio]",
                 chunkResult.stepFunctionCalls,
@@ -1194,6 +1276,44 @@ export class GoogleAIStudioProvider extends BaseProvider {
                   originalNameMap,
                 },
               );
+
+              // Persist this step's tool calls/results into conversation memory.
+              const stepToolCalls = allToolCalls.slice(toolCallsBefore);
+              const stepToolExecs = toolExecutions.slice(toolExecsBefore);
+              if (stepToolCalls.length > 0 || stepToolExecs.length > 0) {
+                const stepThoughtSig = extractThoughtSignature(
+                  chunkResult.rawResponseParts,
+                );
+                withTimeout(
+                  this.handleToolExecutionStorage(
+                    stepToolCalls.map((tc, i) => ({
+                      toolName: tc.toolName,
+                      args: tc.args,
+                      ...(i === 0 && stepThoughtSig
+                        ? { thoughtSignature: stepThoughtSig }
+                        : {}),
+                      stepIndex: step,
+                    })),
+                    stepToolExecs.map((te) => ({
+                      toolName: te.name,
+                      output: te.output,
+                      stepIndex: step,
+                    })),
+                    options,
+                    new Date(),
+                  ),
+                  TOOL_STORAGE_TIMEOUT_MS,
+                  "tool storage write timed out",
+                ).catch((error: unknown) => {
+                  logger.warn(
+                    "[GoogleAIStudio] Failed to store native generate tool executions",
+                    {
+                      error:
+                        error instanceof Error ? error.message : String(error),
+                    },
+                  );
+                });
+              }
 
               // Add function responses to history — the @google/genai SDK
               // only accepts "user" and "model" as valid roles in contents.
@@ -1242,7 +1362,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
             },
             responseTime,
             toolsUsed: allToolCalls.map((tc) => tc.toolName),
-            toolExecutions: toolExecutions,
+            toolExecutions: transformToolExecutions(toolExecutions),
             enhancedWithTools: allToolCalls.length > 0,
           };
           return this.enhanceResult(baseResult, options, startTime);

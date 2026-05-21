@@ -25,7 +25,9 @@ import {
 import type {
   ZodUnknownSchema,
   ThinkingConfig,
+  ChatMessage,
   CollectedChunkResult,
+  MinimalChatMessage,
   NativeFunctionCall,
   NativeFunctionDeclaration,
   NativeFunctionResponse,
@@ -34,6 +36,8 @@ import type {
   TextChannel,
   ToolWithLegacyParams,
   VertexNativePart,
+  VertexSegment,
+  VertexToolStep,
   GeminiMultimodalInput,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
@@ -875,6 +879,11 @@ export async function executeNativeToolCalls(
   const externalName = (safeName: string): string =>
     options?.originalNameMap?.get(safeName) ?? safeName;
 
+  // Note: tool:start / tool:end events are emitted by ToolsManager's
+  // `execute` wrapper (see src/lib/core/modules/ToolsManager.ts:355 and :790)
+  // around every tool's execute function. The native paths invoke that same
+  // wrapped execute via the executeMap, so emitting here would duplicate.
+
   for (const call of stepFunctionCalls) {
     const exposedName = externalName(call.name);
     allToolCalls.push({ toolName: exposedName, args: call.args });
@@ -1078,26 +1087,125 @@ export function buildGeminiResponseSchema(
  */
 export function prependConversationMessages(
   contents: Array<{ role: string; parts: unknown[] }>,
-  conversationMessages?: Array<{
-    role: string;
-    content: string;
-  }>,
+  // Accept either the full ChatMessage shape (when callers pass real Redis-
+  // backed history) or the reduced MinimalChatMessage shape (tests / synthetic
+  // callers). Only role, content, tool, args, and metadata.* are read here.
+  conversationMessages?: Array<ChatMessage | MinimalChatMessage>,
 ): void {
   if (!conversationMessages || conversationMessages.length === 0) {
     return;
   }
+
+  // Walk prior turns building ordered segments. Tool_call / tool_result rows
+  // get grouped by (turnCounter, stepIndex) so parallel calls within a step
+  // stay together and don't bleed across turn boundaries. Regular user/
+  // assistant messages act as those boundaries.
+  //
+  // Without this reconstruction, a text-only mapper would strip tool rows
+  // from history — leaving the model unaware of any tools it called in
+  // prior turns. The grouped emit (model with functionCall parts → user
+  // with functionResponse parts) is what @google/genai's own
+  // automaticFunctionCalling produces, so the SDK validates it as a
+  // well-formed multi-turn conversation.
+  const stepMap = new Map<string, VertexToolStep>();
+  const segments: VertexSegment[] = [];
+  let turnCounter = 0;
+
+  const makeKey = (stepIndex: number | undefined): string =>
+    `${turnCounter}:${stepIndex ?? "undefined"}`;
+
+  const getOrCreateStep = (stepIndex: number | undefined): VertexToolStep => {
+    const key = makeKey(stepIndex);
+    const existing = stepMap.get(key);
+    if (existing) {
+      return existing;
+    }
+    const step: VertexToolStep = {
+      type: "tool_step",
+      callParts: [],
+      resultParts: [],
+    };
+    stepMap.set(key, step);
+    segments.push(step);
+    return step;
+  };
+
   for (const msg of conversationMessages) {
-    if (msg.role !== "user" && msg.role !== "assistant") {
+    if (msg.role === "tool_call") {
+      const step = getOrCreateStep(msg.metadata?.stepIndex);
+      const fcPart: Record<string, unknown> = {
+        functionCall: {
+          name: msg.tool || "unknown",
+          args: msg.args || {},
+        },
+      };
+      if (msg.metadata?.thoughtSignature) {
+        fcPart.thoughtSignature = msg.metadata.thoughtSignature;
+      }
+      step.callParts.push(fcPart);
       continue;
     }
-    const text = typeof msg.content === "string" ? msg.content : "";
-    if (text.length === 0) {
+
+    if (msg.role === "tool_result") {
+      const step = getOrCreateStep(msg.metadata?.stepIndex);
+      let responsePayload: unknown;
+      try {
+        responsePayload =
+          msg.content !== undefined && msg.content !== null
+            ? { result: JSON.parse(msg.content) }
+            : { result: "success" };
+      } catch {
+        responsePayload = { result: msg.content ?? "success" };
+      }
+      step.resultParts.push({
+        functionResponse: {
+          name: msg.tool || "unknown",
+          response: responsePayload,
+        },
+      });
       continue;
     }
-    contents.push({
-      role: msg.role === "assistant" ? "model" : "user",
-      parts: [{ text }],
-    });
+
+    // Regular (user / assistant) message — acts as a turn boundary.
+    const role = msg.role === "assistant" ? "model" : msg.role;
+    if (role !== "user" && role !== "model") {
+      continue;
+    }
+    if (!msg.content || msg.content.trim().length === 0) {
+      continue;
+    }
+
+    // Increment turn counter BEFORE pushing the segment so any tool_calls
+    // that follow this message get a fresh (turnCounter, stepIndex) namespace.
+    turnCounter++;
+
+    const textPart: Record<string, unknown> = { text: msg.content };
+    if (msg.metadata?.thoughtSignature) {
+      textPart.thoughtSignature = msg.metadata.thoughtSignature;
+    }
+    segments.push({ type: "regular", role, parts: [textPart] });
+  }
+
+  // Emit in order: each ToolStep → model turn (calls) + user turn (results)
+  // — same ordering @google/genai's automaticFunctionCalling produces.
+  for (const seg of segments) {
+    if (seg.type === "regular") {
+      contents.push({ role: seg.role, parts: seg.parts });
+      continue;
+    }
+    if (seg.callParts.length === 0) {
+      if (seg.resultParts.length > 0) {
+        logger.debug(
+          "[GoogleNativeGemini3] Dropping orphan tool_result segment with no matching tool_call rows",
+          { resultCount: seg.resultParts.length },
+        );
+      }
+      continue;
+    }
+    contents.push({ role: "model", parts: seg.callParts });
+    if (seg.resultParts.length > 0) {
+      contents.push({ role: "user", parts: seg.resultParts });
+    }
   }
 }
 

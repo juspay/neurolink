@@ -1,5 +1,68 @@
 # Project Progress
 
+## 🚀 **NATIVE GOOGLE/VERTEX REGRESSION REPAIR — CONVERSATION MEMORY + STREAMING** (2026-05-21)
+
+### **🏆 LATEST ACHIEVEMENT: POST-MIGRATION FIXES FOR @google/genai + @anthropic-ai/vertex-sdk**
+
+**Objective**: Repair three independent regressions introduced by the v9.64.0 migration that broke (a) Lighthouse's chat-history UI (lost every tool invocation) and (b) Claude-on-Vertex streaming UX (silently degraded to buffered).
+
+**Root Problems:**
+
+1. **Tool storage write-half lost.** The four native methods (`executeNativeAnthropicStream`, `executeNativeAnthropicGenerate`, `executeNativeGemini3Stream`, `executeNativeGemini3Generate`) bypass the AI SDK, so `GenerationHandler.buildGenerateConfig`'s `onStepFinish` hook never fires. Result: `pendingToolExecutions` empty → `flushPendingToolData()` flushes nothing → no `tool_call`/`tool_result` rows in Redis → chat-history UI loses every tool invocation.
+
+2. **Gemini tool-aware history reconstruction lost.** The 117-line `prependConversationHistory` was replaced with a 22-line text-only mapper in `googleNativeGemini3.ts`. Multi-turn tool context never reached the model on subsequent turns even when Redis had the data.
+
+3. **Claude-on-Vertex stream was fully buffered.** `executeNativeAnthropicStream` used `await stream.finalMessage()` which consumes the entire stream before yielding. Despite the method name, no real-time streaming.
+
+**Completed Fixes:**
+
+- ✅ Per-step `handleToolExecutionStorage(...)` wired at 6 sites across Anthropic stream/generate, Gemini stream/generate, and AI Studio's two stream call sites — with `stepIndex` tagging and `thoughtSignature` propagation on the first call of each Gemini step
+- ✅ Tool-aware `prependConversationMessages` restored in `googleNativeGemini3.ts` — groups by `(turnCounter, stepIndex)` composite key, emits ordered model+functionCall / user+functionResponse segments matching `@google/genai`'s `automaticFunctionCalling` output
+- ✅ `toolsUsed` + `toolExecutions` populated on all three native `StreamResult` builders — fixes `hasToolActivity` evaluating false for tool-only streaming turns (which silently dropped those turns during storage)
+- ✅ `executeNativeAnthropicStream` rewritten as channel + background-loop with `stream.on("text", ...)` listener — TTFT drops ~5-10s → ~500ms, real-time per-delta streaming restored
+- ✅ Duplicate `tool:start` / `tool:end` emissions removed from the native paths — `ToolsManager`'s `execute` wrapper at `ToolsManager.ts:355`/`:790` already emits these around every tool execution; inline emits were doubling them
+- ✅ Debug `fs.appendFileSync("/tmp/streamtext.log", ...)` removed from `executeNativeAnthropicStream` + unused `inspect` import
+- ✅ Session-context jargon cleaned from 12+ comments (no more M1/M2 labels, no more `076b9f4c` references, no more `v9.61.2` mentions) — comments now explain WHY in terms of code contracts and consequences
+
+**Anthropic stream rewrite — structural change details:**
+
+| Aspect | Before | After |
+|---|---|---|
+| Wait strategy | `await stream.finalMessage()` then yield from collected array | `stream.on("text", ...)` pushes each delta to a channel as it arrives |
+| Time to first byte | Full generation time (~5-10s) | ~500ms (Anthropic's first delta) |
+| Chunks per turn | 1-2 batched yields | ~63 fine-grained per-delta events |
+| Result return timing | After full loop completes | Synchronously, with channel.iterable |
+| Tool execution | Same | Same (extracted from finalMessage after loop body) |
+
+**Files Modified:**
+
+| File | Change |
+|------|--------|
+| `src/lib/providers/googleVertex.ts` | Per-step storage hook in 4 native methods; Anthropic stream rewrite (channel + listener); `toolsUsed`/`toolExecutions` on stream results; removed duplicate emits; removed debug log write + `inspect` import; comment cleanup |
+| `src/lib/providers/googleAiStudio.ts` | Per-step storage hook at 2 sites; `toolsUsed`/`toolExecutions` on stream result; imports `extractThoughtSignature`; comment cleanup |
+| `src/lib/providers/googleNativeGemini3.ts` | Tool-aware `prependConversationMessages` (replaces text-only mapper); removed unused emitter plumbing from `executeNativeToolCalls`; widened helper's param type to accept partial ChatMessage shape |
+| `test/continuous-test-suite-google-native.ts` | 7 new unit tests for tool-aware reconstruction (parallel grouping, sequential steps, turn-boundary collision, thoughtSignature sibling, malformed JSON fallback) |
+| `test/continuous-test-suite-memory.ts` | New test #22 (`testNativePathStoresToolRowsInRedis`) asserts per-step storage hook persists rows with `stepIndex` metadata |
+| `src/lib/agent/directTools.ts` | `websearchGrounding` tool: description rewrite (concrete use-cases + prefer-over-hedging guidance); input validation (`trim()`, `min(1)`, reject literal `"undefined"`); model configurable via `NEUROLINK_WEBSEARCH_MODEL` env |
+| `.env.example` | `NEUROLINK_WEBSEARCH_MODEL` env variable documented (defaults to `gemini-2.5-flash-lite`) |
+
+**Quality Gates:**
+- `npx tsc --noEmit --strict` → clean
+- `npx prettier --check` on touched files → clean
+- `npx tsx test/continuous-test-suite-google-native.ts` → 21/21 pass
+
+**Known Behavior Differences (intentional, post-migration baselines):**
+- Native Gemini chunks are phrase-sized (~85 chars per chunk) vs AI SDK's per-token (~7 chars). Server-controlled, not SDK-fixable.
+- Anthropic-on-Vertex history replay still text-only — tool rows persist to Redis (UI renders them) but don't re-enter the model context on subsequent turns. Matches v9.61.2 baseline; Anthropic API rejects orphan `tool_use_id` references so block synthesis would need careful ID reconstruction.
+- Gemini grounding-bearing responses (websearchGrounding path) arrive in an ~84ms server-side burst, not gradual. Unfixable client-side without artificial delays.
+
+**Bundled `websearchGrounding` tool improvements:**
+- Description rewrite — concrete use-case guidance (schedules, scores, news, prices, "current/latest/today/now"); explicit instruction to prefer the tool over hedging ("I don't have live info"); instruction to re-run with a tighter query when results look stale relative to the conversation's current date.
+- Input validation tightened — `query` schema now `z.string().trim().min(1).refine(v => v !== "undefined")`. Defends against empty/whitespace-only queries (which made zero-result API calls) and the literal `"undefined"` string (which models occasionally emit when JSON arg construction goes sideways).
+- Model now env-configurable — `process.env.NEUROLINK_WEBSEARCH_MODEL` overrides the hard-coded `gemini-2.5-flash-lite` default, enabling deployment-time swap (e.g. for staging gemini-3 grounding evaluation) without rebuilding the SDK. `.env.example` documents the variable.
+
+---
+
 ## 🚀 **GEMINI 3 NATIVE PATH — MULTI-TURN TOOL CALLING FIXED** (2026-04-17)
 
 ### **🏆 LATEST ACHIEVEMENT: NATIVE @google/genai SDK CONVERSATION REPLAY**

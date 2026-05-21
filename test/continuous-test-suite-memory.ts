@@ -2409,6 +2409,202 @@ async function testToolResultStoredInRedis(): Promise<boolean | null> {
 }
 
 // ============================================================
+// Native-path tool storage assertion
+// ============================================================
+//
+// Exercises the per-step handleToolExecutionStorage calls inside the
+// Vertex native paths (Anthropic + Gemini). Without those calls,
+// tool_call / tool_result ChatMessage rows never land in Redis and the
+// chat-history UI loses every tool invocation. Asserts both row types
+// are present with stepIndex metadata and that tool_result.content
+// carries the real output payload (not a placeholder).
+//
+// Skips gracefully without Vertex credentials so CI without GCP still passes.
+async function testNativePathStoresToolRowsInRedis(): Promise<boolean | null> {
+  const testName =
+    "22. Native Vertex path stores tool_call / tool_result rows in Redis";
+  logTest(testName, "TESTING");
+
+  if (!isRedisConfigured()) {
+    logTest(testName, "SKIP", "REDIS_URL or REDIS_HOST not configured");
+    return null;
+  }
+
+  // Default to Claude-on-Vertex (Lighthouse's actual path). Override to a
+  // Gemini-native model via env to cover the other native path.
+  const provider = process.env.NEUROLINK_NATIVE_TOOL_PROVIDER || "vertex";
+  const model = process.env.NEUROLINK_NATIVE_TOOL_MODEL || "claude-haiku-4-5";
+
+  const redisConfig = REDIS_URL
+    ? { url: REDIS_URL }
+    : { host: REDIS_HOST, port: REDIS_PORT };
+
+  const sessionId = generateTestSessionId("native-tool-storage");
+  const userId = `test-user-native-tool-${Date.now()}`;
+
+  let sdk: InstanceType<typeof NeuroLink> | null = null;
+
+  try {
+    sdk = new NeuroLink({
+      conversationMemory: {
+        enabled: true,
+        enableSummarization: false,
+        redisConfig,
+      },
+    });
+
+    sdk.registerTool("get_product_info", {
+      name: "get_product_info",
+      description: "Get product details by product ID",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          productId: { type: "string", description: "Product identifier" },
+        },
+        required: ["productId"],
+      },
+      execute: async (_params: unknown) => ({
+        id: "P42",
+        name: "Widget",
+        price: 9.99,
+        inStock: true,
+      }),
+    });
+
+    await sdk.generate({
+      input: {
+        text: 'Call the get_product_info tool with productId "P42" and report the result. You MUST invoke the tool — do not answer from your own knowledge.',
+      },
+      maxTokens: TEST_CONFIG.maxTokens,
+      provider,
+      model,
+      temperature: 0,
+      context: { sessionId, userId },
+      enabledToolNames: ["get_product_info"],
+      prepareStep: async ({ stepNumber }) => {
+        if (stepNumber === 0) {
+          return {
+            toolChoice: { type: "tool", toolName: "get_product_info" },
+          };
+        }
+        return { toolChoice: "auto" };
+      },
+    });
+
+    // Poll for fire-and-forget Redis write (avoids CI flakiness from a fixed sleep).
+    let messages = await sdk.getSessionMessages(sessionId, userId);
+    const deadline = Date.now() + 5000;
+    while (
+      Date.now() < deadline &&
+      (!messages.some((m) => m.role === "tool_call") ||
+        !messages.some((m) => m.role === "tool_result"))
+    ) {
+      await new Promise((r) => setTimeout(r, 100));
+      messages = await sdk.getSessionMessages(sessionId, userId);
+    }
+    const roles = messages.map((m) => m.role);
+
+    const toolCallRows = messages.filter((m) => m.role === "tool_call");
+    const toolResultRows = messages.filter((m) => m.role === "tool_result");
+
+    if (toolCallRows.length === 0) {
+      logTest(
+        testName,
+        "FAIL",
+        `No tool_call rows landed in Redis — write-half regression. Roles=[${roles.join(", ")}]`,
+      );
+      return false;
+    }
+    if (toolResultRows.length === 0) {
+      logTest(
+        testName,
+        "FAIL",
+        `No tool_result rows landed in Redis — write-half regression. Roles=[${roles.join(", ")}]`,
+      );
+      return false;
+    }
+
+    // stepIndex must be populated on both tool_call and tool_result rows.
+    const stepIndexedCall = toolCallRows.find(
+      (m) => typeof m.metadata?.stepIndex === "number",
+    );
+    if (!stepIndexedCall) {
+      logTest(
+        testName,
+        "FAIL",
+        `tool_call rows present but metadata.stepIndex missing — tagging regression`,
+      );
+      return false;
+    }
+    const stepIndexedResult = toolResultRows.find(
+      (m) => typeof m.metadata?.stepIndex === "number",
+    );
+    if (!stepIndexedResult) {
+      logTest(
+        testName,
+        "FAIL",
+        `tool_result rows present but metadata.stepIndex missing — tagging regression`,
+      );
+      return false;
+    }
+
+    // tool_result.content must carry the real serialized output, not a
+    // placeholder string. The native paths feed the actual tool return
+    // value through to flushPendingToolData, so this should contain
+    // markers from the registered tool ("Widget" or "P42").
+    const realOutputResult = toolResultRows.find(
+      (m) =>
+        typeof m.content === "string" &&
+        (m.content.includes("Widget") || m.content.includes("P42")),
+    );
+    if (!realOutputResult) {
+      logTest(
+        testName,
+        "FAIL",
+        `tool_result rows present but content does not contain the real tool output (got: ${toolResultRows
+          .map((r) => (r.content || "").slice(0, 60))
+          .join(" | ")})`,
+      );
+      return false;
+    }
+
+    logTest(
+      testName,
+      "PASS",
+      `tool rows persisted (${toolCallRows.length} calls, ${toolResultRows.length} results) with stepIndex + real output content via ${provider}/${model}`,
+    );
+    return true;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (
+      isExpectedProviderError(msg) ||
+      msg.includes("ECONNREFUSED") ||
+      msg.includes("Redis") ||
+      // Narrow Vertex auth signals only — bare "vertex" would swallow real
+      // native-path regressions.
+      msg.includes("GOOGLE_APPLICATION_CREDENTIALS") ||
+      msg.includes("project_id") ||
+      msg.toLowerCase().includes("credential")
+    ) {
+      logTest(
+        testName,
+        "SKIP",
+        `Provider/Redis unavailable: ${msg.slice(0, 200)}`,
+      );
+      return null;
+    }
+    logTest(testName, "FAIL", msg);
+    return false;
+  } finally {
+    try {
+      await sdk?.shutdown?.();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// ============================================================
 // MAIN RUNNER
 // ============================================================
 
@@ -3280,6 +3476,10 @@ async function runAllTests(): Promise<void> {
     {
       name: "21. Tool result content stored correctly in Redis",
       fn: testToolResultStoredInRedis,
+    },
+    {
+      name: "22. Native Vertex path stores tool_call / tool_result rows in Redis",
+      fn: testNativePathStoresToolRowsInRedis,
     },
   ];
 

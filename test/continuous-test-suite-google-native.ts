@@ -24,6 +24,7 @@
 import {
   buildGeminiResponseSchema,
   buildNativeConfig,
+  createTextChannel,
   prependConversationMessages,
 } from "../src/lib/providers/googleNativeGemini3.js";
 
@@ -115,16 +116,320 @@ const tests: TestFunction[] = [
     },
   },
   {
-    name: "prependConversationMessages: drops system + tool_call + tool_result roles",
+    name: "prependConversationMessages: drops system role (tool rows are reconstructed, not dropped)",
     fn: async () => {
       const contents = asContents();
+      // `system` is still dropped — only user/assistant/tool_call/tool_result are
+      // reconstructed. tool_call/tool_result are tested separately below.
       prependConversationMessages(contents, [
         { role: "system", content: "you are helpful" },
-        { role: "tool_call", content: "{}" },
-        { role: "tool_result", content: "{}" },
         { role: "assistant", content: "ok" },
       ]);
       return contents.length === 1 && contents[0].role === "model";
+    },
+  },
+  {
+    name: "prependConversationMessages: tool_call rows become functionCall parts under a model turn",
+    fn: async () => {
+      const contents = asContents();
+      prependConversationMessages(contents, [
+        { role: "user", content: "do the thing" },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "myTool",
+          args: { x: 1 },
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_result",
+          content: '{"ok":true}',
+          tool: "myTool",
+          metadata: { stepIndex: 0 },
+        },
+        { role: "assistant", content: "done" },
+      ]);
+      // Expected segment order: user → model(functionCall) → user(functionResponse) → model("done")
+      if (contents.length !== 4) {
+        return false;
+      }
+      if (contents[0].role !== "user") {
+        return false;
+      }
+      const modelCallParts = contents[1].parts as Array<
+        Record<string, unknown>
+      >;
+      const fc = modelCallParts[0]?.functionCall as
+        | { name: string; args: Record<string, unknown> }
+        | undefined;
+      if (
+        contents[1].role !== "model" ||
+        !fc ||
+        fc.name !== "myTool" ||
+        (fc.args as { x: number }).x !== 1
+      ) {
+        return false;
+      }
+      const userResultParts = contents[2].parts as Array<
+        Record<string, unknown>
+      >;
+      const fr = userResultParts[0]?.functionResponse as
+        | { name: string; response: { result: { ok: boolean } } }
+        | undefined;
+      if (
+        contents[2].role !== "user" ||
+        !fr ||
+        fr.name !== "myTool" ||
+        fr.response.result.ok !== true
+      ) {
+        return false;
+      }
+      return contents[3].role === "model";
+    },
+  },
+  {
+    name: "prependConversationMessages: thoughtSignature attaches as a sibling on the first functionCall",
+    fn: async () => {
+      const contents = asContents();
+      prependConversationMessages(contents, [
+        { role: "user", content: "go" },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "first",
+          args: {},
+          metadata: { stepIndex: 0, thoughtSignature: "SIG-abc" },
+        },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "second",
+          args: {},
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_result",
+          content: '{"a":1}',
+          tool: "first",
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_result",
+          content: '{"b":2}',
+          tool: "second",
+          metadata: { stepIndex: 0 },
+        },
+      ]);
+      // user, model(calls — first carries thoughtSignature), user(results)
+      if (contents.length !== 3) {
+        return false;
+      }
+      const modelCallParts = contents[1].parts as Array<
+        Record<string, unknown>
+      >;
+      if (modelCallParts.length !== 2) {
+        return false;
+      }
+      return (
+        modelCallParts[0].thoughtSignature === "SIG-abc" &&
+        modelCallParts[1].thoughtSignature === undefined
+      );
+    },
+  },
+  {
+    name: "prependConversationMessages: parallel calls in the same step group together (single model+user pair)",
+    fn: async () => {
+      const contents = asContents();
+      prependConversationMessages(contents, [
+        { role: "user", content: "parallel work" },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "a",
+          args: {},
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "b",
+          args: {},
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_result",
+          content: "{}",
+          tool: "a",
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_result",
+          content: "{}",
+          tool: "b",
+          metadata: { stepIndex: 0 },
+        },
+      ]);
+      // Should be exactly 3 segments: user, model (2 calls), user (2 results)
+      if (contents.length !== 3) {
+        return false;
+      }
+      const modelParts = contents[1].parts as unknown[];
+      const userParts = contents[2].parts as unknown[];
+      return modelParts.length === 2 && userParts.length === 2;
+    },
+  },
+  {
+    name: "prependConversationMessages: sequential steps within one turn produce one segment per step",
+    fn: async () => {
+      const contents = asContents();
+      prependConversationMessages(contents, [
+        { role: "user", content: "do A then B" },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "A",
+          args: {},
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_result",
+          content: "{}",
+          tool: "A",
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "B",
+          args: {},
+          metadata: { stepIndex: 1 },
+        },
+        {
+          role: "tool_result",
+          content: "{}",
+          tool: "B",
+          metadata: { stepIndex: 1 },
+        },
+      ]);
+      // Expected: user → model(A) → user(A-result) → model(B) → user(B-result)
+      return (
+        contents.length === 5 &&
+        contents[0].role === "user" &&
+        contents[1].role === "model" &&
+        (contents[1].parts as unknown[]).length === 1 &&
+        contents[2].role === "user" &&
+        contents[3].role === "model" &&
+        (contents[3].parts as unknown[]).length === 1 &&
+        contents[4].role === "user"
+      );
+    },
+  },
+  {
+    name: "prependConversationMessages: same stepIndex across separate turns does NOT collide",
+    fn: async () => {
+      // turn 1 (step 0) → turn 2 (step 0 again). turnCounter should namespace
+      // these so they emit as two distinct model/user pairs, not merged.
+      const contents = asContents();
+      prependConversationMessages(contents, [
+        { role: "user", content: "turn 1" },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "T1",
+          args: {},
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_result",
+          content: "{}",
+          tool: "T1",
+          metadata: { stepIndex: 0 },
+        },
+        { role: "assistant", content: "first answer" },
+        { role: "user", content: "turn 2" },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "T2",
+          args: {},
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_result",
+          content: "{}",
+          tool: "T2",
+          metadata: { stepIndex: 0 },
+        },
+      ]);
+      // user1, model(T1), user(T1-result), model(first answer), user2, model(T2), user(T2-result)
+      if (contents.length !== 7) {
+        return false;
+      }
+      const firstModelCall = (
+        contents[1].parts as Array<Record<string, unknown>>
+      )[0].functionCall as { name: string };
+      const secondModelCall = (
+        contents[5].parts as Array<Record<string, unknown>>
+      )[0].functionCall as { name: string };
+      return firstModelCall.name === "T1" && secondModelCall.name === "T2";
+    },
+  },
+  {
+    name: "prependConversationMessages: malformed tool_result content falls back to raw string under .result",
+    fn: async () => {
+      const contents = asContents();
+      prependConversationMessages(contents, [
+        { role: "user", content: "go" },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "x",
+          args: {},
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_result",
+          content: "not-json-at-all",
+          tool: "x",
+          metadata: { stepIndex: 0 },
+        },
+      ]);
+      const userResultParts = contents[2].parts as Array<
+        Record<string, unknown>
+      >;
+      const fr = userResultParts[0]?.functionResponse as
+        | { response: { result: string } }
+        | undefined;
+      return fr?.response.result === "not-json-at-all";
+    },
+  },
+  {
+    name: "prependConversationMessages: orphan tool_result without matching tool_call is dropped",
+    fn: async () => {
+      const contents = asContents();
+      prependConversationMessages(contents, [
+        { role: "user", content: "go" },
+        // tool_result with no preceding tool_call in the same step —
+        // Gemini rejects user(functionResponse) without a model(functionCall),
+        // so the reconstructor must drop it.
+        {
+          role: "tool_result",
+          content: '{"answer": 42}',
+          tool: "x",
+          metadata: { stepIndex: 0 },
+        },
+      ]);
+      // Only the user turn should remain; the orphan segment is dropped.
+      if (contents.length !== 1) {
+        return false;
+      }
+      const onlyTurn = contents[0];
+      return (
+        onlyTurn.role === "user" &&
+        Array.isArray(onlyTurn.parts) &&
+        onlyTurn.parts.length === 1 &&
+        (onlyTurn.parts[0] as { text?: string }).text === "go"
+      );
     },
   },
   {
@@ -243,6 +548,146 @@ const tests: TestFunction[] = [
       };
       const out = buildGeminiResponseSchema(schema);
       return !("$schema" in out);
+    },
+  },
+
+  // ── createTextChannel: streaming-shape contract for executeNativeAnthropicStream ──
+  // These tests lock in the channel semantics that the rewrite of
+  // executeNativeAnthropicStream relies on (real-time per-event push from
+  // stream.on('text', ...) to channel.push(), consumed via channel.iterable).
+  // If any of these break, the Anthropic stream's UX regresses.
+  {
+    name: "createTextChannel: yields pushed items in FIFO order then terminates on close()",
+    fn: async () => {
+      const ch = createTextChannel();
+      ch.push("Hello");
+      ch.push(" ");
+      ch.push("world");
+      ch.close();
+      const collected: string[] = [];
+      for await (const chunk of ch.iterable) {
+        collected.push(chunk.content);
+      }
+      return (
+        collected.length === 3 &&
+        collected[0] === "Hello" &&
+        collected[1] === " " &&
+        collected[2] === "world"
+      );
+    },
+  },
+  {
+    name: "createTextChannel: consumer blocks until producer pushes (real-time semantics)",
+    fn: async () => {
+      // This is the critical property the Anthropic rewrite needs: the
+      // consumer's for-await suspends between pushes rather than racing
+      // ahead. If this broke, the stream would burst-terminate after the
+      // first push instead of streaming.
+      const ch = createTextChannel();
+      const collected: Array<{ at: number; text: string }> = [];
+      const start = Date.now();
+      const consume = (async () => {
+        for await (const chunk of ch.iterable) {
+          collected.push({ at: Date.now() - start, text: chunk.content });
+        }
+      })();
+      ch.push("a");
+      await new Promise((r) => setTimeout(r, 30));
+      ch.push("b");
+      await new Promise((r) => setTimeout(r, 30));
+      ch.push("c");
+      ch.close();
+      await consume;
+      // Three chunks captured at three distinct timestamps (>= ~20ms apart).
+      // If the consumer burst-collected, the gaps would be ~0.
+      const gap1 = collected[1]?.at - collected[0]?.at;
+      const gap2 = collected[2]?.at - collected[1]?.at;
+      return (
+        collected.length === 3 &&
+        collected.map((c) => c.text).join("") === "abc" &&
+        gap1 >= 20 &&
+        gap2 >= 20
+      );
+    },
+  },
+  {
+    name: "createTextChannel: push() after close() is a no-op",
+    fn: async () => {
+      const ch = createTextChannel();
+      ch.push("first");
+      ch.close();
+      ch.push("dropped"); // should not appear
+      const collected: string[] = [];
+      for await (const chunk of ch.iterable) {
+        collected.push(chunk.content);
+      }
+      return collected.length === 1 && collected[0] === "first";
+    },
+  },
+  {
+    name: "createTextChannel: error() causes the iterable to throw on next read",
+    fn: async () => {
+      const ch = createTextChannel();
+      ch.push("partial");
+      ch.error(new Error("simulated upstream failure"));
+      const collected: string[] = [];
+      let thrown: string | null = null;
+      try {
+        for await (const chunk of ch.iterable) {
+          collected.push(chunk.content);
+        }
+      } catch (e) {
+        thrown = e instanceof Error ? e.message : String(e);
+      }
+      // The "partial" chunk that was pushed BEFORE error() must still surface
+      // to the consumer (so partial responses aren't lost), then the error
+      // throws.
+      return (
+        collected[0] === "partial" && thrown === "simulated upstream failure"
+      );
+    },
+  },
+  {
+    name: "createTextChannel: token-level deltas (mirrors Anthropic stream.on('text'))",
+    fn: async () => {
+      // Models like Claude deliver ~63 deltas of ~10 chars each over the
+      // generation window. This test simulates that pattern and asserts the
+      // channel preserves every delta unchanged. Concatenation invariant:
+      // joining all pushed chunks must equal the full text.
+      const ch = createTextChannel();
+      const deltas = [
+        "I",
+        "'m ",
+        "Bree",
+        "ze ",
+        "Aut",
+        "oma",
+        "tic",
+        ", ",
+        "your ",
+        "e-co",
+        "mmerce ",
+        "and ",
+        "mark",
+        "eting ",
+        "assi",
+        "stant",
+        "!",
+      ];
+      for (const d of deltas) {
+        ch.push(d);
+      }
+      ch.close();
+      const collected: string[] = [];
+      for await (const chunk of ch.iterable) {
+        collected.push(chunk.content);
+      }
+      return (
+        collected.length === deltas.length &&
+        collected.join("") === deltas.join("") &&
+        collected.join("") ===
+          "I'm Breeze Automatic, your e-commerce and marketing assistant!"
+      );
     },
   },
 ];
