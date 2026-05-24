@@ -1,3 +1,9 @@
+## [9.65.1](https://github.com/juspay/neurolink/compare/v9.65.0...v9.65.1) (2026-05-24)
+
+### Bug Fixes
+
+- **(providers):** restore native Vertex tool storage + Claude streaming + Gemini history replay ([7b00e06](https://github.com/juspay/neurolink/commit/7b00e0608a9184e48f3badd90a2238cb330a8128))
+
 ## [9.65.0](https://github.com/juspay/neurolink/compare/v9.64.0...v9.65.0) (2026-05-17)
 
 ### Features
