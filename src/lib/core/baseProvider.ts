@@ -2000,13 +2000,17 @@ export abstract class BaseProvider implements AIProvider {
    * // result.video contains the generated video
    * ```
    */
+  // eslint-disable-next-line max-lines-per-function
   protected async handleVideoGeneration(
     options: TextGenerationOptions,
     startTime: number,
   ): Promise<EnhancedGenerateResult> {
-    // Dynamic imports to avoid loading video dependencies unless needed
-    const { generateVideoWithVertex, VideoError, VIDEO_ERROR_CODES } =
-      await import("../adapters/video/vertexVideoHandler.js");
+    // Dynamic imports to avoid loading video dependencies unless needed.
+    // Pull VideoError + VIDEO_ERROR_CODES from VideoProcessor (which already
+    // re-exports both) so non-vertex routes don't carry a direct dependency
+    // on the Vertex adapter's module.
+    const { VideoProcessor, VideoError, VIDEO_ERROR_CODES } =
+      await import("../utils/videoProcessor.js");
     const {
       validateVideoGenerationInput,
       validateImageForVideo,
@@ -2223,24 +2227,72 @@ export abstract class BaseProvider implements AIProvider {
     // Get prompt text
     const prompt = options.prompt || options.input?.text || "";
 
+    // Honor output.video.provider — when omitted, fall back to "vertex"
+    // for backward compatibility with the original implementation.
+    const requestedProvider = options.output?.video?.provider ?? "vertex";
+
+    if (!VideoProcessor.supports(requestedProvider)) {
+      throw new VideoError({
+        code: VIDEO_ERROR_CODES.PROVIDER_NOT_SUPPORTED,
+        message: `Video provider "${requestedProvider}" is not registered. Available: ${VideoProcessor.listProviders().join(", ")}`,
+        retriable: false,
+        context: {
+          provider: requestedProvider,
+          available: VideoProcessor.listProviders(),
+        },
+      });
+    }
+
+    // Resolve the model name without hardcoding a Vertex default for
+    // non-Vertex routes. Precedence: caller-supplied output.video.model,
+    // then options.model (LLM-level field that the caller may have repurposed
+    // for video), then the Vertex Veo default but only when we're actually
+    // calling Vertex. Otherwise leave it null at this stage and let the
+    // handler's metadata fill it in below.
+    const requestedVideoModel = options.output?.video?.model;
+    const resolvedRequestModel =
+      requestedVideoModel ??
+      options.model ??
+      (requestedProvider === "vertex" ? "veo-3.1-generate-001" : undefined);
+
     logger.info("Starting video generation", {
-      provider: "vertex",
-      model: options.model || "veo-3.1-generate-001",
+      provider: requestedProvider,
+      ...(resolvedRequestModel ? { model: resolvedRequestModel } : {}),
       promptLength: prompt.length,
       imageSize: imageBuffer.length,
       resolution: options.output?.video?.resolution || "720p",
       duration: options.output?.video?.length || 6,
     });
 
-    // Generate video using Vertex handler (no processor abstraction)
-    const videoResult = await generateVideoWithVertex(
-      imageBuffer,
-      prompt,
-      options.output?.video,
-      options.region,
+    // Dispatch through the central VideoProcessor — picks up vertex,
+    // kling, runway, replicate (or any custom handler) registered via
+    // ProviderRegistry / VideoProcessor.registerHandler(). Wrap in the
+    // shared timeout helper so standard video gen honors the caller's
+    // timeout the same way director mode does (see above ~Line 2062).
+    const videoTimeout = options.timeout ?? 600_000; // 10 min default
+    const videoResult = await this.executeWithTimeout(
+      () =>
+        VideoProcessor.generate(
+          requestedProvider,
+          imageBuffer,
+          prompt,
+          options.output?.video ?? {},
+          options.region,
+        ),
+      { timeout: videoTimeout, operationType: "generate" },
     );
 
+    // Prefer the handler's own model id (more accurate — it knows the exact
+    // checkpoint that ran). Fall back to the request-time value, and finally
+    // to the Vertex default only when we're on the Vertex route.
+    const responseModel =
+      videoResult.metadata?.model ??
+      resolvedRequestModel ??
+      (requestedProvider === "vertex" ? "veo-3.1-generate-001" : "unknown");
+
     logger.info("Video generation complete", {
+      provider: requestedProvider,
+      model: responseModel,
       videoSize: videoResult.data.length,
       duration: videoResult.metadata?.duration,
       processingTime: videoResult.metadata?.processingTime,
@@ -2249,8 +2301,8 @@ export abstract class BaseProvider implements AIProvider {
     // Build result
     const baseResult: EnhancedGenerateResult = {
       content: prompt, // Echo the prompt as content
-      provider: "vertex",
-      model: options.model || "veo-3.1-generate-001",
+      provider: requestedProvider,
+      model: responseModel,
       usage: { input: 0, output: 0, total: 0 },
       video: videoResult,
     };

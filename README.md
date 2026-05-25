@@ -43,7 +43,7 @@ Extracted from production systems at Juspay and battle-tested at enterprise scal
 | Feature                                      | Version | Description                                                                                                                                                                                                                                                                                                                                                                   | Guide                                                                                                                                   |
 | -------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | **Avatar / Music Modalities + 12 Providers** | next    | New `output: { mode: "avatar" \| "music" }` dispatch with handlers for D-ID, HeyGen, Replicate-MuseTalk (avatar) and Beatoven, ElevenLabs Music, Lyria, Replicate-MusicGen (music). Plus Fish Audio TTS, Kling/Runway/Replicate video, xAI/Groq/Cohere/Together/Fireworks/Perplexity/Cloudflare LLMs, Voyage/Jina embeddings, Stability/Ideogram/Recraft/Replicate image-gen. | [Provider Integration](docs/provider-integration/)                                                                                      |
-| **Multi-Provider Voice (TTS/STT)**           | v9.62.0 | 4 TTS providers (OpenAI TTS, ElevenLabs, Google TTS, Azure TTS) + 4 STT providers (Whisper, Deepgram, Azure STT, Google STT) + 2 realtime APIs (OpenAI Realtime, Gemini Live).                                                                                                                                                                                                | [TTS Guide](docs/features/tts.md) \| [STT Guide](docs/features/audio-input.md) \| [Realtime Guide](docs/features/real-time-services.md) |
+| **Multi-Provider Voice (TTS/STT)**           | v9.62.0 | 6 TTS providers (OpenAI TTS, ElevenLabs, Google TTS, Azure TTS, Fish Audio, Cartesia) + 4 STT providers (Whisper, Deepgram, Azure STT, Google STT) + 2 realtime APIs (OpenAI Realtime, Gemini Live).                                                                                                                                                                          | [TTS Guide](docs/features/tts.md) \| [STT Guide](docs/features/audio-input.md) \| [Realtime Guide](docs/features/real-time-services.md) |
 | **4 New Providers**                          | v9.60.0 | DeepSeek (V3/R1), NVIDIA NIM (400+ catalog), LM Studio (local), llama.cpp (GGUF local).                                                                                                                                                                                                                                                                                       | [Provider Setup](docs/getting-started/provider-setup.md)                                                                                |
 | **ModelAccessDeniedError**                   | v9.59.0 | Typed `ModelAccessDeniedError` + `sdk.checkCredentials()` API for proactive credential validation before first call.                                                                                                                                                                                                                                                          | [Error Reference](docs/reference/troubleshooting.md)                                                                                    |
 | **Provider Fallback Policy**                 | v9.58.0 | `providerFallback` callback + `modelChain` config for centralized multi-provider fallback logic.                                                                                                                                                                                                                                                                              | [Advanced Guide](docs/advanced/index.md)                                                                                                |
@@ -71,7 +71,7 @@ const result = await neurolink.generate({
     voice: "en-US-Neural2-C",
     format: "mp3",
     output: "./output.mp3", // optional: save to disk
-    provider: "elevenlabs", // optional override: openai-tts | elevenlabs | google-ai | vertex | azure-tts
+    provider: "elevenlabs", // optional override: openai-tts | elevenlabs | google-ai | vertex | azure-tts | fish-audio | cartesia
   },
 });
 // result.audio: { buffer: Buffer, format: "mp3", ... }
@@ -955,16 +955,16 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 ## Platform Capabilities at a Glance
 
-| Capability               | Highlights                                                                                                               |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| **Provider unification** | 21+ providers with automatic fallback, cost-aware routing, `providerFallback` policy, `modelChain` config.               |
-| **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types. |
-| **Voice pipeline**       | TTS (4 providers) + STT (4 providers) + realtime voice APIs (OpenAI Realtime, Gemini Live).                              |
-| **Quality & governance** | Auto-evaluation engine (14 scorers), guardrails middleware, HITL workflows, audit logging.                               |
-| **Memory & context**     | Per-user condensed memory (S3/Redis/SQLite), Redis session export, 4-stage context compaction.                           |
-| **CLI tooling**          | Loop sessions, setup wizard, config validation, Redis auto-detect, JSON output, TTS/STT flags.                           |
-| **Enterprise ops**       | Claude proxy, OTLP observability, OpenObserve dashboard, regional routing, credential management.                        |
-| **Tool ecosystem**       | MCP auto discovery, HTTP/stdio/SSE/WebSocket transports, LiteLLM hub access, SageMaker custom deployment, web search.    |
+| Capability               | Highlights                                                                                                                                           |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Provider unification** | 21+ providers with automatic fallback, cost-aware routing, `providerFallback` policy, `modelChain` config.                                           |
+| **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types.                             |
+| **Voice pipeline**       | TTS (6 providers: Google, OpenAI, ElevenLabs, Azure, Fish Audio, Cartesia) + STT (4 providers) + realtime voice APIs (OpenAI Realtime, Gemini Live). |
+| **Quality & governance** | Auto-evaluation engine (14 scorers), guardrails middleware, HITL workflows, audit logging.                                                           |
+| **Memory & context**     | Per-user condensed memory (S3/Redis/SQLite), Redis session export, 4-stage context compaction.                                                       |
+| **CLI tooling**          | Loop sessions, setup wizard, config validation, Redis auto-detect, JSON output, TTS/STT flags.                                                       |
+| **Enterprise ops**       | Claude proxy, OTLP observability, OpenObserve dashboard, regional routing, credential management.                                                    |
+| **Tool ecosystem**       | MCP auto discovery, HTTP/stdio/SSE/WebSocket transports, LiteLLM hub access, SageMaker custom deployment, web search.                                |
 
 ## Documentation Map
 

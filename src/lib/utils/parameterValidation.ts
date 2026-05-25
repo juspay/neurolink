@@ -751,7 +751,11 @@ function toValidationError(error: NeuroLinkError): ValidationError {
  * Valid video generation options
  */
 const VALID_VIDEO_RESOLUTIONS = ["720p", "1080p"] as const;
-const VALID_VIDEO_LENGTHS = [4, 6, 8] as const;
+// Cross-provider literal whitelist: Vertex Veo uses 4 / 6 / 8 s, Kling and
+// Runway use 5 / 10 s. The handler-level adapter is the source of truth
+// for per-provider rejection (e.g. Runway 400 for length=4); this gate
+// just rejects obviously invalid integers.
+const VALID_VIDEO_LENGTHS = [4, 5, 6, 8, 10] as const;
 const VALID_VIDEO_ASPECT_RATIOS = ["9:16", "16:9"] as const;
 const MAX_VIDEO_PROMPT_LENGTH = 500;
 const MAX_VIDEO_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB

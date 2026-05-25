@@ -176,3 +176,6 @@ docs-site/static/search-index.json
 
 # Local working notes for the AI SDK removal migration (not for upstream)
 memory-bank/native-runtime/
+
+# Consumer-supplied gap/spec docs we work from locally — not part of the repo
+NEUROLINK_SDK_GAPS.md

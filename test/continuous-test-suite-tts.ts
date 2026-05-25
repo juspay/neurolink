@@ -26,7 +26,7 @@ import * as os from "os";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import type { ProcessResult } from "../dist/index.js";
-import { NeuroLink } from "../dist/index.js";
+import { NeuroLink, ProviderRegistry, TTSProcessor } from "../dist/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1559,6 +1559,163 @@ async function testTTSGenerateResultShape(
 // MAIN RUNNER
 // ============================================================
 
+// ============================================================
+// NEW PROVIDERS — Fish Audio + Cartesia TTS (issues #4 in NEUROLINK_SDK_GAPS.md)
+// ============================================================
+
+async function testFishCartesiaRegistration(): Promise<boolean | null> {
+  logTest("TTS - Fish/Cartesia Registration", "TESTING");
+  try {
+    // Gate by env vars — handlers only register when isConfigured() returns
+    // true, which requires the corresponding API key. In CI/test setups
+    // without either key set, this test SKIPs rather than failing.
+    const expectFish = !!process.env.FISH_AUDIO_API_KEY;
+    const expectCartesia = !!process.env.CARTESIA_API_KEY;
+    if (!expectFish && !expectCartesia) {
+      logTest(
+        "TTS - Fish/Cartesia Registration",
+        "SKIP",
+        "neither FISH_AUDIO_API_KEY nor CARTESIA_API_KEY set",
+      );
+      return null;
+    }
+
+    // ProviderRegistry call is idempotent — calling it from a test ensures
+    // the registry-side registration block has fired before we assert on it.
+    await ProviderRegistry.registerAllProviders();
+
+    const fishOK = TTSProcessor.supports("fish-audio");
+    const cartesiaOK = TTSProcessor.supports("cartesia");
+
+    // For each provider whose key we expect, supports() must be true. For
+    // any whose key isn't set, we don't care either way (no assertion).
+    const fishPass = !expectFish || fishOK;
+    const cartesiaPass = !expectCartesia || cartesiaOK;
+
+    if (fishPass && cartesiaPass) {
+      logTest(
+        "TTS - Fish/Cartesia Registration",
+        "PASS",
+        `supports(): fish-audio=${fishOK} (expected=${expectFish}), cartesia=${cartesiaOK} (expected=${expectCartesia})`,
+      );
+      return true;
+    }
+
+    logTest(
+      "TTS - Fish/Cartesia Registration",
+      "FAIL",
+      `supports(): fish-audio=${fishOK} (expected=${expectFish}), cartesia=${cartesiaOK} (expected=${expectCartesia})`,
+    );
+    return false;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logTest("TTS - Fish/Cartesia Registration", "FAIL", `error: ${msg}`);
+    return false;
+  }
+}
+
+async function testFishAudioTTS(sdk: NeuroLink): Promise<boolean | null> {
+  logTest("TTS - Fish Audio end-to-end", "TESTING");
+  if (!process.env.FISH_AUDIO_API_KEY) {
+    logTest(
+      "TTS - Fish Audio end-to-end",
+      "SKIP",
+      "FISH_AUDIO_API_KEY not set",
+    );
+    return null;
+  }
+  try {
+    const result = await sdk.generate({
+      input: { text: "Hello from Fish Audio." },
+      provider: TEST_CONFIG.provider,
+      ...(TEST_CONFIG.model ? { model: TEST_CONFIG.model } : {}),
+      tts: { enabled: true, provider: "fish-audio", format: "mp3" },
+    });
+    const buf = result.audio?.buffer;
+    if (!buf || buf.length === 0) {
+      logTest(
+        "TTS - Fish Audio end-to-end",
+        "FAIL",
+        "no audio buffer in result",
+      );
+      return false;
+    }
+    if (!isValidMP3(buf)) {
+      logTest(
+        "TTS - Fish Audio end-to-end",
+        "FAIL",
+        `buffer not MP3 (size=${buf.length}, first=0x${buf[0]?.toString(16) ?? "??"})`,
+      );
+      return false;
+    }
+    logTest(
+      "TTS - Fish Audio end-to-end",
+      "PASS",
+      `${buf.length} bytes MP3, voice=${result.audio?.voice ?? "default"}`,
+    );
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (isExpectedProviderError(msg)) {
+      logTest(
+        "TTS - Fish Audio end-to-end",
+        "SKIP",
+        `upstream credential/quota error: ${msg.slice(0, 120)}`,
+      );
+      return null;
+    }
+    logTest("TTS - Fish Audio end-to-end", "FAIL", msg);
+    return false;
+  }
+}
+
+async function testCartesiaTTS(sdk: NeuroLink): Promise<boolean | null> {
+  logTest("TTS - Cartesia end-to-end", "TESTING");
+  if (!process.env.CARTESIA_API_KEY) {
+    logTest("TTS - Cartesia end-to-end", "SKIP", "CARTESIA_API_KEY not set");
+    return null;
+  }
+  try {
+    const result = await sdk.generate({
+      input: { text: "Hello from Cartesia." },
+      provider: TEST_CONFIG.provider,
+      ...(TEST_CONFIG.model ? { model: TEST_CONFIG.model } : {}),
+      tts: { enabled: true, provider: "cartesia", format: "mp3" },
+    });
+    const buf = result.audio?.buffer;
+    if (!buf || buf.length === 0) {
+      logTest("TTS - Cartesia end-to-end", "FAIL", "no audio buffer in result");
+      return false;
+    }
+    if (!isValidMP3(buf)) {
+      logTest(
+        "TTS - Cartesia end-to-end",
+        "FAIL",
+        `buffer not MP3 (size=${buf.length}, first=0x${buf[0]?.toString(16) ?? "??"})`,
+      );
+      return false;
+    }
+    logTest(
+      "TTS - Cartesia end-to-end",
+      "PASS",
+      `${buf.length} bytes MP3, voice=${result.audio?.voice ?? "default"}`,
+    );
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (isExpectedProviderError(msg)) {
+      logTest(
+        "TTS - Cartesia end-to-end",
+        "SKIP",
+        `upstream credential/quota error: ${msg.slice(0, 120)}`,
+      );
+      return null;
+    }
+    logTest("TTS - Cartesia end-to-end", "FAIL", msg);
+    return false;
+  }
+}
+
 async function runAllTests(): Promise<void> {
   log("\nNeuroLink Continuous Test Suite: TTS (Text-to-Speech)", "bright");
   log(
@@ -1636,6 +1793,20 @@ async function runAllTests(): Promise<void> {
     {
       name: "TTS - GenerateResult.audio Shape",
       fn: () => testTTSGenerateResultShape(sharedSdk),
+    },
+
+    // New providers — Fish Audio + Cartesia
+    {
+      name: "TTS - Fish/Cartesia Registration",
+      fn: () => testFishCartesiaRegistration(),
+    },
+    {
+      name: "TTS - Fish Audio end-to-end",
+      fn: () => testFishAudioTTS(sharedSdk),
+    },
+    {
+      name: "TTS - Cartesia end-to-end",
+      fn: () => testCartesiaTTS(sharedSdk),
     },
     // Observability spans (Test #15)
     {

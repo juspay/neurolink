@@ -877,6 +877,35 @@ export class ProviderRegistry {
         );
       }
 
+      // Fish Audio and Cartesia also auto-register via the voice/index.ts
+      // barrel side-effect. The supports() guard here keeps registration
+      // idempotent across entry points — same handler, no overwrite warning.
+      try {
+        const { TTSProcessor } = await import("../utils/ttsProcessor.js");
+        if (!TTSProcessor.supports("fish-audio")) {
+          const { FishAudioTTS } =
+            await import("../voice/providers/FishAudioTTS.js");
+          TTSProcessor.registerHandler("fish-audio", new FishAudioTTS());
+        }
+      } catch (err) {
+        logger.debug(
+          `[ProviderRegistry] fish-audio registration skipped: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      try {
+        const { TTSProcessor } = await import("../utils/ttsProcessor.js");
+        if (!TTSProcessor.supports("cartesia")) {
+          const { CartesiaTTS } =
+            await import("../voice/providers/CartesiaTTS.js");
+          TTSProcessor.registerHandler("cartesia", new CartesiaTTS());
+        }
+      } catch (err) {
+        logger.debug(
+          `[ProviderRegistry] cartesia registration skipped: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
       // ===== STT HANDLER REGISTRATION =====
       try {
         const { STTProcessor } = await import("../utils/sttProcessor.js");

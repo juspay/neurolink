@@ -6,27 +6,32 @@ keywords: video generation, veo 3.1, google ai, multimodal, video synthesis, ai 
 
 # Video Generation with Veo 3.1
 
-NeuroLink integrates Google's Veo 3.1 model to enable AI-powered video generation with audio from image and text prompt inputs. Transform static images into dynamic, professional-quality video content with synchronized audio.
+NeuroLink integrates multiple video-generation providers — Google's Veo 3.1 (default), Kling, Runway, and Replicate-hosted models — behind a single `nl.generate({ output: { mode: "video" } })` call. Transform static images into dynamic, professional-quality video content with synchronized audio (where the provider supports it).
 
 ## Overview
 
-Video generation in NeuroLink leverages Google's state-of-the-art Veo 3.1 model through Vertex AI. The system uses the existing `generate()` function with video-specific options:
+Video generation in NeuroLink dispatches through the central `VideoProcessor` registry. The system uses the existing `generate()` function with video-specific options:
 
 1. **Accepts** an input image via `input.images` and text prompt via `input.text`
 2. **Validates** image format, size, and aspect ratio requirements
-3. **Sends** the request to Vertex AI's Veo 3.1 endpoint via `output.mode: "video"`
-4. **Generates** an 8-second video with synchronized audio
+3. **Selects** the handler matching `output.video.provider` (default `"vertex"`) — see [Routing Across Providers](#routing-across-providers) below
+4. **Generates** a clip (length / audio / resolution support varies per provider)
 5. **Returns** a `VideoGenerationResult` containing video buffer and metadata
 
 ```mermaid
 graph LR
     A[Input Image] --> B[NeuroLink SDK]
     C[Text Prompt] --> B
-    B --> D[Vertex AI Veo 3.1]
-    D --> E[VideoGenerationResult]
-    E --> F[Save to File]
-    E --> G[Stream to Client]
-    E --> H[Further Processing]
+    B --> D{VideoProcessor}
+    D -->|"provider:vertex (default)"| E[Vertex Veo 3.1]
+    D -->|"provider:kling"| F[PiAPI Kling]
+    D -->|"provider:runway"| G[Runway gen3]
+    D -->|"provider:replicate"| H[Replicate model]
+    E --> I[VideoGenerationResult]
+    F --> I
+    G --> I
+    H --> I
+    I --> J[Save / Stream / Process]
 ```
 
 ## What You Get
@@ -39,30 +44,114 @@ graph LR
 - **Aspect ratio control** – Choose between 9:16 (portrait) and 16:9 (landscape) formats
 - **Director Mode** – Chain multiple segments into one continuous video with AI-generated transitions (see [Video Director Mode](./video-director-mode))
 
-## Supported Provider & Model
+## Supported Providers & Models
+
+`nl.generate({ output: { mode: "video", video: { provider } } })`
+dispatches through the central `VideoProcessor` registry, which knows
+four shipped handlers. The default when `provider` is omitted is
+`vertex`.
 
 ### Provider Compatibility
 
-| Provider | Model     | Max Duration | Audio Support          | Input Requirements  | Rate Limit | Regional Availability |
-| -------- | --------- | ------------ | ---------------------- | ------------------- | ---------- | --------------------- |
-| `vertex` | `veo-3.1` | 8 seconds    | :white_check_mark: Yes | image + text prompt | 10/min     | us-central1           |
+| Provider    | Default Model                             | Length         | Audio          | Input                                | Auth                             | Notes                                                                                                                     |
+| ----------- | ----------------------------------------- | -------------- | -------------- | ------------------------------------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `vertex`    | `veo-3.1`                                 | 4 / 6 / 8 s    | Yes            | image + text prompt                  | `GOOGLE_APPLICATION_CREDENTIALS` | Default — best fit for GCP / Vertex tenants                                                                               |
+| `kling`     | PiAPI Kling v1.6                          | 5 / 10 s       | No             | publicly accessible image URL + text | `KLING_API_KEY` (PiAPI token)    | Requires `imageUrl` (handler rejects inline base64). See [provider guide](../getting-started/providers/kling.md).         |
+| `runway`    | Runway gen3                               | 5 / 10 s       | No             | image + text                         | `RUNWAY_API_KEY`                 | Length must be 5 or 10 (rejected at upstream if 4). See [provider guide](../getting-started/providers/runway.md).         |
+| `replicate` | `meta/wan-2-2/i2v` (override via `model`) | Model-specific | Model-specific | image + text                         | `REPLICATE_API_TOKEN`            | Any image-to-video model on Replicate via `video.model`. See [provider guide](../getting-started/providers/replicate.md). |
 
 ### Model Versions & Capabilities
 
 | Model Version | Release Date | Key Features                  | Notes                           |
 | ------------- | ------------ | ----------------------------- | ------------------------------- |
-| `veo-3.1`     | 2024         | Audio generation, 8s duration | **Recommended** - Latest stable |
+| `veo-3.1`     | 2024         | Audio generation, 8s duration | **Default for `vertex`**        |
+| `kling-v1.6`  | 2024         | Sharp motion, 720p / 1080p    | Routed via PiAPI                |
+| `gen3-turbo`  | 2024         | 5 s / 10 s clips, 720p+       | Runway's faster generation tier |
 
-> **Note:** Veo is currently available through Vertex AI. Ensure you have appropriate API access and credentials configured.
+> **Note:** Use the per-provider setup pages
+> ([Vertex Veo](../getting-started/providers/google-vertex.md),
+> [Kling](../getting-started/providers/kling.md),
+> [Runway](../getting-started/providers/runway.md),
+> [Replicate](../getting-started/providers/replicate.md))
+> for credential and quota details.
 
 ### Known Limitations
 
-- Maximum video duration: 8 seconds per clip (supports 4, 6, or 8 second clips)
-- Input image required (text-only prompts not supported)
-- Audio is auto-generated based on video content (no custom audio input)
-- Processing time: 30-120 seconds depending on resolution
-- Concurrent request limit: 5 per project
-- For multi-segment videos with transitions, see [Video Director Mode](./video-director-mode)
+- `vertex`: max video duration 8 seconds per clip (4 / 6 / 8 s); image required; audio auto-generated; concurrent request limit 5 per project; processing 30–120 s
+- `kling`: image must be a publicly accessible URL — pass `video.imageUrl`. Inline `Buffer` images are rejected at the handler
+- `runway`: length validated upstream as 5 or 10 seconds — using `4` will surface a Runway 400. The local 4 / 6 / 8 schema gate matches Vertex's contract; future versions may widen the type
+- `replicate`: per-model quirks (some models have token caps, some return WebP/GIF). Override `video.model` to pick a specific model checkpoint
+- For multi-segment videos with transitions, see [Video Director Mode](./video-director-mode) (currently Vertex-only)
+
+### Routing Across Providers
+
+Pick a provider per-call by setting `output.video.provider`:
+
+```typescript
+// Vertex (default — same as omitting `provider`)
+await nl.generate({
+  input: { text: "...", images: [imageBuffer] },
+  output: {
+    mode: "video",
+    video: { provider: "vertex", length: 6, resolution: "720p" },
+  },
+});
+
+// Kling (PiAPI) — requires a publicly accessible image URL, not a Buffer
+await nl.generate({
+  input: { text: "...", images: [imageBuffer] },
+  output: {
+    mode: "video",
+    video: {
+      provider: "kling",
+      imageUrl: "https://your-cdn.example.com/source.jpg",
+      length: 5,
+      resolution: "720p",
+    },
+  },
+});
+
+// Runway gen3 — length must be 5 or 10 upstream
+await nl.generate({
+  input: { text: "...", images: [imageBuffer] },
+  output: {
+    mode: "video",
+    video: { provider: "runway", length: 5, resolution: "720p" },
+  },
+});
+
+// Replicate (any image-to-video model)
+await nl.generate({
+  input: { text: "...", images: [imageBuffer] },
+  output: {
+    mode: "video",
+    video: { provider: "replicate", model: "meta/wan-2-2/i2v", length: 4 },
+  },
+});
+```
+
+`result.provider` echoes the chosen handler — useful for logging and
+multi-provider A/B harnesses.
+
+#### Unknown Provider Behavior
+
+Passing an unregistered provider name throws a typed
+`VideoError(VIDEO_ERROR_CODES.PROVIDER_NOT_SUPPORTED)` with the list of
+known names. NeuroLink does **not** silently fall back to Vertex when
+the requested provider is unknown — a misspelled provider is always
+surfaced as an error.
+
+```typescript
+try {
+  await nl.generate({
+    input: { text: "...", images: [imageBuffer] },
+    output: { mode: "video", video: { provider: "klng" /* typo */ } },
+  });
+} catch (err) {
+  // err.code === "VIDEO_PROVIDER_NOT_SUPPORTED"
+  // err.context.available === ["vertex", "kling", "runway", "replicate"]
+}
+```
 
 ## Prerequisites
 
@@ -710,17 +799,17 @@ type GenerateResult = {
 
 ### Configuration Options
 
-| Option                     | Type               | Default     | Required | Description                           |
-| -------------------------- | ------------------ | ----------- | -------- | ------------------------------------- |
-| `input.images[0]`          | `Buffer \| string` | -           | Yes      | Image buffer, file path, or URL       |
-| `input.text`               | `string`           | -           | Yes      | Text description of desired video     |
-| `provider`                 | `string`           | `"vertex"`  | No       | AI provider (currently only `vertex`) |
-| `model`                    | `string`           | `"veo-3.1"` | No       | Model version to use                  |
-| `output.mode`              | `string`           | `"text"`    | Yes      | Must be `"video"` for video output    |
-| `output.video.resolution`  | `string`           | `"720p"`    | No       | Output resolution (`720p` or `1080p`) |
-| `output.video.length`      | `number`           | `6`         | No       | Duration in seconds (4, 6, or 8)      |
-| `output.video.aspectRatio` | `string`           | `"16:9"`    | No       | Aspect ratio (`9:16` or `16:9`)       |
-| `output.video.audio`       | `boolean`          | `true`      | No       | Enable audio generation               |
+| Option                     | Type                | Default          | Required | Description                                                                                                                                                                                                                |
+| -------------------------- | ------------------- | ---------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `input.images[0]`          | `Buffer \| string`  | -                | Yes      | Image buffer, file path, or URL                                                                                                                                                                                            |
+| `input.text`               | `string`            | -                | Yes      | Text description of desired video                                                                                                                                                                                          |
+| `output.video.provider`    | `VideoProviderName` | `"vertex"`       | No       | Video handler: `vertex` (default), `kling`, `runway`, `replicate`. See [Routing Across Providers](#routing-across-providers).                                                                                              |
+| `output.video.model`       | `string`            | provider-default | No       | Model version / checkpoint id (e.g. `veo-3.1-generate-001`, `meta/wan-2-2/i2v`)                                                                                                                                            |
+| `output.mode`              | `string`            | `"text"`         | Yes      | Must be `"video"` for video output                                                                                                                                                                                         |
+| `output.video.resolution`  | `string`            | `"720p"`         | No       | Output resolution (`720p` or `1080p`)                                                                                                                                                                                      |
+| `output.video.length`      | `number`            | `6`              | No       | Duration in seconds — **provider-dependent**: `vertex` accepts 4/6/8, `kling` and `runway` accept 5/10, `replicate` is model-specific. See [Routing Across Providers](#routing-across-providers) for per-provider details. |
+| `output.video.aspectRatio` | `string`            | `"16:9"`         | No       | Aspect ratio (`9:16` or `16:9`)                                                                                                                                                                                            |
+| `output.video.audio`       | `boolean`           | `true`           | No       | Enable audio generation                                                                                                                                                                                                    |
 
 ### Video Quality Settings
 
@@ -1049,13 +1138,13 @@ const neurolink = new NeuroLink({
 
 ### Current Limitations
 
-| Limitation          | Description             | Workaround                               |
-| ------------------- | ----------------------- | ---------------------------------------- |
-| Max duration        | 8 seconds maximum       | Chain multiple videos for longer content |
-| Audio input         | No custom audio support | Audio is auto-generated based on content |
-| Text-only prompts   | Requires input image    | Use image generation first, then video   |
-| Provider support    | Vertex AI only          | No alternative providers currently       |
-| Concurrent requests | Max 5 per project       | Implement request queuing                |
+| Limitation          | Description                                                                                                                    | Workaround                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Max duration        | Provider-specific: Vertex 4/6/8 s, Runway 5/10 s, Kling 5/10 s, Replicate per-model.                                           | Chain multiple clips via [Video Director Mode](./video-director-mode) (Vertex) |
+| Audio input         | No custom audio supported on any provider                                                                                      | Audio is auto-generated (Vertex Veo) or absent (Kling / Runway / Replicate)    |
+| Text-only prompts   | All four providers require an image (and Kling needs a public URL — see [Routing Across Providers](#routing-across-providers)) | Generate an image first, then pass it as `input.images[0]`                     |
+| Director Mode       | Currently Vertex-only                                                                                                          | Generate per-segment clips with non-Vertex providers and stitch externally     |
+| Concurrent requests | Provider-specific (Vertex: 5/project; Replicate: 6/min on free tier)                                                           | Implement request queuing                                                      |
 
 ## Testing
 

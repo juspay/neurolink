@@ -107,7 +107,13 @@ export class MusicProcessor {
     return Array.from(this.handlers.keys());
   }
 
-  private static getHandler(providerName: string): MusicHandler | undefined {
+  /**
+   * Get a registered music handler by provider name.
+   *
+   * Exposed publicly so module-level auto-registration code can reuse an
+   * already-registered primary handler when backfilling its aliases.
+   */
+  static getHandler(providerName: string): MusicHandler | undefined {
     return this.handlers.get(providerName.toLowerCase());
   }
 

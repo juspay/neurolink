@@ -99,13 +99,15 @@ export class STTProcessor {
   }
 
   /**
-   * Get a registered STT handler by provider name
+   * Get a registered STT handler by provider name.
    *
-   * @private
+   * Exposed publicly so module-level auto-registration code can reuse an
+   * already-registered primary handler when backfilling its aliases.
+   *
    * @param providerName - Provider identifier
    * @returns Handler instance or undefined if not registered
    */
-  private static getHandler(providerName: string): STTHandler | undefined {
+  static getHandler(providerName: string): STTHandler | undefined {
     const normalizedName = providerName.toLowerCase();
     return this.handlers.get(normalizedName);
   }

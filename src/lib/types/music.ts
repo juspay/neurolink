@@ -32,6 +32,21 @@ export type MusicGenre = string;
 export type MusicMood = string;
 
 /**
+ * Known music provider identifiers shipped with NeuroLink.
+ *
+ * `(string & {})` keeps the union open for custom provider names
+ * registered via `MusicProcessor.registerHandler()`.
+ */
+export type MusicProviderName =
+  | "beatoven"
+  | "elevenlabs-music"
+  | "elevenlabs-sound"
+  | "lyria"
+  | "replicate"
+  | "musicgen"
+  | (string & {});
+
+/**
  * Options for music generation requests.
  */
 export type MusicOptions = {
@@ -54,7 +69,7 @@ export type MusicOptions = {
   tempo?: number;
 
   /** Override the music provider (e.g. "beatoven", "elevenlabs-music", "lyria", "replicate"). */
-  provider?: string;
+  provider?: MusicProviderName;
 
   /** Reference audio for melody / style guidance (Buffer or path). */
   referenceAudio?: Buffer | string;

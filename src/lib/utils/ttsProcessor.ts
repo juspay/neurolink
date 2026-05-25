@@ -135,13 +135,16 @@ export class TTSProcessor {
   }
 
   /**
-   * Get a registered TTS handler by provider name
+   * Get a registered TTS handler by provider name.
    *
-   * @private
+   * Exposed publicly so module-level auto-registration code can reuse an
+   * already-registered primary handler when backfilling its aliases —
+   * see `src/lib/voice/index.ts:registerDefaultTTSHandlers`.
+   *
    * @param providerName - Provider identifier
    * @returns Handler instance or undefined if not registered
    */
-  private static getHandler(providerName: string): TTSHandler | undefined {
+  static getHandler(providerName: string): TTSHandler | undefined {
     const normalizedName = providerName.toLowerCase();
     return this.handlers.get(normalizedName);
   }

@@ -145,6 +145,19 @@ export type AudioContent = {
 };
 
 /**
+ * Known video provider identifiers shipped with NeuroLink.
+ *
+ * `(string & {})` keeps the union open for custom provider names
+ * registered via `VideoProcessor.registerHandler()`.
+ */
+export type VideoProviderName =
+  | "vertex"
+  | "kling"
+  | "runway"
+  | "replicate"
+  | (string & {});
+
+/**
  * Video output configuration options for video generation
  *
  * Used with `output.video` in GenerateOptions when `output.mode` is "video".
@@ -168,14 +181,15 @@ export type VideoOutputOptions = {
    */
   abortSignal?: AbortSignal;
   /**
-   * Override the video-gen provider. Defaults to "vertex" or to the LLM
-   * provider name if it is also a registered video handler.
+   * Override the video-gen provider. Defaults to `"vertex"` when omitted.
    *
    * Registered providers are managed via `VideoProcessor.registerHandler`
-   * (see src/lib/utils/videoProcessor.ts). Examples: "vertex", "kling",
-   * "runway", "replicate".
+   * (see src/lib/utils/videoProcessor.ts). Examples: `"vertex"`, `"kling"`,
+   * `"runway"`, `"replicate"`. An unknown provider throws
+   * `VIDEO_ERROR_CODES.PROVIDER_NOT_SUPPORTED` — there is no implicit
+   * fallback to the LLM provider name.
    */
-  provider?: string;
+  provider?: VideoProviderName;
   /**
    * Specific model to use within the provider. Provider-specific shape
    * (e.g. "veo-3.1-generate-001" for vertex; "atonamy/wan-alpha:..." for
@@ -184,8 +198,13 @@ export type VideoOutputOptions = {
   model?: string;
   /** Output resolution - "720p" (1280x720) or "1080p" (1920x1080) */
   resolution?: "720p" | "1080p";
-  /** Video duration in seconds (4, 6, or 8 seconds supported) */
-  length?: 4 | 6 | 8;
+  /**
+   * Video duration in seconds. Provider-specific support — Vertex Veo
+   * accepts 4 / 6 / 8 s, Kling and Runway accept 5 / 10 s, Replicate is
+   * model-specific. The type intentionally enumerates the common shipped
+   * values; pass any other positive number for custom Replicate models.
+   */
+  length?: 4 | 5 | 6 | 8 | 10 | (number & {});
   /** Aspect ratio - "9:16" for portrait, "16:9" for landscape, "1:1" for square */
   aspectRatio?: "9:16" | "16:9" | "1:1";
   /** Enable audio generation (default: true) */

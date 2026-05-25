@@ -36,7 +36,6 @@
 import { AIProviderFactory } from "./core/factory.js";
 export { AIProviderFactory };
 
-export { GoogleTTSHandler } from "./adapters/tts/googleTTSHandler.js";
 // Config Manager export
 export { NeuroLinkConfigManager as ConfigManager } from "./config/configManager.js";
 
@@ -165,6 +164,99 @@ export { AVATAR_ERROR_CODES, AvatarError } from "./utils/avatarProcessor.js";
 // Music utilities
 export { MusicProcessor } from "./utils/musicProcessor.js";
 export { MUSIC_ERROR_CODES, MusicError } from "./utils/musicProcessor.js";
+
+// STT / Realtime processors (registries for speech-to-text + live voice)
+export { STTProcessor } from "./utils/sttProcessor.js";
+// STT_ERROR_CODES is surfaced via the types barrel (export * from "./types/index.js")
+// STTError is re-exported below from the voice/index.js barrel
+
+// ============================================================================
+// MEDIA HANDLER CLASSES + AUTO-REGISTRATION
+// ============================================================================
+// Re-exporting from the voice/music/avatar barrels also triggers their
+// module-level auto-registration side effects. Consumers who follow the
+// documented `nl.generate(...)` flow get every shipped handler whose API
+// key is present in process.env, with no manual registerHandler() needed.
+
+// TTS, STT, Realtime handlers + RealtimeProcessor
+export {
+  // TTS
+  AzureTTS,
+  AzureTTSHandler,
+  CartesiaTTS,
+  CartesiaTTSHandler,
+  ElevenLabsTTS,
+  ElevenLabsTTSHandler,
+  FishAudioTTS,
+  FishAudioTTSHandler,
+  GoogleTTSHandler,
+  OpenAITTS,
+  OpenAITTSHandler,
+  // STT
+  AzureSTT,
+  AzureSTTHandler,
+  DeepgramSTT,
+  DeepgramSTTHandler,
+  GoogleSTT,
+  GoogleSTTHandler,
+  OpenAISTT,
+  OpenAISTTHandler,
+  WhisperSTT,
+  WhisperSTTHandler,
+  // Realtime
+  BaseRealtimeHandler,
+  GeminiLive,
+  GeminiLiveHandler,
+  OpenAIRealtime,
+  OpenAIRealtimeHandler,
+  RealtimeProcessor,
+  // Voice error classes (RealtimeError + STTError + VoiceError)
+  RealtimeError,
+  STTError,
+  VoiceError,
+  // Auto-registration functions (exposed so consumers can re-run them
+  // after mutating process.env at runtime, e.g. in test setups)
+  registerDefaultRealtimeHandlers,
+  registerDefaultSTTHandlers,
+  registerDefaultTTSHandlers,
+} from "./voice/index.js";
+
+// Music handlers
+export {
+  BeatovenMusic,
+  BeatovenMusicHandler,
+  ElevenLabsMusic,
+  ElevenLabsMusicHandler,
+  LyriaMusic,
+  LyriaMusicHandler,
+  registerDefaultMusicHandlers,
+  ReplicateMusic,
+  ReplicateMusicHandler,
+} from "./music/index.js";
+
+// Avatar handlers
+export {
+  DIDAvatar,
+  DIDAvatarHandler,
+  HeyGenAvatar,
+  HeyGenAvatarHandler,
+  registerDefaultAvatarHandlers,
+  ReplicateAvatar,
+  ReplicateAvatarHandler,
+} from "./avatar/index.js";
+
+// Video handlers (live under adapters/video; no separate video/ barrel)
+export { KlingVideoHandler } from "./adapters/video/klingVideoHandler.js";
+export { ReplicateVideoHandler } from "./adapters/video/replicateVideoHandler.js";
+export { RunwayVideoHandler } from "./adapters/video/runwayVideoHandler.js";
+export {
+  VertexVideoHandler,
+  isVertexVideoConfigured,
+} from "./adapters/video/vertexVideoHandler.js";
+
+// Image generation + HITL — surfaced from their dedicated barrels
+export { ImageGenService } from "./image-gen/ImageGenService.js";
+export { HITLManager } from "./hitl/hitlManager.js";
 
 // Provider registry (for tests, advanced consumers, and tools that need to
 // invoke registerAllProviders() outside of constructing a NeuroLink instance)

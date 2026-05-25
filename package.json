@@ -189,7 +189,10 @@
     "LICENSE"
   ],
   "sideEffects": [
-    "**/*.css"
+    "**/*.css",
+    "./dist/voice/index.js",
+    "./dist/music/index.js",
+    "./dist/avatar/index.js"
   ],
   "svelte": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -230,6 +233,66 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/browser/neurolink.min.js",
       "default": "./dist/browser/neurolink.min.js"
+    },
+    "./voice": {
+      "types": "./dist/voice/index.d.ts",
+      "import": "./dist/voice/index.js",
+      "default": "./dist/voice/index.js"
+    },
+    "./music": {
+      "types": "./dist/music/index.d.ts",
+      "import": "./dist/music/index.js",
+      "default": "./dist/music/index.js"
+    },
+    "./avatar": {
+      "types": "./dist/avatar/index.d.ts",
+      "import": "./dist/avatar/index.js",
+      "default": "./dist/avatar/index.js"
+    },
+    "./image-gen": {
+      "types": "./dist/image-gen/index.d.ts",
+      "import": "./dist/image-gen/index.js",
+      "default": "./dist/image-gen/index.js"
+    },
+    "./hitl": {
+      "types": "./dist/hitl/index.d.ts",
+      "import": "./dist/hitl/index.js",
+      "default": "./dist/hitl/index.js"
+    },
+    "./evaluation": {
+      "types": "./dist/evaluation/index.d.ts",
+      "import": "./dist/evaluation/index.js",
+      "default": "./dist/evaluation/index.js"
+    },
+    "./workflow": {
+      "types": "./dist/workflow/index.d.ts",
+      "import": "./dist/workflow/index.js",
+      "default": "./dist/workflow/index.js"
+    },
+    "./rag": {
+      "types": "./dist/rag/index.d.ts",
+      "import": "./dist/rag/index.js",
+      "default": "./dist/rag/index.js"
+    },
+    "./files": {
+      "types": "./dist/files/index.d.ts",
+      "import": "./dist/files/index.js",
+      "default": "./dist/files/index.js"
+    },
+    "./processors": {
+      "types": "./dist/processors/index.d.ts",
+      "import": "./dist/processors/index.js",
+      "default": "./dist/processors/index.js"
+    },
+    "./processors/*": {
+      "types": "./dist/processors/*.d.ts",
+      "import": "./dist/processors/*.js",
+      "default": "./dist/processors/*.js"
+    },
+    "./adapters/*": {
+      "types": "./dist/adapters/*.d.ts",
+      "import": "./dist/adapters/*.js",
+      "default": "./dist/adapters/*.js"
     }
   },
   "dependencies": {

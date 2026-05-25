@@ -90,9 +90,12 @@ export class RealtimeProcessor {
   }
 
   /**
-   * Get a registered Realtime handler by provider name
+   * Get a registered Realtime handler by provider name.
+   *
+   * Exposed publicly so module-level auto-registration code can reuse an
+   * already-registered primary handler when backfilling its aliases.
    */
-  private static getHandler(providerName: string): RealtimeHandler | undefined {
+  static getHandler(providerName: string): RealtimeHandler | undefined {
     const normalizedName = providerName.toLowerCase();
     return this.handlers.get(normalizedName);
   }

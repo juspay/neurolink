@@ -12,13 +12,13 @@ NeuroLink provides integrated Text-to-Speech (TTS) capabilities, allowing you to
 
 **Key Features:**
 
-- **Multiple providers** - Google Cloud TTS, OpenAI TTS, ElevenLabs, and Azure TTS
+- **Multiple providers** - Google Cloud TTS, OpenAI TTS, ElevenLabs, Azure TTS, Fish Audio, and Cartesia
 - **High-quality voices** - Neural, Wavenet, Standard, and multilingual voice types
 - **Multiple languages** - 50+ voices across 10+ languages
 - **Flexible audio formats** - MP3, WAV, OGG/Opus
 - **Voice customization** - Adjust speed, pitch, and volume
 - **Two synthesis modes** - Direct text-to-speech OR AI response synthesis
-- **Production-ready** - Works with Google Cloud, OpenAI, ElevenLabs, and Azure
+- **Production-ready** - Works with Google Cloud, OpenAI, ElevenLabs, Azure, Fish Audio, and Cartesia
 
 ---
 
@@ -50,6 +50,12 @@ export ELEVENLABS_API_KEY="your-elevenlabs-api-key"
 # Azure TTS (azure-tts)
 export AZURE_SPEECH_KEY="your-azure-speech-key"
 export AZURE_SPEECH_REGION="eastus"  # or your Azure region
+
+# Fish Audio TTS (fish-audio) — low-cost, voice cloning, 14 languages
+export FISH_AUDIO_API_KEY="your-fish-audio-api-key"
+
+# Cartesia TTS (cartesia) — low-latency Sonic models, voice cloning
+export CARTESIA_API_KEY="sk_car_..."
 ```
 
 **Google API Key Configuration:**
@@ -108,13 +114,15 @@ console.log("Audio format:", result.audio?.format);
 
 TTS is available through the following providers:
 
-| Provider       | Authentication                                              | Voices / Models                                                            | Notes                                                               |
-| -------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| **google-ai**  | Service Account (`GOOGLE_APPLICATION_CREDENTIALS`)          | 50+ voices (Neural2, Wavenet, Standard)                                    | Same auth as `vertex` (TTS uses Google Cloud Text-to-Speech client) |
-| **vertex**     | Service Account (`GOOGLE_APPLICATION_CREDENTIALS`)          | 50+ voices (Neural2, Wavenet, Standard)                                    | Recommended for production                                          |
-| **openai-tts** | API Key (`OPENAI_API_KEY`)                                  | 6 voices: alloy, echo, fable, onyx, nova, shimmer; models: tts-1, tts-1-hd | Good default quality                                                |
-| **elevenlabs** | API Key (`ELEVENLABS_API_KEY`)                              | Multilingual voices; model: eleven_multilingual_v2                         | High-quality multilingual synthesis                                 |
-| **azure-tts**  | API Key (`AZURE_SPEECH_KEY` + region `AZURE_SPEECH_REGION`) | Neural voices with SSML support                                            | Enterprise-grade Azure Speech                                       |
+| Provider       | Authentication                                              | Voices / Models                                                                                  | Notes                                                                                                                                                                                                             |
+| -------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **google-ai**  | Service Account (`GOOGLE_APPLICATION_CREDENTIALS`)          | 50+ voices (Neural2, Wavenet, Standard)                                                          | Same auth as `vertex` (TTS uses Google Cloud Text-to-Speech client)                                                                                                                                               |
+| **vertex**     | Service Account (`GOOGLE_APPLICATION_CREDENTIALS`)          | 50+ voices (Neural2, Wavenet, Standard)                                                          | Recommended for production                                                                                                                                                                                        |
+| **openai-tts** | API Key (`OPENAI_API_KEY`)                                  | 6 voices: alloy, echo, fable, onyx, nova, shimmer; models: tts-1, tts-1-hd                       | Good default quality                                                                                                                                                                                              |
+| **elevenlabs** | API Key (`ELEVENLABS_API_KEY`)                              | Multilingual voices; model: eleven_multilingual_v2                                               | High-quality multilingual synthesis                                                                                                                                                                               |
+| **azure-tts**  | API Key (`AZURE_SPEECH_KEY` + region `AZURE_SPEECH_REGION`) | Neural voices with SSML support                                                                  | Enterprise-grade Azure Speech                                                                                                                                                                                     |
+| **fish-audio** | API Key (`FISH_AUDIO_API_KEY`)                              | 14 languages, voice cloning (15 s reference); models: `s1` (default), `speech-1.6`, `speech-1.5` | Low-cost, ~80% cheaper than ElevenLabs — see [provider guide](../getting-started/providers/fish-audio.md)                                                                                                         |
+| **cartesia**   | API Key (`CARTESIA_API_KEY`)                                | Cartesia voice library, English-first; models: `sonic-2` (default), `sonic`                      | Low-latency Sonic models — see [provider guide](../getting-started/providers/cartesia.md). Synchronous `/tts/bytes`; the WebSocket streaming flow is exposed separately via `CartesiaStream` in the voice server. |
 
 **Planned for future releases:**
 
@@ -443,7 +451,7 @@ neurolink generate "Your text" \
   --tts-output <file> \
   --tts-use-ai-response
 # --tts                  : enable TTS (boolean flag, required)
-# --tts-provider         : google-ai|vertex|openai-tts|elevenlabs|azure-tts
+# --tts-provider         : google-ai|vertex|openai-tts|elevenlabs|azure-tts|fish-audio|cartesia
 # --tts-voice            : voice id (optional — provider default applies)
 # --tts-format           : mp3|wav|ogg (default: mp3)
 # --tts-speed            : 0.25-4.0 (default: 1.0)
@@ -463,6 +471,12 @@ neurolink generate "Hello" --tts --tts-provider elevenlabs
 
 # Use Azure TTS
 neurolink generate "Hello" --tts --tts-provider azure-tts
+
+# Use Fish Audio
+neurolink generate "Hello" --tts --tts-provider fish-audio
+
+# Use Cartesia
+neurolink generate "Hello" --tts --tts-provider cartesia
 ```
 
 ---
@@ -875,7 +889,7 @@ For detailed pricing, see [Google Cloud TTS Pricing](https://cloud.google.com/te
 
 NeuroLink's TTS integration provides:
 
-- **Multiple TTS providers** - Google Cloud TTS, OpenAI TTS, ElevenLabs, Azure TTS
+- **Multiple TTS providers** - Google Cloud TTS, OpenAI TTS, ElevenLabs, Azure TTS, Fish Audio, Cartesia
 - **High-quality voices** - Neural2, Wavenet, Standard, and multilingual options
 - **Multiple languages** - 50+ voices across 10+ languages
 - **Flexible synthesis modes** - Direct text or AI response

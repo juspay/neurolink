@@ -410,6 +410,18 @@ Synthesize speech, transcribe audio, or run live voice sessions. Voice providers
 
 [Setup Guide →](./fish-audio.md)
 
+#### [Cartesia](./cartesia.md)
+
+**Low-latency Sonic models — synchronous + streaming**
+
+- ⚡ Sub-second turnaround on the synchronous `/tts/bytes` endpoint
+- 🌊 Separate WebSocket streaming flow via `CartesiaStream` (voice server)
+- 🎭 Voice cloning via dashboard upload
+- 🎼 Formats: MP3 (44.1 kHz), WAV (PCM s16le @ 44.1 kHz), PCM16 (raw @ 24 kHz)
+- 🔑 Auth: API Key (`CARTESIA_API_KEY`)
+
+[Setup Guide →](./cartesia.md)
+
 ---
 
 ### Speech-to-Text (STT)
@@ -546,6 +558,8 @@ Music + sound-effect generation (use via `output: { mode: "music" }`):
 | [ElevenLabs](./elevenlabs.md)                                    | ❌         | ✅         | Varies | Low     | Multilingual TTS, voice cloning       |
 | [Google TTS](../provider-setup.md)                               | ✅         | ✅         | ✅     | Low     | Cost-effective TTS, 1M chars free     |
 | [Azure TTS](./azure-speech.md)                                   | ❌         | ✅         | ✅     | Low     | Enterprise TTS, SSML support          |
+| [Fish Audio](./fish-audio.md)                                    | ❌         | ✅         | Varies | Low     | Low-cost TTS, voice cloning, 14 langs |
+| [Cartesia](./cartesia.md)                                        | ❌         | ✅         | Varies | Low     | Low-latency Sonic models              |
 | [Whisper](../provider-setup.md#whisper)                          | ❌         | ✅         | ✅     | Low     | Best STT accuracy                     |
 | [Deepgram](./deepgram.md)                                        | ❌         | ✅         | Varies | Low     | Real-time STT streaming (WebSocket)   |
 | [Google STT](../provider-setup.md)                               | ❌         | ✅         | ✅     | Low     | STT for GCP users, 125+ languages     |

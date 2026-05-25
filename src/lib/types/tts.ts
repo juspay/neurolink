@@ -32,6 +32,24 @@ export type TTSAudioFormat =
 export type TTSQuality = "standard" | "hd";
 
 /**
+ * Known TTS provider identifiers shipped with NeuroLink.
+ *
+ * The `(string & {})` intersection keeps the union open for custom
+ * provider names registered via `TTSProcessor.registerHandler()` while
+ * still surfacing the built-in choices in editor autocomplete.
+ */
+export type TTSProviderName =
+  | "google-ai"
+  | "vertex"
+  | "openai-tts"
+  | "elevenlabs"
+  | "elevenlabs-tts"
+  | "azure-tts"
+  | "fish-audio"
+  | "cartesia"
+  | (string & {});
+
+/**
  * TTS configuration options
  */
 export type TTSOptions = {
@@ -83,7 +101,7 @@ export type TTSOptions = {
   /** Auto-play audio after generation (default: false) */
   play?: boolean;
   /** Override TTS provider (e.g., "elevenlabs", "openai-tts", "azure-tts") */
-  provider?: string;
+  provider?: TTSProviderName;
 };
 
 /**

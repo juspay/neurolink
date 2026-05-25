@@ -24,6 +24,19 @@ export type AvatarVideoFormat = "mp4" | "webm" | "mov";
 export type AvatarQuality = "standard" | "hd";
 
 /**
+ * Known avatar provider identifiers shipped with NeuroLink.
+ *
+ * `(string & {})` keeps the union open for custom provider names
+ * registered via `AvatarProcessor.registerHandler()`.
+ */
+export type AvatarProviderName =
+  | "d-id"
+  | "heygen"
+  | "replicate"
+  | "musetalk"
+  | (string & {});
+
+/**
  * Options for avatar video generation.
  */
 export type AvatarOptions = {
@@ -50,7 +63,7 @@ export type AvatarOptions = {
   voice?: string;
 
   /** Avatar provider override (e.g. "d-id", "heygen", "replicate"). */
-  provider?: string;
+  provider?: AvatarProviderName;
 
   /** Output quality preset. */
   quality?: AvatarQuality;

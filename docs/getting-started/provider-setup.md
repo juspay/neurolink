@@ -2309,6 +2309,100 @@ const result = await neurolink.generate({
 
 ---
 
+## Fish Audio TTS Configuration {#fish-audio}
+
+Low-cost TTS provider focused on voice cloning. Wrapped as a TTSHandler so it
+slots into the same `generate({ tts: { provider: "fish-audio" } })` flow as
+OpenAI / ElevenLabs / Azure / Google AI TTS.
+
+```bash
+# Required
+FISH_AUDIO_API_KEY=your-fish-audio-api-key
+
+# Optional: default voice (any reference_id from the Fish library)
+# FISH_AUDIO_VOICE_ID=...
+
+# Optional: base URL override
+# FISH_AUDIO_BASE_URL=https://api.fish.audio
+```
+
+Get an API key from [fish.audio](https://fish.audio/) → dashboard.
+
+### Usage
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "Hello world from Fish Audio" },
+  provider: "openai",
+  tts: {
+    enabled: true,
+    provider: "fish-audio",
+    format: "mp3",
+  },
+});
+```
+
+- **Provider ID**: `fish-audio`
+- **Default model**: `s1` (override via `tts.model`: `speech-1.5`, `speech-1.6`, `s1`)
+- **Max text length**: 5000 characters
+- **Output formats**: `mp3` (default, 44.1 kHz), `wav` (44.1 kHz), `pcm16` (raw, 44.1 kHz)
+- **Languages**: 14 (English, Mandarin, Cantonese, Japanese, Korean, French, German, Spanish, Italian, Portuguese, Russian, Arabic, Hindi, Indonesian)
+- **Voice cloning**: 15 s of reference audio → custom `reference_id`
+
+Full guide: [Fish Audio TTS Provider](./providers/fish-audio.md).
+
+---
+
+## Cartesia TTS Configuration {#cartesia}
+
+Low-latency TTS provider running Cartesia's Sonic models. The synchronous
+`/tts/bytes` endpoint is wrapped as a TTSHandler; the realtime WebSocket flow
+is exposed separately as `CartesiaStream` for the voice server.
+
+```bash
+# Required
+CARTESIA_API_KEY=sk_car_...
+
+# Optional: default voice id (any voice from your Cartesia library)
+# CARTESIA_VOICE_ID=...
+
+# Optional: model override (default sonic-2)
+# CARTESIA_MODEL=sonic-2
+
+# Optional: API version header (default 2025-04-16)
+# CARTESIA_API_VERSION=2025-04-16
+
+# Optional: base URL override
+# CARTESIA_BASE_URL=https://api.cartesia.ai
+```
+
+Get an API key from [play.cartesia.ai/keys](https://play.cartesia.ai/keys).
+
+### Usage
+
+```typescript
+const result = await neurolink.generate({
+  input: { text: "Hello world from Cartesia Sonic" },
+  provider: "openai",
+  tts: {
+    enabled: true,
+    provider: "cartesia",
+    format: "mp3",
+  },
+});
+```
+
+- **Provider ID**: `cartesia`
+- **Default model**: `sonic-2` (also `sonic`)
+- **Default voice**: `694f9389-aac1-45b6-b726-9d9369183238` ("Bright Female", English)
+- **Max text length**: 5000 characters
+- **Output formats**: `mp3` (default, 44.1 kHz), `wav` (PCM s16le @ 44.1 kHz), `pcm16` (raw, 24 kHz)
+- **Streaming**: synchronous via this handler; WebSocket via `CartesiaStream` adapter
+
+Full guide: [Cartesia TTS Provider](./providers/cartesia.md).
+
+---
+
 ## Google Speech Configuration {#google-speech}
 
 Covers both Google Cloud TTS (`google-tts` / via `google-ai`) and Google Cloud

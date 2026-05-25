@@ -108,7 +108,13 @@ export class AvatarProcessor {
     return Array.from(this.handlers.keys());
   }
 
-  private static getHandler(providerName: string): AvatarHandler | undefined {
+  /**
+   * Get a registered avatar handler by provider name.
+   *
+   * Exposed publicly so module-level auto-registration code can reuse an
+   * already-registered primary handler when backfilling its aliases.
+   */
+  static getHandler(providerName: string): AvatarHandler | undefined {
     return this.handlers.get(providerName.toLowerCase());
   }
 

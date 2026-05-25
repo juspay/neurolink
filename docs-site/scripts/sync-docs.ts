@@ -1364,6 +1364,7 @@ const LINK_MAPPINGS: Record<string, string> = {
   "elevenlabs-music": "/getting-started/providers/elevenlabs-music",
   kling: "/getting-started/providers/kling",
   runway: "/getting-started/providers/runway",
+  cartesia: "/getting-started/providers/cartesia",
 
   // ── New provider-integration guides + their cross-refs ────────────────
   "00-architecture": "/provider-integration/00-architecture",
