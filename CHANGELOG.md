@@ -1,3 +1,9 @@
+## [9.67.0](https://github.com/juspay/neurolink/compare/v9.66.0...v9.67.0) (2026-05-26)
+
+### Features
+
+- **(providers):** wire missing media handlers + fix video routing + add CartesiaTTS ([269cae6](https://github.com/juspay/neurolink/commit/269cae623591d874866de81875f9280eae42d0ca))
+
 ## [9.66.0](https://github.com/juspay/neurolink/compare/v9.65.2...v9.66.0) (2026-05-24)
 
 ### Features
