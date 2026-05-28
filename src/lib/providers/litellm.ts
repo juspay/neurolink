@@ -553,7 +553,7 @@ export class LiteLLMProvider extends BaseProvider {
               errorType: errorChunk.type,
               errorDetails: errorChunk.error,
             });
-            throw this.formatProviderError(
+            return this.formatProviderError(
               new Error(
                 `LiteLLM streaming error: ${(errorChunk.error as Record<string, unknown>)?.message || "Unknown error"}`,
               ),

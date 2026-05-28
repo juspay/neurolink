@@ -9,7 +9,7 @@ import { execSync, spawn, type ExecSyncOptions } from "child_process";
 import fs from "fs";
 import path from "path";
 
-interface MCPServerConfig {
+type MCPServerConfig = {
   command?: string;
   args?: string[];
   transport?: string;
@@ -17,23 +17,23 @@ interface MCPServerConfig {
   cwd?: string;
   url?: string;
   name?: string;
-}
+};
 
-interface MCPConfig {
+type MCPConfig = {
   mcpServers: Record<string, MCPServerConfig>;
-}
+};
 
-interface CommandResult {
+type CommandResult = {
   success: boolean;
   output?: string;
   error?: string;
   command?: string;
-}
+};
 
-interface ServerStatus {
+type ServerStatus = {
   available: boolean;
   reason: string;
-}
+};
 
 // MCP configuration file path
 const MCP_CONFIG_FILE = path.join(process.cwd(), ".mcp-config.json");

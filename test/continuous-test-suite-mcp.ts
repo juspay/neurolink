@@ -207,12 +207,12 @@ function logTest(
   }
 }
 
-interface TestResult {
+type TestResult = {
   name: string;
   passed: boolean;
   skipped?: boolean;
   error?: string;
-}
+};
 
 const results: TestResult[] = [];
 

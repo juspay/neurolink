@@ -21,17 +21,17 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-interface CommandResult {
+type CommandResult = {
   success: boolean;
   output?: string;
   error?: string;
-}
+};
 
-interface WorkflowResult {
+type WorkflowResult = {
   success: boolean;
   error?: string;
   [key: string]: unknown;
-}
+};
 
 /**
  * Execute NeuroLink MCP command safely

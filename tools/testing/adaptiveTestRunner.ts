@@ -148,13 +148,13 @@ function findFilesByExtension(
   return files;
 }
 
-interface TestRunnerConfig {
+type TestRunnerConfig = {
   testPatterns: string[];
   sourcePatterns: string[];
   criticalTests: string[];
-}
+};
 
-interface TestRunnerResults {
+type TestRunnerResults = {
   startTime: number;
   strategy: string;
   changedFiles: string[];
@@ -162,7 +162,7 @@ interface TestRunnerResults {
   skippedTests: string[];
   performance: { testDuration?: number };
   coverage: Record<string, unknown>;
-}
+};
 
 class AdaptiveTestRunner {
   changedFiles: Set<string>;

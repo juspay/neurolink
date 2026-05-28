@@ -47,7 +47,7 @@ export {
   SOURCE_CODE_MIME_TYPES,
   TEXT_MIME_TYPES,
   VIDEO_MIME_TYPES,
-} from "./mimeTypes.js";
+} from "./mimeConstants.js";
 
 // =============================================================================
 // FILE EXTENSIONS
@@ -146,7 +146,7 @@ export {
   XML_EXTENSIONS,
   YAML_EXTENSIONS,
   ZIG_EXTENSIONS,
-} from "./fileTypes.js";
+} from "./fileExtensions.js";
 
 // =============================================================================
 // LANGUAGE DETECTION

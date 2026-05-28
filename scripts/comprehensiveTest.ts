@@ -14,11 +14,11 @@ import chalk from "chalk";
 const TEST_OUTPUT_DIR = "./test-results";
 const TIMESTAMP = new Date().toISOString().replace(/[:.]/g, "-");
 
-interface LogEntry {
+type LogEntry = {
   timestamp: string;
   type: string;
   message: string;
-}
+};
 
 class ComprehensiveTester {
   results: LogEntry[];

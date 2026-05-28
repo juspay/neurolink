@@ -8,12 +8,12 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export interface GitChangeInfo {
+export type GitChangeInfo = {
   addedFiles: Set<string>;
   modifiedFiles: Set<string>;
   deletedFiles: Set<string>;
   allChangedFiles: Set<string>;
-}
+};
 
 export class GitChangeDetector {
   /** @deprecated Use tag-based detection instead. Kept for backwards compatibility. */

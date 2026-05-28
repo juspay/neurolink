@@ -28,7 +28,7 @@ import { usePluginData } from "@docusaurus/useGlobalData";
 
 export type DocStatus = "new" | "updated" | "recent";
 
-export interface DocMetadata {
+export type DocMetadata = {
   docId: string;
   filePath: string;
   status: DocStatus;
@@ -39,9 +39,9 @@ export interface DocMetadata {
     message: string;
     date: string;
   } | null;
-}
+};
 
-export interface NewDocsData {
+export type NewDocsData = {
   newDocs: DocMetadata[];
   updatedDocs: DocMetadata[];
   recentDocs: DocMetadata[];
@@ -54,7 +54,7 @@ export interface NewDocsData {
   };
   baseTag: string;
   generatedAt: string;
-}
+};
 
 /**
  * Get all new docs data from the plugin

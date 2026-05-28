@@ -1,4 +1,4 @@
-interface RevealOptions {
+type RevealOptions = {
   y?: number;
   x?: number;
   scale?: number;
@@ -8,7 +8,7 @@ interface RevealOptions {
   ease?: string;
   start?: string;
   stagger?: number;
-}
+};
 
 export function reveal(node: HTMLElement, options: RevealOptions = {}) {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {

@@ -9,12 +9,12 @@
 import fs from "fs/promises";
 import path from "path";
 
-interface CategoryConfig {
+type CategoryConfig = {
   description: string;
   files: string[];
-}
+};
 
-interface OrganizationReport {
+type OrganizationReport = {
   summary: {
     totalFilesProcessed: number;
     filesMoved: number;
@@ -24,9 +24,9 @@ interface OrganizationReport {
   };
   categories: Record<string, { files: string[]; count: number }>;
   recommendations: string[];
-}
+};
 
-interface Categorization {
+type Categorization = {
   automation: string[];
   content: string[];
   testing: string[];
@@ -34,7 +34,7 @@ interface Categorization {
   uncategorized: string[];
   ignored: string[];
   [key: string]: string[];
-}
+};
 
 class ProjectOrganizer {
   projectRoot: string;
