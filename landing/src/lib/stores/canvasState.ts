@@ -15,7 +15,7 @@ export const scrollProgress = writable<number>(0); // 0–1
 export const scrollVelocity = writable<number>(0); // pixels/frame, smoothed
 
 // Per-section canvas configuration
-export interface SectionCanvasConfig {
+export type SectionCanvasConfig = {
   intensity: number;
   particleSpeed: number;
   branchGrowth: number;
@@ -23,7 +23,7 @@ export interface SectionCanvasConfig {
   dominantColor: string;
   glowNodes: boolean;
   spinalActivity: number;
-}
+};
 
 const SECTION_CONFIGS: Record<SectionId, SectionCanvasConfig> = {
   hero: {

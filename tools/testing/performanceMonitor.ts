@@ -17,14 +17,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT_DIR = join(__dirname, "../..");
 
-interface Benchmark {
+type Benchmark = {
   name: string;
   title: string;
   command: string;
   threshold: number;
-}
+};
 
-interface BenchmarkResult {
+type BenchmarkResult = {
   name: string;
   title: string;
   command: string;
@@ -33,9 +33,9 @@ interface BenchmarkResult {
   memory: { heapUsed?: number; rss?: number };
   status: string;
   error: string | null;
-}
+};
 
-interface PerformanceResults {
+type PerformanceResults = {
   timestamp: string;
   system: Record<string, unknown>;
   benchmarks: Record<string, BenchmarkResult>;
@@ -50,7 +50,7 @@ interface PerformanceResults {
     }>;
     recommendations: Array<{ type: string; priority: string; message: string }>;
   };
-}
+};
 
 class PerformanceMonitor {
   benchmarks: Benchmark[];

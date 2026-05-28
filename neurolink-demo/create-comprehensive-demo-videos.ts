@@ -9,10 +9,10 @@ import { chromium, type Page } from "playwright";
 import fs from "fs";
 import path from "path";
 
-interface DemoAction {
+type DemoAction = {
   description: string;
   execute: (page: Page) => Promise<void>;
-}
+};
 
 const BASE_URL = "http://localhost:9876";
 const VIDEOS_DIR = "./videos";

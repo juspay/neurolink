@@ -26,24 +26,24 @@ const colors: Record<string, string> = {
   cyan: "\x1b[36m",
 };
 
-interface Issue {
+type Issue = {
   severity: string;
   category: string;
   message: string;
   suggestion: string | null;
   timestamp: string;
-}
+};
 
-interface PatternDef {
+type PatternDef = {
   pattern: RegExp;
   example: string;
-}
+};
 
-interface ProviderConfig {
+type ProviderConfig = {
   required: string[];
   optional: string[];
   check: () => boolean;
-}
+};
 
 class EnvironmentValidator {
   issues: Issue[];

@@ -4,7 +4,7 @@ import {
 } from "algoliasearch/lite";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export interface SearchResult {
+export type SearchResult = {
   objectID: string;
   title: string;
   url: string;
@@ -25,16 +25,16 @@ export interface SearchResult {
       lvl3?: { value: string };
     };
   };
-}
+};
 
-interface UseAlgoliaSearchOptions {
+type UseAlgoliaSearchOptions = {
   appId: string;
   searchApiKey: string;
   indexName: string;
   debounceMs?: number;
-}
+};
 
-export interface UseAlgoliaSearchReturn {
+export type UseAlgoliaSearchReturn = {
   query: string;
   setQuery: (query: string) => void;
   results: SearchResult[];
@@ -45,7 +45,7 @@ export interface UseAlgoliaSearchReturn {
   selectedIndex: number;
   setSelectedIndex: (index: number) => void;
   totalResults: number;
-}
+};
 
 // Simple LRU cache for recent searches
 class SearchCache {

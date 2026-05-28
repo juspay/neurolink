@@ -22,7 +22,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.join(__dirname, '..', '..');
 
-interface TestCase {
+type TestCase = {
   id: string;
   type: 'CLI' | 'SDK' | 'ST';
   subtype?: string;
@@ -34,13 +34,13 @@ interface TestCase {
   executed: boolean;
   passed: boolean;
   stdin?: string;
-}
+};
 
-interface TestResult {
+type TestResult = {
   success: boolean;
   output: unknown;
   error: string | null;
-}
+};
 
 // Configuration
 const MAX_PARALLEL_TESTS = 10; // Reduced for stability

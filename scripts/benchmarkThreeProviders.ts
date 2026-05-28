@@ -8,41 +8,41 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-interface BenchmarkPrompt {
+type BenchmarkPrompt = {
   name: string;
   prompt: string;
   maxTokens: number;
-}
+};
 
-interface PromptResult {
+type PromptResult = {
   attempts: number;
   times: number[];
   avgTime: number;
   success: boolean;
   error: string | null;
-}
+};
 
-interface ProviderResult {
+type ProviderResult = {
   available: boolean;
   prompts: Record<string, PromptResult>;
   totalTime: number;
   avgResponseTime: number;
   errors: string[];
-}
+};
 
-interface BenchmarkSummary {
+type BenchmarkSummary = {
   totalProviders: number;
   availableProviders: number;
   fastestProvider: string;
   slowestProvider: string;
   avgResponseTimeAcrossProviders: number;
-}
+};
 
-interface BenchmarkResults {
+type BenchmarkResults = {
   timestamp: string;
   providers: Record<string, ProviderResult>;
   summary: Partial<BenchmarkSummary>;
-}
+};
 
 const BENCHMARK_PROMPTS: BenchmarkPrompt[] = [
   {

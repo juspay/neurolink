@@ -14,19 +14,19 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-interface ModelData {
+type ModelData = {
   capabilities: string[];
   pricing: { input: number; output: number };
   [key: string]: unknown;
-}
+};
 
-interface ModelConfig {
+type ModelConfig = {
   models: Record<string, Record<string, ModelData>>;
   defaults: Record<string, unknown>;
   serverTime?: string;
   requestId?: string;
   [key: string]: unknown;
-}
+};
 
 const app = express();
 const PORT = process.env.MODEL_SERVER_PORT || 3001;

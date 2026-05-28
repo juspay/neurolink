@@ -28,16 +28,16 @@ const colors: Record<string, string> = {
   cyan: "\x1b[36m",
 };
 
-interface ESLintMetrics {
+type ESLintMetrics = {
   totalFiles?: number;
   filesWithIssues?: number;
   errors?: number;
   warnings?: number;
   topViolations?: Array<{ rule: string; count: number }>;
   error?: string;
-}
+};
 
-interface TypeScriptMetrics {
+type TypeScriptMetrics = {
   files?: number;
   linesOfCode?: number;
   identifiers?: number;
@@ -45,9 +45,9 @@ interface TypeScriptMetrics {
   types?: number;
   compilationSuccessful?: boolean;
   error?: string;
-}
+};
 
-interface ComplexityMetrics {
+type ComplexityMetrics = {
   totalFiles?: number;
   totalLines?: number;
   averageLinesPerFile?: number;
@@ -55,33 +55,33 @@ interface ComplexityMetrics {
   complexFunctions?: number;
   largestFiles?: Array<{ file: string; lines: number }>;
   error?: string;
-}
+};
 
-interface SecurityMetrics {
+type SecurityMetrics = {
   vulnerabilities?: number;
   warnings?: number;
   secretsFound?: number;
   securityScore?: number;
   error?: string;
-}
+};
 
-interface CoverageMetrics {
+type CoverageMetrics = {
   available?: boolean;
   lines?: number;
   branches?: number;
   functions?: number;
   statements?: number;
   message?: string;
-}
+};
 
-interface Metrics {
+type Metrics = {
   eslint: ESLintMetrics;
   typescript: TypeScriptMetrics;
   coverage: CoverageMetrics;
   security: SecurityMetrics;
   complexity: ComplexityMetrics;
   files: Record<string, unknown>;
-}
+};
 
 class QualityMetricsReporter {
   startTime: number;
