@@ -7,13 +7,13 @@
 
 import { writeFileSync } from "fs";
 
-interface SdkTestResult {
+type SdkTestResult = {
   test: string;
   status: string;
   details: string;
   output: string;
   timestamp: string;
-}
+};
 
 const results: SdkTestResult[] = [];
 

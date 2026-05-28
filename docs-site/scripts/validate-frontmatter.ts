@@ -53,27 +53,27 @@ const VALID_TWITTER_CARDS = ["summary", "summary_large_image", "app", "player"];
 // Validation issue types
 type IssueLevel = "error" | "warning" | "info";
 
-interface ValidationIssue {
+type ValidationIssue = {
   level: IssueLevel;
   file: string;
   message: string;
   field?: string;
-}
+};
 
-interface ValidationResult {
+type ValidationResult = {
   file: string;
   issues: ValidationIssue[];
   frontmatter: Record<string, unknown>;
-}
+};
 
-interface ValidationSummary {
+type ValidationSummary = {
   totalFiles: number;
   filesWithErrors: number;
   filesWithWarnings: number;
   totalErrors: number;
   totalWarnings: number;
   totalInfo: number;
-}
+};
 
 /**
  * Check if a path should be skipped

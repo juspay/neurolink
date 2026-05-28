@@ -20,10 +20,10 @@ const ROOT_PACKAGE_JSON = path.resolve(__dirname, "../../package.json");
 const DOCS_SITE_DIR = path.resolve(__dirname, "..");
 const VERSIONS_FILE = path.join(DOCS_SITE_DIR, "versions.json");
 
-interface PackageJson {
+type PackageJson = {
   version: string;
   [key: string]: unknown;
-}
+};
 
 /**
  * Parse a semver version string into its components

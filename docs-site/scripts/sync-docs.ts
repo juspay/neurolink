@@ -138,16 +138,16 @@ const FILE_MAPPINGS: Record<string, string> = {
   "large-context-handling-design-doc.md": "development/large-context-design.md",
 };
 
-interface TransformResult {
+type TransformResult = {
   content: string;
   frontmatter: Record<string, unknown>;
-}
+};
 
-interface FileInfo {
+type FileInfo = {
   sourcePath: string;
   relativePath: string;
   targetPath: string;
-}
+};
 
 /**
  * Convert MkDocs admonitions to Docusaurus format

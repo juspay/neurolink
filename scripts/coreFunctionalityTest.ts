@@ -11,12 +11,12 @@ import chalk from "chalk";
 
 const TIMESTAMP = new Date().toISOString().replace(/[:.]/g, "-");
 
-interface TestEntry {
+type TestEntry = {
   timestamp: string;
   message: string;
   success: boolean;
   details: string;
-}
+};
 
 const results: TestEntry[] = [];
 

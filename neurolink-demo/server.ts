@@ -1951,15 +1951,15 @@ app.delete(
 // ================================
 
 // In-memory session storage for context management
-interface SessionMessage {
+type SessionMessage = {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: string;
   tokenCount: number;
-}
+};
 
-interface Session {
+type Session = {
   id: string;
   messages: SessionMessage[];
   summary?: string;
@@ -1968,7 +1968,7 @@ interface Session {
   lastActivityAt: string;
   totalTokens: number;
   summarizationCount: number;
-}
+};
 
 const sessions = new Map<string, Session>();
 
