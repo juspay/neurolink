@@ -46,27 +46,27 @@ const IGNORED_VULNERABLE_PACKAGES = [
   "lodash-es", // TODO: track in #xxx — no patch available upstream for @semantic-release dev dep
 ];
 
-interface SecurityIssue {
+type SecurityIssue = {
   level: string;
   category: string;
   message: string;
   details: Record<string, unknown> | null;
   timestamp: string;
-}
+};
 
-interface GitleaksFinding {
+type GitleaksFinding = {
   RuleID?: string;
   File?: string;
   StartLine?: number;
   Description?: string;
-}
+};
 
-interface SecurityResults {
+type SecurityResults = {
   secrets: { status: string; details: GitleaksFinding[] };
   dependencies: { status: string; details: unknown[] };
   licenses: { status: string; details: unknown[] };
   bestPractices: { status: string; details: unknown[] };
-}
+};
 
 class SecurityValidator {
   errors: SecurityIssue[];

@@ -10,28 +10,28 @@ import fs from "fs/promises";
 import path from "path";
 import { glob } from "glob";
 
-interface VideoFileInfo {
+type VideoFileInfo = {
   name: string;
   path: string;
   size: number;
   modified: Date;
   age: number;
-}
+};
 
-interface VideoAnalysis {
+type VideoAnalysis = {
   hashNamed: VideoFileInfo[];
   meaningful: VideoFileInfo[];
   suspicious: VideoFileInfo[];
   totalSize: number;
-}
+};
 
-interface CleanupResults {
+type CleanupResults = {
   cleaned: number;
   backed: number;
   kept: number;
   sizeSaved: number;
   errors: Array<{ file: string; error: string }>;
-}
+};
 
 class VideoCleanup {
   videoDir: string;

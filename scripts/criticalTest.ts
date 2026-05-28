@@ -8,12 +8,12 @@
 import { execSync } from "child_process";
 import { writeFileSync } from "fs";
 
-interface TestResult {
+type TestResult = {
   test: string;
   status: string;
   output?: string;
   error?: string;
-}
+};
 
 const results: TestResult[] = [];
 

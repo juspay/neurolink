@@ -32,11 +32,11 @@ const SUMMARY_TRUNCATE_STEP_CHARS = 25;
 const EXCLUDED_DIRS = ["tracking", "phases", "analysis", "plans", "test-reports"];
 
 // Priority definitions for summary file (lower number = higher priority)
-interface PriorityRule {
+type PriorityRule = {
   pattern: string | RegExp;
   priority: number;
   includeInSummary: boolean;
-}
+};
 
 const PRIORITY_RULES: PriorityRule[] = [
   { pattern: /^index\.md$/, priority: 1, includeInSummary: true },
@@ -82,7 +82,7 @@ const SECTION_ORDER = [
   "visual-content",
 ];
 
-interface DocFile {
+type DocFile = {
   relativePath: string;
   section: string;
   title: string;
@@ -91,12 +91,12 @@ interface DocFile {
   priority: number;
   includeInSummary: boolean;
   order: number;
-}
+};
 
-interface ProviderInfo {
+type ProviderInfo = {
   name: string;
   slug: string;
-}
+};
 
 /**
  * Strip unnecessary formatting from content

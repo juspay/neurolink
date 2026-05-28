@@ -17,20 +17,20 @@ const __dirname = dirname(__filename);
 /**
  * Phase 6 Validation and Cleanup class
  */
-interface Phase6Options {
+type Phase6Options = {
   dryRun?: boolean;
   verbose?: boolean;
   archiveOldScripts?: boolean;
   validateAll?: boolean;
   test?: boolean;
-}
+};
 
-interface Phase6Results {
+type Phase6Results = {
   validation: Record<string, unknown>;
   cleanup: Record<string, unknown>;
   documentation: Record<string, unknown>;
   archival: Record<string, unknown>;
-}
+};
 
 class Phase6ValidationCleanup {
   dryRun: boolean;

@@ -16,27 +16,27 @@ console.log('🚀 NEUROLINK DEMO - No API Keys Required');
 console.log('=' .repeat(50));
 console.log('This demo shows the expected structure without making real API calls\n');
 
-interface MockAnalytics {
+type MockAnalytics = {
   provider: string;
   model: string;
   tokens: { input: number; output: number; total: number };
   cost: number;
   responseTime: number;
   context: Record<string, string>;
-}
+};
 
-interface MockEvaluation {
+type MockEvaluation = {
   relevance: number;
   accuracy: number;
   completeness: number;
   overall: number;
-}
+};
 
-interface MockResult {
+type MockResult = {
   text: string;
   analytics?: MockAnalytics;
   evaluation?: MockEvaluation;
-}
+};
 
 // Mock demonstration of what analytics and evaluation would look like
 function mockAnalytics(): MockAnalytics {

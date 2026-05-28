@@ -1,12 +1,12 @@
 export type OGType = "home" | "docs" | "sdk" | "examples";
 
-interface OGParams {
+type OGParams = {
   type: OGType;
   title?: string;
   subtitle?: string;
   section?: string;
   method?: string;
-}
+};
 
 function escapeHtml(text: string): string {
   return text

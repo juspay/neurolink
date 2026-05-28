@@ -981,7 +981,7 @@ export class LiteLLMProvider extends BaseProvider {
               error?: { message?: string };
             })
           : undefined;
-        throw this.formatProviderError(
+        return this.formatProviderError(
           new Error(
             parsed?.error?.message ||
               `LiteLLM ${operation} failed with status ${res.status}`,

@@ -1,4 +1,4 @@
-export interface LBranch {
+export type LBranch = {
   x1: number;
   y1: number;
   x2: number;
@@ -7,9 +7,9 @@ export interface LBranch {
   depth: number;
   opacity: number;
   isAxon: boolean;
-}
+};
 
-export interface LSystemOptions {
+export type LSystemOptions = {
   originX: number;
   originY: number;
   seed: number;
@@ -18,7 +18,7 @@ export interface LSystemOptions {
   axiom?: string;
   rules?: Record<string, string>;
   angle?: number;
-}
+};
 
 export function mulberry32(seed: number): () => number {
   return function () {
@@ -109,10 +109,10 @@ export function branchesToLines(
   return branches;
 }
 
-export interface NeuronPath {
+export type NeuronPath = {
   points: { x: number; y: number }[];
   length: number; // precomputed arc length
-}
+};
 
 export const cachedDendrites = new Map<string, LBranch[]>();
 export const cachedPaths = new Map<string, NeuronPath[]>();

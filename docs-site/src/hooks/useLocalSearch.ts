@@ -2,7 +2,7 @@ import MiniSearch from "minisearch";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SearchResult, UseAlgoliaSearchReturn } from "./useAlgoliaSearch";
 
-interface SearchDocument {
+type SearchDocument = {
   objectID: string;
   title: string;
   url: string;
@@ -13,7 +13,7 @@ interface SearchDocument {
     lvl2?: string;
     lvl3?: string;
   };
-}
+};
 
 let indexPromise: Promise<MiniSearch<SearchDocument>> | null = null;
 
@@ -62,9 +62,9 @@ function loadIndex(): Promise<MiniSearch<SearchDocument>> {
   return indexPromise;
 }
 
-interface UseLocalSearchOptions {
+type UseLocalSearchOptions = {
   debounceMs?: number;
-}
+};
 
 export function useLocalSearch({
   debounceMs = 200,

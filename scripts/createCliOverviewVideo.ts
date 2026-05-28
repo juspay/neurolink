@@ -21,11 +21,11 @@ const OUTPUT_DIR = path.join(
 const SCRIPT_DELAY = 2000; // 2 seconds between commands
 const VIDEO_DURATION = 30; // Target ~30 seconds
 
-interface CLICommand {
+type CLICommand = {
   command: string;
   description: string;
   duration: number;
-}
+};
 
 const CLI_COMMANDS: CLICommand[] = [
   {

@@ -2,7 +2,7 @@ import { sveltekit } from "@sveltejs/kit/vite";
 import type { UserConfig } from "vite";
 
 // Extend Vite config to support Vitest's test property
-interface VitestConfig extends Omit<UserConfig, "plugins"> {
+type VitestConfig = Omit<UserConfig, "plugins"> & {
   // Use 'unknown' to avoid Plugin type conflicts from multiple Vite versions in pnpm
   plugins?: unknown;
   test?: {
@@ -20,7 +20,7 @@ interface VitestConfig extends Omit<UserConfig, "plugins"> {
     outputFile?: string;
     onConsoleLog?: (log: string, type: "stdout" | "stderr") => void;
   };
-}
+};
 
 const config: VitestConfig = {
   plugins: [sveltekit()],

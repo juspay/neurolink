@@ -11,11 +11,11 @@ import path from "path";
 
 const TIMESTAMP = new Date().toISOString().replace(/[:.]/g, "-");
 
-interface VerifyEntry {
+type VerifyEntry = {
   timestamp: string;
   message: string;
   success: boolean;
-}
+};
 
 const results: VerifyEntry[] = [];
 
