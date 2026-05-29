@@ -1,19 +1,5 @@
-import { createOpenAI } from "@ai-sdk/openai";
 import type { AIProviderName } from "../constants/enums.js";
 import { CloudflareModels } from "../constants/enums.js";
-import { BaseProvider } from "../core/baseProvider.js";
-import { DEFAULT_MAX_STEPS } from "../core/constants.js";
-import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
-import { isNeuroLink } from "../neurolink.js";
-import { createLoggingFetch } from "../utils/loggingFetch.js";
-import { tracers, ATTR, withClientStreamSpan } from "../telemetry/index.js";
-import type {
-  UnknownRecord,
-  NeurolinkCredentials,
-  StreamOptions,
-  StreamResult,
-  ValidationSchema,
-} from "../types/index.js";
 import {
   AuthenticationError,
   InvalidModelError,
@@ -21,23 +7,15 @@ import {
   ProviderError,
   RateLimitError,
 } from "../types/index.js";
+import type { NeurolinkCredentials, UnknownRecord } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import {
   createCloudflareConfig,
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import {
-  composeAbortSignals,
-  createTimeoutController,
-  TimeoutError,
-} from "../utils/timeout.js";
-import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
-import { resolveToolChoice } from "../utils/toolChoice.js";
-import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
-import type { LanguageModel, Tool } from "../types/index.js";
-import { stepCountIs } from "../utils/tool.js";
-import { streamText } from "../utils/generation.js";
+import { TimeoutError } from "../utils/timeout.js";
+import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
 /**
  * Cloudflare Workers AI exposes an OpenAI-compatible endpoint scoped per
@@ -54,7 +32,7 @@ const getDefaultCloudflareModel = (): string =>
   getProviderModel("CLOUDFLARE_MODEL", CloudflareModels.LLAMA_3_3_70B_FAST);
 
 /**
- * Cloudflare Workers AI Provider
+ * Cloudflare Workers AI Provider — direct HTTP, no AI SDK.
  *
  * Edge-served open models (Llama / Mistral / Qwen / Gemma) at
  * `https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1`
@@ -62,25 +40,21 @@ const getDefaultCloudflareModel = (): string =>
  *
  * Required env: `CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`.
  *
+ * All request/stream/tool-loop orchestration lives in
+ * `OpenAIChatCompletionsProvider`; this class only declares configuration
+ * and provider-specific error mapping.
+ *
  * @see https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/
  */
-export class CloudflareProvider extends BaseProvider {
-  private model: LanguageModel;
-  private apiKey: string;
-  private baseURL: string;
-
+export class CloudflareProvider extends OpenAIChatCompletionsProvider {
   constructor(
     modelName?: string,
     sdk?: unknown,
     _region?: string,
     credentials?: NeurolinkCredentials["cloudflare"],
   ) {
-    const validatedNeurolink = isNeuroLink(sdk) ? sdk : undefined;
-
-    super(modelName, "cloudflare" as AIProviderName, validatedNeurolink);
-
     const overrideApiKey = credentials?.apiKey?.trim();
-    this.apiKey =
+    const apiKey =
       overrideApiKey && overrideApiKey.length > 0
         ? overrideApiKey
         : getCloudflareApiKey();
@@ -95,143 +69,38 @@ export class CloudflareProvider extends BaseProvider {
         "CLOUDFLARE_ACCOUNT_ID is required (or pass credentials.cloudflare.accountId). Get the account id from https://dash.cloudflare.com/",
       );
     }
-    this.baseURL = credentials?.baseURL ?? buildCloudflareBaseURL(accountId);
+    const baseURL = credentials?.baseURL ?? buildCloudflareBaseURL(accountId);
 
-    const cloudflare = createOpenAI({
-      apiKey: this.apiKey,
-      baseURL: this.baseURL,
-      fetch: createLoggingFetch("cloudflare"),
-    });
-    this.model = cloudflare.chat(this.modelName);
+    super("cloudflare" as AIProviderName, modelName, sdk, { baseURL, apiKey });
 
     logger.debug("Cloudflare Workers AI Provider initialized", {
       modelName: this.modelName,
       providerName: this.providerName,
-      baseURL: this.baseURL,
+      baseURL: this.config.baseURL,
     });
   }
 
-  protected async executeStream(
-    options: StreamOptions,
-    _analysisSchema?: ValidationSchema,
-  ): Promise<StreamResult> {
-    return withClientStreamSpan(
-      {
-        name: "neurolink.provider.stream",
-        tracer: tracers.provider,
-        attributes: {
-          [ATTR.GEN_AI_SYSTEM]: "cloudflare",
-          [ATTR.GEN_AI_MODEL]: this.modelName,
-          [ATTR.GEN_AI_OPERATION]: "stream",
-          [ATTR.NL_STREAM_MODE]: true,
-        },
-      },
-      async () => this.executeStreamInner(options),
-      (r) => r.stream,
-      (r, wrapped) => ({ ...r, stream: wrapped }),
-    );
-  }
-
-  private async executeStreamInner(
-    options: StreamOptions,
-  ): Promise<StreamResult> {
-    this.validateStreamOptions(options);
-
-    const startTime = Date.now();
-    const timeout = this.getTimeout(options);
-    const timeoutController = createTimeoutController(
-      timeout,
-      this.providerName,
-      "stream",
-    );
-
-    try {
-      const shouldUseTools = !options.disableTools && this.supportsTools();
-      const tools = shouldUseTools
-        ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
-        : {};
-
-      const messages = await this.buildMessagesForStream(options);
-      const model = await this.getAISDKModelWithMiddleware(options);
-
-      const result = await streamText({
-        model,
-        messages,
-        temperature: options.temperature,
-        maxOutputTokens: options.maxTokens,
-        tools,
-        stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
-        toolChoice: resolveToolChoice(options, tools, shouldUseTools),
-        abortSignal: composeAbortSignals(
-          options.abortSignal,
-          timeoutController?.controller.signal,
-        ),
-        experimental_telemetry:
-          this.telemetryHandler.getTelemetryConfig(options),
-        experimental_repairToolCall: this.getToolCallRepairFn(options),
-        onStepFinish: ({ toolCalls, toolResults }) => {
-          emitToolEndFromStepFinish(
-            this.neurolink?.getEventEmitter(),
-            toolResults as Array<{
-              toolName: string;
-              output?: unknown;
-              result?: unknown;
-              error?: string;
-            }>,
-          );
-          this.handleToolExecutionStorage(
-            toolCalls,
-            toolResults,
-            options,
-            new Date(),
-          ).catch((error: unknown) => {
-            logger.warn(
-              "[CloudflareProvider] Failed to store tool executions",
-              {
-                provider: this.providerName,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
-          });
-        },
-      });
-
-      timeoutController?.cleanup();
-      const transformedStream = this.createTextStream(result);
-      const analyticsPromise = streamAnalyticsCollector.createAnalytics(
-        this.providerName,
-        this.modelName,
-        toAnalyticsStreamResult(result),
-        Date.now() - startTime,
-        {
-          requestId: `cloudflare-stream-${Date.now()}`,
-          streamingMode: true,
-        },
-      );
-
-      return {
-        stream: transformedStream,
-        provider: this.providerName,
-        model: this.modelName,
-        analytics: analyticsPromise,
-        metadata: { startTime, streamId: `cloudflare-${Date.now()}` },
-      };
-    } catch (error) {
-      timeoutController?.cleanup();
-      throw this.handleProviderError(error);
-    }
-  }
-
   protected getProviderName(): AIProviderName {
-    return this.providerName;
+    return "cloudflare" as AIProviderName;
   }
 
   protected getDefaultModel(): string {
     return getDefaultCloudflareModel();
   }
 
-  protected getAISDKModel(): LanguageModel {
-    return this.model;
+  protected getFallbackModelName(): string {
+    return CloudflareModels.LLAMA_3_1_8B_FAST;
+  }
+
+  protected getFallbackModels(): string[] {
+    return [
+      CloudflareModels.LLAMA_3_3_70B_FAST,
+      CloudflareModels.LLAMA_3_1_70B_INSTRUCT,
+      CloudflareModels.LLAMA_3_1_8B_FAST,
+      CloudflareModels.LLAMA_3_2_11B_VISION,
+      CloudflareModels.MISTRAL_7B_INSTRUCT_V0_2,
+      CloudflareModels.QWEN_1P5_14B_CHAT_AWQ,
+    ];
   }
 
   protected formatProviderError(error: unknown): Error {
@@ -273,19 +142,4 @@ export class CloudflareProvider extends BaseProvider {
       "cloudflare",
     );
   }
-
-  async validateConfiguration(): Promise<boolean> {
-    return typeof this.apiKey === "string" && this.apiKey.trim().length > 0;
-  }
-
-  getConfiguration() {
-    return {
-      provider: this.providerName,
-      model: this.modelName,
-      defaultModel: getDefaultCloudflareModel(),
-      baseURL: this.baseURL,
-    };
-  }
 }
-
-export default CloudflareProvider;
