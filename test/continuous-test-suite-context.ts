@@ -3542,6 +3542,14 @@ async function test_6_14_providers_capture_and_pass_error(): Promise<void> {
     "providers/openRouter",
     "providers/anthropicBaseProvider",
   ];
+  // Native-base providers (those that `extends OpenAIChatCompletionsProvider`)
+  // capture the provider error centrally in the shared base rather than in
+  // their own file — the AI-SDK-era per-provider streamText capture moved there
+  // during the native migration. Assert the capture on the base for those, and
+  // on their own file for self-streaming providers (openRouter, anthropic).
+  const baseSrc = await fs
+    .readFile("dist/lib/providers/openaiChatCompletionsBase.js", "utf-8")
+    .catch(() => "");
   for (const t of targets) {
     const testName = `6.14 — ${t} captures onError and passes underlyingError to NoOutput helpers`;
     const path = `dist/lib/${t}.js`;
@@ -3556,11 +3564,13 @@ async function test_6_14_providers_capture_and_pass_error(): Promise<void> {
       );
       continue;
     }
+    const delegatesToBase = /extends\s+OpenAIChatCompletionsProvider/.test(src);
+    const captureSrc = delegatesToBase ? baseSrc : src;
     const capturesOnError =
-      /capturedProviderError\s*=\s*(?:event\.error|error)/.test(src);
+      /capturedProviderError\s*=\s*(?:event\.error|error)/.test(captureSrc);
     const passesToHelper =
       /capturedProviderError(?:\s*\)|\s*,)|getCapturedProviderError\s*\?\s*\.\s*\(/.test(
-        src,
+        captureSrc,
       );
     if (capturesOnError && passesToHelper) {
       recordIssue06(
@@ -3572,7 +3582,7 @@ async function test_6_14_providers_capture_and_pass_error(): Promise<void> {
       recordIssue06(
         testName,
         "FAIL",
-        `bug-confirmed: capture=${capturesOnError}, passes=${passesToHelper}`,
+        `bug-confirmed: delegatesToBase=${delegatesToBase}, capture=${capturesOnError}, passes=${passesToHelper}`,
       );
     }
   }
