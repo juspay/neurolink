@@ -383,6 +383,59 @@ export const mapNeuroLinkToolChoice = (
   return undefined;
 };
 
+// OpenAI-compatible endpoints (OpenAI, DeepSeek, …) reject
+// `response_format: { type: "json_object" }` unless the literal word "json"
+// appears somewhere in the messages. The `@ai-sdk/openai-compatible` wrapper
+// this client replaced injected that instruction for us; the native client
+// must do the same or json_object requests 400.
+export const messagesContainJsonWord = (
+  messages: ReadonlyArray<OpenAICompatChatMessage>,
+): boolean =>
+  messages.some((m) => {
+    const c = m.content;
+    if (typeof c === "string") {
+      return /\bjson\b/i.test(c);
+    }
+    if (Array.isArray(c)) {
+      return c.some(
+        (part) =>
+          typeof (part as { text?: unknown })?.text === "string" &&
+          /\bjson\b/i.test((part as { text: string }).text),
+      );
+    }
+    return false;
+  });
+
+// Prepends a minimal JSON-instruction system message to the FINAL wire body
+// when json_object mode is requested and its messages don't already mention
+// "json". Operates on the post-`adjustRequestBody` body so the guard reflects
+// whatever a subclass left on the wire (response_format/messages it may have
+// rewritten), not an intermediate state. No-op otherwise.
+export const ensureJsonWordInBody = (
+  body: OpenAICompatChatRequest,
+): OpenAICompatChatRequest =>
+  body.response_format?.type === "json_object" &&
+  !messagesContainJsonWord(body.messages)
+    ? {
+        ...body,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Respond with valid JSON only — no prose, no markdown fencing.",
+          },
+          ...body.messages,
+        ],
+      }
+    : body;
+
+// Reasoning-class OpenAI models (o-series, gpt-5+) reject `max_tokens` and
+// require `max_completion_tokens`. The OpenAI + Azure providers use this to
+// rename the field on the wire body; third-party OpenAI-compatible endpoints
+// keep `max_tokens`, so it is opt-in per provider, never applied by default.
+export const requiresMaxCompletionTokens = (modelId: string): boolean =>
+  /^(o\d|gpt-5)/i.test(modelId.replace(/^.*\//, ""));
+
 export const buildBody = (
   args: OpenAICompatBuildBodyArgs,
 ): OpenAICompatChatRequest => {

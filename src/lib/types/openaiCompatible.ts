@@ -272,7 +272,6 @@ export type StreamLoopArgs = {
   maxSteps: number;
   modelId: string;
   url: string;
-  apiKey: string;
   fetchImpl: typeof fetch;
   abortSignal: AbortSignal | undefined;
   options: StreamOptions;

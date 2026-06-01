@@ -30,9 +30,11 @@ import type {
   OpenAICompatBuildBodyArgs,
   OpenAICompatChatChoice,
   OpenAICompatChatMessage,
+  OpenAICompatChatRequest,
   OpenAICompatChatResponse,
   OpenAICompatChatTool,
   OpenAICompatMessage,
+  OpenAICompatResponseFormat,
   OpenAICompatSSEResult,
   OpenAICompatStreamChunk,
   OpenAICompatStreamLifecycleListeners,
@@ -68,6 +70,7 @@ import {
   buildToolsForOpenAI,
   createChunkQueue,
   createDeferredAnalytics,
+  ensureJsonWordInBody,
   mapNeuroLinkToolChoice,
   mergeUsage,
   messageBuilderToOpenAI,
@@ -137,6 +140,36 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
   }
 
   /**
+   * Hook to adjust the OpenAI `response_format` after it's converted from the
+   * V3 responseFormat (non-streaming `doGenerate` path). Default identity.
+   * Override for providers that don't support a given format type — e.g.
+   * DeepSeek rejects `response_format: { type: "json_schema" }` ("This
+   * response_format type is unavailable now"); the `@ai-sdk/openai-compatible`
+   * path this replaced declared `supportsStructuredOutputs: false`, which
+   * downgraded `json_schema` to `json_object`. Subclasses replicate that here.
+   */
+  protected adjustResponseFormat(
+    rf: OpenAICompatResponseFormat | undefined,
+    _modelId: string,
+  ): OpenAICompatResponseFormat | undefined {
+    return rf;
+  }
+
+  /**
+   * Hook to adjust the fully-built wire request body before it is sent, on
+   * both the streaming and non-streaming paths. Default identity. Override for
+   * provider/model quirks that can't be expressed through buildBody options —
+   * e.g. Azure's newer reasoning deployments (o-series, gpt-5+) reject
+   * `max_tokens` and require `max_completion_tokens`.
+   */
+  protected adjustRequestBody(
+    body: OpenAICompatChatRequest,
+    _modelId: string,
+  ): OpenAICompatChatRequest {
+    return body;
+  }
+
+  /**
    * Hook called once at the start of every `executeStream` invocation.
    * Return lifecycle listeners (onUsage / onFinish) to receive deferred
    * analytics events as the stream progresses. Default returns undefined
@@ -156,6 +189,24 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
    */
   protected shouldAutoDiscoverModel(): boolean {
     return true;
+  }
+
+  /**
+   * Builds the chat-completions request URL for a model. Default is
+   * `${baseURL}/chat/completions`. Override for providers with a different
+   * routing scheme (e.g. Azure's deployment-based path + api-version query).
+   */
+  protected getChatCompletionsURL(_modelId: string): string {
+    return `${stripTrailingSlash(this.config.baseURL)}/chat/completions`;
+  }
+
+  /**
+   * Auth headers merged into every request. Default is a Bearer token.
+   * Override for providers that authenticate differently (e.g. Azure, which
+   * uses an `api-key` header instead of `Authorization: Bearer`).
+   */
+  protected getAuthHeaders(): Record<string, string> {
+    return { Authorization: `Bearer ${this.config.apiKey}` };
   }
 
   // ===========================================================================
@@ -210,11 +261,13 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
   }
 
   private buildDelegatingModel(modelId: string): unknown {
-    const url = `${stripTrailingSlash(this.config.baseURL)}/chat/completions`;
+    const url = this.getChatCompletionsURL(modelId);
     const fetchImpl = createProxyFetch();
-    const apiKey = this.config.apiKey;
+    const getAuthHeaders = this.getAuthHeaders.bind(this);
     const providerName = this.providerName;
     const adjustBuildBodyOptions = this.adjustBuildBodyOptions.bind(this);
+    const adjustResponseFormat = this.adjustResponseFormat.bind(this);
+    const adjustRequestBody = this.adjustRequestBody.bind(this);
     const getTimeoutForOptions = (
       opts: Record<string, unknown> | undefined,
     ): number => this.getTimeout((opts ?? {}) as never);
@@ -245,34 +298,43 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           };
         } & Record<string, unknown>,
       ) => {
-        const messages = messageBuilderToOpenAI(
+        const baseMessages = messageBuilderToOpenAI(
           options.prompt as OpenAICompatMessage[],
         );
-        const body = buildBody({
-          modelId,
-          messages,
-          options: adjustBuildBodyOptions(modelId, {
-            maxTokens: options.maxOutputTokens,
-            temperature: options.temperature,
-            topP: options.topP,
-            presencePenalty: options.presencePenalty,
-            frequencyPenalty: options.frequencyPenalty,
-            seed: options.seed,
-            stopSequences: options.stopSequences,
-          }),
-          tools: v3ToolsToOpenAI(options.tools),
-          ...(options.toolChoice
-            ? { toolChoice: v3ToolChoiceToOpenAI(options.toolChoice) }
-            : {}),
-          streaming: false,
-          ...(options.responseFormat
-            ? {
-                responseFormat: v3ResponseFormatToOpenAI(
-                  options.responseFormat,
-                ),
-              }
-            : {}),
-        });
+        const responseFormat = options.responseFormat
+          ? adjustResponseFormat(
+              v3ResponseFormatToOpenAI(options.responseFormat),
+              modelId,
+            )
+          : undefined;
+        // ensureJsonWordInBody runs LAST — on the body after adjustRequestBody —
+        // so the json_object word guard reflects whatever a subclass left on
+        // the wire (it may rewrite response_format/messages), not an
+        // intermediate state.
+        const body = ensureJsonWordInBody(
+          adjustRequestBody(
+            buildBody({
+              modelId,
+              messages: baseMessages,
+              options: adjustBuildBodyOptions(modelId, {
+                maxTokens: options.maxOutputTokens,
+                temperature: options.temperature,
+                topP: options.topP,
+                presencePenalty: options.presencePenalty,
+                frequencyPenalty: options.frequencyPenalty,
+                seed: options.seed,
+                stopSequences: options.stopSequences,
+              }),
+              tools: v3ToolsToOpenAI(options.tools),
+              ...(options.toolChoice
+                ? { toolChoice: v3ToolChoiceToOpenAI(options.toolChoice) }
+                : {}),
+              streaming: false,
+              ...(responseFormat ? { responseFormat } : {}),
+            }),
+            modelId,
+          ),
+        );
         const timeoutController = createTimeoutController(
           getTimeoutForOptions(options),
           providerName,
@@ -288,7 +350,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
+              ...getAuthHeaders(),
             },
             body: JSON.stringify(body),
             ...(composedSignal ? { signal: composedSignal } : {}),
@@ -415,7 +477,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       throw setupErr;
     }
 
-    const url = `${stripTrailingSlash(this.config.baseURL)}/chat/completions`;
+    const url = this.getChatCompletionsURL(modelId);
     const fetchImpl = createProxyFetch();
 
     const maxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
@@ -435,7 +497,6 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       maxSteps,
       modelId,
       url,
-      apiKey: this.config.apiKey,
       fetchImpl,
       abortSignal,
       options,
@@ -601,7 +662,6 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       maxSteps,
       modelId,
       url,
-      apiKey,
       fetchImpl,
       abortSignal,
       options,
@@ -625,7 +685,6 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         const stepResult = await this.streamOneStep({
           modelId,
           url,
-          apiKey,
           fetchImpl,
           abortSignal,
           options,
@@ -679,7 +738,6 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
   private async streamOneStep(args: {
     modelId: string;
     url: string;
-    apiKey: string;
     fetchImpl: typeof fetch;
     abortSignal: AbortSignal | undefined;
     options: StreamOptions;
@@ -688,21 +746,26 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     openAIToolChoice: OpenAICompatToolChoiceWire | undefined;
     pushChunk: (chunk: OpenAICompatStreamChunk) => void;
   }): Promise<OpenAICompatSSEResult> {
-    const body = buildBody({
-      modelId: args.modelId,
-      messages: args.conversation,
-      options: this.adjustBuildBodyOptions(args.modelId, args.options),
-      tools: args.openAITools,
-      ...(args.openAIToolChoice !== undefined
-        ? { toolChoice: args.openAIToolChoice }
-        : {}),
-      streaming: true,
-    });
+    const body = ensureJsonWordInBody(
+      this.adjustRequestBody(
+        buildBody({
+          modelId: args.modelId,
+          messages: args.conversation,
+          options: this.adjustBuildBodyOptions(args.modelId, args.options),
+          tools: args.openAITools,
+          ...(args.openAIToolChoice !== undefined
+            ? { toolChoice: args.openAIToolChoice }
+            : {}),
+          streaming: true,
+        }),
+        args.modelId,
+      ),
+    );
     const res = await args.fetchImpl(args.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${args.apiKey}`,
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify(body),
       ...(args.abortSignal ? { signal: args.abortSignal } : {}),
@@ -848,7 +911,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       const t = setTimeout(() => controller.abort(), 5000);
       const response = await proxyFetch(modelsUrl, {
         headers: {
-          Authorization: `Bearer ${this.config.apiKey}`,
+          ...this.getAuthHeaders(),
           "Content-Type": "application/json",
         },
         signal: controller.signal,
