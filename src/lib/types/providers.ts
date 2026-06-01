@@ -190,6 +190,11 @@ export type NeurolinkCredentials = {
     resourceName?: string;
     deploymentName?: string;
     apiVersion?: string;
+    // Force `max_completion_tokens` instead of `max_tokens` (reasoning / o-series
+    // / gpt-5+ deployments reject max_tokens). Deployment names are user-defined,
+    // so set this explicitly when the name doesn't reveal the model. Unset ⇒ a
+    // best-effort deployment-name heuristic is used.
+    useMaxCompletionTokens?: boolean;
   };
   mistral?: { apiKey?: string };
   huggingFace?: { apiKey?: string; baseURL?: string };

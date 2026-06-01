@@ -1,45 +1,50 @@
-import { createAzure } from "@ai-sdk/azure";
 import { type AIProviderName, APIVersions } from "../constants/enums.js";
-import { BaseProvider } from "../core/baseProvider.js";
-import { DEFAULT_MAX_STEPS } from "../core/constants.js";
-import type { NeuroLink } from "../neurolink.js";
-import { createProxyFetch } from "../proxy/proxyFetch.js";
-import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
-import type {
-  UnknownRecord,
-  StepFinishEvent,
-  StreamOptions,
-  StreamResult,
-  NeurolinkCredentials,
-} from "../types/index.js";
 import {
   AuthenticationError,
   NetworkError,
   ProviderError,
 } from "../types/index.js";
-
+import type {
+  NeurolinkCredentials,
+  OpenAICompatChatRequest,
+  UnknownRecord,
+} from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import {
   createAzureAPIKeyConfig,
   createAzureEndpointConfig,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import {
-  composeAbortSignals,
-  createTimeoutController,
-  TimeoutError,
-} from "../utils/timeout.js";
-import { resolveToolChoice } from "../utils/toolChoice.js";
-import type { LanguageModel, Tool } from "../types/index.js";
-import { stepCountIs } from "../utils/tool.js";
-import { streamText } from "../utils/generation.js";
+import { TimeoutError } from "../utils/timeout.js";
+import { transformParamsForLogging } from "../utils/transformationUtils.js";
+import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
+import { requiresMaxCompletionTokens } from "./openaiChatCompletionsClient.js";
 
-export class AzureOpenAIProvider extends BaseProvider {
-  private apiKey: string;
-  private resourceName: string;
-  private deployment: string;
-  private apiVersion: string;
-  private azureProvider: ReturnType<typeof createAzure>;
+/**
+ * Azure OpenAI Provider — direct HTTP, no AI SDK.
+ *
+ * Supports both classic Azure OpenAI Service endpoints
+ * ("*.openai.azure.com", "*.cognitiveservices.azure.com") and the newer
+ * Azure AI Foundry endpoints ("*.services.ai.azure.com").
+ *
+ * All request/stream/tool-loop orchestration lives in
+ * `OpenAIChatCompletionsProvider`; this class overrides the URL builder and
+ * auth headers to accommodate Azure's deployment-based routing and
+ * `api-key` header (rather than Bearer tokens).
+ *
+ * @see https://learn.microsoft.com/azure/cognitive-services/openai/
+ */
+export class AzureOpenAIProvider extends OpenAIChatCompletionsProvider {
+  // Azure-specific routing state resolved once in the constructor.
+  protected readonly azureDeployment: string;
+  protected readonly azureApiVersion: string;
+  // Parsed from the endpoint — mutually exclusive: either resourceName (for
+  // classic hosts) or foundryBaseURL (for AI Foundry) is non-empty.
+  protected readonly azureResourceOrigin: string;
+  protected readonly azureDeploymentPathPrefix: string;
+  // Explicit `max_completion_tokens` capability. `undefined` ⇒ fall back to the
+  // deployment-name heuristic in adjustRequestBody().
+  protected readonly useMaxCompletionTokensOverride?: boolean;
 
   constructor(
     modelName?: string,
@@ -47,14 +52,36 @@ export class AzureOpenAIProvider extends BaseProvider {
     _region?: string,
     credentials?: NeurolinkCredentials["azure"],
   ) {
-    super(modelName, "azure" as AIProviderName, sdk as NeuroLink | undefined);
+    const apiKey =
+      credentials?.apiKey || process.env.AZURE_OPENAI_API_KEY || "";
 
-    this.apiKey = credentials?.apiKey || process.env.AZURE_OPENAI_API_KEY || "";
+    // -----------------------------------------------------------------------
+    // Parse the AZURE_OPENAI_ENDPOINT environment variable (or credentials)
+    // into the pieces needed to build deployment-based chat completions URLs.
+    //
+    // Two supported endpoint formats:
+    //
+    //  1. Classic Azure OpenAI / Cognitive Services:
+    //       https://<resource>.openai.azure.com
+    //       https://<resource>.cognitiveservices.azure.com
+    //     The @ai-sdk/azure tradition was to pass the bare resource subdomain
+    //     and let the SDK reconstruct the full URL.  We instead keep the full
+    //     origin and emit the standard deployment path from it:
+    //       {origin}/openai/deployments/{deployment}/chat/completions
+    //
+    //  2. Azure AI Foundry:
+    //       https://<host>.services.ai.azure.com[/openai]
+    //     The host has no resource-name subdomain convention.  The operator
+    //     may or may not include the "/openai" path prefix; we normalise that.
+    //     Final URL pattern:
+    //       {origin}{normalisedPath}/deployments/{deployment}/chat/completions
+    //
+    // In both cases we pass the "resource origin" (scheme+host) as `baseURL`
+    // to super so that `getAvailableModels()` can still build a models URL
+    // from it if needed; `getChatCompletionsURL()` builds the real path.
+    // -----------------------------------------------------------------------
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT || "";
-    // Use URL parsing instead of string-replace so endpoints that already
-    // carry a path segment (e.g. "https://<host>/openai" — a valid Azure AI
-    // Foundry shape) don't end up duplicating it as "<host>/openai/openai".
-    // Tolerate missing scheme by prefixing https:// before parsing.
+
     let endpointUrl: URL | undefined;
     if (endpoint) {
       try {
@@ -65,109 +92,108 @@ export class AzureOpenAIProvider extends BaseProvider {
         endpointUrl = undefined;
       }
     }
+
     const endpointHost = endpointUrl?.hostname ?? "";
+    // Strip trailing slashes from the pathname; treat "/" as empty.
     const endpointPath =
       endpointUrl?.pathname && endpointUrl.pathname !== "/"
         ? endpointUrl.pathname.replace(/\/+$/, "")
         : "";
 
-    // Classic Azure OpenAI ("*.openai.azure.com") and Cognitive Services
-    // ("*.cognitiveservices.azure.com") endpoints encode the resource name as
-    // a subdomain that @ai-sdk/azure expects to receive verbatim. The newer
-    // Azure AI Foundry endpoint format ("*.services.ai.azure.com") does not
-    // round-trip through that subdomain rewrite, so passing the resource name
-    // would yield e.g. "<host>.services.ai.azure.com.openai.azure.com". For
-    // those hosts we hand the full URL back via baseURL instead.
+    // Classic hosts encode the resource name as a subdomain.
     const isClassicAzureHost = /\.(openai|cognitiveservices)\.azure\.com$/.test(
       endpointHost,
     );
-    const envResourceName = isClassicAzureHost
-      ? endpointHost
-          .replace(".openai.azure.com", "")
-          .replace(".cognitiveservices.azure.com", "")
-      : "";
-    this.resourceName = credentials?.resourceName || envResourceName;
-    // For Azure AI Foundry the SDK still routes to the OpenAI-compatible API
-    // (deployments/{deployment}/chat/completions); the `/openai` path suffix
-    // mirrors what the SDK derives in classic mode
-    // (`https://${resource}.openai.azure.com/openai`). Reuse the path the
-    // operator already supplied if it already terminates in `/openai` *or*
-    // a versioned form like `/openai/v1`; otherwise append `/openai`. Never
-    // duplicate.
-    const hasOpenAIPathSuffix = /\/openai(?:\/v\d+)?$/.test(endpointPath);
-    const baseURLForFoundry =
-      !this.resourceName && endpointUrl
-        ? `${endpointUrl.origin}${
-            hasOpenAIPathSuffix ? endpointPath : `${endpointPath}/openai`
-          }`
-        : undefined;
-    this.deployment =
+
+    // For classic hosts the deployment URL path always starts with "/openai".
+    // For Foundry hosts we reuse whatever the operator supplied, appending
+    // "/openai" only when the path doesn't already end with it (or a
+    // versioned variant like "/openai/v1").
+    let deploymentPathPrefix: string;
+    if (isClassicAzureHost) {
+      deploymentPathPrefix = "/openai";
+    } else {
+      const hasOpenAIPathSuffix = /\/openai(?:\/v\d+)?$/.test(endpointPath);
+      deploymentPathPrefix = hasOpenAIPathSuffix
+        ? endpointPath
+        : `${endpointPath}/openai`;
+    }
+
+    const resourceOrigin = endpointUrl?.origin ?? "";
+
+    const deployment =
       credentials?.deploymentName ||
       modelName ||
       process.env.AZURE_OPENAI_MODEL ||
       process.env.AZURE_OPENAI_DEPLOYMENT ||
       process.env.AZURE_OPENAI_DEPLOYMENT_ID ||
       "gpt-4o";
-    this.apiVersion =
+
+    const apiVersion =
       credentials?.apiVersion ||
       process.env.AZURE_API_VERSION ||
       APIVersions.AZURE_LATEST;
 
-    // Configuration validation - now using consolidated utility
-    if (!this.apiKey) {
+    // Deployment names are user-defined, so a model-name heuristic can't
+    // reliably tell whether the backing model needs max_completion_tokens.
+    // Prefer an explicit signal (credentials or env); fall back to the
+    // heuristic only when unset.
+    const envMaxCompletion = process.env.AZURE_OPENAI_USE_MAX_COMPLETION_TOKENS;
+    const maxCompletionOverride =
+      credentials?.useMaxCompletionTokens ??
+      (envMaxCompletion === undefined
+        ? undefined
+        : /^(1|true|yes)$/i.test(envMaxCompletion));
+
+    // Validate required credentials before committing.
+    if (!apiKey) {
       validateApiKey(createAzureAPIKeyConfig());
     }
-    if (!this.resourceName && !baseURLForFoundry) {
+    if (!resourceOrigin) {
       validateApiKey(createAzureEndpointConfig());
     }
 
-    // Create the Azure provider instance with proxy support.
-    // For classic *.openai.azure.com / *.cognitiveservices.azure.com hosts we
-    // pass `resourceName`, which @ai-sdk/azure rewrites into the canonical
-    // subdomain. For Azure AI Foundry hosts ("*.services.ai.azure.com") we
-    // pass the full URL via `baseURL` so no rewrite happens.
-    // useDeploymentBasedUrls is required because @ai-sdk/azure v3+ defaults to
-    // the /v1/ URL format, but most Azure deployments still require the legacy
-    // /deployments/{deployment}/ URL pattern.
-    this.azureProvider = baseURLForFoundry
-      ? createAzure({
-          baseURL: baseURLForFoundry,
-          apiKey: this.apiKey,
-          apiVersion: this.apiVersion,
-          useDeploymentBasedUrls: true,
-          fetch: createProxyFetch(),
-        })
-      : createAzure({
-          resourceName: this.resourceName,
-          apiKey: this.apiKey,
-          apiVersion: this.apiVersion,
-          useDeploymentBasedUrls: true,
-          fetch: createProxyFetch(),
-        });
-
-    logger.debug("Azure Vercel Provider initialized", {
-      deployment: this.deployment,
-      resourceName: this.resourceName,
-      provider: "azure-vercel",
+    // Pass the resource origin as baseURL so the base class can construct
+    // auxiliary URLs (e.g. /models) from it when needed.
+    super("azure" as AIProviderName, modelName, sdk, {
+      baseURL: resourceOrigin,
+      apiKey,
     });
+
+    this.azureDeployment = deployment;
+    this.azureApiVersion = apiVersion;
+    this.azureResourceOrigin = resourceOrigin;
+    this.azureDeploymentPathPrefix = deploymentPathPrefix;
+    this.useMaxCompletionTokensOverride = maxCompletionOverride;
+
+    if (logger.shouldLog("debug")) {
+      logger.debug(
+        "Azure OpenAI Provider initialized",
+        transformParamsForLogging({
+          deployment: this.azureDeployment,
+          resourceOrigin: this.azureResourceOrigin,
+          deploymentPathPrefix: this.azureDeploymentPathPrefix,
+          apiVersion: this.azureApiVersion,
+          provider: "azure",
+        }),
+      );
+    }
   }
 
-  public getProviderName(): AIProviderName {
+  // ===========================================================================
+  // Abstract-hook implementations
+  // ===========================================================================
+
+  protected getProviderName(): AIProviderName {
     return "azure" as AIProviderName;
   }
 
-  public getDefaultModel(): string {
-    return this.deployment;
-  }
-
   /**
-   * Returns the Vercel AI SDK model instance for Azure OpenAI.
-   * Uses .chat() explicitly because @ai-sdk/azure v3+ defaults the bare
-   * provider() call to the Responses API, which many Azure deployments
-   * do not support yet.
+   * The "default model" for Azure is the deployment name — it's the
+   * identifier callers pass to select a deployment.
    */
-  public getAISDKModel(): LanguageModel {
-    return this.azureProvider.chat(this.deployment);
+  protected getDefaultModel(): string {
+    return this.azureDeployment;
   }
 
   protected formatProviderError(error: unknown): Error {
@@ -192,119 +218,65 @@ export class AzureOpenAIProvider extends BaseProvider {
     return new ProviderError(`Azure OpenAI error: ${message}`, "azure");
   }
 
-  // executeGenerate removed - BaseProvider handles all generation with tools
+  // ===========================================================================
+  // New overridable hooks (provided by the base-enhancement branch)
+  // ===========================================================================
 
-  protected async executeStream(
-    options: StreamOptions,
-    _analysisSchema?: unknown,
-  ): Promise<StreamResult> {
-    const timeout = this.getTimeout(options);
-    const timeoutController = createTimeoutController(
-      timeout,
-      this.providerName,
-      "stream",
+  /**
+   * Builds the full Azure deployment chat completions URL.
+   *
+   * Pattern:
+   *   {resourceOrigin}{deploymentPathPrefix}/deployments/{deployment}/chat/completions?api-version={apiVersion}
+   *
+   * Examples:
+   *   Classic:  https://myresource.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2025-04-01-preview
+   *   Foundry:  https://myhost.services.ai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2025-04-01-preview
+   */
+  protected getChatCompletionsURL(modelId: string): string {
+    // modelId is the deployment name when it has been resolved; fall back to
+    // the stored deployment when the base passes a generic placeholder.
+    const deployment = modelId || this.azureDeployment;
+    const prefix = this.azureDeploymentPathPrefix.replace(/\/+$/, "");
+    return (
+      `${this.azureResourceOrigin}${prefix}/deployments/${deployment}` +
+      `/chat/completions?api-version=${this.azureApiVersion}`
     );
+  }
 
-    try {
-      // Get tools - options.tools is pre-merged by BaseProvider.stream()
-      const shouldUseTools = !options.disableTools && this.supportsTools();
-      const tools = shouldUseTools
-        ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
-        : {};
+  /**
+   * Azure uses `api-key` rather than the standard `Authorization: Bearer`
+   * header expected by OpenAI-compatible endpoints.
+   */
+  protected getAuthHeaders(): Record<string, string> {
+    return { "api-key": this.config.apiKey };
+  }
 
-      logger.debug("Azure Stream - Tool Loading Debug", {
-        shouldUseTools,
-        toolCount: Object.keys(tools).length,
-        toolNames: Object.keys(tools).slice(0, 10),
-        disableTools: options.disableTools,
-        supportsTools: this.supportsTools(),
-      });
-
-      // Build message array from options with multimodal support
-      // Using protected helper from BaseProvider to eliminate code duplication
-      const messages = await this.buildMessagesForStream(options);
-
-      const model = await this.getAISDKModelWithMiddleware(options);
-      // Reviewer follow-up: capture upstream provider errors via onError
-      // so the post-stream NoOutput sentinel carries the real cause.
-      let capturedProviderError: unknown;
-      const stream = await streamText({
-        model,
-        messages: messages,
-        ...(options.maxTokens !== null && options.maxTokens !== undefined
-          ? { maxOutputTokens: options.maxTokens }
-          : {}),
-        ...(options.temperature !== null && options.temperature !== undefined
-          ? { temperature: options.temperature }
-          : {}),
-        tools,
-        toolChoice: resolveToolChoice(options, tools, shouldUseTools),
-        stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
-        abortSignal: composeAbortSignals(
-          options.abortSignal,
-          timeoutController?.controller.signal,
-        ),
-        experimental_telemetry:
-          this.telemetryHandler.getTelemetryConfig(options),
-        experimental_repairToolCall: this.getToolCallRepairFn(options),
-        onError: (event: { error: unknown }) => {
-          capturedProviderError = event.error;
-          logger.error("AzureOpenAI: Stream error", {
-            error:
-              event.error instanceof Error
-                ? event.error.message
-                : String(event.error),
-          });
-        },
-        onStepFinish: (event: StepFinishEvent) => {
-          emitToolEndFromStepFinish(
-            this.neurolink?.getEventEmitter(),
-            event.toolResults as Array<{
-              toolName: string;
-              output?: unknown;
-              result?: unknown;
-              error?: string;
-            }>,
-          );
-          this.handleToolExecutionStorage(
-            [...event.toolCalls],
-            [...event.toolResults],
-            options,
-            new Date(),
-          ).catch((error: unknown) => {
-            logger.warn(
-              "[AzureOpenaiProvider] Failed to store tool executions",
-              {
-                provider: this.providerName,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
-          });
-        },
-      });
-
-      timeoutController?.cleanup();
-
-      // Transform string stream to content object stream using BaseProvider method
-      const transformedStream = this.createTextStream(
-        stream,
-        () => capturedProviderError,
-      );
-
+  /**
+   * Newer Azure deployments (o-series, gpt-5+) reject `max_tokens` and require
+   * `max_completion_tokens`. The `@ai-sdk/openai` path this migration replaced
+   * renamed the field automatically; replicate that here.
+   *
+   * Capability is taken from the explicit `useMaxCompletionTokens` override
+   * (credentials / `AZURE_OPENAI_USE_MAX_COMPLETION_TOKENS`) when set — Azure
+   * deployment names are user-defined, so a `chat-prod` gpt-5 deployment can't
+   * be detected from the name. When unset, fall back to a best-effort
+   * model-name heuristic for the common case where the deployment echoes the
+   * model (e.g. `gpt-5.4`).
+   */
+  protected adjustRequestBody(
+    body: OpenAICompatChatRequest,
+    modelId: string,
+  ): OpenAICompatChatRequest {
+    const needsMaxCompletion =
+      this.useMaxCompletionTokensOverride ??
+      requiresMaxCompletionTokens(modelId);
+    if (body.max_tokens !== undefined && needsMaxCompletion) {
       return {
-        stream: transformedStream,
-        provider: "azure",
-        model: this.deployment,
-        metadata: {
-          streamId: `azure-${Date.now()}`,
-          startTime: Date.now(),
-        },
+        ...body,
+        max_completion_tokens: body.max_tokens,
+        max_tokens: undefined,
       };
-    } catch (error: unknown) {
-      timeoutController?.cleanup();
-      throw this.handleProviderError(error);
     }
+    return body;
   }
 }
-
-export default AzureOpenAIProvider;
