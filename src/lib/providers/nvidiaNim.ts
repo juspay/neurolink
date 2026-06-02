@@ -1,20 +1,10 @@
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { AIProviderName } from "../constants/enums.js";
 import { NvidiaNimModels } from "../constants/enums.js";
-import { BaseProvider } from "../core/baseProvider.js";
-import { DEFAULT_MAX_STEPS } from "../core/constants.js";
-import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
-import type { NeuroLink } from "../neurolink.js";
-import { isNeuroLink } from "../neurolink.js";
-import { createProxyFetch, maskProxyUrl } from "../proxy/proxyFetch.js";
-import { tracers, ATTR, withClientStreamSpan } from "../telemetry/index.js";
 import type {
-  UnknownRecord,
   NeurolinkCredentials,
   NvidiaNimExtraBody,
-  StreamOptions,
-  StreamResult,
-  ValidationSchema,
+  OpenAICompatBuildBodyArgs,
+  UnknownRecord,
 } from "../types/index.js";
 import {
   AuthenticationError,
@@ -29,17 +19,8 @@ import {
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import {
-  composeAbortSignals,
-  createTimeoutController,
-  TimeoutError,
-} from "../utils/timeout.js";
-import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
-import { resolveToolChoice } from "../utils/toolChoice.js";
-import { toAnalyticsStreamResult } from "./providerTypeUtils.js";
-import type { LanguageModel, Tool } from "../types/index.js";
-import { stepCountIs } from "../utils/tool.js";
-import { streamText } from "../utils/generation.js";
+import { TimeoutError } from "../utils/timeout.js";
+import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
 /**
  * Decide whether a NIM 400 response body is a rejection of the named
@@ -127,80 +108,6 @@ const stripFieldFromJsonBody = (
   }
 };
 
-const makeLoggingFetch = (provider: string): typeof fetch => {
-  const base = createProxyFetch();
-  return (async (input, init) => {
-    const url =
-      typeof input === "string"
-        ? input
-        : input instanceof URL
-          ? input.toString()
-          : input.url;
-    const reqSize =
-      init?.body && typeof init.body === "string" ? init.body.length : 0;
-    let response = await base(input, init);
-
-    // Generic NIM 400 retry-strip: works for BOTH generate and stream paths.
-    // NIM sometimes returns HTTP 400 when a model rejects `reasoning_budget`
-    // or `chat_template`. The stream path already retries by reconstructing
-    // its provider options; this fetch-level retry is the symmetric fix for
-    // generate (and any other transport that lands here).
-    //
-    // We require BOTH (a) the offending field name AND (b) a rejection
-    // keyword (unsupported / not supported / unknown / invalid /
-    // unrecognized / does not support) within 80 chars of it. Without the
-    // rejection-keyword guard, an unrelated 400 whose error body happened
-    // to mention `chat_template` (e.g. the user prompt got echoed back)
-    // would cause us to silently strip a field the user actually wanted
-    // sent, and either succeed for the wrong reason or fail with a
-    // misleading error.
-    if (
-      response.status === 400 &&
-      typeof init?.body === "string" &&
-      init.body.length > 0
-    ) {
-      const cloned = response.clone();
-      const body = await cloned.text().catch(() => "");
-      let retryBody: string | null = null;
-      let stripped: "reasoning_budget" | "chat_template" | null = null;
-      if (isNimFieldRejection(body, "reasoning_budget")) {
-        retryBody = stripFieldFromJsonBody(init.body, "reasoning_budget");
-        stripped = "reasoning_budget";
-      } else if (isNimFieldRejection(body, "chat_template")) {
-        retryBody = stripFieldFromJsonBody(init.body, "chat_template");
-        stripped = "chat_template";
-      }
-      if (retryBody !== null && stripped !== null) {
-        logger.warn(
-          `[${provider}] NIM rejected ${stripped}; retrying with field stripped`,
-        );
-        response = await base(input, { ...init, body: retryBody });
-      }
-    }
-
-    if (!response.ok) {
-      // If maskProxyUrl can't safely sanitize the URL (returns null), don't
-      // log the raw URL — that defeats the redaction. Use a placeholder so
-      // operators still get the warning without leaking credentials.
-      const safeUrl = maskProxyUrl(url) ?? "<redacted>";
-      if (process.env.NEUROLINK_DEBUG_HTTP === "1") {
-        const clone = response.clone();
-        const body = await clone.text().catch(() => "<unreadable>");
-        logger.warn(`[${provider}] upstream ${response.status}`, {
-          url: safeUrl,
-          body: body.slice(0, 800),
-          reqSize,
-        });
-      } else {
-        logger.warn(
-          `[${provider}] upstream ${response.status} url=${safeUrl} reqSize=${reqSize}`,
-        );
-      }
-    }
-    return response;
-  }) as typeof fetch;
-};
-
 const NVIDIA_NIM_DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1";
 
 const envInt = (k: string): number | undefined => {
@@ -262,23 +169,6 @@ const buildNvidiaNimExtraBody = (
   return extra;
 };
 
-const stripReasoningBudget = (body: NvidiaNimExtraBody): NvidiaNimExtraBody => {
-  const cloned: NvidiaNimExtraBody = { ...body };
-  if (cloned.chat_template_kwargs) {
-    const { reasoning_budget: _ignored, ...rest } = cloned.chat_template_kwargs;
-    cloned.chat_template_kwargs = rest;
-    if (Object.keys(cloned.chat_template_kwargs).length === 0) {
-      delete cloned.chat_template_kwargs;
-    }
-  }
-  return cloned;
-};
-
-const stripChatTemplate = (body: NvidiaNimExtraBody): NvidiaNimExtraBody => {
-  const { chat_template: _ignored, ...rest } = body;
-  return rest;
-};
-
 const getNimApiKey = (): string => {
   return validateApiKey(createNvidiaNimConfig());
 };
@@ -291,300 +181,83 @@ const getDefaultNimModel = (): string => {
 };
 
 /**
- * NVIDIA NIM Provider
- * Wraps NVIDIA's hosted (or self-hosted) inference endpoints via OpenAI-compat.
+ * NVIDIA NIM Provider — native HTTP+SSE, no AI SDK.
+ *
+ * Wraps NVIDIA's hosted (or self-hosted) inference endpoints.
  * Passes NIM-specific extras (top_k, min_p, repetition_penalty,
- * chat_template_kwargs.reasoning_budget) via providerOptions.openai.body.
- * Implements one-retry-on-400 to drop unsupported extras gracefully.
+ * chat_template_kwargs.reasoning_budget) via adjustBuildBodyOptions.
+ * reasoning_content surfacing is a pending base-client follow-up (not emitted natively yet); all other behavior is preserved.
+ *
+ * @see https://docs.api.nvidia.com/nim/reference/
  */
-export class NvidiaNimProvider extends BaseProvider {
-  private model: LanguageModel;
-  private apiKey: string;
-  private baseURL: string;
-
+export class NvidiaNimProvider extends OpenAIChatCompletionsProvider {
   constructor(
     modelName?: string,
     sdk?: unknown,
     _region?: string,
     credentials?: NeurolinkCredentials["nvidiaNim"],
   ) {
-    const validatedNeurolink = isNeuroLink(sdk) ? sdk : undefined;
-
-    super(
-      modelName,
-      "nvidia-nim" as AIProviderName,
-      validatedNeurolink as NeuroLink | undefined,
-    );
-
     // Trim the override before applying precedence. A blank/whitespace
     // `credentials.apiKey` should NOT bypass `getNimApiKey()` — that would
     // build a client with an unusable bearer token and fail at request time
     // with a confusing 401 instead of at construction time.
     const overrideApiKey = credentials?.apiKey?.trim();
-    this.apiKey =
+    const apiKey =
       overrideApiKey && overrideApiKey.length > 0
         ? overrideApiKey
         : getNimApiKey();
-    this.baseURL =
+    const baseURL =
       credentials?.baseURL ??
       process.env.NVIDIA_NIM_BASE_URL ??
       NVIDIA_NIM_DEFAULT_BASE_URL;
 
-    // We deliberately use `@ai-sdk/openai-compatible` rather than
-    // `@ai-sdk/openai`. Two upstream behaviors of `@ai-sdk/openai` break us:
-    //   1. It always sends `response_format: { type: "json_schema" }` when a
-    //      schema is provided. Most NIM-served chat models don't enforce
-    //      json_schema strictly — the schema goes through but `result.object`
-    //      stays empty because the SDK never gets the typed response back.
-    //   2. It does not parse the `reasoning_content` field that NIM-hosted
-    //      reasoning models (deepseek-r1, qwq, llama-nemotron-ultra) emit,
-    //      so chain-of-thought is silently dropped.
-    // `@ai-sdk/openai-compatible` honors `supportsStructuredOutputs: false`
-    // (falls back to `{ type: "json_object" }` and injects the schema into
-    // the prompt — works across the entire NIM model fleet) and parses both
-    // `choice.message.reasoning_content` and `delta.reasoning_content` into
-    // the SDK-standard `reasoning` part. NIM-specific extras (`min_tokens`,
-    // `chat_template_kwargs.reasoning_budget`, `chat_template`) are still
-    // injected via `providerOptions.openai.body` in `executeStreamInner`.
-    const nim = createOpenAICompatible({
-      name: "nvidia-nim",
-      apiKey: this.apiKey,
-      baseURL: this.baseURL,
-      fetch: makeLoggingFetch("nvidia-nim"),
-      supportsStructuredOutputs: false,
-      includeUsage: true,
-    });
-    this.model = nim.chatModel(this.modelName);
+    super("nvidia-nim" as AIProviderName, modelName, sdk, { baseURL, apiKey });
 
     logger.debug("NVIDIA NIM Provider initialized", {
       modelName: this.modelName,
       providerName: this.providerName,
-      baseURL: this.baseURL,
+      baseURL: this.config.baseURL,
     });
   }
 
-  protected async executeStream(
-    options: StreamOptions,
-    _analysisSchema?: ValidationSchema,
-  ): Promise<StreamResult> {
-    return withClientStreamSpan(
-      {
-        name: "neurolink.provider.stream",
-        tracer: tracers.provider,
-        attributes: {
-          [ATTR.GEN_AI_SYSTEM]: "nvidia-nim",
-          [ATTR.GEN_AI_MODEL]: this.modelName,
-          [ATTR.GEN_AI_OPERATION]: "stream",
-          [ATTR.NL_STREAM_MODE]: true,
-        },
-      },
-      async () => this.executeStreamInner(options),
-      (r) => r.stream,
-      (r, wrapped) => ({ ...r, stream: wrapped }),
-    );
-  }
-
-  private async executeStreamInner(
-    options: StreamOptions,
-  ): Promise<StreamResult> {
-    this.validateStreamOptions(options);
-
-    const startTime = Date.now();
-    const timeout = this.getTimeout(options);
-    const timeoutController = createTimeoutController(
-      timeout,
-      this.providerName,
-      "stream",
-    );
-
-    try {
-      const shouldUseTools = !options.disableTools && this.supportsTools();
-      const tools = shouldUseTools
-        ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
-        : {};
-
-      const messages = await this.buildMessagesForStream(options);
-      const model = await this.getAISDKModelWithMiddleware(options);
-
-      // Callers pass `thinkingLevel` directly on generate/stream options
-      // (matching Anthropic / Gemini 2.5+ / Gemini 3 conventions). Fall back
-      // to the legacy `thinkingConfig.thinkingLevel` shape for compatibility.
-      const tl =
-        (options as { thinkingLevel?: string }).thinkingLevel ??
-        options.thinkingConfig?.thinkingLevel;
-      const thinkingEnabled = tl !== undefined && tl !== "minimal";
-      let extraBody = buildNvidiaNimExtraBody(
-        thinkingEnabled,
-        options.maxTokens,
-      );
-
-      // Inline the retry-strip union — CLAUDE.md rule 2 forbids type aliases
-      // outside src/lib/types/. The two literals match the 400 error keys NIM
-      // returns for the only two extras we know how to drop and retry.
-      const callStream = (
-        body: NvidiaNimExtraBody,
-        stripped: Array<"reasoning_budget" | "chat_template"> = [],
-      ) =>
-        streamText({
-          model,
-          messages,
-          temperature: options.temperature,
-          maxOutputTokens: options.maxTokens,
-          tools,
-          stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
-          toolChoice: resolveToolChoice(options, tools, shouldUseTools),
-          abortSignal: composeAbortSignals(
-            options.abortSignal,
-            timeoutController?.controller.signal,
-          ),
-          providerOptions: (() => {
-            // StreamOptions doesn't formally type providerOptions but the
-            // upstream Vercel AI SDK accepts it. Read it via an indexed access
-            // and merge with NIM extras instead of overwriting any per-call
-            // openai.body.
-            const callerBase =
-              ((options as unknown as Record<string, unknown>)
-                .providerOptions as Record<string, unknown> | undefined) ?? {};
-            const callerOpenai =
-              (callerBase.openai as Record<string, unknown> | undefined) ?? {};
-            const callerBody =
-              (callerOpenai.body as Record<string, unknown> | undefined) ?? {};
-            // Per-call overrides win over env/NIM defaults — defaults first,
-            // overrides last. chat_template_kwargs is merged shallowly too so
-            // a request that only sets `reasoning_budget` doesn't drop the
-            // env-driven `thinking: true` flag (and vice versa).
-            const defaultsBody = body as unknown as Record<string, unknown>;
-            const mergedBody: Record<string, unknown> = {
-              ...defaultsBody,
-              ...callerBody,
-            };
-            const mergedKwargs: Record<string, unknown> = {
-              ...((defaultsBody.chat_template_kwargs as
-                | Record<string, unknown>
-                | undefined) ?? {}),
-              ...((callerBody.chat_template_kwargs as
-                | Record<string, unknown>
-                | undefined) ?? {}),
-            };
-            // Apply retry-strip AFTER merging so caller-supplied copies of
-            // the offending field are also dropped (otherwise the retry would
-            // re-send the field that NIM just rejected).
-            if (stripped.includes("chat_template")) {
-              delete mergedBody.chat_template;
-            }
-            if (stripped.includes("reasoning_budget")) {
-              delete mergedKwargs.reasoning_budget;
-            }
-            if (Object.keys(mergedKwargs).length > 0) {
-              mergedBody.chat_template_kwargs = mergedKwargs;
-            } else {
-              delete mergedBody.chat_template_kwargs;
-            }
-            if (
-              Object.keys(callerBase).length === 0 &&
-              Object.keys(mergedBody).length === 0
-            ) {
-              return undefined;
-            }
-            return {
-              ...callerBase,
-              openai: {
-                ...callerOpenai,
-                body: mergedBody,
-              },
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } as any;
-          })(),
-          experimental_telemetry:
-            this.telemetryHandler.getTelemetryConfig(options),
-          experimental_repairToolCall: this.getToolCallRepairFn(options),
-          onStepFinish: ({ toolCalls, toolResults }) => {
-            emitToolEndFromStepFinish(
-              this.neurolink?.getEventEmitter(),
-              toolResults as Array<{
-                toolName: string;
-                output?: unknown;
-                result?: unknown;
-                error?: string;
-              }>,
-            );
-            this.handleToolExecutionStorage(
-              toolCalls,
-              toolResults,
-              options,
-              new Date(),
-            ).catch((error: unknown) => {
-              logger.warn(
-                "[NvidiaNimProvider] Failed to store tool executions",
-                {
-                  provider: this.providerName,
-                  error: error instanceof Error ? error.message : String(error),
-                },
-              );
-            });
-          },
-        });
-
-      let result: Awaited<ReturnType<typeof callStream>>;
-      try {
-        result = await callStream(extraBody);
-      } catch (error) {
-        const errMsg = error instanceof Error ? error.message : String(error);
-        const status = (error as { statusCode?: number })?.statusCode;
-        if (status === 400) {
-          const lower = errMsg.toLowerCase();
-          if (lower.includes("reasoning_budget")) {
-            logger.warn("NIM rejected reasoning_budget; retrying without it");
-            extraBody = stripReasoningBudget(extraBody);
-            result = await callStream(extraBody, ["reasoning_budget"]);
-          } else if (lower.includes("chat_template")) {
-            logger.warn("NIM rejected chat_template; retrying without it");
-            extraBody = stripChatTemplate(extraBody);
-            result = await callStream(extraBody, ["chat_template"]);
-          } else {
-            throw error;
-          }
-        } else {
-          throw error;
-        }
-      }
-
-      timeoutController?.cleanup();
-      const transformedStream = this.createTextStream(result);
-      const analyticsPromise = streamAnalyticsCollector.createAnalytics(
-        this.providerName,
-        this.modelName,
-        toAnalyticsStreamResult(result),
-        Date.now() - startTime,
-        {
-          requestId: `nvidia-nim-stream-${Date.now()}`,
-          streamingMode: true,
-        },
-      );
-
-      return {
-        stream: transformedStream,
-        provider: this.providerName,
-        model: this.modelName,
-        analytics: analyticsPromise,
-        metadata: { startTime, streamId: `nvidia-nim-${Date.now()}` },
-      };
-    } catch (error) {
-      timeoutController?.cleanup();
-      throw this.handleProviderError(error);
-    }
-  }
-
   protected getProviderName(): AIProviderName {
-    return this.providerName;
+    return "nvidia-nim" as AIProviderName;
   }
 
   protected getDefaultModel(): string {
     return getDefaultNimModel();
   }
 
-  protected getAISDKModel(): LanguageModel {
-    return this.model;
+  /**
+   * Inject NIM-specific body fields (top_k, min_p, repetition_penalty,
+   * min_tokens, chat_template, chat_template_kwargs) into the wire body.
+   *
+   * The base passes the full StreamOptions as `opts` at runtime (typed
+   * narrowly as OpenAICompatBuildBodyArgs["options"] for standard fields).
+   * We access thinkingLevel via an indexed-access cast since the runtime
+   * value is the full StreamOptions object.
+   */
+  protected adjustBuildBodyOptions(
+    _modelId: string,
+    opts: OpenAICompatBuildBodyArgs["options"],
+  ): OpenAICompatBuildBodyArgs["options"] & Record<string, unknown> {
+    // The runtime value of opts is the full StreamOptions; TypeScript types
+    // it narrowly so we cast to access NIM-specific thinking fields.
+    const fullOpts = opts as OpenAICompatBuildBodyArgs["options"] &
+      Record<string, unknown>;
+    const thinkingConfigRaw = fullOpts.thinkingConfig as
+      | { thinkingLevel?: string }
+      | undefined;
+    const tl =
+      (fullOpts.thinkingLevel as string | undefined) ??
+      thinkingConfigRaw?.thinkingLevel;
+    const thinkingEnabled = tl !== undefined && tl !== "minimal";
+    const maxTokens =
+      typeof fullOpts.maxTokens === "number" ? fullOpts.maxTokens : undefined;
+
+    const extra = buildNvidiaNimExtraBody(thinkingEnabled, maxTokens);
+
+    return { ...opts, ...extra };
   }
 
   protected formatProviderError(error: unknown): Error {
@@ -639,7 +312,10 @@ export class NvidiaNimProvider extends BaseProvider {
   }
 
   async validateConfiguration(): Promise<boolean> {
-    return typeof this.apiKey === "string" && this.apiKey.trim().length > 0;
+    return (
+      typeof this.config.apiKey === "string" &&
+      this.config.apiKey.trim().length > 0
+    );
   }
 
   getConfiguration() {
@@ -647,9 +323,10 @@ export class NvidiaNimProvider extends BaseProvider {
       provider: this.providerName,
       model: this.modelName,
       defaultModel: getDefaultNimModel(),
-      baseURL: this.baseURL,
+      baseURL: this.config.baseURL,
     };
   }
 }
 
-export default NvidiaNimProvider;
+// Exported for test suites that probe NIM's 400-retry behaviour directly.
+export { isNimFieldRejection, stripFieldFromJsonBody };
