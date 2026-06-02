@@ -59,7 +59,8 @@
  * @example Vercel AI SDK Compatibility
  * ```typescript
  * import { createNeuroLinkProvider } from '@neurolink/ai-sdk';
- * import { generateText } from 'ai';
+ * import { generateText } from "ai-sdk";
+ * // Replace "ai-sdk" with the Vercel AI SDK package name in your project.
  *
  * const neurolink = createNeuroLinkProvider({
  *   baseUrl: 'https://api.neurolink.example.com',

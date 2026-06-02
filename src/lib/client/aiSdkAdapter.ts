@@ -32,7 +32,8 @@ import { createClient, NeuroLinkClient } from "./httpClient.js";
  *
  * @example Using with AI SDK
  * ```typescript
- * import { generateText } from 'ai';
+ * import { generateText } from "ai-sdk";
+ * // Replace "ai-sdk" with the Vercel AI SDK package name in your project.
  * import { createNeuroLinkModel } from '@neurolink/ai-sdk';
  *
  * const model = createNeuroLinkModel({
@@ -395,7 +396,7 @@ export class NeuroLinkProvider {
  *
  * @example
  * ```typescript
- * import { createNeuroLinkProvider, generateText } from '@neurolink/ai-sdk';
+ * import { createNeuroLinkProvider, generateText } from "@neurolink/ai-sdk";
  *
  * const neurolink = createNeuroLinkProvider({
  *   baseUrl: 'https://api.neurolink.example.com',
@@ -441,7 +442,7 @@ export function createNeuroLinkProvider(
  *
  * @example
  * ```typescript
- * import { createNeuroLinkModel, generateText } from '@neurolink/ai-sdk';
+ * import { createNeuroLinkModel, generateText } from "@neurolink/ai-sdk";
  *
  * const model = createNeuroLinkModel({
  *   baseUrl: 'https://api.neurolink.example.com',
