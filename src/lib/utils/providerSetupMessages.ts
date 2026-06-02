@@ -24,7 +24,7 @@ export function getProviderSetupMessage(
         'OPENAI_API_KEY="sk-proj-your-openai-api-key"',
         "# Optional:",
         `OPENAI_MODEL="${OpenAIModels.GPT_4O}"`,
-        'OPENAI_BASE_URL="https://api.openai.com"',
+        'OPENAI_BASE_URL="https://api.openai.com/v1"',
       ],
     },
     anthropic: {

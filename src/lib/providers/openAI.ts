@@ -1,20 +1,13 @@
-import { createOpenAI } from "@ai-sdk/openai";
-import { type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import { AIProviderName } from "../constants/enums.js";
-import { BaseProvider } from "../core/baseProvider.js";
-import { DEFAULT_MAX_STEPS } from "../core/constants.js";
-import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
-import type { NeuroLink } from "../neurolink.js";
+import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+import type { AIProviderName } from "../constants/enums.js";
+import { AIProviderName as AIProviderNameEnum } from "../constants/enums.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type {
   EnhancedGenerateResult,
-  UnknownRecord,
+  NeurolinkCredentials,
+  OpenAICompatStreamLifecycleListeners,
   TextGenerationOptions,
-  ToolWithLegacyParams,
-  ValidationSchema,
-  StreamOptions,
-  StreamResult,
-  StreamTextResult,
+  UnknownRecord,
 } from "../types/index.js";
 import {
   AuthenticationError,
@@ -24,294 +17,109 @@ import {
   RateLimitError,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
-import {
-  buildNoOutputSentinel,
-  detectPostStreamNoOutput,
-  stampNoOutputSpan,
-} from "../utils/noOutputSentinel.js";
 import { calculateCost } from "../utils/pricing.js";
 import {
   createOpenAIConfig,
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import { isZodSchema } from "../utils/schemaConversion.js";
-import {
-  composeAbortSignals,
-  createTimeoutController,
-  TimeoutError,
-} from "../utils/timeout.js";
-import { resolveToolChoice } from "../utils/toolChoice.js";
-import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { MAX_IMAGE_BYTES, readBoundedBuffer } from "../utils/sizeGuard.js";
 import { assertSafeUrl } from "../utils/ssrfGuard.js";
-import { getModelId } from "./providerTypeUtils.js";
-import type { LanguageModel, Tool } from "../types/index.js";
-import { NoOutputGeneratedError } from "../utils/generationErrors.js";
-import { stepCountIs } from "../utils/tool.js";
-import { embed, embedMany, streamText } from "../utils/generation.js";
+import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
+import { stripTrailingSlash } from "./openaiChatCompletionsClient.js";
+import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
+
+const OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1";
 
 /**
- * Retrieve a tool's schema, handling both AI SDK v6 (`inputSchema`) and
- * legacy v4 (`parameters`) field names.
+ * Resolve the effective OpenAI base URL from optional credential / env
+ * overrides, falling back to the official API host.
+ *
+ * - Blank or whitespace-only overrides are treated as unset, so a bare
+ *   `OPENAI_BASE_URL=` cannot silently override the default with "".
+ * - The official OpenAI REST API lives under `/v1`. Setup guidance has long
+ *   shown `OPENAI_BASE_URL="https://api.openai.com"` (no path); consumed
+ *   verbatim that builds `https://api.openai.com/chat/completions` and 404s.
+ *   When the canonical host is supplied without a path, append `/v1`. Custom
+ *   proxy hosts (LiteLLM, gateways, …) are left exactly as provided.
  */
-function getToolSchema(tool: Tool): unknown {
-  const t = tool as ToolWithLegacyParams;
-  return t.inputSchema ?? t.parameters;
-}
+const resolveOpenAIBaseURL = (
+  credentialBaseURL?: string,
+  envBaseURL?: string,
+): string => {
+  const resolved =
+    [credentialBaseURL, envBaseURL]
+      .map((v) => v?.trim())
+      .find((v): v is string => !!v && v.length > 0) ?? OPENAI_DEFAULT_BASE_URL;
 
-// Configuration helpers - now using consolidated utility
-const getOpenAIApiKey = (): string => {
-  return validateApiKey(createOpenAIConfig());
+  try {
+    const url = new URL(resolved);
+    const hasPath = url.pathname && url.pathname !== "/";
+    if (url.hostname === "api.openai.com" && !hasPath) {
+      url.pathname = "/v1";
+      return stripTrailingSlash(url.toString());
+    }
+  } catch {
+    // Not a parseable absolute URL — return the override verbatim.
+  }
+  return resolved;
 };
 
-const getOpenAIModel = (): string => {
-  return getProviderModel("OPENAI_MODEL", "gpt-4o");
-};
+const getOpenAIApiKey = (): string => validateApiKey(createOpenAIConfig());
+
+const getOpenAIModel = (): string => getProviderModel("OPENAI_MODEL", "gpt-4o");
 
 const streamTracer = trace.getTracer("neurolink.provider.openai");
 
 /**
- * OpenAI Provider v2 - BaseProvider Implementation
- * Migrated to use factory pattern with exact Google AI provider pattern
+ * OpenAI Provider — direct HTTP, no AI SDK.
+ *
+ * OpenAI chat completions at api.openai.com/v1. All request / stream /
+ * tool-loop orchestration lives in `OpenAIChatCompletionsProvider`; this
+ * class adds:
+ *   - OTel span wrap with cost (`onStreamStart`)
+ *   - Native `/v1/embeddings` (`embed` / `embedMany`)
+ *   - Image generation via `/v1/images/generations` (`executeImageGeneration`)
+ *   - OpenAI-specific error mapping (`formatProviderError`)
+ *
+ * @see https://platform.openai.com/docs/api-reference
  */
-export class OpenAIProvider extends BaseProvider {
-  private model: LanguageModel;
-  private credentials?: { apiKey?: string; baseURL?: string };
-
+export class OpenAIProvider extends OpenAIChatCompletionsProvider {
   constructor(
     modelName?: string,
-    neurolink?: NeuroLink,
+    sdk?: unknown,
     _region?: string,
-    credentials?: { apiKey?: string; baseURL?: string },
+    credentials?: NeurolinkCredentials["openai"],
   ) {
-    super(modelName || getOpenAIModel(), AIProviderName.OPENAI, neurolink);
+    const overrideApiKey = credentials?.apiKey?.trim();
+    const apiKey =
+      overrideApiKey && overrideApiKey.length > 0
+        ? overrideApiKey
+        : getOpenAIApiKey();
+    const baseURL = resolveOpenAIBaseURL(
+      credentials?.baseURL,
+      process.env.OPENAI_BASE_URL,
+    );
 
-    this.credentials = credentials;
+    super(AIProviderNameEnum.OPENAI, modelName, sdk, { baseURL, apiKey });
 
-    // Initialize OpenAI provider with proxy support
-    const openai = createOpenAI({
-      apiKey: credentials?.apiKey ?? getOpenAIApiKey(),
-      ...(credentials?.baseURL ? { baseURL: credentials.baseURL } : {}),
-      fetch: createProxyFetch(),
-    });
-
-    // Initialize model
-    this.model = openai(this.modelName);
-
-    logger.debug("OpenAIProvider constructor called", {
+    logger.debug("OpenAIProvider initialized", {
       model: this.modelName,
-      provider: this.providerName,
-      supportsTools: this.supportsTools(),
-      className: this.constructor.name,
+      providerName: this.providerName,
+      baseURL: this.config.baseURL,
     });
   }
 
-  // ===================
-  // ABSTRACT METHOD IMPLEMENTATIONS
-  // ===================
+  // ===========================================================================
+  // Abstract hook implementations
+  // ===========================================================================
 
-  /**
-   * Check if this provider supports tool/function calling
-   */
-  supportsTools(): boolean {
-    return true; // Re-enable tools now that we understand the issue
+  protected getProviderName(): AIProviderName {
+    return AIProviderNameEnum.OPENAI;
   }
 
-  public getProviderName(): AIProviderName {
-    return AIProviderName.OPENAI;
-  }
-
-  public getDefaultModel(): string {
+  protected getDefaultModel(): string {
     return getOpenAIModel();
-  }
-
-  /**
-   * Get the default embedding model for OpenAI
-   * @returns The default OpenAI embedding model name
-   */
-  protected getDefaultEmbeddingModel(): string {
-    return process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small";
-  }
-
-  /**
-   * Returns the Vercel AI SDK model instance for OpenAI
-   */
-  public getAISDKModel(): LanguageModel {
-    return this.model;
-  }
-
-  /**
-   * OpenAI-specific tool validation and filtering
-   * Filters out tools that might cause streaming issues
-   */
-  private validateAndFilterToolsForOpenAI(
-    tools: Record<string, Tool>,
-  ): Record<string, Tool> {
-    const validTools: Record<string, Tool> = {};
-
-    for (const [name, tool] of Object.entries(tools)) {
-      try {
-        // Basic validation - ensure tool has required structure
-        if (tool && typeof tool === "object") {
-          // Check if tool has description (required by OpenAI)
-          if (tool.description && typeof tool.description === "string") {
-            // Keep the original tool structure - AI SDK will handle Zod schema conversion internally
-            const processedTool = { ...tool };
-
-            // Validate that Zod schemas are properly structured for AI SDK processing
-            const toolSchema = getToolSchema(tool);
-            if (toolSchema && isZodSchema(toolSchema)) {
-              logger.debug(
-                `OpenAI: Tool ${name} has Zod schema - AI SDK will handle conversion`,
-              );
-
-              // Basic validation that the Zod schema has the required structure
-              this.validateZodSchema(name, toolSchema);
-            }
-
-            // Include the tool with original Zod schema for AI SDK processing
-            if (this.isValidToolStructure(processedTool)) {
-              validTools[name] = processedTool;
-            } else {
-              logger.warn(
-                `OpenAI: Filtering out tool with invalid structure: ${name}`,
-                {
-                  parametersType: typeof getToolSchema(processedTool),
-                  hasDescription: !!processedTool.description,
-                  hasExecute: !!processedTool.execute,
-                },
-              );
-            }
-          } else {
-            logger.warn(
-              `OpenAI: Filtering out tool without description: ${name}`,
-            );
-          }
-        } else {
-          logger.warn(`OpenAI: Filtering out invalid tool: ${name}`);
-        }
-      } catch (error) {
-        logger.warn(`OpenAI: Error validating tool ${name}:`, error);
-      }
-    }
-
-    return validTools;
-  }
-
-  /**
-   * Validate Zod schema structure
-   */
-  private validateZodSchema(toolName: string, schema: unknown): void {
-    try {
-      const zodSchema = schema as {
-        _def?: { typeName?: string };
-      };
-      if (zodSchema._def && zodSchema._def.typeName) {
-        logger.debug(`OpenAI: Zod schema for ${toolName} appears valid`, {
-          typeName: zodSchema._def.typeName,
-        });
-      } else {
-        logger.warn(
-          `OpenAI: Zod schema for ${toolName} missing typeName - may cause issues`,
-        );
-      }
-    } catch (zodValidationError) {
-      logger.warn(
-        `OpenAI: Zod schema validation failed for ${toolName}:`,
-        zodValidationError,
-      );
-      // Continue anyway - let AI SDK handle it
-    }
-  }
-
-  /**
-   * Validate tool structure for OpenAI compatibility
-   * More lenient validation to avoid filtering out valid tools
-   */
-  /** Shared helper: mark a stream span as ERROR, record the exception, and end it. */
-  private endStreamSpanWithError(span: Span, error: unknown): void {
-    span.setStatus({
-      code: SpanStatusCode.ERROR,
-      message: error instanceof Error ? error.message : String(error),
-    });
-    if (error instanceof Error) {
-      span.recordException(error);
-    }
-    span.end();
-  }
-
-  private isValidToolStructure(tool: unknown): boolean {
-    if (!tool || typeof tool !== "object") {
-      return false;
-    }
-
-    const toolObj = tool as Record<string, unknown>;
-
-    // Ensure tool has description and execute function
-    if (!toolObj.description || typeof toolObj.description !== "string") {
-      return false;
-    }
-
-    if (!toolObj.execute || typeof toolObj.execute !== "function") {
-      return false;
-    }
-
-    // AI SDK v6 uses inputSchema; v4 used parameters — check both
-    const schema =
-      "inputSchema" in toolObj
-        ? toolObj.inputSchema
-        : "parameters" in toolObj
-          ? toolObj.parameters
-          : undefined;
-    return this.isValidToolParameters(schema);
-  }
-
-  /**
-   * Validate tool parameters for OpenAI compatibility
-   * Ensures the tool has either valid Zod schema or valid JSON schema
-   */
-  private isValidToolParameters(parameters: unknown): boolean {
-    if (!parameters) {
-      // For OpenAI, tools without parameters need an empty object schema
-      return true;
-    }
-
-    // Check if it's a Zod schema - these are valid
-    if (isZodSchema(parameters)) {
-      return true;
-    }
-
-    // Check if it's a JSON schema
-    if (typeof parameters !== "object" || parameters === null) {
-      return false;
-    }
-
-    const params = parameters as Record<string, unknown>;
-
-    // If it's a JSON schema, it should have type "object" for OpenAI
-    if (params.type && params.type !== "object") {
-      return false;
-    }
-
-    // OpenAI requires schemas to have properties field, even if empty
-    // If there's no properties field, the schema is incomplete
-    if (params.type === "object" && !params.properties) {
-      logger.warn(`Tool parameter schema missing properties field:`, params);
-      return false;
-    }
-
-    // If properties exist, they should be an object
-    if (params.properties && typeof params.properties !== "object") {
-      return false;
-    }
-
-    // If required exists, it should be an array
-    if (params.required && !Array.isArray(params.required)) {
-      return false;
-    }
-
-    return true;
   }
 
   public formatProviderError(error: unknown): Error {
@@ -358,7 +166,11 @@ export class OpenAIProvider extends BaseProvider {
       );
     }
 
-    if (message.includes("rate limit") || errorType === "rate_limit_error") {
+    if (
+      message.includes("rate limit") ||
+      errorType === "rate_limit_error" ||
+      statusCode === 429
+    ) {
       return new RateLimitError(
         "OpenAI rate limit exceeded. Please try again later.",
         this.providerName,
@@ -376,476 +188,81 @@ export class OpenAIProvider extends BaseProvider {
     return new ProviderError(`OpenAI error: ${message}`, this.providerName);
   }
 
+  // ===========================================================================
+  // Optional hook overrides
+  // ===========================================================================
+
   /**
-   * executeGenerate method removed - generation is now handled by BaseProvider.
-   * For details on the changes and migration steps, refer to the BaseProvider documentation
-   * and the migration guide in the project repository.
+   * Wrap the stream in an OTel span to capture provider-level latency,
+   * token usage, finish reason, and cost. Mirrors the pre-migration
+   * `streamText`-span behaviour.
    */
-
-  protected async executeStream(
-    options: StreamOptions,
-    _analysisSchema?: ValidationSchema,
-  ): Promise<StreamResult> {
-    this.validateStreamOptions(options);
-
-    const startTime = Date.now();
-    const timeout = this.getTimeout(options);
-    const timeoutController = createTimeoutController(
-      timeout,
-      this.providerName,
-      "stream",
-    );
-
-    try {
-      // Get tools - options.tools is pre-merged by BaseProvider.stream() with
-      // base tools (MCP/built-in) + user-provided tools (RAG, etc.)
-      const shouldUseTools = !options.disableTools && this.supportsTools();
-      const allTools = shouldUseTools
-        ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
-        : {};
-
-      // OpenAI-specific fix: Validate tools format and filter out problematic ones
-      let tools = this.validateAndFilterToolsForOpenAI(allTools);
-
-      // OpenAI max tools limit - configurable via environment variable
-      const MAX_TOOLS = parseInt(process.env.OPENAI_MAX_TOOLS || "150", 10);
-      if (Object.keys(tools).length > MAX_TOOLS) {
-        logger.warn(
-          `OpenAI: Too many tools (${Object.keys(tools).length}), limiting to ${MAX_TOOLS} tools`,
-        );
-        const toolEntries = Object.entries(tools);
-        tools = Object.fromEntries(toolEntries.slice(0, MAX_TOOLS));
-      }
-
-      // Count tools with Zod schemas for debugging
-      const zodToolsCount = Object.values(allTools).filter((tool) => {
-        if (!tool || typeof tool !== "object") {
-          return false;
-        }
-        const schema = getToolSchema(tool);
-        return schema !== null && schema !== undefined && isZodSchema(schema);
-      }).length;
-
-      logger.info("OpenAI streaming tools", {
-        shouldUseTools,
-        allToolsCount: Object.keys(allTools).length,
-        filteredToolsCount: Object.keys(tools).length,
-        zodToolsCount,
-        toolNames: Object.keys(tools),
-        filteredOutTools: Object.keys(allTools).filter((name) => !tools[name]),
-      });
-
-      // Build message array from options with multimodal support
-      // Using protected helper from BaseProvider to eliminate code duplication
-      const messages = await this.buildMessagesForStream(options);
-      let resolvedToolChoice = resolveToolChoice(
-        options,
-        tools,
-        shouldUseTools,
-      );
-
-      // Guard: if toolChoice names a specific tool that was filtered out, fall back to "auto"
-      if (
-        resolvedToolChoice !== null &&
-        typeof resolvedToolChoice === "object" &&
-        "toolName" in resolvedToolChoice &&
-        typeof resolvedToolChoice.toolName === "string" &&
-        !tools[resolvedToolChoice.toolName]
-      ) {
-        logger.warn(
-          `OpenAI: toolChoice references tool "${resolvedToolChoice.toolName}" which was removed during filtering; falling back to "auto"`,
-        );
-        resolvedToolChoice = "auto";
-      }
-
-      // Debug the actual request being sent to OpenAI
-      logger.debug(`OpenAI: streamText request parameters:`, {
-        modelName: this.modelName,
-        messagesCount: messages.length,
-        temperature: options.temperature,
-        maxTokens: options.maxTokens,
-        toolsCount: Object.keys(tools).length,
-        toolChoice: resolvedToolChoice,
-        maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
-        firstToolExample:
-          Object.keys(tools).length > 0
-            ? {
-                name: Object.keys(tools)[0],
-                description: tools[Object.keys(tools)[0]]?.description,
-                parametersType: typeof getToolSchema(
-                  tools[Object.keys(tools)[0]],
-                ),
-              }
-            : "no-tools",
-      });
-
-      const model = await this.getAISDKModelWithMiddleware(options); // This is where network connection happens!
-
-      // Wrap streamText in an OTel span to capture provider-level latency and token usage
-      const streamSpan = streamTracer.startSpan(
-        "neurolink.provider.streamText",
-        {
-          kind: SpanKind.CLIENT,
-          attributes: {
-            "gen_ai.system": "openai",
-            "gen_ai.request.model":
-              getModelId(model) || this.modelName || "unknown",
-          },
-        },
-      );
-
-      // Reviewer follow-up: capture upstream provider errors via onError
-      // so the post-stream NoOutput detect can propagate the *real* cause
-      // into the sentinel's providerError / modelResponseRaw.
-      let capturedProviderError: unknown;
-      let result: ReturnType<typeof streamText>;
-      try {
-        result = streamText({
-          model,
-          messages: messages,
-          temperature: options.temperature,
-          maxOutputTokens: options.maxTokens, // No default limit - unlimited unless specified
-          maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
-          tools,
-          stopWhen: stepCountIs(options.maxSteps || DEFAULT_MAX_STEPS),
-          toolChoice: resolvedToolChoice,
-          abortSignal: composeAbortSignals(
-            options.abortSignal,
-            timeoutController?.controller.signal,
-          ),
-          experimental_repairToolCall: this.getToolCallRepairFn(options),
-          experimental_telemetry:
-            this.telemetryHandler.getTelemetryConfig(options),
-          onError: (event: { error: unknown }) => {
-            capturedProviderError = event.error;
-            logger.error("OpenAI: Stream error", {
-              error:
-                event.error instanceof Error
-                  ? event.error.message
-                  : String(event.error),
-            });
-          },
-          onStepFinish: ({ toolCalls, toolResults }) => {
-            logger.info("Tool execution completed", {
-              toolResults,
-              toolCalls,
-            });
-
-            // Emit tool:end for each completed tool result so Pipeline B
-            // captures telemetry for AI-SDK-driven tool calls (gap S2).
-            emitToolEndFromStepFinish(
-              this.neurolink?.getEventEmitter(),
-              toolResults as Array<{
-                toolName: string;
-                output?: unknown;
-                result?: unknown;
-                error?: string;
-              }>,
-            );
-
-            // Handle tool execution storage
-            this.handleToolExecutionStorage(
-              toolCalls,
-              toolResults,
-              options,
-              new Date(),
-            ).catch((error: unknown) => {
-              logger.warn("[OpenAIProvider] Failed to store tool executions", {
-                provider: this.providerName,
-                error: error instanceof Error ? error.message : String(error),
-              });
-            });
-          },
-        });
-      } catch (streamError) {
-        this.endStreamSpanWithError(streamSpan, streamError);
-        throw streamError;
-      }
-
-      // Collect token usage and finish reason asynchronously when the stream completes,
-      // then end the span. This avoids blocking the stream consumer.
-      Promise.resolve(result.usage)
-        .then((usage) => {
-          streamSpan.setAttribute(
-            "gen_ai.usage.input_tokens",
-            usage.inputTokens || 0,
-          );
-          streamSpan.setAttribute(
-            "gen_ai.usage.output_tokens",
-            usage.outputTokens || 0,
-          );
-          const cost = calculateCost(this.providerName, this.modelName, {
-            input: usage.inputTokens || 0,
-            output: usage.outputTokens || 0,
-            total: (usage.inputTokens || 0) + (usage.outputTokens || 0),
-          });
-          if (cost && cost > 0) {
-            streamSpan.setAttribute("neurolink.cost", cost);
-          }
-        })
-        .catch(() => {
-          // Usage may not be available if the stream is aborted
-        });
-      Promise.resolve(result.finishReason)
-        .then((reason) => {
-          streamSpan.setAttribute(
-            "gen_ai.response.finish_reason",
-            reason || "unknown",
-          );
-        })
-        .catch(() => {
-          // Finish reason may not be available if the stream is aborted
-        });
-      Promise.resolve(result.text)
-        .then(() => {
-          streamSpan.end();
-        })
-        .catch((err: unknown) => {
-          this.endStreamSpanWithError(streamSpan, err);
-        });
-
-      timeoutController?.cleanup();
-
-      // Debug the actual result structure
-      logger.debug(`OpenAI: streamText result structure:`, {
-        resultKeys: Object.keys(result),
-        hasTextStream: !!result.textStream,
-        hasToolCalls: !!result.toolCalls,
-        hasToolResults: !!result.toolResults,
-        resultType: typeof result,
-      });
-
-      const transformedStream = this.createOpenAITransformedStream(
-        result,
-        shouldUseTools,
-        tools,
-        () => capturedProviderError,
-      );
-
-      // Create analytics promise that resolves after stream completion
-      const analyticsPromise = streamAnalyticsCollector.createAnalytics(
-        this.providerName,
-        this.modelName,
-        result as StreamTextResult,
-        Date.now() - startTime,
-        {
-          requestId: `openai-stream-${Date.now()}`,
-          streamingMode: true,
-        },
-      );
-
-      return {
-        stream: transformedStream,
-        provider: this.providerName,
-        model: this.modelName,
-        analytics: analyticsPromise,
-        metadata: {
-          startTime,
-          streamId: `openai-${Date.now()}`,
-        },
-      };
-    } catch (error) {
-      timeoutController?.cleanup();
-      throw this.handleProviderError(error);
-    }
-  }
-
-  private async *createOpenAITransformedStream(
-    result: ReturnType<typeof streamText>,
-    shouldUseTools: boolean,
-    tools: Record<string, Tool>,
-    getCapturedProviderError?: () => unknown,
-  ): AsyncGenerator<{ content: string }> {
-    try {
-      logger.debug(`OpenAI: Starting stream transformation`, {
-        hasTextStream: !!result.textStream,
-        hasFullStream: !!result.fullStream,
-        resultKeys: Object.keys(result),
-        toolsEnabled: shouldUseTools,
-        toolsCount: Object.keys(tools).length,
-      });
-
-      let chunkCount = 0;
-      let contentYielded = 0;
-      const streamToUse = result.fullStream || result.textStream;
-      if (!streamToUse) {
-        logger.error("OpenAI: No stream available in result", {
-          resultKeys: Object.keys(result),
-        });
-        return;
-      }
-
-      logger.debug(`OpenAI: Stream source selected:`, {
-        usingFullStream: !!result.fullStream,
-        usingTextStream: !!result.textStream && !result.fullStream,
-        streamSourceType: result.fullStream ? "fullStream" : "textStream",
-      });
-
-      for await (const chunk of streamToUse) {
-        chunkCount++;
-        logger.debug(`OpenAI: Processing chunk ${chunkCount}:`, {
-          chunkType: typeof chunk,
-          chunkValue:
-            typeof chunk === "string"
-              ? (chunk as string).substring(0, 50)
-              : "not-string",
-          chunkKeys:
-            chunk && typeof chunk === "object"
-              ? Object.keys(chunk)
-              : "not-object",
-          hasText: chunk && typeof chunk === "object" && "text" in chunk,
-          hasTextDelta:
-            chunk && typeof chunk === "object" && "textDelta" in chunk,
-          hasType: chunk && typeof chunk === "object" && "type" in chunk,
-          chunkTypeValue:
-            chunk && typeof chunk === "object" && "type" in chunk
-              ? (chunk as { type: unknown }).type
-              : "no-type",
-        });
-
-        const contentToYield = this.extractOpenAIChunkContent(chunk);
-        if (contentToYield) {
-          contentYielded++;
-          logger.debug(`OpenAI: Yielding content ${contentYielded}:`, {
-            content: contentToYield.substring(0, 50),
-            length: contentToYield.length,
-          });
-          yield { content: contentToYield };
-        }
-      }
-
-      logger.debug(`OpenAI: Stream transformation completed`, {
-        totalChunks: chunkCount,
-        contentYielded,
-        success: contentYielded > 0,
-      });
-
-      if (contentYielded === 0) {
-        logger.warn(
-          `OpenAI: No content was yielded from stream despite processing ${chunkCount} chunks`,
-        );
-        // Curator P3-6 (round-2 fix): when no content was yielded, the
-        // production trigger sets NoOutputGeneratedError on
-        // result.finishReason rejection (NOT on the textStream itself).
-        // Surface that rejection here so the enriched sentinel actually
-        // fires for real-world no-output streams.
-        const detected = await detectPostStreamNoOutput(
-          result,
-          getCapturedProviderError?.(),
-        );
-        if (detected) {
-          logger.warn(
-            "OpenAI: Stream produced no output (NoOutputGeneratedError) — caught from finishReason rejection",
-          );
-          stampNoOutputSpan(detected.sentinel);
-          yield detected.sentinel as { content: string };
-        }
-      }
-    } catch (streamError) {
-      if (NoOutputGeneratedError.isInstance(streamError)) {
-        logger.warn(
-          "OpenAI: Stream produced no output (NoOutputGeneratedError) — caught from textStream",
-        );
-        // Defensive: AI SDK *can* throw this from textStream in some
-        // failure modes (catastrophic transform errors). Keep this path
-        // for completeness; the production trigger goes through the
-        // post-loop detect above.
-        const sentinel = await buildNoOutputSentinel(
-          streamError,
-          result,
-          getCapturedProviderError?.(),
-        );
-        stampNoOutputSpan(sentinel);
-        yield sentinel as { content: string };
-        return;
-      }
-      logger.error(`OpenAI: Stream transformation error:`, streamError);
-      throw streamError;
-    }
-  }
-
-  private extractOpenAIChunkContent(chunk: unknown): string | null {
-    if (chunk && typeof chunk === "object") {
-      if (process.env.NEUROLINK_DEBUG === "true") {
-        logger.debug(`OpenAI: Full chunk structure:`, {
-          chunkKeys: Object.keys(chunk),
-          fullChunk: JSON.stringify(chunk).substring(0, 500),
-        });
-      }
-
-      if ("type" in chunk && chunk.type === "error") {
-        const errorChunk = chunk as {
-          type: "error";
-          error: Record<string, unknown>;
-        };
-        logger.error(`OpenAI: Error chunk received:`, {
-          errorType: errorChunk.type,
-          errorDetails: errorChunk.error,
-          fullChunk: JSON.stringify(chunk),
-        });
-
-        const errorMessage =
-          errorChunk.error &&
-          typeof errorChunk.error === "object" &&
-          "message" in errorChunk.error
-            ? String(errorChunk.error.message)
-            : "OpenAI API error when tools are enabled";
-        throw new Error(
-          `OpenAI streaming error with tools: ${errorMessage}. Try disabling tools with --disableTools`,
-        );
-      }
-
-      if (
-        "type" in chunk &&
-        chunk.type === "text-delta" &&
-        "textDelta" in chunk
-      ) {
-        const textDelta = chunk.textDelta as string;
-        logger.debug(`OpenAI: Found text-delta:`, { textDelta });
-        return textDelta;
-      }
-
-      if ("text" in chunk) {
-        const text = chunk.text as string;
-        logger.debug(`OpenAI: Found direct text:`, { text });
-        return text;
-      }
-
-      if (process.env.NEUROLINK_DEBUG === "true") {
-        logger.debug(`OpenAI: Unhandled object chunk:`, {
-          chunkKeys: Object.keys(chunk),
-          chunkType:
-            "type" in chunk
-              ? String((chunk as { type?: unknown }).type)
-              : "no-type",
-          fullChunk: JSON.stringify(chunk).substring(0, 500),
-        });
-      }
-      return null;
-    }
-
-    if (typeof chunk === "string") {
-      logger.debug(`OpenAI: Found string chunk:`, {
-        content: chunk,
-      });
-      return chunk;
-    }
-
-    logger.warn(`OpenAI: Unhandled chunk type:`, {
-      type: typeof chunk,
-      value: String(chunk).substring(0, 100),
+  protected onStreamStart(
+    modelId: string,
+  ): OpenAICompatStreamLifecycleListeners | undefined {
+    const span = streamTracer.startSpan("neurolink.provider.streamText", {
+      kind: SpanKind.CLIENT,
+      attributes: {
+        "gen_ai.system": "openai",
+        "gen_ai.request.model": modelId,
+      },
     });
-    return null;
+    let spanEnded = false;
+    const endSpan = () => {
+      if (!spanEnded) {
+        spanEnded = true;
+        span.end();
+      }
+    };
+    return {
+      onUsage: (usage) => {
+        span.setAttribute("gen_ai.usage.input_tokens", usage.promptTokens);
+        span.setAttribute("gen_ai.usage.output_tokens", usage.completionTokens);
+        const cost = calculateCost(this.providerName, this.modelName, {
+          input: usage.promptTokens,
+          output: usage.completionTokens,
+          total: usage.totalTokens,
+        });
+        if (cost && cost > 0) {
+          span.setAttribute("neurolink.cost", cost);
+        }
+      },
+      onFinish: (reason, capturedError) => {
+        span.setAttribute("gen_ai.response.finish_reason", reason || "unknown");
+        if (reason === "error") {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message:
+              capturedError instanceof Error
+                ? capturedError.message
+                : String(capturedError ?? "stream error"),
+          });
+        }
+        endSpan();
+      },
+    };
+  }
+
+  // ===========================================================================
+  // Embeddings — native POST /v1/embeddings
+  // ===========================================================================
+
+  /**
+   * Default embedding model, overridable via OPENAI_EMBEDDING_MODEL env var.
+   */
+  protected getDefaultEmbeddingModel(): string {
+    return process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small";
   }
 
   /**
-   * Generate embeddings for text using OpenAI text-embedding models
+   * Generate an embedding for a single text input via native /v1/embeddings.
+   *
    * @param text - The text to embed
    * @param modelName - The embedding model to use (default: text-embedding-3-small)
    * @returns Promise resolving to the embedding vector
    */
   async embed(text: string, modelName?: string): Promise<number[]> {
-    const embeddingModelName = modelName || "text-embedding-3-small";
+    const embeddingModelName = modelName || this.getDefaultEmbeddingModel();
 
     logger.debug("Generating embedding", {
       provider: this.providerName,
@@ -854,51 +271,36 @@ export class OpenAIProvider extends BaseProvider {
     });
 
     try {
-      // Create embedding model using the AI SDK
-      // Create the OpenAI provider, preferring per-instance credentials over env vars
-      const openai = createOpenAI({
-        apiKey: this.credentials?.apiKey ?? getOpenAIApiKey(),
-        ...(this.credentials?.baseURL
-          ? { baseURL: this.credentials.baseURL }
-          : {}),
-        fetch: createProxyFetch(),
-      });
-
-      // Get the text embedding model
-      const embeddingModel = openai.textEmbeddingModel(embeddingModelName);
-
-      // Generate the embedding
-      const result = await embed({
-        model: embeddingModel,
-        value: text,
-      });
-
+      const [embedding] = await this.callEmbeddings(
+        embeddingModelName,
+        [text],
+        "embed",
+      );
       logger.debug("Embedding generated successfully", {
         provider: this.providerName,
         model: embeddingModelName,
-        embeddingDimension: result.embedding.length,
+        embeddingDimension: embedding.length,
       });
-
-      return result.embedding;
+      return embedding;
     } catch (error) {
       logger.error("Embedding generation failed", {
         error: error instanceof Error ? error.message : String(error),
         model: embeddingModelName,
         textLength: text.length,
       });
-
       throw this.handleProviderError(error);
     }
   }
 
   /**
-   * Generate embeddings for multiple texts in a single batch
+   * Generate embeddings for multiple texts in a single batch via native /v1/embeddings.
+   *
    * @param texts - The texts to embed
    * @param modelName - The embedding model to use (default: text-embedding-3-small)
    * @returns Promise resolving to an array of embedding vectors
    */
   async embedMany(texts: string[], modelName?: string): Promise<number[][]> {
-    const embeddingModelName = modelName || "text-embedding-3-small";
+    const embeddingModelName = modelName || this.getDefaultEmbeddingModel();
 
     logger.debug("Generating batch embeddings", {
       provider: this.providerName,
@@ -907,40 +309,101 @@ export class OpenAIProvider extends BaseProvider {
     });
 
     try {
-      // Prefer per-instance credentials over env vars
-      const openai = createOpenAI({
-        apiKey: this.credentials?.apiKey ?? getOpenAIApiKey(),
-        ...(this.credentials?.baseURL
-          ? { baseURL: this.credentials.baseURL }
-          : {}),
-        fetch: createProxyFetch(),
-      });
-
-      const embeddingModel = openai.textEmbeddingModel(embeddingModelName);
-
-      const result = await embedMany({
-        model: embeddingModel,
-        values: texts,
-      });
-
+      const embeddings = await this.callEmbeddings(
+        embeddingModelName,
+        texts,
+        "embedMany",
+      );
       logger.debug("Batch embeddings generated successfully", {
         provider: this.providerName,
         model: embeddingModelName,
-        count: result.embeddings.length,
-        embeddingDimension: result.embeddings[0]?.length,
+        count: embeddings.length,
+        embeddingDimension: embeddings[0]?.length,
       });
-
-      return result.embeddings;
+      return embeddings;
     } catch (error) {
       logger.error("Batch embedding generation failed", {
         error: error instanceof Error ? error.message : String(error),
         model: embeddingModelName,
         count: texts.length,
       });
-
       throw this.handleProviderError(error);
     }
   }
+
+  private async callEmbeddings(
+    modelName: string,
+    input: string[],
+    operation: "embed" | "embedMany",
+  ): Promise<number[][]> {
+    const url = `${stripTrailingSlash(this.config.baseURL)}/embeddings`;
+    const fetchImpl = createProxyFetch();
+    const timeoutController = createTimeoutController(
+      30_000,
+      this.providerName,
+      "generate",
+    );
+    try {
+      const res = await fetchImpl(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.config.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: modelName,
+          input: input.length === 1 ? input[0] : input,
+        }),
+        ...(timeoutController?.controller.signal
+          ? { signal: timeoutController.controller.signal }
+          : {}),
+      });
+      if (!res.ok) {
+        const bodyText = await res.text().catch(() => "");
+        let message = `OpenAI ${operation} failed with status ${res.status}`;
+        let errorType: string | undefined;
+        if (bodyText) {
+          try {
+            const parsed = JSON.parse(bodyText) as {
+              error?: { message?: string; type?: string };
+            };
+            if (parsed.error?.message) {
+              message = parsed.error.message;
+            }
+            errorType = parsed.error?.type;
+          } catch {
+            // Non-JSON error body — keep the status-based message.
+          }
+        }
+        // Throw a raw, annotated error so the public embed/embedMany catch
+        // formats it exactly once via handleProviderError(), preserving
+        // status-based classification (401 -> auth, 429 -> rate limit, …).
+        throw Object.assign(new Error(message), {
+          status: res.status,
+          type: errorType,
+        });
+      }
+      const json = (await res.json()) as {
+        data?: Array<{ embedding?: number[] }>;
+      };
+      const embeddings = (json.data ?? [])
+        .map((row) => row.embedding)
+        .filter((e): e is number[] => Array.isArray(e));
+      if (embeddings.length === 0) {
+        throw new ProviderError(
+          `OpenAI ${operation} returned no embeddings`,
+          this.providerName,
+        );
+      }
+      return embeddings;
+    } finally {
+      timeoutController?.cleanup();
+    }
+  }
+
+  // ===========================================================================
+  // Image generation — native POST /v1/images/generations
+  // ===========================================================================
 
   /**
    * Image generation via the OpenAI Images API (`/v1/images/generations`).
@@ -968,12 +431,9 @@ export class OpenAIProvider extends BaseProvider {
     }
 
     const model = options.model ?? this.modelName;
-    const apiKey = this.credentials?.apiKey ?? getOpenAIApiKey();
-    const baseURL = (
-      this.credentials?.baseURL ??
-      process.env.OPENAI_BASE_URL ??
-      "https://api.openai.com/v1"
-    ).replace(/\/$/, "");
+    const baseURL = stripTrailingSlash(
+      this.config.baseURL ?? OPENAI_DEFAULT_BASE_URL,
+    );
 
     // Image-gen extras live on `options` but are not part of the strict
     // TextGenerationOptions shape — cast to a permissive type to read them.
@@ -1041,7 +501,7 @@ export class OpenAIProvider extends BaseProvider {
       response = await proxyFetch(`${baseURL}/images/generations`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${this.config.apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
@@ -1168,6 +628,3 @@ export class OpenAIProvider extends BaseProvider {
     return "1024x1024";
   }
 }
-
-// Export for factory registration
-export default OpenAIProvider;
