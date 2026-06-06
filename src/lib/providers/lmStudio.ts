@@ -11,6 +11,7 @@ import {
   ProviderError,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { redactUrlCredentials } from "../utils/logSanitize.js";
 import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
@@ -55,7 +56,7 @@ export class LMStudioProvider extends OpenAIChatCompletionsProvider {
     logger.debug("LM Studio Provider initialized", {
       modelName: this.modelName,
       providerName: this.providerName,
-      baseURL: this.config.baseURL,
+      baseURL: redactUrlCredentials(this.config.baseURL),
     });
   }
 
@@ -93,7 +94,7 @@ export class LMStudioProvider extends OpenAIChatCompletionsProvider {
       message.includes("fetch failed")
     ) {
       return new NetworkError(
-        `LM Studio server not reachable at ${this.config.baseURL}. ` +
+        `LM Studio server not reachable at ${redactUrlCredentials(this.config.baseURL)}. ` +
           `Open the LM Studio app, load a model, and click "Start Server".`,
         "lm-studio",
       );

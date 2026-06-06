@@ -22,6 +22,7 @@ import "dotenv/config";
  */
 
 import {
+  redactUrlCredentials,
   sanitizeForLog,
   sanitizeHeaders,
   sanitizeRecord,
@@ -348,6 +349,71 @@ try {
     false,
     false,
     err instanceof Error ? err.message : String(err),
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section I — redactUrlCredentials (baseURL credential stripping)
+// ───────────────────────────────────────────────────────────────────────
+
+console.log("\n=== Section I: redactUrlCredentials ===\n");
+
+// Positive: embedded user:pass@ must be stripped, host/path preserved.
+const redactCases: Array<[string, string, string]> = [
+  // [raw, expected, label]
+  [
+    "https://user:secret@api.example.com/v1",
+    "https://***@api.example.com/v1",
+    "user:pass@ in https baseURL",
+  ],
+  [
+    "http://admin:p%40ss@localhost:8080/v1",
+    "http://***@localhost:8080/v1",
+    "credentials with encoded chars + port",
+  ],
+  [
+    "redis://default:token123@redis.internal:6379",
+    "redis://***@redis.internal:6379",
+    "non-http scheme (redis)",
+  ],
+];
+
+for (const [raw, expected, label] of redactCases) {
+  const out = redactUrlCredentials(raw);
+  recordTest(
+    `redactUrlCredentials strips ${label}`,
+    out === expected,
+    false,
+    out === expected ? undefined : `expected "${expected}", got "${out}"`,
+  );
+}
+
+// Global flag: EVERY //…@ authority is redacted, not just the first.
+const multi = redactUrlCredentials(
+  "https://u1:p1@host-a/path?next=https://u2:p2@host-b/cb",
+);
+recordTest(
+  "redactUrlCredentials redacts all embedded credentials (global)",
+  !multi.includes("u1:p1") && !multi.includes("u2:p2"),
+  false,
+  `got "${multi}"`,
+);
+
+// Negative: credential-free URLs are returned unchanged.
+const noCredCases: Array<[string, string]> = [
+  ["https://api.mistral.ai/v1", "plain https baseURL"],
+  ["http://localhost:8080/v1", "localhost baseURL"],
+  ["https://api.openai.com/v1/chat/completions", "path with no userinfo"],
+  ["", "empty string"],
+];
+
+for (const [input, label] of noCredCases) {
+  const out = redactUrlCredentials(input);
+  recordTest(
+    `redactUrlCredentials leaves ${label} unchanged`,
+    out === input,
+    false,
+    out === input ? undefined : `unexpected change: "${input}" → "${out}"`,
   );
 }
 

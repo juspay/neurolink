@@ -8,6 +8,7 @@ import {
 } from "../types/index.js";
 import type { UnknownRecord } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { redactUrlCredentials } from "../utils/logSanitize.js";
 import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
@@ -68,7 +69,7 @@ export class OpenAICompatibleProvider extends OpenAIChatCompletionsProvider {
     logger.debug("OpenAI Compatible Provider initialized", {
       modelName: this.modelName,
       provider: this.providerName,
-      baseURL: this.config.baseURL,
+      baseURL: redactUrlCredentials(this.config.baseURL),
     });
   }
 
@@ -122,7 +123,7 @@ export class OpenAICompatibleProvider extends OpenAIChatCompletionsProvider {
         errorRecord.message.includes("Failed to fetch")
       ) {
         return new NetworkError(
-          `OpenAI Compatible endpoint not available. Please check your OPENAI_COMPATIBLE_BASE_URL: ${this.config.baseURL}`,
+          `OpenAI Compatible endpoint not available. Please check your OPENAI_COMPATIBLE_BASE_URL: ${redactUrlCredentials(this.config.baseURL)}`,
           "openai-compatible",
         );
       }

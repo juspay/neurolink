@@ -2,6 +2,7 @@ import type { AIProviderName } from "../constants/enums.js";
 import { NetworkError, ProviderError } from "../types/index.js";
 import type { NeurolinkCredentials, UnknownRecord } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { redactUrlCredentials } from "../utils/logSanitize.js";
 import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
@@ -11,14 +12,6 @@ const LLAMACPP_PLACEHOLDER_KEY = "llamacpp";
 const getLlamaCppBaseURL = (): string => {
   return process.env.LLAMACPP_BASE_URL || LLAMACPP_DEFAULT_BASE_URL;
 };
-
-/**
- * Strip embedded `user:pass@` credentials from a URL before logging it or
- * surfacing it in a user-facing error. Preserves host/port/path so the URL
- * stays useful for diagnostics.
- */
-const redactUrlCredentials = (url: string): string =>
-  url.replace(/\/\/[^/@]+@/, "//***@");
 
 /**
  * llama.cpp Provider — direct HTTP, no AI SDK.

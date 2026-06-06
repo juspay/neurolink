@@ -18,6 +18,7 @@ import {
 } from "../types/index.js";
 import { isAbortError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
+import { redactUrlCredentials } from "../utils/logSanitize.js";
 import { isGemini25Model as isCanonicalGemini25Model } from "../utils/modelDetection.js";
 import { calculateCost } from "../utils/pricing.js";
 import { getProviderModel } from "../utils/providerConfig.js";
@@ -82,7 +83,7 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
     logger.debug("LiteLLM Provider initialized", {
       modelName: this.modelName,
       provider: this.providerName,
-      baseURL: this.config.baseURL,
+      baseURL: redactUrlCredentials(this.config.baseURL),
     });
   }
 

@@ -13,6 +13,7 @@ import type {
   UnknownRecord,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { redactUrlCredentials } from "../utils/logSanitize.js";
 import {
   createDeepSeekConfig,
   getProviderModel,
@@ -84,7 +85,7 @@ export class DeepSeekProvider extends OpenAIChatCompletionsProvider {
     logger.debug("DeepSeek Provider initialized", {
       modelName: this.modelName,
       providerName: this.providerName,
-      baseURL: this.config.baseURL,
+      baseURL: redactUrlCredentials(this.config.baseURL),
     });
   }
 

@@ -17,6 +17,7 @@ import {
   RateLimitError,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { redactUrlCredentials } from "../utils/logSanitize.js";
 import { calculateCost } from "../utils/pricing.js";
 import {
   createOpenAIConfig,
@@ -106,7 +107,7 @@ export class OpenAIProvider extends OpenAIChatCompletionsProvider {
     logger.debug("OpenAIProvider initialized", {
       model: this.modelName,
       providerName: this.providerName,
-      baseURL: this.config.baseURL,
+      baseURL: redactUrlCredentials(this.config.baseURL),
     });
   }
 

@@ -9,6 +9,7 @@ import {
 } from "../types/index.js";
 import type { NeurolinkCredentials, UnknownRecord } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { redactUrlCredentials } from "../utils/logSanitize.js";
 import {
   createCloudflareConfig,
   getProviderModel,
@@ -76,7 +77,7 @@ export class CloudflareProvider extends OpenAIChatCompletionsProvider {
     logger.debug("Cloudflare Workers AI Provider initialized", {
       modelName: this.modelName,
       providerName: this.providerName,
-      baseURL: this.config.baseURL,
+      baseURL: redactUrlCredentials(this.config.baseURL),
     });
   }
 

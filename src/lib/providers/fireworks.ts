@@ -9,6 +9,7 @@ import {
 } from "../types/index.js";
 import type { NeurolinkCredentials, UnknownRecord } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { redactUrlCredentials } from "../utils/logSanitize.js";
 import {
   createFireworksConfig,
   getProviderModel,
@@ -61,7 +62,7 @@ export class FireworksProvider extends OpenAIChatCompletionsProvider {
     logger.debug("Fireworks Provider initialized", {
       modelName: this.modelName,
       providerName: this.providerName,
-      baseURL: this.config.baseURL,
+      baseURL: redactUrlCredentials(this.config.baseURL),
     });
   }
 

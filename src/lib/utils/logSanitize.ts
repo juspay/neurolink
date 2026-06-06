@@ -101,6 +101,23 @@ export function sanitizeForLog(text: string, maxLen = 500): string {
 }
 
 /**
+ * Strip embedded `user:pass@` credentials from a URL's authority component
+ * before logging it or surfacing it in a user-facing error.
+ *
+ * Turns `https://user:secret@host/path` into `https://***@host/path` while
+ * leaving credential-free URLs untouched, so the host/port/path stay useful
+ * for diagnostics. Use this for any `baseURL`/endpoint a caller may have
+ * supplied with inline credentials. The match is global, so every `//…@`
+ * authority in the string is redacted (e.g. a proxy chain or a URL embedded
+ * in a query parameter), not just the first.
+ *
+ * @param url - The URL (or URL-shaped string) to redact.
+ */
+export function redactUrlCredentials(url: string): string {
+  return url.replace(/\/\/[^/@]+@/g, "//***@");
+}
+
+/**
  * Recursively sanitize a record/array, returning a structurally identical
  * value with sensitive keys redacted and string values run through
  * {@link sanitizeForLog}.

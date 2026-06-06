@@ -9,6 +9,7 @@ import {
   RateLimitError,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { redactUrlCredentials } from "../utils/logSanitize.js";
 import {
   createTogetherAIConfig,
   getProviderModel,
@@ -62,7 +63,7 @@ export class TogetherAIProvider extends OpenAIChatCompletionsProvider {
     logger.debug("Together AI Provider initialized", {
       modelName: this.modelName,
       providerName: this.providerName,
-      baseURL: this.config.baseURL,
+      baseURL: redactUrlCredentials(this.config.baseURL),
     });
   }
 
