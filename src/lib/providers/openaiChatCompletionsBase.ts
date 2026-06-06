@@ -218,6 +218,33 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
   }
 
   /**
+   * Health-check hook — part of the documented public provider contract
+   * (`docs/provider-integration/00-architecture.md`). Default returns true
+   * when an apiKey is configured; local providers (LM Studio, llama.cpp)
+   * override this to probe the server's `/models` endpoint.
+   */
+  async validateConfiguration(): Promise<boolean> {
+    return (
+      typeof this.config.apiKey === "string" &&
+      this.config.apiKey.trim().length > 0
+    );
+  }
+
+  /**
+   * Snapshot of the provider's resolved configuration — part of the documented
+   * public provider contract (`docs/provider-integration/00-architecture.md`).
+   * Subclasses inherit this; override only to expose extra fields.
+   */
+  getConfiguration() {
+    return {
+      provider: this.providerName,
+      model: this.modelName,
+      defaultModel: this.getDefaultModel(),
+      baseURL: this.config.baseURL,
+    };
+  }
+
+  /**
    * Returns a minimal V3-shaped model used by BaseProvider's `generate()`
    * non-streaming path. Driven by the parent's `generateText`. The
    * streaming path bypasses this entirely.
