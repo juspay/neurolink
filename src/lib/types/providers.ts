@@ -7,7 +7,6 @@ import type {
   JsonValue,
   StreamingCapability,
 } from "./common.js";
-import type { ProviderError } from "./errors.js";
 import {
   AIProviderName,
   AnthropicModels,
@@ -201,7 +200,7 @@ export type NeurolinkCredentials = {
   openrouter?: { apiKey?: string; baseURL?: string };
   litellm?: { apiKey?: string; baseURL?: string };
   openaiCompatible?: { apiKey?: string; baseURL?: string };
-  ollama?: { baseURL?: string };
+  ollama?: { baseURL?: string; apiKey?: string };
   deepseek?: { apiKey?: string; baseURL?: string };
   nvidiaNim?: { apiKey?: string; baseURL?: string };
   // apiKey is optional for LM Studio / llama.cpp; use only when running them
@@ -1101,42 +1100,6 @@ export type ModelsResponse = {
   }>;
 };
 
-// ============================================================================
-// Ollama Provider Types
-// ============================================================================
-
-/**
- * Ollama tool call structure
- */
-export type OllamaToolCall = {
-  id: string;
-  type: "function";
-  function: {
-    name: string;
-    arguments: string;
-  };
-};
-
-/**
- * Ollama tool result structure
- */
-export type OllamaToolResult = {
-  tool_call_id: string;
-  content: string;
-};
-
-/**
- * Ollama message structure for conversation and tool execution
- */
-export type OllamaMessage = {
-  role: "system" | "user" | "assistant" | "tool";
-  content:
-    | string
-    | Array<{ type: string; text?: string; [key: string]: unknown }>;
-  tool_calls?: OllamaToolCall[];
-  images?: string[];
-};
-
 /**
  * Default model aliases for easy reference
  */
@@ -1705,23 +1668,6 @@ export type ProviderHealthStatusOptions = {
 // ============================================================================
 
 /**
- * Structural adapter type capturing what AI SDK's `streamText` / `generateText`
- * actually invoke at runtime on a model object.
- *
- * `OllamaLanguageModel` satisfies this type. The provider can cast
- * `new OllamaLanguageModel(...)` to `LanguageModel` via this
- * intermediate type, avoiding `as unknown as LanguageModel`.
- */
-export type OllamaAsLanguageModel = {
-  readonly specificationVersion: string;
-  readonly provider: string;
-  readonly modelId: string;
-  readonly supportedUrls: Record<string, RegExp[]>;
-  doGenerate(options: Record<string, unknown>): Promise<unknown>;
-  doStream(options: Record<string, unknown>): Promise<unknown>;
-};
-
-/**
  * Structural type that captures what AI SDK's `streamText` / `generateText`
  * actually invoke at runtime on a model object.
  *
@@ -2001,17 +1947,6 @@ export type ProviderRegistration = {
 /** Minimal NeuroLink-like instance accepted by the image generation service. */
 export type NeuroLinkInstance = {
   generate: (options: Record<string, unknown>) => Promise<unknown>;
-};
-
-// =============================================================================
-// OLLAMA (from providers/ollama.ts)
-// =============================================================================
-
-/** ProviderError enriched with HTTP response fields from Ollama. */
-export type OllamaHttpError = ProviderError & {
-  statusCode: number;
-  statusText: string;
-  responseBody: string;
 };
 
 // =============================================================================
