@@ -295,13 +295,18 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          _sdk?: UnknownRecord,
+          sdk?: UnknownRecord,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const ollamaCreds = credentials as NeurolinkCredentials["ollama"];
           const { OllamaProvider } = await import("../providers/ollama.js");
-          return new OllamaProvider(modelName, ollamaCreds);
+          return new OllamaProvider(
+            modelName,
+            sdk as unknown as NeuroLink | undefined,
+            undefined,
+            ollamaCreds,
+          );
         },
         process.env.OLLAMA_MODEL || OllamaModels.LLAMA3_2_LATEST,
         ["ollama", "local"],
