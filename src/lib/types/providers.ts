@@ -196,7 +196,7 @@ export type NeurolinkCredentials = {
     // best-effort deployment-name heuristic is used.
     useMaxCompletionTokens?: boolean;
   };
-  mistral?: { apiKey?: string };
+  mistral?: { apiKey?: string; baseURL?: string };
   huggingFace?: { apiKey?: string; baseURL?: string };
   openrouter?: { apiKey?: string; baseURL?: string };
   litellm?: { apiKey?: string; baseURL?: string };

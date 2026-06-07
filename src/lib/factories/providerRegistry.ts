@@ -9,7 +9,6 @@ import type {
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import type { NeuroLink } from "../neurolink.js";
-import type { MistralProvider as MistralProviderType } from "@ai-sdk/mistral";
 import {
   AIProviderName,
   GoogleAIModels,
@@ -281,7 +280,7 @@ export class ProviderRegistry {
           const { MistralProvider } = await import("../providers/mistral.js");
           return new MistralProvider(
             modelName,
-            sdk as unknown as MistralProviderType | undefined,
+            sdk as unknown as NeuroLink | undefined,
             undefined,
             mistralCreds,
           );
