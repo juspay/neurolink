@@ -490,6 +490,13 @@ export const buildBody = (
   if (responseFormat) {
     body.response_format = responseFormat;
   }
+  // Provider-specific extras attached via options.extraBody (the explicit
+  // channel from adjustBuildBodyOptions) land verbatim on the wire body.
+  // Spread last — a provider that puts a core field here is intentionally
+  // overriding it.
+  if (options.extraBody) {
+    Object.assign(body, options.extraBody);
+  }
   return body;
 };
 
@@ -535,7 +542,9 @@ export const parseSSEStream = async (
     // Reasoner-model deltas: DeepSeek/NIM emit `reasoning_content`, some
     // gateways emit `reasoning`. The AI SDK's openai-compatible wrapper
     // surfaced these automatically; the native client must do the same.
-    const reasoningDelta = delta?.reasoning_content ?? delta?.reasoning;
+    // `||` (not `??`) so an empty-string reasoning_content falls through to
+    // a non-empty `reasoning` field instead of shadowing it.
+    const reasoningDelta = delta?.reasoning_content || delta?.reasoning;
     if (reasoningDelta) {
       result.reasoning += reasoningDelta;
       onReasoningDelta?.(reasoningDelta);

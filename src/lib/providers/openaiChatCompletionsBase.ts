@@ -170,6 +170,21 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
   }
 
   /**
+   * Hook called when a request fails with HTTP 400. Return a modified body to
+   * retry ONCE with it; return undefined (default) to propagate the error
+   * unchanged. Applies on both the non-streaming doGenerate path and the
+   * streaming path. NVIDIA NIM uses this to strip `chat_template` /
+   * `chat_template_kwargs.reasoning_budget` when a model server rejects them,
+   * restoring the pre-migration fetch-level retry behavior.
+   */
+  protected adjustBodyAfter400(
+    _body: OpenAICompatChatRequest,
+    _error: Error & { statusCode?: number; responseBody?: string },
+  ): OpenAICompatChatRequest | undefined {
+    return undefined;
+  }
+
+  /**
    * Hook called once at the start of every `executeStream` invocation.
    * Return lifecycle listeners (onUsage / onFinish) to receive deferred
    * analytics events as the stream progresses. Default returns undefined
@@ -307,6 +322,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     const adjustBuildBodyOptions = this.adjustBuildBodyOptions.bind(this);
     const adjustResponseFormat = this.adjustResponseFormat.bind(this);
     const adjustRequestBody = this.adjustRequestBody.bind(this);
+    const adjustBodyAfter400 = this.adjustBodyAfter400.bind(this);
     const getTimeoutForOptions = (
       opts: Record<string, unknown> | undefined,
     ): number => this.getTimeout((opts ?? {}) as never);
@@ -394,11 +410,42 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             body: JSON.stringify(body),
             ...(composedSignal ? { signal: composedSignal } : {}),
           });
+          if (!res.ok) {
+            const apiErr = await buildAPIError(url, body, res);
+            // One-shot 400 retry: a subclass may strip a rejected field and
+            // return a modified body (e.g. NIM's chat_template /
+            // reasoning_budget). The retry runs under the SAME timeout
+            // controller as the first attempt, so the configured timeout caps
+            // the overall call — matching the streaming path, which reuses
+            // its composed signal for the retry.
+            const retryBody =
+              res.status === 400
+                ? adjustBodyAfter400(
+                    body,
+                    apiErr as Error & {
+                      statusCode?: number;
+                      responseBody?: string;
+                    },
+                  )
+                : undefined;
+            if (!retryBody) {
+              throw apiErr;
+            }
+            res = await fetchImpl(url, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...getAuthHeaders(),
+              },
+              body: JSON.stringify(retryBody),
+              ...(composedSignal ? { signal: composedSignal } : {}),
+            });
+            if (!res.ok) {
+              throw await buildAPIError(url, retryBody, res);
+            }
+          }
         } finally {
           timeoutController?.cleanup();
-        }
-        if (!res.ok) {
-          throw await buildAPIError(url, body, res);
         }
         const json = (await res.json()) as OpenAICompatChatResponse;
         const choice = json.choices?.[0];
@@ -410,8 +457,10 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         // Reasoner-model output (DeepSeek `reasoning_content`, gateway
         // `reasoning`) becomes a V3 reasoning part ahead of the text part —
         // GenerationHandler joins reasoning parts into `result.reasoning`.
+        // `||` so an empty-string reasoning_content falls through to a
+        // non-empty `reasoning` field instead of shadowing it.
         const reasoningText =
-          choice?.message?.reasoning_content ?? choice?.message?.reasoning;
+          choice?.message?.reasoning_content || choice?.message?.reasoning;
         if (typeof reasoningText === "string" && reasoningText.length > 0) {
           content.push({ type: "reasoning", text: reasoningText });
         }
@@ -447,12 +496,17 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             },
             outputTokens: {
               total: json.usage?.completion_tokens,
+              // Clamped at 0 — some gateways report inconsistent usage where
+              // reasoning_tokens exceeds completion_tokens.
               text:
                 json.usage?.completion_tokens !== undefined &&
                 json.usage?.completion_tokens_details?.reasoning_tokens !==
                   undefined
-                  ? json.usage.completion_tokens -
-                    json.usage.completion_tokens_details.reasoning_tokens
+                  ? Math.max(
+                      0,
+                      json.usage.completion_tokens -
+                        json.usage.completion_tokens_details.reasoning_tokens,
+                    )
                   : json.usage?.completion_tokens,
               reasoning:
                 json.usage?.completion_tokens_details?.reasoning_tokens,
@@ -815,7 +869,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         args.modelId,
       ),
     );
-    const res = await args.fetchImpl(args.url, {
+    let res = await args.fetchImpl(args.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -825,7 +879,31 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       ...(args.abortSignal ? { signal: args.abortSignal } : {}),
     });
     if (!res.ok) {
-      throw await buildAPIError(args.url, body, res);
+      const apiErr = await buildAPIError(args.url, body, res);
+      // One-shot 400 retry — same hook as the doGenerate path (e.g. NIM
+      // strips chat_template/reasoning_budget when a model rejects them).
+      const retryBody =
+        res.status === 400
+          ? this.adjustBodyAfter400(
+              body,
+              apiErr as Error & { statusCode?: number; responseBody?: string },
+            )
+          : undefined;
+      if (!retryBody) {
+        throw apiErr;
+      }
+      res = await args.fetchImpl(args.url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...this.getAuthHeaders(),
+        },
+        body: JSON.stringify(retryBody),
+        ...(args.abortSignal ? { signal: args.abortSignal } : {}),
+      });
+      if (!res.ok) {
+        throw await buildAPIError(args.url, retryBody, res);
+      }
     }
     if (!res.body) {
       throw new Error(`${this.providerName}: stream response had no body`);

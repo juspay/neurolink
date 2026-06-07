@@ -131,6 +131,25 @@ const deltaEvent = (
   );
 }
 
+{
+  // Empty-string reasoning_content must not shadow a non-empty `reasoning`
+  // (|| precedence — regression for the #1073 review nit).
+  const result = await parseSSEStream(
+    sseStream([
+      deltaEvent({ reasoning_content: "", reasoning: "fallback" }),
+      deltaEvent({ content: "ok" }, "stop"),
+      "[DONE]",
+    ]),
+    () => {},
+  );
+  recordTest(
+    "empty reasoning_content falls through to non-empty `reasoning`",
+    result.reasoning === "fallback",
+    false,
+    `got "${result.reasoning}"`,
+  );
+}
+
 // ───────────────────────────────────────────────────────────────────────
 // Section C — interleaved reasoning → content (deepseek-reasoner pattern)
 // ───────────────────────────────────────────────────────────────────────

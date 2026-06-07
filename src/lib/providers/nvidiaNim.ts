@@ -4,6 +4,7 @@ import type {
   NeurolinkCredentials,
   NvidiaNimExtraBody,
   OpenAICompatBuildBodyArgs,
+  OpenAICompatChatRequest,
   UnknownRecord,
 } from "../types/index.js";
 import {
@@ -185,8 +186,11 @@ const getDefaultNimModel = (): string => {
  * NVIDIA NIM Provider — native HTTP+SSE, no AI SDK.
  *
  * Wraps NVIDIA's hosted (or self-hosted) inference endpoints.
- * Passes NIM-specific extras (top_k, min_p, repetition_penalty,
- * chat_template_kwargs.reasoning_budget) via adjustBuildBodyOptions.
+ * Passes NIM-specific extras (top_k, min_p, repetition_penalty, min_tokens,
+ * chat_template, chat_template_kwargs.reasoning_budget) to the wire via the
+ * `extraBody` channel of adjustBuildBodyOptions, and retries once without
+ * `chat_template`/`reasoning_budget` when a model server rejects them with a
+ * 400 (adjustBodyAfter400 — applies on both generate and stream paths).
  * reasoning_content is surfaced automatically by the native base client
  * (streamed as `{ content: "", reasoning }` chunks; `result.reasoning` on
  * the non-streaming path); all other behavior is preserved.
@@ -260,7 +264,52 @@ export class NvidiaNimProvider extends OpenAIChatCompletionsProvider {
 
     const extra = buildNvidiaNimExtraBody(thinkingEnabled, maxTokens);
 
-    return { ...opts, ...extra };
+    // Attach via the explicit extraBody channel — buildBody spreads it onto
+    // the wire body. (Loose unknown keys on the returned options object are
+    // dropped by buildBody, which is why the extras previously never reached
+    // the wire.)
+    return Object.keys(extra).length > 0
+      ? { ...opts, extraBody: extra as Record<string, unknown> }
+      : opts;
+  }
+
+  /**
+   * One-shot 400 retry (base hook): some NIM model servers reject
+   * `chat_template` or `chat_template_kwargs.reasoning_budget` with a 400
+   * naming the field. Strip the rejected field(s) and let the base retry
+   * once, restoring the pre-migration fetch-level behavior. Returns
+   * undefined for unrelated 400s so they propagate unchanged.
+   */
+  protected adjustBodyAfter400(
+    body: OpenAICompatChatRequest,
+    error: Error & { statusCode?: number; responseBody?: string },
+  ): OpenAICompatChatRequest | undefined {
+    const responseBody = error.responseBody ?? "";
+    let serialized = JSON.stringify(body);
+    const strippedFields: string[] = [];
+
+    for (const field of ["chat_template", "reasoning_budget"] as const) {
+      if (isNimFieldRejection(responseBody, field)) {
+        const next = stripFieldFromJsonBody(serialized, field);
+        if (next !== null) {
+          serialized = next;
+          strippedFields.push(field);
+        }
+      }
+    }
+
+    if (strippedFields.length === 0) {
+      return undefined;
+    }
+    logger.debug(
+      "NVIDIA NIM: 400 rejected request field(s) — retrying once without them",
+      {
+        strippedFields,
+        model: body.model,
+        rejection: responseBody.slice(0, 200),
+      },
+    );
+    return JSON.parse(serialized) as OpenAICompatChatRequest;
   }
 
   protected formatProviderError(error: unknown): Error {

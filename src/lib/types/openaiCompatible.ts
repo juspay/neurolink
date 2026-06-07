@@ -318,6 +318,14 @@ export type OpenAICompatBuildBodyArgs = {
     frequencyPenalty?: number | null;
     seed?: number | null;
     stopSequences?: string[];
+    /**
+     * Provider-specific extra wire fields, spread verbatim onto the final
+     * request body by `buildBody` (after the standard fields). This is the
+     * explicit channel for non-OpenAI knobs (e.g. NVIDIA NIM's `top_k` /
+     * `chat_template_kwargs`) — loose unknown keys returned from
+     * `adjustBuildBodyOptions` are intentionally NOT forwarded.
+     */
+    extraBody?: Record<string, unknown>;
   };
   tools?: OpenAICompatChatTool[];
   toolChoice?: OpenAICompatToolChoiceWire;

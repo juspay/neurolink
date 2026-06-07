@@ -1387,12 +1387,11 @@ async function section9Errors(): Promise<void> {
   // NIM-specific K5: retry-on-400 strips reasoning_budget
   // Disable tools so we don't trip NIM's tool-choice config error on certain
   // model servers (which is a server config issue, not what this test verifies).
-  // Note: the retry-on-400 strip mechanism currently lives in the NIM
-  // provider's `executeStream` only — `generate` doesn't retry. When the
-  // selected model genuinely doesn't accept `reasoning_budget`, NIM's
-  // generate path bubbles up the upstream "Bad Request" verbatim. We treat
-  // that as SKIP (provider-side feature gap that the dedicated stream-mode
-  // K5 covers) instead of FAIL.
+  // Note: the retry-on-400 strip now lives in the base's adjustBodyAfter400
+  // hook and applies on BOTH the generate and stream paths, so this generate
+  // probe should succeed via the one-shot retry. The SKIP below is kept as a
+  // tolerant fallback for upstream model servers whose 400 body doesn't name
+  // the rejected field (the strip only fires on a field-naming rejection).
   if (HAS_NIM) {
     await runProviderTest(
       "K5 error.nim.retry.budget",
@@ -1413,10 +1412,11 @@ async function section9Errors(): Promise<void> {
           return Boolean(res?.content); // should succeed via retry
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          // Bad-Request bubbled up = retry-strip didn't apply for generate.
+          // Bad-Request bubbled up = the 400 body didn't name the rejected
+          // field, so the strip-and-retry hook (correctly) didn't fire.
           if (/\bbad request\b|\b400\b/i.test(msg)) {
             throw new Skip(
-              "NIM rejected reasoning_budget; retry-strip is stream-only",
+              "NIM 400 without field-naming rejection; strip not applicable",
             );
           }
           // Timeout / abort surfaces because NIM ran cold or rate-limited.
