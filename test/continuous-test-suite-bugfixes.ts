@@ -185,6 +185,64 @@ const tests: TestFunction[] = [
         },
       ),
   },
+  {
+    name: "GoogleVertexProvider: Anthropic Vertex client construction does not leak unhandledRejection",
+    category: "vertex-anthropic",
+    fn: async () => {
+      // Regression: the vertex SDK constructor eagerly runs
+      // `this._authClientPromise = this._auth.getClient()` and only awaits it
+      // per-request. With unresolvable creds and no request, that rejected
+      // promise used to surface as a process-level unhandledRejection (which
+      // then polluted unrelated tests). createAnthropicVertexClient now attaches
+      // a catch. Detect only auth/creds-shaped leaks so this never false-fails
+      // on an unrelated rejection originating in another test.
+      let leaked = false;
+      const onUnhandled = (reason: unknown) => {
+        const text =
+          reason instanceof Error
+            ? (reason.stack ?? reason.message)
+            : String(reason);
+        if (
+          /creds|credential|ENOENT|GoogleAuth|getClient|application[_ ]?default/i.test(
+            text,
+          )
+        ) {
+          leaked = true;
+        }
+      };
+      process.on("unhandledRejection", onUnhandled);
+      try {
+        return await withTemporaryEnv(
+          {
+            GOOGLE_APPLICATION_CREDENTIALS:
+              "/tmp/neurolink-nonexistent-creds.json",
+            GOOGLE_CLOUD_PROJECT_ID: "test-project",
+            GOOGLE_CLOUD_LOCATION: "us-east5",
+          },
+          async () => {
+            const provider = new GoogleVertexProvider(
+              "claude-sonnet-4@20250514",
+              undefined,
+              undefined,
+              "us-east5",
+            );
+            await (
+              provider as unknown as {
+                createAnthropicVertexClient(
+                  timeoutMs?: number,
+                ): Promise<unknown>;
+              }
+            ).createAnthropicVertexClient(60_000);
+            // Let GoogleAuth's async ADC read settle + (previously) reject.
+            await new Promise((r) => setTimeout(r, 150));
+            return !leaked;
+          },
+        );
+      } finally {
+        process.off("unhandledRejection", onUnhandled);
+      }
+    },
+  },
 
   // ---------- Proxy routing: simplified ----------
   {
