@@ -2734,7 +2734,23 @@ export class GoogleVertexProvider extends BaseProvider {
       this.location,
       timeoutMs,
     );
-    return new mod.AnthropicVertex(settings);
+    const client = new mod.AnthropicVertex(settings);
+    // The vertex SDK eagerly starts Google ADC resolution in its constructor
+    // (`this._authClientPromise = this._auth.getClient()`) and only awaits it
+    // per-request in `prepareOptions()`. A client that is constructed but never
+    // used — or built with misconfigured credentials — would otherwise leak
+    // that rejection as a process-level `unhandledRejection`. Attaching a
+    // handler here marks the promise as handled (so Node no longer reports it);
+    // it does not consume the rejection — the per-request `await` in
+    // `prepareOptions()` is a separate continuation and still surfaces auth
+    // errors to callers. `void` flags the returned promise as deliberately
+    // ignored (codebase convention for fire-and-forget).
+    void (
+      client as unknown as { _authClientPromise?: Promise<unknown> }
+    )._authClientPromise?.catch(() => {
+      // Intentionally ignored — see above.
+    });
+    return client;
   }
 
   /**
