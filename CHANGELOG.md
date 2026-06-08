@@ -1,3 +1,9 @@
+## [9.69.3](https://github.com/juspay/neurolink/compare/v9.69.2...v9.69.3) (2026-06-08)
+
+### Bug Fixes
+
+- **(providers):** prevent unhandled auth rejection from unused AnthropicVertex client ([b2d8b25](https://github.com/juspay/neurolink/commit/b2d8b2568729e6ccf02cbe4266c450aeb1fe4e37))
+
 ## [9.69.2](https://github.com/juspay/neurolink/compare/v9.69.1...v9.69.2) (2026-06-07)
 
 ## [9.69.1](https://github.com/juspay/neurolink/compare/v9.69.0...v9.69.1) (2026-06-07)
