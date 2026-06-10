@@ -25,7 +25,7 @@
     "svelte-check": "^4.3.6",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "vite": "^7.3.2"
   },
   "dependencies": {
     "@resvg/resvg-wasm": "^2.6.2",
