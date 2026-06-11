@@ -292,6 +292,20 @@ export default [
     },
   },
   {
+    // This directory is excluded from tsconfig.json, so type-aware linting
+    // (project) is disabled here. The matched .ts file is the server-side
+    // package entry (re-exports only); no browser globals are needed.
+    files: ["src/lib/server/voice/public/**/*.ts"],
+    languageOptions: {
+      parser: tsparser,
+      parserOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+        project: null,
+      },
+    },
+  },
+  {
     // CommonJS files (e.g., Docusaurus config) - allow module.exports and require
     files: ["docs-site/**/*.js"],
     languageOptions: {

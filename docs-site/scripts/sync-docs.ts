@@ -919,6 +919,8 @@ const LINK_MAPPINGS: Record<string, string> = {
   "guardrails-ai-integration": "/features/guardrails-ai",
   "image-generation-streaming": "/features/image-generation",
   "real-time-speech-agents": "/features/speech-agents",
+  "livekit-voice-agent": "/features/livekit-voice-agent",
+  "livekit-voice-agent.md": "/features/livekit-voice-agent",
   streaming: "/advanced/streaming",
   "features/streaming": "/advanced/streaming",
   "context-compaction": "/features/context-compaction",

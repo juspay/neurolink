@@ -294,6 +294,11 @@
       "types": "./dist/adapters/*.d.ts",
       "import": "./dist/adapters/*.js",
       "default": "./dist/adapters/*.js"
+    },
+    "./livekit": {
+      "types": "./dist/voice/livekit/index.d.ts",
+      "import": "./dist/voice/livekit/index.js",
+      "default": "./dist/voice/livekit/index.js"
     }
   },
   "dependencies": {
@@ -374,6 +379,14 @@
     "@koa/cors": "^5.0.0",
     "@koa/router": "^15.3.1",
     "@langfuse/otel": "^5.0.1",
+    "@livekit/agents": "^1.4.5",
+    "@livekit/agents-plugin-cartesia": "^1.4.5",
+    "@livekit/agents-plugin-deepgram": "^1.4.5",
+    "@livekit/agents-plugin-elevenlabs": "^1.4.5",
+    "@livekit/agents-plugin-livekit": "^1.4.5",
+    "@livekit/agents-plugin-silero": "^1.4.5",
+    "@livekit/agents-plugin-soniox": "^1.4.5",
+    "@livekit/rtc-node": "^0.13.29",
     "@picovoice/cobra-node": "^3.0.2",
     "bullmq": "^5.52.2",
     "cors": "^2.8.5",
@@ -385,6 +398,7 @@
     "fluent-ffmpeg": "^2.1.3",
     "koa": "^3.1.1",
     "koa-bodyparser": "^4.4.1",
+    "livekit-server-sdk": "^2.15.4",
     "mammoth": "^1.11.0",
     "mediabunny": "^1.40.1",
     "music-metadata": "^11.11.2",
