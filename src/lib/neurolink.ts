@@ -204,6 +204,7 @@ import {
 } from "./utils/lifecycleCallbacks.js";
 import { resolveLifecycleTimeoutMs } from "./utils/lifecycleTimeout.js";
 import { cloneOptionsForCallIsolation } from "./utils/cloneOptions.js";
+import { coerceJsonToSchema } from "./utils/json/coerce.js";
 // Factory processing imports
 import {
   createCleanStreamOptions,
@@ -4467,6 +4468,71 @@ Current user's request: ${currentInput}`;
       startTime,
     } = params;
 
+    // Provider-agnostic JSON coercion for schema requests. Structured-output
+    // enforcement makes valid JSON the overwhelming case; for every other
+    // provider path — including generate() overrides (Vertex, Anthropic,
+    // Bedrock, Google AI Studio) — object/array roots are recovered here via
+    // balanced-scan + jsonrepair and scalar JSON roots via plain JSON.parse,
+    // with the parsed value exposed as `structuredData`. If nothing
+    // JSON-shaped is recoverable (pure prose), the raw text is returned,
+    // `structuredData` stays undefined, and a WARN makes the case observable.
+    // Runs BEFORE the end-of-generation emits below so event consumers see
+    // the same coerced content/structuredData the caller receives.
+    if (
+      textOptions.schema &&
+      textResult.structuredData === undefined &&
+      typeof textResult.content === "string"
+    ) {
+      const coerced = coerceJsonToSchema(
+        textResult.content,
+        textOptions.schema,
+      );
+      if (coerced) {
+        textResult.content = coerced.content;
+        textResult.structuredData = coerced.structuredData;
+        if (coerced.repaired) {
+          textResult.jsonRepaired = true;
+        }
+        if (coerced.truncated) {
+          textResult.jsonTruncated = true;
+        }
+      } else {
+        try {
+          const scalar: unknown = JSON.parse(textResult.content);
+          if (scalar !== null && scalar !== undefined) {
+            textResult.structuredData = scalar;
+          }
+        } catch {
+          logger.warn(
+            "[NeuroLink] schema requested but no JSON could be recovered from model output; returning raw text",
+            { provider: textResult.provider, model: textResult.model },
+          );
+        }
+      }
+    }
+
+    // Surface truncation when a schema was requested: either the provider
+    // reported finishReason="length" or the recovered JSON came from an
+    // unclosed span. Either way `structuredData` may be incomplete — warn at
+    // info level so it is observable in production (not just debug logs).
+    if (textOptions.schema) {
+      if (textResult.finishReason === "length") {
+        textResult.jsonTruncated = true;
+      }
+      if (textResult.jsonTruncated) {
+        logger.warn(
+          "[NeuroLink] Structured output may be truncated (finishReason=length or unclosed JSON); " +
+            "increase maxTokens to fit the full response.",
+          {
+            provider: textResult.provider,
+            model: textResult.model,
+            finishReason: textResult.finishReason,
+            outputTokens: textResult.usage?.output,
+          },
+        );
+      }
+    }
+
     // Skip the top-level `generation:end` emission when the provider already
     // emitted it from its native generate path (Vertex / Google AI Studio).
     // Without this guard, native-path providers would surface TWO events
@@ -4507,7 +4573,10 @@ Current user's request: ${currentInput}`;
 
     const generateResult: GenerateResult = {
       content: textResult.content,
+      structuredData: textResult.structuredData,
       finishReason: textResult.finishReason,
+      jsonRepaired: textResult.jsonRepaired,
+      jsonTruncated: textResult.jsonTruncated,
       provider: textResult.provider,
       model: textResult.model,
       usage: textResult.usage

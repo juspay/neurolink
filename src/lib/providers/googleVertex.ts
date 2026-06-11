@@ -54,6 +54,7 @@ import {
   hasRestrictedOutputLimit,
   RESTRICTED_OUTPUT_TOKEN_LIMIT,
 } from "../utils/modelDetection.js";
+import { resolveClaudeMaxTokens } from "../utils/tokenLimits.js";
 import {
   validateApiKey,
   createVertexProjectConfig,
@@ -3066,7 +3067,11 @@ export class GoogleVertexProvider extends BaseProvider {
 
     const requestParams: Parameters<typeof client.messages.stream>[0] = {
       model: modelName,
-      max_tokens: options.maxTokens || 4096,
+      // Default to the model's real output ceiling (e.g. 64K for Sonnet 4.x)
+      // instead of the legacy 4096, which silently truncated large structured
+      // responses mid-JSON. resolveClaudeMaxTokens also clamps over-large
+      // caller values so the native Vertex path never 400s.
+      max_tokens: resolveClaudeMaxTokens(modelName, options.maxTokens),
       messages: messages as Parameters<
         typeof client.messages.stream
       >[0]["messages"],
@@ -3744,7 +3749,8 @@ export class GoogleVertexProvider extends BaseProvider {
 
     const requestParams = {
       model: modelName,
-      max_tokens: options.maxTokens || 4096,
+      // Default to the model's real output ceiling (see stream path note).
+      max_tokens: resolveClaudeMaxTokens(modelName, options.maxTokens),
       messages,
       ...(tools && tools.length > 0 && { tools }),
       ...(useFinalResultTool && { tool_choice: { type: "any" as const } }),
@@ -3770,6 +3776,10 @@ export class GoogleVertexProvider extends BaseProvider {
     }> = [];
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    // Track the final Anthropic stop_reason so we can surface finishReason
+    // (notably "length" on token truncation) — the legacy native path always
+    // reported "stop", hiding truncation from callers.
+    let lastStopReason: string | null | undefined;
     const currentMessages = [...messages];
 
     while (step < maxSteps) {
@@ -3793,6 +3803,7 @@ export class GoogleVertexProvider extends BaseProvider {
         // Update token counts
         totalInputTokens += response.usage?.input_tokens || 0;
         totalOutputTokens += response.usage?.output_tokens || 0;
+        lastStopReason = response.stop_reason;
 
         // Check if we need to handle tool use
         const toolUseBlocks = (
@@ -4004,6 +4015,10 @@ export class GoogleVertexProvider extends BaseProvider {
 
     const result: EnhancedGenerateResult = {
       content: finalText,
+      // Surface truncation: Anthropic "max_tokens" → unified "length" so the
+      // SDK boundary can flag/observe incomplete structured output. Anything
+      // else (end_turn / stop_sequence / tool_use) is a normal stop.
+      finishReason: lastStopReason === "max_tokens" ? "length" : "stop",
       provider: this.providerName,
       model: modelName,
       usage: {

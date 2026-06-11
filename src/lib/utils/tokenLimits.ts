@@ -102,6 +102,66 @@ export function getSafeMaxTokens(
 }
 
 /**
+ * Maximum output tokens supported by a given Anthropic Claude model.
+ *
+ * The native Vertex+Claude and native Anthropic message paths send `max_tokens`
+ * straight to the Anthropic API, which returns 400 if the value exceeds the
+ * model's published output ceiling. (The AI-SDK path clamps automatically;
+ * these native paths do not.) This table lets those paths default to the
+ * model's real ceiling — 64K for Sonnet/Haiku 4.x, 32K for Opus 4.x — instead of
+ * the legacy 4096 that silently truncated large structured responses.
+ *
+ * Unknown identifiers fall back to a safe modern floor (8192).
+ */
+export function getClaudeMaxOutputTokens(model: string | undefined): number {
+  const m = (model ?? "").toLowerCase();
+  // Claude 4.x family: Opus 4.x = 32K, Sonnet/Haiku 4.x = 64K.
+  if (/opus[-_.]?4/.test(m)) {
+    return 32000;
+  }
+  if (/sonnet[-_.]?4/.test(m) || /haiku[-_.]?4/.test(m)) {
+    return 64000;
+  }
+  // Claude 3.7 Sonnet supports 64K output.
+  if (/3[-_.]?7[-_.]?sonnet/.test(m)) {
+    return 64000;
+  }
+  // Claude 3.5 Sonnet / Haiku → 8192.
+  if (/3[-_.]?5[-_.]?(sonnet|haiku)/.test(m)) {
+    return 8192;
+  }
+  // Claude 3 Opus / Sonnet / Haiku → 4096.
+  if (/claude-3-(opus|sonnet|haiku)/.test(m) || /3[-_.]?opus/.test(m)) {
+    return 4096;
+  }
+  // Bare family aliases (latest of a family) → assume the modern ceiling.
+  if (m.includes("opus")) {
+    return 32000;
+  }
+  if (m.includes("sonnet") || m.includes("haiku")) {
+    return 64000;
+  }
+  return 8192;
+}
+
+/**
+ * Resolve the `max_tokens` to send on a native Anthropic/Claude request: honour
+ * the caller's value but clamp it to the model's published ceiling, and default
+ * to that ceiling when the caller did not specify one. Prevents both silent
+ * truncation (the legacy 4096 default) and 400s from over-large requests.
+ */
+export function resolveClaudeMaxTokens(
+  model: string | undefined,
+  requested?: number,
+): number {
+  const ceiling = getClaudeMaxOutputTokens(model);
+  if (requested !== undefined && requested !== null && requested > 0) {
+    return Math.min(requested, ceiling);
+  }
+  return ceiling;
+}
+
+/**
  * Validate if maxTokens is safe for a provider/model combination
  */
 export function validateMaxTokens(

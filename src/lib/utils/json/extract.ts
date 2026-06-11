@@ -8,6 +8,56 @@
 import { parseJsonOrNull } from "./safeParse.js";
 
 /**
+ * Find the first balanced JSON object/array span starting at or after
+ * `fromIndex`. Quote- and escape-aware: braces inside string literals do not
+ * affect depth. Returns the matched substring and the index just past it, or
+ * null if no balanced span exists.
+ */
+export function nextBalancedJsonSpan(
+  text: string,
+  fromIndex = 0,
+): { span: string; end: number } | null {
+  for (let start = fromIndex; start < text.length; start++) {
+    const openChar = text[start];
+    if (openChar !== "{" && openChar !== "[") {
+      continue;
+    }
+    const closeChar = openChar === "{" ? "}" : "]";
+    let depth = 0;
+    let inString = false;
+    let escapeNext = false;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escapeNext = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) {
+        continue;
+      }
+      if (ch === openChar) {
+        depth++;
+      } else if (ch === closeChar) {
+        depth--;
+        if (depth === 0) {
+          return { span: text.substring(start, i + 1), end: i + 1 };
+        }
+      }
+    }
+    // Unbalanced from this start — try the next opening char.
+  }
+  return null;
+}
+
+/**
  * Extract JSON string from text that may contain surrounding content.
  *
  * Searches for valid JSON in the following order:
@@ -47,20 +97,23 @@ export function extractJsonStringFromText(text: string): string | null {
     }
   }
 
-  // Try to find JSON object or array pattern using non-greedy iterative scan.
-  // Note: [\s\S]*? is non-greedy but can still produce over-spanning matches
-  // in texts with many braces. This is acceptable as we try-parse each candidate
-  // and move to the next on failure. A bracket-balancing parser would be more
-  // precise but significantly more complex for marginal benefit.
-  const candidateRegex = /(\{[\s\S]*?\}|\[[\s\S]*?\])/g;
-  let candidate: RegExpExecArray | null;
-  while ((candidate = candidateRegex.exec(text)) !== null) {
-    try {
-      JSON.parse(candidate[1]);
-      return candidate[1];
-    } catch {
-      // Try next candidate
+  // Scan for balanced JSON object/array spans (quote/escape aware) and return
+  // the first one that parses. Unlike a non-greedy regex, this never stops at a
+  // "}" that lives inside a string value, so nested objects are preserved.
+  let searchFrom = 0;
+  for (;;) {
+    const found = nextBalancedJsonSpan(text, searchFrom);
+    if (!found) {
+      break;
     }
+    try {
+      JSON.parse(found.span);
+      return found.span;
+    } catch {
+      // Not valid JSON — resume scanning just past this opening character so a
+      // valid inner object/array can still be found.
+    }
+    searchFrom = found.end - found.span.length + 1;
   }
 
   return null;

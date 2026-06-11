@@ -270,30 +270,32 @@ export type GenerateOptions = {
   /**
    * Zod schema for structured output validation
    *
-   * @important Google Gemini Limitation
-   * Google Vertex AI and Google AI Studio cannot combine function calling with
-   * structured output. You MUST use `disableTools: true` when using schemas with
-   * Google providers.
+   * @important Google GEMINI limitation (Gemini models only)
+   * Gemini models (Google AI Studio, and Vertex GEMINI models) cannot combine
+   * function calling with schema-enforced structured output — a Gemini API
+   * limitation ("Function calling with a response mime type:
+   * 'application/json' is unsupported"). Vertex CLAUDE models and all other
+   * providers support tools + schema simultaneously.
    *
-   * Error without disableTools: "Function calling with a response mime type:
-   * 'application/json' is unsupported"
-   *
-   * This is a documented Google API limitation, not a NeuroLink bug.
-   * All frameworks (LangChain, Vercel AI SDK, Agno, Instructor) use this approach.
+   * You do NOT need to set `disableTools` yourself: when the combination is
+   * impossible, NeuroLink automatically falls back to text-mode JSON coercion
+   * (see `coerceJsonToSchema`), and `disableTools: true` remains available as
+   * an explicit override.
    *
    * @example
    * ```typescript
-   * // ✅ Correct for Google providers
+   * // ✅ Vertex + Claude: tools AND schema together are fully supported
    * const result = await neurolink.generate({
    *   schema: MySchema,
    *   provider: "vertex",
-   *   disableTools: true  // Required for Google
+   *   model: "claude-sonnet-4-6",
    * });
    *
-   * // ✅ No restriction for other providers
+   * // ✅ Gemini + tools: SDK auto-falls back to coerced text-mode JSON
    * const result = await neurolink.generate({
    *   schema: MySchema,
-   *   provider: "openai"  // Works without disableTools
+   *   provider: "google-ai",
+   *   model: "gemini-2.5-pro",
    * });
    * ```
    *
@@ -321,16 +323,18 @@ export type GenerateOptions = {
   /**
    * Disable tool execution (including built-in tools)
    *
-   * @required For Google Gemini providers when using schemas
-   * Google Vertex AI and Google AI Studio require this flag when using
-   * structured output (schemas) due to Google API limitations.
+   * Optional with schemas: the tools↔schema exclusion applies only to Google
+   * GEMINI models (Google AI Studio / Vertex Gemini — a Gemini API
+   * limitation), and NeuroLink handles it automatically by falling back to
+   * text-mode JSON coercion. Vertex CLAUDE models support tools + schema
+   * together. Set this only when you explicitly want a tool-free call.
    *
    * @example
    * ```typescript
-   * // Required for Google providers with schemas
+   * // Explicit override: schema-only call with no tools at all
    * await neurolink.generate({
    *   schema: MySchema,
-   *   provider: "vertex",
+   *   provider: "google-ai",
    *   disableTools: true
    * });
    * ```
@@ -618,6 +622,13 @@ export type AdditionalMemoryUser = {
  */
 export type GenerateResult = {
   content: string; // Primary output
+  /**
+   * Parsed structured object when a `schema` was requested. Populated from
+   * AI-SDK experimental_output, or from text-mode coercion (balanced-scan +
+   * jsonrepair). Prefer this over JSON.parse(content) — it never requires the
+   * caller to re-parse hand-escaped model text.
+   */
+  structuredData?: unknown;
   outputs?: { text: string }; // Future extensible for multi-modal
 
   /**
@@ -707,6 +718,18 @@ export type GenerateResult = {
 
   // Finish reason from the AI provider (e.g., "stop", "length", "tool-calls")
   finishReason?: string;
+
+  /**
+   * True when the schema JSON in `content`/`structuredData` was repaired from
+   * malformed model text (jsonrepair ran). The result is still valid JSON.
+   */
+  jsonRepaired?: boolean;
+  /**
+   * True when the schema JSON appears truncated — the model hit the output
+   * token cap (finishReason="length") or the recovered object came from an
+   * unclosed span. `structuredData` may be incomplete; raise `maxTokens`.
+   */
+  jsonTruncated?: boolean;
 
   // Usage and performance
   usage?: TokenUsage;
@@ -1224,7 +1247,13 @@ export type TextGenerationOptions = {
  */
 export type TextGenerationResult = {
   content: string;
+  /** Parsed structured object when a `schema` was requested (see GenerateResult.structuredData). */
+  structuredData?: unknown;
   finishReason?: string;
+  /** True when the schema JSON was repaired from malformed model text. */
+  jsonRepaired?: boolean;
+  /** True when the schema JSON appears truncated (output hit the token cap). */
+  jsonTruncated?: boolean;
   provider?: string;
   model?: string;
   usage?: TokenUsage;

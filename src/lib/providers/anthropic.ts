@@ -74,6 +74,7 @@ import {
   stampNoOutputSpan,
 } from "../utils/noOutputSentinel.js";
 import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
+import { resolveClaudeMaxTokens } from "../utils/tokenLimits.js";
 import {
   createChunkQueue,
   createDeferredAnalytics,
@@ -657,10 +658,19 @@ const mapAnthropicStopReason = (
   }
 };
 
-// Anthropic's Messages API requires max_tokens on every request. The previous
-// @ai-sdk/anthropic implementation defaulted it to 4096 when the caller did
-// not specify maxTokens — preserve that wire behavior.
-const ANTHROPIC_DEFAULT_MAX_TOKENS = 4096;
+// Anthropic's Messages API requires max_tokens on every request. When the
+// caller omits it, default to the model's real output ceiling via
+// resolveClaudeMaxTokens (e.g. 64K for Sonnet 4.x) instead of the legacy 4096,
+// which silently truncated large structured responses mid-JSON.
+//
+// Client-level request timeout. The Anthropic SDK throws "Streaming is required
+// for long requests" from a NON-streaming `messages.create` when `max_tokens`
+// is large AND no client-level timeout is configured (it can't estimate a safe
+// timeout). Setting an explicit client timeout — equal to the SDK's own default
+// for the non-throwing path — suppresses that pre-flight throw so large
+// max_tokens (our model-ceiling default) works. Per-request duration is still
+// bounded by the abort signal NeuroLink composes for each call.
+const ANTHROPIC_CLIENT_TIMEOUT_MS = 600_000;
 
 /**
  * Anthropic Provider v2 - BaseProvider Implementation
@@ -797,6 +807,7 @@ export class AnthropicProvider extends BaseProvider {
         apiKey: "oauth-authenticated", // Placeholder, actual auth is in fetch wrapper
         // Note: No headers passed - fetch wrapper sets oauth-2025-04-20 beta header
         fetch: oauthFetch as unknown as typeof globalThis.fetch,
+        timeout: ANTHROPIC_CLIENT_TIMEOUT_MS,
       });
       logger.debug(
         "[AnthropicProvider] Anthropic SDK client created with OAuth fetch wrapper",
@@ -850,6 +861,7 @@ export class AnthropicProvider extends BaseProvider {
         defaultHeaders: headers,
         ...(normalizedBaseURL && { baseURL: normalizedBaseURL }),
         fetch: createProxyFetch() as unknown as typeof globalThis.fetch,
+        timeout: ANTHROPIC_CLIENT_TIMEOUT_MS,
       });
 
       logger.debug("Anthropic Provider initialized with API key", {
@@ -1440,7 +1452,7 @@ export class AnthropicProvider extends BaseProvider {
         const params: Anthropic.Messages.MessageCreateParamsNonStreaming = {
           model: modelId,
           messages,
-          max_tokens: options.maxOutputTokens ?? ANTHROPIC_DEFAULT_MAX_TOKENS,
+          max_tokens: resolveClaudeMaxTokens(modelId, options.maxOutputTokens),
           ...(system ? { system } : {}),
           ...(options.temperature !== undefined && options.temperature !== null
             ? { temperature: options.temperature }
@@ -1456,8 +1468,25 @@ export class AnthropicProvider extends BaseProvider {
           ...(thinking ? { thinking } : {}),
         };
 
+        // The 60s anthropic generate default was tuned for the old ~4096
+        // max_tokens. Now that the default ceiling is the model's real max,
+        // a large structured response needs more wall-clock to be produced —
+        // otherwise the inner controller aborts mid-generation (the AI-SDK
+        // doGenerate layer doesn't see the caller's `timeout`). Raise the
+        // floor to 5 min when a large output budget is in play — but only
+        // when the caller did NOT set an explicit timeout: an explicit value
+        // is a contract and must never be silently extended. The abort
+        // signal stays the real bound.
+        const callerTimeout = (options as { timeout?: number | string })
+          .timeout;
+        const callerSpecifiedTimeout =
+          callerTimeout !== undefined && callerTimeout !== null;
+        const generateTimeoutMs =
+          params.max_tokens > 8192 && !callerSpecifiedTimeout
+            ? Math.max(getTimeoutForOptions(options), 300_000)
+            : getTimeoutForOptions(options);
         const timeoutController = createTimeoutController(
-          getTimeoutForOptions(options),
+          generateTimeoutMs,
           providerName,
           "generate",
         );
@@ -1751,7 +1780,7 @@ export class AnthropicProvider extends BaseProvider {
         const params: Anthropic.Messages.MessageCreateParamsStreaming = {
           model: modelId,
           messages: conversation,
-          max_tokens: options.maxTokens ?? ANTHROPIC_DEFAULT_MAX_TOKENS,
+          max_tokens: resolveClaudeMaxTokens(modelId, options.maxTokens),
           stream: true,
           ...(payload.system ? { system: payload.system } : {}),
           ...(options.temperature !== undefined && options.temperature !== null

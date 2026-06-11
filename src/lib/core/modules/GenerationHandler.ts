@@ -39,6 +39,11 @@ import {
   extractTokenUsage,
 } from "../../utils/tokenUtils.js";
 import { DEFAULT_MAX_STEPS } from "../constants.js";
+import {
+  isToolsSchemaConflictError,
+  isToolsSchemaExclusionInForce,
+} from "./structuredOutputPolicy.js";
+import { coerceJsonToSchema } from "../../utils/json/coerce.js";
 import type {
   LanguageModel,
   ModelMessage,
@@ -125,9 +130,16 @@ export class GenerationHandler {
       (!!options.schema ||
         options.output?.format === "json" ||
         options.output?.format === "structured");
+    // The tools↔schema conflict is a Gemini-only API limitation. Vertex+Claude
+    // supports both simultaneously, so only exclude for actual Gemini models.
     const useStructuredOutput =
       wantsStructuredOutput &&
-      !(isGoogleProvider && shouldUseTools && Object.keys(tools).length > 0);
+      !isToolsSchemaExclusionInForce(
+        this.providerName,
+        this.modelName,
+        shouldUseTools,
+        Object.keys(tools).length,
+      );
 
     // Annotate the last tool with cache_control so the full tool-definition
     // block becomes a cache breakpoint for Anthropic-family providers.
@@ -417,25 +429,37 @@ export class GenerationHandler {
           span.setStatus({ code: SpanStatusCode.OK });
           return result;
         } catch (error) {
-          // If NoObjectGeneratedError is thrown when using schema + tools together,
-          // fall back to generating without experimental_output and extract JSON manually
-          if (error instanceof NoObjectGeneratedError && useStructuredOutput) {
+          // Fall back to text-mode (no experimental_output) when structured
+          // output + tools failed, in two cases:
+          //   1. NoObjectGeneratedError — the SDK couldn't coerce the object.
+          //   2. The provider rejected json-mode-with-tools outright (e.g. Groq:
+          //      "json mode cannot be combined with tool/function calling").
+          // In both cases we retry without structured output and let
+          // formatEnhancedResult coerce the text response into valid JSON.
+          const isStructuredOutputConflict =
+            useStructuredOutput &&
+            (error instanceof NoObjectGeneratedError ||
+              isToolsSchemaConflictError(error));
+          if (isStructuredOutputConflict) {
             span.setAttribute("neurolink.has_fallback", true);
 
             // NLK-GAP-007: Record initial failure event before fallback retry
             span.addEvent("retry.initial_failure", {
-              "error.message": error.message,
+              "error.message":
+                error instanceof Error ? error.message : String(error),
               "retry.attempt": 1,
               "retry.reason":
-                "NoObjectGeneratedError_structured_output_fallback",
+                error instanceof NoObjectGeneratedError
+                  ? "NoObjectGeneratedError_structured_output_fallback"
+                  : "tools_schema_conflict_structured_output_fallback",
             });
 
             logger.debug(
-              "[GenerationHandler] NoObjectGeneratedError caught - falling back to manual JSON extraction",
+              "[GenerationHandler] structured-output conflict caught - falling back to manual JSON extraction",
               {
                 provider: this.providerName,
                 model: this.modelName,
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
               },
             );
 
@@ -704,23 +728,58 @@ export class GenerationHandler {
       options.output?.format === "structured";
 
     let content: string;
+    let structuredData: unknown;
+    let jsonRepaired = false;
+    let jsonTruncated = false;
+    // Strip an outer ```json fence and coerce raw model text into canonical
+    // JSON. Object/array roots are recovered via balanced-scan + jsonrepair;
+    // scalar JSON roots (string/number/bool) via plain JSON.parse. When
+    // nothing JSON-shaped is recoverable, the raw text is returned unchanged,
+    // structuredData stays unset, and a WARN makes the broken case observable.
+    const coerceTextMode = (rawText: string): string => {
+      const strippedText = rawText
+        .replace(/^```(?:json)?\s*\n?/i, "")
+        .replace(/\n?```\s*$/i, "")
+        .trim();
+      const coerced = coerceJsonToSchema(strippedText, options.schema);
+      if (coerced) {
+        structuredData = coerced.structuredData;
+        if (coerced.repaired) {
+          jsonRepaired = true;
+        }
+        if (coerced.truncated) {
+          jsonTruncated = true;
+        }
+        return coerced.content;
+      }
+      try {
+        const scalar: unknown = JSON.parse(strippedText);
+        if (scalar !== null && scalar !== undefined) {
+          structuredData = scalar;
+          return strippedText;
+        }
+      } catch {
+        // not JSON at all — fall through to raw text + WARN
+      }
+      logger.warn(
+        "[GenerationHandler] schema requested but no JSON could be recovered from model text; returning raw text",
+        { provider: this.providerName, model: this.modelName },
+      );
+      return strippedText;
+    };
     if (useStructuredOutput) {
       try {
         const experimentalOutput = generateResult.experimental_output;
         if (experimentalOutput !== undefined) {
+          // AI-SDK already parsed + schema-validated the object. Expose it
+          // directly and serialise canonically — no hand-parsing needed.
+          structuredData = experimentalOutput;
           content = JSON.stringify(experimentalOutput);
         } else {
-          // Fall back to text parsing
-          const rawText = generateResult.text || "";
-          const strippedText = rawText
-            .replace(/^```(?:json)?\s*\n?/i, "")
-            .replace(/\n?```\s*$/i, "")
-            .trim();
-          content = strippedText;
+          content = coerceTextMode(generateResult.text || "");
         }
       } catch (outputError) {
-        // experimental_output is a getter that can throw NoObjectGeneratedError
-        // Fall back to text parsing when structured output fails
+        // experimental_output is a getter that can throw NoObjectGeneratedError.
         logger.debug(
           "[GenerationHandler] experimental_output threw, falling back to text parsing",
           {
@@ -730,15 +789,21 @@ export class GenerationHandler {
                 : String(outputError),
           },
         );
-        const rawText = generateResult.text || "";
-        const strippedText = rawText
-          .replace(/^```(?:json)?\s*\n?/i, "")
-          .replace(/\n?```\s*$/i, "")
-          .trim();
-        content = strippedText;
+        content = coerceTextMode(generateResult.text || "");
       }
     } else {
       content = generateResult.text;
+    }
+
+    // Tie the coercion repair to the provider's truncation signal: if the
+    // response stopped on the token cap, treat the structured output as
+    // truncated regardless of which coerce candidate won, and warn.
+    if (useStructuredOutput && generateResult.finishReason === "length") {
+      jsonTruncated = true;
+      logger.warn(
+        "[GenerationHandler] Structured output truncated by token cap (finishReason=length); increase maxTokens",
+        { provider: this.providerName, model: this.modelName },
+      );
     }
 
     // Extract usage with support for different formats and reasoning tokens
@@ -798,8 +863,11 @@ export class GenerationHandler {
 
     return {
       content,
+      structuredData,
       usage,
       finishReason: generateResult.finishReason,
+      jsonRepaired: jsonRepaired || undefined,
+      jsonTruncated: jsonTruncated || undefined,
       provider: this.providerName,
       model: this.modelName,
       reasoning,
