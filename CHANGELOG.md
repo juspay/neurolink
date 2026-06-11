@@ -1,3 +1,9 @@
+## [9.70.1](https://github.com/juspay/neurolink/compare/v9.70.0...v9.70.1) (2026-06-11)
+
+### Bug Fixes
+
+- **(generation):** guarantee valid JSON for schema requests + fix huge-text truncation ([7a79391](https://github.com/juspay/neurolink/commit/7a79391df50a0d74fb9072be7f6791c2ff8116de))
+
 ## [9.70.0](https://github.com/juspay/neurolink/compare/v9.69.3...v9.70.0) (2026-06-11)
 
 ### Features
