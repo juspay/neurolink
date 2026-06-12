@@ -121,3 +121,27 @@ export function hasRestrictedOutputLimit(modelName: string): boolean {
  * Get the max output tokens for a model (32768 for restricted models)
  */
 export const RESTRICTED_OUTPUT_TOKEN_LIMIT = 32768;
+
+/**
+ * Normalize an Anthropic-API-style Claude model ID to the Vertex publisher
+ * format.
+ *
+ * The Anthropic API dates models with a trailing dash segment
+ * ("claude-haiku-4-5-20251001") while Vertex publisher IDs separate the date
+ * with "@" ("claude-haiku-4-5@20251001"). Vertex rejects the dash form with a
+ * 404 (verified live against us-east5), so the native Vertex+Claude paths
+ * normalize before calling @anthropic-ai/vertex-sdk.
+ *
+ * Pass-through cases: IDs already in "@" form, bare aliases with no date
+ * ("claude-sonnet-4-6" — Vertex resolves these itself), and non-Claude models.
+ * Legacy v2-suffixed Vertex IDs ("claude-3-5-sonnet-v2@20241022") have no
+ * dash-date equivalent, so those legacy dash IDs stay out of scope: they 404
+ * today and still 404 after the transform — no regression either way.
+ */
+export function toVertexAnthropicModelId(modelName: string): string {
+  if (!modelName.startsWith("claude-") || modelName.includes("@")) {
+    return modelName;
+  }
+  const dashDate = modelName.match(/^(claude-[a-z0-9-]+)-(\d{8})$/);
+  return dashDate ? `${dashDate[1]}@${dashDate[2]}` : modelName;
+}

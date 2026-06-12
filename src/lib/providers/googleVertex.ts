@@ -53,6 +53,7 @@ import { logger } from "../utils/logger.js";
 import {
   hasRestrictedOutputLimit,
   RESTRICTED_OUTPUT_TOKEN_LIMIT,
+  toVertexAnthropicModelId,
 } from "../utils/modelDetection.js";
 import { resolveClaudeMaxTokens } from "../utils/tokenLimits.js";
 import {
@@ -2761,8 +2762,9 @@ export class GoogleVertexProvider extends BaseProvider {
   private async executeNativeAnthropicStream(
     options: StreamOptions,
   ): Promise<StreamResult> {
-    const modelName =
-      options.model || this.modelName || "claude-sonnet-4-5@20250929";
+    const modelName = toVertexAnthropicModelId(
+      options.model || this.modelName || "claude-sonnet-4-5@20250929",
+    );
     const startTime = Date.now();
     const streamTimeoutMs = parseTimeout(options.timeout) ?? 300_000;
     const client = await this.createAnthropicVertexClient(streamTimeoutMs);
@@ -2979,9 +2981,12 @@ export class GoogleVertexProvider extends BaseProvider {
         const legacyTool = tool as ToolWithLegacyParams;
         const toolParams = legacyTool.parameters || tool.inputSchema;
         if (toolParams) {
+          // Anthropic validates input_schema as JSON Schema draft 2020-12 and
+          // rejects OpenAPI-3 dialect output (e.g. `nullable: true`) with a
+          // 400 — use the default JSON Schema target, matching the direct
+          // anthropic provider. The Gemini paths keep "openApi3".
           const jsonSchema = convertZodToJsonSchema(
             toolParams as ZodUnknownSchema,
-            "openApi3",
           ) as Record<string, unknown>;
           const inlined = inlineJsonSchema(jsonSchema);
           anthropicTool.input_schema = {
@@ -3018,7 +3023,6 @@ export class GoogleVertexProvider extends BaseProvider {
       // Convert schema to JSON schema format
       const schemaAsJson = convertZodToJsonSchema(
         streamOptions.schema as ZodUnknownSchema,
-        "openApi3",
       ) as Record<string, unknown>;
       const inlinedSchema = inlineJsonSchema(schemaAsJson);
       if (inlinedSchema.$schema) {
@@ -3438,8 +3442,9 @@ export class GoogleVertexProvider extends BaseProvider {
   private async executeNativeAnthropicGenerate(
     options: TextGenerationOptions,
   ): Promise<EnhancedGenerateResult> {
-    const modelName =
-      options.model || this.modelName || "claude-sonnet-4-5@20250929";
+    const modelName = toVertexAnthropicModelId(
+      options.model || this.modelName || "claude-sonnet-4-5@20250929",
+    );
     const startTime = Date.now();
     const generateTimeoutMs = parseTimeout(options.timeout) ?? 300_000;
     const client = await this.createAnthropicVertexClient(generateTimeoutMs);
@@ -3669,9 +3674,12 @@ export class GoogleVertexProvider extends BaseProvider {
         const legacyTool = tool as ToolWithLegacyParams;
         const toolParams = legacyTool.parameters || tool.inputSchema;
         if (toolParams) {
+          // Anthropic validates input_schema as JSON Schema draft 2020-12 and
+          // rejects OpenAPI-3 dialect output (e.g. `nullable: true`) with a
+          // 400 — use the default JSON Schema target, matching the direct
+          // anthropic provider. The Gemini paths keep "openApi3".
           const jsonSchema = convertZodToJsonSchema(
             toolParams as ZodUnknownSchema,
-            "openApi3",
           ) as Record<string, unknown>;
           const inlined = inlineJsonSchema(jsonSchema);
           anthropicTool.input_schema = {
@@ -3700,7 +3708,6 @@ export class GoogleVertexProvider extends BaseProvider {
       // Convert schema to JSON schema format
       const schemaAsJson = convertZodToJsonSchema(
         options.schema as ZodUnknownSchema,
-        "openApi3",
       ) as Record<string, unknown>;
       const inlinedSchema = inlineJsonSchema(schemaAsJson);
       if (inlinedSchema.$schema) {
