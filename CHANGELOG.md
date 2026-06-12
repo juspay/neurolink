@@ -1,3 +1,9 @@
+## [9.70.2](https://github.com/juspay/neurolink/compare/v9.70.1...v9.70.2) (2026-06-12)
+
+### Bug Fixes
+
+- **(providers):** make native Vertex+Claude path accept Anthropic-style model IDs and tool schemas ([e6d852d](https://github.com/juspay/neurolink/commit/e6d852d6c6adefe590929cef7215418f3d5ce799))
+
 ## [9.70.1](https://github.com/juspay/neurolink/compare/v9.70.0...v9.70.1) (2026-06-11)
 
 ### Bug Fixes
