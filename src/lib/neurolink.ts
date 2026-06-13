@@ -223,7 +223,10 @@ import { resolveModel } from "./utils/modelAliasResolver.js";
 // Import orchestration components
 import { ModelRouter } from "./utils/modelRouter.js";
 import { getBestProvider } from "./utils/providerUtils.js";
-import { NON_RETRYABLE_HTTP_STATUS_CODES } from "./utils/retryability.js";
+import {
+  NON_RETRYABLE_HTTP_STATUS_CODES,
+  isDeterministicClientErrorMessage,
+} from "./utils/retryability.js";
 import { isZodSchema } from "./utils/schemaConversion.js";
 import { BinaryTaskClassifier } from "./utils/taskClassifier.js";
 // Tool detection and execution imports
@@ -414,6 +417,15 @@ function isNonRetryableProviderError(error: unknown): boolean {
       msg.includes("PERMISSION_DENIED") ||
       msg.includes("UNAUTHENTICATED")
     ) {
+      return true;
+    }
+    // A deterministic 400 / malformed-request whose status is only present in
+    // the message string (e.g. Vertex wraps `{"code":400,"status":
+    // "INVALID_ARGUMENT"}` inside the message). The object-level status check
+    // above misses it, so without this the fallback orchestrator retries the
+    // identical bad payload on every other provider — they reject it the same
+    // way. The request itself is malformed, so abort fast.
+    if (isDeterministicClientErrorMessage(msg)) {
       return true;
     }
   }
