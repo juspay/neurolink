@@ -1,3 +1,9 @@
+## [9.70.5](https://github.com/juspay/neurolink/compare/v9.70.4...v9.70.5) (2026-06-13)
+
+### Bug Fixes
+
+- **(vertex):** sanitize Gemini responseSchema (strip errorMessage) to stop structured-output 400s ([4764641](https://github.com/juspay/neurolink/commit/47646411e653fe8cb61d27219d901161f9f3aa33))
+
 ## [9.70.4](https://github.com/juspay/neurolink/compare/v9.70.3...v9.70.4) (2026-06-13)
 
 ### Bug Fixes
