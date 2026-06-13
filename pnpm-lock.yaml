@@ -228,8 +228,8 @@ importers:
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.1.0)
       '@juspay/hippocampus':
-        specifier: ^0.1.6
-        version: 0.1.6(@juspay/neurolink@9.37.0(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.6.1(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-node@2.6.1(@opentelemetry/api@1.9.1))(@types/node@25.5.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
+        specifier: '>=0.1.7'
+        version: 0.1.7(@juspay/neurolink@9.37.0(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.6.1(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-node@2.6.1(@opentelemetry/api@1.9.1))(@types/node@25.5.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
       '@opentelemetry/api':
         specifier: ^1.9.0
         version: 1.9.1
@@ -882,10 +882,6 @@ packages:
 
   '@aws-sdk/region-config-resolver@3.972.11':
     resolution: {integrity: sha512-6Q8B1dcx6BBqUTY1Mc/eROKA0FImEEY5VPSd6AGPEUf0ErjExz4snVqa9kNJSoVDV1rKaNf3qrWojgcKW+SdDg==}
-    engines: {node: '>=20.0.0'}
-
-  '@aws-sdk/signature-v4-multi-region@3.996.14':
-    resolution: {integrity: sha512-4nZSrBr1NO+48HCM/6BRU8mnRjuHZjcpziCvLXZk5QVftwWz5Mxqbhwdz4xf7WW88buaTB8uRO2MHklSX1m0vg==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/signature-v4-multi-region@3.996.34':
@@ -1966,11 +1962,11 @@ packages:
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
 
-  '@juspay/hippocampus@0.1.6':
-    resolution: {integrity: sha512-uQ0ECW6a+75HzhsgbbCMEEnIAIqgGgwS/lAM01/tWTldRn/ar2fv1AFtXuelU7DTwSFd2MpkVaMoH36wp3RIMA==}
+  '@juspay/hippocampus@0.1.7':
+    resolution: {integrity: sha512-Xua/pNvLst0TUanMHOb30+ZxsvJ2wDg2IH6rqz4dsszEQrTPi9hObTLpPCQOH28u/mgthYVx6XxAxzcHyaxXpA==}
     engines: {node: '>=18'}
     peerDependencies:
-      '@juspay/neurolink': '>=9.0.0'
+      '@juspay/neurolink': '>=9.70.0'
       better-sqlite3: '>=11.0.0'
     peerDependenciesMeta:
       better-sqlite3:
@@ -8584,14 +8580,14 @@ snapshots:
   '@aws-crypto/crc32c@5.2.0':
     dependencies:
       '@aws-crypto/util': 5.2.0
-      '@aws-sdk/types': 3.973.7
+      '@aws-sdk/types': 3.973.12
       tslib: 2.8.1
 
   '@aws-crypto/sha1-browser@5.2.0':
     dependencies:
       '@aws-crypto/supports-web-crypto': 5.2.0
       '@aws-crypto/util': 5.2.0
-      '@aws-sdk/types': 3.973.7
+      '@aws-sdk/types': 3.973.12
       '@aws-sdk/util-locate-window': 3.965.5
       '@smithy/util-utf8': 2.3.0
       tslib: 2.8.1
@@ -8755,8 +8751,8 @@ snapshots:
       '@aws-crypto/sha1-browser': 5.2.0
       '@aws-crypto/sha256-browser': 5.2.0
       '@aws-crypto/sha256-js': 5.2.0
-      '@aws-sdk/core': 3.973.27
-      '@aws-sdk/credential-provider-node': 3.972.30
+      '@aws-sdk/core': 3.974.20
+      '@aws-sdk/credential-provider-node': 3.972.55
       '@aws-sdk/middleware-bucket-endpoint': 3.972.8
       '@aws-sdk/middleware-expect-continue': 3.972.8
       '@aws-sdk/middleware-flexible-checksums': 3.974.5
@@ -8768,17 +8764,17 @@ snapshots:
       '@aws-sdk/middleware-ssec': 3.972.8
       '@aws-sdk/middleware-user-agent': 3.972.29
       '@aws-sdk/region-config-resolver': 3.972.11
-      '@aws-sdk/signature-v4-multi-region': 3.996.14
-      '@aws-sdk/types': 3.973.7
+      '@aws-sdk/signature-v4-multi-region': 3.996.34
+      '@aws-sdk/types': 3.973.12
       '@aws-sdk/util-endpoints': 3.996.6
       '@aws-sdk/util-user-agent-browser': 3.972.9
       '@aws-sdk/util-user-agent-node': 3.973.15
       '@smithy/config-resolver': 4.4.14
-      '@smithy/core': 3.23.14
+      '@smithy/core': 3.24.7
       '@smithy/eventstream-serde-browser': 4.2.13
       '@smithy/eventstream-serde-config-resolver': 4.3.13
       '@smithy/eventstream-serde-node': 4.2.13
-      '@smithy/fetch-http-handler': 5.3.16
+      '@smithy/fetch-http-handler': 5.4.7
       '@smithy/hash-blob-browser': 4.2.13
       '@smithy/hash-node': 4.2.13
       '@smithy/hash-stream-node': 4.2.12
@@ -8790,10 +8786,10 @@ snapshots:
       '@smithy/middleware-serde': 4.2.17
       '@smithy/middleware-stack': 4.2.13
       '@smithy/node-config-provider': 4.3.13
-      '@smithy/node-http-handler': 4.5.2
+      '@smithy/node-http-handler': 4.7.8
       '@smithy/protocol-http': 5.3.13
       '@smithy/smithy-client': 4.12.9
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       '@smithy/url-parser': 4.2.13
       '@smithy/util-base64': 4.3.2
       '@smithy/util-body-length-browser': 4.2.2
@@ -8975,7 +8971,7 @@ snapshots:
 
   '@aws-sdk/crc64-nvme@3.972.5':
     dependencies:
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-env@3.972.25':
@@ -9182,11 +9178,11 @@ snapshots:
 
   '@aws-sdk/middleware-bucket-endpoint@3.972.8':
     dependencies:
-      '@aws-sdk/types': 3.973.7
+      '@aws-sdk/types': 3.973.12
       '@aws-sdk/util-arn-parser': 3.972.3
       '@smithy/node-config-provider': 4.3.13
       '@smithy/protocol-http': 5.3.13
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       '@smithy/util-config-provider': 4.2.2
       tslib: 2.8.1
 
@@ -9206,9 +9202,9 @@ snapshots:
 
   '@aws-sdk/middleware-expect-continue@3.972.8':
     dependencies:
-      '@aws-sdk/types': 3.973.7
+      '@aws-sdk/types': 3.973.12
       '@smithy/protocol-http': 5.3.13
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       tslib: 2.8.1
 
   '@aws-sdk/middleware-flexible-checksums@3.974.5':
@@ -9216,13 +9212,13 @@ snapshots:
       '@aws-crypto/crc32': 5.2.0
       '@aws-crypto/crc32c': 5.2.0
       '@aws-crypto/util': 5.2.0
-      '@aws-sdk/core': 3.973.27
+      '@aws-sdk/core': 3.974.20
       '@aws-sdk/crc64-nvme': 3.972.5
-      '@aws-sdk/types': 3.973.7
+      '@aws-sdk/types': 3.973.12
       '@smithy/is-array-buffer': 4.2.2
       '@smithy/node-config-provider': 4.3.13
       '@smithy/protocol-http': 5.3.13
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       '@smithy/util-middleware': 4.2.13
       '@smithy/util-stream': 4.5.22
       '@smithy/util-utf8': 4.2.2
@@ -9244,8 +9240,8 @@ snapshots:
 
   '@aws-sdk/middleware-location-constraint@3.972.8':
     dependencies:
-      '@aws-sdk/types': 3.973.7
-      '@smithy/types': 4.14.0
+      '@aws-sdk/types': 3.973.12
+      '@smithy/types': 4.14.4
       tslib: 2.8.1
 
   '@aws-sdk/middleware-logger@3.972.8':
@@ -9278,15 +9274,15 @@ snapshots:
 
   '@aws-sdk/middleware-sdk-s3@3.972.26':
     dependencies:
-      '@aws-sdk/core': 3.973.27
-      '@aws-sdk/types': 3.973.7
+      '@aws-sdk/core': 3.974.20
+      '@aws-sdk/types': 3.973.12
       '@aws-sdk/util-arn-parser': 3.972.3
-      '@smithy/core': 3.23.14
+      '@smithy/core': 3.24.7
       '@smithy/node-config-provider': 4.3.13
       '@smithy/protocol-http': 5.3.13
-      '@smithy/signature-v4': 5.3.13
+      '@smithy/signature-v4': 5.4.7
       '@smithy/smithy-client': 4.12.9
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       '@smithy/util-config-provider': 4.2.2
       '@smithy/util-middleware': 4.2.13
       '@smithy/util-stream': 4.5.22
@@ -9295,8 +9291,8 @@ snapshots:
 
   '@aws-sdk/middleware-ssec@3.972.8':
     dependencies:
-      '@aws-sdk/types': 3.973.7
-      '@smithy/types': 4.14.0
+      '@aws-sdk/types': 3.973.12
+      '@smithy/types': 4.14.4
       tslib: 2.8.1
 
   '@aws-sdk/middleware-user-agent@3.972.26':
@@ -9458,15 +9454,6 @@ snapshots:
       '@aws-sdk/types': 3.973.7
       '@smithy/config-resolver': 4.4.14
       '@smithy/node-config-provider': 4.3.13
-      '@smithy/types': 4.14.0
-      tslib: 2.8.1
-
-  '@aws-sdk/signature-v4-multi-region@3.996.14':
-    dependencies:
-      '@aws-sdk/middleware-sdk-s3': 3.972.26
-      '@aws-sdk/types': 3.973.7
-      '@smithy/protocol-http': 5.3.13
-      '@smithy/signature-v4': 5.3.13
       '@smithy/types': 4.14.0
       tslib: 2.8.1
 
@@ -10582,7 +10569,7 @@ snapshots:
 
   '@js-sdsl/ordered-map@4.4.2': {}
 
-  '@juspay/hippocampus@0.1.6(@juspay/neurolink@9.37.0(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.6.1(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-node@2.6.1(@opentelemetry/api@1.9.1))(@types/node@25.5.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))':
+  '@juspay/hippocampus@0.1.7(@juspay/neurolink@9.37.0(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.6.1(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-node@2.6.1(@opentelemetry/api@1.9.1))(@types/node@25.5.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))':
     dependencies:
       '@aws-sdk/client-s3': 3.1019.0
       '@juspay/neurolink': 9.37.0(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.6.1(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-node@2.6.1(@opentelemetry/api@1.9.1))(@types/node@25.5.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -10608,7 +10595,7 @@ snapshots:
       '@google/genai': 1.52.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))
       '@google/generative-ai': 0.24.1
       '@huggingface/inference': 4.13.18
-      '@juspay/hippocampus': 0.1.6(@juspay/neurolink@9.37.0(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.6.1(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-node@2.6.1(@opentelemetry/api@1.9.1))(@types/node@25.5.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
+      '@juspay/hippocampus': 0.1.7(@juspay/neurolink@9.37.0(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.6.1(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-node@2.6.1(@opentelemetry/api@1.9.1))(@types/node@25.5.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
       '@langfuse/otel': 5.4.1(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.8.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.213.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.6.1(@opentelemetry/api@1.9.1))
       '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
       '@openrouter/ai-sdk-provider': 2.9.1(ai@6.0.204(zod@4.4.3))(zod@4.4.3)
@@ -12561,7 +12548,7 @@ snapshots:
   '@smithy/eventstream-codec@4.2.13':
     dependencies:
       '@aws-crypto/crc32': 5.2.0
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       '@smithy/util-hex-encoding': 4.2.2
       tslib: 2.8.1
 
@@ -12574,7 +12561,7 @@ snapshots:
   '@smithy/eventstream-serde-browser@4.2.13':
     dependencies:
       '@smithy/eventstream-serde-universal': 4.2.13
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       tslib: 2.8.1
 
   '@smithy/eventstream-serde-config-resolver@4.3.12':
@@ -12584,7 +12571,7 @@ snapshots:
 
   '@smithy/eventstream-serde-config-resolver@4.3.13':
     dependencies:
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       tslib: 2.8.1
 
   '@smithy/eventstream-serde-node@4.2.12':
@@ -12596,7 +12583,7 @@ snapshots:
   '@smithy/eventstream-serde-node@4.2.13':
     dependencies:
       '@smithy/eventstream-serde-universal': 4.2.13
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       tslib: 2.8.1
 
   '@smithy/eventstream-serde-universal@4.2.12':
@@ -12608,7 +12595,7 @@ snapshots:
   '@smithy/eventstream-serde-universal@4.2.13':
     dependencies:
       '@smithy/eventstream-codec': 4.2.13
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       tslib: 2.8.1
 
   '@smithy/fetch-http-handler@5.3.15':
@@ -12637,7 +12624,7 @@ snapshots:
     dependencies:
       '@smithy/chunked-blob-reader': 5.2.2
       '@smithy/chunked-blob-reader-native': 4.2.3
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       tslib: 2.8.1
 
   '@smithy/hash-node@4.2.12':
@@ -12656,7 +12643,7 @@ snapshots:
 
   '@smithy/hash-stream-node@4.2.12':
     dependencies:
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       '@smithy/util-utf8': 4.2.2
       tslib: 2.8.1
 
@@ -12680,7 +12667,7 @@ snapshots:
 
   '@smithy/md5-js@4.2.12':
     dependencies:
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       '@smithy/util-utf8': 4.2.2
       tslib: 2.8.1
 
@@ -13079,7 +13066,7 @@ snapshots:
 
   '@smithy/util-waiter@4.2.15':
     dependencies:
-      '@smithy/types': 4.14.0
+      '@smithy/types': 4.14.4
       tslib: 2.8.1
 
   '@smithy/uuid@1.1.2':

@@ -41,14 +41,19 @@ const CRITICAL_SECURITY_RULES = [
 const IGNORED_VULNERABLE_PACKAGES = [
   "jsondiffpatch", // XSS in ai dependency - tracked separately
   "ai", // File upload bypass - planned upgrade
-  // undici/lodash/lodash-es removed: now patched via pnpm.overrides in this change.
+  // undici/lodash/lodash-es removed: now patched via pnpm.overrides.
   // The @opentelemetry/* advisories below come ONLY from a stale @juspay/neurolink@9.37.0
-  // that pnpm auto-installs to satisfy @juspay/hippocampus's ">=9.0.0" peer dependency.
-  // That old neurolink directly depends on the vulnerable OTEL; the latest published
-  // neurolink (>=9.70.x) removed those deps. They are a dev-install artifact and do NOT
-  // reach consumers of the published package (peer deps are not bundled). They are not
-  // fixable from this repo via pnpm.overrides (auto-installed peers ignore overrides).
-  // Real fix tracked upstream: https://github.com/juspay/hippocampus
+  // that pnpm auto-installs to satisfy @juspay/hippocampus's neurolink peer. That old
+  // neurolink directly depends on the vulnerable OTEL; the latest published neurolink
+  // (>=9.70.x) removed those deps. They are a dev-install artifact and do NOT reach
+  // consumers of the published package (peer deps are not bundled).
+  //
+  // UPSTREAM IS FIXED: @juspay/hippocampus@0.1.7 raised its neurolink peer to ">=9.70.0"
+  // (this change bumps the dependency to it). The entries remain only because of a pnpm
+  // resolver bug: pnpm keeps resolving the peer to 9.37.0 even though that violates the
+  // published ">=9.70.0" range — reproduced through --force, --fix-lockfile, dedupe,
+  // pnpm update, and a full lockfile regen. These entries clear automatically once pnpm
+  // resolves the peer correctly. Upstream: https://github.com/juspay/hippocampus (v0.1.7)
   "@opentelemetry/sdk-node",
   "@opentelemetry/auto-instrumentations-node",
   "@opentelemetry/exporter-prometheus",

@@ -418,7 +418,7 @@
     "@changesets/changelog-github": "^0.6.0",
     "@changesets/cli": "^2.29.8",
     "@eslint/js": "^10.0.1",
-    "@juspay/hippocampus": "^0.1.6",
+    "@juspay/hippocampus": ">=0.1.7",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-trace-base": "^2.6.0",
     "@opentelemetry/sdk-trace-node": "^2.6.0",
