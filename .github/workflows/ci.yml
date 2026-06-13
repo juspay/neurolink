@@ -30,6 +30,12 @@ jobs:
 
       - name: Install ffmpeg
         uses: AnimMouse/setup-ffmpeg@v1
+        with:
+          # Pin to a known-good release. The default (latest → FFmpeg 8.1)
+          # BtbN/FFmpeg-Builds Linux asset is currently corrupt and fails the
+          # job at download ("xz: File format not recognized"). Revert once
+          # upstream republishes a valid 8.1 build.
+          version: "7.1"
 
       - name: Verify ffmpeg installation
         run: |
@@ -155,6 +161,12 @@ jobs:
 
       - name: Install ffmpeg
         uses: AnimMouse/setup-ffmpeg@v1
+        with:
+          # Pin to a known-good release. The default (latest → FFmpeg 8.1)
+          # BtbN/FFmpeg-Builds Linux asset is currently corrupt and fails the
+          # job at download ("xz: File format not recognized"). Revert once
+          # upstream republishes a valid 8.1 build.
+          version: "7.1"
 
       - name: Verify ffmpeg installation
         run: |
@@ -202,6 +214,12 @@ jobs:
 
       - name: Install ffmpeg
         uses: AnimMouse/setup-ffmpeg@v1
+        with:
+          # Pin to a known-good release. The default (latest → FFmpeg 8.1)
+          # BtbN/FFmpeg-Builds Linux asset is currently corrupt and fails the
+          # job at download ("xz: File format not recognized"). Revert once
+          # upstream republishes a valid 8.1 build.
+          version: "7.1"
 
       - name: Verify ffmpeg installation
         run: |

@@ -109,11 +109,12 @@ const hasAnthropicSupport = (): boolean => {
 };
 
 /**
- * Recursively strip JSON-schema fields that Vertex Gemini's function-call
- * validator rejects with 400 INVALID_ARGUMENT. Vertex implements OpenAPI 3.0
- * Schema strictly and rejects extension fields that the broader JSON Schema
- * spec allows. The fields stripped here have no semantic meaning for the
- * model, so removing them is safe for every caller.
+ * Recursively strip JSON-schema fields that Vertex Gemini's function-call AND
+ * `responseSchema` (structured output) validators reject with 400
+ * INVALID_ARGUMENT. Vertex implements OpenAPI 3.0 Schema strictly and rejects
+ * extension fields that the broader JSON Schema spec allows. The fields
+ * stripped here have no semantic meaning for the model, so removing them is
+ * safe for every caller.
  *
  * Fields removed:
  * - `additionalProperties` — extension; Vertex rejects on any nested object.
@@ -124,8 +125,15 @@ const hasAnthropicSupport = (): boolean => {
  *   fields that Vertex doesn't recognise.
  * - `examples` — accepted by some Gemini variants but not 2.5-flash; strip
  *   to avoid the model rejecting tool schemas under that path.
+ * - `errorMessage` — emitted by `convertZodToJsonSchema` (which enables
+ *   zod-to-json-schema's `errorMessages: true`) for any field carrying a
+ *   custom message, e.g. `z.string().regex(re, { message })`. Vertex's
+ *   `response_schema` validator rejects it with `Unknown name "errorMessage"
+ *   … Cannot find field`, failing the whole structured-output request.
+ *
+ * Exported for deterministic unit testing of the sanitization contract.
  */
-function stripAdditionalPropertiesDeep(
+export function stripAdditionalPropertiesDeep(
   schema: Record<string, unknown> | undefined,
 ): void {
   if (!schema || typeof schema !== "object") {
@@ -140,6 +148,7 @@ function stripAdditionalPropertiesDeep(
     "definitions",
     "$defs",
     "examples",
+    "errorMessage",
   ] as const;
   for (const field of FIELDS_TO_STRIP) {
     if (field in schema) {
@@ -1504,6 +1513,13 @@ export class GoogleVertexProvider extends BaseProvider {
           // ensureNestedSchemaTypes recursively adds missing type fields
           // Note: convertZodToJsonSchema now uses openApi3 target which produces nullable: true
           const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
+          // Sanitize the same way tool schemas are (see tool path above):
+          // Vertex's responseSchema validator rejects extension keywords such
+          // as `errorMessage` (from convertZodToJsonSchema's errorMessages
+          // option) and `additionalProperties`. Without this a user schema with
+          // a `.regex(.., { message })` field 400s the whole structured-output
+          // request and the recovery loop retries the same poisoned payload.
+          stripAdditionalPropertiesDeep(typedSchema);
           config.responseSchema = typedSchema;
 
           logger.debug(
@@ -2331,6 +2347,13 @@ export class GoogleVertexProvider extends BaseProvider {
           // ensureNestedSchemaTypes recursively adds missing type fields
           // Note: convertZodToJsonSchema now uses openApi3 target which produces nullable: true
           const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
+          // Sanitize the same way tool schemas are (see tool path above):
+          // Vertex's responseSchema validator rejects extension keywords such
+          // as `errorMessage` (from convertZodToJsonSchema's errorMessages
+          // option) and `additionalProperties`. Without this a user schema with
+          // a `.regex(.., { message })` field 400s the whole structured-output
+          // request and the recovery loop retries the same poisoned payload.
+          stripAdditionalPropertiesDeep(typedSchema);
           config.responseSchema = typedSchema;
 
           logger.debug(
