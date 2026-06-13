@@ -55,6 +55,7 @@ import {
   RESTRICTED_OUTPUT_TOKEN_LIMIT,
   toVertexAnthropicModelId,
 } from "../utils/modelDetection.js";
+import { detectImageMimeType } from "../utils/imageDetection.js";
 import { resolveClaudeMaxTokens } from "../utils/tokenLimits.js";
 import {
   validateApiKey,
@@ -1279,9 +1280,16 @@ export class GoogleVertexProvider extends BaseProvider {
           } else {
             // Assume base64 string
             imageBuffer = Buffer.from(image, "base64");
+            // Sniff the real format from magic bytes — bare base64 carries no
+            // mime hint, and leaving the image/jpeg default makes Anthropic
+            // reject PNG/GIF/WebP with a media-type mismatch 400.
+            mimeType = this.detectImageType(imageBuffer);
           }
         } else {
           imageBuffer = image;
+          // Buffer input (e.g. Slack/REST uploads) carries no mime hint; sniff
+          // it instead of defaulting to image/jpeg (mislabels PNG -> 400).
+          mimeType = this.detectImageType(imageBuffer);
         }
 
         const base64Data = imageBuffer.toString("base64");
@@ -2098,9 +2106,16 @@ export class GoogleVertexProvider extends BaseProvider {
           } else {
             // Assume base64 string
             imageBuffer = Buffer.from(image, "base64");
+            // Sniff the real format from magic bytes — bare base64 carries no
+            // mime hint, and leaving the image/jpeg default makes Anthropic
+            // reject PNG/GIF/WebP with a media-type mismatch 400.
+            mimeType = this.detectImageType(imageBuffer);
           }
         } else {
           imageBuffer = image;
+          // Buffer input (e.g. Slack/REST uploads) carries no mime hint; sniff
+          // it instead of defaulting to image/jpeg (mislabels PNG -> 400).
+          mimeType = this.detectImageType(imageBuffer);
         }
 
         const base64Data = imageBuffer.toString("base64");
@@ -2925,9 +2940,16 @@ export class GoogleVertexProvider extends BaseProvider {
           } else {
             // Assume base64 string
             imageBuffer = Buffer.from(image, "base64");
+            // Sniff the real format from magic bytes — bare base64 carries no
+            // mime hint, and leaving the image/jpeg default makes Anthropic
+            // reject PNG/GIF/WebP with a media-type mismatch 400.
+            mimeType = this.detectImageType(imageBuffer);
           }
         } else {
           imageBuffer = image;
+          // Buffer input (e.g. Slack/REST uploads) carries no mime hint; sniff
+          // it instead of defaulting to image/jpeg (mislabels PNG -> 400).
+          mimeType = this.detectImageType(imageBuffer);
         }
 
         const base64Data = imageBuffer.toString("base64");
@@ -3610,9 +3632,16 @@ export class GoogleVertexProvider extends BaseProvider {
           } else {
             // Assume base64 string
             imageBuffer = Buffer.from(image, "base64");
+            // Sniff the real format from magic bytes — bare base64 carries no
+            // mime hint, and leaving the image/jpeg default makes Anthropic
+            // reject PNG/GIF/WebP with a media-type mismatch 400.
+            mimeType = this.detectImageType(imageBuffer);
           }
         } else {
           imageBuffer = image;
+          // Buffer input (e.g. Slack/REST uploads) carries no mime hint; sniff
+          // it instead of defaulting to image/jpeg (mislabels PNG -> 400).
+          mimeType = this.detectImageType(imageBuffer);
         }
 
         const base64Data = imageBuffer.toString("base64");
@@ -5589,54 +5618,7 @@ export class GoogleVertexProvider extends BaseProvider {
    * Detect image MIME type from buffer
    */
   private detectImageType(buffer: Buffer): string {
-    // Check PNG signature
-    if (
-      buffer.length >= 8 &&
-      buffer[0] === 0x89 &&
-      buffer[1] === 0x50 &&
-      buffer[2] === 0x4e &&
-      buffer[3] === 0x47
-    ) {
-      return "image/png";
-    }
-
-    // Check JPEG signature
-    if (
-      buffer.length >= 3 &&
-      buffer[0] === 0xff &&
-      buffer[1] === 0xd8 &&
-      buffer[2] === 0xff
-    ) {
-      return "image/jpeg";
-    }
-
-    // Check WebP signature
-    if (
-      buffer.length >= 12 &&
-      buffer[0] === 0x52 &&
-      buffer[1] === 0x49 &&
-      buffer[2] === 0x46 &&
-      buffer[3] === 0x46 &&
-      buffer[8] === 0x57 &&
-      buffer[9] === 0x45 &&
-      buffer[10] === 0x42 &&
-      buffer[11] === 0x50
-    ) {
-      return "image/webp";
-    }
-
-    // Check GIF signature
-    if (
-      buffer.length >= 6 &&
-      buffer[0] === 0x47 &&
-      buffer[1] === 0x49 &&
-      buffer[2] === 0x46
-    ) {
-      return "image/gif";
-    }
-
-    // Default to PNG if unknown
-    return "image/png";
+    return detectImageMimeType(buffer);
   }
 
   /**
