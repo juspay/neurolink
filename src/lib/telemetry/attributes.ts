@@ -162,7 +162,9 @@ export function spanJsonAttribute(
     serialized = String(value);
   }
   if (serialized.length > maxChars) {
-    return `${serialized.slice(0, maxChars)}...[truncated ${serialized.length - maxChars} chars]`;
+    const truncationSuffix = `...[truncated ${serialized.length - maxChars} chars]`;
+    const keepLength = Math.max(0, maxChars - truncationSuffix.length);
+    return `${serialized.slice(0, keepLength)}${truncationSuffix}`;
   }
   return serialized;
 }

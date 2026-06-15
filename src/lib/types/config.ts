@@ -25,6 +25,7 @@ import type {
   AuthenticatedContext,
 } from "./auth.js";
 import type { NeurolinkCredentials } from "./providers.js";
+import type { ToolRoutingConfig } from "./toolRouting.js";
 
 /**
  * Main NeuroLink configuration type
@@ -85,6 +86,13 @@ export type NeurolinkConstructorConfig = {
    * provider is preserved across the chain; only the model name changes.
    */
   modelChain?: string[];
+  /**
+   * Pre-call tool routing: a cheap router LLM picks the tool servers
+   * relevant to each stream() turn and the unpicked servers' tools are
+   * dropped from the request via `excludeTools`. Fails open (all tools) on
+   * any router failure. See {@link ToolRoutingConfig}.
+   */
+  toolRouting?: ToolRoutingConfig;
 };
 
 /**

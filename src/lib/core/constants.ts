@@ -228,6 +228,9 @@ export const SYSTEM_LIMITS = {
   DEFAULT_BACKOFF_MULTIPLIER: 2,
 };
 
+// Pre-call tool routing: hard ceiling for the router LLM call before failing open
+export const DEFAULT_TOOL_ROUTING_TIMEOUT_MS = 15000;
+
 // Environment Variable Support (for future use)
 export const ENV_DEFAULTS = {
   maxTokens: (() => {

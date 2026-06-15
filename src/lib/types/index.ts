@@ -52,6 +52,7 @@ export * from "./stream.js";
 export * from "./subscription.js";
 export * from "./task.js";
 export * from "./taskClassification.js";
+export * from "./toolRouting.js";
 export * from "./tools.js";
 export * from "./voice.js";
 export * from "./universalProviderOptions.js";

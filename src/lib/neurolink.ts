@@ -102,6 +102,8 @@ import type {
   MetricsTraceContext,
   StreamGenerationEndContext,
   HITLExecutionState,
+  ToolRoutingConfig,
+  ToolRoutingServerDescriptor,
 } from "./types/index.js";
 import { emergencyContentTruncation } from "./context/emergencyTruncation.js";
 import {
@@ -111,8 +113,16 @@ import {
 } from "./context/errorDetection.js";
 import { ContextBudgetExceededError } from "./context/errors.js";
 import { repairToolPairs } from "./context/toolPairRepair.js";
-import { SYSTEM_LIMITS } from "./core/constants.js";
+import {
+  SYSTEM_LIMITS,
+  DEFAULT_TOOL_ROUTING_TIMEOUT_MS,
+} from "./core/constants.js";
 import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
+import {
+  buildToolRoutingCatalog,
+  buildRoutingQueryFromHistory,
+  resolveToolRoutingExclusions,
+} from "./core/toolRouting.js";
 import { AIProviderFactory } from "./core/factory.js";
 import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import { createToolEventPayload } from "./core/toolEvents.js";
@@ -688,6 +698,11 @@ export class NeuroLink {
     conversationMemory?: Partial<ConversationMemoryConfig>;
   };
 
+  // Pre-call tool routing: instance-level config from the constructor.
+  // The server catalog inside it can be supplied/replaced later via
+  // setToolRoutingServers() for hosts that register tools after construction.
+  private toolRoutingConfig?: ToolRoutingConfig;
+
   // Add orchestration property
   private enableOrchestration: boolean;
 
@@ -1194,6 +1209,13 @@ export class NeuroLink {
     }
     if (config?.modelChain) {
       this.fallbackConfig.modelChain = config.modelChain;
+    }
+
+    if (config?.toolRouting) {
+      // Shallow-clone so setToolRoutingServers() mutating this.toolRoutingConfig
+      // can't leak into the caller's config object, which may be shared across
+      // multiple NeuroLink instances.
+      this.toolRoutingConfig = { ...config.toolRouting };
     }
 
     logger.setEventEmitter(this.emitter);
@@ -7634,6 +7656,21 @@ Current user's request: ${currentInput}`;
       // tool calls) parents under it — one Langfuse trace per turn, not a forest.
       const streamSpanContext = trace.setSpan(context.active(), streamSpan);
 
+      // Pre-call tool routing: run inside the stream-span + Langfuse context so
+      // the router's own generation span nests under this turn's trace instead
+      // of starting a separate one. Asks a cheap router LLM which tool servers
+      // the query needs and appends the unpicked servers' tools to
+      // `excludeTools`. Fails open (no exclusions). Routes on the current
+      // prompt enriched with a bounded window of recent conversation turns
+      // (pulled from conversation memory) so contextless follow-ups still
+      // classify correctly. After the workflow short-circuit, so workflow
+      // streams skip it.
+      await context.with(streamSpanContext, () =>
+        this.setLangfuseContextFromOptions(options, () =>
+          this.applyToolRoutingExclusions(options, originalPrompt),
+        ),
+      );
+
       // TTS Mode 2 deferred: stream() emits text first, then synthesizes the
       // accumulated response into a single audio chunk at end-of-stream and
       // resolves `streamResult.audio` with the same TTSResult. The resolver is
@@ -7685,6 +7722,203 @@ Current user's request: ${currentInput}`;
       streamSpan.end();
       throw error;
     }
+  }
+
+  /**
+   * Pre-call tool routing for stream(): runs the router LLM once per turn
+   * and appends the unpicked servers' registered tool names to
+   * `options.excludeTools` — the per-call denylist enforced by
+   * `baseProvider.applyToolFiltering`. No-op unless `toolRouting.enabled`
+   * is true and a non-empty server catalog has been supplied. Never throws
+   * (the resolver fails open to an empty exclusion list).
+   */
+  private async applyToolRoutingExclusions(
+    options: StreamOptions,
+    userQuery: string,
+  ): Promise<void> {
+    const routingConfig = this.toolRoutingConfig;
+    if (!routingConfig?.enabled || options.disableTools) {
+      return;
+    }
+    const servers = routingConfig.servers ?? [];
+    if (servers.length === 0) {
+      return;
+    }
+
+    // Whole setup is fail-open: catalog building (getCustomTools /
+    // buildToolRoutingCatalog) and the router call degrade to no exclusions
+    // rather than killing the stream, honoring this method's "never throws"
+    // contract. Genuine stream cancellations still propagate.
+    try {
+      const registeredToolNames = Array.from(this.getCustomTools().keys());
+      const catalog = buildToolRoutingCatalog(servers, registeredToolNames);
+      if (catalog.length === 0) {
+        return;
+      }
+
+      // Fold a bounded window of recent conversation turns into the routing query.
+      // The router runs pre-memory and would otherwise see only this turn's raw
+      // text, so a contextless follow-up ("yes please") gives it nothing to
+      // classify — it fails open and routing narrows nothing. The main model
+      // still receives full history later via conversation memory; this only
+      // enriches the router's view. Fails open to the current query alone.
+      const recentMessages = await this.fetchRecentRoutingHistory(options);
+      const routingQuery =
+        recentMessages.length > 0
+          ? buildRoutingQueryFromHistory(recentMessages, userQuery)
+          : userQuery;
+
+      // The router call below re-enters the public generate(), whose finally
+      // block resets _disableToolCacheForCurrentRequest to false. That flag is
+      // stream-scoped (set at the top of this turn) and read by the main tool
+      // execution path that runs after routing, so save it before the router
+      // call and restore it afterward to keep the turn's cache setting intact.
+      const cacheDisabledForCurrentRequest =
+        this._disableToolCacheForCurrentRequest;
+      let routedExcludeTools: string[];
+      try {
+        routedExcludeTools = await resolveToolRoutingExclusions({
+          catalog,
+          alwaysIncludeServerIds: routingConfig.alwaysIncludeServerIds ?? [],
+          userQuery: routingQuery,
+          routerPromptPrefix: routingConfig.routerPromptPrefix,
+          routerModel: {
+            provider:
+              routingConfig.routerModel?.provider ??
+              (options.provider as string | undefined),
+            model: routingConfig.routerModel?.model ?? options.model,
+            region: routingConfig.routerModel?.region ?? options.region,
+            temperature: routingConfig.routerModel?.temperature,
+          },
+          timeoutMs: routingConfig.timeoutMs ?? DEFAULT_TOOL_ROUTING_TIMEOUT_MS,
+          // Forward the stream's abort signal so a cancelled stream aborts the
+          // router call promptly instead of waiting out the routing timeout.
+          generateFn: (generateOptions) =>
+            this.generate({
+              ...generateOptions,
+              abortSignal: options.abortSignal,
+            }),
+        });
+      } finally {
+        this._disableToolCacheForCurrentRequest =
+          cacheDisabledForCurrentRequest;
+      }
+
+      // Aborted during the router call — skip applying now-stale exclusions;
+      // the main generation path enforces the abort itself.
+      if (options.abortSignal?.aborted) {
+        return;
+      }
+
+      if (routedExcludeTools.length > 0) {
+        options.excludeTools = [
+          ...(options.excludeTools ?? []),
+          ...routedExcludeTools,
+        ];
+      }
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw error;
+      }
+      logger.warn("[ToolRouting] Routing setup failed, failing open", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * Loads a bounded window of prior conversation turns for the router so a
+   * follow-up turn carries the context it needs to classify intent. Reads this
+   * turn's conversation memory (keyed by `context.sessionId`) with
+   * summarization disabled to keep the router cheap. Fails open to an empty
+   * list — routing then falls back to the current query alone (prior
+   * behaviour). On the first turn of a conversation memory may not be
+   * initialised yet; that also yields an empty list, which is fine since the
+   * opening message already carries its own context.
+   */
+  private async fetchRecentRoutingHistory(
+    options: StreamOptions,
+  ): Promise<ChatMessage[]> {
+    try {
+      const requestContext = options.context as
+        | Record<string, unknown>
+        | undefined;
+
+      // Inline multi-turn callers pass prior turns via options.conversationMessages
+      // (the same field the main model reads) rather than server-side session
+      // memory. Honor it directly so a contextless follow-up still routes with
+      // context even when no sessionId is present.
+      if (
+        options.conversationMessages &&
+        options.conversationMessages.length > 0
+      ) {
+        return options.conversationMessages;
+      }
+
+      const sessionId = requestContext?.sessionId;
+      if (typeof sessionId !== "string" || !sessionId) {
+        return [];
+      }
+
+      // The pre-call router runs earlier in the stream pipeline than the main
+      // generation path's own memory init (initializeConversationMemoryForGeneration),
+      // so this.conversationMemory is still undefined at router time and the
+      // router would only ever see the current turn. Trigger the same lazy init
+      // the main path uses — it is idempotent, so the later call is a no-op —
+      // so the router can read prior turns. Fails open via the surrounding catch.
+      await this.initializeConversationMemoryForGeneration(
+        `tool-routing-${Date.now()}`,
+        Date.now(),
+        process.hrtime.bigint(),
+      );
+
+      const memory = this.conversationMemory;
+      if (!memory) {
+        return [];
+      }
+      // Reuse the SAME reader the main model uses so the router sees identically
+      // curated history: polluted turns dropped, read instrumented under the
+      // neurolink.conversation.getMessages span. enableSummarization=false keeps
+      // routing cheap and free of any summary-LLM side effect. The remaining
+      // tool_call/tool_result turns are dropped at transcript-render time
+      // (buildRoutingQueryFromHistory) to mirror what the main model is sent.
+      const messages = await getConversationMessages(memory, {
+        ...options,
+        enableSummarization: false,
+      } as TextGenerationOptions);
+      logger.debug("[ToolRouting] Loaded conversation history for router", {
+        sessionId,
+        messageCount: messages.length,
+      });
+      return messages;
+    } catch (error) {
+      logger.debug(
+        "[ToolRouting] Failed to load conversation history; routing on current query only",
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Supplies (or replaces) the pre-call tool routing server catalog.
+   *
+   * For hosts that only know their tool servers after constructing NeuroLink
+   * (e.g. tools are registered per session/conversation). Routing must still
+   * be enabled via the constructor's `toolRouting.enabled` — setting servers
+   * alone does not activate it.
+   */
+  setToolRoutingServers(servers: ToolRoutingServerDescriptor[]): void {
+    if (!this.toolRoutingConfig) {
+      logger.warn(
+        "[ToolRouting] setToolRoutingServers called without toolRouting constructor config — servers stored but routing stays disabled",
+      );
+      this.toolRoutingConfig = { enabled: false, servers };
+      return;
+    }
+    this.toolRoutingConfig.servers = servers;
   }
 
   private async validateStreamRequestOptions(
