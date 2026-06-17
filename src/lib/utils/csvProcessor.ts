@@ -581,6 +581,46 @@ function isMetadataLine(lines: string[]): boolean {
 }
 
 /**
+ * Split CSV text into logical rows for metadata detection and raw row limiting.
+ *
+ * Supports Unix (LF), Windows (CRLF), and classic Mac (CR) line endings, and is
+ * quote-aware: a line ending that appears *inside* a quoted field (RFC 4180) is
+ * kept as part of that field rather than treated as a row boundary. A doubled
+ * `""` inside quotes is the RFC-4180 escaped quote and does not toggle the quote
+ * state. For unquoted input this yields exactly the same result as a plain
+ * `split(/\r\n|\n|\r/)`.
+ */
+function splitCsvLines(csvString: string): string[] {
+  const rows: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < csvString.length; i++) {
+    const ch = csvString[i];
+    if (ch === '"') {
+      if (inQuotes && csvString[i + 1] === '"') {
+        // Escaped quote ("") — stays inside the field, quote state unchanged.
+        current += '""';
+        i++;
+        continue;
+      }
+      inQuotes = !inQuotes;
+      current += ch;
+    } else if (!inQuotes && (ch === "\n" || ch === "\r")) {
+      // Row boundary outside quotes; collapse CRLF into a single boundary.
+      if (ch === "\r" && csvString[i + 1] === "\n") {
+        i++;
+      }
+      rows.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  rows.push(current);
+  return rows;
+}
+
+/**
  * CSV processor for converting CSV data to LLM-optimized formats
  *
  * Supports three output formats:
@@ -632,10 +672,10 @@ export class CSVProcessor {
 
     const csvString = content.toString("utf-8");
 
-    // For raw format, return original CSV with row limit (no parsing needed)
-    // This preserves the exact original format which works best for LLMs
+    // For raw format, return CSV text with row limit (no parsing needed)
+    // This preserves the CSV shape while normalizing line endings for row handling.
     if (formatStyle === "raw") {
-      const lines = csvString.split("\n");
+      const lines = splitCsvLines(csvString);
       const hasMetadataLine = isMetadataLine(lines);
 
       if (hasMetadataLine) {
@@ -863,7 +903,10 @@ export class CSVProcessor {
       let buffer = "";
       lineReader.on("data", (chunk: string | Buffer) => {
         buffer += chunk.toString();
-        const lines = buffer.split("\n");
+        const splitBuffer = buffer.endsWith("\r")
+          ? buffer.slice(0, -1)
+          : buffer;
+        const lines = splitCsvLines(splitBuffer);
         if (lines.length >= 2) {
           firstLines.push(lines[0], lines[1]);
           lineReader.destroy();
@@ -949,9 +992,11 @@ export class CSVProcessor {
     });
 
     // Detect and skip metadata line
-    const lines = csvString.split("\n");
+    const lines = splitCsvLines(csvString);
     const hasMetadataLine = isMetadataLine(lines);
-    const csvData = hasMetadataLine ? lines.slice(1).join("\n") : csvString;
+    const csvData = hasMetadataLine
+      ? lines.slice(1).join("\n")
+      : lines.join("\n");
 
     if (hasMetadataLine) {
       logger.debug("[CSVProcessor] Detected metadata line in string, skipping");
@@ -1032,7 +1077,10 @@ export class CSVProcessor {
 
     // Escape backslashes, pipes, and sanitize newlines to keep rows intact
     const escapePipe = (str: string) =>
-      str.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+      str
+        .replace(/\\/g, "\\\\")
+        .replace(/\|/g, "\\|")
+        .replace(/\r\n|\n|\r/g, " ");
 
     let markdown = "";
 
@@ -1102,7 +1150,11 @@ export class CSVProcessor {
 
     // Escape CSV values (wrap in quotes if contains comma, quote, or newline)
     const escapeCSV = (value: string): string => {
-      if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+      if (
+        value.includes(",") ||
+        value.includes('"') ||
+        /\r\n|\n|\r/.test(value)
+      ) {
         return `"${value.replace(/"/g, '""')}"`;
       }
       return value;
