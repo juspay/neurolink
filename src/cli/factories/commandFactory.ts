@@ -31,6 +31,7 @@ import { checkRedisAvailability } from "../../lib/utils/conversationMemory.js";
 import { normalizeEvaluationData } from "../../lib/utils/evaluationUtils.js";
 import { logger } from "../../lib/utils/logger.js";
 import { createThinkingConfigFromRecord } from "../../lib/utils/thinkingConfig.js";
+import { buildToolRoutingConfigFromCli } from "../utils/toolRoutingFlags.js";
 import { configManager } from "../commands/config.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
 import { ModelsCommandFactory } from "../commands/models.js";
@@ -614,6 +615,47 @@ export class CLICommandFactory {
         "Thinking level for extended reasoning (Anthropic Claude, Gemini 2.5+, Gemini 3): minimal, low, medium, high",
       choices: ["minimal", "low", "medium", "high"] as const,
     },
+
+    // Tool-routing options
+    toolRouting: {
+      type: "boolean" as const,
+      description:
+        "Enable pre-call per-turn tool routing (narrows MCP tools by relevance).",
+    },
+    toolRoutingTimeout: {
+      type: "number" as const,
+      description: "Router LLM hard timeout in milliseconds.",
+      alias: "tool-routing-timeout",
+    },
+    toolRoutingRouterProvider: {
+      type: "string" as const,
+      description: "Override the provider used for the router LLM call.",
+      alias: "tool-routing-router-provider",
+    },
+    toolRoutingRouterModel: {
+      type: "string" as const,
+      description: "Override the model used for the router LLM call.",
+      alias: "tool-routing-router-model",
+    },
+    toolRoutingRouterRegion: {
+      type: "string" as const,
+      description: "Override the region used for the router LLM call.",
+      alias: "tool-routing-router-region",
+    },
+    toolRoutingAlwaysInclude: {
+      type: "array" as const,
+      description:
+        "Server ids whose tools are always kept and never offered to the router (repeatable).",
+      alias: "tool-routing-always-include",
+      string: true,
+    },
+    toolRoutingServers: {
+      type: "string" as const,
+      description:
+        "Path to a JSON file OR inline JSON array of {id, description} server descriptors for the routable catalog.",
+      alias: "tool-routing-servers",
+    },
+
     region: {
       type: "string" as const,
       description:
@@ -989,6 +1031,22 @@ export class CLICommandFactory {
         | "api"
         | undefined,
       enableBeta: argv.enableBeta as boolean | undefined,
+      // Tool-routing flags — constructor-level config, not a per-call option.
+      // Passed through the options bag so handlers can inject into the SDK
+      // instance before the first getOrCreateNeuroLink() call.
+      toolRouting: argv.toolRouting as boolean | undefined,
+      toolRoutingTimeout: argv.toolRoutingTimeout as number | undefined,
+      toolRoutingRouterProvider: argv.toolRoutingRouterProvider as
+        | string
+        | undefined,
+      toolRoutingRouterModel: argv.toolRoutingRouterModel as string | undefined,
+      toolRoutingRouterRegion: argv.toolRoutingRouterRegion as
+        | string
+        | undefined,
+      toolRoutingAlwaysInclude: argv.toolRoutingAlwaysInclude as
+        | string[]
+        | undefined,
+      toolRoutingServers: argv.toolRoutingServers as string | undefined,
     };
   }
 
@@ -3002,6 +3060,14 @@ export class CLICommandFactory {
         return;
       }
 
+      // Inject tool-routing config into the SDK instance before constructing it.
+      const toolRoutingConfig = buildToolRoutingConfigFromCli(
+        options as Record<string, unknown>,
+      );
+      if (toolRoutingConfig) {
+        globalSession.setToolRoutingConfig(toolRoutingConfig);
+      }
+
       // Initialize SDK and session
       const sdk = globalSession.getOrCreateNeuroLink();
       const sessionVariables = CLICommandFactory.normalizeLoopSessionVariables(
@@ -3315,6 +3381,14 @@ export class CLICommandFactory {
     inputText: string,
     contextMetadata: Partial<BaseContext> | undefined,
   ): Promise<string> {
+    // Inject tool-routing config into the SDK instance before constructing it.
+    const toolRoutingConfig = buildToolRoutingConfigFromCli(
+      options as Record<string, unknown>,
+    );
+    if (toolRoutingConfig) {
+      globalSession.setToolRoutingConfig(toolRoutingConfig);
+    }
+
     const sdk = globalSession.getOrCreateNeuroLink();
     const sessionVariables = CLICommandFactory.normalizeLoopSessionVariables(
       globalSession.getSessionVariables(),
@@ -3955,6 +4029,14 @@ export class CLICommandFactory {
         response?: string;
         error?: string;
       }> = [];
+
+      // Inject tool-routing config into the SDK instance before constructing it.
+      const toolRoutingConfig = buildToolRoutingConfigFromCli(
+        options as Record<string, unknown>,
+      );
+      if (toolRoutingConfig) {
+        globalSession.setToolRoutingConfig(toolRoutingConfig);
+      }
 
       const sdk = globalSession.getOrCreateNeuroLink();
       const sessionVariables = CLICommandFactory.normalizeLoopSessionVariables(

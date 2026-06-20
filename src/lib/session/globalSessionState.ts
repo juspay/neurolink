@@ -6,6 +6,7 @@ import type {
   McpOutputStrategy,
   NeurolinkConstructorConfig,
   SessionVariableValue,
+  ToolRoutingConfig,
 } from "../types/index.js";
 
 import { buildObservabilityConfigFromEnv } from "../utils/observabilityHelpers.js";
@@ -48,6 +49,8 @@ function buildMcpOutputLimitsFromEnv():
 export class GlobalSessionManager {
   private static instance: GlobalSessionManager;
   private loopSession: LoopSessionState | null = null;
+  /** Optional tool-routing config set by CLI handlers before SDK construction. */
+  private _toolRoutingConfig: ToolRoutingConfig | undefined = undefined;
 
   static getInstance(): GlobalSessionManager {
     if (!GlobalSessionManager.instance) {
@@ -171,6 +174,19 @@ export class GlobalSessionManager {
     }
   }
 
+  /**
+   * Store a tool-routing config to be injected at SDK construction time.
+   * Call this BEFORE `getOrCreateNeuroLink()` inside a command handler.
+   * When a loop session is already active the config is ignored (the instance
+   * already exists).
+   */
+  setToolRoutingConfig(config: ToolRoutingConfig): void {
+    if (this.hasActiveSession()) {
+      return;
+    }
+    this._toolRoutingConfig = config;
+  }
+
   getOrCreateNeuroLink(): NeuroLink {
     const session = this.getLoopSession();
     if (session) {
@@ -187,6 +203,10 @@ export class GlobalSessionManager {
     }
     if (mcpOutputLimits) {
       options.mcp = { outputLimits: mcpOutputLimits };
+    }
+    if (this._toolRoutingConfig) {
+      options.toolRouting = this._toolRoutingConfig;
+      this._toolRoutingConfig = undefined;
     }
 
     return new NeuroLink(Object.keys(options).length ? options : undefined);

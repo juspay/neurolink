@@ -58,122 +58,125 @@ export type BaseCommandArgs = {
 /**
  * Generate command arguments
  */
-export type GenerateCommandArgs = BaseCommandArgs & {
-  /** Input text or prompt */
-  input?: string;
-  /** AI provider to use */
-  provider?: string;
-  /** Model name */
-  model?: string;
-  /** System prompt */
-  system?: string;
-  /** Temperature setting */
-  temperature?: number;
-  /** Maximum tokens */
-  maxTokens?: number;
-  /** Enable analytics */
-  analytics?: boolean;
-  /** Enable evaluation */
-  evaluation?: boolean;
-  /** Context data */
-  context?: string;
-  /** Disable tools */
-  disableTools?: boolean;
-  /** Maximum steps for multi-turn */
-  maxSteps?: number;
-  /** Output file */
-  output?: string;
-  /** Enable extended thinking/reasoning */
-  thinking?: boolean;
-  /** Token budget for thinking */
-  thinkingBudget?: number;
-  /** Thinking level for extended reasoning */
-  thinkingLevel?: "minimal" | "low" | "medium" | "high";
-  /** Vertex AI region */
-  region?: string;
-  // Video generation options (Veo 3.1)
-  /** Output mode - 'text' for standard generation, 'video' for video generation, 'ppt' for presentation */
-  outputMode?: "text" | "video" | "ppt";
-  /** Path to save generated video file */
-  videoOutput?: string;
-  /** Video output resolution (720p or 1080p) */
-  videoResolution?: "720p" | "1080p";
-  /** Video duration in seconds (4, 6, or 8) */
-  videoLength?: 4 | 6 | 8;
-  /** Video aspect ratio (9:16 for portrait, 16:9 for landscape) */
-  videoAspectRatio?: "9:16" | "16:9";
-  /** Enable/disable audio generation in video */
-  videoAudio?: boolean;
-  // PPT generation options
-  /** Number of slides to generate (5-50) */
-  pptPages?: number;
-  /** Presentation theme/style */
-  pptTheme?: "modern" | "corporate" | "creative" | "minimal" | "dark";
-  /** Target audience */
-  pptAudience?: "business" | "students" | "technical" | "general";
-  /** Presentation tone/style */
-  pptTone?: "professional" | "casual" | "educational" | "persuasive";
-  /** Path to save generated PPTX file */
-  pptOutput?: string;
-  /** PPT aspect ratio */
-  pptAspectRatio?: "16:9" | "4:3";
-  /** Disable AI image generation for PPT slides */
-  pptNoImages?: boolean;
-  /** Custom path for generated image output */
-  imageOutput?: string;
-};
+export type GenerateCommandArgs = BaseCommandArgs &
+  CliToolRoutingFlags & {
+    /** Input text or prompt */
+    input?: string;
+    /** AI provider to use */
+    provider?: string;
+    /** Model name */
+    model?: string;
+    /** System prompt */
+    system?: string;
+    /** Temperature setting */
+    temperature?: number;
+    /** Maximum tokens */
+    maxTokens?: number;
+    /** Enable analytics */
+    analytics?: boolean;
+    /** Enable evaluation */
+    evaluation?: boolean;
+    /** Context data */
+    context?: string;
+    /** Disable tools */
+    disableTools?: boolean;
+    /** Maximum steps for multi-turn */
+    maxSteps?: number;
+    /** Output file */
+    output?: string;
+    /** Enable extended thinking/reasoning */
+    thinking?: boolean;
+    /** Token budget for thinking */
+    thinkingBudget?: number;
+    /** Thinking level for extended reasoning */
+    thinkingLevel?: "minimal" | "low" | "medium" | "high";
+    /** Vertex AI region */
+    region?: string;
+    // Video generation options (Veo 3.1)
+    /** Output mode - 'text' for standard generation, 'video' for video generation, 'ppt' for presentation */
+    outputMode?: "text" | "video" | "ppt";
+    /** Path to save generated video file */
+    videoOutput?: string;
+    /** Video output resolution (720p or 1080p) */
+    videoResolution?: "720p" | "1080p";
+    /** Video duration in seconds (4, 6, or 8) */
+    videoLength?: 4 | 6 | 8;
+    /** Video aspect ratio (9:16 for portrait, 16:9 for landscape) */
+    videoAspectRatio?: "9:16" | "16:9";
+    /** Enable/disable audio generation in video */
+    videoAudio?: boolean;
+    // PPT generation options
+    /** Number of slides to generate (5-50) */
+    pptPages?: number;
+    /** Presentation theme/style */
+    pptTheme?: "modern" | "corporate" | "creative" | "minimal" | "dark";
+    /** Target audience */
+    pptAudience?: "business" | "students" | "technical" | "general";
+    /** Presentation tone/style */
+    pptTone?: "professional" | "casual" | "educational" | "persuasive";
+    /** Path to save generated PPTX file */
+    pptOutput?: string;
+    /** PPT aspect ratio */
+    pptAspectRatio?: "16:9" | "4:3";
+    /** Disable AI image generation for PPT slides */
+    pptNoImages?: boolean;
+    /** Custom path for generated image output */
+    imageOutput?: string;
+  };
 
 /**
  * Stream command arguments
  */
-export type StreamCommandArgs = BaseCommandArgs & {
-  /** Input text or prompt */
-  input?: string;
-  /** AI provider to use */
-  provider?: string;
-  /** Model name */
-  model?: string;
-  /** System prompt */
-  system?: string;
-  /** Temperature setting */
-  temperature?: number;
-  /** Maximum tokens */
-  maxTokens?: number;
-  /** Disable tools */
-  disableTools?: boolean;
-  /** Enable extended thinking/reasoning */
-  thinking?: boolean;
-  /** Token budget for thinking */
-  thinkingBudget?: number;
-  /** Thinking level for extended reasoning */
-  thinkingLevel?: "minimal" | "low" | "medium" | "high";
-  /** Vertex AI region */
-  region?: string;
-};
+export type StreamCommandArgs = BaseCommandArgs &
+  CliToolRoutingFlags & {
+    /** Input text or prompt */
+    input?: string;
+    /** AI provider to use */
+    provider?: string;
+    /** Model name */
+    model?: string;
+    /** System prompt */
+    system?: string;
+    /** Temperature setting */
+    temperature?: number;
+    /** Maximum tokens */
+    maxTokens?: number;
+    /** Disable tools */
+    disableTools?: boolean;
+    /** Enable extended thinking/reasoning */
+    thinking?: boolean;
+    /** Token budget for thinking */
+    thinkingBudget?: number;
+    /** Thinking level for extended reasoning */
+    thinkingLevel?: "minimal" | "low" | "medium" | "high";
+    /** Vertex AI region */
+    region?: string;
+  };
 
 /**
  * Batch command arguments
  */
-export type BatchCommandArgs = BaseCommandArgs & {
-  /** Input file path */
-  file?: string;
-  /** AI provider to use */
-  provider?: string;
-  /** Model name */
-  model?: string;
-  /** System prompt */
-  system?: string;
-  /** Temperature setting */
-  temperature?: number;
-  /** Maximum tokens */
-  maxTokens?: number;
-  /** Delay between requests (ms) */
-  delay?: number;
-  /** Output file */
-  output?: string;
-  /** Disable tools */
-  disableTools?: boolean;
-};
+export type BatchCommandArgs = BaseCommandArgs &
+  CliToolRoutingFlags & {
+    /** Input file path */
+    file?: string;
+    /** AI provider to use */
+    provider?: string;
+    /** Model name */
+    model?: string;
+    /** System prompt */
+    system?: string;
+    /** Temperature setting */
+    temperature?: number;
+    /** Maximum tokens */
+    maxTokens?: number;
+    /** Delay between requests (ms) */
+    delay?: number;
+    /** Output file */
+    output?: string;
+    /** Disable tools */
+    disableTools?: boolean;
+  };
 
 /**
  * MCP command arguments - Enhanced with transport and server management
@@ -1807,4 +1810,35 @@ export type CliServeFlatRoute = {
   path: string;
   description?: string;
   group: string;
+};
+
+// =============================================================================
+// TOOL-ROUTING CLI FLAGS (from cli/utils/toolRoutingFlags.ts)
+// =============================================================================
+
+/**
+ * Raw CLI flag shape for the tool-routing family of options.
+ * Keys are camelCase as yargs delivers them after parsing kebab-case aliases.
+ */
+export type CliToolRoutingFlags = {
+  /** Master enable switch (--tool-routing). */
+  toolRouting?: boolean;
+  /** Router LLM hard timeout in ms (--tool-routing-timeout). */
+  toolRoutingTimeout?: number;
+  /** Router LLM provider override (--tool-routing-router-provider). */
+  toolRoutingRouterProvider?: string;
+  /** Router LLM model override (--tool-routing-router-model). */
+  toolRoutingRouterModel?: string;
+  /** Router LLM region override (--tool-routing-router-region). */
+  toolRoutingRouterRegion?: string;
+  /**
+   * Server ids that are always kept and never offered to the router
+   * (--tool-routing-always-include, repeatable).
+   */
+  toolRoutingAlwaysInclude?: string[];
+  /**
+   * Path to a JSON file OR inline JSON array of server descriptors
+   * (--tool-routing-servers).
+   */
+  toolRoutingServers?: string;
 };
