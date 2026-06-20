@@ -277,11 +277,11 @@ export async function executeAutoresearchTick(
       ...(phasePolicy.forcedTool
         ? {
             prepareStep: ({ stepNumber }: { stepNumber: number }) => {
-              if (stepNumber === 0) {
+              if (stepNumber === 0 && phasePolicy.forcedTool) {
                 return {
                   toolChoice: {
                     type: "tool" as const,
-                    toolName: phasePolicy.forcedTool!,
+                    toolName: phasePolicy.forcedTool,
                   },
                 };
               }

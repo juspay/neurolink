@@ -196,7 +196,6 @@ async function executeModel(
     let result: Awaited<ReturnType<typeof provider.generate>>;
     let attempts = 0;
     const MAX_ATTEMPTS = 2;
-    /* eslint-disable no-constant-condition */
     while (true) {
       attempts++;
       result = await executeWithTimeout(
@@ -220,7 +219,6 @@ async function executeModel(
         { provider: model.provider, model: model.model, attempt: attempts },
       );
     }
-    /* eslint-enable no-constant-condition */
 
     const responseTime = Date.now() - startTime;
 
