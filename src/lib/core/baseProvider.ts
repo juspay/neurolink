@@ -42,6 +42,7 @@ import {
   executeVideoAnalysis,
   hasVideoFrames,
 } from "../utils/videoAnalysisProcessor.js";
+import { dedupeTools } from "./toolDedup.js";
 import { GenerationHandler } from "./modules/GenerationHandler.js";
 // Import modules for composition
 import { MessageBuilder } from "./modules/MessageBuilder.js";
@@ -751,17 +752,24 @@ export abstract class BaseProvider implements AIProvider {
     tools: Record<string, Tool>,
     options: { toolFilter?: string[]; excludeTools?: string[] },
   ): Record<string, Tool> {
-    if (
-      (!options.toolFilter || options.toolFilter.length === 0) &&
-      (!options.excludeTools || options.excludeTools.length === 0)
-    ) {
+    const hasWhitelist = options.toolFilter && options.toolFilter.length > 0;
+    const hasDenylist = options.excludeTools && options.excludeTools.length > 0;
+
+    // Check whether the dedup pass is requested — even when no whitelist/
+    // denylist is set we still need to run the dedup pass if enabled.
+    const dedupConfig = this.neurolink?.getToolDedupConfig();
+    const hasDedupEnabled =
+      dedupConfig !== undefined && dedupConfig.enabled === true;
+
+    if (!hasWhitelist && !hasDenylist && !hasDedupEnabled) {
+      // Fast path: nothing to do.
       return tools;
     }
 
     const beforeCount = Object.keys(tools).length;
     let filtered = { ...tools };
 
-    if (options.toolFilter && options.toolFilter.length > 0) {
+    if (hasWhitelist) {
       const allowSet = new Set(options.toolFilter);
       const result: Record<string, Tool> = {};
       for (const [name, tool] of Object.entries(filtered)) {
@@ -772,7 +780,7 @@ export abstract class BaseProvider implements AIProvider {
       filtered = result;
     }
 
-    if (options.excludeTools && options.excludeTools.length > 0) {
+    if (hasDenylist) {
       const denySet = new Set(options.excludeTools);
       for (const name of Object.keys(filtered)) {
         if (denySet.has(name)) {
@@ -790,6 +798,28 @@ export abstract class BaseProvider implements AIProvider {
         toolFilter: options.toolFilter,
         excludeTools: options.excludeTools,
       });
+    }
+
+    // Opt-in signature dedup — runs AFTER whitelist/blacklist filtering and
+    // BEFORE the tool set reaches the provider call.  Fails open: any error
+    // inside dedupeTools returns the original filtered set unchanged.
+    if (dedupConfig !== undefined && dedupConfig.enabled) {
+      const { tools: dedupedTools, removed } = dedupeTools(
+        filtered,
+        dedupConfig,
+      );
+      if (removed.length > 0 && logger.shouldLog("debug")) {
+        logger.debug(`Tool signature dedup removed duplicates`, {
+          provider: this.providerName,
+          removedCount: removed.length,
+          removed: removed.map((r) => ({
+            name: r.name,
+            duplicateOf: r.duplicateOf,
+            similarity: r.similarity,
+          })),
+        });
+      }
+      return dedupedTools;
     }
 
     return filtered;

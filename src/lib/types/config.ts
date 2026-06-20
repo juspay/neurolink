@@ -25,7 +25,6 @@ import type {
   AuthenticatedContext,
 } from "./auth.js";
 import type { NeurolinkCredentials } from "./providers.js";
-import type { ToolRoutingConfig } from "./toolRouting.js";
 
 /**
  * Main NeuroLink configuration type
@@ -93,6 +92,19 @@ export type NeurolinkConstructorConfig = {
    * any router failure. See {@link ToolRoutingConfig}.
    */
   toolRouting?: ToolRoutingConfig;
+  /**
+   * Opt-in tool-signature deduplication.  When enabled, tools whose
+   * canonical signatures are sufficiently similar (Jaccard ≥ threshold) are
+   * collapsed to a single representative before being sent to the model,
+   * reducing token cost and model confusion caused by near-identical tools.
+   *
+   * Disabled by default — enabling this changes nothing unless you
+   * explicitly set `enabled: true`.  Always fails open: any error in the
+   * dedup pass returns the original tool set unchanged.
+   *
+   * See {@link ToolDedupConfig}.
+   */
+  toolDedup?: ToolDedupConfig;
 };
 
 /**
@@ -412,6 +424,8 @@ import type {
   ToolMiddleware,
   CacheStrategy,
   RoutingStrategy,
+  ToolDedupConfig,
+  ToolRoutingConfig,
 } from "./index.js";
 import type { ModelAliasConfig } from "./generate.js";
 

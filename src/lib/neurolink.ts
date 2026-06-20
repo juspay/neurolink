@@ -105,6 +105,7 @@ import type {
   ToolRoutingConfig,
   ToolRoutingDecision,
   ToolRoutingServerDescriptor,
+  ToolDedupConfig,
 } from "./types/index.js";
 import { emergencyContentTruncation } from "./context/emergencyTruncation.js";
 import {
@@ -708,6 +709,9 @@ export class NeuroLink {
   // instances that don't use routing pay no overhead.
   private toolRoutingCacheInstance?: ToolRoutingCache;
 
+  // Opt-in tool-signature deduplication config.
+  private toolDedupConfig?: ToolDedupConfig;
+
   // Add orchestration property
   private enableOrchestration: boolean;
 
@@ -1221,6 +1225,10 @@ export class NeuroLink {
       // can't leak into the caller's config object, which may be shared across
       // multiple NeuroLink instances.
       this.toolRoutingConfig = { ...config.toolRouting };
+    }
+
+    if (config?.toolDedup) {
+      this.toolDedupConfig = { ...config.toolDedup };
     }
 
     logger.setEventEmitter(this.emitter);
@@ -10203,6 +10211,22 @@ Current user's request: ${currentInput}`;
    */
   getEventEmitter() {
     return this.emitter;
+  }
+
+  /**
+   * Returns the instance-level tool-dedup configuration, or `undefined` when
+   * toolDedup was not provided at construction time.
+   *
+   * The stored object is returned as-is whenever `toolDedup` was supplied,
+   * including when `enabled: false` — only the complete absence of a `toolDedup`
+   * option results in `undefined`.
+   *
+   * Called by `BaseProvider.applyToolFiltering` so the dedup pass uses the
+   * same config for every generate/stream call without threading an extra
+   * parameter through the full call stack.
+   */
+  getToolDedupConfig(): ToolDedupConfig | undefined {
+    return this.toolDedupConfig;
   }
 
   /**

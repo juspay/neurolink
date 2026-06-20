@@ -661,6 +661,9 @@ export {
   createFormRequest,
 } from "./mcp/index.js";
 
+// Tool signature deduplication utilities (opt-in, fail-open)
+export { computeToolSignature, dedupeTools } from "./core/toolDedup.js";
+
 export { logger } from "./utils/logger.js";
 export { getPoolStats } from "./utils/redis.js";
 
