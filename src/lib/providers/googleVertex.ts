@@ -74,6 +74,7 @@ import {
   createTextChannel,
   extractThoughtSignature,
   prependConversationMessages,
+  DedupExecuteMap,
 } from "./googleNativeGemini3.js";
 import {
   ATTR,
@@ -1339,7 +1340,7 @@ export class GoogleVertexProvider extends BaseProvider {
     let tools:
       | Array<{ functionDeclarations: VertexGenaiFunctionDeclaration[] }>
       | undefined;
-    const executeMap = new Map<string, Tool["execute"]>();
+    const executeMap = new DedupExecuteMap();
 
     if (
       options.tools &&
@@ -2178,7 +2179,7 @@ export class GoogleVertexProvider extends BaseProvider {
     let tools:
       | Array<{ functionDeclarations: VertexGenaiFunctionDeclaration[] }>
       | undefined;
-    const executeMap = new Map<string, Tool["execute"]>();
+    const executeMap = new DedupExecuteMap();
 
     if (Object.keys(combinedTools).length > 0) {
       const functionDeclarations: VertexGenaiFunctionDeclaration[] = [];
@@ -3014,7 +3015,7 @@ export class GoogleVertexProvider extends BaseProvider {
 
     // Convert tools to Anthropic format if present
     let tools: VertexAnthropicTool[] | undefined;
-    const executeMap = new Map<string, Tool["execute"]>();
+    const executeMap = new DedupExecuteMap();
 
     if (
       options.tools &&
@@ -3976,7 +3977,7 @@ export class GoogleVertexProvider extends BaseProvider {
 
     // Convert tools to Anthropic format if present
     let tools: VertexAnthropicTool[] | undefined;
-    const executeMap = new Map<string, Tool["execute"]>();
+    const executeMap = new DedupExecuteMap();
     const toolExecutions: Array<{
       name: string;
       input: Record<string, unknown>;

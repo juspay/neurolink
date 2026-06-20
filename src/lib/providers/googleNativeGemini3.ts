@@ -52,6 +52,59 @@ import {
 
 // ── Functions ──
 
+/** Stable, key-order-independent serialization of tool args for the dedup key. */
+function stableStringifyForDedup(value: unknown): string {
+  return JSON.stringify(value, (_key, val) =>
+    val && typeof val === "object" && !Array.isArray(val)
+      ? Object.keys(val as Record<string, unknown>)
+          .sort()
+          .reduce<Record<string, unknown>>((acc, key) => {
+            acc[key] = (val as Record<string, unknown>)[key];
+            return acc;
+          }, {})
+      : val,
+  );
+}
+
+/**
+ * A per-turn tool execute map that deduplicates identical tool calls.
+ *
+ * Gemini occasionally re-emits a tool call with identical arguments across
+ * agentic steps even though the prior result is already in the conversation
+ * history (BZ-3327). Re-executing produces duplicate side effects and
+ * duplicate reports for the user, plus wasted tokens. This map caches the
+ * result of each {tool name + args} executed within the turn and returns it
+ * for any identical re-request instead of running the tool again.
+ *
+ * Providers build a fresh executeMap per request, so the cache scope is
+ * exactly one turn. Only `.get()` is overridden (the sole access path used by
+ * the native agentic loops), so iteration still yields the raw executors.
+ */
+export class DedupExecuteMap extends Map<string, Tool["execute"]> {
+  private readonly resultCache = new Map<string, unknown>();
+
+  override get(name: string): Tool["execute"] | undefined {
+    const execute = super.get(name);
+    if (!execute) {
+      return execute;
+    }
+    const resultCache = this.resultCache;
+    const wrapped: ToolExecuteFunction = async (args, options) => {
+      const key = `${name}::${stableStringifyForDedup(args)}`;
+      if (resultCache.has(key)) {
+        logger.warn(
+          `[DedupExecuteMap] Tool "${name}" re-requested with identical arguments in the same turn — reusing the previous result instead of re-executing.`,
+        );
+        return resultCache.get(key);
+      }
+      const result = await execute(args, options);
+      resultCache.set(key, result);
+      return result;
+    };
+    return wrapped as Tool["execute"];
+  }
+}
+
 /**
  * Google's `function_declarations[].name` validator regex.
  *
@@ -438,7 +491,7 @@ export function buildNativeToolDeclarations(
   tools: Record<string, Tool>,
 ): NativeToolDeclarationsResult {
   const functionDeclarations: NativeFunctionDeclaration[] = [];
-  const executeMap = new Map<string, Tool["execute"]>();
+  const executeMap = new DedupExecuteMap();
 
   const skippedTools: string[] = [];
   const renamedTools: Array<{ from: string; to: string }> = [];

@@ -66,6 +66,7 @@ import {
   handleMaxStepsTermination,
   prependConversationMessages,
   pushModelResponseToHistory,
+  DedupExecuteMap,
 } from "./googleNativeGemini3.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type { LanguageModel, Schema, Tool } from "../types/index.js";
@@ -735,7 +736,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
           // Convert tools
           let toolsConfig: NativeToolsConfig | undefined;
-          let executeMap = new Map<string, Tool["execute"]>();
+          let executeMap = new DedupExecuteMap();
           let originalNameMap = new Map<string, string>();
 
           if (
@@ -1134,7 +1135,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
           // Convert tools (a0269210: trust options.tools — already merged + filtered upstream)
           let toolsConfig: NativeToolsConfig | undefined;
-          let executeMap = new Map<string, Tool["execute"]>();
+          let executeMap = new DedupExecuteMap();
           let originalNameMap = new Map<string, string>();
 
           const shouldUseTools = !options.disableTools;
