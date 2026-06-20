@@ -664,6 +664,17 @@ export {
 export { logger } from "./utils/logger.js";
 export { getPoolStats } from "./utils/redis.js";
 
+// Pre-call tool routing cache (ITEM C: LRU+TTL cache + session stickiness)
+export { ToolRoutingCache } from "./core/toolRoutingCache.js";
+
+// Pre-call tool routing resolver — exported for host integrations and testing
+export {
+  resolveToolRoutingExclusions,
+  buildToolRoutingCatalog,
+  buildRoutingQueryFromHistory,
+  DEFAULT_ROUTER_PROMPT_PREFIX,
+} from "./core/toolRouting.js";
+
 // ============================================================================
 // REAL-TIME SERVICES & TELEMETRY - Enterprise Platform Features
 // ============================================================================

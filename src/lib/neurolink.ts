@@ -103,6 +103,7 @@ import type {
   StreamGenerationEndContext,
   HITLExecutionState,
   ToolRoutingConfig,
+  ToolRoutingDecision,
   ToolRoutingServerDescriptor,
 } from "./types/index.js";
 import { emergencyContentTruncation } from "./context/emergencyTruncation.js";
@@ -123,6 +124,7 @@ import {
   buildRoutingQueryFromHistory,
   resolveToolRoutingExclusions,
 } from "./core/toolRouting.js";
+import { ToolRoutingCache } from "./core/toolRoutingCache.js";
 import { AIProviderFactory } from "./core/factory.js";
 import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import { createToolEventPayload } from "./core/toolEvents.js";
@@ -185,7 +187,7 @@ import {
 } from "./services/server/ai/observability/instrumentation.js";
 import { TaskManager } from "./tasks/taskManager.js";
 import { createTaskTools } from "./tasks/tools/taskTools.js";
-import { ATTR } from "./telemetry/attributes.js";
+import { ATTR, spanJsonAttribute } from "./telemetry/attributes.js";
 import { tracers } from "./telemetry/tracers.js";
 // Voice integration imports
 import type {
@@ -702,6 +704,9 @@ export class NeuroLink {
   // The server catalog inside it can be supplied/replaced later via
   // setToolRoutingServers() for hosts that register tools after construction.
   private toolRoutingConfig?: ToolRoutingConfig;
+  // Lazy-initialized routing decision cache (ITEM C). Created on first use so
+  // instances that don't use routing pay no overhead.
+  private toolRoutingCacheInstance?: ToolRoutingCache;
 
   // Add orchestration property
   private enableOrchestration: boolean;
@@ -4019,8 +4024,23 @@ Current user's request: ${currentInput}`;
         return earlyResult;
       }
 
-      const result = await this.setLangfuseContextFromOptions(options, () =>
-        this.runStandardGenerateRequest(options, originalPrompt, generateSpan),
+      // Pre-call tool routing for generate(): mirrors the stream() routing path.
+      // Runs inside the generate's Langfuse context (setLangfuseContextFromOptions)
+      // so the router's own generation span nests under this turn's trace.
+      // After the early-result short-circuit so workflow/media turns skip it.
+      const result = await this.setLangfuseContextFromOptions(
+        options,
+        async () => {
+          await this.applyToolRoutingExclusions(
+            options,
+            options.input?.text ?? "",
+          );
+          return this.runStandardGenerateRequest(
+            options,
+            originalPrompt,
+            generateSpan,
+          );
+        },
       );
       generateSpan.setStatus({ code: SpanStatusCode.OK });
       return result;
@@ -7725,15 +7745,16 @@ Current user's request: ${currentInput}`;
   }
 
   /**
-   * Pre-call tool routing for stream(): runs the router LLM once per turn
-   * and appends the unpicked servers' registered tool names to
-   * `options.excludeTools` — the per-call denylist enforced by
-   * `baseProvider.applyToolFiltering`. No-op unless `toolRouting.enabled`
-   * is true and a non-empty server catalog has been supplied. Never throws
-   * (the resolver fails open to an empty exclusion list).
+   * Pre-call tool routing for both stream() and generate() turns: runs the
+   * router LLM once per turn and appends the unpicked servers' registered tool
+   * names to `options.excludeTools` — the per-call denylist enforced by
+   * `baseProvider.applyToolFiltering`. No-op unless `toolRouting.enabled` is
+   * true and a non-empty server catalog has been supplied. Never throws (the
+   * resolver fails open to an empty exclusion list). Accepts both StreamOptions
+   * and GenerateOptions since both share the required fields.
    */
   private async applyToolRoutingExclusions(
-    options: StreamOptions,
+    options: StreamOptions | GenerateOptions,
     userQuery: string,
   ): Promise<void> {
     const routingConfig = this.toolRoutingConfig;
@@ -7747,8 +7768,8 @@ Current user's request: ${currentInput}`;
 
     // Whole setup is fail-open: catalog building (getCustomTools /
     // buildToolRoutingCatalog) and the router call degrade to no exclusions
-    // rather than killing the stream, honoring this method's "never throws"
-    // contract. Genuine stream cancellations still propagate.
+    // rather than killing the stream/generate turn, honoring this method's
+    // "never throws" contract. Genuine cancellations still propagate.
     try {
       const registeredToolNames = Array.from(this.getCustomTools().keys());
       const catalog = buildToolRoutingCatalog(servers, registeredToolNames);
@@ -7768,46 +7789,229 @@ Current user's request: ${currentInput}`;
           ? buildRoutingQueryFromHistory(recentMessages, userQuery)
           : userQuery;
 
-      // The router call below re-enters the public generate(), whose finally
-      // block resets _disableToolCacheForCurrentRequest to false. That flag is
-      // stream-scoped (set at the top of this turn) and read by the main tool
-      // execution path that runs after routing, so save it before the router
-      // call and restore it afterward to keep the turn's cache setting intact.
-      const cacheDisabledForCurrentRequest =
-        this._disableToolCacheForCurrentRequest;
-      let routedExcludeTools: string[];
-      try {
-        routedExcludeTools = await resolveToolRoutingExclusions({
-          catalog,
-          alwaysIncludeServerIds: routingConfig.alwaysIncludeServerIds ?? [],
-          userQuery: routingQuery,
-          routerPromptPrefix: routingConfig.routerPromptPrefix,
-          routerModel: {
-            provider:
-              routingConfig.routerModel?.provider ??
-              (options.provider as string | undefined),
-            model: routingConfig.routerModel?.model ?? options.model,
-            region: routingConfig.routerModel?.region ?? options.region,
-            temperature: routingConfig.routerModel?.temperature,
-          },
-          timeoutMs: routingConfig.timeoutMs ?? DEFAULT_TOOL_ROUTING_TIMEOUT_MS,
-          // Forward the stream's abort signal so a cancelled stream aborts the
-          // router call promptly instead of waiting out the routing timeout.
-          generateFn: (generateOptions) =>
-            this.generate({
-              ...generateOptions,
-              abortSignal: options.abortSignal,
-            }),
+      // --- ITEM C: routing decision cache ---
+      const cacheConfig = routingConfig.cache;
+      const cacheEnabled = cacheConfig?.enabled === true;
+      const stickinessEnabled = routingConfig.stickiness?.enabled === true;
+
+      // Lazy-init the cache instance once per NeuroLink instance.
+      if (
+        (cacheEnabled || stickinessEnabled) &&
+        !this.toolRoutingCacheInstance
+      ) {
+        this.toolRoutingCacheInstance = new ToolRoutingCache({
+          ttlMs: cacheConfig?.ttlMs,
+          maxEntries: cacheConfig?.maxEntries,
+          stickyTurns: routingConfig.stickiness?.turns,
         });
-      } finally {
-        this._disableToolCacheForCurrentRequest =
-          cacheDisabledForCurrentRequest;
+      }
+      const cache = this.toolRoutingCacheInstance;
+
+      // Derive sessionId for stickiness — same extraction path as
+      // fetchRecentRoutingHistory.
+      const requestContext = options.context as
+        | Record<string, unknown>
+        | undefined;
+      const sessionId =
+        typeof requestContext?.sessionId === "string"
+          ? requestContext.sessionId
+          : "";
+
+      // Cache key: session + normalized routing query.
+      // Require a non-empty sessionId to avoid anonymous sessions sharing a
+      // ":query" namespace (cross-session cache leak).
+      const cacheKey =
+        cacheEnabled && sessionId ? `${sessionId}:${routingQuery}` : undefined;
+
+      // --- ITEM E: build the emitDecision callback ---
+      const emitDecision = (decision: ToolRoutingDecision): void => {
+        try {
+          const activeSpan = trace.getActiveSpan();
+          if (!activeSpan) {
+            return;
+          }
+          activeSpan.setAttribute("tool_routing.outcome", decision.outcome);
+          activeSpan.setAttribute(
+            "tool_routing.routable_server_count",
+            decision.routableServerCount,
+          );
+          activeSpan.setAttribute(
+            "tool_routing.selected_server_ids",
+            spanJsonAttribute(decision.selectedServerIds),
+          );
+          activeSpan.setAttribute(
+            "tool_routing.excluded_server_ids",
+            spanJsonAttribute(decision.excludedServerIds),
+          );
+          activeSpan.setAttribute(
+            "tool_routing.hallucinated_ids",
+            spanJsonAttribute(decision.hallucinatedIds),
+          );
+          activeSpan.setAttribute(
+            "tool_routing.excluded_tool_count",
+            decision.excludedToolCount,
+          );
+          activeSpan.setAttribute("tool_routing.cache_hit", decision.cacheHit);
+          activeSpan.setAttribute(
+            "tool_routing.duration_ms",
+            decision.durationMs,
+          );
+        } catch {
+          // Telemetry must never affect routing behaviour.
+        }
+      };
+
+      // Unified hit/miss block: always produces raw (pre-stickiness) exclusions
+      // so stickiness can be applied identically on both paths below.
+      let routedExcludeTools: string[];
+      let selectedServerIds: string[] = [];
+      let resolvedDecision: ToolRoutingDecision | undefined;
+      let fromCache = false;
+
+      const cached =
+        cacheEnabled && cache && cacheKey !== undefined
+          ? cache.get(cacheKey)
+          : undefined;
+
+      if (cached) {
+        // Cache HIT — use stored raw exclusions (pre-stickiness).
+        fromCache = true;
+        routedExcludeTools = [...cached.excludedToolNames];
+        selectedServerIds = [...cached.selectedServerIds];
+        logger.debug("[ToolRouting] Cache hit, skipping router LLM", {
+          cacheKey,
+        });
+        // Emit cache-hit telemetry with full parity to the miss path.
+        try {
+          const activeSpan = trace.getActiveSpan();
+          if (activeSpan) {
+            const routableCount = catalog.filter(
+              (s) =>
+                !(routingConfig.alwaysIncludeServerIds ?? []).includes(s.id),
+            ).length;
+            activeSpan.setAttribute("tool_routing.outcome", "cache-hit");
+            activeSpan.setAttribute(
+              "tool_routing.routable_server_count",
+              routableCount,
+            );
+            activeSpan.setAttribute("tool_routing.cache_hit", true);
+            activeSpan.setAttribute(
+              "tool_routing.selected_server_ids",
+              spanJsonAttribute(selectedServerIds),
+            );
+            activeSpan.setAttribute(
+              "tool_routing.excluded_tool_count",
+              routedExcludeTools.length,
+            );
+          }
+        } catch {
+          // Telemetry must never affect routing behaviour.
+        }
+      } else {
+        // Cache MISS — run the router LLM.
+        // The router call re-enters the public generate(), whose finally block
+        // resets _disableToolCacheForCurrentRequest to false. That flag is
+        // turn-scoped and read by the main tool execution path after routing, so
+        // save it before the router call and restore it afterward.
+        const cacheDisabledForCurrentRequest =
+          this._disableToolCacheForCurrentRequest;
+        try {
+          // Intercept the decision so we can store it in the cache.
+          const captureDecision = (decision: ToolRoutingDecision): void => {
+            resolvedDecision = decision;
+            emitDecision(decision);
+          };
+
+          routedExcludeTools = await resolveToolRoutingExclusions({
+            catalog,
+            alwaysIncludeServerIds: routingConfig.alwaysIncludeServerIds ?? [],
+            userQuery: routingQuery,
+            routerPromptPrefix: routingConfig.routerPromptPrefix,
+            routerModel: {
+              provider:
+                routingConfig.routerModel?.provider ??
+                (options.provider as string | undefined),
+              model: routingConfig.routerModel?.model ?? options.model,
+              region: routingConfig.routerModel?.region ?? options.region,
+              temperature: routingConfig.routerModel?.temperature,
+            },
+            timeoutMs:
+              routingConfig.timeoutMs ?? DEFAULT_TOOL_ROUTING_TIMEOUT_MS,
+            // Forward the abort signal so a cancelled turn aborts the router
+            // call promptly instead of waiting out the routing timeout.
+            generateFn: (generateOptions) =>
+              this.generate({
+                ...generateOptions,
+                abortSignal: options.abortSignal,
+              }),
+            emitDecision: captureDecision,
+          });
+        } finally {
+          this._disableToolCacheForCurrentRequest =
+            cacheDisabledForCurrentRequest;
+        }
+
+        if (resolvedDecision?.outcome === "applied") {
+          selectedServerIds = resolvedDecision.selectedServerIds;
+        }
       }
 
       // Aborted during the router call — skip applying now-stale exclusions;
       // the main generation path enforces the abort itself.
       if (options.abortSignal?.aborted) {
         return;
+      }
+
+      // Capture raw (pre-stickiness) exclusions for cache storage on MISS path.
+      const rawExclusions = [...routedExcludeTools];
+
+      // Apply stickiness on BOTH hit and miss paths: the sticky ids were
+      // recorded on a prior turn and represent servers that should stay warm for
+      // the current turn. Consuming (decrementing) them before recordSelection
+      // ensures the window covers the correct set of future turns rather than
+      // burning one count on the same turn the selection is recorded
+      // (off-by-one fix).
+      if (stickinessEnabled && cache && sessionId) {
+        try {
+          const stickyIds = cache.getStickyServerIds(sessionId);
+          if (stickyIds.length > 0) {
+            // Remove from routedExcludeTools any tool belonging to a sticky server.
+            // Precompute prefixes to avoid rebuilding the set inside the predicate.
+            const stickyPrefixes = stickyIds.map((id) => `${id}_`);
+            routedExcludeTools = routedExcludeTools.filter(
+              (toolName) =>
+                !stickyPrefixes.some((prefix) => toolName.startsWith(prefix)),
+            );
+          }
+        } catch {
+          // Stickiness failure is non-fatal.
+        }
+      }
+
+      // --- ITEM C: store result for future turns (MISS path only) ---
+      // Cache stores RAW (pre-stickiness) exclusions so the cached value is
+      // correct regardless of which sessions hit it on subsequent turns.
+      if (!fromCache && resolvedDecision?.outcome === "applied" && cache) {
+        if (cacheEnabled && cacheKey !== undefined) {
+          try {
+            cache.set(cacheKey, {
+              excludedToolNames: rawExclusions,
+              selectedServerIds,
+            });
+          } catch {
+            // Cache write failure is non-fatal.
+          }
+        }
+        // Record selected servers for stickiness on subsequent turns. This must
+        // come after getStickyServerIds so the window count is not consumed on
+        // the same turn it is set (the off-by-one fix above).
+        if (stickinessEnabled && sessionId) {
+          try {
+            cache.recordSelection(sessionId, selectedServerIds);
+          } catch {
+            // Stickiness failure is non-fatal.
+          }
+        }
       }
 
       if (routedExcludeTools.length > 0) {
@@ -7837,7 +8041,7 @@ Current user's request: ${currentInput}`;
    * opening message already carries its own context.
    */
   private async fetchRecentRoutingHistory(
-    options: StreamOptions,
+    options: StreamOptions | GenerateOptions,
   ): Promise<ChatMessage[]> {
     try {
       const requestContext = options.context as

@@ -23,6 +23,8 @@ import { logger } from "../utils/logger.js";
 import { withTimeout } from "../utils/async/index.js";
 import type {
   ToolRoutingCatalogEntry,
+  ToolRoutingDecision,
+  ToolRoutingOutcome,
   ToolRoutingResolutionParams,
   ToolRoutingServerDescriptor,
   ValidationSchema,
@@ -199,6 +201,24 @@ function parseRouterJson(rawText: string): unknown {
 }
 
 /**
+ * Safely calls the emitDecision callback, swallowing any error so telemetry
+ * can never interfere with the routing result or the caller's turn.
+ */
+function safeEmitDecision(
+  emitDecision: ((decision: ToolRoutingDecision) => void) | undefined,
+  decision: ToolRoutingDecision,
+): void {
+  if (!emitDecision) {
+    return;
+  }
+  try {
+    emitDecision(decision);
+  } catch {
+    // Intentionally swallowed — telemetry must never affect routing behaviour.
+  }
+}
+
+/**
  * Resolves which registered tool names to EXCLUDE for a single stream() turn.
  * Returns an empty list on any skip/failure path — see module doc.
  */
@@ -213,6 +233,7 @@ export async function resolveToolRoutingExclusions(
     routerModel,
     timeoutMs,
     generateFn,
+    emitDecision,
   } = params;
 
   const routableServers = catalog.filter(
@@ -223,9 +244,22 @@ export async function resolveToolRoutingExclusions(
 
   try {
     if (!userQuery || routableServers.length <= 1) {
+      const outcome: ToolRoutingOutcome = !userQuery
+        ? "skipped-no-query"
+        : "skipped-single-server";
       logger.debug("[ToolRouting] Routing skipped", {
         reason: !userQuery ? "missingUserQuery" : "singleRoutableServer",
         routableServerCount: routableServers.length,
+      });
+      safeEmitDecision(emitDecision, {
+        outcome,
+        selectedServerIds: [],
+        excludedServerIds: [],
+        hallucinatedIds: [],
+        excludedToolCount: 0,
+        routableServerCount: routableServers.length,
+        cacheHit: false,
+        durationMs: Date.now() - routingStartTime,
       });
       return [];
     }
@@ -260,18 +294,42 @@ export async function resolveToolRoutingExclusions(
     );
 
     const rawText = generateResult?.content ?? "";
-    const parsed = routerOutputSchema.safeParse(parseRouterJson(rawText));
 
-    if (!parsed.success) {
+    /** Shared fail-open handler for both JSON parse and schema validation failures. */
+    const failOpenParse = (extra?: Record<string, unknown>): [] => {
       logger.warn(
         "[ToolRouting] Router output validation failed, failing open",
         {
-          validationErrors: parsed.error.issues.map((issue) => issue.message),
           rawResponse: rawText,
           durationMs: Date.now() - routingStartTime,
+          ...extra,
         },
       );
+      safeEmitDecision(emitDecision, {
+        outcome: "failed-open-parse",
+        selectedServerIds: [],
+        excludedServerIds: [],
+        hallucinatedIds: [],
+        excludedToolCount: 0,
+        routableServerCount: routableServers.length,
+        cacheHit: false,
+        durationMs: Date.now() - routingStartTime,
+      });
       return [];
+    };
+
+    let parsed: ReturnType<typeof routerOutputSchema.safeParse>;
+    try {
+      parsed = routerOutputSchema.safeParse(parseRouterJson(rawText));
+    } catch {
+      // parseRouterJson threw (non-JSON response)
+      return failOpenParse();
+    }
+
+    if (!parsed.success) {
+      return failOpenParse({
+        validationErrors: parsed.error.issues.map((issue) => issue.message),
+      });
     }
 
     const routableServerIds = new Set(
@@ -288,6 +346,16 @@ export async function resolveToolRoutingExclusions(
       logger.debug("[ToolRouting] Empty server pick, failing open", {
         rawSelectedCount: parsed.data.servers.length,
         hallucinatedIds,
+        durationMs: Date.now() - routingStartTime,
+      });
+      safeEmitDecision(emitDecision, {
+        outcome: "empty-pick",
+        selectedServerIds: [],
+        excludedServerIds: routableServers.map((server) => server.id),
+        hallucinatedIds,
+        excludedToolCount: 0,
+        routableServerCount: routableServers.length,
+        cacheHit: false,
         durationMs: Date.now() - routingStartTime,
       });
       return [];
@@ -309,10 +377,37 @@ export async function resolveToolRoutingExclusions(
       durationMs: Date.now() - routingStartTime,
     });
 
+    safeEmitDecision(emitDecision, {
+      outcome: "applied",
+      selectedServerIds: validSelectedIds,
+      excludedServerIds: unselectedRoutableServers.map((server) => server.id),
+      hallucinatedIds,
+      excludedToolCount: excludedToolNames.length,
+      routableServerCount: routableServers.length,
+      cacheHit: false,
+      durationMs: Date.now() - routingStartTime,
+    });
+
     return excludedToolNames;
   } catch (error) {
+    const isTimeout =
+      error instanceof Error &&
+      error.message.includes("Tool routing router call exceeded");
+    const outcome: ToolRoutingOutcome = isTimeout
+      ? "failed-open-timeout"
+      : "failed-open-error";
     logger.warn("[ToolRouting] Routing failed, failing open", {
       error: error instanceof Error ? error.message : String(error),
+      durationMs: Date.now() - routingStartTime,
+    });
+    safeEmitDecision(emitDecision, {
+      outcome,
+      selectedServerIds: [],
+      excludedServerIds: [],
+      hallucinatedIds: [],
+      excludedToolCount: 0,
+      routableServerCount: routableServers.length,
+      cacheHit: false,
       durationMs: Date.now() - routingStartTime,
     });
     return [];

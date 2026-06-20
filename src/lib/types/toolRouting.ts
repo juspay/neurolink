@@ -68,6 +68,30 @@ export type ToolRoutingConfig = {
    * always appended by the SDK regardless of this value.
    */
   routerPromptPrefix?: string;
+  /**
+   * LRU+TTL cache for routing decisions. When enabled, identical routing
+   * queries within the TTL window skip the router LLM entirely and reuse
+   * the cached exclusion list.
+   */
+  cache?: {
+    /** Whether the cache is active. Default: false. */
+    enabled?: boolean;
+    /** Time-to-live in milliseconds for each cached entry. Default: 60000. */
+    ttlMs?: number;
+    /** Maximum number of entries in the LRU cache. Default: 256. */
+    maxEntries?: number;
+  };
+  /**
+   * Session stickiness: once the router picks a set of servers for a session,
+   * those servers are kept warm (not excluded) for the next N turns to prevent
+   * flapping.
+   */
+  stickiness?: {
+    /** Whether session stickiness is active. Default: false. */
+    enabled?: boolean;
+    /** Number of turns for which a previously-selected server stays warm. Default: 3. */
+    turns?: number;
+  };
 };
 
 /** Catalog entry pairing a server descriptor with its registered tool names. */
@@ -76,6 +100,76 @@ export type ToolRoutingCatalogEntry = {
   description: string;
   /** Registered tool names for this server, i.e. `${serverId}_${toolName}`. */
   toolNames: string[];
+};
+
+/** Internal cache entry for `ToolRoutingCache`. */
+export type ToolRoutingCacheEntry = {
+  excludedToolNames: string[];
+  selectedServerIds: string[];
+  /** Absolute expiry timestamp (from the injected `now()` clock). */
+  expiresAt: number;
+  /** LRU eviction order — lower = older. Bumped on each get/set. */
+  accessOrder: number;
+};
+
+/** Internal stickiness entry for `ToolRoutingCache`. */
+export type ToolRoutingStickiness = {
+  serverIds: string[];
+  /** Turn counter — decremented on each routing turn, removed when it hits 0. */
+  turnsRemaining: number;
+};
+
+/** Constructor options for `ToolRoutingCache`. */
+export type ToolRoutingCacheOptions = {
+  /** Time-to-live in milliseconds for each cached entry. Default: 60_000. */
+  ttlMs?: number;
+  /** Maximum number of entries kept in the LRU before eviction. Default: 256. */
+  maxEntries?: number;
+  /** Number of turns a selected server remains sticky per session. Default: 3. */
+  stickyTurns?: number;
+  /**
+   * Clock function for TTL calculations. Defaults to `Date.now`.
+   * Inject a deterministic function in tests to control time.
+   */
+  now?: () => number;
+};
+
+/**
+ * Outcome classifier for a single routing resolution. Used in
+ * `ToolRoutingDecision` and emitted as an OTel span attribute.
+ */
+export type ToolRoutingOutcome =
+  | "applied"
+  | "skipped-no-query"
+  | "skipped-single-server"
+  | "empty-pick"
+  | "failed-open-parse"
+  | "failed-open-timeout"
+  | "failed-open-error"
+  | "cache-hit";
+
+/**
+ * Machine-readable summary of one routing resolution. Emitted via the
+ * `emitDecision` callback so the caller can attach it as OTel span attributes
+ * or record it in any other telemetry sink.
+ */
+export type ToolRoutingDecision = {
+  /** How the routing turn concluded. */
+  outcome: ToolRoutingOutcome;
+  /** Server ids the router kept (selected as relevant). */
+  selectedServerIds: string[];
+  /** Server ids whose tools were excluded (router considered them irrelevant). */
+  excludedServerIds: string[];
+  /** Server ids the router returned that did not exist in the catalog. */
+  hallucinatedIds: string[];
+  /** Total number of individual tool names added to the exclusion list. */
+  excludedToolCount: number;
+  /** Number of servers that were offered to the router (always-include excluded). */
+  routableServerCount: number;
+  /** True when the result was served from cache, skipping the router LLM. */
+  cacheHit: boolean;
+  /** Wall-clock time spent in the routing resolution in milliseconds. */
+  durationMs: number;
 };
 
 /** Parameters for `resolveToolRoutingExclusions()`. */
@@ -94,4 +188,11 @@ export type ToolRoutingResolutionParams = {
   timeoutMs: number;
   /** Invokes the router LLM — `NeuroLink.generate` bound by the caller. */
   generateFn: (options: GenerateOptions) => Promise<GenerateResult>;
+  /**
+   * Optional callback invoked once per resolution with a structured summary of
+   * the routing decision. Called on every return path (applied, skipped,
+   * failed-open). Must never throw — any error inside is swallowed by
+   * the resolver.
+   */
+  emitDecision?: (decision: ToolRoutingDecision) => void;
 };
