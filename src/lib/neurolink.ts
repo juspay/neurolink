@@ -673,6 +673,7 @@ export class NeuroLink {
     success: boolean,
     result?: unknown,
     error?: Error,
+    executionId?: string,
   ): void {
     // Emit tool end event (NeuroLink format - enhanced with result/error)
     // Serialize error to string for consumer compatibility (event listeners
@@ -685,6 +686,7 @@ export class NeuroLink {
         timestamp: Date.now(),
         result,
         error: error ? error.message : undefined,
+        executionId,
       }) as Record<string, unknown>,
     );
   }
@@ -10888,6 +10890,7 @@ Current user's request: ${currentInput}`;
   ): {
     functionTag: string;
     executionStartTime: number;
+    executionId: string;
     externalTool:
       | ReturnType<NeuroLink["externalServerManager"]["getAllTools"]>[number]
       | undefined;
@@ -10912,9 +10915,17 @@ Current user's request: ${currentInput}`;
           ? JSON.stringify(params)
           : "";
 
+    const executionStartTime = Date.now();
+    // Per-invocation id so consumers can correlate a tool:start with its matching
+    // tool:end even when the same tool runs multiple times concurrently.
+    const executionId = `${toolName}-${executionStartTime}-${Math.random()
+      .toString(36)
+      .slice(2, 11)}`;
+
     return {
       functionTag: "NeuroLink.executeTool",
-      executionStartTime: Date.now(),
+      executionStartTime,
+      executionId,
       externalTool,
       toolType,
       inputSize: inputStr.length,
@@ -11065,6 +11076,7 @@ Current user's request: ${currentInput}`;
       createToolEventPayload(toolName, {
         timestamp: executionContext.executionStartTime,
         input: params,
+        executionId: executionContext.executionId,
       }),
     );
 
@@ -11324,6 +11336,7 @@ Current user's request: ${currentInput}`;
       !isToolError,
       result,
       isToolError && errorText ? new Error(errorText) : undefined,
+      executionContext.executionId,
     );
     toolSpan.setAttribute(
       "tool.result.status",
@@ -11368,6 +11381,7 @@ Current user's request: ${currentInput}`;
         new Error(
           `Circuit breaker open for ${toolName} (state=${error.breakerState}, failures=${error.failureCount})`,
         ),
+        executionContext.executionId,
       );
       toolSpan.setAttribute("tool.result.status", "circuit_breaker_open");
       toolSpan.setAttribute("tool.duration_ms", executionTime);
@@ -11451,6 +11465,7 @@ Current user's request: ${currentInput}`;
       false,
       undefined,
       structuredError,
+      executionContext.executionId,
     );
     // Gate on listenerCount: Node EventEmitter rethrows the original error
     // from emit("error", e) when no listener is registered, which would
