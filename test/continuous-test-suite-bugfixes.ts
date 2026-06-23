@@ -17,6 +17,7 @@ import {
 } from "../src/lib/proxy/routingPolicy.js";
 
 import { convertToModelMessages } from "../src/lib/utils/messageBuilder.js";
+import { CSVProcessor } from "../src/lib/utils/csvProcessor.js";
 
 import {
   GoogleVertexProvider,
@@ -116,6 +117,53 @@ async function withTemporaryEnv<T>(
 // ============================================================================
 
 const tests: TestFunction[] = [
+  // ---------- CSV processor line ending handling ----------
+  {
+    name: "CSVProcessor.parseCSVString handles Unix, Windows, and classic Mac line endings",
+    category: "csv-processor",
+    fn: async () => {
+      const cases = [
+        "name,age\nAlice,30\nBob,25",
+        "name,age\r\nAlice,30\r\nBob,25",
+        "name,age\rAlice,30\rBob,25",
+      ];
+
+      for (const csv of cases) {
+        const rows = (await CSVProcessor.parseCSVString(csv, 10)) as Array<
+          Record<string, string>
+        >;
+        if (
+          rows.length !== 2 ||
+          rows[0]?.name !== "Alice" ||
+          rows[0]?.age !== "30" ||
+          rows[1]?.name !== "Bob" ||
+          rows[1]?.age !== "25"
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    },
+  },
+  {
+    name: "CSVProcessor raw format counts CRLF rows without retaining carriage returns",
+    category: "csv-processor",
+    fn: async () => {
+      const result = await CSVProcessor.process(
+        Buffer.from("name,age\r\nAlice,30\r\nBob,25"),
+        { formatStyle: "raw", maxRows: 10 },
+      );
+
+      return (
+        result.metadata?.rowCount === 2 &&
+        result.metadata?.totalLines === 3 &&
+        typeof result.content === "string" &&
+        !result.content.includes("\r") &&
+        result.content.includes("Alice,30\nBob,25")
+      );
+    },
+  },
   // ---------- Bug 1: Vertex location routing via resolveVertexLocation ----------
   {
     name: "resolveVertexLocation: gemini-* forced to global regardless of configured location",
