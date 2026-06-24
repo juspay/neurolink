@@ -825,6 +825,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
             let lastStepText = "";
             let totalInputTokens = 0;
             let totalOutputTokens = 0;
+            let totalCacheReadTokens = 0;
             let step = 0;
             let completedWithFinalAnswer = false;
             const failedTools = new Map<
@@ -866,6 +867,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
                   );
                   totalInputTokens += chunkResult.inputTokens;
                   totalOutputTokens += chunkResult.outputTokens;
+                  totalCacheReadTokens += chunkResult.cacheReadTokens ?? 0;
 
                   const stepText = extractTextFromParts(
                     chunkResult.rawResponseParts,
@@ -1002,13 +1004,27 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 hitStepLimitWithoutFinalAnswer ? "max_steps" : "stop",
               );
 
+              // Gemini promptTokenCount is OVERLAPPING: it already includes
+              // cachedContentTokenCount. Subtract once here so calculateCost
+              // bills the cached portion at the cheaper cacheRead rate without
+              // double-counting. Total billable tokens are conserved.
+              const adjustedInputTokens = Math.max(
+                0,
+                totalInputTokens - totalCacheReadTokens,
+              );
               analyticsResolve({
                 provider: this.providerName,
                 model: modelName,
                 tokenUsage: {
-                  input: totalInputTokens,
+                  input: adjustedInputTokens,
                   output: totalOutputTokens,
-                  total: totalInputTokens + totalOutputTokens,
+                  total:
+                    adjustedInputTokens +
+                    totalCacheReadTokens +
+                    totalOutputTokens,
+                  ...(totalCacheReadTokens > 0
+                    ? { cacheReadTokens: totalCacheReadTokens }
+                    : {}),
                 },
                 requestDuration: responseTime,
                 timestamp: new Date().toISOString(),
@@ -1189,6 +1205,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
           let lastStepText = "";
           let totalInputTokens = 0;
           let totalOutputTokens = 0;
+          let totalCacheReadTokens = 0;
           const allToolCalls: Array<{
             toolName: string;
             args: Record<string, unknown>;
@@ -1229,6 +1246,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
               const chunkResult = await collectStreamChunks(stream);
               totalInputTokens += chunkResult.inputTokens;
               totalOutputTokens += chunkResult.outputTokens;
+              totalCacheReadTokens += chunkResult.cacheReadTokens ?? 0;
 
               const stepText = extractTextFromParts(
                 chunkResult.rawResponseParts,
@@ -1351,14 +1369,25 @@ export class GoogleAIStudioProvider extends BaseProvider {
           // analytics / evaluation / tracing stay attached. The native AI
           // Studio generate path bypasses BaseProvider.generate(), so
           // skipping enhanceResult would silently drop those features.
+          // Gemini promptTokenCount is OVERLAPPING (already includes
+          // cachedContentTokenCount). Subtract once so the cached portion is
+          // billed at the cheaper cacheRead rate without double-counting.
+          const adjustedInputTokens = Math.max(
+            0,
+            totalInputTokens - totalCacheReadTokens,
+          );
           const baseResult: EnhancedGenerateResult = {
             content: finalText,
             provider: this.providerName,
             model: modelName,
             usage: {
-              input: totalInputTokens,
+              input: adjustedInputTokens,
               output: totalOutputTokens,
-              total: totalInputTokens + totalOutputTokens,
+              total:
+                adjustedInputTokens + totalCacheReadTokens + totalOutputTokens,
+              ...(totalCacheReadTokens > 0
+                ? { cacheReadTokens: totalCacheReadTokens }
+                : {}),
             },
             responseTime,
             toolsUsed: allToolCalls.map((tc) => tc.toolName),

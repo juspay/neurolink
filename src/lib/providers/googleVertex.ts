@@ -1579,6 +1579,7 @@ export class GoogleVertexProvider extends BaseProvider {
     // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalCacheReadTokens = 0;
 
     // Track text parts as they arrive from the SDK so the returned async
     // iterable yields multiple chunks instead of a single buffered chunk.
@@ -1641,15 +1642,26 @@ export class GoogleVertexProvider extends BaseProvider {
                 promptTokenCount?: number;
                 candidatesTokenCount?: number;
                 totalTokenCount?: number;
+                cachedContentTokenCount?: number;
               }
             | undefined;
           if (usageMetadata) {
-            // Take the latest promptTokenCount (usually only in final chunk)
+            // Take the latest promptTokenCount (usually only in final chunk).
             if (
               usageMetadata.promptTokenCount !== undefined &&
               usageMetadata.promptTokenCount > 0
             ) {
               totalInputTokens = usageMetadata.promptTokenCount;
+              // cachedContentTokenCount is OVERLAPPING (a subset already inside
+              // promptTokenCount). Read it from the SAME usageMetadata as the
+              // prompt count and clamp to it, so a later uncached step resets it
+              // to 0 alongside its input instead of leaving a stale value from an
+              // earlier cached step — which would otherwise subtract the wrong
+              // cache amount from a different step's prompt and corrupt the split.
+              totalCacheReadTokens = Math.min(
+                usageMetadata.cachedContentTokenCount ?? 0,
+                usageMetadata.promptTokenCount,
+              );
             }
             // Take the latest candidatesTokenCount (accumulates through chunks)
             if (
@@ -1953,14 +1965,25 @@ export class GoogleVertexProvider extends BaseProvider {
       (te) => te.name !== "final_result",
     );
 
+    // Gemini promptTokenCount is OVERLAPPING (already includes
+    // cachedContentTokenCount). Subtract once here so calculateCost bills the
+    // cached portion at the cheaper cacheRead rate without double-counting.
+    // Total billable tokens are conserved.
+    const adjustedInputTokens = Math.max(
+      0,
+      totalInputTokens - totalCacheReadTokens,
+    );
     const result: StreamResult = {
       stream: createTextStream(),
       provider: this.providerName,
       model: modelName,
       usage: {
-        input: totalInputTokens,
+        input: adjustedInputTokens,
         output: totalOutputTokens,
-        total: totalInputTokens + totalOutputTokens,
+        total: adjustedInputTokens + totalCacheReadTokens + totalOutputTokens,
+        ...(totalCacheReadTokens > 0 && {
+          cacheReadTokens: totalCacheReadTokens,
+        }),
       },
       toolCalls: externalToolCalls.map((tc) => ({
         toolName: tc.toolName,
@@ -2409,6 +2432,7 @@ export class GoogleVertexProvider extends BaseProvider {
     // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalCacheReadTokens = 0;
 
     // Agentic loop for tool calling
     while (step < maxSteps) {
@@ -2460,15 +2484,26 @@ export class GoogleVertexProvider extends BaseProvider {
                 promptTokenCount?: number;
                 candidatesTokenCount?: number;
                 totalTokenCount?: number;
+                cachedContentTokenCount?: number;
               }
             | undefined;
           if (usageMetadata) {
-            // Take the latest promptTokenCount (usually only in final chunk)
+            // Take the latest promptTokenCount (usually only in final chunk).
             if (
               usageMetadata.promptTokenCount !== undefined &&
               usageMetadata.promptTokenCount > 0
             ) {
               totalInputTokens = usageMetadata.promptTokenCount;
+              // cachedContentTokenCount is OVERLAPPING (a subset already inside
+              // promptTokenCount). Read it from the SAME usageMetadata as the
+              // prompt count and clamp to it, so a later uncached step resets it
+              // to 0 alongside its input instead of leaving a stale value from an
+              // earlier cached step — which would otherwise subtract the wrong
+              // cache amount from a different step's prompt and corrupt the split.
+              totalCacheReadTokens = Math.min(
+                usageMetadata.cachedContentTokenCount ?? 0,
+                usageMetadata.promptTokenCount,
+              );
             }
             // Take the latest candidatesTokenCount (accumulates through chunks)
             if (
@@ -2744,15 +2779,25 @@ export class GoogleVertexProvider extends BaseProvider {
       (te) => te.name !== "final_result",
     );
 
+    // Gemini promptTokenCount is OVERLAPPING (already includes
+    // cachedContentTokenCount). Subtract once here so the cached portion is
+    // billed at the cheaper cacheRead rate without double-counting.
+    const adjustedInputTokens = Math.max(
+      0,
+      totalInputTokens - totalCacheReadTokens,
+    );
     // Build EnhancedGenerateResult
     const result: EnhancedGenerateResult = {
       content: finalText,
       provider: this.providerName,
       model: modelName,
       usage: {
-        input: totalInputTokens,
+        input: adjustedInputTokens,
         output: totalOutputTokens,
-        total: totalInputTokens + totalOutputTokens,
+        total: adjustedInputTokens + totalCacheReadTokens + totalOutputTokens,
+        ...(totalCacheReadTokens > 0 && {
+          cacheReadTokens: totalCacheReadTokens,
+        }),
       },
       responseTime,
       toolsUsed: externalToolCalls.map((tc) => tc.toolName),

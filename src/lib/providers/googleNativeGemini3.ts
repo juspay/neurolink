@@ -634,6 +634,7 @@ export async function collectStreamChunks(
   const stepFunctionCalls: NativeFunctionCall[] = [];
   let inputTokens = 0;
   let outputTokens = 0;
+  let cacheReadTokens = 0;
 
   for await (const chunk of stream) {
     // Extract raw parts from candidates FIRST
@@ -656,15 +657,31 @@ export async function collectStreamChunks(
 
     // Accumulate usage metadata from chunks
     const usage = chunkRecord.usageMetadata as
-      | { promptTokenCount?: number; candidatesTokenCount?: number }
+      | {
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          cachedContentTokenCount?: number;
+        }
       | undefined;
     if (usage) {
       inputTokens = Math.max(inputTokens, usage.promptTokenCount || 0);
       outputTokens = Math.max(outputTokens, usage.candidatesTokenCount || 0);
+      // cachedContentTokenCount is OVERLAPPING (a subset already inside
+      // promptTokenCount). Surface it so the call site subtracts once.
+      cacheReadTokens = Math.max(
+        cacheReadTokens,
+        usage.cachedContentTokenCount || 0,
+      );
     }
   }
 
-  return { rawResponseParts, stepFunctionCalls, inputTokens, outputTokens };
+  return {
+    rawResponseParts,
+    stepFunctionCalls,
+    inputTokens,
+    outputTokens,
+    cacheReadTokens,
+  };
 }
 
 /**
@@ -768,6 +785,7 @@ export async function collectStreamChunksIncremental(
   const stepFunctionCalls: NativeFunctionCall[] = [];
   let inputTokens = 0;
   let outputTokens = 0;
+  let cacheReadTokens = 0;
 
   for await (const chunk of stream) {
     const chunkRecord = chunk as Record<string, unknown>;
@@ -792,15 +810,31 @@ export async function collectStreamChunksIncremental(
     }
 
     const usage = chunkRecord.usageMetadata as
-      | { promptTokenCount?: number; candidatesTokenCount?: number }
+      | {
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          cachedContentTokenCount?: number;
+        }
       | undefined;
     if (usage) {
       inputTokens = Math.max(inputTokens, usage.promptTokenCount || 0);
       outputTokens = Math.max(outputTokens, usage.candidatesTokenCount || 0);
+      // cachedContentTokenCount is OVERLAPPING (a subset already inside
+      // promptTokenCount). Surface it so the call site subtracts once.
+      cacheReadTokens = Math.max(
+        cacheReadTokens,
+        usage.cachedContentTokenCount || 0,
+      );
     }
   }
 
-  return { rawResponseParts, stepFunctionCalls, inputTokens, outputTokens };
+  return {
+    rawResponseParts,
+    stepFunctionCalls,
+    inputTokens,
+    outputTokens,
+    cacheReadTokens,
+  };
 }
 
 /**

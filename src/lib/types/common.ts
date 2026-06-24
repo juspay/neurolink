@@ -357,6 +357,10 @@ export type RawUsageObject = {
   cacheCreationTokens?: number;
   cacheReadTokens?: number;
 
+  // OpenAI/DeepSeek/NIM/OpenAI-compatible nested cache field (overlapping:
+  // cached_tokens is a SUBSET already included in prompt_tokens)
+  prompt_tokens_details?: { cached_tokens?: number };
+
   // OpenAI o1/Anthropic reasoning tokens
   reasoningTokens?: number;
   reasoning?: number;

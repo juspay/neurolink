@@ -1861,6 +1861,14 @@ export type CollectedChunkResult = {
   stepFunctionCalls: NativeFunctionCall[];
   inputTokens: number;
   outputTokens: number;
+  /**
+   * Gemini cached-content tokens (overlapping: included in promptTokenCount).
+   * Surfaced so the call site can subtract from input and bill at cacheRead
+   * rate. Subtraction happens at the call site, not in the collector.
+   */
+  cacheReadTokens?: number;
+  /** Cache creation tokens (symmetry; Gemini does not emit this). */
+  cacheCreationTokens?: number;
 };
 
 /** Push-based text channel for incremental streaming. */
