@@ -133,6 +133,26 @@ export function extractCacheReadTokens(
 }
 
 /**
+ * Extract cache read token count from the OVERLAPPING-convention nested path
+ * used by OpenAI / DeepSeek / NIM / OpenAI-compatible providers:
+ * `usage.prompt_tokens_details.cached_tokens`.
+ *
+ * Unlike {@link extractCacheReadTokens} (non-overlapping Anthropic/Vertex
+ * convention where cache tokens are reported SEPARATELY from input), the value
+ * returned here is a SUBSET already included in `prompt_tokens`. Callers that
+ * use this value MUST subtract it from `input` to avoid double-counting.
+ */
+export function extractCachedInputTokensOverlapping(
+  usage: RawUsageObject,
+): number | undefined {
+  const cached = usage.prompt_tokens_details?.cached_tokens;
+  if (typeof cached === "number" && cached > 0) {
+    return cached;
+  }
+  return undefined;
+}
+
+/**
  * Calculate cache savings percentage
  *
  * This represents the percentage of input tokens served from cache.
@@ -196,14 +216,29 @@ export function extractTokenUsage(
     result.usage && typeof result.usage === "object" ? result.usage : result;
 
   // Extract base token counts
-  const input = extractInputTokens(usage);
+  let input = extractInputTokens(usage);
   const output = extractOutputTokens(usage);
   const total = extractTotalTokens(usage, input, output);
 
   // Extract optional token fields
   const reasoning = extractReasoningTokens(usage);
   const cacheCreationTokens = extractCacheCreationTokens(usage);
-  const cacheReadTokens = extractCacheReadTokens(usage);
+  let cacheReadTokens = extractCacheReadTokens(usage);
+
+  // Overlapping-convention fallback (OpenAI/DeepSeek/NIM/OpenAI-compatible):
+  // when no non-overlapping cache-read field was present, look for the nested
+  // `prompt_tokens_details.cached_tokens`. That value is a SUBSET already
+  // included in `input`, so we must subtract it from `input` to avoid
+  // double-counting (and to let calculateCost apply the cheaper cacheRead rate
+  // to the cached portion). Only do this when cached <= input so a malformed
+  // response can never produce negative input or inflate the total.
+  if (cacheReadTokens === undefined) {
+    const overlappingCached = extractCachedInputTokensOverlapping(usage);
+    if (overlappingCached !== undefined && overlappingCached <= input) {
+      cacheReadTokens = overlappingCached;
+      input = Math.max(0, input - overlappingCached);
+    }
+  }
 
   // Calculate cache savings if enabled
   const cacheSavingsPercent = calculateCacheSavings

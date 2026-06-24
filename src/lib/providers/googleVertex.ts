@@ -1806,6 +1806,7 @@ export class GoogleVertexProvider extends BaseProvider {
     // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalCacheReadTokens = 0;
 
     // Track text parts as they arrive from the SDK so the returned async
     // iterable yields multiple chunks instead of a single buffered chunk.
@@ -1941,6 +1942,7 @@ export class GoogleVertexProvider extends BaseProvider {
               | {
                   promptTokenCount?: number;
                   candidatesTokenCount?: number;
+                  cachedContentTokenCount?: number;
                   totalTokenCount?: number;
                 }
               | undefined;
@@ -1955,6 +1957,13 @@ export class GoogleVertexProvider extends BaseProvider {
                 contextGuard.noteUsage(
                   usageMetadata.promptTokenCount,
                   usageMetadata.candidatesTokenCount ?? 0,
+                );
+                // cachedContentTokenCount is OVERLAPPING (a subset already inside
+                // promptTokenCount). Clamp to the prompt count so a later uncached
+                // step resets it to 0 instead of leaving a stale cached value.
+                totalCacheReadTokens = Math.min(
+                  usageMetadata.cachedContentTokenCount ?? 0,
+                  usageMetadata.promptTokenCount,
                 );
               }
               // Take the latest candidatesTokenCount (accumulates through chunks)
@@ -2503,6 +2512,13 @@ export class GoogleVertexProvider extends BaseProvider {
       (te) => te.name !== "final_result",
     );
 
+    // Gemini promptTokenCount is OVERLAPPING (already includes
+    // cachedContentTokenCount). Subtract once so the cached portion is billed at
+    // the cheaper cacheRead rate without double-counting; total is conserved.
+    const adjustedInputTokens = Math.max(
+      0,
+      totalInputTokens - totalCacheReadTokens,
+    );
     const result: StreamResult = {
       stream: createTextStream(),
       provider: this.providerName,
@@ -2511,9 +2527,12 @@ export class GoogleVertexProvider extends BaseProvider {
       stopReason,
       rawFinishReason: lastFinishReason,
       usage: {
-        input: totalInputTokens,
+        input: adjustedInputTokens,
         output: totalOutputTokens,
-        total: totalInputTokens + totalOutputTokens,
+        total: adjustedInputTokens + totalCacheReadTokens + totalOutputTokens,
+        ...(totalCacheReadTokens > 0 && {
+          cacheReadTokens: totalCacheReadTokens,
+        }),
       },
       toolCalls: externalToolCalls.map((tc) => ({
         toolName: tc.toolName,
@@ -2977,6 +2996,7 @@ export class GoogleVertexProvider extends BaseProvider {
     // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalCacheReadTokens = 0;
 
     // Abort scaffolding (mirrors executeNativeAnthropicStream). The native
     // Gemini SDK cancels via config.abortSignal, so drive an internal
@@ -3101,6 +3121,7 @@ export class GoogleVertexProvider extends BaseProvider {
               | {
                   promptTokenCount?: number;
                   candidatesTokenCount?: number;
+                  cachedContentTokenCount?: number;
                   totalTokenCount?: number;
                 }
               | undefined;
@@ -3115,6 +3136,13 @@ export class GoogleVertexProvider extends BaseProvider {
                 contextGuard.noteUsage(
                   usageMetadata.promptTokenCount,
                   usageMetadata.candidatesTokenCount ?? 0,
+                );
+                // cachedContentTokenCount is OVERLAPPING (a subset already inside
+                // promptTokenCount). Clamp to the prompt count so a later uncached
+                // step resets it to 0 instead of leaving a stale cached value.
+                totalCacheReadTokens = Math.min(
+                  usageMetadata.cachedContentTokenCount ?? 0,
+                  usageMetadata.promptTokenCount,
                 );
               }
               // Take the latest candidatesTokenCount (accumulates through chunks)
@@ -3643,6 +3671,13 @@ export class GoogleVertexProvider extends BaseProvider {
     );
 
     // Build EnhancedGenerateResult
+    // Gemini promptTokenCount is OVERLAPPING (already includes
+    // cachedContentTokenCount). Subtract once so the cached portion is billed at
+    // the cheaper cacheRead rate without double-counting; total is conserved.
+    const adjustedInputTokens = Math.max(
+      0,
+      totalInputTokens - totalCacheReadTokens,
+    );
     const result: EnhancedGenerateResult = {
       content: finalText,
       provider: this.providerName,
@@ -3652,9 +3687,12 @@ export class GoogleVertexProvider extends BaseProvider {
       rawFinishReason: lastFinishReason,
       stepsUsed: step,
       usage: {
-        input: totalInputTokens,
+        input: adjustedInputTokens,
         output: totalOutputTokens,
-        total: totalInputTokens + totalOutputTokens,
+        total: adjustedInputTokens + totalCacheReadTokens + totalOutputTokens,
+        ...(totalCacheReadTokens > 0 && {
+          cacheReadTokens: totalCacheReadTokens,
+        }),
       },
       responseTime,
       toolsUsed: externalToolCalls.map((tc) => tc.toolName),
