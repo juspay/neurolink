@@ -14,6 +14,11 @@ import "dotenv/config";
  */
 
 import { applyVertexAnthropicCacheBreakpoints } from "../src/lib/utils/anthropicCacheBreakpoints.js";
+import {
+  extractTokenUsage,
+  extractCachedInputTokensOverlapping,
+} from "../src/lib/utils/tokenUtils.js";
+import { calculateCost } from "../src/lib/utils/pricing.js";
 import { defineSuite, logSection } from "./helpers/harness.js";
 
 const { recordTest, runSuite } = defineSuite("Anthropic Cache Breakpoints");
@@ -247,10 +252,162 @@ function testEdgeCases(): void {
   }
 }
 
+function testOverlappingCacheExtraction(): void {
+  logSection(
+    "Overlapping cache extraction (OpenAI/DeepSeek prompt_tokens_details)",
+  );
+  try {
+    // Helper reads ONLY the nested overlapping path.
+    recordTest(
+      "extractCachedInputTokensOverlapping reads prompt_tokens_details.cached_tokens",
+      extractCachedInputTokensOverlapping({
+        promptTokens: 1000,
+        prompt_tokens_details: { cached_tokens: 300 },
+      }) === 300,
+    );
+    recordTest(
+      "extractCachedInputTokensOverlapping returns undefined when absent",
+      extractCachedInputTokensOverlapping({ promptTokens: 1000 }) === undefined,
+    );
+    // An explicit cached_tokens: 0 must behave exactly like absent — no
+    // cacheReadTokens surfaced and input left untouched (the > 0 guard).
+    recordTest(
+      "cached_tokens: 0 treated same as absent (no cacheReadTokens, input intact)",
+      extractCachedInputTokensOverlapping({
+        promptTokens: 1000,
+        prompt_tokens_details: { cached_tokens: 0 },
+      }) === undefined &&
+        (() => {
+          const u = extractTokenUsage({
+            promptTokens: 1000,
+            completionTokens: 200,
+            prompt_tokens_details: { cached_tokens: 0 },
+          });
+          return u.cacheReadTokens === undefined && u.input === 1000;
+        })(),
+    );
+
+    // extractTokenUsage subtracts cached from input (OVERLAPPING convention)
+    // so the cached portion is not double-counted.
+    const usage = extractTokenUsage({
+      promptTokens: 1000,
+      completionTokens: 200,
+      prompt_tokens_details: { cached_tokens: 300 },
+    });
+    recordTest(
+      "input reduced by cached_tokens (1000 - 300 = 700)",
+      usage.input === 700,
+    );
+    recordTest(
+      "cacheReadTokens populated (300)",
+      usage.cacheReadTokens === 300,
+    );
+    recordTest("output unchanged (200)", usage.output === 200);
+    recordTest(
+      "total conserved (input+cacheRead+output = original prompt+completion)",
+      usage.input + (usage.cacheReadTokens ?? 0) + usage.output === 1200,
+    );
+
+    // Malformed: cached > prompt → no subtraction (guard against negative input).
+    const malformed = extractTokenUsage({
+      promptTokens: 100,
+      completionTokens: 50,
+      prompt_tokens_details: { cached_tokens: 500 },
+    });
+    recordTest(
+      "cached > input → input left untouched (no negative, no inflation)",
+      malformed.input === 100 && malformed.cacheReadTokens === undefined,
+    );
+
+    // Non-overlapping (Anthropic-style) field is NOT subtracted from input.
+    const nonOverlap = extractTokenUsage({
+      input: 1000,
+      output: 200,
+      cacheReadInputTokens: 400,
+    });
+    recordTest(
+      "non-overlapping cacheReadInputTokens does NOT reduce input",
+      nonOverlap.input === 1000 && nonOverlap.cacheReadTokens === 400,
+    );
+
+    // Cost: cached portion billed at cheaper cacheRead rate (DeepSeek).
+    const fullCost = calculateCost("deepseek", "deepseek-chat", {
+      input: 1000,
+      output: 0,
+      total: 1000,
+    });
+    const cachedCost = calculateCost("deepseek", "deepseek-chat", {
+      input: 700,
+      output: 0,
+      total: 1000,
+      cacheReadTokens: 300,
+    });
+    recordTest(
+      "cached split is strictly cheaper than billing all input at full rate",
+      cachedCost < fullCost && cachedCost > 0,
+    );
+
+    // OpenAI + Gemini now expose cacheRead rates.
+    const openaiCached = calculateCost("openai", "gpt-4o", {
+      input: 700,
+      output: 0,
+      total: 1000,
+      cacheReadTokens: 300,
+    });
+    recordTest("openai gpt-4o cacheRead rate applied", openaiCached > 0);
+    const geminiCached = calculateCost("google", "gemini-2.5-flash", {
+      input: 700,
+      output: 0,
+      total: 1000,
+      cacheReadTokens: 300,
+    });
+    recordTest("google gemini cacheRead rate applied", geminiCached > 0);
+    // Vertex Gemini resolves google cacheRead via the existing fallback.
+    const vertexGeminiCached = calculateCost("vertex", "gemini-2.5-pro", {
+      input: 700,
+      output: 0,
+      total: 1000,
+      cacheReadTokens: 300,
+    });
+    recordTest(
+      "vertex gemini cacheRead via google fallback",
+      vertexGeminiCached > 0,
+    );
+
+    // Option-C safety net: a provider with cacheReadTokens populated but NO
+    // cacheRead rate must bill the cached portion at the input rate (never $0),
+    // so the split cost equals billing the whole prompt at the input rate —
+    // identical to pre-split billing, no silent undercharge.
+    const noRateSplit = calculateCost("groq", "llama-3.3-70b-versatile", {
+      input: 700,
+      output: 0,
+      total: 1000,
+      cacheReadTokens: 300,
+    });
+    const noRateFull = calculateCost("groq", "llama-3.3-70b-versatile", {
+      input: 1000,
+      output: 0,
+      total: 1000,
+    });
+    recordTest(
+      "no-cacheRead-rate provider bills cached tokens at input rate (no undercharge)",
+      noRateSplit === noRateFull && noRateSplit > 0,
+    );
+  } catch (error) {
+    recordTest(
+      "overlapping cache extraction",
+      false,
+      false,
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
 await runSuite(async () => {
   testSystemAndRollingHistory();
   testNoSystemMarksLastTool();
   testPurity();
   testHistoryBreakpointCap();
   testEdgeCases();
+  testOverlappingCacheExtraction();
 });

@@ -100,8 +100,18 @@ const PRICING: Record<
       cacheRead: 1.5 / 1_000_000,
       cacheCreation: 18.75 / 1_000_000,
     },
-    "claude-3-sonnet": { input: 3.0 / 1_000_000, output: 15.0 / 1_000_000 },
-    "claude-3-haiku": { input: 0.25 / 1_000_000, output: 1.25 / 1_000_000 },
+    "claude-3-sonnet": {
+      input: 3.0 / 1_000_000,
+      output: 15.0 / 1_000_000,
+      cacheRead: 0.3 / 1_000_000,
+      cacheCreation: 3.75 / 1_000_000,
+    },
+    "claude-3-haiku": {
+      input: 0.25 / 1_000_000,
+      output: 1.25 / 1_000_000,
+      cacheRead: 0.025 / 1_000_000,
+      cacheCreation: 0.3125 / 1_000_000,
+    },
   },
   // Google Vertex AI — Claude models on Vertex (same pricing, @ date suffix)
   vertex: {
@@ -151,26 +161,95 @@ const PRICING: Record<
   // OpenAI — updated March 2026
   openai: {
     // GPT-5.x family
-    "gpt-5.4": { input: 2.5 / 1_000_000, output: 15.0 / 1_000_000 },
-    "gpt-5.2": { input: 1.75 / 1_000_000, output: 14.0 / 1_000_000 },
-    "gpt-5.1": { input: 0.625 / 1_000_000, output: 5.0 / 1_000_000 },
-    "gpt-5.1-codex": { input: 1.25 / 1_000_000, output: 10.0 / 1_000_000 },
-    "gpt-5": { input: 1.25 / 1_000_000, output: 10.0 / 1_000_000 },
-    "gpt-5-mini": { input: 0.25 / 1_000_000, output: 2.0 / 1_000_000 },
-    "gpt-5-nano": { input: 0.05 / 1_000_000, output: 0.4 / 1_000_000 },
+    // cacheRead = 0.25x input (cached input tokens; no separate cacheCreation).
+    "gpt-5.4": {
+      input: 2.5 / 1_000_000,
+      output: 15.0 / 1_000_000,
+      cacheRead: 0.625 / 1_000_000,
+    },
+    "gpt-5.2": {
+      input: 1.75 / 1_000_000,
+      output: 14.0 / 1_000_000,
+      cacheRead: 0.4375 / 1_000_000,
+    },
+    "gpt-5.1": {
+      input: 0.625 / 1_000_000,
+      output: 5.0 / 1_000_000,
+      cacheRead: 0.15625 / 1_000_000,
+    },
+    "gpt-5.1-codex": {
+      input: 1.25 / 1_000_000,
+      output: 10.0 / 1_000_000,
+      cacheRead: 0.3125 / 1_000_000,
+    },
+    "gpt-5": {
+      input: 1.25 / 1_000_000,
+      output: 10.0 / 1_000_000,
+      cacheRead: 0.3125 / 1_000_000,
+    },
+    "gpt-5-mini": {
+      input: 0.25 / 1_000_000,
+      output: 2.0 / 1_000_000,
+      cacheRead: 0.0625 / 1_000_000,
+    },
+    "gpt-5-nano": {
+      input: 0.05 / 1_000_000,
+      output: 0.4 / 1_000_000,
+      cacheRead: 0.0125 / 1_000_000,
+    },
     // GPT-4.1 family
-    "gpt-4.1": { input: 2.0 / 1_000_000, output: 8.0 / 1_000_000 },
-    "gpt-4.1-mini": { input: 0.4 / 1_000_000, output: 1.6 / 1_000_000 },
-    "gpt-4.1-nano": { input: 0.1 / 1_000_000, output: 0.4 / 1_000_000 },
+    "gpt-4.1": {
+      input: 2.0 / 1_000_000,
+      output: 8.0 / 1_000_000,
+      cacheRead: 0.5 / 1_000_000,
+    },
+    "gpt-4.1-mini": {
+      input: 0.4 / 1_000_000,
+      output: 1.6 / 1_000_000,
+      cacheRead: 0.1 / 1_000_000,
+    },
+    "gpt-4.1-nano": {
+      input: 0.1 / 1_000_000,
+      output: 0.4 / 1_000_000,
+      cacheRead: 0.025 / 1_000_000,
+    },
     // GPT-4o family
-    "gpt-4o": { input: 2.5 / 1_000_000, output: 10.0 / 1_000_000 },
-    "gpt-4o-mini": { input: 0.15 / 1_000_000, output: 0.6 / 1_000_000 },
+    "gpt-4o": {
+      input: 2.5 / 1_000_000,
+      output: 10.0 / 1_000_000,
+      cacheRead: 0.625 / 1_000_000,
+    },
+    "gpt-4o-mini": {
+      input: 0.15 / 1_000_000,
+      output: 0.6 / 1_000_000,
+      cacheRead: 0.0375 / 1_000_000,
+    },
     // o-series reasoning
-    o3: { input: 2.0 / 1_000_000, output: 8.0 / 1_000_000 },
-    "o3-mini": { input: 1.1 / 1_000_000, output: 4.4 / 1_000_000 },
-    "o4-mini": { input: 1.1 / 1_000_000, output: 4.4 / 1_000_000 },
-    o1: { input: 15.0 / 1_000_000, output: 60.0 / 1_000_000 },
-    "o1-mini": { input: 0.55 / 1_000_000, output: 2.2 / 1_000_000 },
+    o3: {
+      input: 2.0 / 1_000_000,
+      output: 8.0 / 1_000_000,
+      cacheRead: 0.5 / 1_000_000,
+    },
+    "o3-mini": {
+      input: 1.1 / 1_000_000,
+      output: 4.4 / 1_000_000,
+      cacheRead: 0.275 / 1_000_000,
+    },
+    "o4-mini": {
+      input: 1.1 / 1_000_000,
+      output: 4.4 / 1_000_000,
+      cacheRead: 0.275 / 1_000_000,
+    },
+    o1: {
+      input: 15.0 / 1_000_000,
+      output: 60.0 / 1_000_000,
+      cacheRead: 3.75 / 1_000_000,
+    },
+    "o1-mini": {
+      input: 0.55 / 1_000_000,
+      output: 2.2 / 1_000_000,
+      cacheRead: 0.1375 / 1_000_000,
+    },
     // Legacy
     "gpt-4-turbo": { input: 10.0 / 1_000_000, output: 30.0 / 1_000_000 },
     "gpt-4": { input: 30.0 / 1_000_000, output: 60.0 / 1_000_000 },
@@ -179,52 +258,83 @@ const PRICING: Record<
   // Google (Gemini) — updated March 2026
   google: {
     // Gemini 3.1 family (all require -preview suffix)
+    // cacheRead = 0.25x input (cached content tokens; explicit-cache storage is
+    // billed separately by TTL/time, so no per-token cacheCreation rate here).
     "gemini-3.1-pro-preview": {
       input: 2.0 / 1_000_000,
       output: 12.0 / 1_000_000,
+      cacheRead: 0.5 / 1_000_000,
     },
     "gemini-3.1-flash-lite-preview": {
       input: 0.25 / 1_000_000,
       output: 1.5 / 1_000_000,
+      cacheRead: 0.0625 / 1_000_000,
     },
     "gemini-3.1-flash-image-preview": {
       input: 0.5 / 1_000_000,
       output: 3.0 / 1_000_000,
+      cacheRead: 0.125 / 1_000_000,
     },
     "gemini-3.1-pro-preview-customtools": {
       input: 2.0 / 1_000_000,
       output: 12.0 / 1_000_000,
+      cacheRead: 0.5 / 1_000_000,
     },
     // Gemini 3 family
     "gemini-3-flash-preview": {
       input: 0.5 / 1_000_000,
       output: 3.0 / 1_000_000,
+      cacheRead: 0.125 / 1_000_000,
     },
     "gemini-3-pro-image-preview": {
       input: 2.0 / 1_000_000,
       output: 12.0 / 1_000_000,
+      cacheRead: 0.5 / 1_000_000,
     },
     /** @deprecated SHUT DOWN March 9, 2026. Migrate to gemini-3.1-pro-preview. */
     "gemini-3-pro-preview": {
       input: 2.0 / 1_000_000,
       output: 12.0 / 1_000_000,
+      cacheRead: 0.5 / 1_000_000,
     },
     // Gemini 2.5 family
-    "gemini-2.5-flash": { input: 0.3 / 1_000_000, output: 2.5 / 1_000_000 },
-    "gemini-2.5-pro": { input: 1.25 / 1_000_000, output: 10.0 / 1_000_000 },
+    "gemini-2.5-flash": {
+      input: 0.3 / 1_000_000,
+      output: 2.5 / 1_000_000,
+      cacheRead: 0.075 / 1_000_000,
+    },
+    "gemini-2.5-pro": {
+      input: 1.25 / 1_000_000,
+      output: 10.0 / 1_000_000,
+      cacheRead: 0.3125 / 1_000_000,
+    },
     "gemini-2.5-flash-lite": {
       input: 0.1 / 1_000_000,
       output: 0.4 / 1_000_000,
+      cacheRead: 0.025 / 1_000_000,
     },
     // Gemini 2.0 family (deprecated June 2026)
-    "gemini-2.0-flash": { input: 0.15 / 1_000_000, output: 0.6 / 1_000_000 },
+    "gemini-2.0-flash": {
+      input: 0.15 / 1_000_000,
+      output: 0.6 / 1_000_000,
+      cacheRead: 0.0375 / 1_000_000,
+    },
     "gemini-2.0-flash-lite": {
       input: 0.075 / 1_000_000,
       output: 0.3 / 1_000_000,
+      cacheRead: 0.01875 / 1_000_000,
     },
     // Gemini 1.5 family
-    "gemini-1.5-pro": { input: 1.25 / 1_000_000, output: 5.0 / 1_000_000 },
-    "gemini-1.5-flash": { input: 0.075 / 1_000_000, output: 0.3 / 1_000_000 },
+    "gemini-1.5-pro": {
+      input: 1.25 / 1_000_000,
+      output: 5.0 / 1_000_000,
+      cacheRead: 0.3125 / 1_000_000,
+    },
+    "gemini-1.5-flash": {
+      input: 0.075 / 1_000_000,
+      output: 0.3 / 1_000_000,
+      cacheRead: 0.01875 / 1_000_000,
+    },
   },
   // Mistral AI
   mistral: {
@@ -636,8 +746,16 @@ export function calculateCost(
   let cost = 0;
   cost += (usage.input || 0) * rates.input;
   cost += (usage.output || 0) * rates.output;
-  if (usage.cacheReadTokens && rates.cacheRead) {
-    cost += usage.cacheReadTokens * rates.cacheRead;
+  if (usage.cacheReadTokens) {
+    // Price cache reads at the discounted cacheRead rate when one exists;
+    // otherwise fall back to the full input rate. The overlapping extractor
+    // (tokenUtils) moves cached tokens out of `input` into `cacheReadTokens`
+    // for OpenAI/Gemini-family providers, so without this fallback a provider
+    // that reports cached tokens but has no cacheRead rate would bill those
+    // tokens at $0 (silent undercharge). Falling back to the input rate keeps
+    // total cost identical to pre-split billing for unpriced providers, while
+    // priced providers still get the cheaper cacheRead rate.
+    cost += usage.cacheReadTokens * (rates.cacheRead ?? rates.input);
   }
   if (usage.cacheCreationTokens && rates.cacheCreation) {
     cost += usage.cacheCreationTokens * rates.cacheCreation;
