@@ -3,11 +3,17 @@
  * disabled because the provider cannot combine tool calls with JSON-schema
  * enforcement.
  *
- * This is a GEMINI-ONLY API limitation. Anthropic Claude — including when
- * hosted on Vertex (modelName starts with "claude-") — supports tools and
- * structured output simultaneously, so it must NOT be excluded. A gate keyed on
- * "any Vertex model" wrongly disables structured output for Vertex+Claude (the
- * primary production config) and forces fragile hand-parsed JSON.
+ * Two provider surfaces have this conflict:
+ *   - Gemini (google-ai, or Vertex with a non-Claude model).
+ *   - The native Anthropic Messages API surface (provider "anthropic"/"bedrock",
+ *     including via a proxy/base-URL override). experimental_output silently
+ *     drops tool_use blocks when tools are also present (finishReason=tool-calls
+ *     but zero parsed tool calls), so structured output must be disabled there too.
+ *
+ * Vertex+Claude (provider "vertex", modelName starts with "claude-") uses a
+ * different transport that supports both simultaneously and must NOT be excluded —
+ * a gate keyed on "any Vertex model" wrongly disables it for the primary
+ * production config and forces fragile hand-parsed JSON.
  */
 
 /** True when the provider+model is a Gemini model (the only family with the tools↔schema conflict). */
@@ -27,8 +33,20 @@ export function isGeminiProvider(
 }
 
 /**
+ * True when the provider is the native Anthropic Messages API surface
+ * (provider "anthropic" — including via a proxy/base-URL override — or "bedrock").
+ * experimental_output + tools silently drops tool_use blocks on this surface, so
+ * structured output must be disabled when tools are active. Vertex+Claude is NOT
+ * matched here (different transport, no conflict).
+ */
+export function isNativeAnthropicProvider(providerName: string): boolean {
+  return providerName === "anthropic" || providerName === "bedrock";
+}
+
+/**
  * True when structured output must be disabled for this call because tools are
- * active on a Gemini provider. Mirrors the AI-SDK constraint exactly.
+ * active on a provider that cannot combine them (Gemini, or the native Anthropic
+ * Messages API surface). Mirrors the AI-SDK constraint exactly.
  */
 export function isToolsSchemaExclusionInForce(
   providerName: string,
@@ -37,7 +55,10 @@ export function isToolsSchemaExclusionInForce(
   toolCount: number,
 ): boolean {
   return (
-    isGeminiProvider(providerName, modelName) && shouldUseTools && toolCount > 0
+    (isGeminiProvider(providerName, modelName) ||
+      isNativeAnthropicProvider(providerName)) &&
+    shouldUseTools &&
+    toolCount > 0
   );
 }
 
