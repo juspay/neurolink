@@ -89,3 +89,23 @@ export function isToolsSchemaConflictError(error: unknown): boolean {
     /response_format[^.]{0,60}(tool|function)/i.test(message)
   );
 }
+
+/**
+ * True when a provider error indicates the request was rejected because the
+ * `temperature` parameter is deprecated / unsupported for the model. The newest
+ * Anthropic models (e.g. claude-opus-4-8, with tools + advanced beta features)
+ * reject `temperature` — "`temperature` is deprecated for this model." — in
+ * favour of reasoning-effort controls. Detect this so the call can be retried
+ * once without `temperature` instead of failing the turn.
+ */
+export function isTemperatureDeprecatedError(error: unknown): boolean {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+  return /\btemperature\b[^.]{0,40}\b(deprecated|unsupported|not[\s_-]?(supported|allowed))\b/i.test(
+    message,
+  );
+}
