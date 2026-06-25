@@ -76,6 +76,11 @@ import {
 import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
 import { resolveClaudeMaxTokens } from "../utils/tokenLimits.js";
 import {
+  toAnthropicImageBlock,
+  fileToAnthropicBlock,
+} from "./anthropicImageBlocks.js";
+import { modelDeprecatesTemperature } from "../core/modules/structuredOutputPolicy.js";
+import {
   createChunkQueue,
   createDeferredAnalytics,
   stringifyToolInput,
@@ -314,49 +319,6 @@ const parseRateLimitHeaders = (
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Convert an image part (data URL, bare base64, https URL, or byte array)
- * into an Anthropic image block. Returns undefined for unusable inputs.
- */
-const toAnthropicImageBlock = (
-  data: unknown,
-): Anthropic.Messages.ImageBlockParam | undefined => {
-  if (data instanceof Uint8Array) {
-    return {
-      type: "image",
-      source: {
-        type: "base64",
-        media_type: "image/png",
-        data: Buffer.from(data).toString("base64"),
-      },
-    };
-  }
-  if (typeof data !== "string" && !(data instanceof URL)) {
-    return undefined;
-  }
-  const str = data instanceof URL ? data.toString() : data;
-  const dataUrlMatch = str.match(/^data:(image\/[a-z+.-]+);base64,(.+)$/i);
-  if (dataUrlMatch) {
-    return {
-      type: "image",
-      source: {
-        type: "base64",
-        media_type:
-          dataUrlMatch[1] as Anthropic.Messages.Base64ImageSource["media_type"],
-        data: dataUrlMatch[2],
-      },
-    };
-  }
-  if (/^https?:\/\//i.test(str)) {
-    return { type: "image", source: { type: "url", url: str } };
-  }
-  // Bare base64 payload — assume PNG (matches the OpenAI-compat client).
-  return {
-    type: "image",
-    source: { type: "base64", media_type: "image/png", data: str },
-  };
-};
-
-/**
  * Read an Anthropic cache breakpoint from a message/part/tool carrier.
  * MessageBuilder marks system messages (and GenerationHandler marks the last
  * tool definition) with `providerOptions.anthropic.cacheControl` — the
@@ -483,6 +445,28 @@ const messagesToAnthropic = (
             if (img) {
               const cc = cacheControlOf(p);
               blocks.push(cc ? { ...img, cache_control: cc } : img);
+            }
+          } else if (p?.type === "file") {
+            // AI-SDK v6 encodes images AND PDFs as `type:"file"` parts in the
+            // LanguageModel prompt that `doGenerate` receives. Without this
+            // branch the image is dropped on the tool-using generate path and
+            // the model never sees it ("no image detected").
+            const block = fileToAnthropicBlock(
+              p as { mediaType?: string; data?: unknown },
+            );
+            if (block) {
+              const cc = cacheControlOf(p);
+              if (cc) {
+                // block is a fresh object from fileToAnthropicBlock; mutate in
+                // place to keep the discriminated-union type (a spread widens it
+                // past ContentBlockParam).
+                (
+                  block as {
+                    cache_control?: Anthropic.Messages.CacheControlEphemeral;
+                  }
+                ).cache_control = cc;
+              }
+              blocks.push(block);
             }
           }
         }
@@ -1454,7 +1438,9 @@ export class AnthropicProvider extends BaseProvider {
           messages,
           max_tokens: resolveClaudeMaxTokens(modelId, options.maxOutputTokens),
           ...(system ? { system } : {}),
-          ...(options.temperature !== undefined && options.temperature !== null
+          ...(options.temperature !== undefined &&
+          options.temperature !== null &&
+          !modelDeprecatesTemperature(modelId)
             ? { temperature: options.temperature }
             : {}),
           ...(options.topP !== undefined && options.topP !== null
@@ -1783,7 +1769,9 @@ export class AnthropicProvider extends BaseProvider {
           max_tokens: resolveClaudeMaxTokens(modelId, options.maxTokens),
           stream: true,
           ...(payload.system ? { system: payload.system } : {}),
-          ...(options.temperature !== undefined && options.temperature !== null
+          ...(options.temperature !== undefined &&
+          options.temperature !== null &&
+          !modelDeprecatesTemperature(modelId)
             ? { temperature: options.temperature }
             : {}),
           ...(anthropicTools && anthropicTools.length > 0

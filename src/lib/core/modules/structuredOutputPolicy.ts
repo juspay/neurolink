@@ -109,3 +109,21 @@ export function isTemperatureDeprecatedError(error: unknown): boolean {
     message,
   );
 }
+
+/**
+ * True when the model is known to reject the `temperature` parameter (the
+ * reasoning-effort Anthropic models — claude-opus-4-8 and newer — deprecate it
+ * in favour of effort controls). Used to omit `temperature` proactively so the
+ * request does not fail-then-retry on every turn: the reactive
+ * isTemperatureDeprecatedError() retry remains the safety net for any model not
+ * matched here, but a guaranteed-to-fail first request is pure wasted latency.
+ *
+ * Matches opus 4.8+ (4-8, 4-9, 4-10, …) while leaving 4.1/4.5/4.6 and Sonnet/
+ * Haiku — which still accept `temperature` — untouched.
+ */
+export function modelDeprecatesTemperature(
+  modelName: string | undefined,
+): boolean {
+  const m = (modelName ?? "").toLowerCase();
+  return /opus[-_.]?4[-_.]?(?:[89]|\d{2,})\b/.test(m);
+}

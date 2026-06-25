@@ -26,6 +26,7 @@ import {
   isGeminiProvider,
   isToolsSchemaExclusionInForce,
   isTemperatureDeprecatedError,
+  modelDeprecatesTemperature,
 } from "../src/lib/core/modules/structuredOutputPolicy.js";
 
 const { test, runSuite } = defineSuite("Native-Anthropic tools policy");
@@ -127,6 +128,58 @@ await test("isTemperatureDeprecatedError ignores unrelated errors", () => {
     "unrelated 400 → false",
   );
   assertEqual(isTemperatureDeprecatedError(""), false, "empty → false");
+});
+
+await test("modelDeprecatesTemperature: opus 4.8+ only (proactive omission)", () => {
+  // Reasoning-effort models that reject `temperature` → omit it proactively.
+  assertEqual(
+    modelDeprecatesTemperature("claude-opus-4-8"),
+    true,
+    "opus-4-8 → true",
+  );
+  assertEqual(
+    modelDeprecatesTemperature("claude-opus-4-8-20251101"),
+    true,
+    "opus-4-8 dated id → true",
+  );
+  assertEqual(
+    modelDeprecatesTemperature("claude-opus-4-9"),
+    true,
+    "opus-4-9 → true",
+  );
+  assertEqual(
+    modelDeprecatesTemperature("claude-opus-4-10"),
+    true,
+    "opus-4-10 → true",
+  );
+});
+
+await test("modelDeprecatesTemperature: older/other models keep temperature", () => {
+  assertEqual(
+    modelDeprecatesTemperature("claude-opus-4-1"),
+    false,
+    "opus-4-1 → false",
+  );
+  assertEqual(
+    modelDeprecatesTemperature("claude-opus-4-6"),
+    false,
+    "opus-4-6 → false",
+  );
+  assertEqual(
+    modelDeprecatesTemperature("claude-sonnet-4-6"),
+    false,
+    "sonnet-4-6 → false",
+  );
+  assertEqual(
+    modelDeprecatesTemperature("claude-haiku-4-5"),
+    false,
+    "haiku-4-5 → false",
+  );
+  assertEqual(
+    modelDeprecatesTemperature(undefined),
+    false,
+    "undefined → false",
+  );
 });
 
 await runSuite();
