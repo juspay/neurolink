@@ -503,6 +503,57 @@ async function maybeRefreshClaudeSnapshot(
 }
 
 /**
+ * Relocate a non-Claude-Code client's `system` blocks into the message stream.
+ *
+ * Anthropic's subscription/OAuth path rejects any `system` content it does not
+ * recognise as the genuine Claude Code system prompt — anti-abuse fingerprinting
+ * surfaced as a header-less `rate_limit_error: "Error"` (NOT a real rate limit).
+ * Custom clients (Curator/Tara) send their own system prompt, so we move it into
+ * a leading user block and keep only the recognised billing+agent blocks in
+ * `system`. The model still honours the instructions, and any `cache_control` is
+ * carried over so the prompt prefix stays cacheable.
+ */
+function relocateClientSystemIntoMessages(
+  parsed: { messages?: unknown },
+  instructionBlocks: Array<{ text?: unknown; cache_control?: unknown }>,
+): void {
+  if (instructionBlocks.length === 0) {
+    return;
+  }
+  const blocks = instructionBlocks.map((b) => {
+    const text = typeof b.text === "string" ? b.text : String(b.text ?? "");
+    const out: { type: "text"; text: string; cache_control?: unknown } = {
+      type: "text",
+      text,
+    };
+    if (b.cache_control) {
+      out.cache_control = b.cache_control;
+    }
+    return out;
+  });
+  // Wrap the relocated system in an explicit delimiter so the model treats it
+  // as authoritative instructions, clearly separated from the user's message.
+  blocks[0].text = `<system_instructions>\n${blocks[0].text}`;
+  const last = blocks.length - 1;
+  blocks[last].text = `${blocks[last].text}\n</system_instructions>`;
+
+  const messages = Array.isArray(parsed.messages) ? parsed.messages : [];
+  const first = messages[0] as { role?: string; content?: unknown } | undefined;
+  if (first && first.role === "user") {
+    const existing =
+      typeof first.content === "string"
+        ? [{ type: "text", text: first.content }]
+        : Array.isArray(first.content)
+          ? first.content
+          : [];
+    first.content = [...blocks, ...existing];
+  } else {
+    messages.unshift({ role: "user", content: blocks });
+  }
+  parsed.messages = messages;
+}
+
+/**
  * Polyfill the request body for OAuth accounts.
  * Claude Code injects a billing header, agent block, and metadata.user_id
  * into the body.  Non-CC clients (Curator, custom apps) don't send these —
@@ -528,25 +579,21 @@ function polyfillOAuthBody(
         "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
     };
 
-    // Normalise system to array and APPEND billing + agent blocks.
-    // IMPORTANT: We append (not prepend) to preserve the client's cache
-    // prefix chain. Anthropic's prompt caching uses prefix matching — if we
-    // insert anything before the client's system blocks, we invalidate all
-    // cached content (tools, system prompt, message history).
+    // Normalise system to an array, then route by client type.
     //
-    // Claude Code sends a billing block with a `cch=<hash>` value that changes
-    // on every request. We fix this by:
-    //   1. Removing the client's billing block from its current position
-    //   2. Stabilizing it while keeping the official Claude Code shape
-    //   3. Appending it at the END so the cacheable system blocks stay
-    //      at the front of the prefix chain
+    // The subscription/OAuth path only accepts a `system` it recognises as the
+    // genuine Claude Code prompt. A real CC client sends its own billing + agent
+    // identity blocks alongside the canonical prompt — we keep those in place and
+    // just stabilise the volatile billing `cch`. A custom client (Curator) sends
+    // its own arbitrary system prompt with NO agent block; left in `system` it is
+    // rejected as `rate_limit_error: "Error"`, so we relocate it into the message
+    // stream and send only the recognised billing + agent blocks as `system`.
     if (parsed.system) {
       if (typeof parsed.system === "string") {
         parsed.system = [{ type: "text", text: parsed.system }];
       }
       if (Array.isArray(parsed.system)) {
-        // Find and remove existing billing/agent blocks from wherever
-        // the client placed them (typically at system[0])
+        // Find existing billing/agent blocks wherever the client placed them.
         const billingIdx = parsed.system.findIndex(
           (b: { text?: string }) =>
             typeof b.text === "string" &&
@@ -563,7 +610,12 @@ function polyfillOAuthBody(
           ),
         };
 
-        // Remove in reverse index order so indices stay valid
+        // A genuine Claude Code client supplies its own agent-identity block;
+        // a custom client (Curator) does not.
+        const isClaudeCodeClient = agentIdx >= 0;
+
+        // Strip billing/agent from their positions (reverse order so indices
+        // stay valid). What remains is the client's "extra" system content.
         const indicesToRemove = [billingIdx, agentIdx]
           .filter((i) => i >= 0)
           .sort((a, b) => b - a);
@@ -571,10 +623,17 @@ function polyfillOAuthBody(
           parsed.system.splice(idx, 1);
         }
 
-        // Always append a deterministic billing block at the end.
-        // If the client sent one, we stripped its dynamic cch= and use
-        // our stable version instead. If not, we add ours.
-        parsed.system = [...parsed.system, billingBlock, agentBlock];
+        if (!isClaudeCodeClient && parsed.system.length > 0) {
+          // Non-CC client: relocate its system into the message stream so the
+          // subscription/OAuth path accepts the request, then send only the
+          // recognised billing + agent blocks as `system`.
+          relocateClientSystemIntoMessages(parsed, parsed.system);
+          parsed.system = [billingBlock, agentBlock];
+        } else {
+          // Genuine Claude Code (or no extra blocks): keep the recognised system
+          // and append the deterministic billing + agent blocks at the end.
+          parsed.system = [...parsed.system, billingBlock, agentBlock];
+        }
       }
     } else {
       const billingBlock = {
@@ -3935,6 +3994,32 @@ async function prepareAnthropicAccountAttempt(args: {
   };
 }
 
+/**
+ * Detect Anthropic's anti-abuse / request-construction 429.
+ *
+ * The subscription/OAuth path rejects requests it does not recognise as genuine
+ * Claude Code traffic with a 429 `rate_limit_error` whose message is literally
+ * "Error" and which carries NONE of the real rate-limit headers (no retry-after,
+ * no anthropic-ratelimit-*). This is NOT a capacity limit — retrying or rotating
+ * accounts cannot fix it and only burns quota, so the caller must fail fast and
+ * surface the truthful upstream error instead of "all accounts rate-limited".
+ */
+function isAntiAbuseConstruction429(
+  headers: Record<string, string>,
+  body: string,
+): boolean {
+  const hasRetryAfter = !!headers["retry-after"];
+  const hasRateLimitHeaders = Object.keys(headers).some((k) =>
+    k.toLowerCase().startsWith("anthropic-ratelimit-"),
+  );
+  if (hasRetryAfter || hasRateLimitHeaders) {
+    return false;
+  }
+  return (
+    body.includes("rate_limit_error") && /"message"\s*:\s*"Error"/.test(body)
+  );
+}
+
 async function fetchAnthropicAccountResponse(args: {
   url: string;
   headers: Record<string, string>;
@@ -4044,6 +4129,35 @@ async function fetchAnthropicAccountResponse(args: {
       responseStatus: 429,
       durationMs: Date.now() - fetchStartMs,
     });
+    // Anti-abuse / request-construction 429 (no rate-limit headers, body
+    // "Error"): rotating accounts cannot help and only burns quota. Fail fast
+    // and surface the truthful upstream error instead of the misleading
+    // "all accounts rate-limited" after 44 wasted attempts.
+    if (isAntiAbuseConstruction429(errRespHeaders, String(lastError))) {
+      logger.always(
+        `[proxy] ← 429 account=${account.label} anti-abuse/construction rejection (no ratelimit headers, body="Error") — NOT a real rate limit; returning upstream error without rotating`,
+      );
+      logAttempt(429, "construction_rejection", String(lastError));
+      tracer?.setError(
+        "construction_rejection",
+        String(lastError).slice(0, 500),
+      );
+      currentUpstreamSpan?.end();
+      const passthrough = new Response(String(lastError), {
+        status: 429,
+        headers: {
+          "content-type": errRespHeaders["content-type"] ?? "application/json",
+        },
+      });
+      return {
+        continueLoop: false,
+        response: passthrough,
+        lastError,
+        sawRateLimit,
+        sawNetworkError,
+        upstreamSpan: undefined,
+      };
+    }
     logger.always(
       `[proxy] ← 429 account=${account.label} retry-after=${retryAfterMs}ms (upstream) ratelimit-status=${errRespHeaders["anthropic-ratelimit-unified-status"] ?? "unknown"}`,
     );

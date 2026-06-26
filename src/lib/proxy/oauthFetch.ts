@@ -167,6 +167,57 @@ async function resolveOAuthRequestBody(
   return { sourceRequest, method, body: body ?? undefined };
 }
 
+/**
+ * Relocate a non-Claude-Code client's `system` blocks into the message stream.
+ *
+ * Anthropic's subscription/OAuth path rejects any `system` content it does not
+ * recognise as the genuine Claude Code system prompt — anti-abuse fingerprinting
+ * surfaced as a header-less `rate_limit_error: "Error"` (NOT a real rate limit).
+ * Custom clients send their own system prompt, so we move it into a leading user
+ * block and keep only the recognised billing+agent blocks in `system`. The model
+ * still honours the instructions, and any `cache_control` is carried over so the
+ * prompt prefix stays cacheable.
+ */
+function relocateClientSystemIntoMessages(
+  parsed: { messages?: unknown },
+  instructionBlocks: Array<{ text?: unknown; cache_control?: unknown }>,
+): void {
+  if (instructionBlocks.length === 0) {
+    return;
+  }
+  const blocks = instructionBlocks.map((b) => {
+    const text = typeof b.text === "string" ? b.text : String(b.text ?? "");
+    const out: { type: "text"; text: string; cache_control?: unknown } = {
+      type: "text",
+      text,
+    };
+    if (b.cache_control) {
+      out.cache_control = b.cache_control;
+    }
+    return out;
+  });
+  // Wrap the relocated system in an explicit delimiter so the model treats it
+  // as authoritative instructions, clearly separated from the user's message.
+  blocks[0].text = `<system_instructions>\n${blocks[0].text}`;
+  const last = blocks.length - 1;
+  blocks[last].text = `${blocks[last].text}\n</system_instructions>`;
+
+  const messages = Array.isArray(parsed.messages) ? parsed.messages : [];
+  const first = messages[0] as { role?: string; content?: unknown } | undefined;
+  if (first && first.role === "user") {
+    const existing =
+      typeof first.content === "string"
+        ? [{ type: "text", text: first.content }]
+        : Array.isArray(first.content)
+          ? first.content
+          : [];
+    first.content = [...blocks, ...existing];
+  } else {
+    messages.unshift({ role: "user", content: blocks });
+  }
+  parsed.messages = messages;
+}
+
 function transformOAuthJsonBody(
   body: string,
   requestHeaders: Headers,
@@ -222,23 +273,21 @@ function transformOAuthJsonBody(
     text: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
   };
 
-  // Normalise `system` to an array and APPEND billing + agent blocks.
-  // IMPORTANT: We append (not prepend) to preserve the client's cache
-  // prefix chain. Anthropic's prompt caching uses prefix matching — if
-  // we insert anything before the client's system blocks, we invalidate
-  // all cached content (tools, system prompt, message history).
+  // Normalise `system` to an array, then route by client type.
   //
-  // Claude Code sends a billing block with a `cch=<hash>` value that
-  // changes on every request. We remove any existing billing/agent
-  // blocks from their positions and always append our stable
-  // Claude-Code-shaped versions at the end.
+  // The subscription/OAuth path only accepts a `system` it recognises as the
+  // genuine Claude Code prompt. A real CC client sends its own billing + agent
+  // identity blocks — we keep those and just stabilise the volatile billing
+  // `cch`. A custom client sends its own arbitrary system prompt with NO agent
+  // block; left in `system` it is rejected as `rate_limit_error: "Error"`, so we
+  // relocate it into the message stream and send only the recognised billing +
+  // agent blocks as `system`.
   if (parsed.system) {
     if (typeof parsed.system === "string") {
       parsed.system = [{ type: "text", text: parsed.system }];
     }
     if (Array.isArray(parsed.system)) {
-      // Find and remove existing billing/agent blocks from wherever
-      // the client placed them (typically at system[0])
+      // Find existing billing/agent blocks wherever the client placed them.
       const billingIdx = parsed.system.findIndex(
         (b: { text?: string }) =>
           typeof b.text === "string" &&
@@ -255,7 +304,12 @@ function transformOAuthJsonBody(
         ),
       };
 
-      // Remove in reverse index order so indices stay valid
+      // A genuine Claude Code client supplies its own agent-identity block;
+      // a custom client does not.
+      const isClaudeCodeClient = agentIdx >= 0;
+
+      // Strip billing/agent from their positions (reverse order so indices
+      // stay valid). What remains is the client's "extra" system content.
       const indicesToRemove = [billingIdx, agentIdx]
         .filter((i) => i >= 0)
         .sort((a, b) => b - a);
@@ -263,8 +317,16 @@ function transformOAuthJsonBody(
         parsed.system.splice(idx, 1);
       }
 
-      // Always append deterministic billing + agent blocks at the end
-      parsed.system = [...parsed.system, billingBlock, agentBlock];
+      if (!isClaudeCodeClient && parsed.system.length > 0) {
+        // Non-CC client: relocate its system into the message stream so the
+        // subscription/OAuth path accepts the request.
+        relocateClientSystemIntoMessages(parsed, parsed.system);
+        parsed.system = [billingBlock, agentBlock];
+      } else {
+        // Genuine Claude Code (or no extra blocks): keep system and append the
+        // deterministic billing + agent blocks at the end.
+        parsed.system = [...parsed.system, billingBlock, agentBlock];
+      }
     }
   } else {
     const billingBlock = {
