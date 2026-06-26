@@ -555,6 +555,37 @@ function extractResponseInfo(responseJson: unknown): ResponseInfoContext {
   return info;
 }
 
+/**
+ * Build response-info from streaming telemetry (responding model, finish
+ * reason, and the tools the model invoked via tool_use content blocks) so the
+ * streaming path records the same gen_ai.response.* attributes as non-streaming.
+ */
+function responseInfoFromStream(data: {
+  model?: string;
+  stopReason?: string | null;
+  stopSequence?: string | null;
+  contentBlocks?: Array<{ type?: string; toolName?: string }>;
+}): ResponseInfoContext {
+  const info: ResponseInfoContext = {};
+  if (data.model) {
+    info.responseModel = data.model;
+  }
+  if (data.stopReason) {
+    info.finishReason = data.stopReason;
+  }
+  if (data.stopSequence) {
+    info.stopSequence = data.stopSequence;
+  }
+  const toolCalls = (data.contentBlocks ?? [])
+    .filter((b) => b.type === "tool_use")
+    .map((b) => String(b.toolName ?? ""))
+    .filter((n) => n.length > 0);
+  if (toolCalls.length > 0) {
+    info.toolCalls = toolCalls;
+  }
+  return info;
+}
+
 function relocateClientSystemIntoMessages(
   parsed: { messages?: unknown },
   instructionBlocks: Array<{ text?: unknown; cache_control?: unknown }>,
@@ -1070,6 +1101,7 @@ async function handleClaudePassthroughStreamResponse(args: {
             cacheReadTokens: data.usage.cacheReadInputTokens,
           });
           capturedTracer.logStreamEvents(data.events);
+          capturedTracer.setResponseInfo(responseInfoFromStream(data));
 
           const rateLimit5h = parseFloat(
             capturedResponse.headers.get(
@@ -2412,6 +2444,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             cacheReadTokens: data.usage.cacheReadInputTokens,
           });
           capturedTracer.logStreamEvents(data.events);
+          capturedTracer.setResponseInfo(responseInfoFromStream(data));
           const rateLimit5h = parseFloat(
             capturedResponse.headers.get(
               "anthropic-ratelimit-unified-5h-utilization",
@@ -2873,6 +2906,7 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
               cacheReadTokens: data.usage.cacheReadInputTokens,
             });
             capturedTracer.logStreamEvents(data.events);
+            capturedTracer.setResponseInfo(responseInfoFromStream(data));
             capturedTracer.logUpstreamResponseHeaders(
               Object.fromEntries([...capturedRetryResp.headers.entries()]),
             );
