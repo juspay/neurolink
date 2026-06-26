@@ -937,9 +937,20 @@ export type ProxyRequestContext = {
   model: string;
   stream: boolean;
   toolCount: number;
+  /** Names of the tools advertised in the request (what the caller exposed). */
+  toolNames?: string[];
   sessionId?: string;
   userAgent?: string;
   clientApp?: string;
+};
+
+/** Response-side details parsed from the upstream reply (model, finish, tools). */
+export type ResponseInfoContext = {
+  responseModel?: string;
+  finishReason?: string;
+  stopSequence?: string;
+  /** Names of the tools the model actually invoked (tool_use blocks). */
+  toolCalls?: string[];
 };
 
 /** Context recorded when an account is selected for a proxy request. */

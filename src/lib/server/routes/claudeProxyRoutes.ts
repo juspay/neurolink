@@ -91,6 +91,7 @@ import type {
   PreparedAnthropicAccountAttempt,
   ProxyBodyCaptureLogger,
   ProxyPassthroughAccount,
+  ResponseInfoContext,
   RouteGroup,
   RuntimeAccountState,
   ServerContext,
@@ -513,6 +514,47 @@ async function maybeRefreshClaudeSnapshot(
  * `system`. The model still honours the instructions, and any `cache_control` is
  * carried over so the prompt prefix stays cacheable.
  */
+/**
+ * Parse response-side details (model, finish reason, invoked tools) from a
+ * non-streaming Anthropic reply so they can be recorded on the trace span.
+ */
+function extractResponseInfo(responseJson: unknown): ResponseInfoContext {
+  const info: ResponseInfoContext = {};
+  if (!responseJson || typeof responseJson !== "object") {
+    return info;
+  }
+  const r = responseJson as {
+    model?: unknown;
+    stop_reason?: unknown;
+    stop_sequence?: unknown;
+    content?: unknown;
+  };
+  if (typeof r.model === "string") {
+    info.responseModel = r.model;
+  }
+  if (typeof r.stop_reason === "string") {
+    info.finishReason = r.stop_reason;
+  }
+  if (typeof r.stop_sequence === "string") {
+    info.stopSequence = r.stop_sequence;
+  }
+  if (Array.isArray(r.content)) {
+    const toolCalls = r.content
+      .filter(
+        (b): b is { type: string; name?: unknown } =>
+          !!b &&
+          typeof b === "object" &&
+          (b as { type?: unknown }).type === "tool_use",
+      )
+      .map((b) => String((b as { name?: unknown }).name ?? ""))
+      .filter((n) => n.length > 0);
+    if (toolCalls.length > 0) {
+      info.toolCalls = toolCalls;
+    }
+  }
+  return info;
+}
+
 function relocateClientSystemIntoMessages(
   parsed: { messages?: unknown },
   instructionBlocks: Array<{ text?: unknown; cache_control?: unknown }>,
@@ -1268,6 +1310,7 @@ async function handleClaudePassthroughJsonResponse(args: {
         tracer.setUsage(usageWithRates);
       }
     }
+    tracer.setResponseInfo(extractResponseInfo(responseJson));
     tracer.recordMetrics();
     const responseJsonStr = JSON.stringify(responseJson);
     tracer.recordBodySizes(bodyStr.length, responseJsonStr.length);
@@ -2666,6 +2709,7 @@ async function handleAnthropicJsonSuccessResponse(args: {
         tracer.setUsage(usageWithRates);
       }
     }
+    tracer.setResponseInfo(extractResponseInfo(responseJson));
     tracer.recordMetrics();
     const responseJsonStr = JSON.stringify(responseJson);
     tracer.recordBodySizes(finalBodyStr.length, responseJsonStr.length);
@@ -2940,6 +2984,7 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
         cacheReadTokens: retryUsage.cache_read_input_tokens ?? 0,
       });
     }
+    tracer.setResponseInfo(extractResponseInfo(retryJson));
     tracer.recordMetrics();
     const retryJsonStr = JSON.stringify(retryJson);
     tracer.recordBodySizes(finalBodyStr.length, retryJsonStr.length);
@@ -3629,6 +3674,15 @@ function createClaudeRequestRuntimeContext(args: {
         model: body.model,
         stream: body.stream ?? false,
         toolCount: Array.isArray(body.tools) ? body.tools.length : 0,
+        toolNames: Array.isArray(body.tools)
+          ? body.tools
+              .map((t) =>
+                t && typeof t === "object" && "name" in t
+                  ? String((t as { name?: unknown }).name ?? "")
+                  : "",
+              )
+              .filter((n): n is string => n.length > 0)
+          : undefined,
         sessionId:
           ctx.headers["x-neurolink-session-id"] ??
           ctx.headers["x-claude-code-session-id"] ??
