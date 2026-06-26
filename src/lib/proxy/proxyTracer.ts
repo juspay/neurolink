@@ -34,6 +34,7 @@ import type {
   AccountSelectionContext,
   ProxyMetrics,
   ProxyRequestContext,
+  ResponseInfoContext,
   UpstreamAttemptContext,
   UsageContext,
 } from "../types/index.js";
@@ -312,6 +313,13 @@ class ProxyTracer {
     if (ctx.userAgent) {
       rootSpan.setAttribute("http.user_agent", ctx.userAgent);
     }
+    if (ctx.toolNames && ctx.toolNames.length > 0) {
+      // What the caller exposed to the model (tool catalogue for this request).
+      rootSpan.setAttribute(
+        "gen_ai.request.tool_names",
+        JSON.stringify(ctx.toolNames),
+      );
+    }
 
     // Read x-neurolink-* context headers from calling SDK (e.g., Curator)
     const nlSessionId = incomingHeaders?.["x-neurolink-session-id"];
@@ -513,6 +521,38 @@ class ProxyTracer {
         "proxy.ratelimit.after.7d",
         ctx.rateLimitAfter7d,
       );
+    }
+  }
+
+  /**
+   * Record response-side details parsed from the upstream reply: the model
+   * that actually answered, the finish reason, and which tools the model
+   * invoked (tool_use blocks). Uses gen_ai.* semantic-convention attributes.
+   */
+  setResponseInfo(ctx: ResponseInfoContext): void {
+    if (ctx.responseModel) {
+      this.rootSpan.setAttribute("gen_ai.response.model", ctx.responseModel);
+    }
+    if (ctx.finishReason) {
+      this.rootSpan.setAttribute(
+        "gen_ai.response.finish_reason",
+        ctx.finishReason,
+      );
+    }
+    if (ctx.stopSequence) {
+      this.rootSpan.setAttribute(
+        "gen_ai.response.stop_sequence",
+        ctx.stopSequence,
+      );
+    }
+    if (ctx.toolCalls && ctx.toolCalls.length > 0) {
+      this.rootSpan.setAttributes({
+        "gen_ai.response.tool_calls": JSON.stringify(ctx.toolCalls),
+        "gen_ai.response.tool_call_count": ctx.toolCalls.length,
+      });
+      this.rootSpan.addEvent("proxy.response.tool_calls", {
+        "gen_ai.response.tool_calls": JSON.stringify(ctx.toolCalls),
+      });
     }
   }
 

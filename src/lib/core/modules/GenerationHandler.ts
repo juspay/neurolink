@@ -40,6 +40,7 @@ import {
 } from "../../utils/tokenUtils.js";
 import { DEFAULT_MAX_STEPS } from "../constants.js";
 import {
+  isTemperatureDeprecatedError,
   isToolsSchemaConflictError,
   isToolsSchemaExclusionInForce,
 } from "./structuredOutputPolicy.js";
@@ -527,6 +528,81 @@ export class GenerationHandler {
               );
             }
 
+            span.setStatus({ code: SpanStatusCode.OK });
+            return result;
+          }
+
+          // Retry once without `temperature` when the model deprecated it. The
+          // newest Anthropic models (e.g. claude-opus-4-8 with tools + advanced
+          // beta features) reject `temperature` — "`temperature` is deprecated
+          // for this model." — in favour of reasoning-effort controls. Structured
+          // output is already excluded for the native anthropic surface, so this
+          // is the dominant failure mode for Opus there.
+          if (
+            isTemperatureDeprecatedError(error) &&
+            typeof options.temperature === "number"
+          ) {
+            span.setAttribute("neurolink.has_fallback", true);
+            span.addEvent("retry.initial_failure", {
+              "error.message":
+                error instanceof Error ? error.message : String(error),
+              "retry.attempt": 1,
+              "retry.reason": "temperature_deprecated",
+            });
+            logger.debug(
+              "[GenerationHandler] temperature-deprecated error caught - retrying without temperature",
+              {
+                provider: this.providerName,
+                model: this.modelName,
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
+            const result = await withProviderRetry(
+              () =>
+                this.callGenerateText(
+                  model,
+                  messages,
+                  tools,
+                  { ...options, temperature: undefined },
+                  shouldUseTools,
+                  true, // mirror the initial call; the structured-output policy still applies
+                ),
+              span,
+              "generateText(no-temperature)",
+            );
+            span.addEvent("retry.recovered", {
+              "retry.attempts": 2,
+              "retry.strategy": "temperature_omitted",
+            });
+            span.setAttribute("retry.count", 1);
+            if (result.usage) {
+              span.setAttribute(
+                "gen_ai.usage.input_tokens",
+                result.usage.inputTokens || 0,
+              );
+              span.setAttribute(
+                "gen_ai.usage.output_tokens",
+                result.usage.outputTokens || 0,
+              );
+              const noTempCost = calculateCost(
+                this.providerName,
+                this.modelName,
+                {
+                  input: result.usage.inputTokens || 0,
+                  output: result.usage.outputTokens || 0,
+                  total:
+                    (result.usage.inputTokens || 0) +
+                    (result.usage.outputTokens || 0),
+                },
+              );
+              span.setAttribute("neurolink.cost", noTempCost ?? 0);
+            }
+            if (result.finishReason) {
+              span.setAttribute(
+                "gen_ai.response.finish_reason",
+                result.finishReason,
+              );
+            }
             span.setStatus({ code: SpanStatusCode.OK });
             return result;
           }

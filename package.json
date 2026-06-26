@@ -118,6 +118,9 @@
     "test:auth": "npx tsx test/continuous-test-suite-auth.ts",
     "test:autoresearch": "npx tsx test/continuous-test-suite-autoresearch.ts",
     "test:autoresearch:redis": "npx tsx test/continuous-test-suite-autoresearch-redis.ts",
+    "test:anthropic-tools-policy": "npx tsx test/continuous-test-suite-anthropic-tools-policy.ts",
+    "test:anthropic-multimodal": "npx tsx test/continuous-test-suite-anthropic-multimodal.ts",
+    "test:excel-interop": "npx tsx test/continuous-test-suite-excel-interop.ts",
     "test:envguard": "npx tsx test/helpers/envGuard.test.ts",
     "test:tool-routing-cli:vitest": "pnpm exec vitest run test/toolRoutingCli.test.ts",
     "test:tool-routing-cli": "pnpm run test:tool-routing-cli:vitest && npx tsx test/continuous-test-suite-tool-routing-cli.ts",
@@ -131,7 +134,7 @@
     "test:tool-routing": "pnpm run test:unit:vitest && npx tsx test/continuous-test-suite-tool-routing.ts",
     "test:tool-routing-semantic:vitest": "pnpm exec vitest run test/toolRoutingSemantic.test.ts",
     "test:tool-routing-semantic": "pnpm run test:tool-routing-semantic:vitest && npx tsx test/continuous-test-suite-tool-routing-semantic.ts",
-    "test:unit": "pnpm run test:envguard && pnpm run test:bugfixes && pnpm run test:mcp:infra && pnpm run test:mcp:bash && pnpm run test:mcp:limits && pnpm run test:mcp:spans && pnpm run test:autoresearch:redis && pnpm run test:unit:vitest && pnpm run test:tool-routing-cli:vitest && pnpm run test:tool-dedup:vitest && pnpm run test:model-pool:vitest && pnpm run test:tool-routing-semantic:vitest",
+    "test:unit": "pnpm run test:envguard && pnpm run test:bugfixes && pnpm run test:mcp:infra && pnpm run test:mcp:bash && pnpm run test:mcp:limits && pnpm run test:mcp:spans && pnpm run test:autoresearch:redis && pnpm run test:unit:vitest && pnpm run test:tool-routing-cli:vitest && pnpm run test:tool-dedup:vitest && pnpm run test:model-pool:vitest && pnpm run test:tool-routing-semantic:vitest && pnpm run test:anthropic-tools-policy && pnpm run test:anthropic-multimodal && pnpm run test:excel-interop",
     "// CI tier — live providers, runs only when API keys are present (test:credentials and test:dynamic make real provider calls when keys are set, so they live here, not in test:unit)": "",
     "test:live": "pnpm run test:providers && pnpm run test:mcp:http && pnpm run test:mcp:sdk && pnpm run test:mcp:cli && pnpm run test:observability && pnpm run test:context && pnpm run test:memory && pnpm run test:tool-reliability && pnpm run test:evaluation && pnpm run test:autoresearch && pnpm run test:credentials && pnpm run test:dynamic",
     "// CI tier — product output (image/video/TTS/PPT) — costs $$ per run": "",
@@ -598,6 +601,9 @@
       "rollup@>=4.0.0 <4.59.0": ">=4.59.0",
       "shell-quote@<1.8.4": ">=1.8.4",
       "undici@>=8.0.0": ">=7.24.0 <8.0.0"
+    },
+    "patchedDependencies": {
+      "mammoth@1.12.0": "patches/mammoth@1.12.0.patch"
     }
   },
   "os": [

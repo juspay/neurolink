@@ -48,6 +48,11 @@ overrides:
 
 pnpmfileChecksum: sha256-qFFlrDVMxTAG02VWf3xBAHmYpquoAuUauBBYPNQv57g=
 
+patchedDependencies:
+  mammoth@1.12.0:
+    hash: 08d907da666d60e4aca12deab636e3795c9bacbec7f10f258653467aadea0362
+    path: patches/mammoth@1.12.0.patch
+
 importers:
 
   .:
@@ -488,7 +493,7 @@ importers:
         version: 2.15.4
       mammoth:
         specifier: ^1.11.0
-        version: 1.12.0
+        version: 1.12.0(patch_hash=08d907da666d60e4aca12deab636e3795c9bacbec7f10f258653467aadea0362)
       mediabunny:
         specifier: ^1.40.1
         version: 1.40.1
@@ -10643,7 +10648,7 @@ snapshots:
       inquirer: 13.4.3(@types/node@25.5.0)
       jose: 6.2.3
       json-schema-to-zod: 2.8.1
-      mammoth: 1.12.0
+      mammoth: 1.12.0(patch_hash=08d907da666d60e4aca12deab636e3795c9bacbec7f10f258653467aadea0362)
       mathjs: 15.2.0
       minisearch: 7.2.0
       music-metadata: 11.13.0
@@ -15961,7 +15966,7 @@ snapshots:
     dependencies:
       semver: 7.7.4
 
-  mammoth@1.12.0:
+  mammoth@1.12.0(patch_hash=08d907da666d60e4aca12deab636e3795c9bacbec7f10f258653467aadea0362):
     dependencies:
       '@xmldom/xmldom': 0.9.10
       argparse: 1.0.10
