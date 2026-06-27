@@ -1690,6 +1690,7 @@
   });
 
   onDestroy(() => {
+    if (typeof window === "undefined") return; // SSR/prerender: no browser resources to clean up
     if (typeof cancelAnimationFrame !== "undefined") cancelAnimationFrame(raf);
     if (typeof window !== "undefined") {
       window.removeEventListener("resize", resize);
