@@ -32,6 +32,7 @@ import { normalizeEvaluationData } from "../../lib/utils/evaluationUtils.js";
 import { logger } from "../../lib/utils/logger.js";
 import { createThinkingConfigFromRecord } from "../../lib/utils/thinkingConfig.js";
 import { buildToolRoutingConfigFromCli } from "../utils/toolRoutingFlags.js";
+import { buildClassifierRouterConfigFromCli } from "../utils/classifierRouterFlags.js";
 import { configManager } from "../commands/config.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
 import { ModelsCommandFactory } from "../commands/models.js";
@@ -656,6 +657,47 @@ export class CLICommandFactory {
       alias: "tool-routing-servers",
     },
 
+    // Classifier-router options
+    classifierRouter: {
+      type: "boolean" as const,
+      description:
+        "Enable the classifier router: classify each request and pick a model (and tools) from --classifier-pool.",
+      alias: "classifier-router",
+    },
+    classifierStrategy: {
+      type: "string" as const,
+      description:
+        "Classifier strategy: 'heuristic' (default, no LLM) or 'llm' (a cheap model picks per prompt).",
+      choices: ["heuristic", "llm"] as const,
+      alias: "classifier-strategy",
+    },
+    classifierModelProvider: {
+      type: "string" as const,
+      description: "Provider for the LLM classifier model (strategy=llm).",
+      alias: "classifier-model-provider",
+    },
+    classifierModelName: {
+      type: "string" as const,
+      description: "Model name for the LLM classifier model (strategy=llm).",
+      alias: "classifier-model-name",
+    },
+    classifierModelRegion: {
+      type: "string" as const,
+      description: "Region for the LLM classifier model (strategy=llm).",
+      alias: "classifier-model-region",
+    },
+    classifierPool: {
+      type: "string" as const,
+      description:
+        "Path to a JSON file OR inline JSON array of pool members: { provider, model?, region?, description?, tiers?, cost?, quality?, id? }.",
+      alias: "classifier-pool",
+    },
+    classifierTimeout: {
+      type: "number" as const,
+      description: "LLM classifier hard timeout in milliseconds.",
+      alias: "classifier-timeout",
+    },
+
     region: {
       type: "string" as const,
       description:
@@ -1047,6 +1089,16 @@ export class CLICommandFactory {
         | string[]
         | undefined,
       toolRoutingServers: argv.toolRoutingServers as string | undefined,
+      // Classifier-router flags — constructor-level config (see note above).
+      classifierRouter: argv.classifierRouter as boolean | undefined,
+      classifierStrategy: argv.classifierStrategy as string | undefined,
+      classifierModelProvider: argv.classifierModelProvider as
+        | string
+        | undefined,
+      classifierModelName: argv.classifierModelName as string | undefined,
+      classifierModelRegion: argv.classifierModelRegion as string | undefined,
+      classifierPool: argv.classifierPool as string | undefined,
+      classifierTimeout: argv.classifierTimeout as number | undefined,
     };
   }
 
@@ -3068,6 +3120,14 @@ export class CLICommandFactory {
         globalSession.setToolRoutingConfig(toolRoutingConfig);
       }
 
+      // Inject classifier-router config into the SDK instance before constructing it.
+      const classifierRouterConfig = buildClassifierRouterConfigFromCli(
+        options as Record<string, unknown>,
+      );
+      if (classifierRouterConfig) {
+        globalSession.setClassifierRouterConfig(classifierRouterConfig);
+      }
+
       // Initialize SDK and session
       const sdk = globalSession.getOrCreateNeuroLink();
       const sessionVariables = CLICommandFactory.normalizeLoopSessionVariables(
@@ -3387,6 +3447,14 @@ export class CLICommandFactory {
     );
     if (toolRoutingConfig) {
       globalSession.setToolRoutingConfig(toolRoutingConfig);
+    }
+
+    // Inject classifier-router config into the SDK instance before constructing it.
+    const classifierRouterConfig = buildClassifierRouterConfigFromCli(
+      options as Record<string, unknown>,
+    );
+    if (classifierRouterConfig) {
+      globalSession.setClassifierRouterConfig(classifierRouterConfig);
     }
 
     const sdk = globalSession.getOrCreateNeuroLink();
@@ -4036,6 +4104,14 @@ export class CLICommandFactory {
       );
       if (toolRoutingConfig) {
         globalSession.setToolRoutingConfig(toolRoutingConfig);
+      }
+
+      // Inject classifier-router config into the SDK instance before constructing it.
+      const classifierRouterConfig = buildClassifierRouterConfigFromCli(
+        options as Record<string, unknown>,
+      );
+      if (classifierRouterConfig) {
+        globalSession.setClassifierRouterConfig(classifierRouterConfig);
       }
 
       const sdk = globalSession.getOrCreateNeuroLink();

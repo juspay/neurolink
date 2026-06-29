@@ -256,6 +256,7 @@ import { isNonNullObject } from "./utils/typeUtils.js";
 import { getWorkflow } from "./workflow/core/workflowRegistry.js";
 import { runWorkflow } from "./workflow/core/workflowRunner.js";
 import { ModelPool, classifyProviderError } from "./routing/index.js";
+import { ClassifierRouter } from "./routing/classifierRouter.js";
 import {
   looksLikeModelAccessDenied as sharedLooksLikeModelAccessDenied,
   isNonRetryableProviderError as sharedIsNonRetryableProviderError,
@@ -652,6 +653,10 @@ export class NeuroLink {
   // RequestRouter: pluggable pre-call provider/model selector.
   // Stored directly from config.requestRouter; null when not configured.
   private readonly requestRouter: RequestRouter | null;
+
+  // ClassifierRouter: opt-in "classify → pick model + tools" pre-call router.
+  // Built from config.classifierRouter; null when not configured.
+  private readonly classifierRouter: ClassifierRouter | null;
 
   /**
    * Merge instance-level credentials with per-call credentials.
@@ -1157,6 +1162,21 @@ export class NeuroLink {
 
     // RequestRouter: store the host-supplied function; null when not configured.
     this.requestRouter = config?.requestRouter ?? null;
+
+    // ClassifierRouter: opt-in. The LLM strategy reuses this instance's
+    // generate() (marked so it never recursively re-routes). Fails open.
+    this.classifierRouter = config?.classifierRouter?.enabled
+      ? new ClassifierRouter(config.classifierRouter, {
+          generate: (genOptions) =>
+            this.generate(genOptions as unknown as GenerateOptions),
+          logger: {
+            debug: (message, meta) =>
+              logger.debug(message, meta as Record<string, unknown>),
+            warn: (message, meta) =>
+              logger.warn(message, meta as Record<string, unknown>),
+          },
+        })
+      : null;
 
     logger.setEventEmitter(this.emitter);
 
@@ -4189,6 +4209,20 @@ Current user's request: ${currentInput}`;
   ): Promise<GenerateResult> {
     const startTime = Date.now();
 
+    // Pre-call classifier router: opt-in. Classifies the request and selects a
+    // provider/model from the configured base pool (and optionally narrows the
+    // tool set) BEFORE orchestration/requestRouter, so it takes precedence.
+    // Fails open.
+    await this.applyClassifierRouting(
+      options,
+      options.input?.text ?? originalPrompt ?? "",
+      !options.disableTools &&
+        (!!(options.tools && Object.keys(options.tools).length > 0) ||
+          this.getCustomTools().size > 0),
+      !!(options.input?.images && options.input.images.length > 0),
+      options.thinkingConfig?.thinkingLevel,
+    );
+
     await this.maybeApplyGenerateOrchestration(options);
 
     // Pre-call request router: opt-in, only when the caller did not set both
@@ -4365,6 +4399,14 @@ Current user's request: ${currentInput}`;
     if (!this.requestRouter) {
       return;
     }
+    // Stand down if the classifier router already selected a provider/model on
+    // this turn — one explicit precedence order: classifierRouter wins.
+    if (
+      (options as { context?: Record<string, unknown> }).context
+        ?.__classifierRouted
+    ) {
+      return;
+    }
     // Skip if the caller explicitly set both provider AND model — they know
     // what they want; the router should not override an intentional choice.
     if (options.provider && options.model) {
@@ -4431,6 +4473,128 @@ Current user's request: ${currentInput}`;
       logger.warn("[NeuroLink] requestRouter threw — proceeding unrouted", {
         error:
           routerErr instanceof Error ? routerErr.message : String(routerErr),
+      });
+    }
+  }
+
+  /**
+   * Applies the host-configured `classifierRouter` to `options` in place.
+   *
+   * Classifies the request by difficulty and selects a provider/model from the
+   * configured base pool (cheaper/faster for easy tasks, more capable for hard
+   * ones), and optionally narrows the tool set via `toolFilter`/`excludeTools`.
+   *
+   * Skipped when: no router is configured; the inbound call is the classifier's
+   * own generate() (marked `__classifierRouted`); the caller pinned BOTH
+   * provider and model; or a ModelPool is configured (the pool owns selection).
+   * Fails open — any error leaves options unchanged.
+   */
+  private async applyClassifierRouting(
+    options: { provider?: string; model?: string; region?: string },
+    promptText: string,
+    hasTools: boolean,
+    requiresVision: boolean,
+    thinkingLevel?: string,
+  ): Promise<void> {
+    if (!this.classifierRouter) {
+      return;
+    }
+    const opt = options as {
+      provider?: string;
+      model?: string;
+      region?: string;
+      context?: Record<string, unknown>;
+      disableTools?: boolean;
+      excludeTools?: string[];
+      toolFilter?: string[];
+    };
+    // Prevent recursion: the LLM classifier itself calls generate() with this
+    // marker set. Also respect any explicit prior routing decision.
+    if (opt.context?.__classifierRouted) {
+      return;
+    }
+    // Honor an intentional caller choice of BOTH provider and model.
+    if (options.provider && options.model) {
+      return;
+    }
+    // A ModelPool overrides provider/model per member unconditionally; let it
+    // own selection (mirrors applyRequestRouter precedence).
+    if (this.modelPool) {
+      logger.debug(
+        "[NeuroLink] applyClassifierRouting: skipped — modelPool takes precedence",
+      );
+      return;
+    }
+
+    const sessionId =
+      typeof opt.context?.sessionId === "string"
+        ? opt.context.sessionId
+        : undefined;
+
+    try {
+      const decision = await this.classifierRouter.route({
+        prompt: promptText,
+        estimatedInputTokens: Math.ceil((promptText?.length ?? 0) / 4),
+        hasTools,
+        requiresVision,
+        thinkingLevel,
+        sessionId,
+      });
+      if (!decision) {
+        return;
+      }
+
+      // Apply provider/model/region as a coherent set (same discipline as
+      // applyRequestRouter): only fill fields the caller did not pin.
+      if (decision.provider && !options.provider) {
+        options.provider = decision.provider;
+        if (decision.model && !options.model) {
+          options.model = decision.model;
+        }
+        if (decision.region && !options.region) {
+          options.region = decision.region;
+        }
+      } else if (!decision.provider && decision.model && !options.model) {
+        options.model = decision.model;
+      }
+
+      // Narrow tools unless the caller disabled tools entirely.
+      if (!opt.disableTools) {
+        if (decision.excludeTools && decision.excludeTools.length > 0) {
+          opt.excludeTools = Array.from(
+            new Set([...(opt.excludeTools ?? []), ...decision.excludeTools]),
+          );
+        }
+        if (decision.toolFilter && decision.toolFilter.length > 0) {
+          const allow = decision.toolFilter;
+          opt.toolFilter =
+            opt.toolFilter && opt.toolFilter.length > 0
+              ? opt.toolFilter.filter((t) => allow.includes(t))
+              : [...allow];
+        }
+      }
+
+      // Mark routed so orchestration/requestRouter stand down this turn.
+      if (decision.provider || decision.model) {
+        const ctx = opt.context ?? {};
+        ctx.__classifierRouted = true;
+        opt.context = ctx;
+      }
+
+      if (decision.reason) {
+        logger.debug("[NeuroLink] classifierRouter decision", {
+          reason: decision.reason,
+          difficulty: decision.difficulty,
+          provider: options.provider,
+          model: options.model,
+        });
+      }
+    } catch (classifierErr) {
+      logger.warn("[NeuroLink] classifierRouter threw — proceeding unrouted", {
+        error:
+          classifierErr instanceof Error
+            ? classifierErr.message
+            : String(classifierErr),
       });
     }
   }
@@ -7925,6 +8089,19 @@ Current user's request: ${currentInput}`;
         this.setLangfuseContextFromOptions(options, () =>
           this.applyToolRoutingExclusions(options, originalPrompt),
         ),
+      );
+
+      // Pre-call classifier router for stream: opt-in, fails open. Runs before
+      // the request router so it takes precedence.
+      await this.applyClassifierRouting(
+        options,
+        originalPrompt,
+        !options.disableTools &&
+          (!!(options.tools && Object.keys(options.tools).length > 0) ||
+            this.getCustomTools().size > 0),
+        !!(options.input?.images && options.input.images.length > 0),
+        (options as StreamOptions & { thinking?: { thinkingLevel?: string } })
+          .thinking?.thinkingLevel,
       );
 
       // Pre-call request router for stream: opt-in, fails open.

@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import { NeuroLink } from "../neurolink.js";
 import type {
+  ClassifierRouterConfig,
   ConversationMemoryConfig,
   LoopSessionState,
   McpOutputStrategy,
@@ -51,6 +52,9 @@ export class GlobalSessionManager {
   private loopSession: LoopSessionState | null = null;
   /** Optional tool-routing config set by CLI handlers before SDK construction. */
   private _toolRoutingConfig: ToolRoutingConfig | undefined = undefined;
+  /** Optional classifier-router config set by CLI handlers before SDK construction. */
+  private _classifierRouterConfig: ClassifierRouterConfig | undefined =
+    undefined;
 
   static getInstance(): GlobalSessionManager {
     if (!GlobalSessionManager.instance) {
@@ -187,6 +191,19 @@ export class GlobalSessionManager {
     this._toolRoutingConfig = config;
   }
 
+  /**
+   * Store a classifier-router config to be injected at SDK construction time.
+   * Call this BEFORE `getOrCreateNeuroLink()` inside a command handler.
+   * When a loop session is already active the config is ignored (the instance
+   * already exists).
+   */
+  setClassifierRouterConfig(config: ClassifierRouterConfig): void {
+    if (this.hasActiveSession()) {
+      return;
+    }
+    this._classifierRouterConfig = config;
+  }
+
   getOrCreateNeuroLink(): NeuroLink {
     const session = this.getLoopSession();
     if (session) {
@@ -207,6 +224,10 @@ export class GlobalSessionManager {
     if (this._toolRoutingConfig) {
       options.toolRouting = this._toolRoutingConfig;
       this._toolRoutingConfig = undefined;
+    }
+    if (this._classifierRouterConfig) {
+      options.classifierRouter = this._classifierRouterConfig;
+      this._classifierRouterConfig = undefined;
     }
 
     return new NeuroLink(Object.keys(options).length ? options : undefined);
