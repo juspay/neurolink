@@ -27,6 +27,10 @@ import {
   createTextChannel,
   prependConversationMessages,
 } from "../src/lib/providers/googleNativeGemini3.js";
+import {
+  buildAnthropicHistoryMessages,
+  appendUserMessage,
+} from "../src/lib/providers/googleVertex.js";
 
 // ============================================================================
 // Test plumbing (matches sibling continuous-test-suite-* style)
@@ -442,6 +446,290 @@ const tests: TestFunction[] = [
         { role: "user", content: "" },
       ]);
       return contents.length === 1 && contents[0].role === "model";
+    },
+  },
+  {
+    name: "buildAnthropicHistoryMessages: maps user/assistant text turns",
+    fn: async () => {
+      const messages = buildAnthropicHistoryMessages([
+        { role: "user", content: "hi" },
+        { role: "assistant", content: "hello" },
+      ]);
+      if (messages.length !== 2) {
+        return false;
+      }
+      const first = messages[0].content;
+      return (
+        messages[0].role === "user" &&
+        messages[1].role === "assistant" &&
+        Array.isArray(first) &&
+        first[0].type === "text" &&
+        first[0].text === "hi"
+      );
+    },
+  },
+  {
+    name: "buildAnthropicHistoryMessages: tool_call/tool_result replay as a paired tool_use/tool_result with the assistant text coalesced",
+    fn: async () => {
+      const messages = buildAnthropicHistoryMessages([
+        { role: "user", content: "weather?" },
+        { role: "assistant", content: "let me check" },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "get_weather",
+          args: { city: "NYC" },
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_result",
+          content: "72F",
+          tool: "get_weather",
+          metadata: { stepIndex: 0 },
+        },
+        { role: "assistant", content: "It's 72F" },
+      ]);
+      // user / assistant(text+tool_use) / user(tool_result) / assistant(text)
+      if (messages.length !== 4) {
+        return false;
+      }
+      const assistantTurn = messages[1].content;
+      const resultTurn = messages[2].content;
+      if (!Array.isArray(assistantTurn) || !Array.isArray(resultTurn)) {
+        return false;
+      }
+      const toolUse = assistantTurn.find((b) => b.type === "tool_use");
+      const toolResult = resultTurn.find((b) => b.type === "tool_result");
+      if (
+        !toolUse ||
+        toolUse.type !== "tool_use" ||
+        !toolResult ||
+        toolResult.type !== "tool_result"
+      ) {
+        return false;
+      }
+      return (
+        messages[1].role === "assistant" &&
+        assistantTurn[0].type === "text" &&
+        assistantTurn[0].text === "let me check" &&
+        toolUse.name === "get_weather" &&
+        messages[2].role === "user" &&
+        toolResult.content === "72F" &&
+        // ids must pair so Anthropic doesn't 400 on an orphaned reference
+        toolUse.id === toolResult.tool_use_id
+      );
+    },
+  },
+  {
+    name: "buildAnthropicHistoryMessages: parallel calls in one step pair by position",
+    fn: async () => {
+      const messages = buildAnthropicHistoryMessages([
+        { role: "user", content: "two things" },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "a",
+          args: {},
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "b",
+          args: {},
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_result",
+          content: "ra",
+          tool: "a",
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_result",
+          content: "rb",
+          tool: "b",
+          metadata: { stepIndex: 0 },
+        },
+      ]);
+      // user / assistant(2 tool_use) / user(2 tool_result)
+      if (messages.length !== 3) {
+        return false;
+      }
+      const uses = messages[1].content;
+      const results = messages[2].content;
+      if (!Array.isArray(uses) || !Array.isArray(results)) {
+        return false;
+      }
+      const useBlocks = uses.filter((b) => b.type === "tool_use");
+      const resultBlocks = results.filter((b) => b.type === "tool_result");
+      if (useBlocks.length !== 2 || resultBlocks.length !== 2) {
+        return false;
+      }
+      // Assert per-index correspondence: result[i] pairs with use[i] by id, and
+      // its content lines up with the call at the same position. A swap of the
+      // two tool_use_id values (or contents) must fail this.
+      const expected = [
+        { name: "a", content: "ra" },
+        { name: "b", content: "rb" },
+      ];
+      for (let i = 0; i < 2; i++) {
+        const use = useBlocks[i];
+        const result = resultBlocks[i];
+        if (use.type !== "tool_use" || result.type !== "tool_result") {
+          return false;
+        }
+        if (
+          use.name !== expected[i].name ||
+          result.content !== expected[i].content ||
+          use.id !== result.tool_use_id
+        ) {
+          return false;
+        }
+      }
+      return true;
+    },
+  },
+  {
+    name: "buildAnthropicHistoryMessages: orphan tool_call without a result is dropped (no unpaired tool_use)",
+    fn: async () => {
+      const messages = buildAnthropicHistoryMessages([
+        { role: "user", content: "go" },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "stuck",
+          args: {},
+          metadata: { stepIndex: 0 },
+        },
+      ]);
+      // only the user turn survives — an unpaired tool_use would 400 on Anthropic
+      const hasToolUse = messages.some(
+        (m) =>
+          Array.isArray(m.content) &&
+          m.content.some((b) => b.type === "tool_use"),
+      );
+      return messages.length === 1 && !hasToolUse;
+    },
+  },
+  {
+    name: "buildAnthropicHistoryMessages: history starting on a tool step never replays a leading assistant turn",
+    fn: async () => {
+      // Truncated history that begins with a tool step (no leading user turn).
+      // The replayed sequence would otherwise start with an assistant tool_use,
+      // which Anthropic rejects (first message must be user).
+      const messages = buildAnthropicHistoryMessages([
+        {
+          role: "tool_call",
+          content: "",
+          tool: "a",
+          args: {},
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_result",
+          content: "ra",
+          tool: "a",
+          metadata: { stepIndex: 0 },
+        },
+        { role: "assistant", content: "answer" },
+        { role: "user", content: "next" },
+      ]);
+      // The leading assistant tool_use and its now-orphaned tool_result turn are
+      // dropped; the first surviving message must be a user turn.
+      return messages.length > 0 && messages[0].role === "user";
+    },
+  },
+  {
+    name: "appendUserMessage: merges into a trailing user turn (no back-to-back user messages)",
+    fn: async () => {
+      const messages = [
+        { role: "user" as const, content: "first" },
+        { role: "assistant" as const, content: "reply" },
+        {
+          role: "user" as const,
+          content: [
+            { type: "tool_result" as const, tool_use_id: "x", content: "r" },
+          ],
+        },
+      ];
+      appendUserMessage(messages, "follow up");
+      // still 3 messages — the live turn merged into the trailing user turn
+      if (messages.length !== 3) {
+        return false;
+      }
+      const lastContent = messages[2].content;
+      return (
+        messages[2].role === "user" &&
+        Array.isArray(lastContent) &&
+        lastContent.length === 2 &&
+        lastContent[0].type === "tool_result" &&
+        lastContent[1].type === "text" &&
+        lastContent[1].text === "follow up"
+      );
+    },
+  },
+  {
+    name: "appendUserMessage: pushes a new user turn when history ends on assistant",
+    fn: async () => {
+      const messages = [
+        { role: "user" as const, content: "hi" },
+        { role: "assistant" as const, content: "done" },
+      ];
+      appendUserMessage(messages, "next");
+      return (
+        messages.length === 3 &&
+        messages[2].role === "user" &&
+        messages[2].content === "next"
+      );
+    },
+  },
+  {
+    name: "buildAnthropicHistoryMessages + appendUserMessage: history ending on tool_result never yields back-to-back user turns",
+    fn: async () => {
+      // Final assistant text is empty → skipped, so history ends on the
+      // tool_result (user) turn. Appending the live input must not duplicate it.
+      const messages = buildAnthropicHistoryMessages([
+        { role: "user", content: "weather?" },
+        {
+          role: "tool_call",
+          content: "",
+          tool: "get_weather",
+          args: {},
+          metadata: { stepIndex: 0 },
+        },
+        {
+          role: "tool_result",
+          content: "72F",
+          tool: "get_weather",
+          metadata: { stepIndex: 0 },
+        },
+      ]);
+      appendUserMessage(messages, "and tomorrow?");
+      // no two consecutive user messages anywhere
+      let prevRole = "";
+      for (const m of messages) {
+        if (m.role === "user" && prevRole === "user") {
+          return false;
+        }
+        prevRole = m.role;
+      }
+      const last = messages[messages.length - 1];
+      // Pair against the emitted tool_use id, not its synthetic format.
+      const toolUseId = messages
+        .flatMap((m) => (Array.isArray(m.content) ? m.content : []))
+        .find((b) => b.type === "tool_use")?.id;
+      return (
+        last.role === "user" &&
+        Array.isArray(last.content) &&
+        typeof toolUseId === "string" &&
+        last.content.some(
+          (b) => b.type === "tool_result" && b.tool_use_id === toolUseId,
+        ) &&
+        last.content.some(
+          (b) => b.type === "text" && b.text === "and tomorrow?",
+        )
+      );
     },
   },
   {

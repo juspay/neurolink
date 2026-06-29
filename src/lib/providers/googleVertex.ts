@@ -38,6 +38,10 @@ import type {
   VertexAnthropicMessage,
   VertexAnthropicTool,
   VertexAnthropicContentBlock,
+  VertexToolStep,
+  VertexSegment,
+  ChatMessage,
+  MinimalChatMessage,
 } from "../types/index.js";
 import {
   AuthenticationError,
@@ -120,6 +124,183 @@ const hasAnthropicSupport = (): boolean => {
   // Actual availability is checked at runtime when creating the client
   return true;
 };
+
+// Parse stored rows into ordered segments, grouping tool_call/tool_result by (turn, step).
+function collectHistorySegments(
+  conversationMessages: Array<ChatMessage | MinimalChatMessage>,
+): VertexSegment[] {
+  const segments: VertexSegment[] = [];
+  const stepMap = new Map<string, VertexToolStep>();
+  let turnCounter = 0;
+
+  const getStep = (stepIndex: number | undefined): VertexToolStep => {
+    const key = `${turnCounter}:${stepIndex ?? "x"}`;
+    let step = stepMap.get(key);
+    if (!step) {
+      step = { type: "tool_step", callParts: [], resultParts: [] };
+      stepMap.set(key, step);
+      segments.push(step);
+    }
+    return step;
+  };
+
+  for (const msg of conversationMessages) {
+    if (msg.role === "tool_call") {
+      getStep(msg.metadata?.stepIndex).callParts.push({
+        name: msg.tool || "unknown",
+        input: msg.args || {},
+      });
+      continue;
+    }
+    if (msg.role === "tool_result") {
+      getStep(msg.metadata?.stepIndex).resultParts.push(
+        msg.content && msg.content.length > 0 ? msg.content : "(no output)",
+      );
+      continue;
+    }
+    const role =
+      msg.role === "assistant"
+        ? "assistant"
+        : msg.role === "user"
+          ? "user"
+          : null;
+    if (!role || !msg.content || msg.content.trim().length === 0) {
+      continue;
+    }
+    // New turn → fresh step namespace for any following tool rows.
+    turnCounter++;
+    segments.push({ type: "regular", role, parts: [msg.content] });
+  }
+  return segments;
+}
+
+// Append blocks to the trailing turn if it shares the role, else start a new turn.
+function pushTurn(
+  messages: VertexAnthropicMessage[],
+  role: "user" | "assistant",
+  blocks: VertexAnthropicContentBlock[],
+): void {
+  const last = messages[messages.length - 1];
+  if (last && last.role === role && Array.isArray(last.content)) {
+    last.content.push(...blocks);
+  } else {
+    messages.push({ role, content: [...blocks] });
+  }
+}
+
+// Pair a tool step's calls/results by position; unbalanced extras are dropped
+// because Anthropic 400s on an orphaned tool_use/tool_result reference.
+function pairToolStep(
+  step: VertexToolStep,
+  ordinal: number,
+): {
+  uses: VertexAnthropicContentBlock[];
+  results: VertexAnthropicContentBlock[];
+} {
+  const calls = step.callParts as Array<{
+    name: string;
+    input: Record<string, unknown>;
+  }>;
+  const resultStrings = step.resultParts as string[];
+  const paired = Math.min(calls.length, resultStrings.length);
+  if (paired !== calls.length || paired !== resultStrings.length) {
+    logger.debug(
+      "[GoogleVertex] Unbalanced tool step in Claude history replay",
+      {
+        calls: calls.length,
+        results: resultStrings.length,
+        paired,
+      },
+    );
+  }
+  const uses: VertexAnthropicContentBlock[] = [];
+  const results: VertexAnthropicContentBlock[] = [];
+  for (let i = 0; i < paired; i++) {
+    const id = `hist_${ordinal}_${i}`;
+    uses.push({
+      type: "tool_use",
+      id,
+      name: calls[i].name,
+      input: calls[i].input,
+    });
+    results.push({
+      type: "tool_result",
+      tool_use_id: id,
+      content: resultStrings[i],
+    });
+  }
+  return { uses, results };
+}
+
+// Drop leading turns until the first is a real user turn — Anthropic requires it
+// (covers a leading assistant/tool step and an orphaned tool_result-only turn).
+function trimLeadingNonUser(messages: VertexAnthropicMessage[]): void {
+  const isToolResultOnly = (m: VertexAnthropicMessage): boolean =>
+    Array.isArray(m.content) &&
+    m.content.length > 0 &&
+    m.content.every((block) => block.type === "tool_result");
+  while (
+    messages.length > 0 &&
+    (messages[0].role !== "user" || isToolResultOnly(messages[0]))
+  ) {
+    messages.shift();
+  }
+}
+
+// Rebuild Anthropic history with paired tool_use/tool_result turns from stored rows.
+export function buildAnthropicHistoryMessages(
+  conversationMessages: Array<ChatMessage | MinimalChatMessage>,
+): VertexAnthropicMessage[] {
+  const messages: VertexAnthropicMessage[] = [];
+  let stepOrdinal = 0;
+  for (const seg of collectHistorySegments(conversationMessages)) {
+    if (seg.type === "regular") {
+      pushTurn(messages, seg.role === "assistant" ? "assistant" : "user", [
+        { type: "text", text: String(seg.parts[0] ?? "") },
+      ]);
+      continue;
+    }
+    const { uses, results } = pairToolStep(seg, stepOrdinal);
+    if (uses.length === 0) {
+      continue;
+    }
+    stepOrdinal++;
+    pushTurn(messages, "assistant", uses);
+    pushTurn(messages, "user", results);
+  }
+  trimLeadingNonUser(messages);
+
+  if (logger.shouldLog("debug")) {
+    const blocks = messages.flatMap((m) =>
+      Array.isArray(m.content) ? m.content : [],
+    );
+    logger.debug("[GoogleVertex] Replayed Claude history with tool turns", {
+      historyMessages: messages.length,
+      toolUseBlocks: blocks.filter((b) => b.type === "tool_use").length,
+      toolResultBlocks: blocks.filter((b) => b.type === "tool_result").length,
+    });
+  }
+  return messages;
+}
+
+// Append the live user turn, merging into a trailing user turn to avoid back-to-back user messages.
+export function appendUserMessage(
+  messages: VertexAnthropicMessage[],
+  content: VertexAnthropicMessage["content"],
+): void {
+  const last = messages[messages.length - 1];
+  if (last && last.role === "user") {
+    const head = Array.isArray(last.content)
+      ? last.content
+      : [{ type: "text" as const, text: last.content }];
+    const tail = Array.isArray(content)
+      ? content
+      : [{ type: "text" as const, text: content }];
+    last.content = [...head, ...tail];
+    return;
+  }
+  messages.push({ role: "user", content });
+}
 
 /**
  * Recursively strip JSON-schema fields that Vertex Gemini's function-call AND
@@ -3069,20 +3250,19 @@ export class GoogleVertexProvider extends BaseProvider {
     // Build messages from input
     const messages: VertexAnthropicMessage[] = [];
 
-    // Add conversation history if present.
-    //
-    // Intentionally text-only. Anthropic's API rejects messages where a
-    // tool_use_id reference appears without its matching tool_use in the
-    // same turn — so synthesising tool_use / tool_result blocks from
-    // stored ChatMessages risks emitting orphaned references that fail
-    // validation. Tool rows are still persisted to Redis (chat-history
-    // UI renders them) but they don't re-enter the model's context on
-    // subsequent turns.
+    // Replay conversationMessages (with tool turns), else the legacy text-only conversationHistory.
     if (
       options.conversationMessages &&
       options.conversationMessages.length > 0
     ) {
-      for (const msg of options.conversationMessages) {
+      messages.push(
+        ...buildAnthropicHistoryMessages(options.conversationMessages),
+      );
+    } else if (
+      options.conversationHistory &&
+      options.conversationHistory.length > 0
+    ) {
+      for (const msg of options.conversationHistory) {
         if (msg.role === "user" || msg.role === "assistant") {
           messages.push({
             role: msg.role,
@@ -3243,14 +3423,13 @@ export class GoogleVertexProvider extends BaseProvider {
       text: multimodalInput.text,
     });
 
-    // Add the user message with appropriate content format
-    messages.push({
-      role: "user",
-      content:
-        userContentParts.length === 1 && userContentParts[0].type === "text"
-          ? multimodalInput.text
-          : userContentParts,
-    });
+    // Append the live user turn (merges into a trailing user turn if present).
+    appendUserMessage(
+      messages,
+      userContentParts.length === 1 && userContentParts[0].type === "text"
+        ? multimodalInput.text
+        : userContentParts,
+    );
 
     // Convert tools to Anthropic format if present
     let tools: VertexAnthropicTool[] | undefined;
@@ -4068,21 +4247,19 @@ export class GoogleVertexProvider extends BaseProvider {
     const inputText =
       options.prompt || options.input?.text || "Please respond.";
 
-    // Add conversation history if present. Prefer `conversationMessages`
-    // (what NeuroLink core injects today via MessageBuilder) and fall back
-    // to the legacy `conversationHistory` field for callers that still use
-    // the older surface. The Vertex Claude STREAM path already follows this
-    // priority — keeping the GENERATE path on `conversationHistory` only
-    // would silently drop multi-turn context for memory/loop sessions.
-    // Intentionally text-only: see the stream sibling for the rationale —
-    // synthesising tool_use / tool_result blocks from stored ChatMessages
-    // risks emitting orphaned references that Anthropic's API rejects.
-    const historyMessages =
-      options.conversationMessages && options.conversationMessages.length > 0
-        ? options.conversationMessages
-        : options.conversationHistory;
-    if (historyMessages && historyMessages.length > 0) {
-      for (const msg of historyMessages) {
+    // Replay conversationMessages (with tool turns), else the legacy text-only conversationHistory.
+    if (
+      options.conversationMessages &&
+      options.conversationMessages.length > 0
+    ) {
+      messages.push(
+        ...buildAnthropicHistoryMessages(options.conversationMessages),
+      );
+    } else if (
+      options.conversationHistory &&
+      options.conversationHistory.length > 0
+    ) {
+      for (const msg of options.conversationHistory) {
         if (msg.role === "user" || msg.role === "assistant") {
           messages.push({
             role: msg.role,
@@ -4245,14 +4422,13 @@ export class GoogleVertexProvider extends BaseProvider {
       text: inputText,
     });
 
-    // Add the user message with appropriate content format
-    messages.push({
-      role: "user",
-      content:
-        userContentParts.length === 1 && userContentParts[0].type === "text"
-          ? inputText
-          : userContentParts,
-    });
+    // Append the live user turn (merges into a trailing user turn if present).
+    appendUserMessage(
+      messages,
+      userContentParts.length === 1 && userContentParts[0].type === "text"
+        ? inputText
+        : userContentParts,
+    );
 
     // Convert tools to Anthropic format if present
     let tools: VertexAnthropicTool[] | undefined;
