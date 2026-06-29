@@ -342,7 +342,7 @@ npx @juspay/neurolink generate "Complex analysis" --provider litellm --model "an
 npx @juspay/neurolink generate "Write code" # Automatically chooses optimal provider
 ```
 
-**Learn more:** [Provider Orchestration Guide](provider-orchestration.md)
+**Learn more:** [Provider Orchestration Guide](provider-orchestration.md) · [Classifier Router](/docs/features/classifier-router) — classify each request and route it to a cheaper or more capable model (and tool set) from a pool you define.
 
 ---
 

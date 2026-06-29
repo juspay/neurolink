@@ -59,7 +59,8 @@ export type BaseCommandArgs = {
  * Generate command arguments
  */
 export type GenerateCommandArgs = BaseCommandArgs &
-  CliToolRoutingFlags & {
+  CliToolRoutingFlags &
+  CliClassifierRouterFlags & {
     /** Input text or prompt */
     input?: string;
     /** AI provider to use */
@@ -128,7 +129,8 @@ export type GenerateCommandArgs = BaseCommandArgs &
  * Stream command arguments
  */
 export type StreamCommandArgs = BaseCommandArgs &
-  CliToolRoutingFlags & {
+  CliToolRoutingFlags &
+  CliClassifierRouterFlags & {
     /** Input text or prompt */
     input?: string;
     /** AI provider to use */
@@ -157,7 +159,8 @@ export type StreamCommandArgs = BaseCommandArgs &
  * Batch command arguments
  */
 export type BatchCommandArgs = BaseCommandArgs &
-  CliToolRoutingFlags & {
+  CliToolRoutingFlags &
+  CliClassifierRouterFlags & {
     /** Input file path */
     file?: string;
     /** AI provider to use */
@@ -1841,4 +1844,29 @@ export type CliToolRoutingFlags = {
    * (--tool-routing-servers).
    */
   toolRoutingServers?: string;
+};
+
+/**
+ * CLI flags for the classifier router (`--classifier-*`). Builds a
+ * ClassifierRouterConfig that is injected at SDK construction time.
+ */
+export type CliClassifierRouterFlags = {
+  /** Master enable switch (--classifier-router). */
+  classifierRouter?: boolean;
+  /** Strategy: "heuristic" (default) or "llm" (--classifier-strategy). */
+  classifierStrategy?: string;
+  /** LLM-classifier provider override (--classifier-model-provider). */
+  classifierModelProvider?: string;
+  /** LLM-classifier model override (--classifier-model-name). */
+  classifierModelName?: string;
+  /** LLM-classifier region override (--classifier-model-region). */
+  classifierModelRegion?: string;
+  /**
+   * Path to a JSON file OR inline JSON array of pool members
+   * (--classifier-pool). Each entry: { provider, model?, region?, description?,
+   * tiers?, cost?, quality?, capabilities?, id? }.
+   */
+  classifierPool?: string;
+  /** LLM-classifier hard timeout in ms (--classifier-timeout). */
+  classifierTimeout?: number;
 };

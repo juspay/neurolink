@@ -132,6 +132,7 @@
     "// CI tier — fast, no live AI calls, safe for every commit": "",
     "test:unit:vitest": "pnpm exec vitest run test/toolRouting.test.ts",
     "test:tool-routing": "pnpm run test:unit:vitest && npx tsx test/continuous-test-suite-tool-routing.ts",
+    "test:classifier-router": "npx tsx test/continuous-test-suite-classifier-router.ts",
     "test:tool-routing-semantic:vitest": "pnpm exec vitest run test/toolRoutingSemantic.test.ts",
     "test:tool-routing-semantic": "pnpm run test:tool-routing-semantic:vitest && npx tsx test/continuous-test-suite-tool-routing-semantic.ts",
     "test:unit": "pnpm run test:envguard && pnpm run test:bugfixes && pnpm run test:mcp:infra && pnpm run test:mcp:bash && pnpm run test:mcp:limits && pnpm run test:mcp:spans && pnpm run test:autoresearch:redis && pnpm run test:unit:vitest && pnpm run test:tool-routing-cli:vitest && pnpm run test:tool-dedup:vitest && pnpm run test:model-pool:vitest && pnpm run test:tool-routing-semantic:vitest && pnpm run test:anthropic-tools-policy && pnpm run test:anthropic-multimodal && pnpm run test:excel-interop",

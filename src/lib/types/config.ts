@@ -27,6 +27,7 @@ import type {
 import type { NeurolinkCredentials } from "./providers.js";
 import type { ModelPoolConfig } from "./modelPool.js";
 import type { RequestRouter } from "./requestRouter.js";
+import type { ClassifierRouterConfig } from "./classifierRouter.js";
 
 /**
  * Main NeuroLink configuration type
@@ -123,6 +124,15 @@ export type NeurolinkConstructorConfig = {
    * error proceeds unrouted.
    */
   requestRouter?: RequestRouter;
+  /**
+   * Pre-call classifier router: classifies each request by difficulty and
+   * selects a provider/model from a configured "available base" pool — routing
+   * harder tasks to more capable models and easier tasks to cheaper/faster
+   * ones — and optionally narrows the tool set. Opt-in (`enabled: false` by
+   * default) and fails open. Skipped when a `modelPool` is configured or the
+   * caller pinned both `provider` and `model`. See {@link ClassifierRouterConfig}.
+   */
+  classifierRouter?: ClassifierRouterConfig;
 };
 
 /**

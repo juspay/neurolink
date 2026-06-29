@@ -89,3 +89,6 @@ export * from "./modelPool.js";
 
 // RequestRouter — pluggable pre-call provider/model selection (M9.x+)
 export * from "./requestRouter.js";
+
+// ClassifierRouter — classify → pick model + tools from a base pool (M9.x+)
+export * from "./classifierRouter.js";

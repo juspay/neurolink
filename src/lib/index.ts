@@ -1035,6 +1035,8 @@ export {
   classifyProviderError,
   ModelPool,
   createDefaultRequestRouter,
+  ClassifierRouter,
+  classifyHeuristic,
 } from "./routing/index.js";
 
 // ============================================================================
