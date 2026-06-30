@@ -1,3 +1,9 @@
+## [9.79.3](https://github.com/juspay/neurolink/compare/v9.79.2...v9.79.3) (2026-06-30)
+
+### Bug Fixes
+
+- **(vertex):** preserve answer text and emit finishReason in native Gemini loop ([ed289b7](https://github.com/juspay/neurolink/commit/ed289b7788c6d3b842988db78f47cc208b5e6a5b))
+
 ## [9.79.2](https://github.com/juspay/neurolink/compare/v9.79.1...v9.79.2) (2026-06-27)
 
 ### Bug Fixes
