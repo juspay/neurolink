@@ -1,3 +1,9 @@
+## [9.80.1](https://github.com/juspay/neurolink/compare/v9.80.0...v9.80.1) (2026-06-30)
+
+### Bug Fixes
+
+- **(vertex):** replay tool calls/results in native Claude conversation history ([a309436](https://github.com/juspay/neurolink/commit/a309436837db1507ee93e13ba949e1885f059c03))
+
 ## [9.80.0](https://github.com/juspay/neurolink/compare/v9.79.3...v9.80.0) (2026-06-30)
 
 ### Features

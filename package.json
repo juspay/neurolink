@@ -1,6 +1,6 @@
 {
   "name": "@juspay/neurolink",
-  "version": "9.80.0",
+  "version": "9.80.1",
   "packageManager": "pnpm@10.15.1",
   "description": "Universal AI Development Platform with working MCP integration, multi-provider support, voice (TTS/STT/realtime), and professional CLI. 58+ external MCP servers discoverable, multimodal file processing, RAG pipelines. Build, test, and deploy AI applications with 21+ providers: OpenAI, Anthropic, Google AI Studio, Google Vertex, AWS Bedrock, Azure OpenAI, Mistral, LiteLLM, SageMaker, Hugging Face, Ollama, OpenAI-compatible, OpenRouter, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, plus voice (OpenAI TTS, ElevenLabs, Deepgram, Azure Speech).",
   "author": {
