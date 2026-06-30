@@ -72,8 +72,10 @@ import { createNativeThinkingConfig } from "../utils/thinkingConfig.js";
 import { TimeoutError, withTimeout } from "../utils/async/index.js";
 import { parseTimeout } from "../utils/timeout.js";
 import {
+  appendStepText,
   createTextChannel,
   extractThoughtSignature,
+  mapGeminiFinishReason,
   prependConversationMessages,
 } from "./googleNativeGemini3.js";
 import {
@@ -1082,7 +1084,13 @@ export class GoogleVertexProvider extends BaseProvider {
             result,
             streamStartTime,
           );
-          this.emitStreamEnd(modelName, streamStartTime, true);
+          this.emitStreamEnd(
+            modelName,
+            streamStartTime,
+            true,
+            undefined,
+            result.finishReason,
+          );
           return wrappedResult;
         } catch (error) {
           this.fireGenerateOnError(options, error, streamStartTime);
@@ -1105,6 +1113,7 @@ export class GoogleVertexProvider extends BaseProvider {
     startTime: number,
     success: boolean,
     error?: unknown,
+    resolvedFinishReason?: string,
   ): void {
     const emitter = this.neurolink?.getEventEmitter();
     if (!emitter) {
@@ -1119,7 +1128,7 @@ export class GoogleVertexProvider extends BaseProvider {
         usage: { input: 0, output: 0, total: 0 },
         model: modelName,
         provider: this.providerName,
-        finishReason: success ? "stop" : "error",
+        finishReason: success ? (resolvedFinishReason ?? "stop") : "error",
       },
       success,
       ...(error
@@ -1552,7 +1561,10 @@ export class GoogleVertexProvider extends BaseProvider {
         : Math.min(DEFAULT_MAX_STEPS, 100);
     const currentContents = [...contents];
     let finalText = "";
-    let lastStepText = ""; // Track text from last step for maxSteps termination
+    // Last SDK finish reason seen across steps (Bug 2: previously never read,
+    // so callers fell back to "unknown"). Last non-empty value wins — the
+    // terminal chunk is authoritative.
+    let lastFinishReason: string | undefined;
     const allToolCalls: Array<{
       toolName: string;
       args: Record<string, unknown>;
@@ -1617,6 +1629,12 @@ export class GoogleVertexProvider extends BaseProvider {
             | Array<Record<string, unknown>>
             | undefined;
           const firstCandidate = candidates?.[0];
+          // Capture the SDK finish reason (Bug 2: previously dropped). Last
+          // non-empty value across chunks wins.
+          const chunkFinishReason = firstCandidate?.finishReason;
+          if (typeof chunkFinishReason === "string" && chunkFinishReason) {
+            lastFinishReason = chunkFinishReason;
+          }
           const chunkContent = firstCandidate?.content as
             | Record<string, unknown>
             | undefined;
@@ -1699,9 +1717,6 @@ export class GoogleVertexProvider extends BaseProvider {
             break;
           }
         }
-
-        // Track the last step text for maxSteps termination
-        lastStepText = stepText;
 
         // Execute function calls
         logger.debug(
@@ -1912,16 +1927,61 @@ export class GoogleVertexProvider extends BaseProvider {
       }
     }
 
-    // Handle maxSteps termination - if we exited the loop due to maxSteps being reached
+    // Handle maxSteps termination — the loop exited because the step cap was
+    // reached while the model was still calling tools. Surface a real answer
+    // instead of the canned placeholder (Bug 1) and a meaningful finishReason
+    // (Bug 2).
+    let hitStepLimit = false;
+    let synthesizedFinalAnswer = false;
     if (step >= maxSteps && !finalText) {
-      logger.warn(
-        `[GoogleVertex] Tool call loop terminated after reaching maxSteps (${maxSteps}). ` +
-          `Model was still calling tools. Using accumulated text from last step.`,
-      );
-      finalText =
-        lastStepText ||
-        `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`;
+      hitStepLimit = true;
+      // The consumer receives text via `incrementalTextChunks`; any text the
+      // model emitted across steps is already preserved there. Only synthesize
+      // when NOTHING was produced (the pure-functionCall case that otherwise
+      // surfaces the placeholder) so we never waste a round-trip whose output
+      // the stream would ignore.
+      if (incrementalTextChunks.length === 0) {
+        logger.warn(
+          `[GoogleVertex] Tool call loop terminated after reaching maxSteps (${maxSteps}) ` +
+            `with no text; synthesizing a final answer with tools disabled.`,
+        );
+        const synth = await this.synthesizeFinalAnswerWithoutTools(
+          client,
+          modelName,
+          config,
+          currentContents,
+          useFinalResultTool,
+          parseTimeout(options.timeout) ?? 300_000,
+        );
+        if (synth.text) {
+          synthesizedFinalAnswer = true;
+          finalText = synth.text;
+          incrementalTextChunks.push(synth.text);
+          totalInputTokens += synth.inputTokens;
+          totalOutputTokens += synth.outputTokens;
+          if (synth.finishReason) {
+            lastFinishReason = synth.finishReason;
+          }
+        } else {
+          finalText = `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`;
+        }
+      } else {
+        logger.warn(
+          `[GoogleVertex] Tool call loop terminated after reaching maxSteps (${maxSteps}); ` +
+            `returning text already gathered from prior steps.`,
+        );
+      }
     }
+
+    // Unified finish reason: a step-cap exhaustion that did NOT end in a clean
+    // synthesized answer is reported as "tool-calls" (the model still wanted
+    // tools) — NOT "length", which neurolink.ts treats as token truncation
+    // (jsonTruncated + WARNING span). A clean completion maps from the SDK
+    // finish reason.
+    const resolvedFinishReason =
+      hitStepLimit && !synthesizedFinalAnswer
+        ? "tool-calls"
+        : mapGeminiFinishReason(lastFinishReason);
 
     const responseTime = Date.now() - startTime;
 
@@ -1957,6 +2017,7 @@ export class GoogleVertexProvider extends BaseProvider {
       stream: createTextStream(),
       provider: this.providerName,
       model: modelName,
+      finishReason: resolvedFinishReason,
       usage: {
         input: totalInputTokens,
         output: totalOutputTokens,
@@ -2386,7 +2447,11 @@ export class GoogleVertexProvider extends BaseProvider {
         : Math.min(DEFAULT_MAX_STEPS, 100);
     const currentContents = [...contents];
     let finalText = "";
-    let lastStepText = ""; // Track text from last step for maxSteps termination
+    // Cross-step text accumulation + last SDK finish reason, so the
+    // maxSteps-exhaustion exit can surface real gathered text (Bug 1) and a
+    // meaningful finishReason (Bug 2) instead of a placeholder / "unknown".
+    let accumulatedText = "";
+    let lastFinishReason: string | undefined;
     const allToolCalls: Array<{
       toolName: string;
       args: Record<string, unknown>;
@@ -2443,6 +2508,12 @@ export class GoogleVertexProvider extends BaseProvider {
             | Array<Record<string, unknown>>
             | undefined;
           const firstCandidate = candidates?.[0];
+          // Capture the SDK finish reason (Bug 2: previously dropped). Last
+          // non-empty value across chunks wins.
+          const chunkFinishReason = firstCandidate?.finishReason;
+          if (typeof chunkFinishReason === "string" && chunkFinishReason) {
+            lastFinishReason = chunkFinishReason;
+          }
           const chunkContent = firstCandidate?.content as
             | Record<string, unknown>
             | undefined;
@@ -2519,8 +2590,11 @@ export class GoogleVertexProvider extends BaseProvider {
           }
         }
 
-        // Track the last step text for maxSteps termination
-        lastStepText = stepText;
+        // Accumulate non-empty step text across steps so the
+        // maxSteps-exhaustion exit can surface the prose the model produced
+        // instead of a canned placeholder (Bug 1). Mirrors the Vertex-Claude
+        // loop's text accumulation.
+        accumulatedText = appendStepText(accumulatedText, stepText);
 
         // Execute function calls
         logger.debug(
@@ -2723,16 +2797,60 @@ export class GoogleVertexProvider extends BaseProvider {
       }
     }
 
-    // Handle maxSteps termination - if we exited the loop due to maxSteps being reached
+    // Handle maxSteps termination — the loop exited because the step cap was
+    // reached while the model was still calling tools. Surface a real answer
+    // instead of the canned placeholder (Bug 1) and a meaningful finishReason
+    // (Bug 2).
+    let hitStepLimit = false;
+    let synthesizedFinalAnswer = false;
     if (step >= maxSteps && !finalText) {
-      logger.warn(
-        `[GoogleVertex] Generate tool call loop terminated after reaching maxSteps (${maxSteps}). ` +
-          `Model was still calling tools. Using accumulated text from last step.`,
-      );
-      finalText =
-        lastStepText ||
-        `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`;
+      hitStepLimit = true;
+      if (accumulatedText) {
+        // Prefer the prose the model already produced across steps.
+        logger.warn(
+          `[GoogleVertex] Generate tool call loop terminated after reaching maxSteps (${maxSteps}); ` +
+            `returning text already gathered from prior steps.`,
+        );
+        finalText = accumulatedText;
+      } else {
+        // Pure functionCall turns leave no text — make one tools-disabled call
+        // so the model answers from the gathered tool results instead of the
+        // canned placeholder.
+        logger.warn(
+          `[GoogleVertex] Generate tool call loop terminated after reaching maxSteps (${maxSteps}) ` +
+            `with no text; synthesizing a final answer with tools disabled.`,
+        );
+        const synth = await this.synthesizeFinalAnswerWithoutTools(
+          client,
+          modelName,
+          config,
+          currentContents,
+          useFinalResultTool,
+          parseTimeout(options.timeout) ?? 300_000,
+        );
+        if (synth.text) {
+          synthesizedFinalAnswer = true;
+          finalText = synth.text;
+          totalInputTokens += synth.inputTokens;
+          totalOutputTokens += synth.outputTokens;
+          if (synth.finishReason) {
+            lastFinishReason = synth.finishReason;
+          }
+        } else {
+          finalText = `[Tool execution limit reached after ${maxSteps} steps. The model continued requesting tool calls beyond the limit.]`;
+        }
+      }
     }
+
+    // Unified finish reason: a step-cap exhaustion that did NOT end in a clean
+    // synthesized answer is reported as "tool-calls" (the model still wanted
+    // tools) — NOT "length", which neurolink.ts treats as token truncation
+    // (jsonTruncated + WARNING span). A clean completion maps from the SDK
+    // finish reason.
+    const resolvedFinishReason =
+      hitStepLimit && !synthesizedFinalAnswer
+        ? "tool-calls"
+        : mapGeminiFinishReason(lastFinishReason);
 
     const responseTime = Date.now() - startTime;
 
@@ -2749,6 +2867,7 @@ export class GoogleVertexProvider extends BaseProvider {
       content: finalText,
       provider: this.providerName,
       model: modelName,
+      finishReason: resolvedFinishReason,
       usage: {
         input: totalInputTokens,
         output: totalOutputTokens,
@@ -2772,6 +2891,126 @@ export class GoogleVertexProvider extends BaseProvider {
     // enableAnalytics / enableEvaluation are silently ignored on the native
     // Vertex Gemini generate path.
     return this.enhanceResult(result, options, startTime);
+  }
+
+  /**
+   * One-shot, tools-disabled model call used when a native Gemini agentic loop
+   * is force-terminated by the step cap with no text produced. Lets the model
+   * synthesize a final answer from the function results already in `contents`
+   * instead of returning a canned placeholder (Bug 1, part b).
+   *
+   * Tools are disabled by OMITTING `config.tools` — the codebase's established
+   * mechanism. `@google/genai`'s `FunctionCallingConfigMode.NONE` is documented
+   * as equivalent to passing no function declarations, and `functionCallingConfig`
+   * is not used anywhere in this codebase. When the structured-output
+   * (`final_result`) pattern was active, a trailing instruction countermands the
+   * earlier "you MUST call final_result" directive so the model answers in plain
+   * text. Never throws — returns empty text so the caller falls back to the
+   * placeholder, guaranteeing no new failure path.
+   */
+  private async synthesizeFinalAnswerWithoutTools(
+    client: GenAIClient,
+    modelName: string,
+    config: Record<string, unknown>,
+    contents: Array<{ role: string; parts: VertexNativePart[] }>,
+    useFinalResultTool: boolean,
+    timeoutMs: number,
+  ): Promise<{
+    text: string;
+    finishReason?: string;
+    inputTokens: number;
+    outputTokens: number;
+  }> {
+    try {
+      // Shallow clone so the loop's config is never mutated; dropping the
+      // top-level `tools` key is sufficient (nested thinkingConfig /
+      // systemInstruction are intentionally preserved).
+      const synthConfig: Record<string, unknown> = { ...config };
+      delete synthConfig.tools;
+      if (useFinalResultTool) {
+        const baseSystemInstruction =
+          typeof synthConfig.systemInstruction === "string"
+            ? synthConfig.systemInstruction
+            : "";
+        synthConfig.systemInstruction =
+          baseSystemInstruction +
+          "\n\nThe final_result tool is no longer available. Provide your " +
+          "final answer directly as plain text now, using the information " +
+          "gathered so far.";
+      }
+
+      // Bound the whole connect + drain with a timeout. The surrounding
+      // try/catch only catches throws, not hangs, so without this a stalled
+      // Vertex endpoint would hang the maxSteps recovery path indefinitely.
+      // On timeout withTimeout rejects (TimeoutError) and the catch below
+      // falls back to the placeholder — no new failure path is introduced.
+      return await withTimeout(
+        (async () => {
+          const stream = await client.models.generateContentStream({
+            model: modelName,
+            contents,
+            config: synthConfig,
+          });
+
+          const parts: unknown[] = [];
+          let finishReason: string | undefined;
+          let inputTokens = 0;
+          let outputTokens = 0;
+          for await (const chunk of stream) {
+            const chunkRecord = chunk as Record<string, unknown>;
+            const candidates = chunkRecord.candidates as
+              | Array<Record<string, unknown>>
+              | undefined;
+            const firstCandidate = candidates?.[0];
+            const chunkFinishReason = firstCandidate?.finishReason;
+            if (typeof chunkFinishReason === "string" && chunkFinishReason) {
+              finishReason = chunkFinishReason;
+            }
+            const chunkContent = firstCandidate?.content as
+              | Record<string, unknown>
+              | undefined;
+            if (chunkContent && Array.isArray(chunkContent.parts)) {
+              parts.push(...chunkContent.parts);
+            }
+            const usageMetadata = chunkRecord.usageMetadata as
+              | { promptTokenCount?: number; candidatesTokenCount?: number }
+              | undefined;
+            if (usageMetadata) {
+              if (
+                usageMetadata.promptTokenCount !== undefined &&
+                usageMetadata.promptTokenCount > 0
+              ) {
+                inputTokens = usageMetadata.promptTokenCount;
+              }
+              if (
+                usageMetadata.candidatesTokenCount !== undefined &&
+                usageMetadata.candidatesTokenCount > 0
+              ) {
+                outputTokens = usageMetadata.candidatesTokenCount;
+              }
+            }
+          }
+
+          const text = parts
+            .filter(
+              (part): part is { text: string } =>
+                typeof (part as Record<string, unknown>).text === "string",
+            )
+            .map((part) => part.text)
+            .join("");
+
+          return { text, finishReason, inputTokens, outputTokens };
+        })(),
+        timeoutMs,
+        "Gemini synthesis call timed out",
+      );
+    } catch (error) {
+      logger.warn(
+        "[GoogleVertex] Tools-disabled synthesis call failed; falling back to placeholder",
+        { error: error instanceof Error ? error.message : String(error) },
+      );
+      return { text: "", inputTokens: 0, outputTokens: 0 };
+    }
   }
 
   /**
@@ -4923,7 +5162,7 @@ export class GoogleVertexProvider extends BaseProvider {
             }
           : undefined,
         duration: Date.now() - startTime,
-        finishReason: "stop",
+        finishReason: result?.finishReason ?? "stop",
       });
       Promise.resolve(callbackResult).catch((err) =>
         logger.warn(
@@ -5207,7 +5446,7 @@ export class GoogleVertexProvider extends BaseProvider {
         usage,
         model: modelName,
         provider: this.providerName,
-        finishReason: success ? "stop" : "error",
+        finishReason: success ? (result?.finishReason ?? "stop") : "error",
       },
       success,
       ...(error

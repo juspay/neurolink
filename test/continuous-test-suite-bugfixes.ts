@@ -23,6 +23,11 @@ import {
   resolveVertexLocation,
 } from "../src/lib/providers/googleVertex.js";
 
+import {
+  appendStepText,
+  mapGeminiFinishReason,
+} from "../src/lib/providers/googleNativeGemini3.js";
+
 import { OpenAICompatibleProvider } from "../src/lib/providers/openaiCompatible.js";
 import { LiteLLMProvider } from "../src/lib/providers/litellm.js";
 import { ModelAccessDeniedError } from "../src/lib/types/index.js";
@@ -3151,6 +3156,208 @@ exit 127
         ).modelsCacheTime = 0;
       }
     },
+  },
+  // ---------- Gemini-on-Vertex agentic-loop bugs ----------
+  // Bug 2: native Gemini result builders never read candidates[0].finishReason,
+  // so callers saw "unknown". mapGeminiFinishReason is the pure mapper that now
+  // populates it (mirrors anthropic.ts mapAnthropicStopReason).
+  {
+    name: "mapGeminiFinishReason: maps @google/genai FinishReason enum to unified values (Bug 2)",
+    category: "gemini-finish-reason",
+    fn: async () => {
+      return (
+        mapGeminiFinishReason("STOP") === "stop" &&
+        mapGeminiFinishReason("MAX_TOKENS") === "length" &&
+        mapGeminiFinishReason("MALFORMED_FUNCTION_CALL") === "tool-calls" &&
+        mapGeminiFinishReason("UNEXPECTED_TOOL_CALL") === "tool-calls" &&
+        mapGeminiFinishReason("SAFETY") === "content-filter" &&
+        mapGeminiFinishReason("RECITATION") === "content-filter" &&
+        mapGeminiFinishReason("BLOCKLIST") === "content-filter" &&
+        mapGeminiFinishReason("PROHIBITED_CONTENT") === "content-filter" &&
+        mapGeminiFinishReason("SPII") === "content-filter" &&
+        mapGeminiFinishReason("IMAGE_SAFETY") === "content-filter"
+      );
+    },
+  },
+  {
+    name: "mapGeminiFinishReason: unknown / unset / non-terminal values default to 'stop' (Bug 2)",
+    category: "gemini-finish-reason",
+    fn: async () => {
+      return (
+        mapGeminiFinishReason(undefined) === "stop" &&
+        mapGeminiFinishReason(null) === "stop" &&
+        mapGeminiFinishReason("") === "stop" &&
+        mapGeminiFinishReason("FINISH_REASON_UNSPECIFIED") === "stop" &&
+        mapGeminiFinishReason("OTHER") === "stop" &&
+        mapGeminiFinishReason("LANGUAGE") === "stop" &&
+        mapGeminiFinishReason("some-garbage-value") === "stop"
+      );
+    },
+  },
+  // Bug 1: the native loop overwrote per-step text into lastStepText, so at the
+  // maxSteps cap the answer was lost and a canned placeholder surfaced.
+  // appendStepText is the pure accumulator that now preserves cross-step text.
+  {
+    name: "appendStepText: accumulates non-empty step text across steps (Bug 1)",
+    category: "gemini-text-accumulation",
+    fn: async () => {
+      return (
+        appendStepText("", "a") === "a" &&
+        appendStepText("a", "b") === "a\nb" &&
+        appendStepText("a\nb", "c") === "a\nb\nc"
+      );
+    },
+  },
+  {
+    name: "appendStepText: ignores empty step text without adding separators (Bug 1)",
+    category: "gemini-text-accumulation",
+    fn: async () => {
+      return (
+        appendStepText("a", "") === "a" &&
+        appendStepText("", "") === "" &&
+        appendStepText("a\nb", "") === "a\nb"
+      );
+    },
+  },
+  // Bug 1b: at the maxSteps cap with no gathered text, the loop makes one
+  // tools-disabled synthesis call instead of returning the placeholder. This
+  // exercises that helper end-to-end with a mocked @google/genai client.
+  {
+    name: "synthesizeFinalAnswerWithoutTools: drops tools, captures finishReason/text/usage, countermands final_result (Bug 1b)",
+    category: "gemini-synthesis",
+    fn: async () =>
+      withTemporaryEnv(
+        {
+          GOOGLE_APPLICATION_CREDENTIALS: "/tmp/neurolink-test-creds.json",
+          GOOGLE_CLOUD_PROJECT_ID: "test-project",
+          GOOGLE_CLOUD_LOCATION: "global",
+        },
+        async () => {
+          const provider = new GoogleVertexProvider(
+            "gemini-3-pro-preview",
+            undefined,
+            undefined,
+            "global",
+          );
+          let capturedConfig: Record<string, unknown> | undefined;
+          const mockClient = {
+            models: {
+              generateContentStream: async (req: {
+                config: Record<string, unknown>;
+              }) => {
+                capturedConfig = req.config;
+                return (async function* () {
+                  yield {
+                    candidates: [
+                      {
+                        content: { parts: [{ text: "Synthesized " }] },
+                        finishReason: "STOP",
+                      },
+                    ],
+                  };
+                  yield {
+                    candidates: [
+                      {
+                        content: { parts: [{ text: "answer." }] },
+                        finishReason: "STOP",
+                      },
+                    ],
+                    usageMetadata: {
+                      promptTokenCount: 11,
+                      candidatesTokenCount: 7,
+                    },
+                  };
+                })();
+              },
+            },
+          };
+          const out = await (
+            provider as unknown as {
+              synthesizeFinalAnswerWithoutTools(
+                client: unknown,
+                modelName: string,
+                config: Record<string, unknown>,
+                contents: unknown,
+                useFinalResultTool: boolean,
+                timeoutMs: number,
+              ): Promise<{
+                text: string;
+                finishReason?: string;
+                inputTokens: number;
+                outputTokens: number;
+              }>;
+            }
+          ).synthesizeFinalAnswerWithoutTools(
+            mockClient,
+            "gemini-3-pro-preview",
+            {
+              tools: [{ functionDeclarations: [] }],
+              systemInstruction:
+                "Do the task. You MUST call the final_result tool.",
+            },
+            [{ role: "user", parts: [{ text: "hi" }] }],
+            true,
+            30_000,
+          );
+          const systemInstruction =
+            typeof capturedConfig?.systemInstruction === "string"
+              ? capturedConfig.systemInstruction
+              : "";
+          return (
+            out.text === "Synthesized answer." &&
+            out.finishReason === "STOP" &&
+            out.inputTokens === 11 &&
+            out.outputTokens === 7 &&
+            capturedConfig?.tools === undefined &&
+            systemInstruction.includes("no longer available")
+          );
+        },
+      ),
+  },
+  // Bug 2: the resolved finishReason must reach options.onFinish, not a
+  // hardcoded "stop", for native-path callers using the lifecycle callback.
+  {
+    name: "fireGenerateOnFinish: forwards result.finishReason to onFinish (not hardcoded 'stop') (Bug 2)",
+    category: "gemini-finish-reason",
+    fn: async () =>
+      withTemporaryEnv(
+        {
+          GOOGLE_APPLICATION_CREDENTIALS: "/tmp/neurolink-test-creds.json",
+          GOOGLE_CLOUD_PROJECT_ID: "test-project",
+          GOOGLE_CLOUD_LOCATION: "global",
+        },
+        async () => {
+          const provider = new GoogleVertexProvider(
+            "gemini-3-pro-preview",
+            undefined,
+            undefined,
+            "global",
+          );
+          let captured: { finishReason?: string } | undefined;
+          const options = {
+            onFinish: (payload: { finishReason?: string }) => {
+              captured = payload;
+            },
+          };
+          const result = {
+            content: "hi",
+            usage: { input: 1, output: 2, total: 3 },
+            finishReason: "tool-calls",
+          };
+          (
+            provider as unknown as {
+              fireGenerateOnFinish(
+                options: unknown,
+                result: unknown,
+                startTime: number,
+              ): void;
+            }
+          ).fireGenerateOnFinish(options, result, Date.now() - 100);
+          // onFinish fires synchronously; yield a tick for safety.
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          return captured?.finishReason === "tool-calls";
+        },
+      ),
   },
 ];
 

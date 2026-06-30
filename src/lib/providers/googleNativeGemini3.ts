@@ -620,6 +620,58 @@ export function computeMaxSteps(rawMaxSteps?: number): number {
 }
 
 /**
+ * Map a `@google/genai` `Candidate.finishReason` enum value onto NeuroLink's
+ * unified finish reason, mirroring anthropic.ts `mapAnthropicStopReason`.
+ *
+ * Enum values per `@google/genai` `FinishReason`: STOP, MAX_TOKENS, SAFETY,
+ * RECITATION, LANGUAGE, OTHER, BLOCKLIST, PROHIBITED_CONTENT, SPII,
+ * MALFORMED_FUNCTION_CALL, IMAGE_SAFETY, UNEXPECTED_TOOL_CALL,
+ * FINISH_REASON_UNSPECIFIED. Unknown / unset / non-terminal values default to
+ * "stop" (a clean completion is the safe assumption).
+ *
+ * Returns a plain string (not a `{ unified, raw }` object): the Vertex result
+ * builders and the consuming layer (neurolink.ts `finishReason || "unknown"`
+ * and `finishReason === "length"`) compare against plain strings.
+ */
+export function mapGeminiFinishReason(
+  raw: string | null | undefined,
+): "stop" | "length" | "tool-calls" | "content-filter" {
+  switch (raw) {
+    case "MAX_TOKENS":
+      return "length";
+    case "MALFORMED_FUNCTION_CALL":
+    case "UNEXPECTED_TOOL_CALL":
+      return "tool-calls";
+    case "SAFETY":
+    case "RECITATION":
+    case "BLOCKLIST":
+    case "PROHIBITED_CONTENT":
+    case "SPII":
+    case "IMAGE_SAFETY":
+      return "content-filter";
+    default:
+      return "stop";
+  }
+}
+
+/**
+ * Append a step's text to a running cross-step accumulator, ignoring empty
+ * steps and inserting a single newline between non-empty contributions.
+ *
+ * The native Gemini loops overwrite per-step text into `lastStepText`, so when
+ * the loop is force-terminated by the step cap the intermediate tool-step prose
+ * is lost and a canned placeholder becomes the answer. Accumulating here mirrors
+ * the Vertex-Claude loop's `aggregatedTurnText += block.text` so the gathered
+ * text can be surfaced at the maxSteps-exhaustion exit instead of the placeholder.
+ */
+export function appendStepText(accumulated: string, stepText: string): string {
+  if (!stepText) {
+    return accumulated;
+  }
+  return accumulated ? `${accumulated}\n${stepText}` : stepText;
+}
+
+/**
  * Process stream chunks to extract raw response parts, function calls, and usage metadata.
  *
  * Consumes the full async iterable and returns all collected data.
