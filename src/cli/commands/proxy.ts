@@ -45,6 +45,7 @@ import type {
   StatusStats,
 } from "../../lib/types/index.js";
 import type { ModelRouter } from "../../lib/proxy/modelRouter.js";
+import { configureProxyKeepAliveDispatcher } from "../../lib/proxy/proxyDispatcher.js";
 import {
   loadProxyEnvFile,
   resolveProxyEnvFile,
@@ -1676,6 +1677,12 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       await ensureProxyStartAllowed(spinner);
     }
     const loadedEnvFile = await loadProxyStartEnv(argv, spinner);
+
+    // Reuse upstream TCP connections (longer keep-alive + bounded pool) instead
+    // of opening a new flow per request — cuts outbound flow churn through host
+    // content-filters. Runs once, after env load so it can be tuned via env.
+    configureProxyKeepAliveDispatcher();
+
     const { neurolink, cleanupLogs } = await createProxyNeurolinkRuntime(
       devPaths?.logsDir,
     );
