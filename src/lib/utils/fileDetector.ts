@@ -2373,25 +2373,53 @@ class ExtensionStrategy implements DetectionStrategy {
   }
 
   private getExtension(input: string): string | null {
-    if (this.isURL(input)) {
-      const url = new URL(input);
-      const match = url.pathname.match(/\.([^.]+)$/);
-      return match ? match[1] : null;
+    const normalizedInput = input.trim();
+    let extensionSource = normalizedInput;
+
+    if (this.isURL(normalizedInput)) {
+      try {
+        const url = new URL(normalizedInput);
+        extensionSource = url.pathname;
+        try {
+          extensionSource = decodeURIComponent(extensionSource);
+        } catch {
+          // Keep the original pathname if the URL contains malformed escapes.
+        }
+      } catch {
+        extensionSource = extensionSource.split(/[?#]/)[0];
+      }
+    } else {
+      extensionSource = extensionSource.split(/[?#]/)[0];
     }
-    const match = input.match(/\.([^.]+)$/);
-    return match ? match[1] : null;
+
+    const match = extensionSource.trim().match(/\.([^.]+)$/);
+    if (!match) {
+      return null;
+    }
+
+    const ext = match[1].toLowerCase();
+    return /^[a-z0-9]+$/.test(ext) ? ext : null;
   }
 
   private isURL(str: string): boolean {
-    return str.startsWith("http://") || str.startsWith("https://");
+    const normalized = str.trim();
+    return (
+      normalized.startsWith("http://") || normalized.startsWith("https://")
+    );
   }
 
   private detectSource(input: string): FileSource {
-    if (input.startsWith("data:")) {
+    const normalized = input.trim();
+    if (normalized.startsWith("data:")) {
       return "datauri";
     }
-    if (this.isURL(input)) {
-      return "url";
+    if (this.isURL(normalized)) {
+      try {
+        new URL(normalized);
+        return "url";
+      } catch {
+        return "path";
+      }
     }
     return "path";
   }
