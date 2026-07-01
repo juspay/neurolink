@@ -1,3 +1,9 @@
+## [9.80.2](https://github.com/juspay/neurolink/compare/v9.80.1...v9.80.2) (2026-07-01)
+
+### Bug Fixes
+
+- **(vertex):** honor abortSignal + graceful step-cap message in native Gemini-3 loop ([60ff175](https://github.com/juspay/neurolink/commit/60ff17521b1b1c04cf4b114713ab0026eeaa3f3a))
+
 ## [9.80.1](https://github.com/juspay/neurolink/compare/v9.80.0...v9.80.1) (2026-06-30)
 
 ### Bug Fixes
