@@ -339,7 +339,7 @@
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@opentelemetry/api-logs": "^0.214.0",
     "@opentelemetry/context-async-hooks": "^2.6.1",
-    "@opentelemetry/core": "^2.6.0",
+    "@opentelemetry/core": "^2.8.0",
     "@opentelemetry/exporter-logs-otlp-http": "^0.214.0",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.214.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.214.0",
@@ -474,7 +474,7 @@
     "esbuild": "^0.28.1",
     "eslint": "^10.0.2",
     "husky": "^9.1.7",
-    "js-yaml": "^4.1.1",
+    "js-yaml": "^4.2.0",
     "lint-staged": "^16.3.0",
     "playwright": "^1.58.2",
     "prettier": "^3.8.1",
@@ -493,7 +493,7 @@
     "typedoc-plugin-markdown": "^4.10.0",
     "typescript": "^5.9.3",
     "vite": "^8.0.5",
-    "vitest": "^4.1.0",
+    "vitest": "^4.1.9",
     "why-is-node-running": "^3.2.2"
   },
   "keywords": [
