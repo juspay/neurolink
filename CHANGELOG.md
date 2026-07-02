@@ -1,3 +1,9 @@
+## [9.80.3](https://github.com/juspay/neurolink/compare/v9.80.2...v9.80.3) (2026-07-02)
+
+### Bug Fixes
+
+- **(vertex):** reserve final_result step + graceful cap recovery in native Anthropic loop ([ee44e60](https://github.com/juspay/neurolink/commit/ee44e6055ee6658ae471ac15c6bee6a890888350)), closes [#1123](https://github.com/juspay/neurolink/issues/1123)
+
 ## [9.80.2](https://github.com/juspay/neurolink/compare/v9.80.1...v9.80.2) (2026-07-01)
 
 ### Bug Fixes
