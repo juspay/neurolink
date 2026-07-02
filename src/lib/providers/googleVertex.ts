@@ -1283,7 +1283,10 @@ export class GoogleVertexProvider extends BaseProvider {
         }
       },
       (r) => r.stream,
-      (r, wrapped) => ({ ...r, stream: wrapped }),
+      // Preserve live getters (finishReason/structuredOutput/…) that the
+      // spread would otherwise snapshot before the background loop resolves.
+      (r, wrapped) =>
+        this.preserveStreamResultAccessors(r, { ...r, stream: wrapped }),
     );
   }
 
@@ -3749,6 +3752,13 @@ export class GoogleVertexProvider extends BaseProvider {
     // pattern in googleAiStudio.ts.
 
     const maxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
+    // Reserve the LAST step of the budget for a forced final_result call when
+    // structured output is active — see the generate twin for the full
+    // rationale (tool_choice:"any" makes the text exit unreachable, so an
+    // un-reserved budget deadlocks into an empty stream).
+    const agenticStepBudget = useFinalResultTool
+      ? Math.max(maxSteps - 1, 0)
+      : maxSteps;
     const allToolCalls: Array<{
       toolName: string;
       args: Record<string, unknown>;
@@ -3771,7 +3781,16 @@ export class GoogleVertexProvider extends BaseProvider {
       cacheReadTokens?: number;
       cacheCreationTokens?: number;
     } = { input: 0, output: 0, total: 0 };
-    const metadata = {
+    const metadata: {
+      streamId: string;
+      startTime: number;
+      responseTime: number;
+      totalToolExecutions: number;
+      // Mirrors finishReasonRef — set on metadata too because wrapper spreads
+      // ({ ...result }) snapshot the top-level getter to undefined before the
+      // background loop resolves, while the metadata object reference survives.
+      finishReason?: string;
+    } = {
       streamId: `native-anthropic-vertex-${Date.now()}`,
       startTime,
       responseTime: 0,
@@ -3779,6 +3798,10 @@ export class GoogleVertexProvider extends BaseProvider {
     };
     const toolsUsedRef: string[] = [];
     const structuredOutputRef: { value?: Record<string, unknown> } = {};
+    // Resolved after the background loop finishes; the StreamResult exposes it
+    // via a getter (consumers read it after draining the stream), mirroring
+    // the Gemini stream path's finishReason field.
+    const finishReasonRef: { value?: string } = {};
 
     // Langfuse/OTel: the native SDK bypasses the Vercel AI SDK's
     // experimental_telemetry, so emit spans manually — one turn span, one
@@ -3818,6 +3841,11 @@ export class GoogleVertexProvider extends BaseProvider {
     });
     const turnContext = otelTrace.setSpan(otelContext.active(), turnSpan);
     let aggregatedTurnText = "";
+    // Count of characters ALREADY delivered to the consumer via live text
+    // deltas. aggregatedTurnText only reflects completed finalMessage()
+    // responses, so an aborted mid-answer call would otherwise look "empty"
+    // to the terminal handling even though the consumer saw partial prose.
+    let liveTextPushedLength = 0;
     // Anthropic prompt-cache token accounting, aggregated across loop steps.
     const turnCacheUsage = {
       read: 0,
@@ -3854,11 +3882,24 @@ export class GoogleVertexProvider extends BaseProvider {
     const loopPromise = (async () => {
       let step = 0;
       const currentMessages = [...messages];
+      // Step-cap / abort bookkeeping (mirrors the generate twin): read by the
+      // terminal recovery block after the loop and by the finishReason
+      // mapping written into finishReasonRef.
+      let wasAborted = false;
+      let hitStepLimit = false;
+      let synthesizedFinalAnswer = false;
+      let modelFinished = false;
+      let lastStopReason: string | null | undefined;
 
       try {
-        while (step < maxSteps) {
+        while (step < agenticStepBudget) {
+          // Honor caller aborts BETWEEN steps: break into terminal handling
+          // (one graceful cap chunk, clean close) instead of throwing —
+          // channel.error would surface the caller's own abort as a stream
+          // failure and route consumers into fallback retries.
           if (options.abortSignal?.aborted) {
-            throw new Error("Stream aborted by caller");
+            wasAborted = true;
+            break;
           }
           step++;
 
@@ -3944,6 +3985,7 @@ export class GoogleVertexProvider extends BaseProvider {
                   );
                 }
                 channel.push(delta);
+                liveTextPushedLength += delta.length;
               }
             });
 
@@ -3964,6 +4006,15 @@ export class GoogleVertexProvider extends BaseProvider {
               generationSpan.recordException(modelCallError);
             }
             generationSpan.end();
+            // A mid-flight abort (caller signal or the defensive timer
+            // tripping abortHandler) rejects finalMessage() with an
+            // abort-shaped error. Break gracefully into the terminal handling
+            // instead of routing it through channel.error as a failure.
+            if (options.abortSignal?.aborted || isAbortError(modelCallError)) {
+              activeStream = undefined;
+              wasAborted = true;
+              break;
+            }
             throw modelCallError;
           }
           activeStream = undefined;
@@ -3986,6 +4037,7 @@ export class GoogleVertexProvider extends BaseProvider {
             usage.input += response.usage?.input_tokens || 0;
             usage.output += response.usage?.output_tokens || 0;
             usage.total = usage.input + usage.output;
+            lastStopReason = response.stop_reason;
 
             for (const block of response.content) {
               if (block.type === "text" && typeof block.text === "string") {
@@ -4059,6 +4111,7 @@ export class GoogleVertexProvider extends BaseProvider {
             if (finalResultCall) {
               structuredOutputRef.value = finalResultCall.input;
               channel.push(JSON.stringify(finalResultCall.input));
+              modelFinished = true;
               logger.debug(
                 "[GoogleVertex] Extracted structured output from final_result tool (stream)",
                 { keys: Object.keys(finalResultCall.input) },
@@ -4070,17 +4123,23 @@ export class GoogleVertexProvider extends BaseProvider {
           // No tools — pure text turn. Listener already pushed all deltas;
           // loop terminates and channel.close() flushes the consumer.
           if (toolUseBlocks.length === 0) {
+            modelFinished = true;
             break;
           }
 
           // Tool execution loop. tool:start / tool:end events fire from
           // ToolsManager's wrapped execute (ToolsManager.ts:355) — no inline
-          // emit needed.
-          const toolResults: Array<{
-            type: "tool_result";
-            tool_use_id: string;
-            content: string;
-          }> = [];
+          // emit needed. The array also carries the trailing soft-budget
+          // nudge text block appended below (tool_result blocks stay first,
+          // as the Anthropic API requires).
+          const toolResults: Array<
+            | {
+                type: "tool_result";
+                tool_use_id: string;
+                content: string;
+              }
+            | { type: "text"; text: string }
+          > = [];
           // Per-step bookkeeping for conversation-memory storage.
           const stepStorageCalls: Array<{
             toolCallId: string;
@@ -4195,6 +4254,23 @@ export class GoogleVertexProvider extends BaseProvider {
                   output: result,
                 });
               } catch (err) {
+                // An aborted tool call is a cancellation, not a tool failure —
+                // end the span without recording an error execution/result and
+                // break the turn.
+                if (options.abortSignal?.aborted || isAbortError(err)) {
+                  endToolSpan({ aborted: true });
+                  // Keep persisted tool history paired: the call row was
+                  // already pushed above, so record a neutral cancellation
+                  // result (NOT an error) — an unpaired tool_use replayed on
+                  // the next turn would be rejected by the Anthropic API.
+                  stepStorageResults.push({
+                    toolCallId: toolUse.id,
+                    toolName: toolUse.name,
+                    output: { aborted: true },
+                  });
+                  wasAborted = true;
+                  break;
+                }
                 const errMsg = `Error executing tool "${toolUse.name}": ${err instanceof Error ? err.message : String(err)}`;
                 const errorPayload = { error: errMsg };
                 endToolSpan(errorPayload, errMsg);
@@ -4238,7 +4314,9 @@ export class GoogleVertexProvider extends BaseProvider {
 
           // Persist this step's tool calls/results into conversation memory.
           // Without this hook, tool rows never land in Redis and the
-          // chat-history UI loses every tool invocation.
+          // chat-history UI loses every tool invocation. Runs BEFORE the
+          // abort break below so tools that DID complete in an aborted step
+          // (real side effects) still reach the chat history.
           if (stepStorageCalls.length > 0 || stepStorageResults.length > 0) {
             withTimeout(
               this.handleToolExecutionStorage(
@@ -4259,6 +4337,29 @@ export class GoogleVertexProvider extends BaseProvider {
             });
           }
 
+          // An abort inside the tool-exec loop only breaks that inner
+          // for-loop. Break the while too so no further model call is issued
+          // and control reaches the terminal step-cap handling below.
+          if (wasAborted) {
+            break;
+          }
+
+          // Soft budget nudge: with the step cap approaching, tell the model
+          // to wrap up so the reserved forced-finalization call below stays a
+          // fallback, not the norm. Rides as a trailing text block on the
+          // tool_result user turn (cache-safe: it lives in the growing tail).
+          const stepsRemaining = agenticStepBudget - step;
+          if (stepsRemaining > 0 && stepsRemaining <= 3) {
+            toolResults.push({
+              type: "text",
+              text:
+                `NOTE: Only ${stepsRemaining} tool step(s) remain. Consolidate what you have and ` +
+                (useFinalResultTool
+                  ? "call final_result with your best answer."
+                  : "provide your final answer."),
+            });
+          }
+
           // Continue the loop: assistant turn + tool_result user turn.
           // Filter server_tool_use blocks (Anthropic API rejects them in
           // subsequent message turns).
@@ -4274,6 +4375,287 @@ export class GoogleVertexProvider extends BaseProvider {
             content: toolResults,
           });
         }
+
+        // Terminal handling — the loop exited without a model-initiated
+        // finish (step budget exhausted, or the turn was aborted). Never end
+        // the stream empty: force the reserved final_result step on
+        // structured-output turns, synthesize a plain-text answer on tool
+        // turns, or push one graceful cap chunk. Mirrors the generate twin
+        // and the Gemini paths (ed289b7 / PR #1123). The finalization and
+        // backstop calls emit no per-call generation span (matching the
+        // Gemini synthesizeFinalAnswerWithoutTools precedent); their tokens
+        // still land in `usage` and the turn-span metadata.
+        if (!modelFinished) {
+          // A caller abort that landed during the FINAL budgeted step's tool
+          // execution leaves wasAborted=false (no loop-entry check runs after
+          // a budget exit) — re-check before issuing any terminal model call.
+          if (options.abortSignal?.aborted) {
+            wasAborted = true;
+          }
+          const externalToolCallCount = allToolCalls.filter(
+            (tc) => tc.toolName !== "final_result",
+          ).length;
+          if (wasAborted) {
+            // Budget already blown — never issue another model call. Deliver
+            // exactly one graceful cap chunk if nothing reached the consumer
+            // (live deltas already delivered count as "something reached").
+            logger.warn(
+              "[GoogleVertex] Native Anthropic stream loop aborted mid-turn; returning a graceful cap message.",
+            );
+            if (
+              aggregatedTurnText.length === 0 &&
+              liveTextPushedLength === 0 &&
+              !structuredOutputRef.value
+            ) {
+              const capMessage = buildToolLoopCapMessage(
+                maxSteps,
+                externalToolCallCount,
+              );
+              channel.push(capMessage);
+              aggregatedTurnText = capMessage;
+            }
+          } else if (useFinalResultTool) {
+            hitStepLimit = true;
+            logger.warn(
+              `[GoogleVertex] Native Anthropic stream loop reached maxSteps (${maxSteps}) without final_result; forcing a finalization call.`,
+            );
+            try {
+              // Reserved finalization step: identical request except
+              // tool_choice pins final_result — Anthropic guarantees a
+              // final_result tool_use. Cache treatment is byte-identical to
+              // loop steps. No text listener: forced tool calls stream no
+              // text deltas, and the structured JSON is pushed once below.
+              const cachedFinal = applyVertexAnthropicCacheBreakpoints({
+                system: systemPromptWithSchema,
+                tools,
+                messages: currentMessages,
+              });
+              const finalizationStream = await client.messages.stream({
+                ...requestParams,
+                tool_choice: {
+                  type: "tool" as const,
+                  name: "final_result",
+                },
+                ...(cachedFinal.system !== undefined && {
+                  system: cachedFinal.system as Parameters<
+                    typeof client.messages.stream
+                  >[0]["system"],
+                }),
+                ...(cachedFinal.tools &&
+                  cachedFinal.tools.length > 0 && {
+                    tools: cachedFinal.tools as Parameters<
+                      typeof client.messages.stream
+                    >[0]["tools"],
+                  }),
+                messages: cachedFinal.messages as Parameters<
+                  typeof client.messages.stream
+                >[0]["messages"],
+              });
+              // Mid-flight aborts are covered by the shared abortHandler via
+              // activeStream; already-fired aborts were handled by the
+              // terminal-entry re-check above.
+              activeStream = finalizationStream;
+              const response = await finalizationStream.finalMessage();
+              activeStream = undefined;
+              usage.input += response.usage?.input_tokens || 0;
+              usage.output += response.usage?.output_tokens || 0;
+              usage.total = usage.input + usage.output;
+              turnCacheUsage.read +=
+                response.usage?.cache_read_input_tokens ?? 0;
+              turnCacheUsage.creation +=
+                response.usage?.cache_creation_input_tokens ?? 0;
+              turnCacheUsage.creation5m +=
+                response.usage?.cache_creation?.ephemeral_5m_input_tokens ?? 0;
+              turnCacheUsage.creation1h +=
+                response.usage?.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+              lastStopReason = response.stop_reason;
+              const forcedFinalResult = (
+                response.content as VertexAnthropicContentBlock[]
+              ).find(
+                (
+                  block,
+                ): block is {
+                  type: "tool_use";
+                  id: string;
+                  name: string;
+                  input: Record<string, unknown>;
+                } => block.type === "tool_use" && block.name === "final_result",
+              );
+              if (forcedFinalResult) {
+                structuredOutputRef.value = forcedFinalResult.input;
+                channel.push(JSON.stringify(forcedFinalResult.input));
+                synthesizedFinalAnswer = true;
+                logger.debug(
+                  "[GoogleVertex] Forced finalization returned structured output (stream)",
+                  { keys: Object.keys(forcedFinalResult.input) },
+                );
+              } else {
+                const capMessage = buildToolLoopCapMessage(
+                  maxSteps,
+                  externalToolCallCount,
+                );
+                channel.push(capMessage);
+                aggregatedTurnText += capMessage;
+              }
+            } catch (error) {
+              activeStream = undefined;
+              // An aborted finalization is a cancellation, not a step-cap
+              // turn — keep finishReason mapping from lastStopReason.
+              if (options.abortSignal?.aborted || isAbortError(error)) {
+                hitStepLimit = false;
+              }
+              logger.warn(
+                "[GoogleVertex] Forced finalization call failed; falling back to cap message",
+                {
+                  error: error instanceof Error ? error.message : String(error),
+                },
+              );
+              const capMessage = buildToolLoopCapMessage(
+                maxSteps,
+                externalToolCallCount,
+              );
+              channel.push(capMessage);
+              aggregatedTurnText += capMessage;
+            }
+          } else {
+            hitStepLimit = true;
+            if (aggregatedTurnText.length === 0) {
+              // Pure tool-loop with no streamed text: one tools-disabled call
+              // so the model answers from the gathered tool results, pushed
+              // as a single chunk (matching the Gemini stream synth). NOTE:
+              // the tools array must stay in the request — Anthropic rejects
+              // histories containing tool_use/tool_result blocks without a
+              // tools param — so "tools disabled" is tool_choice:"none",
+              // which also keeps the cached tools prefix byte-identical.
+              logger.warn(
+                `[GoogleVertex] Native Anthropic stream loop reached maxSteps (${maxSteps}) with no text; synthesizing a final answer with tools disabled.`,
+              );
+              try {
+                const backstopSystem =
+                  (systemPromptWithSchema
+                    ? systemPromptWithSchema + "\n\n"
+                    : "") +
+                  "Tool calling is no longer available for this turn. " +
+                  "Provide your final answer directly as plain text now, " +
+                  "using the information gathered so far.";
+                const cachedBackstop = applyVertexAnthropicCacheBreakpoints({
+                  system: backstopSystem,
+                  tools,
+                  messages: currentMessages,
+                });
+                const backstopStream = await client.messages.stream({
+                  ...requestParams,
+                  tool_choice: { type: "none" as const },
+                  system: cachedBackstop.system as Parameters<
+                    typeof client.messages.stream
+                  >[0]["system"],
+                  ...(cachedBackstop.tools &&
+                    cachedBackstop.tools.length > 0 && {
+                      tools: cachedBackstop.tools as Parameters<
+                        typeof client.messages.stream
+                      >[0]["tools"],
+                    }),
+                  messages: cachedBackstop.messages as Parameters<
+                    typeof client.messages.stream
+                  >[0]["messages"],
+                });
+                activeStream = backstopStream;
+                const response = await backstopStream.finalMessage();
+                activeStream = undefined;
+                usage.input += response.usage?.input_tokens || 0;
+                usage.output += response.usage?.output_tokens || 0;
+                usage.total = usage.input + usage.output;
+                turnCacheUsage.read +=
+                  response.usage?.cache_read_input_tokens ?? 0;
+                turnCacheUsage.creation +=
+                  response.usage?.cache_creation_input_tokens ?? 0;
+                turnCacheUsage.creation5m +=
+                  response.usage?.cache_creation?.ephemeral_5m_input_tokens ??
+                  0;
+                turnCacheUsage.creation1h +=
+                  response.usage?.cache_creation?.ephemeral_1h_input_tokens ??
+                  0;
+                lastStopReason = response.stop_reason;
+                const backstopText = (
+                  response.content as VertexAnthropicContentBlock[]
+                )
+                  .filter(
+                    (block): block is { type: "text"; text: string } =>
+                      block.type === "text",
+                  )
+                  .map((b) => b.text)
+                  .join("");
+                if (backstopText) {
+                  synthesizedFinalAnswer = true;
+                  channel.push(backstopText);
+                  aggregatedTurnText = backstopText;
+                } else {
+                  const capMessage = buildToolLoopCapMessage(
+                    maxSteps,
+                    externalToolCallCount,
+                  );
+                  channel.push(capMessage);
+                  aggregatedTurnText = capMessage;
+                }
+              } catch (error) {
+                activeStream = undefined;
+                // An aborted backstop is a cancellation, not a step-cap
+                // turn — keep finishReason mapping from lastStopReason.
+                if (options.abortSignal?.aborted || isAbortError(error)) {
+                  hitStepLimit = false;
+                }
+                logger.warn(
+                  "[GoogleVertex] Tools-disabled backstop call failed; falling back to cap message",
+                  {
+                    error:
+                      error instanceof Error ? error.message : String(error),
+                  },
+                );
+                const capMessage = buildToolLoopCapMessage(
+                  maxSteps,
+                  externalToolCallCount,
+                );
+                channel.push(capMessage);
+                aggregatedTurnText = capMessage;
+              }
+            }
+            // else: prose already streamed to the consumer across steps —
+            // add nothing; finishReason "tool-calls" flags the capped turn.
+          }
+        }
+
+        // Absolute backstop — never close the stream empty on a turn that
+        // ran tools (mirrors the generate twin's guard). Catches the
+        // model-finished-with-empty-content exit, which skips the terminal
+        // recovery above.
+        const deliveredNothing =
+          aggregatedTurnText.length === 0 &&
+          liveTextPushedLength === 0 &&
+          !structuredOutputRef.value;
+        const externalToolCallTotal = allToolCalls.filter(
+          (tc) => tc.toolName !== "final_result",
+        ).length;
+        if (deliveredNothing && externalToolCallTotal > 0) {
+          const capMessage = buildToolLoopCapMessage(
+            maxSteps,
+            externalToolCallTotal,
+          );
+          channel.push(capMessage);
+          aggregatedTurnText = capMessage;
+        }
+
+        // Honest finish reason (same mapping as the generate twin): "length"
+        // takes precedence, a capped turn without a clean/forced answer is
+        // "tool-calls", everything else is "stop". Mirrored onto metadata
+        // (a mutable reference) because wrapper spreads snapshot the
+        // top-level getter before this line runs.
+        finishReasonRef.value =
+          lastStopReason === "max_tokens"
+            ? "length"
+            : hitStepLimit && !synthesizedFinalAnswer
+              ? "tool-calls"
+              : "stop";
+        metadata.finishReason = finishReasonRef.value;
 
         metadata.responseTime = Date.now() - startTime;
         metadata.totalToolExecutions = allToolCalls.filter(
@@ -4383,6 +4765,14 @@ export class GoogleVertexProvider extends BaseProvider {
       enumerable: true,
       configurable: true,
       get: () => structuredOutputRef.value,
+    });
+
+    // Resolved by the background loop right before channel.close(); consumers
+    // read it after draining the stream (same contract as usage/metadata).
+    Object.defineProperty(result, "finishReason", {
+      enumerable: true,
+      configurable: true,
+      get: () => finishReasonRef.value,
     });
 
     return result;
@@ -4730,8 +5120,21 @@ export class GoogleVertexProvider extends BaseProvider {
 
     // Handle tool calling loop with max steps
     const maxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
+    // Reserve the LAST step of the budget for a forced final_result call when
+    // structured output is active. tool_choice:"any" (set above) forces a tool
+    // call on every assistant turn, so the toolUseBlocks.length===0 text exit
+    // is structurally unreachable — without a reserved finalization step, a
+    // turn whose budget is consumed by other tool calls (runaway loop, or all
+    // tools failing) ends with content:"" and a masking finishReason "stop".
+    const agenticStepBudget = useFinalResultTool
+      ? Math.max(maxSteps - 1, 0)
+      : maxSteps;
     let step = 0;
     let finalText = "";
+    // Prose produced mid-loop alongside tool calls, accumulated across steps
+    // via appendStepText — surfaced if the step budget runs out (mirrors the
+    // Gemini paths' accumulatedText; last-step-only would drop earlier prose).
+    let accumulatedStepText = "";
     let structuredOutput: Record<string, unknown> | undefined;
     const allToolCalls: Array<{
       toolName: string;
@@ -4749,9 +5152,23 @@ export class GoogleVertexProvider extends BaseProvider {
     // (notably "length" on token truncation) — the legacy native path always
     // reported "stop", hiding truncation from callers.
     let lastStopReason: string | null | undefined;
+    // Step-cap / abort bookkeeping (mirrors the native Gemini loops): the
+    // terminal recovery block below and the finishReason mapping both read
+    // these to distinguish clean finishes, capped turns, and aborted turns.
+    let wasAborted = false;
+    let hitStepLimit = false;
+    let synthesizedFinalAnswer = false;
+    let modelFinished = false;
     const currentMessages = [...messages];
 
-    while (step < maxSteps) {
+    while (step < agenticStepBudget) {
+      // Honor caller aborts BETWEEN steps: break into terminal handling
+      // instead of throwing (a throw routes consumers into abortSignal-less
+      // fallback retries — observed in production as a 600s abort no-op).
+      if (options.abortSignal?.aborted) {
+        wasAborted = true;
+        break;
+      }
       step++;
 
       try {
@@ -4769,24 +5186,30 @@ export class GoogleVertexProvider extends BaseProvider {
           tools,
           messages: currentMessages,
         });
+        // The caller's abortSignal rides as an SDK request option so a
+        // mid-flight abort cancels the HTTP call itself (the SDK rejects with
+        // an abort-shaped error the per-step catch below turns into a break).
         const response = await withTimeout(
-          client.messages.create({
-            ...requestParams,
-            ...(cachedGenerate.system !== undefined && {
-              system: cachedGenerate.system as Parameters<
-                typeof client.messages.create
-              >[0]["system"],
-            }),
-            ...(cachedGenerate.tools &&
-              cachedGenerate.tools.length > 0 && {
-                tools: cachedGenerate.tools as Parameters<
+          client.messages.create(
+            {
+              ...requestParams,
+              ...(cachedGenerate.system !== undefined && {
+                system: cachedGenerate.system as Parameters<
                   typeof client.messages.create
-                >[0]["tools"],
+                >[0]["system"],
               }),
-            messages: cachedGenerate.messages as Parameters<
-              typeof client.messages.create
-            >[0]["messages"],
-          }),
+              ...(cachedGenerate.tools &&
+                cachedGenerate.tools.length > 0 && {
+                  tools: cachedGenerate.tools as Parameters<
+                    typeof client.messages.create
+                  >[0]["tools"],
+                }),
+              messages: cachedGenerate.messages as Parameters<
+                typeof client.messages.create
+              >[0]["messages"],
+            },
+            { signal: options.abortSignal },
+          ),
           generateTimeoutMs,
           "Anthropic generate timed out",
         );
@@ -4824,6 +5247,7 @@ export class GoogleVertexProvider extends BaseProvider {
             // Extract structured output and convert to JSON string for finalText
             structuredOutput = finalResultCall.input;
             finalText = JSON.stringify(structuredOutput);
+            modelFinished = true;
             logger.debug(
               "[GoogleVertex] Extracted structured output from final_result tool (generate)",
               { keys: Object.keys(structuredOutput) },
@@ -4843,16 +5267,22 @@ export class GoogleVertexProvider extends BaseProvider {
 
         if (toolUseBlocks.length === 0) {
           // No tool calls, we're done
-          finalText = responseText || finalText;
+          finalText = responseText || accumulatedStepText;
+          modelFinished = true;
           break;
         }
 
-        // Handle tool calls
-        const toolResults: Array<{
-          type: "tool_result";
-          tool_use_id: string;
-          content: string;
-        }> = [];
+        // Handle tool calls. The array also carries the trailing soft-budget
+        // nudge text block appended below (tool_result blocks stay first, as
+        // the Anthropic API requires).
+        const toolResults: Array<
+          | {
+              type: "tool_result";
+              tool_use_id: string;
+              content: string;
+            }
+          | { type: "text"; text: string }
+        > = [];
         // Per-step bookkeeping for conversation-memory storage. Tracks calls
         // and results for ONLY the tools fired in this step so the storage
         // hook can tag them with the current stepIndex.
@@ -4911,6 +5341,21 @@ export class GoogleVertexProvider extends BaseProvider {
                 output: result,
               });
             } catch (err) {
+              // An aborted tool call is a cancellation, not a tool failure —
+              // break the turn without recording an error execution/result.
+              if (options.abortSignal?.aborted || isAbortError(err)) {
+                // Keep persisted tool history paired: the call row was
+                // already pushed above, so record a neutral cancellation
+                // result (NOT an error) — an unpaired tool_use replayed on
+                // the next turn would be rejected by the Anthropic API.
+                stepStorageResults.push({
+                  toolCallId: toolUse.id,
+                  toolName: toolUse.name,
+                  output: { aborted: true },
+                });
+                wasAborted = true;
+                break;
+              }
               const errMsg = `Error executing tool "${toolUse.name}": ${err instanceof Error ? err.message : String(err)}`;
               const errorPayload = { error: errMsg };
               toolExecutions.push({
@@ -4954,6 +5399,8 @@ export class GoogleVertexProvider extends BaseProvider {
         // Without this, tool_call / tool_result rows never reach Redis and
         // the chat-history UI loses every tool invocation.
         // Fire-and-forget — storage failures must not break generation.
+        // Runs BEFORE the abort break below so tools that DID complete in an
+        // aborted step (real side effects) still reach the chat history.
         if (stepStorageCalls.length > 0 || stepStorageResults.length > 0) {
           withTimeout(
             this.handleToolExecutionStorage(
@@ -4974,6 +5421,29 @@ export class GoogleVertexProvider extends BaseProvider {
           });
         }
 
+        // An abort inside the tool-exec loop only breaks that inner for-loop.
+        // Break the while too so no further model call is issued and control
+        // reaches the terminal step-cap handling below.
+        if (wasAborted) {
+          break;
+        }
+
+        // Soft budget nudge: with the step cap approaching, tell the model to
+        // wrap up so the reserved forced-finalization call below stays a
+        // fallback, not the norm. Rides as a trailing text block on the
+        // tool_result user turn (cache-safe: it lives in the growing tail).
+        const stepsRemaining = agenticStepBudget - step;
+        if (stepsRemaining > 0 && stepsRemaining <= 3) {
+          toolResults.push({
+            type: "text",
+            text:
+              `NOTE: Only ${stepsRemaining} tool step(s) remain. Consolidate what you have and ` +
+              (useFinalResultTool
+                ? "call final_result with your best answer."
+                : "provide your final answer."),
+          });
+        }
+
         // Add assistant message and tool results to continue the loop
         // Filter out server_tool_use blocks that the Anthropic API doesn't accept in messages
         const assistantContent = response.content.filter(
@@ -4988,16 +5458,238 @@ export class GoogleVertexProvider extends BaseProvider {
           content: toolResults,
         });
 
-        // Store last text in case we hit max steps
-        if (responseText) {
-          finalText = responseText;
-        }
+        // Accumulate the step's prose so a capped turn can still surface it —
+        // finalText is reserved for model-initiated finishes.
+        accumulatedStepText = appendStepText(accumulatedStepText, responseText);
       } catch (error) {
+        // A mid-request abort surfaces as an abort-shaped SDK rejection (we
+        // pass options.abortSignal as the request signal above). Break
+        // gracefully into the terminal handling instead of re-throwing — a
+        // re-throw routes the caller's abort into abortSignal-less fallback
+        // retries. Dual check as in the Gemini loops: the caller's signal OR
+        // an abort-shaped error either way means "stop", not a real failure.
+        if (options.abortSignal?.aborted || isAbortError(error)) {
+          wasAborted = true;
+          break;
+        }
         logger.error(
           "[GoogleVertex] Native Anthropic SDK generate error",
           error,
         );
         throw this.handleProviderError(error);
+      }
+    }
+
+    // Terminal handling — the loop exited without a model-initiated finish
+    // (step budget exhausted, or the turn was aborted). Never return "":
+    // force the reserved final_result step on structured-output turns,
+    // synthesize a plain-text answer on tool turns, or fall back to a
+    // graceful cap message. Mirrors the Gemini paths (ed289b7 / PR #1123).
+    if (!modelFinished && !finalText) {
+      // A caller abort that landed during the FINAL budgeted step's tool
+      // execution leaves wasAborted=false (no loop-entry check runs after a
+      // budget exit) — re-check before issuing any terminal model call.
+      if (options.abortSignal?.aborted) {
+        wasAborted = true;
+      }
+      const externalToolCallCount = allToolCalls.filter(
+        (tc) => tc.toolName !== "final_result",
+      ).length;
+      if (wasAborted) {
+        // Budget already blown — never issue another model call; prefer the
+        // prose the model already produced (mirrors the Gemini abort path),
+        // else answer with a graceful cap message. finishReason keeps mapping
+        // from lastStopReason (an aborted turn is not a step-cap turn).
+        logger.warn(
+          "[GoogleVertex] Native Anthropic generate loop aborted mid-turn; returning gathered text or a graceful cap message.",
+        );
+        finalText =
+          accumulatedStepText ||
+          buildToolLoopCapMessage(maxSteps, externalToolCallCount);
+      } else if (useFinalResultTool) {
+        hitStepLimit = true;
+        logger.warn(
+          `[GoogleVertex] Native Anthropic generate loop reached maxSteps (${maxSteps}) without final_result; forcing a finalization call.`,
+        );
+        try {
+          // Reserved finalization step: identical request except tool_choice
+          // pins final_result, so Anthropic guarantees the response is a
+          // final_result tool_use. Cache treatment is byte-identical to loop
+          // steps (same applyVertexAnthropicCacheBreakpoints on the same
+          // stable system/tools prefix), so caching is unaffected.
+          const cachedFinal = applyVertexAnthropicCacheBreakpoints({
+            system: systemPromptWithSchema,
+            tools,
+            messages: currentMessages,
+          });
+          const response = await withTimeout(
+            client.messages.create(
+              {
+                ...requestParams,
+                tool_choice: {
+                  type: "tool" as const,
+                  name: "final_result",
+                },
+                ...(cachedFinal.system !== undefined && {
+                  system: cachedFinal.system as Parameters<
+                    typeof client.messages.create
+                  >[0]["system"],
+                }),
+                ...(cachedFinal.tools &&
+                  cachedFinal.tools.length > 0 && {
+                    tools: cachedFinal.tools as Parameters<
+                      typeof client.messages.create
+                    >[0]["tools"],
+                  }),
+                messages: cachedFinal.messages as Parameters<
+                  typeof client.messages.create
+                >[0]["messages"],
+              },
+              { signal: options.abortSignal },
+            ),
+            generateTimeoutMs,
+            "Anthropic finalization call timed out",
+          );
+          totalInputTokens += response.usage?.input_tokens || 0;
+          totalOutputTokens += response.usage?.output_tokens || 0;
+          totalCacheReadTokens += response.usage?.cache_read_input_tokens || 0;
+          totalCacheCreationTokens +=
+            response.usage?.cache_creation_input_tokens || 0;
+          lastStopReason = response.stop_reason;
+          const forcedFinalResult = (
+            response.content as VertexAnthropicContentBlock[]
+          ).find(
+            (
+              block,
+            ): block is {
+              type: "tool_use";
+              id: string;
+              name: string;
+              input: Record<string, unknown>;
+            } => block.type === "tool_use" && block.name === "final_result",
+          );
+          if (forcedFinalResult) {
+            structuredOutput = forcedFinalResult.input;
+            finalText = JSON.stringify(structuredOutput);
+            synthesizedFinalAnswer = true;
+            logger.debug(
+              "[GoogleVertex] Forced finalization returned structured output (generate)",
+              { keys: Object.keys(structuredOutput) },
+            );
+          } else {
+            finalText = buildToolLoopCapMessage(
+              maxSteps,
+              externalToolCallCount,
+            );
+          }
+        } catch (error) {
+          // An aborted finalization is a cancellation, not a step-cap turn —
+          // keep finishReason mapping from lastStopReason, not "tool-calls".
+          if (options.abortSignal?.aborted || isAbortError(error)) {
+            hitStepLimit = false;
+          }
+          logger.warn(
+            "[GoogleVertex] Forced finalization call failed; falling back to cap message",
+            { error: error instanceof Error ? error.message : String(error) },
+          );
+          finalText = buildToolLoopCapMessage(maxSteps, externalToolCallCount);
+        }
+      } else {
+        hitStepLimit = true;
+        if (accumulatedStepText) {
+          // Prefer the prose the model already produced across steps.
+          logger.warn(
+            `[GoogleVertex] Native Anthropic generate loop reached maxSteps (${maxSteps}); returning text already gathered from prior steps.`,
+          );
+          finalText = accumulatedStepText;
+        } else {
+          // Pure tool-loop with no text: one tools-disabled call so the model
+          // answers from the gathered tool results (Anthropic twin of the
+          // Gemini synthesizeFinalAnswerWithoutTools). NOTE: the tools array
+          // must stay in the request — Anthropic rejects requests whose
+          // history contains tool_use/tool_result blocks without a tools
+          // param — so "tools disabled" is expressed as tool_choice:"none",
+          // which also keeps the cached tools prefix byte-identical.
+          logger.warn(
+            `[GoogleVertex] Native Anthropic generate loop reached maxSteps (${maxSteps}) with no text; synthesizing a final answer with tools disabled.`,
+          );
+          try {
+            const backstopSystem =
+              (systemPromptWithSchema ? systemPromptWithSchema + "\n\n" : "") +
+              "Tool calling is no longer available for this turn. Provide " +
+              "your final answer directly as plain text now, using the " +
+              "information gathered so far.";
+            const cachedBackstop = applyVertexAnthropicCacheBreakpoints({
+              system: backstopSystem,
+              tools,
+              messages: currentMessages,
+            });
+            const response = await withTimeout(
+              client.messages.create(
+                {
+                  ...requestParams,
+                  tool_choice: { type: "none" as const },
+                  system: cachedBackstop.system as Parameters<
+                    typeof client.messages.create
+                  >[0]["system"],
+                  ...(cachedBackstop.tools &&
+                    cachedBackstop.tools.length > 0 && {
+                      tools: cachedBackstop.tools as Parameters<
+                        typeof client.messages.create
+                      >[0]["tools"],
+                    }),
+                  messages: cachedBackstop.messages as Parameters<
+                    typeof client.messages.create
+                  >[0]["messages"],
+                },
+                { signal: options.abortSignal },
+              ),
+              generateTimeoutMs,
+              "Anthropic backstop call timed out",
+            );
+            totalInputTokens += response.usage?.input_tokens || 0;
+            totalOutputTokens += response.usage?.output_tokens || 0;
+            totalCacheReadTokens +=
+              response.usage?.cache_read_input_tokens || 0;
+            totalCacheCreationTokens +=
+              response.usage?.cache_creation_input_tokens || 0;
+            lastStopReason = response.stop_reason;
+            const backstopText = (
+              response.content as VertexAnthropicContentBlock[]
+            )
+              .filter(
+                (block): block is { type: "text"; text: string } =>
+                  block.type === "text",
+              )
+              .map((b) => b.text)
+              .join("");
+            if (backstopText) {
+              synthesizedFinalAnswer = true;
+              finalText = backstopText;
+            } else {
+              finalText = buildToolLoopCapMessage(
+                maxSteps,
+                externalToolCallCount,
+              );
+            }
+          } catch (error) {
+            // An aborted backstop is a cancellation, not a step-cap turn —
+            // keep finishReason mapping from lastStopReason, not "tool-calls".
+            if (options.abortSignal?.aborted || isAbortError(error)) {
+              hitStepLimit = false;
+            }
+            logger.warn(
+              "[GoogleVertex] Tools-disabled backstop call failed; falling back to cap message",
+              {
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
+            finalText = buildToolLoopCapMessage(
+              maxSteps,
+              externalToolCallCount,
+            );
+          }
+        }
       }
     }
 
@@ -5009,12 +5701,25 @@ export class GoogleVertexProvider extends BaseProvider {
       (te) => te.name !== "final_result",
     );
 
+    // Absolute backstop — no code path may surface empty content on a turn
+    // that ran tools (the consumer-facing "empty response" incident shape).
+    if (!finalText && externalToolCalls.length > 0) {
+      finalText = buildToolLoopCapMessage(maxSteps, externalToolCalls.length);
+    }
+
     const result: EnhancedGenerateResult = {
       content: finalText,
-      // Surface truncation: Anthropic "max_tokens" → unified "length" so the
-      // SDK boundary can flag/observe incomplete structured output. Anything
-      // else (end_turn / stop_sequence / tool_use) is a normal stop.
-      finishReason: lastStopReason === "max_tokens" ? "length" : "stop",
+      // Honest finish reason. "length" (token truncation) takes precedence; a
+      // step-cap exhaustion without a clean/forced answer surfaces as
+      // "tool-calls" (aligned with the Gemini paths, so consumers detect
+      // capped turns uniformly); everything else — including a successful
+      // forced finalization or backstop synthesis — is a normal "stop".
+      finishReason:
+        lastStopReason === "max_tokens"
+          ? "length"
+          : hitStepLimit && !synthesizedFinalAnswer
+            ? "tool-calls"
+            : "stop",
       provider: this.providerName,
       model: modelName,
       usage: {
@@ -5677,10 +6382,39 @@ export class GoogleVertexProvider extends BaseProvider {
       },
     };
 
-    return {
+    return this.preserveStreamResultAccessors(result, {
       ...result,
       stream: wrappedIterable as StreamResult["stream"],
-    };
+    });
+  }
+
+  /**
+   * Re-apply getter-based accessor properties from a source StreamResult onto
+   * a wrapper copy. Wrapper spreads (`{ ...result }`) invoke and SNAPSHOT
+   * enumerable getters at wrap time — for background-loop streams (the native
+   * Anthropic path) that resolve finishReason / structuredOutput / toolCalls
+   * only as the consumer drains, the snapshot is permanently undefined/empty.
+   * Copying the accessor descriptors keeps the wrapped result live. Results
+   * built from plain data properties (the buffered Gemini paths) have no
+   * getters and pass through untouched.
+   */
+  private preserveStreamResultAccessors(
+    source: StreamResult,
+    wrapped: StreamResult,
+  ): StreamResult {
+    for (const key of [
+      "finishReason",
+      "structuredOutput",
+      "toolCalls",
+      "toolsUsed",
+      "toolExecutions",
+    ] as const) {
+      const descriptor = Object.getOwnPropertyDescriptor(source, key);
+      if (descriptor?.get) {
+        Object.defineProperty(wrapped, key, descriptor);
+      }
+    }
+    return wrapped;
   }
 
   /**
