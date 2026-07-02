@@ -1,3 +1,9 @@
+## [9.80.4](https://github.com/juspay/neurolink/compare/v9.80.3...v9.80.4) (2026-07-02)
+
+### Bug Fixes
+
+- **(core):** vertex schema fallback, mcp log dedup, safe serialization, timeout handling ([2889ed2](https://github.com/juspay/neurolink/commit/2889ed23fa542b88606f40ca0756dda0fbc2bd7b))
+
 ## [9.80.3](https://github.com/juspay/neurolink/compare/v9.80.2...v9.80.3) (2026-07-02)
 
 ### Bug Fixes
