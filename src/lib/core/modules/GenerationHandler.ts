@@ -41,6 +41,7 @@ import {
 import { DEFAULT_MAX_STEPS } from "../constants.js";
 import {
   isTemperatureDeprecatedError,
+  isSchemaComplexityError,
   isToolsSchemaConflictError,
   isToolsSchemaExclusionInForce,
 } from "./structuredOutputPolicy.js";
@@ -431,16 +432,22 @@ export class GenerationHandler {
           return result;
         } catch (error) {
           // Fall back to text-mode (no experimental_output) when structured
-          // output + tools failed, in two cases:
+          // output + tools failed, in three cases:
           //   1. NoObjectGeneratedError — the SDK couldn't coerce the object.
           //   2. The provider rejected json-mode-with-tools outright (e.g. Groq:
           //      "json mode cannot be combined with tool/function calling").
-          // In both cases we retry without structured output and let
+          //   3. The provider rejected the schema as too complex for its
+          //      constrained decoding (Vertex Gemini 400 "too many states") —
+          //      deterministic, so re-sending the schema can never succeed.
+          // In all cases we retry without structured output and let
           // formatEnhancedResult coerce the text response into valid JSON.
+          const schemaTooComplex =
+            useStructuredOutput && isSchemaComplexityError(error);
           const isStructuredOutputConflict =
             useStructuredOutput &&
             (error instanceof NoObjectGeneratedError ||
-              isToolsSchemaConflictError(error));
+              isToolsSchemaConflictError(error) ||
+              schemaTooComplex);
           if (isStructuredOutputConflict) {
             span.setAttribute("neurolink.has_fallback", true);
 
@@ -452,17 +459,32 @@ export class GenerationHandler {
               "retry.reason":
                 error instanceof NoObjectGeneratedError
                   ? "NoObjectGeneratedError_structured_output_fallback"
-                  : "tools_schema_conflict_structured_output_fallback",
+                  : schemaTooComplex
+                    ? "schema_complexity_structured_output_fallback"
+                    : "tools_schema_conflict_structured_output_fallback",
             });
 
-            logger.debug(
-              "[GenerationHandler] structured-output conflict caught - falling back to manual JSON extraction",
-              {
-                provider: this.providerName,
-                model: this.modelName,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
+            if (schemaTooComplex) {
+              // warn (not debug): callers should simplify their schema — the
+              // fallback keeps the turn alive but skips native enforcement.
+              logger.warn(
+                "[GenerationHandler] schema too complex for provider constrained decoding — retrying with prompt-based JSON",
+                {
+                  provider: this.providerName,
+                  model: this.modelName,
+                  error: error instanceof Error ? error.message : String(error),
+                },
+              );
+            } else {
+              logger.debug(
+                "[GenerationHandler] structured-output conflict caught - falling back to manual JSON extraction",
+                {
+                  provider: this.providerName,
+                  model: this.modelName,
+                  error: error instanceof Error ? error.message : String(error),
+                },
+              );
+            }
 
             // Retry without experimental_output - the formatEnhancedResult method
             // will extract JSON from the text response

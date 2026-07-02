@@ -228,6 +228,12 @@ import {
   validateFactoryConfig,
 } from "./utils/factoryProcessing.js";
 import { logger, mcpLogger } from "./utils/logger.js";
+import {
+  redactUrlCredentials,
+  safeDebugSerialize,
+  sanitizeRecord,
+  stringifyContentSafe,
+} from "./utils/logSanitize.js";
 import { extractMcpErrorText } from "./utils/mcpErrorText.js";
 import {
   createCustomToolServerInfo,
@@ -2946,9 +2952,7 @@ Current user's request: ${currentInput}`;
     };
     if (anyOptions.messages && anyOptions.messages.length > 0) {
       const lastMessage = anyOptions.messages[anyOptions.messages.length - 1];
-      return typeof lastMessage.content === "string"
-        ? lastMessage.content
-        : JSON.stringify(lastMessage.content);
+      return stringifyContentSafe(lastMessage.content);
     }
 
     // Handle input.text format
@@ -5218,10 +5222,7 @@ Current user's request: ${currentInput}`;
           ?.filter((m) => m.role === "user" || m.role === "assistant")
           .map((m) => ({
             role: m.role as "user" | "assistant",
-            content:
-              typeof m.content === "string"
-                ? m.content
-                : JSON.stringify(m.content),
+            content: stringifyContentSafe(m.content),
           })) ??
         (options.conversationHistory as
           | Array<{ role: "user" | "assistant"; content: string }>
@@ -5338,10 +5339,7 @@ Current user's request: ${currentInput}`;
           ?.filter((m) => m.role === "user" || m.role === "assistant")
           .map((m) => ({
             role: m.role as "user" | "assistant",
-            content:
-              typeof m.content === "string"
-                ? m.content
-                : JSON.stringify(m.content),
+            content: stringifyContentSafe(m.content),
           })) ??
         (options.conversationHistory as
           | Array<{ role: "user" | "assistant"; content: string }>
@@ -6268,6 +6266,12 @@ Current user's request: ${currentInput}`;
   ): Promise<TextGenerationResult | null> {
     const maxMcpRetries = RETRY_ATTEMPTS.QUICK;
 
+    // Captured BEFORE the first attempt: ensureMCPGenerationBudget (inside
+    // tryMCPGeneration) auto-scales options.timeout for >100K-token contexts
+    // when the caller left it unset, so checking options.timeout inside the
+    // catch below could not tell caller-set apart from auto-scaled.
+    const callerSetTimeout = options.timeout !== undefined;
+
     // NL-007: Track retry metadata for observability
     const retryErrors: Array<{ code: string; message: string }> = [];
     let retryCount = 0;
@@ -6322,6 +6326,25 @@ Current user's request: ${currentInput}`;
         if (isAbortError(error)) {
           logger.debug(
             `[${functionTag}] AbortError detected on attempt ${attempt}, stopping retries`,
+          );
+          throw error;
+        }
+
+        // A TimeoutError against an explicit caller-set options.timeout is
+        // deterministic-by-construction: every remaining retry AND the
+        // direct-generation fallback would re-run the same provider+model
+        // under the same per-step budget. Observed in production as ~650s
+        // of doomed follow-ups after a 90s step timeout. Surface it now.
+        // Name check (not instanceof): two TimeoutError classes exist
+        // (utils/timeout.ts and utils/async/withTimeout.ts) and both stamp
+        // name = "TimeoutError".
+        if (
+          callerSetTimeout &&
+          error instanceof Error &&
+          error.name === "TimeoutError"
+        ) {
+          logger.warn(
+            `[${functionTag}] Per-step timeout (${String(options.timeout)}) exhausted on attempt ${attempt} — surfacing instead of retrying with the same budget`,
           );
           throw error;
         }
@@ -9813,14 +9836,21 @@ Current user's request: ${currentInput}`;
       eventSequence,
     } = params;
 
-    logger.debug(
-      "[NeuroLink.stream] Preparing to store conversation turn in memory",
-      {
-        options: JSON.stringify(enhancedOptions),
-        sessionId: (enhancedOptions.context as Record<string, unknown>)
-          ?.sessionId,
-      },
-    );
+    // Logger Guard: the full options object (history + tool outputs) can be
+    // enormous — an eager JSON.stringify here threw RangeError: Invalid
+    // string length in production and killed the turn. Serialize lazily,
+    // bounded, and only when debug is actually enabled; sanitizeRecord
+    // redacts credentials/PII keys before anything reaches the sink.
+    if (logger.shouldLog("debug")) {
+      logger.debug(
+        "[NeuroLink.stream] Preparing to store conversation turn in memory",
+        {
+          options: safeDebugSerialize(sanitizeRecord(enhancedOptions)),
+          sessionId: (enhancedOptions.context as Record<string, unknown>)
+            ?.sessionId,
+        },
+      );
+    }
 
     // Guard: skip storing if no meaningful content was produced (no text AND no tool activity)
     const hasToolEvents = eventSequence.some(
@@ -9837,12 +9867,16 @@ Current user's request: ${currentInput}`;
       return;
     }
 
-    logger.debug("[NeuroLink.stream] Storing conversation turn in memory", {
-      options: JSON.stringify(enhancedOptions),
-      sessionId: (enhancedOptions.context as Record<string, unknown>)
-        ?.sessionId,
-      conversationMemoryExists: this.conversationMemory ? true : false,
-    });
+    // Logger Guard: see the matching block above — never eagerly stringify
+    // the full options object, and always redact before serializing.
+    if (logger.shouldLog("debug")) {
+      logger.debug("[NeuroLink.stream] Storing conversation turn in memory", {
+        options: safeDebugSerialize(sanitizeRecord(enhancedOptions)),
+        sessionId: (enhancedOptions.context as Record<string, unknown>)
+          ?.sessionId,
+        conversationMemoryExists: this.conversationMemory ? true : false,
+      });
+    }
 
     // Store memory after stream consumption is complete
     if (this.conversationMemory && enhancedOptions.context?.sessionId) {
@@ -11809,12 +11843,7 @@ Current user's request: ${currentInput}`;
       : this.getCustomTools().has(toolName)
         ? "custom"
         : "external";
-    const inputStr =
-      typeof params === "string"
-        ? params
-        : params
-          ? JSON.stringify(params)
-          : "";
+    const inputStr = params ? stringifyContentSafe(params) : "";
 
     const executionStartTime = Date.now();
     // Per-invocation id so consumers can correlate a tool:start with its matching
@@ -14125,10 +14154,17 @@ Current user's request: ${currentInput}`;
           timestamp: Date.now(),
         });
       } else {
+        // Single ERROR record for a failed registration — the inner layers
+        // (client factory, server manager) log at debug so one root cause no
+        // longer fans out into 5 ERROR lines. Carry enough context here to
+        // diagnose without the inner lines.
         mcpLogger.error(
           `[NeuroLink] Failed to add external MCP server: ${serverId}`,
           {
             error: result.error,
+            transport: config.transport,
+            command: config.command,
+            url: config.url ? redactUrlCredentials(config.url) : undefined,
           },
         );
       }
@@ -14172,6 +14208,12 @@ Current user's request: ${currentInput}`;
           serverName,
           timestamp: Date.now(),
         });
+      } else if (result.error?.includes("not found")) {
+        // Expected no-op: consumers commonly call remove as cleanup after a
+        // failed add, when the server never registered. Not an error.
+        mcpLogger.debug(
+          `[NeuroLink] Remove skipped — external MCP server not registered: ${serverId}`,
+        );
       } else {
         mcpLogger.error(
           `[NeuroLink] Failed to remove external MCP server: ${serverId}`,

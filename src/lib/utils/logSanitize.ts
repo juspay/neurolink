@@ -81,6 +81,13 @@ const SENSITIVE_OBJECT_KEYS = [
   "oauth",
   "oauthToken",
   "credentials",
+  "authContext",
+  "authToken",
+  "sessionToken",
+  "serviceAccountKey",
+  "secretAccessKey",
+  // PII, not a secret — but it has no business in debug log dumps.
+  "userEmail",
 ];
 
 /**
@@ -98,6 +105,55 @@ export function sanitizeForLog(text: string, maxLen = 500): string {
     return text;
   }
   return text.slice(0, maxLen).replace(SECRET_PATTERN, "***");
+}
+
+/**
+ * Stringify non-string message/tool content without ever throwing.
+ * JSON.stringify on a giant multimodal/tool-result payload can exceed V8's
+ * maximum string length and throw `RangeError: Invalid string length` — a
+ * generation turn must degrade to a placeholder, not abort, when that
+ * happens. Shared by the SDK core and providers (single source of truth).
+ */
+export function stringifyContentSafe(content: unknown): string {
+  if (typeof content === "string") {
+    return content;
+  }
+  try {
+    return JSON.stringify(content) ?? String(content);
+  } catch {
+    return "[content too large to serialize]";
+  }
+}
+
+/**
+ * Serialize an arbitrary value for a debug log without ever throwing or
+ * producing an unbounded string.
+ *
+ * `JSON.stringify` on a full options object (conversation history + tool
+ * outputs) can exceed V8's maximum string length and throw
+ * `RangeError: Invalid string length`, which — when evaluated eagerly inside
+ * a logger call — aborts the surrounding generation turn (observed in
+ * production). This helper caps the output and converts any stringify
+ * failure (RangeError, circular structure, BigInt, …) into a placeholder.
+ *
+ * Callers MUST still gate on `logger.shouldLog("debug")` per the Logger
+ * Guard rule — this helper makes serialization safe, not free.
+ *
+ * @param value  - Arbitrary value to serialize.
+ * @param maxLen - Maximum number of characters to keep (default 10 000).
+ */
+export function safeDebugSerialize(value: unknown, maxLen = 10_000): string {
+  try {
+    const json = JSON.stringify(value);
+    if (json === undefined) {
+      return String(value);
+    }
+    return json.length > maxLen
+      ? `${json.slice(0, maxLen)}…[truncated ${json.length - maxLen} chars]`
+      : json;
+  } catch (error) {
+    return `[unserializable: ${error instanceof Error ? error.message : String(error)}]`;
+  }
 }
 
 /**

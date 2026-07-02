@@ -317,6 +317,19 @@ export type GenerateOptions = {
    * ```
    */
   enabledToolNames?: string[];
+  /**
+   * Request timeout (e.g. 30000, '30s', '2m').
+   *
+   * PER-STEP semantics in agentic loops: on providers that run a native
+   * multi-step tool loop (Vertex Gemini / Vertex Claude), this bounds EACH
+   * model call in the loop, not the whole turn — a tool-heavy turn may run
+   * far longer than this value in total. Size it for the slowest single
+   * step (default 300s), and use `abortSignal` for a total-turn deadline.
+   *
+   * When set explicitly, a step timeout is surfaced immediately instead of
+   * burning internal retries/fallbacks that would re-run the same
+   * provider+model with the same doomed budget.
+   */
   timeout?: number | string;
   /** AbortSignal for external cancellation of the AI call */
   abortSignal?: AbortSignal;

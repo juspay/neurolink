@@ -22,6 +22,7 @@ import {
 } from "./helpers/harness.js";
 import {
   isGeminiProvider,
+  isSchemaComplexityError,
   isToolsSchemaConflictError,
   isToolsSchemaExclusionInForce,
 } from "../src/lib/core/modules/structuredOutputPolicy.js";
@@ -112,6 +113,36 @@ await test("conflict detector: recognises Groq json+tools rejection", () => {
     false,
     "undefined must not match",
   );
+});
+
+await test("complexity detector: recognises Vertex 'too many states' 400", () => {
+  // Real production shape: the Vertex 400 arrives double-wrapped in the
+  // provider error formatter + upstream JSON envelope.
+  assert(
+    isSchemaComplexityError(
+      new Error(
+        '[vertex] Google Vertex AI Invalid Request: {"error":{"message":"{\\n  \\"error\\": {\\n    \\"code\\": 400,\\n    \\"message\\": \\"The specified schema produces a constraint that has too many states for serving.\\",\\n    \\"status\\": \\"INVALID_ARGUMENT\\"\\n  }\\n}\\n","code":400}}',
+      ),
+    ),
+    "wrapped Vertex too-many-states message should match",
+  );
+  assert(
+    isSchemaComplexityError(
+      "The specified schema produces a constraint that has too many states for serving.",
+    ),
+    "plain string form should match",
+  );
+  assertEqual(
+    isSchemaComplexityError(new Error("INVALID_ARGUMENT: bad field name")),
+    false,
+    "other INVALID_ARGUMENT errors must not match",
+  );
+  assertEqual(
+    isSchemaComplexityError(undefined),
+    false,
+    "undefined must not match",
+  );
+  assertEqual(isSchemaComplexityError(null), false, "null must not match");
 });
 
 // ── Balanced-brace extractor ────────────────────────────────────────────────

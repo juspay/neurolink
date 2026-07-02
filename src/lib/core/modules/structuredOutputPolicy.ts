@@ -92,6 +92,34 @@ export function isToolsSchemaConflictError(error: unknown): boolean {
 
 /**
  * True when a provider error indicates the request was rejected because the
+ * JSON schema is too complex for the provider's constrained decoding. Vertex
+ * Gemini enforces response schemas as a state machine and rejects
+ * "complex" schemas (regex patterns, string min/max lengths, nested array
+ * caps, long enums) with a deterministic 400 INVALID_ARGUMENT:
+ *
+ *   "The specified schema produces a constraint that has too many states
+ *    for serving. Typical causes of this error are schemas with lots of
+ *    text …, schemas with long array length limits …, or schemas using
+ *    complex value matchers …"
+ *
+ * The error arrives wrapped (provider error formatter + upstream JSON
+ * envelope), so match on the distinctive substring. Retrying with the same
+ * schema can never succeed — the correct recovery is to drop native schema
+ * enforcement and coerce the text response into the schema instead
+ * (same flow as isToolsSchemaConflictError).
+ */
+export function isSchemaComplexityError(error: unknown): boolean {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+  return /too many states/i.test(message);
+}
+
+/**
+ * True when a provider error indicates the request was rejected because the
  * `temperature` parameter is deprecated / unsupported for the model. The newest
  * Anthropic models (e.g. claude-opus-4-8, with tools + advanced beta features)
  * reject `temperature` — "`temperature` is deprecated for this model." — in

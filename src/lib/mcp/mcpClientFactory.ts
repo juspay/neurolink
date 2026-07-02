@@ -219,7 +219,11 @@ export class MCPClientFactory {
         };
       }
 
-      mcpLogger.error(
+      // debug, not error: this failure propagates up through
+      // ExternalServerManager to NeuroLink.addExternalMCPServer, which emits
+      // the single ERROR record. Logging at every layer turned one failed
+      // server registration into 5 ERROR lines in production.
+      mcpLogger.debug(
         `[MCPClientFactory] Failed to create client for ${config.id}:`,
         error,
       );

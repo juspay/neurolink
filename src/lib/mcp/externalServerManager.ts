@@ -463,7 +463,9 @@ export class ExternalServerManager extends EventEmitter {
             const errorMsg = `Failed to load MCP server ${serverId}: ${
               error instanceof Error ? error.message : String(error)
             }`;
-            mcpLogger.warn(`[ExternalServerManager] ${errorMsg}`);
+            // No log here: the result-processing loop below owns the single
+            // ERROR record for this failure (logging in both places
+            // double-counted every parallel-load failure).
             return { serverId, error: errorMsg };
           }
         },
@@ -486,10 +488,17 @@ export class ExternalServerManager extends EventEmitter {
             );
           } else if (error) {
             errors.push(error);
+            // Config-loaded servers never pass through
+            // NeuroLink.addExternalMCPServer, so this is the outermost point
+            // for them — it owns the single ERROR record per failed server.
+            mcpLogger.error(
+              `[ExternalServerManager] Failed to load server ${serverId}: ${error}`,
+            );
           } else if (serverResult && !serverResult.success) {
             const errorMsg = `Failed to load server ${serverId}: ${serverResult.error}`;
             errors.push(errorMsg);
-            mcpLogger.warn(`[ExternalServerManager] ${errorMsg}`);
+            // See above: outermost point for config-loaded servers.
+            mcpLogger.error(`[ExternalServerManager] ${errorMsg}`);
           }
         } else {
           // Promise.allSettled rejected - this shouldn't happen with our error handling
@@ -642,14 +651,18 @@ export class ExternalServerManager extends EventEmitter {
           } else {
             const error = `Failed to load server ${serverId}: ${result.error}`;
             errors.push(error);
-            mcpLogger.warn(`[ExternalServerManager] ${error}`);
+            // Config-loaded servers never pass through
+            // NeuroLink.addExternalMCPServer — this sequential-load branch is
+            // their outermost point and owns the single ERROR record.
+            mcpLogger.error(`[ExternalServerManager] ${error}`);
           }
         } catch (error) {
           const errorMsg = `Failed to load MCP server ${serverId}: ${
             error instanceof Error ? error.message : String(error)
           }`;
           errors.push(errorMsg);
-          mcpLogger.warn(`[ExternalServerManager] ${errorMsg}`);
+          // See above: outermost point for config-loaded servers.
+          mcpLogger.error(`[ExternalServerManager] ${errorMsg}`);
           // Continue with other servers - don't let one failure break everything
         }
       }
@@ -927,7 +940,9 @@ export class ExternalServerManager extends EventEmitter {
         },
       };
     } catch (error) {
-      mcpLogger.error(
+      // debug, not error: NeuroLink.addExternalMCPServer (the public entry
+      // point) emits the single ERROR record for a failed registration.
+      mcpLogger.debug(
         `[ExternalServerManager] Failed to add server ${serverId}:`,
         error,
       );
@@ -1124,7 +1139,9 @@ export class ExternalServerManager extends EventEmitter {
         `[ExternalServerManager] Server started successfully: ${serverId}`,
       );
     } catch (error) {
-      mcpLogger.error(
+      // debug, not error: the failure is rethrown below and surfaces once at
+      // the NeuroLink.addExternalMCPServer entry point.
+      mcpLogger.debug(
         `[ExternalServerManager] Failed to start server ${serverId}:`,
         error,
       );
