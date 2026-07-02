@@ -20,6 +20,8 @@ import {
   TOOL_STORAGE_TIMEOUT_MS,
 } from "../core/constants.js";
 import { ModelConfigurationManager } from "../core/modelConfiguration.js";
+import { isSchemaComplexityError } from "../core/modules/structuredOutputPolicy.js";
+import { stringifyContentSafe } from "../utils/logSanitize.js";
 import type { NeuroLink } from "../neurolink.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type {
@@ -3115,7 +3117,24 @@ export class GoogleVertexProvider extends BaseProvider {
             wasAborted = true;
             break;
           }
-          logger.error("[GoogleVertex] Native SDK generate error", error);
+          logger.error("[GoogleVertex] Native SDK generate error", {
+            error,
+            model: modelName,
+            location: effectiveLocation,
+            status: (error as { status?: number })?.status,
+          });
+          // Best-effort request context for formatProviderError —
+          // this.modelName can be stale when options.model overrides the
+          // instance default.
+          try {
+            if (error && typeof error === "object") {
+              const e = error as Record<string, unknown>;
+              e.requestModel = modelName;
+              e.requestRegion = effectiveLocation;
+            }
+          } catch {
+            /* frozen/sealed error — context stays best-effort */
+          }
           throw this.handleProviderError(error);
         }
       }
@@ -3437,10 +3456,7 @@ export class GoogleVertexProvider extends BaseProvider {
         if (msg.role === "user" || msg.role === "assistant") {
           messages.push({
             role: msg.role,
-            content:
-              typeof msg.content === "string"
-                ? msg.content
-                : JSON.stringify(msg.content),
+            content: stringifyContentSafe(msg.content),
           });
         }
       }
@@ -4242,7 +4258,7 @@ export class GoogleVertexProvider extends BaseProvider {
                 const resultContent =
                   typeof result === "string"
                     ? result
-                    : (JSON.stringify(result ?? null) ?? String(result));
+                    : stringifyContentSafe(result ?? null);
                 toolResults.push({
                   type: "tool_result",
                   tool_use_id: toolUse.id,
@@ -4821,10 +4837,7 @@ export class GoogleVertexProvider extends BaseProvider {
         if (msg.role === "user" || msg.role === "assistant") {
           messages.push({
             role: msg.role,
-            content:
-              typeof msg.content === "string"
-                ? msg.content
-                : JSON.stringify(msg.content),
+            content: stringifyContentSafe(msg.content),
           });
         }
       }
@@ -5329,7 +5342,7 @@ export class GoogleVertexProvider extends BaseProvider {
               const resultContent =
                 typeof result === "string"
                   ? result
-                  : (JSON.stringify(result ?? null) ?? String(result));
+                  : stringifyContentSafe(result ?? null);
               toolResults.push({
                 type: "tool_result",
                 tool_use_id: toolUse.id,
@@ -5472,10 +5485,21 @@ export class GoogleVertexProvider extends BaseProvider {
           wasAborted = true;
           break;
         }
-        logger.error(
-          "[GoogleVertex] Native Anthropic SDK generate error",
+        logger.error("[GoogleVertex] Native Anthropic SDK generate error", {
           error,
-        );
+          model: modelName,
+          step,
+          status: (error as { status?: number })?.status,
+        });
+        // Best-effort request context for formatProviderError — see the
+        // native Gemini catch for rationale.
+        try {
+          if (error && typeof error === "object") {
+            (error as Record<string, unknown>).requestModel = modelName;
+          }
+        } catch {
+          /* frozen/sealed error — context stays best-effort */
+        }
         throw this.handleProviderError(error);
       }
     }
@@ -6126,8 +6150,55 @@ export class GoogleVertexProvider extends BaseProvider {
                     totalToolCount: Object.keys(mergedOptions.tools).length,
                   },
                 );
-                nativeResult =
-                  await this.executeNativeGemini3Generate(mergedOptions);
+                try {
+                  nativeResult =
+                    await this.executeNativeGemini3Generate(mergedOptions);
+                } catch (nativeError) {
+                  // Vertex rejects over-constrained responseSchemas with a
+                  // deterministic 400 ("too many states" — constrained-decoding
+                  // state explosion). Re-sending the same schema can never
+                  // succeed, so retry ONCE with the schema dropped but JSON
+                  // mode kept: output.format "json" still sets
+                  // responseMimeType application/json on the no-tools path,
+                  // so the model is forced to emit JSON — just without the
+                  // offending schema constraints. The NeuroLink layer then
+                  // coerces the JSON text into the caller's original schema
+                  // (generate({schema}) guarantee holds).
+                  const requestedStructured =
+                    mergedOptions.schema !== undefined ||
+                    mergedOptions.output?.format === "json";
+                  // Tools present → the executor skips responseMimeType, so a
+                  // schema-less retry would NOT actually run in JSON mode and
+                  // the structured-output contract would silently degrade to
+                  // prose. Only the no-tools case retries faithfully; with
+                  // tools, surface the 400 to the caller instead.
+                  const hasTools =
+                    !mergedOptions.disableTools &&
+                    Object.keys(mergedOptions.tools ?? {}).length > 0;
+                  if (
+                    requestedStructured &&
+                    !hasTools &&
+                    isSchemaComplexityError(nativeError)
+                  ) {
+                    logger.warn(
+                      "[GoogleVertex] responseSchema too complex for constrained decoding — retrying native generate in schema-less JSON mode",
+                      {
+                        model: modelName,
+                        error:
+                          nativeError instanceof Error
+                            ? nativeError.message
+                            : String(nativeError),
+                      },
+                    );
+                    nativeResult = await this.executeNativeGemini3Generate({
+                      ...mergedOptions,
+                      schema: undefined,
+                      output: { format: "json" },
+                    });
+                  } else {
+                    throw nativeError;
+                  }
+                }
               }
               executionSpan.setAttribute(
                 LANGFUSE_ATTR.OBSERVATION_OUTPUT,
@@ -6601,20 +6672,50 @@ export class GoogleVertexProvider extends BaseProvider {
       );
     }
 
-    // Rate limit and quota errors
+    // Rate limit / quota / capacity errors. Anthropic-on-Vertex capacity
+    // exhaustion surfaces as overloaded_error (HTTP 529) — same operational
+    // meaning as a 429, so classify it here instead of the generic 5xx branch.
     if (
       message.includes("QUOTA_EXCEEDED") ||
       message.includes("RATE_LIMIT_EXCEEDED") ||
       message.includes("rate limit") ||
       message.includes("429") ||
-      statusCode === 429
+      statusCode === 429 ||
+      statusCode === 529 ||
+      /overloaded/i.test(message)
     ) {
+      // Surface retry guidance when the SDK error carries it. @google/genai
+      // ApiError nests RetryInfo inside the JSON error body's details array,
+      // so fall back to scraping retryDelay out of the raw message.
+      const retryDelay =
+        typeof errorRecord?.retryDelay === "string"
+          ? errorRecord.retryDelay
+          : (/["']?retryDelay["']?\s*[:=]\s*["']?(\d+(?:\.\d+)?s)/.exec(
+              message,
+            )?.[1] ?? undefined);
+      // Prefer the per-request context the native catches attach to the
+      // error (this.modelName can be stale when options.model overrides the
+      // instance default). Gemini models are force-routed to the "global"
+      // endpoint regardless of configured location — report the region the
+      // request actually hit.
+      const requestModel =
+        typeof errorRecord?.requestModel === "string"
+          ? errorRecord.requestModel
+          : this.modelName;
+      const effectiveRegion =
+        typeof errorRecord?.requestRegion === "string"
+          ? errorRecord.requestRegion
+          : resolveVertexRegionForModel(requestModel, this.location);
       return new RateLimitError(
-        `Google Vertex AI quota/rate limit exceeded. ` +
-          `Solutions: 1. Check your Vertex AI quotas in Google Cloud Console ` +
-          `2. Request quota increase if needed ` +
-          `3. Try a different model or reduce request frequency ` +
-          `4. Consider using a different region`,
+        `Google Vertex AI rate limit / shared-capacity exhausted (429 RESOURCE_EXHAUSTED / overloaded) ` +
+          `for model '${requestModel}' in region '${effectiveRegion}'.` +
+          (retryDelay
+            ? ` Upstream suggests retrying after ${retryDelay}.`
+            : "") +
+          ` Solutions: 1. Retry with backoff ` +
+          `2. Check your Vertex AI quotas in Google Cloud Console (shared-capacity 429s can occur below quota) ` +
+          `3. Try a different region or model ` +
+          `4. Request provisioned throughput for sustained load`,
         this.providerName,
       );
     }

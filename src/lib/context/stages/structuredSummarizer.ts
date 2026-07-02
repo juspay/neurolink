@@ -30,11 +30,21 @@ function findSplitIndexByTokens(
   let splitIndex = messages.length;
 
   for (let i = messages.length - 1; i >= 0; i--) {
-    const content =
-      typeof messages[i].content === "string"
-        ? messages[i].content
-        : JSON.stringify(messages[i].content);
-    const msgTokens = estimateTokens(content, provider);
+    // Guarded: JSON.stringify on a giant single message can throw RangeError
+    // (V8 max string length). A message that big cannot be "recent-window"
+    // material anyway — treat it as effectively infinite tokens so it (and
+    // everything older) lands on the summarized side instead of aborting
+    // compaction.
+    let msgTokens: number;
+    try {
+      const content =
+        typeof messages[i].content === "string"
+          ? (messages[i].content as string)
+          : (JSON.stringify(messages[i].content) ?? "");
+      msgTokens = estimateTokens(content, provider);
+    } catch {
+      msgTokens = Number.MAX_SAFE_INTEGER;
+    }
     if (recentTokens + msgTokens > targetRecentTokens) {
       splitIndex = i + 1;
       break;

@@ -6,6 +6,7 @@
 import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { tracers } from "../telemetry/tracers.js";
 import { withTimeout } from "./errorHandling.js";
+import { safeDebugSerialize, sanitizeRecord } from "./logSanitize.js";
 import {
   DEFAULT_FALLBACK_THRESHOLD,
   getConversationMemoryDefaults,
@@ -141,13 +142,19 @@ export async function getConversationMessages(
     | undefined,
   options: TextGenerationOptions,
 ): Promise<ChatMessage[]> {
-  logger.debug("[conversationMemoryUtils] getConversationMessages called", {
-    hasMemory: !!conversationMemory,
-    memoryType: conversationMemory?.constructor?.name || "NONE",
-    hasContext: !!options.context,
-    enableSummarization: options.enableSummarization ?? false,
-    options: JSON.stringify(options, null, 2),
-  });
+  // Logger Guard: options carries the full conversation history + tool
+  // outputs; eager JSON.stringify of it can throw RangeError: Invalid string
+  // length and abort the turn. Serialize lazily, bounded, never-throwing,
+  // and redacted (sanitizeRecord strips credential/PII keys).
+  if (logger.shouldLog("debug")) {
+    logger.debug("[conversationMemoryUtils] getConversationMessages called", {
+      hasMemory: !!conversationMemory,
+      memoryType: conversationMemory?.constructor?.name || "NONE",
+      hasContext: !!options.context,
+      enableSummarization: options.enableSummarization ?? false,
+      options: safeDebugSerialize(sanitizeRecord(options)),
+    });
+  }
   if (!conversationMemory || !options.context) {
     logger.warn(
       "[conversationMemoryUtils] No memory or context, returning empty messages",
@@ -156,7 +163,11 @@ export async function getConversationMessages(
         memoryType: conversationMemory?.constructor?.name || "NONE",
         hasContext: !!options.context,
         enableSummarization: options.enableSummarization ?? false,
-        options: JSON.stringify(options, null, 2),
+        // The options dump is debug-grade detail — don't pay for (or leak)
+        // the serialization on every memory-disabled call at warn level.
+        ...(logger.shouldLog("debug")
+          ? { options: safeDebugSerialize(sanitizeRecord(options)) }
+          : {}),
       },
     );
     return [];
