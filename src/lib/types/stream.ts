@@ -642,6 +642,10 @@ export type StreamResult = {
     hasToolErrors?: boolean;
     guardrailsBlocked?: boolean;
     error?: string;
+    // Resolved finish reason for background-loop streams. Lives on metadata
+    // (a mutable reference the loop fills in) because result-object spreads
+    // in stream wrappers snapshot top-level getters before the loop resolves.
+    finishReason?: string;
     // Thought/reasoning metadata
     thoughtSignature?: string;
     thoughts?: Array<{ id?: string; type?: string; content?: string }>;
