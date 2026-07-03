@@ -1,3 +1,9 @@
+## [9.81.0](https://github.com/juspay/neurolink/compare/v9.80.4...v9.81.0) (2026-07-03)
+
+### Features
+
+- **(vertex):** turn time budget + stopReason; MALFORMED_FUNCTION_CALL maps to 'error' not 'tool-calls' ([d79ff21](https://github.com/juspay/neurolink/commit/d79ff21c503ad9539aa6200ad30574f99ae71858))
+
 ## [9.80.4](https://github.com/juspay/neurolink/compare/v9.80.3...v9.80.4) (2026-07-02)
 
 ### Bug Fixes
