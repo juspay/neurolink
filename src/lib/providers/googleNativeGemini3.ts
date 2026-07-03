@@ -15,8 +15,10 @@ import { extname } from "node:path";
 import {
   DEFAULT_MAX_STEPS,
   DEFAULT_TOOL_MAX_RETRIES,
+  DEFAULT_WRAPUP_TIME_LEAD_MS,
 } from "../core/constants.js";
 import type {
+  GenerateStopReason,
   ZodUnknownSchema,
   ThinkingConfig,
   ChatMessage,
@@ -632,16 +634,22 @@ export function computeMaxSteps(rawMaxSteps?: number): number {
  * Returns a plain string (not a `{ unified, raw }` object): the Vertex result
  * builders and the consuming layer (neurolink.ts `finishReason || "unknown"`
  * and `finishReason === "length"`) compare against plain strings.
+ *
+ * MALFORMED_FUNCTION_CALL / UNEXPECTED_TOOL_CALL map to "error", NOT
+ * "tool-calls": they are provider/model failures, while "tool-calls" is the
+ * exclusive contract for "step budget exhausted while the model still wanted
+ * tools" — consumers (e.g. curator's step-cap intercept) branch on it and
+ * were rendering fake step-limit messages for 2-4-step malformed-call turns.
  */
 export function mapGeminiFinishReason(
   raw: string | null | undefined,
-): "stop" | "length" | "tool-calls" | "content-filter" {
+): "stop" | "length" | "tool-calls" | "content-filter" | "error" {
   switch (raw) {
     case "MAX_TOKENS":
       return "length";
     case "MALFORMED_FUNCTION_CALL":
     case "UNEXPECTED_TOOL_CALL":
-      return "tool-calls";
+      return "error";
     case "SAFETY":
     case "RECITATION":
     case "BLOCKLIST":
@@ -1097,8 +1105,13 @@ export function isAbortError(error: unknown): boolean {
 
 /**
  * Build a graceful, user-facing message for when a single agentic turn hits
- * the step cap (or is aborted mid-turn) without producing a final answer.
- * Replaces the legacy bracketed "Tool execution limit reached" placeholder.
+ * the step cap without producing a final answer. Replaces the legacy
+ * bracketed "Tool execution limit reached" placeholder.
+ *
+ * Emit this ONLY when `step >= maxSteps` genuinely terminated the loop —
+ * aborted/timed-out/stalled turns must use {@link buildAbortedTurnMessage},
+ * {@link buildTurnTimeoutMessage}, or {@link buildTurnStalledMessage}, never
+ * this text (a killed 23-step turn once claimed "reached the 200-step limit").
  */
 export function buildToolLoopCapMessage(
   maxSteps: number,
@@ -1114,6 +1127,229 @@ export function buildToolLoopCapMessage(
     `${calls}reached the ${maxSteps}-step limit for a single turn before I could finish. ` +
     `Please narrow the request or break it into smaller asks and I'll continue.`
   );
+}
+
+/** Format an elapsed duration as "Xm Ys" (or "Ys" under a minute). */
+function formatElapsed(elapsedMs: number): string {
+  const totalSeconds = Math.max(0, Math.round(elapsedMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
+/**
+ * Honest message for a turn ended by the `turnTimeoutMs` wall-clock deadline
+ * (stopReason "time-limit"). Sibling of {@link buildToolLoopCapMessage} —
+ * time exits must never claim a step limit was reached.
+ */
+export function buildTurnTimeoutMessage(
+  elapsedMs: number,
+  toolCallCount: number,
+): string {
+  const calls =
+    toolCallCount > 0
+      ? ` I completed ${toolCallCount} tool call${
+          toolCallCount === 1 ? "" : "s"
+        } before stopping;`
+      : "";
+  return (
+    `I had to stop after ${formatElapsed(elapsedMs)} — this turn hit its ` +
+    `processing time limit.${calls} ask me to continue and I'll pick up from there.`
+  );
+}
+
+/**
+ * Honest message for a turn ended by the `stallTimeoutMs` no-progress
+ * watchdog (stopReason "stalled") — typically a wedged tool or a hung
+ * model call.
+ */
+export function buildTurnStalledMessage(
+  stallTimeoutMs: number,
+  toolCallCount: number,
+): string {
+  const calls =
+    toolCallCount > 0
+      ? ` I completed ${toolCallCount} tool call${
+          toolCallCount === 1 ? "" : "s"
+        } before stopping;`
+      : "";
+  return (
+    `I had to stop because this turn made no progress for ` +
+    `${formatElapsed(stallTimeoutMs)} — a tool or model call appears to be stuck.` +
+    `${calls} ask me to continue and I'll pick up from there.`
+  );
+}
+
+/**
+ * Honest message for a caller-aborted turn (admin kill, coding-task
+ * short-circuit — stopReason "aborted").
+ */
+export function buildAbortedTurnMessage(toolCallCount: number): string {
+  const calls =
+    toolCallCount > 0
+      ? ` I completed ${toolCallCount} tool call${
+          toolCallCount === 1 ? "" : "s"
+        } before stopping.`
+      : "";
+  return `This turn was stopped before I could finish.${calls}`;
+}
+
+/**
+ * Wrap-up nudge injected when the remaining turn time drops inside the
+ * `wrapupTimeLeadMs` window — the time-budget twin of the soft step-budget
+ * nudge. Rides as a trailing text block on the tool-result user turn.
+ */
+export function buildWrapupNudgeText(useFinalResultTool: boolean): string {
+  return (
+    "NOTE: processing time for this turn is nearly up. Consolidate what you have and " +
+    (useFinalResultTool
+      ? "call final_result with your best answer now."
+      : "provide your final answer now.")
+  );
+}
+
+/**
+ * Resolve the turn's `stopReason` discriminator from the loop's exit
+ * bookkeeping. Precedence: time conditions beat the generic abort flag
+ * (the deadline/stall watchdogs abort through the same internal controller),
+ * abort beats step-cap, and a provider-error finishReason (e.g. persistent
+ * MALFORMED_FUNCTION_CALL) beats "completed".
+ */
+export function resolveTurnStopReason(params: {
+  timedOut: boolean;
+  stalled: boolean;
+  wasAborted: boolean;
+  /** Step budget ran out AND no clean/forced answer was produced. */
+  cappedWithoutAnswer: boolean;
+  /** The turn's resolved unified finishReason. */
+  finishReason?: string;
+}): GenerateStopReason {
+  if (params.timedOut) {
+    return "time-limit";
+  }
+  if (params.stalled) {
+    return "stalled";
+  }
+  if (params.wasAborted) {
+    return "aborted";
+  }
+  if (params.cappedWithoutAnswer) {
+    return "step-cap";
+  }
+  if (params.finishReason === "error") {
+    return "provider-error";
+  }
+  return "completed";
+}
+
+/**
+ * Wall-clock + progress watchdogs for a native agentic turn.
+ *
+ * - Deadline: `turnTimeoutMs` (caller knob) or `defaultTurnTimeoutMs` (the
+ *   loop's pre-existing defensive bound) arms a whole-turn timer.
+ * - Stall: when `stallTimeoutMs` is set, a low-frequency interval checks the
+ *   time since the last recorded progress (chunk received, tool started or
+ *   finished, step started).
+ *
+ * Both fire `onDeadline(kind)` exactly once each and latch a flag the loop's
+ * terminal handling reads to pick the honest exit message and `stopReason`.
+ * Timers are unref'd so they never hold the process open; call `dispose()`
+ * in the loop's finally.
+ */
+export function createTurnClock(params: {
+  /** Explicit whole-turn deadline (ms); wins over defaultTurnTimeoutMs. */
+  turnTimeoutMs?: number;
+  /** Loop-specific defensive default when turnTimeoutMs is unset (undefined = no deadline). */
+  defaultTurnTimeoutMs?: number;
+  /** No-progress watchdog (ms); undefined = disabled. */
+  stallTimeoutMs?: number;
+  /** Wrap-up lead (ms); only honored when turnTimeoutMs is explicitly set. */
+  wrapupTimeLeadMs?: number;
+  onDeadline: (kind: "timeout" | "stall") => void;
+}) {
+  const startedAt = Date.now();
+  const isValidMs = (value: number | undefined): value is number =>
+    value !== undefined && Number.isFinite(value) && value > 0;
+  const effectiveTurnTimeoutMs = isValidMs(params.turnTimeoutMs)
+    ? params.turnTimeoutMs
+    : isValidMs(params.defaultTurnTimeoutMs)
+      ? params.defaultTurnTimeoutMs
+      : undefined;
+  // Nudging against the loop's defensive default would inject prompt text
+  // into turns whose caller never opted into a time budget — only nudge
+  // against an explicit turnTimeoutMs.
+  const wrapupLeadMs = isValidMs(params.turnTimeoutMs)
+    ? (params.wrapupTimeLeadMs ?? DEFAULT_WRAPUP_TIME_LEAD_MS)
+    : undefined;
+  let timedOut = false;
+  let stalled = false;
+  let lastProgressAt = startedAt;
+  let deadlineTimer: NodeJS.Timeout | undefined;
+  let stallTimer: NodeJS.Timeout | undefined;
+  if (effectiveTurnTimeoutMs !== undefined) {
+    deadlineTimer = setTimeout(() => {
+      timedOut = true;
+      params.onDeadline("timeout");
+    }, effectiveTurnTimeoutMs);
+    deadlineTimer.unref?.();
+  }
+  if (isValidMs(params.stallTimeoutMs)) {
+    const stallTimeoutMs = params.stallTimeoutMs;
+    const checkEveryMs = Math.min(
+      Math.max(1000, Math.floor(stallTimeoutMs / 4)),
+      15_000,
+    );
+    stallTimer = setInterval(() => {
+      if (
+        !stalled &&
+        !timedOut &&
+        Date.now() - lastProgressAt >= stallTimeoutMs
+      ) {
+        stalled = true;
+        params.onDeadline("stall");
+      }
+    }, checkEveryMs);
+    stallTimer.unref?.();
+  }
+  return {
+    get timedOut(): boolean {
+      return timedOut;
+    },
+    get stalled(): boolean {
+      return stalled;
+    },
+    /** True when the turn ended on a time condition (deadline or stall). */
+    get expired(): boolean {
+      return timedOut || stalled;
+    },
+    /** The effective whole-turn deadline in ms (explicit or defensive default). */
+    get turnTimeoutMs(): number | undefined {
+      return effectiveTurnTimeoutMs;
+    },
+    elapsedMs(): number {
+      return Date.now() - startedAt;
+    },
+    /** Record progress: chunk received, tool started/finished, step started. */
+    noteProgress(): void {
+      lastProgressAt = Date.now();
+    },
+    /** True when an explicit deadline exists and remaining time is inside the wrap-up lead. */
+    shouldNudgeWrapup(): boolean {
+      if (effectiveTurnTimeoutMs === undefined || wrapupLeadMs === undefined) {
+        return false;
+      }
+      const remaining = effectiveTurnTimeoutMs - (Date.now() - startedAt);
+      return remaining > 0 && remaining <= wrapupLeadMs;
+    },
+    dispose(): void {
+      if (deadlineTimer) {
+        clearTimeout(deadlineTimer);
+      }
+      if (stallTimer) {
+        clearInterval(stallTimer);
+      }
+    },
+  };
 }
 
 /**

@@ -30,7 +30,9 @@ import {
   assertIncludes,
 } from "./helpers/harness.js";
 import {
+  buildAbortedTurnMessage,
   buildToolLoopCapMessage,
+  buildTurnTimeoutMessage,
   isAbortError,
   handleMaxStepsTermination,
 } from "../src/lib/providers/googleNativeGemini3.js";
@@ -187,6 +189,9 @@ async function makeProvider(client: MockClient): Promise<GoogleVertexProvider> {
 type GenResult = {
   content: string;
   finishReason: string;
+  stopReason?: string;
+  rawFinishReason?: string;
+  stepsUsed?: number;
   usage: { input: number; output: number; total: number };
   structuredOutput?: unknown;
   toolExecutions?: unknown[];
@@ -206,10 +211,47 @@ async function runGenerate(
 
 type StreamResultShape = {
   finishReason: string;
+  stopReason?: string;
+  rawFinishReason?: string;
   usage: { input: number; output: number; total: number };
   structuredOutput?: unknown;
   stream: AsyncIterable<{ content: string }>;
 };
+
+/**
+ * Mock client whose FIRST call is a normal tool-call step and whose SECOND
+ * call hangs until the request's abortSignal fires, then rejects
+ * abort-shaped — simulating the SDK cancelling an in-flight request when an
+ * internal watchdog (turn deadline / stall) aborts mid-model-call.
+ */
+function makeHangingSecondCallMock(): Recorder {
+  const calls: GenParams[] = [];
+  const client: MockClient = {
+    models: {
+      generateContentStream: async (p: GenParams) => {
+        const index = calls.length;
+        calls.push(p);
+        if (index === 0) {
+          return chunks([functionCallChunk("myTool", { q: "x" })]);
+        }
+        const signal = p.config.abortSignal as AbortSignal;
+        await new Promise<void>((resolvePromise) => {
+          if (signal.aborted) {
+            resolvePromise();
+            return;
+          }
+          signal.addEventListener("abort", () => resolvePromise(), {
+            once: true,
+          });
+        });
+        const e = new Error("The operation was aborted");
+        e.name = "AbortError";
+        throw e;
+      },
+    },
+  };
+  return { calls, client };
+}
 
 /** Invoke the private native-Gemini stream loop and drain its chunks plus result. */
 async function runStream(
@@ -362,6 +404,12 @@ async function main(): Promise<void> {
         "content must be the graceful cap message",
       );
       assertEqual(result.finishReason, "tool-calls");
+      assertEqual(
+        result.stopReason,
+        "step-cap",
+        "genuine budget exhaustion must report stopReason 'step-cap'",
+      );
+      assertEqual(result.stepsUsed, maxSteps, "stepsUsed reflects the budget");
       assert(
         !result.content.includes("Tool execution limit reached"),
         "must not be the bracketed placeholder",
@@ -441,9 +489,9 @@ async function main(): Promise<void> {
   });
 
   // -------------------------------------------------------------------------
-  // 7. Generate: abort mid-drain -> BREAK, synth skipped, cap message
+  // 7. Generate: abort mid-drain -> BREAK, synth skipped, honest abort message
   // -------------------------------------------------------------------------
-  await test("generate: abort mid-drain -> loop breaks (no throw), synth skipped, cap message, call count < maxSteps", async () => {
+  await test("generate: abort mid-drain -> loop breaks (no throw), synth skipped, honest abort message, call count < maxSteps", async () => {
     await withTemporaryEnv(VERTEX_ENV, async () => {
       const maxSteps = 10;
       const controller = new AbortController();
@@ -465,11 +513,19 @@ async function main(): Promise<void> {
         maxSteps,
         abortSignal: controller.signal,
       });
-      // No throw escaped (we got a result). Cap message delivered, synth skipped.
-      assert(
-        result.content.includes("step limit for a single turn"),
-        `expected graceful cap message, got: ${result.content}`,
+      // No throw escaped (we got a result). Honest abort message delivered —
+      // NEVER the step-cap text on an aborted turn (2026-07-03 incident) —
+      // and synth skipped.
+      assertEqual(
+        result.content,
+        buildAbortedTurnMessage(1),
+        `expected honest aborted-turn message, got: ${result.content}`,
       );
+      assert(
+        !result.content.includes("step limit"),
+        "aborted turn must not claim a step limit was reached",
+      );
+      assertEqual(result.stopReason, "aborted", "stopReason must be 'aborted'");
       assert(
         mock.calls.length < maxSteps,
         `expected < ${maxSteps} generateContentStream calls, got ${mock.calls.length}`,
@@ -481,7 +537,7 @@ async function main(): Promise<void> {
   // -------------------------------------------------------------------------
   // 8. Generate: abort BETWEEN steps (loop-entry guard)
   // -------------------------------------------------------------------------
-  await test("generate: abort BETWEEN steps (loop-entry guard) -> graceful cap message", async () => {
+  await test("generate: abort BETWEEN steps (loop-entry guard) -> honest abort message", async () => {
     await withTemporaryEnv(VERTEX_ENV, async () => {
       const maxSteps = 10;
       const controller = new AbortController();
@@ -533,10 +589,12 @@ async function main(): Promise<void> {
         maxSteps,
         abortSignal: controller.signal,
       });
-      assert(
-        result.content.includes("step limit for a single turn"),
-        `expected graceful cap message, got: ${result.content}`,
+      assertEqual(
+        result.content,
+        buildAbortedTurnMessage(1),
+        `expected honest aborted-turn message, got: ${result.content}`,
       );
+      assertEqual(result.stopReason, "aborted", "stopReason must be 'aborted'");
       assertEqual(
         calls.length,
         1,
@@ -669,12 +727,13 @@ async function main(): Promise<void> {
         ),
         "aborted tool must not be recorded as a failed execution",
       );
-      assert(
-        result.content.includes("step limit for a single turn"),
-        "graceful cap message after tool-exec abort",
+      assertEqual(
+        result.content,
+        buildAbortedTurnMessage(1),
+        "honest aborted-turn message after tool-exec abort",
       );
       // toolCallCount in the message reflects the single call.
-      assertIncludes(result.content, "across 1 tool call ");
+      assertIncludes(result.content, "I completed 1 tool call before stopping");
     });
   });
 
@@ -818,9 +877,14 @@ async function main(): Promise<void> {
         abortSignal: controller.signal,
       });
       assertEqual(out.length, 1, "exactly one graceful chunk on abort");
+      assertEqual(
+        out[0],
+        buildAbortedTurnMessage(1),
+        `expected honest aborted-turn message, got: ${out[0]}`,
+      );
       assert(
-        out[0].includes("step limit for a single turn"),
-        `expected cap message, got: ${out[0]}`,
+        !out[0].includes("step limit"),
+        "aborted stream turn must not claim a step limit was reached",
       );
       assert(mock.calls.length < maxSteps, "call count < maxSteps");
       assertEqual(mock.calls.length, 2, "aborted on 2nd request");
@@ -992,6 +1056,316 @@ async function main(): Promise<void> {
       !nativeSrc.includes("Tool execution limit reached after"),
       "legacy step-cap placeholder text still present in googleNativeGemini3.ts",
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // 19. Turn time budget: turnTimeoutMs ends the turn honestly (time-limit)
+  // -------------------------------------------------------------------------
+  await test("generate: turnTimeoutMs exceeded -> honest time message + stopReason 'time-limit', never the step-cap text", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const maxSteps = 10;
+      const mock = makeMock(() => [functionCallChunk("myTool", { q: "x" })]);
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "run tools" },
+        tools: {
+          myTool: {
+            description: "slow tool",
+            parameters: { type: "object", properties: {} },
+            // Sleeps past the 120ms turn deadline (ignores the abort signal),
+            // so the deadline fires mid-tool and the next loop-entry check
+            // breaks the turn.
+            execute: async () => {
+              await new Promise<void>((resolvePromise) => {
+                const t = setTimeout(resolvePromise, 400);
+                (t as { unref?: () => void }).unref?.();
+              });
+              return { ok: true };
+            },
+          },
+        },
+        maxSteps,
+        turnTimeoutMs: 120,
+      });
+      assert(
+        result.content.includes("processing time limit"),
+        `expected the turn-timeout message, got: ${result.content}`,
+      );
+      assert(
+        !result.content.includes("step limit"),
+        "a timed-out turn must not claim a step limit was reached",
+      );
+      assertEqual(
+        result.stopReason,
+        "time-limit",
+        "stopReason must be 'time-limit'",
+      );
+      assert(
+        mock.calls.length < maxSteps,
+        "turn must end well before the step budget",
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 20. Stall watchdog: no progress past stallTimeoutMs -> 'stalled'
+  // -------------------------------------------------------------------------
+  await test("generate: stallTimeoutMs with a wedged tool -> honest stall message + stopReason 'stalled'", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const mock = makeMock(() => [functionCallChunk("myTool", { q: "x" })]);
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "run tools" },
+        tools: {
+          myTool: {
+            description: "wedged tool",
+            parameters: { type: "object", properties: {} },
+            // Sleeps past the stall watchdog's first check tick (the watchdog
+            // polls at >=1s granularity), producing no progress signals.
+            execute: async () => {
+              await new Promise<void>((resolvePromise) => {
+                const t = setTimeout(resolvePromise, 1_600);
+                (t as { unref?: () => void }).unref?.();
+              });
+              return { ok: true };
+            },
+          },
+        },
+        maxSteps: 10,
+        stallTimeoutMs: 300,
+      });
+      assert(
+        result.content.includes("no progress"),
+        `expected the stall message, got: ${result.content}`,
+      );
+      assertEqual(result.stopReason, "stalled", "stopReason must be 'stalled'");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 21. toolTimeoutMs: a wedged tool costs one step, not the turn
+  // -------------------------------------------------------------------------
+  await test("generate: toolTimeoutMs bounds a wedged tool -> error tool_result, turn continues and completes", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const mock = makeMock((i) =>
+        i === 0
+          ? [functionCallChunk("myTool", { q: "x" })]
+          : [textChunk("done after tool timeout", "STOP")],
+      );
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "run tools" },
+        tools: {
+          myTool: {
+            description: "wedged tool",
+            parameters: { type: "object", properties: {} },
+            execute: async () => {
+              await new Promise<void>((resolvePromise) => {
+                const t = setTimeout(resolvePromise, 5_000);
+                (t as { unref?: () => void }).unref?.();
+              });
+              return { ok: true };
+            },
+          },
+        },
+        maxSteps: 5,
+        toolTimeoutMs: 100,
+      });
+      assertEqual(
+        result.content,
+        "done after tool timeout",
+        "turn must continue past the timed-out tool and complete",
+      );
+      assertEqual(result.stopReason, "completed");
+      assert(
+        JSON.stringify(result.toolExecutions ?? []).includes("timed out"),
+        "the timed-out tool must surface as an error tool execution",
+      );
+      assertEqual(mock.calls.length, 2, "loop continued to the next step");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 22. MALFORMED_FUNCTION_CALL: one retry with corrective note, then recover
+  // -------------------------------------------------------------------------
+  await test("generate: MALFORMED_FUNCTION_CALL retries once with corrective note and recovers", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const malformedChunk: Chunk = {
+        candidates: [
+          { finishReason: "MALFORMED_FUNCTION_CALL", content: { parts: [] } },
+        ],
+        usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 0 },
+      };
+      const mock = makeMock((i) =>
+        i === 0 ? [malformedChunk] : [textChunk("recovered answer", "STOP")],
+      );
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "run tools" },
+        tools: makeTool(),
+        maxSteps: 5,
+      });
+      assertEqual(result.content, "recovered answer");
+      assertEqual(result.stopReason, "completed");
+      assertEqual(result.finishReason, "stop");
+      assertEqual(mock.calls.length, 2, "exactly one retry request");
+      assert(
+        JSON.stringify(mock.calls[1].contents).includes("malformed"),
+        "the retry request must carry the corrective note",
+      );
+    });
+  });
+
+  await test("generate: persistent MALFORMED_FUNCTION_CALL -> finishReason 'error' + stopReason 'provider-error' (not 'tool-calls')", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const malformedChunk: Chunk = {
+        candidates: [
+          { finishReason: "MALFORMED_FUNCTION_CALL", content: { parts: [] } },
+        ],
+        usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 0 },
+      };
+      const mock = makeMock(() => [malformedChunk]);
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "run tools" },
+        tools: makeTool(),
+        maxSteps: 5,
+      });
+      assertEqual(
+        result.finishReason,
+        "error",
+        "malformed calls are provider errors, not 'tool-calls'",
+      );
+      assertEqual(
+        result.stopReason,
+        "provider-error",
+        "stopReason must be 'provider-error'",
+      );
+      assertEqual(result.rawFinishReason, "MALFORMED_FUNCTION_CALL");
+      assertEqual(mock.calls.length, 2, "one retry, then give up");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 23. Wrap-up nudge rides the tool-response turn inside the lead window
+  // -------------------------------------------------------------------------
+  await test("generate: wrap-up nudge injected when remaining turn time is inside wrapupTimeLeadMs", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const mock = makeMock((i) =>
+        i === 0
+          ? [functionCallChunk("myTool", { q: "x" })]
+          : [textChunk("wrapped up", "STOP")],
+      );
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "run tools" },
+        tools: makeTool(),
+        maxSteps: 10,
+        // Lead window == full budget -> the very first tool-response turn is
+        // already inside the wrap-up window.
+        turnTimeoutMs: 60_000,
+        wrapupTimeLeadMs: 60_000,
+      });
+      assertEqual(result.content, "wrapped up");
+      assert(
+        JSON.stringify(mock.calls[1].contents).includes(
+          "processing time for this turn is nearly up",
+        ),
+        "second request must carry the wrap-up nudge text",
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 24. Clean completion carries the new telemetry fields
+  // -------------------------------------------------------------------------
+  await test("generate: clean completion -> stopReason 'completed', rawFinishReason 'STOP', stepsUsed counted", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const mock = makeMock((i) =>
+        i === 0
+          ? [functionCallChunk("myTool", { q: "x" })]
+          : [textChunk("all done", "STOP")],
+      );
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "run tools" },
+        tools: makeTool(),
+        maxSteps: 10,
+      });
+      assertEqual(result.content, "all done");
+      assertEqual(result.stopReason, "completed");
+      assertEqual(result.rawFinishReason, "STOP");
+      assertEqual(result.stepsUsed, 2);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 25. Deadline fires MID-MODEL-CALL: the cancelled request must resolve the
+  //     turn as 'time-limit' — never reject out of generate()/stream()
+  //     (a rejection routes callers into abortSignal-less fallback retries:
+  //     the doubled-runaway hazard).
+  // -------------------------------------------------------------------------
+  await test("generate: turn deadline mid-model-call -> resolves with stopReason 'time-limit', never rejects", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const mock = makeHangingSecondCallMock();
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "run tools" },
+        tools: makeTool(),
+        maxSteps: 10,
+        turnTimeoutMs: 120,
+      });
+      assertEqual(
+        result.stopReason,
+        "time-limit",
+        "internal deadline cancellation must attribute as time-limit, not 'aborted'",
+      );
+      assert(
+        result.content.includes("processing time limit"),
+        `expected the turn-timeout message, got: ${result.content}`,
+      );
+      assertEqual(mock.calls.length, 2, "aborted during the 2nd model call");
+    });
+  });
+
+  await test("stream: turn deadline mid-model-call -> resolves with stopReason 'time-limit', never rejects", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const mock = makeHangingSecondCallMock();
+      const provider = await makeProvider(mock.client);
+      const { chunks: out, result } = await runStream(provider, {
+        input: { text: "run tools" },
+        tools: makeTool(),
+        maxSteps: 10,
+        turnTimeoutMs: 120,
+      });
+      assertEqual(
+        result.stopReason,
+        "time-limit",
+        "internal deadline cancellation must attribute as time-limit, not 'aborted'",
+      );
+      assertEqual(out.length, 1, "exactly one honest terminal chunk");
+      assert(
+        out[0].includes("processing time limit"),
+        `expected the turn-timeout message, got: ${out[0]}`,
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 26. Pure helpers: honest-message builders
+  // -------------------------------------------------------------------------
+  await test("buildTurnTimeoutMessage / buildAbortedTurnMessage: shape and counts", () => {
+    const timeoutMsg = buildTurnTimeoutMessage(125_000, 3);
+    assertIncludes(timeoutMsg, "2m 5s");
+    assertIncludes(timeoutMsg, "3 tool calls");
+    assertIncludes(timeoutMsg, "processing time limit");
+    assert(
+      !timeoutMsg.includes("step limit"),
+      "timeout message must not mention a step limit",
+    );
+    const abortedNoTools = buildAbortedTurnMessage(0);
+    assertEqual(abortedNoTools, "This turn was stopped before I could finish.");
+    assertIncludes(buildAbortedTurnMessage(1), "1 tool call before stopping");
   });
 }
 

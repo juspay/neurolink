@@ -36,6 +36,23 @@ export function createAnalytics(
     // Estimate cost based on provider and tokens
     const cost = estimateCost(provider, model, tokens);
 
+    // Turn-lifecycle telemetry from native agentic loops (Vertex
+    // Gemini/Claude): stopReason / rawFinishReason / stepsUsed ride the
+    // provider result; toolCallCount and elapsedMs derive from it.
+    const turnResult = result as {
+      stopReason?: string;
+      rawFinishReason?: string;
+      stepsUsed?: number;
+      responseTime?: number;
+      toolExecutions?: unknown[];
+      toolsUsed?: string[];
+    };
+    const toolCallCount = Array.isArray(turnResult.toolExecutions)
+      ? turnResult.toolExecutions.length
+      : Array.isArray(turnResult.toolsUsed)
+        ? turnResult.toolsUsed.length
+        : undefined;
+
     const analytics: AnalyticsData = {
       provider,
       model,
@@ -44,6 +61,19 @@ export function createAnalytics(
       requestDuration: responseTime,
       context: context as Record<string, JsonValue> | undefined,
       timestamp: new Date().toISOString(),
+      ...(typeof turnResult.stepsUsed === "number" && {
+        stepsUsed: turnResult.stepsUsed,
+      }),
+      ...(toolCallCount !== undefined && { toolCallCount }),
+      ...(typeof turnResult.stopReason === "string" && {
+        stopReason: turnResult.stopReason,
+      }),
+      ...(typeof turnResult.responseTime === "number" && {
+        elapsedMs: turnResult.responseTime,
+      }),
+      ...(typeof turnResult.rawFinishReason === "string" && {
+        rawFinishReason: turnResult.rawFinishReason,
+      }),
     };
 
     logger.debug(`[${functionTag}] Analytics created`, {

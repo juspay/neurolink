@@ -39,6 +39,18 @@ export type AnalyticsData = {
   timestamp: string;
   cost?: number;
   context?: JsonValue;
+  // Turn-lifecycle telemetry (populated when the provider ran a native
+  // agentic loop — Vertex Gemini/Claude) so an RCA is a one-line query:
+  /** Number of agentic steps (model calls) the turn used. */
+  stepsUsed?: number;
+  /** Number of external tool calls the turn made (final_result excluded). */
+  toolCallCount?: number;
+  /** Why the turn ended — see GenerateStopReason. */
+  stopReason?: string;
+  /** Wall-clock duration of the turn in milliseconds. */
+  elapsedMs?: number;
+  /** Verbatim provider finish/stop reason for the terminal model call. */
+  rawFinishReason?: string;
 };
 
 /**

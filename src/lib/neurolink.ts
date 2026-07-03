@@ -4707,6 +4707,10 @@ Current user's request: ${currentInput}`;
       stt: options.stt,
       fileRegistry: this.fileRegistry,
       timeout: options.timeout,
+      turnTimeoutMs: options.turnTimeoutMs,
+      stallTimeoutMs: options.stallTimeoutMs,
+      wrapupTimeLeadMs: options.wrapupTimeLeadMs,
+      toolTimeoutMs: options.toolTimeoutMs,
       abortSignal: options.abortSignal,
       skipToolPromptInjection: options.skipToolPromptInjection,
       middleware: options.middleware,
@@ -4884,6 +4888,12 @@ Current user's request: ${currentInput}`;
       content: textResult.content,
       structuredData: textResult.structuredData,
       finishReason: textResult.finishReason,
+      // Turn-exit discriminator + raw provider stop reason + step count from
+      // native agentic loops — this DTO is an explicit field list, so new
+      // provider-result fields MUST be copied here or they silently vanish.
+      stopReason: textResult.stopReason,
+      rawFinishReason: textResult.rawFinishReason,
+      stepsUsed: textResult.stepsUsed,
       jsonRepaired: textResult.jsonRepaired,
       jsonTruncated: textResult.jsonTruncated,
       provider: textResult.provider,
@@ -6964,6 +6974,9 @@ Current user's request: ${currentInput}`;
       usage: result.usage,
       responseTime,
       finishReason: result.finishReason,
+      stopReason: result.stopReason,
+      rawFinishReason: result.rawFinishReason,
+      stepsUsed: result.stepsUsed,
       toolsUsed: result.toolsUsed || [],
       toolExecutions: transformedToolExecutions,
       enhancedWithTools: Boolean(hasToolExecutions),
@@ -7139,6 +7152,9 @@ Current user's request: ${currentInput}`;
             usage: poolResult.usage,
             responseTime,
             finishReason: poolResult.finishReason,
+            stopReason: poolResult.stopReason,
+            rawFinishReason: poolResult.rawFinishReason,
+            stepsUsed: poolResult.stepsUsed,
             toolsUsed: poolResult.toolsUsed || [],
             toolExecutions: poolResult.toolExecutions?.map((te) => {
               const t = te as Record<string, unknown>;
@@ -7504,6 +7520,9 @@ Current user's request: ${currentInput}`;
           usage: result.usage,
           responseTime,
           finishReason: result.finishReason,
+          stopReason: result.stopReason,
+          rawFinishReason: result.rawFinishReason,
+          stepsUsed: result.stepsUsed,
           toolsUsed: result.toolsUsed || [],
           // Map toolExecutions from EnhancedGenerateResult shape ({name,input,output})
           // to TextGenerationResult shape ({toolName,executionTime,success}).
@@ -8802,6 +8821,7 @@ Current user's request: ${currentInput}`;
         toolCalls: streamToolCalls,
         toolResults: streamToolResults,
         analytics: streamAnalytics,
+        metadata: providerStreamMetadata,
       } = await this.createMCPStream(enhancedOptions);
       const streamState = {
         finishReason: streamFinishReason ?? "stop",
@@ -9208,6 +9228,7 @@ Current user's request: ${currentInput}`;
         guardrailsBlocked: metadata.guardrailsBlocked,
         error: metadata.error,
         events: eventSequence,
+        providerMetadata: providerStreamMetadata,
       });
     } catch (error) {
       if (options.disableInternalFallback) {
@@ -10020,6 +10041,8 @@ Current user's request: ${currentInput}`;
     toolCalls: StreamToolCall[];
     toolResults: StreamToolResult[];
     analytics?: AnalyticsData | Promise<AnalyticsData>;
+    /** Provider metadata, passed through by reference (see return site). */
+    metadata?: StreamResult["metadata"];
   }> {
     // Simplified placeholder - in the actual implementation this would contain the complex MCP stream logic
     const providerName = await getBestProvider(options.provider);
@@ -10375,6 +10398,7 @@ Current user's request: ${currentInput}`;
             toolCalls: poolStreamResult.toolCalls ?? [],
             toolResults: poolStreamResult.toolResults ?? [],
             analytics: poolStreamResult.analytics,
+            metadata: poolStreamResult.metadata,
           };
         } catch (poolStreamError) {
           if (isAbortError(poolStreamError)) {
@@ -10443,6 +10467,12 @@ Current user's request: ${currentInput}`;
       toolCalls: streamResult.toolCalls ?? [],
       toolResults: streamResult.toolResults ?? [],
       analytics: streamResult.analytics,
+      // Pass the provider's metadata object THROUGH BY REFERENCE: native
+      // background-loop streams (Vertex Gemini/Claude) resolve
+      // finishReason/stopReason/rawFinishReason/stepsUsed onto it only when
+      // the loop finishes — snapshotting fields here would freeze them as
+      // undefined before the stream is drained.
+      metadata: streamResult.metadata,
     };
   }
 
@@ -10524,6 +10554,14 @@ Current user's request: ${currentInput}`;
         timestamp: number;
         [key: string]: unknown;
       }>;
+      /**
+       * The provider StreamResult's metadata object. Merged IN PLACE (not
+       * spread): native background-loop streams resolve finishReason /
+       * stopReason / rawFinishReason / stepsUsed onto this same object only
+       * after the consumer drains the stream — a copy would freeze them as
+       * undefined.
+       */
+      providerMetadata?: StreamResult["metadata"];
     },
   ): StreamResult {
     return {
@@ -10538,14 +10576,14 @@ Current user's request: ${currentInput}`;
       evaluation: streamResult.evaluation,
       events:
         config.events && config.events.length > 0 ? config.events : undefined,
-      metadata: {
+      metadata: Object.assign(config.providerMetadata ?? {}, {
         streamId: config.streamId,
         startTime: config.startTime,
         responseTime: config.responseTime,
         fallback: config.fallback || false,
         guardrailsBlocked: config.guardrailsBlocked,
         error: config.error,
-      },
+      }),
     };
   }
 

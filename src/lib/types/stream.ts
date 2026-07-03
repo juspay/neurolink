@@ -17,7 +17,7 @@ import type { JsonValue, UnknownRecord } from "./common.js";
 import type { Content, ImageWithAltText } from "./content.js";
 import type { ChatMessage } from "./conversation.js";
 import type { StreamNoOutputSentinel } from "./noOutputSentinel.js";
-import type { AdditionalMemoryUser } from "./generate.js";
+import type { AdditionalMemoryUser, GenerateStopReason } from "./generate.js";
 import type {
   AIModelProviderConfig,
   NeurolinkCredentials,
@@ -376,6 +376,14 @@ export type StreamOptions = {
   schema?: ValidationSchema;
   tools?: Record<string, Tool>;
   timeout?: number | string;
+  /** Wall-clock cap for the whole agentic turn (ms). See GenerateOptions.turnTimeoutMs. */
+  turnTimeoutMs?: number;
+  /** Max time with no progress before the turn ends as "stalled" (ms). See GenerateOptions.stallTimeoutMs. */
+  stallTimeoutMs?: number;
+  /** Remaining-time threshold that triggers the wrap-up nudge (ms). See GenerateOptions.wrapupTimeLeadMs. */
+  wrapupTimeLeadMs?: number;
+  /** Per-tool-execution timeout (ms, default 300_000). See GenerateOptions.toolTimeoutMs. */
+  toolTimeoutMs?: number;
   /** AbortSignal for external cancellation of the AI call */
   abortSignal?: AbortSignal;
   disableTools?: boolean;
@@ -618,6 +626,16 @@ export type StreamResult = {
   // Finish reason
   finishReason?: string;
 
+  /**
+   * Why the agentic turn ended (see GenerateStopReason). For background-loop
+   * streams (native Vertex paths) prefer `metadata.stopReason` after draining
+   * the stream — this top-level field may be a getter that resolves late, and
+   * wrapper spreads can snapshot it before the loop finishes.
+   */
+  stopReason?: GenerateStopReason;
+  /** Verbatim provider finish/stop reason for the turn's terminal model call. */
+  rawFinishReason?: string;
+
   // Tool integration (from Vercel AI SDK)
   toolCalls?: StreamToolCall[]; // Tool calls made during generation
   toolResults?: StreamToolResult[]; // Results from tool execution
@@ -646,6 +664,12 @@ export type StreamResult = {
     // (a mutable reference the loop fills in) because result-object spreads
     // in stream wrappers snapshot top-level getters before the loop resolves.
     finishReason?: string;
+    // Resolved turn stop reason / raw provider finish reason / step count —
+    // same mutable-reference contract as `finishReason` above: read them
+    // after draining the stream.
+    stopReason?: GenerateStopReason;
+    rawFinishReason?: string;
+    stepsUsed?: number;
     // Thought/reasoning metadata
     thoughtSignature?: string;
     thoughts?: Array<{ id?: string; type?: string; content?: string }>;

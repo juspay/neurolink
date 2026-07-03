@@ -3168,8 +3168,10 @@ exit 127
       return (
         mapGeminiFinishReason("STOP") === "stop" &&
         mapGeminiFinishReason("MAX_TOKENS") === "length" &&
-        mapGeminiFinishReason("MALFORMED_FUNCTION_CALL") === "tool-calls" &&
-        mapGeminiFinishReason("UNEXPECTED_TOOL_CALL") === "tool-calls" &&
+        // Provider/model failures map to "error" — NOT "tool-calls", which is
+        // reserved for step-cap exits (consumers branch on it).
+        mapGeminiFinishReason("MALFORMED_FUNCTION_CALL") === "error" &&
+        mapGeminiFinishReason("UNEXPECTED_TOOL_CALL") === "error" &&
         mapGeminiFinishReason("SAFETY") === "content-filter" &&
         mapGeminiFinishReason("RECITATION") === "content-filter" &&
         mapGeminiFinishReason("BLOCKLIST") === "content-filter" &&

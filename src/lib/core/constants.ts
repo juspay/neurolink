@@ -122,6 +122,21 @@ export const DEFAULT_TOOL_MAX_RETRIES = 2; // Maximum retries per tool before pe
 /** Defensive wall-clock ceiling for a native Gemini-3 agentic turn (generate + stream). */
 export const DEFAULT_GEMINI_STREAM_TIMEOUT_MS = 300_000;
 
+/**
+ * Default per-tool-execution timeout for native agentic loops. A tool that
+ * exceeds it fails with an error tool_result and costs one step — the turn
+ * continues instead of hanging on a wedged tool. Override per call with
+ * `toolTimeoutMs`.
+ */
+export const DEFAULT_TOOL_EXECUTION_TIMEOUT_MS = 300_000;
+
+/**
+ * Default wrap-up lead applied when `turnTimeoutMs` is set but
+ * `wrapupTimeLeadMs` is not: with less than this much turn time remaining,
+ * a wrap-up nudge rides the next tool-result turn.
+ */
+export const DEFAULT_WRAPUP_TIME_LEAD_MS = 120_000;
+
 // Fire-and-forget tool storage writes (Redis). 5s is generous for a single
 // Redis write; if breached, the .catch logs a warning.
 export const TOOL_STORAGE_TIMEOUT_MS = 5000;
