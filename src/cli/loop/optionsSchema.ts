@@ -90,6 +90,26 @@ export const textGenerationOptionsSchema: Record<
     type: "number",
     description: "Timeout for the generation request in milliseconds.",
   },
+  turnTimeoutMs: {
+    type: "number",
+    description:
+      "Wall-clock cap for the whole agentic turn in milliseconds (all steps + tool executions).",
+  },
+  stallTimeoutMs: {
+    type: "number",
+    description:
+      "Maximum time with no progress (no chunk, no tool activity) before the turn ends as stalled, in milliseconds.",
+  },
+  wrapupTimeLeadMs: {
+    type: "number",
+    description:
+      "Remaining-turn-time threshold that triggers a wrap-up nudge to the model, in milliseconds.",
+  },
+  toolTimeoutMs: {
+    type: "number",
+    description:
+      "Per-tool-execution timeout in milliseconds (default 300000). A timed-out tool fails that step; the turn continues.",
+  },
   disableTools: {
     type: "boolean",
     description: "Disable all tool usage for the AI.",

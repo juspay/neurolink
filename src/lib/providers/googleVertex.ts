@@ -14,6 +14,7 @@ import { BaseProvider } from "../core/baseProvider.js";
 import {
   DEFAULT_GEMINI_STREAM_TIMEOUT_MS,
   DEFAULT_MAX_STEPS,
+  DEFAULT_TOOL_EXECUTION_TIMEOUT_MS,
   DEFAULT_TOOL_MAX_RETRIES,
   GLOBAL_LOCATION_MODELS,
   IMAGE_GENERATION_MODELS,
@@ -28,6 +29,7 @@ import type {
   UnknownRecord,
   ZodUnknownSchema,
   EnhancedGenerateResult,
+  GenerateStopReason,
   TextGenerationOptions,
   GenAIClient,
   GoogleGenAIClass,
@@ -80,12 +82,18 @@ import { TimeoutError, withTimeout } from "../utils/async/index.js";
 import { parseTimeout } from "../utils/timeout.js";
 import {
   appendStepText,
+  buildAbortedTurnMessage,
   buildToolLoopCapMessage,
+  buildTurnStalledMessage,
+  buildTurnTimeoutMessage,
+  buildWrapupNudgeText,
   createTextChannel,
+  createTurnClock,
   extractThoughtSignature,
   isAbortError,
   mapGeminiFinishReason,
   prependConversationMessages,
+  resolveTurnStopReason,
 } from "./googleNativeGemini3.js";
 import {
   ATTR,
@@ -1791,24 +1799,41 @@ export class GoogleVertexProvider extends BaseProvider {
 
     // Abort scaffolding (mirrors executeNativeAnthropicStream). The native
     // Gemini SDK cancels via config.abortSignal, so drive an internal
-    // AbortController: the caller's signal and a defensive wall-clock timer
-    // both trip it, and every request/tool-exec receives effectiveSignal.
+    // AbortController: the caller's signal and the turn clock's watchdogs
+    // (whole-turn deadline + optional stall detector) all trip it, and every
+    // request/tool-exec receives effectiveSignal.
     const streamTimeoutMs =
       parseTimeout(options.timeout) ?? DEFAULT_GEMINI_STREAM_TIMEOUT_MS;
+    const toolExecTimeoutMs =
+      options.toolTimeoutMs ?? DEFAULT_TOOL_EXECUTION_TIMEOUT_MS;
+    const effectiveTurnDeadlineMs = options.turnTimeoutMs ?? streamTimeoutMs;
     const internalAbort = new AbortController();
     const onCallerAbort = () => internalAbort.abort();
     options.abortSignal?.addEventListener("abort", onCallerAbort);
-    const defensiveTimer = setTimeout(() => {
-      logger.warn(
-        `[GoogleVertex] Native Gemini turn exceeded ${streamTimeoutMs}ms — aborting`,
-      );
-      internalAbort.abort();
-    }, streamTimeoutMs);
+    const turnClock = createTurnClock({
+      turnTimeoutMs: options.turnTimeoutMs,
+      // Preserve the pre-existing defensive whole-turn bound when the caller
+      // sets no explicit turn budget — a turn must never hang forever.
+      defaultTurnTimeoutMs: streamTimeoutMs,
+      stallTimeoutMs: options.stallTimeoutMs,
+      wrapupTimeLeadMs: options.wrapupTimeLeadMs,
+      onDeadline: (kind) => {
+        logger.warn(
+          kind === "timeout"
+            ? `[GoogleVertex] Native Gemini turn exceeded its ${effectiveTurnDeadlineMs}ms time budget — aborting`
+            : `[GoogleVertex] Native Gemini turn made no progress for ${options.stallTimeoutMs}ms — aborting`,
+        );
+        internalAbort.abort();
+      },
+    });
     const effectiveSignal = internalAbort.signal;
     if (options.abortSignal?.aborted) {
       internalAbort.abort();
     }
     let wasAborted = false;
+    // One retry per turn for MALFORMED_FUNCTION_CALL steps (see the retry
+    // block after the step drain).
+    let malformedRetryCount = 0;
 
     // Step-cap flags declared in the outer scope so the terminal block (also
     // inside the try) and the finishReason mapping (after the finally) can
@@ -1824,6 +1849,7 @@ export class GoogleVertexProvider extends BaseProvider {
           break;
         }
         step++;
+        turnClock.noteProgress();
         logger.debug(`[GoogleVertex] Native SDK step ${step}/${maxSteps}`);
 
         try {
@@ -1840,8 +1866,13 @@ export class GoogleVertexProvider extends BaseProvider {
 
           // Capture raw response parts including thoughtSignature
           const rawResponseParts: unknown[] = [];
+          // This step's own finish reason (vs the cross-step
+          // lastFinishReason) — drives the single MALFORMED_FUNCTION_CALL
+          // retry below.
+          let stepFinishReason: string | undefined;
 
           for await (const chunk of stream) {
+            turnClock.noteProgress();
             // Extract raw parts from candidates FIRST
             // This avoids using chunk.text which triggers SDK warning when
             // non-text parts (thoughtSignature, functionCall) are present
@@ -1855,6 +1886,7 @@ export class GoogleVertexProvider extends BaseProvider {
             const chunkFinishReason = firstCandidate?.finishReason;
             if (typeof chunkFinishReason === "string" && chunkFinishReason) {
               lastFinishReason = chunkFinishReason;
+              stepFinishReason = chunkFinishReason;
             }
             const chunkContent = firstCandidate?.content as
               | Record<string, unknown>
@@ -1909,6 +1941,43 @@ export class GoogleVertexProvider extends BaseProvider {
             )
             .map((part) => part.text)
             .join("");
+
+          // MALFORMED_FUNCTION_CALL is usually a transient formatting failure
+          // (the model emitted an unparseable call): retry the step ONCE with
+          // a corrective note instead of hard-ending the turn with empty
+          // content — automated alert-RCA turns were dying at step 2-4 on
+          // this, mislabeled as step-cap exits.
+          if (
+            stepFunctionCalls.length === 0 &&
+            !stepText &&
+            stepFinishReason === "MALFORMED_FUNCTION_CALL" &&
+            malformedRetryCount < 1 &&
+            !effectiveSignal.aborted
+          ) {
+            malformedRetryCount++;
+            logger.warn(
+              `[GoogleVertex] Model returned MALFORMED_FUNCTION_CALL at step ${step}/${maxSteps}; retrying once with a corrective note.`,
+            );
+            this.emitTurnEvent({ phase: "malformed-retry", step, maxSteps });
+            if (rawResponseParts.length > 0) {
+              currentContents.push({
+                role: "model",
+                parts: rawResponseParts as VertexNativePart[],
+              });
+            }
+            currentContents.push({
+              role: "user",
+              parts: [
+                {
+                  text:
+                    "Your previous function call was malformed and could not " +
+                    "be parsed. Re-issue it as a single valid function call, " +
+                    "or answer in plain text.",
+                },
+              ],
+            });
+            continue;
+          }
 
           // If no function calls, we're done
           if (stepFunctionCalls.length === 0) {
@@ -2014,7 +2083,15 @@ export class GoogleVertexProvider extends BaseProvider {
                   messages: [],
                   abortSignal: effectiveSignal,
                 };
-                const result = await execute(call.args, toolOptions);
+                turnClock.noteProgress();
+                // Bound the execute() await — a wedged tool costs one step
+                // (error tool_result), not the whole turn.
+                const result = await withTimeout(
+                  Promise.resolve(execute(call.args, toolOptions)),
+                  toolExecTimeoutMs,
+                  `Tool "${call.name}" execution timed out after ${toolExecTimeoutMs}ms`,
+                );
+                turnClock.noteProgress();
                 toolExecutions.push({
                   name: call.name,
                   input: call.args,
@@ -2037,6 +2114,15 @@ export class GoogleVertexProvider extends BaseProvider {
                 if (effectiveSignal.aborted || isAbortError(error)) {
                   wasAborted = true;
                   break;
+                }
+                turnClock.noteProgress();
+                if (error instanceof TimeoutError) {
+                  this.emitTurnEvent({
+                    phase: "tool-timeout",
+                    step,
+                    maxSteps,
+                    toolName: call.name,
+                  });
                 }
                 const errorMessage =
                   error instanceof Error ? error.message : "Unknown error";
@@ -2149,6 +2235,16 @@ export class GoogleVertexProvider extends BaseProvider {
             });
           }
 
+          // Time-budget wrap-up nudge (twin of the Anthropic loops' soft
+          // step nudge): with the turn deadline approaching, tell the model
+          // to consolidate. Rides as a trailing text part on the
+          // tool-response user turn.
+          if (turnClock.shouldNudgeWrapup()) {
+            functionResponses.push({
+              text: buildWrapupNudgeText(useFinalResultTool),
+            } as unknown as (typeof functionResponses)[number]);
+          }
+
           // The @google/genai SDK only accepts "user" and "model" as valid
           // roles in contents — function/tool responses must use role: "user"
           // (matching the SDK's automaticFunctionCalling implementation and
@@ -2196,13 +2292,23 @@ export class GoogleVertexProvider extends BaseProvider {
               `returning text already gathered from prior steps.`,
           );
         } else if (wasAborted) {
-          // Aborted turn — skip synth entirely so it can never add +300s after
-          // a blown budget. Deliver exactly one graceful cap chunk.
+          // Turn ended on a time condition or caller abort — skip synth
+          // entirely so it can never add +300s after a blown budget, and
+          // deliver exactly one HONEST terminal chunk matching the actual
+          // exit cause (never the step-cap text — a killed healthy turn must
+          // not claim it "reached the step limit").
           logger.warn(
-            `[GoogleVertex] Tool call loop aborted mid-turn; ` +
-              `returning a graceful cap message.`,
+            `[GoogleVertex] Tool call loop ended mid-turn ` +
+              `(${turnClock.timedOut ? "turn time limit" : turnClock.stalled ? "stall watchdog" : "caller abort"}); ` +
+              `returning an honest terminal message.`,
           );
-          finalText = buildToolLoopCapMessage(maxSteps, toolCallCount);
+          finalText = this.buildLoopExitMessage({
+            turnClock,
+            wasAborted,
+            stallTimeoutMs: options.stallTimeoutMs,
+            maxSteps,
+            toolCallCount,
+          });
         } else {
           logger.warn(
             `[GoogleVertex] Tool call loop terminated after reaching maxSteps (${maxSteps}) ` +
@@ -2235,7 +2341,7 @@ export class GoogleVertexProvider extends BaseProvider {
         }
       }
     } finally {
-      clearTimeout(defensiveTimer);
+      turnClock.dispose();
       options.abortSignal?.removeEventListener("abort", onCallerAbort);
     }
 
@@ -2248,6 +2354,27 @@ export class GoogleVertexProvider extends BaseProvider {
       hitStepLimit && !synthesizedFinalAnswer
         ? "tool-calls"
         : mapGeminiFinishReason(lastFinishReason);
+
+    // Turn-exit discriminator, independent of the provider-shaped
+    // finishReason — consumers branch on this instead of sniffing strings.
+    const stopReason = resolveTurnStopReason({
+      timedOut: turnClock.timedOut,
+      stalled: turnClock.stalled,
+      wasAborted,
+      cappedWithoutAnswer: hitStepLimit && !synthesizedFinalAnswer,
+      finishReason: resolvedFinishReason,
+    });
+    if (stopReason !== "completed") {
+      this.emitTurnEvent({
+        phase: stopReason,
+        step,
+        maxSteps,
+        toolCallCount: allToolCalls.filter(
+          (tc) => tc.toolName !== "final_result",
+        ).length,
+        elapsedMs: turnClock.elapsedMs(),
+      });
+    }
 
     const responseTime = Date.now() - startTime;
 
@@ -2284,6 +2411,8 @@ export class GoogleVertexProvider extends BaseProvider {
       provider: this.providerName,
       model: modelName,
       finishReason: resolvedFinishReason,
+      stopReason,
+      rawFinishReason: lastFinishReason,
       usage: {
         input: totalInputTokens,
         output: totalOutputTokens,
@@ -2306,6 +2435,9 @@ export class GoogleVertexProvider extends BaseProvider {
         startTime,
         responseTime,
         totalToolExecutions: externalToolCalls.length,
+        stopReason,
+        rawFinishReason: lastFinishReason,
+        stepsUsed: step,
       },
     };
 
@@ -2743,24 +2875,41 @@ export class GoogleVertexProvider extends BaseProvider {
 
     // Abort scaffolding (mirrors executeNativeAnthropicStream). The native
     // Gemini SDK cancels via config.abortSignal, so drive an internal
-    // AbortController: the caller's signal and a defensive wall-clock timer
-    // both trip it, and every request/tool-exec receives effectiveSignal.
+    // AbortController: the caller's signal and the turn clock's watchdogs
+    // (whole-turn deadline + optional stall detector) all trip it, and every
+    // request/tool-exec receives effectiveSignal.
     const streamTimeoutMs =
       parseTimeout(options.timeout) ?? DEFAULT_GEMINI_STREAM_TIMEOUT_MS;
+    const toolExecTimeoutMs =
+      options.toolTimeoutMs ?? DEFAULT_TOOL_EXECUTION_TIMEOUT_MS;
+    const effectiveTurnDeadlineMs = options.turnTimeoutMs ?? streamTimeoutMs;
     const internalAbort = new AbortController();
     const onCallerAbort = () => internalAbort.abort();
     options.abortSignal?.addEventListener("abort", onCallerAbort);
-    const defensiveTimer = setTimeout(() => {
-      logger.warn(
-        `[GoogleVertex] Native Gemini turn exceeded ${streamTimeoutMs}ms — aborting`,
-      );
-      internalAbort.abort();
-    }, streamTimeoutMs);
+    const turnClock = createTurnClock({
+      turnTimeoutMs: options.turnTimeoutMs,
+      // Preserve the pre-existing defensive whole-turn bound when the caller
+      // sets no explicit turn budget — a turn must never hang forever.
+      defaultTurnTimeoutMs: streamTimeoutMs,
+      stallTimeoutMs: options.stallTimeoutMs,
+      wrapupTimeLeadMs: options.wrapupTimeLeadMs,
+      onDeadline: (kind) => {
+        logger.warn(
+          kind === "timeout"
+            ? `[GoogleVertex] Native Gemini turn exceeded its ${effectiveTurnDeadlineMs}ms time budget — aborting`
+            : `[GoogleVertex] Native Gemini turn made no progress for ${options.stallTimeoutMs}ms — aborting`,
+        );
+        internalAbort.abort();
+      },
+    });
     const effectiveSignal = internalAbort.signal;
     if (options.abortSignal?.aborted) {
       internalAbort.abort();
     }
     let wasAborted = false;
+    // One retry per turn for MALFORMED_FUNCTION_CALL steps (see the retry
+    // block after the step drain).
+    let malformedRetryCount = 0;
 
     // Step-cap flags declared in the outer scope so the terminal block (also
     // inside the try) and the finishReason mapping (after the finally) can
@@ -2776,6 +2925,7 @@ export class GoogleVertexProvider extends BaseProvider {
           break;
         }
         step++;
+        turnClock.noteProgress();
         logger.debug(
           `[GoogleVertex] Native SDK generate step ${step}/${maxSteps}`,
         );
@@ -2795,9 +2945,14 @@ export class GoogleVertexProvider extends BaseProvider {
 
           // Capture raw response parts including thoughtSignature
           const rawResponseParts: unknown[] = [];
+          // This step's own finish reason (vs the cross-step
+          // lastFinishReason) — drives the single MALFORMED_FUNCTION_CALL
+          // retry below.
+          let stepFinishReason: string | undefined;
 
           // Collect all chunks from stream
           for await (const chunk of stream) {
+            turnClock.noteProgress();
             // Extract raw parts from candidates FIRST
             // This avoids using chunk.text which triggers SDK warning when
             // non-text parts (thoughtSignature, functionCall) are present
@@ -2811,6 +2966,7 @@ export class GoogleVertexProvider extends BaseProvider {
             const chunkFinishReason = firstCandidate?.finishReason;
             if (typeof chunkFinishReason === "string" && chunkFinishReason) {
               lastFinishReason = chunkFinishReason;
+              stepFinishReason = chunkFinishReason;
             }
             const chunkContent = firstCandidate?.content as
               | Record<string, unknown>
@@ -2858,6 +3014,43 @@ export class GoogleVertexProvider extends BaseProvider {
             )
             .map((part) => part.text)
             .join("");
+
+          // MALFORMED_FUNCTION_CALL is usually a transient formatting failure
+          // (the model emitted an unparseable call): retry the step ONCE with
+          // a corrective note instead of hard-ending the turn with empty
+          // content — automated alert-RCA turns were dying at step 2-4 on
+          // this, mislabeled as step-cap exits.
+          if (
+            stepFunctionCalls.length === 0 &&
+            !stepText &&
+            stepFinishReason === "MALFORMED_FUNCTION_CALL" &&
+            malformedRetryCount < 1 &&
+            !effectiveSignal.aborted
+          ) {
+            malformedRetryCount++;
+            logger.warn(
+              `[GoogleVertex] Model returned MALFORMED_FUNCTION_CALL at step ${step}/${maxSteps}; retrying once with a corrective note.`,
+            );
+            this.emitTurnEvent({ phase: "malformed-retry", step, maxSteps });
+            if (rawResponseParts.length > 0) {
+              currentContents.push({
+                role: "model",
+                parts: rawResponseParts as VertexNativePart[],
+              });
+            }
+            currentContents.push({
+              role: "user",
+              parts: [
+                {
+                  text:
+                    "Your previous function call was malformed and could not " +
+                    "be parsed. Re-issue it as a single valid function call, " +
+                    "or answer in plain text.",
+                },
+              ],
+            });
+            continue;
+          }
 
           // If no function calls, we're done
           if (stepFunctionCalls.length === 0) {
@@ -2960,7 +3153,15 @@ export class GoogleVertexProvider extends BaseProvider {
                   messages: [],
                   abortSignal: effectiveSignal,
                 };
-                const execResult = await execute(call.args, toolOptions);
+                turnClock.noteProgress();
+                // Bound the execute() await — a wedged tool costs one step
+                // (error tool_result), not the whole turn.
+                const execResult = await withTimeout(
+                  Promise.resolve(execute(call.args, toolOptions)),
+                  toolExecTimeoutMs,
+                  `Tool "${call.name}" execution timed out after ${toolExecTimeoutMs}ms`,
+                );
+                turnClock.noteProgress();
 
                 // Track execution
                 toolExecutions.push({
@@ -2985,6 +3186,15 @@ export class GoogleVertexProvider extends BaseProvider {
                 if (effectiveSignal.aborted || isAbortError(error)) {
                   wasAborted = true;
                   break;
+                }
+                turnClock.noteProgress();
+                if (error instanceof TimeoutError) {
+                  this.emitTurnEvent({
+                    phase: "tool-timeout",
+                    step,
+                    maxSteps,
+                    toolName: call.name,
+                  });
                 }
                 const errorMessage =
                   error instanceof Error ? error.message : "Unknown error";
@@ -3098,6 +3308,16 @@ export class GoogleVertexProvider extends BaseProvider {
             });
           }
 
+          // Time-budget wrap-up nudge (twin of the Anthropic loops' soft
+          // step nudge): with the turn deadline approaching, tell the model
+          // to consolidate. Rides as a trailing text part on the
+          // tool-response user turn.
+          if (turnClock.shouldNudgeWrapup()) {
+            functionResponses.push({
+              text: buildWrapupNudgeText(useFinalResultTool),
+            } as unknown as (typeof functionResponses)[number]);
+          }
+
           // The @google/genai SDK only accepts "user" and "model" as valid
           // roles in contents — function/tool responses must use role: "user"
           // (matching the SDK's automaticFunctionCalling implementation and
@@ -3156,13 +3376,22 @@ export class GoogleVertexProvider extends BaseProvider {
           );
           finalText = accumulatedText;
         } else if (wasAborted) {
-          // Aborted turn — skip synth entirely so it can never add +300s after
-          // a blown budget. Deliver a graceful cap message as ordinary prose.
+          // Turn ended on a time condition or caller abort — skip synth
+          // entirely so it can never add +300s after a blown budget, and
+          // answer with an HONEST message matching the actual exit cause
+          // (never the step-cap text).
           logger.warn(
-            `[GoogleVertex] Generate tool call loop aborted mid-turn; ` +
-              `returning a graceful cap message.`,
+            `[GoogleVertex] Generate tool call loop ended mid-turn ` +
+              `(${turnClock.timedOut ? "turn time limit" : turnClock.stalled ? "stall watchdog" : "caller abort"}); ` +
+              `returning an honest terminal message.`,
           );
-          finalText = buildToolLoopCapMessage(maxSteps, toolCallCount);
+          finalText = this.buildLoopExitMessage({
+            turnClock,
+            wasAborted,
+            stallTimeoutMs: options.stallTimeoutMs,
+            maxSteps,
+            toolCallCount,
+          });
         } else {
           // Pure functionCall turns leave no text — make one tools-disabled call
           // so the model answers from the gathered tool results instead of the
@@ -3197,7 +3426,7 @@ export class GoogleVertexProvider extends BaseProvider {
         }
       }
     } finally {
-      clearTimeout(defensiveTimer);
+      turnClock.dispose();
       options.abortSignal?.removeEventListener("abort", onCallerAbort);
     }
 
@@ -3210,6 +3439,27 @@ export class GoogleVertexProvider extends BaseProvider {
       hitStepLimit && !synthesizedFinalAnswer
         ? "tool-calls"
         : mapGeminiFinishReason(lastFinishReason);
+
+    // Turn-exit discriminator, independent of the provider-shaped
+    // finishReason — consumers branch on this instead of sniffing strings.
+    const stopReason = resolveTurnStopReason({
+      timedOut: turnClock.timedOut,
+      stalled: turnClock.stalled,
+      wasAborted,
+      cappedWithoutAnswer: hitStepLimit && !synthesizedFinalAnswer,
+      finishReason: resolvedFinishReason,
+    });
+    if (stopReason !== "completed") {
+      this.emitTurnEvent({
+        phase: stopReason,
+        step,
+        maxSteps,
+        toolCallCount: allToolCalls.filter(
+          (tc) => tc.toolName !== "final_result",
+        ).length,
+        elapsedMs: turnClock.elapsedMs(),
+      });
+    }
 
     const responseTime = Date.now() - startTime;
 
@@ -3227,6 +3477,9 @@ export class GoogleVertexProvider extends BaseProvider {
       provider: this.providerName,
       model: modelName,
       finishReason: resolvedFinishReason,
+      stopReason,
+      rawFinishReason: lastFinishReason,
+      stepsUsed: step,
       usage: {
         input: totalInputTokens,
         output: totalOutputTokens,
@@ -3806,6 +4059,11 @@ export class GoogleVertexProvider extends BaseProvider {
       // ({ ...result }) snapshot the top-level getter to undefined before the
       // background loop resolves, while the metadata object reference survives.
       finishReason?: string;
+      // Same mutable-reference contract for the turn-exit discriminator, the
+      // raw provider stop reason, and the step count.
+      stopReason?: GenerateStopReason;
+      rawFinishReason?: string;
+      stepsUsed?: number;
     } = {
       streamId: `native-anthropic-vertex-${Date.now()}`,
       startTime,
@@ -3818,6 +4076,8 @@ export class GoogleVertexProvider extends BaseProvider {
     // via a getter (consumers read it after draining the stream), mirroring
     // the Gemini stream path's finishReason field.
     const finishReasonRef: { value?: string } = {};
+    const stopReasonRef: { value?: GenerateStopReason } = {};
+    const rawFinishReasonRef: { value?: string } = {};
 
     // Langfuse/OTel: the native SDK bypasses the Vercel AI SDK's
     // experimental_telemetry, so emit spans manually — one turn span, one
@@ -3870,8 +4130,8 @@ export class GoogleVertexProvider extends BaseProvider {
       creation1h: 0,
     };
 
-    // Track the active Anthropic stream so options.abortSignal can cancel it
-    // mid-flight (pre-rewrite code had no abort handling — fixed for free).
+    // Track the active Anthropic stream so aborts can cancel it mid-flight
+    // (pre-rewrite code had no abort handling — fixed for free).
     let activeStream:
       | Awaited<ReturnType<typeof client.messages.stream>>
       | undefined;
@@ -3882,18 +4142,38 @@ export class GoogleVertexProvider extends BaseProvider {
         /* ignore — stream may already be finalized */
       }
     };
-    options.abortSignal?.addEventListener("abort", abortHandler);
-
-    // Defensive upper bound: if neither the caller nor the SDK ever fires,
-    // abort the stream after the configured timeout so a stalled
-    // Vertex/Anthropic endpoint can't hang forever. options.timeout wins
-    // if set; otherwise 5 min — generous for tool-heavy turns.
-    const streamTimeoutHandle = setTimeout(() => {
-      logger.warn(
-        `[GoogleVertex] Anthropic stream exceeded ${streamTimeoutMs}ms — aborting`,
-      );
-      abortHandler();
-    }, streamTimeoutMs);
+    // Internal abort fan-in: the caller's signal and the turn clock's
+    // watchdogs (whole-turn deadline + optional stall detector) all trip it;
+    // it cancels the in-flight SDK stream and is the signal tool executions
+    // receive.
+    const internalAbort = new AbortController();
+    internalAbort.signal.addEventListener("abort", abortHandler);
+    const onCallerAbort = () => internalAbort.abort();
+    options.abortSignal?.addEventListener("abort", onCallerAbort);
+    if (options.abortSignal?.aborted) {
+      internalAbort.abort();
+    }
+    const toolExecTimeoutMs =
+      options.toolTimeoutMs ?? DEFAULT_TOOL_EXECUTION_TIMEOUT_MS;
+    const effectiveTurnDeadlineMs = options.turnTimeoutMs ?? streamTimeoutMs;
+    // Whole-turn deadline + optional stall watchdog. When the caller sets no
+    // explicit turn budget, keep the pre-existing defensive bound
+    // (options.timeout, else 5 min) so a stalled Vertex/Anthropic endpoint
+    // can't hang forever.
+    const turnClock = createTurnClock({
+      turnTimeoutMs: options.turnTimeoutMs,
+      defaultTurnTimeoutMs: streamTimeoutMs,
+      stallTimeoutMs: options.stallTimeoutMs,
+      wrapupTimeLeadMs: options.wrapupTimeLeadMs,
+      onDeadline: (kind) => {
+        logger.warn(
+          kind === "timeout"
+            ? `[GoogleVertex] Anthropic stream turn exceeded its ${effectiveTurnDeadlineMs}ms time budget — aborting`
+            : `[GoogleVertex] Anthropic stream turn made no progress for ${options.stallTimeoutMs}ms — aborting`,
+        );
+        internalAbort.abort();
+      },
+    });
 
     const loopPromise = (async () => {
       let step = 0;
@@ -3909,15 +4189,17 @@ export class GoogleVertexProvider extends BaseProvider {
 
       try {
         while (step < agenticStepBudget) {
-          // Honor caller aborts BETWEEN steps: break into terminal handling
-          // (one graceful cap chunk, clean close) instead of throwing —
-          // channel.error would surface the caller's own abort as a stream
-          // failure and route consumers into fallback retries.
-          if (options.abortSignal?.aborted) {
+          // Honor aborts BETWEEN steps (caller signal OR the turn clock's
+          // watchdogs — all fan into internalAbort): break into terminal
+          // handling (one honest terminal chunk, clean close) instead of
+          // throwing — channel.error would surface the caller's own abort as
+          // a stream failure and route consumers into fallback retries.
+          if (internalAbort.signal.aborted) {
             wasAborted = true;
             break;
           }
           step++;
+          turnClock.noteProgress();
 
           // One generation observation per API call: request in, content + usage out.
           const generationSpan = tracers.generation.startSpan(
@@ -3992,6 +4274,7 @@ export class GoogleVertexProvider extends BaseProvider {
             // giving Langfuse the generation's time-to-first-token.
             let firstDeltaSeen = false;
             stream.on("text", (delta: string) => {
+              turnClock.noteProgress();
               if (delta.length > 0) {
                 if (!firstDeltaSeen) {
                   firstDeltaSeen = true;
@@ -4022,11 +4305,12 @@ export class GoogleVertexProvider extends BaseProvider {
               generationSpan.recordException(modelCallError);
             }
             generationSpan.end();
-            // A mid-flight abort (caller signal or the defensive timer
-            // tripping abortHandler) rejects finalMessage() with an
-            // abort-shaped error. Break gracefully into the terminal handling
-            // instead of routing it through channel.error as a failure.
-            if (options.abortSignal?.aborted || isAbortError(modelCallError)) {
+            // A mid-flight abort (caller signal or a turn-clock watchdog
+            // tripping internalAbort/abortHandler) rejects finalMessage()
+            // with an abort-shaped error. Break gracefully into the terminal
+            // handling instead of routing it through channel.error as a
+            // failure.
+            if (internalAbort.signal.aborted || isAbortError(modelCallError)) {
               activeStream = undefined;
               wasAborted = true;
               break;
@@ -4235,15 +4519,23 @@ export class GoogleVertexProvider extends BaseProvider {
                 const toolOptions = {
                   toolCallId: toolUse.id,
                   messages: [],
-                  abortSignal: options.abortSignal,
+                  abortSignal: internalAbort.signal,
                 };
+                turnClock.noteProgress();
                 // Run with toolSpan active so spans inside execute
                 // (neurolink.tool.execute) nest under this observation instead
-                // of becoming disconnected siblings.
-                const result = await otelContext.with(
-                  otelTrace.setSpan(turnContext, toolSpan),
-                  () => execute(toolUse.input, toolOptions),
+                // of becoming disconnected siblings. Bound the await — a
+                // wedged tool costs one step (error tool_result), not the
+                // whole turn.
+                const result = await withTimeout(
+                  otelContext.with(
+                    otelTrace.setSpan(turnContext, toolSpan),
+                    () => Promise.resolve(execute(toolUse.input, toolOptions)),
+                  ),
+                  toolExecTimeoutMs,
+                  `Tool "${toolUse.name}" execution timed out after ${toolExecTimeoutMs}ms`,
                 );
+                turnClock.noteProgress();
                 // MCP failures are returned, not thrown — surface them on
                 // the span so failed calls show as ERROR in Langfuse.
                 endToolSpan(result, extractMcpToolErrorMessage(result));
@@ -4273,7 +4565,7 @@ export class GoogleVertexProvider extends BaseProvider {
                 // An aborted tool call is a cancellation, not a tool failure —
                 // end the span without recording an error execution/result and
                 // break the turn.
-                if (options.abortSignal?.aborted || isAbortError(err)) {
+                if (internalAbort.signal.aborted || isAbortError(err)) {
                   endToolSpan({ aborted: true });
                   // Keep persisted tool history paired: the call row was
                   // already pushed above, so record a neutral cancellation
@@ -4286,6 +4578,15 @@ export class GoogleVertexProvider extends BaseProvider {
                   });
                   wasAborted = true;
                   break;
+                }
+                turnClock.noteProgress();
+                if (err instanceof TimeoutError) {
+                  this.emitTurnEvent({
+                    phase: "tool-timeout",
+                    step,
+                    maxSteps,
+                    toolName: toolUse.name,
+                  });
                 }
                 const errMsg = `Error executing tool "${toolUse.name}": ${err instanceof Error ? err.message : String(err)}`;
                 const errorPayload = { error: errMsg };
@@ -4364,6 +4665,8 @@ export class GoogleVertexProvider extends BaseProvider {
           // to wrap up so the reserved forced-finalization call below stays a
           // fallback, not the norm. Rides as a trailing text block on the
           // tool_result user turn (cache-safe: it lives in the growing tail).
+          // The time-budget twin fires when the turn deadline is inside the
+          // wrap-up lead window instead.
           const stepsRemaining = agenticStepBudget - step;
           if (stepsRemaining > 0 && stepsRemaining <= 3) {
             toolResults.push({
@@ -4373,6 +4676,11 @@ export class GoogleVertexProvider extends BaseProvider {
                 (useFinalResultTool
                   ? "call final_result with your best answer."
                   : "provide your final answer."),
+            });
+          } else if (turnClock.shouldNudgeWrapup()) {
+            toolResults.push({
+              type: "text",
+              text: buildWrapupNudgeText(useFinalResultTool),
             });
           }
 
@@ -4402,10 +4710,10 @@ export class GoogleVertexProvider extends BaseProvider {
         // Gemini synthesizeFinalAnswerWithoutTools precedent); their tokens
         // still land in `usage` and the turn-span metadata.
         if (!modelFinished) {
-          // A caller abort that landed during the FINAL budgeted step's tool
+          // An abort that landed during the FINAL budgeted step's tool
           // execution leaves wasAborted=false (no loop-entry check runs after
           // a budget exit) — re-check before issuing any terminal model call.
-          if (options.abortSignal?.aborted) {
+          if (internalAbort.signal.aborted) {
             wasAborted = true;
           }
           const externalToolCallCount = allToolCalls.filter(
@@ -4413,22 +4721,29 @@ export class GoogleVertexProvider extends BaseProvider {
           ).length;
           if (wasAborted) {
             // Budget already blown — never issue another model call. Deliver
-            // exactly one graceful cap chunk if nothing reached the consumer
-            // (live deltas already delivered count as "something reached").
+            // exactly one HONEST terminal chunk matching the actual exit
+            // cause (time limit / stall / caller abort — never the step-cap
+            // text) if nothing reached the consumer (live deltas already
+            // delivered count as "something reached").
             logger.warn(
-              "[GoogleVertex] Native Anthropic stream loop aborted mid-turn; returning a graceful cap message.",
+              `[GoogleVertex] Native Anthropic stream loop ended mid-turn ` +
+                `(${turnClock.timedOut ? "turn time limit" : turnClock.stalled ? "stall watchdog" : "caller abort"}); ` +
+                `returning an honest terminal message.`,
             );
             if (
               aggregatedTurnText.length === 0 &&
               liveTextPushedLength === 0 &&
               !structuredOutputRef.value
             ) {
-              const capMessage = buildToolLoopCapMessage(
+              const exitMessage = this.buildLoopExitMessage({
+                turnClock,
+                wasAborted,
+                stallTimeoutMs: options.stallTimeoutMs,
                 maxSteps,
-                externalToolCallCount,
-              );
-              channel.push(capMessage);
-              aggregatedTurnText = capMessage;
+                toolCallCount: externalToolCallCount,
+              });
+              channel.push(exitMessage);
+              aggregatedTurnText = exitMessage;
             }
           } else if (useFinalResultTool) {
             hitStepLimit = true;
@@ -4515,23 +4830,29 @@ export class GoogleVertexProvider extends BaseProvider {
               }
             } catch (error) {
               activeStream = undefined;
-              // An aborted finalization is a cancellation, not a step-cap
-              // turn — keep finishReason mapping from lastStopReason.
-              if (options.abortSignal?.aborted || isAbortError(error)) {
+              // An aborted finalization is a cancellation (caller abort or a
+              // turn-clock watchdog), not a step-cap turn — keep finishReason
+              // mapping from lastStopReason and pick the exit message by the
+              // actual cause.
+              if (internalAbort.signal.aborted || isAbortError(error)) {
                 hitStepLimit = false;
+                wasAborted = true;
               }
               logger.warn(
-                "[GoogleVertex] Forced finalization call failed; falling back to cap message",
+                "[GoogleVertex] Forced finalization call failed; falling back to a terminal message",
                 {
                   error: error instanceof Error ? error.message : String(error),
                 },
               );
-              const capMessage = buildToolLoopCapMessage(
+              const exitMessage = this.buildLoopExitMessage({
+                turnClock,
+                wasAborted,
+                stallTimeoutMs: options.stallTimeoutMs,
                 maxSteps,
-                externalToolCallCount,
-              );
-              channel.push(capMessage);
-              aggregatedTurnText += capMessage;
+                toolCallCount: externalToolCallCount,
+              });
+              channel.push(exitMessage);
+              aggregatedTurnText += exitMessage;
             }
           } else {
             hitStepLimit = true;
@@ -4615,24 +4936,30 @@ export class GoogleVertexProvider extends BaseProvider {
                 }
               } catch (error) {
                 activeStream = undefined;
-                // An aborted backstop is a cancellation, not a step-cap
-                // turn — keep finishReason mapping from lastStopReason.
-                if (options.abortSignal?.aborted || isAbortError(error)) {
+                // An aborted backstop is a cancellation (caller abort or a
+                // turn-clock watchdog), not a step-cap turn — keep
+                // finishReason mapping from lastStopReason and pick the exit
+                // message by the actual cause.
+                if (internalAbort.signal.aborted || isAbortError(error)) {
                   hitStepLimit = false;
+                  wasAborted = true;
                 }
                 logger.warn(
-                  "[GoogleVertex] Tools-disabled backstop call failed; falling back to cap message",
+                  "[GoogleVertex] Tools-disabled backstop call failed; falling back to a terminal message",
                   {
                     error:
                       error instanceof Error ? error.message : String(error),
                   },
                 );
-                const capMessage = buildToolLoopCapMessage(
+                const exitMessage = this.buildLoopExitMessage({
+                  turnClock,
+                  wasAborted,
+                  stallTimeoutMs: options.stallTimeoutMs,
                   maxSteps,
-                  externalToolCallCount,
-                );
-                channel.push(capMessage);
-                aggregatedTurnText = capMessage;
+                  toolCallCount: externalToolCallCount,
+                });
+                channel.push(exitMessage);
+                aggregatedTurnText = exitMessage;
               }
             }
             // else: prose already streamed to the consumer across steps —
@@ -4652,12 +4979,15 @@ export class GoogleVertexProvider extends BaseProvider {
           (tc) => tc.toolName !== "final_result",
         ).length;
         if (deliveredNothing && externalToolCallTotal > 0) {
-          const capMessage = buildToolLoopCapMessage(
+          const exitMessage = this.buildLoopExitMessage({
+            turnClock,
+            wasAborted,
+            stallTimeoutMs: options.stallTimeoutMs,
             maxSteps,
-            externalToolCallTotal,
-          );
-          channel.push(capMessage);
-          aggregatedTurnText = capMessage;
+            toolCallCount: externalToolCallTotal,
+          });
+          channel.push(exitMessage);
+          aggregatedTurnText = exitMessage;
         }
 
         // Honest finish reason (same mapping as the generate twin): "length"
@@ -4677,6 +5007,31 @@ export class GoogleVertexProvider extends BaseProvider {
         metadata.totalToolExecutions = allToolCalls.filter(
           (tc) => tc.toolName !== "final_result",
         ).length;
+
+        // Turn-exit discriminator + raw provider stop reason + step count —
+        // mirrored onto metadata (mutable reference) for wrapper spreads,
+        // like finishReason above.
+        const resolvedStopReason = resolveTurnStopReason({
+          timedOut: turnClock.timedOut,
+          stalled: turnClock.stalled,
+          wasAborted,
+          cappedWithoutAnswer: hitStepLimit && !synthesizedFinalAnswer,
+          finishReason: finishReasonRef.value,
+        });
+        stopReasonRef.value = resolvedStopReason;
+        rawFinishReasonRef.value = lastStopReason ?? undefined;
+        metadata.stopReason = resolvedStopReason;
+        metadata.rawFinishReason = rawFinishReasonRef.value;
+        metadata.stepsUsed = step;
+        if (resolvedStopReason !== "completed") {
+          this.emitTurnEvent({
+            phase: resolvedStopReason,
+            step,
+            maxSteps,
+            toolCallCount: metadata.totalToolExecutions,
+            elapsedMs: turnClock.elapsedMs(),
+          });
+        }
 
         // Surface cache metrics once, after the agentic loop, from the
         // cumulative turnCacheUsage running totals (accumulated via += on every
@@ -4737,8 +5092,9 @@ export class GoogleVertexProvider extends BaseProvider {
         channel.error(this.handleProviderError(err));
       } finally {
         turnSpan.end();
-        options.abortSignal?.removeEventListener("abort", abortHandler);
-        clearTimeout(streamTimeoutHandle);
+        options.abortSignal?.removeEventListener("abort", onCallerAbort);
+        internalAbort.signal.removeEventListener("abort", abortHandler);
+        turnClock.dispose();
       }
     })();
     // Suppress unhandled-rejection: errors funnel through channel.error()
@@ -4789,6 +5145,16 @@ export class GoogleVertexProvider extends BaseProvider {
       enumerable: true,
       configurable: true,
       get: () => finishReasonRef.value,
+    });
+    Object.defineProperty(result, "stopReason", {
+      enumerable: true,
+      configurable: true,
+      get: () => stopReasonRef.value,
+    });
+    Object.defineProperty(result, "rawFinishReason", {
+      enumerable: true,
+      configurable: true,
+      get: () => rawFinishReasonRef.value,
     });
 
     return result;
@@ -5174,15 +5540,52 @@ export class GoogleVertexProvider extends BaseProvider {
     let modelFinished = false;
     const currentMessages = [...messages];
 
+    // Internal abort fan-in: the caller's signal and the turn clock's
+    // watchdogs all trip it; it rides every SDK request and tool execution.
+    const internalAbort = new AbortController();
+    const onCallerAbort = () => internalAbort.abort();
+    options.abortSignal?.addEventListener("abort", onCallerAbort);
+    if (options.abortSignal?.aborted) {
+      internalAbort.abort();
+    }
+    const toolExecTimeoutMs =
+      options.toolTimeoutMs ?? DEFAULT_TOOL_EXECUTION_TIMEOUT_MS;
+    // Whole-turn deadline + optional stall watchdog. NOTE: unlike the stream
+    // twin, this path historically had NO whole-turn bound (only the per-call
+    // withTimeout) — so no defensive default is introduced here: without an
+    // explicit turnTimeoutMs, long multi-step turns keep running as before.
+    const turnClock = createTurnClock({
+      turnTimeoutMs: options.turnTimeoutMs,
+      stallTimeoutMs: options.stallTimeoutMs,
+      wrapupTimeLeadMs: options.wrapupTimeLeadMs,
+      onDeadline: (kind) => {
+        logger.warn(
+          kind === "timeout"
+            ? `[GoogleVertex] Anthropic generate turn exceeded its ${options.turnTimeoutMs}ms time budget — aborting`
+            : `[GoogleVertex] Anthropic generate turn made no progress for ${options.stallTimeoutMs}ms — aborting`,
+        );
+        internalAbort.abort();
+      },
+    });
+    // No top-level try/finally wraps this loop (pre-existing shape); release
+    // watchdog timers + the caller-signal listener at both exits — the
+    // provider-error throw in the per-step catch and the normal return path.
+    const releaseTurnResources = () => {
+      turnClock.dispose();
+      options.abortSignal?.removeEventListener("abort", onCallerAbort);
+    };
+
     while (step < agenticStepBudget) {
-      // Honor caller aborts BETWEEN steps: break into terminal handling
-      // instead of throwing (a throw routes consumers into abortSignal-less
-      // fallback retries — observed in production as a 600s abort no-op).
-      if (options.abortSignal?.aborted) {
+      // Honor aborts BETWEEN steps (caller signal OR turn-clock watchdogs —
+      // all fan into internalAbort): break into terminal handling instead of
+      // throwing (a throw routes consumers into abortSignal-less fallback
+      // retries — observed in production as a 600s abort no-op).
+      if (internalAbort.signal.aborted) {
         wasAborted = true;
         break;
       }
       step++;
+      turnClock.noteProgress();
 
       try {
         // Bound the SDK wait so a stalled Vertex/Anthropic call can't hang
@@ -5221,7 +5624,7 @@ export class GoogleVertexProvider extends BaseProvider {
                 typeof client.messages.create
               >[0]["messages"],
             },
-            { signal: options.abortSignal },
+            { signal: internalAbort.signal },
           ),
           generateTimeoutMs,
           "Anthropic generate timed out",
@@ -5328,9 +5731,17 @@ export class GoogleVertexProvider extends BaseProvider {
               const toolOptions = {
                 toolCallId: toolUse.id,
                 messages: [],
-                abortSignal: options.abortSignal,
+                abortSignal: internalAbort.signal,
               };
-              const result = await execute(toolUse.input, toolOptions);
+              turnClock.noteProgress();
+              // Bound the execute() await — a wedged tool costs one step
+              // (error tool_result), not the whole turn.
+              const result = await withTimeout(
+                Promise.resolve(execute(toolUse.input, toolOptions)),
+                toolExecTimeoutMs,
+                `Tool "${toolUse.name}" execution timed out after ${toolExecTimeoutMs}ms`,
+              );
+              turnClock.noteProgress();
               toolExecutions.push({
                 name: toolUse.name,
                 input: toolUse.input,
@@ -5356,7 +5767,7 @@ export class GoogleVertexProvider extends BaseProvider {
             } catch (err) {
               // An aborted tool call is a cancellation, not a tool failure —
               // break the turn without recording an error execution/result.
-              if (options.abortSignal?.aborted || isAbortError(err)) {
+              if (internalAbort.signal.aborted || isAbortError(err)) {
                 // Keep persisted tool history paired: the call row was
                 // already pushed above, so record a neutral cancellation
                 // result (NOT an error) — an unpaired tool_use replayed on
@@ -5368,6 +5779,15 @@ export class GoogleVertexProvider extends BaseProvider {
                 });
                 wasAborted = true;
                 break;
+              }
+              turnClock.noteProgress();
+              if (err instanceof TimeoutError) {
+                this.emitTurnEvent({
+                  phase: "tool-timeout",
+                  step,
+                  maxSteps,
+                  toolName: toolUse.name,
+                });
               }
               const errMsg = `Error executing tool "${toolUse.name}": ${err instanceof Error ? err.message : String(err)}`;
               const errorPayload = { error: errMsg };
@@ -5445,6 +5865,8 @@ export class GoogleVertexProvider extends BaseProvider {
         // wrap up so the reserved forced-finalization call below stays a
         // fallback, not the norm. Rides as a trailing text block on the
         // tool_result user turn (cache-safe: it lives in the growing tail).
+        // The time-budget twin fires when the turn deadline is inside the
+        // wrap-up lead window instead.
         const stepsRemaining = agenticStepBudget - step;
         if (stepsRemaining > 0 && stepsRemaining <= 3) {
           toolResults.push({
@@ -5454,6 +5876,11 @@ export class GoogleVertexProvider extends BaseProvider {
               (useFinalResultTool
                 ? "call final_result with your best answer."
                 : "provide your final answer."),
+          });
+        } else if (turnClock.shouldNudgeWrapup()) {
+          toolResults.push({
+            type: "text",
+            text: buildWrapupNudgeText(useFinalResultTool),
           });
         }
 
@@ -5476,12 +5903,13 @@ export class GoogleVertexProvider extends BaseProvider {
         accumulatedStepText = appendStepText(accumulatedStepText, responseText);
       } catch (error) {
         // A mid-request abort surfaces as an abort-shaped SDK rejection (we
-        // pass options.abortSignal as the request signal above). Break
+        // pass internalAbort.signal as the request signal above, and the
+        // caller's signal + turn-clock watchdogs all fan into it). Break
         // gracefully into the terminal handling instead of re-throwing — a
         // re-throw routes the caller's abort into abortSignal-less fallback
-        // retries. Dual check as in the Gemini loops: the caller's signal OR
+        // retries. Dual check as in the Gemini loops: the internal signal OR
         // an abort-shaped error either way means "stop", not a real failure.
-        if (options.abortSignal?.aborted || isAbortError(error)) {
+        if (internalAbort.signal.aborted || isAbortError(error)) {
           wasAborted = true;
           break;
         }
@@ -5500,6 +5928,7 @@ export class GoogleVertexProvider extends BaseProvider {
         } catch {
           /* frozen/sealed error — context stays best-effort */
         }
+        releaseTurnResources();
         throw this.handleProviderError(error);
       }
     }
@@ -5510,10 +5939,10 @@ export class GoogleVertexProvider extends BaseProvider {
     // synthesize a plain-text answer on tool turns, or fall back to a
     // graceful cap message. Mirrors the Gemini paths (ed289b7 / PR #1123).
     if (!modelFinished && !finalText) {
-      // A caller abort that landed during the FINAL budgeted step's tool
+      // An abort that landed during the FINAL budgeted step's tool
       // execution leaves wasAborted=false (no loop-entry check runs after a
       // budget exit) — re-check before issuing any terminal model call.
-      if (options.abortSignal?.aborted) {
+      if (internalAbort.signal.aborted) {
         wasAborted = true;
       }
       const externalToolCallCount = allToolCalls.filter(
@@ -5522,14 +5951,24 @@ export class GoogleVertexProvider extends BaseProvider {
       if (wasAborted) {
         // Budget already blown — never issue another model call; prefer the
         // prose the model already produced (mirrors the Gemini abort path),
-        // else answer with a graceful cap message. finishReason keeps mapping
-        // from lastStopReason (an aborted turn is not a step-cap turn).
+        // else answer with an HONEST message matching the actual exit cause
+        // (time limit / stall / caller abort — never the step-cap text).
+        // finishReason keeps mapping from lastStopReason (an aborted turn is
+        // not a step-cap turn).
         logger.warn(
-          "[GoogleVertex] Native Anthropic generate loop aborted mid-turn; returning gathered text or a graceful cap message.",
+          `[GoogleVertex] Native Anthropic generate loop ended mid-turn ` +
+            `(${turnClock.timedOut ? "turn time limit" : turnClock.stalled ? "stall watchdog" : "caller abort"}); ` +
+            `returning gathered text or an honest terminal message.`,
         );
         finalText =
           accumulatedStepText ||
-          buildToolLoopCapMessage(maxSteps, externalToolCallCount);
+          this.buildLoopExitMessage({
+            turnClock,
+            wasAborted,
+            stallTimeoutMs: options.stallTimeoutMs,
+            maxSteps,
+            toolCallCount: externalToolCallCount,
+          });
       } else if (useFinalResultTool) {
         hitStepLimit = true;
         logger.warn(
@@ -5569,7 +6008,7 @@ export class GoogleVertexProvider extends BaseProvider {
                   typeof client.messages.create
                 >[0]["messages"],
               },
-              { signal: options.abortSignal },
+              { signal: internalAbort.signal },
             ),
             generateTimeoutMs,
             "Anthropic finalization call timed out",
@@ -5607,16 +6046,25 @@ export class GoogleVertexProvider extends BaseProvider {
             );
           }
         } catch (error) {
-          // An aborted finalization is a cancellation, not a step-cap turn —
-          // keep finishReason mapping from lastStopReason, not "tool-calls".
-          if (options.abortSignal?.aborted || isAbortError(error)) {
+          // An aborted finalization is a cancellation (caller abort or a
+          // turn-clock watchdog), not a step-cap turn — keep finishReason
+          // mapping from lastStopReason and pick the exit message by the
+          // actual cause.
+          if (internalAbort.signal.aborted || isAbortError(error)) {
             hitStepLimit = false;
+            wasAborted = true;
           }
           logger.warn(
-            "[GoogleVertex] Forced finalization call failed; falling back to cap message",
+            "[GoogleVertex] Forced finalization call failed; falling back to a terminal message",
             { error: error instanceof Error ? error.message : String(error) },
           );
-          finalText = buildToolLoopCapMessage(maxSteps, externalToolCallCount);
+          finalText = this.buildLoopExitMessage({
+            turnClock,
+            wasAborted,
+            stallTimeoutMs: options.stallTimeoutMs,
+            maxSteps,
+            toolCallCount: externalToolCallCount,
+          });
         }
       } else {
         hitStepLimit = true;
@@ -5666,7 +6114,7 @@ export class GoogleVertexProvider extends BaseProvider {
                     typeof client.messages.create
                   >[0]["messages"],
                 },
-                { signal: options.abortSignal },
+                { signal: internalAbort.signal },
               ),
               generateTimeoutMs,
               "Anthropic backstop call timed out",
@@ -5697,25 +6145,33 @@ export class GoogleVertexProvider extends BaseProvider {
               );
             }
           } catch (error) {
-            // An aborted backstop is a cancellation, not a step-cap turn —
-            // keep finishReason mapping from lastStopReason, not "tool-calls".
-            if (options.abortSignal?.aborted || isAbortError(error)) {
+            // An aborted backstop is a cancellation (caller abort or a
+            // turn-clock watchdog), not a step-cap turn — keep finishReason
+            // mapping from lastStopReason and pick the exit message by the
+            // actual cause.
+            if (internalAbort.signal.aborted || isAbortError(error)) {
               hitStepLimit = false;
+              wasAborted = true;
             }
             logger.warn(
-              "[GoogleVertex] Tools-disabled backstop call failed; falling back to cap message",
+              "[GoogleVertex] Tools-disabled backstop call failed; falling back to a terminal message",
               {
                 error: error instanceof Error ? error.message : String(error),
               },
             );
-            finalText = buildToolLoopCapMessage(
+            finalText = this.buildLoopExitMessage({
+              turnClock,
+              wasAborted,
+              stallTimeoutMs: options.stallTimeoutMs,
               maxSteps,
-              externalToolCallCount,
-            );
+              toolCallCount: externalToolCallCount,
+            });
           }
         }
       }
     }
+
+    releaseTurnResources();
 
     const responseTime = Date.now() - startTime;
     const externalToolCalls = allToolCalls.filter(
@@ -5727,23 +6183,54 @@ export class GoogleVertexProvider extends BaseProvider {
 
     // Absolute backstop — no code path may surface empty content on a turn
     // that ran tools (the consumer-facing "empty response" incident shape).
+    // Cause-aware: an aborted/timed-out turn gets the honest exit message,
+    // a genuine budget exhaustion gets the step-cap message.
     if (!finalText && externalToolCalls.length > 0) {
-      finalText = buildToolLoopCapMessage(maxSteps, externalToolCalls.length);
+      finalText = this.buildLoopExitMessage({
+        turnClock,
+        wasAborted,
+        stallTimeoutMs: options.stallTimeoutMs,
+        maxSteps,
+        toolCallCount: externalToolCalls.length,
+      });
+    }
+
+    // Honest finish reason. "length" (token truncation) takes precedence; a
+    // step-cap exhaustion without a clean/forced answer surfaces as
+    // "tool-calls" (aligned with the Gemini paths, so consumers detect
+    // capped turns uniformly); everything else — including a successful
+    // forced finalization or backstop synthesis — is a normal "stop".
+    const resolvedFinishReason =
+      lastStopReason === "max_tokens"
+        ? "length"
+        : hitStepLimit && !synthesizedFinalAnswer
+          ? "tool-calls"
+          : "stop";
+    // Turn-exit discriminator, independent of the provider-shaped
+    // finishReason — consumers branch on this instead of sniffing strings.
+    const stopReason = resolveTurnStopReason({
+      timedOut: turnClock.timedOut,
+      stalled: turnClock.stalled,
+      wasAborted,
+      cappedWithoutAnswer: hitStepLimit && !synthesizedFinalAnswer,
+      finishReason: resolvedFinishReason,
+    });
+    if (stopReason !== "completed") {
+      this.emitTurnEvent({
+        phase: stopReason,
+        step,
+        maxSteps,
+        toolCallCount: externalToolCalls.length,
+        elapsedMs: turnClock.elapsedMs(),
+      });
     }
 
     const result: EnhancedGenerateResult = {
       content: finalText,
-      // Honest finish reason. "length" (token truncation) takes precedence; a
-      // step-cap exhaustion without a clean/forced answer surfaces as
-      // "tool-calls" (aligned with the Gemini paths, so consumers detect
-      // capped turns uniformly); everything else — including a successful
-      // forced finalization or backstop synthesis — is a normal "stop".
-      finishReason:
-        lastStopReason === "max_tokens"
-          ? "length"
-          : hitStepLimit && !synthesizedFinalAnswer
-            ? "tool-calls"
-            : "stop",
+      finishReason: resolvedFinishReason,
+      stopReason,
+      rawFinishReason: lastStopReason ?? undefined,
+      stepsUsed: step,
       provider: this.providerName,
       model: modelName,
       usage: {
@@ -6610,6 +7097,70 @@ export class GoogleVertexProvider extends BaseProvider {
       (result as { _generationEndEmitted?: boolean })._generationEndEmitted =
         true;
     }
+  }
+
+  /**
+   * Emit a `turn:lifecycle` event on the SDK emitter (alongside
+   * tool:start/tool:end) so loop conditions that previously only reached
+   * process logs — step-cap, time-limit, stall, abort, tool timeouts,
+   * malformed-call retries — are observable by consumers' own pipelines.
+   */
+  private emitTurnEvent(payload: {
+    phase:
+      | "step-cap"
+      | "time-limit"
+      | "stalled"
+      | "aborted"
+      | "provider-error"
+      | "tool-timeout"
+      | "malformed-retry";
+    step?: number;
+    maxSteps?: number;
+    toolName?: string;
+    toolCallCount?: number;
+    elapsedMs?: number;
+  }): void {
+    try {
+      this.neurolink?.getEventEmitter()?.emit("turn:lifecycle", {
+        provider: this.providerName,
+        timestamp: Date.now(),
+        ...payload,
+      });
+    } catch {
+      /* listener errors are non-fatal */
+    }
+  }
+
+  /**
+   * Pick the honest terminal message for a native-loop exit by its ACTUAL
+   * cause. The step-cap text is the fallback for genuine budget exhaustion
+   * only — time/stall/abort exits must never claim a step limit was reached
+   * (the 2026-07-03 "reached the 200-step limit" incident was a wall-clock
+   * abort wearing the cap message).
+   */
+  private buildLoopExitMessage(params: {
+    turnClock: { timedOut: boolean; stalled: boolean; elapsedMs(): number };
+    wasAborted: boolean;
+    stallTimeoutMs?: number;
+    maxSteps: number;
+    toolCallCount: number;
+  }): string {
+    if (params.turnClock.timedOut) {
+      return buildTurnTimeoutMessage(
+        params.turnClock.elapsedMs(),
+        params.toolCallCount,
+      );
+    }
+    if (params.turnClock.stalled) {
+      return buildTurnStalledMessage(
+        params.stallTimeoutMs ?? 0,
+        params.toolCallCount,
+      );
+    }
+    if (params.wasAborted) {
+      return buildAbortedTurnMessage(params.toolCallCount);
+    }
+    return buildToolLoopCapMessage(params.maxSteps, params.toolCallCount);
   }
 
   protected formatProviderError(error: unknown): Error {

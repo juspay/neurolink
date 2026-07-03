@@ -331,6 +331,38 @@ export type GenerateOptions = {
    * provider+model with the same doomed budget.
    */
   timeout?: number | string;
+  /**
+   * Hard wall-clock cap for the WHOLE agentic turn (all model calls + tool
+   * executions), in milliseconds. When the deadline passes the turn ends
+   * gracefully with `stopReason: "time-limit"` and an honest time message —
+   * never the step-cap text. Unset = no turn-level deadline (the library
+   * imposes no product policy).
+   *
+   * Enforced by the native Vertex loops (Gemini + Claude); AI-SDK-driven
+   * providers currently ignore it.
+   */
+  turnTimeoutMs?: number;
+  /**
+   * Maximum time with NO progress — no stream chunk received, no tool
+   * execution started or finished, no step started — before the turn ends
+   * with `stopReason: "stalled"`. Catches wedged tools and hung model calls
+   * that a whole-turn deadline would let run to the bitter end.
+   * Unset = disabled.
+   */
+  stallTimeoutMs?: number;
+  /**
+   * When the remaining turn time drops below this, a wrap-up nudge rides the
+   * next tool-result turn telling the model to consolidate what it has and
+   * produce its final answer. Defaults to 120_000 when `turnTimeoutMs` is
+   * set; ignored when it is not.
+   */
+  wrapupTimeLeadMs?: number;
+  /**
+   * Per-tool-execution timeout in milliseconds (default 300_000). A tool
+   * that exceeds it fails with an error tool_result and costs one step —
+   * the turn continues instead of hanging on a wedged tool.
+   */
+  toolTimeoutMs?: number;
   /** AbortSignal for external cancellation of the AI call */
   abortSignal?: AbortSignal;
   /**
@@ -630,6 +662,28 @@ export type AdditionalMemoryUser = {
 };
 
 /**
+ * Why an agentic turn ended — the discriminator consumers should branch on
+ * instead of sniffing the provider-shaped `finishReason` (whose values are
+ * overloaded: e.g. "tool-calls" historically covered both step-cap exits and
+ * Gemini MALFORMED_FUNCTION_CALL provider errors).
+ *
+ * - `completed` — the model finished on its own (text answer or final_result)
+ * - `step-cap` — the `maxSteps` budget ran out while the model still wanted tools
+ * - `time-limit` — the `turnTimeoutMs` wall-clock deadline passed
+ * - `stalled` — no progress (no chunk, no tool start/finish) for `stallTimeoutMs`
+ * - `aborted` — the caller's `abortSignal` ended the turn
+ * - `provider-error` — the provider/model failed the turn (e.g. persistent
+ *   MALFORMED_FUNCTION_CALL after retry); usually worth a caller-side retry
+ */
+export type GenerateStopReason =
+  | "completed"
+  | "step-cap"
+  | "time-limit"
+  | "stalled"
+  | "aborted"
+  | "provider-error";
+
+/**
  * Generate function result type - Primary output format
  * Future-ready for multi-modal outputs while maintaining text focus
  */
@@ -731,6 +785,21 @@ export type GenerateResult = {
 
   // Finish reason from the AI provider (e.g., "stop", "length", "tool-calls")
   finishReason?: string;
+
+  /**
+   * Why the agentic turn ended, independent of the provider-shaped
+   * `finishReason`. Populated by the native Vertex loops (Gemini + Claude);
+   * undefined on providers that don't run a native loop — fall back to
+   * `finishReason` heuristics there.
+   */
+  stopReason?: GenerateStopReason;
+  /**
+   * Verbatim provider finish/stop reason for the turn's terminal model call
+   * (e.g. "MALFORMED_FUNCTION_CALL", "MAX_TOKENS", "max_tokens", "tool_use").
+   */
+  rawFinishReason?: string;
+  /** Number of agentic steps (model calls) the turn used. */
+  stepsUsed?: number;
 
   /**
    * True when the schema JSON in `content`/`structuredData` was repaired from
@@ -972,6 +1041,14 @@ export type TextGenerationOptions = {
    */
   enabledToolNames?: string[];
   timeout?: number | string; // Optional timeout (e.g., 30000, '30s', '2m', '1h')
+  /** Wall-clock cap for the whole agentic turn (ms). See GenerateOptions.turnTimeoutMs. */
+  turnTimeoutMs?: number;
+  /** Max time with no progress before the turn ends as "stalled" (ms). See GenerateOptions.stallTimeoutMs. */
+  stallTimeoutMs?: number;
+  /** Remaining-time threshold that triggers the wrap-up nudge (ms). See GenerateOptions.wrapupTimeLeadMs. */
+  wrapupTimeLeadMs?: number;
+  /** Per-tool-execution timeout (ms, default 300_000). See GenerateOptions.toolTimeoutMs. */
+  toolTimeoutMs?: number;
   /** AbortSignal for external cancellation of the AI call */
   abortSignal?: AbortSignal;
   disableTools?: boolean; // Disable tools (tools are enabled by default)
@@ -1263,6 +1340,12 @@ export type TextGenerationResult = {
   /** Parsed structured object when a `schema` was requested (see GenerateResult.structuredData). */
   structuredData?: unknown;
   finishReason?: string;
+  /** Turn-exit discriminator from native agentic loops (see GenerateStopReason). */
+  stopReason?: GenerateStopReason;
+  /** Verbatim provider finish/stop reason for the turn's terminal model call. */
+  rawFinishReason?: string;
+  /** Number of agentic steps (model calls) the turn used. */
+  stepsUsed?: number;
   /** True when the schema JSON was repaired from malformed model text. */
   jsonRepaired?: boolean;
   /** True when the schema JSON appears truncated (output hit the token cap). */

@@ -35,7 +35,10 @@ import {
   assertEqual,
   assertIncludes,
 } from "./helpers/harness.js";
-import { buildToolLoopCapMessage } from "../src/lib/providers/googleNativeGemini3.js";
+import {
+  buildAbortedTurnMessage,
+  buildToolLoopCapMessage,
+} from "../src/lib/providers/googleNativeGemini3.js";
 import { GoogleVertexProvider } from "../src/lib/providers/googleVertex.js";
 
 // ---------------------------------------------------------------------------
@@ -294,6 +297,9 @@ async function makeProvider(client: unknown): Promise<GoogleVertexProvider> {
 type GenResult = {
   content: string;
   finishReason: string;
+  stopReason?: string;
+  rawFinishReason?: string;
+  stepsUsed?: number;
   usage: { input: number; output: number; total: number };
   toolsUsed?: string[];
   toolExecutions?: unknown[];
@@ -314,9 +320,16 @@ async function runGenerate(
 
 type StreamResultShape = {
   finishReason?: string;
+  stopReason?: string;
+  rawFinishReason?: string;
   usage: { input: number; output: number; total: number };
   structuredOutput?: unknown;
   stream: AsyncIterable<{ content: string }>;
+  metadata?: {
+    stopReason?: string;
+    rawFinishReason?: string;
+    stepsUsed?: number;
+  };
 };
 
 /** Invoke the private native-Anthropic stream loop and drain its chunks plus result. */
@@ -505,6 +518,11 @@ async function main(): Promise<void> {
       });
       assertEqual(result.content, buildToolLoopCapMessage(maxSteps, 1));
       assertEqual(result.finishReason, "tool-calls");
+      assertEqual(
+        result.stopReason,
+        "step-cap",
+        "genuine budget exhaustion must report stopReason 'step-cap'",
+      );
       assert(result.content.length > 0, "content must never be empty");
     });
   });
@@ -679,13 +697,26 @@ async function main(): Promise<void> {
         mock.calls.every((c) => c.tool_choice?.type !== "tool"),
         "no finalization call after abort (budget already blown)",
       );
-      // The caller's signal must actually be forwarded as the SDK request
-      // option — not just simulated by the mock's injected rejection.
+      // The request signal is the loop's internal fan-in signal (caller
+      // signal + turn-clock watchdogs): one stable AbortSignal that must be
+      // aborted once the caller's signal fires — not just simulated by the
+      // mock's injected rejection.
       assert(
-        mock.signals.every((s) => s === controller.signal),
-        "options.abortSignal must ride every create() as the request signal",
+        mock.signals.every(
+          (s) => typeof AbortSignal !== "undefined" && s instanceof AbortSignal,
+        ),
+        "every create() must carry an AbortSignal request option",
       );
-      assertIncludes(result.content, "step limit for a single turn");
+      assert(
+        new Set(mock.signals).size === 1,
+        "the same internal signal must ride every create()",
+      );
+      assert(
+        (mock.signals[0] as AbortSignal).aborted,
+        "the internal request signal must be aborted after the caller aborts",
+      );
+      // Honest abort message — never the step-cap text on an aborted turn.
+      assertEqual(result.content, buildAbortedTurnMessage(1));
       // Aborted turns map finishReason from lastStopReason, not "tool-calls".
       assertEqual(result.finishReason, "stop");
     });
@@ -707,7 +738,7 @@ async function main(): Promise<void> {
         abortSignal: controller.signal,
       });
       assertEqual(mock.calls.length, 0, "no request when already aborted");
-      assertIncludes(result.content, "step limit for a single turn");
+      assertEqual(result.content, buildAbortedTurnMessage(0));
     });
   });
 
@@ -740,7 +771,7 @@ async function main(): Promise<void> {
         ),
         "aborted tool must not be recorded as a failed execution",
       );
-      assertIncludes(result.content, "step limit for a single turn");
+      assertEqual(result.content, buildAbortedTurnMessage(1));
     });
   });
 
@@ -949,8 +980,14 @@ async function main(): Promise<void> {
         "no finalization call after abort",
       );
       assertEqual(chunks.length, 1, "exactly one graceful chunk on abort");
-      assertIncludes(chunks[0], "step limit for a single turn");
+      assertEqual(chunks[0], buildAbortedTurnMessage(1));
       assertEqual(result.finishReason, "stop");
+      assertEqual(
+        result.metadata?.stopReason,
+        "aborted",
+        "metadata.stopReason must resolve to 'aborted' after drain",
+      );
+      assertEqual(result.stopReason, "aborted", "top-level getter too");
     });
   });
 
@@ -1154,7 +1191,7 @@ async function main(): Promise<void> {
         mock.calls.every((c) => c.tool_choice?.type !== "tool"),
         "tool_choice:'tool' must never be issued post-abort",
       );
-      assertIncludes(result.content, "step limit for a single turn");
+      assertEqual(result.content, buildAbortedTurnMessage(1));
     });
   });
 
@@ -1177,7 +1214,7 @@ async function main(): Promise<void> {
       });
       assertEqual(mock.calls.length, 1, "no terminal model call post-abort");
       assertEqual(chunks.length, 1, "exactly one graceful chunk");
-      assertIncludes(chunks[0], "step limit for a single turn");
+      assertEqual(chunks[0], buildAbortedTurnMessage(1));
     });
   });
 
@@ -1292,6 +1329,192 @@ async function main(): Promise<void> {
         JSON.stringify(PAYLOAD),
         "structuredOutput getter must survive the lifecycle wrapper spread",
       );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 20. Turn time budget on the generate loop (no defensive default here)
+  // -------------------------------------------------------------------------
+  await test("generate: turnTimeoutMs exceeded mid tool -> honest time message + stopReason 'time-limit', no step-cap text", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const mock = makeGenerateMock(() => ({
+        response: toolUseResponse("myTool", { q: "x" }),
+      }));
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "run tools" },
+        tools: makeTool(async () => {
+          // Sleeps past the 120ms turn deadline (ignores the signal), so the
+          // deadline fires mid-tool and the next loop-entry check breaks.
+          await new Promise<void>((resolvePromise) => {
+            const t = setTimeout(resolvePromise, 400);
+            (t as { unref?: () => void }).unref?.();
+          });
+          return { ok: true };
+        }),
+        maxSteps: 10,
+        turnTimeoutMs: 120,
+      });
+      assert(
+        result.content.includes("processing time limit"),
+        `expected the turn-timeout message, got: ${result.content}`,
+      );
+      assert(
+        !result.content.includes("step limit"),
+        "a timed-out turn must not claim a step limit was reached",
+      );
+      assertEqual(
+        result.stopReason,
+        "time-limit",
+        "stopReason must be 'time-limit'",
+      );
+      assert(mock.calls.length < 10, "turn ends well before the step budget");
+    });
+  });
+
+  await test("generate: toolTimeoutMs bounds a wedged tool -> error tool_result, turn continues and completes", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const mock = makeGenerateMock((i) =>
+        i === 0
+          ? { response: toolUseResponse("myTool", { q: "x" }) }
+          : { response: textResponse("done after tool timeout", "end_turn") },
+      );
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "run tools" },
+        tools: makeTool(async () => {
+          await new Promise<void>((resolvePromise) => {
+            const t = setTimeout(resolvePromise, 5_000);
+            (t as { unref?: () => void }).unref?.();
+          });
+          return { ok: true };
+        }),
+        maxSteps: 5,
+        toolTimeoutMs: 100,
+      });
+      assertEqual(
+        result.content,
+        "done after tool timeout",
+        "turn must continue past the timed-out tool and complete",
+      );
+      assertEqual(result.stopReason, "completed");
+      assert(
+        JSON.stringify(result.toolExecutions ?? []).includes("timed out"),
+        "the timed-out tool must surface as an error tool execution",
+      );
+      assertEqual(mock.calls.length, 2, "loop continued to the next step");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 21. Deadline fires MID-MODEL-CALL: the cancelled request must resolve the
+  //     turn as 'time-limit' — never reject out of generate()/stream()
+  //     (a rejection routes callers into abortSignal-less fallback retries:
+  //     the doubled-runaway hazard).
+  // -------------------------------------------------------------------------
+  await test("generate: turn deadline mid-model-call -> resolves with stopReason 'time-limit', never rejects", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const calls: AnthropicRequestParams[] = [];
+      // First call: normal tool_use step. Second call: hangs until the
+      // request signal (the loop's internal fan-in) fires, then rejects
+      // abort-shaped — the SDK cancelling an in-flight request.
+      const client = {
+        messages: {
+          create: async (
+            p: AnthropicRequestParams,
+            opts?: { signal?: AbortSignal },
+          ) => {
+            const index = calls.length;
+            calls.push(p);
+            if (index === 0) {
+              return toolUseResponse("myTool", { q: "x" });
+            }
+            const signal = opts?.signal;
+            await new Promise<void>((resolvePromise) => {
+              if (!signal || signal.aborted) {
+                resolvePromise();
+                return;
+              }
+              signal.addEventListener("abort", () => resolvePromise(), {
+                once: true,
+              });
+            });
+            throw abortError();
+          },
+        },
+      };
+      const provider = await makeProvider(client);
+      const result = await runGenerate(provider, {
+        input: { text: "run tools" },
+        tools: makeTool(),
+        maxSteps: 10,
+        turnTimeoutMs: 120,
+      });
+      assertEqual(
+        result.stopReason,
+        "time-limit",
+        "internal deadline cancellation must attribute as time-limit, not 'aborted'",
+      );
+      assert(
+        result.content.includes("processing time limit"),
+        `expected the turn-timeout message, got: ${result.content}`,
+      );
+      assertEqual(calls.length, 2, "aborted during the 2nd model call");
+    });
+  });
+
+  await test("stream: turn deadline mid-model-call -> resolves with stopReason 'time-limit', never rejects", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const calls: AnthropicRequestParams[] = [];
+      // First call resolves a tool_use step; the second hangs until the
+      // loop's abortHandler calls controller.abort() (deadline -> internal
+      // abort -> active stream cancel), then rejects abort-shaped.
+      const client = {
+        messages: {
+          stream: (p: AnthropicRequestParams) => {
+            const index = calls.length;
+            calls.push(p);
+            if (index === 0) {
+              const first: MockMessageStream = {
+                on: () => first,
+                controller: { abort: () => undefined },
+                finalMessage: async () => toolUseResponse("myTool", { q: "x" }),
+              };
+              return first;
+            }
+            let onAbort: (() => void) | undefined;
+            const hanging: MockMessageStream = {
+              on: () => hanging,
+              controller: {
+                abort: () => onAbort?.(),
+              },
+              finalMessage: () =>
+                new Promise<AnthropicResponse>((_resolve, reject) => {
+                  onAbort = () => reject(abortError());
+                }),
+            };
+            return hanging;
+          },
+        },
+      };
+      const provider = await makeProvider(client);
+      const { chunks, result } = await runStream(provider, {
+        input: { text: "run tools" },
+        tools: makeTool(),
+        maxSteps: 10,
+        turnTimeoutMs: 120,
+      });
+      assertEqual(
+        result.metadata?.stopReason,
+        "time-limit",
+        "internal deadline cancellation must attribute as time-limit, not 'aborted'",
+      );
+      assertEqual(chunks.length, 1, "exactly one honest terminal chunk");
+      assert(
+        chunks[0].includes("processing time limit"),
+        `expected the turn-timeout message, got: ${chunks[0]}`,
+      );
+      assertEqual(calls.length, 2, "aborted during the 2nd model call");
     });
   });
 }
