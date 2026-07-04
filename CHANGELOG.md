@@ -1,3 +1,9 @@
+## [9.81.1](https://github.com/juspay/neurolink/compare/v9.81.0...v9.81.1) (2026-07-04)
+
+### Bug Fixes
+
+- **(landing):** prerender homepage so crawlers see content (was ssr=false → empty shell) ([cfa704e](https://github.com/juspay/neurolink/commit/cfa704e93ab2db6ddf3ccc6f33088e5c18a5635a))
+
 ## [9.81.0](https://github.com/juspay/neurolink/compare/v9.80.4...v9.81.0) (2026-07-03)
 
 ### Features
