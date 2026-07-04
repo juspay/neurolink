@@ -14368,13 +14368,38 @@ Current user's request: ${currentInput}`;
         options,
       );
 
-      // BZ-664: Store result in cache after successful execution
-      if (cacheEnabled && this.mcpToolResultCache) {
+      // BZ-664: Store result in cache after successful execution.
+      // Only cache SUCCESSFUL results. Caching an error result (isError:true /
+      // success:false — e.g. an upstream 403/timeout surfaced as a tool error)
+      // replays that identical failure to every caller with the same args for
+      // the whole TTL, turning a single transient upstream error into a storm
+      // of cached failures and preventing a retry from re-hitting the server
+      // once it recovers. Errors must always re-execute. (Detection mirrors the
+      // isToolError check used elsewhere in this file.)
+      const resultObj =
+        result && typeof result === "object"
+          ? (result as Record<string, unknown>)
+          : undefined;
+      const isErrorResult = Boolean(
+        (resultObj && "isError" in resultObj && resultObj.isError === true) ||
+        (resultObj && "success" in resultObj && resultObj.success === false),
+      );
+      // Also skip an `undefined` result: the cache read side treats `undefined`
+      // as a miss (`cached !== undefined`), so storing it is a dead entry that can
+      // never be read back — keep write/read symmetric with the other cache sites.
+      if (
+        cacheEnabled &&
+        this.mcpToolResultCache &&
+        !isErrorResult &&
+        result !== undefined
+      ) {
         this.mcpToolResultCache.cacheResult(toolName, cacheKeyArgs, result);
       }
 
       mcpLogger.debug(
-        `[NeuroLink] External MCP tool executed successfully: ${toolName}`,
+        `[NeuroLink] External MCP tool ${
+          isErrorResult ? "returned error" : "executed successfully"
+        }: ${toolName}`,
       );
       return result;
     } catch (error) {
