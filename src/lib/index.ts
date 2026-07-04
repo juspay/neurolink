@@ -51,6 +51,9 @@ export {
 // ============================================================================
 // CLIENT SDK EXPORTS - Type-safe API access for browser and Node.js
 // Note: React hooks are NOT re-exported here. Import from '@juspay/neurolink/client'.
+// These re-exports intentionally bypass ./client/index.js: that barrel statically
+// re-exports ./reactHooks.js, so routing through it makes the ROOT import require
+// `react` (an optional peer dep) and crash react-less installs at import time.
 // ============================================================================
 
 export {
@@ -58,13 +61,19 @@ export {
   NeuroLinkClient,
   createClient,
   NeuroLinkApiError,
+} from "./client/httpClient.js";
+
+export {
   // AI SDK Adapter
   NeuroLinkLanguageModel,
-  NeuroLinkAIProvider,
+  NeuroLinkProvider as NeuroLinkAIProvider,
   createNeuroLinkProvider,
   createNeuroLinkModel,
   createStreamingResponse,
   neurolink as neuroLinkAIInstance,
+} from "./client/aiSdkAdapter.js";
+
+export {
   // Interceptors
   createApiKeyAuthInterceptor,
   createBearerAuthInterceptor,
@@ -79,12 +88,18 @@ export {
   createErrorHandlerInterceptor,
   composeMiddleware,
   conditionalMiddleware,
+} from "./client/interceptors.js";
+
+export {
   // Streaming Client
   SSEClient,
   WebSocketStreamingClient,
   createStreamingClient,
   createAsyncStream,
   collectStream,
+} from "./client/streamingClient.js";
+
+export {
   // Authentication
   OAuth2TokenManager,
   JWTTokenManager,
@@ -94,12 +109,15 @@ export {
   createAuthWithRetryMiddleware,
   createMultiAuthMiddleware,
   OAuth2Error,
-  OAuth2AuthError,
+  OAuth2AuthenticationError as OAuth2AuthError,
   TokenRefreshError,
   decodeJWTPayload,
   isJWTExpired,
   getJWTExpiry,
   getApiKeyFromEnv,
+} from "./client/auth.js";
+
+export {
   // Errors
   ErrorCode as ClientErrorCode,
   NeuroLinkError as ClientNeuroLinkError,
@@ -125,7 +143,7 @@ export {
   isRetryableError,
   isNeuroLinkError,
   isApiError,
-} from "./client/index.js";
+} from "./client/errors.js";
 
 export {
   AIProviderName,
