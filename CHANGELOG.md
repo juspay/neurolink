@@ -1,3 +1,9 @@
+## [9.81.2](https://github.com/juspay/neurolink/compare/v9.81.1...v9.81.2) (2026-07-05)
+
+### Bug Fixes
+
+- **(mcp):** do not cache error tool results (BZ-664 follow-up) ([8f876dc](https://github.com/juspay/neurolink/commit/8f876dc55fff4410b4a78cafd2de3f4146a875d1))
+
 ## [9.81.1](https://github.com/juspay/neurolink/compare/v9.81.0...v9.81.1) (2026-07-04)
 
 ### Bug Fixes
