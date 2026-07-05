@@ -330,6 +330,8 @@ export default [
       "package/**",
       ".git/**",
       ".git_disabled/**",
+      // Claude Code local scratch worktrees (agent/workflow isolation copies) - not source
+      ".claude/worktrees/**",
       "docs/cli-recordings/**",
       "docs/visual-content/**",
       "neurolink-demo/**",
