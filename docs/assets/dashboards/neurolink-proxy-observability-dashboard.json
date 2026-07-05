@@ -5563,6 +5563,1264 @@
         ]
       },
       {
+        "tabId": "cost",
+        "name": "Cost & Budget",
+        "panels": [
+          {
+            "id": "Panel_cost_01",
+            "type": "metric",
+            "title": "Total Cost in Range (est., USD)",
+            "description": "SQL-derived total spend over the selected window (tokens x per-model price; estimate).",
+            "config": {
+              "show_legends": false,
+              "legends_position": null,
+              "decimals": 2.0,
+              "line_thickness": 1.5,
+              "step_value": "0",
+              "top_results_others": false,
+              "axis_border_show": false,
+              "label_option": {
+                "position": "inside",
+                "rotate": 0.0
+              },
+              "show_symbol": true,
+              "line_interpolation": "smooth",
+              "legend_width": {
+                "unit": "px"
+              },
+              "base_map": {
+                "type": "osm"
+              },
+              "map_type": {
+                "type": "world"
+              },
+              "map_view": {
+                "zoom": 1.0,
+                "lat": 0.0,
+                "lng": 0.0
+              },
+              "map_symbol_style": {
+                "size": "by Value",
+                "size_by_value": {
+                  "min": 1.0,
+                  "max": 100.0
+                },
+                "size_fixed": 2.0
+              },
+              "drilldown": [],
+              "mark_line": [],
+              "override_config": [],
+              "connect_nulls": false,
+              "no_value_replacement": "",
+              "wrap_table_cells": false,
+              "table_transpose": false,
+              "table_dynamic_columns": false,
+              "color": {
+                "mode": "palette-classic-by-series",
+                "fixedColor": ["#53ca53"],
+                "seriesBy": "last"
+              },
+              "trellis": {
+                "layout": null,
+                "num_of_columns": 1
+              }
+            },
+            "queryType": "sql",
+            "queries": [
+              {
+                "query": "SELECT CAST(ROUND(SUM(( COALESCE(ai_input_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 15.0 WHEN ai_model LIKE 'claude-opus%' THEN 5.0 WHEN ai_model LIKE 'claude-haiku-4%' THEN 1.0 WHEN ai_model LIKE 'claude-haiku%' THEN 0.8 ELSE 3.0 END) + COALESCE(ai_output_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 75.0 WHEN ai_model LIKE 'claude-opus%' THEN 25.0 WHEN ai_model LIKE 'claude-haiku-4%' THEN 5.0 WHEN ai_model LIKE 'claude-haiku%' THEN 4.0 ELSE 15.0 END) + COALESCE(ai_cache_creation_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 18.75 WHEN ai_model LIKE 'claude-opus%' THEN 6.25 WHEN ai_model LIKE 'claude-haiku-4%' THEN 1.25 WHEN ai_model LIKE 'claude-haiku%' THEN 1.0 ELSE 3.75 END) + COALESCE(ai_cache_read_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 1.5 WHEN ai_model LIKE 'claude-opus%' THEN 0.5 WHEN ai_model LIKE 'claude-haiku-4%' THEN 0.1 WHEN ai_model LIKE 'claude-haiku%' THEN 0.08 ELSE 0.3 END) ) / 1000000.0),2) AS DECIMAL(18,2)) AS y_axis_1 FROM neurolink_proxy WHERE http_method IS NOT NULL",
+                "vrlFunctionQuery": "",
+                "customQuery": true,
+                "fields": {
+                  "stream": "neurolink_proxy",
+                  "stream_type": "logs",
+                  "x": [],
+                  "y": [
+                    {
+                      "label": "Y-Axis",
+                      "alias": "y_axis_1",
+                      "column": "y_axis_1",
+                      "color": null,
+                      "aggregationFunction": "sum"
+                    }
+                  ],
+                  "z": [],
+                  "breakdown": [],
+                  "filter": {
+                    "filterType": "group",
+                    "logicalOperator": "AND",
+                    "conditions": []
+                  }
+                },
+                "config": {
+                  "promql_legend": "",
+                  "layer_type": "scatter",
+                  "weight_fixed": 1.0,
+                  "limit": 0.0,
+                  "min": 0.0,
+                  "max": 100.0,
+                  "time_shift": []
+                }
+              }
+            ],
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "w": 16,
+              "h": 7,
+              "i": 9001
+            },
+            "htmlContent": "",
+            "markdownContent": "",
+            "customChartContent": ""
+          },
+          {
+            "id": "Panel_cost_02",
+            "type": "metric",
+            "title": "Cost per Request (est., USD)",
+            "description": "Mean USD cost per proxied request (estimate).",
+            "config": {
+              "show_legends": false,
+              "legends_position": null,
+              "decimals": 2.0,
+              "line_thickness": 1.5,
+              "step_value": "0",
+              "top_results_others": false,
+              "axis_border_show": false,
+              "label_option": {
+                "position": "inside",
+                "rotate": 0.0
+              },
+              "show_symbol": true,
+              "line_interpolation": "smooth",
+              "legend_width": {
+                "unit": "px"
+              },
+              "base_map": {
+                "type": "osm"
+              },
+              "map_type": {
+                "type": "world"
+              },
+              "map_view": {
+                "zoom": 1.0,
+                "lat": 0.0,
+                "lng": 0.0
+              },
+              "map_symbol_style": {
+                "size": "by Value",
+                "size_by_value": {
+                  "min": 1.0,
+                  "max": 100.0
+                },
+                "size_fixed": 2.0
+              },
+              "drilldown": [],
+              "mark_line": [],
+              "override_config": [],
+              "connect_nulls": false,
+              "no_value_replacement": "",
+              "wrap_table_cells": false,
+              "table_transpose": false,
+              "table_dynamic_columns": false,
+              "color": {
+                "mode": "palette-classic-by-series",
+                "fixedColor": ["#53ca53"],
+                "seriesBy": "last"
+              },
+              "trellis": {
+                "layout": null,
+                "num_of_columns": 1
+              }
+            },
+            "queryType": "sql",
+            "queries": [
+              {
+                "query": "SELECT CAST(ROUND(SUM(( COALESCE(ai_input_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 15.0 WHEN ai_model LIKE 'claude-opus%' THEN 5.0 WHEN ai_model LIKE 'claude-haiku-4%' THEN 1.0 WHEN ai_model LIKE 'claude-haiku%' THEN 0.8 ELSE 3.0 END) + COALESCE(ai_output_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 75.0 WHEN ai_model LIKE 'claude-opus%' THEN 25.0 WHEN ai_model LIKE 'claude-haiku-4%' THEN 5.0 WHEN ai_model LIKE 'claude-haiku%' THEN 4.0 ELSE 15.0 END) + COALESCE(ai_cache_creation_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 18.75 WHEN ai_model LIKE 'claude-opus%' THEN 6.25 WHEN ai_model LIKE 'claude-haiku-4%' THEN 1.25 WHEN ai_model LIKE 'claude-haiku%' THEN 1.0 ELSE 3.75 END) + COALESCE(ai_cache_read_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 1.5 WHEN ai_model LIKE 'claude-opus%' THEN 0.5 WHEN ai_model LIKE 'claude-haiku-4%' THEN 0.1 WHEN ai_model LIKE 'claude-haiku%' THEN 0.08 ELSE 0.3 END) ) / 1000000.0)/NULLIF(COUNT(*),0),4) AS DECIMAL(18,4)) AS y_axis_1 FROM neurolink_proxy WHERE http_method IS NOT NULL",
+                "vrlFunctionQuery": "",
+                "customQuery": true,
+                "fields": {
+                  "stream": "neurolink_proxy",
+                  "stream_type": "logs",
+                  "x": [],
+                  "y": [
+                    {
+                      "label": "Y-Axis",
+                      "alias": "y_axis_1",
+                      "column": "y_axis_1",
+                      "color": null,
+                      "aggregationFunction": "sum"
+                    }
+                  ],
+                  "z": [],
+                  "breakdown": [],
+                  "filter": {
+                    "filterType": "group",
+                    "logicalOperator": "AND",
+                    "conditions": []
+                  }
+                },
+                "config": {
+                  "promql_legend": "",
+                  "layer_type": "scatter",
+                  "weight_fixed": 1.0,
+                  "limit": 0.0,
+                  "min": 0.0,
+                  "max": 100.0,
+                  "time_shift": []
+                }
+              }
+            ],
+            "layout": {
+              "x": 16,
+              "y": 0,
+              "w": 16,
+              "h": 7,
+              "i": 9002
+            },
+            "htmlContent": "",
+            "markdownContent": "",
+            "customChartContent": ""
+          },
+          {
+            "id": "Panel_cost_03",
+            "type": "metric",
+            "title": "Cache $ Savings (est., USD)",
+            "description": "Estimated USD saved by cache reads vs paying full input price (cache-read tokens x (input-cacheRead) rate).",
+            "config": {
+              "show_legends": false,
+              "legends_position": null,
+              "decimals": 2.0,
+              "line_thickness": 1.5,
+              "step_value": "0",
+              "top_results_others": false,
+              "axis_border_show": false,
+              "label_option": {
+                "position": "inside",
+                "rotate": 0.0
+              },
+              "show_symbol": true,
+              "line_interpolation": "smooth",
+              "legend_width": {
+                "unit": "px"
+              },
+              "base_map": {
+                "type": "osm"
+              },
+              "map_type": {
+                "type": "world"
+              },
+              "map_view": {
+                "zoom": 1.0,
+                "lat": 0.0,
+                "lng": 0.0
+              },
+              "map_symbol_style": {
+                "size": "by Value",
+                "size_by_value": {
+                  "min": 1.0,
+                  "max": 100.0
+                },
+                "size_fixed": 2.0
+              },
+              "drilldown": [],
+              "mark_line": [],
+              "override_config": [],
+              "connect_nulls": false,
+              "no_value_replacement": "",
+              "wrap_table_cells": false,
+              "table_transpose": false,
+              "table_dynamic_columns": false,
+              "color": {
+                "mode": "palette-classic-by-series",
+                "fixedColor": ["#53ca53"],
+                "seriesBy": "last"
+              },
+              "trellis": {
+                "layout": null,
+                "num_of_columns": 1
+              }
+            },
+            "queryType": "sql",
+            "queries": [
+              {
+                "query": "SELECT CAST(ROUND(SUM(COALESCE(ai_cache_read_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 13.5 WHEN ai_model LIKE 'claude-opus%' THEN 4.5 WHEN ai_model LIKE 'claude-haiku-4%' THEN 0.9 WHEN ai_model LIKE 'claude-haiku%' THEN 0.72 ELSE 2.7 END) / 1000000.0),2) AS DECIMAL(18,2)) AS y_axis_1 FROM neurolink_proxy WHERE http_method IS NOT NULL",
+                "vrlFunctionQuery": "",
+                "customQuery": true,
+                "fields": {
+                  "stream": "neurolink_proxy",
+                  "stream_type": "logs",
+                  "x": [],
+                  "y": [
+                    {
+                      "label": "Y-Axis",
+                      "alias": "y_axis_1",
+                      "column": "y_axis_1",
+                      "color": null,
+                      "aggregationFunction": "sum"
+                    }
+                  ],
+                  "z": [],
+                  "breakdown": [],
+                  "filter": {
+                    "filterType": "group",
+                    "logicalOperator": "AND",
+                    "conditions": []
+                  }
+                },
+                "config": {
+                  "promql_legend": "",
+                  "layer_type": "scatter",
+                  "weight_fixed": 1.0,
+                  "limit": 0.0,
+                  "min": 0.0,
+                  "max": 100.0,
+                  "time_shift": []
+                }
+              }
+            ],
+            "layout": {
+              "x": 32,
+              "y": 0,
+              "w": 16,
+              "h": 7,
+              "i": 9003
+            },
+            "htmlContent": "",
+            "markdownContent": "",
+            "customChartContent": ""
+          },
+          {
+            "id": "Panel_cost_04",
+            "type": "bar",
+            "title": "Cost by Account (est., USD)",
+            "description": "Estimated spend per account over the window.",
+            "config": {
+              "show_legends": true,
+              "legends_position": "bottom",
+              "decimals": 0.0,
+              "line_thickness": 1.5,
+              "step_value": "0",
+              "top_results_others": false,
+              "axis_border_show": false,
+              "label_option": {
+                "position": "inside",
+                "rotate": 0.0
+              },
+              "show_symbol": true,
+              "line_interpolation": "smooth",
+              "legend_width": {
+                "unit": "px"
+              },
+              "base_map": {
+                "type": "osm"
+              },
+              "map_type": {
+                "type": "world"
+              },
+              "map_view": {
+                "zoom": 1.0,
+                "lat": 0.0,
+                "lng": 0.0
+              },
+              "map_symbol_style": {
+                "size": "by Value",
+                "size_by_value": {
+                  "min": 1.0,
+                  "max": 100.0
+                },
+                "size_fixed": 2.0
+              },
+              "drilldown": [],
+              "mark_line": [],
+              "override_config": [],
+              "connect_nulls": false,
+              "no_value_replacement": "",
+              "wrap_table_cells": false,
+              "table_transpose": false,
+              "table_dynamic_columns": false,
+              "color": {
+                "mode": "palette-classic-by-series",
+                "fixedColor": ["#53ca53"],
+                "seriesBy": "last"
+              },
+              "trellis": {
+                "layout": null,
+                "num_of_columns": 1
+              }
+            },
+            "queryType": "sql",
+            "queries": [
+              {
+                "query": "SELECT CASE WHEN account_name IS NOT NULL AND account_name != '' THEN account_name WHEN COALESCE(account_type,'') IN ('ollama','litellm','vertex') THEN account_type ELSE NULL END AS x_axis_1, CAST(ROUND(SUM(( COALESCE(ai_input_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 15.0 WHEN ai_model LIKE 'claude-opus%' THEN 5.0 WHEN ai_model LIKE 'claude-haiku-4%' THEN 1.0 WHEN ai_model LIKE 'claude-haiku%' THEN 0.8 ELSE 3.0 END) + COALESCE(ai_output_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 75.0 WHEN ai_model LIKE 'claude-opus%' THEN 25.0 WHEN ai_model LIKE 'claude-haiku-4%' THEN 5.0 WHEN ai_model LIKE 'claude-haiku%' THEN 4.0 ELSE 15.0 END) + COALESCE(ai_cache_creation_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 18.75 WHEN ai_model LIKE 'claude-opus%' THEN 6.25 WHEN ai_model LIKE 'claude-haiku-4%' THEN 1.25 WHEN ai_model LIKE 'claude-haiku%' THEN 1.0 ELSE 3.75 END) + COALESCE(ai_cache_read_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 1.5 WHEN ai_model LIKE 'claude-opus%' THEN 0.5 WHEN ai_model LIKE 'claude-haiku-4%' THEN 0.1 WHEN ai_model LIKE 'claude-haiku%' THEN 0.08 ELSE 0.3 END) ) / 1000000.0),4) AS DECIMAL(18,4)) AS y_axis_1 FROM neurolink_proxy WHERE http_method IS NOT NULL AND (account_name IS NOT NULL AND account_name != '' OR COALESCE(account_type,'') IN ('ollama','litellm','vertex')) GROUP BY CASE WHEN account_name IS NOT NULL AND account_name != '' THEN account_name WHEN COALESCE(account_type,'') IN ('ollama','litellm','vertex') THEN account_type ELSE NULL END ORDER BY y_axis_1 DESC",
+                "vrlFunctionQuery": "",
+                "customQuery": true,
+                "fields": {
+                  "stream": "neurolink_proxy",
+                  "stream_type": "logs",
+                  "x": [
+                    {
+                      "label": "X-Axis",
+                      "alias": "x_axis_1",
+                      "column": "x_axis_1",
+                      "color": null,
+                      "sortBy": "DESC"
+                    }
+                  ],
+                  "y": [
+                    {
+                      "label": "Y-Axis",
+                      "alias": "y_axis_1",
+                      "column": "y_axis_1",
+                      "color": null,
+                      "aggregationFunction": "sum"
+                    }
+                  ],
+                  "z": [],
+                  "breakdown": [],
+                  "filter": {
+                    "filterType": "group",
+                    "logicalOperator": "AND",
+                    "conditions": []
+                  }
+                },
+                "config": {
+                  "promql_legend": "",
+                  "layer_type": "scatter",
+                  "weight_fixed": 1.0,
+                  "limit": 0.0,
+                  "min": 0.0,
+                  "max": 100.0,
+                  "time_shift": []
+                }
+              }
+            ],
+            "layout": {
+              "x": 0,
+              "y": 7,
+              "w": 24,
+              "h": 9,
+              "i": 9004
+            },
+            "htmlContent": "",
+            "markdownContent": "",
+            "customChartContent": ""
+          },
+          {
+            "id": "Panel_cost_05",
+            "type": "bar",
+            "title": "Cost by Model (est., USD)",
+            "description": "Estimated spend per model over the window.",
+            "config": {
+              "show_legends": true,
+              "legends_position": "bottom",
+              "decimals": 2.0,
+              "line_thickness": 1.5,
+              "step_value": "0",
+              "top_results_others": false,
+              "axis_border_show": false,
+              "label_option": {
+                "position": "inside",
+                "rotate": 0.0
+              },
+              "show_symbol": true,
+              "line_interpolation": "smooth",
+              "legend_width": {
+                "unit": "px"
+              },
+              "base_map": {
+                "type": "osm"
+              },
+              "map_type": {
+                "type": "world"
+              },
+              "map_view": {
+                "zoom": 1.0,
+                "lat": 0.0,
+                "lng": 0.0
+              },
+              "map_symbol_style": {
+                "size": "by Value",
+                "size_by_value": {
+                  "min": 1.0,
+                  "max": 100.0
+                },
+                "size_fixed": 2.0
+              },
+              "drilldown": [],
+              "mark_line": [],
+              "override_config": [],
+              "connect_nulls": false,
+              "no_value_replacement": "",
+              "wrap_table_cells": false,
+              "table_transpose": false,
+              "table_dynamic_columns": false,
+              "color": {
+                "mode": "palette-classic-by-series",
+                "fixedColor": ["#53ca53"],
+                "seriesBy": "last"
+              },
+              "trellis": {
+                "layout": null,
+                "num_of_columns": 1
+              }
+            },
+            "queryType": "sql",
+            "queries": [
+              {
+                "query": "SELECT ai_model AS x_axis_1, CAST(ROUND(SUM(( COALESCE(ai_input_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 15.0 WHEN ai_model LIKE 'claude-opus%' THEN 5.0 WHEN ai_model LIKE 'claude-haiku-4%' THEN 1.0 WHEN ai_model LIKE 'claude-haiku%' THEN 0.8 ELSE 3.0 END) + COALESCE(ai_output_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 75.0 WHEN ai_model LIKE 'claude-opus%' THEN 25.0 WHEN ai_model LIKE 'claude-haiku-4%' THEN 5.0 WHEN ai_model LIKE 'claude-haiku%' THEN 4.0 ELSE 15.0 END) + COALESCE(ai_cache_creation_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 18.75 WHEN ai_model LIKE 'claude-opus%' THEN 6.25 WHEN ai_model LIKE 'claude-haiku-4%' THEN 1.25 WHEN ai_model LIKE 'claude-haiku%' THEN 1.0 ELSE 3.75 END) + COALESCE(ai_cache_read_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 1.5 WHEN ai_model LIKE 'claude-opus%' THEN 0.5 WHEN ai_model LIKE 'claude-haiku-4%' THEN 0.1 WHEN ai_model LIKE 'claude-haiku%' THEN 0.08 ELSE 0.3 END) ) / 1000000.0),4) AS DECIMAL(18,4)) AS y_axis_1 FROM neurolink_proxy WHERE http_method IS NOT NULL GROUP BY ai_model ORDER BY y_axis_1 DESC",
+                "vrlFunctionQuery": "",
+                "customQuery": true,
+                "fields": {
+                  "stream": "neurolink_proxy",
+                  "stream_type": "logs",
+                  "x": [
+                    {
+                      "label": "X-Axis",
+                      "alias": "x_axis_1",
+                      "column": "ai_model",
+                      "color": null,
+                      "sortBy": "DESC"
+                    }
+                  ],
+                  "y": [
+                    {
+                      "label": "Y-Axis",
+                      "alias": "y_axis_1",
+                      "column": "y_axis_1",
+                      "color": null,
+                      "aggregationFunction": "sum"
+                    }
+                  ],
+                  "z": [],
+                  "breakdown": [],
+                  "filter": {
+                    "filterType": "group",
+                    "logicalOperator": "AND",
+                    "conditions": []
+                  }
+                },
+                "config": {
+                  "promql_legend": "",
+                  "layer_type": "scatter",
+                  "weight_fixed": 1.0,
+                  "limit": 0.0,
+                  "min": 0.0,
+                  "max": 100.0,
+                  "time_shift": []
+                }
+              }
+            ],
+            "layout": {
+              "x": 24,
+              "y": 7,
+              "w": 24,
+              "h": 9,
+              "i": 9005
+            },
+            "htmlContent": "",
+            "markdownContent": "",
+            "customChartContent": ""
+          },
+          {
+            "id": "Panel_cost_06",
+            "type": "area-stacked",
+            "title": "Cost Trend by Account (5m, est., USD)",
+            "description": "Estimated spend over time, broken down by account.",
+            "config": {
+              "show_legends": true,
+              "legends_position": "bottom",
+              "decimals": 0.0,
+              "line_thickness": 1.5,
+              "step_value": "0",
+              "top_results_others": false,
+              "axis_border_show": false,
+              "label_option": {
+                "position": "inside",
+                "rotate": 0.0
+              },
+              "show_symbol": false,
+              "line_interpolation": "smooth",
+              "legend_width": {
+                "unit": "px"
+              },
+              "base_map": {
+                "type": "osm"
+              },
+              "map_type": {
+                "type": "world"
+              },
+              "map_view": {
+                "zoom": 1.0,
+                "lat": 0.0,
+                "lng": 0.0
+              },
+              "map_symbol_style": {
+                "size": "by Value",
+                "size_by_value": {
+                  "min": 1.0,
+                  "max": 100.0
+                },
+                "size_fixed": 2.0
+              },
+              "drilldown": [],
+              "mark_line": [],
+              "override_config": [],
+              "connect_nulls": false,
+              "no_value_replacement": "",
+              "wrap_table_cells": false,
+              "table_transpose": false,
+              "table_dynamic_columns": false,
+              "color": {
+                "mode": "palette-classic-by-series",
+                "fixedColor": ["#53ca53"],
+                "seriesBy": "last"
+              },
+              "trellis": {
+                "layout": null,
+                "num_of_columns": 1
+              }
+            },
+            "queryType": "sql",
+            "queries": [
+              {
+                "query": "SELECT histogram(_timestamp, '5 minutes') AS x_axis_1, CASE WHEN account_name IS NOT NULL AND account_name != '' THEN account_name WHEN COALESCE(account_type,'') IN ('ollama','litellm','vertex') THEN account_type ELSE NULL END AS account_label, CAST(ROUND(SUM(( COALESCE(ai_input_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 15.0 WHEN ai_model LIKE 'claude-opus%' THEN 5.0 WHEN ai_model LIKE 'claude-haiku-4%' THEN 1.0 WHEN ai_model LIKE 'claude-haiku%' THEN 0.8 ELSE 3.0 END) + COALESCE(ai_output_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 75.0 WHEN ai_model LIKE 'claude-opus%' THEN 25.0 WHEN ai_model LIKE 'claude-haiku-4%' THEN 5.0 WHEN ai_model LIKE 'claude-haiku%' THEN 4.0 ELSE 15.0 END) + COALESCE(ai_cache_creation_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 18.75 WHEN ai_model LIKE 'claude-opus%' THEN 6.25 WHEN ai_model LIKE 'claude-haiku-4%' THEN 1.25 WHEN ai_model LIKE 'claude-haiku%' THEN 1.0 ELSE 3.75 END) + COALESCE(ai_cache_read_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 1.5 WHEN ai_model LIKE 'claude-opus%' THEN 0.5 WHEN ai_model LIKE 'claude-haiku-4%' THEN 0.1 WHEN ai_model LIKE 'claude-haiku%' THEN 0.08 ELSE 0.3 END) ) / 1000000.0),4) AS DECIMAL(18,4)) AS y_axis_1 FROM neurolink_proxy WHERE http_method IS NOT NULL AND (account_name IS NOT NULL AND account_name != '' OR COALESCE(account_type,'') IN ('ollama','litellm','vertex')) GROUP BY x_axis_1, CASE WHEN account_name IS NOT NULL AND account_name != '' THEN account_name WHEN COALESCE(account_type,'') IN ('ollama','litellm','vertex') THEN account_type ELSE NULL END ORDER BY x_axis_1 ASC",
+                "vrlFunctionQuery": "",
+                "customQuery": true,
+                "fields": {
+                  "stream": "neurolink_proxy",
+                  "stream_type": "logs",
+                  "x": [
+                    {
+                      "label": "Timestamp",
+                      "alias": "x_axis_1",
+                      "column": "_timestamp",
+                      "color": null,
+                      "aggregationFunction": "histogram",
+                      "sortBy": "ASC"
+                    }
+                  ],
+                  "y": [
+                    {
+                      "label": "Y-Axis",
+                      "alias": "y_axis_1",
+                      "column": "y_axis_1",
+                      "color": null,
+                      "aggregationFunction": "sum"
+                    }
+                  ],
+                  "z": [],
+                  "breakdown": [
+                    {
+                      "label": "Breakdown",
+                      "alias": "account_label",
+                      "column": "account_label",
+                      "color": null
+                    }
+                  ],
+                  "filter": {
+                    "filterType": "group",
+                    "logicalOperator": "AND",
+                    "conditions": []
+                  }
+                },
+                "config": {
+                  "promql_legend": "",
+                  "layer_type": "scatter",
+                  "weight_fixed": 1.0,
+                  "limit": 0.0,
+                  "min": 0.0,
+                  "max": 100.0,
+                  "time_shift": []
+                }
+              }
+            ],
+            "layout": {
+              "x": 0,
+              "y": 16,
+              "w": 48,
+              "h": 9,
+              "i": 9006
+            },
+            "htmlContent": "",
+            "markdownContent": "",
+            "customChartContent": ""
+          },
+          {
+            "id": "Panel_cost_07",
+            "type": "bar",
+            "title": "Effective $/1M Tokens by Model (est.)",
+            "description": "Blended effective price per million tokens (cache reads pull this below list price).",
+            "config": {
+              "show_legends": true,
+              "legends_position": "bottom",
+              "decimals": 2.0,
+              "line_thickness": 1.5,
+              "step_value": "0",
+              "top_results_others": false,
+              "axis_border_show": false,
+              "label_option": {
+                "position": "inside",
+                "rotate": 0.0
+              },
+              "show_symbol": true,
+              "line_interpolation": "smooth",
+              "legend_width": {
+                "unit": "px"
+              },
+              "base_map": {
+                "type": "osm"
+              },
+              "map_type": {
+                "type": "world"
+              },
+              "map_view": {
+                "zoom": 1.0,
+                "lat": 0.0,
+                "lng": 0.0
+              },
+              "map_symbol_style": {
+                "size": "by Value",
+                "size_by_value": {
+                  "min": 1.0,
+                  "max": 100.0
+                },
+                "size_fixed": 2.0
+              },
+              "drilldown": [],
+              "mark_line": [],
+              "override_config": [],
+              "connect_nulls": false,
+              "no_value_replacement": "",
+              "wrap_table_cells": false,
+              "table_transpose": false,
+              "table_dynamic_columns": false,
+              "color": {
+                "mode": "palette-classic-by-series",
+                "fixedColor": ["#53ca53"],
+                "seriesBy": "last"
+              },
+              "trellis": {
+                "layout": null,
+                "num_of_columns": 1
+              }
+            },
+            "queryType": "sql",
+            "queries": [
+              {
+                "query": "SELECT ai_model AS x_axis_1, CAST(ROUND(SUM(( COALESCE(ai_input_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 15.0 WHEN ai_model LIKE 'claude-opus%' THEN 5.0 WHEN ai_model LIKE 'claude-haiku-4%' THEN 1.0 WHEN ai_model LIKE 'claude-haiku%' THEN 0.8 ELSE 3.0 END) + COALESCE(ai_output_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 75.0 WHEN ai_model LIKE 'claude-opus%' THEN 25.0 WHEN ai_model LIKE 'claude-haiku-4%' THEN 5.0 WHEN ai_model LIKE 'claude-haiku%' THEN 4.0 ELSE 15.0 END) + COALESCE(ai_cache_creation_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 18.75 WHEN ai_model LIKE 'claude-opus%' THEN 6.25 WHEN ai_model LIKE 'claude-haiku-4%' THEN 1.25 WHEN ai_model LIKE 'claude-haiku%' THEN 1.0 ELSE 3.75 END) + COALESCE(ai_cache_read_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 1.5 WHEN ai_model LIKE 'claude-opus%' THEN 0.5 WHEN ai_model LIKE 'claude-haiku-4%' THEN 0.1 WHEN ai_model LIKE 'claude-haiku%' THEN 0.08 ELSE 0.3 END) ) / 1000000.0)/NULLIF(SUM(COALESCE(ai_input_tokens,0)+COALESCE(ai_output_tokens,0)+COALESCE(ai_cache_creation_tokens,0)+COALESCE(ai_cache_read_tokens,0)),0)*1000000.0,2) AS DECIMAL(18,2)) AS y_axis_1 FROM neurolink_proxy WHERE http_method IS NOT NULL GROUP BY ai_model ORDER BY y_axis_1 DESC",
+                "vrlFunctionQuery": "",
+                "customQuery": true,
+                "fields": {
+                  "stream": "neurolink_proxy",
+                  "stream_type": "logs",
+                  "x": [
+                    {
+                      "label": "X-Axis",
+                      "alias": "x_axis_1",
+                      "column": "ai_model",
+                      "color": null,
+                      "sortBy": "DESC"
+                    }
+                  ],
+                  "y": [
+                    {
+                      "label": "Y-Axis",
+                      "alias": "y_axis_1",
+                      "column": "y_axis_1",
+                      "color": null,
+                      "aggregationFunction": "sum"
+                    }
+                  ],
+                  "z": [],
+                  "breakdown": [],
+                  "filter": {
+                    "filterType": "group",
+                    "logicalOperator": "AND",
+                    "conditions": []
+                  }
+                },
+                "config": {
+                  "promql_legend": "",
+                  "layer_type": "scatter",
+                  "weight_fixed": 1.0,
+                  "limit": 0.0,
+                  "min": 0.0,
+                  "max": 100.0,
+                  "time_shift": []
+                }
+              }
+            ],
+            "layout": {
+              "x": 0,
+              "y": 25,
+              "w": 24,
+              "h": 9,
+              "i": 9007
+            },
+            "htmlContent": "",
+            "markdownContent": "",
+            "customChartContent": ""
+          },
+          {
+            "id": "Panel_cost_08",
+            "type": "metric",
+            "title": "Projected Daily Spend (est., USD)",
+            "description": "Run-rate: window spend extrapolated to 24h (noisy for short windows).",
+            "config": {
+              "show_legends": false,
+              "legends_position": null,
+              "decimals": 2.0,
+              "line_thickness": 1.5,
+              "step_value": "0",
+              "top_results_others": false,
+              "axis_border_show": false,
+              "label_option": {
+                "position": "inside",
+                "rotate": 0.0
+              },
+              "show_symbol": true,
+              "line_interpolation": "smooth",
+              "legend_width": {
+                "unit": "px"
+              },
+              "base_map": {
+                "type": "osm"
+              },
+              "map_type": {
+                "type": "world"
+              },
+              "map_view": {
+                "zoom": 1.0,
+                "lat": 0.0,
+                "lng": 0.0
+              },
+              "map_symbol_style": {
+                "size": "by Value",
+                "size_by_value": {
+                  "min": 1.0,
+                  "max": 100.0
+                },
+                "size_fixed": 2.0
+              },
+              "drilldown": [],
+              "mark_line": [],
+              "override_config": [],
+              "connect_nulls": false,
+              "no_value_replacement": "",
+              "wrap_table_cells": false,
+              "table_transpose": false,
+              "table_dynamic_columns": false,
+              "color": {
+                "mode": "palette-classic-by-series",
+                "fixedColor": ["#53ca53"],
+                "seriesBy": "last"
+              },
+              "trellis": {
+                "layout": null,
+                "num_of_columns": 1
+              }
+            },
+            "queryType": "sql",
+            "queries": [
+              {
+                "query": "SELECT CAST(ROUND(SUM(( COALESCE(ai_input_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 15.0 WHEN ai_model LIKE 'claude-opus%' THEN 5.0 WHEN ai_model LIKE 'claude-haiku-4%' THEN 1.0 WHEN ai_model LIKE 'claude-haiku%' THEN 0.8 ELSE 3.0 END) + COALESCE(ai_output_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 75.0 WHEN ai_model LIKE 'claude-opus%' THEN 25.0 WHEN ai_model LIKE 'claude-haiku-4%' THEN 5.0 WHEN ai_model LIKE 'claude-haiku%' THEN 4.0 ELSE 15.0 END) + COALESCE(ai_cache_creation_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 18.75 WHEN ai_model LIKE 'claude-opus%' THEN 6.25 WHEN ai_model LIKE 'claude-haiku-4%' THEN 1.25 WHEN ai_model LIKE 'claude-haiku%' THEN 1.0 ELSE 3.75 END) + COALESCE(ai_cache_read_tokens,0) * (CASE WHEN ai_model LIKE 'claude-opus-4-1%' OR ai_model='claude-opus-4' OR ai_model LIKE 'claude-opus-3%' OR ai_model LIKE 'claude-3-opus%' THEN 1.5 WHEN ai_model LIKE 'claude-opus%' THEN 0.5 WHEN ai_model LIKE 'claude-haiku-4%' THEN 0.1 WHEN ai_model LIKE 'claude-haiku%' THEN 0.08 ELSE 0.3 END) ) / 1000000.0)/NULLIF((MAX(_timestamp)-MIN(_timestamp))/1000000.0,0)*86400.0,2) AS DECIMAL(18,2)) AS y_axis_1 FROM neurolink_proxy WHERE http_method IS NOT NULL",
+                "vrlFunctionQuery": "",
+                "customQuery": true,
+                "fields": {
+                  "stream": "neurolink_proxy",
+                  "stream_type": "logs",
+                  "x": [],
+                  "y": [
+                    {
+                      "label": "Y-Axis",
+                      "alias": "y_axis_1",
+                      "column": "y_axis_1",
+                      "color": null,
+                      "aggregationFunction": "sum"
+                    }
+                  ],
+                  "z": [],
+                  "breakdown": [],
+                  "filter": {
+                    "filterType": "group",
+                    "logicalOperator": "AND",
+                    "conditions": []
+                  }
+                },
+                "config": {
+                  "promql_legend": "",
+                  "layer_type": "scatter",
+                  "weight_fixed": 1.0,
+                  "limit": 0.0,
+                  "min": 0.0,
+                  "max": 100.0,
+                  "time_shift": []
+                }
+              }
+            ],
+            "layout": {
+              "x": 24,
+              "y": 25,
+              "w": 24,
+              "h": 9,
+              "i": 9008
+            },
+            "htmlContent": "",
+            "markdownContent": "",
+            "customChartContent": ""
+          },
+          {
+            "id": "Panel_cost_09",
+            "type": "bar",
+            "title": "7-day Quota Utilization by Account (%)",
+            "description": "Latest 7-day rate-limit utilisation per account (%), from proxy.request trace spans. Anthropic OAuth only.",
+            "config": {
+              "show_legends": true,
+              "legends_position": "bottom",
+              "decimals": 1,
+              "line_thickness": 1.5,
+              "step_value": "0",
+              "top_results_others": false,
+              "axis_border_show": false,
+              "label_option": {
+                "position": "inside",
+                "rotate": 0
+              },
+              "show_symbol": true,
+              "line_interpolation": "smooth",
+              "legend_width": {
+                "unit": "px"
+              },
+              "base_map": {
+                "type": "osm"
+              },
+              "map_type": {
+                "type": "world"
+              },
+              "map_view": {
+                "zoom": 1,
+                "lat": 0,
+                "lng": 0
+              },
+              "map_symbol_style": {
+                "size": "by Value",
+                "size_by_value": {
+                  "min": 1,
+                  "max": 100
+                },
+                "size_fixed": 2
+              },
+              "drilldown": [],
+              "mark_line": [],
+              "override_config": [],
+              "connect_nulls": false,
+              "no_value_replacement": "",
+              "wrap_table_cells": false,
+              "table_transpose": false,
+              "table_dynamic_columns": false,
+              "color": {
+                "mode": "palette-classic-by-series",
+                "fixedColor": ["#53ca53"],
+                "seriesBy": "last"
+              },
+              "trellis": {
+                "layout": null,
+                "num_of_columns": 1
+              }
+            },
+            "queryType": "sql",
+            "queries": [
+              {
+                "query": "SELECT proxy_account AS x_axis_1, CAST(ROUND(MAX(util) * 100, 1) AS DECIMAL(5,1)) AS y_axis_1 FROM (SELECT proxy_account, CAST(proxy_ratelimit_after_7d AS DOUBLE) AS util, ROW_NUMBER() OVER (PARTITION BY proxy_account ORDER BY _timestamp DESC) AS rn FROM neurolink_proxy WHERE operation_name = 'proxy.request' AND proxy_ratelimit_after_7d IS NOT NULL AND proxy_account IS NOT NULL AND proxy_account != '') t WHERE rn = 1 GROUP BY proxy_account ORDER BY y_axis_1 DESC",
+                "vrlFunctionQuery": "",
+                "customQuery": true,
+                "fields": {
+                  "stream": "neurolink_proxy",
+                  "stream_type": "traces",
+                  "x": [
+                    {
+                      "label": "Account",
+                      "alias": "x_axis_1",
+                      "column": "x_axis_1",
+                      "color": null,
+                      "sortBy": "DESC"
+                    }
+                  ],
+                  "y": [
+                    {
+                      "label": "Utilisation (%)",
+                      "alias": "y_axis_1",
+                      "column": "y_axis_1",
+                      "color": null,
+                      "aggregationFunction": "sum"
+                    }
+                  ],
+                  "z": [],
+                  "breakdown": [],
+                  "filter": {
+                    "filterType": "group",
+                    "logicalOperator": "AND",
+                    "conditions": []
+                  }
+                },
+                "config": {
+                  "promql_legend": "",
+                  "layer_type": "scatter",
+                  "weight_fixed": 1,
+                  "limit": 0,
+                  "min": 0,
+                  "max": 100,
+                  "time_shift": []
+                }
+              }
+            ],
+            "layout": {
+              "x": 0,
+              "y": 34,
+              "w": 24,
+              "h": 9,
+              "i": 9009
+            },
+            "htmlContent": "",
+            "markdownContent": "",
+            "customChartContent": ""
+          },
+          {
+            "id": "Panel_cost_10",
+            "type": "bar",
+            "title": "5-hour Quota Utilization by Account (%)",
+            "description": "Latest 5-hour rate-limit utilisation per account (%), from proxy.request trace spans. Anthropic OAuth only.",
+            "config": {
+              "show_legends": true,
+              "legends_position": "bottom",
+              "decimals": 1,
+              "line_thickness": 1.5,
+              "step_value": "0",
+              "top_results_others": false,
+              "axis_border_show": false,
+              "label_option": {
+                "position": "inside",
+                "rotate": 0
+              },
+              "show_symbol": true,
+              "line_interpolation": "smooth",
+              "legend_width": {
+                "unit": "px"
+              },
+              "base_map": {
+                "type": "osm"
+              },
+              "map_type": {
+                "type": "world"
+              },
+              "map_view": {
+                "zoom": 1,
+                "lat": 0,
+                "lng": 0
+              },
+              "map_symbol_style": {
+                "size": "by Value",
+                "size_by_value": {
+                  "min": 1,
+                  "max": 100
+                },
+                "size_fixed": 2
+              },
+              "drilldown": [],
+              "mark_line": [],
+              "override_config": [],
+              "connect_nulls": false,
+              "no_value_replacement": "",
+              "wrap_table_cells": false,
+              "table_transpose": false,
+              "table_dynamic_columns": false,
+              "color": {
+                "mode": "palette-classic-by-series",
+                "fixedColor": ["#53ca53"],
+                "seriesBy": "last"
+              },
+              "trellis": {
+                "layout": null,
+                "num_of_columns": 1
+              }
+            },
+            "queryType": "sql",
+            "queries": [
+              {
+                "query": "SELECT proxy_account AS x_axis_1, CAST(ROUND(MAX(util) * 100, 1) AS DECIMAL(5,1)) AS y_axis_1 FROM (SELECT proxy_account, CAST(proxy_ratelimit_after_5h AS DOUBLE) AS util, ROW_NUMBER() OVER (PARTITION BY proxy_account ORDER BY _timestamp DESC) AS rn FROM neurolink_proxy WHERE operation_name = 'proxy.request' AND proxy_ratelimit_after_5h IS NOT NULL AND proxy_account IS NOT NULL AND proxy_account != '') t WHERE rn = 1 GROUP BY proxy_account ORDER BY y_axis_1 DESC",
+                "vrlFunctionQuery": "",
+                "customQuery": true,
+                "fields": {
+                  "stream": "neurolink_proxy",
+                  "stream_type": "traces",
+                  "x": [
+                    {
+                      "label": "Account",
+                      "alias": "x_axis_1",
+                      "column": "x_axis_1",
+                      "color": null,
+                      "sortBy": "DESC"
+                    }
+                  ],
+                  "y": [
+                    {
+                      "label": "Utilisation (%)",
+                      "alias": "y_axis_1",
+                      "column": "y_axis_1",
+                      "color": null,
+                      "aggregationFunction": "sum"
+                    }
+                  ],
+                  "z": [],
+                  "breakdown": [],
+                  "filter": {
+                    "filterType": "group",
+                    "logicalOperator": "AND",
+                    "conditions": []
+                  }
+                },
+                "config": {
+                  "promql_legend": "",
+                  "layer_type": "scatter",
+                  "weight_fixed": 1,
+                  "limit": 0,
+                  "min": 0,
+                  "max": 100,
+                  "time_shift": []
+                }
+              }
+            ],
+            "layout": {
+              "x": 24,
+              "y": 34,
+              "w": 24,
+              "h": 9,
+              "i": 9010
+            },
+            "htmlContent": "",
+            "markdownContent": "",
+            "customChartContent": ""
+          },
+          {
+            "id": "Panel_cost_11",
+            "type": "table",
+            "title": "Top Sessions by Cost (est., USD)",
+            "description": "Top 20 sessions by estimated USD cost (proxy-computed ai_cost_total, from trace spans).",
+            "config": {
+              "show_legends": true,
+              "legends_position": "bottom",
+              "decimals": 2,
+              "line_thickness": 1.5,
+              "step_value": "0",
+              "top_results_others": false,
+              "axis_border_show": false,
+              "label_option": {
+                "position": "inside",
+                "rotate": 0
+              },
+              "show_symbol": true,
+              "line_interpolation": "smooth",
+              "legend_width": {
+                "unit": "px"
+              },
+              "base_map": {
+                "type": "osm"
+              },
+              "map_type": {
+                "type": "world"
+              },
+              "map_view": {
+                "zoom": 1,
+                "lat": 0,
+                "lng": 0
+              },
+              "map_symbol_style": {
+                "size": "by Value",
+                "size_by_value": {
+                  "min": 1,
+                  "max": 100
+                },
+                "size_fixed": 2
+              },
+              "drilldown": [],
+              "mark_line": [],
+              "override_config": [],
+              "connect_nulls": false,
+              "no_value_replacement": "",
+              "wrap_table_cells": false,
+              "table_transpose": false,
+              "table_dynamic_columns": false,
+              "color": {
+                "mode": "palette-classic-by-series",
+                "fixedColor": ["#53ca53"],
+                "seriesBy": "last"
+              },
+              "trellis": {
+                "layout": null,
+                "num_of_columns": 1
+              }
+            },
+            "queryType": "sql",
+            "queries": [
+              {
+                "query": "SELECT session_id AS x_axis_1, CAST(ROUND(SUM(CAST(ai_cost_total AS DOUBLE)), 4) AS DECIMAL(18,4)) AS y_axis_1 FROM neurolink_proxy WHERE operation_name = 'proxy.request' AND session_id IS NOT NULL AND session_id != '' AND ai_cost_total IS NOT NULL GROUP BY session_id ORDER BY y_axis_1 DESC LIMIT 20",
+                "vrlFunctionQuery": "",
+                "customQuery": true,
+                "fields": {
+                  "stream": "neurolink_proxy",
+                  "stream_type": "traces",
+                  "x": [
+                    {
+                      "label": "Session",
+                      "alias": "x_axis_1",
+                      "column": "x_axis_1",
+                      "color": null,
+                      "sortBy": "DESC"
+                    }
+                  ],
+                  "y": [
+                    {
+                      "label": "Cost (USD)",
+                      "alias": "y_axis_1",
+                      "column": "y_axis_1",
+                      "color": null,
+                      "aggregationFunction": "sum"
+                    }
+                  ],
+                  "z": [],
+                  "breakdown": [],
+                  "filter": {
+                    "filterType": "group",
+                    "logicalOperator": "AND",
+                    "conditions": []
+                  }
+                },
+                "config": {
+                  "promql_legend": "",
+                  "layer_type": "scatter",
+                  "weight_fixed": 1,
+                  "limit": 0,
+                  "min": 0,
+                  "max": 100,
+                  "time_shift": []
+                }
+              }
+            ],
+            "layout": {
+              "x": 0,
+              "y": 43,
+              "w": 48,
+              "h": 10,
+              "i": 9011
+            },
+            "htmlContent": "",
+            "markdownContent": "",
+            "customChartContent": ""
+          }
+        ]
+      },
+      {
         "tabId": "traces",
         "name": "Trace Drilldown",
         "panels": [
