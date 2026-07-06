@@ -155,6 +155,16 @@ export {
 export { dynamicModelProvider } from "./core/dynamicModels.js";
 // Tool Registration utility
 export { validateTool } from "./sdk/toolRegistration.js";
+// Skills subsystem — manager, stores, and the built-in tool factory
+export { SkillsManager } from "./skills/skillsManager.js";
+export {
+  createSkillStore,
+  FileSystemSkillStore,
+  InMemorySkillStore,
+} from "./skills/skillStores.js";
+export { S3SkillStore } from "./skills/skillStoreS3.js";
+export { RedisSkillStore } from "./skills/skillStoreRedis.js";
+export { createSkillTools } from "./skills/skillTools.js";
 // Export ALL types from the centralized type barrel
 export * from "./types/index.js";
 // Error utilities

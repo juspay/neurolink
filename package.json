@@ -93,6 +93,7 @@
     "test:mcp:infra": "npx tsx test/continuous-test-suite-mcp-infra.ts",
     "test:providers-mocked": "npx tsx test/continuous-test-suite-providers-mocked.ts",
     "test:rag": "npx tsx test/continuous-test-suite-rag.ts",
+    "test:skills": "npx tsx test/continuous-test-suite-skills.ts",
     "test:servers": "npx tsx test/continuous-test-suite-servers.ts",
     "test:tool-reliability": "npx tsx test/continuous-test-suite-tool-reliability.ts",
     "test:google-native": "npx tsx test/continuous-test-suite-google-native.ts",

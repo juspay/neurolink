@@ -48,6 +48,7 @@ export * from "./scorer.js";
 export * from "./sdk.js";
 export * from "./server.js";
 export * from "./service.js";
+export * from "./skills.js";
 export * from "./stream.js";
 export * from "./subscription.js";
 export * from "./task.js";

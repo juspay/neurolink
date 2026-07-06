@@ -198,6 +198,7 @@ pnpm run test:mcp:limits  # Output limits + artifacts (mcp-output-limits.ts) —
 pnpm run test:mcp:spans   # Issue#5 span attributes (mcp-spans.ts) — no API
 pnpm run test:mcp:full    # All seven mcp-* suites in dependency order
 pnpm run test:rag         # RAG suite
+pnpm run test:skills      # Native skills suite (mostly no-API; live test skips without keys)
 pnpm run test:providers   # Provider-specific feature tests
 pnpm run test:matrix      # Capability sweep across all 17 providers
 pnpm run test:media       # Media generation suite

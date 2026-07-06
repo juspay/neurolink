@@ -24,8 +24,54 @@ import {
   createErrorResponse as createError,
   EmbedManyRequestSchema,
   EmbedRequestSchema,
+  SkillCreateRequestSchema,
+  SkillUpdateRequestSchema,
   validateRequest,
 } from "../utils/validation.js";
+import type { SkillsManager } from "../../skills/skillsManager.js";
+
+/**
+ * Resolve the skills manager from the server's NeuroLink instance, or a
+ * 503 error response when skills are not configured on this server.
+ */
+function resolveSkillsManager(
+  ctx: ServerContext,
+): SkillsManager | ReturnType<typeof createErrorResponse> {
+  const manager = ctx.neurolink.getSkillsManager();
+  if (!manager) {
+    return createError(
+      "SKILLS_UNAVAILABLE",
+      "Skills are not enabled on this server — construct NeuroLink with a `skills` config.",
+      undefined,
+      ctx.requestId,
+    );
+  }
+  return manager;
+}
+
+/**
+ * Resolve the skills manager for a *mutating* route, or an error response when
+ * skills aren't configured (503) or mutations are disabled (allowMutations is
+ * not true). The LLM tools are already registration-gated; this applies the
+ * same switch to the REST create/update/delete endpoints.
+ */
+function resolveMutableSkillsManager(
+  ctx: ServerContext,
+): SkillsManager | ReturnType<typeof createErrorResponse> {
+  const manager = resolveSkillsManager(ctx);
+  if ("error" in manager) {
+    return manager;
+  }
+  if (!manager.mutationsAllowed) {
+    return createError(
+      "SKILLS_MUTATIONS_DISABLED",
+      "Skill mutations are disabled on this server \u2014 construct NeuroLink with `skills.allowMutations: true` to enable create/update/delete.",
+      undefined,
+      ctx.requestId,
+    );
+  }
+  return manager;
+}
 
 /**
  * Create agent routes
@@ -342,6 +388,171 @@ export function createAgentRoutes(basePath: string = "/api"): RouteGroup {
         },
         description: "Generate embeddings for multiple texts in a batch",
         tags: ["agent", "embeddings"],
+      },
+      {
+        method: "GET",
+        path: `${basePath}/agent/skills`,
+        handler: async (ctx: ServerContext) => {
+          const manager = resolveSkillsManager(ctx);
+          if ("error" in manager) {
+            return manager;
+          }
+          try {
+            const skills = await manager.list(ctx.query.scopeId);
+            return { skills, count: skills.length };
+          } catch (error) {
+            return createError(
+              "EXECUTION_FAILED",
+              error instanceof Error ? error.message : "Skills listing failed",
+              undefined,
+              ctx.requestId,
+            );
+          }
+        },
+        description:
+          "List active skills (index only — no instructions). Optional ?scopeId= filter.",
+        tags: ["agent", "skills"],
+      },
+      {
+        method: "GET",
+        path: `${basePath}/agent/skills/:id`,
+        handler: async (ctx: ServerContext) => {
+          const manager = resolveSkillsManager(ctx);
+          if ("error" in manager) {
+            return manager;
+          }
+          try {
+            const skill = await manager.get(ctx.params.id);
+            if (!skill) {
+              return createError(
+                "NOT_FOUND",
+                `Skill "${ctx.params.id}" not found`,
+                undefined,
+                ctx.requestId,
+              );
+            }
+            return skill;
+          } catch (error) {
+            return createError(
+              "EXECUTION_FAILED",
+              error instanceof Error ? error.message : "Skill lookup failed",
+              undefined,
+              ctx.requestId,
+            );
+          }
+        },
+        description: "Fetch one skill (by id or exact name) with instructions",
+        tags: ["agent", "skills"],
+      },
+      {
+        method: "POST",
+        path: `${basePath}/agent/skills`,
+        handler: async (ctx: ServerContext) => {
+          const manager = resolveMutableSkillsManager(ctx);
+          if ("error" in manager) {
+            return manager;
+          }
+          const validation = validateRequest(
+            SkillCreateRequestSchema,
+            ctx.body,
+            ctx.requestId,
+          );
+          if (!validation.success) {
+            return validation.error;
+          }
+          const { requestedBy, ...skill } = validation.data;
+          try {
+            const result = await manager.requestMutation({
+              type: "create",
+              skill,
+              // Authenticated identity wins over caller-supplied attribution.
+              ...(ctx.user?.id || requestedBy
+                ? { requestedBy: ctx.user?.id ?? requestedBy }
+                : {}),
+            });
+            return result;
+          } catch (error) {
+            return createError(
+              "EXECUTION_FAILED",
+              error instanceof Error ? error.message : "Skill create failed",
+              undefined,
+              ctx.requestId,
+            );
+          }
+        },
+        description:
+          "Create a skill (routed through the host's onMutationRequest gate when configured)",
+        tags: ["agent", "skills"],
+      },
+      {
+        method: "PATCH",
+        path: `${basePath}/agent/skills/:id`,
+        handler: async (ctx: ServerContext) => {
+          const manager = resolveMutableSkillsManager(ctx);
+          if ("error" in manager) {
+            return manager;
+          }
+          const validation = validateRequest(
+            SkillUpdateRequestSchema,
+            ctx.body,
+            ctx.requestId,
+          );
+          if (!validation.success) {
+            return validation.error;
+          }
+          const { requestedBy, ...patch } = validation.data;
+          try {
+            const result = await manager.requestMutation({
+              type: "update",
+              skillId: ctx.params.id,
+              patch,
+              ...(ctx.user?.id || requestedBy
+                ? { requestedBy: ctx.user?.id ?? requestedBy }
+                : {}),
+            });
+            return result;
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : "Skill update failed";
+            return createError(
+              message.includes("not found") ? "NOT_FOUND" : "EXECUTION_FAILED",
+              message,
+              undefined,
+              ctx.requestId,
+            );
+          }
+        },
+        description: "Update a skill (patch semantics; version is bumped)",
+        tags: ["agent", "skills"],
+      },
+      {
+        method: "DELETE",
+        path: `${basePath}/agent/skills/:id`,
+        handler: async (ctx: ServerContext) => {
+          const manager = resolveMutableSkillsManager(ctx);
+          if ("error" in manager) {
+            return manager;
+          }
+          try {
+            const result = await manager.requestMutation({
+              type: "delete",
+              skillId: ctx.params.id,
+              ...(ctx.user?.id ? { requestedBy: ctx.user.id } : {}),
+            });
+            return result;
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : "Skill delete failed";
+            return createError(
+              message.includes("not found") ? "NOT_FOUND" : "EXECUTION_FAILED",
+              message,
+              undefined,
+              ctx.requestId,
+            );
+          }
+        },
+        description: "Soft-delete (deprecate) a skill",
+        tags: ["agent", "skills"],
       },
     ],
   };

@@ -168,9 +168,13 @@ import type {
   DynamicResolutionContext,
   HippocampusConfig,
   HippocampusLike,
+  SkillsCallOptions,
+  SkillsConfig,
 } from "./types/index.js";
 import { initializeHippocampus } from "./memory/hippocampusInitializer.js";
 import { createMemoryRetrievalTools } from "./memory/memoryRetrievalTools.js";
+import { SkillsManager } from "./skills/skillsManager.js";
+import { createSkillTools } from "./skills/skillTools.js";
 import {
   getMetricsAggregator,
   MetricsAggregator,
@@ -749,6 +753,11 @@ export class NeuroLink {
   private memoryInstance?: HippocampusLike | null;
   private memorySDKConfig?: HippocampusConfig;
 
+  // Skills subsystem — lazily initialized manager + instance config.
+  // `undefined` = not yet attempted, `null` = init failed (stay disabled).
+  private skillsManagerInstance?: SkillsManager | null;
+  private skillsConfig?: SkillsConfig;
+
   /**
    * Extract and set Langfuse context from options with proper async scoping
    */
@@ -1233,6 +1242,10 @@ export class NeuroLink {
     this.initializeMCPEnhancements(config);
     this.registerFileTools();
     this.registerMemoryRetrievalTools();
+    if (config?.skills?.enabled) {
+      this.skillsConfig = config.skills;
+      this.registerSkillTools();
+    }
     this.initializeLangfuse(
       constructorId,
       constructorStartTime,
@@ -1793,6 +1806,143 @@ export class NeuroLink {
     });
 
     logger.info("[NeuroLink] Memory retrieval tools registered");
+  }
+
+  /**
+   * Lazy initialization for the skills subsystem — mirrors ensureMemoryReady().
+   * Returns null (and stays null) when skills are not configured or the
+   * store failed to initialize; read paths fail open on that null.
+   */
+  private ensureSkillsReady(): SkillsManager | null {
+    if (this.skillsManagerInstance !== undefined) {
+      return this.skillsManagerInstance;
+    }
+    if (!this.skillsConfig?.enabled) {
+      this.skillsManagerInstance = null;
+      return null;
+    }
+    try {
+      this.skillsManagerInstance = new SkillsManager(this.skillsConfig);
+    } catch (error) {
+      logger.warn(
+        "[NeuroLink] Skills initialization failed — skills disabled for this instance",
+        { error: error instanceof Error ? error.message : String(error) },
+      );
+      this.skillsManagerInstance = null;
+    }
+    return this.skillsManagerInstance;
+  }
+
+  /**
+   * Register the built-in skill tools (search_skills / list_skills, plus
+   * mutation tools when allowMutations is set). Follows the
+   * registerMemoryRetrievalTools() pattern: registered via registerTool()
+   * so they land in the "user-defined" category that reaches the LLM tool
+   * schema, with the manager resolved lazily at execution time.
+   */
+  private registerSkillTools(): void {
+    const canonicalTools = createSkillTools(() => this.ensureSkillsReady(), {
+      allowMutations: this.skillsConfig?.allowMutations === true,
+    });
+
+    for (const [toolName, toolDef] of Object.entries(canonicalTools)) {
+      this.registerTool(toolName, {
+        name: toolName,
+        description: toolDef.description ?? toolName,
+        // Zod schema — registerTool() detects isZodSchema and preserves it
+        // so ToolsManager gives the LLM full parameter types.
+        inputSchema: (toolDef as unknown as { inputSchema: object })
+          .inputSchema,
+        execute: async (params: unknown) =>
+          withTimeout(
+            (
+              toolDef.execute as (
+                params: unknown,
+                ctx: unknown,
+              ) => Promise<unknown>
+            )(params, { toolCallId: "skill-tool", messages: [] }),
+            TOOL_TIMEOUTS.EXECUTION_DEFAULT_MS,
+            ErrorFactory.toolTimeout(
+              toolName,
+              TOOL_TIMEOUTS.EXECUTION_DEFAULT_MS,
+            ),
+          ),
+      });
+    }
+
+    logger.info(
+      `[NeuroLink] Registered ${Object.keys(canonicalTools).length} skill tools`,
+      { allowMutations: this.skillsConfig?.allowMutations === true },
+    );
+  }
+
+  /**
+   * Append the compact skills index (names + descriptions, never
+   * instructions) to the system prompt for one generate()/stream() call.
+   * Fails open: any error leaves the prompt untouched.
+   */
+  private async applySkillsPromptIndex(options: {
+    systemPrompt?: string;
+    skills?: SkillsCallOptions;
+    // GenerateOptions.output carries `mode`; StreamOptions.output does not —
+    // keep the field structural and read `mode` defensively below.
+    output?: unknown;
+  }): Promise<void> {
+    if (!this.skillsConfig?.enabled || options.skills?.enabled === false) {
+      return;
+    }
+    // Per-call promptIndex wins over instance config; default is on.
+    const promptIndexEnabled =
+      options.skills?.promptIndex ?? this.skillsConfig.promptIndex ?? true;
+    if (!promptIndexEnabled) {
+      return;
+    }
+    // Media-only modes have no meaningful text prompt to augment.
+    const mode = (options.output as { mode?: string } | undefined)?.mode;
+    if (
+      mode === "avatar" ||
+      mode === "music" ||
+      mode === "video" ||
+      mode === "ppt"
+    ) {
+      return;
+    }
+
+    try {
+      const manager = this.ensureSkillsReady();
+      if (!manager) {
+        return;
+      }
+      const block = await manager.buildPromptIndex({
+        ...(options.skills?.scopeId !== undefined
+          ? { scopeId: options.skills.scopeId }
+          : {}),
+        ...(options.skills?.tags !== undefined
+          ? { tags: options.skills.tags }
+          : {}),
+      });
+      if (block) {
+        options.systemPrompt = options.systemPrompt
+          ? `${options.systemPrompt}\n\n${block}`
+          : block;
+        logger.debug("[NeuroLink] Skills prompt index injected", {
+          blockLength: block.length,
+        });
+      }
+    } catch (error) {
+      logger.warn(
+        "[NeuroLink] Skills prompt index injection failed — continuing without it",
+        { error: error instanceof Error ? error.message : String(error) },
+      );
+    }
+  }
+
+  /**
+   * Programmatic access to the skills subsystem (search/list/get/mutations).
+   * Returns null when skills are not configured or failed to initialize.
+   */
+  getSkillsManager(): SkillsManager | null {
+    return this.ensureSkillsReady();
   }
 
   /** Format memory context for prompt inclusion */
@@ -4703,6 +4853,10 @@ Current user's request: ${currentInput}`;
         );
       }
     }
+
+    // Skills: append the compact skills index to the system prompt so the
+    // model knows which skills exist (bodies load via search_skills).
+    await this.applySkillsPromptIndex(options);
 
     // Media-only modes (avatar, music, video, ppt) do not have a meaningful
     // text prompt to augment with memory — skip injection to avoid corrupting
@@ -9532,6 +9686,10 @@ Current user's request: ${currentInput}`;
         logger.warn("Memory retrieval failed:", error);
       }
     }
+
+    // Skills: append the compact skills index to the system prompt so the
+    // model knows which skills exist (bodies load via search_skills).
+    await this.applySkillsPromptIndex(options);
 
     // Apply orchestration if enabled and no specific provider/model requested
     if (this.enableOrchestration && !options.provider && !options.model) {
