@@ -199,6 +199,9 @@ export function initializeCliParser() {
       // Memory Command Group - Using CLICommandFactory
       .command(CLICommandFactory.createMemoryCommands())
 
+      // Skills Command Group - Using CLICommandFactory
+      .command(CLICommandFactory.createSkillsCommands())
+
       // Get Best Provider Command - Using CLICommandFactory
       .command(CLICommandFactory.createBestProviderCommand())
 

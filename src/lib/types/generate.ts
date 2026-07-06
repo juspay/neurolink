@@ -1,5 +1,6 @@
 import type { AIProviderName } from "../constants/enums.js";
 import type { RAGConfig } from "./rag.js";
+import type { SkillsCallOptions } from "./skills.js";
 import type { AnalyticsData, TokenUsage } from "./analytics.js";
 import type { JsonValue } from "./common.js";
 import type { Content, ImageWithAltText } from "./content.js";
@@ -695,6 +696,14 @@ export type GenerateOptions = {
    * @deprecated Use `piiDetection`, `responseValidation`, and `inputValidation` instead.
    */
   processors?: ProcessorPipelineConfig;
+
+  /**
+   * Per-call skills control. Only effective when the instance was
+   * constructed with `skills.enabled: true`. Lets a call disable the
+   * prompt index, or narrow it by scope/tags. Per-call wins over
+   * instance config.
+   */
+  skills?: SkillsCallOptions;
 };
 
 /**

@@ -28,6 +28,7 @@ import type { NeurolinkCredentials } from "./providers.js";
 import type { ModelPoolConfig } from "./modelPool.js";
 import type { RequestRouter } from "./requestRouter.js";
 import type { ClassifierRouterConfig } from "./classifierRouter.js";
+import type { SkillsConfig } from "./skills.js";
 
 /**
  * Main NeuroLink configuration type
@@ -133,6 +134,15 @@ export type NeurolinkConstructorConfig = {
    * caller pinned both `provider` and `model`. See {@link ClassifierRouterConfig}.
    */
   classifierRouter?: ClassifierRouterConfig;
+  /**
+   * Native skills: versioned, discoverable instruction packs (SOPs,
+   * playbooks) with progressive disclosure. When enabled, built-in
+   * search_skills / list_skills tools are registered (plus gated mutation
+   * tools) and a compact skills index is injected into the system prompt
+   * of each generate()/stream() call. Opt-in and fails open on read paths.
+   * See {@link SkillsConfig}.
+   */
+  skills?: SkillsConfig;
 };
 
 /**

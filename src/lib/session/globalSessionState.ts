@@ -7,6 +7,7 @@ import type {
   McpOutputStrategy,
   NeurolinkConstructorConfig,
   SessionVariableValue,
+  SkillsConfig,
   ToolRoutingConfig,
 } from "../types/index.js";
 
@@ -55,6 +56,8 @@ export class GlobalSessionManager {
   /** Optional classifier-router config set by CLI handlers before SDK construction. */
   private _classifierRouterConfig: ClassifierRouterConfig | undefined =
     undefined;
+  /** Optional skills config set by CLI handlers before SDK construction. */
+  private _skillsConfig: SkillsConfig | undefined = undefined;
 
   static getInstance(): GlobalSessionManager {
     if (!GlobalSessionManager.instance) {
@@ -204,6 +207,19 @@ export class GlobalSessionManager {
     this._classifierRouterConfig = config;
   }
 
+  /**
+   * Store a skills config to be injected at SDK construction time.
+   * Call this BEFORE `getOrCreateNeuroLink()` inside a command handler.
+   * When a loop session is already active the config is ignored (the instance
+   * already exists).
+   */
+  setSkillsConfig(config: SkillsConfig): void {
+    if (this.hasActiveSession()) {
+      return;
+    }
+    this._skillsConfig = config;
+  }
+
   getOrCreateNeuroLink(): NeuroLink {
     const session = this.getLoopSession();
     if (session) {
@@ -228,6 +244,10 @@ export class GlobalSessionManager {
     if (this._classifierRouterConfig) {
       options.classifierRouter = this._classifierRouterConfig;
       this._classifierRouterConfig = undefined;
+    }
+    if (this._skillsConfig) {
+      options.skills = this._skillsConfig;
+      this._skillsConfig = undefined;
     }
 
     return new NeuroLink(Object.keys(options).length ? options : undefined);

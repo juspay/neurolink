@@ -33,6 +33,8 @@ import { logger } from "../../lib/utils/logger.js";
 import { createThinkingConfigFromRecord } from "../../lib/utils/thinkingConfig.js";
 import { buildToolRoutingConfigFromCli } from "../utils/toolRoutingFlags.js";
 import { buildClassifierRouterConfigFromCli } from "../utils/classifierRouterFlags.js";
+import { buildSkillsConfigFromCli } from "../utils/skillsFlags.js";
+import { SkillsManager } from "../../lib/skills/skillsManager.js";
 import { configManager } from "../commands/config.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
 import { ModelsCommandFactory } from "../commands/models.js";
@@ -801,6 +803,16 @@ export class CLICommandFactory {
       description: "Minimum response length (characters)",
       alias: "output-min-length",
     },
+
+    // Skills options
+    skillsDir: {
+      type: "string" as const,
+      description:
+        "Directory of skills (SOPs/playbooks) to make available to the AI. " +
+        "Supports <id>.json, <name>.md, and <name>/SKILL.md layouts. " +
+        "Also settable via NEUROLINK_SKILLS_DIR.",
+      alias: "skills-dir",
+    },
   };
 
   // Helper method to build options for commands
@@ -1151,6 +1163,8 @@ export class CLICommandFactory {
       classifierModelRegion: argv.classifierModelRegion as string | undefined,
       classifierPool: argv.classifierPool as string | undefined,
       classifierTimeout: argv.classifierTimeout as number | undefined,
+      // Skills flag — constructor-level config (see note above).
+      skillsDir: argv.skillsDir as string | undefined,
     };
   }
 
@@ -2167,6 +2181,136 @@ export class CLICommandFactory {
   }
 
   /**
+   * Create skills commands — manage the local skills store
+   * (list / show / search / create / delete). The store directory comes
+   * from --skills-dir, NEUROLINK_SKILLS_DIR, or defaults to ./skills.
+   */
+  static createSkillsCommands(): CommandModule {
+    return {
+      command: "skills <subcommand>",
+      describe: "Manage skills (SOPs/playbooks the AI can follow)",
+      builder: (yargs) => {
+        return yargs
+          .command(
+            "list",
+            "List all active skills (index only, no instructions)",
+            (y) =>
+              CLICommandFactory.buildOptions(y)
+                .example("$0 skills list --skills-dir ./skills", "List skills")
+                .example("$0 skills list --format json", "Export as JSON"),
+            async (argv) =>
+              await CLICommandFactory.executeSkillsList(
+                argv as BaseCommandArgs,
+              ),
+          )
+          .command(
+            "show <skill>",
+            "Show one skill including its full instructions",
+            (y) =>
+              CLICommandFactory.buildOptions(y)
+                .positional("skill", {
+                  type: "string" as const,
+                  description: "Skill id or exact name",
+                  demandOption: true,
+                })
+                .example(
+                  "$0 skills show refund_dispute_escalation",
+                  "Show a skill by name",
+                ),
+            async (argv) =>
+              await CLICommandFactory.executeSkillsShow(
+                argv as BaseCommandArgs & { skill: string },
+              ),
+          )
+          .command(
+            "search <query>",
+            "Search skills by keyword (matches name and description)",
+            (y) =>
+              CLICommandFactory.buildOptions(y)
+                .positional("query", {
+                  type: "string" as const,
+                  description: "Keyword to match",
+                  demandOption: true,
+                })
+                .option("tag", {
+                  type: "string" as const,
+                  description: "Tag filter applied on top of the keyword",
+                })
+                .example('$0 skills search "refund"', "Find refund skills"),
+            async (argv) =>
+              await CLICommandFactory.executeSkillsSearch(
+                argv as BaseCommandArgs & { query: string; tag?: string },
+              ),
+          )
+          .command(
+            "create",
+            "Create a new skill in the store",
+            (y) =>
+              CLICommandFactory.buildOptions(y)
+                .option("name", {
+                  type: "string" as const,
+                  description: "Machine-friendly unique name (snake_case)",
+                  demandOption: true,
+                })
+                .option("description", {
+                  type: "string" as const,
+                  description: "When this skill applies (used for matching)",
+                  demandOption: true,
+                })
+                .option("instructions", {
+                  type: "string" as const,
+                  description: "Full instructions text",
+                })
+                .option("instructions-file", {
+                  type: "string" as const,
+                  description: "Read instructions from a file",
+                })
+                .option("display-name", {
+                  type: "string" as const,
+                  description: "Human-readable display name",
+                })
+                .option("tags", {
+                  type: "array" as const,
+                  string: true,
+                  description: "Domain tags",
+                })
+                .example(
+                  '$0 skills create --name deploy_sop --description "How to deploy" --instructions-file ./sop.md',
+                  "Create from a file",
+                ),
+            async (argv) =>
+              await CLICommandFactory.executeSkillsCreate(
+                argv as BaseCommandArgs & {
+                  name: string;
+                  description: string;
+                  instructions?: string;
+                  instructionsFile?: string;
+                  displayName?: string;
+                  tags?: string[];
+                },
+              ),
+          )
+          .command(
+            "delete <skill>",
+            "Soft-delete (deprecate) a skill",
+            (y) =>
+              CLICommandFactory.buildOptions(y).positional("skill", {
+                type: "string" as const,
+                description: "Skill id or exact name",
+                demandOption: true,
+              }),
+            async (argv) =>
+              await CLICommandFactory.executeSkillsDelete(
+                argv as BaseCommandArgs & { skill: string },
+              ),
+          )
+          .demandCommand(1, "Please specify a skills subcommand");
+      },
+      handler: () => {}, // No-op handler as subcommands handle everything
+    };
+  }
+
+  /**
    * Create config commands
    */
   static createConfigCommands(): CommandModule {
@@ -2507,6 +2651,15 @@ export class CLICommandFactory {
               threshold: compactThreshold as number,
             },
           };
+        }
+
+        // Inject skills config (--skills-dir / NEUROLINK_SKILLS_DIR) before
+        // the loop session constructs its NeuroLink instance.
+        const loopSkillsConfig = buildSkillsConfigFromCli(
+          argv as Record<string, unknown>,
+        );
+        if (loopSkillsConfig) {
+          globalSession.setSkillsConfig(loopSkillsConfig);
         }
 
         // Handle --list-conversations option
@@ -3219,6 +3372,14 @@ export class CLICommandFactory {
         globalSession.setClassifierRouterConfig(classifierRouterConfig);
       }
 
+      // Inject skills config (--skills-dir / NEUROLINK_SKILLS_DIR) before SDK construction.
+      const skillsConfig = buildSkillsConfigFromCli(
+        options as Record<string, unknown>,
+      );
+      if (skillsConfig) {
+        globalSession.setSkillsConfig(skillsConfig);
+      }
+
       // Initialize SDK and session
       const sdk = globalSession.getOrCreateNeuroLink();
       const sessionVariables = CLICommandFactory.normalizeLoopSessionVariables(
@@ -3588,6 +3749,14 @@ export class CLICommandFactory {
     );
     if (classifierRouterConfig) {
       globalSession.setClassifierRouterConfig(classifierRouterConfig);
+    }
+
+    // Inject skills config (--skills-dir / NEUROLINK_SKILLS_DIR) before SDK construction.
+    const skillsConfig = buildSkillsConfigFromCli(
+      options as Record<string, unknown>,
+    );
+    if (skillsConfig) {
+      globalSession.setSkillsConfig(skillsConfig);
     }
 
     const sdk = globalSession.getOrCreateNeuroLink();
@@ -4290,6 +4459,14 @@ export class CLICommandFactory {
         globalSession.setClassifierRouterConfig(classifierRouterConfig);
       }
 
+      // Inject skills config (--skills-dir / NEUROLINK_SKILLS_DIR) before SDK construction.
+      const skillsConfig = buildSkillsConfigFromCli(
+        options as Record<string, unknown>,
+      );
+      if (skillsConfig) {
+        globalSession.setSkillsConfig(skillsConfig);
+      }
+
       const sdk = globalSession.getOrCreateNeuroLink();
       const sessionVariables = CLICommandFactory.normalizeLoopSessionVariables(
         globalSession.getSessionVariables(),
@@ -4491,6 +4668,196 @@ export class CLICommandFactory {
   /**
    * Execute memory stats command
    */
+  /**
+   * Resolve a standalone SkillsManager for the `skills` command group.
+   * Directory precedence: --skills-dir > NEUROLINK_SKILLS_DIR > ./skills.
+   * Cache is disabled so every command sees the directory's current state.
+   */
+  private static resolveSkillsManagerForCli(
+    argv: BaseCommandArgs,
+  ): SkillsManager {
+    const raw = (argv as Record<string, unknown>).skillsDir;
+    const dir =
+      (typeof raw === "string" && raw.trim()) ||
+      process.env.NEUROLINK_SKILLS_DIR?.trim() ||
+      "./skills";
+    return new SkillsManager({
+      enabled: true,
+      storage: { type: "filesystem", path: dir },
+      indexCacheTtlMs: 0,
+    });
+  }
+
+  private static async executeSkillsList(argv: BaseCommandArgs) {
+    const options = CLICommandFactory.processOptions(argv);
+    try {
+      const manager = CLICommandFactory.resolveSkillsManagerForCli(argv);
+      const skills = await manager.list();
+      if (options.format === "json") {
+        CLICommandFactory.handleOutput(
+          { skills, count: skills.length },
+          options,
+        );
+        return;
+      }
+      if (skills.length === 0) {
+        logger.always(chalk.yellow("No active skills found."));
+        return;
+      }
+      logger.always(chalk.blue(`🧩 Skills (${skills.length}):`));
+      for (const skill of skills) {
+        const tags = skill.tags?.length ? ` [${skill.tags.join(", ")}]` : "";
+        logger.always(
+          `   ${chalk.bold(skill.name)} — ${skill.description}${tags}`,
+        );
+      }
+    } catch (error) {
+      handleError(error as Error, "Skills list");
+    }
+  }
+
+  private static async executeSkillsShow(
+    argv: BaseCommandArgs & { skill: string },
+  ) {
+    const options = CLICommandFactory.processOptions(argv);
+    try {
+      const manager = CLICommandFactory.resolveSkillsManagerForCli(argv);
+      const skill = await manager.get(argv.skill);
+      if (!skill) {
+        logger.always(chalk.yellow(`Skill "${argv.skill}" not found.`));
+        process.exitCode = 1;
+        return;
+      }
+      if (options.format === "json") {
+        CLICommandFactory.handleOutput(skill, options);
+        return;
+      }
+      logger.always(chalk.blue(`🧩 ${skill.displayName || skill.name}`));
+      logger.always(`   id: ${skill.id}  version: ${skill.version ?? 1}`);
+      logger.always(`   ${skill.description}`);
+      if (skill.tags?.length) {
+        logger.always(`   tags: ${skill.tags.join(", ")}`);
+      }
+      logger.always("");
+      logger.always(skill.instructions);
+    } catch (error) {
+      handleError(error as Error, "Skills show");
+    }
+  }
+
+  private static async executeSkillsSearch(
+    argv: BaseCommandArgs & { query: string; tag?: string },
+  ) {
+    const options = CLICommandFactory.processOptions(argv);
+    try {
+      const manager = CLICommandFactory.resolveSkillsManagerForCli(argv);
+      const matches = await manager.search({
+        query: argv.query,
+        ...(argv.tag ? { tag: argv.tag } : {}),
+      });
+      if (options.format === "json") {
+        CLICommandFactory.handleOutput(
+          { skills: matches, count: matches.length },
+          options,
+        );
+        return;
+      }
+      if (matches.length === 0) {
+        logger.always(chalk.yellow(`No skills match "${argv.query}".`));
+        return;
+      }
+      logger.always(chalk.blue(`🔎 ${matches.length} match(es):`));
+      for (const skill of matches) {
+        logger.always(`   ${chalk.bold(skill.name)} — ${skill.description}`);
+      }
+      logger.always("");
+      logger.always(
+        "Use `neurolink skills show <name>` for full instructions.",
+      );
+    } catch (error) {
+      handleError(error as Error, "Skills search");
+    }
+  }
+
+  private static async executeSkillsCreate(
+    argv: BaseCommandArgs & {
+      name: string;
+      description: string;
+      instructions?: string;
+      instructionsFile?: string;
+      displayName?: string;
+      tags?: string[];
+    },
+  ) {
+    const options = CLICommandFactory.processOptions(argv);
+    try {
+      let instructions = argv.instructions;
+      if (!instructions && argv.instructionsFile) {
+        instructions = fs.readFileSync(argv.instructionsFile, "utf-8");
+      }
+      if (!instructions?.trim()) {
+        logger.always(
+          chalk.red(
+            "Provide skill instructions via --instructions or --instructions-file.",
+          ),
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      const manager = CLICommandFactory.resolveSkillsManagerForCli(argv);
+      const result = await manager.requestMutation({
+        type: "create",
+        skill: {
+          name: argv.name,
+          description: argv.description,
+          instructions,
+          ...(argv.displayName ? { displayName: argv.displayName } : {}),
+          ...(argv.tags?.length ? { tags: argv.tags.map(String) } : {}),
+        },
+      });
+      if (options.format === "json") {
+        CLICommandFactory.handleOutput(result, options);
+        return;
+      }
+      logger.always(
+        chalk.green(
+          `✅ Skill "${argv.name}" created (id: ${result.skill?.id}).`,
+        ),
+      );
+    } catch (error) {
+      handleError(error as Error, "Skills create");
+    }
+  }
+
+  private static async executeSkillsDelete(
+    argv: BaseCommandArgs & { skill: string },
+  ) {
+    const options = CLICommandFactory.processOptions(argv);
+    try {
+      const manager = CLICommandFactory.resolveSkillsManagerForCli(argv);
+      const existing = await manager.get(argv.skill);
+      if (!existing) {
+        logger.always(chalk.yellow(`Skill "${argv.skill}" not found.`));
+        process.exitCode = 1;
+        return;
+      }
+      const result = await manager.requestMutation({
+        type: "delete",
+        skillId: existing.id,
+      });
+      if (options.format === "json") {
+        CLICommandFactory.handleOutput(result, options);
+        return;
+      }
+      logger.always(
+        chalk.green(`✅ Skill "${existing.name}" deprecated (soft-deleted).`),
+      );
+    } catch (error) {
+      handleError(error as Error, "Skills delete");
+    }
+  }
+
   private static async executeMemoryStats(argv: BaseCommandArgs) {
     const options = CLICommandFactory.processOptions(argv);
     const spinner = options.quiet

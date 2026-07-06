@@ -146,6 +146,25 @@ export const EmbedManyRequestSchema = z.object({
   model: z.string().optional(),
 });
 
+/**
+ * Skill create request schema
+ */
+export const SkillCreateRequestSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  displayName: z.string().optional(),
+  description: z.string().min(1, "Description is required"),
+  instructions: z.string().min(1, "Instructions are required"),
+  tags: z.array(z.string()).optional(),
+  scope: z.enum(["global", "scoped"]).optional(),
+  scopeIds: z.array(z.string()).optional(),
+  requestedBy: z.string().optional(),
+});
+
+/**
+ * Skill update request schema — all fields optional (patch semantics)
+ */
+export const SkillUpdateRequestSchema = SkillCreateRequestSchema.partial();
+
 // ============================================
 // Error Response Type Guards / Helpers
 // ============================================
@@ -182,6 +201,7 @@ function getDefaultHttpStatus(code: string): number {
     RATE_LIMIT_EXCEEDED: 429,
     MCP_UNAVAILABLE: 503,
     MEMORY_UNAVAILABLE: 503,
+    SKILLS_UNAVAILABLE: 503,
     EXECUTION_FAILED: 500,
     INTERNAL_ERROR: 500,
   };
