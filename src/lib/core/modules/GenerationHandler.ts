@@ -55,6 +55,7 @@ import type {
 import { NoObjectGeneratedError } from "../../utils/generationErrors.js";
 import { Output, stepCountIs } from "../../utils/tool.js";
 import { generateText } from "../../utils/generation.js";
+import { extractSystemMessages } from "../../utils/systemMessages.js";
 
 const genTracer = tracers.generation;
 
@@ -175,9 +176,15 @@ export class GenerationHandler {
 
     const prepareStep = options.prepareStep;
 
+    // Hoist system-role messages into generateText's top-level `system` option
+    // rather than passing them inside `messages` (deprecated by the AI SDK,
+    // rejected in v7). See extractSystemMessages for the rationale. (#1024)
+    const { system, messages: nonSystemMessages } =
+      extractSystemMessages(messages);
     return await generateText({
       model,
-      messages,
+      ...(system && { system }),
+      messages: nonSystemMessages,
       ...(shouldUseTools &&
         Object.keys(toolsWithCache).length > 0 && { tools: toolsWithCache }),
       stopWhen: stepCountIs(options.maxSteps ?? DEFAULT_MAX_STEPS),
