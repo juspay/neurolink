@@ -78,15 +78,21 @@ import {
   ensureNestedSchemaTypes,
 } from "../utils/schemaConversion.js";
 import { createNativeThinkingConfig } from "../utils/thinkingConfig.js";
-import { TimeoutError, withTimeout } from "../utils/async/index.js";
+import {
+  TimeoutError,
+  raceWithAbort,
+  withTimeout,
+} from "../utils/async/index.js";
 import { parseTimeout } from "../utils/timeout.js";
 import {
   appendStepText,
   buildAbortedTurnMessage,
+  buildContextCapMessage,
   buildToolLoopCapMessage,
   buildTurnStalledMessage,
   buildTurnTimeoutMessage,
   buildWrapupNudgeText,
+  createContextGuard,
   createTextChannel,
   createTurnClock,
   extractThoughtSignature,
@@ -95,6 +101,7 @@ import {
   prependConversationMessages,
   resolveTurnStopReason,
 } from "./googleNativeGemini3.js";
+import { getContextWindowSize } from "../constants/contextWindows.js";
 import {
   ATTR,
   LANGFUSE_ATTR,
@@ -113,7 +120,10 @@ import {
 import { calculateCost } from "../utils/pricing.js";
 import { transformToolExecutions } from "../utils/transformationUtils.js";
 import { sanitizeAnthropicMessagesForTrace } from "../utils/anthropicTraceSanitizer.js";
-import { extractMcpToolErrorMessage } from "../utils/mcpErrorText.js";
+import {
+  extractMcpToolErrorMessage,
+  extractToolFailureText,
+} from "../utils/mcpErrorText.js";
 import type { Schema, LanguageModel, Tool } from "../types/index.js";
 
 // Import proper types for multimodal message handling
@@ -1784,6 +1794,14 @@ export class GoogleVertexProvider extends BaseProvider {
     // Key: tool name, Value: { count: retry attempts, lastError: error message }
     const failedTools = new Map<string, { count: number; lastError: string }>();
 
+    // In-loop context guard: stop calling tools when the accumulated
+    // conversation approaches the model's context window instead of stepping
+    // into a provider "prompt too long" rejection mid-loop.
+    const contextGuard = createContextGuard(
+      getContextWindowSize("vertex", modelName),
+    );
+    let hitContextLimit = false;
+
     // Track token usage across all steps
     // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
     let totalInputTokens = 0;
@@ -1846,6 +1864,18 @@ export class GoogleVertexProvider extends BaseProvider {
       while (step < maxSteps) {
         if (effectiveSignal.aborted) {
           wasAborted = true;
+          break;
+        }
+        // Context guard: stop the tool loop before the accumulated
+        // conversation crosses the window threshold — synthesize from what
+        // we have instead of stepping into a provider rejection.
+        if (contextGuard.shouldStop()) {
+          hitContextLimit = true;
+          logger.warn(
+            `[GoogleVertex] Gemini turn stopped by the context guard: ` +
+              `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
+              `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
+          );
           break;
         }
         step++;
@@ -1921,6 +1951,11 @@ export class GoogleVertexProvider extends BaseProvider {
                 usageMetadata.promptTokenCount > 0
               ) {
                 totalInputTokens = usageMetadata.promptTokenCount;
+                // Feed the context guard the REAL prompt size of this call.
+                contextGuard.noteUsage(
+                  usageMetadata.promptTokenCount,
+                  usageMetadata.candidatesTokenCount ?? 0,
+                );
               }
               // Take the latest candidatesTokenCount (accumulates through chunks)
               if (
@@ -2042,6 +2077,14 @@ export class GoogleVertexProvider extends BaseProvider {
           // Note: tool:start / tool:end events are emitted by ToolsManager's
           // wrapped `execute` (see ToolsManager.ts:355) — no inline emit needed.
           for (const call of stepFunctionCalls) {
+            // Honor a deadline/stall/caller abort BETWEEN tool executions —
+            // without this check a multi-tool step keeps executing its whole
+            // batch (up to N × toolTimeoutMs past the deadline) before the
+            // while-top check finally breaks.
+            if (effectiveSignal.aborted) {
+              wasAborted = true;
+              break;
+            }
             allToolCalls.push({ toolName: call.name, args: call.args });
             stepStorageCalls.push({ toolName: call.name, args: call.args });
 
@@ -2085,13 +2128,37 @@ export class GoogleVertexProvider extends BaseProvider {
                 };
                 turnClock.noteProgress();
                 // Bound the execute() await — a wedged tool costs one step
-                // (error tool_result), not the whole turn.
+                // (error tool_result), not the whole turn — and race it
+                // against the turn's abort so a deadline/caller abort is
+                // observed IMMEDIATELY instead of after the tool settles.
                 const result = await withTimeout(
-                  Promise.resolve(execute(call.args, toolOptions)),
+                  raceWithAbort(
+                    Promise.resolve(execute(call.args, toolOptions)),
+                    effectiveSignal,
+                  ),
                   toolExecTimeoutMs,
                   `Tool "${call.name}" execution timed out after ${toolExecTimeoutMs}ms`,
                 );
                 turnClock.noteProgress();
+                // Error-shaped success (MCP isError / { error } payloads —
+                // e.g. proxy-blocked tools) counts toward the breaker too:
+                // these fail without throwing, and only counting throws lets
+                // the model grind on a blocked tool for the whole budget.
+                const resultErrorText = extractToolFailureText(result);
+                if (resultErrorText) {
+                  const info = failedTools.get(call.name) || {
+                    count: 0,
+                    lastError: "",
+                  };
+                  info.count++;
+                  info.lastError = resultErrorText;
+                  failedTools.set(call.name, info);
+                } else {
+                  // Genuinely consecutive: a success clears the strike count
+                  // (argument-dependent soft errors — file-not-found on
+                  // different paths — must not disable a working tool).
+                  failedTools.delete(call.name);
+                }
                 toolExecutions.push({
                   name: call.name,
                   input: call.args,
@@ -2170,12 +2237,23 @@ export class GoogleVertexProvider extends BaseProvider {
                 });
               }
             } else {
-              // Tool not found is a permanent error
+              // Tool not found is a permanent error. Count it toward the
+              // breaker too (parity with the Anthropic loops) — a model that
+              // ignores the do_not_retry hint and keeps calling a
+              // hallucinated/stale tool name must not burn the whole step
+              // budget on TOOL_NOT_FOUND round-trips.
               const errorPayload = {
                 error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
                 status: "permanently_failed",
                 do_not_retry: true,
               };
+              const notFoundInfo = failedTools.get(call.name) || {
+                count: 0,
+                lastError: "",
+              };
+              notFoundInfo.count++;
+              notFoundInfo.lastError = errorPayload.error;
+              failedTools.set(call.name, notFoundInfo);
               functionResponses.push({
                 functionResponse: {
                   name: call.name,
@@ -2255,6 +2333,16 @@ export class GoogleVertexProvider extends BaseProvider {
             role: "user",
             parts: functionResponses as unknown as Array<{ text: string }>,
           });
+          // Project this step's growth for the context guard: the appended
+          // tool results ride the next prompt (Gemini reports usage per call,
+          // but only for content it has already seen).
+          try {
+            contextGuard.noteAppendedChars(
+              JSON.stringify(functionResponses).length,
+            );
+          } catch {
+            /* estimation is best-effort — never break the loop */
+          }
         } catch (error) {
           // A mid-drain abort surfaces as an AbortError from the `for await`.
           // Break gracefully into the terminal block instead of re-throwing
@@ -2275,7 +2363,7 @@ export class GoogleVertexProvider extends BaseProvider {
       // cap was reached (or the turn was aborted) while the model was still
       // calling tools. Surface a real answer instead of the canned placeholder
       // (Bug 1) and a meaningful finishReason (Bug 2).
-      if (!finalText && (step >= maxSteps || wasAborted)) {
+      if (!finalText && (step >= maxSteps || wasAborted || hitContextLimit)) {
         hitStepLimit = step >= maxSteps && !wasAborted;
         const toolCallCount = allToolCalls.filter(
           (tc) => tc.toolName !== "final_result",
@@ -2288,8 +2376,11 @@ export class GoogleVertexProvider extends BaseProvider {
         // the gathered chunks instead of collapsing to a single one.
         if (incrementalTextChunks.length > 0) {
           logger.warn(
-            `[GoogleVertex] Tool call loop terminated after reaching maxSteps (${maxSteps}); ` +
-              `returning text already gathered from prior steps.`,
+            hitContextLimit
+              ? `[GoogleVertex] Tool call loop stopped by the context guard; ` +
+                  `returning text already gathered from prior steps.`
+              : `[GoogleVertex] Tool call loop terminated after reaching maxSteps (${maxSteps}); ` +
+                  `returning text already gathered from prior steps.`,
           );
         } else if (wasAborted) {
           // Turn ended on a time condition or caller abort — skip synth
@@ -2311,8 +2402,11 @@ export class GoogleVertexProvider extends BaseProvider {
           });
         } else {
           logger.warn(
-            `[GoogleVertex] Tool call loop terminated after reaching maxSteps (${maxSteps}) ` +
-              `with no text; synthesizing a final answer with tools disabled.`,
+            hitContextLimit
+              ? `[GoogleVertex] Tool call loop stopped by the context guard ` +
+                  `with no text; synthesizing a final answer with tools disabled.`
+              : `[GoogleVertex] Tool call loop terminated after reaching maxSteps (${maxSteps}) ` +
+                  `with no text; synthesizing a final answer with tools disabled.`,
           );
           // synth self-bounds its connect+drain via withTimeout(timeoutMs) and
           // never throws (returns empty on timeout/error), so it needs no outer
@@ -2336,7 +2430,9 @@ export class GoogleVertexProvider extends BaseProvider {
               lastFinishReason = synth.finishReason;
             }
           } else {
-            finalText = buildToolLoopCapMessage(maxSteps, toolCallCount);
+            finalText = hitContextLimit
+              ? buildContextCapMessage(toolCallCount)
+              : buildToolLoopCapMessage(maxSteps, toolCallCount);
           }
         }
       }
@@ -2362,6 +2458,7 @@ export class GoogleVertexProvider extends BaseProvider {
       stalled: turnClock.stalled,
       wasAborted,
       cappedWithoutAnswer: hitStepLimit && !synthesizedFinalAnswer,
+      contextCappedWithoutAnswer: hitContextLimit && !synthesizedFinalAnswer,
       finishReason: resolvedFinishReason,
     });
     if (stopReason !== "completed") {
@@ -2868,6 +2965,14 @@ export class GoogleVertexProvider extends BaseProvider {
     // Key: tool name, Value: { count: retry attempts, lastError: error message }
     const failedTools = new Map<string, { count: number; lastError: string }>();
 
+    // In-loop context guard: stop calling tools when the accumulated
+    // conversation approaches the model's context window instead of stepping
+    // into a provider "prompt too long" rejection mid-loop.
+    const contextGuard = createContextGuard(
+      getContextWindowSize("vertex", modelName),
+    );
+    let hitContextLimit = false;
+
     // Track token usage across all steps
     // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
     let totalInputTokens = 0;
@@ -2922,6 +3027,18 @@ export class GoogleVertexProvider extends BaseProvider {
       while (step < maxSteps) {
         if (effectiveSignal.aborted) {
           wasAborted = true;
+          break;
+        }
+        // Context guard: stop the tool loop before the accumulated
+        // conversation crosses the window threshold — synthesize from what
+        // we have instead of stepping into a provider rejection.
+        if (contextGuard.shouldStop()) {
+          hitContextLimit = true;
+          logger.warn(
+            `[GoogleVertex] Gemini turn stopped by the context guard: ` +
+              `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
+              `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
+          );
           break;
         }
         step++;
@@ -2994,6 +3111,11 @@ export class GoogleVertexProvider extends BaseProvider {
                 usageMetadata.promptTokenCount > 0
               ) {
                 totalInputTokens = usageMetadata.promptTokenCount;
+                // Feed the context guard the REAL prompt size of this call.
+                contextGuard.noteUsage(
+                  usageMetadata.promptTokenCount,
+                  usageMetadata.candidatesTokenCount ?? 0,
+                );
               }
               // Take the latest candidatesTokenCount (accumulates through chunks)
               if (
@@ -3114,6 +3236,14 @@ export class GoogleVertexProvider extends BaseProvider {
           // wrapped `execute` (see ToolsManager.ts:355) — no inline emit needed.
 
           for (const call of stepFunctionCalls) {
+            // Honor a deadline/stall/caller abort BETWEEN tool executions —
+            // without this check a multi-tool step keeps executing its whole
+            // batch (up to N × toolTimeoutMs past the deadline) before the
+            // while-top check finally breaks.
+            if (effectiveSignal.aborted) {
+              wasAborted = true;
+              break;
+            }
             allToolCalls.push({ toolName: call.name, args: call.args });
 
             // Check if this tool has already exceeded retry limit
@@ -3157,11 +3287,33 @@ export class GoogleVertexProvider extends BaseProvider {
                 // Bound the execute() await — a wedged tool costs one step
                 // (error tool_result), not the whole turn.
                 const execResult = await withTimeout(
-                  Promise.resolve(execute(call.args, toolOptions)),
+                  raceWithAbort(
+                    Promise.resolve(execute(call.args, toolOptions)),
+                    effectiveSignal,
+                  ),
                   toolExecTimeoutMs,
                   `Tool "${call.name}" execution timed out after ${toolExecTimeoutMs}ms`,
                 );
                 turnClock.noteProgress();
+                // Error-shaped success (MCP isError / { error } payloads —
+                // e.g. proxy-blocked tools) counts toward the breaker too:
+                // these fail without throwing, and only counting throws lets
+                // the model grind on a blocked tool for the whole budget.
+                const resultErrorText = extractToolFailureText(execResult);
+                if (resultErrorText) {
+                  const info = failedTools.get(call.name) || {
+                    count: 0,
+                    lastError: "",
+                  };
+                  info.count++;
+                  info.lastError = resultErrorText;
+                  failedTools.set(call.name, info);
+                } else {
+                  // Genuinely consecutive: a success clears the strike count
+                  // (argument-dependent soft errors — file-not-found on
+                  // different paths — must not disable a working tool).
+                  failedTools.delete(call.name);
+                }
 
                 // Track execution
                 toolExecutions.push({
@@ -3326,6 +3478,16 @@ export class GoogleVertexProvider extends BaseProvider {
             role: "user",
             parts: functionResponses as unknown as VertexNativePart[],
           });
+          // Project this step's growth for the context guard: the appended
+          // tool results ride the next prompt (Gemini reports usage per call,
+          // but only for content it has already seen).
+          try {
+            contextGuard.noteAppendedChars(
+              JSON.stringify(functionResponses).length,
+            );
+          } catch {
+            /* estimation is best-effort — never break the loop */
+          }
         } catch (error) {
           // A mid-drain abort surfaces as an AbortError from the `for await`.
           // Break gracefully into the terminal block instead of re-throwing
@@ -3363,7 +3525,7 @@ export class GoogleVertexProvider extends BaseProvider {
       // cap was reached (or the turn was aborted) while the model was still
       // calling tools. Surface a real answer instead of the canned placeholder
       // (Bug 1) and a meaningful finishReason (Bug 2).
-      if (!finalText && (step >= maxSteps || wasAborted)) {
+      if (!finalText && (step >= maxSteps || wasAborted || hitContextLimit)) {
         hitStepLimit = step >= maxSteps && !wasAborted;
         const toolCallCount = allToolCalls.filter(
           (tc) => tc.toolName !== "final_result",
@@ -3371,8 +3533,11 @@ export class GoogleVertexProvider extends BaseProvider {
         if (accumulatedText) {
           // Prefer the prose the model already produced across steps.
           logger.warn(
-            `[GoogleVertex] Generate tool call loop terminated after reaching maxSteps (${maxSteps}); ` +
-              `returning text already gathered from prior steps.`,
+            hitContextLimit
+              ? `[GoogleVertex] Generate tool call loop stopped by the context guard; ` +
+                  `returning text already gathered from prior steps.`
+              : `[GoogleVertex] Generate tool call loop terminated after reaching maxSteps (${maxSteps}); ` +
+                  `returning text already gathered from prior steps.`,
           );
           finalText = accumulatedText;
         } else if (wasAborted) {
@@ -3397,8 +3562,11 @@ export class GoogleVertexProvider extends BaseProvider {
           // so the model answers from the gathered tool results instead of the
           // canned placeholder.
           logger.warn(
-            `[GoogleVertex] Generate tool call loop terminated after reaching maxSteps (${maxSteps}) ` +
-              `with no text; synthesizing a final answer with tools disabled.`,
+            hitContextLimit
+              ? `[GoogleVertex] Generate tool call loop stopped by the context guard ` +
+                  `with no text; synthesizing a final answer with tools disabled.`
+              : `[GoogleVertex] Generate tool call loop terminated after reaching maxSteps (${maxSteps}) ` +
+                  `with no text; synthesizing a final answer with tools disabled.`,
           );
           // synth self-bounds its connect+drain via withTimeout(timeoutMs) and
           // never throws (returns empty on timeout/error), so it needs no outer
@@ -3421,7 +3589,9 @@ export class GoogleVertexProvider extends BaseProvider {
               lastFinishReason = synth.finishReason;
             }
           } else {
-            finalText = buildToolLoopCapMessage(maxSteps, toolCallCount);
+            finalText = hitContextLimit
+              ? buildContextCapMessage(toolCallCount)
+              : buildToolLoopCapMessage(maxSteps, toolCallCount);
           }
         }
       }
@@ -3447,6 +3617,7 @@ export class GoogleVertexProvider extends BaseProvider {
       stalled: turnClock.stalled,
       wasAborted,
       cappedWithoutAnswer: hitStepLimit && !synthesizedFinalAnswer,
+      contextCappedWithoutAnswer: hitContextLimit && !synthesizedFinalAnswer,
       finishReason: resolvedFinishReason,
     });
     if (stopReason !== "completed") {
@@ -4183,9 +4354,19 @@ export class GoogleVertexProvider extends BaseProvider {
       // mapping written into finishReasonRef.
       let wasAborted = false;
       let hitStepLimit = false;
+      let hitContextLimit = false;
       let synthesizedFinalAnswer = false;
       let modelFinished = false;
       let lastStopReason: string | null | undefined;
+      // In-loop context guard + consecutive-failure breaker — same rationale
+      // as the generate twin (see executeNativeAnthropicGenerate).
+      const contextGuard = createContextGuard(
+        getContextWindowSize("vertex", modelName),
+      );
+      const failedTools = new Map<
+        string,
+        { count: number; lastError: string }
+      >();
 
       try {
         while (step < agenticStepBudget) {
@@ -4196,6 +4377,17 @@ export class GoogleVertexProvider extends BaseProvider {
           // a stream failure and route consumers into fallback retries.
           if (internalAbort.signal.aborted) {
             wasAborted = true;
+            break;
+          }
+          // Context guard: stop the tool loop before the accumulated
+          // conversation crosses the window threshold (see generate twin).
+          if (contextGuard.shouldStop()) {
+            hitContextLimit = true;
+            logger.warn(
+              `[GoogleVertex] Anthropic stream turn stopped by the context guard: ` +
+                `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
+                `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
+            );
             break;
           }
           step++;
@@ -4338,6 +4530,14 @@ export class GoogleVertexProvider extends BaseProvider {
             usage.output += response.usage?.output_tokens || 0;
             usage.total = usage.input + usage.output;
             lastStopReason = response.stop_reason;
+            // Feed the context guard the FULL prompt size of this call
+            // (uncached input + cache reads/writes).
+            contextGuard.noteUsage(
+              (response.usage?.input_tokens || 0) +
+                stepCacheRead +
+                stepCacheCreation,
+              response.usage?.output_tokens || 0,
+            );
 
             for (const block of response.content) {
               if (block.type === "text" && typeof block.text === "string") {
@@ -4454,6 +4654,15 @@ export class GoogleVertexProvider extends BaseProvider {
           // Note: tool:start / tool:end events are emitted by ToolsManager's
           // wrapped `execute` (see ToolsManager.ts:355) — no inline emit needed.
           for (const toolUse of toolUseBlocks) {
+            // Honor a deadline/stall/caller abort BETWEEN tool executions —
+            // without this check a multi-tool step keeps executing its whole
+            // batch (up to N × toolTimeoutMs past the deadline) before the
+            // while-top check finally breaks. Skipped tools get neither a
+            // call row nor a result row, so persisted history stays paired.
+            if (internalAbort.signal.aborted) {
+              wasAborted = true;
+              break;
+            }
             allToolCalls.push({
               toolName: toolUse.name,
               args: toolUse.input,
@@ -4464,6 +4673,34 @@ export class GoogleVertexProvider extends BaseProvider {
               toolName: toolUse.name,
               args: toolUse.input,
             });
+
+            // Consecutive-failure breaker (ports the Gemini loops' failedTools
+            // map): a tool that has already failed DEFAULT_TOOL_MAX_RETRIES
+            // times this turn is short-circuited instead of re-executed.
+            const failedInfo = failedTools.get(toolUse.name);
+            if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
+              logger.warn(
+                `[GoogleVertex] Tool "${toolUse.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
+              );
+              const errMsg = `TOOL_PERMANENTLY_FAILED: The tool "${toolUse.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`;
+              const errorPayload = { error: errMsg };
+              toolExecutions.push({
+                name: toolUse.name,
+                input: toolUse.input,
+                output: errorPayload,
+              });
+              toolResults.push({
+                type: "tool_result",
+                tool_use_id: toolUse.id,
+                content: errMsg,
+              });
+              stepStorageResults.push({
+                toolCallId: toolUse.id,
+                toolName: toolUse.name,
+                output: errorPayload,
+              });
+              continue;
+            }
 
             // One tool observation per execution. ai.toolCall.* names follow the
             // Vercel AI SDK convention so existing tooling keeps working.
@@ -4526,11 +4763,17 @@ export class GoogleVertexProvider extends BaseProvider {
                 // (neurolink.tool.execute) nest under this observation instead
                 // of becoming disconnected siblings. Bound the await — a
                 // wedged tool costs one step (error tool_result), not the
-                // whole turn.
+                // whole turn — and race it against the turn's abort so a
+                // deadline/caller abort is observed IMMEDIATELY instead of
+                // after the tool settles.
                 const result = await withTimeout(
-                  otelContext.with(
-                    otelTrace.setSpan(turnContext, toolSpan),
-                    () => Promise.resolve(execute(toolUse.input, toolOptions)),
+                  raceWithAbort(
+                    otelContext.with(
+                      otelTrace.setSpan(turnContext, toolSpan),
+                      () =>
+                        Promise.resolve(execute(toolUse.input, toolOptions)),
+                    ),
+                    internalAbort.signal,
                   ),
                   toolExecTimeoutMs,
                   `Tool "${toolUse.name}" execution timed out after ${toolExecTimeoutMs}ms`,
@@ -4539,6 +4782,23 @@ export class GoogleVertexProvider extends BaseProvider {
                 // MCP failures are returned, not thrown — surface them on
                 // the span so failed calls show as ERROR in Langfuse.
                 endToolSpan(result, extractMcpToolErrorMessage(result));
+                // Error-shaped success (MCP isError / { error } payloads)
+                // counts toward the breaker too — see the generate twin.
+                const resultErrorText = extractToolFailureText(result);
+                if (resultErrorText) {
+                  const info = failedTools.get(toolUse.name) || {
+                    count: 0,
+                    lastError: "",
+                  };
+                  info.count++;
+                  info.lastError = resultErrorText;
+                  failedTools.set(toolUse.name, info);
+                } else {
+                  // Genuinely consecutive: a success clears the strike count
+                  // (argument-dependent soft errors — file-not-found on
+                  // different paths — must not disable a working tool).
+                  failedTools.delete(toolUse.name);
+                }
                 toolExecutions.push({
                   name: toolUse.name,
                   input: toolUse.input,
@@ -4588,7 +4848,20 @@ export class GoogleVertexProvider extends BaseProvider {
                     toolName: toolUse.name,
                   });
                 }
-                const errMsg = `Error executing tool "${toolUse.name}": ${err instanceof Error ? err.message : String(err)}`;
+                // Count the failure toward the consecutive-failure breaker.
+                const thrownErrorText =
+                  err instanceof Error ? err.message : String(err);
+                const info = failedTools.get(toolUse.name) || {
+                  count: 0,
+                  lastError: "",
+                };
+                info.count++;
+                info.lastError = thrownErrorText;
+                failedTools.set(toolUse.name, info);
+                logger.warn(
+                  `[GoogleVertex] Tool "${toolUse.name}" failed (attempt ${info.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${thrownErrorText}`,
+                );
+                const errMsg = `Error executing tool "${toolUse.name}": ${thrownErrorText}`;
                 const errorPayload = { error: errMsg };
                 endToolSpan(errorPayload, errMsg);
                 toolExecutions.push({
@@ -4610,6 +4883,16 @@ export class GoogleVertexProvider extends BaseProvider {
             } else {
               const errMsg = `TOOL_NOT_FOUND: The tool "${toolUse.name}" does not exist.`;
               const errorPayload = { error: errMsg };
+              // A missing tool counts toward the breaker too — a model
+              // grinding on a hallucinated/stale tool name must not burn the
+              // whole step budget on TOOL_NOT_FOUND round-trips.
+              const notFoundInfo = failedTools.get(toolUse.name) || {
+                count: 0,
+                lastError: "",
+              };
+              notFoundInfo.count++;
+              notFoundInfo.lastError = errMsg;
+              failedTools.set(toolUse.name, notFoundInfo);
               endToolSpan(errorPayload, errMsg);
               toolExecutions.push({
                 name: toolUse.name,
@@ -4698,6 +4981,18 @@ export class GoogleVertexProvider extends BaseProvider {
             role: "user",
             content: toolResults,
           });
+          // Project this step's growth for the context guard: everything
+          // just appended (tool results + nudge text) rides the next prompt.
+          contextGuard.noteAppendedChars(
+            toolResults.reduce(
+              (sum, block) =>
+                sum +
+                ("content" in block
+                  ? block.content.length
+                  : (block as { text: string }).text.length),
+              0,
+            ),
+          );
         }
 
         // Terminal handling — the loop exited without a model-initiated
@@ -4719,6 +5014,21 @@ export class GoogleVertexProvider extends BaseProvider {
           const externalToolCallCount = allToolCalls.filter(
             (tc) => tc.toolName !== "final_result",
           ).length;
+          // Clamp the terminal calls' max_tokens so prompt + output stays
+          // inside the model window: pre-4.5 Claude models 400 on
+          // input + max_tokens > window, which would defeat the very
+          // synthesis these calls exist for on context-capped turns. Only
+          // bites when the prompt is near the window (min() is a no-op on
+          // ordinary step-cap turns).
+          const terminalMaxTokens = Math.max(
+            1024,
+            Math.min(
+              requestParams.max_tokens,
+              getContextWindowSize("vertex", modelName) -
+                contextGuard.projectedNextPromptTokens -
+                4_000,
+            ),
+          );
           if (wasAborted) {
             // Budget already blown — never issue another model call. Deliver
             // exactly one HONEST terminal chunk matching the actual exit
@@ -4746,9 +5056,13 @@ export class GoogleVertexProvider extends BaseProvider {
               aggregatedTurnText = exitMessage;
             }
           } else if (useFinalResultTool) {
-            hitStepLimit = true;
+            if (!hitContextLimit) {
+              hitStepLimit = true;
+            }
             logger.warn(
-              `[GoogleVertex] Native Anthropic stream loop reached maxSteps (${maxSteps}) without final_result; forcing a finalization call.`,
+              hitContextLimit
+                ? `[GoogleVertex] Native Anthropic stream loop stopped by the context guard without final_result; forcing a finalization call.`
+                : `[GoogleVertex] Native Anthropic stream loop reached maxSteps (${maxSteps}) without final_result; forcing a finalization call.`,
             );
             try {
               // Reserved finalization step: identical request except
@@ -4763,6 +5077,7 @@ export class GoogleVertexProvider extends BaseProvider {
               });
               const finalizationStream = await client.messages.stream({
                 ...requestParams,
+                max_tokens: terminalMaxTokens,
                 tool_choice: {
                   type: "tool" as const,
                   name: "final_result",
@@ -4821,10 +5136,9 @@ export class GoogleVertexProvider extends BaseProvider {
                   { keys: Object.keys(forcedFinalResult.input) },
                 );
               } else {
-                const capMessage = buildToolLoopCapMessage(
-                  maxSteps,
-                  externalToolCallCount,
-                );
+                const capMessage = hitContextLimit
+                  ? buildContextCapMessage(externalToolCallCount)
+                  : buildToolLoopCapMessage(maxSteps, externalToolCallCount);
                 channel.push(capMessage);
                 aggregatedTurnText += capMessage;
               }
@@ -4844,18 +5158,23 @@ export class GoogleVertexProvider extends BaseProvider {
                   error: error instanceof Error ? error.message : String(error),
                 },
               );
-              const exitMessage = this.buildLoopExitMessage({
-                turnClock,
-                wasAborted,
-                stallTimeoutMs: options.stallTimeoutMs,
-                maxSteps,
-                toolCallCount: externalToolCallCount,
-              });
+              const exitMessage =
+                hitContextLimit && !wasAborted
+                  ? buildContextCapMessage(externalToolCallCount)
+                  : this.buildLoopExitMessage({
+                      turnClock,
+                      wasAborted,
+                      stallTimeoutMs: options.stallTimeoutMs,
+                      maxSteps,
+                      toolCallCount: externalToolCallCount,
+                    });
               channel.push(exitMessage);
               aggregatedTurnText += exitMessage;
             }
           } else {
-            hitStepLimit = true;
+            if (!hitContextLimit) {
+              hitStepLimit = true;
+            }
             if (aggregatedTurnText.length === 0) {
               // Pure tool-loop with no streamed text: one tools-disabled call
               // so the model answers from the gathered tool results, pushed
@@ -4865,7 +5184,9 @@ export class GoogleVertexProvider extends BaseProvider {
               // tools param — so "tools disabled" is tool_choice:"none",
               // which also keeps the cached tools prefix byte-identical.
               logger.warn(
-                `[GoogleVertex] Native Anthropic stream loop reached maxSteps (${maxSteps}) with no text; synthesizing a final answer with tools disabled.`,
+                hitContextLimit
+                  ? `[GoogleVertex] Native Anthropic stream loop stopped by the context guard with no text; synthesizing a final answer with tools disabled.`
+                  : `[GoogleVertex] Native Anthropic stream loop reached maxSteps (${maxSteps}) with no text; synthesizing a final answer with tools disabled.`,
               );
               try {
                 const backstopSystem =
@@ -4882,6 +5203,7 @@ export class GoogleVertexProvider extends BaseProvider {
                 });
                 const backstopStream = await client.messages.stream({
                   ...requestParams,
+                  max_tokens: terminalMaxTokens,
                   tool_choice: { type: "none" as const },
                   system: cachedBackstop.system as Parameters<
                     typeof client.messages.stream
@@ -4927,10 +5249,9 @@ export class GoogleVertexProvider extends BaseProvider {
                   channel.push(backstopText);
                   aggregatedTurnText = backstopText;
                 } else {
-                  const capMessage = buildToolLoopCapMessage(
-                    maxSteps,
-                    externalToolCallCount,
-                  );
+                  const capMessage = hitContextLimit
+                    ? buildContextCapMessage(externalToolCallCount)
+                    : buildToolLoopCapMessage(maxSteps, externalToolCallCount);
                   channel.push(capMessage);
                   aggregatedTurnText = capMessage;
                 }
@@ -4951,13 +5272,16 @@ export class GoogleVertexProvider extends BaseProvider {
                       error instanceof Error ? error.message : String(error),
                   },
                 );
-                const exitMessage = this.buildLoopExitMessage({
-                  turnClock,
-                  wasAborted,
-                  stallTimeoutMs: options.stallTimeoutMs,
-                  maxSteps,
-                  toolCallCount: externalToolCallCount,
-                });
+                const exitMessage =
+                  hitContextLimit && !wasAborted
+                    ? buildContextCapMessage(externalToolCallCount)
+                    : this.buildLoopExitMessage({
+                        turnClock,
+                        wasAborted,
+                        stallTimeoutMs: options.stallTimeoutMs,
+                        maxSteps,
+                        toolCallCount: externalToolCallCount,
+                      });
                 channel.push(exitMessage);
                 aggregatedTurnText = exitMessage;
               }
@@ -4979,13 +5303,16 @@ export class GoogleVertexProvider extends BaseProvider {
           (tc) => tc.toolName !== "final_result",
         ).length;
         if (deliveredNothing && externalToolCallTotal > 0) {
-          const exitMessage = this.buildLoopExitMessage({
-            turnClock,
-            wasAborted,
-            stallTimeoutMs: options.stallTimeoutMs,
-            maxSteps,
-            toolCallCount: externalToolCallTotal,
-          });
+          const exitMessage =
+            hitContextLimit && !wasAborted
+              ? buildContextCapMessage(externalToolCallTotal)
+              : this.buildLoopExitMessage({
+                  turnClock,
+                  wasAborted,
+                  stallTimeoutMs: options.stallTimeoutMs,
+                  maxSteps,
+                  toolCallCount: externalToolCallTotal,
+                });
           channel.push(exitMessage);
           aggregatedTurnText = exitMessage;
         }
@@ -5016,6 +5343,8 @@ export class GoogleVertexProvider extends BaseProvider {
           stalled: turnClock.stalled,
           wasAborted,
           cappedWithoutAnswer: hitStepLimit && !synthesizedFinalAnswer,
+          contextCappedWithoutAnswer:
+            hitContextLimit && !synthesizedFinalAnswer,
           finishReason: finishReasonRef.value,
         });
         stopReasonRef.value = resolvedStopReason;
@@ -5536,9 +5865,24 @@ export class GoogleVertexProvider extends BaseProvider {
     // these to distinguish clean finishes, capped turns, and aborted turns.
     let wasAborted = false;
     let hitStepLimit = false;
+    let hitContextLimit = false;
     let synthesizedFinalAnswer = false;
     let modelFinished = false;
     const currentMessages = [...messages];
+
+    // In-loop context guard: stop calling tools when the accumulated
+    // conversation approaches the model's real context window, instead of
+    // stepping into an Anthropic 400 "prompt is too long" at step N that
+    // destroys the whole turn's work (claude-sonnet-5 1,005,647-token RCA).
+    const contextGuard = createContextGuard(
+      getContextWindowSize("vertex", modelName),
+    );
+    // Consecutive-failure breaker (ports the Gemini loops' failedTools map):
+    // a tool that keeps failing — thrown errors, timeouts, or error-shaped
+    // results like mcp-proxy blocks — is short-circuited after
+    // DEFAULT_TOOL_MAX_RETRIES instead of being retried for the remaining
+    // step budget.
+    const failedTools = new Map<string, { count: number; lastError: string }>();
 
     // Internal abort fan-in: the caller's signal and the turn clock's
     // watchdogs all trip it; it rides every SDK request and tool execution.
@@ -5582,6 +5926,18 @@ export class GoogleVertexProvider extends BaseProvider {
       // retries — observed in production as a 600s abort no-op).
       if (internalAbort.signal.aborted) {
         wasAborted = true;
+        break;
+      }
+      // Context guard: the projected next prompt (last call's REAL usage +
+      // this step's appended tool results/output) would cross the window
+      // threshold — stop the tool loop and synthesize from what we have.
+      if (contextGuard.shouldStop()) {
+        hitContextLimit = true;
+        logger.warn(
+          `[GoogleVertex] Anthropic generate turn stopped by the context guard: ` +
+            `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
+            `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
+        );
         break;
       }
       step++;
@@ -5639,6 +5995,14 @@ export class GoogleVertexProvider extends BaseProvider {
         totalCacheCreationTokens +=
           response.usage?.cache_creation_input_tokens || 0;
         lastStopReason = response.stop_reason;
+        // Feed the context guard the FULL prompt size of this call (uncached
+        // input + cache reads/writes) — the API reports it every step.
+        contextGuard.noteUsage(
+          (response.usage?.input_tokens || 0) +
+            (response.usage?.cache_read_input_tokens || 0) +
+            (response.usage?.cache_creation_input_tokens || 0),
+          response.usage?.output_tokens || 0,
+        );
 
         // Check if we need to handle tool use
         const toolUseBlocks = (
@@ -5715,6 +6079,15 @@ export class GoogleVertexProvider extends BaseProvider {
         // Note: tool:start / tool:end events are emitted by ToolsManager's
         // wrapped `execute` (see ToolsManager.ts:355) — no inline emit needed.
         for (const toolUse of toolUseBlocks) {
+          // Honor a deadline/stall/caller abort BETWEEN tool executions —
+          // without this check a multi-tool step keeps executing its whole
+          // batch (up to N × toolTimeoutMs past the deadline) before the
+          // while-top check finally breaks. Skipped tools get neither a call
+          // row nor a result row, so persisted history stays paired.
+          if (internalAbort.signal.aborted) {
+            wasAborted = true;
+            break;
+          }
           allToolCalls.push({
             toolName: toolUse.name,
             args: toolUse.input,
@@ -5724,6 +6097,35 @@ export class GoogleVertexProvider extends BaseProvider {
             toolName: toolUse.name,
             args: toolUse.input,
           });
+
+          // Consecutive-failure breaker: stop re-executing a tool that has
+          // already failed DEFAULT_TOOL_MAX_RETRIES times this turn (ports
+          // the Gemini loops' failedTools map — the Anthropic loops let a
+          // blocked tool be retried for the entire remaining step budget).
+          const failedInfo = failedTools.get(toolUse.name);
+          if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
+            logger.warn(
+              `[GoogleVertex] Tool "${toolUse.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
+            );
+            const errMsg = `TOOL_PERMANENTLY_FAILED: The tool "${toolUse.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`;
+            const errorPayload = { error: errMsg };
+            toolExecutions.push({
+              name: toolUse.name,
+              input: toolUse.input,
+              output: errorPayload,
+            });
+            toolResults.push({
+              type: "tool_result",
+              tool_use_id: toolUse.id,
+              content: errMsg,
+            });
+            stepStorageResults.push({
+              toolCallId: toolUse.id,
+              toolName: toolUse.name,
+              output: errorPayload,
+            });
+            continue;
+          }
 
           const execute = executeMap.get(toolUse.name);
           if (execute) {
@@ -5735,13 +6137,38 @@ export class GoogleVertexProvider extends BaseProvider {
               };
               turnClock.noteProgress();
               // Bound the execute() await — a wedged tool costs one step
-              // (error tool_result), not the whole turn.
+              // (error tool_result), not the whole turn — and race it against
+              // the turn's abort so a deadline/caller abort is observed
+              // IMMEDIATELY instead of after the tool settles (live-verified:
+              // an 8s deadline previously waited out a 60s tool).
               const result = await withTimeout(
-                Promise.resolve(execute(toolUse.input, toolOptions)),
+                raceWithAbort(
+                  Promise.resolve(execute(toolUse.input, toolOptions)),
+                  internalAbort.signal,
+                ),
                 toolExecTimeoutMs,
                 `Tool "${toolUse.name}" execution timed out after ${toolExecTimeoutMs}ms`,
               );
               turnClock.noteProgress();
+              // Error-shaped success (MCP isError / { error } payloads —
+              // e.g. proxy-blocked tools) counts toward the breaker too:
+              // these fail without throwing, and only counting throws lets
+              // the model grind on a blocked tool for the whole budget.
+              const resultErrorText = extractToolFailureText(result);
+              if (resultErrorText) {
+                const info = failedTools.get(toolUse.name) || {
+                  count: 0,
+                  lastError: "",
+                };
+                info.count++;
+                info.lastError = resultErrorText;
+                failedTools.set(toolUse.name, info);
+              } else {
+                // Genuinely consecutive: a success clears the strike count
+                // (argument-dependent soft errors — file-not-found on
+                // different paths — must not disable a working tool).
+                failedTools.delete(toolUse.name);
+              }
               toolExecutions.push({
                 name: toolUse.name,
                 input: toolUse.input,
@@ -5789,7 +6216,20 @@ export class GoogleVertexProvider extends BaseProvider {
                   toolName: toolUse.name,
                 });
               }
-              const errMsg = `Error executing tool "${toolUse.name}": ${err instanceof Error ? err.message : String(err)}`;
+              // Count the failure toward the consecutive-failure breaker.
+              const thrownErrorText =
+                err instanceof Error ? err.message : String(err);
+              const info = failedTools.get(toolUse.name) || {
+                count: 0,
+                lastError: "",
+              };
+              info.count++;
+              info.lastError = thrownErrorText;
+              failedTools.set(toolUse.name, info);
+              logger.warn(
+                `[GoogleVertex] Tool "${toolUse.name}" failed (attempt ${info.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${thrownErrorText}`,
+              );
+              const errMsg = `Error executing tool "${toolUse.name}": ${thrownErrorText}`;
               const errorPayload = { error: errMsg };
               toolExecutions.push({
                 name: toolUse.name,
@@ -5810,6 +6250,16 @@ export class GoogleVertexProvider extends BaseProvider {
           } else {
             const errMsg = `TOOL_NOT_FOUND: The tool "${toolUse.name}" does not exist.`;
             const errorPayload = { error: errMsg };
+            // A missing tool counts toward the breaker too — a model
+            // grinding on a hallucinated/stale tool name must not burn the
+            // whole step budget on TOOL_NOT_FOUND round-trips.
+            const notFoundInfo = failedTools.get(toolUse.name) || {
+              count: 0,
+              lastError: "",
+            };
+            notFoundInfo.count++;
+            notFoundInfo.lastError = errMsg;
+            failedTools.set(toolUse.name, notFoundInfo);
             toolExecutions.push({
               name: toolUse.name,
               input: toolUse.input,
@@ -5897,6 +6347,19 @@ export class GoogleVertexProvider extends BaseProvider {
           role: "user",
           content: toolResults,
         });
+        // Project this step's growth for the context guard: everything just
+        // appended (tool results + nudge text) rides the next prompt. The
+        // assistant output was already counted via noteUsage.
+        contextGuard.noteAppendedChars(
+          toolResults.reduce(
+            (sum, block) =>
+              sum +
+              ("content" in block
+                ? block.content.length
+                : (block as { text: string }).text.length),
+            0,
+          ),
+        );
 
         // Accumulate the step's prose so a capped turn can still surface it —
         // finalText is reserved for model-initiated finishes.
@@ -5948,6 +6411,20 @@ export class GoogleVertexProvider extends BaseProvider {
       const externalToolCallCount = allToolCalls.filter(
         (tc) => tc.toolName !== "final_result",
       ).length;
+      // Clamp the terminal calls' max_tokens so prompt + output stays inside
+      // the model window: pre-4.5 Claude models 400 on input + max_tokens >
+      // window, which would defeat the very synthesis these calls exist for
+      // on context-capped turns. Only bites when the prompt is near the
+      // window (min() is a no-op on ordinary step-cap turns).
+      const terminalMaxTokens = Math.max(
+        1024,
+        Math.min(
+          requestParams.max_tokens,
+          getContextWindowSize("vertex", modelName) -
+            contextGuard.projectedNextPromptTokens -
+            4_000,
+        ),
+      );
       if (wasAborted) {
         // Budget already blown — never issue another model call; prefer the
         // prose the model already produced (mirrors the Gemini abort path),
@@ -5970,9 +6447,13 @@ export class GoogleVertexProvider extends BaseProvider {
             toolCallCount: externalToolCallCount,
           });
       } else if (useFinalResultTool) {
-        hitStepLimit = true;
+        if (!hitContextLimit) {
+          hitStepLimit = true;
+        }
         logger.warn(
-          `[GoogleVertex] Native Anthropic generate loop reached maxSteps (${maxSteps}) without final_result; forcing a finalization call.`,
+          hitContextLimit
+            ? `[GoogleVertex] Native Anthropic generate loop stopped by the context guard without final_result; forcing a finalization call.`
+            : `[GoogleVertex] Native Anthropic generate loop reached maxSteps (${maxSteps}) without final_result; forcing a finalization call.`,
         );
         try {
           // Reserved finalization step: identical request except tool_choice
@@ -5989,6 +6470,7 @@ export class GoogleVertexProvider extends BaseProvider {
             client.messages.create(
               {
                 ...requestParams,
+                max_tokens: terminalMaxTokens,
                 tool_choice: {
                   type: "tool" as const,
                   name: "final_result",
@@ -6040,10 +6522,9 @@ export class GoogleVertexProvider extends BaseProvider {
               { keys: Object.keys(structuredOutput) },
             );
           } else {
-            finalText = buildToolLoopCapMessage(
-              maxSteps,
-              externalToolCallCount,
-            );
+            finalText = hitContextLimit
+              ? buildContextCapMessage(externalToolCallCount)
+              : buildToolLoopCapMessage(maxSteps, externalToolCallCount);
           }
         } catch (error) {
           // An aborted finalization is a cancellation (caller abort or a
@@ -6058,20 +6539,27 @@ export class GoogleVertexProvider extends BaseProvider {
             "[GoogleVertex] Forced finalization call failed; falling back to a terminal message",
             { error: error instanceof Error ? error.message : String(error) },
           );
-          finalText = this.buildLoopExitMessage({
-            turnClock,
-            wasAborted,
-            stallTimeoutMs: options.stallTimeoutMs,
-            maxSteps,
-            toolCallCount: externalToolCallCount,
-          });
+          finalText =
+            hitContextLimit && !wasAborted
+              ? buildContextCapMessage(externalToolCallCount)
+              : this.buildLoopExitMessage({
+                  turnClock,
+                  wasAborted,
+                  stallTimeoutMs: options.stallTimeoutMs,
+                  maxSteps,
+                  toolCallCount: externalToolCallCount,
+                });
         }
       } else {
-        hitStepLimit = true;
+        if (!hitContextLimit) {
+          hitStepLimit = true;
+        }
         if (accumulatedStepText) {
           // Prefer the prose the model already produced across steps.
           logger.warn(
-            `[GoogleVertex] Native Anthropic generate loop reached maxSteps (${maxSteps}); returning text already gathered from prior steps.`,
+            hitContextLimit
+              ? `[GoogleVertex] Native Anthropic generate loop stopped by the context guard; returning text already gathered from prior steps.`
+              : `[GoogleVertex] Native Anthropic generate loop reached maxSteps (${maxSteps}); returning text already gathered from prior steps.`,
           );
           finalText = accumulatedStepText;
         } else {
@@ -6083,7 +6571,9 @@ export class GoogleVertexProvider extends BaseProvider {
           // param — so "tools disabled" is expressed as tool_choice:"none",
           // which also keeps the cached tools prefix byte-identical.
           logger.warn(
-            `[GoogleVertex] Native Anthropic generate loop reached maxSteps (${maxSteps}) with no text; synthesizing a final answer with tools disabled.`,
+            hitContextLimit
+              ? `[GoogleVertex] Native Anthropic generate loop stopped by the context guard with no text; synthesizing a final answer with tools disabled.`
+              : `[GoogleVertex] Native Anthropic generate loop reached maxSteps (${maxSteps}) with no text; synthesizing a final answer with tools disabled.`,
           );
           try {
             const backstopSystem =
@@ -6100,6 +6590,7 @@ export class GoogleVertexProvider extends BaseProvider {
               client.messages.create(
                 {
                   ...requestParams,
+                  max_tokens: terminalMaxTokens,
                   tool_choice: { type: "none" as const },
                   system: cachedBackstop.system as Parameters<
                     typeof client.messages.create
@@ -6139,10 +6630,9 @@ export class GoogleVertexProvider extends BaseProvider {
               synthesizedFinalAnswer = true;
               finalText = backstopText;
             } else {
-              finalText = buildToolLoopCapMessage(
-                maxSteps,
-                externalToolCallCount,
-              );
+              finalText = hitContextLimit
+                ? buildContextCapMessage(externalToolCallCount)
+                : buildToolLoopCapMessage(maxSteps, externalToolCallCount);
             }
           } catch (error) {
             // An aborted backstop is a cancellation (caller abort or a
@@ -6159,13 +6649,16 @@ export class GoogleVertexProvider extends BaseProvider {
                 error: error instanceof Error ? error.message : String(error),
               },
             );
-            finalText = this.buildLoopExitMessage({
-              turnClock,
-              wasAborted,
-              stallTimeoutMs: options.stallTimeoutMs,
-              maxSteps,
-              toolCallCount: externalToolCallCount,
-            });
+            finalText =
+              hitContextLimit && !wasAborted
+                ? buildContextCapMessage(externalToolCallCount)
+                : this.buildLoopExitMessage({
+                    turnClock,
+                    wasAborted,
+                    stallTimeoutMs: options.stallTimeoutMs,
+                    maxSteps,
+                    toolCallCount: externalToolCallCount,
+                  });
           }
         }
       }
@@ -6186,13 +6679,16 @@ export class GoogleVertexProvider extends BaseProvider {
     // Cause-aware: an aborted/timed-out turn gets the honest exit message,
     // a genuine budget exhaustion gets the step-cap message.
     if (!finalText && externalToolCalls.length > 0) {
-      finalText = this.buildLoopExitMessage({
-        turnClock,
-        wasAborted,
-        stallTimeoutMs: options.stallTimeoutMs,
-        maxSteps,
-        toolCallCount: externalToolCalls.length,
-      });
+      finalText =
+        hitContextLimit && !wasAborted
+          ? buildContextCapMessage(externalToolCalls.length)
+          : this.buildLoopExitMessage({
+              turnClock,
+              wasAborted,
+              stallTimeoutMs: options.stallTimeoutMs,
+              maxSteps,
+              toolCallCount: externalToolCalls.length,
+            });
     }
 
     // Honest finish reason. "length" (token truncation) takes precedence; a
@@ -6213,6 +6709,7 @@ export class GoogleVertexProvider extends BaseProvider {
       stalled: turnClock.stalled,
       wasAborted,
       cappedWithoutAnswer: hitStepLimit && !synthesizedFinalAnswer,
+      contextCappedWithoutAnswer: hitContextLimit && !synthesizedFinalAnswer,
       finishReason: resolvedFinishReason,
     });
     if (stopReason !== "completed") {
@@ -7108,6 +7605,7 @@ export class GoogleVertexProvider extends BaseProvider {
   private emitTurnEvent(payload: {
     phase:
       | "step-cap"
+      | "context-cap"
       | "time-limit"
       | "stalled"
       | "aborted"

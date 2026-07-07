@@ -13,6 +13,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { extname } from "node:path";
 import {
+  DEFAULT_CONTEXT_GUARD_RATIO,
   DEFAULT_MAX_STEPS,
   DEFAULT_TOOL_MAX_RETRIES,
   DEFAULT_WRAPUP_TIME_LEAD_MS,
@@ -1129,6 +1130,26 @@ export function buildToolLoopCapMessage(
   );
 }
 
+/**
+ * Honest message for a turn stopped by the in-loop context guard
+ * (stopReason "context-cap") without a synthesized answer. Sibling of
+ * {@link buildToolLoopCapMessage} — context exits must never claim a step
+ * limit was reached.
+ */
+export function buildContextCapMessage(toolCallCount: number): string {
+  const calls =
+    toolCallCount > 0
+      ? `I gathered information across ${toolCallCount} tool call${
+          toolCallCount === 1 ? "" : "s"
+        } but `
+      : "I ";
+  return (
+    `${calls}had to stop because the gathered material filled this turn's ` +
+    `context window before I could finish. Please narrow the request or ` +
+    `break it into smaller asks and I'll continue.`
+  );
+}
+
 /** Format an elapsed duration as "Xm Ys" (or "Ys" under a minute). */
 function formatElapsed(elapsedMs: number): string {
   const totalSeconds = Math.max(0, Math.round(elapsedMs / 1000));
@@ -1221,6 +1242,8 @@ export function resolveTurnStopReason(params: {
   wasAborted: boolean;
   /** Step budget ran out AND no clean/forced answer was produced. */
   cappedWithoutAnswer: boolean;
+  /** Context guard stopped the loop AND no clean/forced answer was produced. */
+  contextCappedWithoutAnswer?: boolean;
   /** The turn's resolved unified finishReason. */
   finishReason?: string;
 }): GenerateStopReason {
@@ -1232,6 +1255,9 @@ export function resolveTurnStopReason(params: {
   }
   if (params.wasAborted) {
     return "aborted";
+  }
+  if (params.contextCappedWithoutAnswer) {
+    return "context-cap";
   }
   if (params.cappedWithoutAnswer) {
     return "step-cap";
@@ -1348,6 +1374,67 @@ export function createTurnClock(params: {
       if (stallTimer) {
         clearInterval(stallTimer);
       }
+    },
+  };
+}
+
+/**
+ * In-loop context guard for native agentic turns.
+ *
+ * The provider reports the ACTUAL prompt size of every model call
+ * (usage.input_tokens + cache reads/writes on Anthropic;
+ * usageMetadata.promptTokenCount on Gemini). The guard tracks that number
+ * plus an estimate of what the current step appends (assistant output, tool
+ * results), and tells the loop to stop calling tools once the projected next
+ * prompt crosses `thresholdRatio` of the model's context window — the turn
+ * then synthesizes a final answer from what it has instead of stepping into
+ * a provider 400 ("prompt is too long") that destroys all completed work.
+ *
+ * Fail-open: until the first usage report arrives, `shouldStop()` is false.
+ */
+export function createContextGuard(
+  contextWindowTokens: number,
+  thresholdRatio: number = DEFAULT_CONTEXT_GUARD_RATIO,
+) {
+  const thresholdTokens = Math.floor(contextWindowTokens * thresholdRatio);
+  let observedPromptTokens = 0;
+  let projectedGrowthTokens = 0;
+  return {
+    /** Tokens at which the guard trips (ratio × window). */
+    get thresholdTokens(): number {
+      return thresholdTokens;
+    },
+    /** Last observed prompt size plus estimated growth since. */
+    get projectedNextPromptTokens(): number {
+      return observedPromptTokens + projectedGrowthTokens;
+    },
+    /**
+     * Record a model call's reported usage. `promptTokens` must be the FULL
+     * prompt size (uncached input + cache read + cache creation for
+     * Anthropic). The response's own output is counted as growth — it is
+     * appended to the conversation for the next call.
+     */
+    noteUsage(promptTokens: number, outputTokens: number): void {
+      if (promptTokens > 0) {
+        observedPromptTokens = promptTokens;
+        projectedGrowthTokens = Math.max(0, outputTokens);
+      }
+    },
+    /**
+     * Add growth for content appended since the last model call (tool
+     * results, nudge text) using the ~4 chars/token heuristic.
+     */
+    noteAppendedChars(chars: number): void {
+      if (chars > 0) {
+        projectedGrowthTokens += Math.ceil(chars / 4);
+      }
+    },
+    /** True when issuing another model call risks crossing the threshold. */
+    shouldStop(): boolean {
+      return (
+        observedPromptTokens > 0 &&
+        observedPromptTokens + projectedGrowthTokens >= thresholdTokens
+      );
     },
   };
 }

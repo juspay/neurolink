@@ -73,3 +73,29 @@ export function extractMcpToolErrorMessage(
     ? `MCP tool returned isError: ${text}`
     : "MCP tool returned isError: true";
 }
+
+/**
+ * Detect a tool result that REPORTS failure without throwing, for the native
+ * loops' consecutive-failure breaker. Covers the two shapes NeuroLink itself
+ * produces or forwards:
+ * - MCP CallToolResult with `isError: true` (e.g. proxy-blocked tools) —
+ *   delegated to {@link extractMcpToolErrorMessage}
+ * - our own `{ error: "..." }` payloads
+ * Plain strings are never classified (too false-positive-prone).
+ * Returns the error text, or null when the result looks like a success.
+ */
+export function extractToolFailureText(result: unknown): string | null {
+  const mcpError = extractMcpToolErrorMessage(result);
+  if (mcpError) {
+    return mcpError;
+  }
+  if (
+    result !== null &&
+    typeof result === "object" &&
+    typeof (result as { error?: unknown }).error === "string" &&
+    (result as { error: string }).error.length > 0
+  ) {
+    return (result as { error: string }).error;
+  }
+  return null;
+}

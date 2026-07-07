@@ -137,6 +137,24 @@ export const DEFAULT_TOOL_EXECUTION_TIMEOUT_MS = 300_000;
  */
 export const DEFAULT_WRAPUP_TIME_LEAD_MS = 120_000;
 
+/**
+ * In-loop context guard threshold for native agentic loops: when the last
+ * model call's actual prompt size (provider-reported usage) plus the
+ * estimated growth from this step's tool results crosses this fraction of
+ * the model's context window, the loop stops calling tools and synthesizes a
+ * final answer instead of stepping into a provider 400 ("prompt is too
+ * long") that would destroy the whole turn's work.
+ */
+export const DEFAULT_CONTEXT_GUARD_RATIO = 0.85;
+
+/**
+ * Floor for the turn budget handed to the post-overflow recovery retry.
+ * The retry inherits the REMAINING `turnTimeoutMs` (whole-turn semantics —
+ * one generate() must not stack two full budgets), but never less than this,
+ * so a compacted retry still gets a workable window.
+ */
+export const MIN_RECOVERY_TURN_BUDGET_MS = 30_000;
+
 // Fire-and-forget tool storage writes (Redis). 5s is generous for a single
 // Redis write; if breached, the .catch logs a warning.
 export const TOOL_STORAGE_TIMEOUT_MS = 5000;

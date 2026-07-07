@@ -27,4 +27,9 @@ export {
   RetryExhaustedError,
   retry,
 } from "./retry.js";
-export { TimeoutError, withTimeout, withTimeoutFn } from "./withTimeout.js";
+export {
+  TimeoutError,
+  raceWithAbort,
+  withTimeout,
+  withTimeoutFn,
+} from "./withTimeout.js";

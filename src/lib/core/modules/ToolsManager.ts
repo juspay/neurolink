@@ -18,6 +18,56 @@ import type { NeuroLink } from "../../neurolink.js";
 import type { Tool } from "../../types/index.js";
 import { tool as createAISDKTool, jsonSchema } from "../../utils/tool.js";
 
+/** Abort-shaped error so provider loops route it to their cancellation path. */
+function makeToolAbortError(): Error {
+  const e = new Error("Tool execution aborted");
+  e.name = "AbortError";
+  return e;
+}
+
+/**
+ * Race a tool-execution promise against an AbortSignal so the calling loop
+ * observes a deadline/caller abort IMMEDIATELY instead of waiting for the
+ * tool to finish or its execution timeout to expire. The underlying call is
+ * not cancelled (bounded ghost execution — the same tradeoff as the tool
+ * timeout); real transport-level cancellation (executeExternalMCPTool → MCP
+ * client RequestOptions.signal) is tracked as a follow-up.
+ */
+function raceWithAbortSignal<T>(
+  promise: Promise<T>,
+  signal: AbortSignal,
+): Promise<T> {
+  if (signal.aborted) {
+    // Swallow the abandoned settlement so it can't become an unhandled
+    // rejection later.
+    promise.catch(() => {
+      // Swallow the abandoned settlement — it must never surface as an
+      // unhandled rejection after the race has already been decided.
+    });
+    return Promise.reject(makeToolAbortError());
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      promise.catch(() => {
+        // Swallow the abandoned settlement — it must never surface as an
+        // unhandled rejection after the race has already been decided.
+      });
+      reject(makeToolAbortError());
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
 /**
  * ToolsManager class - Handles all tool management operations
  */
@@ -47,13 +97,31 @@ export class ToolsManager {
   /**
    * BZ-666: Wrap tool execute with output truncation to prevent
    * context overflow when large results flow into the AI SDK accumulator.
+   *
+   * Passes the AI-SDK second argument (execution options: abortSignal,
+   * toolCallId, messages) through to the inner execute — the native loops
+   * provide an abortSignal there, and dropping it at this wrapper made
+   * every tool uncancellable (deadline overshoot / ghost executions).
    */
   private wrapExecuteWithTruncation(
     toolName: string,
-    originalExecute: (params: unknown) => Promise<unknown>,
-  ): (params: unknown) => Promise<unknown> {
-    return async (params: unknown): Promise<unknown> => {
-      const result = await originalExecute(params);
+    originalExecute: (
+      params: unknown,
+      execOptions?: unknown,
+    ) => Promise<unknown>,
+  ): (params: unknown, execOptions?: unknown) => Promise<unknown> {
+    return async (params: unknown, execOptions?: unknown): Promise<unknown> => {
+      const signal = (execOptions as { abortSignal?: AbortSignal } | undefined)
+        ?.abortSignal;
+      const inner = originalExecute(params, execOptions);
+      // Inner executes that ignore the signal (external MCP / custom tools —
+      // the signal isn't plumbed to their transports yet) still return
+      // promptly on abort via the race; the loop's isAbortError handling
+      // treats the rejection as a cancellation, not a tool failure.
+      const result =
+        signal && typeof signal.addEventListener === "function"
+          ? await raceWithAbortSignal(inner, signal)
+          : await inner;
       return this.truncateToolResult(toolName, result);
     };
   }
@@ -323,7 +391,12 @@ export class ToolsManager {
         "execute" in directTool
       ) {
         const originalExecute = (
-          directTool as { execute: (params: unknown) => Promise<unknown> }
+          directTool as {
+            execute: (
+              params: unknown,
+              execOptions?: unknown,
+            ) => Promise<unknown>;
+          }
         ).execute;
 
         // Create a new tool with wrapped execute function (BZ-666/BZ-664 guards applied)
@@ -333,12 +406,12 @@ export class ToolsManager {
         );
         tools[toolName] = {
           ...(directTool as Tool),
-          execute: async (params: unknown) => {
+          execute: async (params: unknown, execOptions?: unknown) => {
             const startTime = Date.now();
             this.emitToolEvent("tool:start", toolName, { input: params });
 
             try {
-              const result = await guardedExecute(params);
+              const result = await guardedExecute(params, execOptions);
               this.emitToolEvent("tool:end", toolName, {
                 result,
                 success: true,
@@ -396,7 +469,9 @@ export class ToolsManager {
         if (tool && !tools[toolName]) {
           // BZ-666/BZ-664: Wrap custom tool execute with guards
           const origExec = (
-            tool as { execute?: (p: unknown) => Promise<unknown> }
+            tool as {
+              execute?: (p: unknown, o?: unknown) => Promise<unknown>;
+            }
           ).execute;
           if (origExec) {
             const guarded = this.wrapExecuteWithTruncation(toolName, origExec);
@@ -768,12 +843,12 @@ export class ToolsManager {
       return createAISDKTool<unknown, unknown>({
         description: tool.description || `External MCP tool ${tool.name}`,
         inputSchema: finalSchema, // AI SDK v6 uses inputSchema (not parameters)
-        execute: async (params: unknown) => {
+        execute: async (params: unknown, execOptions?: unknown) => {
           const startTime = Date.now();
           this.emitToolEvent("tool:start", tool.name, { input: params });
 
           try {
-            const result = await guardedExecute(params);
+            const result = await guardedExecute(params, execOptions);
             this.emitToolEvent("tool:end", tool.name, {
               result,
               success: true,
