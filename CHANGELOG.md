@@ -1,3 +1,9 @@
+## [9.81.3](https://github.com/juspay/neurolink/compare/v9.81.2...v9.81.3) (2026-07-07)
+
+### Bug Fixes
+
+- **(vertex):** in-loop context guard, consecutive tool-failure breaker, per-tool abort ([c8ff565](https://github.com/juspay/neurolink/commit/c8ff565f1b61adc75c19dd83a0b6dd3fcaeeb3e0))
+
 ## [9.81.2](https://github.com/juspay/neurolink/compare/v9.81.1...v9.81.2) (2026-07-05)
 
 ### Bug Fixes
