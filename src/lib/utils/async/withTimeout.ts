@@ -85,6 +85,58 @@ export async function withTimeout<T>(
 }
 
 /**
+ * Race a promise against an AbortSignal so the caller observes an abort
+ * IMMEDIATELY instead of waiting for the operation to settle (or for a
+ * separate timeout to expire). Rejects with an abort-shaped error
+ * (`name === "AbortError"`) so provider loops route it to their existing
+ * cancellation handling.
+ *
+ * The underlying operation is NOT cancelled — it continues as a bounded
+ * ghost (the same tradeoff as {@link withTimeout}); its eventual settlement
+ * is swallowed so it can never surface as an unhandled rejection.
+ */
+export async function raceWithAbort<T>(
+  promise: Promise<T>,
+  signal: AbortSignal | undefined,
+): Promise<T> {
+  if (!signal || typeof signal.addEventListener !== "function") {
+    return promise;
+  }
+  const makeAbortError = (): Error => {
+    const e = new Error("Operation aborted");
+    e.name = "AbortError";
+    return e;
+  };
+  if (signal.aborted) {
+    promise.catch(() => {
+      // Swallow the abandoned settlement — it must never surface as an
+      // unhandled rejection after the race has already been decided.
+    });
+    return Promise.reject(makeAbortError());
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      promise.catch(() => {
+        // Swallow the abandoned settlement — it must never surface as an
+        // unhandled rejection after the race has already been decided.
+      });
+      reject(makeAbortError());
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
+/**
  * Execute a function with timeout protection.
  *
  * Alternative signature that accepts a function instead of a promise,

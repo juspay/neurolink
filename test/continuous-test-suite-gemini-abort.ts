@@ -572,16 +572,19 @@ async function main(): Promise<void> {
         },
       };
       const provider = await makeProvider(client);
+      let toolExecuted = false;
       const result = await runGenerate(provider, {
         input: { text: "run tools" },
-        // The tool runs normally (returns without throwing). The abort fires in
-        // the iterable's finally, AFTER step 0's drain, so the break comes from
-        // the next iteration's loop-entry guard — not the tool-exec inner catch.
+        // The abort fires in the iterable's finally, AFTER step 0's drain but
+        // BEFORE the tool batch runs — the per-tool abort check must skip the
+        // batch entirely (an aborted turn executes no further tools), and the
+        // next loop-entry guard prevents a second model request.
         tools: {
           myTool: {
             description: "A test tool",
             parameters: { type: "object", properties: {} },
             execute: async (): Promise<{ ok: true }> => {
+              toolExecuted = true;
               return { ok: true };
             },
           },
@@ -589,9 +592,13 @@ async function main(): Promise<void> {
         maxSteps,
         abortSignal: controller.signal,
       });
+      assert(
+        !toolExecuted,
+        "an already-aborted turn must not execute its pending tool batch",
+      );
       assertEqual(
         result.content,
-        buildAbortedTurnMessage(1),
+        buildAbortedTurnMessage(0),
         `expected honest aborted-turn message, got: ${result.content}`,
       );
       assertEqual(result.stopReason, "aborted", "stopReason must be 'aborted'");
@@ -1366,6 +1373,105 @@ async function main(): Promise<void> {
     const abortedNoTools = buildAbortedTurnMessage(0);
     assertEqual(abortedNoTools, "This turn was stopped before I could finish.");
     assertIncludes(buildAbortedTurnMessage(1), "1 tool call before stopping");
+  });
+
+  // -------------------------------------------------------------------------
+  // 27. Context guard: stop the tool loop before the model window overflows
+  // (gemini-3-pro-preview on vertex → 1,048,576 window, threshold ~891K).
+  // -------------------------------------------------------------------------
+  await test("generate: context guard trips -> tools-disabled synthesis, stopReason 'completed'", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const mock = makeMock((i) =>
+        i === 0
+          ? [
+              {
+                functionCalls: [{ name: "myTool", args: { q: "x" } }],
+                candidates: [
+                  {
+                    content: {
+                      parts: [
+                        { functionCall: { name: "myTool", args: { q: "x" } } },
+                      ],
+                    },
+                  },
+                ],
+                // Reported prompt already past the ~891K threshold — the loop
+                // must stop BEFORE issuing another agentic step.
+                usageMetadata: {
+                  promptTokenCount: 950_000,
+                  candidatesTokenCount: 3,
+                },
+              },
+            ]
+          : [textChunk("synthesized from gathered results")],
+      );
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "research everything" },
+        tools: makeTool(),
+        maxSteps: 10,
+      });
+      assertEqual(
+        mock.calls.length,
+        2,
+        "1 agentic step + 1 synthesis call — no further tool steps",
+      );
+      assertEqual(result.content, "synthesized from gathered results");
+      assertEqual(
+        result.stopReason,
+        "completed",
+        "a synthesized answer counts as completed",
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 28. Breaker counts error-shaped RESULTS (MCP isError), not just throws
+  // -------------------------------------------------------------------------
+  await test("generate: error-shaped results (MCP isError) trip the failedTools breaker without a throw", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      let execCount = 0;
+      const tools = {
+        myTool: {
+          description: "A test tool",
+          parameters: {
+            type: "object",
+            properties: { q: { type: "string" } },
+          },
+          execute: async (): Promise<unknown> => {
+            execCount++;
+            // MCP tools report failure by RETURNING isError, not throwing —
+            // the shape curator's mcp-proxy uses for blocked tools.
+            return {
+              isError: true,
+              content: [{ type: "text", text: "Tool blocked by proxy" }],
+            };
+          },
+        },
+      };
+      const mock = makeMock((i) =>
+        i < 3
+          ? [functionCallChunk("myTool", { q: `try${i}` })]
+          : [textChunk("done without the tool")],
+      );
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "keep trying" },
+        tools,
+        maxSteps: 10,
+      });
+      assertEqual(
+        execCount,
+        2,
+        "error-shaped results must trip the breaker without a single throw",
+      );
+      assertIncludes(
+        JSON.stringify(mock.calls[3].contents),
+        "TOOL_PERMANENTLY_FAILED",
+        "the 3rd attempt returns a permanent-failure functionResponse",
+      );
+      assertEqual(result.content, "done without the tool");
+    });
   });
 }
 

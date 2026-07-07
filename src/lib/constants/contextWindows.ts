@@ -159,6 +159,8 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   },
   anthropic: {
     _default: 200_000,
+    // Claude 5 (mid 2026) — 1M context window
+    "claude-sonnet-5": 1_000_000,
     // Claude 4.6 (Feb 2026) — 1M context window
     "claude-opus-4-6": 1_000_000,
     "claude-sonnet-4-6": 1_000_000,
@@ -248,6 +250,7 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   vertex: {
     _default: 1_048_576,
     // Claude on Vertex
+    "claude-sonnet-5": 1_000_000,
     "claude-opus-4-6": 1_000_000,
     "claude-sonnet-4-6": 1_000_000,
     "claude-sonnet-4-5": 200_000,
@@ -257,6 +260,13 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     "claude-sonnet-4-20250514": 200_000,
     "claude-opus-4-20250514": 200_000,
     "claude-opus-4": 200_000,
+    // Catch-all for UNKNOWN Claude models on Vertex (prefix match runs after
+    // the specific keys above). Without this, an unlisted Claude model falls
+    // to the Gemini-shaped _default (1,048,576) — ABOVE Anthropic's real 1M
+    // API cap — so the pre-dispatch budget check and the in-loop context
+    // guard both under-guard it (the claude-sonnet-5 1,005,647-token 400s).
+    // 200K is the conservative Anthropic floor; list real models explicitly.
+    "claude-": 200_000,
     // Gemini 3.1 on Vertex (all require -preview suffix)
     "gemini-3.1-pro-preview": 1_048_576,
     "gemini-3.1-flash-lite-preview": 1_048_576,

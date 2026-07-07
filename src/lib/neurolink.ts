@@ -120,6 +120,7 @@ import { repairToolPairs } from "./context/toolPairRepair.js";
 import {
   SYSTEM_LIMITS,
   DEFAULT_TOOL_ROUTING_TIMEOUT_MS,
+  MIN_RECOVERY_TURN_BUDGET_MS,
 } from "./core/constants.js";
 import { ConversationMemoryManager } from "./core/conversationMemoryManager.js";
 import {
@@ -5809,6 +5810,7 @@ Current user's request: ${currentInput}`;
       options,
       context.functionTag,
       error,
+      context.generateInternalStartTime,
     );
     if (recoveredResult) {
       return recoveredResult;
@@ -5862,6 +5864,7 @@ Current user's request: ${currentInput}`;
     options: TextGenerationOptions,
     functionTag: string,
     error: unknown,
+    attemptStartTimeMs?: number,
   ): Promise<TextGenerationResult | null> {
     // Reviewer Finding #3: drop the `!this.conversationMemory` gate so
     // inline-conversationMessages callers also benefit from post-provider
@@ -6056,6 +6059,26 @@ Current user's request: ${currentInput}`;
         );
       }
 
+      // Whole-turn budget semantics: the retry inherits the REMAINING
+      // turnTimeoutMs, not a fresh clock — attempt 1 already spent part of
+      // the caller's budget, and a fresh clock let one generate() run ~2×
+      // the configured deadline (the 66-minute-turn incident shape).
+      // Floored so a compacted retry still gets a workable window — but the
+      // floor never exceeds the caller's own turnTimeoutMs (a 10s caller
+      // budget must not receive a 30s retry).
+      let retryTurnTimeoutMs = options.turnTimeoutMs;
+      if (
+        typeof options.turnTimeoutMs === "number" &&
+        Number.isFinite(options.turnTimeoutMs) &&
+        attemptStartTimeMs !== undefined
+      ) {
+        const elapsedMs = Date.now() - attemptStartTimeMs;
+        retryTurnTimeoutMs = Math.max(
+          options.turnTimeoutMs - elapsedMs,
+          Math.min(MIN_RECOVERY_TURN_BUDGET_MS, options.turnTimeoutMs),
+        );
+      }
+
       logger.info(
         `[${functionTag}] Smart recovery verified, retrying generation`,
         {
@@ -6064,12 +6087,16 @@ Current user's request: ${currentInput}`;
           verifiedTokens: verifiedBudget.estimatedInputTokens,
           verifiedBudget: verifiedBudget.availableInputTokens,
           recoveredFraction,
+          retryTurnTimeoutMs,
         },
       );
 
       return this.directProviderGeneration({
         ...options,
         conversationMessages: compactedMessages,
+        ...(retryTurnTimeoutMs !== undefined && {
+          turnTimeoutMs: retryTurnTimeoutMs,
+        }),
       } as TextGenerationOptions);
     } catch (retryError) {
       if (retryError instanceof ContextBudgetExceededError) {

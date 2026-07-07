@@ -1517,6 +1517,255 @@ async function main(): Promise<void> {
       assertEqual(calls.length, 2, "aborted during the 2nd model call");
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Context guard: stop the tool loop before the model window overflows
+  // (claude-sonnet-4-5 on vertex → 200K window, guard threshold 170K).
+  // -------------------------------------------------------------------------
+  await test("generate: context guard trips -> tools-disabled backstop synthesis, stopReason 'completed'", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const mock = makeGenerateMock((i) =>
+        i === 0
+          ? {
+              response: {
+                content: [
+                  {
+                    type: "tool_use",
+                    id: "tu_big",
+                    name: "myTool",
+                    input: { q: "x" },
+                  },
+                ],
+                // Reported prompt already past the 170K threshold — the loop
+                // must stop BEFORE issuing another agentic step.
+                usage: { input_tokens: 180_000, output_tokens: 3 },
+                stop_reason: "tool_use",
+              },
+            }
+          : { response: textResponse("synthesized from gathered results") },
+      );
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "research everything" },
+        tools: makeTool(),
+        maxSteps: 10,
+      });
+      assertEqual(
+        mock.calls.length,
+        2,
+        "1 agentic step + 1 backstop synthesis — no further tool steps",
+      );
+      assertEqual(
+        mock.calls[1].tool_choice?.type,
+        "none",
+        "backstop must disable tools",
+      );
+      assertEqual(result.content, "synthesized from gathered results");
+      assertEqual(
+        result.stopReason,
+        "completed",
+        "a synthesized answer counts as completed",
+      );
+      assertEqual(result.finishReason, "stop");
+    });
+  });
+
+  await test("generate: context guard trips and backstop returns no text -> honest context-cap message, stopReason 'context-cap'", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const mock = makeGenerateMock((i) =>
+        i === 0
+          ? {
+              response: {
+                content: [
+                  {
+                    type: "tool_use",
+                    id: "tu_big",
+                    name: "myTool",
+                    input: { q: "x" },
+                  },
+                ],
+                usage: { input_tokens: 180_000, output_tokens: 3 },
+                stop_reason: "tool_use",
+              },
+            }
+          : { response: textResponse("") },
+      );
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "research everything" },
+        tools: makeTool(),
+        maxSteps: 10,
+      });
+      assertEqual(result.stopReason, "context-cap");
+      assertEqual(
+        result.finishReason,
+        "stop",
+        "context-cap must NOT masquerade as the step-cap 'tool-calls'",
+      );
+      assertIncludes(
+        result.content,
+        "context window",
+        "honest context-cap message",
+      );
+      assert(
+        !result.content.includes("step limit"),
+        "context exits must never claim a step limit was reached",
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Consecutive-failure breaker (ported from the Gemini loops)
+  // -------------------------------------------------------------------------
+  await test("generate: a tool that throws twice is short-circuited on the 3rd call (TOOL_PERMANENTLY_FAILED)", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      let execCount = 0;
+      const tools = makeTool(async () => {
+        execCount++;
+        throw new Error("boom");
+      });
+      const mock = makeGenerateMock((i) =>
+        i < 3
+          ? { response: toolUseResponse("myTool", { q: `try${i}` }) }
+          : { response: textResponse("done without the tool") },
+      );
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "keep trying" },
+        tools,
+        maxSteps: 10,
+      });
+      assertEqual(
+        execCount,
+        2,
+        "execution stops at DEFAULT_TOOL_MAX_RETRIES failures",
+      );
+      assertIncludes(
+        JSON.stringify(mock.calls[3].messages),
+        "TOOL_PERMANENTLY_FAILED",
+        "the 3rd attempt returns a permanent-failure tool_result to the model",
+      );
+      assertEqual(result.content, "done without the tool");
+      assertEqual(result.stopReason, "completed");
+    });
+  });
+
+  await test("generate: error-shaped RESULTS (MCP isError) count toward the breaker — proxy-blocked tools stop being retried", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      let execCount = 0;
+      const tools = makeTool(async () => {
+        execCount++;
+        // MCP tools report failure by RETURNING isError, not throwing —
+        // the shape curator's mcp-proxy uses for blocked tools.
+        return {
+          isError: true,
+          content: [{ type: "text", text: "Tool blocked by proxy" }],
+        };
+      });
+      const mock = makeGenerateMock((i) =>
+        i < 3
+          ? { response: toolUseResponse("myTool", { q: `try${i}` }) }
+          : { response: textResponse("done without the tool") },
+      );
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "keep trying" },
+        tools,
+        maxSteps: 10,
+      });
+      assertEqual(
+        execCount,
+        2,
+        "error-shaped results must trip the breaker without a single throw",
+      );
+      assertIncludes(
+        JSON.stringify(mock.calls[3].messages),
+        "TOOL_PERMANENTLY_FAILED",
+        "the 3rd attempt returns a permanent-failure tool_result to the model",
+      );
+      assertEqual(result.content, "done without the tool");
+    });
+  });
+
+  await test("generate: the breaker is genuinely CONSECUTIVE — a success between failures resets the strike count", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      let execCount = 0;
+      // Alternates: fail, succeed, fail, succeed — the strike count resets on
+      // every success, so the tool must NEVER be short-circuited.
+      const tools = makeTool(async () => {
+        execCount++;
+        if (execCount % 2 === 1) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: `not found #${execCount}` }],
+          };
+        }
+        return { ok: true };
+      });
+      const mock = makeGenerateMock((i) =>
+        i < 4
+          ? { response: toolUseResponse("myTool", { q: `try${i}` }) }
+          : { response: textResponse("all four attempts executed") },
+      );
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "alternating outcomes" },
+        tools,
+        maxSteps: 10,
+      });
+      assertEqual(
+        execCount,
+        4,
+        "interleaved successes must reset the breaker — no short-circuit",
+      );
+      assert(
+        !JSON.stringify(mock.calls.map((c) => c.messages)).includes(
+          "TOOL_PERMANENTLY_FAILED",
+        ),
+        "no permanent-failure result may appear when failures never run consecutively",
+      );
+      assertEqual(result.content, "all four attempts executed");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Per-tool abort check: a multi-tool step must stop executing its batch
+  // the moment the turn is aborted (deadline overshoot fix).
+  // -------------------------------------------------------------------------
+  await test("generate: abort between tool executions skips the remaining batch (stopReason 'aborted')", async () => {
+    await withTemporaryEnv(VERTEX_ENV, async () => {
+      const controller = new AbortController();
+      let execCount = 0;
+      const tools = makeTool(async () => {
+        execCount++;
+        // The turn is aborted while the FIRST tool of the batch runs; the
+        // second tool_use in the same step must never execute.
+        controller.abort();
+        return { ok: true };
+      });
+      const mock = makeGenerateMock(() => ({
+        response: {
+          content: [
+            { type: "tool_use", id: "tu_a", name: "myTool", input: { q: "a" } },
+            { type: "tool_use", id: "tu_b", name: "myTool", input: { q: "b" } },
+          ],
+          usage: { input_tokens: 5, output_tokens: 3 },
+          stop_reason: "tool_use",
+        },
+      }));
+      const provider = await makeProvider(mock.client);
+      const result = await runGenerate(provider, {
+        input: { text: "run both tools" },
+        tools,
+        maxSteps: 5,
+        abortSignal: controller.signal,
+      });
+      assertEqual(execCount, 1, "second tool in the batch must be skipped");
+      assertEqual(mock.calls.length, 1, "no further model calls after abort");
+      assertEqual(result.stopReason, "aborted");
+      assertIncludes(result.content, "stopped before I could finish");
+    });
+  });
 }
 
 await runSuite(main);

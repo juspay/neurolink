@@ -669,6 +669,10 @@ export type AdditionalMemoryUser = {
  *
  * - `completed` — the model finished on its own (text answer or final_result)
  * - `step-cap` — the `maxSteps` budget ran out while the model still wanted tools
+ * - `context-cap` — the in-loop context guard stopped the tool loop because the
+ *   accumulated conversation approached the model's context window (and the
+ *   terminal synthesis could not produce an answer); without the guard these
+ *   turns died mid-loop on a provider 400 "prompt is too long"
  * - `time-limit` — the `turnTimeoutMs` wall-clock deadline passed
  * - `stalled` — no progress (no chunk, no tool start/finish) for `stallTimeoutMs`
  * - `aborted` — the caller's `abortSignal` ended the turn
@@ -678,6 +682,7 @@ export type AdditionalMemoryUser = {
 export type GenerateStopReason =
   | "completed"
   | "step-cap"
+  | "context-cap"
   | "time-limit"
   | "stalled"
   | "aborted"
