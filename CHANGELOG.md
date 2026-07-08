@@ -1,3 +1,9 @@
+## [9.83.0](https://github.com/juspay/neurolink/compare/v9.82.0...v9.83.0) (2026-07-08)
+
+### Features
+
+- **(caching):** capture and price cached tokens across providers ([fbf931a](https://github.com/juspay/neurolink/commit/fbf931a9200b2cd6990d0d77baad9e811c0b818f))
+
 ## [9.82.0](https://github.com/juspay/neurolink/compare/v9.81.3...v9.82.0) (2026-07-08)
 
 ### Features
