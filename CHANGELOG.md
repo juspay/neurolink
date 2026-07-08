@@ -1,3 +1,15 @@
+## [9.82.0](https://github.com/juspay/neurolink/compare/v9.81.3...v9.82.0) (2026-07-08)
+
+### Features
+
+- **(cli):** add audio playback support for TTS output ([0e6580f](https://github.com/juspay/neurolink/commit/0e6580fcb3ede82bba39522527cda4f1ada5c3d4))
+- **(proxy):** reuse upstream connections via tuned keep-alive dispatcher ([86668b9](https://github.com/juspay/neurolink/commit/86668b9c9b6651227af2f0ceb6f9c07f81d10017))
+
+### Bug Fixes
+
+- **(core):** pass system messages via generateText system option, not messages ([#1024](https://github.com/juspay/neurolink/issues/1024)) ([9f8104e](https://github.com/juspay/neurolink/commit/9f8104e7bda9b2943e90df0fea2f1a8506c0a4ac))
+- **(exports):** make root import work without react installed ([4fb0a55](https://github.com/juspay/neurolink/commit/4fb0a556b2c8e055940288d5df7abed5e58251f6))
+
 ## [9.81.3](https://github.com/juspay/neurolink/compare/v9.81.2...v9.81.3) (2026-07-07)
 
 ### Bug Fixes
