@@ -44,6 +44,7 @@
     "build:react-hooks": "npx tsc --jsx react-jsx --module nodenext --moduleResolution nodenext --target esnext --esModuleInterop --skipLibCheck --outDir dist --declaration false src/lib/client/reactHooks.tsx",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit --strict",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "typecheck": "tsc --noEmit",
     "modelServer": "tsx scripts/modelServer.ts",
     "lint": "prettier --check . && NODE_OPTIONS='--max-old-space-size=8192' eslint .",
     "format": "prettier --write .",
