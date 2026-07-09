@@ -1,3 +1,9 @@
+## [9.84.1](https://github.com/juspay/neurolink/compare/v9.84.0...v9.84.1) (2026-07-09)
+
+### Bug Fixes
+
+- **(ci):** add missing typecheck script for docs PR validation ([9eaa058](https://github.com/juspay/neurolink/commit/9eaa058e9d79662282881cc556d5de5212dead68))
+
 ## [9.84.0](https://github.com/juspay/neurolink/compare/v9.83.0...v9.84.0) (2026-07-08)
 
 ### Features
