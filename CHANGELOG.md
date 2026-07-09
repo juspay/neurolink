@@ -1,3 +1,9 @@
+## [9.84.2](https://github.com/juspay/neurolink/compare/v9.84.1...v9.84.2) (2026-07-09)
+
+### Bug Fixes
+
+- **(csv):** support CRLF and CR line endings ([f28bd6c](https://github.com/juspay/neurolink/commit/f28bd6cb603e658e6885c3bd3e558bd748063ba6))
+
 ## [9.84.1](https://github.com/juspay/neurolink/compare/v9.84.0...v9.84.1) (2026-07-09)
 
 ### Bug Fixes
