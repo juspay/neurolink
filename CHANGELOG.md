@@ -1,3 +1,9 @@
+## [9.85.0](https://github.com/juspay/neurolink/compare/v9.84.2...v9.85.0) (2026-07-09)
+
+### Features
+
+- **(skills):** add native skills support (stores, tools, prompt index, CLI, API) ([f7bd694](https://github.com/juspay/neurolink/commit/f7bd694453088f05af32608cc9332b20c7eaa51e))
+
 ## [9.84.2](https://github.com/juspay/neurolink/compare/v9.84.1...v9.84.2) (2026-07-09)
 
 ### Bug Fixes
