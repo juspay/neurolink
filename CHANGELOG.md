@@ -1,3 +1,9 @@
+## [9.86.1](https://github.com/juspay/neurolink/compare/v9.86.0...v9.86.1) (2026-07-10)
+
+### Bug Fixes
+
+- **(proxy):** seed persisted quota and probe unknown accounts ([5b511fc](https://github.com/juspay/neurolink/commit/5b511fcb04055a9f0bd85ff523a1c5412ed931d2))
+
 ## [9.86.0](https://github.com/juspay/neurolink/compare/v9.85.1...v9.86.0) (2026-07-10)
 
 ### Features
