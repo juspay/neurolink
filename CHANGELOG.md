@@ -1,3 +1,9 @@
+## [9.86.2](https://github.com/juspay/neurolink/compare/v9.86.1...v9.86.2) (2026-07-10)
+
+### Bug Fixes
+
+- **(anthropic):** prompt-cache breakpoints + accounting parity for the direct-Anthropic path ([66df1ae](https://github.com/juspay/neurolink/commit/66df1ae537e5515434120b311c4af37d44c8b0a5))
+
 ## [9.86.1](https://github.com/juspay/neurolink/compare/v9.86.0...v9.86.1) (2026-07-10)
 
 ### Bug Fixes
