@@ -1,3 +1,9 @@
+## [9.86.0](https://github.com/juspay/neurolink/compare/v9.85.1...v9.86.0) (2026-07-10)
+
+### Features
+
+- **(skills):** progressive disclosure with session-pinned activation ([b5be3be](https://github.com/juspay/neurolink/commit/b5be3bebbbb50eec3ca0e9689c7ff49211cb45fe))
+
 ## [9.85.1](https://github.com/juspay/neurolink/compare/v9.85.0...v9.85.1) (2026-07-10)
 
 ### Bug Fixes
