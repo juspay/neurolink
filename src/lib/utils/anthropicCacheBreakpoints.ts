@@ -26,7 +26,8 @@ import type {
 const EPHEMERAL: VertexAnthropicCacheControl = { type: "ephemeral" };
 
 /** Anthropic allows at most four `cache_control` breakpoints per request. */
-const MAX_BREAKPOINTS = 4;
+export const ANTHROPIC_MAX_CACHE_BREAKPOINTS = 4;
+const MAX_BREAKPOINTS = ANTHROPIC_MAX_CACHE_BREAKPOINTS;
 
 /**
  * Annotate a native Vertex+Claude request with prompt-cache breakpoints.
@@ -80,6 +81,72 @@ export function applyVertexAnthropicCacheBreakpoints(
   }
 
   return { system, tools, messages };
+}
+
+/**
+ * Count the `cache_control` markers already present on a request. The direct
+ * Anthropic path (AI-SDK pipeline) arrives with markers the upstream layers
+ * placed — MessageBuilder tags the system prompt, GenerationHandler tags the
+ * last tool definition, and message content blocks may carry translated
+ * AI-SDK markers. Anthropic rejects requests with more than four markers, so
+ * any additional history breakpoints must fit in the remaining budget.
+ */
+export function countAnthropicCacheMarkers(input: {
+  system?: string | ReadonlyArray<{ cache_control?: unknown }> | undefined;
+  tools?: ReadonlyArray<{ cache_control?: unknown }> | undefined;
+  messages: ReadonlyArray<VertexAnthropicMessage>;
+}): number {
+  let count = 0;
+  if (Array.isArray(input.system)) {
+    count += input.system.filter((b) => b.cache_control).length;
+  }
+  if (input.tools) {
+    count += input.tools.filter((t) => t.cache_control).length;
+  }
+  for (const message of input.messages) {
+    if (Array.isArray(message.content)) {
+      count += message.content.filter(
+        (b) => (b as { cache_control?: unknown }).cache_control,
+      ).length;
+    }
+  }
+  return count;
+}
+
+/**
+ * Rolling history breakpoints for request paths whose stable-prefix markers
+ * are managed upstream (direct Anthropic: system via MessageBuilder, last
+ * tool via GenerationHandler). Marks the last content block of up to `budget`
+ * tail messages; a tail block that already carries a marker is left as-is
+ * without consuming budget (it already serves as that breakpoint). Pure —
+ * the input array is cloned, never mutated.
+ */
+export function applyAnthropicHistoryCacheBreakpoints(
+  input: ReadonlyArray<VertexAnthropicMessage>,
+  budget: number,
+): VertexAnthropicMessage[] {
+  const messages = input.map((m) => ({ ...m }));
+  let remaining = Math.max(0, Math.min(budget, MAX_BREAKPOINTS));
+  for (let i = messages.length - 1; i >= 0 && remaining > 0; i--) {
+    if (lastContentBlockHasMarker(messages[i])) {
+      continue;
+    }
+    if (markLastContentBlock(messages, i)) {
+      remaining--;
+    }
+  }
+  return messages;
+}
+
+/** True when the last content block of a message already carries `cache_control`. */
+function lastContentBlockHasMarker(message: VertexAnthropicMessage): boolean {
+  if (!Array.isArray(message.content) || message.content.length === 0) {
+    return false;
+  }
+  const last = message.content[message.content.length - 1] as {
+    cache_control?: unknown;
+  };
+  return !!last.cache_control;
 }
 
 /**

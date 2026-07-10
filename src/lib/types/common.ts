@@ -357,6 +357,16 @@ export type RawUsageObject = {
   cacheCreationTokens?: number;
   cacheReadTokens?: number;
 
+  // ai@6 normalized usage (generateText/streamText result.usage) — the SDK's
+  // asLanguageModelUsage() exposes cache reads flat as `cachedInputTokens`
+  // and the read/write split nested under `inputTokenDetails`. The native
+  // direct-Anthropic V3 model reports cache tokens ONLY through this shape.
+  cachedInputTokens?: number;
+  inputTokenDetails?: {
+    cacheReadTokens?: number;
+    cacheWriteTokens?: number;
+  };
+
   // OpenAI/DeepSeek/NIM/OpenAI-compatible nested cache field (overlapping:
   // cached_tokens is a SUBSET already included in prompt_tokens)
   prompt_tokens_details?: { cached_tokens?: number };
@@ -369,6 +379,19 @@ export type RawUsageObject = {
 
   // Nested usage object (some providers wrap usage)
   usage?: RawUsageObject;
+};
+
+/**
+ * Aggregated usage resolved by a provider's deferred-analytics pair after a
+ * multi-step stream loop ends. The cache fields are optional — only providers
+ * with prompt caching (Anthropic) populate them.
+ */
+export type DeferredUsage = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
 };
 
 /**

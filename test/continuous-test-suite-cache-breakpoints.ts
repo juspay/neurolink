@@ -13,10 +13,17 @@ import "dotenv/config";
  *      pnpm run test:cache
  */
 
-import { applyVertexAnthropicCacheBreakpoints } from "../src/lib/utils/anthropicCacheBreakpoints.js";
+import {
+  applyVertexAnthropicCacheBreakpoints,
+  applyAnthropicHistoryCacheBreakpoints,
+  countAnthropicCacheMarkers,
+  ANTHROPIC_MAX_CACHE_BREAKPOINTS,
+} from "../src/lib/utils/anthropicCacheBreakpoints.js";
 import {
   extractTokenUsage,
   extractCachedInputTokensOverlapping,
+  extractCacheReadTokens,
+  extractCacheCreationTokens,
 } from "../src/lib/utils/tokenUtils.js";
 import { calculateCost } from "../src/lib/utils/pricing.js";
 import { defineSuite, logSection } from "./helpers/harness.js";
@@ -403,6 +410,129 @@ function testOverlappingCacheExtraction(): void {
   }
 }
 
+function testDirectAnthropicHistoryBreakpoints(): void {
+  logSection(
+    "Direct-Anthropic path — history breakpoints under a pre-marked budget",
+  );
+  try {
+    // The direct path arrives with markers upstream layers placed: system
+    // (MessageBuilder) + last tool (GenerationHandler). Both must be counted.
+    const system = [
+      { type: "text", text: "sys", cache_control: { type: "ephemeral" } },
+    ];
+    const tools = [
+      { name: "a" },
+      { name: "b", cache_control: { type: "ephemeral" } },
+    ];
+    const messages = [
+      { role: "user" as const, content: "one" },
+      { role: "assistant" as const, content: [{ type: "text", text: "two" }] },
+      { role: "user" as const, content: [{ type: "text", text: "three" }] },
+    ];
+    const used = countAnthropicCacheMarkers({ system, tools, messages });
+    recordTest("pre-existing system + tool markers counted", used === 2);
+
+    const out = applyAnthropicHistoryCacheBreakpoints(
+      messages,
+      ANTHROPIC_MAX_CACHE_BREAKPOINTS - used,
+    );
+    recordTest(
+      "history markers fill only the remaining budget (2 of 3 messages)",
+      countHistoryBreakpoints(out) === 2,
+    );
+    recordTest(
+      "markers placed on the newest messages first",
+      lastBlockHasCC(out[2]) &&
+        lastBlockHasCC(out[1]) &&
+        !lastBlockHasCC(out[0]),
+    );
+    recordTest(
+      "total request markers stay within Anthropic's cap",
+      used + countHistoryBreakpoints(out) <= ANTHROPIC_MAX_CACHE_BREAKPOINTS,
+    );
+    recordTest(
+      "input messages are not mutated (pure)",
+      !lastBlockHasCC(messages[2]),
+    );
+
+    // A tail block that already carries a marker is left as-is and does not
+    // consume budget — re-application on multi-step loops stays idempotent.
+    const preMarked = [
+      { role: "user" as const, content: [{ type: "text", text: "a" }] },
+      {
+        role: "user" as const,
+        content: [
+          { type: "text", text: "b", cache_control: { type: "ephemeral" } },
+        ],
+      },
+    ];
+    const outPre = applyAnthropicHistoryCacheBreakpoints(preMarked, 1);
+    recordTest(
+      "already-marked tail block is skipped without consuming budget",
+      lastBlockHasCC(outPre[1]) && lastBlockHasCC(outPre[0]),
+    );
+
+    const outZero = applyAnthropicHistoryCacheBreakpoints(messages, 0);
+    recordTest(
+      "zero budget adds no markers",
+      countHistoryBreakpoints(outZero) === 0,
+    );
+    const outNeg = applyAnthropicHistoryCacheBreakpoints(messages, -1);
+    recordTest(
+      "negative budget (over-marked request) adds no markers",
+      countHistoryBreakpoints(outNeg) === 0,
+    );
+  } catch (error) {
+    recordTest(
+      "direct-anthropic history breakpoints",
+      false,
+      false,
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
+function testAi6CacheUsageExtraction(): void {
+  logSection("ai@6 normalized usage — cache token extraction");
+  try {
+    recordTest(
+      "flat cachedInputTokens recognized as cache reads",
+      extractCacheReadTokens({ cachedInputTokens: 128 }) === 128,
+    );
+    recordTest(
+      "nested inputTokenDetails.cacheReadTokens recognized",
+      extractCacheReadTokens({
+        inputTokenDetails: { cacheReadTokens: 64 },
+      }) === 64,
+    );
+    recordTest(
+      "nested inputTokenDetails.cacheWriteTokens recognized as cache creation",
+      extractCacheCreationTokens({
+        inputTokenDetails: { cacheWriteTokens: 32 },
+      }) === 32,
+    );
+    recordTest(
+      "legacy cacheReadInputTokens still takes precedence",
+      extractCacheReadTokens({
+        cacheReadInputTokens: 10,
+        cachedInputTokens: 999,
+      }) === 10,
+    );
+    recordTest(
+      "no cache fields → undefined (unchanged behaviour)",
+      extractCacheReadTokens({ inputTokens: 100 }) === undefined &&
+        extractCacheCreationTokens({ inputTokens: 100 }) === undefined,
+    );
+  } catch (error) {
+    recordTest(
+      "ai@6 cache usage extraction",
+      false,
+      false,
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
 await runSuite(async () => {
   testSystemAndRollingHistory();
   testNoSystemMarksLastTool();
@@ -410,4 +540,6 @@ await runSuite(async () => {
   testHistoryBreakpointCap();
   testEdgeCases();
   testOverlappingCacheExtraction();
+  testDirectAnthropicHistoryBreakpoints();
+  testAi6CacheUsageExtraction();
 });

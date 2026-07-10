@@ -53,6 +53,12 @@ import {
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
+import {
+  ANTHROPIC_MAX_CACHE_BREAKPOINTS,
+  applyAnthropicHistoryCacheBreakpoints,
+  countAnthropicCacheMarkers,
+} from "../utils/anthropicCacheBreakpoints.js";
+import type { VertexAnthropicMessage } from "../types/index.js";
 import { calculateCost } from "../utils/pricing.js";
 import {
   createAnthropicConfig,
@@ -1446,9 +1452,27 @@ export class AnthropicProvider extends BaseProvider {
           | { type: "enabled"; budget_tokens: number }
           | undefined;
 
+        // Prompt-cache parity with the native Vertex+Claude path: upstream
+        // layers mark only the stable prefix (system via MessageBuilder,
+        // last tool via GenerationHandler) — the growing conversation
+        // history has no breakpoint, so on every turn it falls after the
+        // last marker and is re-billed as fresh input. Add rolling history
+        // breakpoints in whatever budget remains under Anthropic's
+        // four-marker ceiling; pre-existing markers are counted so the
+        // request can never exceed the cap.
+        const cacheMarkersUsed = countAnthropicCacheMarkers({
+          system,
+          tools,
+          messages: messages as unknown as VertexAnthropicMessage[],
+        });
+        const cachedMessages = applyAnthropicHistoryCacheBreakpoints(
+          messages as unknown as VertexAnthropicMessage[],
+          ANTHROPIC_MAX_CACHE_BREAKPOINTS - cacheMarkersUsed,
+        ) as unknown as Anthropic.Messages.MessageParam[];
+
         const params: Anthropic.Messages.MessageCreateParamsNonStreaming = {
           model: modelId,
-          messages,
+          messages: cachedMessages,
           max_tokens: resolveClaudeMaxTokens(modelId, options.maxOutputTokens),
           ...(system ? { system } : {}),
           ...(options.temperature !== undefined &&
@@ -1741,10 +1765,22 @@ export class AnthropicProvider extends BaseProvider {
           "gen_ai.usage.output_tokens",
           usage.completionTokens || 0,
         );
+        if (usage.cacheReadTokens) {
+          streamSpan.setAttribute(
+            "gen_ai.usage.cached_input_tokens",
+            usage.cacheReadTokens,
+          );
+        }
         const cost = calculateCost(this.providerName, this.modelName, {
           input: usage.promptTokens || 0,
           output: usage.completionTokens || 0,
           total: usage.totalTokens || 0,
+          ...(usage.cacheReadTokens
+            ? { cacheReadTokens: usage.cacheReadTokens }
+            : {}),
+          ...(usage.cacheCreationTokens
+            ? { cacheCreationTokens: usage.cacheCreationTokens }
+            : {}),
         });
         if (cost && cost > 0) {
           streamSpan.setAttribute("neurolink.cost", cost);
@@ -1773,12 +1809,30 @@ export class AnthropicProvider extends BaseProvider {
       const conversation = payload.messages.slice();
       let totalInput = 0;
       let totalOutput = 0;
+      let totalCacheRead = 0;
+      let totalCacheWrite = 0;
       let lastStop: string | null = null;
 
       for (let step = 0; step < maxSteps; step++) {
+        // Prompt-cache parity with the native Vertex+Claude path — rolling
+        // history breakpoints, re-applied per step so the stable prefix
+        // stays byte-identical while the breakpoint follows the growing
+        // tail. Budget respects markers upstream layers already placed
+        // (system / last tool / message blocks) so the request never
+        // exceeds Anthropic's four-marker cap. Pure: `conversation` itself
+        // is never mutated, so re-counting per step stays stable.
+        const cacheMarkersUsed = countAnthropicCacheMarkers({
+          system: payload.system,
+          tools: anthropicTools,
+          messages: conversation as unknown as VertexAnthropicMessage[],
+        });
+        const cachedConversation = applyAnthropicHistoryCacheBreakpoints(
+          conversation as unknown as VertexAnthropicMessage[],
+          ANTHROPIC_MAX_CACHE_BREAKPOINTS - cacheMarkersUsed,
+        ) as unknown as Anthropic.Messages.MessageParam[];
         const params: Anthropic.Messages.MessageCreateParamsStreaming = {
           model: modelId,
-          messages: conversation,
+          messages: cachedConversation,
           max_tokens: resolveClaudeMaxTokens(modelId, options.maxTokens),
           stream: true,
           ...(payload.system ? { system: payload.system } : {}),
@@ -1816,6 +1870,12 @@ export class AnthropicProvider extends BaseProvider {
           if (event.type === "message_start") {
             totalInput += event.message.usage.input_tokens ?? 0;
             totalOutput += event.message.usage.output_tokens ?? 0;
+            // Anthropic reports cache reads/writes SEPARATELY from
+            // input_tokens on the same message_start event — without these
+            // the streaming path silently drops all cache accounting.
+            totalCacheRead += event.message.usage.cache_read_input_tokens ?? 0;
+            totalCacheWrite +=
+              event.message.usage.cache_creation_input_tokens ?? 0;
           } else if (event.type === "content_block_start") {
             blockTypes.set(event.index, event.content_block.type);
             if (event.content_block.type === "tool_use") {
@@ -2016,7 +2076,12 @@ export class AnthropicProvider extends BaseProvider {
       resolveUsage({
         promptTokens: totalInput,
         completionTokens: totalOutput,
-        totalTokens: totalInput + totalOutput,
+        totalTokens:
+          totalInput + totalCacheRead + totalCacheWrite + totalOutput,
+        ...(totalCacheRead > 0 ? { cacheReadTokens: totalCacheRead } : {}),
+        ...(totalCacheWrite > 0
+          ? { cacheCreationTokens: totalCacheWrite }
+          : {}),
       });
       resolveFinish(lastStop ?? "stop");
     };

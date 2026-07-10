@@ -93,7 +93,9 @@ export function extractReasoningTokens(
 
 /**
  * Extract cache creation token count from various provider formats
- * Supports: cacheCreationInputTokens, cacheCreationTokens
+ * Supports: cacheCreationInputTokens, cacheCreationTokens, and the ai@6
+ * normalized `inputTokenDetails.cacheWriteTokens` (the only shape the native
+ * direct-Anthropic path reports through generateText).
  */
 export function extractCacheCreationTokens(
   usage: RawUsageObject,
@@ -110,12 +112,21 @@ export function extractCacheCreationTokens(
   ) {
     return usage.cacheCreationTokens;
   }
+  if (
+    typeof usage.inputTokenDetails?.cacheWriteTokens === "number" &&
+    usage.inputTokenDetails.cacheWriteTokens > 0
+  ) {
+    return usage.inputTokenDetails.cacheWriteTokens;
+  }
   return undefined;
 }
 
 /**
  * Extract cache read token count from various provider formats
- * Supports: cacheReadInputTokens, cacheReadTokens
+ * Supports: cacheReadInputTokens, cacheReadTokens, and the ai@6 normalized
+ * shapes — flat `cachedInputTokens` and nested
+ * `inputTokenDetails.cacheReadTokens` (the only shapes the native
+ * direct-Anthropic path reports through generateText).
  */
 export function extractCacheReadTokens(
   usage: RawUsageObject,
@@ -128,6 +139,18 @@ export function extractCacheReadTokens(
   }
   if (typeof usage.cacheReadTokens === "number" && usage.cacheReadTokens > 0) {
     return usage.cacheReadTokens;
+  }
+  if (
+    typeof usage.cachedInputTokens === "number" &&
+    usage.cachedInputTokens > 0
+  ) {
+    return usage.cachedInputTokens;
+  }
+  if (
+    typeof usage.inputTokenDetails?.cacheReadTokens === "number" &&
+    usage.inputTokenDetails.cacheReadTokens > 0
+  ) {
+    return usage.inputTokenDetails.cacheReadTokens;
   }
   return undefined;
 }
