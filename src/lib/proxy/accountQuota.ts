@@ -205,13 +205,20 @@ export async function loadAccountQuota(
  * Update quota for a single account.
  * Updates in-memory cache immediately (non-blocking),
  * then debounces the disk write to every 5 seconds.
+ *
+ * Loads the persisted file into the cache before the first write so a save
+ * after a process restart merges with existing entries instead of rewriting
+ * the file with only the accounts used since boot (which silently erased
+ * other accounts' snapshots and blinded quota-aware routing to them).
  */
 export async function saveAccountQuota(
   accountKey: string,
   quota: AccountQuota,
 ): Promise<void> {
+  if (!cacheLoaded) {
+    await loadAccountQuotas();
+  }
   memoryCache[accountKey] = quota;
-  cacheLoaded = true;
   dirty = true;
   scheduleFlush();
 }
