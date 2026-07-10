@@ -681,11 +681,27 @@ export type PreparedAnthropicAccountAttempt = {
   upstreamSpan?: Span;
 };
 
+/** How to cool an account after a genuine (non-anti-abuse) 429, derived from
+ *  the response's quota headers + retry-after. */
+export type AccountCooldownPlan = {
+  reason: AccountCoolingReason;
+  /** Epoch-ms until which the account should not be used. */
+  coolingUntil: number;
+  /** When true (5h/7d window rejected), rotate immediately — retrying the same
+   *  account is futile until its window resets. When false (transient burst),
+   *  a small number of jittered same-account retries is allowed first. */
+  rotateImmediately: boolean;
+};
+
 export type AnthropicUpstreamFetchResult = {
   continueLoop: boolean;
   retrySameAccount?: boolean;
   /** When set, the caller should wait this many ms before retrying (from upstream retry-after). */
   retryAfterMs?: number;
+  /** Set on a genuine 429: how long / why to cool this account before rotating. */
+  cooldownPlan?: AccountCooldownPlan;
+  /** Quota snapshot parsed from the response headers (429 or success), if present. */
+  quota?: AccountQuota;
   response?: Response;
   lastError: unknown;
   sawRateLimit: boolean;
@@ -769,6 +785,13 @@ export type AccountQuota = {
 // CLAUDE PROXY ROUTE TYPES (from claudeProxyRoutes.ts)
 // =============================================================================
 
+/** Why an account is currently cooling. Drives cooldown duration and logging.
+ *  - "weekly"    : 7d unified limit rejected — cool until the weekly reset.
+ *  - "session"   : 5h unified limit rejected — cool until the session reset.
+ *  - "transient" : short per-minute/burst 429 — cool for retry-after only.
+ *  - "auth"      : auth/refresh failures (reserved; currently rotate-only). */
+export type AccountCoolingReason = "weekly" | "session" | "transient" | "auth";
+
 /** Runtime state for a proxy account. */
 export type RuntimeAccountState = {
   consecutiveRefreshFailures: number;
@@ -776,9 +799,16 @@ export type RuntimeAccountState = {
   lastToken?: string;
   lastRefreshToken?: string;
   /** Epoch-ms timestamp until which the account should not be used for new
-   *  requests (set after 429 retries are exhausted). Other requests arriving
-   *  during this window will skip the account rather than hammering it again. */
+   *  requests. Set from the ACTUAL Anthropic reset window (5h/7d) on an
+   *  exhaustion 429, or from retry-after on a transient burst. Other requests
+   *  arriving during this window skip the account rather than hammering it. */
   coolingUntil?: number;
+  /** Why the account is cooling (set alongside coolingUntil). */
+  coolingReason?: AccountCoolingReason;
+  /** Latest quota snapshot parsed from Anthropic `anthropic-ratelimit-unified-*`
+   *  headers on ANY response (success or 429). Drives proactive, reset-aware
+   *  selection so we don't have to eat a 429 to discover an account is spent. */
+  quota?: AccountQuota;
 };
 
 /** A passthrough account used in the proxy route handler. */

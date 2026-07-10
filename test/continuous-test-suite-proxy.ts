@@ -1527,6 +1527,174 @@ async function testPrimaryMaybeResetToHome(): Promise<boolean | null> {
 }
 
 // ============================================================================
+// Tests: quota-aware cooldown planning (reset-based, no 60s hardcap)
+// ============================================================================
+
+function makeQuota(
+  over: Record<string, number | string>,
+): Record<string, number | string> {
+  return {
+    sessionUsed: 0,
+    sessionStatus: "allowed",
+    sessionResetAt: 0,
+    weeklyUsed: 0,
+    weeklyStatus: "allowed",
+    weeklyResetAt: 0,
+    fallbackPercentage: 0,
+    overageStatus: "allowed",
+    lastUpdated: Date.now(),
+    ...over,
+  };
+}
+
+async function testPlanCooldownFor429(): Promise<boolean | null> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const now = 1_800_000_000_000; // fixed epoch-ms for determinism
+  const nowSec = Math.floor(now / 1000);
+
+  // 1. Session (5h) exhaustion → rotate immediately, cool until the 5h reset,
+  //    NOT a 60s hardcap.
+  const sessionResetSec = nowSec + 2 * 3600; // +2h
+  const sessionPlan = __testHooks.planCooldownFor429(
+    makeQuota({ sessionStatus: "rejected", sessionResetAt: sessionResetSec }),
+    0,
+    now,
+  );
+  if (
+    sessionPlan.reason !== "session" ||
+    sessionPlan.rotateImmediately !== true ||
+    sessionPlan.coolingUntil !== sessionResetSec * 1000
+  ) {
+    log(
+      `planCooldownFor429: session case wrong: ${JSON.stringify(sessionPlan)}`,
+      "red",
+    );
+    return false;
+  }
+
+  // 2. Weekly (7d) exhaustion → cool until the 7d reset (days), takes
+  //    precedence over session.
+  const weeklyResetSec = nowSec + 3 * 24 * 3600; // +3d
+  const weeklyPlan = __testHooks.planCooldownFor429(
+    makeQuota({
+      weeklyStatus: "rejected",
+      weeklyResetAt: weeklyResetSec,
+      sessionStatus: "rejected",
+      sessionResetAt: sessionResetSec,
+    }),
+    0,
+    now,
+  );
+  if (
+    weeklyPlan.reason !== "weekly" ||
+    weeklyPlan.rotateImmediately !== true ||
+    weeklyPlan.coolingUntil !== weeklyResetSec * 1000
+  ) {
+    log(
+      `planCooldownFor429: weekly case wrong: ${JSON.stringify(weeklyPlan)}`,
+      "red",
+    );
+    return false;
+  }
+
+  // 3. Transient burst (window still "allowed") → retry same account, short
+  //    cooldown from retry-after (not the full reset).
+  const transientPlan = __testHooks.planCooldownFor429(
+    makeQuota({}),
+    5_000,
+    now,
+  );
+  if (
+    transientPlan.reason !== "transient" ||
+    transientPlan.rotateImmediately !== false ||
+    transientPlan.coolingUntil !== now + 5_000
+  ) {
+    log(
+      `planCooldownFor429: transient case wrong: ${JSON.stringify(transientPlan)}`,
+      "red",
+    );
+    return false;
+  }
+
+  // 4. Rejected but reset in the PAST → falls back to retry-after, not a past
+  //    timestamp (would otherwise be clamped to now+MIN).
+  const stalePlan = __testHooks.planCooldownFor429(
+    makeQuota({ sessionStatus: "rejected", sessionResetAt: nowSec - 3600 }),
+    0,
+    now,
+  );
+  if (stalePlan.coolingUntil <= now) {
+    log(
+      `planCooldownFor429: stale reset should clamp forward, got ${stalePlan.coolingUntil}`,
+      "red",
+    );
+    return false;
+  }
+  // A rejected session with a stale reset must still be treated as session
+  // exhaustion (immediate rotation), not degrade to transient behavior.
+  if (stalePlan.reason !== "session" || stalePlan.rotateImmediately !== true) {
+    log(
+      `planCooldownFor429: stale reset should keep session semantics, got ${JSON.stringify(stalePlan)}`,
+      "red",
+    );
+    return false;
+  }
+
+  log("planCooldownFor429: 4 cases passed", "green");
+  return true;
+}
+
+// ============================================================================
+// Tests: quota-optimized ordering (soonest-reset-first, max utilization)
+// ============================================================================
+
+async function testOrderAccountsByQuota(): Promise<boolean | null> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+  const now = 1_800_000_000_000;
+  const nowSec = Math.floor(now / 1000);
+
+  type Acct = { key: string; label: string; token: string; type: "oauth" };
+  const a: Acct = { key: "anthropic:a", label: "a", token: "t", type: "oauth" };
+  const b: Acct = { key: "anthropic:b", label: "b", token: "t", type: "oauth" };
+  const c: Acct = { key: "anthropic:c", label: "c", token: "t", type: "oauth" };
+
+  // a: weekly resets in 3d ; b: weekly resets in 8h (soonest) ; c: session
+  // rejected (cooling until +2h). Expect: b (soonest weekly) → a → c (unusable).
+  __testHooks.setAccountRuntimeState("anthropic:a", {
+    quota: makeQuota({ weeklyResetAt: nowSec + 3 * 24 * 3600 }) as never,
+  });
+  __testHooks.setAccountRuntimeState("anthropic:b", {
+    quota: makeQuota({ weeklyResetAt: nowSec + 8 * 3600 }) as never,
+  });
+  __testHooks.setAccountRuntimeState("anthropic:c", {
+    coolingUntil: now + 2 * 3600 * 1000,
+    quota: makeQuota({
+      sessionStatus: "rejected",
+      sessionResetAt: nowSec + 2 * 3600,
+    }) as never,
+  });
+
+  const ordered = __testHooks
+    .orderAccountsByQuota([a, b, c] as never, now)
+    .map((x: { label: string }) => x.label);
+  if (ordered.join(",") !== "b,a,c") {
+    log(
+      `orderAccountsByQuota: expected b,a,c (soonest-weekly-first, cooling last), got ${ordered.join(",")}`,
+      "red",
+    );
+    __testHooks.resetAllRuntimeState();
+    return false;
+  }
+
+  __testHooks.resetAllRuntimeState();
+  log("orderAccountsByQuota: soonest-reset-first ordering passed", "green");
+  return true;
+}
+
+// ============================================================================
 // Tests: parseRoutingConfig.primaryAccount field
 // ============================================================================
 
@@ -1866,6 +2034,16 @@ const tests: TestFunction[] = [
   {
     name: "Primary: maybeResetPrimaryToHome",
     fn: testPrimaryMaybeResetToHome,
+    category: "proxy-primary",
+  },
+  {
+    name: "Quota: planCooldownFor429 (reset-based)",
+    fn: testPlanCooldownFor429,
+    category: "proxy-primary",
+  },
+  {
+    name: "Quota: orderAccountsByQuota (soonest-reset-first)",
+    fn: testOrderAccountsByQuota,
     category: "proxy-primary",
   },
   {
