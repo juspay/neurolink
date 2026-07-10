@@ -1,3 +1,9 @@
+## [9.85.1](https://github.com/juspay/neurolink/compare/v9.85.0...v9.85.1) (2026-07-10)
+
+### Bug Fixes
+
+- **(proxy):** reset-aware account switching on rate limits ([04c4b96](https://github.com/juspay/neurolink/commit/04c4b96fe1e9c68c08b01c0ab49573efdd11c9fa))
+
 ## [9.85.0](https://github.com/juspay/neurolink/compare/v9.84.2...v9.85.0) (2026-07-09)
 
 ### Features
