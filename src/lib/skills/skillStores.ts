@@ -14,6 +14,7 @@ import yaml from "js-yaml";
 import type {
   SkillDefinition,
   SkillIndexItem,
+  SkillResourceRef,
   SkillStore,
   SkillsStorageConfig,
 } from "../types/index.js";
@@ -52,10 +53,28 @@ function isValidSkill(candidate: unknown): candidate is SkillDefinition {
 /** In-process store backed by a Map. */
 export class InMemorySkillStore implements SkillStore {
   private skills = new Map<string, SkillDefinition>();
+  /** skill id → relative path → content. */
+  private resources = new Map<string, Map<string, string>>();
 
-  constructor(seed?: SkillDefinition[]) {
+  constructor(
+    seed?: SkillDefinition[],
+    resources?: Record<string, Record<string, string>>,
+  ) {
+    for (const [skillId, files] of Object.entries(resources ?? {})) {
+      this.resources.set(skillId, new Map(Object.entries(files)));
+    }
     for (const skill of seed ?? []) {
-      this.skills.set(skill.id, normalizeSkill(skill));
+      const files = this.resources.get(skill.id);
+      const withRefs: SkillDefinition =
+        files && !skill.resources
+          ? {
+              ...skill,
+              resources: Array.from(files.keys())
+                .sort()
+                .map((p): SkillResourceRef => ({ path: p })),
+            }
+          : skill;
+      this.skills.set(skill.id, normalizeSkill(withRefs));
     }
   }
 
@@ -73,6 +92,10 @@ export class InMemorySkillStore implements SkillStore {
 
   async index(): Promise<SkillIndexItem[]> {
     return Array.from(this.skills.values()).map(toSkillIndexItem);
+  }
+
+  async getResource(id: string, resourcePath: string): Promise<string | null> {
+    return this.resources.get(id)?.get(resourcePath) ?? null;
   }
 }
 
@@ -142,15 +165,52 @@ function parseSkillMarkdown(
 }
 
 /**
+ * List every file bundled beside a skill's SKILL.md as a resource ref,
+ * relative paths, sorted for deterministic listings. Recurses into
+ * subdirectories (references/, assets/, …).
+ */
+function listSkillResourceFiles(skillDir: string): SkillResourceRef[] {
+  const refs: SkillResourceRef[] = [];
+  const walk = (current: string, relative: string): void => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const relPath = relative ? `${relative}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        walk(path.join(current, entry.name), relPath);
+      } else if (relPath !== "SKILL.md") {
+        try {
+          refs.push({
+            path: relPath,
+            size: fs.statSync(path.join(current, entry.name)).size,
+          });
+        } catch {
+          refs.push({ path: relPath });
+        }
+      }
+    }
+  };
+  walk(skillDir, "");
+  return refs.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}
+
+/**
  * Directory-backed store. Read layouts:
  *  - `<dir>/<id>.json`      — JSON SkillDefinition (mutable)
  *  - `<dir>/<name>.md`      — frontmatter markdown (read-only source)
- *  - `<dir>/<name>/SKILL.md` — Claude-skills directory layout (read-only source)
+ *  - `<dir>/<name>/SKILL.md` — Claude-skills directory layout (read-only source);
+ *    sibling files become on-demand resources (read_skill_resource)
  * Mutations always write `<id>.json`; a JSON file shadows a markdown skill
  * with the same id, so updating a markdown-sourced skill "copies up" to JSON.
  */
 export class FileSystemSkillStore implements SkillStore {
   private cache: Map<string, SkillDefinition> | null = null;
+  /** skill id → directory, for skills loaded from the SKILL.md layout. */
+  private skillDirs = new Map<string, string>();
 
   constructor(private readonly baseDir: string) {}
 
@@ -161,6 +221,38 @@ export class FileSystemSkillStore implements SkillStore {
   async get(id: string): Promise<SkillDefinition | null> {
     const all = this.load();
     return all.get(id) ?? null;
+  }
+
+  /**
+   * Resources exist only for directory-layout skills (`<name>/SKILL.md`) —
+   * every sibling file of SKILL.md is addressable by its relative path.
+   * The REAL path must stay inside the skill directory: lexical
+   * containment alone would follow a symlink planted inside the skill dir
+   * to anywhere on the host.
+   */
+  async getResource(id: string, resourcePath: string): Promise<string | null> {
+    this.load();
+    const dir = this.skillDirs.get(id);
+    if (!dir) {
+      return null;
+    }
+    try {
+      const realDir = fs.realpathSync(dir);
+      const realResolved = fs.realpathSync(path.resolve(dir, resourcePath));
+      if (
+        realResolved !== realDir &&
+        !realResolved.startsWith(realDir + path.sep)
+      ) {
+        return null;
+      }
+      return fs.readFileSync(realResolved, "utf-8");
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "EISDIR" || code === "ELOOP") {
+        return null;
+      }
+      throw error;
+    }
   }
 
   async put(skill: SkillDefinition): Promise<void> {
@@ -201,6 +293,7 @@ export class FileSystemSkillStore implements SkillStore {
     }
 
     const skills = new Map<string, SkillDefinition>();
+    this.skillDirs = new Map();
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(this.baseDir, { withFileTypes: true });
@@ -228,7 +321,12 @@ export class FileSystemSkillStore implements SkillStore {
               entry.name,
             );
             if (parsed) {
-              skills.set(parsed.id, parsed);
+              const resources = listSkillResourceFiles(fullPath);
+              skills.set(
+                parsed.id,
+                resources.length > 0 ? { ...parsed, resources } : parsed,
+              );
+              this.skillDirs.set(parsed.id, path.resolve(fullPath));
             }
           }
         } else if (entry.name.endsWith(".md")) {
@@ -279,6 +377,7 @@ export function createSkillStore(config?: SkillsStorageConfig): SkillStore {
   if (!config || config.type === "memory") {
     return new InMemorySkillStore(
       config?.type === "memory" ? config.skills : undefined,
+      config?.type === "memory" ? config.resources : undefined,
     );
   }
   if (config.type === "filesystem") {

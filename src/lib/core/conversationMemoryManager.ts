@@ -138,7 +138,14 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
             assistantMsg.events = options.events;
           }
 
-          session.messages.push(userMsg, assistantMsg);
+          session.messages.push(userMsg);
+          // Pinned skill activations ride between ask and answer, mirroring
+          // the actual order (ask → skill loaded → answer). Stored verbatim —
+          // skill instructions are never truncated.
+          if (options.skillMessages && options.skillMessages.length > 0) {
+            session.messages.push(...options.skillMessages);
+          }
+          session.messages.push(assistantMsg);
           session.lastActivity = Date.now();
 
           // Store API-reported token counts if available
@@ -399,8 +406,13 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
     await this.ensureInitialized();
 
     const sessions = Array.from(this.sessions.values());
+    // Pinned skill messages are extra rows inside a turn — exclude them so
+    // a skill-activating turn still counts as one turn.
     const totalTurns = sessions.reduce(
-      (sum, session) => sum + session.messages.length / MESSAGES_PER_TURN,
+      (sum, session) =>
+        sum +
+        session.messages.filter((msg) => !msg.metadata?.isSkill).length /
+          MESSAGES_PER_TURN,
       0,
     );
 

@@ -20,6 +20,7 @@ import { createRequire } from "node:module";
 import type {
   SkillDefinition,
   SkillIndexItem,
+  SkillS3ConditionalGetResult,
   SkillS3IndexDocument,
   SkillS3ModuleSurface,
   SkillS3ObjectOps,
@@ -27,7 +28,7 @@ import type {
   SkillStore,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
-import { toSkillIndexItem } from "./skillMatcher.js";
+import { isSafeSkillResourcePath, toSkillIndexItem } from "./skillMatcher.js";
 
 const lazyRequire = createRequire(import.meta.url);
 
@@ -128,12 +129,48 @@ function createDefaultOps(config: SkillS3StorageConfig): SkillS3ObjectOps {
       } while (continuationToken);
       return keys;
     },
+    async getObjectConditional(
+      key: string,
+      etag?: string,
+    ): Promise<SkillS3ConditionalGetResult> {
+      try {
+        const response = (await client.send(
+          new mod.GetObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            ...(etag ? { IfNoneMatch: etag } : {}),
+          }),
+        )) as {
+          Body?: { transformToString: () => Promise<string> };
+          ETag?: string;
+        };
+        const body = (await response.Body?.transformToString()) ?? null;
+        return {
+          body,
+          ...(response.ETag ? { etag: response.ETag } : {}),
+        };
+      } catch (error) {
+        const name = (error as { name?: string }).name;
+        const status = (error as { $metadata?: { httpStatusCode?: number } })
+          .$metadata?.httpStatusCode;
+        if (status === 304 || name === "304" || name === "NotModified") {
+          return { body: null, notModified: true };
+        }
+        if (name === "NoSuchKey" || name === "NotFound") {
+          return { body: null };
+        }
+        throw error;
+      }
+    },
   };
 }
 
 export class S3SkillStore implements SkillStore {
   private readonly prefix: string;
   private ops: SkillS3ObjectOps | null = null;
+  /** Last parsed index + its ETag, revalidated with If-None-Match reads. */
+  private cachedIndexDoc: SkillS3IndexDocument | null = null;
+  private cachedIndexEtag: string | undefined;
 
   constructor(
     private readonly config: SkillS3StorageConfig,
@@ -143,6 +180,11 @@ export class S3SkillStore implements SkillStore {
     const rawPrefix = config.prefix ?? "neurolink-skills/";
     this.prefix =
       rawPrefix === "" || rawPrefix.endsWith("/") ? rawPrefix : `${rawPrefix}/`;
+  }
+
+  invalidate(): void {
+    this.cachedIndexDoc = null;
+    this.cachedIndexEtag = undefined;
   }
 
   private getOps(): SkillS3ObjectOps {
@@ -158,6 +200,18 @@ export class S3SkillStore implements SkillStore {
 
   private indexKey(): string {
     return `${this.prefix}index.json`;
+  }
+
+  /** Resources live beside the skill object: <prefix>skills/<id>/<path>. */
+  private resourceKey(id: string, resourcePath: string): string {
+    return `${this.prefix}skills/${id}/${resourcePath}`;
+  }
+
+  async getResource(id: string, resourcePath: string): Promise<string | null> {
+    if (!isSafeSkillResourcePath(resourcePath)) {
+      return null;
+    }
+    return this.getOps().getObject(this.resourceKey(id, resourcePath));
   }
 
   async get(id: string): Promise<SkillDefinition | null> {
@@ -212,19 +266,49 @@ export class S3SkillStore implements SkillStore {
       this.indexKey(),
       JSON.stringify(index, null, 2),
     );
+    // The write changed the object's ETag; keep the doc, revalidate next read.
+    this.cachedIndexDoc = index;
+    this.cachedIndexEtag = undefined;
   }
 
   /**
-   * Read index.json; when missing or unparsable, rebuild it from a listing
-   * of the skills/ prefix and persist the rebuilt document (self-heal).
+   * Raw index.json read. Returns the body (with its ETag when available),
+   * null body when the object is absent, or notModified when a
+   * conditional read reported the cached copy unchanged.
+   */
+  private async readIndexObject(
+    ops: SkillS3ObjectOps,
+  ): Promise<SkillS3ConditionalGetResult> {
+    if (ops.getObjectConditional) {
+      return ops.getObjectConditional(
+        this.indexKey(),
+        this.cachedIndexDoc ? this.cachedIndexEtag : undefined,
+      );
+    }
+    return { body: await ops.getObject(this.indexKey()) };
+  }
+
+  /**
+   * Read index.json (ETag-revalidated when the ops support conditional
+   * reads — an unchanged index costs a 304, not a download); when missing
+   * or unparsable, rebuild it from a listing of the skills/ prefix and
+   * persist the rebuilt document (self-heal).
    */
   private async readOrRebuildIndex(): Promise<SkillS3IndexDocument> {
     const ops = this.getOps();
-    const raw = await ops.getObject(this.indexKey());
-    if (raw) {
+    const read = await this.readIndexObject(ops);
+    if (read.notModified && this.cachedIndexDoc) {
+      return this.cachedIndexDoc;
+    }
+    if (read.body) {
       try {
-        const parsed = JSON.parse(raw) as SkillS3IndexDocument;
+        const parsed = JSON.parse(read.body) as SkillS3IndexDocument;
         if (Array.isArray(parsed.skills)) {
+          this.cachedIndexDoc = parsed;
+          // Cache the ETag only for a body that parsed: pairing a corrupt
+          // object's ETag with the previous good doc would make every
+          // later conditional read 304 into permanently stale data.
+          this.cachedIndexEtag = read.etag;
           return parsed;
         }
       } catch (error) {
@@ -232,6 +316,7 @@ export class S3SkillStore implements SkillStore {
           error: error instanceof Error ? error.message : String(error),
         });
       }
+      this.cachedIndexEtag = undefined;
     }
 
     const skillsPrefix = `${this.prefix}skills/`;
@@ -258,6 +343,10 @@ export class S3SkillStore implements SkillStore {
       lastUpdated: new Date().toISOString(),
       skills,
     };
+    // Cache the rebuilt doc even when persistence below fails, so reads
+    // don't fall back to a stale pre-rebuild copy.
+    this.cachedIndexDoc = rebuilt;
+    this.cachedIndexEtag = undefined;
     try {
       await this.writeIndex(rebuilt);
       logger.info("[SkillStoreS3] Rebuilt skills index", {

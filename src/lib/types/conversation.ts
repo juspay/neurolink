@@ -308,6 +308,23 @@ export type ChatMessageMetadata = {
    * payload from the local artifact store.
    */
   artifactId?: string;
+
+  // --- Skill activation pinning (skills v2) ---
+
+  /**
+   * Marks a pinned skill-activation message: the full instructions of a
+   * skill loaded via use_skill, persisted into session history so later
+   * turns replay it verbatim instead of re-fetching the skill. Pinned
+   * skill messages are protected from sliding-window truncation and are
+   * re-included after memory summarization.
+   */
+  isSkill?: boolean;
+  /** Skill id of a pinned skill-activation message. */
+  skillId?: string;
+  /** Skill name of a pinned skill-activation message. */
+  skillName?: string;
+  /** Skill version captured at activation (sessions pin the activated version). */
+  skillVersion?: number;
 };
 
 /**
@@ -471,6 +488,19 @@ export type StoreConversationTurnOptions = {
   };
   /** Gemini 3 thought signature for reasoning continuity across turns */
   thoughtSignature?: string;
+  /**
+   * Pinned skill-activation messages (skills v2) recorded during this turn.
+   * Inserted between the user and assistant messages so replayed history
+   * mirrors the actual order: ask → skill loaded → answer. Stored verbatim —
+   * skill instructions are never truncated.
+   *
+   * Invariant for history consumers: a skill-bearing turn is a
+   * user → skill(user-role, metadata.isSkill) → assistant triplet, so
+   * stored history is NOT strictly pair-wise alternating. Pair-based
+   * logic must filter `metadata.isSkill` first (see slidingWindowTruncator
+   * for the canonical partition-and-reanchor pattern).
+   */
+  skillMessages?: ChatMessage[];
 };
 
 /**

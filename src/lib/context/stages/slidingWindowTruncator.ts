@@ -88,8 +88,12 @@ function truncateSmallConversation(
 
   for (let i = 0; i < result.length; i++) {
     const msg = result[i];
-    // Don't truncate system/summary messages
-    if (msg.role === "system" || msg.metadata?.isSummary) {
+    // Don't truncate system/summary messages or pinned skill instructions
+    if (
+      msg.role === "system" ||
+      msg.metadata?.isSummary ||
+      msg.metadata?.isSkill
+    ) {
       continue;
     }
 
@@ -133,8 +137,39 @@ export function truncateWithSlidingWindow(
   messages: ChatMessage[],
   config?: TruncationConfig,
 ): TruncationResult {
-  if (messages.length <= 4) {
-    // Delegate to content truncation for small conversations (BUG-005)
+  // Partition pinned skill messages out so the pair-based arithmetic below
+  // runs on the alternating user/assistant stream (skill pins are extra
+  // user-role messages inside a turn and would misalign every even-count
+  // cut). Each skill anchors to the next conversational message; kept
+  // anchors put their skills back in place, dropped anchors re-seat them
+  // after the truncation marker.
+  const skillsByAnchor = new Map<string, ChatMessage[]>();
+  const trailingSkills: ChatMessage[] = [];
+  const conversational: ChatMessage[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (!msg.metadata?.isSkill) {
+      conversational.push(msg);
+      continue;
+    }
+    const anchor = messages
+      .slice(i + 1)
+      .find((next) => !next.metadata?.isSkill);
+    if (anchor) {
+      const anchored = skillsByAnchor.get(anchor.id);
+      if (anchored) {
+        anchored.push(msg);
+      } else {
+        skillsByAnchor.set(anchor.id, [msg]);
+      }
+    } else {
+      trailingSkills.push(msg);
+    }
+  }
+
+  if (conversational.length <= 4) {
+    // Delegate to content truncation for small conversations (BUG-005);
+    // it never removes messages, so skills keep their positions.
     return truncateSmallConversation(messages, config);
   }
 
@@ -163,8 +198,49 @@ export function truncateWithSlidingWindow(
   }
 
   // Always preserve first user-assistant pair
-  const firstPair = messages.slice(0, 2);
-  const remainingMessages = messages.slice(2);
+  const firstPair = conversational.slice(0, 2);
+  const remainingMessages = conversational.slice(2);
+
+  /** Reassemble a candidate: skills inline before kept anchors, orphans after the marker. */
+  const buildCandidate = (
+    keptAfterTruncation: ChatMessage[],
+    marker: ChatMessage,
+  ): ChatMessage[] => {
+    const keptIds = new Set(
+      [...firstPair, ...keptAfterTruncation].map((m) => m.id),
+    );
+    const orphanedSkills: ChatMessage[] = [];
+    for (const [anchorId, anchored] of skillsByAnchor) {
+      if (!keptIds.has(anchorId)) {
+        orphanedSkills.push(...anchored);
+      }
+    }
+    const withInlineSkills = (msg: ChatMessage): ChatMessage[] => {
+      const anchored = skillsByAnchor.get(msg.id);
+      return anchored ? [...anchored, msg] : [msg];
+    };
+    return [
+      ...firstPair.flatMap(withInlineSkills),
+      marker,
+      ...orphanedSkills,
+      ...keptAfterTruncation.flatMap(withInlineSkills),
+      ...trailingSkills,
+    ];
+  };
+
+  // Insert a truncation marker with machine-readable metadata so
+  // effectiveHistory.ts can detect it via isTruncationMarker /
+  // truncationId and removeTruncationTags can rewind it.
+  const makeMarker = (): ChatMessage => {
+    const truncId = randomUUID();
+    return {
+      id: `truncation-marker-${truncId}`,
+      role: "user",
+      content: TRUNCATION_MARKER_CONTENT,
+      isTruncationMarker: true,
+      truncationId: truncId,
+    };
+  };
 
   // ITERATIVE: if first pass isn't enough, increase fraction
   const maxIterations = config?.maxIterations ?? 3;
@@ -178,21 +254,10 @@ export function truncateWithSlidingWindow(
       break;
     }
 
-    const keptAfterTruncation = remainingMessages.slice(evenRemoveCount);
-
-    // Insert a truncation marker with machine-readable metadata so
-    // effectiveHistory.ts can detect it via isTruncationMarker /
-    // truncationId and removeTruncationTags can rewind it.
-    const truncId = randomUUID();
-    const marker: ChatMessage = {
-      id: `truncation-marker-${truncId}`,
-      role: "user",
-      content: TRUNCATION_MARKER_CONTENT,
-      isTruncationMarker: true,
-      truncationId: truncId,
-    };
-
-    const candidateMessages = [...firstPair, marker, ...keptAfterTruncation];
+    const candidateMessages = buildCandidate(
+      remainingMessages.slice(evenRemoveCount),
+      makeMarker(),
+    );
 
     validateRoleAlternation(candidateMessages);
 
@@ -226,19 +291,10 @@ export function truncateWithSlidingWindow(
   const maxRemove = Math.floor(remainingMessages.length * 0.95);
   const evenMaxRemove = maxRemove - (maxRemove % 2);
   if (evenMaxRemove > 0) {
-    const keptMessages = remainingMessages.slice(evenMaxRemove);
-
-    // Insert a truncation marker (see iterative block above)
-    const fallbackTruncId = randomUUID();
-    const fallbackMarker: ChatMessage = {
-      id: `truncation-marker-${fallbackTruncId}`,
-      role: "user",
-      content: TRUNCATION_MARKER_CONTENT,
-      isTruncationMarker: true,
-      truncationId: fallbackTruncId,
-    };
-
-    const fallbackMessages = [...firstPair, fallbackMarker, ...keptMessages];
+    const fallbackMessages = buildCandidate(
+      remainingMessages.slice(evenMaxRemove),
+      makeMarker(),
+    );
     validateRoleAlternation(fallbackMessages);
 
     return {

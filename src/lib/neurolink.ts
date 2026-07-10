@@ -173,8 +173,10 @@ import type {
 } from "./types/index.js";
 import { initializeHippocampus } from "./memory/hippocampusInitializer.js";
 import { createMemoryRetrievalTools } from "./memory/memoryRetrievalTools.js";
+import { isSkillVisibleInScope } from "./skills/skillMatcher.js";
+import { buildSkillActivationMessage } from "./skills/skillSessionTracker.js";
 import { SkillsManager } from "./skills/skillsManager.js";
-import { createSkillTools } from "./skills/skillTools.js";
+import { createSkillCallTools, createSkillTools } from "./skills/skillTools.js";
 import {
   getMetricsAggregator,
   MetricsAggregator,
@@ -1834,7 +1836,7 @@ export class NeuroLink {
   }
 
   /**
-   * Register the built-in skill tools (search_skills / list_skills, plus
+   * Register the built-in skill tools (list_skills, plus
    * mutation tools when allowMutations is set). Follows the
    * registerMemoryRetrievalTools() pattern: registered via registerTool()
    * so they land in the "user-defined" category that reaches the LLM tool
@@ -1877,24 +1879,32 @@ export class NeuroLink {
   }
 
   /**
-   * Append the compact skills index (names + descriptions, never
-   * instructions) to the system prompt for one generate()/stream() call.
-   * Fails open: any error leaves the prompt untouched.
+   * Skills augmentation for one generate()/stream() call:
+   *  1. Discovery — surface the skills listing per the resolved mode:
+   *     embedded in the use_skill tool description ("tool", default) or
+   *     appended to the system prompt ("system-prompt").
+   *  2. Per-call tools — inject use_skill + read_skill_resource into
+   *     options.tools (the RAG-tool pattern; same-name entries shadow
+   *     registered tools) with the sessionId closure-bound so activations
+   *     pin to the session.
+   *  3. Preload — activate host-requested skills up front, injecting their
+   *     instructions into this call's system prompt and pinning them.
+   * Fails open: any error leaves the call untouched.
    */
-  private async applySkillsPromptIndex(options: {
+  private async applySkillsAugmentation(options: {
     systemPrompt?: string;
     skills?: SkillsCallOptions;
+    tools?: unknown;
+    context?: unknown;
+    // Callers may pass sessionId/userId top-level instead of in context —
+    // the platform merges them into context only later in the pipeline.
+    sessionId?: unknown;
+    userId?: unknown;
     // GenerateOptions.output carries `mode`; StreamOptions.output does not —
     // keep the field structural and read `mode` defensively below.
     output?: unknown;
   }): Promise<void> {
     if (!this.skillsConfig?.enabled || options.skills?.enabled === false) {
-      return;
-    }
-    // Per-call promptIndex wins over instance config; default is on.
-    const promptIndexEnabled =
-      options.skills?.promptIndex ?? this.skillsConfig.promptIndex ?? true;
-    if (!promptIndexEnabled) {
       return;
     }
     // Media-only modes have no meaningful text prompt to augment.
@@ -1913,28 +1923,176 @@ export class NeuroLink {
       if (!manager) {
         return;
       }
-      const block = await manager.buildPromptIndex({
-        ...(options.skills?.scopeId !== undefined
-          ? { scopeId: options.skills.scopeId }
-          : {}),
-        ...(options.skills?.tags !== undefined
-          ? { tags: options.skills.tags }
-          : {}),
+      const discovery =
+        options.skills?.discovery ?? this.skillsConfig.discovery ?? "tool";
+      const scopeId =
+        options.skills?.scopeId ?? this.skillsConfig.defaultScopeId;
+      const tags = options.skills?.tags;
+      const sessionId =
+        this.resolveSkillSessionId(options.context) ??
+        this.resolveSkillSessionId(options);
+      const userId =
+        this.resolveSkillUserId(options.context) ??
+        this.resolveSkillUserId(options);
+      // Pinning requires somewhere to pin: without conversation memory the
+      // drained messages would be silently discarded while dedup reports
+      // already_loaded — so persistence is only on when memory is
+      // configured (or already initialized).
+      const memoryAvailable =
+        Boolean(this.conversationMemory) ||
+        Boolean(this.conversationMemoryConfig?.conversationMemory?.enabled);
+      const sessionPersistence =
+        (this.skillsConfig.sessionPersistence ?? true) &&
+        Boolean(sessionId) &&
+        memoryAvailable;
+      const visibility = {
+        ...(scopeId !== undefined ? { scopeId } : {}),
+        ...(tags !== undefined ? { tags } : {}),
+      };
+
+      if (discovery === "system-prompt") {
+        const block = await manager.buildPromptIndex(visibility);
+        if (block) {
+          options.systemPrompt = options.systemPrompt
+            ? `${options.systemPrompt}\n\n${block}`
+            : block;
+        }
+      }
+
+      const listing =
+        discovery === "tool"
+          ? await manager.buildToolListing(visibility)
+          : null;
+
+      const callTools = createSkillCallTools(() => this.ensureSkillsReady(), {
+        ...(sessionId ? { sessionId } : {}),
+        ...(scopeId !== undefined ? { scopeId } : {}),
+        sessionPersistence,
+        discovery,
+        listing,
+        // userId rides by closure: Redis memory keys sessions by
+        // userId:sessionId, so hydration must read the same key the
+        // store-turn path writes.
+        getStoredMessages: async (sid: string) =>
+          this.conversationMemory
+            ? await this.conversationMemory.getSessionMessages(sid, userId)
+            : [],
       });
-      if (block) {
-        options.systemPrompt = options.systemPrompt
-          ? `${options.systemPrompt}\n\n${block}`
-          : block;
-        logger.debug("[NeuroLink] Skills prompt index injected", {
-          blockLength: block.length,
+      // Caller-supplied per-call tools win over the injected ones (a host
+      // may bring its own use_skill); the injected tools still shadow any
+      // registered base tool of the same name via the provider merge.
+      options.tools = {
+        ...callTools,
+        ...((options.tools as Record<string, unknown> | undefined) ?? {}),
+      };
+
+      if (options.skills?.preload?.length) {
+        await this.preloadSkills(manager, options, options.skills.preload, {
+          ...(sessionId ? { sessionId } : {}),
+          ...(userId ? { userId } : {}),
+          sessionPersistence,
+          ...(scopeId !== undefined ? { scopeId } : {}),
         });
       }
+
+      logger.debug("[NeuroLink] Skills augmentation applied", {
+        discovery,
+        listingLength: listing?.length ?? 0,
+        sessionPersistence,
+        preloadCount: options.skills?.preload?.length ?? 0,
+      });
     } catch (error) {
       logger.warn(
-        "[NeuroLink] Skills prompt index injection failed — continuing without it",
+        "[NeuroLink] Skills augmentation failed — continuing without skills",
         { error: error instanceof Error ? error.message : String(error) },
       );
     }
+  }
+
+  /** Session id for skill activation tracking, from the call context. */
+  private resolveSkillSessionId(context: unknown): string | undefined {
+    const fromContext = (context as { sessionId?: unknown } | undefined)
+      ?.sessionId;
+    return typeof fromContext === "string" && fromContext
+      ? fromContext
+      : undefined;
+  }
+
+  /** User id for skill-session hydration (Redis keys sessions by userId). */
+  private resolveSkillUserId(context: unknown): string | undefined {
+    const fromContext = (context as { userId?: unknown } | undefined)?.userId;
+    return typeof fromContext === "string" && fromContext
+      ? fromContext
+      : undefined;
+  }
+
+  /**
+   * Activate host-requested skills before the model runs: instructions go
+   * into this call's system prompt; when persisting, the activation is
+   * pinned so later turns replay it from history instead. Unknown or
+   * already-active names are skipped with a warn/debug log (fail-open).
+   */
+  private async preloadSkills(
+    manager: SkillsManager,
+    options: { systemPrompt?: string },
+    names: string[],
+    call: {
+      sessionId?: string;
+      userId?: string;
+      sessionPersistence: boolean;
+      scopeId?: string;
+    },
+  ): Promise<void> {
+    const { sessionId, userId, sessionPersistence, scopeId } = call;
+    for (const name of names) {
+      const skill = await manager.get(name);
+      if (!skill || !isSkillVisibleInScope(skill, scopeId)) {
+        logger.warn("[NeuroLink] Preload skill not found — skipping", {
+          skill: name,
+        });
+        continue;
+      }
+      let block: string;
+      if (sessionId && sessionPersistence) {
+        // Always hydrate (empty history when memory isn't initialized yet):
+        // the tracker derives truth from stored pins + this turn's pending,
+        // never from stale in-process records.
+        manager.sessions.hydrate(
+          sessionId,
+          this.conversationMemory
+            ? await this.conversationMemory.getSessionMessages(
+                sessionId,
+                userId,
+              )
+            : [],
+        );
+        if (manager.sessions.isActive(sessionId, skill.id, skill.name)) {
+          continue;
+        }
+        block = manager.sessions.recordActivation(sessionId, skill).content;
+      } else {
+        block = buildSkillActivationMessage(skill).content;
+      }
+      options.systemPrompt = options.systemPrompt
+        ? `${options.systemPrompt}\n\n${block}`
+        : block;
+    }
+  }
+
+  /**
+   * Pinned skill messages recorded during this turn, ready for
+   * StoreConversationTurnOptions.skillMessages. Empty when skills are off
+   * or nothing was activated.
+   */
+  private drainPendingSkillMessages(sessionId: unknown): ChatMessage[] {
+    if (typeof sessionId !== "string" || !sessionId) {
+      return [];
+    }
+    const manager = this.skillsManagerInstance;
+    if (!manager) {
+      return [];
+    }
+    return manager.sessions.drainPending(sessionId);
   }
 
   /**
@@ -4854,9 +5012,9 @@ Current user's request: ${currentInput}`;
       }
     }
 
-    // Skills: append the compact skills index to the system prompt so the
-    // model knows which skills exist (bodies load via search_skills).
-    await this.applySkillsPromptIndex(options);
+    // Skills: surface the discovery listing and inject the per-call
+    // use_skill / read_skill_resource tools (bodies load on activation).
+    await this.applySkillsAugmentation(options);
 
     // Media-only modes (avatar, music, video, ppt) do not have a meaningful
     // text prompt to augment with memory — skip injection to avoid corrupting
@@ -5997,6 +6155,9 @@ Current user's request: ${currentInput}`;
         result,
         new Date(startTime),
         requestId,
+        this.drainPendingSkillMessages(
+          (options.context as Record<string, unknown> | undefined)?.sessionId,
+        ),
       );
       this.recordMemorySpan(
         "memory.store",
@@ -9687,9 +9848,9 @@ Current user's request: ${currentInput}`;
       }
     }
 
-    // Skills: append the compact skills index to the system prompt so the
-    // model knows which skills exist (bodies load via search_skills).
-    await this.applySkillsPromptIndex(options);
+    // Skills: surface the discovery listing and inject the per-call
+    // use_skill / read_skill_resource tools (bodies load on activation).
+    await this.applySkillsAugmentation(options);
 
     // Apply orchestration if enabled and no specific provider/model requested
     if (this.enableOrchestration && !options.provider && !options.model) {
@@ -10229,6 +10390,7 @@ Current user's request: ${currentInput}`;
 
       const memStoreStart = Date.now();
       try {
+        const pendingSkillMessages = this.drainPendingSkillMessages(sessionId);
         await this.conversationMemory.storeConversationTurn({
           sessionId,
           userId,
@@ -10240,6 +10402,9 @@ Current user's request: ${currentInput}`;
           events: eventSequence.length > 0 ? eventSequence : undefined,
           requestId: (enhancedOptions.context as Record<string, unknown>)
             ?.requestId as string | undefined,
+          ...(pendingSkillMessages.length > 0
+            ? { skillMessages: pendingSkillMessages }
+            : {}),
         });
 
         this.recordMemorySpan(
@@ -11034,8 +11199,12 @@ Current user's request: ${currentInput}`;
 
           const memStoreStart = Date.now();
           try {
+            const fallbackSessionId =
+              sessionId || (options.context?.sessionId as string);
+            const pendingSkillMessages =
+              self.drainPendingSkillMessages(fallbackSessionId);
             await self.conversationMemory.storeConversationTurn({
-              sessionId: sessionId || (options.context?.sessionId as string),
+              sessionId: fallbackSessionId,
               userId: userId || (options.context?.userId as string),
               userMessage: originalPrompt ?? "",
               aiResponse: fallbackAccumulatedContent,
@@ -11050,6 +11219,9 @@ Current user's request: ${currentInput}`;
                 )?.requestId as string | undefined) ||
                 ((options.context as Record<string, unknown> | undefined)
                   ?.requestId as string | undefined),
+              ...(pendingSkillMessages.length > 0
+                ? { skillMessages: pendingSkillMessages }
+                : {}),
             });
             self.recordMemorySpan(
               "memory.store",

@@ -6,16 +6,31 @@
  *
  * Architecture mirrors the Hippocampus memory subsystem: a `skills` config
  * on the NeuroLink constructor lazily initializes a SkillsManager, which
- * auto-registers built-in tools (search_skills / list_skills, plus gated
- * mutation tools) and optionally injects a compact skills index into the
- * system prompt of each generate()/stream() call.
+ * auto-registers built-in tools (list_skills, plus gated mutation tools)
+ * and augments each generate()/stream() call with the discovery listing
+ * plus per-call use_skill / read_skill_resource tools.
  *
  * Naming: every exported type carries a `Skill` prefix to satisfy the
  * `unique-type-names` ESLint rule.
  */
 
+import type { ChatMessage } from "./conversation.js";
+
 /** Visibility of a skill: available everywhere, or only in specific scopes. */
 export type SkillScopeKind = "global" | "scoped";
+
+/**
+ * Reference to an auxiliary file bundled with a skill (progressive
+ * disclosure level 3). Resources are read into context on demand via the
+ * read_skill_resource tool — a skill's SKILL.md should stay lean and point
+ * to resources for rarely-needed detail.
+ */
+export type SkillResourceRef = {
+  /** Path relative to the skill's directory, e.g. "references/edge-cases.md". */
+  path: string;
+  /** Size in bytes when known (listing hint only). */
+  size?: number;
+};
 
 /** Lifecycle status. Deletes are soft — deprecated skills stay in storage. */
 export type SkillLifecycleStatus = "active" | "deprecated";
@@ -50,6 +65,12 @@ export type SkillDefinition = {
   createdAt?: string;
   /** ISO timestamp of last update. */
   updatedAt?: string;
+  /**
+   * Auxiliary files bundled with the skill, readable on demand through
+   * read_skill_resource. Populated by stores that support resources
+   * (directory-layout filesystem skills, S3, Redis).
+   */
+  resources?: SkillResourceRef[];
   /** Free-form host metadata (audit fields, approval references, …). */
   metadata?: Record<string, unknown>;
 };
@@ -74,6 +95,13 @@ export type SkillStore = {
   index(): Promise<SkillIndexItem[]>;
   /** Optional: drop any internal caches (called after mutations). */
   invalidate?(): void;
+  /**
+   * Optional: fetch an auxiliary resource file bundled with a skill.
+   * `resourcePath` is relative to the skill (e.g. "references/forms.md").
+   * Null when the skill or resource is absent. Stores without resource
+   * support simply omit this method.
+   */
+  getResource?(id: string, resourcePath: string): Promise<string | null>;
 };
 
 /** In-process store, optionally seeded. Good for tests and embedded use. */
@@ -81,6 +109,11 @@ export type SkillMemoryStorageConfig = {
   type: "memory";
   /** Initial skills to seed the store with. */
   skills?: SkillDefinition[];
+  /**
+   * Resource file contents keyed by skill id → relative path.
+   * E.g. `{ "my-skill": { "references/forms.md": "..." } }`.
+   */
+  resources?: Record<string, Record<string, string>>;
 };
 
 /**
@@ -167,6 +200,16 @@ export type SkillS3IndexDocument = {
   skills: SkillIndexItem[];
 };
 
+/** Result of a conditional (ETag) object read. */
+export type SkillS3ConditionalGetResult = {
+  /** Object body; null when the key is absent. */
+  body: string | null;
+  /** ETag of the returned body, for the next conditional read. */
+  etag?: string;
+  /** True when the object is unchanged since the supplied ETag (no body). */
+  notModified?: boolean;
+};
+
 /**
  * Minimal object-storage operations the S3 skill store runs on. The
  * default implementation is created lazily from @aws-sdk/client-s3;
@@ -179,6 +222,15 @@ export type SkillS3ObjectOps = {
   deleteObject(key: string): Promise<void>;
   /** List all object keys under a prefix (paginated internally). */
   listKeys(prefix: string): Promise<string[]>;
+  /**
+   * Optional: ETag-conditional read (If-None-Match). Used for index.json
+   * refreshes so an unchanged index costs a 304 instead of a full download.
+   * Ops without it fall back to plain getObject.
+   */
+  getObjectConditional?(
+    key: string,
+    etag?: string,
+  ): Promise<SkillS3ConditionalGetResult>;
 };
 
 export type SkillsStorageConfig =
@@ -188,7 +240,7 @@ export type SkillsStorageConfig =
   | SkillRedisStorageConfig
   | SkillCustomStorageConfig;
 
-/** Query accepted by SkillsManager.search() and the search_skills tool. */
+/** Query accepted by SkillsManager.search() (programmatic + CLI search). */
 export type SkillSearchQuery = {
   /** Keyword matched (case-insensitive substring) against name, displayName, and description. */
   query?: string;
@@ -255,14 +307,38 @@ export type SkillsConfig = {
   /** Persistence backend. Default: `{ type: "memory" }`. */
   storage?: SkillsStorageConfig;
   /**
-   * Inject a compact skills index (names + descriptions, never instructions)
-   * into the system prompt of each generate()/stream() call. Default: true.
-   * Set false for curator-style pure tool-driven disclosure.
+   * Where the skills listing (names + descriptions, never instructions)
+   * surfaces for model-driven discovery:
+   *  - "tool" (default): an `<available_skills>` block embedded in the
+   *    use_skill tool description — the Claude Code pattern. Keeps the
+   *    host's system prompt untouched and the listing cache-stable.
+   *  - "system-prompt": a "## Available Skills" index appended to the
+   *    system prompt instead.
+   *  - "none": no listing anywhere; discovery only via list_skills.
    */
-  promptIndex?: boolean;
+  discovery?: SkillDiscoveryMode;
+  /**
+   * Character budget for the "tool" discovery listing. When the full
+   * listing exceeds it, every description is shortened uniformly (first
+   * sentence, then a hard cap) so the render stays a pure function of the
+   * index — byte-stable across calls; names are never dropped.
+   * Default: 15000.
+   */
+  listingBudgetChars?: number;
+  /**
+   * Pin activated skill instructions into session history so later turns
+   * replay them verbatim (byte-stable, provider-cacheable) instead of
+   * re-fetching the skill. Requires conversation memory + a sessionId on
+   * the call. Default: true.
+   */
+  sessionPersistence?: boolean;
   /** Maximum skills hydrated (with instructions) per search. Default: 5. */
   maxMatches?: number;
-  /** Maximum entries rendered in the prompt index before truncation. Default: 50. */
+  /**
+   * Maximum entries rendered by the "system-prompt" discovery mode before
+   * truncation. Default: 50. The "tool" mode is bounded by
+   * listingBudgetChars instead and never drops entries.
+   */
   promptIndexMaxItems?: number;
   /** Index cache TTL in milliseconds. Default: 30000. 0 disables caching. */
   indexCacheTtlMs?: number;
@@ -284,6 +360,37 @@ export type SkillsConfig = {
   ) => Promise<SkillMutationDecision>;
 };
 
+/** Where the skills discovery listing surfaces. See SkillsConfig.discovery. */
+export type SkillDiscoveryMode = "tool" | "system-prompt" | "none";
+
+/**
+ * One activated skill in a session: which skill, at which version, when.
+ * Sessions pin the version active at activation time — a mid-session skill
+ * update never mutates instructions the model has already loaded.
+ */
+export type SkillActivationRecord = {
+  skillId: string;
+  name: string;
+  version: number;
+  /** ISO timestamp of activation. */
+  activatedAt: string;
+};
+
+/**
+ * Structural view of the per-session activation tracker consumed by the
+ * skill tools factory.
+ */
+export type SkillSessionStateLike = {
+  isActive: (sessionId: string, skillId: string, name: string) => boolean;
+  getActivation: (
+    sessionId: string,
+    skillId: string,
+    name?: string,
+  ) => SkillActivationRecord | undefined;
+  recordActivation: (sessionId: string, skill: SkillDefinition) => ChatMessage;
+  hydrate: (sessionId: string, storedMessages: ChatMessage[]) => void;
+};
+
 /**
  * Structural view of SkillsManager consumed by the skill tools factory —
  * keeps skillTools.ts decoupled from the concrete manager class.
@@ -291,9 +398,43 @@ export type SkillsConfig = {
 export type SkillsManagerLike = {
   search: (query: SkillSearchQuery) => Promise<SkillDefinition[]>;
   list: (scopeId?: string) => Promise<SkillIndexItem[]>;
+  get: (idOrName: string) => Promise<SkillDefinition | null>;
+  getResource: (
+    idOrName: string,
+    resourcePath: string,
+  ) => Promise<string | null>;
+  sessions: SkillSessionStateLike;
   requestMutation: (
     action: SkillMutationAction,
   ) => Promise<SkillMutationResult>;
+};
+
+/**
+ * Per-call context bound into the use_skill / read_skill_resource tools at
+ * injection time (prepareGenerate/prepareStream). The sessionId is captured
+ * by closure so activation state is tracked without relying on runtime tool
+ * context plumbing.
+ */
+export type SkillCallToolsContext = {
+  /** Session the call belongs to; absent → activation state is per-turn only. */
+  sessionId?: string;
+  /** Scope filter applied when resolving skills for this call. */
+  scopeId?: string;
+  /**
+   * Pin activated instructions into session history after the turn.
+   * Mirrors SkillsConfig.sessionPersistence resolved for this call.
+   */
+  sessionPersistence: boolean;
+  /** Discovery mode resolved for this call — shapes the use_skill description. */
+  discovery: SkillDiscoveryMode;
+  /** Rendered `<available_skills>` block for "tool" discovery; null when empty. */
+  listing?: string | null;
+  /**
+   * Stored session history loader used to hydrate activation state before
+   * every dedup check (restart/multi-instance/failed-persistence safety).
+   * Invoked once per use_skill / read_skill_resource attempt.
+   */
+  getStoredMessages?: (sessionId: string) => Promise<ChatMessage[]>;
 };
 
 /** Options for the createSkillTools factory. */
@@ -308,12 +449,19 @@ export type SkillToolsOptions = {
  * config (same precedence convention as per-call credentials).
  */
 export type SkillsCallOptions = {
-  /** Master toggle for this call (prompt index only — tools stay registered). Default: true. */
+  /** Master toggle for this call (listing + per-call tools). Default: true. */
   enabled?: boolean;
-  /** Per-call override of SkillsConfig.promptIndex. */
-  promptIndex?: boolean;
-  /** Scope filter for the prompt index on this call. Overrides defaultScopeId. */
+  /** Per-call override of SkillsConfig.discovery. */
+  discovery?: SkillDiscoveryMode;
+  /** Scope filter for the listing and skill resolution on this call. Overrides defaultScopeId. */
   scopeId?: string;
-  /** Restrict the prompt index to skills carrying at least one of these tags. */
+  /** Restrict the listing to skills carrying at least one of these tags. */
   tags?: string[];
+  /**
+   * Skill names to activate at the start of this call: their full
+   * instructions are injected up front (and pinned to the session when
+   * sessionPersistence is on), without waiting for the model to invoke
+   * use_skill. Already-active skills are skipped.
+   */
+  preload?: string[];
 };

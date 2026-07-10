@@ -40,7 +40,7 @@ const DEFAULT_CONFIG: Required<CompactionConfig> = {
   enableTruncate: true,
   pruneProtectTokens: 40_000,
   pruneMinimumSavings: 500,
-  pruneProtectedTools: ["skill"],
+  pruneProtectedTools: ["skill", "use_skill", "read_skill_resource"],
   summarizationProvider: "vertex",
   summarizationModel: "gemini-2.5-flash",
   keepRecentRatio: 0.3,
@@ -180,7 +180,25 @@ export class ContextCompactor {
                 "LLM summarization timed out after 120s",
               );
               if (summarizeResult.summarized) {
-                currentMessages = summarizeResult.messages;
+                // Pinned skill instructions must survive summarization:
+                // re-seat any that the summarized region swallowed right
+                // after the summary message (index 0 of the result).
+                const survivorIds = new Set(
+                  summarizeResult.messages.map((m) => m.id),
+                );
+                const swallowedSkills = currentMessages.filter(
+                  (m) => m.metadata?.isSkill && !survivorIds.has(m.id),
+                );
+                currentMessages =
+                  swallowedSkills.length > 0
+                    ? summarizeResult.messages.length > 0
+                      ? [
+                          summarizeResult.messages[0],
+                          ...swallowedSkills,
+                          ...summarizeResult.messages.slice(1),
+                        ]
+                      : swallowedSkills
+                    : summarizeResult.messages;
                 stagesUsed.push("summarize");
               }
               const stageTokensAfter = estimateMessagesTokens(

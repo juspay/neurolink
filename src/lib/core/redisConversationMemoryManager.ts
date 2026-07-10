@@ -683,6 +683,13 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
             normalizedUserId,
           );
 
+          // Pinned skill activations ride between ask and answer, mirroring
+          // the actual order (ask → skill loaded → answer). Stored verbatim —
+          // skill instructions are never truncated.
+          if (options.skillMessages && options.skillMessages.length > 0) {
+            conversation.messages.push(...options.skillMessages);
+          }
+
           const assistantMsg: ChatMessage = {
             id: randomUUID(),
             timestamp: this.generateTimestamp(),
@@ -1562,7 +1569,12 @@ User message: "${userMessage}"`;
       const conversationData = await this.redisClient.get(key);
       const conversation = deserializeConversation(conversationData);
       if (conversation?.messages) {
-        totalTurns += conversation.messages.length / MESSAGES_PER_TURN;
+        // Pinned skill messages are extra rows inside a turn — exclude them
+        // so a skill-activating turn still counts as one turn.
+        totalTurns +=
+          conversation.messages.filter(
+            (msg: ChatMessage) => !msg.metadata?.isSkill,
+          ).length / MESSAGES_PER_TURN;
       }
     }
 
