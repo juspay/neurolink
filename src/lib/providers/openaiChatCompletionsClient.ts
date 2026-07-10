@@ -31,6 +31,7 @@ import type {
   OpenAICompatToolChoiceWire,
   OpenAICompatV3CallToolChoice,
   OpenAICompatV3CallTools,
+  DeferredUsage,
   Tool,
 } from "../types/index.js";
 import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
@@ -639,16 +640,8 @@ export const buildAPIError = async (
 // collector resolves with the actual aggregated values after the multi-step
 // loop ends, not the zeros they had at result-construction time.
 export const createDeferredAnalytics = () => {
-  let resolveUsage: (u: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  }) => void = () => {};
-  const usagePromise = new Promise<{
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  }>((r) => {
+  let resolveUsage: (u: DeferredUsage) => void = () => {};
+  const usagePromise = new Promise<DeferredUsage>((r) => {
     resolveUsage = r;
   });
   let resolveFinish: (reason: string) => void = () => {};
