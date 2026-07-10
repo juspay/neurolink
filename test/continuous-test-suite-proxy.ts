@@ -1689,9 +1689,150 @@ async function testOrderAccountsByQuota(): Promise<boolean | null> {
     return false;
   }
 
+  // Probe-first: an account with NO quota data must sort before known
+  // accounts (one request reveals its windows). Ranking it last would starve
+  // it forever: never picked → never observed → never comparable.
+  const d: Acct = { key: "anthropic:d", label: "d", token: "t", type: "oauth" };
+  const probeOrdered = __testHooks
+    .orderAccountsByQuota([a, b, d] as never, now)
+    .map((x: { label: string }) => x.label);
+  if (probeOrdered.join(",") !== "d,b,a") {
+    log(
+      `orderAccountsByQuota: expected d,b,a (unknown probed first), got ${probeOrdered.join(",")}`,
+      "red",
+    );
+    __testHooks.resetAllRuntimeState();
+    return false;
+  }
+
+  // Primary tie-break: with equal knowledge (both unknown), the configured
+  // primary wins over insertion order.
+  const e: Acct = { key: "anthropic:e", label: "e", token: "t", type: "oauth" };
+  __testHooks.setConfiguredPrimaryAccountKey("anthropic:e");
+  const tieOrdered = __testHooks
+    .orderAccountsByQuota([d, e] as never, now)
+    .map((x: { label: string }) => x.label);
+  __testHooks.setConfiguredPrimaryAccountKey(undefined);
+  if (tieOrdered.join(",") !== "e,d") {
+    log(
+      `orderAccountsByQuota: expected e,d (primary tie-break), got ${tieOrdered.join(",")}`,
+      "red",
+    );
+    __testHooks.resetAllRuntimeState();
+    return false;
+  }
+
   __testHooks.resetAllRuntimeState();
-  log("orderAccountsByQuota: soonest-reset-first ordering passed", "green");
+  log(
+    "orderAccountsByQuota: soonest-reset-first + probe-first + primary tie-break passed",
+    "green",
+  );
   return true;
+}
+
+// ============================================================================
+// Tests: quota persistence merges across restarts (no clobber)
+// ============================================================================
+
+async function testSaveAccountQuotaMerges(): Promise<boolean | null> {
+  const { initAccountQuota, saveAccountQuota, loadAccountQuotas } =
+    await import("../src/lib/proxy/accountQuota.js");
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nl-quota-test-"));
+  const quotaPath = path.join(tmpDir, "account-quotas.json");
+  try {
+    // Simulate a pre-restart file holding account A's snapshot.
+    const existing = makeQuota({ weeklyResetAt: 1_900_000_000 });
+    fs.writeFileSync(quotaPath, JSON.stringify({ "a@test": existing }));
+
+    // Fresh process state pointing at that file (initAccountQuota resets the
+    // module cache, mimicking a restart), then the first save is for B.
+    initAccountQuota(quotaPath);
+    await saveAccountQuota("b@test", makeQuota({}) as never);
+
+    const all = await loadAccountQuotas();
+    if (!all["a@test"] || !all["b@test"]) {
+      log(
+        `saveAccountQuota: first save after restart must merge with disk, got keys=${Object.keys(all).join(",")}`,
+        "red",
+      );
+      return false;
+    }
+    log(
+      "saveAccountQuota: merges with persisted entries after restart",
+      "green",
+    );
+    return true;
+  } finally {
+    // Point the module back at a throwaway path so the debounced flush from
+    // this test can't touch the real ~/.neurolink file.
+    initAccountQuota(path.join(tmpDir, "discard.json"));
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+// ============================================================================
+// Tests: runtime quota seeding from persisted snapshots at boot
+// ============================================================================
+
+async function testSeedRuntimeQuotasFromDisk(): Promise<boolean | null> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const { initAccountQuota } = await import("../src/lib/proxy/accountQuota.js");
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nl-seed-test-"));
+  const quotaPath = path.join(tmpDir, "account-quotas.json");
+  try {
+    __testHooks.resetAllRuntimeState();
+    const diskQuota = makeQuota({ weeklyResetAt: 1_900_000_000 });
+    fs.writeFileSync(quotaPath, JSON.stringify({ "a@test": diskQuota }));
+    initAccountQuota(quotaPath);
+
+    type Acct = { key: string; label: string; token: string; type: "oauth" };
+    const accts: Acct[] = [
+      { key: "anthropic:a@test", label: "a@test", token: "t", type: "oauth" },
+      { key: "anthropic:b@test", label: "b@test", token: "t", type: "oauth" },
+    ];
+    // b has fresher in-memory quota that seeding must NOT overwrite.
+    const inMemory = makeQuota({ weeklyResetAt: 1_950_000_000 });
+    __testHooks.setAccountRuntimeState("anthropic:b@test", {
+      quota: inMemory as never,
+    });
+
+    await __testHooks.seedRuntimeQuotasFromDisk(accts as never);
+
+    const stateA = __testHooks.getAccountRuntimeState("anthropic:a@test");
+    const stateB = __testHooks.getAccountRuntimeState("anthropic:b@test");
+    if (
+      (stateA?.quota as { weeklyResetAt?: number } | undefined)
+        ?.weeklyResetAt !== 1_900_000_000
+    ) {
+      log(
+        `seedRuntimeQuotasFromDisk: account A should be seeded from disk, got ${JSON.stringify(stateA?.quota)}`,
+        "red",
+      );
+      return false;
+    }
+    if (
+      (stateB?.quota as { weeklyResetAt?: number } | undefined)
+        ?.weeklyResetAt !== 1_950_000_000
+    ) {
+      log(
+        "seedRuntimeQuotasFromDisk: fresher in-memory quota must not be overwritten",
+        "red",
+      );
+      return false;
+    }
+    log(
+      "seedRuntimeQuotasFromDisk: seeds from disk, preserves in-memory",
+      "green",
+    );
+    return true;
+  } finally {
+    __testHooks.resetAllRuntimeState();
+    initAccountQuota(path.join(tmpDir, "discard.json"));
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 }
 
 // ============================================================================
@@ -2044,6 +2185,16 @@ const tests: TestFunction[] = [
   {
     name: "Quota: orderAccountsByQuota (soonest-reset-first)",
     fn: testOrderAccountsByQuota,
+    category: "proxy-primary",
+  },
+  {
+    name: "Quota: saveAccountQuota merges across restarts",
+    fn: testSaveAccountQuotaMerges,
+    category: "proxy-primary",
+  },
+  {
+    name: "Quota: seedRuntimeQuotasFromDisk at boot",
+    fn: testSeedRuntimeQuotasFromDisk,
     category: "proxy-primary",
   },
   {

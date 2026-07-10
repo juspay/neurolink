@@ -21,6 +21,7 @@ import {
   parseClaudeCodeUserId,
 } from "../../auth/anthropicOAuth.js";
 import {
+  loadAccountQuotas,
   parseQuotaHeaders,
   saveAccountQuota,
 } from "../../proxy/accountQuota.js";
@@ -363,6 +364,32 @@ function maybeCoolFromQuota(
   }
 }
 
+/**
+ * Seed each account's runtime quota from the persisted snapshots in
+ * ~/.neurolink/account-quotas.json (keyed by label). Runtime state is
+ * in-memory only, so without this the quota-aware ordering is blind after a
+ * proxy restart: all accounts tie, selection falls back to token-store
+ * enumeration order, and the first account served becomes self-reinforcing
+ * (it alone has data) — starving the others regardless of their resets.
+ * Never overwrites fresher in-memory quota; stale disk snapshots degrade
+ * gracefully because past reset timestamps are ignored by resetEpochToMs.
+ */
+async function seedRuntimeQuotasFromDisk(
+  accounts: ProxyPassthroughAccount[],
+): Promise<void> {
+  try {
+    const persisted = await loadAccountQuotas();
+    for (const account of accounts) {
+      const state = getOrCreateRuntimeState(account.key);
+      if (!state.quota && persisted[account.label]) {
+        state.quota = persisted[account.label];
+      }
+    }
+  } catch {
+    // Non-fatal: seeding is best-effort; ordering falls back to probe-first.
+  }
+}
+
 /** Quota-aware selection is on by default; disable with
  *  NEUROLINK_PROXY_QUOTA_ROUTING=off|false|0. Only affects the fill-first
  *  strategy (round-robin keeps strict rotation). */
@@ -384,6 +411,7 @@ function accountSortMetrics(accountKey: string, now: number) {
     q?.sessionStatus === "rejected" && sessionReset !== undefined;
   return {
     usable: !coolingActive && !weeklyRejected && !sessionRejected,
+    hasQuota: !!q,
     coolingUntil: st?.coolingUntil ?? 0,
     weeklyReset: weeklyReset ?? Number.POSITIVE_INFINITY,
     sessionReset: sessionReset ?? Number.POSITIVE_INFINITY,
@@ -397,17 +425,21 @@ function accountSortMetrics(accountKey: string, now: number) {
  * allowance isn't wasted, then move to accounts with longer-dated resets.
  *
  * Priority among usable accounts:
- *   1. soonest WEEKLY (7d) reset  — the scarce, use-it-or-lose-it ceiling
- *   2. soonest SESSION (5h) reset
- *   3. highest weekly utilization — finish off the one closest to done
- * Accounts with no quota data yet keep insertion order (stable sort) and sit
- * after those with a known soonest reset. Cooling/rejected accounts sort last,
- * soonest-back-to-service first, as last resort.
+ *   1. no quota data yet — probe first: one request reveals its windows and
+ *      self-corrects the ordering. (Ranking unknowns last would starve them
+ *      forever: never picked → never observed → never comparable.)
+ *   2. soonest WEEKLY (7d) reset  — the scarce, use-it-or-lose-it ceiling
+ *   3. soonest SESSION (5h) reset
+ *   4. highest weekly utilization — finish off the one closest to done
+ *   5. configured primary account, then insertion order
+ * Cooling/rejected accounts sort last, soonest-back-to-service first, as
+ * last resort.
  */
 function orderAccountsByQuota(
   accounts: ProxyPassthroughAccount[],
   now: number,
 ): ProxyPassthroughAccount[] {
+  const primaryKey = configuredPrimaryAccountKey;
   return [...accounts].sort((a, b) => {
     const ma = accountSortMetrics(a.key, now);
     const mb = accountSortMetrics(b.key, now);
@@ -419,13 +451,22 @@ function orderAccountsByQuota(
       const bu = mb.coolingUntil || Number.POSITIVE_INFINITY;
       return au - bu;
     }
+    if (ma.hasQuota !== mb.hasQuota) {
+      return ma.hasQuota ? 1 : -1;
+    }
     if (ma.weeklyReset !== mb.weeklyReset) {
       return ma.weeklyReset - mb.weeklyReset;
     }
     if (ma.sessionReset !== mb.sessionReset) {
       return ma.sessionReset - mb.sessionReset;
     }
-    return mb.weeklyUsed - ma.weeklyUsed;
+    if (ma.weeklyUsed !== mb.weeklyUsed) {
+      return mb.weeklyUsed - ma.weeklyUsed;
+    }
+    if (primaryKey && (a.key === primaryKey) !== (b.key === primaryKey)) {
+      return a.key === primaryKey ? -1 : 1;
+    }
+    return 0;
   });
 }
 
@@ -1726,6 +1767,8 @@ async function loadClaudeProxyAccounts(args: {
     state.lastToken = account.token;
     state.lastRefreshToken = account.refreshToken;
   }
+
+  await seedRuntimeQuotasFromDisk(accounts);
 
   const enabledAccounts = accounts.filter((account) => {
     return !getOrCreateRuntimeState(account.key).permanentlyDisabled;
@@ -5401,6 +5444,11 @@ export const __testHooks = {
   planCooldownFor429,
   orderAccountsByQuota,
   resetEpochToMs,
+  seedRuntimeQuotasFromDisk,
+  getAccountRuntimeState: (key: string): RuntimeAccountState | undefined => {
+    const state = accountRuntimeState.get(key);
+    return state ? { ...state } : undefined;
+  },
   setConfiguredPrimaryAccountKey: (key: string | undefined): void => {
     configuredPrimaryAccountKey = key;
   },
