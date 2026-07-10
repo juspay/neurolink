@@ -72,6 +72,8 @@ import {
   recordFinalSuccess,
 } from "../../proxy/usageStats.js";
 import type {
+  AccountCooldownPlan,
+  AccountQuota,
   AnthropicAttemptLogger,
   AnthropicAuthRetryResult,
   AnthropicLoopState,
@@ -133,12 +135,26 @@ const MAX_CONSECUTIVE_REFRESH_FAILURES = 15;
 const MAX_TRANSIENT_SAME_ACCOUNT_RETRIES = 2;
 const TRANSIENT_SAME_ACCOUNT_RETRY_DELAYS_MS = [250, 1_000] as const;
 
-/** Maximum upstream 429 attempts per account before rotating to the next account.
- *  Total attempts per account = this + 1 (the initial call plus this many retries). */
-const MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES = 10;
-/** Max time to sleep between 429 retries. Caps large upstream retry-after values
- *  so we don't hold the client connection open for minutes. */
+/** Maximum upstream 429 attempts per account before rotating — for a TRANSIENT
+ *  burst 429 only (window still "allowed", short retry-after). An exhaustion 429
+ *  (5h/7d window "rejected") rotates immediately with zero same-account retries,
+ *  because retrying is futile until the window resets. Kept small: retrying a
+ *  rate-limited account more than a couple of times only burns the client's
+ *  wall-clock and, under fill-first, delays reaching a healthy account. */
+const MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES = 2;
+/** Max time to sleep between transient 429 retries. Caps large upstream
+ *  retry-after values so we don't hold the client connection open for minutes. */
 const MAX_RATE_LIMIT_RETRY_DELAY_MS = 30_000;
+/** Upper bound on any cooldown, as a sanity clamp against a garbage/huge reset
+ *  epoch. Must exceed the 7-day weekly window so a genuine weekly-exhaustion
+ *  cooldown is never truncated. */
+const MAX_COOLDOWN_MS = 8 * 24 * 60 * 60 * 1000; // 8 days
+/** Lower bound on any cooldown so we never busy-loop back onto a spent account. */
+const MIN_COOLDOWN_MS = 5_000;
+/** Cap for transient (per-minute burst) cooldowns — these recover quickly, so
+ *  we should return to the account soon rather than parking it for the full
+ *  reset window. */
+const TRANSIENT_MAX_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
 /** Timeout for upstream requests to Anthropic. Must be generous enough
  *  to cover the full lifecycle of streaming responses, including extended
  *  thinking from Opus models (which can exceed 5 minutes for large contexts). */
@@ -224,6 +240,193 @@ function maybeResetPrimaryToHome(
 function isAccountCooling(accountKey: string): boolean {
   const state = accountRuntimeState.get(accountKey);
   return !!state?.coolingUntil && Date.now() < state.coolingUntil;
+}
+
+// ---------------------------------------------------------------------------
+// Quota-aware cooldown helpers
+// ---------------------------------------------------------------------------
+
+/** Convert an Anthropic unified-window reset (Unix epoch SECONDS, per the
+ *  `anthropic-ratelimit-unified-*-reset` headers) into epoch-ms. Tolerates a
+ *  value already expressed in ms (some intermediaries normalise it). Returns
+ *  undefined for absent/zero/past-or-garbage timestamps so callers can fall
+ *  back to retry-after. */
+function resetEpochToMs(
+  resetEpoch: number | undefined,
+  now: number,
+): number | undefined {
+  if (!resetEpoch || resetEpoch <= 0) {
+    return undefined;
+  }
+  // Heuristic: a value beyond ~year 2100 in seconds (4102444800) is already ms.
+  const ms = resetEpoch > 4_102_444_800 ? resetEpoch : resetEpoch * 1000;
+  return ms > now ? ms : undefined;
+}
+
+/** Clamp a cooldown target epoch-ms into [now+MIN, now+MAX]. */
+function clampCooldownUntil(untilMs: number, now: number): number {
+  return Math.min(
+    Math.max(untilMs, now + MIN_COOLDOWN_MS),
+    now + MAX_COOLDOWN_MS,
+  );
+}
+
+/**
+ * Decide how to cool an account after a genuine (non-anti-abuse) 429.
+ *
+ * The unified subscription limits expose per-window status + reset:
+ *   - weekly (7d) "rejected"  → hard cap for the week; cool until the 7d reset.
+ *   - session (5h) "rejected" → paced out for this session; cool until the 5h reset.
+ * Both mean "retrying this account is futile until its window resets" → rotate
+ * immediately (no same-account retries) and park the account until the ACTUAL
+ * reset — never the legacy 60s hardcap that let us re-hammer a spent account.
+ *
+ * Anything else (window still "allowed" but momentarily 429'd — a per-minute
+ * burst / acceleration limit) is transient: honor retry-after as a floor,
+ * allow a couple of jittered same-account retries, then a short cooldown.
+ */
+function planCooldownFor429(
+  quota: AccountQuota | null,
+  retryAfterMs: number,
+  now: number,
+): AccountCooldownPlan {
+  // Weekly exhaustion takes precedence — it's the longest, hardest ceiling.
+  if (quota && quota.weeklyStatus === "rejected") {
+    const reset =
+      resetEpochToMs(quota.weeklyResetAt, now) ??
+      (retryAfterMs > 0 ? now + retryAfterMs : now + DEFAULT_COOLING_PERIOD_MS);
+    return {
+      reason: "weekly",
+      coolingUntil: clampCooldownUntil(reset, now),
+      rotateImmediately: true,
+    };
+  }
+  if (quota && quota.sessionStatus === "rejected") {
+    const reset =
+      resetEpochToMs(quota.sessionResetAt, now) ??
+      (retryAfterMs > 0 ? now + retryAfterMs : now + DEFAULT_COOLING_PERIOD_MS);
+    return {
+      reason: "session",
+      coolingUntil: clampCooldownUntil(reset, now),
+      rotateImmediately: true,
+    };
+  }
+  // Transient burst: cool only for retry-after, floored at MIN_COOLDOWN_MS so a
+  // tiny retry-after can't make the account eligible almost immediately, and
+  // capped so it recovers quickly.
+  const base = retryAfterMs > 0 ? retryAfterMs : DEFAULT_COOLING_PERIOD_MS;
+  return {
+    reason: "transient",
+    coolingUntil:
+      now +
+      Math.max(MIN_COOLDOWN_MS, Math.min(base, TRANSIENT_MAX_COOLDOWN_MS)),
+    rotateImmediately: false,
+  };
+}
+
+/** Human-readable minutes-until for cooldown log lines. */
+function minutesUntil(untilMs: number, now: number): number {
+  return Math.max(0, Math.round((untilMs - now) / 60000));
+}
+
+/**
+ * Proactively cool an account when a SUCCESS response reveals a window has just
+ * flipped to "rejected" (the boundary request that spends the last of the quota
+ * still returns 200 but reports rejected/next-reset). Parks the account until
+ * its reset so the next request skips it instead of discovering the limit via a
+ * 429. Never shortens an existing, longer cooldown.
+ */
+function maybeCoolFromQuota(
+  state: RuntimeAccountState,
+  quota: AccountQuota,
+  now: number,
+): void {
+  let until: number | undefined;
+  let reason: RuntimeAccountState["coolingReason"];
+  if (quota.weeklyStatus === "rejected") {
+    until = resetEpochToMs(quota.weeklyResetAt, now);
+    reason = "weekly";
+  } else if (quota.sessionStatus === "rejected") {
+    until = resetEpochToMs(quota.sessionResetAt, now);
+    reason = "session";
+  }
+  if (until === undefined) {
+    return;
+  }
+  const clamped = clampCooldownUntil(until, now);
+  if (!state.coolingUntil || clamped > state.coolingUntil) {
+    state.coolingUntil = clamped;
+    state.coolingReason = reason;
+    logger.always(
+      `[proxy] proactively cooling account (${reason}) ~${minutesUntil(clamped, now)}m from success-response quota (status rejected)`,
+    );
+  }
+}
+
+/** Quota-aware selection is on by default; disable with
+ *  NEUROLINK_PROXY_QUOTA_ROUTING=off|false|0. Only affects the fill-first
+ *  strategy (round-robin keeps strict rotation). */
+function isQuotaRoutingEnabled(): boolean {
+  const v = (process.env.NEUROLINK_PROXY_QUOTA_ROUTING ?? "").toLowerCase();
+  return v !== "off" && v !== "false" && v !== "0";
+}
+
+/** Derive the ordering signals for an account from its latest runtime quota. */
+function accountSortMetrics(accountKey: string, now: number) {
+  const st = accountRuntimeState.get(accountKey);
+  const q = st?.quota;
+  const coolingActive = !!st?.coolingUntil && now < st.coolingUntil;
+  const weeklyReset = resetEpochToMs(q?.weeklyResetAt, now);
+  const sessionReset = resetEpochToMs(q?.sessionResetAt, now);
+  const weeklyRejected =
+    q?.weeklyStatus === "rejected" && weeklyReset !== undefined;
+  const sessionRejected =
+    q?.sessionStatus === "rejected" && sessionReset !== undefined;
+  return {
+    usable: !coolingActive && !weeklyRejected && !sessionRejected,
+    coolingUntil: st?.coolingUntil ?? 0,
+    weeklyReset: weeklyReset ?? Number.POSITIVE_INFINITY,
+    sessionReset: sessionReset ?? Number.POSITIVE_INFINITY,
+    weeklyUsed: q?.weeklyUsed ?? -1,
+  };
+}
+
+/**
+ * Order accounts to MAXIMIZE quota utilization (fill-first, smart order):
+ * spend the account whose window refreshes SOONEST first, so its about-to-reset
+ * allowance isn't wasted, then move to accounts with longer-dated resets.
+ *
+ * Priority among usable accounts:
+ *   1. soonest WEEKLY (7d) reset  — the scarce, use-it-or-lose-it ceiling
+ *   2. soonest SESSION (5h) reset
+ *   3. highest weekly utilization — finish off the one closest to done
+ * Accounts with no quota data yet keep insertion order (stable sort) and sit
+ * after those with a known soonest reset. Cooling/rejected accounts sort last,
+ * soonest-back-to-service first, as last resort.
+ */
+function orderAccountsByQuota(
+  accounts: ProxyPassthroughAccount[],
+  now: number,
+): ProxyPassthroughAccount[] {
+  return [...accounts].sort((a, b) => {
+    const ma = accountSortMetrics(a.key, now);
+    const mb = accountSortMetrics(b.key, now);
+    if (ma.usable !== mb.usable) {
+      return ma.usable ? -1 : 1;
+    }
+    if (!ma.usable && !mb.usable) {
+      const au = ma.coolingUntil || Number.POSITIVE_INFINITY;
+      const bu = mb.coolingUntil || Number.POSITIVE_INFINITY;
+      return au - bu;
+    }
+    if (ma.weeklyReset !== mb.weeklyReset) {
+      return ma.weeklyReset - mb.weeklyReset;
+    }
+    if (ma.sessionReset !== mb.sessionReset) {
+      return ma.sessionReset - mb.sessionReset;
+    }
+    return mb.weeklyUsed - ma.weeklyUsed;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1536,22 +1739,41 @@ async function loadClaudeProxyAccounts(args: {
     return { response: buildLoggedClaudeError(401, reauthMsg) };
   }
 
-  const orderedAccounts = [...enabledAccounts];
-  if (
-    accountStrategy === "round-robin" &&
-    orderedAccounts.length !== lastKnownAccountCount
-  ) {
-    primaryAccountIndex = resolveHomeIndex(orderedAccounts);
-    lastKnownAccountCount = orderedAccounts.length;
-  }
-  if (orderedAccounts.length > 1) {
-    const idx = primaryAccountIndex % orderedAccounts.length;
-    if (accountStrategy === "round-robin") {
-      primaryAccountIndex = (primaryAccountIndex + 1) % orderedAccounts.length;
+  let orderedAccounts = [...enabledAccounts];
+  const quotaOrdered =
+    accountStrategy === "fill-first" &&
+    orderedAccounts.length > 1 &&
+    isQuotaRoutingEnabled();
+  if (quotaOrdered) {
+    // Fill-first with a smart fill order: spend the account whose window resets
+    // soonest first (max utilization), proactively skipping any whose window is
+    // rejected until its reset. Supersedes the static home/primary index.
+    orderedAccounts = orderAccountsByQuota(enabledAccounts, Date.now());
+    if (logger.shouldLog("debug")) {
+      logger.debug(
+        `[proxy] quota-ordered fill sequence: ${orderedAccounts
+          .map((a) => a.label)
+          .join(" → ")}`,
+      );
     }
-    if (idx > 0) {
-      const head = orderedAccounts.splice(0, idx);
-      orderedAccounts.push(...head);
+  } else {
+    if (
+      accountStrategy === "round-robin" &&
+      orderedAccounts.length !== lastKnownAccountCount
+    ) {
+      primaryAccountIndex = resolveHomeIndex(orderedAccounts);
+      lastKnownAccountCount = orderedAccounts.length;
+    }
+    if (orderedAccounts.length > 1) {
+      const idx = primaryAccountIndex % orderedAccounts.length;
+      if (accountStrategy === "round-robin") {
+        primaryAccountIndex =
+          (primaryAccountIndex + 1) % orderedAccounts.length;
+      }
+      if (idx > 0) {
+        const head = orderedAccounts.splice(0, idx);
+        orderedAccounts.push(...head);
+      }
     }
   }
 
@@ -2137,6 +2359,11 @@ async function handleAnthropicSuccessfulResponse(args: {
 
   const quota = parseQuotaHeaders(response.headers);
   if (quota) {
+    // Stash the latest quota on runtime state so the next request can pick the
+    // account whose window resets soonest (max-utilization) and proactively
+    // skip any whose window is already rejected — without eating a 429 first.
+    accountState.quota = quota;
+    maybeCoolFromQuota(accountState, quota, Date.now());
     saveAccountQuota(account.label, quota).catch(() => {
       // Non-fatal: quota persistence is best-effort
     });
@@ -2743,6 +2970,7 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
   account: ProxyPassthroughAccount;
+  accountState: RuntimeAccountState;
   retryResp: Response;
   tracer?: ProxyTracer;
   requestStartTime: number;
@@ -2769,6 +2997,7 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
     ctx,
     body,
     account,
+    accountState,
     retryResp,
     tracer,
     requestStartTime,
@@ -2781,6 +3010,11 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
   } = args;
   const retryQuota = parseQuotaHeaders(retryResp.headers);
   if (retryQuota) {
+    // Keep the auth-retry success path in parity with the main success path:
+    // stash quota for proactive selection and proactively cool if this
+    // response reveals the window flipped to "rejected".
+    accountState.quota = retryQuota;
+    maybeCoolFromQuota(accountState, retryQuota, Date.now());
     saveAccountQuota(account.label, retryQuota).catch((error) => {
       logger.debug("[proxy] Failed to persist account quota after auth retry", {
         account: account.label,
@@ -3130,6 +3364,7 @@ async function handleAnthropicAuthRetry(args: {
           ctx,
           body,
           account,
+          accountState,
           retryResp,
           tracer,
           requestStartTime,
@@ -3199,6 +3434,25 @@ async function handleAnthropicAuthRetry(args: {
         !isAntiAbuseConstruction429(retryRespHeaders, retryBody)
       ) {
         currentSawRateLimit = true;
+        // Cool the account per its real reset window before rotating, so a
+        // session/weekly-exhausted account isn't re-selected next request.
+        const nowRetry = Date.now();
+        const retryQuota429 = parseQuotaHeaders(retryRespHeaders);
+        if (retryQuota429) {
+          accountState.quota = retryQuota429;
+        }
+        const retryPlan = planCooldownFor429(
+          retryQuota429,
+          parseRetryAfterMs(retryRespHeaders["retry-after"] ?? null),
+          nowRetry,
+        );
+        if (
+          !accountState.coolingUntil ||
+          retryPlan.coolingUntil > accountState.coolingUntil
+        ) {
+          accountState.coolingUntil = retryPlan.coolingUntil;
+          accountState.coolingReason = retryPlan.reason;
+        }
         advancePrimaryIfCurrent(
           account.key,
           enabledAccounts.length,
@@ -4205,8 +4459,19 @@ async function fetchAnthropicAccountResponse(args: {
         upstreamSpan: undefined,
       };
     }
+    // Parse the unified-window quota headers (present on real rate-limit 429s)
+    // and derive a reset-aware cooldown plan. This is the fix for "kept
+    // hammering the 5h/7d-exhausted account instead of switching": on an
+    // exhaustion 429 we rotate immediately and park the account until its
+    // ACTUAL reset, not a 60s hardcap.
+    const now = Date.now();
+    const quota = parseQuotaHeaders(errRespHeaders);
+    const cooldownPlan = planCooldownFor429(quota, retryAfterMs, now);
     logger.always(
-      `[proxy] ← 429 account=${account.label} retry-after=${retryAfterMs}ms (upstream) ratelimit-status=${errRespHeaders["anthropic-ratelimit-unified-status"] ?? "unknown"}`,
+      `[proxy] ← 429 account=${account.label} reason=${cooldownPlan.reason} ` +
+        `retry-after=${retryAfterMs}ms 5h-status=${errRespHeaders["anthropic-ratelimit-unified-5h-status"] ?? "unknown"} ` +
+        `7d-status=${errRespHeaders["anthropic-ratelimit-unified-7d-status"] ?? "unknown"} ` +
+        `→ ${cooldownPlan.rotateImmediately ? `rotate now, cool ${minutesUntil(cooldownPlan.coolingUntil, now)}m` : "retry same account (transient)"}`,
     );
     logAttempt(429, "rate_limit_error", String(lastError));
     tracer?.setError("rate_limit_error", String(lastError).slice(0, 500));
@@ -4214,8 +4479,10 @@ async function fetchAnthropicAccountResponse(args: {
     currentUpstreamSpan?.end();
     return {
       continueLoop: true,
-      retrySameAccount: true,
+      retrySameAccount: !cooldownPlan.rotateImmediately,
       retryAfterMs,
+      cooldownPlan,
+      ...(quota ? { quota } : {}),
       lastError,
       sawRateLimit,
       sawNetworkError,
@@ -4291,7 +4558,15 @@ async function handleAnthropicRoutedClaudeRequest(args: {
   const acctSelectionSpan = tracer?.startAccountSelection();
 
   // Try to return to the home primary account if its cooling has expired.
-  maybeResetPrimaryToHome(enabledAccounts);
+  // Skipped under quota routing, where the fill order is derived per-request
+  // from live quota (soonest-reset-first) rather than a static home index.
+  const usingQuotaOrder =
+    accountStrategy === "fill-first" &&
+    enabledAccounts.length > 1 &&
+    isQuotaRoutingEnabled();
+  if (!usingQuotaOrder) {
+    maybeResetPrimaryToHome(enabledAccounts);
+  }
 
   // Skip accounts that are still cooling from a recent 429-exhaustion,
   // but keep them as last-resort if ALL accounts are cooling.
@@ -4376,41 +4651,55 @@ async function handleAnthropicRoutedClaudeRequest(args: {
       loopState.sawRateLimit = fetchResult.sawRateLimit;
       loopState.sawNetworkError = fetchResult.sawNetworkError;
       if (fetchResult.continueLoop || !fetchResult.response) {
-        // 429 with retry-after: wait and retry same account up to 5 times
-        if (
-          fetchResult.retrySameAccount &&
-          fetchResult.retryAfterMs !== undefined &&
-          rateLimitSameAccountRetries < MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES
-        ) {
-          rateLimitSameAccountRetries += 1;
-          const delayMs = Math.min(
-            fetchResult.retryAfterMs || 1_000,
-            MAX_RATE_LIMIT_RETRY_DELAY_MS,
-          );
-          logger.always(
-            `[proxy] retrying same account=${account.label} after upstream 429 (${rateLimitSameAccountRetries}/${MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES}) in ${delayMs}ms`,
-          );
-          await sleep(delayMs);
-          continue;
-        }
-        // Rate-limit retries exhausted for this account — rotate
-        if (
-          fetchResult.retrySameAccount &&
-          fetchResult.retryAfterMs !== undefined
-        ) {
-          // Mark account as cooling so subsequent requests don't hammer it
-          const coolingMs = Math.min(
-            fetchResult.retryAfterMs || DEFAULT_COOLING_PERIOD_MS,
-            DEFAULT_COOLING_PERIOD_MS,
-          );
-          accountState.coolingUntil = Date.now() + coolingMs;
+        // Genuine 429 (carries a cooldown plan derived from quota headers).
+        if (fetchResult.cooldownPlan) {
+          const plan = fetchResult.cooldownPlan;
+          // Refresh the account's quota snapshot for proactive selection.
+          if (fetchResult.quota) {
+            accountState.quota = fetchResult.quota;
+          }
+          // Transient burst (window still allowed): a couple of jittered
+          // same-account retries before giving up. Exhaustion plans set
+          // rotateImmediately, so retrySameAccount is false and we skip this.
+          if (
+            fetchResult.retrySameAccount &&
+            fetchResult.retryAfterMs !== undefined &&
+            rateLimitSameAccountRetries < MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES
+          ) {
+            rateLimitSameAccountRetries += 1;
+            const base = Math.min(
+              fetchResult.retryAfterMs || 1_000,
+              MAX_RATE_LIMIT_RETRY_DELAY_MS,
+            );
+            // Cap AFTER jitter so the final sleep never exceeds the cap.
+            const delayMs = Math.min(
+              MAX_RATE_LIMIT_RETRY_DELAY_MS,
+              jitteredDelay(base),
+            );
+            logger.always(
+              `[proxy] retrying same account=${account.label} after transient 429 (${rateLimitSameAccountRetries}/${MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES}) in ${delayMs}ms`,
+            );
+            await sleep(delayMs);
+            continue;
+          }
+          // Exhaustion, or transient retries used up: park the account until
+          // its ACTUAL reset (5h/7d) — no 60s hardcap — and rotate. Extend-only
+          // so a concurrent short transient plan can't shorten a longer weekly
+          // cooldown already set by another in-flight request.
+          if (
+            !accountState.coolingUntil ||
+            plan.coolingUntil > accountState.coolingUntil
+          ) {
+            accountState.coolingUntil = plan.coolingUntil;
+            accountState.coolingReason = plan.reason;
+          }
           advancePrimaryIfCurrent(
             account.key,
             enabledAccounts.length,
             orderedAccounts[0]?.key,
           );
           logger.always(
-            `[proxy] exhausted ${MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES} rate-limit retries for account=${account.label}; cooling for ${coolingMs}ms, rotating`,
+            `[proxy] account=${account.label} rate-limited (${plan.reason}); cooling ~${minutesUntil(plan.coolingUntil, Date.now())}m until ${new Date(plan.coolingUntil).toISOString()}, rotating`,
           );
           continue accountLoop;
         }
@@ -4535,9 +4824,17 @@ async function handleAnthropicRoutedClaudeRequest(args: {
         break accountLoop;
       }
 
-      // Clear cooling on success — account is healthy again
-      if (accountState.coolingUntil) {
+      // Clear cooling on success — but only if the stored cooldown has already
+      // expired, so an older in-flight success can't wipe an active exhaustion
+      // cooldown just set by a concurrent 429. The success handler re-applies a
+      // cooldown via maybeCoolFromQuota if the fresh quota headers report the
+      // window flipped to "rejected" on this very request.
+      if (
+        accountState.coolingUntil &&
+        Date.now() >= accountState.coolingUntil
+      ) {
         accountState.coolingUntil = undefined;
+        accountState.coolingReason = undefined;
       }
 
       const successResult = await handleAnthropicSuccessfulResponse({
@@ -4906,6 +5203,13 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Honor `base` (e.g. retry-after) as a floor and add positive jitter on top,
+ *  so a fleet of concurrent requests (parallel subagents) doesn't wake and
+ *  retry in the same millisecond and re-trip the limit together. */
+function jitteredDelay(base: number): number {
+  return base + Math.floor(Math.random() * base * 0.25);
+}
+
 /**
  * Get low-level network error code from an unknown error shape.
  */
@@ -5094,6 +5398,9 @@ export function isTransientHttpFailure(
 export const __testHooks = {
   resolveHomeIndex,
   maybeResetPrimaryToHome,
+  planCooldownFor429,
+  orderAccountsByQuota,
+  resetEpochToMs,
   setConfiguredPrimaryAccountKey: (key: string | undefined): void => {
     configuredPrimaryAccountKey = key;
   },
