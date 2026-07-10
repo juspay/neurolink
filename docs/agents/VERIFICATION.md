@@ -147,7 +147,7 @@ All agent and network CLI commands are implemented in
 - [ ] `neurolink network execute` - available
 - [ ] `neurolink network run` (alias for execute) - available
 
-See [CLI-COVERAGE.md](./CLI-COVERAGE.md) for full flag reference and usage
+See [CLI-COVERAGE.md](/docs/agents/cli-coverage) for full flag reference and usage
 examples.
 
 ## Final Verification Summary

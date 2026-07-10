@@ -19,6 +19,19 @@ export function toSkillIndexItem(skill: SkillDefinition): SkillIndexItem {
   return indexItem;
 }
 
+/**
+ * Sort index entries by name (byte order, locale-independent) so every
+ * listing renders byte-identically across calls and store backends.
+ * Store enumeration order (Redis SCAN, fs.readdir, S3 listings) is not
+ * stable — an unsorted listing would shuffle between calls and invalidate
+ * provider prompt caches. Returns a new array.
+ */
+export function sortSkillIndex(items: SkillIndexItem[]): SkillIndexItem[] {
+  return [...items].sort((a, b) =>
+    a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+  );
+}
+
 /** Filter index entries by query/tag/scope. Active skills only. */
 export function filterSkillIndex(
   items: SkillIndexItem[],
@@ -67,10 +80,92 @@ export function filterSkillIndex(
 }
 
 /**
- * Render the compact skills index injected into the system prompt.
- * Names + descriptions only — instructions are never included; the model
- * loads them via search_skills. Returns null when nothing is visible so
- * callers can skip injection entirely.
+ * Reject resource paths that could escape a skill's namespace: absolute
+ * paths, traversal segments, and empty segments. The manager validates
+ * before reaching any store — this is defense in depth for stores whose
+ * keys are built by concatenation (S3, Redis) or path joining.
+ */
+export function isSafeSkillResourcePath(resourcePath: string): boolean {
+  const normalized = resourcePath.replace(/\\/g, "/");
+  return (
+    normalized.length > 0 &&
+    !normalized.startsWith("/") &&
+    !normalized.split("/").some((segment) => segment === ".." || segment === "")
+  );
+}
+
+/** Whether a skill is visible from the calling scope. */
+export function isSkillVisibleInScope(
+  skill: Pick<SkillDefinition, "scope" | "scopeIds">,
+  scopeId?: string,
+): boolean {
+  if (!scopeId || skill.scope !== "scoped") {
+    return true;
+  }
+  return (skill.scopeIds ?? []).includes(scopeId);
+}
+
+/** Trim a description to its first sentence (or the whole text when unsplittable). */
+function firstSentence(description: string): string {
+  const match = description.match(/^[^.!?]*[.!?]/);
+  return match ? match[0].trim() : description;
+}
+
+/**
+ * Render the `<available_skills>` block embedded in the use_skill tool
+ * description ("tool" discovery mode). One line per skill — name,
+ * description, tags — instructions never appear here.
+ *
+ * Budget handling is uniform and stateless: over budget, every
+ * description drops to its first sentence, then to a hard 80-char cap.
+ * The render is a pure function of the (sorted) index, so the tool
+ * description stays byte-identical across calls — a prerequisite for
+ * provider prompt caching. Names are never dropped.
+ */
+export function renderSkillListing(
+  items: SkillIndexItem[],
+  budgetChars: number,
+): string | null {
+  if (items.length === 0) {
+    return null;
+  }
+
+  const render = (describe: (item: SkillIndexItem) => string): string => {
+    const lines = items.map((item) => {
+      const tags =
+        item.tags && item.tags.length > 0
+          ? ` [tags: ${item.tags.join(", ")}]`
+          : "";
+      return `- ${item.name}: ${describe(item)}${tags}`;
+    });
+    return ["<available_skills>", ...lines, "</available_skills>"].join("\n");
+  };
+
+  const full = render((item) => item.description);
+  if (full.length <= budgetChars) {
+    return full;
+  }
+
+  const sentences = render((item) => firstSentence(item.description));
+  if (sentences.length <= budgetChars) {
+    return sentences;
+  }
+
+  const HARD_CAP = 80;
+  // Floor render — returned even if it still exceeds the budget.
+  return render((item) => {
+    const sentence = firstSentence(item.description);
+    return sentence.length > HARD_CAP
+      ? `${sentence.slice(0, HARD_CAP - 1)}…`
+      : sentence;
+  });
+}
+
+/**
+ * Render the compact skills index appended to the system prompt
+ * ("system-prompt" discovery mode). Names + descriptions only —
+ * instructions are never included; the model loads them via use_skill.
+ * Returns null when nothing is visible so callers can skip injection.
  */
 export function formatSkillsPromptIndex(
   items: SkillIndexItem[],
@@ -94,7 +189,7 @@ export function formatSkillsPromptIndex(
 
   const truncationNote =
     items.length > visible.length
-      ? `\n(${items.length - visible.length} more skills exist — use search_skills or list_skills to discover them.)`
+      ? `\n(${items.length - visible.length} more skills exist — use list_skills to discover them.)`
       : "";
 
   return (
@@ -102,7 +197,7 @@ export function formatSkillsPromptIndex(
       "## Available Skills",
       "The following team-defined skills (SOPs, playbooks, workflows) are available.",
       "Before answering from general knowledge, check whether one applies to the user's request.",
-      "To use a skill, call the search_skills tool to load its full instructions, then follow them exactly.",
+      "To use a skill, call the use_skill tool with its name to load the full instructions, then follow them exactly.",
       "",
       ...lines,
     ].join("\n") + truncationNote

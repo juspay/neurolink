@@ -312,6 +312,7 @@ export async function storeConversationTurn(
   result: TextGenerationResult,
   startTimeStamp?: Date | undefined,
   requestId?: string,
+  skillMessages?: ChatMessage[],
 ): Promise<void> {
   logger.debug("[conversationMemoryUtils] storeConversationTurn called", {
     requestId,
@@ -486,6 +487,9 @@ export async function storeConversationTurn(
           enableSummarization: originalOptions.enableSummarization,
           requestId,
           events: toolActivityEvents,
+          ...(skillMessages && skillMessages.length > 0
+            ? { skillMessages }
+            : {}),
           tokenUsage: result.usage
             ? {
                 inputTokens: result.usage.input,
@@ -591,6 +595,13 @@ export function buildContextFromPointer(
 
   const messagesAfterPointer = session.messages.slice(pointerIndex + 1);
 
+  // Pinned skill instructions must survive summarization: any skill message
+  // that fell behind the pointer is re-included verbatim after the summary,
+  // so an activated skill keeps its full instructions for the whole session.
+  const pinnedSkillMessages = session.messages
+    .slice(0, pointerIndex + 1)
+    .filter((msg) => msg.metadata?.isSkill);
+
   // Construct context: summary message + recent messages
   const summaryMessage: ChatMessage = {
     id: `summary-${session.summarizedUpToMessageId}`,
@@ -611,7 +622,11 @@ export function buildContextFromPointer(
     summaryLength: session.summarizedMessage.length,
   });
 
-  const contextMessages = [summaryMessage, ...messagesAfterPointer];
+  const contextMessages = [
+    summaryMessage,
+    ...pinnedSkillMessages,
+    ...messagesAfterPointer,
+  ];
 
   // Log context built for LLM with structural metadata
   const totalChars = contextMessages.reduce(

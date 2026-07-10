@@ -20,12 +20,19 @@ import type {
   SkillsConfig,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
-import { filterSkillIndex, formatSkillsPromptIndex } from "./skillMatcher.js";
+import {
+  filterSkillIndex,
+  formatSkillsPromptIndex,
+  renderSkillListing,
+  sortSkillIndex,
+} from "./skillMatcher.js";
+import { SkillSessionTracker } from "./skillSessionTracker.js";
 import { createSkillStore } from "./skillStores.js";
 
 const DEFAULT_MAX_MATCHES = 5;
 const DEFAULT_PROMPT_INDEX_MAX_ITEMS = 50;
 const DEFAULT_INDEX_CACHE_TTL_MS = 30_000;
+const DEFAULT_LISTING_BUDGET_CHARS = 15_000;
 
 export class SkillsManager {
   private readonly store: SkillStore;
@@ -33,12 +40,18 @@ export class SkillsManager {
   private cachedIndexAt = 0;
   /** Serializes writes within this process — see requestMutation(). */
   private mutationQueue: Promise<unknown> = Promise.resolve();
+  /** Per-session activation state (pinned skills). */
+  readonly sessions = new SkillSessionTracker();
 
   constructor(private readonly config: SkillsConfig) {
     this.store = createSkillStore(config.storage);
   }
 
-  /** Cached index read. TTL 0 disables caching. */
+  /**
+   * Cached index read, sorted by name. TTL 0 disables caching. Sorting
+   * here (not per render) keeps every downstream listing byte-stable
+   * regardless of store enumeration order.
+   */
   async getIndex(forceRefresh = false): Promise<SkillIndexItem[]> {
     const ttl = this.config.indexCacheTtlMs ?? DEFAULT_INDEX_CACHE_TTL_MS;
     const fresh =
@@ -48,7 +61,7 @@ export class SkillsManager {
     if (fresh && !forceRefresh && this.cachedIndex) {
       return this.cachedIndex;
     }
-    const index = await this.store.index();
+    const index = sortSkillIndex(await this.store.index());
     this.cachedIndex = index;
     this.cachedIndexAt = Date.now();
     return index;
@@ -117,6 +130,34 @@ export class SkillsManager {
     scopeId?: string;
     tags?: string[];
   }): Promise<string | null> {
+    const items = await this.visibleItems(options);
+    return formatSkillsPromptIndex(
+      items,
+      this.config.promptIndexMaxItems ?? DEFAULT_PROMPT_INDEX_MAX_ITEMS,
+    );
+  }
+
+  /**
+   * Render the `<available_skills>` block for the use_skill tool
+   * description ("tool" discovery mode), or null when nothing is visible.
+   * Bounded by listingBudgetChars; entries are never dropped.
+   */
+  async buildToolListing(options?: {
+    scopeId?: string;
+    tags?: string[];
+  }): Promise<string | null> {
+    const items = await this.visibleItems(options);
+    return renderSkillListing(
+      items,
+      this.config.listingBudgetChars ?? DEFAULT_LISTING_BUDGET_CHARS,
+    );
+  }
+
+  /** Visible (active, scope- and tag-filtered) index entries for one call. */
+  private async visibleItems(options?: {
+    scopeId?: string;
+    tags?: string[];
+  }): Promise<SkillIndexItem[]> {
     let items = await this.list(options?.scopeId);
     if (options?.tags && options.tags.length > 0) {
       const wanted = options.tags.map((t) => t.toLowerCase());
@@ -124,10 +165,35 @@ export class SkillsManager {
         (item.tags ?? []).some((t) => wanted.includes(t.toLowerCase())),
       );
     }
-    return formatSkillsPromptIndex(
-      items,
-      this.config.promptIndexMaxItems ?? DEFAULT_PROMPT_INDEX_MAX_ITEMS,
-    );
+    return items;
+  }
+
+  /**
+   * Read an auxiliary resource file bundled with a skill. Paths are
+   * relative to the skill; traversal segments are rejected. Null when the
+   * skill, the resource, or store resource support is absent.
+   */
+  async getResource(
+    idOrName: string,
+    resourcePath: string,
+  ): Promise<string | null> {
+    const normalized = resourcePath.replace(/\\/g, "/");
+    if (
+      normalized.startsWith("/") ||
+      normalized.split("/").some((segment) => segment === "..")
+    ) {
+      throw new Error(
+        `Invalid resource path "${resourcePath}" — must be relative to the skill directory`,
+      );
+    }
+    if (!this.store.getResource) {
+      return null;
+    }
+    const skill = await this.get(idOrName);
+    if (!skill) {
+      return null;
+    }
+    return this.store.getResource(skill.id, normalized);
   }
 
   /**

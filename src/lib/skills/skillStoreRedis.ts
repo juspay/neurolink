@@ -20,17 +20,25 @@ import {
   scanKeys,
 } from "../utils/redis.js";
 import { logger } from "../utils/logger.js";
-import { toSkillIndexItem } from "./skillMatcher.js";
+import { isSafeSkillResourcePath, toSkillIndexItem } from "./skillMatcher.js";
 
 const DEFAULT_KEY_PREFIX = "neurolink:skills:";
 
 export class RedisSkillStore implements SkillStore {
   private readonly keyPrefix: string;
+  /**
+   * Resources live under `<keyPrefix>__resources__:` — a reserved segment
+   * inside the skill prefix, explicitly excluded from the index SCAN so
+   * resource values are never mistaken for skills, whatever the
+   * configured keyPrefix looks like.
+   */
+  private readonly resourcePrefix: string;
   private readonly normalizedConfig: ReturnType<typeof getNormalizedConfig>;
   private clientPromise: Promise<RedisClient> | null = null;
 
   constructor(config: SkillRedisStorageConfig) {
     this.keyPrefix = config.keyPrefix ?? DEFAULT_KEY_PREFIX;
+    this.resourcePrefix = `${this.keyPrefix}__resources__:`;
     this.normalizedConfig = getNormalizedConfig({
       ...(config.url ? { url: config.url } : {}),
       ...(config.host ? { host: config.host } : {}),
@@ -59,6 +67,15 @@ export class RedisSkillStore implements SkillStore {
     return `${this.keyPrefix}${id}`;
   }
 
+  async getResource(id: string, resourcePath: string): Promise<string | null> {
+    if (!isSafeSkillResourcePath(resourcePath)) {
+      return null;
+    }
+    const client = await this.getClient();
+    const raw = await client.get(`${this.resourcePrefix}${id}:${resourcePath}`);
+    return raw ? String(raw) : null;
+  }
+
   async get(id: string): Promise<SkillDefinition | null> {
     const client = await this.getClient();
     const raw = await client.get(this.skillKey(id));
@@ -78,7 +95,9 @@ export class RedisSkillStore implements SkillStore {
 
   async index(): Promise<SkillIndexItem[]> {
     const client = await this.getClient();
-    const keys = await scanKeys(client, `${this.keyPrefix}*`);
+    const keys = (await scanKeys(client, `${this.keyPrefix}*`)).filter(
+      (key) => !key.startsWith(this.resourcePrefix),
+    );
     if (keys.length === 0) {
       return [];
     }

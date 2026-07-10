@@ -266,6 +266,6 @@ TEST_PROVIDER=openai OPENAI_API_KEY=sk-... npx tsx test/continuous-test-suite-ag
 
 ## Related Documentation
 
-- [CONFIGURATION.md](./CONFIGURATION.md) - Configuration options
-- [VERIFICATION.md](./VERIFICATION.md) - Manual verification checklist
-- [CLI-COVERAGE.md](./CLI-COVERAGE.md) - CLI coverage report
+- [CONFIGURATION.md](/docs/agents/configuration) - Configuration options
+- [VERIFICATION.md](/docs/agents/verification) - Manual verification checklist
+- [CLI-COVERAGE.md](/docs/agents/cli-coverage) - CLI coverage report

@@ -464,6 +464,5 @@ timeout: 120000;
 
 ## Related Documentation
 
-- [TESTING.md](./TESTING.md) - Testing guide
-- [VERIFICATION.md](./VERIFICATION.md) - Verification checklist
-- [API Reference](../api/agents.md) - Full API documentation
+- [TESTING.md](/docs/agents/testing) - Testing guide
+- [VERIFICATION.md](/docs/agents/verification) - Verification checklist

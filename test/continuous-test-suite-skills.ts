@@ -5,15 +5,18 @@ import "dotenv/config";
  * Continuous Test Suite: Skills
  *
  * Tests the native skills subsystem end-to-end:
- * - Built-in tool registration (search_skills / list_skills, gated mutation tools)
- * - InMemory + FileSystem stores (JSON, frontmatter .md, <dir>/SKILL.md layouts)
- * - S3 store (hermetic via injected object ops: round-trip, index upsert, self-heal,
- *   fail-open error when @aws-sdk/client-s3 is absent)
+ * - Built-in tool registration (list_skills, gated mutation tools) and the
+ *   per-call use_skill / read_skill_resource injection (discovery listing)
+ * - InMemory + FileSystem stores (JSON, frontmatter .md, <dir>/SKILL.md
+ *   layouts, bundled resources)
+ * - S3 store (hermetic via injected object ops: round-trip, index upsert,
+ *   self-heal, ETag-conditional refresh, resources, fail-open errors)
  * - Redis store (round-trip + SCAN index; SKIPs when Redis is unreachable)
  * - Custom store plug-in
- * - Index-first search semantics (no_match envelope, scope/tag filters, maxMatches)
- * - SkillsManager API via getSkillsManager()
- * - Prompt-index injection (block content, per-call disable, media-mode skip)
+ * - Search semantics on the manager (scope/tag filters, maxMatches)
+ * - Activation + session pinning (already_loaded dedup, pinned history
+ *   messages, summarization/truncation survival, preload, version pinning)
+ * - Listing budget (description shortening, names never dropped, sorted)
  * - Mutation gate (approve / reject / pending / direct apply, soft delete, version bump)
  * - CLI: skills create/list/show/search/delete + --skills-dir flag
  * - Server routes: /api/agent/skills CRUD handlers + 503 when unconfigured
@@ -28,6 +31,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { NeuroLink, RedisSkillStore, S3SkillStore } from "../dist/index.js";
+import { ConversationMemoryManager } from "../dist/lib/core/conversationMemoryManager.js";
+import { buildContextFromPointer } from "../dist/lib/utils/conversationMemory.js";
+import { truncateWithSlidingWindow } from "../dist/lib/context/stages/slidingWindowTruncator.js";
 
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -132,6 +138,9 @@ function makeSkillsInstance(
   overrides: Record<string, unknown> = {},
 ): NeuroLink {
   return new NeuroLink({
+    // Session pinning requires conversation memory (persistence is gated
+    // on it) — enable the in-memory manager for activation/session tests.
+    conversationMemory: { enabled: true },
     skills: {
       enabled: true,
       storage: { type: "memory", skills: SEED_SKILLS },
@@ -146,12 +155,19 @@ function makeSkillsInstance(
 
 async function testToolRegistration(): Promise<void> {
   await runTest(
-    "1. search_skills + list_skills registered when enabled",
+    "1. list_skills registered when enabled; use_skill is per-call only",
     async () => {
       const nl = makeSkillsInstance();
       const tools = nl.getCustomTools();
-      assert(tools.has("search_skills"), "search_skills missing");
       assert(tools.has("list_skills"), "list_skills missing");
+      assert(
+        !tools.has("use_skill"),
+        "use_skill must be injected per call, not registered",
+      );
+      assert(
+        !tools.has("read_skill_resource"),
+        "read_skill_resource must be injected per call, not registered",
+      );
       assert(
         !tools.has("skill_create"),
         "skill_create must be gated off by default",
@@ -170,7 +186,6 @@ async function testToolRegistration(): Promise<void> {
   await runTest("2. No skill tools when skills not configured", async () => {
     const nl = new NeuroLink();
     const tools = nl.getCustomTools();
-    assert(!tools.has("search_skills"), "search_skills must not be registered");
     assert(!tools.has("list_skills"), "list_skills must not be registered");
   });
 
@@ -187,7 +202,7 @@ async function testToolRegistration(): Promise<void> {
 }
 
 // ============================================================
-// TESTS — search semantics through the registered tool
+// TESTS — search semantics (manager) + per-call tool injection
 // ============================================================
 
 type ToolExecute = (params: unknown, ctx?: unknown) => Promise<unknown>;
@@ -198,94 +213,128 @@ function getToolExecute(nl: NeuroLink, name: string): ToolExecute {
   return tool.execute as ToolExecute;
 }
 
-async function testSearchTool(): Promise<void> {
+type CallTool = { description: string; execute: ToolExecute };
+
+/**
+ * Run the exact per-call augmentation generate()/stream() use (private at
+ * the TS level only — dist is plain JS) and return the mutated options.
+ */
+async function applyAugmentation(
+  nl: NeuroLink,
+  options: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const apply = (
+    nl as unknown as {
+      applySkillsAugmentation: (o: Record<string, unknown>) => Promise<void>;
+    }
+  ).applySkillsAugmentation.bind(nl);
+  await apply(options);
+  return options;
+}
+
+function getCallTool(options: Record<string, unknown>, name: string): CallTool {
+  const tools = options.tools as Record<string, CallTool> | undefined;
+  assert(tools && tools[name], `${name} not injected into options.tools`);
+  return tools[name];
+}
+
+function drainSkillMessages(
+  nl: NeuroLink,
+  sessionId: string,
+): Array<{
+  role: string;
+  content: string;
+  metadata?: Record<string, unknown>;
+}> {
+  return (
+    nl as unknown as {
+      drainPendingSkillMessages: (sid: unknown) => Array<{
+        role: string;
+        content: string;
+        metadata?: Record<string, unknown>;
+      }>;
+    }
+  ).drainPendingSkillMessages.call(nl, sessionId);
+}
+
+async function testSearch(): Promise<void> {
   await runTest(
-    "4. search_skills returns hydrated match with instructions",
+    "4. manager.search hydrates matches with instructions",
     async () => {
       const nl = makeSkillsInstance();
-      const execute = getToolExecute(nl, "search_skills");
-      const result = (await execute({ query: "refund" })) as {
-        success: boolean;
-        data: { skills: Array<{ name: string; instructions: string }> };
-      };
-      assert(result.success, "expected success");
+      const manager = nl.getSkillsManager();
+      assert(manager, "manager missing");
+      const matches = await manager.search({ query: "refund" });
+      assert(matches.length === 1, `expected 1 match, got ${matches.length}`);
       assert(
-        result.data.skills.length === 1,
-        `expected 1 match, got ${result.data.skills.length}`,
-      );
-      assert(
-        result.data.skills[0].name === "refund_dispute_escalation",
+        matches[0].name === "refund_dispute_escalation",
         "wrong skill matched",
       );
       assert(
-        result.data.skills[0].instructions.includes("payments-oncall"),
+        matches[0].instructions.includes("payments-oncall"),
         "instructions not hydrated",
       );
+      const none = await manager.search({ query: "quantum-chromodynamics" });
+      assert(none.length === 0, "no-match must return empty");
     },
   );
 
-  await runTest("5. search_skills no_match is success, not error", async () => {
+  await runTest("5. tag filter applies on top of query", async () => {
     const nl = makeSkillsInstance();
-    const execute = getToolExecute(nl, "search_skills");
-    const result = (await execute({ query: "quantum-chromodynamics" })) as {
-      success: boolean;
-      data: { skills: unknown[]; reason?: string };
-    };
-    assert(result.success, "no_match must be success:true");
-    assert(result.data.reason === "no_match", "expected reason=no_match");
-    assert(result.data.skills.length === 0, "expected empty skills");
-  });
-
-  await runTest("6. search_skills requires query or tag", async () => {
-    const nl = makeSkillsInstance();
-    const execute = getToolExecute(nl, "search_skills");
-    const result = (await execute({})) as { success: boolean; error?: string };
-    assert(!result.success, "parameterless call must fail");
-    assert(
-      (result.error ?? "").includes("query"),
-      "error should mention required params",
-    );
-  });
-
-  await runTest("7. tag filter applies on top of query", async () => {
-    const nl = makeSkillsInstance();
-    const execute = getToolExecute(nl, "search_skills");
-    // "procedure"/"deploy" matches service_deployment; wrong tag excludes it
-    const result = (await execute({ query: "deploy", tag: "payments" })) as {
-      success: boolean;
-      data: { skills: unknown[]; reason?: string };
-    };
-    assert(result.success, "expected success");
-    assert(result.data.reason === "no_match", "wrong tag must exclude match");
+    const manager = nl.getSkillsManager();
+    assert(manager, "manager missing");
+    // "deploy" matches service_deployment; wrong tag excludes it
+    const wrongTag = await manager.search({ query: "deploy", tag: "payments" });
+    assert(wrongTag.length === 0, "wrong tag must exclude match");
+    const rightTag = await manager.search({ query: "deploy", tag: "devops" });
+    assert(rightTag.length === 1, "right tag must include match");
   });
 
   await runTest(
-    "8. scoped skills excluded for other scopes, included for own",
+    "6. scoped skills excluded for other scopes, included for own",
     async () => {
       const nl = makeSkillsInstance();
-      const execute = getToolExecute(nl, "search_skills");
-      const foreign = (await execute({
+      const manager = nl.getSkillsManager();
+      assert(manager, "manager missing");
+      const foreign = await manager.search({
         query: "standup",
         scopeId: "team-beta",
-      })) as { data: { skills: unknown[] } };
-      assert(
-        foreign.data.skills.length === 0,
-        "scoped skill leaked into foreign scope",
-      );
-      const own = (await execute({
+      });
+      assert(foreign.length === 0, "scoped skill leaked into foreign scope");
+      const own = await manager.search({
         query: "standup",
         scopeId: "team-alpha",
-      })) as { data: { skills: Array<{ name: string }> } };
+      });
       assert(
-        own.data.skills.length === 1 &&
-          own.data.skills[0].name === "team_alpha_standup",
+        own.length === 1 && own[0].name === "team_alpha_standup",
         "scoped skill missing in own scope",
       );
     },
   );
 
+  await runTest("7. maxMatches caps hydrated results", async () => {
+    const many = Array.from({ length: 8 }, (_, i) => ({
+      id: `bulk-${i}`,
+      name: `bulk_skill_${i}`,
+      description: "A bulk generated skill for capping tests.",
+      instructions: `Instructions ${i}`,
+    }));
+    const nl = new NeuroLink({
+      skills: {
+        enabled: true,
+        storage: { type: "memory", skills: many },
+        maxMatches: 3,
+      },
+    });
+    const matches = await nl.getSkillsManager()!.search({ query: "bulk" });
+    assert(
+      matches.length === 3,
+      `expected 3 (maxMatches), got ${matches.length}`,
+    );
+  });
+
   await runTest(
-    "9. list_skills returns index without instructions",
+    "8. list_skills returns index without instructions",
     async () => {
       const nl = makeSkillsInstance();
       const execute = getToolExecute(nl, "list_skills");
@@ -304,30 +353,6 @@ async function testSearchTool(): Promise<void> {
       );
     },
   );
-
-  await runTest("10. maxMatches caps hydrated results", async () => {
-    const many = Array.from({ length: 8 }, (_, i) => ({
-      id: `bulk-${i}`,
-      name: `bulk_skill_${i}`,
-      description: "A bulk generated skill for capping tests.",
-      instructions: `Instructions ${i}`,
-    }));
-    const nl = new NeuroLink({
-      skills: {
-        enabled: true,
-        storage: { type: "memory", skills: many },
-        maxMatches: 3,
-      },
-    });
-    const execute = getToolExecute(nl, "search_skills");
-    const result = (await execute({ query: "bulk" })) as {
-      data: { skills: unknown[] };
-    };
-    assert(
-      result.data.skills.length === 3,
-      `expected 3 (maxMatches), got ${result.data.skills.length}`,
-    );
-  });
 }
 
 // ============================================================
@@ -363,8 +388,10 @@ async function testFilesystemStore(): Promise<void> {
       "2. Hand over the pager.",
     ].join("\n"),
   );
-  // Layout 3: Claude-skills directory
-  fs.mkdirSync(path.join(dir, "release-notes"));
+  // Layout 3: Claude-skills directory (with a bundled resource)
+  fs.mkdirSync(path.join(dir, "release-notes", "references"), {
+    recursive: true,
+  });
   fs.writeFileSync(
     path.join(dir, "release-notes", "SKILL.md"),
     [
@@ -374,6 +401,10 @@ async function testFilesystemStore(): Promise<void> {
       "---",
       "Collect merged PRs and group by feature area.",
     ].join("\n"),
+  );
+  fs.writeFileSync(
+    path.join(dir, "release-notes", "references", "template.md"),
+    "## Release Notes Template\n- Features\n- Fixes",
   );
 
   await runTest(
@@ -404,6 +435,34 @@ async function testFilesystemStore(): Promise<void> {
         (md?.tags ?? []).includes("oncall"),
         "frontmatter tags must be parsed",
       );
+    },
+  );
+
+  await runTest(
+    "11b. Filesystem store: SKILL.md siblings become readable resources",
+    async () => {
+      const nl = new NeuroLink({
+        skills: { enabled: true, storage: { type: "filesystem", path: dir } },
+      });
+      const manager = nl.getSkillsManager();
+      assert(manager, "manager missing");
+      const skill = await manager.get("release_notes");
+      assert(
+        skill?.resources?.some((r) => r.path === "references/template.md"),
+        "sibling file not listed as a resource",
+      );
+      const content = await manager.getResource(
+        "release_notes",
+        "references/template.md",
+      );
+      assert(
+        content?.includes("Release Notes Template"),
+        "resource content not readable",
+      );
+      const escaped = await manager
+        .getResource("release_notes", "../json-skill.json")
+        .catch(() => null);
+      assert(escaped === null, "path traversal must not escape the skill dir");
     },
   );
 
@@ -499,11 +558,8 @@ async function testCustomStore(): Promise<void> {
           },
         },
       });
-      const execute = getToolExecute(nl, "search_skills");
-      const result = (await execute({ query: "refund" })) as {
-        data: { skills: Array<{ instructions: string }> };
-      };
-      assert(result.data.skills.length === 1, "custom store match failed");
+      const matches = await nl.getSkillsManager()!.search({ query: "refund" });
+      assert(matches.length === 1, "custom store match failed");
       assert(calls.includes("index"), "index() not called");
       assert(
         calls.includes("get:skill-refund"),
@@ -517,97 +573,459 @@ async function testCustomStore(): Promise<void> {
 // TESTS — prompt index
 // ============================================================
 
-async function testPromptIndex(): Promise<void> {
+async function testDiscovery(): Promise<void> {
   await runTest(
-    "15. buildPromptIndex: names+descriptions, no instructions",
+    "15. Default discovery: listing rides the use_skill description, prompt untouched",
     async () => {
       const nl = makeSkillsInstance();
-      const manager = nl.getSkillsManager();
-      assert(manager, "manager missing");
-      const block = await manager.buildPromptIndex();
-      assert(block, "expected a prompt block");
-      assert(block.includes("## Available Skills"), "missing header");
-      assert(block.includes("refund_dispute_escalation"), "missing skill name");
-      assert(block.includes("search_skills"), "missing tool guidance");
+      const options = await applyAugmentation(nl, {
+        systemPrompt: "You are Tara.",
+      });
       assert(
-        !block.includes("payments-oncall"),
-        "instructions leaked into prompt index",
+        options.systemPrompt === "You are Tara.",
+        "tool-mode discovery must not touch the system prompt",
+      );
+      const useSkill = getCallTool(options, "use_skill");
+      getCallTool(options, "read_skill_resource");
+      assert(
+        useSkill.description.includes("<available_skills>"),
+        "listing block missing from use_skill description",
+      );
+      assert(
+        useSkill.description.includes("refund_dispute_escalation"),
+        "skill name missing from listing",
+      );
+      assert(
+        !useSkill.description.includes("payments-oncall"),
+        "instructions leaked into the listing",
+      );
+      // Sorted by name: refund… < service_deployment < team_alpha_standup
+      const listing = useSkill.description;
+      assert(
+        listing.indexOf("refund_dispute_escalation") <
+          listing.indexOf("service_deployment") &&
+          listing.indexOf("service_deployment") <
+            listing.indexOf("team_alpha_standup"),
+        "listing must be name-sorted",
+      );
+      // Deterministic: a second augmentation renders byte-identical listing
+      const again = await applyAugmentation(nl, { systemPrompt: "x" });
+      assert(
+        getCallTool(again, "use_skill").description === useSkill.description,
+        "listing must be byte-stable across calls",
       );
     },
   );
 
   await runTest(
-    "16. applySkillsPromptIndex appends to systemPrompt",
+    "16. Discovery modes: system-prompt appends index; skips honored",
     async () => {
-      const nl = makeSkillsInstance();
-      // Private at the TS level only — dist is plain JS. Reaching in keeps this
-      // a no-API test of the exact injection path generate()/stream() use.
-      const apply = (
-        nl as unknown as {
-          applySkillsPromptIndex: (o: Record<string, unknown>) => Promise<void>;
-        }
-      ).applySkillsPromptIndex.bind(nl);
-
-      const options: Record<string, unknown> = {
+      const spNl = makeSkillsInstance({ discovery: "system-prompt" });
+      const spOptions = await applyAugmentation(spNl, {
         systemPrompt: "You are Tara.",
-      };
-      await apply(options);
-      const prompt = options.systemPrompt as string;
+      });
+      const prompt = spOptions.systemPrompt as string;
       assert(prompt.startsWith("You are Tara."), "base prompt lost");
       assert(prompt.includes("## Available Skills"), "index not appended");
-
-      // Per-call disable
-      const disabled: Record<string, unknown> = {
-        systemPrompt: "base",
-        skills: { enabled: false },
-      };
-      await apply(disabled);
-      assert(disabled.systemPrompt === "base", "per-call disable ignored");
-
-      // promptIndex=false per call
-      const noIndex: Record<string, unknown> = {
-        systemPrompt: "base",
-        skills: { promptIndex: false },
-      };
-      await apply(noIndex);
+      assert(prompt.includes("use_skill"), "index must reference use_skill");
+      const spTool = getCallTool(spOptions, "use_skill");
       assert(
-        noIndex.systemPrompt === "base",
-        "per-call promptIndex=false ignored",
+        !spTool.description.includes("<available_skills>"),
+        "system-prompt mode must not duplicate the listing in the tool",
       );
 
+      const nl = makeSkillsInstance();
+      // Per-call disable
+      const disabled = await applyAugmentation(nl, {
+        systemPrompt: "base",
+        skills: { enabled: false },
+      });
+      assert(disabled.systemPrompt === "base", "per-call disable ignored");
+      assert(!disabled.tools, "disabled call must not receive skill tools");
+
       // Media-only mode skipped
-      const media: Record<string, unknown> = {
+      const media = await applyAugmentation(nl, {
         systemPrompt: "base",
         output: { mode: "video" },
-      };
-      await apply(media);
+      });
       assert(media.systemPrompt === "base", "media mode must skip injection");
+      assert(!media.tools, "media mode must not receive skill tools");
 
-      // Scope filter narrows the block
-      const scoped: Record<string, unknown> = {
+      // Scope filter narrows the listing
+      const scoped = await applyAugmentation(nl, {
         systemPrompt: "",
         skills: { scopeId: "team-beta" },
-      };
-      await apply(scoped);
+      });
       assert(
-        !(scoped.systemPrompt as string).includes("team_alpha_standup"),
-        "foreign-scope skill leaked into prompt index",
+        !getCallTool(scoped, "use_skill").description.includes(
+          "team_alpha_standup",
+        ),
+        "foreign-scope skill leaked into the listing",
       );
     },
   );
 
   await runTest(
-    "17. Instance promptIndex=false disables injection",
+    "17. Listing budget shortens descriptions, never drops names",
     async () => {
-      const nl = makeSkillsInstance({ promptIndex: false });
-      const apply = (
-        nl as unknown as {
-          applySkillsPromptIndex: (o: Record<string, unknown>) => Promise<void>;
-        }
-      ).applySkillsPromptIndex.bind(nl);
-      const options: Record<string, unknown> = { systemPrompt: "base" };
-      await apply(options);
-      assert(options.systemPrompt === "base", "instance-level disable ignored");
+      const longSkills = Array.from({ length: 6 }, (_, i) => ({
+        id: `long-${i}`,
+        name: `long_skill_${i}`,
+        description:
+          `Primary sentence for skill ${i}. ` +
+          "Second sentence with a lot of extra detail that should be the first thing dropped when the listing exceeds its character budget.".repeat(
+            3,
+          ),
+        instructions: "Body.",
+      }));
+      // Tight enough that every description must shrink to its first
+      // sentence (shortening stops as soon as the listing fits).
+      const nl = new NeuroLink({
+        skills: {
+          enabled: true,
+          storage: { type: "memory", skills: longSkills },
+          listingBudgetChars: 400,
+        },
+      });
+      const options = await applyAugmentation(nl, { systemPrompt: "" });
+      const listing = getCallTool(options, "use_skill").description;
+      for (let i = 0; i < 6; i++) {
+        assert(
+          listing.includes(`long_skill_${i}`),
+          `name long_skill_${i} dropped from budgeted listing`,
+        );
+      }
+      assert(
+        !listing.includes("Second sentence"),
+        "descriptions must be shortened under budget pressure",
+      );
+    },
+  );
+}
+
+// ============================================================
+// TESTS — activation + session pinning
+// ============================================================
+
+async function testActivation(): Promise<void> {
+  await runTest(
+    "34. use_skill loads full instructions once, then already_loaded",
+    async () => {
+      const nl = makeSkillsInstance();
+      const sessionId = "sess-activation";
+      const options = await applyAugmentation(nl, {
+        systemPrompt: "",
+        context: { sessionId },
+      });
+      const useSkill = getCallTool(options, "use_skill");
+      const first = (await useSkill.execute({
+        name: "refund_dispute_escalation",
+      })) as {
+        success: boolean;
+        data: { instructions?: string; status?: string };
+      };
+      assert(first.success, "activation failed");
+      assert(
+        first.data.instructions?.includes("payments-oncall"),
+        "full instructions missing from activation",
+      );
+      const second = (await useSkill.execute({
+        name: "refund_dispute_escalation",
+      })) as { data: { status?: string; instructions?: string } };
+      assert(
+        second.data.status === "already_loaded",
+        "second activation must dedupe",
+      );
+      assert(
+        !second.data.instructions,
+        "already_loaded must not resend the body",
+      );
+
+      const unknown = (await useSkill.execute({ name: "nope" })) as {
+        success: boolean;
+        error?: string;
+      };
+      assert(
+        !unknown.success && (unknown.error ?? "").includes("nope"),
+        "unknown skill must return an error envelope",
+      );
+    },
+  );
+
+  await runTest(
+    "35. Activation pins a history message; drain is one-shot",
+    async () => {
+      const nl = makeSkillsInstance();
+      const sessionId = "sess-pin";
+      const options = await applyAugmentation(nl, {
+        systemPrompt: "",
+        context: { sessionId },
+      });
+      await getCallTool(options, "use_skill").execute({
+        name: "service_deployment",
+      });
+      const pinned = drainSkillMessages(nl, sessionId);
+      assert(
+        pinned.length === 1,
+        `expected 1 pinned message, got ${pinned.length}`,
+      );
+      assert(pinned[0].role === "user", "pinned message must be user-role");
+      assert(
+        pinned[0].content.includes("[Skill loaded: service_deployment v1]"),
+        "pinned header missing",
+      );
+      assert(
+        pinned[0].content.includes("pre-deploy checklist"),
+        "pinned body missing",
+      );
+      assert(
+        pinned[0].metadata?.isSkill === true,
+        "metadata.isSkill missing on pinned message",
+      );
+      assert(
+        drainSkillMessages(nl, sessionId).length === 0,
+        "drain must be one-shot",
+      );
+    },
+  );
+
+  await runTest(
+    "36. Memory manager stores pinned skills between ask and answer",
+    async () => {
+      const memory = new ConversationMemoryManager({});
+      await memory.storeConversationTurn({
+        sessionId: "s1",
+        userMessage: "how do I deploy?",
+        aiResponse: "Loaded the SOP and followed it.",
+        skillMessages: [
+          {
+            id: "skill-msg-1",
+            role: "user",
+            content: "[Skill loaded: service_deployment v1]\n\nBody.",
+            metadata: {
+              isSkill: true,
+              skillId: "skill-deploy",
+              skillName: "service_deployment",
+              skillVersion: 1,
+            },
+          },
+        ],
+      });
+      const messages = await memory.getSessionMessages("s1");
+      assert(
+        messages.length === 3,
+        `expected 3 messages, got ${messages.length}`,
+      );
+      assert(
+        messages[0].role === "user" &&
+          messages[1].metadata?.isSkill === true &&
+          messages[2].role === "assistant",
+        "order must be ask → skill → answer",
+      );
+    },
+  );
+
+  await runTest("37. Pinned skills survive summarization replay", async () => {
+    const session = {
+      sessionId: "s2",
+      messages: [
+        { id: "m1", role: "user", content: "old ask" },
+        {
+          id: "m-skill",
+          role: "user",
+          content: "[Skill loaded: x v1]\n\nBody.",
+          metadata: { isSkill: true, skillId: "x", skillName: "x" },
+        },
+        { id: "m2", role: "assistant", content: "old answer" },
+        { id: "m3", role: "user", content: "recent ask" },
+        { id: "m4", role: "assistant", content: "recent answer" },
+      ],
+      createdAt: 0,
+      lastActivity: 0,
+      summarizedUpToMessageId: "m2",
+      summarizedMessage: "Earlier the user asked and got an answer.",
+    };
+    const context = buildContextFromPointer(session as never);
+    assert(context[0]?.metadata?.isSummary === true, "summary must lead");
+    assert(
+      context[1]?.metadata?.isSkill === true,
+      "pinned skill must be re-included right after the summary",
+    );
+    assert(
+      context.some((m: { id: string }) => m.id === "m3"),
+      "recent messages must remain",
+    );
+  });
+
+  await runTest(
+    "38. Pinned skills survive sliding-window truncation",
+    async () => {
+      const filler = (i: number, role: "user" | "assistant") => ({
+        id: `f${i}`,
+        role,
+        content: `filler ${i} `.repeat(50),
+      });
+      const messages = [
+        filler(0, "user"),
+        filler(1, "assistant"),
+        {
+          id: "m-skill",
+          role: "user",
+          content: "[Skill loaded: x v1]\n\nBody.",
+          metadata: { isSkill: true },
+        },
+        ...Array.from({ length: 20 }, (_, i) =>
+          filler(i + 2, i % 2 === 0 ? "user" : "assistant"),
+        ),
+      ];
+      const result = truncateWithSlidingWindow(
+        messages as never,
+        {
+          fraction: 0.9,
+        } as never,
+      );
+      assert(result.truncated, "expected truncation to trigger");
+      assert(
+        result.messages.some((m: { id: string }) => m.id === "m-skill"),
+        "pinned skill dropped by sliding-window truncation",
+      );
+    },
+  );
+
+  await runTest(
+    "39. Resources: listed on activation, gated + path-safe reads",
+    async () => {
+      const nl = new NeuroLink({
+        conversationMemory: { enabled: true },
+        skills: {
+          enabled: true,
+          storage: {
+            type: "memory",
+            skills: [SEED_SKILLS[0]],
+            resources: {
+              "skill-refund": {
+                "references/edge-cases.md": "Edge case: partial refunds.",
+              },
+            },
+          },
+        },
+      });
+      const sessionId = "sess-res";
+      const options = await applyAugmentation(nl, {
+        systemPrompt: "",
+        context: { sessionId },
+      });
+      const readTool = getCallTool(options, "read_skill_resource");
+
+      const early = (await readTool.execute({
+        skill: "refund_dispute_escalation",
+        path: "references/edge-cases.md",
+      })) as { success: boolean; error?: string };
+      assert(
+        !early.success && (early.error ?? "").includes("use_skill"),
+        "resource read must be gated on activation",
+      );
+
+      const activated = (await getCallTool(options, "use_skill").execute({
+        name: "refund_dispute_escalation",
+      })) as { data: { resources?: string[] } };
+      assert(
+        activated.data.resources?.includes("references/edge-cases.md"),
+        "resources not listed on activation",
+      );
+
+      const read = (await readTool.execute({
+        skill: "refund_dispute_escalation",
+        path: "references/edge-cases.md",
+      })) as { success: boolean; data?: { content: string } };
+      assert(
+        read.success && read.data?.content.includes("partial refunds"),
+        "resource content not returned",
+      );
+
+      const traversal = (await readTool.execute({
+        skill: "refund_dispute_escalation",
+        path: "../secrets.txt",
+      })) as { success: boolean };
+      assert(!traversal.success, "traversal path must be rejected");
+    },
+  );
+
+  await runTest(
+    "40. Preload activates up front and never double-pins",
+    async () => {
+      const nl = makeSkillsInstance();
+      const sessionId = "sess-preload";
+      const options = await applyAugmentation(nl, {
+        systemPrompt: "base",
+        context: { sessionId },
+        skills: { preload: ["service_deployment"] },
+      });
+      const prompt = options.systemPrompt as string;
+      assert(
+        prompt.includes("[Skill loaded: service_deployment v1]") &&
+          prompt.includes("pre-deploy checklist"),
+        "preload must inject instructions into the call prompt",
+      );
+      // Second call in the same turn window (pin still pending): must not
+      // re-inject or re-pin.
+      const second = await applyAugmentation(nl, {
+        systemPrompt: "base",
+        context: { sessionId },
+        skills: { preload: ["service_deployment"] },
+      });
+      assert(
+        second.systemPrompt === "base",
+        "already-active preload must not re-inject",
+      );
+      assert(
+        drainSkillMessages(nl, sessionId).length === 1,
+        "exactly one pin must exist across both preloads",
+      );
+      // The pin was drained but never stored (failed persistence): the
+      // tracker derives state from history, so preload self-heals by
+      // re-activating instead of pointing at instructions that exist
+      // nowhere.
+      const third = await applyAugmentation(nl, {
+        systemPrompt: "base",
+        context: { sessionId },
+        skills: { preload: ["service_deployment"] },
+      });
+      assert(
+        (third.systemPrompt as string).includes("pre-deploy checklist"),
+        "unpersisted activation must re-activate, not stay falsely loaded",
+      );
+    },
+  );
+
+  await runTest(
+    "41. Session pins the activated version across updates",
+    async () => {
+      const nl = makeSkillsInstance();
+      const sessionId = "sess-version";
+      const options = await applyAugmentation(nl, {
+        systemPrompt: "",
+        context: { sessionId },
+      });
+      await getCallTool(options, "use_skill").execute({
+        name: "service_deployment",
+      });
+      await nl.getSkillsManager()!.requestMutation({
+        type: "update",
+        skillId: "skill-deploy",
+        patch: { instructions: "Completely new steps." },
+      });
+      const again = (await getCallTool(options, "use_skill").execute({
+        name: "service_deployment",
+      })) as { data: { status?: string; version?: number } };
+      assert(
+        again.data.status === "already_loaded",
+        "updated skill must stay pinned in-session",
+      );
+      assert(
+        again.data.version === 1,
+        `session must keep the activated v1, got v${again.data.version}`,
+      );
     },
   );
 }
@@ -724,14 +1142,8 @@ async function testMutations(): Promise<void> {
         success: boolean;
       };
       assert(result.success, "delete failed");
-      const search = getToolExecute(nl, "search_skills");
-      const after = (await search({ query: "refund" })) as {
-        data: { skills: unknown[]; reason?: string };
-      };
-      assert(
-        after.data.reason === "no_match",
-        "deprecated skill still matches",
-      );
+      const after = await nl.getSkillsManager()!.search({ query: "refund" });
+      assert(after.length === 0, "deprecated skill still matches");
       const list = getToolExecute(nl, "list_skills");
       const listed = (await list({})) as { data: { count: number } };
       assert(listed.data.count === 2, "deprecated skill still listed");
@@ -972,8 +1384,8 @@ async function testS3Store(): Promise<void> {
           storage: { type: "s3", bucket: "no-sdk-installed" },
         },
       });
-      const execute = getToolExecute(nl, "search_skills");
-      const result = (await execute({ query: "anything" })) as {
+      const execute = getToolExecute(nl, "list_skills");
+      const result = (await execute({})) as {
         success: boolean;
         error?: string;
       };
@@ -982,6 +1394,64 @@ async function testS3Store(): Promise<void> {
         (result.error ?? "").length > 0,
         "error message must be surfaced to the model",
       );
+    },
+  );
+
+  await runTest(
+    "27b. S3 store: resources by key + ETag-conditional index refresh",
+    async () => {
+      const stub = makeStubS3({
+        "tara/skills/skill-refund/references/edge-cases.md":
+          "Edge case: partial refunds.",
+      });
+      // Conditional-read seam: serve ETags and count full downloads.
+      let fullReads = 0;
+      let etagVersion = 0;
+      const conditionalOps = {
+        ...stub.ops,
+        async putObject(key: string, body: string) {
+          if (key === "tara/index.json") {
+            etagVersion++;
+          }
+          await stub.ops.putObject(key, body);
+        },
+        async getObjectConditional(key: string, etag?: string) {
+          const current = `"v${etagVersion}"`;
+          if (etag && etag === current) {
+            return { body: null, notModified: true };
+          }
+          fullReads++;
+          return { body: stub.objects.get(key) ?? null, etag: current };
+        },
+      };
+      const store = new S3SkillStore(
+        { type: "s3", bucket: "test-bucket", prefix: "tara/" },
+        conditionalOps,
+      );
+      await store.put(SEED_SKILLS[0]);
+
+      const resource = await store.getResource(
+        "skill-refund",
+        "references/edge-cases.md",
+      );
+      assert(
+        resource === "Edge case: partial refunds.",
+        "resource not readable by key",
+      );
+
+      const baseline = fullReads;
+      await store.index(); // revalidates: post-write etag unknown → 1 full read
+      const afterFirst = fullReads;
+      assert(afterFirst > baseline, "first index read must download");
+      await store.index(); // unchanged → 304, no new download
+      assert(
+        fullReads === afterFirst,
+        "unchanged index must be served from the 304 path",
+      );
+
+      await store.put(SEED_SKILLS[1]); // index rewritten → etag changes
+      const index = await store.index();
+      assert(index.length === 2, "index must reflect the new write");
     },
   );
 }
@@ -1028,7 +1498,7 @@ async function testRedisStore(): Promise<void> {
       "index must strip instructions",
     );
 
-    // Full path through NeuroLink config + built-in tool
+    // Full path through NeuroLink config + manager search
     const nl = new NeuroLink({
       skills: {
         enabled: true,
@@ -1036,13 +1506,10 @@ async function testRedisStore(): Promise<void> {
         indexCacheTtlMs: 0,
       },
     });
-    const execute = getToolExecute(nl, "search_skills");
-    const result = (await execute({ query: "refund" })) as {
-      data: { skills: Array<{ name: string }> };
-    };
+    const matches = await nl.getSkillsManager()!.search({ query: "refund" });
     assert(
-      result.data.skills[0]?.name === "refund_dispute_escalation",
-      "tool search through redis store failed",
+      matches[0]?.name === "refund_dispute_escalation",
+      "search through redis store failed",
     );
 
     await store.delete("skill-refund");
@@ -1364,13 +1831,10 @@ async function testServerRoutes(): Promise<void> {
 // ============================================================
 
 async function testLiveGenerate(): Promise<void> {
+  const LIVE_NAME = "24. Live: model calls use_skill and follows it";
   const liveEnabled = process.env.SKILLS_SUITE_LIVE !== "false";
   if (!liveEnabled) {
-    logTest(
-      "24. Live: model calls search_skills and follows it",
-      "SKIP",
-      "SKILLS_SUITE_LIVE=false",
-    );
+    logTest(LIVE_NAME, "SKIP", "SKILLS_SUITE_LIVE=false");
     return;
   }
 
@@ -1386,30 +1850,37 @@ async function testLiveGenerate(): Promise<void> {
     });
 
     const content = result.content ?? "";
-    const usedTool = JSON.stringify(result.toolExecutions ?? result).includes(
-      "search_skills",
+    const executions = (result.toolExecutions ?? []) as Array<{
+      toolName?: string;
+      tool?: string;
+    }>;
+    const usedTool = executions.some(
+      (execution) =>
+        execution.toolName === "use_skill" || execution.tool === "use_skill",
     );
     const followedSkill =
       content.includes("payments-oncall") ||
       content.toLowerCase().includes("transaction id");
 
-    if (usedTool || followedSkill) {
+    // The tool execution is the hard requirement; instruction phrasing in
+    // the answer is informational (models paraphrase).
+    if (usedTool) {
       logTest(
-        "24. Live: model calls search_skills and follows it",
+        LIVE_NAME,
         "PASS",
-        `toolCalled=${usedTool} followedInstructions=${followedSkill}`,
+        `toolCalled=true followedInstructions=${followedSkill}`,
       );
     } else {
       logTest(
-        "24. Live: model calls search_skills and follows it",
+        LIVE_NAME,
         "FAIL",
-        `Model neither called the tool nor followed instructions. Content: ${content.slice(0, 200)}`,
+        `Model did not invoke use_skill. Content: ${content.slice(0, 200)}`,
       );
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logTest(
-      "24. Live: model calls search_skills and follows it",
+      LIVE_NAME,
       "SKIP",
       `Provider "${TEST_PROVIDER}" unavailable: ${message.slice(0, 160)}`,
     );
@@ -1426,10 +1897,11 @@ async function main(): Promise<void> {
   log("============================================================\n", "cyan");
 
   await testToolRegistration();
-  await testSearchTool();
+  await testSearch();
   await testFilesystemStore();
   await testCustomStore();
-  await testPromptIndex();
+  await testDiscovery();
+  await testActivation();
   await testMutations();
   await testS3Store();
   await testRedisStore();

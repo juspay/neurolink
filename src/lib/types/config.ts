@@ -136,11 +136,11 @@ export type NeurolinkConstructorConfig = {
   classifierRouter?: ClassifierRouterConfig;
   /**
    * Native skills: versioned, discoverable instruction packs (SOPs,
-   * playbooks) with progressive disclosure. When enabled, built-in
-   * search_skills / list_skills tools are registered (plus gated mutation
-   * tools) and a compact skills index is injected into the system prompt
-   * of each generate()/stream() call. Opt-in and fails open on read paths.
-   * See {@link SkillsConfig}.
+   * playbooks) with progressive disclosure. When enabled, each
+   * generate()/stream() call gets a skills discovery listing plus
+   * use_skill / read_skill_resource tools; activated skill instructions
+   * pin to the session so they are loaded once and replayed from history.
+   * Opt-in and fails open on read paths. See {@link SkillsConfig}.
    */
   skills?: SkillsConfig;
 };
