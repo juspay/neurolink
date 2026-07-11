@@ -1,5 +1,11 @@
 # NeuroLink
 
+[![npm version](https://img.shields.io/npm/v/@juspay/neurolink?label=npm&color=blue)](https://www.npmjs.com/package/@juspay/neurolink)
+[![npm downloads](https://img.shields.io/npm/dm/@juspay/neurolink?label=downloads)](https://www.npmjs.com/package/@juspay/neurolink)
+[![GitHub Stars](https://img.shields.io/github/stars/juspay/neurolink?style=flat)](https://github.com/juspay/neurolink/stargazers)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/juspay/neurolink/ci.yml?label=CI)](https://github.com/juspay/neurolink/actions/workflows/ci.yml)
+
 **The pipe layer for the AI nervous system.**
 
 AI intelligence flows as streams — tokens, tool calls, memory, voice, documents.
@@ -26,9 +32,9 @@ for await (const chunk of result.stream) {
 
 ## 🧠 What is NeuroLink?
 
-**NeuroLink is the universal AI integration platform that unifies 21+ AI providers and 100+ models under one consistent API.**
+**NeuroLink is the universal AI integration platform that unifies 24+ AI providers and 100+ models under one consistent API.**
 
-Extracted from production systems at Juspay and battle-tested at enterprise scale, NeuroLink provides a production-ready solution for integrating AI into any application. Whether you're building with OpenAI, Anthropic, Google, AWS Bedrock, Azure, or any of our 21+ supported providers, NeuroLink gives you a single, consistent interface that works everywhere.
+Extracted from production systems at Juspay and battle-tested at enterprise scale, NeuroLink provides a production-ready solution for integrating AI into any application. Whether you're building with OpenAI, Anthropic, Google, AWS Bedrock, Azure, or any of our 24+ supported providers, NeuroLink gives you a single, consistent interface that works everywhere.
 
 **Why NeuroLink?** Switch providers with a single parameter change, leverage 64+ built-in tools and MCP servers, deploy with confidence using enterprise features like Redis memory and multi-provider failover, and optimize costs automatically with intelligent routing. Use it via our professional CLI or TypeScript SDK—whichever fits your workflow.
 
@@ -220,7 +226,7 @@ npx @juspay/neurolink --help
 
 ### Configuration
 
-NeuroLink works with 21+ AI providers. You'll need at least one API key to get started:
+NeuroLink works with 24+ AI providers. You'll need at least one API key to get started:
 
 **Option 1: Interactive Setup (Recommended)**
 
@@ -407,7 +413,7 @@ const result = await neurolink.generate({
 ### Next Steps
 
 - **[Complete Documentation](https://docs.neurolink.ink)** - Comprehensive guides and API reference
-- **[Provider Setup Guide](docs/getting-started/provider-setup.md)** - Configure all 33+ providers
+- **[Provider Setup Guide](docs/getting-started/provider-setup.md)** - Configure all 24+ providers
 - **[SDK API Reference](docs/sdk/api-reference.md)** - Full TypeScript API documentation
 - **[CLI Command Reference](docs/cli/commands.md)** - Complete CLI documentation
 - **[Example Projects](docs/examples/index.md)** - Real-world integration examples
@@ -439,7 +445,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 
 ### 🤖 AI Provider Integration
 
-**33+ providers unified under one API** - Switch providers with a single parameter change.
+**24+ providers unified under one API** - Switch providers with a single parameter change.
 
 | Provider              | Models                                                                     | Free Tier       | Tool Support | Status        | Documentation                                                                                                                 |
 | --------------------- | -------------------------------------------------------------------------- | --------------- | ------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -455,7 +461,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 | **Hugging Face**      | 100,000+ models                                                            | ✅ Free         | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#huggingface)                                                             |
 | **Ollama**            | Local models (Llama, Mistral)                                              | ✅ Free (Local) | ⚠️ Partial   | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#ollama)                                                                  |
 | **OpenAI Compatible** | Any OpenAI-compatible endpoint                                             | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#openai-compatible)                                                       |
-| **OpenRouter**        | 200+ Models via OpenRouter                                                 | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/providers/openrouter.md)                                                                   |
+| **OpenRouter**        | 300+ models via OpenRouter                                                 | Varies          | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/providers/openrouter.md)                                                                   |
 | **DeepSeek**          | deepseek-chat (V3), deepseek-reasoner (R1)                                 | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#deepseek)                                                                |
 | **NVIDIA NIM**        | Llama 3.3 70B, 400+ catalog models                                         | ❌              | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#nvidia-nim)                                                              |
 | **LM Studio**         | Any model loaded in LM Studio (local)                                      | ✅ Free (Local) | ✅ Full      | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#lm-studio)                                                               |
@@ -466,7 +472,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 | **Azure Speech**      | Azure Cognitive Services TTS + STT                                         | ❌              | N/A          | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure-speech)                                                            |
 
 **[📖 Provider Comparison Guide](docs/reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
-**[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 21+ providers
+**[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 24+ providers
 
 ---
 
@@ -622,7 +628,7 @@ const result = await neurolink.generate({
 - **ProcessorRegistry** - Priority-based processor selection with fallback
 - **OWASP Security** - HTML/SVG sanitization prevents XSS attacks
 - **Auto-detection** - FileDetector identifies file types by extension and content
-- **Provider-agnostic** - All processors work across all 21+ AI providers
+- **Provider-agnostic** - All processors work across all 24+ AI providers
 
 **[📖 File Processors Guide](docs/features/file-processors.md)** - Complete reference for all file types
 
@@ -752,7 +758,7 @@ node your-app.js
 
 ### 🤖 GitHub Action
 
-Run AI-powered workflows directly in GitHub Actions with 21+ provider support and automatic PR/issue commenting.
+Run AI-powered workflows directly in GitHub Actions with 24+ provider support and automatic PR/issue commenting.
 
 ```yaml
 - uses: juspay/neurolink@v1
@@ -764,7 +770,7 @@ Run AI-powered workflows directly in GitHub Actions with 21+ provider support an
 
 | Feature                | Description                                                                               |
 | ---------------------- | ----------------------------------------------------------------------------------------- |
-| **Multi-Provider**     | 21+ providers with unified interface                                                      |
+| **Multi-Provider**     | 24+ providers with unified interface                                                      |
 | **PR/Issue Comments**  | Auto-post AI responses with intelligent updates                                           |
 | **Multimodal Support** | Attach images, PDFs, CSVs, Excel, Word, JSON, YAML, XML, HTML, SVG, code files to prompts |
 | **Cost Tracking**      | Built-in analytics and quality evaluation                                                 |
@@ -957,7 +963,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 | Capability               | Highlights                                                                                                                                           |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Provider unification** | 21+ providers with automatic fallback, cost-aware routing, `providerFallback` policy, `modelChain` config.                                           |
+| **Provider unification** | 24+ providers with automatic fallback, cost-aware routing, `providerFallback` policy, `modelChain` config.                                           |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types.                             |
 | **Voice pipeline**       | TTS (6 providers: Google, OpenAI, ElevenLabs, Azure, Fish Audio, Cartesia) + STT (4 providers) + realtime voice APIs (OpenAI Realtime, Gemini Live). |
 | **Quality & governance** | Auto-evaluation engine (14 scorers), guardrails middleware, HITL workflows, audit logging.                                                           |
@@ -1028,6 +1034,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 ## Contributing & Support
 
+- Real-time chat and community → [Discord](https://discord.gg/cZa8DrDhSR)
 - Bug reports and feature requests → [GitHub Issues](https://github.com/juspay/neurolink/issues)
 - Questions and discussions → [GitHub Discussions](https://github.com/juspay/neurolink/discussions)
 - Development workflow, testing, and pull request guidelines → [`docs/development/contributing.md`](docs/development/contributing.md)
