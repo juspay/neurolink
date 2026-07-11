@@ -159,6 +159,9 @@ importers:
       eventsource-parser:
         specifier: ^3.0.8
         version: 3.0.8
+      fast-xml-parser:
+        specifier: ^5.7.0
+        version: 5.7.3
       google-auth-library:
         specifier: ^10.6.1
         version: 10.6.2
@@ -171,6 +174,9 @@ importers:
       jose:
         specifier: ^6.1.3
         version: 6.2.2
+      js-yaml:
+        specifier: ^4.2.0
+        version: 4.3.0
       json-schema-to-zod:
         specifier: ^2.7.0
         version: 2.8.0
@@ -343,9 +349,6 @@ importers:
       husky:
         specifier: ^9.1.7
         version: 9.1.7
-      js-yaml:
-        specifier: ^4.2.0
-        version: 4.3.0
       lint-staged:
         specifier: ^16.3.0
         version: 16.4.0
