@@ -192,5 +192,5 @@ Per-call credential overrides are also supported on `generate()` / `stream()` �
 
 - **[Provider Fallback](/docs/features/provider-fallback)** — catch `ModelAccessDeniedError` and switch to an allowed model
 - **[Per-Request Credentials](/docs/features/per-request-credentials)** — pass credentials per-call or per-instance
-- **[Provider Setup](../getting-started/provider-setup.md)** — initial configuration for all 21+ providers
+- **[Provider Setup](../getting-started/provider-setup.md)** — initial configuration for all 30+ providers
 - **[Troubleshooting](../reference/troubleshooting.md)** — error reference and resolution guide

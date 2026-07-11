@@ -10,7 +10,7 @@ A unified AI provider interface with support for 14+ providers,
 automatic fallback, streaming, MCP tool integration, HITL security,
 Redis persistence, and enterprise-grade middleware.
 
-NeuroLink provides comprehensive AI functionality with battle-tested
+NeuroLink provides comprehensive AI functionality with
 patterns extracted from production systems at Juspay.
 
 ## Example

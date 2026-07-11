@@ -15,7 +15,7 @@ keywords:
 
 # File Processors Guide
 
-NeuroLink includes a comprehensive file processing system that supports 20+ file types with intelligent content extraction, security sanitization, and provider-agnostic formatting. This system enables seamless multimodal AI interactions across all 13 supported providers.
+NeuroLink includes a comprehensive file processing system that supports 20+ file types with intelligent content extraction, security sanitization, and provider-agnostic formatting. This system enables seamless multimodal AI interactions across NeuroLink's multimodal-capable providers.
 
 ## Overview
 
@@ -405,7 +405,7 @@ try {
 
 ## Provider Compatibility
 
-All file processors work across all 21+ AI providers. The processed content is formatted as text that any provider can understand:
+All file processors work across NeuroLink's text- and multimodal-capable providers. The processed content is formatted as text that any such provider can understand:
 
 | Provider          | Documents | Data | Markup | Code | Config |
 | ----------------- | --------- | ---- | ------ | ---- | ------ |

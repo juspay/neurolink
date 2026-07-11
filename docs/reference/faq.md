@@ -10,7 +10,7 @@ Common questions and answers about NeuroLink usage, configuration, and troublesh
 
 ### Q: Which AI providers does NeuroLink support?
 
-**A:** NeuroLink supports 21+ AI providers:
+**A:** NeuroLink supports 30+ AI providers across text, voice, realtime, and media generation. The text and multimodal providers include:
 
 - **OpenAI** (GPT-4o, GPT-4.1, o3, o4-mini)
 - **Google AI Studio** (Gemini 3 Flash/Pro, Gemini 2.5 Pro/Flash)
@@ -39,6 +39,8 @@ Voice providers:
 - **Google TTS / STT** (Google Cloud Speech)
 - **Whisper** (OpenAI Whisper — STT)
 - **OpenAI Realtime** + **Gemini Live** (realtime voice APIs)
+
+Media generation providers (image / video / music / avatar) — Kling, Runway, Replicate, Beatoven, Lyria, D-ID, HeyGen — round out the 30+ total. See [Media Generation](../features/index.md) for the full list.
 
 ### Q: Do I need to install anything?
 

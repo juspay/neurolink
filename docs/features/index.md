@@ -46,7 +46,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 - **Remote MCP Servers**: HTTP/Streamable HTTP transport enables connecting to cloud-hosted MCP servers with Bearer token authentication, configurable rate limits, automatic retry with exponential backoff, and session management via `Mcp-Session-Id` header
 - **Audio Input**: Real-time voice conversations with Gemini Live API enabling bidirectional audio streaming for interactive voice-based AI experiences
 - **Server Adapters**: Deploy NeuroLink as production HTTP APIs with support for Hono (recommended), Express, Fastify, and Koa frameworks. Includes built-in authentication, rate limiting, caching, validation middleware, and SSE streaming support.
-- **RAG Document Processing**: Full-featured retrieval-augmented generation with 10 chunking strategies (character, recursive, sentence, token, markdown, html, json, latex, semantic, semantic-markdown), hybrid search combining BM25 and vector similarity, 5 reranking types (simple, LLM, batch, cross-encoder, Cohere), and integration with Pinecone, Weaviate, and Chroma vector stores.
+- **RAG Document Processing**: Full-featured retrieval-augmented generation with 10 chunking strategies (character, recursive, sentence, token, markdown, html, json, latex, semantic, semantic-markdown), hybrid search combining BM25 and vector similarity, 5 reranking types (simple, LLM, batch, cross-encoder, Cohere), and a pluggable vector-store interface (in-memory store built in; bring your own adapter to connect external stores such as Pinecone, Weaviate, or Chroma).
 - **Claude Subscription Support**: Flexible authentication supporting API keys and OAuth for Claude Pro/Max subscribers, with model availability tracking and quota management
 
 ---
@@ -87,7 +87,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 | Category                 | Features                                                                                                           | Documentation                                                                                                                            |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Provider unification** | 21+ providers with automatic failover, cost-aware routing, `providerFallback` policy, `modelChain` config          | [Provider Setup](../getting-started/provider-setup.md)                                                                                   |
+| **Provider unification** | 30+ providers with automatic failover, cost-aware routing, `providerFallback` policy, `modelChain` config          | [Provider Setup](../getting-started/provider-setup.md)                                                                                   |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents + Office files across providers with auto-detection for mixed file types. | [Multimodal Guide](multimodal-chat.md), [CSV Support](csv-support.md), [PDF Support](pdf-support.md), [Office Docs](office-documents.md) |
 | **Voice pipeline**       | TTS (4 providers) + STT (4 providers) + realtime APIs (OpenAI Realtime, Gemini Live)                               | [TTS Guide](tts.md), [STT Guide](audio-input.md), [Realtime Services](/docs/features/real-time-services)                                 |
 | **Quality & governance** | Auto-evaluation engine (14 scorers), guardrails middleware, HITL workflows, audit logging                          | [Auto Evaluation](auto-evaluation.md), [Guardrails](guardrails.md), [HITL](hitl.md)                                                      |
@@ -100,7 +100,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 
 ## AI Provider Integration
 
-NeuroLink supports **21+ AI providers** with unified API access:
+NeuroLink supports **30+ AI providers** with unified API access:
 
 | Provider              | Key Features                             | Free Tier    | Tool Support | Status     | Documentation                                                                                               |
 | --------------------- | ---------------------------------------- | ------------ | ------------ | ---------- | ----------------------------------------------------------------------------------------------------------- |
@@ -452,12 +452,12 @@ AI-powered content security:
 - **Custom Rules**: Configurable policy rules
 - **Security Reporting**: Detailed security event reporting
 
-### Security & Compliance Certifications
+### Security & Compliance
 
-- SOC2 Type II compliant deployments
-- ISO 27001 certified infrastructure compatible
-- GDPR-compliant data handling (EU providers available)
-- HIPAA compatible (with proper configuration)
+- Deployable within SOC 2 Type II environments — NeuroLink itself is not audited or certified
+- Deployable on ISO 27001-certified infrastructure — that certification is your infrastructure's, not NeuroLink's
+- GDPR-conscious data handling (EU-region providers selectable; you own compliance)
+- Deployable in HIPAA-aligned configurations — you are responsible for a compliant setup
 - Hardened OS verified (SELinux, AppArmor)
 - Zero credential logging
 - Encrypted configuration storage

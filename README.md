@@ -32,9 +32,9 @@ for await (const chunk of result.stream) {
 
 ## 🧠 What is NeuroLink?
 
-**NeuroLink is the universal AI integration platform that unifies 24+ AI providers and 100+ models under one consistent API.**
+**NeuroLink is the universal AI integration platform that unifies 30+ AI providers and 100+ models under one consistent API.**
 
-Extracted from production systems at Juspay and battle-tested at enterprise scale, NeuroLink provides a production-ready solution for integrating AI into any application. Whether you're building with OpenAI, Anthropic, Google, AWS Bedrock, Azure, or any of our 24+ supported providers, NeuroLink gives you a single, consistent interface that works everywhere.
+Extracted from production systems at Juspay, NeuroLink provides a practical, TypeScript-first way to integrate AI into any application. Whether you're building with OpenAI, Anthropic, Google, AWS Bedrock, Azure, or any of our 30+ supported providers, NeuroLink gives you a single, consistent interface that works everywhere.
 
 **Why NeuroLink?** Switch providers with a single parameter change, leverage 64+ built-in tools and MCP servers, deploy with confidence using enterprise features like Redis memory and multi-provider failover, and optimize costs automatically with intelligent routing. Use it via our professional CLI or TypeScript SDK—whichever fits your workflow.
 
@@ -170,14 +170,14 @@ const neurolink = new NeuroLink({
 
 ## Enterprise Security: Human-in-the-Loop (HITL)
 
-NeuroLink includes a **production-ready HITL system** for regulated industries and high-stakes AI operations:
+NeuroLink includes a **HITL (Human-in-the-Loop) system** for regulated industries and high-stakes AI operations:
 
-| Capability                  | Description                                               | Use Case                                   |
-| --------------------------- | --------------------------------------------------------- | ------------------------------------------ |
-| **Tool Approval Workflows** | Require human approval before AI executes sensitive tools | Financial transactions, data modifications |
-| **Output Validation**       | Route AI outputs through human review pipelines           | Medical diagnosis, legal documents         |
-| **Confidence Thresholds**   | Automatically trigger human review below confidence level | Critical business decisions                |
-| **Complete Audit Trail**    | Full audit logging for compliance (HIPAA, SOC2, GDPR)     | Regulated industries                       |
+| Capability                  | Description                                                             | Use Case                                   |
+| --------------------------- | ----------------------------------------------------------------------- | ------------------------------------------ |
+| **Tool Approval Workflows** | Require human approval before AI executes sensitive tools               | Financial transactions, data modifications |
+| **Output Validation**       | Route AI outputs through human review pipelines                         | Medical diagnosis, legal documents         |
+| **Confidence Thresholds**   | Automatically trigger human review below confidence level               | Critical business decisions                |
+| **Complete Audit Trail**    | Audit logging to support your compliance program (HIPAA / SOC 2 / GDPR) | Regulated industries                       |
 
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
@@ -226,7 +226,7 @@ npx @juspay/neurolink --help
 
 ### Configuration
 
-NeuroLink works with 24+ AI providers. You'll need at least one API key to get started:
+NeuroLink works with 30+ AI providers. You'll need at least one API key to get started:
 
 **Option 1: Interactive Setup (Recommended)**
 
@@ -413,7 +413,7 @@ const result = await neurolink.generate({
 ### Next Steps
 
 - **[Complete Documentation](https://docs.neurolink.ink)** - Comprehensive guides and API reference
-- **[Provider Setup Guide](docs/getting-started/provider-setup.md)** - Configure all 24+ providers
+- **[Provider Setup Guide](docs/getting-started/provider-setup.md)** - Configure all 30+ providers
 - **[SDK API Reference](docs/sdk/api-reference.md)** - Full TypeScript API documentation
 - **[CLI Command Reference](docs/cli/commands.md)** - Complete CLI documentation
 - **[Example Projects](docs/examples/index.md)** - Real-world integration examples
@@ -441,11 +441,11 @@ Need help? Check our [Troubleshooting Guide](docs/reference/troubleshooting.md) 
 
 ## 🌟 Complete Feature Set
 
-NeuroLink is a comprehensive AI development platform. Every feature below is production-ready and fully documented.
+NeuroLink is a comprehensive AI development platform. Every feature below is shipped and documented.
 
 ### 🤖 AI Provider Integration
 
-**24+ providers unified under one API** - Switch providers with a single parameter change.
+**30+ providers unified under one API** - Switch providers with a single parameter change.
 
 | Provider              | Models                                                                     | Free Tier       | Tool Support | Status        | Documentation                                                                                                                 |
 | --------------------- | -------------------------------------------------------------------------- | --------------- | ------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -472,7 +472,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is pro
 | **Azure Speech**      | Azure Cognitive Services TTS + STT                                         | ❌              | N/A          | ✅ Production | [Setup Guide](docs/getting-started/provider-setup.md#azure-speech)                                                            |
 
 **[📖 Provider Comparison Guide](docs/reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
-**[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 24+ providers
+**[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 30+ providers
 
 ---
 
@@ -628,7 +628,7 @@ const result = await neurolink.generate({
 - **ProcessorRegistry** - Priority-based processor selection with fallback
 - **OWASP Security** - HTML/SVG sanitization prevents XSS attacks
 - **Auto-detection** - FileDetector identifies file types by extension and content
-- **Provider-agnostic** - All processors work across all 24+ AI providers
+- **Provider-agnostic** - All processors work across all 30+ AI providers
 
 **[📖 File Processors Guide](docs/features/file-processors.md)** - Complete reference for all file types
 
@@ -636,7 +636,7 @@ const result = await neurolink.generate({
 
 ### 🏢 Enterprise & Production Features
 
-**Production-ready capabilities for regulated industries:**
+**Capabilities for regulated industries:**
 
 | Feature                     | Description                                 | Use Case                  | Documentation                                               |
 | --------------------------- | ------------------------------------------- | ------------------------- | ----------------------------------------------------------- |
@@ -652,10 +652,10 @@ const result = await neurolink.generate({
 
 **Security & Compliance:**
 
-- ✅ SOC2 Type II compliant deployments
-- ✅ ISO 27001 certified infrastructure compatible
-- ✅ GDPR-compliant data handling (EU providers available)
-- ✅ HIPAA compatible (with proper configuration)
+- ✅ Deployable within SOC 2 Type II environments — NeuroLink itself is not audited or certified
+- ✅ Deployable on ISO 27001-certified infrastructure — the certification is your infrastructure's, not NeuroLink's
+- ✅ Supports GDPR-conscious data handling (EU-region providers selectable; you own compliance)
+- ✅ Deployable in HIPAA-aligned configurations — you are responsible for a compliant setup
 - ✅ Hardened OS verified (SELinux, AppArmor)
 - ✅ Zero credential logging
 - ✅ Encrypted configuration storage
@@ -667,7 +667,7 @@ const result = await neurolink.generate({
 
 ## Enterprise Persistence: Redis Memory
 
-Production-ready distributed conversation state for multi-instance deployments:
+Distributed conversation state for multi-instance deployments:
 
 ### Capabilities
 
@@ -758,7 +758,7 @@ node your-app.js
 
 ### 🤖 GitHub Action
 
-Run AI-powered workflows directly in GitHub Actions with 24+ provider support and automatic PR/issue commenting.
+Run AI-powered workflows directly in GitHub Actions with 30+ provider support and automatic PR/issue commenting.
 
 ```yaml
 - uses: juspay/neurolink@v1
@@ -770,7 +770,7 @@ Run AI-powered workflows directly in GitHub Actions with 24+ provider support an
 
 | Feature                | Description                                                                               |
 | ---------------------- | ----------------------------------------------------------------------------------------- |
-| **Multi-Provider**     | 24+ providers with unified interface                                                      |
+| **Multi-Provider**     | 30+ providers with unified interface                                                      |
 | **PR/Issue Comments**  | Auto-post AI responses with intelligent updates                                           |
 | **Multimodal Support** | Attach images, PDFs, CSVs, Excel, Word, JSON, YAML, XML, HTML, SVG, code files to prompts |
 | **Cost Tracking**      | Built-in analytics and quality evaluation                                                 |
@@ -963,7 +963,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 | Capability               | Highlights                                                                                                                                           |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Provider unification** | 24+ providers with automatic fallback, cost-aware routing, `providerFallback` policy, `modelChain` config.                                           |
+| **Provider unification** | 30+ providers with automatic fallback, cost-aware routing, `providerFallback` policy, `modelChain` config.                                           |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types.                             |
 | **Voice pipeline**       | TTS (6 providers: Google, OpenAI, ElevenLabs, Azure, Fish Audio, Cartesia) + STT (4 providers) + realtime voice APIs (OpenAI Realtime, Gemini Live). |
 | **Quality & governance** | Auto-evaluation engine (14 scorers), guardrails middleware, HITL workflows, audit logging.                                                           |
@@ -991,7 +991,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 **Enterprise Features:**
 
-- [Enterprise HITL Guide](docs/features/enterprise-hitl.md) - Production-ready approval workflows
+- [Enterprise HITL Guide](docs/features/enterprise-hitl.md) - Approval workflows for high-stakes operations
 - [Interactive CLI Guide](docs/features/interactive-cli.md) - AI development environment
 - [MCP Tools Showcase](docs/features/mcp-tools-showcase.md) - 58+ external tools & 6 built-in tools
 
@@ -1010,7 +1010,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 **Redis & Persistence:**
 
 - [Redis Quick Start](docs/getting-started/redis-quickstart.md) - 5-minute setup
-- [Redis Configuration](docs/guides/redis-configuration.md) - Production-ready setup
+- [Redis Configuration](docs/guides/redis-configuration.md) - Production deployment setup
 - [Redis Migration](docs/guides/redis-migration.md) - Migration patterns
 
 **Migration Guides:**

@@ -57,7 +57,7 @@
   ];
 
   const checkItems = [
-    "21+ AI providers through one unified API",
+    "30+ AI providers through one unified API",
     "Voice (TTS, STT, realtime) across 8 providers",
     "Stream responses with built-in tool calling",
     "MCP integration with 58+ external servers",

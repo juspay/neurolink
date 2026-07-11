@@ -8,11 +8,11 @@ NeuroLink offers a simpler, more production-ready alternative to LangChain with 
 | ----------------------- | ------------------------------------------- | -------------------------------------------------- |
 | **TypeScript Support**  | Partial, many type issues                   | Full native TypeScript, complete type safety       |
 | **API Complexity**      | Complex chains, agents, memory abstractions | Single unified `generate()` API                    |
-| **Provider Support**    | Requires separate packages                  | 21+ providers built-in, single package             |
+| **Provider Support**    | Requires separate packages                  | 30+ providers built-in, single package             |
 | **Enterprise Features** | Limited                                     | HITL workflows, Redis memory, middleware, failover |
 | **MCP Integration**     | None                                        | Native 58+ MCP servers with zero config            |
 | **Bundle Size**         | Large (many dependencies)                   | Optimized, tree-shakeable                          |
-| **Production Ready**    | Community-driven                            | Battle-tested at Juspay (enterprise scale)         |
+| **Production Ready**    | Community-driven                            | In production use at Juspay                        |
 
 **Migration time:** Most applications can migrate in 1-2 hours, with full feature parity and improved capabilities.
 
@@ -129,7 +129,7 @@ const result2 = await neurolink.generate({
 **Benefits:**
 
 - No separate packages for each provider
-- Consistent API across all 21+ providers
+- Consistent API across all 30+ providers
 - Runtime provider switching
 - Automatic failover
 
