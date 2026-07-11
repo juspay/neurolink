@@ -1,3 +1,9 @@
+## [9.86.3](https://github.com/juspay/neurolink/compare/v9.86.2...v9.86.3) (2026-07-11)
+
+### Bug Fixes
+
+- **(deps):** declare js-yaml + fast-xml-parser as runtime dependencies ([48f54d5](https://github.com/juspay/neurolink/commit/48f54d5d4085a4e77764a2fcab9e5b2c5fa1403f))
+
 ## [9.86.2](https://github.com/juspay/neurolink/compare/v9.86.1...v9.86.2) (2026-07-10)
 
 ### Bug Fixes
