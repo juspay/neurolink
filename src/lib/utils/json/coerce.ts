@@ -260,6 +260,24 @@ export function coerceJsonToSchema(
           repaired: true,
           truncated: candidate.truncated,
         });
+      } else if (
+        // Single-element array wrapper: for an OBJECT schema, models sometimes
+        // return `[{...}]` instead of `{...}` (seen on the native Anthropic
+        // path under escaping stress). Unwrap a lone object element and
+        // re-validate — the safeParse gate rejects an incorrect unwrap, so an
+        // array schema (which validates the array directly above) is untouched.
+        Array.isArray(outcome.value) &&
+        outcome.value.length === 1 &&
+        outcome.value[0] !== null &&
+        typeof outcome.value[0] === "object" &&
+        !Array.isArray(outcome.value[0]) &&
+        safeParseable.safeParse(outcome.value[0]).success
+      ) {
+        schemaValid.push({
+          value: outcome.value[0],
+          repaired: true,
+          truncated: candidate.truncated,
+        });
       }
     }
   }
