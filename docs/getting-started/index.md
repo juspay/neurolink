@@ -1,5 +1,5 @@
 ---
-description: Get up and running quickly with NeuroLink — the Enterprise AI Development Platform with 21+ providers, voice (TTS/STT/realtime), MCP support, and professional CLI.
+description: Get up and running quickly with NeuroLink — the Enterprise AI Development Platform with 30+ providers, voice (TTS/STT/realtime), MCP support, and professional CLI.
 ---
 
 # Getting Started
@@ -10,7 +10,7 @@ Welcome to NeuroLink! This section will help you get up and running quickly with
 
 - **[Quick Start](quick-start.md)** — Get NeuroLink working in under 2 minutes with basic examples for both CLI and SDK usage.
 - **[Installation](installation.md)** — Detailed installation instructions for different environments and package managers.
-- **[Provider Setup](provider-setup.md)** — Configure API keys and credentials for all 13 supported AI providers with step-by-step guides.
+- **[Provider Setup](provider-setup.md)** — Configure API keys and credentials for all 30+ supported AI providers with step-by-step guides.
 - **[Environment Variables](environment-variables.md)** — Complete reference for all environment variables and configuration options.
 
 ## 🎯 Choose Your Path

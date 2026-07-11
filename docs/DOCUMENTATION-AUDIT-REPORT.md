@@ -2,7 +2,7 @@
 
 > **⚠️ HISTORICAL DOCUMENT (August 2025)**
 >
-> This audit was conducted when NeuroLink shipped 9 providers. The current package (v9.62.0, May 2026) supports 21+ providers including DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, plus voice (TTS/STT/realtime). References to "9 providers" or "8/9 working" in this file reflect the state at time of analysis.
+> This audit was conducted when NeuroLink shipped 9 providers. At audit time, v9.62.0 (May 2026) shipped 24 providers including DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, plus voice (TTS/STT/realtime). References to "9 providers" or "8/9 working" in this file reflect the state at time of analysis.
 >
 > For current capabilities see [README on GitHub](https://github.com/juspay/neurolink/blob/main/README.md) and [Provider Capabilities Audit](https://github.com/juspay/neurolink/blob/main/docs/reference/provider-capabilities-audit.md).
 
@@ -18,7 +18,7 @@ Perform a comprehensive audit of the NeuroLink documentation served at **docs.ne
 2. **Documentation build system** — Docusaurus 3.9.2 config, CI/CD, plugins, search, analytics
 3. **SDK API reference** — Every public method on the `NeuroLink` class vs what's documented
 4. **CLI documentation** — Every CLI command, flag, and option vs what's documented
-5. **Provider documentation** — All 13 providers vs their dedicated setup guides
+5. **Provider documentation** — All 30+ providers vs their dedicated setup guides
 6. **Feature documentation** — All 15 major features vs their feature guides
 7. **Git commit patterns** — How documentation is typically written, what got missed
 8. **Broken links and references** — Every internal link, anchor, and image reference

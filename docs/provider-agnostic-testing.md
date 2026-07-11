@@ -1,4 +1,4 @@
-> ⚠️ **HISTORICAL DOCUMENT (January 2025)** — This is a snapshot of the provider-agnostic testing milestone when 9 providers were live. The current product ships **21+ providers** (incl. voice). For the up-to-date provider list and capability matrix, see the [README](https://github.com/juspay/neurolink/blob/main/README.md) and [Provider Capabilities Audit](https://github.com/juspay/neurolink/blob/main/docs/reference/provider-capabilities-audit.md).
+> ⚠️ **HISTORICAL DOCUMENT (January 2025)** — This is a snapshot of the provider-agnostic testing milestone when 9 providers were live. The current product ships **30+ providers** (incl. voice). For the up-to-date provider list and capability matrix, see the [README](https://github.com/juspay/neurolink/blob/main/README.md) and [Provider Capabilities Audit](https://github.com/juspay/neurolink/blob/main/docs/reference/provider-capabilities-audit.md).
 
 # Provider-Agnostic Testing Framework - January 2025 Snapshot
 

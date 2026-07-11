@@ -45,12 +45,12 @@
 
 <svelte:head>
   <title
-    >NeuroLink — The Complete TypeScript AI SDK | 21+ Providers, Voice, RAG,
+    >NeuroLink — The Complete TypeScript AI SDK | 30+ Providers, Voice, RAG,
     MCP, Agents</title
   >
   <meta
     name="description"
-    content="Unified TypeScript SDK for 21+ AI providers. Ships with voice (TTS/STT/realtime), RAG, MCP, agents, workflows, and 50+ file types. MIT open source."
+    content="Unified TypeScript SDK for 30+ AI providers. Ships with voice (TTS/STT/realtime), RAG, MCP, agents, workflows, and 50+ file types. MIT open source."
   />
   <link rel="canonical" href="https://neurolink.ink/" />
   <link rel="alternate" hreflang="en" href="https://neurolink.ink/" />
@@ -65,7 +65,7 @@
   />
   <meta
     property="og:description"
-    content="Unified TypeScript SDK for 21+ AI providers. Ships with voice (TTS/STT/realtime), RAG, MCP, agents, workflows, and 50+ file types. MIT open source."
+    content="Unified TypeScript SDK for 30+ AI providers. Ships with voice (TTS/STT/realtime), RAG, MCP, agents, workflows, and 50+ file types. MIT open source."
   />
   <meta property="og:image" content="https://neurolink.ink/api/og?type=home" />
   <meta property="og:site_name" content="NeuroLink" />
@@ -78,7 +78,7 @@
   />
   <meta
     name="twitter:description"
-    content="Unified TypeScript SDK for 21+ AI providers. Ships with voice (TTS/STT/realtime), RAG, MCP, agents, workflows, and 50+ file types. MIT open source."
+    content="Unified TypeScript SDK for 30+ AI providers. Ships with voice (TTS/STT/realtime), RAG, MCP, agents, workflows, and 50+ file types. MIT open source."
   />
   <meta name="twitter:image" content="https://neurolink.ink/api/og?type=home" />
   <meta name="twitter:site" content="@jaborhey" />
@@ -106,7 +106,7 @@
           priceCurrency: "USD",
         },
         description:
-          "Unified TypeScript SDK for 21+ AI providers. Ships with voice (TTS/STT/realtime), RAG, MCP, agents, workflows, and 50+ file types.",
+          "Unified TypeScript SDK for 30+ AI providers. Ships with voice (TTS/STT/realtime), RAG, MCP, agents, workflows, and 50+ file types.",
         url: "https://neurolink.ink/",
         downloadUrl: "https://www.npmjs.com/package/@juspay/neurolink",
         license: "https://opensource.org/licenses/MIT",
@@ -124,7 +124,7 @@
             name: "What is NeuroLink?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "NeuroLink is an open-source TypeScript AI SDK that provides unified access to 21+ AI providers (OpenAI, Anthropic, Google, AWS Bedrock, Azure, Mistral, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, and more) through a single consistent API. It ships with voice (TTS/STT/realtime), RAG, MCP integration, multi-agent workflows, and 50+ file type support.",
+              text: "NeuroLink is an open-source TypeScript AI SDK that provides unified access to 30+ AI providers (OpenAI, Anthropic, Google, AWS Bedrock, Azure, Mistral, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, and more) through a single consistent API. It ships with voice (TTS/STT/realtime), RAG, MCP integration, multi-agent workflows, and 50+ file type support.",
             },
           },
           {
@@ -140,7 +140,7 @@
             name: "How does NeuroLink compare to LangChain or Vercel AI SDK?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "NeuroLink is a single TypeScript package that includes providers, RAG (10 chunking strategies, 22 vector stores), MCP integration, multi-agent workflows, voice (TTS/STT/realtime), and observability. LangChain requires multiple packages and is Python-first. Vercel AI SDK focuses on provider abstraction but lacks native RAG, agents, and voice support.",
+              text: "NeuroLink is a single TypeScript package that includes providers, RAG (10 chunking strategies, an in-memory vector store with a pluggable interface for external stores), MCP integration, multi-agent workflows, voice (TTS/STT/realtime), and observability. LangChain requires multiple packages and is Python-first. Vercel AI SDK focuses on provider abstraction but lacks native RAG, agents, and voice support.",
             },
           },
           {
@@ -148,7 +148,7 @@
             name: "What AI providers does NeuroLink support?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "NeuroLink supports 21+ providers including OpenAI, Anthropic Claude, Google AI Studio, Google Vertex AI, AWS Bedrock, Azure OpenAI, Mistral, LiteLLM (100+ models via proxy), Ollama, Hugging Face, AWS SageMaker, OpenRouter, DeepSeek, NVIDIA NIM (400+ catalog models), LM Studio (local), llama.cpp (local GGUF), and any OpenAI-compatible endpoint. Voice: OpenAI TTS, ElevenLabs, Google TTS, Azure TTS, Whisper, Deepgram, Azure STT, Google STT.",
+              text: "NeuroLink supports 30+ providers including OpenAI, Anthropic Claude, Google AI Studio, Google Vertex AI, AWS Bedrock, Azure OpenAI, Mistral, LiteLLM (100+ models via proxy), Ollama, Hugging Face, AWS SageMaker, OpenRouter, DeepSeek, NVIDIA NIM (400+ catalog models), LM Studio (local), llama.cpp (local GGUF), and any OpenAI-compatible endpoint. Voice: OpenAI TTS, ElevenLabs, Google TTS, Azure TTS, Whisper, Deepgram, Azure STT, Google STT.",
             },
           },
           {
@@ -156,7 +156,7 @@
             name: "Where did NeuroLink come from?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "NeuroLink was extracted from production systems at Juspay, a fintech company processing enterprise-scale transactions. It's battle-tested infrastructure, not a weekend project. The SDK represents 193K+ lines of TypeScript across 447 source files with comprehensive test coverage.",
+              text: "NeuroLink was extracted from production systems at Juspay, a fintech company. The SDK represents 193K+ lines of TypeScript across 447 source files with a comprehensive test suite.",
             },
           },
           {
@@ -180,7 +180,7 @@
             name: "Does NeuroLink support RAG (Retrieval-Augmented Generation)?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Yes. NeuroLink includes a complete RAG pipeline with 10 chunking strategies (character, recursive, sentence, token, markdown, HTML, JSON, LaTeX, semantic, semantic-markdown), 22 vector store adapters, hybrid search combining BM25 lexical search with vector similarity, and 5 reranker types. Pass files directly to generate() and NeuroLink handles chunking, embedding, and retrieval automatically.",
+              text: "Yes. NeuroLink includes a complete RAG pipeline with 10 chunking strategies (character, recursive, sentence, token, markdown, HTML, JSON, LaTeX, semantic, semantic-markdown), an in-memory vector store plus a pluggable interface for external stores, hybrid search combining BM25 lexical search with vector similarity, and 5 reranker types. Pass files directly to generate() and NeuroLink handles chunking, embedding, and retrieval automatically.",
             },
           },
           {
@@ -196,7 +196,7 @@
             name: "How does NeuroLink handle streaming?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "NeuroLink supports 4 streaming patterns with 24 event types: real-time text streaming, tool call streaming, structured output streaming, and image generation streaming. All patterns include backpressure control, error recovery, and work consistently across all 21+ providers through a unified stream() API.",
+              text: "NeuroLink supports 4 streaming patterns with 24 event types: real-time text streaming, tool call streaming, structured output streaming, and image generation streaming. All patterns include backpressure control, error recovery, and work consistently across all 30+ providers through a unified stream() API.",
             },
           },
           {
@@ -236,7 +236,7 @@
             name: "Is NeuroLink production-ready?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Yes. NeuroLink was extracted from production systems at Juspay processing enterprise-scale workloads. It includes Redis-backed conversation memory, provider failover with automatic retry, middleware for guardrails and content filtering, Human-in-the-Loop (HITL) approval workflows for dangerous operations, and comprehensive error handling with typed errors via ErrorFactory.",
+              text: "NeuroLink was extracted from production systems at Juspay and includes Redis-backed conversation memory, provider failover with automatic retry, middleware for guardrails and content filtering, Human-in-the-Loop (HITL) approval workflows for dangerous operations, and comprehensive error handling with typed errors via ErrorFactory. Evaluate it against your own reliability requirements before deploying.",
             },
           },
         ],

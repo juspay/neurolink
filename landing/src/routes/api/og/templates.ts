@@ -51,7 +51,7 @@ function homeTemplate(): string {
     ${logoBar()}
     <div style="display:flex;flex-direction:column;flex:1;justify-content:center;">
       <div style="display:flex;font-size:56px;font-weight:700;color:${COLORS.text};line-height:1.1;margin-bottom:20px;">The Complete TypeScript AI SDK</div>
-      <div style="display:flex;font-size:24px;color:${COLORS.muted};line-height:1.4;">13+ Providers · RAG · MCP · Agents · Voice · 50+ File Types</div>
+      <div style="display:flex;font-size:24px;color:${COLORS.muted};line-height:1.4;">30+ Providers · RAG · MCP · Agents · Voice · 50+ File Types</div>
     </div>
     ${footerBar()}
   `);
@@ -113,7 +113,7 @@ export function getTemplate(params: OGParams): string {
     case "sdk":
       return sdkTemplate(
         params.method || "generate()",
-        params.subtitle || "Unified API for 21+ AI providers",
+        params.subtitle || "Unified API for 30+ AI providers",
       );
     case "examples":
       return examplesTemplate(

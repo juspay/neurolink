@@ -1,8 +1,8 @@
-# 🧪 NeuroLink Testing Guide — All 21+ Providers Working
+# 🧪 NeuroLink Testing Guide — 30+ Providers, Validated in CI
 
 ## 🎉 Provider Testing Status
 
-**All 21+ providers confirmed working!** OpenAI, Anthropic, Google AI, Google Vertex, AWS Bedrock, Azure OpenAI, Mistral, Hugging Face, Ollama, LiteLLM, AWS SageMaker, OpenAI-compatible, OpenRouter, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp — plus voice (OpenAI TTS, ElevenLabs, Deepgram, Azure Speech, Google TTS/STT, Whisper, OpenAI Realtime, Gemini Live).
+**30+ providers supported** — validated in CI where credentials are configured (unconfigured providers are skipped): OpenAI, Anthropic, Google AI, Google Vertex, AWS Bedrock, Azure OpenAI, Mistral, Hugging Face, Ollama, LiteLLM, AWS SageMaker, OpenAI-compatible, OpenRouter, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp — plus voice (OpenAI TTS, ElevenLabs, Deepgram, Azure Speech, Google TTS/STT, Whisper, OpenAI Realtime, Gemini Live).
 
 ### Quick Provider Validation
 

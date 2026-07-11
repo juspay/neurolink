@@ -180,7 +180,8 @@ pnpm test
 pnpm test:ci
 
 # Domain-specific suites
-pnpm test:providers       # 21+ provider validation
+pnpm test:providers       # Provider feature tests
+pnpm test:matrix          # Capability sweep across all providers
 pnpm test:rag             # RAG pipeline
 pnpm test:voice           # Voice (TTS/STT)
 pnpm test:mcp             # MCP HTTP transport

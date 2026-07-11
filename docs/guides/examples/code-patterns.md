@@ -1,12 +1,12 @@
 ---
 title: Production Code Patterns
-description: Best practices, anti-patterns, and battle-tested patterns for production AI applications
+description: Best practices, anti-patterns, and proven patterns for production AI applications
 keywords: code patterns, best practices, anti-patterns, error handling, caching, rate limiting
 ---
 
 # Production Code Patterns
 
-**Battle-tested patterns, anti-patterns, and best practices for production AI applications**
+**Proven patterns, anti-patterns, and best practices for production AI applications**
 
 ---
 

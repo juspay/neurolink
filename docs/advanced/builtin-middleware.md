@@ -1,6 +1,6 @@
 # Built-in Middleware Reference
 
-NeuroLink includes three production-ready middleware components for common enterprise use cases: **Analytics**, **Guardrails**, and **Auto-Evaluation**. These middleware are battle-tested and ready to use in production applications.
+NeuroLink includes three built-in middleware components for common use cases: **Analytics**, **Guardrails**, and **Auto-Evaluation**. They ship ready to wire into your generate/stream calls.
 
 ## Quick Start
 

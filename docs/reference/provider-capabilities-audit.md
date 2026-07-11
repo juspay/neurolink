@@ -1,6 +1,6 @@
 # Provider Capabilities Audit
 
-Capability audit for the **13 text/multimodal AI providers** historically tracked in this matrix. NeuroLink ships **21+ providers** in total — the additional providers added since this audit was first written (DeepSeek, NVIDIA NIM, LM Studio, llama.cpp) and the voice providers (OpenAI TTS, ElevenLabs, Deepgram, Azure Speech, Whisper, OpenAI Realtime, Gemini Live) are documented in the per-provider docs under [/docs/providers/](https://github.com/juspay/neurolink/tree/main/docs/providers) and the [Voice Features](https://github.com/juspay/neurolink/blob/main/docs/features/index.md#voice) index, not in this capability matrix.
+Capability audit for the **13 text/multimodal AI providers** historically tracked in this matrix. NeuroLink ships **30+ providers** in total — the additional providers added since this audit was first written (DeepSeek, NVIDIA NIM, LM Studio, llama.cpp) and the voice providers (OpenAI TTS, ElevenLabs, Deepgram, Azure Speech, Whisper, OpenAI Realtime, Gemini Live) are documented in the per-provider docs under [/docs/providers/](https://github.com/juspay/neurolink/tree/main/docs/providers) and the [Voice Features](https://github.com/juspay/neurolink/blob/main/docs/features/index.md#voice) index, not in this capability matrix.
 
 For the canonical product surface, see the [README](https://github.com/juspay/neurolink/blob/main/README.md).
 
@@ -1098,7 +1098,7 @@ Providers are registered via dynamic imports in `ProviderRegistry`:
 
 ## Version History
 
-- **v9.62.0** (May 2026) - Multi-provider voice (TTS/STT/realtime); 21+ providers
+- **v9.62.0** (May 2026) - Multi-provider voice (TTS/STT/realtime); 24 providers
 - **v9.60.0** (April 2026) - Added DeepSeek, NVIDIA NIM, LM Studio, llama.cpp providers
 - **v9.59.0** - Typed `ModelAccessDeniedError` + `sdk.checkCredentials()`
 - **v9.58.0** - `providerFallback` callback + `modelChain` config
