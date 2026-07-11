@@ -1,3 +1,9 @@
+## [9.86.4](https://github.com/juspay/neurolink/compare/v9.86.3...v9.86.4) (2026-07-11)
+
+### Bug Fixes
+
+- **(generate):** stop treating ai@6 raw-text output echo as parsed schema output ([dc23936](https://github.com/juspay/neurolink/commit/dc23936d1feec5e4089ba5eb8338983b5a7ceee3))
+
 ## [9.86.3](https://github.com/juspay/neurolink/compare/v9.86.2...v9.86.3) (2026-07-11)
 
 ### Bug Fixes
