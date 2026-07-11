@@ -142,4 +142,52 @@ await test("no schema → nested string is left untouched (first parseable wins)
   );
 });
 
+await test("unwraps a single-element array wrapping the object (native-Anthropic [{...}] case)", () => {
+  // Models on the native Anthropic path sometimes return `[{...}]` for an
+  // object schema under escaping stress. The lone object element must be
+  // unwrapped and validated, not returned as an array. Refs #635.
+  const inner = {
+    summary: "wrapped in an array",
+    attachment: null,
+  };
+  const r = coerceJsonToSchema(JSON.stringify([inner]), schema);
+  assertEqual(
+    Array.isArray(r?.structuredData),
+    false,
+    "result is the object, not an array",
+  );
+  assertEqual(
+    obj(r).summary,
+    "wrapped in an array",
+    "object content recovered",
+  );
+});
+
+await test("array schema still receives the array directly (no over-unwrap)", () => {
+  const arrSchema = z.array(z.object({ id: z.number() }));
+  const r = coerceJsonToSchema('[{"id":1}]', arrSchema);
+  assertEqual(
+    Array.isArray(r?.structuredData),
+    true,
+    "array-typed schema keeps the array",
+  );
+});
+
+await test("multi-element array is NOT force-unwrapped for an object schema", () => {
+  // Only a lone element is a safe unwrap; a 2+ element array is genuinely not
+  // the object the schema wants, so it must fall through unchanged.
+  const r = coerceJsonToSchema(
+    JSON.stringify([
+      { summary: "a", attachment: null },
+      { summary: "b", attachment: null },
+    ]),
+    schema,
+  );
+  assertEqual(
+    Array.isArray(r?.structuredData),
+    true,
+    "multi-element array not silently reduced to its first element",
+  );
+});
+
 await runSuite();
