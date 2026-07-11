@@ -336,6 +336,65 @@ const tests: TestFunction[] = [
       }
     },
   },
+  // ---------- File detection: ISO-BMFF brand + EBML DocType + ADTS AAC ----------
+  {
+    name: "FileDetector magic bytes: M4A→audio, MOV/WebM MIME, AAC≠MP3 (no MP4/MKV regression)",
+    category: "file-detector",
+    fn: async () => {
+      // The MagicBytesStrategy is the layer under test (detection only, no
+      // media processing). ftyp/EBML/ADTS containers are ambiguous by their
+      // leading bytes alone; these assert the disambiguation added for
+      // issues #431/#435/#424/#408.
+      const detect = (
+        FileDetector as unknown as {
+          detect(buf: Buffer): Promise<{ type: string; mimeType: string }>;
+        }
+      ).detect;
+      const ftyp = (brand: string) =>
+        Buffer.concat([
+          Buffer.from([0, 0, 0, 0x18]),
+          Buffer.from("ftyp"),
+          Buffer.from(brand),
+        ]);
+      const ebml = (doctype: string) =>
+        Buffer.concat([
+          Buffer.from([0x1a, 0x45, 0xdf, 0xa3]),
+          Buffer.from("B\x82"),
+          Buffer.from(doctype),
+          Buffer.alloc(16),
+        ]);
+      const riff = (tag: string) =>
+        Buffer.concat([
+          Buffer.from("RIFF"),
+          Buffer.from([0, 0, 0, 0]),
+          Buffer.from(tag),
+        ]);
+      const cases: Array<[Buffer, string, string]> = [
+        [ftyp("M4A "), "audio", "audio/mp4"], // was misrouted to video
+        [ftyp("M4B "), "audio", "audio/mp4"],
+        [ftyp("qt  "), "video", "video/quicktime"], // was video/mp4
+        [ftyp("mp42"), "video", "video/mp4"], // unchanged
+        [ebml("webm"), "video", "video/webm"], // was video/x-matroska
+        [ebml("matroska"), "video", "video/x-matroska"], // unchanged
+        [riff("AVI "), "video", "video/x-msvideo"],
+        [riff("WAVE"), "audio", "audio/wav"],
+        [Buffer.from([0xff, 0xf1, 0x50, 0x80]), "audio", "audio/aac"], // ADTS, was audio/mpeg
+        [Buffer.from([0xff, 0xfb, 0x90, 0x00]), "audio", "audio/mpeg"], // MP3, unchanged
+        [
+          Buffer.concat([Buffer.from("ID3"), Buffer.alloc(8)]),
+          "audio",
+          "audio/mpeg",
+        ],
+      ];
+      for (const [buf, wantType, wantMime] of cases) {
+        const r = await detect(buf);
+        if (r.type !== wantType || r.mimeType !== wantMime) {
+          return false;
+        }
+      }
+      return true;
+    },
+  },
   // ---------- Bug 1: Vertex location routing via resolveVertexLocation ----------
   {
     name: "resolveVertexLocation: gemini-* forced to global regardless of configured location",

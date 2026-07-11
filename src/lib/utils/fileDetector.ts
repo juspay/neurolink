@@ -1934,7 +1934,9 @@ class MagicBytesStrategy implements DetectionStrategy {
       return this.result("pdf", "application/pdf", 95);
     }
 
-    // MP4/MOV: "ftyp" at offset 4
+    // ISO-BMFF ("ftyp" at offset 4): MP4 video, QuickTime MOV, or M4A/M4B/M4P
+    // audio all share this box — disambiguate by the major brand at offset 8-11,
+    // otherwise an .m4a audio file is misrouted to the video pipeline.
     if (
       input.length >= 8 &&
       input[4] === 0x66 &&
@@ -1942,9 +1944,17 @@ class MagicBytesStrategy implements DetectionStrategy {
       input[6] === 0x79 &&
       input[7] === 0x70
     ) {
+      const brand = input.length >= 12 ? input.toString("latin1", 8, 12) : "";
+      if (/^(M4A|M4B|M4P|F4A|F4B)/.test(brand)) {
+        return this.result("audio", "audio/mp4", 95);
+      }
+      if (brand.startsWith("qt")) {
+        return this.result("video", "video/quicktime", 95);
+      }
       return this.result("video", "video/mp4", 95);
     }
-    // MKV/WebM: EBML header
+    // EBML container (MKV/WebM) — both share the 0x1A45DFA3 header; the DocType
+    // string in the header disambiguates WebM from generic Matroska.
     if (
       input.length >= 4 &&
       input[0] === 0x1a &&
@@ -1952,6 +1962,10 @@ class MagicBytesStrategy implements DetectionStrategy {
       input[2] === 0xdf &&
       input[3] === 0xa3
     ) {
+      const head = input.toString("latin1", 0, Math.min(input.length, 64));
+      if (head.includes("webm")) {
+        return this.result("video", "video/webm", 92);
+      }
       return this.result("video", "video/x-matroska", 90);
     }
     // AVI: "RIFF" + "AVI "
@@ -1991,7 +2005,13 @@ class MagicBytesStrategy implements DetectionStrategy {
     ) {
       return this.result("audio", "audio/mpeg", 95);
     }
-    // MP3: sync word
+    // AAC (ADTS): 12-bit syncword 0xFFF with the 2 layer bits == 00. This must be
+    // checked before the MP3 sync word below, because an ADTS header also satisfies
+    // the looser 11-bit MPEG sync mask and would otherwise be mislabeled audio/mpeg.
+    if (input.length >= 2 && input[0] === 0xff && (input[1] & 0xf6) === 0xf0) {
+      return this.result("audio", "audio/aac", 85);
+    }
+    // MP3: sync word (MPEG audio — layer bits are non-zero, unlike ADTS AAC above)
     if (input.length >= 2 && input[0] === 0xff && (input[1] & 0xe0) === 0xe0) {
       return this.result("audio", "audio/mpeg", 80);
     }
