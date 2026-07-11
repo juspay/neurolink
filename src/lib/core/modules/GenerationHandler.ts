@@ -859,6 +859,17 @@ export class GenerationHandler {
       }
       try {
         const scalar: unknown = JSON.parse(strippedText);
+        if (scalar === "") {
+          // A JSON-encoded empty string is an EMPTY completion, not a
+          // recovered scalar — normalize to a true empty ('' content, no
+          // structuredData) so callers' empty-response handling fires
+          // instead of a literal '""' reaching the user.
+          logger.warn(
+            "[GenerationHandler] schema requested but the model returned an empty JSON string; normalizing to empty content",
+            { provider: this.providerName, model: this.modelName },
+          );
+          return "";
+        }
         if (scalar !== null && scalar !== undefined) {
           structuredData = scalar;
           return strippedText;
@@ -875,7 +886,18 @@ export class GenerationHandler {
     if (useStructuredOutput) {
       try {
         const experimentalOutput = generateResult.experimental_output;
-        if (experimentalOutput !== undefined) {
+        // ai@6 generateText resolves `output ?? text()` internally, so a
+        // result produced WITHOUT an output spec — the structured-output
+        // fallback retry, or the tools↔schema exclusion path — no longer
+        // throws here: `experimental_output` echoes the RAW MODEL TEXT.
+        // Treating that echo as parsed schema output double-encodes the
+        // content (JSON.stringify of a string) and, for an empty
+        // completion, turns '' into the literal '""'. Detect the echo
+        // (a string identical to the step text) and coerce it instead.
+        const rawTextEcho =
+          typeof experimentalOutput === "string" &&
+          experimentalOutput === (generateResult.text ?? "");
+        if (experimentalOutput !== undefined && !rawTextEcho) {
           // AI-SDK already parsed + schema-validated the object. Expose it
           // directly and serialise canonically — no hand-parsing needed.
           structuredData = experimentalOutput;

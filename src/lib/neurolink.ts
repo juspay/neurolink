@@ -5184,7 +5184,17 @@ Current user's request: ${currentInput}`;
       } else {
         try {
           const scalar: unknown = JSON.parse(textResult.content);
-          if (scalar !== null && scalar !== undefined) {
+          if (scalar === "") {
+            // A JSON-encoded empty string is an EMPTY completion, not a
+            // recovered scalar — normalize to a true empty so callers'
+            // empty-response handling fires instead of a literal '""'
+            // reaching the user. `structuredData` stays undefined.
+            textResult.content = "";
+            logger.warn(
+              "[NeuroLink] schema requested but the model returned an empty JSON string; normalizing to empty content",
+              { provider: textResult.provider, model: textResult.model },
+            );
+          } else if (scalar !== null && scalar !== undefined) {
             textResult.structuredData = scalar;
           }
         } catch {
