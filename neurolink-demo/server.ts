@@ -51,7 +51,7 @@ const ALL_PROVIDERS = [
 const DEFAULT_MODELS: Record<string, string> = {
   openai: "gpt-4o",
   bedrock:
-    "arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "arn:aws:bedrock:us-east-2:123456789012:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
   vertex: "gemini-2.5-pro",
   "google-ai": "gemini-2.5-pro",
   anthropic: "claude-3-5-sonnet-20241022",
