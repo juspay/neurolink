@@ -659,18 +659,26 @@ function isDirectorSegment(segment: unknown): segment is DirectorSegment {
 }
 
 export function isMultimodalInput(input: unknown): input is MultimodalInput {
-  const maybeInput = input as MultimodalInput;
+  if (typeof input !== "object" || input === null) {
+    return false;
+  }
+  const m = input as MultimodalInput;
+  // Each field must be a NON-EMPTY ARRAY. Checking `.length` alone is unsafe:
+  // a string value (e.g. `{ images: "oops" }`) has a truthy `.length`, so the
+  // old guard would claim a malformed input is multimodal and then crash
+  // downstream when the field is iterated as an array.
+  const hasItems = (v: unknown): boolean => Array.isArray(v) && v.length > 0;
   return !!(
-    maybeInput?.images?.length ||
-    maybeInput?.csvFiles?.length ||
-    maybeInput?.pdfFiles?.length ||
-    maybeInput?.files?.length ||
-    maybeInput?.content?.length ||
-    maybeInput?.audioFiles?.length ||
-    maybeInput?.videoFiles?.length ||
-    (maybeInput?.segments?.length &&
-      Array.isArray(maybeInput.segments) &&
-      maybeInput.segments.every(isDirectorSegment))
+    hasItems(m.images) ||
+    hasItems(m.csvFiles) ||
+    hasItems(m.pdfFiles) ||
+    hasItems(m.files) ||
+    hasItems(m.content) ||
+    hasItems(m.audioFiles) ||
+    hasItems(m.videoFiles) ||
+    (Array.isArray(m.segments) &&
+      m.segments.length > 0 &&
+      m.segments.every(isDirectorSegment))
   );
 }
 

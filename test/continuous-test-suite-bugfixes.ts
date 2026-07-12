@@ -19,6 +19,7 @@ import {
 import { convertToModelMessages } from "../src/lib/utils/messageBuilder.js";
 import { CSVProcessor } from "../src/lib/utils/csvProcessor.js";
 import { directAgentTools } from "../src/lib/agent/directTools.js";
+import { isMultimodalInput } from "../src/lib/types/index.js";
 
 import {
   GoogleVertexProvider,
@@ -226,6 +227,23 @@ const tests: TestFunction[] = [
       // A path inside cwd must still be allowed.
       const ok = await rf.execute({ path: "package.json" });
       return ok.success === true;
+    },
+  },
+  // ---------- isMultimodalInput guards against non-array fields (issue #278) ----------
+  {
+    name: "isMultimodalInput returns false for non-array fields (no unsafe .length)",
+    category: "type-guard",
+    fn: async () => {
+      const cases: Array<[unknown, boolean]> = [
+        [{ images: "not-an-array" }, false], // string .length was truthy
+        [{ csvFiles: 42 }, false],
+        [null, false],
+        ["hello", false],
+        [{}, false],
+        [{ images: [Buffer.from("x")] }, true],
+        [{ files: [{ buffer: Buffer.from("x"), filename: "a.pdf" }] }, true],
+      ];
+      return cases.every(([inp, want]) => isMultimodalInput(inp) === want);
     },
   },
   // ---------- Bug 1: Vertex location routing via resolveVertexLocation ----------

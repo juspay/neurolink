@@ -56,7 +56,7 @@ const ConfigSchema: z.ZodType<CliNeuroLinkConfig> = z.object({
           model: z
             .string()
             .default(
-              "arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+              "arn:aws:bedrock:us-east-2:123456789012:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
             ),
         })
         .optional(),
@@ -629,7 +629,7 @@ export class ConfigManager {
         name: "model",
         message: "Model ARN:",
         default:
-          "arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+          "arn:aws:bedrock:us-east-2:123456789012:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
       },
     ]);
 
