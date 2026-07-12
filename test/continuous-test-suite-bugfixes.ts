@@ -16,7 +16,10 @@ import {
   parseRetryAfterMs,
 } from "../src/lib/proxy/routingPolicy.js";
 
-import { convertToModelMessages } from "../src/lib/utils/messageBuilder.js";
+import {
+  convertToModelMessages,
+  buildMultimodalMessagesArray,
+} from "../src/lib/utils/messageBuilder.js";
 import { CSVProcessor } from "../src/lib/utils/csvProcessor.js";
 import { PDFProcessor } from "../src/lib/utils/pdfProcessor.js";
 import { directAgentTools } from "../src/lib/agent/directTools.js";
@@ -546,6 +549,55 @@ const tests: TestFunction[] = [
       return (
         Object.keys(qr[0] ?? {}).join(",") === "name,note" && qr.length === 2
       );
+    },
+  },
+  // ---------- Image data-URI validation (issues #270, #348) ----------
+  {
+    name: "buildMultimodalMessagesArray rejects malformed / non-image data URIs",
+    category: "message-builder",
+    fn: async () => {
+      const build = (images: string[]) =>
+        buildMultimodalMessagesArray(
+          {
+            input: { text: "hi", images },
+          } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+          "openai",
+          "gpt-4o",
+        );
+      const throwsWith = async (
+        images: string[],
+        re: RegExp,
+      ): Promise<boolean> => {
+        try {
+          await build(images);
+          return false;
+        } catch (e) {
+          return e instanceof Error && re.test(e.message);
+        }
+      };
+      // #270: a malformed data URI must fail loudly, not pass through silently.
+      if (
+        !(await throwsWith(
+          ["data:image/png;NOTBASE64whoops"],
+          /Malformed image data URI/,
+        ))
+      ) {
+        return false;
+      }
+      // #348: a non-image MIME data URI must be rejected.
+      if (
+        !(await throwsWith(
+          ["data:text/plain;base64,aGVsbG8="],
+          /Unsupported data URI MIME/,
+        ))
+      ) {
+        return false;
+      }
+      // A valid image data URI must still build.
+      const png =
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+      const msgs = await build([`data:image/png;base64,${png}`]);
+      return Array.isArray(msgs);
     },
   },
   // ---------- Bug 1: Vertex location routing via resolveVertexLocation ----------

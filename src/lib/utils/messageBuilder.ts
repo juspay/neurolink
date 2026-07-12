@@ -1609,7 +1609,10 @@ async function convertContentToProviderFormat(
  * Check if a string is an internet URL
  */
 function isInternetUrl(input: string): boolean {
-  return input.startsWith("http://") || input.startsWith("https://");
+  // Scheme is case-insensitive (RFC 3986) — "HTTPS://..." must still be a URL,
+  // not fall through to the file-path branch and produce a confusing error.
+  const lower = input.toLowerCase();
+  return lower.startsWith("http://") || lower.startsWith("https://");
 }
 
 /**
@@ -1656,20 +1659,23 @@ async function downloadImageFromUrl(url: string): Promise<string> {
       );
     }
 
-    // Read the response body
+    // Read the response body, enforcing the size cap INCREMENTALLY: a
+    // misbehaving/malicious server on a user-supplied URL must not be able to
+    // force unbounded memory growth by streaming gigabytes before we ever
+    // check the total (the previous code concat'd everything first).
+    const maxSize = 10 * 1024 * 1024; // 10MB
     const chunks: Buffer[] = [];
+    let totalSize = 0;
     for await (const chunk of response.body) {
+      totalSize += chunk.length;
+      if (totalSize > maxSize) {
+        throw new Error(
+          `Image too large: exceeds ${maxSize} bytes while downloading from ${url}`,
+        );
+      }
       chunks.push(chunk);
     }
     const buffer = Buffer.concat(chunks);
-
-    // Check file size (limit to 10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (buffer.length > maxSize) {
-      throw new Error(
-        `Image too large: ${buffer.length} bytes (max: ${maxSize} bytes)`,
-      );
-    }
 
     // Convert to base64 data URI
     const base64 = buffer.toString("base64");
@@ -1825,10 +1831,23 @@ function processImageToBase64(
       // Data URI (including downloaded URLs) - extract mime type and raw base64
       const match = image.match(/^data:([^;]+);base64,(.+)$/);
       if (match) {
-        mimeType = match[1];
+        const declaredMime = match[1];
+        // #348: only accept image/* data URIs; reject a non-image MIME before
+        // it reaches a provider API rather than passing it through unchecked.
+        if (!declaredMime.startsWith("image/")) {
+          throw new Error(
+            `Unsupported data URI MIME type for image input at index ${index}: "${declaredMime}" (expected image/*)`,
+          );
+        }
+        mimeType = declaredMime;
         imageData = match[2]; // Raw base64 only — NOT the full data: URI
       } else {
-        imageData = image;
+        // #270: a malformed data: URI must fail loudly, not silently pass the
+        // raw string through as if it were valid base64 (which corrupts the
+        // request and surfaces as an opaque provider error later).
+        throw new Error(
+          `Malformed image data URI at index ${index} (expected "data:<image/...>;base64,<data>")`,
+        );
       }
     } else if (isInternetUrl(image)) {
       // This should not happen as URLs are processed separately
