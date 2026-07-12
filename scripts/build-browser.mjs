@@ -119,6 +119,8 @@ export const unlink = noopAsync;
 export const access = noopAsync;
 export const rename = noopAsync;
 export const rm = noopAsync;
+export const open = async () => ({ stat: noopAsync, readFile: noopAsync, close: noopAsync, read: noopAsync, write: noopAsync });
+export const realpath = async (p) => p;
 export const spawn = () => ({on:noop,stdout:{on:noop},stderr:{on:noop},kill:noop});
 export const exec = (c,cb) => cb?.(null,'','');
 export const execSync = () => '';

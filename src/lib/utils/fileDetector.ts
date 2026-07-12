@@ -4,7 +4,13 @@
  * Uses multi-strategy approach for reliable type identification
  */
 
-import { readFile, stat } from "fs/promises";
+import { open, readFile, realpath } from "fs/promises";
+import {
+  isAbsolute as isAbsolutePath,
+  relative as relativePath,
+  resolve as resolvePath,
+  sep,
+} from "path";
 import { getGlobalDispatcher, interceptors, request } from "undici";
 // Lazy-loaded processor singletons — avoids loading heavy media deps
 // (mediabunny, fluent-ffmpeg, music-metadata, adm-zip) on every generate() call.
@@ -779,8 +785,10 @@ export class FileDetector {
       }
     }
 
-    logger.warn(
-      `[FileDetector] Low confidence: ${best?.type ?? "unknown"} (${best?.metadata.confidence ?? 0}%)`,
+    // Below-threshold detection is the common case for any file under the
+    // ContentHeuristic ceiling — a debug detail, not a warning-worthy anomaly.
+    logger.debug(
+      `[FileDetector] Best-effort type below threshold: ${best?.type ?? "unknown"} (${best?.metadata.confidence ?? 0}%, threshold ${confidenceThreshold}%)`,
     );
     return best as FileDetectionResult;
   }
@@ -1806,7 +1814,7 @@ export class FileDetector {
         });
 
         if (response.statusCode !== 200) {
-          throw new Error(`HTTP ${response.statusCode}`);
+          throw new Error(`HTTP ${response.statusCode} fetching ${url}`);
         }
 
         const chunks: Buffer[] = [];
@@ -1832,23 +1840,58 @@ export class FileDetector {
    * Load file from filesystem path
    */
   private static async loadFromPath(
-    path: string,
+    filePath: string,
     options?: FileDetectorOptions,
   ): Promise<Buffer> {
     const maxSize = options?.maxSize || 200 * 1024 * 1024; // 200MB default (matches Curator memory-safety cap)
-    const statInfo = await stat(path);
 
-    if (!statInfo.isFile()) {
-      throw new Error("Not a file");
+    // Reject NUL-byte injection outright (a classic path-truncation vector).
+    if (filePath.includes("\0")) {
+      throw new Error("Invalid file path: contains a null byte");
     }
 
-    if (statInfo.size > maxSize) {
-      throw new Error(
-        `File too large: ${formatFileSize(statInfo.size)} (max: ${formatFileSize(maxSize)})`,
-      );
+    // Optional sandbox: when a base dir is configured (servers accepting paths
+    // from untrusted callers), reject anything that resolves outside it. Real
+    // paths are resolved (symlinks followed) on BOTH sides so a symlink inside
+    // the base dir pointing outside cannot bypass containment. The
+    // path.relative check (not a string prefix) correctly handles the root dir
+    // ("/") and sibling-prefix ("/app" vs "/app-evil") edge cases.
+    if (options?.allowedBaseDir) {
+      let base: string;
+      let real: string;
+      try {
+        base = await realpath(resolvePath(options.allowedBaseDir));
+        real = await realpath(filePath);
+      } catch {
+        throw new Error(
+          `Access denied: "${filePath}" could not be resolved within the allowed base directory`,
+        );
+      }
+      const rel = relativePath(base, real);
+      if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolutePath(rel)) {
+        throw new Error(
+          `Access denied: "${filePath}" resolves outside the allowed base directory`,
+        );
+      }
     }
 
-    return await readFile(path);
+    // Open a handle and stat/read through the SAME descriptor so a symlink
+    // swap between the size check and the read cannot occur (TOCTOU).
+    const handle = await open(filePath, "r");
+    try {
+      const statInfo = await handle.stat();
+      if (!statInfo.isFile()) {
+        throw new Error(`Not a file: ${filePath}`);
+      }
+      if (statInfo.size > maxSize) {
+        throw new Error(
+          `File too large: ${filePath} is ${formatFileSize(statInfo.size)} (max: ${formatFileSize(maxSize)})`,
+        );
+      }
+      return await handle.readFile();
+    } finally {
+      await handle.close();
+    }
   }
 
   /**
@@ -1857,7 +1900,9 @@ export class FileDetector {
   private static loadFromDataURI(dataUri: string): Buffer {
     const match = dataUri.match(/^data:([^;]+);base64,(.+)$/);
     if (!match) {
-      throw new Error("Invalid data URI format");
+      throw new Error(
+        `Invalid data URI format (expected "data:<mime>;base64,<data>"): "${dataUri.slice(0, 32)}…"`,
+      );
     }
     return Buffer.from(match[2], "base64");
   }
