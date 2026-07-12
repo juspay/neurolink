@@ -350,6 +350,16 @@ export type FileDetectorOptions = {
   maxSize?: number;
   timeout?: number;
   allowedTypes?: FileType[];
+  /**
+   * When set, local file paths must resolve inside this base directory;
+   * anything that escapes it (absolute path, `../` traversal, or a symlink
+   * pointing outside) is rejected. Containment is enforced on the real,
+   * symlink-resolved path of both the base dir and the target, so a symlink
+   * inside the base cannot be used to reach a file outside it. Servers that
+   * accept file paths from untrusted callers should set this to sandbox
+   * filesystem access; SDK callers loading their own files can omit it.
+   */
+  allowedBaseDir?: string;
   audioOptions?: AudioProcessorOptions;
   csvOptions?: CSVProcessorOptions;
   officeOptions?: OfficeProcessorOptions;

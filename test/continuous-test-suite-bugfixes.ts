@@ -20,6 +20,10 @@ import { convertToModelMessages } from "../src/lib/utils/messageBuilder.js";
 import { CSVProcessor } from "../src/lib/utils/csvProcessor.js";
 import { directAgentTools } from "../src/lib/agent/directTools.js";
 import { isMultimodalInput } from "../src/lib/types/index.js";
+import { FileDetector } from "../src/lib/utils/fileDetector.js";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join as pathJoin } from "node:path";
 
 import {
   GoogleVertexProvider,
@@ -244,6 +248,92 @@ const tests: TestFunction[] = [
         [{ files: [{ buffer: Buffer.from("x"), filename: "a.pdf" }] }, true],
       ];
       return cases.every(([inp, want]) => isMultimodalInput(inp) === want);
+    },
+  },
+  // ---------- FileDetector path hardening (issues #279, #272) ----------
+  {
+    name: "FileDetector.loadFromPath rejects null bytes and enforces allowedBaseDir",
+    category: "file-detector",
+    fn: async () => {
+      const load = (
+        FileDetector as unknown as {
+          loadFromPath: (
+            p: string,
+            o?: { allowedBaseDir?: string },
+          ) => Promise<Buffer>;
+        }
+      ).loadFromPath;
+      const throwsWith = async (
+        p: string,
+        o: { allowedBaseDir?: string } | undefined,
+        re: RegExp,
+      ): Promise<boolean> => {
+        try {
+          await load(p, o);
+          return false;
+        } catch (e) {
+          return e instanceof Error && re.test(e.message);
+        }
+      };
+      // null-byte injection is always rejected
+      if (!(await throwsWith("foo\0.txt", undefined, /null byte/))) {
+        return false;
+      }
+      // with a base dir, an absolute escape is denied
+      if (
+        !(await throwsWith(
+          "/etc/passwd",
+          { allowedBaseDir: process.cwd() },
+          /outside the allowed base/,
+        ))
+      ) {
+        return false;
+      }
+      // a path inside the base dir still loads
+      try {
+        const buf = await load("package.json", {
+          allowedBaseDir: process.cwd(),
+        });
+        return Buffer.isBuffer(buf) && buf.length > 0;
+      } catch {
+        return false;
+      }
+    },
+  },
+  {
+    name: "FileDetector.loadFromPath: a symlink inside allowedBaseDir pointing outside is denied",
+    category: "file-detector",
+    fn: async () => {
+      const load = (
+        FileDetector as unknown as {
+          loadFromPath: (
+            p: string,
+            o?: { allowedBaseDir?: string },
+          ) => Promise<Buffer>;
+        }
+      ).loadFromPath;
+      const base = mkdtempSync(pathJoin(tmpdir(), "nl-sandbox-"));
+      const outside = mkdtempSync(pathJoin(tmpdir(), "nl-secret-"));
+      const secret = pathJoin(outside, "secret.txt");
+      const linkInside = pathJoin(base, "escape.txt");
+      try {
+        writeFileSync(secret, "top secret");
+        // A symlink that lives inside the sandbox but resolves outside it.
+        symlinkSync(secret, linkInside);
+        // Path-resolution alone would see linkInside under `base` and allow it;
+        // real-path (symlink-followed) containment must deny it.
+        try {
+          await load(linkInside, { allowedBaseDir: base });
+          return false; // reached the file — containment bypassed
+        } catch (e) {
+          return (
+            e instanceof Error && /outside the allowed base/.test(e.message)
+          );
+        }
+      } finally {
+        rmSync(base, { recursive: true, force: true });
+        rmSync(outside, { recursive: true, force: true });
+      }
     },
   },
   // ---------- Bug 1: Vertex location routing via resolveVertexLocation ----------
