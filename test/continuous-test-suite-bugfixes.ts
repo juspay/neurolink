@@ -18,6 +18,7 @@ import {
 
 import { convertToModelMessages } from "../src/lib/utils/messageBuilder.js";
 import { CSVProcessor } from "../src/lib/utils/csvProcessor.js";
+import { PDFProcessor } from "../src/lib/utils/pdfProcessor.js";
 import { directAgentTools } from "../src/lib/agent/directTools.js";
 import { isMultimodalInput } from "../src/lib/types/index.js";
 import { FileDetector } from "../src/lib/utils/fileDetector.js";
@@ -440,6 +441,38 @@ const tests: TestFunction[] = [
         out.includes("Only a title") &&
         !out.includes("Speaker notes:")
       );
+    },
+  },
+  // ---------- PDF scale validation (issue #340) ----------
+  {
+    name: "PDFProcessor.convertToImages rejects out-of-range scale with a clear error",
+    category: "pdf-processor",
+    fn: async () => {
+      const pdf = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(20)]);
+      const rejects = async (scale: number): Promise<boolean> => {
+        try {
+          await PDFProcessor.convertToImages(pdf, { scale });
+          return false;
+        } catch (e) {
+          return e instanceof Error && /Invalid scale/.test(e.message);
+        }
+      };
+      // 0, negative, non-finite, and above the max must all be rejected on scale.
+      for (const bad of [0, -1, Number.NaN, 11]) {
+        if (!(await rejects(bad))) {
+          return false;
+        }
+      }
+      // A valid scale must pass the scale gate (it may fail later on the fake
+      // PDF body, but NOT with an "Invalid scale" message).
+      try {
+        await PDFProcessor.convertToImages(pdf, { scale: 2 });
+      } catch (e) {
+        if (e instanceof Error && /Invalid scale/.test(e.message)) {
+          return false;
+        }
+      }
+      return true;
     },
   },
   // ---------- Bug 1: Vertex location routing via resolveVertexLocation ----------
