@@ -431,6 +431,21 @@ function calculateDataQualityScore(
 /**
  * Analyze all columns in parsed CSV data
  */
+/**
+ * Confidence for a CSV processing result, weighted by data quality.
+ *
+ * The result used to report a static `confidence: 100` regardless of how clean
+ * the data was. This ties confidence to `dataQualityScore` so it actually
+ * varies with quality factors (ragged rows, high null rate, type
+ * inconsistency): a cleanly-parsed CSV stays at 100, a messy one is pulled
+ * halfway toward its quality score. It never drops below 50 for a CSV that
+ * parsed — the *format* is certain, only the *data* is imperfect.
+ */
+function csvResultConfidence(dataQualityScore: number): number {
+  const clamped = Math.max(0, Math.min(100, dataQualityScore));
+  return Math.round((100 + clamped) / 2);
+}
+
 function analyzeColumns(rows: unknown[]): {
   columnMetadata: CSVColumnMetadata[];
   dataQualityWarnings: CSVDataQualityWarning[];
@@ -744,7 +759,7 @@ export class CSVProcessor {
         content: limitedCSV,
         mimeType: "text/csv",
         metadata: {
-          confidence: 100,
+          confidence: csvResultConfidence(dataQualityScore),
           size: content.length,
           rowCount,
           totalLines: limitedLines.length,
@@ -851,7 +866,7 @@ export class CSVProcessor {
       content: formatted,
       mimeType: "text/csv",
       metadata: {
-        confidence: 100,
+        confidence: csvResultConfidence(dataQualityScore),
         size: content.length,
         rowCount,
         columnCount,

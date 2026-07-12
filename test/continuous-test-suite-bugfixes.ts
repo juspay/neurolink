@@ -475,6 +475,45 @@ const tests: TestFunction[] = [
       return true;
     },
   },
+  // ---------- CSV detection: quoted delimiters (issue #299) ----------
+  {
+    name: "FileDetector: quoted commas do not break CSV detection (RFC 4180)",
+    category: "csv-processor",
+    fn: async () => {
+      // Each data row has a comma inside a quoted field plus one real column
+      // break. A quote-unaware delimiter count sees 2 delimiters on data rows
+      // vs 1 on the header, collapses consistency below 0.8, and rejects a
+      // valid CSV. The quote-aware count sees 1 delimiter on every row.
+      const csv =
+        'name,note\n"Smith, John",hello\n"Doe, Jane",world\n"Roe, Max",foo\n';
+      const result = await FileDetector.detectAndProcess(Buffer.from(csv));
+      return result.type === "csv";
+    },
+  },
+  // ---------- CSV metadata confidence varies with quality (issue #386) ----------
+  {
+    name: "CSVProcessor: metadata.confidence reflects data quality, not a static 100",
+    category: "csv-processor",
+    fn: async () => {
+      const clean = "id,name,age\n1,Alice,30\n2,Bob,25\n3,Cara,41\n4,Dan,38\n";
+      const messy =
+        "id,name,age,city,score\n1,Alice,,,\n2,,,,\n3,,,foo,\n4,,,,\n5,,,,\n";
+      const rc = await CSVProcessor.process(Buffer.from(clean), {
+        maxRows: 100,
+      });
+      const rm = await CSVProcessor.process(Buffer.from(messy), {
+        maxRows: 100,
+      });
+      const cleanConf = rc.metadata?.confidence;
+      const messyConf = rm.metadata?.confidence;
+      return (
+        cleanConf === 100 &&
+        typeof messyConf === "number" &&
+        messyConf < 100 &&
+        messyConf >= 50
+      );
+    },
+  },
   // ---------- Bug 1: Vertex location routing via resolveVertexLocation ----------
   {
     name: "resolveVertexLocation: gemini-* forced to global regardless of configured location",

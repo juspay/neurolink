@@ -2753,13 +2753,43 @@ class ContentHeuristicStrategy implements DetectionStrategy {
       return hasReasonableLengths && noBinaryChars && hasUniformLengths;
     }
 
-    // Count delimiters per line and check consistency
-    const delimRegex = delimiter === "|" ? /\|/g : new RegExp(delimiter, "g");
-    const counts = lines.map((line) => (line.match(delimRegex) || []).length);
+    // Count delimiters per line and check consistency. Delimiters inside a
+    // double-quoted field are field content, not column separators (RFC 4180) —
+    // a naive count inflates rows with quoted delimiters (e.g. `"Smith, John"`),
+    // which used to make consistency collapse and reject a valid CSV.
+    const counts = lines.map((line) =>
+      ContentHeuristicStrategy.countDelimitersOutsideQuotes(line, delimiter),
+    );
     const firstCount = counts[0];
     const consistentLines = counts.filter((c) => c === firstCount).length;
 
     return consistentLines / lines.length >= 0.8;
+  }
+
+  /**
+   * Count occurrences of `delimiter` in `line` that fall OUTSIDE double-quoted
+   * fields, honoring RFC-4180 escaped quotes (`""`). Used by CSV detection so a
+   * delimiter embedded in a quoted value is not mistaken for a column break.
+   */
+  private static countDelimitersOutsideQuotes(
+    line: string,
+    delimiter: string,
+  ): number {
+    let count = 0;
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          i++; // escaped quote inside a quoted field — skip the pair
+          continue;
+        }
+        inQuotes = !inQuotes;
+      } else if (ch === delimiter && !inQuotes) {
+        count++;
+      }
+    }
+    return count;
   }
 
   private looksLikeJSON(text: string): boolean {
