@@ -76,27 +76,38 @@ export class ReplicateVideoHandler implements VideoHandler {
     const model = options.model ?? DEFAULT_MODEL;
     const dataUri = `data:image/${this.detectImageType(image)};base64,${image.toString("base64")}`;
 
-    // Wan-Alpha + most image-to-video models accept this shape; specific
-    // models may require provider-specific extras passed through
-    // VideoOutputOptions.[unknown key].
+    // Replicate image-to-video models do not share an input schema. The
+    // legacy shape below (`image` + `num_frames`/`fps`/`aspect_ratio`) fits
+    // Wan-Alpha-era models; current models (minimax/hailuo-2.3-*,
+    // wan-video/wan-2.7-i2v) key the image as `first_frame_image` /
+    // `first_frame` and take `duration` instead of frame counts — a missing
+    // required image key fails the prediction on submit. `imageInputKey`
+    // selects the image key AND the modern `duration`/`resolution` shape;
+    // omitting it preserves the legacy payload exactly.
     //
-    // `resolution` is forwarded as the `resolution` input parameter.
-    // Wan-Alpha and several other Replicate image-to-video models accept it
-    // (e.g. "720p", "1080p"). Models that do not recognise it will silently
-    // ignore the field — the Replicate API does not reject unknown input keys.
     // `calculateDimensions` still populates the metadata `dimensions` field
     // so downstream consumers always receive correct width/height regardless
     // of whether the model honoured the resolution hint.
-    const inputPayload: Record<string, unknown> = {
-      image: dataUri,
-      prompt,
-      num_frames: (options.length ?? 4) * 24, // Assume 24 fps
-      fps: 24,
-      aspect_ratio: options.aspectRatio,
-      ...(options.resolution !== undefined
-        ? { resolution: options.resolution }
-        : {}),
-    };
+    const inputPayload: Record<string, unknown> =
+      options.imageInputKey !== undefined
+        ? {
+            [options.imageInputKey]: dataUri,
+            prompt,
+            duration: options.length ?? 4,
+            ...(options.resolution !== undefined
+              ? { resolution: options.resolution }
+              : {}),
+          }
+        : {
+            image: dataUri,
+            prompt,
+            num_frames: (options.length ?? 4) * 24, // Assume 24 fps
+            fps: 24,
+            aspect_ratio: options.aspectRatio,
+            ...(options.resolution !== undefined
+              ? { resolution: options.resolution }
+              : {}),
+          };
 
     let prediction: Awaited<ReturnType<typeof predict>>;
     try {
