@@ -240,6 +240,9 @@ export const PDF_LIMITS = {
   MAX_SIZE_MB: 20,
   // Default maximum pages for image conversion
   DEFAULT_MAX_PAGES: 20,
+  // Upper bound for the render scale factor. Above this, a single page can
+  // allocate hundreds of MB; scale <= 0 produces a degenerate viewport.
+  MAX_SCALE: 10,
 };
 
 // Performance and System Limits

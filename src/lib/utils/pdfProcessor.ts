@@ -329,6 +329,15 @@ export class PDFProcessor {
       );
     }
 
+    // 0b. Validate the render scale. A non-finite or non-positive scale yields a
+    // degenerate viewport (blank/zero-dimension render), and an excessive scale
+    // can allocate hundreds of MB per page — reject both with a clear message.
+    if (!Number.isFinite(scale) || scale <= 0 || scale > PDF_LIMITS.MAX_SCALE) {
+      throw new Error(
+        `Invalid scale: ${scale}. Scale must be a finite number greater than 0 and at most ${PDF_LIMITS.MAX_SCALE}.`,
+      );
+    }
+
     // 1. Validate buffer is not empty or too small
     if (!pdfBuffer || pdfBuffer.length < 5) {
       throw new Error(
