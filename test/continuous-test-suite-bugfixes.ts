@@ -514,6 +514,40 @@ const tests: TestFunction[] = [
       );
     },
   },
+  // ---------- CSV robustness: BOM, input validation, quoted-comma header ----------
+  {
+    name: "CSVProcessor: strips BOM, validates input, keeps quoted-comma header (#374/#385/#359)",
+    category: "csv-processor",
+    fn: async () => {
+      // #374: a leading UTF-8 BOM must not glue onto the first column name.
+      const bomRows = (await CSVProcessor.parseCSVString(
+        "﻿id,name\n1,Alice\n2,Bob",
+        10,
+      )) as Array<Record<string, string>>;
+      if (Object.keys(bomRows[0] ?? {})[0] !== "id") {
+        return false;
+      }
+      // #385: empty/blank input rejects with a clear error, not a raw crash.
+      let emptyRejected = false;
+      try {
+        await CSVProcessor.parseCSVString("", 10);
+      } catch (e) {
+        emptyRejected =
+          e instanceof Error && /non-empty string/.test(e.message);
+      }
+      if (!emptyRejected) {
+        return false;
+      }
+      // #359: a quoted-comma header is not misread as a metadata line + dropped.
+      const q = 'name,note\n"Smith, John",hello\n"Doe, Jane",world';
+      const qr = (await CSVProcessor.parseCSVString(q, 10)) as Array<
+        Record<string, string>
+      >;
+      return (
+        Object.keys(qr[0] ?? {}).join(",") === "name,note" && qr.length === 2
+      );
+    },
+  },
   // ---------- Bug 1: Vertex location routing via resolveVertexLocation ----------
   {
     name: "resolveVertexLocation: gemini-* forced to global regardless of configured location",

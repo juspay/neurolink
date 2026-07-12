@@ -569,6 +569,34 @@ function detectHasHeaders(
  * - Lines with significantly different delimiter count than line 2
  * - Lines that don't match CSV structure of subsequent lines
  */
+/** Strip a leading UTF-8 BOM (U+FEFF) if present. */
+function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
+/**
+ * Count commas that fall OUTSIDE double-quoted fields (RFC 4180, escaped-quote
+ * aware). A quoted comma is field content, not a column separator, so counting
+ * naively would misclassify a quoted-comma header line.
+ */
+function countUnquotedCommas(line: string): number {
+  let count = 0;
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        i++;
+        continue;
+      }
+      inQuotes = !inQuotes;
+    } else if (ch === "," && !inQuotes) {
+      count++;
+    }
+  }
+  return count;
+}
+
 function isMetadataLine(lines: string[]): boolean {
   if (!lines[0] || lines.length < 2) {
     return false;
@@ -581,8 +609,8 @@ function isMetadataLine(lines: string[]): boolean {
     return true;
   }
 
-  const firstCommaCount = (firstLine.match(/,/g) || []).length;
-  const secondCommaCount = (secondLine.match(/,/g) || []).length;
+  const firstCommaCount = countUnquotedCommas(firstLine);
+  const secondCommaCount = countUnquotedCommas(secondLine);
 
   if (firstCommaCount === 0 && secondCommaCount > 0) {
     return true;
@@ -901,6 +929,11 @@ export class CSVProcessor {
     filePath: string,
     maxRows: number = 1000,
   ): Promise<unknown[]> {
+    if (typeof filePath !== "string" || filePath.trim().length === 0) {
+      throw new Error(
+        "CSVProcessor.parseCSVFile: filePath must be a non-empty string",
+      );
+    }
     const clampedMaxRows = Math.max(1, Math.min(10000, maxRows));
     const fs = await import("fs");
 
@@ -929,6 +962,8 @@ export class CSVProcessor {
         }
       });
       lineReader.on("end", () => resolve());
+      // Metadata sniffing is best-effort — a read error here must not crash.
+      lineReader.on("error", () => resolve());
     });
 
     await fileHandle.close();
@@ -954,6 +989,17 @@ export class CSVProcessor {
         source.destroy();
         parser.destroy();
       };
+
+      // .pipe() does not forward source errors (disk read/permission failures)
+      // to the parser, so listen on the source directly or it throws unhandled.
+      source.on("error", (error: Error) => {
+        abort();
+        reject(
+          new Error(
+            `[CSVProcessor] CSV file read failed after ${count} row(s) (${filePath}): ${error.message}`,
+          ),
+        );
+      });
 
       source
         .pipe(parser)
@@ -982,7 +1028,11 @@ export class CSVProcessor {
         })
         .on("error", (error: Error) => {
           logger.error("[CSVProcessor] File parsing failed:", error);
-          reject(error);
+          reject(
+            new Error(
+              `[CSVProcessor] CSV parsing failed after ${count} row(s): ${error.message}`,
+            ),
+          );
         });
     });
   }
@@ -999,15 +1049,23 @@ export class CSVProcessor {
     csvString: string,
     maxRows: number = 1000,
   ): Promise<unknown[]> {
+    if (typeof csvString !== "string" || csvString.trim().length === 0) {
+      throw new Error(
+        "CSVProcessor.parseCSVString: csvString must be a non-empty string",
+      );
+    }
+    // Strip a leading UTF-8 BOM (common in Excel exports) so it does not glue
+    // onto the first column name and break downstream key lookups.
+    const normalized = stripBom(csvString);
     const clampedMaxRows = Math.max(1, Math.min(10000, maxRows));
 
     logger.debug("[CSVProcessor] Starting string parsing", {
-      inputLength: csvString.length,
+      inputLength: normalized.length,
       maxRows: clampedMaxRows,
     });
 
     // Detect and skip metadata line
-    const lines = splitCsvLines(csvString);
+    const lines = splitCsvLines(normalized);
     const hasMetadataLine = isMetadataLine(lines);
     const csvData = hasMetadataLine
       ? lines.slice(1).join("\n")
@@ -1028,6 +1086,18 @@ export class CSVProcessor {
         source.destroy();
         parser.destroy();
       };
+
+      // .pipe() does not forward source-stream errors to the destination, so a
+      // source failure must be listened for directly or it throws as an
+      // unhandled EventEmitter error and can crash the process.
+      source.on("error", (error: Error) => {
+        abort();
+        reject(
+          new Error(
+            `[CSVProcessor] CSV source stream failed after ${count} row(s): ${error.message}`,
+          ),
+        );
+      });
 
       source
         .pipe(parser)
@@ -1051,7 +1121,11 @@ export class CSVProcessor {
         })
         .on("error", (error: Error) => {
           logger.error("[CSVProcessor] Parsing failed:", error);
-          reject(error);
+          reject(
+            new Error(
+              `[CSVProcessor] CSV parsing failed after ${count} row(s): ${error.message}`,
+            ),
+          );
         });
     });
   }
