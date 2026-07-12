@@ -26,6 +26,31 @@ function truncateOutput(output: string): string {
   return output;
 }
 
+/**
+ * Contain a built-in file tool to the process working directory.
+ *
+ * Returns the resolved absolute path when it lies inside `process.cwd()`, or an
+ * `error` string otherwise. This is the sandbox for the default-enabled
+ * `readFile` / `writeFile` / `listDirectory` / `analyzeCSV` tools: without it an
+ * agent can pass an absolute path (`/etc/passwd`) or `../` traversal and reach
+ * arbitrary files. The previous guard (`!resolvedPath.startsWith(cwd) &&
+ * !path.isAbsolute(filePath)`) was always false for absolute paths, so it never
+ * fired. The `cwd + path.sep` suffix prevents a sibling-prefix bypass
+ * (`/home/app` vs `/home/app-evil`).
+ */
+function resolveWithinCwd(
+  filePath: string,
+): { path: string } | { error: string } {
+  const resolvedPath = path.resolve(filePath);
+  const cwd = path.resolve(process.cwd());
+  if (resolvedPath !== cwd && !resolvedPath.startsWith(cwd + path.sep)) {
+    return {
+      error: `Access denied: "${filePath}" resolves outside the working directory`,
+    };
+  }
+  return { path: resolvedPath };
+}
+
 // Runtime Google Search tool creation - bypasses TypeScript strict typing
 function createGoogleSearchTools() {
   const searchTool = {};
@@ -85,16 +110,13 @@ export const directAgentTools = {
     }),
     execute: async ({ path: filePath }) => {
       try {
-        // Security check - prevent reading outside current directory for relative paths
-        const resolvedPath = path.resolve(filePath);
-        const cwd = process.cwd();
-
-        if (!resolvedPath.startsWith(cwd) && !path.isAbsolute(filePath)) {
-          return {
-            success: false,
-            error: `Access denied: Cannot read files outside current directory`,
-          };
+        // Sandbox: contain reads to the working directory (blocks absolute-path
+        // escape and ../ traversal).
+        const guard = resolveWithinCwd(filePath);
+        if ("error" in guard) {
+          return { success: false, error: guard.error };
         }
+        const resolvedPath = guard.path;
 
         const content = fs.readFileSync(resolvedPath, "utf-8");
         const stats = fs.statSync(resolvedPath);
@@ -130,7 +152,12 @@ export const directAgentTools = {
     }),
     execute: async ({ path: dirPath, includeHidden }) => {
       try {
-        const resolvedPath = path.resolve(dirPath);
+        // Sandbox: contain directory listing to the working directory.
+        const guard = resolveWithinCwd(dirPath);
+        if ("error" in guard) {
+          return { success: false, error: guard.error };
+        }
+        const resolvedPath = guard.path;
         const items = fs.readdirSync(resolvedPath);
 
         const filteredItems = includeHidden
@@ -267,16 +294,13 @@ export const directAgentTools = {
     }),
     execute: async ({ path: filePath, content, mode }) => {
       try {
-        const resolvedPath = path.resolve(filePath);
-        const cwd = process.cwd();
-
-        // Security check
-        if (!resolvedPath.startsWith(cwd) && !path.isAbsolute(filePath)) {
-          return {
-            success: false,
-            error: `Access denied: Cannot write files outside current directory`,
-          };
+        // Sandbox: contain writes to the working directory (blocks absolute-path
+        // escape and ../ traversal).
+        const guard = resolveWithinCwd(filePath);
+        if ("error" in guard) {
+          return { success: false, error: guard.error };
         }
+        const resolvedPath = guard.path;
 
         // Check if file exists for create mode
         if (mode === "create" && fs.existsSync(resolvedPath)) {
@@ -386,12 +410,13 @@ export const directAgentTools = {
       try {
         // Resolve file path
         logger.debug(`[analyzeCSV] Resolving file: ${filePath}`);
-        const path = await import("path");
 
-        // Resolve path (support both relative and absolute)
-        const resolvedPath = path.isAbsolute(filePath)
-          ? filePath
-          : path.resolve(process.cwd(), filePath);
+        // Sandbox: contain CSV reads to the working directory.
+        const guard = resolveWithinCwd(filePath);
+        if ("error" in guard) {
+          return { success: false, error: guard.error };
+        }
+        const resolvedPath = guard.path;
 
         logger.debug(`[analyzeCSV] Resolved path: ${resolvedPath}`);
 
