@@ -18,6 +18,7 @@ import {
 
 import { convertToModelMessages } from "../src/lib/utils/messageBuilder.js";
 import { CSVProcessor } from "../src/lib/utils/csvProcessor.js";
+import { directAgentTools } from "../src/lib/agent/directTools.js";
 
 import {
   GoogleVertexProvider,
@@ -193,6 +194,38 @@ const tests: TestFunction[] = [
         typeof raw.content === "string" &&
         raw.content.includes('"line1\rline2"')
       );
+    },
+  },
+  // ---------- Built-in file tools are sandboxed to cwd (issue #1004) ----------
+  {
+    name: "directAgentTools: readFile/writeFile/listDirectory deny paths outside cwd",
+    category: "tool-sandbox",
+    fn: async () => {
+      type Exec = {
+        execute: (a: unknown) => Promise<{ success: boolean; error?: string }>;
+      };
+      const rf = directAgentTools.readFile as unknown as Exec;
+      const wf = directAgentTools.writeFile as unknown as Exec;
+      const ld = directAgentTools.listDirectory as unknown as Exec;
+      const denied = (r: { success: boolean; error?: string }) =>
+        r.success === false && /Access denied/.test(r.error ?? "");
+      // Absolute-path escape and ../ traversal must be denied on all three.
+      const results = await Promise.all([
+        rf.execute({ path: "/etc/passwd" }),
+        rf.execute({ path: "../../../../../../etc/passwd" }),
+        ld.execute({ path: "/etc" }),
+        wf.execute({
+          path: "/tmp/neurolink-sandbox-escape.txt",
+          content: "x",
+          mode: "overwrite",
+        }),
+      ]);
+      if (!results.every(denied)) {
+        return false;
+      }
+      // A path inside cwd must still be allowed.
+      const ok = await rf.execute({ path: "package.json" });
+      return ok.success === true;
     },
   },
   // ---------- Bug 1: Vertex location routing via resolveVertexLocation ----------
