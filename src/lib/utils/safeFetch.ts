@@ -32,7 +32,7 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 function buildPinnedAgent(hostname: string, ip: string, family: 4 | 6): Agent {
   return new Agent({
     connect: {
-      lookup: (host, _options, callback) => {
+      lookup: (host, options, callback) => {
         if (host.toLowerCase() !== hostname.toLowerCase()) {
           // The host the connect layer asks for differs from the URL host —
           // this happens for absolute Host headers etc. Reject defensively.
@@ -43,6 +43,16 @@ function buildPinnedAgent(hostname: string, ip: string, family: 4 | 6): Agent {
             "",
             0,
           );
+          return;
+        }
+        // Node ≥20 enables autoSelectFamily (Happy Eyeballs) by default, and
+        // its lookup contract passes `all: true` expecting an address ARRAY.
+        // Answering with the string form there fails the connection with
+        // "Invalid IP address: undefined" — which broke every safeDownload
+        // (Replicate / Runway / Kling asset fetches) on modern Node while
+        // plain curl of the same URL succeeded.
+        if (options?.all) {
+          callback(null, [{ address: ip, family }]);
           return;
         }
         callback(null, ip, family);
