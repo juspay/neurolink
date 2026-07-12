@@ -217,6 +217,18 @@ export type VideoOutputOptions = {
    */
   imageUrl?: string;
   /**
+   * Replicate only: the input-schema key the model expects the image under.
+   * Replicate image-to-video models disagree on this — e.g.
+   * `minimax/hailuo-2.3-fast` requires `first_frame_image`,
+   * `wan-video/wan-2.7-i2v` requires `first_frame` — and a model whose
+   * required image key is missing fails the prediction on submit. Setting
+   * this also switches the payload to the modern `duration`/`resolution`
+   * field shape those models expect (instead of the legacy
+   * `num_frames`/`fps`/`aspect_ratio` shape). Omit for models that accept
+   * the default `image` key.
+   */
+  imageInputKey?: string;
+  /**
    * Per-call provider credentials. Takes precedence over instance-level
    * credentials set at construction time, which in turn override env vars.
    */
