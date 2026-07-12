@@ -42,6 +42,16 @@ const TEXT_ELEMENT_REGEX = /<a:t[^>]*>([\s\S]*?)<\/a:t>/g;
 const SLIDE_ENTRY_REGEX = /^ppt\/slides\/slide(\d+)\.xml$/;
 
 /**
+ * A slide's per-slide relationships file, e.g.
+ * "ppt/slides/_rels/slide1.xml.rels", which links the slide to its speaker
+ * notes part (among other relationships).
+ */
+const SLIDE_RELS_NAME = (n: number) => `ppt/slides/_rels/slide${n}.xml.rels`;
+
+/** Matches a single `<Relationship .../>` tag inside a .rels document. */
+const RELATIONSHIP_TAG_REGEX = /<Relationship\b[^>]*\/?>/g;
+
+/**
  * Static utility class for extracting text from PPTX files.
  *
  * Designed as a static class (not extending BaseFileProcessor) because
@@ -84,15 +94,77 @@ export class PptxProcessor {
 
     for (const slide of slides) {
       const texts = PptxProcessor.extractTextFromXml(slide.xml);
-      if (texts.length > 0) {
+      const notes = PptxProcessor.extractNotesForSlide(zip, slide.slideNumber);
+      // Emit a slide section when it has either body text or speaker notes.
+      if (texts.length > 0 || notes) {
         parts.push(`### Slide ${slide.slideNumber}`);
-        parts.push(texts.join("\n"));
+        if (texts.length > 0) {
+          parts.push(texts.join("\n"));
+        }
+        if (notes) {
+          parts.push(`**Speaker notes:** ${notes}`);
+        }
         parts.push(""); // blank line between slides
       }
     }
 
     const result = parts.join("\n").trim();
     return result || null;
+  }
+
+  /**
+   * Extract the speaker notes for one slide.
+   *
+   * Speaker notes live in a separate `ppt/notesSlides/notesSlideN.xml` part
+   * whose number is NOT tied to the slide number — the link is declared in the
+   * slide's own relationships file (`ppt/slides/_rels/slideN.xml.rels`) via a
+   * relationship of type `.../notesSlide`. We resolve that target, then pull the
+   * `<a:t>` runs from the notes part. Returns null when the slide has no notes.
+   *
+   * @param zip - The opened PPTX archive
+   * @param slideNumber - 1-indexed slide number
+   * @returns The notes text (runs joined by a space), or null when absent
+   */
+  private static extractNotesForSlide(
+    zip: AdmZip,
+    slideNumber: number,
+  ): string | null {
+    const relsEntry = zip.getEntry(SLIDE_RELS_NAME(slideNumber));
+    if (!relsEntry) {
+      return null;
+    }
+    const relsXml = relsEntry.getData().toString("utf-8");
+
+    let notesTarget: string | null = null;
+    RELATIONSHIP_TAG_REGEX.lastIndex = 0;
+    for (
+      let match = RELATIONSHIP_TAG_REGEX.exec(relsXml);
+      match !== null;
+      match = RELATIONSHIP_TAG_REGEX.exec(relsXml)
+    ) {
+      const tag = match[0];
+      if (/Type="[^"]*\/notesSlide"/.test(tag)) {
+        notesTarget = tag.match(/Target="([^"]+)"/)?.[1] ?? null;
+        break;
+      }
+    }
+    if (!notesTarget) {
+      return null;
+    }
+
+    // Targets are relative to the slide's folder (ppt/slides/), e.g.
+    // "../notesSlides/notesSlide1.xml" → "ppt/notesSlides/notesSlide1.xml".
+    const normalized = notesTarget
+      .replace(/^\.\.\//, "ppt/")
+      .replace(/^\/+/, "");
+    const notesEntry = zip.getEntry(normalized);
+    if (!notesEntry) {
+      return null;
+    }
+    const notes = PptxProcessor.extractTextFromXml(
+      notesEntry.getData().toString("utf-8"),
+    ).join(" ");
+    return notes.trim() || null;
   }
 
   /**

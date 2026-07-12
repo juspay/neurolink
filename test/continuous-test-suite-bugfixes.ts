@@ -24,6 +24,8 @@ import { FileDetector } from "../src/lib/utils/fileDetector.js";
 import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join as pathJoin } from "node:path";
+import AdmZip from "adm-zip";
+import { PptxProcessor } from "../src/lib/processors/document/PptxProcessor.js";
 
 import {
   GoogleVertexProvider,
@@ -393,6 +395,51 @@ const tests: TestFunction[] = [
         }
       }
       return true;
+    },
+  },
+  // ---------- PPTX speaker-notes extraction (issue #441) ----------
+  {
+    name: "PptxProcessor.extractText includes speaker notes resolved via slide rels",
+    category: "pptx-processor",
+    fn: async () => {
+      const at = (s: string) => `<a:t>${s}</a:t>`;
+      const slideXml = `<?xml version="1.0"?><p:sld xmlns:a="x"><p:cSld><p:spTree>${at(
+        "Quarterly Results",
+      )}</p:spTree></p:cSld></p:sld>`;
+      const notesXml = `<?xml version="1.0"?><p:notes xmlns:a="x"><p:cSld><p:spTree>${at(
+        "Mention the RTO improvement.",
+      )}</p:spTree></p:cSld></p:notes>`;
+      // notesSlide number (3) deliberately differs from slide number (1): the
+      // link must be resolved through the rels file, not by matching numbers.
+      const relsXml = `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide3.xml"/></Relationships>`;
+
+      const zip = new AdmZip();
+      zip.addFile("ppt/slides/slide1.xml", Buffer.from(slideXml));
+      zip.addFile("ppt/slides/_rels/slide1.xml.rels", Buffer.from(relsXml));
+      zip.addFile("ppt/notesSlides/notesSlide3.xml", Buffer.from(notesXml));
+
+      const out = await PptxProcessor.extractText(zip.toBuffer());
+      return (
+        typeof out === "string" &&
+        out.includes("Quarterly Results") &&
+        out.includes("Speaker notes:") &&
+        out.includes("Mention the RTO improvement.")
+      );
+    },
+  },
+  {
+    name: "PptxProcessor.extractText omits the notes line for a slide without notes",
+    category: "pptx-processor",
+    fn: async () => {
+      const slideXml = `<?xml version="1.0"?><p:sld xmlns:a="x"><p:cSld><p:spTree><a:t>Only a title</a:t></p:spTree></p:cSld></p:sld>`;
+      const zip = new AdmZip();
+      zip.addFile("ppt/slides/slide1.xml", Buffer.from(slideXml));
+      const out = await PptxProcessor.extractText(zip.toBuffer());
+      return (
+        typeof out === "string" &&
+        out.includes("Only a title") &&
+        !out.includes("Speaker notes:")
+      );
     },
   },
   // ---------- Bug 1: Vertex location routing via resolveVertexLocation ----------
