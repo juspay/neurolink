@@ -1,3 +1,9 @@
+## [9.87.1](https://github.com/juspay/neurolink/compare/v9.87.0...v9.87.1) (2026-07-14)
+
+### Bug Fixes
+
+- **(utils):** safeFetch pinned-agent lookup honors options.all (autoSelectFamily) ([a18af4a](https://github.com/juspay/neurolink/commit/a18af4a688a90c7f085dd878235b6d7ee4a573e5))
+
 ## [9.87.0](https://github.com/juspay/neurolink/compare/v9.86.5...v9.87.0) (2026-07-14)
 
 ### Features
