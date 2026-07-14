@@ -1,3 +1,9 @@
+## [9.87.0](https://github.com/juspay/neurolink/compare/v9.86.5...v9.87.0) (2026-07-14)
+
+### Features
+
+- **(video):** imageInputKey option for Replicate image-to-video models ([a66cab9](https://github.com/juspay/neurolink/commit/a66cab95749ad664d5e14824e0ee731ba9c3de8a))
+
 ## [9.86.5](https://github.com/juspay/neurolink/compare/v9.86.4...v9.86.5) (2026-07-14)
 
 ### Bug Fixes
