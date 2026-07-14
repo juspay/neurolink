@@ -182,13 +182,23 @@ export class TokenStore {
       }
     }
 
-    // Update provider tokens
+    const existingProvider = storageData.providers[provider];
+    const now = Date.now();
+    // Token rotation must not silently clear an operator-disabled account.
+    // Explicit login calls markEnabled() after saving fresh credentials.
     storageData.providers[provider] = {
       tokens,
-      createdAt: Date.now(),
-      lastAccessed: Date.now(),
+      createdAt: existingProvider?.createdAt ?? now,
+      lastAccessed: now,
+      ...(existingProvider?.disabled === true
+        ? {
+            disabled: true,
+            disabledAt: existingProvider.disabledAt,
+            disabledReason: existingProvider.disabledReason,
+          }
+        : {}),
     };
-    storageData.lastModified = Date.now();
+    storageData.lastModified = now;
 
     try {
       const content = this.encryptionEnabled
@@ -594,6 +604,10 @@ export class TokenStore {
    * round-trips. The state survives proxy restarts because it is stored
    * alongside the tokens in the JSON file.
    *
+   * This operation and saveTokens() share the instance mutex. A concurrent
+   * save cannot erase a disable: a later disable wins, while a later save
+   * preserves the existing disabled metadata.
+   *
    * @param provider - The provider key (e.g., "anthropic:user@example.com")
    * @param reason - Optional human-readable reason (e.g., "refresh_failed")
    */
@@ -694,6 +708,24 @@ export class TokenStore {
       } catch (error) {
         if (error instanceof TokenStoreError && error.code === "NOT_FOUND") {
           return false;
+        }
+        throw error;
+      }
+    });
+  }
+
+  /** Return the persisted disable reason, if the provider is disabled. */
+  async getDisabledReason(provider: string): Promise<string | undefined> {
+    return this._mutex.runExclusive(async () => {
+      try {
+        const storageData = await this.loadStorageData();
+        const providerData = storageData.providers[provider];
+        return providerData?.disabled === true
+          ? providerData.disabledReason
+          : undefined;
+      } catch (error) {
+        if (error instanceof TokenStoreError && error.code === "NOT_FOUND") {
+          return undefined;
         }
         throw error;
       }

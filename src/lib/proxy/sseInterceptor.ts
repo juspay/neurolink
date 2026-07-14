@@ -230,6 +230,9 @@ function finalize(acc: TelemetryAccumulator): SSETelemetry {
     streamDurationMs: Date.now() - acc.startTime,
     totalBytesReceived: acc.totalBytesReceived,
     events: acc.events,
+    ...(acc.streamErrorMessage
+      ? { streamErrorMessage: acc.streamErrorMessage }
+      : {}),
     ...(acc.rawTextChunks ? { rawText: acc.rawTextChunks.join("") } : {}),
   };
 }
@@ -407,6 +410,22 @@ function processEvent(
   } catch {
     // Malformed JSON — skip silently, bytes already forwarded to client
     return;
+  }
+
+  if (event.event === "error") {
+    const payload =
+      parsed && typeof parsed === "object"
+        ? (parsed as Record<string, unknown>)
+        : {};
+    const nestedError =
+      payload.error && typeof payload.error === "object"
+        ? (payload.error as Record<string, unknown>)
+        : undefined;
+    const message = nestedError?.message ?? payload.message;
+    acc.streamErrorMessage =
+      typeof message === "string" && message.trim()
+        ? message.trim()
+        : truncateString(event.data, MAX_EVENT_DATA_BYTES);
   }
 
   switch (event.event) {

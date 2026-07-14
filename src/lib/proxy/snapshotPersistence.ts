@@ -11,7 +11,7 @@ async function writeSnapshotFile(
 ): Promise<void> {
   const dir = dirname(targetPath);
   const baseName = basename(targetPath);
-  await mkdir(dir, { recursive: true });
+  await mkdir(dir, { recursive: true, mode: 0o700 });
   const tempPath = join(dir, `.${baseName}.${process.pid}.${randomUUID()}.tmp`);
 
   try {

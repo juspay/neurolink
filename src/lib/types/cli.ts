@@ -954,6 +954,8 @@ export type ProxyState = {
   envFile?: string;
   /** Fallback chain from proxy config (persisted at start time) */
   fallbackChain?: FallbackInfo[];
+  /** Normalized Anthropic account keys allowed for this proxy process. */
+  accountAllowlist?: string[];
   /** Optional fail-open guard PID that reverts Claude settings if proxy dies */
   guardPid?: number;
   /** How the proxy was launched — "launchd" if installed as service, "manual" otherwise */

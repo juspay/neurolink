@@ -84,7 +84,7 @@ export type StoredProviderTokens = {
   disabled?: boolean;
   /** When the tokens were disabled (Unix ms) */
   disabledAt?: number;
-  /** Reason the tokens were disabled (e.g., "refresh_failed") */
+  /** Reason the tokens were disabled (e.g., "refresh_invalid") */
   disabledReason?: string;
 };
 

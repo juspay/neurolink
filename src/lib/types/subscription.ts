@@ -1122,6 +1122,11 @@ export type ProxyRoutingConfig = {
    *  Resolved per-request to a stable key (anthropic:<email>); does not
    *  encode an index. */
   primaryAccount?: string;
+  /** Anthropic account emails/labels that may be loaded by the proxy. When
+   *  present, every token-store, legacy, and environment credential outside
+   *  this set is excluded before refresh or routing. An empty list denies all
+   *  stored credentials. */
+  accountAllowlist?: string[];
 };
 
 /** Cloaking plugin config */

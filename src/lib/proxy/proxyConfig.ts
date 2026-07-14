@@ -270,6 +270,27 @@ export function validateProxyConfig(config: unknown): string[] {
     return errors;
   }
 
+  if (hasRouting) {
+    const routing = cfg.routing as Record<string, unknown>;
+    const rawAccountAllowlist =
+      routing["account-allowlist"] ?? routing.accountAllowlist;
+    if (rawAccountAllowlist !== undefined) {
+      if (!Array.isArray(rawAccountAllowlist)) {
+        errors.push(
+          "routing.account-allowlist must be an array of non-empty strings",
+        );
+      } else {
+        rawAccountAllowlist.forEach((entry, index) => {
+          if (typeof entry !== "string" || entry.trim() === "") {
+            errors.push(
+              `routing.account-allowlist[${index}] must be a non-empty string`,
+            );
+          }
+        });
+      }
+    }
+  }
+
   if (!hasAccounts && !hasRouting) {
     errors.push('Config must contain at least one of "accounts" or "routing"');
     return errors;
@@ -358,6 +379,7 @@ function warnPlaintextApiKeys(
  * - `model-mappings` / `modelMappings` — array of {from, to, provider}
  * - `fallback-chain` / `fallbackChain` — array of {provider, model}
  * - `passthroughModels` / `passthrough-models` — array of model IDs
+ * - `account-allowlist` / `accountAllowlist` — allowed Anthropic account IDs
  *
  * Accepts both camelCase and kebab-case keys for YAML-friendliness.
  */
@@ -451,6 +473,14 @@ function parseRoutingConfig(
           `string, got ${typeof rawPrimary}`,
       );
     }
+  }
+
+  const rawAccountAllowlist = (raw["account-allowlist"] ??
+    raw.accountAllowlist) as unknown;
+  if (Array.isArray(rawAccountAllowlist)) {
+    result.accountAllowlist = [
+      ...new Set(rawAccountAllowlist.map((entry) => String(entry).trim())),
+    ];
   }
 
   return result;

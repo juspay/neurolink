@@ -24,6 +24,7 @@ export function resolveProxyPaths(dev: boolean): ProxyPaths {
       stateDir: base,
       logsDir: join(base, "logs"),
       quotaFile: join(base, "account-quotas.json"),
+      cooldownFile: join(base, "account-cooldowns.json"),
       isDev: true,
     };
   }
@@ -32,6 +33,7 @@ export function resolveProxyPaths(dev: boolean): ProxyPaths {
     stateDir: base,
     logsDir: join(base, "logs"),
     quotaFile: join(base, "account-quotas.json"),
+    cooldownFile: join(base, "account-cooldowns.json"),
     isDev: false,
   };
 }

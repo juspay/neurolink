@@ -616,6 +616,7 @@ export type AnthropicLoopState = {
     contentType?: string;
   } | null;
   authFailureMessage: string | null;
+  authCooldownMessage: string | null;
   attemptNumber: number;
 };
 
@@ -687,9 +688,9 @@ export type AccountCooldownPlan = {
   reason: AccountCoolingReason;
   /** Epoch-ms until which the account should not be used. */
   coolingUntil: number;
-  /** When true (5h/7d window rejected), rotate immediately — retrying the same
-   *  account is futile until its window resets. When false (transient burst),
-   *  a small number of jittered same-account retries is allowed first. */
+  /** When true (unified/5h/7d rejected), rotate immediately — retrying the
+   *  same account is futile until its window resets. When false (transient
+   *  burst), a small number of jittered same-account retries is allowed first. */
   rotateImmediately: boolean;
 };
 
@@ -751,6 +752,14 @@ export type RefreshResult = {
   status?: number;
 };
 
+/** Result shared by callers waiting on the same rotating refresh token. */
+export type SharedRefreshResult = {
+  result: RefreshResult;
+  token: string;
+  refreshToken?: string;
+  expiresAt?: number;
+};
+
 export type TokenPersistTarget =
   | string
   | { credPath: string }
@@ -761,6 +770,9 @@ export type TokenPersistTarget =
 // =============================================================================
 
 export type AccountQuota = {
+  /** Top-level unified status. A rejected value can be authoritative even
+   *  while both 5h and 7d sub-window statuses still report allowed. */
+  unifiedStatus?: string;
   /** 0.0-1.0  (from unified-5h-utilization) */
   sessionUsed: number;
   /** "allowed" | "throttled" | "rejected" */
@@ -788,9 +800,25 @@ export type AccountQuota = {
 /** Why an account is currently cooling. Drives cooldown duration and logging.
  *  - "weekly"    : 7d unified limit rejected — cool until the weekly reset.
  *  - "session"   : 5h unified limit rejected — cool until the session reset.
+ *  - "unified"   : top-level unified limit rejected — cool for retry-after.
  *  - "transient" : short per-minute/burst 429 — cool for retry-after only.
- *  - "auth"      : auth/refresh failures (reserved; currently rotate-only). */
-export type AccountCoolingReason = "weekly" | "session" | "transient" | "auth";
+ *  - "auth"      : transient refresh failure with bounded backoff. */
+export type AccountCoolingReason =
+  | "weekly"
+  | "session"
+  | "unified"
+  | "transient"
+  | "auth";
+
+/** Restart-safe cooldown snapshot for one account. */
+export type PersistedAccountCooldown = {
+  coolingUntil: number;
+  reason: AccountCoolingReason;
+  updatedAt: number;
+};
+
+/** Normalized Anthropic account keys eligible for proxy routing. */
+export type AccountAllowlist = ReadonlySet<string>;
 
 /** Runtime state for a proxy account. */
 export type RuntimeAccountState = {
@@ -799,9 +827,9 @@ export type RuntimeAccountState = {
   lastToken?: string;
   lastRefreshToken?: string;
   /** Epoch-ms timestamp until which the account should not be used for new
-   *  requests. Set from the ACTUAL Anthropic reset window (5h/7d) on an
-   *  exhaustion 429, or from retry-after on a transient burst. Other requests
-   *  arriving during this window skip the account rather than hammering it. */
+   *  requests. Set from the actual Anthropic reset/retry window or from
+   *  bounded refresh backoff. Other requests arriving during this window skip
+   *  the account rather than hammering it. */
   coolingUntil?: number;
   /** Why the account is cooling (set alongside coolingUntil). */
   coolingReason?: AccountCoolingReason;
@@ -931,6 +959,8 @@ export type ProxyPaths = {
   logsDir: string;
   /** account-quotas.json — per-account rate limit state */
   quotaFile: string;
+  /** account-cooldowns.json — restart-safe account cooldown state */
+  cooldownFile: string;
   /** Whether this is a dev-mode isolated instance */
   isDev: boolean;
 };
@@ -1163,7 +1193,23 @@ export type SSETelemetry = {
   streamDurationMs: number;
   totalBytesReceived: number;
   events: Array<{ type: string; timestamp: number; data: string }>;
+  /** Error carried as a terminal SSE `event: error`, if one was observed. */
+  streamErrorMessage?: string;
   rawText?: string;
+};
+
+/** Terminal outcome of a response body after the HTTP headers were sent. */
+export type StreamTerminalOutcome =
+  | { kind: "completed" }
+  | { kind: "upstream_error"; message: string }
+  | { kind: "client_cancelled" };
+
+/** First-writer-wins tracker for an upstream streaming response. */
+export type StreamTerminalOutcomeTracker = {
+  outcome: Promise<StreamTerminalOutcome>;
+  complete: () => void;
+  fail: (message: string) => void;
+  cancel: () => void;
 };
 
 /** Mutable accumulator the SSE interceptor uses internally. */
@@ -1186,6 +1232,7 @@ export type TelemetryAccumulator = {
   rawTextBytes: number;
   rawTextTruncated: boolean;
   eventLogTruncated: boolean;
+  streamErrorMessage?: string;
 };
 
 /** Result of createSSEInterceptor: the pass-through stream and a telemetry promise. */

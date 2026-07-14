@@ -144,7 +144,7 @@ neurolink proxy setup --no-service
 
 ### `neurolink proxy guard` (hidden)
 
-Internal fail-open guard process. Spawned automatically by `proxy start` as a detached child. Monitors the proxy health endpoint and reverts Claude Code settings if the proxy dies unexpectedly.
+Internal fail-open guard process. Spawned only by a foreground `proxy start`; launchd-managed proxies leave restart ownership entirely to launchd. The guard reverts stale Claude Code settings only after its parent is confirmed dead and never restarts or signals a live proxy.
 
 | Flag                  | Type      | Default      | Description                                                  |
 | --------------------- | --------- | ------------ | ------------------------------------------------------------ |
@@ -399,6 +399,13 @@ routing:
   #   neurolink auth clear-primary
   primary-account: "alice@example.com"
 
+  # Optional hard boundary for Anthropic credential discovery. Entries may be
+  # labels/emails or full anthropic:<label> keys. An empty list denies all.
+  # Hidden legacy/env credentials require explicit legacy-default/env entries.
+  # Accepts: account-allowlist (kebab) or accountAllowlist (camel).
+  account-allowlist:
+    - "alice@example.com"
+
   # Model mappings: remap incoming model names to different provider/model pairs
   # Accepts: model-mappings (kebab) or modelMappings (camel)
   model-mappings:
@@ -495,6 +502,7 @@ cloaking:
 | ------------------------------------------ | ------------------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `strategy`                                 | `"round-robin" \| "fill-first"` | _(none)_ | No       | Account selection strategy. `round-robin` rotates across accounts. `fill-first` uses one account until exhausted.                                                                                                                                                              |
 | `primary-account` / `primaryAccount`       | `string`                        | _(none)_ | No       | Email/label of the Anthropic account to treat as primary (home). Resolved per-request to `anthropic:<email>`; falls back to insertion-order index 0 when absent or when the configured account isn't currently authenticated. Manage via `neurolink auth set-primary <email>`. |
+| `account-allowlist` / `accountAllowlist`   | `string[]`                      | _(none)_ | No       | Allowed Anthropic account labels/keys. When present, unlisted TokenStore, legacy, and environment credentials are excluded before loading or refresh. Empty denies all; absent is unrestricted. Special fallback labels are `legacy-default` and `env`.                        |
 | `model-mappings` / `modelMappings`         | `ModelMapping[]`                | `[]`     | No       | Array of model-to-model remapping rules.                                                                                                                                                                                                                                       |
 | `fallback-chain` / `fallbackChain`         | `FallbackEntry[]`               | `[]`     | No       | Ordered list of alternative providers to try when primary accounts are exhausted.                                                                                                                                                                                              |
 | `passthrough-models` / `passthroughModels` | `string[]`                      | `[]`     | No       | Model IDs that bypass routing and go directly to Anthropic.                                                                                                                                                                                                                    |
@@ -534,7 +542,12 @@ The config loader validates the following:
 - Each provider key in `accounts` must map to an array.
 - Each account must have a non-empty string `apiKey`.
 - If `version` is present, it must be a number.
+- `routing.account-allowlist` must be an array of non-empty strings when present.
 - Plaintext API keys (not using `${ENV_VAR}` references) trigger a warning.
+
+An absent default config is optional. An existing config that cannot be read or
+validated fails proxy startup; it is never ignored in favor of unrestricted
+routing.
 
 ---
 
@@ -549,6 +562,7 @@ The config loader validates the following:
 | `NEUROLINK_LOG_LEVEL`         | Log level for the NeuroLink logger. Values: `error`, `warn`, `info`, `debug`.                                                                                        | Logger utility                                   |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP HTTP endpoint for proxy telemetry export. Written automatically to `~/.neurolink/.env` by `neurolink proxy telemetry setup`. Example: `http://localhost:14318`. | Proxy OTEL init (`initializeProxyOpenTelemetry`) |
 | `NEUROLINK_ENV_FILE`          | Path to a `.env` file the proxy should load at startup. Overrides the default `~/.neurolink/.env` auto-load.                                                         | `proxyEnv.ts` (`resolveProxyEnvFile`)            |
+| `NEUROLINK_PROXY_AUTO_UPDATE` | Enables the legacy guard updater only for `1`, `on`, or `true`. Disabled by default. launchd-managed proxies do not spawn a guard.                                   | Foreground fail-open guard                       |
 
 ### Proxy Env File Resolution Order
 
@@ -565,7 +579,9 @@ The `--env-file` flag is baked into the launchd plist by `proxy install`, so the
 
 1. **TokenStore compound keys** -- `anthropic:<label>` entries in `~/.neurolink/tokens.json`.
 2. **Legacy credentials file** -- `~/.neurolink/anthropic-credentials.json` (only if no compound keys exist).
-3. **`ANTHROPIC_API_KEY` env var** -- Only if no OAuth accounts are found at all.
+3. **`ANTHROPIC_API_KEY` env var** -- Only if no Anthropic TokenStore entries or legacy credential are present.
+
+`routing.account-allowlist` filters these sources before loading or refresh. Legacy and environment fallbacks are never activated merely because existing TokenStore accounts are disabled, cooling, or unavailable.
 
 ---
 
@@ -591,7 +607,7 @@ When the proxy starts, it automatically writes to `~/.claude/settings.json`:
 
 - **On `proxy start`** -- Both keys are written (or merged into existing settings).
 - **On `proxy stop` (Ctrl+C / SIGTERM)** -- Both keys are removed. Other env keys in the settings file are preserved.
-- **Fail-open guard** -- If the proxy crashes without a clean shutdown, the detached guard process detects the unhealthy endpoint and removes the stale settings automatically.
+- **Fail-open guard** -- A foreground proxy's detached guard removes stale settings only after confirming its parent died and no replacement is healthy. launchd-managed proxies do not spawn this guard.
 - **Safety** -- If the `ANTHROPIC_BASE_URL` has been changed to a different value (e.g., another proxy), the cleanup will not overwrite it.
 
 After starting the proxy, restart Claude Code for the new settings to take effect.
@@ -608,12 +624,13 @@ All NeuroLink proxy files are stored under `~/.neurolink/` (with `0o700` directo
 | `~/.neurolink/anthropic-credentials.json`                    | `0o600`      | **Legacy credentials** -- Single-account OAuth tokens. Used as a fallback when no compound keys exist in `tokens.json`. Updated on token refresh (pre-request or on-401).                                                                                                                                              |
 | `~/.neurolink/proxy-config.yaml`                             | user default | **Proxy config** -- YAML/JSON configuration file. Loaded by `proxy start` (default path, overridable with `--config`).                                                                                                                                                                                                 |
 | `~/.neurolink/.env`                                          | `0o600`      | **Proxy env file** — Auto-loaded by the proxy on startup. Created with mode `0o600` by `neurolink proxy telemetry setup` with `OTEL_EXPORTER_OTLP_ENDPOINT`. Add any provider API keys or proxy env vars here to avoid exporting them in every shell session. Override path with `--env-file` or `NEUROLINK_ENV_FILE`. |
-| `~/.neurolink/proxy-state.json`                              | user default | **Proxy state** -- Runtime state persisted by the running proxy (PID, port, host, strategy, start time, fallback chain, guard PID). Used by `proxy status` and the fail-open guard.                                                                                                                                    |
+| `~/.neurolink/proxy-state.json`                              | user default | **Proxy state** -- Runtime state persisted by the running proxy (PID, port, host, strategy, start time, fallback chain, account allowlist, foreground guard PID). Used by `proxy status` and the fail-open guard.                                                                                                      |
 | `~/.neurolink/logs/proxy-YYYY-MM-DD.jsonl`                   | `0o600`      | **Request summary logs** -- One JSONL entry per completed proxied request. Includes requestId, method, path, model, status, account label, response time, token usage, and trace correlation fields.                                                                                                                   |
 | `~/.neurolink/logs/proxy-attempts-YYYY-MM-DD.jsonl`          | `0o600`      | **Attempt logs** -- One JSONL entry per upstream attempt. Useful for retry, failover, and cooldown debugging without inflating request totals.                                                                                                                                                                         |
 | `~/.neurolink/logs/proxy-debug-YYYY-MM-DD.jsonl`             | `0o600`      | **Debug index logs** -- Redacted body-capture index rows with phase, headers, status, duration, and the stored body artifact path.                                                                                                                                                                                     |
 | `~/.neurolink/logs/bodies/YYYY-MM-DD/<request-id>/*.json.gz` | `0o600`      | **Body artifacts** -- Compressed redacted request and response bodies captured for debugging.                                                                                                                                                                                                                          |
 | `~/.neurolink/account-quotas.json`                           | user default | **Account quotas** -- Cached quota/utilization data from Anthropic's `unified-5h` and `unified-7d` rate-limit headers. Flushed to disk every 5 seconds.                                                                                                                                                                |
+| `~/.neurolink/account-cooldowns.json`                        | `0o600`      | **Account cooldowns** -- Extend-only rate-limit and transient-auth recovery timestamps. Persisted atomically so a proxy restart cannot immediately retry a known-exhausted account.                                                                                                                                    |
 | `~/.claude/settings.json`                                    | user default | **Claude Code settings** -- Auto-configured with `ANTHROPIC_BASE_URL` and `ENABLE_TOOL_SEARCH` when the proxy starts. Cleaned up on shutdown.                                                                                                                                                                          |
 
 ### TokenStore Details
@@ -878,7 +895,10 @@ These headers are parsed by `parseQuotaHeaders()` in `accountQuota.ts` and cache
 
 ## Token Refresh
 
-The proxy uses a reactive (not background) refresh strategy. There is no background timer polling for token expiry. Instead, tokens are refreshed on demand:
+The proxy coordinates background, pre-request, and on-401 refresh paths:
 
-1. **Pre-request check** — Before each request, if the token's `expiresAt <= now + 1 hour`, the proxy refreshes it inline via `POST https://api.anthropic.com/v1/oauth/token` (fallback: `https://console.anthropic.com/v1/oauth/token`). On success, the credential file is updated atomically (write to `.tmp`, then rename).
-2. **On-401 retry** — If Anthropic returns a 401 despite the pre-request check, the proxy refreshes the token and retries the request up to 5 times before failing over to the next account.
+1. **Background check** — One non-overlapping cycle runs every 30 seconds and considers only allowed, enabled accounts within 5 minutes of expiry.
+2. **Pre-request check** — Before each request, if `expiresAt <= now + 5 minutes`, refresh inline via `POST https://api.anthropic.com/v1/oauth/token` (fallback: `https://console.anthropic.com/v1/oauth/token`).
+3. **On-401 retry** — If Anthropic returns a 401, refresh and retry within the bounded account retry budget before rotating.
+
+Concurrent callers sharing a rotating refresh token reuse one in-flight result. `400`, `401`, `403`, and `404` refresh responses are credential rejections and disable the account until explicit login. Network failures, refresh `429`s, and `5xx` responses are transient and receive a bounded auth cooldown. Automatic token persistence preserves manual disable metadata.
