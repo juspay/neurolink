@@ -771,7 +771,7 @@ const tests: TestFunction[] = [
     },
   },
   {
-    name: "429 regression: synthesized 429 message references retry count",
+    name: "429 regression: synthesized 429 reports active cooldown recovery",
     category: "429-regression",
     fn: async () => {
       const { readFileSync } = await import("fs");
@@ -780,11 +780,14 @@ const tests: TestFunction[] = [
         pathJoin(process.cwd(), "src/lib/server/routes/claudeProxyRoutes.ts"),
         "utf-8",
       );
-      // The final 429 message should mention attempts/retries per account,
-      // not the old cooldown-based "Earliest recovery in Ns" phrasing.
+      // Known-cooling accounts must not be re-hammered. The final response
+      // should expose the earliest persisted retry timestamp instead.
       return (
-        (src.includes("retries each") || src.includes("attempts each")) &&
-        !src.includes("Earliest recovery in")
+        src.includes(
+          "Anthropic accounts are cooling after upstream rate limits",
+        ) &&
+        src.includes("Earliest retry at") &&
+        src.includes("const effectiveAccounts = nonCoolingAccounts;")
       );
     },
   },

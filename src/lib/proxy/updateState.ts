@@ -10,6 +10,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { randomUUID } from "node:crypto";
 import type { UpdateState } from "../types/index.js";
 
 // ============================================
@@ -107,10 +108,20 @@ export function saveUpdateState(
 ): void {
   const filePath = resolveStatePath(stateFilePath);
   ensureParentDir(filePath);
-  // Atomic write: write to temp file then rename to prevent corruption on crash
-  const tmpPath = filePath + ".tmp";
-  fs.writeFileSync(tmpPath, JSON.stringify(state, null, 2));
-  fs.renameSync(tmpPath, filePath);
+  // A process-unique temp path prevents concurrent update checks from renaming
+  // each other's file. The guard is single-owner now, but this also keeps
+  // explicit update commands safe when they overlap.
+  const tmpPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(tmpPath, JSON.stringify(state, null, 2), { mode: 0o600 });
+    fs.renameSync(tmpPath, filePath);
+  } finally {
+    try {
+      fs.rmSync(tmpPath, { force: true });
+    } catch {
+      // Best-effort cleanup after a successful rename or interrupted write.
+    }
+  }
 }
 
 /**

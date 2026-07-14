@@ -759,6 +759,8 @@ export async function logStreamError(entry: {
   const logEntry: Record<string, unknown> = {
     ...entry,
     responseStatus: 200,
+    terminalStatus: 502,
+    terminalOutcome: "stream_error",
     errorType: "stream_error",
     note: "mid-stream failure after initial 200",
   };

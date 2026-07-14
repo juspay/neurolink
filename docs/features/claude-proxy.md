@@ -102,22 +102,27 @@ If the caller sends W3C trace headers (`traceparent`, `tracestate`) or NeuroLink
 
 ### Token Management
 
-The proxy uses a reactive two-layer token refresh strategy to ensure requests never fail due to expired tokens:
+The proxy uses three coordinated token refresh paths:
 
-1. **Pre-request check** -- Before each request, the proxy checks if the OAuth token expires within the next 1 hour. If so, it refreshes the token before sending the request.
-2. **401 retry** -- If Anthropic returns a 401 despite the above check, the proxy refreshes the token and retries the request up to 5 times per account. If all retries fail, the account enters a 5-minute cooldown and the proxy tries the next account. After 15 consecutive refresh failures across requests, the account is permanently disabled until re-authentication.
+1. **Background check** -- Every 30 seconds, one non-overlapping maintenance cycle checks allowed, enabled accounts.
+2. **Pre-request check** -- A request refreshes an OAuth token when it is within 5 minutes of expiry.
+3. **401 retry** -- An unexpected Anthropic 401 triggers refresh and bounded retry before account rotation.
 
-Refreshed tokens are persisted to `~/.neurolink/anthropic-credentials.json` using atomic writes (write to `.tmp`, then rename) with `0o600` permissions.
+Refresh calls sharing the same rotating refresh token are serialized and reuse the winning result. Credential rejection responses (`400`, `401`, `403`, or `404`) disable the account until explicit login; network errors, refresh-endpoint `429`s, and `5xx` responses apply a bounded 30-second to 5-minute auth cooldown instead. Automatic token saves preserve an operator-disabled account's metadata.
+
+Refreshed TokenStore and legacy credentials are persisted with `0o600` permissions using serialized atomic snapshot writes.
 
 ### Multi-Account Routing
 
 When multiple accounts are available, the proxy uses **fill-first** routing:
 
 1. Use the first non-cooling account for every request.
-2. On a 429, apply exponential backoff to that account and try the next one.
+2. On a 429, classify the authoritative quota window, persist its cooldown, and try the next account.
 3. Continue until a request succeeds or all accounts are exhausted.
 4. If all accounts are exhausted, walk the fallback chain (alternative providers).
 5. If all fallbacks fail, return a 429 with a `Retry-After` header indicating the earliest account recovery time.
+
+If every account has a known future cooldown, the proxy does not call any of them again. Cooldowns survive restarts in `~/.neurolink/account-cooldowns.json`.
 
 Account sources are checked in priority order:
 
@@ -136,6 +141,19 @@ curl http://127.0.0.1:55669/status   # stats.primaryAccount.label = alice@exampl
 ```
 
 After a 429 cools off, traffic returns to the configured primary (not literal index 0). When the configured account is missing or disabled, the proxy logs a warning at startup and falls back to insertion-order index 0. See the [config reference](./claude-proxy-config-reference.md#neurolink-auth-set-primary) for the full CLI surface (`set-primary` / `get-primary` / `clear-primary`).
+
+#### Restricting eligible accounts
+
+`primary-account` controls ordering; it is not a security or isolation boundary. To ensure the proxy can use only an explicit set of Anthropic credentials, configure `routing.account-allowlist`:
+
+```yaml
+routing:
+  primary-account: primary@example.com
+  account-allowlist:
+    - primary@example.com
+```
+
+Entries accept an email/label or a full `anthropic:<email-or-label>` key and are matched case-insensitively. When the field is present, unlisted TokenStore accounts are excluded before token loading or refresh. The legacy credential and `ANTHROPIC_API_KEY` fallback are also denied unless explicitly listed as `legacy-default` or `env`, and neither hidden fallback is considered while any Anthropic TokenStore entry exists. An empty list denies all Anthropic credentials; an absent field preserves unrestricted account discovery.
 
 ### Fallback Chain
 
@@ -175,6 +193,9 @@ accounts:
 # Routing configuration
 routing:
   strategy: fill-first # or round-robin
+  primary-account: primary@example.com
+  account-allowlist:
+    - primary@example.com
 
   # Model mappings: remap incoming model names to different providers
   model-mappings:
@@ -433,23 +454,23 @@ The proxy discovers accounts in this order:
 2. Legacy credentials file (if no compound keys exist)
 3. `ANTHROPIC_API_KEY` environment variable (if no other accounts exist)
 
+When `routing.account-allowlist` is configured, this discovery happens only within the allowed set. A disabled or unavailable TokenStore account does not cause the proxy to activate a legacy file or environment key while TokenStore entries still exist.
+
 Within the account pool, the proxy uses **fill-first** routing: it always tries the first non-cooling account and only switches on failure. This avoids unnecessary identity switches that could confuse Claude Code's session state.
 
 ### Cooldown and backoff
 
 When an account encounters an error, it enters a cooldown period based on the error type:
 
-| Status Code   | Cooldown Duration                  | Behavior                 |
-| ------------- | ---------------------------------- | ------------------------ |
-| 429           | Exponential backoff (1s to 10 min) | Try next account         |
-| 401/402/403   | 5 minutes                          | Try next account         |
-| 404           | No cooldown                        | Return error immediately |
-| 5xx/transient | No cooldown                        | Rotate immediately       |
-| Network error | No cooldown                        | Rotate immediately       |
+| Failure                                                | Cooldown                                          | Behavior                                         |
+| ------------------------------------------------------ | ------------------------------------------------- | ------------------------------------------------ |
+| Authoritative unified, 5-hour, or 7-day rejection      | Upstream reset or `Retry-After`, capped at 8 days | Persist cooldown and rotate immediately          |
+| Transient burst 429                                    | Upstream delay, capped at 15 minutes              | At most 2 same-account retries, then rotate      |
+| Refresh credential rejection (`400`/`401`/`403`/`404`) | Disabled until explicit login                     | Rotate without retrying an invalid refresh token |
+| Refresh network, `429`, or `5xx`                       | 30 seconds to 5 minutes                           | Persist auth cooldown and rotate                 |
+| Upstream `5xx` or network error                        | Bounded same-account retries                      | Rotate after retry budget                        |
 
-**Exponential backoff on 429:**
-
-The proxy respects the `Retry-After` header from Anthropic when present. For repeated 429s on the same account, the cooldown is calculated as `baseCooldown * 2^level` where `baseCooldown` is the `Retry-After` value (or 1 second if absent) and `level` increments on each consecutive 429. This produces a sequence like 1s, 2s, 4s, 8s, 16s, ... up to a 10-minute cap. The backoff level resets to zero on a successful request.
+Cooldown updates are extend-only: a late concurrent response cannot shorten a longer known reset window.
 
 ## Error Handling
 
@@ -457,17 +478,16 @@ The proxy classifies upstream errors and applies different strategies:
 
 ### 429 Rate Limit
 
-- Parse `Retry-After` header (seconds or HTTP date format)
-- Apply exponential backoff with level tracking
-- Put the account into cooling state
-- Immediately try the next account
-- Log: `[proxy] <- 429 account=work backoff-level=2 cooldown=4s`
+- Treat top-level `anthropic-ratelimit-unified-status: rejected` as authoritative, even if sub-windows still say `allowed`.
+- Prefer the rejected 5-hour or 7-day reset and otherwise use `Retry-After`.
+- Persist the cooldown and rotate immediately for authoritative exhaustion.
+- Return the earliest recovery timestamp without another upstream request when all accounts are cooling.
 
 ### 401/402/403 Authentication Errors
 
-- **OAuth accounts with refresh token:** Refresh the token and retry the request up to 5 times per account. If all retries fail, apply a 5-minute cooldown and try the next account. After 15 consecutive refresh failures across requests, the account is permanently disabled until re-authentication via `neurolink auth login`.
-- **OAuth accounts without refresh token:** Apply a 5-minute cooldown, try the next account.
-- **API key accounts:** Apply a 5-minute cooldown, try the next account.
+- **OAuth accounts with refresh token:** Serialize refresh, persist the new rotating token, and retry. A rejected refresh credential disables the account until re-authentication; transient refresh infrastructure errors cool and rotate.
+- **OAuth accounts without refresh token:** Disable until re-authentication and rotate.
+- **API key accounts:** Rotate after authentication failure.
 
 ### 400/422 Request Shape Error
 
@@ -485,7 +505,7 @@ The proxy classifies upstream errors and applies different strategies:
 
 - Transient errors (408, 500, 502, 503, 504, and Cloudflare 520-526/529).
 - Also matches `400` responses with `api_error` or `overloaded_error` types that wrap transient HTML content (e.g., Cloudflare error pages).
-- No cooldown applied -- immediate rotation to the next account.
+- Apply bounded same-account retries, then rotate to the next account.
 
 ### All Accounts Exhausted
 
@@ -520,11 +540,11 @@ When the proxy stops (Ctrl+C or SIGTERM), it removes these entries from the sett
 
 ### Proxy state file
 
-The proxy persists its running state to `~/.neurolink/proxy-state.json` so that `neurolink proxy status` can report on it and `neurolink proxy start` can detect an already-running instance. The state includes PID, port, host, strategy, start time, fallback chain, and the optional fail-open guard PID.
+The proxy persists its running state to `~/.neurolink/proxy-state.json` so that `neurolink proxy status` can report on it and `neurolink proxy start` can detect an already-running instance. The state includes PID, port, host, strategy, start time, fallback chain, enforced account allowlist, and the optional foreground fail-open guard PID.
 
 ### Fail-open guard
 
-On startup, the proxy spawns a detached background process (`neurolink proxy guard`) that monitors the proxy's health endpoint. If the proxy process exits unexpectedly without cleaning up `~/.claude/settings.json`, the guard removes the stale `ANTHROPIC_BASE_URL` entry so that Claude Code falls back to direct Anthropic access rather than failing against a dead proxy.
+A foreground proxy spawns one detached `neurolink proxy guard` that removes stale Claude Code settings after confirming its parent process has died. A launchd-managed proxy does not spawn a guard: launchd is the sole restart supervisor, preventing stale guards from restarting or terminating healthy replacement processes. Runtime package updates are opt-in through `NEUROLINK_PROXY_AUTO_UPDATE=1` (also accepts `on` or `true`).
 
 ## Architecture
 
@@ -542,9 +562,9 @@ On startup, the proxy spawns a detached background process (`neurolink proxy gua
 
 When the target provider is `anthropic` (the default for any `claude-*` model), the proxy operates in passthrough mode:
 
-1. Load all available accounts (TokenStore, legacy file, env var). Expired accounts are given one refresh attempt at startup; if that fails, they are disabled.
+1. Load allowed, enabled TokenStore accounts. Consider legacy or environment credentials only when no Anthropic TokenStore entries exist and the source is allowed.
 2. Select the first non-cooling account according to the active routing strategy. With the default `fill-first` strategy, this is always the current primary account until it cools down.
-3. Auto-refresh the token if expiring within 1 hour.
+3. Auto-refresh the token if expiring within 5 minutes, sharing one in-flight refresh for concurrent requests.
 4. Forward the raw request body via plain `fetch()` to `https://api.anthropic.com/v1/messages?beta=true`.
 5. Set authentication headers (`Authorization: Bearer` for OAuth, `x-api-key` for API keys).
 6. Forward client headers as-is, preserving Claude Code's own request shape, then merge in required OAuth betas and trace headers when absent. The proxy extracts incoming `traceparent` and `x-neurolink-*` headers and injects outbound trace context plus `x-claude-code-session-id` when needed.

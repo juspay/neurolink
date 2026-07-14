@@ -2109,6 +2109,10 @@ async function saveAccountToPool(
     return;
   }
 
+  // Login is an explicit operator action and is the only token-save path that
+  // should make a previously disabled account eligible again.
+  await defaultTokenStore.markEnabled(compoundKey);
+
   logger.always(chalk.green(`\nAccount added: ${compoundKey}\n`));
 }
 

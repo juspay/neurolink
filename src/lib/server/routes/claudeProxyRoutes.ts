@@ -21,6 +21,19 @@ import {
   parseClaudeCodeUserId,
 } from "../../auth/anthropicOAuth.js";
 import {
+  clearAccountCooldown,
+  loadAccountCooldowns,
+  saveAccountCooldown,
+} from "../../proxy/accountCooldown.js";
+import {
+  anthropicAccountKeysEqual,
+  ENV_ANTHROPIC_ACCOUNT_KEY,
+  isAccountAllowed,
+  LEGACY_ANTHROPIC_ACCOUNT_KEY,
+  shouldLoadFallbackCredential,
+} from "../../proxy/accountSelection.js";
+import {
+  getUnifiedRateLimitStatus,
   loadAccountQuotas,
   parseQuotaHeaders,
   saveAccountQuota,
@@ -56,6 +69,11 @@ import {
 } from "../../proxy/requestLogger.js";
 import { createSSEInterceptor } from "../../proxy/sseInterceptor.js";
 import {
+  createStreamTerminalOutcomeTracker,
+  mergeStreamTerminalOutcome,
+} from "../../proxy/streamOutcome.js";
+import {
+  isPermanentRefreshFailure,
   needsRefresh,
   persistTokens,
   refreshToken,
@@ -73,6 +91,7 @@ import {
   recordFinalSuccess,
 } from "../../proxy/usageStats.js";
 import type {
+  AccountAllowlist,
   AccountCooldownPlan,
   AccountQuota,
   AnthropicAttemptLogger,
@@ -99,6 +118,7 @@ import type {
   RouteGroup,
   RuntimeAccountState,
   ServerContext,
+  StreamTerminalOutcome,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { ProviderHealthChecker } from "../../utils/providerHealth.js";
@@ -130,9 +150,9 @@ let lastKnownAccountCount = 0;
  *  When undefined, home semantics fall back to enabledAccounts[0] (insertion
  *  order) — preserves pre-existing behavior. */
 let configuredPrimaryAccountKey: string | undefined;
+let configuredAccountAllowlist: AccountAllowlist | undefined;
 
 const MAX_AUTH_RETRIES = 5;
-const MAX_CONSECUTIVE_REFRESH_FAILURES = 15;
 const MAX_TRANSIENT_SAME_ACCOUNT_RETRIES = 2;
 const TRANSIENT_SAME_ACCOUNT_RETRY_DELAYS_MS = [250, 1_000] as const;
 
@@ -156,6 +176,11 @@ const MIN_COOLDOWN_MS = 5_000;
  *  we should return to the account soon rather than parking it for the full
  *  reset window. */
 const TRANSIENT_MAX_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
+/** Fallback for authoritative rejected states that do not provide a usable
+ * reset or retry-after. These are not transient burst limits. */
+const DEFAULT_HARD_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
+const AUTH_REFRESH_BASE_COOLDOWN_MS = 30_000;
+const AUTH_REFRESH_MAX_COOLDOWN_MS = 5 * 60 * 1000;
 /** Timeout for upstream requests to Anthropic. Must be generous enough
  *  to cover the full lifecycle of streaming responses, including extended
  *  thinking from Opus models (which can exceed 5 minutes for large contexts). */
@@ -196,11 +221,12 @@ function advancePrimaryIfCurrent(
  *  removed). The resolution is per-request because enabledAccounts membership
  *  can shift between requests. */
 function resolveHomeIndex(enabledAccounts: ProxyPassthroughAccount[]): number {
-  if (!configuredPrimaryAccountKey) {
+  const primaryAccountKey = configuredPrimaryAccountKey;
+  if (!primaryAccountKey) {
     return 0;
   }
-  const idx = enabledAccounts.findIndex(
-    (a) => a.key === configuredPrimaryAccountKey,
+  const idx = enabledAccounts.findIndex((a) =>
+    anthropicAccountKeysEqual(a.key, primaryAccountKey),
   );
   return idx >= 0 ? idx : 0;
 }
@@ -229,7 +255,12 @@ function maybeResetPrimaryToHome(
     // Home account is no longer cooling — reset to it
     primaryAccountIndex = homeIndex;
     if (homeState?.coolingUntil) {
+      const expiredCooldown = homeState.coolingUntil;
       homeState.coolingUntil = undefined;
+      homeState.coolingReason = undefined;
+      clearAccountCooldown(homeAccount.key, expiredCooldown).catch(() => {
+        // Best-effort cleanup; an expired entry is ignored on the next boot.
+      });
       logger.always(
         `[proxy] home primary account=${homeAccount.label} cooling expired, resetting primaryAccountIndex to ${homeIndex}`,
       );
@@ -290,6 +321,7 @@ function planCooldownFor429(
   quota: AccountQuota | null,
   retryAfterMs: number,
   now: number,
+  unifiedStatus: string | undefined = quota?.unifiedStatus,
 ): AccountCooldownPlan {
   // Weekly exhaustion takes precedence — it's the longest, hardest ceiling.
   if (quota && quota.weeklyStatus === "rejected") {
@@ -308,6 +340,18 @@ function planCooldownFor429(
       (retryAfterMs > 0 ? now + retryAfterMs : now + DEFAULT_COOLING_PERIOD_MS);
     return {
       reason: "session",
+      coolingUntil: clampCooldownUntil(reset, now),
+      rotateImmediately: true,
+    };
+  }
+  // Anthropic may reject the authoritative top-level unified limit while both
+  // 5h and 7d sub-window statuses still say "allowed". Treating this as a
+  // transient burst retries a known-exhausted account and delays failover.
+  if (unifiedStatus?.trim().toLowerCase() === "rejected") {
+    const reset =
+      retryAfterMs > 0 ? now + retryAfterMs : now + DEFAULT_HARD_COOLDOWN_MS;
+    return {
+      reason: "unified",
       coolingUntil: clampCooldownUntil(reset, now),
       rotateImmediately: true,
     };
@@ -341,7 +385,7 @@ function maybeCoolFromQuota(
   state: RuntimeAccountState,
   quota: AccountQuota,
   now: number,
-): void {
+): boolean {
   let until: number | undefined;
   let reason: RuntimeAccountState["coolingReason"];
   if (quota.weeklyStatus === "rejected") {
@@ -350,9 +394,12 @@ function maybeCoolFromQuota(
   } else if (quota.sessionStatus === "rejected") {
     until = resetEpochToMs(quota.sessionResetAt, now);
     reason = "session";
+  } else if (quota.unifiedStatus === "rejected") {
+    until = now + DEFAULT_HARD_COOLDOWN_MS;
+    reason = "unified";
   }
   if (until === undefined) {
-    return;
+    return false;
   }
   const clamped = clampCooldownUntil(until, now);
   if (!state.coolingUntil || clamped > state.coolingUntil) {
@@ -361,7 +408,9 @@ function maybeCoolFromQuota(
     logger.always(
       `[proxy] proactively cooling account (${reason}) ~${minutesUntil(clamped, now)}m from success-response quota (status rejected)`,
     );
+    return true;
   }
+  return false;
 }
 
 /**
@@ -378,11 +427,24 @@ async function seedRuntimeQuotasFromDisk(
   accounts: ProxyPassthroughAccount[],
 ): Promise<void> {
   try {
-    const persisted = await loadAccountQuotas();
+    const [persistedQuotas, persistedCooldowns] = await Promise.all([
+      loadAccountQuotas(),
+      loadAccountCooldowns(),
+    ]);
+    const now = Date.now();
     for (const account of accounts) {
       const state = getOrCreateRuntimeState(account.key);
-      if (!state.quota && persisted[account.label]) {
-        state.quota = persisted[account.label];
+      if (!state.quota && persistedQuotas[account.label]) {
+        state.quota = persistedQuotas[account.label];
+      }
+      const persistedCooldown = persistedCooldowns[account.key];
+      if (
+        persistedCooldown?.coolingUntil > now &&
+        (!state.coolingUntil ||
+          persistedCooldown.coolingUntil > state.coolingUntil)
+      ) {
+        state.coolingUntil = persistedCooldown.coolingUntil;
+        state.coolingReason = persistedCooldown.reason;
       }
     }
   } catch {
@@ -937,6 +999,7 @@ function polyfillOAuthBody(
 
 async function tryLoadLegacyAccount(
   creds: {
+    email?: string;
     oauth?: { accessToken?: string; refreshToken?: string; expiresAt?: number };
   },
   legacyCredPath: string,
@@ -948,23 +1011,52 @@ async function tryLoadLegacyAccount(
   let legacyToken = creds.oauth.accessToken;
   let legacyRefresh = creds.oauth.refreshToken;
   let legacyExpiry = creds.oauth.expiresAt;
+  const legacyLabel = creds.email?.trim() || "legacy-default";
   const legacyExpired = legacyExpiry ? legacyExpiry < Date.now() : false;
+  const legacyAccount = (): ProxyPassthroughAccount => ({
+    key: LEGACY_ANTHROPIC_ACCOUNT_KEY,
+    label: legacyLabel,
+    token: legacyToken,
+    refreshToken: legacyRefresh,
+    expiresAt: legacyExpiry,
+    type: "oauth",
+    persistTarget: { credPath: legacyCredPath },
+  });
 
   if (!legacyExpired) {
-    return {
-      key: "anthropic:legacy-default",
-      label: "default",
-      token: legacyToken,
-      refreshToken: legacyRefresh,
-      expiresAt: legacyExpiry,
-      type: "oauth",
-      persistTarget: { credPath: legacyCredPath },
-    };
+    return legacyAccount();
+  }
+
+  const state = getOrCreateRuntimeState(LEGACY_ANTHROPIC_ACCOUNT_KEY);
+  if (state.permanentlyDisabled) {
+    return undefined;
+  }
+  const persistedCooldown = (await loadAccountCooldowns())[
+    LEGACY_ANTHROPIC_ACCOUNT_KEY
+  ];
+  if (
+    persistedCooldown?.coolingUntil > Date.now() &&
+    (!state.coolingUntil || persistedCooldown.coolingUntil > state.coolingUntil)
+  ) {
+    state.coolingUntil = persistedCooldown.coolingUntil;
+    state.coolingReason = persistedCooldown.reason;
+  }
+  if (
+    state.coolingReason === "auth" &&
+    state.coolingUntil &&
+    state.coolingUntil > Date.now()
+  ) {
+    return legacyAccount();
   }
 
   if (!legacyRefresh) {
     logger.always(
       "[proxy] skipping legacy account (expired, no refresh token)",
+    );
+    await disableAccountUntilReauth(
+      legacyAccount(),
+      state,
+      "missing_refresh_token",
     );
     return undefined;
   }
@@ -973,31 +1065,36 @@ async function tryLoadLegacyAccount(
     token: legacyToken,
     refreshToken: legacyRefresh,
     expiresAt: legacyExpiry,
-    label: "default",
+    label: legacyLabel,
   };
   const ok = await refreshToken(tmp);
   if (!ok.success) {
-    logger.always(
-      `[proxy] skipping legacy account (expired, refresh failed: ${ok.error?.slice(0, 200) ?? "unknown"})`,
+    if (isPermanentRefreshFailure(ok)) {
+      await disableAccountUntilReauth(
+        legacyAccount(),
+        state,
+        "refresh_invalid",
+      );
+      return undefined;
+    }
+    const coolingUntil = await coolAccountAfterTransientRefreshFailure(
+      legacyAccount(),
+      state,
     );
-    return undefined;
+    logger.always(
+      `[proxy] legacy refresh temporarily unavailable (${ok.status ?? "network"}); cooling until ${new Date(coolingUntil).toISOString()}`,
+    );
+    return legacyAccount();
   }
 
   legacyToken = tmp.token;
   legacyRefresh = tmp.refreshToken;
   legacyExpiry = tmp.expiresAt;
   await persistTokens(legacyCredPath, tmp);
+  await clearAuthCooldownAfterRefresh(legacyAccount(), state);
   logger.always("[proxy] refreshed legacy account at startup");
 
-  return {
-    key: "anthropic:legacy-default",
-    label: "default",
-    token: legacyToken,
-    refreshToken: legacyRefresh,
-    expiresAt: legacyExpiry,
-    type: "oauth",
-    persistTarget: { credPath: legacyCredPath },
-  };
+  return legacyAccount();
 }
 
 async function handleTranslatedClaudeRequest(args: {
@@ -1242,6 +1339,46 @@ async function handleClaudePassthroughRequest(args: {
   });
 }
 
+function trackUpstreamReadableStream(source: ReadableStream<Uint8Array>): {
+  stream: ReadableStream<Uint8Array>;
+  outcome: Promise<StreamTerminalOutcome>;
+} {
+  const reader = source.getReader();
+  const tracker = createStreamTerminalOutcomeTracker();
+  let closed = false;
+  const stream = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (closed) {
+        return;
+      }
+      try {
+        const { done, value } = await reader.read();
+        if (closed) {
+          return;
+        }
+        if (done) {
+          closed = true;
+          tracker.complete();
+          controller.close();
+          return;
+        }
+        controller.enqueue(value);
+      } catch (error) {
+        closed = true;
+        const message = error instanceof Error ? error.message : String(error);
+        tracker.fail(message);
+        controller.error(error);
+      }
+    },
+    cancel(reason) {
+      closed = true;
+      tracker.cancel();
+      return reader.cancel(reason);
+    },
+  });
+  return { stream, outcome: tracker.outcome };
+}
+
 async function handleClaudePassthroughStreamResponse(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
@@ -1273,7 +1410,8 @@ async function handleClaudePassthroughStreamResponse(args: {
   if (!responseBody) {
     throw new Error("Expected passthrough stream response body");
   }
-  let streamSource: ReadableStream<Uint8Array> = responseBody;
+  const trackedStream = trackUpstreamReadableStream(responseBody);
+  let streamSource: ReadableStream<Uint8Array> = trackedStream.stream;
 
   if (tracer) {
     try {
@@ -1286,8 +1424,13 @@ async function handleClaudePassthroughStreamResponse(args: {
       const capturedResponse = response;
       const capturedRequestBytes = bodyStr.length;
 
-      Promise.all([telemetry, clientCapture])
-        .then(([data, clientBody]) => {
+      Promise.all([telemetry, clientCapture, trackedStream.outcome])
+        .then(([data, clientBody, rawOutcome]) => {
+          const terminalOutcome = mergeStreamTerminalOutcome(
+            rawOutcome,
+            data.streamErrorMessage,
+          );
+          const failure = getStreamFailureDetails(terminalOutcome);
           capturedTracer.setUsage({
             inputTokens: data.usage.inputTokens,
             outputTokens: data.usage.outputTokens,
@@ -1330,7 +1473,13 @@ async function handleClaudePassthroughStreamResponse(args: {
             data.totalBytesReceived,
           );
           capturedUpstreamSpan?.end();
-          capturedTracer.end(200, Date.now() - requestStartTime);
+          if (failure) {
+            capturedTracer.setError(failure.errorType, failure.message);
+          }
+          capturedTracer.end(
+            failure?.status ?? response.status,
+            Date.now() - requestStartTime,
+          );
 
           const traceCtx = capturedTracer.getTraceContext();
           logRequest({
@@ -1343,7 +1492,7 @@ async function handleClaudePassthroughStreamResponse(args: {
             toolCount,
             account: "passthrough",
             accountType: "passthrough",
-            responseStatus: 200,
+            responseStatus: failure?.status ?? response.status,
             responseTimeMs: Date.now() - requestStartTime,
             inputTokens: data.usage.inputTokens,
             outputTokens: data.usage.outputTokens,
@@ -1351,6 +1500,12 @@ async function handleClaudePassthroughStreamResponse(args: {
             cacheReadTokens: data.usage.cacheReadInputTokens,
             traceId: traceCtx.traceId,
             spanId: traceCtx.spanId,
+            ...(failure
+              ? {
+                  errorType: failure.errorType,
+                  errorMessage: failure.message,
+                }
+              : {}),
           });
           logProxyBody({
             phase: "upstream_response",
@@ -1406,39 +1561,145 @@ async function handleClaudePassthroughStreamResponse(args: {
           });
         });
     } catch {
-      // Streaming capture is best-effort.
+      trackedStream.outcome.then((outcome) => {
+        const failure = getStreamFailureDetails(outcome);
+        upstreamSpan?.end();
+        if (failure) {
+          tracer.setError(failure.errorType, failure.message);
+        }
+        tracer.end(
+          failure?.status ?? response.status,
+          Date.now() - requestStartTime,
+        );
+        const traceCtx = tracer.getTraceContext();
+        logRequest({
+          timestamp: new Date().toISOString(),
+          requestId: ctx.requestId,
+          method: ctx.method,
+          path: ctx.path,
+          model: body.model,
+          stream: true,
+          toolCount,
+          account: "passthrough",
+          accountType: "passthrough",
+          responseStatus: failure?.status ?? response.status,
+          responseTimeMs: Date.now() - requestStartTime,
+          traceId: traceCtx.traceId,
+          spanId: traceCtx.spanId,
+          ...(failure
+            ? {
+                errorType: failure.errorType,
+                errorMessage: failure.message,
+              }
+            : {}),
+        });
+      });
     }
   } else {
-    clientCapture
-      .then((clientBody) => {
-        logProxyBody({
-          phase: "upstream_response",
-          headers: responseHeaders,
-          body: clientBody.text,
-          bodySize: clientBody.totalBytes,
-          contentType: responseHeaders["content-type"] ?? "text/event-stream",
-          account: "passthrough",
-          accountType: "passthrough",
-          attempt: 1,
-          responseStatus: 200,
-          durationMs: Date.now() - requestStartTime,
-        });
-        logProxyBody({
-          phase: "client_response",
-          headers: responseHeaders,
-          body: clientBody.text,
-          bodySize: clientBody.totalBytes,
-          contentType: responseHeaders["content-type"] ?? "text/event-stream",
-          account: "passthrough",
-          accountType: "passthrough",
-          attempt: 1,
-          responseStatus: 200,
-          durationMs: Date.now() - requestStartTime,
-        });
-      })
-      .catch(() => {
-        // Non-fatal
+    try {
+      const { stream: interceptor, telemetry } = createSSEInterceptor({
+        captureRawText: true,
       });
+      streamSource = streamSource.pipeThrough(interceptor);
+      Promise.all([telemetry, clientCapture, trackedStream.outcome])
+        .then(([data, clientBody, rawOutcome]) => {
+          const terminalOutcome = mergeStreamTerminalOutcome(
+            rawOutcome,
+            data.streamErrorMessage,
+          );
+          const failure = getStreamFailureDetails(terminalOutcome);
+          logRequest({
+            timestamp: new Date().toISOString(),
+            requestId: ctx.requestId,
+            method: ctx.method,
+            path: ctx.path,
+            model: body.model,
+            stream: true,
+            toolCount,
+            account: "passthrough",
+            accountType: "passthrough",
+            responseStatus: failure?.status ?? response.status,
+            responseTimeMs: Date.now() - requestStartTime,
+            inputTokens: data.usage.inputTokens,
+            outputTokens: data.usage.outputTokens,
+            cacheCreationTokens: data.usage.cacheCreationInputTokens,
+            cacheReadTokens: data.usage.cacheReadInputTokens,
+            ...(failure
+              ? {
+                  errorType: failure.errorType,
+                  errorMessage: failure.message,
+                }
+              : {}),
+          });
+          logProxyBody({
+            phase: "upstream_response",
+            headers: responseHeaders,
+            body: data.rawText ?? "",
+            bodySize: data.totalBytesReceived,
+            contentType: responseHeaders["content-type"] ?? "text/event-stream",
+            account: "passthrough",
+            accountType: "passthrough",
+            attempt: 1,
+            responseStatus: response.status,
+            durationMs: Date.now() - requestStartTime,
+          });
+          logProxyBody({
+            phase: "client_response",
+            headers: responseHeaders,
+            body: clientBody.text,
+            bodySize: clientBody.totalBytes,
+            contentType: responseHeaders["content-type"] ?? "text/event-stream",
+            account: "passthrough",
+            accountType: "passthrough",
+            attempt: 1,
+            responseStatus: response.status,
+            durationMs: Date.now() - requestStartTime,
+          });
+        })
+        .catch((error) => {
+          logRequest({
+            timestamp: new Date().toISOString(),
+            requestId: ctx.requestId,
+            method: ctx.method,
+            path: ctx.path,
+            model: body.model,
+            stream: true,
+            toolCount,
+            account: "passthrough",
+            accountType: "passthrough",
+            responseStatus: 500,
+            responseTimeMs: Date.now() - requestStartTime,
+            errorType: "stream_telemetry_error",
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+          });
+        });
+    } catch {
+      // Streaming capture is best-effort; the tracked source still propagates
+      // the transport failure to the client.
+      trackedStream.outcome.then((outcome) => {
+        const failure = getStreamFailureDetails(outcome);
+        logRequest({
+          timestamp: new Date().toISOString(),
+          requestId: ctx.requestId,
+          method: ctx.method,
+          path: ctx.path,
+          model: body.model,
+          stream: true,
+          toolCount,
+          account: "passthrough",
+          accountType: "passthrough",
+          responseStatus: failure?.status ?? response.status,
+          responseTimeMs: Date.now() - requestStartTime,
+          ...(failure
+            ? {
+                errorType: failure.errorType,
+                errorMessage: failure.message,
+              }
+            : {}),
+        });
+      });
+    }
   }
 
   const clientStream = streamSource.pipeThrough(clientCaptureStream);
@@ -1605,6 +1866,7 @@ async function loadClaudeProxyAccounts(args: {
   const accounts: ProxyPassthroughAccount[] = [];
   const legacyCredPath = `${(os as typeof import("os")).homedir()}/.neurolink/anthropic-credentials.json`;
   const { tokenStore } = await import("../../auth/tokenStore.js");
+  const persistedCooldowns = await loadAccountCooldowns();
 
   if (!startupPruneDone) {
     await tokenStore.pruneExpired();
@@ -1613,20 +1875,23 @@ async function loadClaudeProxyAccounts(args: {
 
   const compoundKeys = await tokenStore.listByPrefix("anthropic:");
   for (const key of compoundKeys) {
+    if (!isAccountAllowed(key, configuredAccountAllowlist)) {
+      logger.debug(
+        `[proxy] skipping account=${key} (not in account allowlist)`,
+      );
+      continue;
+    }
     if (await tokenStore.isDisabled(key)) {
       const existingState = getOrCreateRuntimeState(key);
-      const tokens = await tokenStore.loadTokens(key);
-      const hasTrackedTokens =
-        existingState.lastToken !== undefined && existingState.lastToken !== "";
-      const tokenChanged =
-        tokens &&
-        hasTrackedTokens &&
-        (existingState.lastToken !== tokens.accessToken ||
-          existingState.lastRefreshToken !== tokens.refreshToken);
-      if (tokenChanged) {
+      const disabledReason = await tokenStore.getDisabledReason(key);
+      // Older releases permanently disabled accounts after any refresh error,
+      // including timeouts, 429s and 5xx responses. Re-evaluate those legacy
+      // entries once under the terminal/transient classifier below.
+      const legacyTransientDisable = disabledReason === "refresh_failed";
+      if (legacyTransientDisable) {
         await tokenStore.markEnabled(key);
         logger.always(
-          `[proxy] account=${key.split(":")[1] ?? key} re-enabled (credentials changed)`,
+          `[proxy] account=${key.split(":")[1] ?? key} re-enabled for legacy refresh failure recheck`,
         );
         existingState.permanentlyDisabled = false;
         existingState.consecutiveRefreshFailures = 0;
@@ -1647,12 +1912,44 @@ async function loadClaudeProxyAccounts(args: {
     let accessToken = tokens.accessToken;
     let refreshTok = tokens.refreshToken;
     let expiresAt = tokens.expiresAt;
+    const label = key.split(":")[1] ?? key;
+    const accountType: "oauth" | "api_key" =
+      tokens.tokenType === "Bearer" ? "oauth" : "api_key";
+    const existingState = getOrCreateRuntimeState(key);
+    const persistedCooldown = persistedCooldowns[key];
+    if (
+      persistedCooldown?.coolingUntil > Date.now() &&
+      (!existingState.coolingUntil ||
+        persistedCooldown.coolingUntil > existingState.coolingUntil)
+    ) {
+      existingState.coolingUntil = persistedCooldown.coolingUntil;
+      existingState.coolingReason = persistedCooldown.reason;
+    }
+
+    const addAccount = (): void => {
+      accounts.push({
+        key,
+        label,
+        token: accessToken,
+        refreshToken: refreshTok,
+        expiresAt,
+        type: accountType,
+        persistTarget: { providerKey: key },
+      });
+    };
     const isExpired = expiresAt ? expiresAt < Date.now() : false;
 
     if (isExpired) {
-      const label = key.split(":")[1] ?? key;
-      const existingState = getOrCreateRuntimeState(key);
       if (existingState.permanentlyDisabled) {
+        continue;
+      }
+
+      if (
+        existingState.coolingReason === "auth" &&
+        existingState.coolingUntil &&
+        existingState.coolingUntil > Date.now()
+      ) {
+        addAccount();
         continue;
       }
 
@@ -1663,6 +1960,7 @@ async function loadClaudeProxyAccounts(args: {
         await disableAccountUntilReauth(
           { key, label, token: accessToken, type: "oauth" },
           existingState,
+          "missing_refresh_token",
         );
         continue;
       }
@@ -1675,13 +1973,31 @@ async function loadClaudeProxyAccounts(args: {
       };
       const refreshed = await refreshToken(tempAccount);
       if (!refreshed.success) {
-        logger.always(
-          `[proxy] skipping account=${label} (expired, refresh failed: ${refreshed.error?.slice(0, 200) ?? "unknown"})`,
-        );
-        await disableAccountUntilReauth(
-          { key, label, token: accessToken, type: "oauth" },
-          existingState,
-        );
+        const account = {
+          key,
+          label,
+          token: accessToken,
+          type: "oauth",
+        } as const;
+        if (isPermanentRefreshFailure(refreshed)) {
+          logger.always(
+            `[proxy] skipping account=${label} (refresh token rejected: ${refreshed.error?.slice(0, 200) ?? "unknown"})`,
+          );
+          await disableAccountUntilReauth(
+            account,
+            existingState,
+            "refresh_invalid",
+          );
+        } else {
+          const coolingUntil = await coolAccountAfterTransientRefreshFailure(
+            account,
+            existingState,
+          );
+          logger.always(
+            `[proxy] account=${label} refresh temporarily unavailable (${refreshed.status ?? "network"}); cooling until ${new Date(coolingUntil).toISOString()} and rotating`,
+          );
+          addAccount();
+        }
         continue;
       }
 
@@ -1697,27 +2013,25 @@ async function loadClaudeProxyAccounts(args: {
       logger.always(
         `[proxy] refreshed expired account=${key.split(":")[1] ?? key} at startup`,
       );
+      await clearAuthCooldownAfterRefresh({ key }, existingState);
     }
 
-    const accountType: "oauth" | "api_key" =
-      tokens.tokenType === "Bearer" ? "oauth" : "api_key";
-
-    accounts.push({
-      key,
-      label: key.split(":")[1] ?? key,
-      token: accessToken,
-      refreshToken: refreshTok,
-      expiresAt,
-      type: accountType,
-      persistTarget: { providerKey: key },
-    });
+    addAccount();
   }
 
-  if (accounts.length === 0) {
+  if (
+    accounts.length === 0 &&
+    shouldLoadFallbackCredential(
+      compoundKeys.length,
+      LEGACY_ANTHROPIC_ACCOUNT_KEY,
+      configuredAccountAllowlist,
+    )
+  ) {
     try {
       const creds = JSON.parse(
         (fs as typeof import("fs")).readFileSync(legacyCredPath, "utf8"),
       ) as {
+        email?: string;
         oauth?: {
           accessToken?: string;
           refreshToken?: string;
@@ -1733,9 +2047,17 @@ async function loadClaudeProxyAccounts(args: {
     }
   }
 
-  if (process.env.ANTHROPIC_API_KEY && accounts.length === 0) {
+  if (
+    process.env.ANTHROPIC_API_KEY &&
+    accounts.length === 0 &&
+    shouldLoadFallbackCredential(
+      compoundKeys.length,
+      ENV_ANTHROPIC_ACCOUNT_KEY,
+      configuredAccountAllowlist,
+    )
+  ) {
     accounts.push({
-      key: "anthropic:env",
+      key: ENV_ANTHROPIC_ACCOUNT_KEY,
       label: "env",
       token: process.env.ANTHROPIC_API_KEY,
       type: "api_key",
@@ -1743,10 +2065,15 @@ async function loadClaudeProxyAccounts(args: {
   }
 
   if (accounts.length === 0) {
-    tracer?.setError("authentication_error", "No Anthropic credentials found");
+    const noCredentialsMessage = configuredAccountAllowlist
+      ? "No allowed Anthropic credentials are currently available"
+      : compoundKeys.length > 0
+        ? "Configured Anthropic accounts are disabled or unavailable"
+        : "No Anthropic credentials found";
+    tracer?.setError("authentication_error", noCredentialsMessage);
     tracer?.end(401, Date.now() - requestStartTime);
     return {
-      response: buildLoggedClaudeError(401, "No Anthropic credentials found"),
+      response: buildLoggedClaudeError(401, noCredentialsMessage),
     };
   }
 
@@ -1758,9 +2085,11 @@ async function loadClaudeProxyAccounts(args: {
     if (tokenChanged) {
       if (state.permanentlyDisabled) {
         logger.always(
-          `[proxy] account=${account.label} credentials changed, re-enabling`,
+          `[proxy] account=${account.label} eligible credentials reloaded; clearing stale runtime auth-disable state`,
         );
       }
+      // Eligibility was already resolved while loading accounts. This only
+      // clears stale in-process auth state after an explicit credential reload.
       state.consecutiveRefreshFailures = 0;
       state.permanentlyDisabled = false;
     }
@@ -2215,6 +2544,7 @@ function buildClaudeAnthropicFailureResponse(args: {
   tracer?: ProxyTracer;
   requestStartTime: number;
   authFailureMessage: string | null;
+  authCooldownMessage: string | null;
   invalidRequestFailure: {
     status: number;
     body: string;
@@ -2245,6 +2575,7 @@ function buildClaudeAnthropicFailureResponse(args: {
     tracer,
     requestStartTime,
     authFailureMessage,
+    authCooldownMessage,
     invalidRequestFailure,
     sawNetworkError,
     sawTransientFailure,
@@ -2259,6 +2590,16 @@ function buildClaudeAnthropicFailureResponse(args: {
     tracer?.setError("authentication_error", authFailureMessage);
     tracer?.end(401, Date.now() - requestStartTime);
     return buildLoggedClaudeError(401, authFailureMessage);
+  }
+
+  if (authCooldownMessage && !sawRateLimit) {
+    tracer?.setError("token_refresh_unavailable", authCooldownMessage);
+    tracer?.end(503, Date.now() - requestStartTime);
+    return buildLoggedClaudeError(
+      503,
+      authCooldownMessage,
+      "token_refresh_unavailable",
+    );
   }
 
   if (invalidRequestFailure) {
@@ -2321,10 +2662,29 @@ function buildClaudeAnthropicFailureResponse(args: {
     return buildLoggedClaudeError(502, msg);
   }
 
-  // All accounts returned 429 after exhausting per-account retries.
-  // Return 1s retry-after — the proxy already waited for each upstream retry-after inline.
-  const retryAfterSec = 1;
-  const errorMessage = `All ${orderedAccounts.length} accounts rate-limited after ${MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES + 1} attempts each (1 initial + ${MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES} retries).`;
+  const now = Date.now();
+  const activeRateLimitCooldowns = orderedAccounts
+    .map((account) => getOrCreateRuntimeState(account.key))
+    .filter(
+      (state) =>
+        state.coolingUntil &&
+        state.coolingUntil > now &&
+        state.coolingReason !== "auth",
+    );
+  const earliestRetryAt = Math.min(
+    ...activeRateLimitCooldowns.map(
+      (state) => state.coolingUntil ?? Number.POSITIVE_INFINITY,
+    ),
+  );
+  const allAccountsCooling =
+    orderedAccounts.length > 0 &&
+    activeRateLimitCooldowns.length === orderedAccounts.length;
+  const retryAfterSec = allAccountsCooling
+    ? Math.max(1, Math.ceil((earliestRetryAt - now) / 1000))
+    : 1;
+  const errorMessage = allAccountsCooling
+    ? `All ${orderedAccounts.length} Anthropic accounts are cooling after upstream rate limits. Earliest retry at ${new Date(earliestRetryAt).toISOString()}.`
+    : `All ${orderedAccounts.length} accounts rate-limited after per-account retries.`;
   logger.always(
     `[proxy] all accounts rate-limited, retry in ${retryAfterSec}s`,
   );
@@ -2406,7 +2766,16 @@ async function handleAnthropicSuccessfulResponse(args: {
     // account whose window resets soonest (max-utilization) and proactively
     // skip any whose window is already rejected — without eating a 429 first.
     accountState.quota = quota;
-    maybeCoolFromQuota(accountState, quota, Date.now());
+    if (maybeCoolFromQuota(accountState, quota, Date.now())) {
+      const { coolingUntil, coolingReason } = accountState;
+      if (coolingUntil !== undefined && coolingReason !== undefined) {
+        saveAccountCooldown(account.key, coolingUntil, coolingReason).catch(
+          () => {
+            // Non-fatal: cooldown is already active in memory.
+          },
+        );
+      }
+    }
     saveAccountQuota(account.label, quota).catch(() => {
       // Non-fatal: quota persistence is best-effort
     });
@@ -2526,9 +2895,35 @@ async function handleAnthropicStreamingSuccessResponse(args: {
   }
 
   const reader = response.body.getReader();
-  const firstChunk = await reader.read();
+  let firstChunk: ReadableStreamReadResult<Uint8Array>;
+  try {
+    firstChunk = await reader.read();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.always(
+      `[proxy] stream failed before first chunk account=${account.label}: ${message}; trying next account`,
+    );
+    recordAttemptError(account.label, account.type, 502);
+    tracer?.recordRetry(account.label, "stream_before_first_chunk");
+    upstreamSpan?.end();
+    logProxyBody({
+      phase: "upstream_response",
+      headers: responseHeaders,
+      body: message,
+      bodySize: Buffer.byteLength(message, "utf8"),
+      contentType: responseHeaders["content-type"] ?? "text/event-stream",
+      account: account.label,
+      accountType: account.type,
+      attempt: attemptNumber,
+      responseStatus: 502,
+      durationMs: Date.now() - fetchStartMs,
+    });
+    return { retryNextAccount: true };
+  }
   if (firstChunk.done || !firstChunk.value || firstChunk.value.length === 0) {
-    reader.cancel();
+    await reader.cancel().catch(() => {
+      // Best-effort release before rotating to another account.
+    });
     logger.always(
       `[proxy] ← empty stream from account=${account.label}, trying next`,
     );
@@ -2537,6 +2932,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
     return { retryNextAccount: true };
   }
 
+  const streamOutcomeTracker = createStreamTerminalOutcomeTracker();
   let mainStreamClosed = false;
   const remainingStream = new ReadableStream({
     start(controller) {
@@ -2553,6 +2949,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
         }
         if (done) {
           mainStreamClosed = true;
+          streamOutcomeTracker.complete();
           controller.close();
           return;
         }
@@ -2563,6 +2960,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
         logger.always(
           `[proxy] mid-stream error account=${account.label}: ${errMsg}`,
         );
+        streamOutcomeTracker.fail(errMsg);
         logStreamError({
           timestamp: new Date().toISOString(),
           requestId: ctx.requestId,
@@ -2581,7 +2979,8 @@ async function handleAnthropicStreamingSuccessResponse(args: {
     },
     cancel() {
       mainStreamClosed = true;
-      reader.cancel();
+      streamOutcomeTracker.cancel();
+      return reader.cancel();
     },
   });
 
@@ -2590,6 +2989,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
     response,
     responseHeaders,
     remainingStream,
+    streamOutcome: streamOutcomeTracker.outcome,
     tracer,
     requestStartTime,
     attemptNumber,
@@ -2601,11 +3001,32 @@ async function handleAnthropicStreamingSuccessResponse(args: {
   return { response: result };
 }
 
+function getStreamFailureDetails(
+  outcome: StreamTerminalOutcome,
+): { status: number; errorType: string; message: string } | undefined {
+  if (outcome.kind === "upstream_error") {
+    return {
+      status: 502,
+      errorType: "stream_error",
+      message: outcome.message,
+    };
+  }
+  if (outcome.kind === "client_cancelled") {
+    return {
+      status: 499,
+      errorType: "client_cancelled",
+      message: "Client cancelled the streaming response",
+    };
+  }
+  return undefined;
+}
+
 function attachAnthropicSuccessStreamTelemetry(args: {
   account: ProxyPassthroughAccount;
   response: Response;
   responseHeaders: Record<string, string>;
   remainingStream: ReadableStream<Uint8Array>;
+  streamOutcome: Promise<StreamTerminalOutcome>;
   tracer?: ProxyTracer;
   requestStartTime: number;
   attemptNumber: number;
@@ -2631,6 +3052,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
     response,
     responseHeaders,
     remainingStream,
+    streamOutcome,
     tracer,
     requestStartTime,
     attemptNumber,
@@ -2655,8 +3077,12 @@ function attachAnthropicSuccessStreamTelemetry(args: {
       const capturedRequestBytes = finalBodyStr.length;
       const capturedAccountLabel = account.label;
 
-      Promise.all([telemetry, clientCapture])
-        .then(([data, clientBody]) => {
+      Promise.all([telemetry, clientCapture, streamOutcome])
+        .then(([data, clientBody, rawOutcome]) => {
+          const terminalOutcome = mergeStreamTerminalOutcome(
+            rawOutcome,
+            data.streamErrorMessage,
+          );
           capturedTracer.setUsage({
             inputTokens: data.usage.inputTokens,
             outputTokens: data.usage.outputTokens,
@@ -2698,21 +3124,41 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             data.totalBytesReceived,
           );
           capturedUpstreamSpan?.end();
-          capturedTracer.end(200, Date.now() - requestStartTime);
-          recordFinalSuccess(capturedAccountLabel, account.type);
-          logFinalRequest(
-            200,
-            capturedAccountLabel,
-            account.type,
-            undefined,
-            undefined,
-            {
-              inputTokens: data.usage.inputTokens,
-              outputTokens: data.usage.outputTokens,
-              cacheCreationTokens: data.usage.cacheCreationInputTokens,
-              cacheReadTokens: data.usage.cacheReadInputTokens,
-            },
-          );
+          const failure = getStreamFailureDetails(terminalOutcome);
+          const usage = {
+            inputTokens: data.usage.inputTokens,
+            outputTokens: data.usage.outputTokens,
+            cacheCreationTokens: data.usage.cacheCreationInputTokens,
+            cacheReadTokens: data.usage.cacheReadInputTokens,
+          };
+          if (failure) {
+            capturedTracer.setError(failure.errorType, failure.message);
+            capturedTracer.end(failure.status, Date.now() - requestStartTime);
+            recordFinalError(
+              failure.status,
+              capturedAccountLabel,
+              account.type,
+            );
+            logFinalRequest(
+              failure.status,
+              capturedAccountLabel,
+              account.type,
+              failure.errorType,
+              failure.message,
+              usage,
+            );
+          } else {
+            capturedTracer.end(200, Date.now() - requestStartTime);
+            recordFinalSuccess(capturedAccountLabel, account.type);
+            logFinalRequest(
+              200,
+              capturedAccountLabel,
+              account.type,
+              undefined,
+              undefined,
+              usage,
+            );
+          }
           logProxyBody({
             phase: "upstream_response",
             headers: responseHeaders,
@@ -2755,7 +3201,28 @@ function attachAnthropicSuccessStreamTelemetry(args: {
           );
         });
     } catch {
-      // Interceptor attachment failed after stream setup; response handling continues.
+      // Interceptor attachment failed after stream setup. Preserve delivery but
+      // still settle the request from the actual stream terminal outcome.
+      streamOutcome.then((outcome) => {
+        const failure = getStreamFailureDetails(outcome);
+        upstreamSpan?.end();
+        if (failure) {
+          tracer.setError(failure.errorType, failure.message);
+          tracer.end(failure.status, Date.now() - requestStartTime);
+          recordFinalError(failure.status, account.label, account.type);
+          logFinalRequest(
+            failure.status,
+            account.label,
+            account.type,
+            failure.errorType,
+            failure.message,
+          );
+        } else {
+          tracer.end(response.status, Date.now() - requestStartTime);
+          recordFinalSuccess(account.label, account.type);
+          logFinalRequest(response.status, account.label, account.type);
+        }
+      });
     }
   } else {
     upstreamSpan?.end();
@@ -2766,22 +3233,44 @@ function attachAnthropicSuccessStreamTelemetry(args: {
         });
       streamSource = streamSource.pipeThrough(noTracerInterceptor);
       const capturedAccountLabel = account.label;
-      Promise.all([noTracerTelemetry, clientCapture])
-        .then(([data, clientBody]) => {
-          recordFinalSuccess(capturedAccountLabel, account.type);
-          logFinalRequest(
-            200,
-            capturedAccountLabel,
-            account.type,
-            undefined,
-            undefined,
-            {
-              inputTokens: data.usage.inputTokens,
-              outputTokens: data.usage.outputTokens,
-              cacheCreationTokens: data.usage.cacheCreationInputTokens,
-              cacheReadTokens: data.usage.cacheReadInputTokens,
-            },
+      Promise.all([noTracerTelemetry, clientCapture, streamOutcome])
+        .then(([data, clientBody, rawOutcome]) => {
+          const terminalOutcome = mergeStreamTerminalOutcome(
+            rawOutcome,
+            data.streamErrorMessage,
           );
+          const failure = getStreamFailureDetails(terminalOutcome);
+          const usage = {
+            inputTokens: data.usage.inputTokens,
+            outputTokens: data.usage.outputTokens,
+            cacheCreationTokens: data.usage.cacheCreationInputTokens,
+            cacheReadTokens: data.usage.cacheReadInputTokens,
+          };
+          if (failure) {
+            recordFinalError(
+              failure.status,
+              capturedAccountLabel,
+              account.type,
+            );
+            logFinalRequest(
+              failure.status,
+              capturedAccountLabel,
+              account.type,
+              failure.errorType,
+              failure.message,
+              usage,
+            );
+          } else {
+            recordFinalSuccess(capturedAccountLabel, account.type);
+            logFinalRequest(
+              200,
+              capturedAccountLabel,
+              account.type,
+              undefined,
+              undefined,
+              usage,
+            );
+          }
           logProxyBody({
             phase: "upstream_response",
             headers: responseHeaders,
@@ -2807,9 +3296,17 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             durationMs: Date.now() - requestStartTime,
           });
         })
-        .catch(() => {
-          recordFinalSuccess(account.label, account.type);
-          logFinalRequest(response.status, account.label, account.type);
+        .catch((error) => {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          recordFinalError(500, account.label, account.type);
+          logFinalRequest(
+            500,
+            account.label,
+            account.type,
+            "stream_telemetry_error",
+            message,
+          );
         });
     } catch {
       clientCapture
@@ -2830,8 +3327,22 @@ function attachAnthropicSuccessStreamTelemetry(args: {
         .catch(() => {
           // Non-fatal
         });
-      recordFinalSuccess(account.label, account.type);
-      logFinalRequest(response.status, account.label, account.type);
+      streamOutcome.then((outcome) => {
+        const failure = getStreamFailureDetails(outcome);
+        if (failure) {
+          recordFinalError(failure.status, account.label, account.type);
+          logFinalRequest(
+            failure.status,
+            account.label,
+            account.type,
+            failure.errorType,
+            failure.message,
+          );
+        } else {
+          recordFinalSuccess(account.label, account.type);
+          logFinalRequest(response.status, account.label, account.type);
+        }
+      });
     }
   }
 
@@ -3057,7 +3568,16 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
     // stash quota for proactive selection and proactively cool if this
     // response reveals the window flipped to "rejected".
     accountState.quota = retryQuota;
-    maybeCoolFromQuota(accountState, retryQuota, Date.now());
+    if (maybeCoolFromQuota(accountState, retryQuota, Date.now())) {
+      const { coolingUntil, coolingReason } = accountState;
+      if (coolingUntil !== undefined && coolingReason !== undefined) {
+        saveAccountCooldown(account.key, coolingUntil, coolingReason).catch(
+          () => {
+            // Non-fatal: cooldown is already active in memory.
+          },
+        );
+      }
+    }
     saveAccountQuota(account.label, retryQuota).catch((error) => {
       logger.debug("[proxy] Failed to persist account quota after auth retry", {
         account: account.label,
@@ -3068,6 +3588,7 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
 
   if (body.stream && retryResp.body) {
     const retryReader = retryResp.body.getReader();
+    const streamOutcomeTracker = createStreamTerminalOutcomeTracker();
     let retryStreamClosed = false;
     const retryStream = new ReadableStream({
       async pull(controller) {
@@ -3081,6 +3602,7 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
           }
           if (done) {
             retryStreamClosed = true;
+            streamOutcomeTracker.complete();
             controller.close();
             return;
           }
@@ -3091,6 +3613,7 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
           logger.always(
             `[proxy] mid-stream error (auth-retry) account=${account.label}: ${errMsg}`,
           );
+          streamOutcomeTracker.fail(errMsg);
           logStreamError({
             timestamp: new Date().toISOString(),
             requestId: ctx.requestId,
@@ -3109,97 +3632,24 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
       },
       cancel() {
         retryStreamClosed = true;
-        retryReader.cancel();
+        streamOutcomeTracker.cancel();
+        return retryReader.cancel();
       },
     });
 
-    let retryClientStream: ReadableStream<Uint8Array> = retryStream;
-    if (tracer) {
-      try {
-        const { stream: retryInterceptor, telemetry: retryTelemetry } =
-          createSSEInterceptor();
-        retryClientStream = retryStream.pipeThrough(retryInterceptor);
-        const capturedTracer = tracer;
-        const capturedUpstreamSpan = upstreamSpan;
-        const capturedRetryResp = retryResp;
-        const capturedRetryRequestBytes = finalBodyStr.length;
-        const capturedAccountLabel = account.label;
-        retryTelemetry
-          .then((data) => {
-            capturedTracer.setUsage({
-              inputTokens: data.usage.inputTokens,
-              outputTokens: data.usage.outputTokens,
-              cacheCreationTokens: data.usage.cacheCreationInputTokens,
-              cacheReadTokens: data.usage.cacheReadInputTokens,
-            });
-            capturedTracer.logStreamEvents(data.events);
-            capturedTracer.setResponseInfo(responseInfoFromStream(data));
-            capturedTracer.logUpstreamResponseHeaders(
-              Object.fromEntries([...capturedRetryResp.headers.entries()]),
-            );
-            capturedTracer.recordMetrics();
-            capturedTracer.recordBodySizes(
-              capturedRetryRequestBytes,
-              data.totalBytesReceived,
-            );
-            capturedUpstreamSpan?.end();
-            capturedTracer.end(200, Date.now() - requestStartTime);
-            recordFinalSuccess(capturedAccountLabel, account.type);
-            logFinalRequest(
-              200,
-              capturedAccountLabel,
-              account.type,
-              undefined,
-              undefined,
-              {
-                inputTokens: data.usage.inputTokens,
-                outputTokens: data.usage.outputTokens,
-                cacheCreationTokens: data.usage.cacheCreationInputTokens,
-                cacheReadTokens: data.usage.cacheReadInputTokens,
-              },
-            );
-          })
-          .catch((error) => {
-            capturedTracer.setError(
-              "stream_error",
-              error instanceof Error ? error.message : String(error),
-            );
-            capturedUpstreamSpan?.end();
-            capturedTracer.end(500, Date.now() - requestStartTime);
-            recordFinalError(500, capturedAccountLabel, account.type);
-            logFinalRequest(
-              500,
-              capturedAccountLabel,
-              account.type,
-              "stream_error",
-              error instanceof Error ? error.message : String(error),
-            );
-          });
-      } catch {
-        retryClientStream = retryStream;
-      }
-    }
-
-    const responseHeaders: Record<string, string> = {
-      "content-type": "text/event-stream",
-      "cache-control": "no-cache",
-      connection: "keep-alive",
-    };
-    for (const headerName of [
-      "retry-after",
-      "anthropic-ratelimit-requests-remaining",
-      "anthropic-ratelimit-requests-limit",
-      "anthropic-ratelimit-tokens-remaining",
-      "anthropic-ratelimit-tokens-limit",
-    ]) {
-      const value = retryResp.headers.get(headerName);
-      if (value) {
-        responseHeaders[headerName] = value;
-      }
-    }
-    return new Response(retryClientStream, {
-      status: retryResp.status,
-      headers: responseHeaders,
+    return attachAnthropicSuccessStreamTelemetry({
+      account,
+      response: retryResp,
+      responseHeaders: Object.fromEntries([...retryResp.headers.entries()]),
+      remainingStream: retryStream,
+      streamOutcome: streamOutcomeTracker.outcome,
+      tracer,
+      requestStartTime,
+      attemptNumber,
+      finalBodyStr,
+      upstreamSpan,
+      logProxyBody,
+      logFinalRequest,
     });
   }
 
@@ -3362,29 +3812,35 @@ async function handleAnthropicAuthRetry(args: {
     );
     const refreshSucceeded = await refreshToken(account);
     if (!refreshSucceeded.success) {
-      accountState.consecutiveRefreshFailures += 1;
       authRetryError = `refresh failed for account=${account.label} attempt ${authRetry + 1}/${MAX_AUTH_RETRIES}: ${refreshSucceeded.error?.slice(0, 200) ?? "unknown"}`;
       currentLastError = authRetryError;
-      logger.always(
-        `[proxy] ⚠ account=${account.label} refresh failed on attempt ${authRetry + 1}`,
-      );
-      if (
-        accountState.consecutiveRefreshFailures >=
-        MAX_CONSECUTIVE_REFRESH_FAILURES
-      ) {
-        await disableAccountUntilReauth(account, accountState);
+      if (isPermanentRefreshFailure(refreshSucceeded)) {
+        await disableAccountUntilReauth(
+          account,
+          accountState,
+          "refresh_invalid",
+        );
         currentAuthFailureMessage = formatReauthMessage(account.label);
-        break;
+        logger.always(
+          `[proxy] account=${account.label} refresh token rejected; disabled until re-authentication`,
+        );
+      } else {
+        const coolingUntil = await coolAccountAfterTransientRefreshFailure(
+          account,
+          accountState,
+        );
+        currentSawTransientFailure = true;
+        logger.always(
+          `[proxy] account=${account.label} refresh temporarily unavailable (${refreshSucceeded.status ?? "network"}); cooling until ${new Date(coolingUntil).toISOString()} and rotating`,
+        );
       }
-      if (authRetry < MAX_AUTH_RETRIES - 1) {
-        await sleep(2000);
-      }
-      continue;
+      break;
     }
 
     if (account.persistTarget) {
       await persistTokens(account.persistTarget, account);
     }
+    await clearAuthCooldownAfterRefresh(account, accountState);
     headers.authorization = `Bearer ${account.token}`;
 
     try {
@@ -3488,6 +3944,7 @@ async function handleAnthropicAuthRetry(args: {
           retryQuota429,
           parseRetryAfterMs(retryRespHeaders["retry-after"] ?? null),
           nowRetry,
+          getUnifiedRateLimitStatus(retryRespHeaders),
         );
         if (
           !accountState.coolingUntil ||
@@ -3496,6 +3953,18 @@ async function handleAnthropicAuthRetry(args: {
           accountState.coolingUntil = retryPlan.coolingUntil;
           accountState.coolingReason = retryPlan.reason;
         }
+        if (retryQuota429) {
+          saveAccountQuota(account.label, retryQuota429).catch(() => {
+            // Non-fatal: routing already has the in-memory snapshot.
+          });
+        }
+        await saveAccountCooldown(
+          account.key,
+          accountState.coolingUntil ?? retryPlan.coolingUntil,
+          accountState.coolingReason ?? retryPlan.reason,
+        ).catch(() => {
+          // Non-fatal: routing already has the in-memory cooldown.
+        });
         advancePrimaryIfCurrent(
           account.key,
           enabledAccounts.length,
@@ -3725,7 +4194,6 @@ async function handleAnthropicNonOkResponse(args: {
     body: string;
     contentType?: string;
   } | null;
-  maxConsecutiveRefreshFailures: number;
 }): Promise<AnthropicNonOkResult> {
   const {
     response,
@@ -3744,7 +4212,6 @@ async function handleAnthropicNonOkResponse(args: {
     authFailureMessage,
     sawTransientFailure,
     invalidRequestFailure,
-    maxConsecutiveRefreshFailures,
   } = args;
   let currentLastError = lastError;
   let currentAuthFailureMessage = authFailureMessage;
@@ -3805,12 +4272,11 @@ async function handleAnthropicNonOkResponse(args: {
     !account.refreshToken
   ) {
     recordAttemptError(account.label, account.type, response.status);
-    accountState.consecutiveRefreshFailures += 1;
-    if (
-      accountState.consecutiveRefreshFailures >= maxConsecutiveRefreshFailures
-    ) {
-      await disableAccountUntilReauth(account, accountState);
-    }
+    await disableAccountUntilReauth(
+      account,
+      accountState,
+      "missing_refresh_token",
+    );
     currentAuthFailureMessage = formatReauthMessage(account.label);
     logger.always(
       `[proxy] ← ${response.status} account=${account.label} (auth failure, no refresh token)`,
@@ -4173,26 +4639,31 @@ async function prepareAnthropicAccountAttempt(args: {
       if (account.persistTarget) {
         await persistTokens(account.persistTarget, account);
       }
-      accountState.consecutiveRefreshFailures = 0;
+      await clearAuthCooldownAfterRefresh(account, accountState);
     } else {
-      accountState.consecutiveRefreshFailures += 1;
       lastError = `token refresh failed for account=${account.label}: ${refreshed.error?.slice(0, 200) ?? "unknown"}`;
-      logger.debug(
-        `[proxy] preflight refresh failed account=${account.label} failures=${accountState.consecutiveRefreshFailures}`,
-      );
-      if (
-        accountState.consecutiveRefreshFailures >=
-        MAX_CONSECUTIVE_REFRESH_FAILURES
-      ) {
-        await disableAccountUntilReauth(account, accountState);
+      if (isPermanentRefreshFailure(refreshed)) {
+        await disableAccountUntilReauth(
+          account,
+          accountState,
+          "refresh_invalid",
+        );
         authFailureMessage = formatReauthMessage(account.label);
-        logAttempt(401, "authentication_error", String(lastError));
-        return {
-          continueLoop: true,
-          lastError,
-          authFailureMessage,
-        };
+      } else {
+        await coolAccountAfterTransientRefreshFailure(account, accountState);
       }
+      logAttempt(
+        isPermanentRefreshFailure(refreshed) ? 401 : 503,
+        isPermanentRefreshFailure(refreshed)
+          ? "authentication_error"
+          : "token_refresh_unavailable",
+        String(lastError),
+      );
+      return {
+        continueLoop: true,
+        lastError,
+        authFailureMessage,
+      };
     }
   }
 
@@ -4509,11 +4980,18 @@ async function fetchAnthropicAccountResponse(args: {
     // ACTUAL reset, not a 60s hardcap.
     const now = Date.now();
     const quota = parseQuotaHeaders(errRespHeaders);
-    const cooldownPlan = planCooldownFor429(quota, retryAfterMs, now);
+    const unifiedStatus = getUnifiedRateLimitStatus(errRespHeaders);
+    const cooldownPlan = planCooldownFor429(
+      quota,
+      retryAfterMs,
+      now,
+      unifiedStatus,
+    );
     logger.always(
       `[proxy] ← 429 account=${account.label} reason=${cooldownPlan.reason} ` +
         `retry-after=${retryAfterMs}ms 5h-status=${errRespHeaders["anthropic-ratelimit-unified-5h-status"] ?? "unknown"} ` +
         `7d-status=${errRespHeaders["anthropic-ratelimit-unified-7d-status"] ?? "unknown"} ` +
+        `unified-status=${unifiedStatus ?? "unknown"} ` +
         `→ ${cooldownPlan.rotateImmediately ? `rotate now, cool ${minutesUntil(cooldownPlan.coolingUntil, now)}m` : "retry same account (transient)"}`,
     );
     logAttempt(429, "rate_limit_error", String(lastError));
@@ -4596,6 +5074,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     sawTransientFailure: false,
     invalidRequestFailure: null,
     authFailureMessage: null,
+    authCooldownMessage: null,
     attemptNumber: 0,
   };
   const acctSelectionSpan = tracer?.startAccountSelection();
@@ -4611,13 +5090,34 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     maybeResetPrimaryToHome(enabledAccounts);
   }
 
-  // Skip accounts that are still cooling from a recent 429-exhaustion,
-  // but keep them as last-resort if ALL accounts are cooling.
+  // Never re-hammer accounts with a known active cooldown. When every account
+  // is cooling, report the earliest persisted retry time without an upstream
+  // call; restarting the proxy must not erase or bypass this quarantine.
   const nonCoolingAccounts = orderedAccounts.filter(
     (a) => !isAccountCooling(a.key),
   );
-  const effectiveAccounts =
-    nonCoolingAccounts.length > 0 ? nonCoolingAccounts : orderedAccounts;
+  const effectiveAccounts = nonCoolingAccounts;
+  if (effectiveAccounts.length === 0 && orderedAccounts.length > 0) {
+    const coolingStates = orderedAccounts.map((account) =>
+      getOrCreateRuntimeState(account.key),
+    );
+    const hasRateLimitCooldown = coolingStates.some(
+      (state) => state.coolingReason !== "auth",
+    );
+    loopState.sawRateLimit = hasRateLimitCooldown;
+    loopState.sawTransientFailure = !hasRateLimitCooldown;
+    loopState.lastError = hasRateLimitCooldown
+      ? "All Anthropic accounts have active rate-limit cooldowns"
+      : "All Anthropic accounts have active authentication cooldowns";
+    if (!hasRateLimitCooldown) {
+      const earliestRetryAt = Math.min(
+        ...coolingStates.map(
+          (state) => state.coolingUntil ?? Number.POSITIVE_INFINITY,
+        ),
+      );
+      loopState.authCooldownMessage = `All ${orderedAccounts.length} Anthropic accounts are temporarily unavailable while OAuth refresh is cooling. Earliest retry at ${new Date(earliestRetryAt).toISOString()}.`;
+    }
+  }
 
   accountLoop: for (const account of effectiveAccounts) {
     const accountState = getOrCreateRuntimeState(account.key);
@@ -4700,6 +5200,9 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           // Refresh the account's quota snapshot for proactive selection.
           if (fetchResult.quota) {
             accountState.quota = fetchResult.quota;
+            saveAccountQuota(account.label, fetchResult.quota).catch(() => {
+              // Non-fatal: routing already has the in-memory snapshot.
+            });
           }
           // Transient burst (window still allowed): a couple of jittered
           // same-account retries before giving up. Exhaustion plans set
@@ -4736,6 +5239,13 @@ async function handleAnthropicRoutedClaudeRequest(args: {
             accountState.coolingUntil = plan.coolingUntil;
             accountState.coolingReason = plan.reason;
           }
+          await saveAccountCooldown(
+            account.key,
+            accountState.coolingUntil ?? plan.coolingUntil,
+            accountState.coolingReason ?? plan.reason,
+          ).catch(() => {
+            // Non-fatal: routing already has the in-memory cooldown.
+          });
           advancePrimaryIfCurrent(
             account.key,
             enabledAccounts.length,
@@ -4833,7 +5343,6 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           authFailureMessage: loopState.authFailureMessage,
           sawTransientFailure: loopState.sawTransientFailure,
           invalidRequestFailure: loopState.invalidRequestFailure,
-          maxConsecutiveRefreshFailures: MAX_CONSECUTIVE_REFRESH_FAILURES,
         });
         loopState.lastError = nonOkResult.lastError;
         loopState.authFailureMessage = nonOkResult.authFailureMessage;
@@ -4876,8 +5385,12 @@ async function handleAnthropicRoutedClaudeRequest(args: {
         accountState.coolingUntil &&
         Date.now() >= accountState.coolingUntil
       ) {
+        const expiredCooldown = accountState.coolingUntil;
         accountState.coolingUntil = undefined;
         accountState.coolingReason = undefined;
+        clearAccountCooldown(account.key, expiredCooldown).catch(() => {
+          // Best-effort cleanup; expired entries are ignored during seeding.
+        });
       }
 
       const successResult = await handleAnthropicSuccessfulResponse({
@@ -4940,6 +5453,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     tracer,
     requestStartTime,
     authFailureMessage: loopState.authFailureMessage,
+    authCooldownMessage: loopState.authCooldownMessage,
     invalidRequestFailure: loopState.invalidRequestFailure,
     sawNetworkError: loopState.sawNetworkError,
     sawTransientFailure: loopState.sawTransientFailure,
@@ -4972,8 +5486,12 @@ export function createClaudeProxyRoutes(
   accountStrategy: "round-robin" | "fill-first" = "fill-first",
   passthroughMode: boolean = false,
   primaryAccountKey?: string,
+  accountAllowlist?: AccountAllowlist,
 ): RouteGroup {
   configuredPrimaryAccountKey = primaryAccountKey;
+  configuredAccountAllowlist = accountAllowlist
+    ? new Set(accountAllowlist)
+    : undefined;
   return {
     prefix: `${basePath}/v1`,
     routes: [
@@ -5198,13 +5716,14 @@ function getOrCreateRuntimeState(accountKey: string): RuntimeAccountState {
 async function disableAccountUntilReauth(
   account: ProxyPassthroughAccount,
   state: RuntimeAccountState,
+  reason: "missing_refresh_token" | "refresh_invalid",
 ): Promise<void> {
   state.permanentlyDisabled = true;
 
   // Decision 7 (usage): Persist disabled state to disk so it survives restarts
   try {
     const { tokenStore } = await import("../../auth/tokenStore.js");
-    await tokenStore.markDisabled(account.key, "refresh_failed");
+    await tokenStore.markDisabled(account.key, reason);
   } catch (e) {
     logger.debug(
       `[proxy] failed to persist disabled state for ${account.label}: ${e instanceof Error ? e.message : String(e)}`,
@@ -5214,6 +5733,51 @@ async function disableAccountUntilReauth(
   logger.always(
     `[proxy] account=${account.label} disabled until re-authentication. Run: neurolink auth login anthropic --method oauth`,
   );
+}
+
+async function coolAccountAfterTransientRefreshFailure(
+  account: Pick<ProxyPassthroughAccount, "key" | "label">,
+  state: RuntimeAccountState,
+): Promise<number> {
+  state.consecutiveRefreshFailures += 1;
+  const exponent = Math.min(state.consecutiveRefreshFailures - 1, 4);
+  const delayMs = Math.min(
+    AUTH_REFRESH_MAX_COOLDOWN_MS,
+    AUTH_REFRESH_BASE_COOLDOWN_MS * 2 ** exponent,
+  );
+  const coolingUntil = Date.now() + delayMs;
+  if (!state.coolingUntil || coolingUntil > state.coolingUntil) {
+    state.coolingUntil = coolingUntil;
+    state.coolingReason = "auth";
+  }
+  const effectiveCoolingUntil = state.coolingUntil ?? coolingUntil;
+  const effectiveReason = state.coolingReason ?? "auth";
+  state.coolingUntil = effectiveCoolingUntil;
+  state.coolingReason = effectiveReason;
+  await saveAccountCooldown(
+    account.key,
+    effectiveCoolingUntil,
+    effectiveReason,
+  ).catch(() => {
+    // Non-fatal: the in-memory cooldown still prevents immediate re-hammering.
+  });
+  return effectiveCoolingUntil;
+}
+
+async function clearAuthCooldownAfterRefresh(
+  account: Pick<ProxyPassthroughAccount, "key">,
+  state: RuntimeAccountState,
+): Promise<void> {
+  state.consecutiveRefreshFailures = 0;
+  if (state.coolingReason !== "auth" || !state.coolingUntil) {
+    return;
+  }
+  const previousCoolingUntil = state.coolingUntil;
+  state.coolingUntil = undefined;
+  state.coolingReason = undefined;
+  await clearAccountCooldown(account.key, previousCoolingUntil).catch(() => {
+    // Best-effort cleanup; an expired auth cooldown is harmless on next boot.
+  });
 }
 
 function formatReauthMessage(labels: string | string[]): string {
@@ -5442,6 +6006,9 @@ export const __testHooks = {
   resolveHomeIndex,
   maybeResetPrimaryToHome,
   planCooldownFor429,
+  isPermanentRefreshFailure,
+  getStreamFailureDetails,
+  trackUpstreamReadableStream,
   orderAccountsByQuota,
   resetEpochToMs,
   seedRuntimeQuotasFromDisk,
@@ -5454,6 +6021,13 @@ export const __testHooks = {
   },
   getConfiguredPrimaryAccountKey: (): string | undefined =>
     configuredPrimaryAccountKey,
+  setConfiguredAccountAllowlist: (
+    allowlist: AccountAllowlist | undefined,
+  ): void => {
+    configuredAccountAllowlist = allowlist ? new Set(allowlist) : undefined;
+  },
+  getConfiguredAccountAllowlist: (): string[] | undefined =>
+    configuredAccountAllowlist ? [...configuredAccountAllowlist] : undefined,
   setPrimaryAccountIndex: (index: number): void => {
     primaryAccountIndex = index;
   },
@@ -5472,5 +6046,6 @@ export const __testHooks = {
     primaryAccountIndex = 0;
     lastKnownAccountCount = 0;
     configuredPrimaryAccountKey = undefined;
+    configuredAccountAllowlist = undefined;
   },
 };

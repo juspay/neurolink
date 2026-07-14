@@ -10,10 +10,12 @@
  * path is never blocked by file I/O.
  */
 
-import { dirname, join } from "path";
+import { join } from "path";
 import { homedir } from "os";
 import { promises as fs } from "fs";
 import type { AccountQuota } from "../types/index.js";
+import { AsyncMutex } from "../utils/asyncMutex.js";
+import { writeJsonSnapshotAtomically } from "./snapshotPersistence.js";
 
 // ---------------------------------------------------------------------------
 // Header parsing (pure CPU — no I/O, safe for hot path)
@@ -37,6 +39,15 @@ function getHeader(
     }
   }
   return undefined;
+}
+
+/** Read and normalize Anthropic's authoritative top-level unified status. */
+export function getUnifiedRateLimitStatus(
+  headers: Headers | Record<string, string>,
+): string | undefined {
+  const value = getHeader(headers, "anthropic-ratelimit-unified-status");
+  const normalized = value?.trim().toLowerCase();
+  return normalized || undefined;
 }
 
 /**
@@ -68,6 +79,7 @@ export function parseQuotaHeaders(
   const fallbackRaw = getHeader(headers, `${P}unified-fallback-percentage`);
 
   return {
+    unifiedStatus: getUnifiedRateLimitStatus(headers),
     sessionUsed,
     sessionStatus: getHeader(headers, `${P}unified-5h-status`) ?? "unknown",
     sessionResetAt: sessionResetRaw ? parseInt(sessionResetRaw, 10) || 0 : 0,
@@ -90,8 +102,12 @@ const FLUSH_INTERVAL_MS = 5_000; // write to disk at most every 5 seconds
 
 let memoryCache: Record<string, AccountQuota> = {};
 let cacheLoaded = false;
+let cacheLoadPromise: Promise<void> | null = null;
 let dirty = false;
+let cacheVersion = 0;
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
+const stateMutex = new AsyncMutex();
+const flushMutex = new AsyncMutex();
 
 /** Custom quota file path set via initAccountQuota(). */
 let customQuotaFilePath: string | null = null;
@@ -112,43 +128,48 @@ export function initAccountQuota(quotaFilePath: string): void {
   // Reset cache so the new path is picked up on next load
   memoryCache = {};
   cacheLoaded = false;
+  cacheLoadPromise = null;
   dirty = false;
+  cacheVersion = 0;
 }
 
 function getQuotaFilePath(): string {
   return customQuotaFilePath ?? join(homedir(), ".neurolink", QUOTA_FILE);
 }
 
-async function ensureDir(): Promise<void> {
-  const filePath = getQuotaFilePath();
-  const dir = dirname(filePath);
-  await fs.mkdir(dir, { recursive: true, mode: 0o700 }).catch(() => {
-    // Non-fatal: directory may already exist
-  });
-}
-
 /** Flush the in-memory cache to disk (async, non-blocking). */
 async function flushToDisk(): Promise<void> {
-  if (!dirty) {
-    return;
-  }
-  try {
-    // Snapshot before async I/O so we only clear dirty if nothing changed
-    const snapshot = JSON.stringify(memoryCache, null, 2);
-    await ensureDir();
-    const filePath = getQuotaFilePath();
-    const tmpPath = `${filePath}.tmp`;
-    await fs.writeFile(tmpPath, snapshot, {
-      mode: 0o600,
+  await flushMutex.runExclusive(async () => {
+    let snapshot: Record<string, AccountQuota> | undefined;
+    let snapshotVersion = 0;
+    let filePath = "";
+
+    await stateMutex.runExclusive(async () => {
+      if (!dirty) {
+        return;
+      }
+      snapshot = Object.fromEntries(
+        Object.entries(memoryCache).map(([key, quota]) => [key, { ...quota }]),
+      );
+      snapshotVersion = cacheVersion;
+      filePath = getQuotaFilePath();
     });
-    await fs.rename(tmpPath, filePath);
-    // Only clear dirty if the cache hasn't changed during the write
-    if (JSON.stringify(memoryCache, null, 2) === snapshot) {
-      dirty = false;
+
+    if (!snapshot) {
+      return;
     }
-  } catch {
-    // Non-fatal — quota is best-effort telemetry
-  }
+
+    try {
+      await writeJsonSnapshotAtomically(filePath, snapshot, 0o600);
+      await stateMutex.runExclusive(async () => {
+        if (cacheVersion === snapshotVersion) {
+          dirty = false;
+        }
+      });
+    } catch {
+      // Non-fatal — quota is best-effort telemetry
+    }
+  });
 }
 
 function scheduleFlush(): void {
@@ -175,20 +196,30 @@ function scheduleFlush(): void {
  * Load all persisted account quotas.
  * First call reads from disk; subsequent calls return the in-memory cache.
  */
+async function ensureAccountQuotasLoaded(): Promise<void> {
+  if (!cacheLoaded) {
+    if (!cacheLoadPromise) {
+      cacheLoadPromise = (async () => {
+        try {
+          const raw = await fs.readFile(getQuotaFilePath(), "utf-8");
+          memoryCache = JSON.parse(raw) as Record<string, AccountQuota>;
+        } catch {
+          memoryCache = {};
+        }
+        cacheLoaded = true;
+      })().finally(() => {
+        cacheLoadPromise = null;
+      });
+    }
+    await cacheLoadPromise;
+  }
+}
+
 export async function loadAccountQuotas(): Promise<
   Record<string, AccountQuota>
 > {
-  if (cacheLoaded) {
-    return { ...memoryCache };
-  }
-  try {
-    const raw = await fs.readFile(getQuotaFilePath(), "utf-8");
-    memoryCache = JSON.parse(raw) as Record<string, AccountQuota>;
-  } catch {
-    memoryCache = {};
-  }
-  cacheLoaded = true;
-  return { ...memoryCache };
+  await ensureAccountQuotasLoaded();
+  return stateMutex.runExclusive(async () => ({ ...memoryCache }));
 }
 
 /**
@@ -215,10 +246,19 @@ export async function saveAccountQuota(
   accountKey: string,
   quota: AccountQuota,
 ): Promise<void> {
-  if (!cacheLoaded) {
-    await loadAccountQuotas();
-  }
-  memoryCache[accountKey] = quota;
-  dirty = true;
+  await stateMutex.runExclusive(async () => {
+    await ensureAccountQuotasLoaded();
+    memoryCache[accountKey] = { ...quota };
+    dirty = true;
+    cacheVersion += 1;
+  });
   scheduleFlush();
+}
+
+export async function flushAccountQuotaStateForTests(): Promise<void> {
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  await flushToDisk();
 }

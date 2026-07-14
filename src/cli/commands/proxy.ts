@@ -29,6 +29,7 @@ import {
   StateFileManager,
 } from "../utils/serverUtils.js";
 import type {
+  AccountAllowlist,
   FallbackInfo,
   LoadedProxyConfig,
   ProxyGuardArgs,
@@ -47,16 +48,24 @@ import type {
 import type { ModelRouter } from "../../lib/proxy/modelRouter.js";
 import { configureProxyKeepAliveDispatcher } from "../../lib/proxy/proxyDispatcher.js";
 import {
+  anthropicAccountKeysEqual,
+  createAccountAllowlist,
+  ENV_ANTHROPIC_ACCOUNT_KEY,
+  isAccountAllowed,
+  LEGACY_ANTHROPIC_ACCOUNT_KEY,
+  normalizeAnthropicAccountKey,
+  shouldLoadFallbackCredential,
+} from "../../lib/proxy/accountSelection.js";
+import {
   loadProxyEnvFile,
   resolveProxyEnvFile,
 } from "../../lib/proxy/proxyEnv.js";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import packageJson from "../../../package.json" with { type: "json" };
 
 const _require = createRequire(import.meta.url);
-const { version: PROXY_VERSION } = _require("../../../package.json") as {
-  version: string;
-};
+const PROXY_VERSION = packageJson.version;
 
 const PROXY_TELEMETRY_SCRIPT_PATH = fileURLToPath(
   new URL(
@@ -128,6 +137,9 @@ async function resolveStatusPrimaryAccount(
   proxyConfig: LoadedProxyConfig | null,
 ): Promise<ProxyStatusPrimaryAccount> {
   const configured = proxyConfig?.routing?.primaryAccount?.trim() || null;
+  const accountAllowlist = createAccountAllowlist(
+    proxyConfig?.routing?.accountAllowlist,
+  );
   let enabledAnthropicKeys: string[] = [];
   try {
     const { tokenStore } = await import("../../lib/auth/tokenStore.js");
@@ -135,7 +147,7 @@ async function resolveStatusPrimaryAccount(
     const filtered: string[] = [];
     for (const key of all) {
       const disabled = await tokenStore.isDisabled(key);
-      if (!disabled) {
+      if (!disabled && isAccountAllowed(key, accountAllowlist)) {
         filtered.push(key);
       }
     }
@@ -149,11 +161,14 @@ async function resolveStatusPrimaryAccount(
   }
 
   if (configured) {
-    const configuredKey = `anthropic:${configured}`;
-    if (enabledAnthropicKeys.includes(configuredKey)) {
+    const configuredKey = normalizeAnthropicAccountKey(configured);
+    const matchedKey = enabledAnthropicKeys.find((key) =>
+      anthropicAccountKeysEqual(key, configuredKey),
+    );
+    if (matchedKey) {
       return {
         configured,
-        key: configuredKey,
+        key: matchedKey,
         label: configured,
         source: "configured",
       };
@@ -194,49 +209,14 @@ async function isLaunchdManaging(): Promise<boolean> {
   }
 }
 
-/**
- * Attempt to restart the proxy via launchd kickstart.
- * Returns true if the proxy comes back healthy within timeoutMs.
- */
-async function tryLaunchdRestart(
-  host: string,
-  port: number,
-  timeoutMs: number = 15_000,
-): Promise<boolean> {
-  if (process.platform !== "darwin") {
-    return false;
-  }
+function isLaunchdManagedProcess(): boolean {
+  return process.platform === "darwin" && process.ppid === 1;
+}
 
-  try {
-    const { existsSync } = await import("fs");
-    if (!existsSync(PLIST_PATH)) {
-      return false;
-    }
-  } catch {
-    return false;
-  }
-
-  try {
-    const { execFileSync } = await import("node:child_process");
-    const uid = process.getuid?.() ?? 501;
-    execFileSync(
-      "launchctl",
-      ["kickstart", "-k", `gui/${uid}/${PLIST_LABEL}`],
-      { stdio: "ignore", timeout: 5_000 },
-    );
-  } catch {
-    return false;
-  }
-
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    await sleep(1_000);
-    if (await isProxyHealthy(host, port, 2_000)) {
-      return true;
-    }
-  }
-
-  return false;
+function isProxyAutoUpdateEnabled(
+  value = process.env.NEUROLINK_PROXY_AUTO_UPDATE,
+): boolean {
+  return ["1", "on", "true"].includes((value ?? "").trim().toLowerCase());
 }
 
 /** Keys we manage in Claude Code's settings.env */
@@ -972,6 +952,7 @@ async function loadProxyStartConfiguration(
   modelRouter: ModelRouter | undefined;
   passthrough: boolean;
   primaryAccountKey: string | undefined;
+  accountAllowlist: AccountAllowlist | undefined;
 }> {
   const configPath =
     argv.config ?? join(homedir(), ".neurolink", "proxy-config.yaml");
@@ -984,20 +965,15 @@ async function loadProxyStartConfiguration(
       spinner.text = `Loaded proxy config from ${configPath}`;
     }
   } catch (configError) {
-    if (argv.config) {
-      if (spinner) {
-        spinner.fail(chalk.red(`Failed to load proxy config: ${configPath}`));
-      }
-      process.exit(1);
-    }
     const isNotFound =
       configError instanceof Error &&
       "code" in configError &&
       (configError as NodeJS.ErrnoException).code === "ENOENT";
-    if (!isNotFound) {
-      logger.warn(
-        `[proxy] Ignoring default config ${configPath}: ${configError instanceof Error ? configError.message : String(configError)}`,
-      );
+    if (argv.config || !isNotFound) {
+      if (spinner) {
+        spinner.fail(chalk.red(`Failed to load proxy config: ${configPath}`));
+      }
+      throw configError;
     }
   }
 
@@ -1019,6 +995,17 @@ async function loadProxyStartConfiguration(
   const primaryAccountKey = await resolveBootPrimaryAccountKey(
     proxyConfig?.routing?.primaryAccount,
   );
+  const accountAllowlist = await resolveBootAccountAllowlist(
+    proxyConfig?.routing?.accountAllowlist,
+  );
+  if (
+    primaryAccountKey &&
+    !isAccountAllowed(primaryAccountKey, accountAllowlist)
+  ) {
+    throw new Error(
+      `Configured routing.primaryAccount=${proxyConfig?.routing?.primaryAccount} is excluded by routing.accountAllowlist`,
+    );
+  }
 
   return {
     configPath,
@@ -1027,7 +1014,48 @@ async function loadProxyStartConfiguration(
     modelRouter,
     passthrough: argv.passthrough ?? false,
     primaryAccountKey,
+    accountAllowlist,
   };
+}
+
+async function resolveBootAccountAllowlist(
+  configuredAccounts: string[] | undefined,
+): Promise<AccountAllowlist | undefined> {
+  const allowlist = createAccountAllowlist(configuredAccounts);
+  if (allowlist === undefined) {
+    return undefined;
+  }
+  if (allowlist.size === 0) {
+    logger.warn(
+      "[proxy] routing.accountAllowlist is empty; all stored Anthropic credentials are denied",
+    );
+    return allowlist;
+  }
+
+  try {
+    const { tokenStore } = await import("../../lib/auth/tokenStore.js");
+    const known = new Set(
+      (await tokenStore.listByPrefix("anthropic:")).map(
+        normalizeAnthropicAccountKey,
+      ),
+    );
+    known.add(LEGACY_ANTHROPIC_ACCOUNT_KEY);
+    known.add(ENV_ANTHROPIC_ACCOUNT_KEY);
+    for (const key of allowlist) {
+      if (!known.has(key)) {
+        logger.warn(
+          `[proxy] WARN: routing.accountAllowlist entry ${key} is allowed but not currently authenticated`,
+        );
+      }
+    }
+  } catch (err) {
+    logger.debug(
+      `[proxy] could not validate account allowlist against token store: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+  return allowlist;
 }
 
 /** Resolve the operator's configured primary email to a stable token-store
@@ -1042,11 +1070,11 @@ async function resolveBootPrimaryAccountKey(
   if (!trimmed) {
     return undefined;
   }
-  const key = `anthropic:${trimmed}`;
+  const key = normalizeAnthropicAccountKey(trimmed);
   try {
     const { tokenStore } = await import("../../lib/auth/tokenStore.js");
     const known = await tokenStore.listByPrefix("anthropic:");
-    if (!known.includes(key)) {
+    if (!known.some((knownKey) => anthropicAccountKeysEqual(knownKey, key))) {
       logger.warn(
         `[proxy] WARN: configured routing.primaryAccount=${trimmed} not ` +
           `found in token store; falling back to first enabled account. ` +
@@ -1073,6 +1101,7 @@ async function createProxyStartApp(params: {
   host: string;
   proxyConfig: LoadedProxyConfig | null;
   primaryAccountKey: string | undefined;
+  accountAllowlist: AccountAllowlist | undefined;
 }) {
   const { createClaudeProxyRoutes } =
     await import("../../lib/server/routes/claudeProxyRoutes.js");
@@ -1106,6 +1135,7 @@ async function createProxyStartApp(params: {
     params.strategy,
     params.passthrough,
     params.primaryAccountKey,
+    params.accountAllowlist,
   );
 
   const openaiRouteGroup = createOpenAIProxyRoutes(
@@ -1264,7 +1294,24 @@ async function createProxyStartApp(params: {
 
   app.get("/status", async (c) => {
     const { getStats } = await import("../../lib/proxy/usageStats.js");
+    const { loadAccountCooldowns } =
+      await import("../../lib/proxy/accountCooldown.js");
     const stats = getStats();
+    const cooldowns = await loadAccountCooldowns();
+    const storedAccountKeys = new Set<string>();
+    try {
+      const { tokenStore } = await import("../../lib/auth/tokenStore.js");
+      for (const key of await tokenStore.listByPrefix("anthropic:")) {
+        storedAccountKeys.add(normalizeAnthropicAccountKey(key));
+      }
+    } catch (err) {
+      logger.debug(
+        `[proxy] /status: failed to resolve account cooldown labels: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+    const now = Date.now();
     const health = buildProxyHealthResponse(readiness, {
       strategy: params.strategy,
       passthrough: params.passthrough,
@@ -1291,20 +1338,35 @@ async function createProxyStartApp(params: {
         totalSuccess: stats.totalSuccess,
         totalErrors: stats.totalErrors,
         totalRateLimits: stats.totalRateLimits,
-        accounts: Object.values(stats.accounts).map((account) => ({
-          label: account.label,
-          type: account.type,
-          attempts: account.attemptCount,
-          requests: account.attemptCount,
-          success: account.successCount,
-          errors: account.errorCount,
-          rateLimits: account.rateLimitCount,
-          cooling: false, // No persistent cooldown — always active
-        })),
+        accounts: Object.values(stats.accounts).map((account) => {
+          const normalizedKey = normalizeAnthropicAccountKey(account.label);
+          const accountKey = storedAccountKeys.has(normalizedKey)
+            ? normalizedKey
+            : account.label === "env"
+              ? ENV_ANTHROPIC_ACCOUNT_KEY
+              : account.type === "oauth"
+                ? LEGACY_ANTHROPIC_ACCOUNT_KEY
+                : normalizedKey;
+          return {
+            label: account.label,
+            type: account.type,
+            attempts: account.attemptCount,
+            requests: account.attemptCount,
+            success: account.successCount,
+            errors: account.errorCount,
+            rateLimits: account.rateLimitCount,
+            cooling: (cooldowns[accountKey]?.coolingUntil ?? 0) > now,
+          };
+        }),
         primaryAccount,
       },
       config: params.proxyConfig
-        ? { hasRouting: !!params.proxyConfig.routing }
+        ? {
+            hasRouting: !!params.proxyConfig.routing,
+            accountAllowlist: params.accountAllowlist
+              ? [...params.accountAllowlist]
+              : null,
+          }
         : null,
     });
   });
@@ -1373,16 +1435,68 @@ async function initializeProxyOpenTelemetry(): Promise<void> {
   }
 }
 
-async function refreshProxyTokensInBackground(): Promise<void> {
-  const { needsRefresh, refreshToken, persistTokens } =
-    await import("../../lib/proxy/tokenRefresh.js");
+const BACKGROUND_REFRESH_BASE_COOLDOWN_MS = 30_000;
+const BACKGROUND_REFRESH_MAX_COOLDOWN_MS = 5 * 60 * 1000;
+const backgroundRefreshFailures = new Map<
+  string,
+  { consecutiveFailures: number; coolingUntil: number }
+>();
+const backgroundRejectedRefreshTokens = new Map<string, string>();
+let backgroundRefreshInProgress = false;
+
+function canAttemptBackgroundRefresh(
+  key: string,
+  refreshToken?: string,
+): boolean {
+  const rejectedToken = backgroundRejectedRefreshTokens.get(key);
+  if (rejectedToken !== undefined) {
+    if (rejectedToken === refreshToken) {
+      return false;
+    }
+    backgroundRejectedRefreshTokens.delete(key);
+  }
+  const state = backgroundRefreshFailures.get(key);
+  return !state || Date.now() >= state.coolingUntil;
+}
+
+function recordBackgroundRefreshFailure(key: string): void {
+  const consecutiveFailures =
+    (backgroundRefreshFailures.get(key)?.consecutiveFailures ?? 0) + 1;
+  const delayMs = Math.min(
+    BACKGROUND_REFRESH_MAX_COOLDOWN_MS,
+    BACKGROUND_REFRESH_BASE_COOLDOWN_MS *
+      2 ** Math.min(consecutiveFailures - 1, 4),
+  );
+  backgroundRefreshFailures.set(key, {
+    consecutiveFailures,
+    coolingUntil: Date.now() + delayMs,
+  });
+}
+
+async function refreshProxyTokensInBackground(
+  accountAllowlist?: AccountAllowlist,
+): Promise<void> {
+  const {
+    needsRefresh,
+    refreshToken,
+    persistTokens,
+    isPermanentRefreshFailure,
+  } = await import("../../lib/proxy/tokenRefresh.js");
   const { tokenStore } = await import("../../lib/auth/tokenStore.js");
 
+  let storedAnthropicAccountCount: number | undefined;
   try {
     const allKeys = await tokenStore.listProviders();
     const anthropicKeys = allKeys.filter((key) => key.startsWith("anthropic:"));
+    storedAnthropicAccountCount = anthropicKeys.length;
     for (const key of anthropicKeys) {
       try {
+        if (
+          !isAccountAllowed(key, accountAllowlist) ||
+          (await tokenStore.isDisabled(key))
+        ) {
+          continue;
+        }
         const tokens = await tokenStore.loadTokens(key);
         if (!tokens) {
           continue;
@@ -1393,14 +1507,29 @@ async function refreshProxyTokensInBackground(): Promise<void> {
           refreshToken: tokens.refreshToken,
           expiresAt: tokens.expiresAt,
         };
-        if (needsRefresh(account)) {
-          const result = await refreshToken(account);
-          if (result.success) {
-            await persistTokens({ providerKey: key }, account);
-            logger.debug(
-              `[proxy] background token refresh succeeded for ${key}`,
-            );
-          }
+        if (!needsRefresh(account)) {
+          backgroundRefreshFailures.delete(key);
+          continue;
+        }
+        if (!canAttemptBackgroundRefresh(key, tokens.refreshToken)) {
+          continue;
+        }
+        const result = await refreshToken(account);
+        if (result.success) {
+          await persistTokens({ providerKey: key }, account);
+          backgroundRefreshFailures.delete(key);
+          logger.debug(`[proxy] background token refresh succeeded for ${key}`);
+        } else if (isPermanentRefreshFailure(result)) {
+          await tokenStore.markDisabled(key, "refresh_invalid");
+          backgroundRefreshFailures.delete(key);
+          logger.warn(
+            `[proxy] background refresh credential rejected for ${key}; disabled until explicit login`,
+          );
+        } else {
+          recordBackgroundRefreshFailure(key);
+          logger.debug(`[proxy] background token refresh deferred for ${key}`, {
+            status: result.status,
+          });
         }
       } catch {
         // non-fatal per-account
@@ -1411,6 +1540,16 @@ async function refreshProxyTokensInBackground(): Promise<void> {
   }
 
   try {
+    if (
+      storedAnthropicAccountCount === undefined ||
+      !shouldLoadFallbackCredential(
+        storedAnthropicAccountCount,
+        LEGACY_ANTHROPIC_ACCOUNT_KEY,
+        accountAllowlist,
+      )
+    ) {
+      return;
+    }
     const credPath = join(
       homedir(),
       ".neurolink",
@@ -1427,11 +1566,32 @@ async function refreshProxyTokensInBackground(): Promise<void> {
       refreshToken: creds.oauth.refreshToken,
       expiresAt: creds.oauth.expiresAt,
     };
-    if (needsRefresh(account)) {
+    const legacyKey = LEGACY_ANTHROPIC_ACCOUNT_KEY;
+    if (!needsRefresh(account)) {
+      backgroundRefreshFailures.delete(legacyKey);
+      return;
+    }
+    if (canAttemptBackgroundRefresh(legacyKey, account.refreshToken)) {
       const result = await refreshToken(account);
       if (result.success) {
         await persistTokens(credPath, account);
+        backgroundRefreshFailures.delete(legacyKey);
+        backgroundRejectedRefreshTokens.delete(legacyKey);
         logger.debug("[proxy] background token refresh succeeded");
+      } else if (isPermanentRefreshFailure(result)) {
+        backgroundRefreshFailures.delete(legacyKey);
+        backgroundRejectedRefreshTokens.set(
+          legacyKey,
+          account.refreshToken ?? "",
+        );
+        logger.warn(
+          "[proxy] background legacy refresh credential rejected; waiting for explicit login",
+        );
+      } else {
+        recordBackgroundRefreshFailure(legacyKey);
+        logger.debug("[proxy] background legacy token refresh deferred", {
+          status: result.status,
+        });
       }
     }
   } catch {
@@ -1441,16 +1601,35 @@ async function refreshProxyTokensInBackground(): Promise<void> {
 
 function startProxyBackgroundMaintenance(
   cleanupLogs: (days: number, maxMb: number) => void,
+  accountAllowlist?: AccountAllowlist,
 ): {
   refreshInterval: NodeJS.Timeout;
   logCleanupInterval: NodeJS.Timeout;
 } {
   const refreshInterval = setInterval(() => {
-    void refreshProxyTokensInBackground();
+    if (backgroundRefreshInProgress) {
+      return;
+    }
+    backgroundRefreshInProgress = true;
+    void refreshProxyTokensInBackground(accountAllowlist)
+      .catch((error) => {
+        logger.debug(
+          `[proxy] background token refresh cycle failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      })
+      .finally(() => {
+        backgroundRefreshInProgress = false;
+      });
   }, 30_000);
   const logCleanupInterval = setInterval(
     () => {
-      cleanupLogs(7, 500);
+      try {
+        cleanupLogs(7, 500);
+      } catch (error) {
+        logger.debug(
+          `[proxy] background log cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     },
     60 * 60 * 1000,
   );
@@ -1458,17 +1637,65 @@ function startProxyBackgroundMaintenance(
 }
 
 function registerProxyShutdownHandlers(params: {
-  server: { close?: () => void };
+  server: { close?: (callback?: (error?: Error) => void) => void };
   host: string;
   port: number;
   isDev?: boolean;
   refreshInterval: NodeJS.Timeout;
   logCleanupInterval: NodeJS.Timeout;
 }): void {
+  let shutdownStarted = false;
+
+  const closeServer = async (): Promise<void> => {
+    const close = params.server.close?.bind(params.server);
+    if (!close) {
+      return;
+    }
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const finish = (error?: Error) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timeout);
+        if (error) {
+          reject(error);
+        } else {
+          resolve();
+        }
+      };
+      const timeout = setTimeout(
+        () => finish(new Error("Timed out draining the proxy server")),
+        30_000,
+      );
+      timeout.unref?.();
+      try {
+        close((error) => finish(error));
+      } catch (error) {
+        finish(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  };
+
   const shutdown = async (signal: string) => {
+    if (shutdownStarted) {
+      return;
+    }
+    shutdownStarted = true;
     clearInterval(params.refreshInterval);
     clearInterval(params.logCleanupInterval);
     logger.always(`\nShutting down proxy (${signal})...`);
+    let exitCode = signal === "SIGINT" ? 0 : 1;
+
+    try {
+      await closeServer();
+    } catch (error) {
+      exitCode = 1;
+      logger.error(
+        `[proxy] failed to drain server during shutdown: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
 
     try {
       const { flushOpenTelemetry, shutdownOpenTelemetry } =
@@ -1499,19 +1726,28 @@ function registerProxyShutdownHandlers(params: {
     }
 
     try {
-      params.server.close?.();
-    } catch {
-      // Best-effort close
+      clearProxyState();
+    } catch (error) {
+      exitCode = 1;
+      logger.error(
+        `[proxy] failed to clear runtime state during shutdown: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-    clearProxyState();
-    process.exit(signal === "SIGINT" ? 0 : 1);
+    process.exit(exitCode);
+  };
+
+  const forceExitAfterShutdownFailure = (error: unknown): never => {
+    logger.error(
+      `[proxy] unexpected shutdown failure: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exit(1);
   };
 
   process.on("SIGTERM", () => {
-    void shutdown("SIGTERM");
+    void shutdown("SIGTERM").catch(forceExitAfterShutdownFailure);
   });
   process.on("SIGINT", () => {
-    void shutdown("SIGINT");
+    void shutdown("SIGINT").catch(forceExitAfterShutdownFailure);
   });
 }
 
@@ -1524,6 +1760,7 @@ async function startProxyRuntime(params: {
   port: number;
   strategy: ProxyStartStrategy;
   proxyConfig: LoadedProxyConfig | null;
+  accountAllowlist: AccountAllowlist | undefined;
   loadedEnvFile: string | undefined;
   passthrough: boolean;
   cleanupLogs: ProxyNeurolinkRuntime["cleanupLogs"];
@@ -1534,11 +1771,14 @@ async function startProxyRuntime(params: {
     port: params.port,
     hostname: params.host,
   });
-  // Skip the fail-open guard in dev mode — it monitors the proxy and clears
-  // global Claude settings on exit, which is exactly what we want to avoid.
-  const guardPid = params.argv.dev
-    ? undefined
-    : spawnFailOpenGuard(params.host, params.port, process.pid);
+  const managedByLaunchd = isLaunchdManagedProcess();
+  // launchd already owns restart supervision. A second detached supervisor can
+  // outlive its parent and terminate a healthy replacement, so the guard is
+  // reserved for foreground mode where it only cleans stale client settings.
+  const guardPid =
+    params.argv.dev || managedByLaunchd
+      ? undefined
+      : spawnFailOpenGuard(params.host, params.port, process.pid);
   const readinessHost = params.host === "0.0.0.0" ? "127.0.0.1" : params.host;
   await waitForProxyReadiness({
     host: readinessHost,
@@ -1565,11 +1805,11 @@ async function startProxyRuntime(params: {
     statusPath: "/status",
     envFile: params.loadedEnvFile,
     fallbackChain,
+    accountAllowlist: params.accountAllowlist
+      ? [...params.accountAllowlist]
+      : undefined,
     guardPid,
-    managedBy:
-      process.platform === "darwin" && process.ppid === 1
-        ? "launchd"
-        : "manual",
+    managedBy: managedByLaunchd ? "launchd" : "manual",
     passthrough: params.passthrough,
   });
 
@@ -1639,7 +1879,10 @@ async function startProxyRuntime(params: {
     );
   }
 
-  const maintenance = startProxyBackgroundMaintenance(params.cleanupLogs);
+  const maintenance = startProxyBackgroundMaintenance(
+    params.cleanupLogs,
+    params.accountAllowlist,
+  );
   registerProxyShutdownHandlers({
     server,
     host: params.host,
@@ -1665,6 +1908,9 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       const { initAccountQuota } =
         await import("../../lib/proxy/accountQuota.js");
       initAccountQuota(devPaths.quotaFile);
+      const { initAccountCooldown } =
+        await import("../../lib/proxy/accountCooldown.js");
+      initAccountCooldown(devPaths.cooldownFile);
 
       // Ensure the dev state directory exists
       const { mkdirSync, existsSync } = await import("fs");
@@ -1692,6 +1938,7 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       modelRouter,
       passthrough,
       primaryAccountKey,
+      accountAllowlist,
     } = await loadProxyStartConfiguration(argv, spinner);
 
     if (spinner) {
@@ -1709,6 +1956,7 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       host,
       proxyConfig,
       primaryAccountKey,
+      accountAllowlist,
     });
 
     await initializeProxyOpenTelemetry();
@@ -1726,6 +1974,7 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       port,
       strategy,
       proxyConfig,
+      accountAllowlist,
       loadedEnvFile,
       passthrough,
       cleanupLogs,
@@ -1907,6 +2156,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         url: null as string | null,
         envFile: null as string | null,
         fallbackChain: null as FallbackInfo[] | null,
+        accountAllowlist: null as string[] | null,
       };
 
       if (state && isProcessRunning(state.pid)) {
@@ -1921,6 +2171,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         status.url = `http://${state.host === "0.0.0.0" ? "localhost" : state.host}:${state.port}`;
         status.envFile = state.envFile ?? null;
         status.fallbackChain = state.fallbackChain ?? null;
+        status.accountAllowlist = state.accountAllowlist ?? null;
       }
 
       // Fetch live stats before rendering (JSON or text)
@@ -1977,6 +2228,13 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
           logger.always(
             `  ${chalk.bold("Env File:")}   ${chalk.cyan(status.envFile)}`,
           );
+        }
+        if (status.accountAllowlist) {
+          const scope =
+            status.accountAllowlist.length > 0
+              ? status.accountAllowlist.join(", ")
+              : "none (deny all)";
+          logger.always(`  ${chalk.bold("Accounts:")}   ${chalk.cyan(scope)}`);
         }
 
         // Display fallback chain if configured
@@ -2196,10 +2454,8 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
       return;
     }
 
-    // ---------------------------------------------------------------
-    // Auto-update loop (runs concurrently with the health monitor)
-    // Always on — no flags needed. Hardcoded sensible defaults.
-    // ---------------------------------------------------------------
+    // Automatic package mutation is disabled by default. Operators must opt in
+    // explicitly, and launchd-managed proxy processes do not spawn this guard.
     const UPDATE_CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
     const QUIET_THRESHOLD_MS = 120 * 1000; // 2 minutes of silence
     const UPDATE_TIMEOUT_MS = 30 * 1000; // 30 seconds to come healthy
@@ -2219,12 +2475,28 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
     // Auto-update only works on macOS with launchd. On other platforms,
     // there's no restart mechanism, so skip the update loop entirely.
     const canAutoUpdate =
-      process.platform === "darwin" && (await isLaunchdManaging());
+      isProxyAutoUpdateEnabled() &&
+      process.platform === "darwin" &&
+      (await isLaunchdManaging());
 
+    let guardStopping = false;
+    let updateCheckTimeout: NodeJS.Timeout | undefined;
+    let updateCheckInterval: NodeJS.Timeout | undefined;
+    const stopUpdateChecks = (): void => {
+      guardStopping = true;
+      if (updateCheckTimeout) {
+        clearTimeout(updateCheckTimeout);
+        updateCheckTimeout = undefined;
+      }
+      if (updateCheckInterval) {
+        clearInterval(updateCheckInterval);
+        updateCheckInterval = undefined;
+      }
+    };
     let updateInProgress = false;
     let updateRestartInProgress = false;
     const runUpdateCheck = async () => {
-      if (updateInProgress) {
+      if (guardStopping || updateInProgress) {
         return;
       }
       updateInProgress = true;
@@ -2325,6 +2597,9 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         logger.always(
           `[guard] traffic quiet, installing @juspay/neurolink@${result.latestVersion} via ${pnpmResolution.bin} (pnpm v${pnpmResolution.version})...`,
         );
+        if (guardStopping || getProcessStatus(parentPid) === "not_running") {
+          return;
+        }
         const { execFileSync } = await import("node:child_process");
         try {
           execFileSync(
@@ -2431,6 +2706,10 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           // Continue with restart anyway — the stable bin symlink may still be correct
         }
 
+        if (guardStopping || getProcessStatus(parentPid) === "not_running") {
+          return;
+        }
+
         // Signal the health loop to not exit when it detects
         // the parent PID is gone — we're intentionally restarting.
         updateRestartInProgress = true;
@@ -2440,7 +2719,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         const uid = process.getuid?.() ?? 501;
         try {
           // bootout unloads the in-memory job definition. This is required
-          // because `kickstart -k` reuses the cached plist and ignores any
+          // because a forced kickstart reuses the cached plist and ignores any
           // on-disk changes (like the trampoline rewrite above).
           try {
             execFileSync(
@@ -2517,8 +2796,11 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
 
     // Run first check after a short delay, then on interval
     if (canAutoUpdate) {
-      setTimeout(runUpdateCheck, 30_000);
-      setInterval(runUpdateCheck, UPDATE_CHECK_INTERVAL_MS);
+      updateCheckTimeout = setTimeout(runUpdateCheck, 30_000);
+      updateCheckInterval = setInterval(
+        runUpdateCheck,
+        UPDATE_CHECK_INTERVAL_MS,
+      );
     }
 
     const startedAt = Date.now();
@@ -2539,17 +2821,26 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         // Parent is gone (and we're not mid-update-restart).
         // If endpoint is still healthy, another proxy took over.
         if (healthy) {
+          stopUpdateChecks();
           return;
         }
         break;
       }
 
       if (!healthy && consecutiveUnhealthy >= failureThreshold) {
-        // Parent still exists but endpoint is repeatedly unhealthy.
-        break;
+        // A detached guard cannot safely decide that a live process should be
+        // replaced. Leave recovery to the foreground operator or launchd.
+        if (!argv.quiet) {
+          logger.always(
+            `[proxy] fail-open guard observed an unhealthy live parent; leaving process supervision unchanged`,
+          );
+        }
+        stopUpdateChecks();
+        return;
       }
 
       if (maxWaitMs > 0 && Date.now() - startedAt >= maxWaitMs) {
+        stopUpdateChecks();
         return;
       }
 
@@ -2557,19 +2848,13 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
       parentStatus = getProcessStatus(parentPid);
     }
 
+    stopUpdateChecks();
+
     const guardHost = host === "0.0.0.0" ? "localhost" : host;
     const expectedBaseUrl = `http://${guardHost}:${port}`;
 
-    // Attempt restart via launchd before falling back to cleanup
-    const restarted = await tryLaunchdRestart(guardHost, port);
-    if (restarted) {
-      if (!argv.quiet) {
-        logger.always(`[proxy] fail-open guard restarted proxy via launchd`);
-      }
-      return;
-    }
-
-    // Restart failed or launchd not installed — clean up Claude settings
+    // The parent is confirmed gone and no replacement is healthy. Foreground
+    // guards are cleanup-only; they never restart or signal proxy processes.
     const cleared = await clearClaudeProxySettings(expectedBaseUrl);
     try {
       await clearOpenCodeProxySettings(`${expectedBaseUrl}/v1`);
@@ -2904,6 +3189,9 @@ ${configArgs}
 
   <key>ThrottleInterval</key>
   <integer>5</integer>
+
+  <key>ExitTimeOut</key>
+  <integer>45</integer>
 
   <key>StandardOutPath</key>
   <string>${join(homedir(), ".neurolink", "logs", "proxy-launchd-stdout.log")}</string>
