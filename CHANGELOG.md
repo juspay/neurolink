@@ -1,3 +1,9 @@
+## [9.86.5](https://github.com/juspay/neurolink/compare/v9.86.4...v9.86.5) (2026-07-14)
+
+### Bug Fixes
+
+- **(proxy):** harden routing and process reliability ([be7487c](https://github.com/juspay/neurolink/commit/be7487cec6870176dfbcac3ed8b547a36bcc887a))
+
 ## [9.86.4](https://github.com/juspay/neurolink/compare/v9.86.3...v9.86.4) (2026-07-11)
 
 ### Bug Fixes
