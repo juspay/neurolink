@@ -27,6 +27,7 @@
 
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import type { PinnedAddress } from "../types/index.js";
 
 /**
  * Blocked IPv4 CIDRs.
@@ -323,6 +324,21 @@ export async function assertSafeUrl(url: string): Promise<void> {
 
   // Hostname — resolve BOTH A and AAAA. Reject if either family yields a
   // blocked address (closes off the "publish AAAA public, A private" attack).
+  await resolveAndValidateHost(url, host);
+}
+
+/**
+ * Resolve `host` (both A and AAAA) and validate every returned address
+ * against the block lists. Returns the full validated set so callers that
+ * pin connections can offer the connect layer more than one address.
+ *
+ * @throws {Error} when resolution fails entirely or any address is blocked
+ *   (all-must-pass — the caller may connect to any address in the set).
+ */
+async function resolveAndValidateHost(
+  url: string,
+  host: string,
+): Promise<{ v4: string[]; v6: string[] }> {
   const [a, aaaa] = await Promise.allSettled([
     lookup(host, { family: 4, all: true }),
     lookup(host, { family: 6, all: true }),
@@ -383,22 +399,33 @@ export async function assertSafeUrl(url: string): Promise<void> {
       );
     }
   }
+
+  return { v4: v4Addresses, v6: v6Addresses };
 }
 
 /**
- * Validate `url` and return the resolved IP that should be used for the
- * actual fetch (companion to `safeFetch.ts:safeDownload`).
+ * Validate `url` and return the resolved address set that should be used for
+ * the actual fetch (companion to `safeFetch.ts:safeDownload`).
  *
- * For IP-literal hosts, returns the normalised IP and family. For hostnames,
- * returns the first acceptable IP from the resolver. Same throw semantics as
- * {@link assertSafeUrl}.
+ * For IP-literal hosts, `addresses` is the normalised IP as a singleton. For
+ * hostnames it is **every** validated address, IPv4 first, so the connect
+ * layer can race families (Happy Eyeballs). Pinning a single OS-preferred
+ * address breaks every download on IPv4-only networks whenever the resolver
+ * prefers AAAA: the pinned connection has no second address to fall back to,
+ * so it times out where plain `curl` (which races both families) succeeds.
+ * `ip`/`family` mirror the first entry for callers that need a single pin.
+ *
+ * Same throw semantics as {@link assertSafeUrl}.
  *
  * This is the canonical entry point for binary downloads where DNS-rebinding
  * pinning matters — see `safeFetch.ts`.
  */
-export async function validateAndResolveUrl(
-  url: string,
-): Promise<{ url: string; ip: string; family: 4 | 6 }> {
+export async function validateAndResolveUrl(url: string): Promise<{
+  url: string;
+  ip: string;
+  family: 4 | 6;
+  addresses: readonly PinnedAddress[];
+}> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -420,7 +447,7 @@ export async function validateAndResolveUrl(
         `URL "${url}" rejected: IPv4 ${host} → ${v4} is in a blocked range`,
       );
     }
-    return { url, ip: v4, family: 4 };
+    return { url, ip: v4, family: 4, addresses: [{ ip: v4, family: 4 }] };
   }
   if (host.includes(":")) {
     const v4FromMapped = extractIPv4FromMapped(host);
@@ -430,7 +457,12 @@ export async function validateAndResolveUrl(
           `URL "${url}" rejected: IPv4-mapped IPv6 ${host} → ${v4FromMapped} is in a blocked range`,
         );
       }
-      return { url, ip: v4FromMapped, family: 4 };
+      return {
+        url,
+        ip: v4FromMapped,
+        family: 4,
+        addresses: [{ ip: v4FromMapped, family: 4 }],
+      };
     }
     const expanded = expandIPv6(host);
     if (!expanded) {
@@ -443,11 +475,28 @@ export async function validateAndResolveUrl(
         `URL "${url}" rejected: IPv6 ${host} is in a blocked range`,
       );
     }
-    return { url, ip: host, family: 6 };
+    return { url, ip: host, family: 6, addresses: [{ ip: host, family: 6 }] };
   }
 
-  // Hostname — resolve and pick a safe address
-  await assertSafeUrl(url);
-  const result = await lookup(host);
-  return { url, ip: result.address, family: result.family as 4 | 6 };
+  // Hostname — resolve once, validate every address, and return the whole
+  // set. Validating the same answer we hand to the connect layer also
+  // removes the rebinding window the previous separate `lookup()` left
+  // between validation and pinning.
+  const { v4: v4Addresses, v6: v6Addresses } = await resolveAndValidateHost(
+    url,
+    host,
+  );
+  const addresses: PinnedAddress[] = [
+    ...v4Addresses.map((ip): PinnedAddress => ({ ip, family: 4 })),
+    ...v6Addresses.map((ip): PinnedAddress => ({ ip, family: 6 })),
+  ];
+  const first = addresses[0];
+  if (!first) {
+    // Both lookups "succeeded" but returned zero addresses — treat exactly
+    // like a resolution failure rather than pinning nothing.
+    throw new Error(
+      `URL "${url}" rejected: hostname ${host} resolved to an empty address set`,
+    );
+  }
+  return { url, ip: first.ip, family: first.family, addresses };
 }
