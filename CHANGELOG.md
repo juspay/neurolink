@@ -1,3 +1,9 @@
+## [9.88.3](https://github.com/juspay/neurolink/compare/v9.88.2...v9.88.3) (2026-07-15)
+
+### Bug Fixes
+
+- **(file-detector):** path-traversal sandbox, TOCTOU-safe read, clearer errors ([7ccc90d](https://github.com/juspay/neurolink/commit/7ccc90def73f05feeba09e57eac1a1ef8f441ebc)), closes [#279](https://github.com/juspay/neurolink/issues/279) [#272](https://github.com/juspay/neurolink/issues/272) [#360](https://github.com/juspay/neurolink/issues/360)
+
 ## [9.88.2](https://github.com/juspay/neurolink/compare/v9.88.1...v9.88.2) (2026-07-15)
 
 ### Bug Fixes
