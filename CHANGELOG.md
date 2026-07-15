@@ -1,3 +1,9 @@
+## [9.88.8](https://github.com/juspay/neurolink/compare/v9.88.7...v9.88.8) (2026-07-15)
+
+### Bug Fixes
+
+- **(csv):** BOM stripping, input validation, stream cleanup, quoted-comma header ([3cdecf4](https://github.com/juspay/neurolink/commit/3cdecf4fc3dad15e340fafbdf265664e80e22996)), closes [#374](https://github.com/juspay/neurolink/issues/374) [#385](https://github.com/juspay/neurolink/issues/385) [#371](https://github.com/juspay/neurolink/issues/371) [#375](https://github.com/juspay/neurolink/issues/375)
+
 ## [9.88.7](https://github.com/juspay/neurolink/compare/v9.88.6...v9.88.7) (2026-07-15)
 
 ### Bug Fixes
