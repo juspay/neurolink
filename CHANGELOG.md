@@ -1,3 +1,9 @@
+## [9.88.5](https://github.com/juspay/neurolink/compare/v9.88.4...v9.88.5) (2026-07-15)
+
+### Bug Fixes
+
+- **(pptx):** extract speaker notes into PptxProcessor output ([addbcc7](https://github.com/juspay/neurolink/commit/addbcc7f7f4a089b8a3cd5a212911aa6ee1063b0))
+
 ## [9.88.4](https://github.com/juspay/neurolink/compare/v9.88.3...v9.88.4) (2026-07-15)
 
 ### Bug Fixes
