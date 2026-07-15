@@ -1,3 +1,9 @@
+## [9.88.9](https://github.com/juspay/neurolink/compare/v9.88.8...v9.88.9) (2026-07-15)
+
+### Bug Fixes
+
+- **(json):** unwrap single-element array wrapper for object schemas ([344ee70](https://github.com/juspay/neurolink/commit/344ee70c645ff52fbf3292bf48de98106b33a325))
+
 ## [9.88.8](https://github.com/juspay/neurolink/compare/v9.88.7...v9.88.8) (2026-07-15)
 
 ### Bug Fixes
