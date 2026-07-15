@@ -4,9 +4,9 @@
  * Combines:
  *   - `assertSafeUrl` (validates and rejects blocked IPs)
  *   - undici `Agent` with custom `connect.lookup` so the actual connection
- *     uses the IP we validated (closes the DNS-rebinding window where the
- *     resolver returns a public IP for the guard but a private IP for the
- *     real request).
+ *     only ever dials addresses we validated (closes the DNS-rebinding window
+ *     where the resolver returns a public IP for the guard but a private IP
+ *     for the real request).
  *   - `readBoundedBuffer` for size cap.
  *   - `redirect: "manual"` so a 3xx → private-IP redirect can't bypass
  *     the guard.
@@ -18,18 +18,33 @@
  */
 
 import { Agent, fetch as undiciFetch } from "undici";
-import type { SafeDownloadOptions } from "../types/index.js";
+import type { PinnedAddress, SafeDownloadOptions } from "../types/index.js";
 import { readBoundedBuffer } from "./sizeGuard.js";
 import { validateAndResolveUrl } from "./ssrfGuard.js";
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 /**
- * Build a once-off undici Agent whose connect lookup resolves `hostname` to a
- * fixed IP. This pins the actual TCP connection to the IP we validated,
- * removing the DNS-rebinding window.
+ * Build a once-off undici Agent whose connect lookup resolves `hostname` to
+ * the validated address set. The actual TCP connection can only ever go to
+ * an address the SSRF guard cleared, removing the DNS-rebinding window.
+ *
+ * The full set (IPv4 first) matters: pinning a single address turns one
+ * unroutable family into a hard connect timeout. On IPv4-only networks where
+ * the OS resolver prefers AAAA, that broke every safeDownload (Replicate /
+ * Runway / Kling asset fetches) while plain curl of the same URL succeeded —
+ * curl races both families (Happy Eyeballs); a one-address pin cannot.
  */
-function buildPinnedAgent(hostname: string, ip: string, family: 4 | 6): Agent {
+function buildPinnedAgent(
+  hostname: string,
+  addresses: readonly PinnedAddress[],
+): Agent {
+  const primary = addresses[0];
+  if (!primary) {
+    throw new Error(
+      `safeFetch: no validated addresses to pin for "${hostname}"`,
+    );
+  }
   return new Agent({
     connect: {
       lookup: (host, options, callback) => {
@@ -47,15 +62,16 @@ function buildPinnedAgent(hostname: string, ip: string, family: 4 | 6): Agent {
         }
         // Node ≥20 enables autoSelectFamily (Happy Eyeballs) by default, and
         // its lookup contract passes `all: true` expecting an address ARRAY.
-        // Answering with the string form there fails the connection with
-        // "Invalid IP address: undefined" — which broke every safeDownload
-        // (Replicate / Runway / Kling asset fetches) on modern Node while
-        // plain curl of the same URL succeeded.
+        // Hand it every validated address so it can race families and fall
+        // back when one is unroutable.
         if (options?.all) {
-          callback(null, [{ address: ip, family }]);
+          callback(
+            null,
+            addresses.map((a) => ({ address: a.ip, family: a.family })),
+          );
           return;
         }
-        callback(null, ip, family);
+        callback(null, primary.ip, primary.family);
       },
     },
   });
@@ -71,11 +87,11 @@ export async function safeDownload(
   url: string,
   options: SafeDownloadOptions,
 ): Promise<Buffer> {
-  const { url: validatedUrl, ip, family } = await validateAndResolveUrl(url);
+  const { url: validatedUrl, addresses } = await validateAndResolveUrl(url);
   const parsed = new URL(validatedUrl);
   const hostname = parsed.hostname.replace(/^\[|\]$/g, "");
 
-  const agent = buildPinnedAgent(hostname, ip, family);
+  const agent = buildPinnedAgent(hostname, addresses);
 
   const timeoutCtrl = new AbortController();
   const timeoutId = setTimeout(

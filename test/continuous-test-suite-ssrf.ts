@@ -243,6 +243,67 @@ try {
   );
 }
 
+// IP literals carry the validated set as a singleton — the pinned agent
+// consumes `addresses`, so a literal must produce exactly its own IP there.
+try {
+  const result = await validateAndResolveUrl("https://1.1.1.1/");
+  const single = result.addresses.length === 1 ? result.addresses[0] : null;
+  if (single && single.ip === "1.1.1.1" && single.family === 4) {
+    recordTest(
+      "validateAndResolveUrl literal yields singleton addresses[]",
+      true,
+    );
+  } else {
+    recordTest(
+      "validateAndResolveUrl literal yields singleton addresses[]",
+      false,
+      false,
+      `got addresses=${JSON.stringify(result.addresses)}`,
+    );
+  }
+} catch (err) {
+  recordTest(
+    "validateAndResolveUrl literal yields singleton addresses[]",
+    false,
+    false,
+    `unexpectedly rejected: ${err instanceof Error ? err.message : String(err)}`,
+  );
+}
+
+// Dual-stack hostname — the returned set must be IPv4-first and `ip`/`family`
+// must mirror its first entry. Regression guard for the single-pin bug: on an
+// IPv4-only network with an AAAA-preferring OS resolver, pinning one IPv6
+// address made every safeDownload connect-timeout (observed live against
+// replicate.delivery) while curl, racing both families, succeeded.
+try {
+  const result = await validateAndResolveUrl("https://one.one.one.one/");
+  const families = result.addresses.map((a) => a.family);
+  const v4First = result.family === 4 && families[0] === 4;
+  const mirrorsFirst =
+    result.ip === result.addresses[0]?.ip &&
+    result.family === result.addresses[0]?.family;
+  const grouped = families.every(
+    (f, i) => i === 0 || f >= (families[i - 1] ?? 0),
+  );
+  if (v4First && mirrorsFirst && grouped) {
+    recordTest("validateAndResolveUrl hostname set is IPv4-first", true);
+  } else {
+    recordTest(
+      "validateAndResolveUrl hostname set is IPv4-first",
+      false,
+      false,
+      `got ip=${result.ip} family=${result.family} addresses=${JSON.stringify(result.addresses)}`,
+    );
+  }
+} catch (err) {
+  recordTest(
+    "validateAndResolveUrl hostname set is IPv4-first",
+    false,
+    false,
+    `unexpectedly rejected: ${err instanceof Error ? err.message : String(err)}`,
+  );
+}
+
 // ───────────────────────────────────────────────────────────────────────
 // Section F — safeDownload propagation (H06)
 // ───────────────────────────────────────────────────────────────────────

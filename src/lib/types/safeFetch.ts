@@ -4,6 +4,16 @@
  * Runtime helper lives in `src/lib/utils/safeFetch.ts`.
  */
 
+/**
+ * One validated address the pinned connect layer is allowed to dial.
+ * Produced by `ssrfGuard.ts:validateAndResolveUrl`, consumed by
+ * `safeFetch.ts:buildPinnedAgent`.
+ */
+export type PinnedAddress = {
+  ip: string;
+  family: 4 | 6;
+};
+
 export type SafeDownloadOptions = {
   /** Hard cap on response size in bytes. Pass MAX_VIDEO_BYTES/MAX_AUDIO_BYTES/MAX_IMAGE_BYTES from sizeGuard. */
   maxBytes: number;
