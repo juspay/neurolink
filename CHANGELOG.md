@@ -1,3 +1,9 @@
+## [9.88.2](https://github.com/juspay/neurolink/compare/v9.88.1...v9.88.2) (2026-07-15)
+
+### Bug Fixes
+
+- **(security):** harden isMultimodalInput guard + remove hardcoded AWS account ID ([b9d140f](https://github.com/juspay/neurolink/commit/b9d140fadcc09349a90389bf93f98167583b5d7b)), closes [#278](https://github.com/juspay/neurolink/issues/278)
+
 ## [9.88.1](https://github.com/juspay/neurolink/compare/v9.88.0...v9.88.1) (2026-07-15)
 
 ### Bug Fixes
