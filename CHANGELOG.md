@@ -1,3 +1,9 @@
+## [9.87.2](https://github.com/juspay/neurolink/compare/v9.87.1...v9.87.2) (2026-07-15)
+
+### Bug Fixes
+
+- **(utils):** pin SSRF downloads to the full validated address set (IPv4 first) ([bfc4c14](https://github.com/juspay/neurolink/commit/bfc4c14252b62f23e8f11785ffb88924c6375413))
+
 ## [9.87.1](https://github.com/juspay/neurolink/compare/v9.87.0...v9.87.1) (2026-07-14)
 
 ### Bug Fixes
