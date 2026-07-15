@@ -787,7 +787,7 @@ const tests: TestFunction[] = [
           "Anthropic accounts are cooling after upstream rate limits",
         ) &&
         src.includes("Earliest retry at") &&
-        src.includes("const effectiveAccounts = nonCoolingAccounts;")
+        src.includes("let effectiveAccounts = nonCoolingAccounts;")
       );
     },
   },

@@ -694,6 +694,11 @@ export type AccountCooldownPlan = {
   rotateImmediately: boolean;
 };
 
+export type TransientRateLimitRetryBudget = {
+  coolingUntil: number;
+  retriesClaimed: number;
+};
+
 export type AnthropicUpstreamFetchResult = {
   continueLoop: boolean;
   retrySameAccount?: boolean;
@@ -703,6 +708,15 @@ export type AnthropicUpstreamFetchResult = {
   cooldownPlan?: AccountCooldownPlan;
   /** Quota snapshot parsed from the response headers (429 or success), if present. */
   quota?: AccountQuota;
+  /** A terminal upstream rejection already captured and classified by the
+   *  fetch layer. The route must finalize it directly instead of feeding it
+   *  through the generic non-OK handler a second time. */
+  terminalError?: {
+    status: number;
+    body: string;
+    headers: Record<string, string>;
+    errorType: "construction_rejection";
+  };
   response?: Response;
   lastError: unknown;
   sawRateLimit: boolean;
