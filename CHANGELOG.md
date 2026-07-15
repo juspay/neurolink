@@ -1,3 +1,9 @@
+## [9.87.3](https://github.com/juspay/neurolink/compare/v9.87.2...v9.87.3) (2026-07-15)
+
+### Bug Fixes
+
+- **(proxy):** harden Anthropic request and retry handling ([1b455cb](https://github.com/juspay/neurolink/commit/1b455cbc7181646942f14e3d38ad2d55c9667026))
+
 ## [9.87.2](https://github.com/juspay/neurolink/compare/v9.87.1...v9.87.2) (2026-07-15)
 
 ### Bug Fixes
