@@ -1,3 +1,10 @@
+## [9.87.4](https://github.com/juspay/neurolink/compare/v9.87.3...v9.87.4) (2026-07-15)
+
+### Bug Fixes
+
+- **(proxy):** harden updater fallback and error telemetry ([4ed5e39](https://github.com/juspay/neurolink/commit/4ed5e391b916a7111192574f7dbd5b92f22b6d53))
+- **(proxy):** prioritize expiring session windows in account routing ([e78a356](https://github.com/juspay/neurolink/commit/e78a35666edabbf3d63853bdcca91e29c5ddd004))
+
 ## [9.87.3](https://github.com/juspay/neurolink/compare/v9.87.2...v9.87.3) (2026-07-15)
 
 ### Bug Fixes
