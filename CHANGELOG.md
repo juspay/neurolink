@@ -1,3 +1,9 @@
+## [9.88.4](https://github.com/juspay/neurolink/compare/v9.88.3...v9.88.4) (2026-07-15)
+
+### Bug Fixes
+
+- **(file-detector):** disambiguate M4A/MOV/WebM/AAC by container brand & DocType ([6fac501](https://github.com/juspay/neurolink/commit/6fac501f496c55f9306536a4883d165b6015b3a1)), closes [#431](https://github.com/juspay/neurolink/issues/431) [#435](https://github.com/juspay/neurolink/issues/435) [#424](https://github.com/juspay/neurolink/issues/424)
+
 ## [9.88.3](https://github.com/juspay/neurolink/compare/v9.88.2...v9.88.3) (2026-07-15)
 
 ### Bug Fixes
