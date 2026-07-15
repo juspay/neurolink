@@ -1,3 +1,9 @@
+## [9.88.6](https://github.com/juspay/neurolink/compare/v9.88.5...v9.88.6) (2026-07-15)
+
+### Bug Fixes
+
+- **(pdf):** validate render scale in convertToImages ([20febda](https://github.com/juspay/neurolink/commit/20febdafad01bf569a423b5b30751ab2bea19ba1))
+
 ## [9.88.5](https://github.com/juspay/neurolink/compare/v9.88.4...v9.88.5) (2026-07-15)
 
 ### Bug Fixes
