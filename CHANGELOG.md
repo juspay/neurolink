@@ -1,3 +1,9 @@
+## [9.88.1](https://github.com/juspay/neurolink/compare/v9.88.0...v9.88.1) (2026-07-15)
+
+### Bug Fixes
+
+- **(tools):** sandbox built-in file tools to the working directory ([4fc8520](https://github.com/juspay/neurolink/commit/4fc8520dbc024dec826a69a5f8264af7a25ff0e1))
+
 ## [9.88.0](https://github.com/juspay/neurolink/compare/v9.87.4...v9.88.0) (2026-07-15)
 
 ### Features
