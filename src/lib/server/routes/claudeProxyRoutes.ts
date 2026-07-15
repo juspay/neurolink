@@ -581,40 +581,104 @@ function isQuotaRoutingEnabled(): boolean {
   return v !== "off" && v !== "false" && v !== "0";
 }
 
-/** Derive the ordering signals for an account from its latest runtime quota. */
-function accountSortMetrics(accountKey: string, now: number) {
+/** Session-utilization soft limit above which an account is demoted below
+ *  accounts with headroom (never made unusable). The utilization snapshot is
+ *  always at least one response stale and requests land in concurrent bursts,
+ *  so a small buffer under 100% turns the window-exhaustion handoff proactive
+ *  (scheduled between requests) instead of reactive (a burst of 429s).
+ *  Override with NEUROLINK_PROXY_SESSION_SOFT_LIMIT (0 < x <= 1; 1 disables). */
+function getSessionSoftLimit(): number {
+  // Number() rejects partially numeric values ("0.5oops") that parseFloat
+  // would silently truncate.
+  const raw = Number(process.env.NEUROLINK_PROXY_SESSION_SOFT_LIMIT ?? "");
+  return Number.isFinite(raw) && raw > 0 && raw <= 1 ? raw : 0.97;
+}
+
+/** Width of the bucket within which two session resets count as "the same
+ *  time", letting the weekly reset decide. Exact epoch equality never occurs,
+ *  and bucketing (unlike pairwise closeness) keeps the comparator transitive.
+ *  Override with NEUROLINK_PROXY_SESSION_RESET_TOLERANCE_MS. */
+function getSessionResetToleranceMs(): number {
+  // Number() + isInteger rejects partially numeric values ("900000oops")
+  // that parseInt would silently truncate.
+  const raw = Number(
+    process.env.NEUROLINK_PROXY_SESSION_RESET_TOLERANCE_MS ?? "",
+  );
+  return Number.isInteger(raw) && raw > 0 ? raw : 15 * 60 * 1000;
+}
+
+/**
+ * Derive the ordering signals for an account from its latest runtime quota.
+ *
+ * Reset freshening: a window whose reset epoch has already passed is treated
+ * as FRESH (0 used, "allowed", reset unknown) at read time — stale snapshot
+ * numbers from before the reset can never saturate or reject an account whose
+ * window Anthropic has since renewed. The snapshot itself is refreshed from
+ * live response headers the next time the account serves a request.
+ */
+function accountSortMetrics(
+  accountKey: string,
+  now: number,
+  sessionSoftLimit: number,
+  sessionResetToleranceMs: number,
+) {
   const st = accountRuntimeState.get(accountKey);
   const q = st?.quota;
   const coolingActive = !!st?.coolingUntil && now < st.coolingUntil;
+  // resetEpochToMs returns undefined for absent OR passed resets, so a
+  // ticking window is exactly "reset !== undefined".
   const weeklyReset = resetEpochToMs(q?.weeklyResetAt, now);
   const sessionReset = resetEpochToMs(q?.sessionResetAt, now);
-  const weeklyRejected =
-    q?.weeklyStatus === "rejected" && weeklyReset !== undefined;
-  const sessionRejected =
-    q?.sessionStatus === "rejected" && sessionReset !== undefined;
+  const sessionTicking = sessionReset !== undefined;
+  const weeklyTicking = weeklyReset !== undefined;
+  const sessionUsed = sessionTicking ? (q?.sessionUsed ?? 0) : 0;
+  const weeklyUsed = weeklyTicking ? (q?.weeklyUsed ?? -1) : q ? 0 : -1;
+  const sessionStatus = sessionTicking
+    ? (q?.sessionStatus ?? "unknown")
+    : "allowed";
+  const weeklyStatus = weeklyTicking
+    ? (q?.weeklyStatus ?? "unknown")
+    : "allowed";
+  const saturated =
+    sessionStatus === "throttled" ||
+    (sessionTicking && sessionUsed >= sessionSoftLimit);
   return {
-    usable: !coolingActive && !weeklyRejected && !sessionRejected,
+    usable:
+      !coolingActive &&
+      weeklyStatus !== "rejected" &&
+      sessionStatus !== "rejected",
+    saturated,
     hasQuota: !!q,
     coolingUntil: st?.coolingUntil ?? 0,
-    weeklyReset: weeklyReset ?? Number.POSITIVE_INFINITY,
+    sessionResetBucket: sessionTicking
+      ? Math.floor(sessionReset / sessionResetToleranceMs)
+      : Number.POSITIVE_INFINITY,
     sessionReset: sessionReset ?? Number.POSITIVE_INFINITY,
-    weeklyUsed: q?.weeklyUsed ?? -1,
+    weeklyReset: weeklyReset ?? Number.POSITIVE_INFINITY,
+    weeklyUsed,
   };
 }
 
 /**
  * Order accounts to MAXIMIZE quota utilization (fill-first, smart order):
- * spend the account whose window refreshes SOONEST first, so its about-to-reset
+ * spend the window that expires SOONEST first, so its about-to-reset
  * allowance isn't wasted, then move to accounts with longer-dated resets.
  *
  * Priority among usable accounts:
  *   1. no quota data yet — probe first: one request reveals its windows and
  *      self-corrects the ordering. (Ranking unknowns last would starve them
  *      forever: never picked → never observed → never comparable.)
- *   2. soonest WEEKLY (7d) reset  — the scarce, use-it-or-lose-it ceiling
- *   3. soonest SESSION (5h) reset
- *   4. highest weekly utilization — finish off the one closest to done
- *   5. configured primary account, then insertion order
+ *   2. session headroom before session-saturated (>= soft limit or
+ *      "throttled") — saturated accounts then follow the same bucketed
+ *      session ordering below: soonest back in service first, weekly
+ *      deciding same-bucket ties.
+ *   3. soonest SESSION (5h) reset — the capacity expiring soonest; compared
+ *      in tolerance buckets so near-simultaneous resets count as equal.
+ *   4. soonest WEEKLY (7d) reset — decides between same-bucket sessions.
+ *   5. highest weekly utilization — finish off the one closest to done
+ *   6. configured primary account, then insertion order
+ * An account with NO ticking session window (fresh, not yet started) has
+ * nothing expiring and sorts after ticking windows in step 3.
  * Cooling/rejected accounts sort last, soonest-back-to-service first, as
  * last resort.
  */
@@ -623,9 +687,15 @@ function orderAccountsByQuota(
   now: number,
 ): ProxyPassthroughAccount[] {
   const primaryKey = configuredPrimaryAccountKey;
+  // Read the env-tunable thresholds once per sort: cheaper than per-compare,
+  // and a mid-sort env change can never make the comparator intransitive.
+  const sessionSoftLimit = getSessionSoftLimit();
+  const sessionResetToleranceMs = getSessionResetToleranceMs();
+  const metrics = (key: string) =>
+    accountSortMetrics(key, now, sessionSoftLimit, sessionResetToleranceMs);
   return [...accounts].sort((a, b) => {
-    const ma = accountSortMetrics(a.key, now);
-    const mb = accountSortMetrics(b.key, now);
+    const ma = metrics(a.key);
+    const mb = metrics(b.key);
     if (ma.usable !== mb.usable) {
       return ma.usable ? -1 : 1;
     }
@@ -637,11 +707,17 @@ function orderAccountsByQuota(
     if (ma.hasQuota !== mb.hasQuota) {
       return ma.hasQuota ? 1 : -1;
     }
+    if (ma.saturated !== mb.saturated) {
+      return ma.saturated ? 1 : -1;
+    }
+    // Saturated pairs fall through to the same bucketed session ordering:
+    // soonest-back-in-service at bucket granularity, weekly deciding ties —
+    // honoring the configured tolerance instead of exact-epoch comparison.
+    if (ma.sessionResetBucket !== mb.sessionResetBucket) {
+      return ma.sessionResetBucket - mb.sessionResetBucket;
+    }
     if (ma.weeklyReset !== mb.weeklyReset) {
       return ma.weeklyReset - mb.weeklyReset;
-    }
-    if (ma.sessionReset !== mb.sessionReset) {
-      return ma.sessionReset - mb.sessionReset;
     }
     if (ma.weeklyUsed !== mb.weeklyUsed) {
       return mb.weeklyUsed - ma.weeklyUsed;

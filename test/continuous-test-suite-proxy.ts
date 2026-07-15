@@ -1731,6 +1731,189 @@ async function testOrderAccountsByQuota(): Promise<boolean | null> {
 }
 
 // ============================================================================
+// Tests: session-first ordering, soft limit, and reset freshening
+// ============================================================================
+
+async function testSessionFirstOrdering(): Promise<boolean | null> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  // Isolate the quota env knobs: earlier cases assume the defaults, and a
+  // configured shell must neither fail them nor be mutated by this test.
+  const savedSoftLimit = process.env.NEUROLINK_PROXY_SESSION_SOFT_LIMIT;
+  const savedTolerance = process.env.NEUROLINK_PROXY_SESSION_RESET_TOLERANCE_MS;
+  delete process.env.NEUROLINK_PROXY_SESSION_SOFT_LIMIT;
+  delete process.env.NEUROLINK_PROXY_SESSION_RESET_TOLERANCE_MS;
+  try {
+    return await runSessionFirstOrderingCases(__testHooks);
+  } finally {
+    if (savedSoftLimit !== undefined) {
+      process.env.NEUROLINK_PROXY_SESSION_SOFT_LIMIT = savedSoftLimit;
+    } else {
+      delete process.env.NEUROLINK_PROXY_SESSION_SOFT_LIMIT;
+    }
+    if (savedTolerance !== undefined) {
+      process.env.NEUROLINK_PROXY_SESSION_RESET_TOLERANCE_MS = savedTolerance;
+    } else {
+      delete process.env.NEUROLINK_PROXY_SESSION_RESET_TOLERANCE_MS;
+    }
+  }
+}
+
+async function runSessionFirstOrderingCases(
+  __testHooks: (typeof import("../src/lib/server/routes/claudeProxyRoutes.js"))["__testHooks"],
+): Promise<boolean | null> {
+  const now = 1_800_000_000_000;
+  const nowSec = Math.floor(now / 1000);
+  // Bucket-aligned base so same-bucket cases are deterministic regardless of
+  // the tolerance value in effect (default 15 min = 900s).
+  const bucketSec = 900;
+  const baseSec = (Math.floor(nowSec / bucketSec) + 2) * bucketSec;
+
+  type Acct = { key: string; label: string; token: string; type: "oauth" };
+  const acct = (l: string): Acct => ({
+    key: `anthropic:${l}`,
+    label: l,
+    token: "t",
+    type: "oauth",
+  });
+  const order = (list: Acct[]): string =>
+    __testHooks
+      .orderAccountsByQuota(list as never, now)
+      .map((x: { label: string }) => x.label)
+      .join(",");
+  const setQuota = (l: string, over: Record<string, number | string>): void =>
+    __testHooks.setAccountRuntimeState(`anthropic:${l}`, {
+      quota: makeQuota(over) as never,
+    });
+  const fail = (msg: string): false => {
+    log(msg, "red");
+    __testHooks.resetAllRuntimeState();
+    return false;
+  };
+
+  // 1. Session-first: x's session resets in 1h, y's in 3h. y's WEEKLY resets
+  //    far sooner — but the expiring session window must win.
+  __testHooks.resetAllRuntimeState();
+  setQuota("x", {
+    sessionResetAt: nowSec + 3600,
+    weeklyResetAt: nowSec + 5 * 24 * 3600,
+  });
+  setQuota("y", {
+    sessionResetAt: nowSec + 3 * 3600,
+    weeklyResetAt: nowSec + 6 * 3600,
+  });
+  let got = order([acct("x"), acct("y")]);
+  if (got !== "x,y") {
+    return fail(`session-first: expected x,y (1h session wins), got ${got}`);
+  }
+
+  // 2. Same session bucket → weekly decides.
+  __testHooks.resetAllRuntimeState();
+  setQuota("x", {
+    sessionResetAt: baseSec + 60,
+    weeklyResetAt: nowSec + 5 * 24 * 3600,
+  });
+  setQuota("y", {
+    sessionResetAt: baseSec + 120,
+    weeklyResetAt: nowSec + 6 * 3600,
+  });
+  got = order([acct("x"), acct("y")]);
+  if (got !== "y,x") {
+    return fail(`same-bucket: expected y,x (weekly tie-break), got ${got}`);
+  }
+
+  // 3. Soft limit (default 0.97): a saturated session demotes below headroom
+  //    even when its session reset is soonest.
+  __testHooks.resetAllRuntimeState();
+  setQuota("x", { sessionResetAt: nowSec + 3600, sessionUsed: 0.98 });
+  setQuota("y", { sessionResetAt: nowSec + 3 * 3600, sessionUsed: 0.5 });
+  got = order([acct("x"), acct("y")]);
+  if (got !== "y,x") {
+    return fail(`soft-limit: expected y,x (0.98 saturated), got ${got}`);
+  }
+
+  // 4. Just under the limit is NOT saturated.
+  __testHooks.resetAllRuntimeState();
+  setQuota("x", { sessionResetAt: nowSec + 3600, sessionUsed: 0.96 });
+  setQuota("y", { sessionResetAt: nowSec + 3 * 3600, sessionUsed: 0.5 });
+  got = order([acct("x"), acct("y")]);
+  if (got !== "x,y") {
+    return fail(`under-limit: expected x,y (0.96 has headroom), got ${got}`);
+  }
+
+  // 5. "throttled" status demotes regardless of utilization.
+  __testHooks.resetAllRuntimeState();
+  setQuota("x", { sessionResetAt: nowSec + 3600, sessionStatus: "throttled" });
+  setQuota("y", { sessionResetAt: nowSec + 3 * 3600 });
+  got = order([acct("x"), acct("y")]);
+  if (got !== "y,x") {
+    return fail(`throttled: expected y,x (throttled demoted), got ${got}`);
+  }
+
+  // 6. Reset freshening: a PASSED session reset means a fresh window — high
+  //    stale utilization must not saturate it. It has nothing expiring, so it
+  //    sorts after ticking windows but ahead of saturated ones.
+  __testHooks.resetAllRuntimeState();
+  setQuota("x", { sessionResetAt: nowSec - 60, sessionUsed: 0.99 });
+  setQuota("y", { sessionResetAt: nowSec + 2 * 3600, sessionUsed: 0.5 });
+  setQuota("z", { sessionResetAt: nowSec + 1800, sessionUsed: 0.99 });
+  got = order([acct("x"), acct("y"), acct("z")]);
+  if (got !== "y,x,z") {
+    return fail(
+      `freshening: expected y,x,z (ticking first, fresh window not saturated, saturated last), got ${got}`,
+    );
+  }
+
+  // 7. Both saturated, different buckets → soonest session reset first
+  //    (returns to service first).
+  __testHooks.resetAllRuntimeState();
+  setQuota("x", { sessionResetAt: nowSec + 3600, sessionUsed: 0.99 });
+  setQuota("y", { sessionResetAt: nowSec + 1800, sessionUsed: 0.99 });
+  got = order([acct("x"), acct("y")]);
+  if (got !== "y,x") {
+    return fail(`both-saturated: expected y,x (soonest reset), got ${got}`);
+  }
+
+  // 8. Both saturated, SAME bucket → tolerance still applies and weekly
+  //    decides, exactly like the unsaturated path.
+  __testHooks.resetAllRuntimeState();
+  setQuota("x", {
+    sessionResetAt: baseSec + 60,
+    sessionUsed: 0.99,
+    weeklyResetAt: nowSec + 5 * 24 * 3600,
+  });
+  setQuota("y", {
+    sessionResetAt: baseSec + 120,
+    sessionUsed: 0.99,
+    weeklyResetAt: nowSec + 6 * 3600,
+  });
+  got = order([acct("x"), acct("y")]);
+  if (got !== "y,x") {
+    return fail(
+      `both-saturated-same-bucket: expected y,x (weekly tie-break), got ${got}`,
+    );
+  }
+
+  // 9. Soft limit is configurable via env (outer finally restores it).
+  __testHooks.resetAllRuntimeState();
+  process.env.NEUROLINK_PROXY_SESSION_SOFT_LIMIT = "0.5";
+  setQuota("x", { sessionResetAt: nowSec + 3600, sessionUsed: 0.6 });
+  setQuota("y", { sessionResetAt: nowSec + 3 * 3600, sessionUsed: 0.1 });
+  got = order([acct("x"), acct("y")]);
+  delete process.env.NEUROLINK_PROXY_SESSION_SOFT_LIMIT;
+  if (got !== "y,x") {
+    return fail(`env-limit: expected y,x (0.6 >= 0.5 saturated), got ${got}`);
+  }
+
+  __testHooks.resetAllRuntimeState();
+  log(
+    "sessionFirstOrdering: 9 cases passed (session-first, bucket tie-break, 0.97 soft limit, throttle, freshening)",
+    "green",
+  );
+  return true;
+}
+
+// ============================================================================
 // Tests: quota persistence merges across restarts (no clobber)
 // ============================================================================
 
@@ -2185,6 +2368,11 @@ const tests: TestFunction[] = [
   {
     name: "Quota: orderAccountsByQuota (soonest-reset-first)",
     fn: testOrderAccountsByQuota,
+    category: "proxy-primary",
+  },
+  {
+    name: "Quota: session-first ordering + soft limit + freshening",
+    fn: testSessionFirstOrdering,
     category: "proxy-primary",
   },
   {
