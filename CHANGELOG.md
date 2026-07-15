@@ -1,3 +1,9 @@
+## [9.88.7](https://github.com/juspay/neurolink/compare/v9.88.6...v9.88.7) (2026-07-15)
+
+### Bug Fixes
+
+- **(csv):** quote-aware delimiter detection + quality-weighted confidence ([a1a73d9](https://github.com/juspay/neurolink/commit/a1a73d9efc007a3d17f2a55938b8157695b19f33)), closes [#299](https://github.com/juspay/neurolink/issues/299)
+
 ## [9.88.6](https://github.com/juspay/neurolink/compare/v9.88.5...v9.88.6) (2026-07-15)
 
 ### Bug Fixes
