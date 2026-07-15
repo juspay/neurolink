@@ -65,7 +65,6 @@ import {
   logBodyCapture,
   logRequest,
   logRequestAttempt,
-  logStreamError,
 } from "../../proxy/requestLogger.js";
 import { createSSEInterceptor } from "../../proxy/sseInterceptor.js";
 import {
@@ -119,6 +118,7 @@ import type {
   RuntimeAccountState,
   ServerContext,
   StreamTerminalOutcome,
+  TransientRateLimitRetryBudget,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { ProviderHealthChecker } from "../../utils/providerHealth.js";
@@ -188,6 +188,21 @@ const UPSTREAM_FETCH_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 const accountRuntimeState = new Map<string, RuntimeAccountState>();
 
+/** Shared across requests so a concurrent burst gets at most two retries for
+ *  the account/window, rather than every request starting its own retry chain. */
+const transientRateLimitRetryBudgets = new Map<
+  string,
+  TransientRateLimitRetryBudget
+>();
+
+/** Pace requests that arrive while the last usable account has a short
+ * transient cooldown. This converts a local 429/retry storm into a bounded
+ * queue and avoids releasing every waiting request at the same millisecond. */
+const transientCooldownAdmissionSchedules = new Map<
+  string,
+  { coolingUntil: number; nextAdmissionAt: number }
+>();
+
 /** Track whether we've run the one-time startup prune. */
 let startupPruneDone = false;
 
@@ -195,6 +210,10 @@ let startupPruneDone = false;
  *  provide a retry-after header. Short enough to recover quickly, long
  *  enough to avoid immediately hammering the same account. */
 const DEFAULT_COOLING_PERIOD_MS = 60_000;
+const MAX_TRANSIENT_QUEUE_WAIT_MS = 90_000;
+const MAX_TRANSIENT_TOTAL_QUEUE_WAIT_MS = 120_000;
+const TRANSIENT_ADMISSION_SPACING_MS = 250;
+const MAX_TRANSIENT_ADMISSION_SPREAD_MS = 15_000;
 
 /** Advance the primary account index when the current primary is exhausted
  *  (429 retries exhausted or auth failure). This is what makes fill-first work:
@@ -272,6 +291,108 @@ function maybeResetPrimaryToHome(
 function isAccountCooling(accountKey: string): boolean {
   const state = accountRuntimeState.get(accountKey);
   return !!state?.coolingUntil && Date.now() < state.coolingUntil;
+}
+
+function claimTransientRateLimitRetry(
+  accountKey: string,
+  coolingUntil: number,
+  now: number = Date.now(),
+): number | undefined {
+  let budget = transientRateLimitRetryBudgets.get(accountKey);
+  if (!budget || now >= budget.coolingUntil) {
+    budget = { coolingUntil, retriesClaimed: 0 };
+    transientRateLimitRetryBudgets.set(accountKey, budget);
+  } else if (coolingUntil > budget.coolingUntil) {
+    budget.coolingUntil = coolingUntil;
+  }
+
+  if (budget.retriesClaimed >= MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES) {
+    return undefined;
+  }
+  budget.retriesClaimed += 1;
+  return budget.retriesClaimed;
+}
+
+function claimTransientCooldownAdmission(
+  accountKey: string,
+  coolingUntil: number,
+  now: number = Date.now(),
+): number | undefined {
+  if (coolingUntil <= now) {
+    return 0;
+  }
+  if (coolingUntil - now > MAX_TRANSIENT_QUEUE_WAIT_MS) {
+    return undefined;
+  }
+
+  let schedule = transientCooldownAdmissionSchedules.get(accountKey);
+  if (!schedule || now >= schedule.coolingUntil) {
+    schedule = { coolingUntil, nextAdmissionAt: coolingUntil };
+    transientCooldownAdmissionSchedules.set(accountKey, schedule);
+  } else if (coolingUntil > schedule.coolingUntil) {
+    schedule.coolingUntil = coolingUntil;
+    schedule.nextAdmissionAt = Math.max(schedule.nextAdmissionAt, coolingUntil);
+  }
+
+  const admissionAt = Math.max(
+    now,
+    schedule.coolingUntil,
+    schedule.nextAdmissionAt,
+  );
+  if (admissionAt - schedule.coolingUntil > MAX_TRANSIENT_ADMISSION_SPREAD_MS) {
+    return undefined;
+  }
+  schedule.nextAdmissionAt = admissionAt + TRANSIENT_ADMISSION_SPACING_MS;
+  return admissionAt - now;
+}
+
+async function waitForTransientAccountAvailability(
+  orderedAccounts: ProxyPassthroughAccount[],
+): Promise<ProxyPassthroughAccount[]> {
+  const deadline = Date.now() + MAX_TRANSIENT_TOTAL_QUEUE_WAIT_MS;
+  while (Date.now() < deadline) {
+    const available = orderedAccounts.filter(
+      (account) => !isAccountCooling(account.key),
+    );
+    if (available.length > 0) {
+      return available;
+    }
+
+    const now = Date.now();
+    const transientCandidate = orderedAccounts
+      .map((account) => ({
+        account,
+        state: getOrCreateRuntimeState(account.key),
+      }))
+      .filter(
+        ({ state }) =>
+          state.coolingReason === "transient" &&
+          state.coolingUntil !== undefined &&
+          state.coolingUntil > now,
+      )
+      .sort(
+        (a, b) =>
+          (a.state.coolingUntil ?? Number.POSITIVE_INFINITY) -
+          (b.state.coolingUntil ?? Number.POSITIVE_INFINITY),
+      )[0];
+    if (!transientCandidate?.state.coolingUntil) {
+      return [];
+    }
+
+    const waitMs = claimTransientCooldownAdmission(
+      transientCandidate.account.key,
+      transientCandidate.state.coolingUntil,
+      now,
+    );
+    if (waitMs === undefined || now + waitMs > deadline) {
+      return [];
+    }
+    logger.always(
+      `[proxy] all usable accounts are transiently cooling; queueing request for account=${transientCandidate.account.label} in ${waitMs}ms`,
+    );
+    await sleep(waitMs);
+  }
+  return [];
 }
 
 // ---------------------------------------------------------------------------
@@ -892,15 +1013,14 @@ function polyfillOAuthBody(
   bodyStr: string,
   accountToken: string,
   snapshot: ClaudeSnapshot | null,
+  isClaudeClientRequest: boolean,
   preferredSessionId?: string,
 ): { bodyStr: string; sessionId?: string } {
   try {
     const parsed = JSON.parse(bodyStr);
 
-    // Billing header block (required by Anthropic for OAuth)
-    // NOTE: This block MUST be deterministic (no random values) to preserve
-    // Anthropic's prompt caching prefix chain. We keep the real Claude Code
-    // version/entrypoint shape when present, but stabilize the volatile cch.
+    // Billing header block synthesized for clients that do not already provide
+    // the genuine Claude Code identity shape.
     const agentBlock = {
       type: "text",
       text:
@@ -912,11 +1032,11 @@ function polyfillOAuthBody(
     //
     // The subscription/OAuth path only accepts a `system` it recognises as the
     // genuine Claude Code prompt. A real CC client sends its own billing + agent
-    // identity blocks alongside the canonical prompt — we keep those in place and
-    // just stabilise the volatile billing `cch`. A custom client (Curator) sends
-    // its own arbitrary system prompt with NO agent block; left in `system` it is
-    // rejected as `rate_limit_error: "Error"`, so we relocate it into the message
-    // stream and send only the recognised billing + agent blocks as `system`.
+    // identity blocks alongside the canonical prompt, which must pass through
+    // unchanged. A custom client (Curator) sends its own arbitrary system prompt
+    // with NO agent block; left in `system` it is rejected as
+    // `rate_limit_error: "Error"`, so we relocate it into the message stream and
+    // send only the recognised billing + agent blocks as `system`.
     if (parsed.system) {
       if (typeof parsed.system === "string") {
         parsed.system = [{ type: "text", text: parsed.system }];
@@ -939,29 +1059,28 @@ function polyfillOAuthBody(
           ),
         };
 
-        // A genuine Claude Code client supplies its own agent-identity block;
-        // a custom client (Curator) does not.
-        const isClaudeCodeClient = agentIdx >= 0;
-
-        // Strip billing/agent from their positions (reverse order so indices
-        // stay valid). What remains is the client's "extra" system content.
-        const indicesToRemove = [billingIdx, agentIdx]
-          .filter((i) => i >= 0)
-          .sort((a, b) => b - a);
-        for (const idx of indicesToRemove) {
-          parsed.system.splice(idx, 1);
-        }
-
-        if (!isClaudeCodeClient && parsed.system.length > 0) {
-          // Non-CC client: relocate its system into the message stream so the
-          // subscription/OAuth path accepts the request, then send only the
-          // recognised billing + agent blocks as `system`.
-          relocateClientSystemIntoMessages(parsed, parsed.system);
-          parsed.system = [billingBlock, agentBlock];
+        const hasClaudeCodeSystemIdentity =
+          isClaudeClientRequest && agentIdx >= 0;
+        if (hasClaudeCodeSystemIdentity) {
+          // Claude Code's subagent billing marker, block order, and cache
+          // controls are part of the accepted request shape. Preserve every
+          // supplied block exactly; only synthesize a billing block if absent.
+          if (billingIdx < 0) {
+            parsed.system.unshift(billingBlock);
+          }
         } else {
-          // Genuine Claude Code (or no extra blocks): keep the recognised system
-          // and append the deterministic billing + agent blocks at the end.
-          parsed.system = [...parsed.system, billingBlock, agentBlock];
+          // Strip generated identity blocks before relocating a custom
+          // client's actual system instructions into the message stream.
+          const indicesToRemove = [billingIdx, agentIdx]
+            .filter((i) => i >= 0)
+            .sort((a, b) => b - a);
+          for (const idx of indicesToRemove) {
+            parsed.system.splice(idx, 1);
+          }
+          if (parsed.system.length > 0) {
+            relocateClientSystemIntoMessages(parsed, parsed.system);
+          }
+          parsed.system = [billingBlock, agentBlock];
         }
       }
     } else {
@@ -2850,8 +2969,6 @@ async function handleAnthropicStreamingSuccessResponse(args: {
   ) => void;
 }): Promise<AnthropicSuccessResult> {
   const {
-    ctx,
-    body,
     account,
     accountState: _accountState,
     response,
@@ -2955,20 +3072,11 @@ async function handleAnthropicStreamingSuccessResponse(args: {
         }
         controller.enqueue(value);
       } catch (streamErr) {
-        const errMsg =
-          streamErr instanceof Error ? streamErr.message : String(streamErr);
+        const errMsg = describeTransportError(streamErr);
         logger.always(
           `[proxy] mid-stream error account=${account.label}: ${errMsg}`,
         );
         streamOutcomeTracker.fail(errMsg);
-        logStreamError({
-          timestamp: new Date().toISOString(),
-          requestId: ctx.requestId,
-          account: account.label,
-          model: body.model,
-          errorMessage: errMsg,
-          durationMs: Date.now() - fetchStartMs,
-        });
         if (!mainStreamClosed) {
           mainStreamClosed = true;
           const errorEvent = `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "api_error", message: `Upstream stream interrupted: ${errMsg}` } })}\n\n`;
@@ -3548,7 +3656,6 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
   ) => void;
 }): Promise<Response | unknown> {
   const {
-    ctx,
     body,
     account,
     accountState,
@@ -3608,20 +3715,11 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
           }
           controller.enqueue(value);
         } catch (streamErr) {
-          const errMsg =
-            streamErr instanceof Error ? streamErr.message : String(streamErr);
+          const errMsg = describeTransportError(streamErr);
           logger.always(
             `[proxy] mid-stream error (auth-retry) account=${account.label}: ${errMsg}`,
           );
           streamOutcomeTracker.fail(errMsg);
-          logStreamError({
-            timestamp: new Date().toISOString(),
-            requestId: ctx.requestId,
-            account: account.label,
-            model: body.model,
-            errorMessage: errMsg,
-            durationMs: Date.now() - fetchStartMs,
-          });
           if (!retryStreamClosed) {
             retryStreamClosed = true;
             const errorEvent = `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "api_error", message: `Upstream stream interrupted: ${errMsg}` } })}\n\n`;
@@ -3920,18 +4018,43 @@ async function handleAnthropicAuthRetry(args: {
       logger.debug(
         `[proxy] retry ${authRetry + 1} failed: ${retryStatus} ${retryBody.substring(0, 120)}`,
       );
-      recordAttemptError(account.label, account.type, retryStatus);
 
-      // A real rate-limit 429 rotates accounts. But an anti-abuse / construction
-      // 429 (no rate-limit headers, body "Error") is NOT a real rate limit:
-      // advancing the primary or rotating cannot help and only burns quota. Skip
-      // the rotate path for it so it falls through to the terminal error return
-      // below, surfacing the truthful upstream error — mirroring the initial
-      // fetch path's fast-fail (isAntiAbuseConstruction429).
       if (
         retryStatus === 429 &&
-        !isAntiAbuseConstruction429(retryRespHeaders, retryBody)
+        isAntiAbuseConstruction429(retryRespHeaders, retryBody)
       ) {
+        logger.always(
+          `[proxy] ← 429 account=${account.label} anti-abuse/construction rejection after OAuth refresh — returning non-retryable request error`,
+        );
+        logAttempt(429, "construction_rejection", retryBody);
+        tracer?.setError("construction_rejection", retryBody.slice(0, 500));
+        currentUpstreamSpan?.end();
+        return {
+          response: finalizeAnthropicTerminalFetchError({
+            terminalError: buildAnthropicConstructionRejectionTerminalError(),
+            account,
+            tracer,
+            requestStartTime,
+            attemptNumber,
+            logProxyBody,
+            logFinalRequest,
+          }),
+          continueLoop: false,
+          lastError: retryBody,
+          authFailureMessage: currentAuthFailureMessage,
+          sawRateLimit: currentSawRateLimit,
+          sawTransientFailure: currentSawTransientFailure,
+          sawNetworkError: currentSawNetworkError,
+          upstreamSpan: undefined,
+        };
+      }
+
+      recordAttemptError(account.label, account.type, retryStatus);
+
+      // Construction rejections return through the terminal 400 path above.
+      // Every 429 reaching this branch is a genuine rate limit and must cool
+      // the account according to its reset window before rotating.
+      if (retryStatus === 429) {
         currentSawRateLimit = true;
         // Cool the account per its real reset window before rotating, so a
         // session/weekly-exhausted account isn't re-selected next request.
@@ -4088,7 +4211,7 @@ function buildAnthropicTerminalErrorResponse(args: {
       cacheReadTokens?: number;
     },
   ) => void;
-  errorType: "not_found_error" | "api_error";
+  errorType: "not_found_error" | "api_error" | "construction_rejection";
 }): Response | unknown {
   const {
     responseStatus,
@@ -4149,6 +4272,39 @@ function buildAnthropicTerminalErrorResponse(args: {
     });
     return clientError;
   }
+}
+
+function finalizeAnthropicTerminalFetchError(args: {
+  terminalError: NonNullable<AnthropicUpstreamFetchResult["terminalError"]>;
+  account: ProxyPassthroughAccount;
+  tracer?: ProxyTracer;
+  requestStartTime: number;
+  attemptNumber: number;
+  logProxyBody: ProxyBodyCaptureLogger;
+  logFinalRequest: ClaudeFinalRequestLogger;
+}): Response | unknown {
+  const {
+    terminalError,
+    account,
+    tracer,
+    requestStartTime,
+    attemptNumber,
+    logProxyBody,
+    logFinalRequest,
+  } = args;
+  recordFinalError(terminalError.status, account.label, account.type);
+  tracer?.end(terminalError.status, Date.now() - requestStartTime);
+  return buildAnthropicTerminalErrorResponse({
+    responseStatus: terminalError.status,
+    account,
+    errBody: terminalError.body,
+    errRespHeaders: terminalError.headers,
+    requestStartTime,
+    attemptNumber,
+    logProxyBody,
+    logFinalRequest,
+    errorType: terminalError.errorType,
+  });
 }
 
 async function handleAnthropicNonOkResponse(args: {
@@ -4757,6 +4913,7 @@ async function prepareAnthropicAccountAttempt(args: {
           bodyStr,
           token,
           snapshot,
+          isClaudeClientRequest,
           headers["x-claude-code-session-id"],
         )
       : { bodyStr };
@@ -4817,7 +4974,7 @@ async function prepareAnthropicAccountAttempt(args: {
  * "Error" and which carries NONE of the real rate-limit headers (no retry-after,
  * no anthropic-ratelimit-*). This is NOT a capacity limit — retrying or rotating
  * accounts cannot fix it and only burns quota, so the caller must fail fast and
- * surface the truthful upstream error instead of "all accounts rate-limited".
+ * return a non-retryable request error instead of "all accounts rate-limited".
  */
 function isAntiAbuseConstruction429(
   headers: Record<string, string>,
@@ -4833,6 +4990,23 @@ function isAntiAbuseConstruction429(
   return (
     body.includes("rate_limit_error") && /"message"\s*:\s*"Error"/.test(body)
   );
+}
+
+function buildAnthropicConstructionRejectionTerminalError(): NonNullable<
+  AnthropicUpstreamFetchResult["terminalError"]
+> {
+  return {
+    status: 400,
+    body: JSON.stringify(
+      buildClaudeError(
+        400,
+        "Anthropic rejected the OAuth request shape. This is not an account rate limit.",
+        "invalid_request_error",
+      ),
+    ),
+    headers: { "content-type": "application/json" },
+    errorType: "construction_rejection",
+  };
 }
 
 async function fetchAnthropicAccountResponse(args: {
@@ -4912,9 +5086,7 @@ async function fetchAnthropicAccountResponse(args: {
   }
 
   if (response.status === 429) {
-    sawRateLimit = true;
     const retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
-    recordAttemptError(account.label, account.type, 429);
     // Capture full response headers and body for diagnostics (parity with
     // handleAnthropicNonOkResponse which does this for all other error statuses).
     const errRespHeaders: Record<string, string> = {};
@@ -4946,11 +5118,11 @@ async function fetchAnthropicAccountResponse(args: {
     });
     // Anti-abuse / request-construction 429 (no rate-limit headers, body
     // "Error"): rotating accounts cannot help and only burns quota. Fail fast
-    // and surface the truthful upstream error instead of the misleading
-    // "all accounts rate-limited" after 44 wasted attempts.
+    // and return a non-retryable request error instead of prompting the client
+    // to repeat the same malformed request as a genuine rate limit.
     if (isAntiAbuseConstruction429(errRespHeaders, String(lastError))) {
       logger.always(
-        `[proxy] ← 429 account=${account.label} anti-abuse/construction rejection (no ratelimit headers, body="Error") — NOT a real rate limit; returning upstream error without rotating`,
+        `[proxy] ← 429 account=${account.label} anti-abuse/construction rejection (no ratelimit headers, body="Error") — NOT a real rate limit; returning non-retryable request error`,
       );
       logAttempt(429, "construction_rejection", String(lastError));
       tracer?.setError(
@@ -4958,21 +5130,17 @@ async function fetchAnthropicAccountResponse(args: {
         String(lastError).slice(0, 500),
       );
       currentUpstreamSpan?.end();
-      const passthrough = new Response(String(lastError), {
-        status: 429,
-        headers: {
-          "content-type": errRespHeaders["content-type"] ?? "application/json",
-        },
-      });
       return {
         continueLoop: false,
-        response: passthrough,
+        terminalError: buildAnthropicConstructionRejectionTerminalError(),
         lastError,
         sawRateLimit,
         sawNetworkError,
         upstreamSpan: undefined,
       };
     }
+    sawRateLimit = true;
+    recordAttemptError(account.label, account.type, 429);
     // Parse the unified-window quota headers (present on real rate-limit 429s)
     // and derive a reset-aware cooldown plan. This is the fix for "kept
     // hammering the 5h/7d-exhausted account instead of switching": on an
@@ -5019,6 +5187,10 @@ async function fetchAnthropicAccountResponse(args: {
     sawNetworkError,
     upstreamSpan: currentUpstreamSpan,
   };
+}
+
+function shouldAttemptClaudeFallback(loopState: AnthropicLoopState): boolean {
+  return loopState.invalidRequestFailure === null;
 }
 
 async function handleAnthropicRoutedClaudeRequest(args: {
@@ -5096,7 +5268,17 @@ async function handleAnthropicRoutedClaudeRequest(args: {
   const nonCoolingAccounts = orderedAccounts.filter(
     (a) => !isAccountCooling(a.key),
   );
-  const effectiveAccounts = nonCoolingAccounts;
+  let effectiveAccounts = nonCoolingAccounts;
+
+  // If every usable account is cooling and the soonest recovery is a short
+  // transient burst cooldown, hold this request and pace its admission instead
+  // of returning a proxy-local 429 that makes the client retry in a herd. The
+  // helper rechecks because an in-flight retry can extend the cooldown while
+  // this request is waiting.
+  if (effectiveAccounts.length === 0) {
+    effectiveAccounts =
+      await waitForTransientAccountAvailability(orderedAccounts);
+  }
   if (effectiveAccounts.length === 0 && orderedAccounts.length > 0) {
     const coolingStates = orderedAccounts.map((account) =>
       getOrCreateRuntimeState(account.key),
@@ -5193,6 +5375,17 @@ async function handleAnthropicRoutedClaudeRequest(args: {
       loopState.lastError = fetchResult.lastError;
       loopState.sawRateLimit = fetchResult.sawRateLimit;
       loopState.sawNetworkError = fetchResult.sawNetworkError;
+      if (fetchResult.terminalError) {
+        return finalizeAnthropicTerminalFetchError({
+          terminalError: fetchResult.terminalError,
+          account,
+          tracer,
+          requestStartTime,
+          attemptNumber: loopState.attemptNumber,
+          logProxyBody,
+          logFinalRequest,
+        });
+      }
       if (fetchResult.continueLoop || !fetchResult.response) {
         // Genuine 429 (carries a cooldown plan derived from quota headers).
         if (fetchResult.cooldownPlan) {
@@ -5204,48 +5397,58 @@ async function handleAnthropicRoutedClaudeRequest(args: {
               // Non-fatal: routing already has the in-memory snapshot.
             });
           }
-          // Transient burst (window still allowed): a couple of jittered
-          // same-account retries before giving up. Exhaustion plans set
-          // rotateImmediately, so retrySameAccount is false and we skip this.
-          if (
-            fetchResult.retrySameAccount &&
-            fetchResult.retryAfterMs !== undefined &&
-            rateLimitSameAccountRetries < MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES
-          ) {
-            rateLimitSameAccountRetries += 1;
-            const base = Math.min(
-              fetchResult.retryAfterMs || 1_000,
-              MAX_RATE_LIMIT_RETRY_DELAY_MS,
-            );
-            // Cap AFTER jitter so the final sleep never exceeds the cap.
-            const delayMs = Math.min(
-              MAX_RATE_LIMIT_RETRY_DELAY_MS,
-              jitteredDelay(base),
-            );
-            logger.always(
-              `[proxy] retrying same account=${account.label} after transient 429 (${rateLimitSameAccountRetries}/${MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES}) in ${delayMs}ms`,
-            );
-            await sleep(delayMs);
-            continue;
-          }
-          // Exhaustion, or transient retries used up: park the account until
-          // its ACTUAL reset (5h/7d) — no 60s hardcap — and rotate. Extend-only
-          // so a concurrent short transient plan can't shorten a longer weekly
-          // cooldown already set by another in-flight request.
+          // Publish the cooldown before retrying so requests arriving behind
+          // this one skip the throttled account instead of joining the burst.
+          let cooldownExtended = false;
           if (
             !accountState.coolingUntil ||
             plan.coolingUntil > accountState.coolingUntil
           ) {
             accountState.coolingUntil = plan.coolingUntil;
             accountState.coolingReason = plan.reason;
+            cooldownExtended = true;
           }
-          await saveAccountCooldown(
-            account.key,
-            accountState.coolingUntil ?? plan.coolingUntil,
-            accountState.coolingReason ?? plan.reason,
-          ).catch(() => {
-            // Non-fatal: routing already has the in-memory cooldown.
-          });
+          if (cooldownExtended) {
+            await saveAccountCooldown(
+              account.key,
+              accountState.coolingUntil,
+              accountState.coolingReason ?? plan.reason,
+            ).catch(() => {
+              // Non-fatal: routing already has the in-memory cooldown.
+            });
+          }
+
+          // Transient retries are budgeted across all concurrent requests for
+          // this account/window. Exhaustion plans rotate immediately and never
+          // claim this budget.
+          const sharedRetrySlot = fetchResult.retrySameAccount
+            ? claimTransientRateLimitRetry(account.key, plan.coolingUntil)
+            : undefined;
+          if (
+            fetchResult.retrySameAccount &&
+            fetchResult.retryAfterMs !== undefined &&
+            rateLimitSameAccountRetries < MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES &&
+            sharedRetrySlot !== undefined
+          ) {
+            rateLimitSameAccountRetries += 1;
+            const base = Math.min(
+              fetchResult.retryAfterMs || 1_000,
+              MAX_RATE_LIMIT_RETRY_DELAY_MS,
+            );
+            // Stagger the two shared slots, then cap after jitter so the final
+            // sleep never exceeds the configured maximum.
+            const delayMs = Math.min(
+              MAX_RATE_LIMIT_RETRY_DELAY_MS,
+              jitteredDelay(base * sharedRetrySlot),
+            );
+            logger.always(
+              `[proxy] retrying same account=${account.label} after transient 429 (shared slot ${sharedRetrySlot}/${MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES}) in ${delayMs}ms`,
+            );
+            await sleep(delayMs);
+            continue;
+          }
+          // Exhaustion, or the shared transient retry budget being used up:
+          // rotate while the already-published cooldown remains active.
           advancePrimaryIfCurrent(
             account.key,
             enabledAccounts.length,
@@ -5419,33 +5622,38 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     acctSelectionSpan?.end();
   }
 
-  const configuredFallbackResult = await tryConfiguredClaudeFallbackChain({
-    ctx,
-    body,
-    parsedFallbackRequest: parsedRequest,
-    modelRouter,
-    tracer,
-    requestStartTime,
-    logProxyBody,
-    logFinalRequest,
-  });
-  if (configuredFallbackResult.response) {
-    return configuredFallbackResult.response;
-  }
-
-  // Try auto-provider fallback when the configured chain didn't produce a
-  // response (either no chain configured, or all entries failed/deduped).
-  if (!loopState.sawRateLimit) {
-    const autoFallbackResponse = await tryAutoClaudeFallback({
+  // Deterministic invalid requests (for example, prompt-too-long) cannot be
+  // repaired by changing providers. Preserve the authoritative Anthropic 400
+  // rather than delaying it or returning unrelated fallback output.
+  if (shouldAttemptClaudeFallback(loopState)) {
+    const configuredFallbackResult = await tryConfiguredClaudeFallbackChain({
       ctx,
       body,
+      parsedFallbackRequest: parsedRequest,
+      modelRouter,
       tracer,
       requestStartTime,
       logProxyBody,
       logFinalRequest,
     });
-    if (autoFallbackResponse) {
-      return autoFallbackResponse;
+    if (configuredFallbackResult.response) {
+      return configuredFallbackResult.response;
+    }
+
+    // Try auto-provider fallback when the configured chain didn't produce a
+    // response (either no chain configured, or all entries failed/deduped).
+    if (!loopState.sawRateLimit) {
+      const autoFallbackResponse = await tryAutoClaudeFallback({
+        ctx,
+        body,
+        tracer,
+        requestStartTime,
+        logProxyBody,
+        logFinalRequest,
+      });
+      if (autoFallbackResponse) {
+        return autoFallbackResponse;
+      }
     }
   }
 
@@ -5836,6 +6044,28 @@ function getErrorCode(error: unknown): string | undefined {
   return typeof causeCode === "string" ? causeCode : undefined;
 }
 
+function describeTransportError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (!error || typeof error !== "object") {
+    return message;
+  }
+  const cause = (error as { cause?: unknown }).cause;
+  const causeMessage =
+    cause instanceof Error
+      ? cause.message
+      : cause && typeof cause === "object"
+        ? String((cause as { message?: unknown }).message ?? "")
+        : "";
+  const code = getErrorCode(error);
+  const detail = [
+    code,
+    causeMessage && causeMessage !== message && causeMessage,
+  ]
+    .filter(Boolean)
+    .join(": ");
+  return detail ? `${message} (${detail})` : message;
+}
+
 /**
  * Determine whether a thrown fetch error is a transient connectivity issue.
  */
@@ -6043,9 +6273,31 @@ export const __testHooks = {
   },
   resetAllRuntimeState: (): void => {
     accountRuntimeState.clear();
+    transientRateLimitRetryBudgets.clear();
+    transientCooldownAdmissionSchedules.clear();
     primaryAccountIndex = 0;
     lastKnownAccountCount = 0;
     configuredPrimaryAccountKey = undefined;
     configuredAccountAllowlist = undefined;
   },
+  polyfillOAuthBody: (
+    bodyStr: string,
+    isClaudeClientRequest: boolean,
+  ): { bodyStr: string; sessionId?: string } =>
+    polyfillOAuthBody(
+      bodyStr,
+      "test-account-token",
+      null,
+      isClaudeClientRequest,
+    ),
+  isAntiAbuseConstruction429,
+  fetchAnthropicAccountResponse,
+  finalizeAnthropicTerminalFetchError,
+  handleAnthropicAuthRetry,
+  handleAnthropicStreamingSuccessResponse,
+  claimTransientRateLimitRetry,
+  claimTransientCooldownAdmission,
+  waitForTransientAccountAvailability,
+  describeTransportError,
+  shouldAttemptClaudeFallback,
 };

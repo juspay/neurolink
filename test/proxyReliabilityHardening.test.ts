@@ -36,18 +36,498 @@ import {
   createStreamTerminalOutcomeTracker,
   mergeStreamTerminalOutcome,
 } from "../src/lib/proxy/streamOutcome.js";
+import { getStats, resetStats } from "../src/lib/proxy/usageStats.js";
 import { parseProxyConfigString } from "../src/lib/proxy/proxyConfig.js";
 import { __testHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
 
 const tempDirs: string[] = [];
 
 afterEach(async () => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   clearRefreshStateForTests();
   await Promise.all(
     tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })),
   );
   __testHooks.resetAllRuntimeState();
+  resetStats();
+});
+
+describe("OAuth request-shape preservation", () => {
+  it("preserves the exact genuine Claude Code subagent system shape", () => {
+    const agentCache = { type: "ephemeral" };
+    const instructionsCache = { type: "ephemeral" };
+    const request = {
+      model: "claude-sonnet-5",
+      system: [
+        {
+          type: "text",
+          text: "x-anthropic-billing-header: cc_version=2.1.207.fa5; cc_entrypoint=cli; cc_is_subagent=true;",
+        },
+        {
+          type: "text",
+          text: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+          cache_control: agentCache,
+        },
+        {
+          type: "text",
+          text: "Keep this canonical Claude Code instruction block in place.",
+          cache_control: instructionsCache,
+        },
+      ],
+      messages: [{ role: "user", content: "hello" }],
+      metadata: {
+        user_id: JSON.stringify({
+          device_id: "a".repeat(64),
+          account_uuid: "11111111-1111-4111-8111-111111111111",
+          session_id: "22222222-2222-4222-8222-222222222222",
+        }),
+      },
+    };
+
+    const result = JSON.parse(
+      __testHooks.polyfillOAuthBody(JSON.stringify(request), true).bodyStr,
+    );
+
+    expect(result).toEqual(request);
+  });
+
+  it("continues relocating billing-only custom-client instructions out of OAuth system", () => {
+    const result = JSON.parse(
+      __testHooks.polyfillOAuthBody(
+        JSON.stringify({
+          model: "claude-sonnet-5",
+          system: [
+            {
+              type: "text",
+              text: "x-anthropic-billing-header: cc_version=2.1.201; cc_entrypoint=cli; cch=random;",
+            },
+            {
+              type: "text",
+              text: "Custom application instructions",
+              cache_control: { type: "ephemeral" },
+            },
+          ],
+          messages: [{ role: "user", content: "hello" }],
+        }),
+        true,
+      ).bodyStr,
+    );
+
+    expect(result.system).toHaveLength(2);
+    expect(result.system[0].text).toContain("x-anthropic-billing-header");
+    expect(result.system[1].text).toContain("Claude Agent SDK");
+    expect(result.messages[0].content[0]).toMatchObject({
+      type: "text",
+      text: "<system_instructions>\nCustom application instructions\n</system_instructions>",
+      cache_control: { type: "ephemeral" },
+    });
+  });
+
+  it("prepends synthesized billing before an existing Claude Code agent block", () => {
+    const result = JSON.parse(
+      __testHooks.polyfillOAuthBody(
+        JSON.stringify({
+          model: "claude-sonnet-5",
+          system: [
+            {
+              type: "text",
+              text: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+              cache_control: { type: "ephemeral" },
+            },
+            { type: "text", text: "Canonical Claude Code instructions" },
+          ],
+          messages: [{ role: "user", content: "hello" }],
+        }),
+        true,
+      ).bodyStr,
+    );
+
+    expect(result.system.map((block: { text: string }) => block.text)).toEqual([
+      expect.stringContaining("x-anthropic-billing-header"),
+      "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+      "Canonical Claude Code instructions",
+    ]);
+  });
+});
+
+describe("429 classification and retry amplification", () => {
+  const fetchArgs = (
+    logAttempt: ReturnType<typeof vi.fn>,
+    logProxyBody: ReturnType<typeof vi.fn>,
+  ) => ({
+    url: "https://api.anthropic.com/v1/messages",
+    headers: { "content-type": "application/json" },
+    finalBodyStr: "{}",
+    account: {
+      key: "anthropic:primary@example.com",
+      label: "primary@example.com",
+      token: "test-token",
+      type: "oauth" as const,
+    },
+    accountState: {
+      consecutiveRefreshFailures: 0,
+      permanentlyDisabled: false,
+    },
+    enabledAccounts: [],
+    orderedAccounts: [],
+    logAttempt,
+    logProxyBody,
+    fetchStartMs: Date.now(),
+    attemptNumber: 1,
+    currentLastError: undefined,
+    currentSawRateLimit: false,
+    currentSawNetworkError: false,
+  });
+
+  it("returns a construction rejection once without counting it as a rate limit", async () => {
+    const body = JSON.stringify({
+      type: "error",
+      error: { type: "rate_limit_error", message: "Error" },
+    });
+    const clientBody = JSON.stringify({
+      type: "error",
+      error: {
+        type: "invalid_request_error",
+        message:
+          "Anthropic rejected the OAuth request shape. This is not an account rate limit.",
+      },
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(body, {
+        status: 429,
+        headers: {
+          "content-type": "application/json",
+          "x-should-retry": "true",
+        },
+      }),
+    );
+    const logAttempt = vi.fn();
+    const logProxyBody = vi.fn();
+    const logFinalRequest = vi.fn();
+    const args = fetchArgs(logAttempt, logProxyBody);
+
+    const result = await __testHooks.fetchAnthropicAccountResponse(args);
+
+    expect(result).toMatchObject({
+      continueLoop: false,
+      sawRateLimit: false,
+      terminalError: {
+        status: 400,
+        body: clientBody,
+        errorType: "construction_rejection",
+      },
+    });
+    expect(result.response).toBeUndefined();
+    expect(logAttempt).toHaveBeenCalledTimes(1);
+    expect(logAttempt).toHaveBeenCalledWith(
+      429,
+      "construction_rejection",
+      body,
+    );
+    if (!result.terminalError) {
+      throw new Error("expected a terminal construction rejection");
+    }
+    expect(
+      __testHooks.finalizeAnthropicTerminalFetchError({
+        terminalError: result.terminalError,
+        account: args.account,
+        requestStartTime: args.fetchStartMs,
+        attemptNumber: args.attemptNumber,
+        logProxyBody,
+        logFinalRequest,
+      }),
+    ).toEqual(JSON.parse(clientBody));
+    expect(logProxyBody).toHaveBeenCalledTimes(2);
+    expect(logFinalRequest).toHaveBeenCalledTimes(1);
+    expect(logFinalRequest).toHaveBeenCalledWith(
+      400,
+      "primary@example.com",
+      "oauth",
+      "construction_rejection",
+      clientBody,
+    );
+    expect(getStats().totalRateLimits).toBe(0);
+    expect(getStats()).toMatchObject({ totalRequests: 1, totalErrors: 1 });
+    expect(getStats().accounts["primary@example.com"]).toMatchObject({
+      errorCount: 1,
+      rateLimitCount: 0,
+    });
+  });
+
+  it("finalizes a construction rejection after OAuth refresh as one 400", async () => {
+    const upstreamBody = JSON.stringify({
+      type: "error",
+      error: { type: "rate_limit_error", message: "Error" },
+    });
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            access_token: "refreshed-access",
+            refresh_token: "refreshed-refresh",
+            expires_in: 3600,
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(upstreamBody, {
+          status: 429,
+          headers: {
+            "content-type": "application/json",
+            "x-should-retry": "true",
+          },
+        }),
+      );
+    const account = {
+      key: "anthropic:primary@example.com",
+      label: "primary@example.com",
+      token: "expired-access",
+      refreshToken: "valid-refresh",
+      type: "oauth" as const,
+    };
+    const logAttempt = vi.fn();
+    const logProxyBody = vi.fn();
+    const logFinalRequest = vi.fn();
+    const tracer = {
+      logUpstreamResponseHeaders: vi.fn(),
+      logUpstreamResponseBody: vi.fn(),
+      setError: vi.fn(),
+      end: vi.fn(),
+    };
+    const upstreamSpan = { end: vi.fn() };
+
+    const result = await __testHooks.handleAnthropicAuthRetry({
+      ctx: {} as never,
+      body: { model: "claude-sonnet-5", messages: [], stream: true },
+      account,
+      accountState: {
+        consecutiveRefreshFailures: 0,
+        permanentlyDisabled: false,
+      },
+      headers: { "content-type": "application/json" },
+      buildUpstreamBody: () => ({ bodyStr: "{}" }),
+      enabledAccounts: [account],
+      orderedAccounts: [account],
+      response: new Response(upstreamBody, { status: 401 }),
+      tracer: tracer as never,
+      requestStartTime: Date.now(),
+      fetchStartMs: Date.now(),
+      attemptNumber: 2,
+      finalBodyStr: "{}",
+      upstreamSpan: upstreamSpan as never,
+      logAttempt,
+      logProxyBody,
+      logFinalRequest,
+      lastError: undefined,
+      authFailureMessage: null,
+      sawRateLimit: false,
+      sawTransientFailure: false,
+      sawNetworkError: false,
+    });
+
+    expect(result).toMatchObject({
+      continueLoop: false,
+      sawRateLimit: false,
+      response: {
+        type: "error",
+        error: {
+          type: "invalid_request_error",
+          message:
+            "Anthropic rejected the OAuth request shape. This is not an account rate limit.",
+        },
+      },
+    });
+    expect(logAttempt).toHaveBeenCalledTimes(1);
+    expect(logAttempt).toHaveBeenCalledWith(
+      429,
+      "construction_rejection",
+      upstreamBody,
+    );
+    expect(logFinalRequest).toHaveBeenCalledTimes(1);
+    expect(logFinalRequest).toHaveBeenCalledWith(
+      400,
+      account.label,
+      account.type,
+      "construction_rejection",
+      expect.stringContaining("not an account rate limit"),
+    );
+    expect(tracer.end).toHaveBeenCalledTimes(1);
+    expect(upstreamSpan.end).toHaveBeenCalledTimes(1);
+    expect(getStats().totalRateLimits).toBe(0);
+    expect(getStats()).toMatchObject({ totalRequests: 1, totalErrors: 1 });
+  });
+
+  it("still counts and plans cooldown for a genuine transient 429", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          type: "error",
+          error: { type: "rate_limit_error", message: "Rate limited" },
+        }),
+        {
+          status: 429,
+          headers: {
+            "content-type": "application/json",
+            "retry-after": "1",
+            "anthropic-ratelimit-unified-status": "allowed",
+            "anthropic-ratelimit-unified-5h-status": "allowed",
+            "anthropic-ratelimit-unified-7d-status": "allowed",
+          },
+        },
+      ),
+    );
+
+    const result = await __testHooks.fetchAnthropicAccountResponse(
+      fetchArgs(vi.fn(), vi.fn()),
+    );
+
+    expect(result).toMatchObject({
+      continueLoop: true,
+      retrySameAccount: true,
+      sawRateLimit: true,
+      cooldownPlan: { reason: "transient", rotateImmediately: false },
+    });
+    expect(getStats().totalRateLimits).toBe(1);
+  });
+
+  it("shares two transient retries across an entire concurrent account window", () => {
+    const now = 1_800_000_000_000;
+    const coolingUntil = now + 60_000;
+    const claims = Array.from({ length: 8 }, () =>
+      __testHooks.claimTransientRateLimitRetry(
+        "anthropic:primary@example.com",
+        coolingUntil,
+        now,
+      ),
+    );
+
+    expect(claims).toEqual([
+      1,
+      2,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(
+      __testHooks.claimTransientRateLimitRetry(
+        "anthropic:primary@example.com",
+        coolingUntil + 120_000,
+        coolingUntil + 1,
+      ),
+    ).toBe(1);
+  });
+
+  it("paces a bounded queue through a short transient cooldown", () => {
+    const now = 1_800_000_000_000;
+    const coolingUntil = now + 60_000;
+    const firstThree = Array.from({ length: 3 }, () =>
+      __testHooks.claimTransientCooldownAdmission(
+        "anthropic:primary@example.com",
+        coolingUntil,
+        now,
+      ),
+    );
+
+    expect(firstThree).toEqual([60_000, 60_250, 60_500]);
+    const remainingClaims = Array.from({ length: 59 }, () =>
+      __testHooks.claimTransientCooldownAdmission(
+        "anthropic:primary@example.com",
+        coolingUntil,
+        now,
+      ),
+    );
+    expect(remainingClaims.at(-2)).toBe(75_000);
+    expect(remainingClaims.at(-1)).toBeUndefined();
+    expect(
+      __testHooks.claimTransientCooldownAdmission(
+        "anthropic:other@example.com",
+        now + 120_000,
+        now,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("waits for transient recovery and spaces concurrent admissions", async () => {
+    vi.useFakeTimers();
+    const now = 1_800_000_000_000;
+    vi.setSystemTime(now);
+    const account = {
+      key: "anthropic:primary@example.com",
+      label: "primary@example.com",
+      token: "test-token",
+      type: "oauth" as const,
+    };
+    __testHooks.setAccountRuntimeState(account.key, {
+      coolingUntil: now + 60_000,
+      coolingReason: "transient",
+    });
+
+    const firstAdmission = __testHooks.waitForTransientAccountAvailability([
+      account,
+    ]);
+    const secondAdmission = __testHooks.waitForTransientAccountAvailability([
+      account,
+    ]);
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    await expect(firstAdmission).resolves.toEqual([account]);
+    await vi.advanceTimersByTimeAsync(250);
+    await expect(secondAdmission).resolves.toEqual([account]);
+  });
+
+  it("never queues through a hard quota cooldown", async () => {
+    const now = Date.now();
+    const account = {
+      key: "anthropic:primary@example.com",
+      label: "primary@example.com",
+      token: "test-token",
+      type: "oauth" as const,
+    };
+    __testHooks.setAccountRuntimeState(account.key, {
+      coolingUntil: now + 5 * 60 * 60 * 1000,
+      coolingReason: "five_hour",
+    });
+
+    await expect(
+      __testHooks.waitForTransientAccountAvailability([account]),
+    ).resolves.toEqual([]);
+  });
+
+  it("does not run provider fallback for a deterministic invalid request", () => {
+    const loopState = {
+      lastError: undefined,
+      sawRateLimit: false,
+      sawNetworkError: false,
+      sawTransientFailure: false,
+      invalidRequestFailure: null,
+      authFailureMessage: null,
+      authCooldownMessage: null,
+      attemptNumber: 1,
+    };
+
+    expect(__testHooks.shouldAttemptClaudeFallback(loopState)).toBe(true);
+    expect(
+      __testHooks.shouldAttemptClaudeFallback({
+        ...loopState,
+        invalidRequestFailure: {
+          status: 400,
+          body: JSON.stringify({
+            type: "error",
+            error: {
+              type: "invalid_request_error",
+              message: "prompt is too long",
+            },
+          }),
+          contentType: "application/json",
+        },
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("authoritative unified rate-limit handling", () => {
@@ -520,6 +1000,95 @@ describe("stream terminal outcomes", () => {
       __testHooks.getStreamFailureDetails({ kind: "client_cancelled" }),
     ).toMatchObject({ status: 499, errorType: "client_cancelled" });
   });
+
+  it("retains the nested transport cause for terminated streams", () => {
+    const cause = Object.assign(new Error("other side closed"), {
+      code: "UND_ERR_SOCKET",
+    });
+    const error = new Error("terminated", { cause });
+
+    expect(__testHooks.describeTransportError(error)).toBe(
+      "terminated (UND_ERR_SOCKET: other side closed)",
+    );
+  });
+
+  it("settles failed-stream telemetry exactly once", async () => {
+    const encoder = new TextEncoder();
+    const transportCause = Object.assign(new Error("other side closed"), {
+      code: "UND_ERR_SOCKET",
+    });
+    const upstreamStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'event: message_start\ndata: {"type":"message_start","message":{"usage":{"input_tokens":1,"output_tokens":0}}}\n\n',
+          ),
+        );
+      },
+      pull() {
+        throw new Error("terminated", { cause: transportCause });
+      },
+    });
+    const account = {
+      key: "anthropic:primary@example.com",
+      label: "primary@example.com",
+      token: "test-token",
+      type: "oauth" as const,
+    };
+    const logFinalRequest = vi.fn();
+    const logProxyBody = vi.fn();
+    const upstreamSpan = { end: vi.fn() };
+    const tracer = {
+      setUsage: vi.fn(),
+      logStreamEvents: vi.fn(),
+      setResponseInfo: vi.fn(),
+      logUpstreamResponseBody: vi.fn(),
+      recordMetrics: vi.fn(),
+      recordBodySizes: vi.fn(),
+      setError: vi.fn(),
+      end: vi.fn(),
+    };
+
+    const result = await __testHooks.handleAnthropicStreamingSuccessResponse({
+      ctx: {} as never,
+      body: { model: "claude-opus-4-8", messages: [], stream: true },
+      account,
+      accountState: {
+        consecutiveRefreshFailures: 0,
+        permanentlyDisabled: false,
+      },
+      response: new Response(upstreamStream, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      }),
+      responseHeaders: { "content-type": "text/event-stream" },
+      tracer: tracer as never,
+      requestStartTime: Date.now(),
+      fetchStartMs: Date.now(),
+      attemptNumber: 1,
+      finalBodyStr: "{}",
+      upstreamSpan: upstreamSpan as never,
+      logProxyBody,
+      logFinalRequest,
+    });
+
+    expect(result).not.toHaveProperty("retryNextAccount");
+    await (result.response as Response).text();
+    await vi.waitFor(() => expect(logFinalRequest).toHaveBeenCalledTimes(1));
+
+    expect(logFinalRequest).toHaveBeenCalledWith(
+      502,
+      account.label,
+      account.type,
+      "stream_error",
+      "terminated (UND_ERR_SOCKET: other side closed)",
+      expect.any(Object),
+    );
+    expect(tracer.setError).toHaveBeenCalledTimes(1);
+    expect(tracer.end).toHaveBeenCalledTimes(1);
+    expect(upstreamSpan.end).toHaveBeenCalledTimes(1);
+    expect(getStats()).toMatchObject({ totalRequests: 1, totalErrors: 1 });
+  });
 });
 
 describe("launchd lifecycle source invariants", () => {
@@ -567,7 +1136,7 @@ describe("launchd lifecycle source invariants", () => {
       new URL("../src/lib/server/routes/claudeProxyRoutes.ts", import.meta.url),
       "utf8",
     );
-    expect(source).toContain("const effectiveAccounts = nonCoolingAccounts;");
+    expect(source).toContain("let effectiveAccounts = nonCoolingAccounts;");
     expect(source).toContain("eligible credentials reloaded");
     expect(source).toContain("authCooldownMessage");
     expect(source).not.toContain("credentials changed, re-enabling");
