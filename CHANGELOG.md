@@ -1,3 +1,13 @@
+## [9.88.0](https://github.com/juspay/neurolink/compare/v9.87.4...v9.88.0) (2026-07-15)
+
+### Features
+
+- **(cli):** implement memory subcommand for conversation management ([76219be](https://github.com/juspay/neurolink/commit/76219beaa90cddc17a71f765dc5c89a6b0ceae39))
+
+### Bug Fixes
+
+- **(file-detector):** normalize extension matching ([967df4b](https://github.com/juspay/neurolink/commit/967df4b3ee205b9122a2a965971eae52a47872bd))
+
 ## [9.87.4](https://github.com/juspay/neurolink/compare/v9.87.3...v9.87.4) (2026-07-15)
 
 ### Bug Fixes
