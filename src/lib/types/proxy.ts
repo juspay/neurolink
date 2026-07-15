@@ -617,6 +617,7 @@ export type AnthropicLoopState = {
   } | null;
   authFailureMessage: string | null;
   authCooldownMessage: string | null;
+  fallbackFailureMessage?: string;
   attemptNumber: number;
 };
 
@@ -1110,6 +1111,29 @@ export type QuietStatus = {
   silenceDurationMs: number;
 };
 
+/** In-process proxy request activity used to protect streaming restarts. */
+export type ProxyActivitySnapshot = {
+  activeRequests: number;
+  lastActivityAt: Date | null;
+};
+
+/** Activity payload exposed by the running proxy status endpoint. */
+export type ProxyRuntimeActivity = {
+  activeRequests: number;
+  lastActivityAt: string | null;
+};
+
+/** Request metadata retained by the HTTP adapter for terminal error logging. */
+export type RuntimeRequestMetadata = {
+  requestId: string;
+  method: string;
+  path: string;
+  startedAt: number;
+  model: string;
+  stream: boolean;
+  toolCount: number;
+};
+
 // =============================================================================
 // RAW STREAM CAPTURE (from proxy/rawStreamCapture.ts)
 // =============================================================================
@@ -1291,6 +1315,40 @@ export type UpdateState = {
   suppressedVersions: Record<string, SuppressedVersion>;
   lastUpdateAt: string | null;
   lastUpdateVersion: string | null;
+};
+
+/** Supported global package managers for proxy self-updates. */
+export type GlobalInstallerKind = "npm" | "pnpm";
+
+/** Result of probing one global package-manager executable. */
+export type GlobalInstallerProbe = {
+  kind: GlobalInstallerKind;
+  bin: string;
+  version?: string;
+  globalRoot?: string;
+  globalBinDir?: string;
+  working: boolean;
+  installable: boolean;
+  matchesCurrentInstall: boolean;
+  reason?: string;
+};
+
+/** Selected package manager plus all candidates considered. */
+export type GlobalInstallerResolution = {
+  installer?: GlobalInstallerProbe;
+  tried: GlobalInstallerProbe[];
+};
+
+/** Injectable command runner used by global-installer tests. */
+export type GlobalInstallerExecFile =
+  typeof import("node:child_process").execFileSync;
+
+/** Overrides used while resolving the global package manager. */
+export type ResolveGlobalInstallerOptions = {
+  entryScript?: string;
+  env?: NodeJS.ProcessEnv;
+  homeDir?: string;
+  execFileSync?: GlobalInstallerExecFile;
 };
 
 // =============================================================================

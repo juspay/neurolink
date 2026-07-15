@@ -775,6 +775,7 @@ export function convertClaudeToOpenAIResponse(
  */
 export function createClaudeToOpenAIStreamTransform(
   requestModel: string,
+  options: { onError?: (message: string) => void } = {},
 ): TransformStream<Uint8Array, Uint8Array> {
   const serializer = new OpenAIStreamSerializer(requestModel);
   const encoder = new TextEncoder();
@@ -815,6 +816,9 @@ export function createClaudeToOpenAIStreamTransform(
     try {
       data = JSON.parse(dataStr) as Record<string, unknown>;
     } catch {
+      return;
+    }
+    if (finished) {
       return;
     }
 
@@ -916,8 +920,20 @@ export function createClaudeToOpenAIStreamTransform(
         return;
       }
 
+      case "error": {
+        const error = (data.error ?? {}) as { message?: unknown };
+        const message =
+          typeof error.message === "string"
+            ? error.message
+            : "Anthropic stream failed";
+        finished = true;
+        options.onError?.(message);
+        emit(controller, serializer.emitError(message));
+        return;
+      }
+
       default:
-        // ping, error, and unknown events are ignored.
+        // ping and unknown events are ignored.
         return;
     }
   };
@@ -963,10 +979,12 @@ export function createClaudeToOpenAIStreamTransform(
       buffer += decoder.decode();
       drainBufferedEvents(controller);
 
-      // If the upstream closed without a message_stop, still finalize.
+      // Closing without message_stop is an interrupted stream, not success.
       if (!finished) {
         finished = true;
-        emit(controller, serializer.finish(stopReason, usage));
+        const message = "Anthropic stream ended before message_stop";
+        options.onError?.(message);
+        emit(controller, serializer.emitError(message));
       }
     },
   });

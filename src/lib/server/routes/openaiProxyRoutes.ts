@@ -232,14 +232,66 @@ async function handleOpenAIToAnthropicBridge(args: {
         "Anthropic loopback returned empty stream body",
       );
     }
-    // Streaming success: log now since the response body is consumed by the
-    // client. Token counts are not visible at this layer (the inner /v1/messages
-    // handler accounts them), so we omit them here.
-    await writeLifecycle(200);
+    let terminalStreamError: string | undefined;
     const transformed = upstream.body.pipeThrough(
-      createClaudeToOpenAIStreamTransform(body.model),
+      createClaudeToOpenAIStreamTransform(body.model, {
+        onError: (message) => {
+          terminalStreamError = sanitizeForLog(message);
+        },
+      }),
     );
-    return new Response(transformed, {
+    const reader = transformed.getReader();
+    let lifecycleWritten = false;
+    const finishLifecycle = async (
+      status: number,
+      errorType?: string,
+      errorMessage?: string,
+    ): Promise<void> => {
+      if (lifecycleWritten) {
+        return;
+      }
+      lifecycleWritten = true;
+      await writeLifecycle(status, { errorType, errorMessage });
+    };
+    const trackedStream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        try {
+          const { value, done } = await reader.read();
+          if (done) {
+            if (terminalStreamError) {
+              await finishLifecycle(
+                502,
+                "loopback_stream_error",
+                terminalStreamError,
+              );
+            } else {
+              await finishLifecycle(200);
+            }
+            controller.close();
+            return;
+          }
+          controller.enqueue(value);
+        } catch (error) {
+          const message = sanitizeForLog(
+            error instanceof Error ? error.message : String(error),
+          );
+          await finishLifecycle(502, "loopback_stream_error", message);
+          controller.error(error);
+        }
+      },
+      async cancel(reason) {
+        try {
+          await reader.cancel(reason);
+        } finally {
+          await finishLifecycle(
+            499,
+            "client_cancelled",
+            "Client cancelled the OpenAI-compatible stream",
+          );
+        }
+      },
+    });
+    return new Response(trackedStream, {
       status: 200,
       headers: {
         "content-type": "text/event-stream",

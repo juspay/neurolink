@@ -117,10 +117,12 @@ import type {
   RouteGroup,
   RuntimeAccountState,
   ServerContext,
+  StreamResult,
   StreamTerminalOutcome,
   TransientRateLimitRetryBudget,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
+import { withTimeout } from "../../utils/async/withTimeout.js";
 import { ProviderHealthChecker } from "../../utils/providerHealth.js";
 // ---------------------------------------------------------------------------
 // Helpers
@@ -155,6 +157,8 @@ let configuredAccountAllowlist: AccountAllowlist | undefined;
 const MAX_AUTH_RETRIES = 5;
 const MAX_TRANSIENT_SAME_ACCOUNT_RETRIES = 2;
 const TRANSIENT_SAME_ACCOUNT_RETRY_DELAYS_MS = [250, 1_000] as const;
+const MAX_FALLBACK_NETWORK_RETRIES = 1;
+const FALLBACK_STREAM_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
 
 /** Maximum upstream 429 attempts per account before rotating — for a TRANSIENT
  *  burst 429 only (window still "allowed", short retry-after). An exhaustion 429
@@ -2400,28 +2404,65 @@ async function executeClaudeFallbackTranslation(args: {
     options,
     providerLabel,
   } = args;
+  const fallbackAbortController = new AbortController();
+  let streamResult: StreamResult;
+  try {
+    streamResult = await withTimeout(
+      ctx.neurolink.stream({
+        ...options,
+        abortSignal: fallbackAbortController.signal,
+      }),
+      FALLBACK_STREAM_IDLE_TIMEOUT_MS,
+      `Fallback ${providerLabel} initialization timed out after ${FALLBACK_STREAM_IDLE_TIMEOUT_MS}ms`,
+    );
+  } catch (error) {
+    fallbackAbortController.abort(error);
+    throw error;
+  }
+  const consumeFallbackStream = async (
+    onText?: (text: string) => void,
+  ): Promise<string> => {
+    const iterator = streamResult.stream[Symbol.asyncIterator]();
+    let collectedText = "";
+    try {
+      while (true) {
+        const { value: chunk, done } = await withTimeout(
+          iterator.next(),
+          FALLBACK_STREAM_IDLE_TIMEOUT_MS,
+          `Fallback ${providerLabel} stream timed out after ${FALLBACK_STREAM_IDLE_TIMEOUT_MS}ms of inactivity`,
+        );
+        if (done) {
+          return collectedText;
+        }
+        const text = extractText(chunk);
+        if (text) {
+          collectedText += text;
+          onText?.(text);
+        }
+      }
+    } catch (error) {
+      fallbackAbortController.abort(error);
+      void iterator.return?.().catch(() => {
+        // Timeout/error already determines the request outcome.
+      });
+      throw error;
+    }
+  };
+
   if (body.stream) {
-    const streamResult = await ctx.neurolink.stream(options);
     const serializer = new ClaudeStreamSerializer(body.model, 0);
 
     // Eagerly consume stream so errors fire synchronously and the
     // fallback loop in tryConfiguredClaudeFallbackChain can catch them.
     const frames: string[] = [];
-    let collectedText = "";
-
     for (const frame of serializer.start()) {
       frames.push(frame);
     }
-
-    for await (const chunk of streamResult.stream) {
-      const text = extractText(chunk);
-      if (text) {
-        collectedText += text;
-        for (const frame of serializer.pushDelta(text)) {
-          frames.push(frame);
-        }
+    const collectedText = await consumeFallbackStream((text) => {
+      for (const frame of serializer.pushDelta(text)) {
+        frames.push(frame);
       }
-    }
+    });
 
     const toolCalls = streamResult.toolCalls ?? [];
 
@@ -2481,14 +2522,7 @@ async function executeClaudeFallbackTranslation(args: {
     return sseGenerator();
   }
 
-  const streamResult = await ctx.neurolink.stream(options);
-  let collectedText = "";
-  for await (const chunk of streamResult.stream) {
-    const text = extractText(chunk);
-    if (text) {
-      collectedText += text;
-    }
-  }
+  const collectedText = await consumeFallbackStream();
   if (!hasTranslatedOutput(collectedText, streamResult.toolCalls)) {
     throw new Error(
       `Translated provider ${providerLabel} returned no content or tool calls`,
@@ -2525,6 +2559,31 @@ async function executeClaudeFallbackTranslation(args: {
   return clientResponse;
 }
 
+async function executeClaudeFallbackWithRetry(
+  args: Parameters<typeof executeClaudeFallbackTranslation>[0],
+): Promise<unknown> {
+  let lastError: unknown;
+  for (let retry = 0; retry <= MAX_FALLBACK_NETWORK_RETRIES; retry += 1) {
+    try {
+      return await executeClaudeFallbackTranslation(args);
+    } catch (error) {
+      lastError = error;
+      if (
+        !isRetryableNetworkError(error) ||
+        retry === MAX_FALLBACK_NETWORK_RETRIES
+      ) {
+        throw error;
+      }
+      const delayMs = TRANSIENT_SAME_ACCOUNT_RETRY_DELAYS_MS[retry] ?? 250;
+      logger.always(
+        `[proxy] retrying fallback=${args.providerLabel} after transient network error (${retry + 1}/${MAX_FALLBACK_NETWORK_RETRIES}) in ${delayMs}ms: ${describeTransportError(error)}`,
+      );
+      await sleep(delayMs);
+    }
+  }
+  throw lastError;
+}
+
 async function tryConfiguredClaudeFallbackChain(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
@@ -2546,7 +2605,7 @@ async function tryConfiguredClaudeFallbackChain(args: {
       cacheReadTokens?: number;
     },
   ) => void;
-}): Promise<{ response: unknown | null }> {
+}): Promise<{ response: unknown | null; lastErrorMessage?: string }> {
   const {
     ctx,
     body,
@@ -2578,6 +2637,7 @@ async function tryConfiguredClaudeFallbackChain(args: {
     attemptCount: fallbackPlan.attempts.slice(1).length,
     reason: "all_anthropic_accounts_exhausted",
   });
+  let lastFallbackError: string | undefined;
 
   for (const fallback of fallbackPlan.attempts.slice(1)) {
     if (!fallback.provider || !fallback.model) {
@@ -2604,7 +2664,7 @@ async function tryConfiguredClaudeFallbackChain(args: {
         provider: fallback.provider,
         model: fallback.model,
       });
-      const response = await executeClaudeFallbackTranslation({
+      const response = await executeClaudeFallbackWithRetry({
         ctx,
         body,
         tracer,
@@ -2661,7 +2721,7 @@ async function tryConfiguredClaudeFallbackChain(args: {
       }
 
       logger.always(
-        `[proxy] fallback ${fallback.provider}/${fallback.model} failed [${errorClass}]: ${errMsg}`,
+        `[proxy] fallback ${fallback.provider}/${fallback.model} failed [${errorClass}]: ${describeTransportError(fallbackErr)}`,
       );
       recordFallbackAttempt({
         provider: fallback.provider,
@@ -2670,10 +2730,11 @@ async function tryConfiguredClaudeFallbackChain(args: {
         errorMessage: `[${errorClass}] ${errMsg}`,
         durationMs: Date.now() - fallbackStart,
       });
+      lastFallbackError = `[${fallback.provider}/${fallback.model}] ${describeTransportError(fallbackErr)}`;
     }
   }
 
-  return { response: null };
+  return { response: null, lastErrorMessage: lastFallbackError };
 }
 
 async function tryAutoClaudeFallback(args: {
@@ -2695,9 +2756,10 @@ async function tryAutoClaudeFallback(args: {
       cacheReadTokens?: number;
     },
   ) => void;
-}): Promise<unknown | null> {
+}): Promise<{ response: unknown | null; lastErrorMessage?: string }> {
   const { ctx, body, tracer, requestStartTime, logProxyBody, logFinalRequest } =
     args;
+  const fallbackStart = Date.now();
   try {
     const parsed = parseClaudeRequest(body);
     const plan = buildProxyTranslationPlan(
@@ -2711,11 +2773,11 @@ async function tryAutoClaudeFallback(args: {
       (attempt) => attempt.label === "auto-provider",
     );
     if (!autoAttempt) {
-      return null;
+      return { response: null };
     }
     logger.always("[proxy] fallback → auto-provider");
     const options = buildProxyFallbackOptions(parsed);
-    return await executeClaudeFallbackTranslation({
+    const response = await executeClaudeFallbackWithRetry({
       ctx,
       body,
       tracer,
@@ -2725,13 +2787,38 @@ async function tryAutoClaudeFallback(args: {
       options: options as Parameters<ServerContext["neurolink"]["stream"]>[0],
       providerLabel: "auto-provider",
     });
+    recordFallbackAttempt({
+      provider: "auto-provider",
+      model: body.model,
+      status: "success",
+      durationMs: Date.now() - fallbackStart,
+    });
+    tracer?.setFallbackInfo({
+      triggered: true,
+      provider: "auto-provider",
+      model: body.model,
+      attemptCount: 1,
+      reason: "fallback_success",
+    });
+    return { response };
   } catch (fallbackErr) {
-    logger.debug(
-      `[proxy] fallback auto-provider failed: ${
-        fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)
-      }`,
-    );
-    return null;
+    const errorMessage = describeTransportError(fallbackErr);
+    logger.always(`[proxy] fallback auto-provider failed: ${errorMessage}`);
+    recordFallbackAttempt({
+      provider: "auto-provider",
+      model: body.model,
+      status: "failure",
+      errorMessage,
+      durationMs: Date.now() - fallbackStart,
+    });
+    tracer?.setFallbackInfo({
+      triggered: true,
+      provider: "auto-provider",
+      model: body.model,
+      attemptCount: 1,
+      reason: "fallback_failure",
+    });
+    return { response: null, lastErrorMessage: errorMessage };
   }
 }
 
@@ -2749,6 +2836,7 @@ function buildClaudeAnthropicFailureResponse(args: {
   sawTransientFailure: boolean;
   sawRateLimit: boolean;
   lastError: unknown;
+  fallbackFailureMessage?: string;
   orderedAccounts: ProxyPassthroughAccount[];
   buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
   logProxyBody: ProxyBodyCaptureLogger;
@@ -2776,6 +2864,7 @@ function buildClaudeAnthropicFailureResponse(args: {
     sawTransientFailure,
     sawRateLimit,
     lastError,
+    fallbackFailureMessage,
     orderedAccounts,
     buildLoggedClaudeError,
     logProxyBody,
@@ -2836,25 +2925,39 @@ function buildClaudeAnthropicFailureResponse(args: {
   }
 
   if ((sawNetworkError || sawTransientFailure) && !sawRateLimit) {
+    const fallbackSuffix = fallbackFailureMessage
+      ? ` Fallback also failed: ${fallbackFailureMessage}`
+      : "";
     const msg = `All Anthropic accounts failed due to transient upstream/network errors. Last error: ${
       lastError instanceof Error
         ? lastError.message
         : String(lastError ?? "unknown")
-    }`;
+    }.${fallbackSuffix}`;
     tracer?.setError("transient_error", msg.slice(0, 500));
     tracer?.end(502, Date.now() - requestStartTime);
-    return buildLoggedClaudeError(502, msg);
+    return buildLoggedClaudeError(
+      502,
+      msg,
+      fallbackFailureMessage ? "fallback_exhausted" : "transient_error",
+    );
   }
 
   if (!sawRateLimit) {
+    const fallbackSuffix = fallbackFailureMessage
+      ? ` Fallback also failed: ${fallbackFailureMessage}`
+      : "";
     const msg = `All Anthropic accounts failed. Last error: ${
       lastError instanceof Error
         ? lastError.message
         : String(lastError ?? "unknown")
-    }`;
+    }.${fallbackSuffix}`;
     tracer?.setError("all_accounts_failed", msg.slice(0, 500));
     tracer?.end(502, Date.now() - requestStartTime);
-    return buildLoggedClaudeError(502, msg);
+    return buildLoggedClaudeError(
+      502,
+      msg,
+      fallbackFailureMessage ? "fallback_exhausted" : "all_accounts_failed",
+    );
   }
 
   const now = Date.now();
@@ -5702,6 +5805,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
   // repaired by changing providers. Preserve the authoritative Anthropic 400
   // rather than delaying it or returning unrelated fallback output.
   if (shouldAttemptClaudeFallback(loopState)) {
+    let fallbackFailureMessage: string | undefined;
     const configuredFallbackResult = await tryConfiguredClaudeFallbackChain({
       ctx,
       body,
@@ -5715,11 +5819,12 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     if (configuredFallbackResult.response) {
       return configuredFallbackResult.response;
     }
+    fallbackFailureMessage = configuredFallbackResult.lastErrorMessage;
 
     // Try auto-provider fallback when the configured chain didn't produce a
     // response (either no chain configured, or all entries failed/deduped).
     if (!loopState.sawRateLimit) {
-      const autoFallbackResponse = await tryAutoClaudeFallback({
+      const autoFallbackResult = await tryAutoClaudeFallback({
         ctx,
         body,
         tracer,
@@ -5727,10 +5832,14 @@ async function handleAnthropicRoutedClaudeRequest(args: {
         logProxyBody,
         logFinalRequest,
       });
-      if (autoFallbackResponse) {
-        return autoFallbackResponse;
+      if (autoFallbackResult.response) {
+        return autoFallbackResult.response;
       }
+      fallbackFailureMessage =
+        autoFallbackResult.lastErrorMessage ?? fallbackFailureMessage;
     }
+
+    loopState.fallbackFailureMessage = fallbackFailureMessage;
   }
 
   return buildClaudeAnthropicFailureResponse({
@@ -5743,6 +5852,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     sawTransientFailure: loopState.sawTransientFailure,
     sawRateLimit: loopState.sawRateLimit,
     lastError: loopState.lastError,
+    fallbackFailureMessage: loopState.fallbackFailureMessage,
     orderedAccounts,
     buildLoggedClaudeError,
     logProxyBody,
@@ -6184,6 +6294,7 @@ function isRetryableNetworkError(error: unknown): boolean {
     normalized.includes("econnrefused") ||
     normalized.includes("econnreset") ||
     normalized.includes("etimedout") ||
+    normalized.includes("timed out") ||
     normalized.includes("connection error") ||
     normalized.includes("connect error") ||
     normalized.includes("fetch failed") ||
@@ -6376,4 +6487,6 @@ export const __testHooks = {
   waitForTransientAccountAvailability,
   describeTransportError,
   shouldAttemptClaudeFallback,
+  executeClaudeFallbackWithRetry,
+  buildClaudeAnthropicFailureResponse,
 };

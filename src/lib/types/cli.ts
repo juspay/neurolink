@@ -929,6 +929,8 @@ export type ProxyGuardArgs = {
   failureThreshold?: number;
   pollIntervalMs?: number;
   quiet?: boolean;
+  /** Run update checks only; never mutate client settings. */
+  updaterOnly?: boolean;
 };
 
 /** Arguments accepted by `neurolink proxy telemetry <subcommand>` */
@@ -958,6 +960,8 @@ export type ProxyState = {
   accountAllowlist?: string[];
   /** Optional fail-open guard PID that reverts Claude settings if proxy dies */
   guardPid?: number;
+  /** Dedicated updater PID for launchd-managed proxy installations. */
+  updaterPid?: number;
   /** How the proxy was launched — "launchd" if installed as service, "manual" otherwise */
   managedBy?: "launchd" | "manual";
   /** Whether the proxy is running in transparent passthrough mode */
