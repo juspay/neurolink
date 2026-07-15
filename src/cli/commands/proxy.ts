@@ -43,6 +43,8 @@ import type {
   ProxyStatusPrimaryAccount,
   ProxyTelemetryAction,
   ProxyTelemetryArgs,
+  ProxyRuntimeActivity,
+  RuntimeRequestMetadata,
   StatusStats,
 } from "../../lib/types/index.js";
 import type { ModelRouter } from "../../lib/proxy/modelRouter.js";
@@ -56,6 +58,16 @@ import {
   normalizeAnthropicAccountKey,
   shouldLoadFallbackCredential,
 } from "../../lib/proxy/accountSelection.js";
+import {
+  beginProxyRequest,
+  getProxyActivitySnapshot,
+  trackProxyResponse,
+} from "../../lib/proxy/proxyActivity.js";
+import {
+  describeInstallFailure,
+  getGlobalInstallArgs,
+  resolveGlobalInstaller,
+} from "../../lib/proxy/globalInstaller.js";
 import {
   loadProxyEnvFile,
   resolveProxyEnvFile,
@@ -216,7 +228,7 @@ function isLaunchdManagedProcess(): boolean {
 function isProxyAutoUpdateEnabled(
   value = process.env.NEUROLINK_PROXY_AUTO_UPDATE,
 ): boolean {
-  return ["1", "on", "true"].includes((value ?? "").trim().toLowerCase());
+  return !["0", "off", "false"].includes((value ?? "").trim().toLowerCase());
 }
 
 /** Keys we manage in Claude Code's settings.env */
@@ -457,6 +469,55 @@ async function isProxyHealthy(
   }
 }
 
+async function getProxyRuntimeActivity(
+  host: string,
+  port: number,
+  timeoutMs: number = 3_000,
+): Promise<ProxyRuntimeActivity | null> {
+  try {
+    const response = await fetch(`http://${host}:${port}/status`, {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const payload = (await response.json()) as {
+      activity?: Partial<ProxyRuntimeActivity>;
+    };
+    const activeRequests = Number(payload.activity?.activeRequests);
+    if (!Number.isFinite(activeRequests) || activeRequests < 0) {
+      return null;
+    }
+    return {
+      activeRequests,
+      lastActivityAt:
+        typeof payload.activity?.lastActivityAt === "string"
+          ? payload.activity.lastActivityAt
+          : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isSafeUpdateWindow(
+  activity: ProxyRuntimeActivity,
+  quietThresholdMs: number,
+  nowMs: number = Date.now(),
+): boolean {
+  if (activity.activeRequests > 0) {
+    return false;
+  }
+  if (!activity.lastActivityAt) {
+    return true;
+  }
+  const lastActivityMs = Date.parse(activity.lastActivityAt);
+  return (
+    Number.isFinite(lastActivityMs) &&
+    nowMs - lastActivityMs >= quietThresholdMs
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Stable entrypoint for launchd
 // ---------------------------------------------------------------------------
@@ -566,136 +627,6 @@ exit 127
   chmodSync(TRAMPOLINE_PATH, 0o755);
 }
 
-/**
- * Check whether a pnpm binary can install into the global store.
- *
- * Multiple pnpm major versions can coexist (e.g., standalone v8 + nvm v10).
- * They use different store layouts (`store/v10` vs `store/v10/v3`), so a
- * pnpm that passes `--version` may still fail `pnpm add -g` with
- * ERR_PNPM_UNEXPECTED_STORE. We detect this by running `pnpm root -g` and
- * checking whether the resolved global root directory actually exists on disk.
- */
-function canInstallGlobally(pnpmPath: string): boolean {
-  try {
-    const { execFileSync } = _require(
-      "node:child_process",
-    ) as typeof import("node:child_process");
-    const { existsSync } = _require("fs") as typeof import("fs");
-    const globalRoot = execFileSync(pnpmPath, ["root", "-g"], {
-      encoding: "utf8",
-      timeout: 10_000,
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-    // If the global root exists, this pnpm version is compatible with
-    // the current store layout and can install packages there.
-    return !!globalRoot && existsSync(globalRoot);
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Resolve the `pnpm` binary defensively.
- *
- * Tries multiple candidates in order of preference. Each candidate must:
- * 1. Respond to `pnpm --version` (binary works)
- * 2. Have a compatible global store (`pnpm root -g` points to an existing dir)
- *
- * This defends against environments with multiple pnpm major versions
- * (e.g., standalone v8 + nvm v10) where the wrong one would fail with
- * ERR_PNPM_UNEXPECTED_STORE on `pnpm add -g`.
- *
- * Honors `NEUROLINK_PNPM_PATH` as an escape hatch.
- */
-function resolveFullPnpmPath(): {
-  bin: string;
-  resolved: boolean;
-  version?: string;
-  tried: Array<{
-    path: string;
-    version?: string;
-    working: boolean;
-    globalStoreOk?: boolean;
-  }>;
-} {
-  const candidates: string[] = [];
-
-  // 1. User override
-  if (process.env.NEUROLINK_PNPM_PATH) {
-    candidates.push(process.env.NEUROLINK_PNPM_PATH);
-  }
-
-  // 2. PNPM_HOME (pnpm's own env variable)
-  if (process.env.PNPM_HOME) {
-    candidates.push(join(process.env.PNPM_HOME, "pnpm"));
-  }
-
-  // 3. `which pnpm` — whatever is on PATH
-  try {
-    const { execFileSync } = _require(
-      "node:child_process",
-    ) as typeof import("node:child_process");
-    const whichOut = execFileSync("which", ["pnpm"], {
-      encoding: "utf8",
-      timeout: 5_000,
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-    if (whichOut) {
-      candidates.push(whichOut);
-    }
-  } catch {
-    // ignore
-  }
-
-  // 4. Common standalone installer locations
-  candidates.push(join(homedir(), ".local", "share", "pnpm", "pnpm"));
-  candidates.push(join(homedir(), "Library", "pnpm", "pnpm"));
-
-  // Dedupe while preserving order
-  const seen = new Set<string>();
-  const unique = candidates.filter((p) => {
-    if (!p || seen.has(p)) {
-      return false;
-    }
-    seen.add(p);
-    return true;
-  });
-
-  // Probe each candidate: must pass --version AND have a compatible global store
-  const tried = unique.map((path) => {
-    const version = probeBinVersion(path);
-    const working = version !== undefined;
-    const globalStoreOk = working ? canInstallGlobally(path) : false;
-    return { path, version, working, globalStoreOk };
-  });
-
-  // Prefer a candidate that can actually install globally
-  const fullyWorking = tried.find((r) => r.working && r.globalStoreOk);
-  if (fullyWorking) {
-    return {
-      bin: fullyWorking.path,
-      resolved: true,
-      version: fullyWorking.version,
-      tried,
-    };
-  }
-
-  // Fall back to any candidate that at least responds to --version
-  // (better than nothing — the install may still fail, but will be
-  // caught and suppressed by the caller)
-  const anyWorking = tried.find((r) => r.working);
-  if (anyWorking) {
-    return {
-      bin: anyWorking.path,
-      resolved: true,
-      version: anyWorking.version,
-      tried,
-    };
-  }
-
-  return { bin: "pnpm", resolved: false, tried };
-}
-
 function spawnFailOpenGuard(
   host: string,
   port: number,
@@ -748,6 +679,62 @@ function spawnFailOpenGuard(
     return undefined;
   } finally {
     closeSync(logFd); // parent closes its copy; child keeps the fd
+  }
+}
+
+function spawnProxyUpdater(
+  host: string,
+  port: number,
+  parentPid: number,
+): number | undefined {
+  if (!isProxyAutoUpdateEnabled()) {
+    logger.always("[proxy] automatic updates disabled by environment");
+    return undefined;
+  }
+
+  const entryScript = process.argv[1];
+  if (!entryScript) {
+    logger.always("[proxy] updater disabled: CLI entry script is unavailable");
+    return undefined;
+  }
+
+  const args = [
+    entryScript,
+    "proxy",
+    "guard",
+    "--host",
+    host,
+    "--port",
+    String(port),
+    "--parent-pid",
+    String(parentPid),
+    "--updater-only",
+    "--quiet",
+  ];
+  const { openSync, closeSync, mkdirSync, existsSync } = _require(
+    "fs",
+  ) as typeof import("fs");
+  const logsDir = join(homedir(), ".neurolink", "logs");
+  if (!existsSync(logsDir)) {
+    mkdirSync(logsDir, { recursive: true });
+  }
+  const logFd = openSync(join(logsDir, "proxy-updater.log"), "a");
+
+  try {
+    const child = spawn(process.execPath, args, {
+      detached: true,
+      stdio: ["ignore", logFd, logFd],
+      env: process.env,
+    });
+    child.unref();
+    return child.pid;
+  } catch (error) {
+    logger.always(
+      `[proxy] updater failed to start: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return undefined;
+  } finally {
+    closeSync(logFd);
   }
 }
 
@@ -1092,7 +1079,7 @@ async function resolveBootPrimaryAccountKey(
   return key;
 }
 
-async function createProxyStartApp(params: {
+export async function createProxyStartApp(params: {
   neurolink: ProxyNeurolinkRuntime["neurolink"];
   modelRouter: ModelRouter | undefined;
   strategy: ProxyStartStrategy;
@@ -1107,26 +1094,117 @@ async function createProxyStartApp(params: {
     await import("../../lib/server/routes/claudeProxyRoutes.js");
   const { createOpenAIProxyRoutes } =
     await import("../../lib/server/routes/openaiProxyRoutes.js");
+  const { logBodyCapture, logRequest } =
+    await import("../../lib/proxy/requestLogger.js");
+  const { recordFinalError } = await import("../../lib/proxy/usageStats.js");
   const { Hono } = await import("hono");
 
   const app = new Hono();
   const readiness = createProxyReadinessState();
-  app.onError((err, c) => {
+  const requestMetadata = new WeakMap<Request, RuntimeRequestMetadata>();
+
+  const recordRuntimeError = async (
+    metadata: RuntimeRequestMetadata,
+    status: number,
+    errorType: string,
+    errorMessage: string,
+    clientMessage: string = errorMessage,
+    clientErrorType: string = errorType,
+  ): Promise<void> => {
+    recordFinalError(status);
+    await Promise.all([
+      logRequest({
+        timestamp: new Date().toISOString(),
+        requestId: metadata.requestId,
+        method: metadata.method,
+        path: metadata.path,
+        model: metadata.model,
+        stream: metadata.stream,
+        toolCount: metadata.toolCount,
+        account: "",
+        accountType: "proxy-runtime",
+        responseStatus: status,
+        responseTimeMs: Date.now() - metadata.startedAt,
+        errorType,
+        errorMessage,
+      }),
+      logBodyCapture({
+        timestamp: new Date().toISOString(),
+        requestId: metadata.requestId,
+        model: metadata.model,
+        stream: metadata.stream,
+        phase: "client_response",
+        headers: { "content-type": "application/json" },
+        body: {
+          type: "error",
+          error: { type: clientErrorType, message: clientMessage },
+        },
+        contentType: "application/json",
+        responseStatus: status,
+        durationMs: Date.now() - metadata.startedAt,
+      }),
+    ]);
+  };
+
+  app.onError(async (err, c) => {
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.always(`[proxy] unhandled error: ${errMsg}`);
     if (err instanceof Error && err.stack) {
-      logger.debug(`[proxy] stack: ${err.stack}`);
+      logger.always(`[proxy] unhandled stack: ${err.stack}`);
     }
+    const metadata = requestMetadata.get(c.req.raw) ?? {
+      requestId: crypto.randomUUID(),
+      method: c.req.method,
+      path: c.req.path,
+      startedAt: Date.now(),
+      model: "-",
+      stream: false,
+      toolCount: 0,
+    };
+    await recordRuntimeError(
+      metadata,
+      502,
+      "unhandled_proxy_error",
+      errMsg,
+      "Proxy internal error",
+      "api_error",
+    );
+    requestMetadata.delete(c.req.raw);
     return c.json(
       {
         type: "error",
         error: {
           type: "api_error",
-          message: `Proxy internal error: ${errMsg}`,
+          message: "Proxy internal error",
         },
       },
       502,
     );
+  });
+
+  app.use("/v1/*", async (c, next) => {
+    const metadata: RuntimeRequestMetadata = {
+      requestId: crypto.randomUUID(),
+      method: c.req.method,
+      path: c.req.path,
+      startedAt: Date.now(),
+      model: "-",
+      stream: false,
+      toolCount: 0,
+    };
+    requestMetadata.set(c.req.raw, metadata);
+    const finishActivity = beginProxyRequest();
+    const finish = () => {
+      finishActivity();
+      requestMetadata.delete(c.req.raw);
+    };
+    try {
+      await next();
+      c.res = trackProxyResponse(c.res, finish);
+    } catch (error) {
+      finishActivity();
+      throw error;
+    }
   });
 
   const routeGroup = createClaudeProxyRoutes(
@@ -1156,6 +1234,15 @@ async function createProxyStartApp(params: {
         try {
           body = rawBody ? JSON.parse(rawBody) : emptyBody;
         } catch {
+          const metadata = requestMetadata.get(c.req.raw);
+          if (metadata) {
+            await recordRuntimeError(
+              metadata,
+              400,
+              "invalid_request_error",
+              "Request body must be valid JSON",
+            );
+          }
           return c.json(
             {
               type: "error",
@@ -1177,12 +1264,18 @@ async function createProxyStartApp(params: {
       const toolCount = Array.isArray(bodyRec?.tools)
         ? (bodyRec.tools as unknown[]).length
         : 0;
+      const metadata = requestMetadata.get(c.req.raw);
+      if (metadata) {
+        metadata.model = String(model);
+        metadata.stream = stream === "stream";
+        metadata.toolCount = toolCount;
+      }
       logger.always(
         `[proxy] ${c.req.method} ${c.req.path} → model=${model} ${stream} tools=${toolCount}`,
       );
 
       const ctx = {
-        requestId: crypto.randomUUID(),
+        requestId: metadata?.requestId ?? crypto.randomUUID(),
         method: c.req.method,
         path: c.req.path,
         headers: Object.fromEntries(c.req.raw.headers.entries()),
@@ -1297,6 +1390,7 @@ async function createProxyStartApp(params: {
     const { loadAccountCooldowns } =
       await import("../../lib/proxy/accountCooldown.js");
     const stats = getStats();
+    const runtimeState = loadProxyState();
     const cooldowns = await loadAccountCooldowns();
     const storedAccountKeys = new Set<string>();
     try {
@@ -1359,6 +1453,20 @@ async function createProxyStartApp(params: {
           };
         }),
         primaryAccount,
+      },
+      activity: (() => {
+        const activity = getProxyActivitySnapshot();
+        return {
+          activeRequests: activity.activeRequests,
+          lastActivityAt: activity.lastActivityAt?.toISOString() ?? null,
+        };
+      })(),
+      autoUpdate: {
+        enabled: isProxyAutoUpdateEnabled(),
+        updaterPid: runtimeState?.updaterPid ?? null,
+        updaterRunning: runtimeState?.updaterPid
+          ? isProcessRunning(runtimeState.updaterPid)
+          : false,
       },
       config: params.proxyConfig
         ? {
@@ -1785,6 +1893,10 @@ async function startProxyRuntime(params: {
     port: params.port,
   });
   markProxyReady(params.readiness);
+  const updaterPid =
+    managedByLaunchd && !params.argv.dev
+      ? spawnProxyUpdater(readinessHost, params.port, process.pid)
+      : undefined;
   const fallbackChain: FallbackInfo[] | undefined =
     params.proxyConfig?.routing?.fallbackChain?.map((entry) => ({
       provider: entry.provider as string,
@@ -1809,6 +1921,7 @@ async function startProxyRuntime(params: {
       ? [...params.accountAllowlist]
       : undefined,
     guardPid,
+    updaterPid,
     managedBy: managedByLaunchd ? "launchd" : "manual",
     passthrough: params.passthrough,
   });
@@ -2157,6 +2270,9 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         envFile: null as string | null,
         fallbackChain: null as FallbackInfo[] | null,
         accountAllowlist: null as string[] | null,
+        autoUpdateEnabled: isProxyAutoUpdateEnabled(),
+        updaterPid: null as number | null,
+        updaterRunning: false,
       };
 
       if (state && isProcessRunning(state.pid)) {
@@ -2172,6 +2288,10 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         status.envFile = state.envFile ?? null;
         status.fallbackChain = state.fallbackChain ?? null;
         status.accountAllowlist = state.accountAllowlist ?? null;
+        status.updaterPid = state.updaterPid ?? null;
+        status.updaterRunning = state.updaterPid
+          ? isProcessRunning(state.updaterPid)
+          : false;
       }
 
       // Fetch live stats before rendering (JSON or text)
@@ -2223,6 +2343,9 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         );
         logger.always(
           `  ${chalk.bold("Uptime:")}     ${chalk.cyan(formatUptime(status.uptime ?? 0))}`,
+        );
+        logger.always(
+          `  ${chalk.bold("Auto-update:")} ${status.autoUpdateEnabled ? chalk.green(status.updaterRunning ? `enabled (PID ${status.updaterPid})` : "enabled (worker unavailable)") : chalk.yellow("disabled")}`,
         );
         if (status.envFile) {
           logger.always(
@@ -2433,6 +2556,11 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         alias: "pollIntervalMs",
         default: 1_000,
       })
+      .option("updater-only", {
+        type: "boolean",
+        alias: "updaterOnly",
+        default: false,
+      })
       .option("quiet", {
         type: "boolean",
         default: true,
@@ -2449,13 +2577,14 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         : 0;
     const failureThreshold = Math.max(1, Number(argv.failureThreshold ?? 5));
     const pollIntervalMs = Math.max(250, Number(argv.pollIntervalMs ?? 1_000));
+    const updaterOnly = argv.updaterOnly === true;
 
     if (!Number.isFinite(parentPid) || parentPid <= 0) {
       return;
     }
 
-    // Automatic package mutation is disabled by default. Operators must opt in
-    // explicitly, and launchd-managed proxy processes do not spawn this guard.
+    // Package mutation belongs to the dedicated launchd updater worker. The
+    // foreground fail-open guard remains cleanup-only.
     const UPDATE_CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
     const QUIET_THRESHOLD_MS = 120 * 1000; // 2 minutes of silence
     const UPDATE_TIMEOUT_MS = 30 * 1000; // 30 seconds to come healthy
@@ -2475,6 +2604,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
     // Auto-update only works on macOS with launchd. On other platforms,
     // there's no restart mechanism, so skip the update loop entirely.
     const canAutoUpdate =
+      updaterOnly &&
       isProxyAutoUpdateEnabled() &&
       process.platform === "darwin" &&
       (await isLaunchdManaging());
@@ -2504,8 +2634,6 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         // Lazy-load update modules so they're only imported at check time
         const { checkForUpdate } =
           await import("../../lib/proxy/updateChecker.js");
-        const { checkTrafficQuiet } =
-          await import("../../lib/proxy/quietDetector.js");
         const {
           recordCheck,
           isVersionSuppressed,
@@ -2528,43 +2656,31 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         }
 
         logger.always(
-          `[guard] update available: ${runningVersion} → ${result.latestVersion}`,
+          `[updater] update available: ${runningVersion} → ${result.latestVersion}`,
         );
 
-        // 2. Best-effort quiet wait — try for a brief window, but proceed
-        //    regardless. The install (pnpm add -g) is non-disruptive; only the
-        //    restart causes a ~1-3s blip. Blocking updates for hours/days because
-        //    traffic never goes silent is worse than a brief interruption.
-        const maxQuietWaitMs = 5 * 60 * 1000; // 5 minutes max, then proceed
+        // 2. Wait for an exact runtime-idle window. Never force an update while
+        // a request or stream is active; the next worker cycle can try again.
         const quietPollMs = 10_000; // check every 10s
-        const quietStart = Date.now();
-
-        while (Date.now() - quietStart < maxQuietWaitMs) {
+        while (!guardStopping) {
           if (getProcessStatus(parentPid) === "not_running") {
             logger.always(
-              `[guard] parent process died during quiet-wait, aborting update`,
+              `[updater] parent process died while waiting for idle traffic`,
             );
             return;
           }
-          const quietStatus = checkTrafficQuiet(QUIET_THRESHOLD_MS);
-          if (quietStatus.isQuiet) {
-            logger.always(`[guard] traffic quiet, proceeding with update`);
+          const activity = await getProxyRuntimeActivity(host, port);
+          if (activity && isSafeUpdateWindow(activity, QUIET_THRESHOLD_MS)) {
+            logger.always(`[updater] traffic idle, proceeding with update`);
             break;
           }
           logger.debug(
-            `[guard] traffic active (last activity ${Math.round(quietStatus.silenceDurationMs / 1000)}s ago), waiting...`,
+            `[updater] waiting for idle traffic (${activity?.activeRequests ?? "unknown"} active requests)`,
           );
           await new Promise((r) => setTimeout(r, quietPollMs));
         }
-
-        // Proceed with install regardless — don't block updates indefinitely.
-        // The install itself (pnpm add -g) doesn't affect the running process.
-        // Only the restart afterwards causes a brief interruption.
-        const finalQuiet = checkTrafficQuiet(QUIET_THRESHOLD_MS);
-        if (!finalQuiet.isQuiet) {
-          logger.always(
-            `[guard] traffic still active after ${Math.round(maxQuietWaitMs / 1000)}s wait, proceeding with update anyway (restart will briefly interrupt in-flight requests)`,
-          );
+        if (guardStopping) {
+          return;
         }
 
         // 3. Install update (validate version string before passing to shell)
@@ -2575,27 +2691,26 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           return;
         }
 
-        // Resolve pnpm to a deterministic path, validating that it actually
-        // runs (some environments have broken shims on PATH).
-        const pnpmResolution = resolveFullPnpmPath();
-        // Log the full candidate list so operators can see why a particular
-        // pnpm was chosen (or why none worked).
+        const installerResolution = resolveGlobalInstaller({
+          entryScript: process.argv[1],
+        });
         logger.always(
-          `[guard] pnpm candidates: ${pnpmResolution.tried
-            .map((c) => `${c.path}(${c.working ? `v${c.version}` : "BROKEN"})`)
+          `[updater] package-manager candidates: ${installerResolution.tried
+            .map(
+              (candidate) =>
+                `${candidate.kind}:${candidate.bin}(${candidate.installable ? `v${candidate.version}` : (candidate.reason ?? "unusable")})`,
+            )
             .join(", ")}`,
         );
-        if (!pnpmResolution.resolved) {
-          // Environmental problem, not version-specific — skip this cycle
-          // without suppressing the version (so we retry on the next tick
-          // once the user fixes pnpm).
+        const installer = installerResolution.installer;
+        if (!installer) {
           logger.always(
-            `[guard] WARNING: no working pnpm found; skipping update cycle. Install pnpm or set NEUROLINK_PNPM_PATH.`,
+            `[updater] WARNING: no package manager has a writable global root and executable directory; skipping this cycle`,
           );
           return;
         }
         logger.always(
-          `[guard] traffic quiet, installing @juspay/neurolink@${result.latestVersion} via ${pnpmResolution.bin} (pnpm v${pnpmResolution.version})...`,
+          `[updater] installing @juspay/neurolink@${result.latestVersion} via ${installer.kind} ${installer.bin} (v${installer.version})`,
         );
         if (guardStopping || getProcessStatus(parentPid) === "not_running") {
           return;
@@ -2603,48 +2718,25 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         const { execFileSync } = await import("node:child_process");
         try {
           execFileSync(
-            pnpmResolution.bin,
-            ["add", "-g", `@juspay/neurolink@${result.latestVersion}`],
+            installer.bin,
+            getGlobalInstallArgs(
+              installer.kind,
+              `@juspay/neurolink@${result.latestVersion}`,
+            ),
             {
               timeout: 120_000,
               stdio: "pipe",
             },
           );
         } catch (installErr) {
-          // Capture stderr for actionable diagnostics
-          const stderr =
-            installErr &&
-            typeof installErr === "object" &&
-            "stderr" in installErr
-              ? String((installErr as { stderr: unknown }).stderr).slice(0, 500)
-              : "";
-          const msg =
-            installErr instanceof Error
-              ? installErr.message
-              : String(installErr);
-          logger.always(
-            `[guard] WARNING: pnpm install failed: ${msg}${stderr ? `\n  stderr: ${stderr}` : ""}`,
-          );
-          suppressVersion(
-            result.latestVersion,
-            `install_failed: ${msg.slice(0, 200)}${stderr ? ` | stderr: ${stderr.slice(0, 200)}` : ""}`,
-          );
+          const detail = describeInstallFailure(installErr);
+          logger.always(`[updater] WARNING: global install failed:\n${detail}`);
           return;
         }
 
-        // 4. Rewrite the launchd plist so it picks up the (possibly new)
-        //    stable bin path, then restart via launchctl.
+        // 4. Refresh and validate the stable trampoline. The plist already
+        // points at this path, so it must not be unloaded or rewritten here.
         try {
-          const {
-            writeFileSync,
-            existsSync: fsExists,
-            mkdirSync: fsMkdir,
-          } = await import("fs");
-          if (!fsExists(PLIST_DIR)) {
-            fsMkdir(PLIST_DIR, { recursive: true });
-          }
-          // Rewrite the trampoline and plist so the restarted service
-          // resolves the newly installed binary via PATH.
           writeTrampoline();
 
           // Validate the trampoline actually resolves to the NEW version
@@ -2653,7 +2745,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           const probed = probeBinVersion(TRAMPOLINE_PATH);
           if (!probed) {
             logger.always(
-              `[guard] WARNING: trampoline does not resolve to a working neurolink after install; skipping restart.`,
+              `[updater] WARNING: trampoline does not resolve to a working neurolink after install; skipping restart`,
             );
             suppressVersion(
               result.latestVersion,
@@ -2662,90 +2754,76 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
             return;
           }
           if (probed !== result.latestVersion) {
-            // The trampoline resolves to a DIFFERENT version than what we
-            // just installed. This means `pnpm add -g` installed into a
-            // store that PATH doesn't reach (store mismatch), or PATH still
-            // shadows with an older shim. Restarting would run the wrong
-            // version — abort.
             logger.always(
-              `[guard] ABORT: trampoline resolves to v${probed} but installed v${result.latestVersion}.`,
+              `[updater] ABORT: trampoline resolves to v${probed} but installed v${result.latestVersion}`,
             );
             logger.always(
-              `[guard]   pnpm used: ${pnpmResolution.bin} (v${pnpmResolution.version})`,
-            );
-            logger.always(
-              `[guard]   This usually means pnpm's global store doesn't match the PATH-visible neurolink.`,
-            );
-            logger.always(
-              `[guard]   Fix: run 'pnpm add -g @juspay/neurolink' with the SAME pnpm whose bin dir is on PATH.`,
+              `[updater] installer used: ${installer.kind} ${installer.bin} (v${installer.version})`,
             );
             suppressVersion(
               result.latestVersion,
-              `version_mismatch: trampoline=${probed} expected=${result.latestVersion} pnpm=${pnpmResolution.bin}(v${pnpmResolution.version})`,
+              `version_mismatch: trampoline=${probed} expected=${result.latestVersion} installer=${installer.kind}:${installer.bin}(v${installer.version})`,
             );
             return;
           }
 
-          const existingArgs = parseExistingPlistArgs();
-          const updatedPlist = buildPlist(
-            port,
-            host,
-            existingArgs.envFile,
-            existingArgs.configFile,
-          );
-          writeFileSync(PLIST_PATH, updatedPlist, "utf-8");
+          logger.always(`[updater] trampoline validated at v${probed}`);
+        } catch (trampolineError) {
           logger.always(
-            `[guard] trampoline (resolves to v${probed}) + plist rewritten at ${PLIST_PATH}`,
-          );
-        } catch (plistErr) {
-          logger.always(
-            `[guard] WARNING: failed to rewrite plist (restart may use stale path): ${
-              plistErr instanceof Error ? plistErr.message : String(plistErr)
+            `[updater] WARNING: failed to refresh trampoline; refusing restart: ${
+              trampolineError instanceof Error
+                ? trampolineError.message
+                : String(trampolineError)
             }`,
           );
-          // Continue with restart anyway — the stable bin symlink may still be correct
+          return;
         }
 
         if (guardStopping || getProcessStatus(parentPid) === "not_running") {
           return;
         }
 
+        // Installation can overlap new traffic. Re-establish a full idle window
+        // before restart so no accepted request or long stream is interrupted.
+        while (!guardStopping) {
+          if (getProcessStatus(parentPid) === "not_running") {
+            return;
+          }
+          const activity = await getProxyRuntimeActivity(host, port);
+          if (activity && isSafeUpdateWindow(activity, QUIET_THRESHOLD_MS)) {
+            break;
+          }
+          logger.debug(
+            `[updater] update installed; deferring restart (${activity?.activeRequests ?? "unknown"} active requests)`,
+          );
+          await sleep(10_000);
+        }
+        if (guardStopping) {
+          return;
+        }
+
         // Signal the health loop to not exit when it detects
         // the parent PID is gone — we're intentionally restarting.
         updateRestartInProgress = true;
-        logger.always(
-          `[guard] restarting proxy via launchctl bootout/bootstrap...`,
-        );
+        logger.always(`[updater] restarting proxy via launchctl kickstart`);
         const uid = process.getuid?.() ?? 501;
         try {
-          // bootout unloads the in-memory job definition. This is required
-          // because a forced kickstart reuses the cached plist and ignores any
-          // on-disk changes (like the trampoline rewrite above).
-          try {
-            execFileSync(
-              "launchctl",
-              ["bootout", `gui/${uid}/${PLIST_LABEL}`],
-              { timeout: 10_000, stdio: "pipe" },
-            );
-          } catch {
-            // Job may not be loaded (first install, or already unloaded)
-          }
-          // bootstrap loads the plist fresh from disk, picking up the
-          // new trampoline-based ProgramArguments.
-          execFileSync("launchctl", ["bootstrap", `gui/${uid}`, PLIST_PATH], {
-            timeout: 10_000,
-            stdio: "pipe",
-          });
+          execFileSync(
+            "launchctl",
+            ["kickstart", "-k", `gui/${uid}/${PLIST_LABEL}`],
+            {
+              timeout: 10_000,
+              stdio: "pipe",
+            },
+          );
         } catch (restartErr) {
           updateRestartInProgress = false;
           const msg =
             restartErr instanceof Error
               ? restartErr.message
               : String(restartErr);
-          logger.always(`[guard] WARNING: launchctl bootstrap failed: ${msg}`);
-          suppressVersion(
-            result.latestVersion,
-            `restart_failed: ${msg.slice(0, 200)}`,
+          logger.always(
+            `[updater] WARNING: launchctl kickstart failed: ${msg}`,
           );
           return;
         }
@@ -2773,21 +2851,21 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
 
         if (healthy) {
           logger.always(
-            `[guard] update successful: now running ${result.latestVersion}`,
+            `[updater] update successful: now running ${result.latestVersion}`,
           );
           recordSuccessfulUpdate(result.latestVersion);
-          // The new proxy will spawn its own guard. Exit this one.
+          // The replacement proxy starts a worker running the new version.
           process.exit(0);
         } else {
           logger.always(
-            `[guard] WARNING: proxy unhealthy after update to ${result.latestVersion}`,
+            `[updater] WARNING: proxy unhealthy after update to ${result.latestVersion}`,
           );
           suppressVersion(result.latestVersion, "unhealthy_after_restart");
           updateRestartInProgress = false;
         }
       } catch (err) {
         logger.always(
-          `[guard] update check error: ${err instanceof Error ? err.message : String(err)}`,
+          `[updater] update check error: ${err instanceof Error ? err.message : String(err)}`,
         );
       } finally {
         updateInProgress = false;
@@ -2827,7 +2905,11 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         break;
       }
 
-      if (!healthy && consecutiveUnhealthy >= failureThreshold) {
+      if (
+        !updateRestartInProgress &&
+        !healthy &&
+        consecutiveUnhealthy >= failureThreshold
+      ) {
         // A detached guard cannot safely decide that a live process should be
         // replaced. Leave recovery to the foreground operator or launchd.
         if (!argv.quiet) {
@@ -2849,6 +2931,10 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
     }
 
     stopUpdateChecks();
+
+    if (updaterOnly) {
+      return;
+    }
 
     const guardHost = host === "0.0.0.0" ? "localhost" : host;
     const expectedBaseUrl = `http://${guardHost}:${port}`;
@@ -3092,46 +3178,6 @@ function buildLaunchdPath(): string {
   }
 
   return [...segments].join(":");
-}
-
-/**
- * Parse the existing launchd plist to extract --env-file and --config values.
- * Used by the auto-updater to rewrite the plist with the same configuration.
- */
-function parseExistingPlistArgs(): {
-  envFile?: string;
-  configFile?: string;
-} {
-  try {
-    const { readFileSync, existsSync: fsExists } = _require(
-      "fs",
-    ) as typeof import("fs");
-    if (!fsExists(PLIST_PATH)) {
-      return {};
-    }
-    const xml = readFileSync(PLIST_PATH, "utf-8");
-    // Extract --env-file value: <string>--env-file</string>\n    <string>VALUE</string>
-    const envMatch = xml.match(
-      /<string>--env-file<\/string>\s*<string>([^<]+)<\/string>/,
-    );
-    const configMatch = xml.match(
-      /<string>--config<\/string>\s*<string>([^<]+)<\/string>/,
-    );
-    // Unescape XML entities so buildPlist() doesn't double-escape them.
-    const unescapeXml = (value?: string) =>
-      value
-        ?.replace(/&apos;/g, "'")
-        .replace(/&quot;/g, '"')
-        .replace(/&gt;/g, ">")
-        .replace(/&lt;/g, "<")
-        .replace(/&amp;/g, "&");
-    return {
-      envFile: unescapeXml(envMatch?.[1]),
-      configFile: unescapeXml(configMatch?.[1]),
-    };
-  } catch {
-    return {};
-  }
 }
 
 function buildPlist(

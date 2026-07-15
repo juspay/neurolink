@@ -848,7 +848,7 @@ const tests: TestFunction[] = [
     },
   },
   {
-    name: "launchd: auto-updater rewrites trampoline + plist before kickstart",
+    name: "launchd: auto-updater refreshes trampoline before atomic kickstart",
     category: "launchd-regression",
     fn: async () => {
       const { readFileSync } = await import("fs");
@@ -857,14 +857,19 @@ const tests: TestFunction[] = [
         pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
         "utf-8",
       );
-      // The guard's update section must rewrite trampoline before kickstart
+      // The updater refreshes the stable trampoline, then asks launchd for an
+      // atomic restart. Rewriting or unloading the plist here can strand the
+      // daemon if the updater is killed with its parent process.
       const guardSection = src.slice(
-        src.indexOf("[guard] traffic quiet, installing"),
-        src.indexOf("[guard] restarting proxy via launchctl"),
+        src.indexOf("[updater] package-manager candidates"),
+        src.indexOf("// 5. Wait for healthy restart"),
       );
       return (
         guardSection.includes("writeTrampoline()") &&
-        guardSection.includes("writeFileSync(PLIST_PATH")
+        guardSection.includes('["kickstart", "-k"') &&
+        !guardSection.includes("writeFileSync(PLIST_PATH") &&
+        !guardSection.includes('["bootout"') &&
+        !guardSection.includes('["bootstrap"')
       );
     },
   },
@@ -912,7 +917,7 @@ const tests: TestFunction[] = [
     },
   },
   {
-    name: "updater: uses resolveFullPnpmPath, not bare 'pnpm'",
+    name: "updater: resolves the package manager that owns the running install",
     category: "launchd-regression",
     fn: async () => {
       const { readFileSync } = await import("fs");
@@ -921,14 +926,19 @@ const tests: TestFunction[] = [
         pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
         "utf-8",
       );
+      const installer = readFileSync(
+        pathJoin(process.cwd(), "src/lib/proxy/globalInstaller.ts"),
+        "utf-8",
+      );
       return (
-        src.includes("resolveFullPnpmPath()") &&
-        src.includes("pnpmResolution.bin")
+        src.includes("resolveGlobalInstaller") &&
+        src.includes("getGlobalInstallArgs") &&
+        installer.includes("matchesCurrentInstall")
       );
     },
   },
   {
-    name: "updater: suppressVersion includes error detail, not just 'install_failed'",
+    name: "updater: environmental install failures are retried, not suppressed",
     category: "launchd-regression",
     fn: async () => {
       const { readFileSync } = await import("fs");
@@ -937,12 +947,12 @@ const tests: TestFunction[] = [
         pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
         "utf-8",
       );
-      // Old: suppressVersion(v, "install_failed")
-      // New: suppressVersion(v, `install_failed: ${msg}...`)
+      const section = src.slice(
+        src.indexOf("global install failed"),
+        src.indexOf("global install failed") + 400,
+      );
       return (
-        !src.includes(
-          'suppressVersion(result.latestVersion, "install_failed")',
-        ) && src.includes("install_failed:")
+        section.includes("return;") && !section.includes("suppressVersion")
       );
     },
   },
@@ -1043,12 +1053,14 @@ const tests: TestFunction[] = [
       );
       // Auto-updater must probe trampoline after writing, before kickstart.
       const guardSection = src.slice(
-        src.indexOf("[guard] pnpm candidates"),
-        src.indexOf("[guard] restarting proxy via launchctl"),
+        src.indexOf("[updater] package-manager candidates"),
+        src.indexOf("// 5. Wait for healthy restart"),
       );
       return (
         guardSection.includes("probeBinVersion(TRAMPOLINE_PATH)") &&
-        guardSection.includes("trampoline_broken_after_install")
+        guardSection.includes("trampoline_broken_after_install") &&
+        guardSection.indexOf("probeBinVersion(TRAMPOLINE_PATH)") <
+          guardSection.indexOf('["kickstart", "-k"')
       );
     },
   },
@@ -1078,32 +1090,27 @@ const tests: TestFunction[] = [
     },
   },
   {
-    name: "pnpm: resolver tries NEUROLINK_PNPM_PATH, PNPM_HOME, which, common paths",
+    name: "installer: resolver probes pnpm and npm global roots and bin paths",
     category: "launchd-regression",
     fn: async () => {
       const { readFileSync } = await import("fs");
       const { join: pathJoin } = await import("path");
       const src = readFileSync(
-        pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
+        pathJoin(process.cwd(), "src/lib/proxy/globalInstaller.ts"),
         "utf-8",
       );
-      // Find function body — from declaration to next top-level `}`
-      const fnStart = src.indexOf("function resolveFullPnpmPath(");
-      const fnEnd = src.indexOf("\n}\n", fnStart);
-      const fn = src.slice(fnStart, fnEnd);
       return (
-        fn.includes("NEUROLINK_PNPM_PATH") &&
-        fn.includes("PNPM_HOME") &&
-        fn.includes('"which"') &&
-        // common install locations are built via join(homedir(), ...)
-        fn.includes('".local"') &&
-        fn.includes('"Library"') &&
-        fn.includes("probeBinVersion")
+        src.includes("NEUROLINK_PNPM_PATH") &&
+        src.includes("PNPM_HOME") &&
+        src.includes('resolveFromPath("pnpm"') &&
+        src.includes('resolveFromPath("npm"') &&
+        src.includes('["bin", "-g"]') &&
+        src.includes('["prefix", "-g"]')
       );
     },
   },
   {
-    name: "pnpm: updater logs all candidates with their versions",
+    name: "installer: updater logs every package-manager candidate",
     category: "launchd-regression",
     fn: async () => {
       const { readFileSync } = await import("fs");
@@ -1113,13 +1120,13 @@ const tests: TestFunction[] = [
         "utf-8",
       );
       return (
-        src.includes("[guard] pnpm candidates:") &&
-        src.includes("pnpmResolution.tried")
+        src.includes("[updater] package-manager candidates:") &&
+        src.includes("installerResolution.tried")
       );
     },
   },
   {
-    name: "pnpm: updater skips cycle (no suppression) when no working pnpm found",
+    name: "installer: updater skips without suppression when no manager is usable",
     category: "launchd-regression",
     fn: async () => {
       const { readFileSync } = await import("fs");
@@ -1128,12 +1135,12 @@ const tests: TestFunction[] = [
         pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
         "utf-8",
       );
-      // When no pnpm is resolved, we should NOT suppressVersion (that's
+      // When no installer is resolved, we should NOT suppressVersion (that's
       // version-keyed and inappropriate for an environmental failure).
       // We should just log and return.
       const section = src.slice(
-        src.indexOf("no working pnpm found"),
-        src.indexOf("no working pnpm found") + 500,
+        src.indexOf("no package manager has a writable global root"),
+        src.indexOf("no package manager has a writable global root") + 500,
       );
       return (
         section.includes("return;") && !section.includes("suppressVersion")

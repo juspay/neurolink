@@ -544,7 +544,7 @@ The proxy persists its running state to `~/.neurolink/proxy-state.json` so that 
 
 ### Fail-open guard
 
-A foreground proxy spawns one detached `neurolink proxy guard` that removes stale Claude Code settings after confirming its parent process has died. A launchd-managed proxy does not spawn a guard: launchd is the sole restart supervisor, preventing stale guards from restarting or terminating healthy replacement processes. Runtime package updates are opt-in through `NEUROLINK_PROXY_AUTO_UPDATE=1` (also accepts `on` or `true`).
+A foreground proxy spawns one detached `neurolink proxy guard` that removes stale Claude Code settings after confirming its parent process has died. A launchd-managed proxy keeps restart ownership in launchd and starts a separate updater-only worker. Automatic package updates are enabled by default and can be disabled with `NEUROLINK_PROXY_AUTO_UPDATE=off` (also accepts `0` or `false`). The worker validates the global package root and executable directory, requires the package manager that owns the running installation, and waits for every request and stream to finish plus a two-minute idle window before asking launchd to restart. Updater diagnostics are written to `~/.neurolink/logs/proxy-updater.log` and exposed in `neurolink proxy status`.
 
 ## Architecture
 

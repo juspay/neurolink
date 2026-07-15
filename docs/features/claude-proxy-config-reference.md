@@ -144,7 +144,7 @@ neurolink proxy setup --no-service
 
 ### `neurolink proxy guard` (hidden)
 
-Internal fail-open guard process. Spawned only by a foreground `proxy start`; launchd-managed proxies leave restart ownership entirely to launchd. The guard reverts stale Claude Code settings only after its parent is confirmed dead and never restarts or signals a live proxy.
+Internal fail-open guard process. Spawned only by a foreground `proxy start`; launchd-managed proxies leave restart ownership entirely to launchd. The guard reverts stale Claude Code settings only after its parent is confirmed dead and never restarts or signals a live proxy. A launchd installation uses a separate updater-only worker which never changes client settings.
 
 | Flag                  | Type      | Default      | Description                                                  |
 | --------------------- | --------- | ------------ | ------------------------------------------------------------ |
@@ -553,16 +553,19 @@ routing.
 
 ## 3. Environment Variables
 
-| Variable                      | Purpose                                                                                                                                                              | Used By                                          |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `ANTHROPIC_API_KEY`           | Anthropic API key. Used as a fallback credential when no OAuth accounts are found.                                                                                   | Proxy routes, Anthropic provider                 |
-| `ANTHROPIC_OAUTH_TOKEN`       | OAuth access token for Anthropic (alternative to stored tokens).                                                                                                     | Anthropic provider, providerConfig               |
-| `CLAUDE_OAUTH_TOKEN`          | Alias for `ANTHROPIC_OAUTH_TOKEN`. Checked as a fallback.                                                                                                            | Anthropic provider, providerConfig               |
-| `NEUROLINK_SKIP_MCP`          | Set to `"true"` to skip MCP server initialization. Automatically set by `proxy start` (tools come from Claude Code, not local MCP servers).                          | `NeuroLink` constructor                          |
-| `NEUROLINK_LOG_LEVEL`         | Log level for the NeuroLink logger. Values: `error`, `warn`, `info`, `debug`.                                                                                        | Logger utility                                   |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP HTTP endpoint for proxy telemetry export. Written automatically to `~/.neurolink/.env` by `neurolink proxy telemetry setup`. Example: `http://localhost:14318`. | Proxy OTEL init (`initializeProxyOpenTelemetry`) |
-| `NEUROLINK_ENV_FILE`          | Path to a `.env` file the proxy should load at startup. Overrides the default `~/.neurolink/.env` auto-load.                                                         | `proxyEnv.ts` (`resolveProxyEnvFile`)            |
-| `NEUROLINK_PROXY_AUTO_UPDATE` | Enables the legacy guard updater only for `1`, `on`, or `true`. Disabled by default. launchd-managed proxies do not spawn a guard.                                   | Foreground fail-open guard                       |
+| Variable                         | Purpose                                                                                                                                                                                                                                 | Used By                                          |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `ANTHROPIC_API_KEY`              | Anthropic API key. Used as a fallback credential when no OAuth accounts are found.                                                                                                                                                      | Proxy routes, Anthropic provider                 |
+| `ANTHROPIC_OAUTH_TOKEN`          | OAuth access token for Anthropic (alternative to stored tokens).                                                                                                                                                                        | Anthropic provider, providerConfig               |
+| `CLAUDE_OAUTH_TOKEN`             | Alias for `ANTHROPIC_OAUTH_TOKEN`. Checked as a fallback.                                                                                                                                                                               | Anthropic provider, providerConfig               |
+| `NEUROLINK_SKIP_MCP`             | Set to `"true"` to skip MCP server initialization. Automatically set by `proxy start` (tools come from Claude Code, not local MCP servers).                                                                                             | `NeuroLink` constructor                          |
+| `NEUROLINK_LOG_LEVEL`            | Log level for the NeuroLink logger. Values: `error`, `warn`, `info`, `debug`.                                                                                                                                                           | Logger utility                                   |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`    | OTLP HTTP endpoint for proxy telemetry export. Written automatically to `~/.neurolink/.env` by `neurolink proxy telemetry setup`. Example: `http://localhost:14318`.                                                                    | Proxy OTEL init (`initializeProxyOpenTelemetry`) |
+| `NEUROLINK_ENV_FILE`             | Path to a `.env` file the proxy should load at startup. Overrides the default `~/.neurolink/.env` auto-load.                                                                                                                            | `proxyEnv.ts` (`resolveProxyEnvFile`)            |
+| `NEUROLINK_PROXY_AUTO_UPDATE`    | Automatic package updates for launchd installations. Enabled by default; set to `0`, `off`, or `false` to disable. Updates use the package manager owning the running install and restart only after all requests and streams are idle. | Dedicated launchd updater worker                 |
+| `NEUROLINK_PACKAGE_MANAGER_PATH` | Optional absolute path to the npm or pnpm executable used by the updater. The candidate is still rejected unless its writable global root owns the running NeuroLink installation.                                                      | Dedicated launchd updater worker                 |
+| `NEUROLINK_PACKAGE_MANAGER`      | Optional `npm` or `pnpm` type for `NEUROLINK_PACKAGE_MANAGER_PATH`. When omitted, the updater infers the type from the executable name.                                                                                                 | Dedicated launchd updater worker                 |
+| `NEUROLINK_PNPM_PATH`            | Legacy pnpm-specific updater override. Prefer `NEUROLINK_PACKAGE_MANAGER_PATH` for new installations.                                                                                                                                   | Dedicated launchd updater worker                 |
 
 ### Proxy Env File Resolution Order
 
@@ -607,7 +610,7 @@ When the proxy starts, it automatically writes to `~/.claude/settings.json`:
 
 - **On `proxy start`** -- Both keys are written (or merged into existing settings).
 - **On `proxy stop` (Ctrl+C / SIGTERM)** -- Both keys are removed. Other env keys in the settings file are preserved.
-- **Fail-open guard** -- A foreground proxy's detached guard removes stale settings only after confirming its parent died and no replacement is healthy. launchd-managed proxies do not spawn this guard.
+- **Fail-open guard** -- A foreground proxy's detached guard removes stale settings only after confirming its parent died and no replacement is healthy. launchd-managed proxies do not spawn this cleanup guard; they use a separate updater-only worker.
 - **Safety** -- If the `ANTHROPIC_BASE_URL` has been changed to a different value (e.g., another proxy), the cleanup will not overwrite it.
 
 After starting the proxy, restart Claude Code for the new settings to take effect.

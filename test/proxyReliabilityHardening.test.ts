@@ -1092,7 +1092,7 @@ describe("stream terminal outcomes", () => {
 });
 
 describe("launchd lifecycle source invariants", () => {
-  it("leaves restart ownership with launchd and keeps auto-update opt-in", async () => {
+  it("leaves restart ownership with launchd and isolates automatic updates", async () => {
     const source = await readFile(
       new URL("../src/cli/commands/proxy.ts", import.meta.url),
       "utf8",
@@ -1101,11 +1101,21 @@ describe("launchd lifecycle source invariants", () => {
       new URL("../src/lib/proxy/updateState.ts", import.meta.url),
       "utf8",
     );
+    const installer = await readFile(
+      new URL("../src/lib/proxy/globalInstaller.ts", import.meta.url),
+      "utf8",
+    );
 
     expect(source).not.toContain("tryLaunchdRestart");
     expect(source).toContain("params.argv.dev || managedByLaunchd");
     expect(source).toContain("NEUROLINK_PROXY_AUTO_UPDATE");
-    expect(source).toContain('["1", "on", "true"]');
+    expect(source).toContain('["0", "off", "false"]');
+    expect(source).toContain("spawnProxyUpdater");
+    expect(source).toContain("updaterOnly &&");
+    expect(source).toContain("getProxyRuntimeActivity");
+    expect(source).not.toContain("proceeding with update anyway");
+    expect(source).toContain('["kickstart", "-k"');
+    expect(source).not.toContain('["bootout", `gui/${uid}/${PLIST_LABEL}`]');
     expect(source).toContain("stopUpdateChecks()");
     expect(source).toContain('from "../../../package.json" with');
     expect(source).toContain("<key>ExitTimeOut</key>");
@@ -1122,6 +1132,10 @@ describe("launchd lifecycle source invariants", () => {
     expect(source).toContain("Timed out draining the proxy server");
     expect(updateState).toContain("randomUUID()");
     expect(updateState).not.toContain("const tempPath = `${filePath}.tmp`");
+    expect(installer).toContain('["bin", "-g"]');
+    expect(installer).toContain('["prefix", "-g"]');
+    expect(installer).toContain("stdout:");
+    expect(installer).toContain("stderr:");
   });
 
   it("keeps dev-mode cooldown state outside the live state directory", () => {
