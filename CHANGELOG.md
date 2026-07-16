@@ -1,3 +1,9 @@
+## [9.88.11](https://github.com/juspay/neurolink/compare/v9.88.10...v9.88.11) (2026-07-16)
+
+### Bug Fixes
+
+- **(proxy):** make updater and stats self-consistent ([a8b4b78](https://github.com/juspay/neurolink/commit/a8b4b7873692564a4f368b192eb52537beb73f71))
+
 ## [9.88.10](https://github.com/juspay/neurolink/compare/v9.88.9...v9.88.10) (2026-07-16)
 
 ### Bug Fixes
