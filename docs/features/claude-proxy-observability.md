@@ -109,7 +109,7 @@ Do not point dashboard panels at the stale log stream `neurolink_proxy_logs` unl
 ### Local Log Families And Query Rules
 
 - `~/.neurolink/logs/proxy-YYYY-MM-DD.jsonl` holds final request summaries. These are the rows the dashboard is built around.
-- `~/.neurolink/logs/proxy-attempts-YYYY-MM-DD.jsonl` holds per-upstream-attempt diagnostics. Use it when retries or account rotation need debugging.
+- `~/.neurolink/logs/proxy-attempts-YYYY-MM-DD.jsonl` holds per-upstream-attempt diagnostics. Rate-limited attempts include `retryable`, `rateLimitKind`, and `cooldownReason` so transient admission throttles are distinguishable from exhausted quota windows. Use this file when retries or account rotation need debugging.
 - `~/.neurolink/logs/proxy-debug-YYYY-MM-DD.jsonl` is the redacted index for captured request and response bodies.
 - `~/.neurolink/logs/bodies/YYYY-MM-DD/<request-id>/*.json.gz` stores the corresponding redacted body artifacts.
 - In OpenObserve, body captures arrive in the same `neurolink_proxy` log stream with `event.name=proxy.body_capture`, so request panels must filter to request-summary rows, for example `http_method IS NOT NULL`.

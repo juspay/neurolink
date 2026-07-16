@@ -36,7 +36,11 @@ import {
   createStreamTerminalOutcomeTracker,
   mergeStreamTerminalOutcome,
 } from "../src/lib/proxy/streamOutcome.js";
-import { getStats, resetStats } from "../src/lib/proxy/usageStats.js";
+import {
+  getStats,
+  recordAttempt,
+  resetStats,
+} from "../src/lib/proxy/usageStats.js";
 import { parseProxyConfigString } from "../src/lib/proxy/proxyConfig.js";
 import { __testHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
 
@@ -297,6 +301,8 @@ describe("429 classification and retry amplification", () => {
       end: vi.fn(),
     };
     const upstreamSpan = { end: vi.fn() };
+    const allocateAttemptNumber = vi.fn().mockReturnValue(3);
+    recordAttempt(account.label, account.type);
 
     const result = await __testHooks.handleAnthropicAuthRetry({
       ctx: {} as never,
@@ -310,12 +316,9 @@ describe("429 classification and retry amplification", () => {
       buildUpstreamBody: () => ({ bodyStr: "{}" }),
       enabledAccounts: [account],
       orderedAccounts: [account],
-      response: new Response(upstreamBody, { status: 401 }),
       tracer: tracer as never,
       requestStartTime: Date.now(),
-      fetchStartMs: Date.now(),
-      attemptNumber: 2,
-      finalBodyStr: "{}",
+      allocateAttemptNumber,
       upstreamSpan: upstreamSpan as never,
       logAttempt,
       logProxyBody,
@@ -339,11 +342,21 @@ describe("429 classification and retry amplification", () => {
         },
       },
     });
-    expect(logAttempt).toHaveBeenCalledTimes(1);
-    expect(logAttempt).toHaveBeenCalledWith(
+    expect(allocateAttemptNumber).toHaveBeenCalledOnce();
+    expect(logAttempt).toHaveBeenCalledTimes(2);
+    expect(logAttempt).toHaveBeenNthCalledWith(
+      1,
+      401,
+      "authentication_error",
+      "received 401 from Anthropic",
+      { retryable: true },
+    );
+    expect(logAttempt).toHaveBeenNthCalledWith(
+      2,
       429,
       "construction_rejection",
       upstreamBody,
+      { attempt: 3 },
     );
     expect(logFinalRequest).toHaveBeenCalledTimes(1);
     expect(logFinalRequest).toHaveBeenCalledWith(
@@ -356,7 +369,24 @@ describe("429 classification and retry amplification", () => {
     expect(tracer.end).toHaveBeenCalledTimes(1);
     expect(upstreamSpan.end).toHaveBeenCalledTimes(1);
     expect(getStats().totalRateLimits).toBe(0);
-    expect(getStats()).toMatchObject({ totalRequests: 1, totalErrors: 1 });
+    expect(getStats()).toMatchObject({
+      totalAttempts: 2,
+      totalAttemptErrors: 1,
+      totalRequests: 1,
+      totalErrors: 1,
+    });
+    expect(
+      logProxyBody.mock.calls.map(([capture]) => ({
+        phase: capture.phase,
+        attempt: capture.attempt,
+      })),
+    ).toEqual(
+      expect.arrayContaining([
+        { phase: "upstream_request", attempt: 3 },
+        { phase: "upstream_response", attempt: 3 },
+        { phase: "client_response", attempt: 3 },
+      ]),
+    );
   });
 
   it("still counts and plans cooldown for a genuine transient 429", async () => {
@@ -379,8 +409,9 @@ describe("429 classification and retry amplification", () => {
       ),
     );
 
+    const logAttempt = vi.fn();
     const result = await __testHooks.fetchAnthropicAccountResponse(
-      fetchArgs(vi.fn(), vi.fn()),
+      fetchArgs(logAttempt, vi.fn()),
     );
 
     expect(result).toMatchObject({
@@ -389,7 +420,22 @@ describe("429 classification and retry amplification", () => {
       sawRateLimit: true,
       cooldownPlan: { reason: "transient", rotateImmediately: false },
     });
-    expect(getStats().totalRateLimits).toBe(1);
+    expect(getStats()).toMatchObject({
+      totalAttemptErrors: 1,
+      totalRateLimits: 1,
+      totalTransientRateLimits: 1,
+      totalQuotaRateLimits: 0,
+    });
+    expect(logAttempt).toHaveBeenCalledWith(
+      429,
+      "rate_limit_error",
+      expect.any(String),
+      {
+        retryable: true,
+        rateLimitKind: "transient",
+        cooldownReason: "transient",
+      },
+    );
   });
 
   it("shares two transient retries across an entire concurrent account window", () => {
@@ -1111,12 +1157,16 @@ describe("launchd lifecycle source invariants", () => {
     expect(source).toContain("NEUROLINK_PROXY_AUTO_UPDATE");
     expect(source).toContain('["0", "off", "false"]');
     expect(source).toContain("spawnProxyUpdater");
+    expect(source).toContain("startUpdaterWorkerSupervisor");
     expect(source).toContain("updaterOnly &&");
+    expect(source).toContain("!updaterOnly &&");
     expect(source).toContain("getProxyRuntimeActivity");
     expect(source).not.toContain("proceeding with update anyway");
     expect(source).toContain('["kickstart", "-k"');
     expect(source).not.toContain('["bootout", `gui/${uid}/${PLIST_LABEL}`]');
     expect(source).toContain("stopUpdateChecks()");
+    expect(source).toContain("validateInstalledVersion");
+    expect(source).not.toContain("trampoline_broken_after_install");
     expect(source).toContain('from "../../../package.json" with');
     expect(source).toContain("<key>ExitTimeOut</key>");
     expect(source).toContain("backgroundRefreshInProgress");

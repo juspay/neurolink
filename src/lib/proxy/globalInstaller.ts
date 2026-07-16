@@ -1,13 +1,15 @@
 import { execFileSync as nodeExecFileSync } from "node:child_process";
 import { accessSync, constants, existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import type {
   GlobalInstallerExecFile,
   GlobalInstallerKind,
   GlobalInstallerProbe,
   GlobalInstallerResolution,
+  InstalledVersionValidation,
   ResolveGlobalInstallerOptions,
+  ValidateInstalledVersionOptions,
 } from "../types/index.js";
 
 function runText(
@@ -181,6 +183,62 @@ export function getGlobalInstallArgs(
   return kind === "pnpm"
     ? ["add", "-g", packageSpec]
     : ["install", "--global", "--no-audit", "--no-fund", packageSpec];
+}
+
+/**
+ * Validate a freshly installed CLI with retries. Global package replacement
+ * can leave executable shims briefly unavailable while filesystem metadata and
+ * cold module loading settle, so a single short probe is not authoritative.
+ */
+export async function validateInstalledVersion(
+  options: ValidateInstalledVersionOptions,
+): Promise<InstalledVersionValidation> {
+  if (!isAbsolute(options.binPath)) {
+    return {
+      attempts: 0,
+      failure: `binPath must be absolute: ${options.binPath}`,
+    };
+  }
+  const execFileSync = options.execFileSync ?? nodeExecFileSync;
+  const sleepFn =
+    options.sleep ??
+    ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const maxAttempts = Math.max(1, options.maxAttempts ?? 5);
+  const delayMs = Math.max(0, options.delayMs ?? 2_000);
+  const timeoutMs = Math.max(1_000, options.timeoutMs ?? 10_000);
+  let lastVersion: string | undefined;
+  let lastFailure: string | undefined;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const output = String(
+        execFileSync(options.binPath, ["--version"], {
+          encoding: "utf8",
+          timeout: timeoutMs,
+          stdio: ["ignore", "pipe", "pipe"],
+        }),
+      ).trim();
+      lastVersion = output || undefined;
+      if (lastVersion === options.expectedVersion) {
+        return { version: lastVersion, attempts: attempt };
+      }
+      lastFailure = lastVersion
+        ? `resolved to v${lastVersion}; expected v${options.expectedVersion}`
+        : "version command returned empty output";
+    } catch (error) {
+      lastFailure = describeInstallFailure(error);
+    }
+
+    if (attempt < maxAttempts) {
+      await sleepFn(delayMs);
+    }
+  }
+
+  return {
+    version: lastVersion,
+    attempts: maxAttempts,
+    failure: lastFailure ?? "version validation failed",
+  };
 }
 
 function capturedOutput(error: unknown, key: "stdout" | "stderr"): string {

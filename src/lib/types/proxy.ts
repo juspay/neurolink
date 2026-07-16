@@ -534,6 +534,12 @@ export type RequestAttemptLogEntry = {
   responseTimeMs: number;
   errorType?: string;
   errorMessage?: string;
+  /** Whether this failed attempt may be retried without changing the request. */
+  retryable?: boolean;
+  /** Distinguishes short-lived admission throttles from exhausted quota windows. */
+  rateLimitKind?: "transient" | "quota";
+  /** Reset-aware cooldown reason selected for a rate-limited attempt. */
+  cooldownReason?: "transient" | "session" | "weekly" | "unified";
   inputTokens?: number;
   outputTokens?: number;
   cacheCreationTokens?: number;
@@ -602,6 +608,11 @@ export type AnthropicAttemptLogger = (
     outputTokens?: number;
     cacheCreationTokens?: number;
     cacheReadTokens?: number;
+    retryable?: boolean;
+    rateLimitKind?: "transient" | "quota";
+    cooldownReason?: "transient" | "session" | "weekly" | "unified";
+    /** Override used when one account selection performs an OAuth retry fetch. */
+    attempt?: number;
   },
 ) => void;
 
@@ -685,8 +696,10 @@ export type PreparedAnthropicAccountAttempt = {
 
 /** How to cool an account after a genuine (non-anti-abuse) 429, derived from
  *  the response's quota headers + retry-after. */
+export type RateLimitCoolingReason = Exclude<AccountCoolingReason, "auth">;
+
 export type AccountCooldownPlan = {
-  reason: AccountCoolingReason;
+  reason: RateLimitCoolingReason;
   /** Epoch-ms until which the account should not be used. */
   coolingUntil: number;
   /** When true (unified/5h/7d rejected), rotate immediately — retrying the
@@ -733,9 +746,16 @@ export type AccountStats = {
   label: string;
   type: string;
   attemptCount: number;
+  /** Failed upstream attempts, including retries that later recovered. */
+  attemptErrorCount: number;
+  /** Final requests successfully completed by this account. */
   successCount: number;
+  /** Final requests that terminated as errors on this account. */
   errorCount: number;
+  /** All upstream attempts that returned 429. */
   rateLimitCount: number;
+  transientRateLimitCount: number;
+  quotaRateLimitCount: number;
   lastAttemptAt: number;
   lastErrorAt?: number;
 };
@@ -743,10 +763,13 @@ export type AccountStats = {
 export type ProxyStats = {
   startedAt: number;
   totalAttempts: number;
+  totalAttemptErrors: number;
   totalRequests: number;
   totalSuccess: number;
   totalErrors: number;
   totalRateLimits: number;
+  totalTransientRateLimits: number;
+  totalQuotaRateLimits: number;
   accounts: Record<string, AccountStats>;
 };
 
@@ -1315,6 +1338,22 @@ export type UpdateState = {
   suppressedVersions: Record<string, SuppressedVersion>;
   lastUpdateAt: string | null;
   lastUpdateVersion: string | null;
+  /** Installed by the updater but not yet confirmed as the running version. */
+  pendingRestartVersion: string | null;
+  /** Last updater failure, retained until a successful update or replacement. */
+  lastFailure: {
+    at: string;
+    version: string;
+    stage: "check" | "install" | "validation" | "restart" | "health";
+    message: string;
+  } | null;
+};
+
+/** Result of validating a newly installed CLI through the stable trampoline. */
+export type InstalledVersionValidation = {
+  version?: string;
+  attempts: number;
+  failure?: string;
 };
 
 /** Supported global package managers for proxy self-updates. */
@@ -1349,6 +1388,34 @@ export type ResolveGlobalInstallerOptions = {
   env?: NodeJS.ProcessEnv;
   homeDir?: string;
   execFileSync?: GlobalInstallerExecFile;
+};
+
+/** Options for validating a newly installed CLI through its stable executable. */
+export type ValidateInstalledVersionOptions = {
+  binPath: string;
+  expectedVersion: string;
+  maxAttempts?: number;
+  delayMs?: number;
+  timeoutMs?: number;
+  execFileSync?: GlobalInstallerExecFile;
+  sleep?: (ms: number) => Promise<void>;
+};
+
+/** Dependencies and callbacks used to supervise the updater worker process. */
+export type UpdaterWorkerSupervisorOptions = {
+  spawnWorker: () => number | undefined;
+  isProcessRunning: (pid: number) => boolean;
+  stopWorker: (pid: number) => void;
+  onPidChange?: (pid: number | undefined) => void;
+  log?: (message: string) => void;
+  intervalMs?: number;
+};
+
+/** Handle used by the proxy process to inspect and stop updater supervision. */
+export type UpdaterWorkerSupervisor = {
+  currentPid: () => number | undefined;
+  checkNow: () => number | undefined;
+  stop: () => void;
 };
 
 // =============================================================================
@@ -1456,10 +1523,13 @@ export type ProxyStartApp = {
 /** Stats shape consumed by the proxy status printer. */
 export type StatusStats = {
   totalAttempts?: number;
+  totalAttemptErrors?: number;
   totalRequests: number;
   totalSuccess: number;
   totalErrors: number;
   totalRateLimits: number;
+  totalTransientRateLimits?: number;
+  totalQuotaRateLimits?: number;
   accounts?: {
     label: string;
     type: string;
@@ -1467,7 +1537,10 @@ export type StatusStats = {
     requests?: number;
     success?: number;
     errors?: number;
+    attemptErrors?: number;
     rateLimits?: number;
+    transientRateLimits?: number;
+    quotaRateLimits?: number;
     cooling: boolean;
   }[];
 };

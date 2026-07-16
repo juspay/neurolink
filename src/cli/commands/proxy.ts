@@ -67,7 +67,19 @@ import {
   describeInstallFailure,
   getGlobalInstallArgs,
   resolveGlobalInstaller,
+  validateInstalledVersion,
 } from "../../lib/proxy/globalInstaller.js";
+import { startUpdaterWorkerSupervisor } from "../../lib/proxy/updaterSupervisor.js";
+import {
+  abandonPendingUpdate,
+  isVersionSuppressed,
+  loadUpdateState,
+  recordCheck,
+  recordSuccessfulUpdate,
+  recordUpdateFailure,
+  recordUpdateInstalled,
+  suppressVersion,
+} from "../../lib/proxy/updateState.js";
 import {
   loadProxyEnvFile,
   resolveProxyEnvFile,
@@ -725,6 +737,16 @@ function spawnProxyUpdater(
       detached: true,
       stdio: ["ignore", logFd, logFd],
       env: process.env,
+    });
+    child.once("error", (error) => {
+      logger.always(
+        `[proxy] updater worker error pid=${child.pid ?? "unknown"}: ${error.message}`,
+      );
+    });
+    child.once("exit", (code, signal) => {
+      logger.always(
+        `[proxy] updater worker exited pid=${child.pid ?? "unknown"} code=${code ?? "none"} signal=${signal ?? "none"}`,
+      );
     });
     child.unref();
     return child.pid;
@@ -1391,6 +1413,7 @@ export async function createProxyStartApp(params: {
       await import("../../lib/proxy/accountCooldown.js");
     const stats = getStats();
     const runtimeState = loadProxyState();
+    const updateState = loadUpdateState();
     const cooldowns = await loadAccountCooldowns();
     const storedAccountKeys = new Set<string>();
     try {
@@ -1428,10 +1451,13 @@ export async function createProxyStartApp(params: {
       health,
       stats: {
         totalAttempts: stats.totalAttempts,
+        totalAttemptErrors: stats.totalAttemptErrors,
         totalRequests: stats.totalRequests,
         totalSuccess: stats.totalSuccess,
         totalErrors: stats.totalErrors,
         totalRateLimits: stats.totalRateLimits,
+        totalTransientRateLimits: stats.totalTransientRateLimits,
+        totalQuotaRateLimits: stats.totalQuotaRateLimits,
         accounts: Object.values(stats.accounts).map((account) => {
           const normalizedKey = normalizeAnthropicAccountKey(account.label);
           const accountKey = storedAccountKeys.has(normalizedKey)
@@ -1445,10 +1471,13 @@ export async function createProxyStartApp(params: {
             label: account.label,
             type: account.type,
             attempts: account.attemptCount,
-            requests: account.attemptCount,
+            requests: account.successCount + account.errorCount,
             success: account.successCount,
             errors: account.errorCount,
+            attemptErrors: account.attemptErrorCount,
             rateLimits: account.rateLimitCount,
+            transientRateLimits: account.transientRateLimitCount,
+            quotaRateLimits: account.quotaRateLimitCount,
             cooling: (cooldowns[accountKey]?.coolingUntil ?? 0) > now,
           };
         }),
@@ -1467,6 +1496,19 @@ export async function createProxyStartApp(params: {
         updaterRunning: runtimeState?.updaterPid
           ? isProcessRunning(runtimeState.updaterPid)
           : false,
+        liveVersion: PROXY_VERSION,
+        latestVersion: updateState?.lastCheckVersion || null,
+        pendingRestartVersion: updateState?.pendingRestartVersion ?? null,
+        lastCheckAt: updateState?.lastCheckAt ?? null,
+        lastUpdateAt: updateState?.lastUpdateAt ?? null,
+        lastUpdateVersion: updateState?.lastUpdateVersion ?? null,
+        lastFailure: updateState?.lastFailure
+          ? {
+              at: updateState.lastFailure.at,
+              version: updateState.lastFailure.version,
+              stage: updateState.lastFailure.stage,
+            }
+          : null,
       },
       config: params.proxyConfig
         ? {
@@ -1751,6 +1793,7 @@ function registerProxyShutdownHandlers(params: {
   isDev?: boolean;
   refreshInterval: NodeJS.Timeout;
   logCleanupInterval: NodeJS.Timeout;
+  updaterSupervisor?: { stop: () => void };
 }): void {
   let shutdownStarted = false;
 
@@ -1793,6 +1836,7 @@ function registerProxyShutdownHandlers(params: {
     shutdownStarted = true;
     clearInterval(params.refreshInterval);
     clearInterval(params.logCleanupInterval);
+    params.updaterSupervisor?.stop();
     logger.always(`\nShutting down proxy (${signal})...`);
     let exitCode = signal === "SIGINT" ? 0 : 1;
 
@@ -1893,10 +1937,39 @@ async function startProxyRuntime(params: {
     port: params.port,
   });
   markProxyReady(params.readiness);
-  const updaterPid =
+  try {
+    const { reconcileRunningUpdate } =
+      await import("../../lib/proxy/updateState.js");
+    if (reconcileRunningUpdate(PROXY_VERSION)) {
+      logger.always(
+        `[proxy] confirmed pending update is now running at v${PROXY_VERSION}`,
+      );
+    }
+  } catch (error) {
+    logger.always(
+      `[proxy] WARNING: failed to reconcile update state: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  /** Mirror the supervised worker PID into the proxy state used by status. */
+  const updatePersistedUpdaterPid = (updaterPid: number | undefined): void => {
+    const state = loadProxyState();
+    if (!state || state.pid !== process.pid) {
+      return;
+    }
+    saveProxyState({ ...state, updaterPid });
+  };
+  const updaterSupervisor =
     managedByLaunchd && !params.argv.dev
-      ? spawnProxyUpdater(readinessHost, params.port, process.pid)
+      ? startUpdaterWorkerSupervisor({
+          spawnWorker: () =>
+            spawnProxyUpdater(readinessHost, params.port, process.pid),
+          isProcessRunning,
+          stopWorker: (pid) => process.kill(pid, "SIGTERM"),
+          onPidChange: updatePersistedUpdaterPid,
+          log: (message) => logger.always(message),
+        })
       : undefined;
+  const updaterPid = updaterSupervisor?.currentPid();
   const fallbackChain: FallbackInfo[] | undefined =
     params.proxyConfig?.routing?.fallbackChain?.map((entry) => ({
       provider: entry.provider as string,
@@ -2001,6 +2074,7 @@ async function startProxyRuntime(params: {
     host: params.host,
     port: params.port,
     isDev,
+    updaterSupervisor,
     ...maintenance,
   });
 }
@@ -2208,19 +2282,62 @@ function printStatusStats(stats: StatusStats): void {
   console.info(
     `    Completed:   ${stats.totalRequests} total, ${stats.totalSuccess} success, ${stats.totalErrors} errors`,
   );
-  console.info(`    Rate limits: ${stats.totalRateLimits}`);
+  if (stats.totalAttemptErrors !== undefined) {
+    console.info(`    Failed attempts: ${stats.totalAttemptErrors}`);
+  }
+  console.info(
+    `    Rate-limited attempts: ${stats.totalRateLimits}` +
+      (stats.totalTransientRateLimits !== undefined &&
+      stats.totalQuotaRateLimits !== undefined
+        ? ` (${stats.totalTransientRateLimits} transient, ${stats.totalQuotaRateLimits} quota)`
+        : ""),
+  );
   if (stats.accounts?.length) {
     console.info(`\n  Accounts:`);
-    for (const a of stats.accounts) {
-      const acctStatus = a.cooling
-        ? chalk.red("cooling")
-        : chalk.green("active");
-      const attempts = a.attempts ?? a.requests ?? 0;
-      const success = a.success ?? 0;
-      const errors = a.errors ?? 0;
-      const rateLimits = a.rateLimits ?? 0;
+    const headers = [
+      "ACCOUNT",
+      "AUTH",
+      "ATTEMPTS",
+      "SUCCESS",
+      "ERRORS",
+      "RL",
+      "STATUS",
+    ];
+    const rows = stats.accounts.map((account) => [
+      account.label,
+      account.type,
+      String(account.attempts ?? account.requests ?? 0),
+      String(account.success ?? 0),
+      String(account.errors ?? 0),
+      String(account.rateLimits ?? 0),
+      account.cooling ? "cooling" : "active",
+    ]);
+    const widths = headers.map((header, index) =>
+      Math.max(header.length, ...rows.map((row) => row[index].length)),
+    );
+    const numericColumns = new Set([2, 3, 4, 5]);
+    /** Align text columns left and numeric account counters right. */
+    const formatRow = (cells: string[]): string =>
+      cells
+        .map((cell, index) =>
+          numericColumns.has(index)
+            ? cell.padStart(widths[index])
+            : cell.padEnd(widths[index]),
+        )
+        .join("  ");
+
+    console.info(`    ${chalk.gray(formatRow(headers))}`);
+    console.info(
+      `    ${chalk.gray(widths.map((width) => "-".repeat(width)).join("  "))}`,
+    );
+    for (const row of rows) {
+      const status = row[6];
+      const formatted = formatRow(row);
+      const statusStart = formatted.length - widths[6];
+      const prefix = formatted.slice(0, statusStart);
+      const paddedStatus = formatted.slice(statusStart);
       console.info(
-        `    ${a.label.padEnd(20)} ${a.type.padEnd(8)} ${String(attempts).padEnd(6)} attempts  ${String(success).padEnd(6)} success  ${String(errors).padEnd(6)} errors  ${String(rateLimits).padEnd(6)} rl  ${acctStatus}`,
+        `    ${chalk.cyan(prefix.slice(0, widths[0]))}${prefix.slice(widths[0])}${status === "cooling" ? chalk.red(paddedStatus) : chalk.green(paddedStatus)}`,
       );
     }
   }
@@ -2256,6 +2373,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
   handler: async (argv) => {
     try {
       const state = loadProxyState();
+      const updateState = loadUpdateState();
 
       const status = {
         running: false,
@@ -2273,6 +2391,9 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         autoUpdateEnabled: isProxyAutoUpdateEnabled(),
         updaterPid: null as number | null,
         updaterRunning: false,
+        latestVersion: updateState?.lastCheckVersion || null,
+        pendingRestartVersion: updateState?.pendingRestartVersion ?? null,
+        lastUpdateFailure: updateState?.lastFailure ?? null,
       };
 
       if (state && isProcessRunning(state.pid)) {
@@ -2347,6 +2468,21 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         logger.always(
           `  ${chalk.bold("Auto-update:")} ${status.autoUpdateEnabled ? chalk.green(status.updaterRunning ? `enabled (PID ${status.updaterPid})` : "enabled (worker unavailable)") : chalk.yellow("disabled")}`,
         );
+        if (status.pendingRestartVersion) {
+          logger.always(
+            `  ${chalk.bold("Pending:")}    ${chalk.yellow(`v${status.pendingRestartVersion} installed; restart pending`)}`,
+          );
+        }
+        if (status.latestVersion) {
+          logger.always(
+            `  ${chalk.bold("Latest:")}     ${chalk.cyan(`v${status.latestVersion}`)}`,
+          );
+        }
+        if (status.lastUpdateFailure) {
+          logger.always(
+            `  ${chalk.bold("Update error:")} ${chalk.red(`${status.lastUpdateFailure.stage}: ${status.lastUpdateFailure.message}`)}`,
+          );
+        }
         if (status.envFile) {
           logger.always(
             `  ${chalk.bold("Env File:")}   ${chalk.cyan(status.envFile)}`,
@@ -2403,10 +2539,13 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
             const statusData = (await statusResp.json()) as {
               stats?: {
                 totalAttempts?: number;
+                totalAttemptErrors?: number;
                 totalRequests: number;
                 totalSuccess: number;
                 totalErrors: number;
                 totalRateLimits: number;
+                totalTransientRateLimits?: number;
+                totalQuotaRateLimits?: number;
                 accounts?: {
                   label: string;
                   type: string;
@@ -2414,7 +2553,10 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
                   requests?: number;
                   success?: number;
                   errors?: number;
+                  attemptErrors?: number;
                   rateLimits?: number;
+                  transientRateLimits?: number;
+                  quotaRateLimits?: number;
                   cooling: boolean;
                 }[];
               };
@@ -2623,6 +2765,19 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         updateCheckInterval = undefined;
       }
     };
+    /** Keep state-write failures observable without terminating the updater. */
+    const persistUpdaterState = (
+      operation: string,
+      action: () => void,
+    ): void => {
+      try {
+        action();
+      } catch (error) {
+        logger.always(
+          `[updater] WARNING: failed to ${operation}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    };
     let updateInProgress = false;
     let updateRestartInProgress = false;
     const runUpdateCheck = async () => {
@@ -2630,25 +2785,25 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         return;
       }
       updateInProgress = true;
+      let updateVersion = runningVersion;
       try {
         // Lazy-load update modules so they're only imported at check time
         const { checkForUpdate } =
           await import("../../lib/proxy/updateChecker.js");
-        const {
-          recordCheck,
-          isVersionSuppressed,
-          suppressVersion,
-          recordSuccessfulUpdate,
-        } = await import("../../lib/proxy/updateState.js");
 
         // 1. Check for update
         const result = await checkForUpdate(runningVersion);
-        recordCheck(result.latestVersion);
+        updateVersion = result.latestVersion;
+        persistUpdaterState("record update check", () =>
+          recordCheck(result.latestVersion),
+        );
 
         if (!result.updateAvailable) {
           return;
         }
-        if (isVersionSuppressed(result.latestVersion)) {
+        const pendingRestart =
+          loadUpdateState()?.pendingRestartVersion === result.latestVersion;
+        if (isVersionSuppressed(result.latestVersion) && !pendingRestart) {
           logger.debug(
             `[guard] version ${result.latestVersion} is suppressed, skipping`,
           );
@@ -2685,53 +2840,71 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
 
         // 3. Install update (validate version string before passing to shell)
         if (!/^\d+\.\d+\.\d+$/.test(result.latestVersion)) {
+          const message = `invalid version format: ${result.latestVersion}`;
           logger.always(
             `[guard] WARNING: invalid version format "${result.latestVersion}", skipping`,
+          );
+          persistUpdaterState("record update failure", () =>
+            recordUpdateFailure(result.latestVersion, "check", message),
           );
           return;
         }
 
-        const installerResolution = resolveGlobalInstaller({
-          entryScript: process.argv[1],
-        });
-        logger.always(
-          `[updater] package-manager candidates: ${installerResolution.tried
-            .map(
-              (candidate) =>
-                `${candidate.kind}:${candidate.bin}(${candidate.installable ? `v${candidate.version}` : (candidate.reason ?? "unusable")})`,
-            )
-            .join(", ")}`,
-        );
-        const installer = installerResolution.installer;
-        if (!installer) {
-          logger.always(
-            `[updater] WARNING: no package manager has a writable global root and executable directory; skipping this cycle`,
-          );
-          return;
-        }
-        logger.always(
-          `[updater] installing @juspay/neurolink@${result.latestVersion} via ${installer.kind} ${installer.bin} (v${installer.version})`,
-        );
-        if (guardStopping || getProcessStatus(parentPid) === "not_running") {
-          return;
-        }
         const { execFileSync } = await import("node:child_process");
-        try {
-          execFileSync(
-            installer.bin,
-            getGlobalInstallArgs(
-              installer.kind,
-              `@juspay/neurolink@${result.latestVersion}`,
-            ),
-            {
-              timeout: 120_000,
-              stdio: "pipe",
-            },
+        if (!pendingRestart) {
+          const installerResolution = resolveGlobalInstaller({
+            entryScript: process.argv[1],
+          });
+          logger.always(
+            `[updater] package-manager candidates: ${installerResolution.tried
+              .map(
+                (candidate) =>
+                  `${candidate.kind}:${candidate.bin}(${candidate.installable ? `v${candidate.version}` : (candidate.reason ?? "unusable")})`,
+              )
+              .join(", ")}`,
           );
-        } catch (installErr) {
-          const detail = describeInstallFailure(installErr);
-          logger.always(`[updater] WARNING: global install failed:\n${detail}`);
-          return;
+          const installer = installerResolution.installer;
+          if (!installer) {
+            const message =
+              "no package manager has a writable global root and executable directory";
+            logger.always(`[updater] WARNING: ${message}; skipping this cycle`);
+            persistUpdaterState("record update failure", () =>
+              recordUpdateFailure(result.latestVersion, "install", message),
+            );
+            return;
+          }
+          logger.always(
+            `[updater] installing @juspay/neurolink@${result.latestVersion} via ${installer.kind} ${installer.bin} (v${installer.version})`,
+          );
+          if (guardStopping || getProcessStatus(parentPid) === "not_running") {
+            return;
+          }
+          try {
+            execFileSync(
+              installer.bin,
+              getGlobalInstallArgs(
+                installer.kind,
+                `@juspay/neurolink@${result.latestVersion}`,
+              ),
+              {
+                timeout: 120_000,
+                stdio: "pipe",
+              },
+            );
+          } catch (installErr) {
+            const detail = describeInstallFailure(installErr);
+            logger.always(
+              `[updater] WARNING: global install failed:\n${detail}`,
+            );
+            persistUpdaterState("record update failure", () =>
+              recordUpdateFailure(result.latestVersion, "install", detail),
+            );
+            return;
+          }
+        } else {
+          logger.always(
+            `[updater] resuming pending restart for already-installed v${result.latestVersion}`,
+          );
         }
 
         // 4. Refresh and validate the stable trampoline. The plist already
@@ -2739,42 +2912,41 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         try {
           writeTrampoline();
 
-          // Validate the trampoline actually resolves to the NEW version
-          // before asking launchd to restart. If the install somehow left
-          // PATH still pointing at the old version, don't kickstart.
-          const probed = probeBinVersion(TRAMPOLINE_PATH);
-          if (!probed) {
-            logger.always(
-              `[updater] WARNING: trampoline does not resolve to a working neurolink after install; skipping restart`,
+          const validation = await validateInstalledVersion({
+            binPath: TRAMPOLINE_PATH,
+            expectedVersion: result.latestVersion,
+          });
+          if (validation.version !== result.latestVersion) {
+            const message = `trampoline validation failed after ${validation.attempts} attempts: ${validation.failure ?? "unknown failure"}`;
+            logger.always(`[updater] WARNING: ${message}; restart deferred`);
+            persistUpdaterState("record update failure", () =>
+              recordUpdateFailure(result.latestVersion, "validation", message),
             );
-            suppressVersion(
-              result.latestVersion,
-              `trampoline_broken_after_install: ${TRAMPOLINE_PATH} --version failed`,
-            );
-            return;
-          }
-          if (probed !== result.latestVersion) {
-            logger.always(
-              `[updater] ABORT: trampoline resolves to v${probed} but installed v${result.latestVersion}`,
-            );
-            logger.always(
-              `[updater] installer used: ${installer.kind} ${installer.bin} (v${installer.version})`,
-            );
-            suppressVersion(
-              result.latestVersion,
-              `version_mismatch: trampoline=${probed} expected=${result.latestVersion} installer=${installer.kind}:${installer.bin}(v${installer.version})`,
+            persistUpdaterState("abandon invalid pending update", () =>
+              abandonPendingUpdate(result.latestVersion),
             );
             return;
           }
 
-          logger.always(`[updater] trampoline validated at v${probed}`);
-        } catch (trampolineError) {
+          persistUpdaterState("record installed update", () =>
+            recordUpdateInstalled(result.latestVersion),
+          );
           logger.always(
-            `[updater] WARNING: failed to refresh trampoline; refusing restart: ${
-              trampolineError instanceof Error
-                ? trampolineError.message
-                : String(trampolineError)
-            }`,
+            `[updater] trampoline validated at v${validation.version} after ${validation.attempts} attempt(s)`,
+          );
+        } catch (trampolineError) {
+          const message =
+            trampolineError instanceof Error
+              ? trampolineError.message
+              : String(trampolineError);
+          logger.always(
+            `[updater] WARNING: failed to refresh trampoline; refusing restart: ${message}`,
+          );
+          persistUpdaterState("record update failure", () =>
+            recordUpdateFailure(result.latestVersion, "validation", message),
+          );
+          persistUpdaterState("abandon invalid pending update", () =>
+            abandonPendingUpdate(result.latestVersion),
           );
           return;
         }
@@ -2825,6 +2997,9 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           logger.always(
             `[updater] WARNING: launchctl kickstart failed: ${msg}`,
           );
+          persistUpdaterState("record update failure", () =>
+            recordUpdateFailure(result.latestVersion, "restart", msg),
+          );
           return;
         }
 
@@ -2853,19 +3028,35 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           logger.always(
             `[updater] update successful: now running ${result.latestVersion}`,
           );
-          recordSuccessfulUpdate(result.latestVersion);
+          persistUpdaterState("record successful update", () =>
+            recordSuccessfulUpdate(result.latestVersion),
+          );
           // The replacement proxy starts a worker running the new version.
           process.exit(0);
         } else {
           logger.always(
             `[updater] WARNING: proxy unhealthy after update to ${result.latestVersion}`,
           );
-          suppressVersion(result.latestVersion, "unhealthy_after_restart");
+          persistUpdaterState("record update failure", () =>
+            recordUpdateFailure(
+              result.latestVersion,
+              "health",
+              `proxy did not report v${result.latestVersion} healthy within ${UPDATE_TIMEOUT_MS}ms`,
+            ),
+          );
+          persistUpdaterState("abandon unhealthy pending update", () =>
+            abandonPendingUpdate(result.latestVersion),
+          );
+          persistUpdaterState("suppress unhealthy update", () =>
+            suppressVersion(result.latestVersion, "unhealthy_after_restart"),
+          );
           updateRestartInProgress = false;
         }
       } catch (err) {
-        logger.always(
-          `[updater] update check error: ${err instanceof Error ? err.message : String(err)}`,
+        const message = err instanceof Error ? err.message : String(err);
+        logger.always(`[updater] update check error: ${message}`);
+        persistUpdaterState("record update failure", () =>
+          recordUpdateFailure(updateVersion, "check", message),
         );
       } finally {
         updateInProgress = false;
@@ -2890,12 +3081,27 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
       const healthy = await isProxyHealthy(host, port, 1_500);
 
       if (healthy) {
+        if (updaterOnly && consecutiveUnhealthy >= failureThreshold) {
+          logger.always(
+            `[updater] proxy health recovered after ${consecutiveUnhealthy} failed checks`,
+          );
+        }
         consecutiveUnhealthy = 0;
       } else {
         consecutiveUnhealthy += 1;
+        if (updaterOnly && consecutiveUnhealthy === failureThreshold) {
+          logger.always(
+            `[updater] proxy health unavailable after ${consecutiveUnhealthy} checks; worker remains active`,
+          );
+        }
       }
 
       if (parentStatus === "not_running" && !updateRestartInProgress) {
+        if (updaterOnly) {
+          logger.always(
+            `[updater] parent pid=${parentPid} exited; updater worker stopping`,
+          );
+        }
         // Parent is gone (and we're not mid-update-restart).
         // If endpoint is still healthy, another proxy took over.
         if (healthy) {
@@ -2906,6 +3112,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
       }
 
       if (
+        !updaterOnly &&
         !updateRestartInProgress &&
         !healthy &&
         consecutiveUnhealthy >= failureThreshold
