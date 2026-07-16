@@ -43,6 +43,13 @@ import {
   hasVideoFrames,
 } from "../utils/videoAnalysisProcessor.js";
 import { dedupeTools } from "./toolDedup.js";
+import { resolveToolPolicy, toolNameMatcher } from "../tools/toolPolicy.js";
+import { applyToolGate } from "../tools/toolGate.js";
+import {
+  partitionToolsForDiscovery,
+  isDiscoveryMetaTool,
+  LARGE_CATALOG_WARN_THRESHOLD,
+} from "../tools/toolDiscovery.js";
 import { GenerationHandler } from "./modules/GenerationHandler.js";
 // Import modules for composition
 import { MessageBuilder } from "./modules/MessageBuilder.js";
@@ -54,8 +61,10 @@ import { Utilities } from "./modules/Utilities.js";
 import type {
   LanguageModel,
   ModelMessage,
+  ResolvedToolPolicy,
   Tool,
   ToolCallRepairFunction,
+  ToolDedupConfig,
   ToolSet,
 } from "../types/index.js";
 import { generateText } from "../utils/generation.js";
@@ -745,15 +754,41 @@ export abstract class BaseProvider implements AIProvider {
 
   /**
    * Apply per-call tool filtering (whitelist/blacklist) to a tools record.
-   * If toolFilter is set, only tools whose names are in the list are kept.
-   * If excludeTools is set, matching tools are removed. excludeTools is applied after toolFilter.
+   *
+   * All filtering surfaces are merged into one ResolvedToolPolicy by
+   * `resolveToolPolicy()` — per-call `toolFilter` (whitelist),
+   * `enabledToolNames` (merged into the whitelist, as its docs always
+   * promised), `excludeTools` (denylist, applied after the whitelist), and
+   * the instance-level `tools` config (enabled/include/exclude, `*` globs) —
+   * then applied by `applyToolGate()`. This is the single filter semantics
+   * for every generate/stream path.
    */
+  private getToolPolicy(options: {
+    toolFilter?: string[];
+    excludeTools?: string[];
+    enabledToolNames?: string[];
+  }): ResolvedToolPolicy {
+    return resolveToolPolicy({
+      options: {
+        toolFilter: options.toolFilter,
+        excludeTools: options.excludeTools,
+        enabledToolNames: options.enabledToolNames,
+      },
+      instanceConfig: this.neurolink?.getToolsConfig(),
+      builtinToolNames: Object.keys(this.directTools ?? {}),
+    });
+  }
+
   private applyToolFiltering(
     tools: Record<string, Tool>,
-    options: { toolFilter?: string[]; excludeTools?: string[] },
+    options: {
+      toolFilter?: string[];
+      excludeTools?: string[];
+      enabledToolNames?: string[];
+      toolChoice?: unknown;
+    },
   ): Record<string, Tool> {
-    const hasWhitelist = options.toolFilter && options.toolFilter.length > 0;
-    const hasDenylist = options.excludeTools && options.excludeTools.length > 0;
+    const policy = this.getToolPolicy(options);
 
     // Check whether the dedup pass is requested — even when no whitelist/
     // denylist is set we still need to run the dedup pass if enabled.
@@ -761,33 +796,8 @@ export abstract class BaseProvider implements AIProvider {
     const hasDedupEnabled =
       dedupConfig !== undefined && dedupConfig.enabled === true;
 
-    if (!hasWhitelist && !hasDenylist && !hasDedupEnabled) {
-      // Fast path: nothing to do.
-      return tools;
-    }
-
     const beforeCount = Object.keys(tools).length;
-    let filtered = { ...tools };
-
-    if (hasWhitelist) {
-      const allowSet = new Set(options.toolFilter);
-      const result: Record<string, Tool> = {};
-      for (const [name, tool] of Object.entries(filtered)) {
-        if (allowSet.has(name)) {
-          result[name] = tool;
-        }
-      }
-      filtered = result;
-    }
-
-    if (hasDenylist) {
-      const denySet = new Set(options.excludeTools);
-      for (const name of Object.keys(filtered)) {
-        if (denySet.has(name)) {
-          delete filtered[name];
-        }
-      }
-    }
+    const filtered = applyToolGate(tools, policy);
 
     const afterCount = Object.keys(filtered).length;
     if (beforeCount !== afterCount) {
@@ -795,34 +805,195 @@ export abstract class BaseProvider implements AIProvider {
         provider: this.providerName,
         beforeCount,
         afterCount,
+        policySources: policy.sources,
         toolFilter: options.toolFilter,
         excludeTools: options.excludeTools,
+        enabledToolNames: options.enabledToolNames,
       });
     }
 
-    // Opt-in signature dedup — runs AFTER whitelist/blacklist filtering and
-    // BEFORE the tool set reaches the provider call.  Fails open: any error
-    // inside dedupeTools returns the original filtered set unchanged.
-    if (dedupConfig !== undefined && dedupConfig.enabled) {
-      const { tools: dedupedTools, removed } = dedupeTools(
-        filtered,
-        dedupConfig,
-      );
-      if (removed.length > 0 && logger.shouldLog("debug")) {
-        logger.debug(`Tool signature dedup removed duplicates`, {
-          provider: this.providerName,
-          removedCount: removed.length,
-          removed: removed.map((r) => ({
-            name: r.name,
-            duplicateOf: r.duplicateOf,
-            similarity: r.similarity,
-          })),
-        });
-      }
-      return dedupedTools;
+    if (!hasDedupEnabled || dedupConfig === undefined) {
+      return this.sortToolRecord(filtered);
     }
 
-    return filtered;
+    const deduped = this.applyDedupPass(filtered, dedupConfig);
+
+    // A forced toolChoice must survive dedup: keep-first can collapse the
+    // forced tool into an earlier near-identical signature, and the provider
+    // would then reject the request for naming an unknown tool. Restore it
+    // from the pre-dedup record (whitelisted names are already safe — the
+    // gate runs before dedup, so a whitelist leaves no duplicate to lose to).
+    const forcedName = (
+      options.toolChoice as { type?: string; toolName?: string } | undefined
+    )?.toolName;
+    if (
+      typeof forcedName === "string" &&
+      !Object.hasOwn(deduped, forcedName) &&
+      Object.hasOwn(filtered, forcedName)
+    ) {
+      deduped[forcedName] = filtered[forcedName];
+      logger.debug(
+        `Restored toolChoice-forced tool removed by signature dedup`,
+        { provider: this.providerName, toolName: forcedName },
+      );
+    }
+
+    return this.sortToolRecord(deduped);
+  }
+
+  /**
+   * Deterministic name-sorted key order. External MCP servers connect and
+   * discover in parallel, so insertion order varies across process restarts;
+   * providers serialize this record in key order (and Anthropic pins its
+   * cache_control breakpoint to the LAST tool), so an unstable order silently
+   * busts provider prompt caches. Runs AFTER the dedup pass — dedup's
+   * keep-first policy must see phase order (built-ins first) so duplicate
+   * winners don't flip when an MCP tool name sorts earlier.
+   */
+  private sortToolRecord(tools: Record<string, Tool>): Record<string, Tool> {
+    // Null prototype: a tool named "__proto__" must become an own entry, not
+    // a prototype mutation that silently drops the tool.
+    const sorted: Record<string, Tool> = Object.create(null) as Record<
+      string,
+      Tool
+    >;
+    for (const name of Object.keys(tools).sort()) {
+      sorted[name] = tools[name];
+    }
+    return sorted;
+  }
+
+  /**
+   * On-demand discovery (`tools.discovery: true`): defer external MCP tool
+   * schemas behind one `search_tools` meta-tool. Built-in tools, per-call
+   * tools, explicitly whitelisted tools, and session-pinned (previously
+   * discovered) tools always stay hot. No-op when discovery is off — with a
+   * one-time WARN when the catalog is large enough that selection accuracy
+   * measurably degrades.
+   */
+  private async applyToolDiscovery(
+    toolsInput: Record<string, Tool>,
+    options: TextGenerationOptions | StreamOptions,
+  ): Promise<Record<string, Tool>> {
+    // Strip a stale meta-tool left by a previous resolution pass (the
+    // stream → generate fallback re-enters resolution with options.tools
+    // already partitioned). Discovery re-partitions against the fresh merged
+    // record below; without this, the collision guard would see our own
+    // meta-tool and skip partitioning, shipping the full catalog AND a stale
+    // search_tools closure. Real user tools named "search_tools" are not
+    // marked and are left untouched.
+    let tools = toolsInput;
+    if (isDiscoveryMetaTool(tools["search_tools"])) {
+      const { search_tools: _stale, ...rest } = tools;
+      tools = rest;
+    }
+
+    const toolCount = Object.keys(tools).length;
+    const policy = this.getToolPolicy(options);
+
+    if (!policy.discovery) {
+      if (toolCount > LARGE_CATALOG_WARN_THRESHOLD) {
+        this.warnLargeCatalogOnce(toolCount);
+      }
+      return tools;
+    }
+
+    const externalTools = this.neurolink?.getExternalMCPTools() ?? [];
+    if (externalTools.length === 0) {
+      return tools;
+    }
+
+    // Session pinning requires a caller-provided sessionId. Without one there
+    // is no session identity — pinning to a shared fallback key would leak
+    // one caller's discoveries into every other caller of a shared instance
+    // and monotonically defeat deferral, so pins are simply not persisted.
+    const rawSessionId = (
+      options.context as Record<string, unknown> | undefined
+    )?.sessionId;
+    const sessionKey =
+      typeof rawSessionId === "string" && rawSessionId.length > 0
+        ? rawSessionId
+        : typeof rawSessionId === "number"
+          ? String(rawSessionId)
+          : undefined;
+    const pinnedNames =
+      (sessionKey ? this.neurolink?.getDiscoveryPins(sessionKey) : undefined) ??
+      new Set<string>();
+    const perCallNames = new Set(Object.keys(options.tools ?? {}));
+    // Explicitly requested tools stay hot. Allowlist entries may be globs
+    // (e.g. toolFilter: ["github*"]), so match with the same pattern matcher
+    // the gate uses — a Set of pattern STRINGS would defer glob-whitelisted
+    // tools the gate deliberately kept.
+    const explicitPatterns = [
+      ...(options.toolFilter ?? []),
+      ...((options as { enabledToolNames?: string[] }).enabledToolNames ?? []),
+    ];
+    // A toolChoice that forces a named tool must never see that tool
+    // deferred — the provider would reject the request (unknown tool name).
+    const toolChoice = (
+      options as { toolChoice?: { type?: string; toolName?: string } }
+    ).toolChoice;
+    if (toolChoice && typeof toolChoice.toolName === "string") {
+      explicitPatterns.push(toolChoice.toolName);
+    }
+    const explicitMatcher =
+      explicitPatterns.length > 0 ? toolNameMatcher(explicitPatterns) : null;
+
+    const deferrableNames = externalTools
+      .map((t) => t.name)
+      .filter(
+        (name) =>
+          name in tools &&
+          !perCallNames.has(name) &&
+          !(explicitMatcher ? explicitMatcher(name) : false),
+      );
+
+    return partitionToolsForDiscovery(tools, {
+      deferrableNames,
+      pinnedNames,
+      onHydrate: (names) => {
+        if (sessionKey) {
+          this.neurolink?.pinDiscoveredTools(sessionKey, names);
+        }
+      },
+    });
+  }
+
+  private static warnedLargeCatalog = false;
+
+  private warnLargeCatalogOnce(toolCount: number): void {
+    if (BaseProvider.warnedLargeCatalog) {
+      return;
+    }
+    BaseProvider.warnedLargeCatalog = true;
+    logger.warn(
+      `[ToolDiscovery] ${toolCount} tools are being sent in full on every request (~${Math.round((toolCount * 175) / 100) / 10}K tokens). Tool-selection accuracy degrades past 30-50 tools — consider enabling on-demand discovery: new NeuroLink({ tools: { discovery: true } })`,
+      { toolCount, provider: this.providerName },
+    );
+  }
+
+  /**
+   * Opt-in signature dedup — runs AFTER whitelist/blacklist filtering and
+   * BEFORE the tool set reaches the provider call.  Fails open: any error
+   * inside dedupeTools returns the original filtered set unchanged.
+   */
+  private applyDedupPass(
+    filtered: Record<string, Tool>,
+    dedupConfig: ToolDedupConfig,
+  ): Record<string, Tool> {
+    const { tools: dedupedTools, removed } = dedupeTools(filtered, dedupConfig);
+    if (removed.length > 0 && logger.shouldLog("debug")) {
+      logger.debug(`Tool signature dedup removed duplicates`, {
+        provider: this.providerName,
+        removedCount: removed.length,
+        removed: removed.map((r) => ({
+          name: r.name,
+          duplicateOf: r.duplicateOf,
+          similarity: r.similarity,
+        })),
+      });
+    }
+    return dedupedTools;
   }
 
   /**
@@ -845,6 +1016,9 @@ export abstract class BaseProvider implements AIProvider {
 
     // Apply per-call tool filtering (whitelist/blacklist)
     tools = this.applyToolFiltering(tools, options);
+
+    // On-demand discovery: defer external MCP schemas behind search_tools
+    tools = await this.applyToolDiscovery(tools, options);
 
     logger.debug(`Final tools prepared for AI`, {
       provider: this.providerName,
@@ -882,6 +1056,9 @@ export abstract class BaseProvider implements AIProvider {
 
     // Apply per-call tool filtering (whitelist/blacklist)
     merged = this.applyToolFiltering(merged, options);
+
+    // On-demand discovery: defer external MCP schemas behind search_tools
+    merged = await this.applyToolDiscovery(merged, options);
 
     logger.debug(`Tools prepared for streaming`, {
       provider: this.providerName,

@@ -54,6 +54,7 @@ export * from "./subscription.js";
 export * from "./task.js";
 export * from "./taskClassification.js";
 export * from "./toolDedup.js";
+export * from "./toolResolution.js";
 export * from "./toolRouting.js";
 export * from "./tools.js";
 export * from "./vectorStoreChroma.js";

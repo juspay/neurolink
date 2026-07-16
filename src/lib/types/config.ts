@@ -61,6 +61,12 @@ export type NeurolinkConstructorConfig = {
   conversationMemory?: Partial<ConversationMemoryConfig>;
   enableOrchestration?: boolean;
   hitl?: HITLConfig;
+  /**
+   * Instance-level tool policy: master switch, include/exclude lists
+   * (with `*` glob support), and on-demand MCP tool discovery.
+   * See {@link ToolConfig}.
+   */
+  tools?: ToolConfig;
   toolRegistry?: MCPToolRegistry;
   observability?: ObservabilityConfig;
   modelAliasConfig?: ModelAliasConfig;
@@ -342,14 +348,48 @@ export type AnalyticsConfig = {
 };
 
 /**
- * Tool configuration
+ * Instance-level tool configuration (`new NeuroLink({ tools: {...} })`).
+ *
+ * The four primary keys (`enabled`, `include`, `exclude`, `discovery`) form
+ * the complete modern surface; per-call options (`toolFilter`,
+ * `excludeTools`, `enabledToolNames`, `disableTools`) keep working and are
+ * merged with this config by `resolveToolPolicy()`.
  */
 export type ToolConfig = {
-  /** Whether built-in tools should be disabled */
+  /**
+   * Master switch. `false` disables all tools for every call from this
+   * instance (equivalent to passing `disableTools: true` on each call).
+   * Default: true.
+   */
+  enabled?: boolean;
+  /**
+   * Allowlist of tool names. Supports `*` globs (e.g. `"github*"`).
+   * Undefined = all tools; an EMPTY array means no tools (fail-closed).
+   * Per-call `toolFilter` is bounded by this list (a per-call filter can
+   * narrow it further but never widen past it).
+   */
+  include?: string[];
+  /** Denylist of tool names (supports `*` globs). Applied after `include`. */
+  exclude?: string[];
+  /**
+   * Defer external MCP tool schemas behind a `search_tools` meta-tool: the
+   * model sees a compact name+summary catalog instead of full schemas and
+   * loads a tool on demand by searching for it. Built-in tools, per-call
+   * tools, per-call whitelists (`toolFilter`/`enabledToolNames`), forced
+   * `toolChoice` tools, and already-discovered tools are always sent in
+   * full. Note: the instance-level `include` list deliberately does NOT
+   * force tools hot — it scopes the catalog, and discovery defers within
+   * that scope (a scoped-but-large catalog is exactly where deferral pays).
+   * Default: false.
+   */
+  discovery?: boolean;
+  /** Whether built-in tools should be disabled (equivalent to excluding all direct tools) */
   disableBuiltinTools?: boolean;
   /** Whether custom tools are allowed */
   allowCustomTools?: boolean;
-  /** Maximum number of tools per provider */
+  /**
+   * @deprecated Never enforced; retained for compile compatibility only.
+   */
   maxToolsPerProvider?: number;
   /** Whether MCP tools should be enabled */
   enableMCPTools?: boolean;

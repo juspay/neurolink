@@ -149,10 +149,16 @@ export class GenerationHandler {
     // Non-Anthropic providers harmlessly ignore unknown providerOptions.
     // Note: The AI SDK Tool type doesn't yet include providerOptions, so we
     // use a type assertion. The Anthropic adapter reads this at runtime.
+    //
+    // Deliberately NOT a clone: the record is call-scoped (built fresh in
+    // BaseProvider.prepareGenerationContext) and the AI SDK re-reads it on
+    // every agent-loop step, so `search_tools` hydration (tools.discovery)
+    // can add discovered tools mid-loop and have them callable on the next
+    // step. A clone would freeze the tool set for the whole call.
     const toolsWithCache: Record<
       string,
       Tool & { providerOptions?: Record<string, unknown> }
-    > = { ...tools };
+    > = tools;
     if (
       isAnthropicProvider &&
       shouldUseTools &&

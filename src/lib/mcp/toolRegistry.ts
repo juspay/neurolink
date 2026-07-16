@@ -19,6 +19,7 @@ import { registryLogger } from "../utils/logger.js";
 import { randomUUID } from "crypto";
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
 import { directAgentTools } from "../agent/directTools.js";
+import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
 import { detectCategory, createMCPServerInfo } from "../utils/mcpDefaults.js";
 import { FlexibleToolValidator } from "./flexibleToolValidator.js";
 import { ErrorFactory } from "../utils/errorHandling.js";
@@ -81,10 +82,18 @@ export class MCPToolRegistry extends MCPRegistry {
       }
 
       const toolId = `direct.${toolName}`;
+      // Register the tool's real parameter schema (converted from Zod) instead
+      // of a `{}` placeholder — token-budget accounting and tool listings read
+      // this ToolInfo, and an empty schema makes both under-count reality.
+      const inputSchema = convertZodToJsonSchema(
+        (toolDef as { inputSchema?: unknown }).inputSchema as Parameters<
+          typeof convertZodToJsonSchema
+        >[0],
+      ) as ToolInfo["inputSchema"];
       const toolInfo: ToolInfo = {
         name: toolName,
         description: toolDef.description || `Direct tool: ${toolName}`,
-        inputSchema: {},
+        inputSchema,
         serverId: "direct",
         category: detectCategory({ isBuiltIn: true, serverId: "direct" }),
       };
@@ -128,7 +137,7 @@ export class MCPToolRegistry extends MCPRegistry {
           }
         },
         description: toolDef.description,
-        inputSchema: {},
+        inputSchema,
       });
 
       registryLogger.debug(`Registered direct tool: ${toolName} as ${toolId}`);

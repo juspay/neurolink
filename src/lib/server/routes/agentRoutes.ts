@@ -17,6 +17,38 @@ import type {
 } from "../../types/index.js";
 import { withSpan } from "../../telemetry/withSpan.js";
 import { tracers } from "../../telemetry/tracers.js";
+import { logger } from "../../utils/logger.js";
+
+/**
+ * Resolve `request.tools` (an array of tool NAMES shared by the execute and
+ * stream endpoints) into a `toolFilter` whitelist. The field was previously
+ * accepted and silently ignored, so entries are validated against registered
+ * names and the whole field fails open (undefined — keep all tools) when
+ * nothing matches: existing clients sending unknown names must not lose
+ * their tool set.
+ */
+async function resolveRequestToolFilter(
+  ctx: ServerContext,
+  requestedTools: unknown,
+): Promise<string[] | undefined> {
+  if (!Array.isArray(requestedTools) || requestedTools.length === 0) {
+    return undefined;
+  }
+  const registered = new Set(
+    (await ctx.neurolink.getAllAvailableTools()).map((t) => t.name),
+  );
+  const known = requestedTools.filter(
+    (name): name is string => typeof name === "string" && registered.has(name),
+  );
+  if (known.length > 0) {
+    return known;
+  }
+  logger.warn(
+    "[agentRoutes] Ignoring request.tools — no entries match registered tool names (legacy fail-open)",
+    { requested: requestedTools },
+  );
+  return undefined;
+}
 import { createStreamRedactor } from "../utils/redaction.js";
 import {
   AgentExecuteRequestSchema,
@@ -118,6 +150,11 @@ export function createAgentRoutes(basePath: string = "/api"): RouteGroup {
                   ? { text: request.input }
                   : request.input;
 
+              const requestToolFilter = await resolveRequestToolFilter(
+                ctx,
+                request.tools,
+              );
+
               const result = await ctx.neurolink.generate({
                 input,
                 provider: request.provider,
@@ -125,8 +162,7 @@ export function createAgentRoutes(basePath: string = "/api"): RouteGroup {
                 systemPrompt: request.systemPrompt,
                 temperature: request.temperature,
                 maxTokens: request.maxTokens,
-                // Note: tools should be passed as Record<string, Tool> in generate options
-                // If request.tools is an array of tool names, we skip them
+                ...(requestToolFilter ? { toolFilter: requestToolFilter } : {}),
                 context: {
                   // When an authenticated user context exists (set by auth middleware),
                   // always use its IDs to prevent caller-supplied impersonation.
@@ -189,6 +225,11 @@ export function createAgentRoutes(basePath: string = "/api"): RouteGroup {
               ? { text: request.input }
               : request.input;
 
+          const streamToolFilter = await resolveRequestToolFilter(
+            ctx,
+            request.tools,
+          );
+
           const result = await ctx.neurolink.stream({
             input,
             provider: request.provider,
@@ -196,6 +237,7 @@ export function createAgentRoutes(basePath: string = "/api"): RouteGroup {
             systemPrompt: request.systemPrompt,
             temperature: request.temperature,
             maxTokens: request.maxTokens,
+            ...(streamToolFilter ? { toolFilter: streamToolFilter } : {}),
             context: {
               // When an authenticated user context exists (set by auth middleware),
               // always use its IDs to prevent caller-supplied impersonation.
