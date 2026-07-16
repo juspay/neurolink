@@ -12,7 +12,7 @@ NeuroLink provides comprehensive multimodal support, allowing you to combine tex
 
 **Supported Input Types:**
 
-- **Images** - JPEG, PNG, GIF, WebP, HEIC (vision-capable models)
+- **Images** - JPEG, PNG, GIF, WebP, AVIF, HEIC (vision-capable models)
 - **PDFs** - Document analysis and content extraction
 - **CSV/Spreadsheets** - Data analysis and tabular content processing
 - **Audio** - Transcription, analysis, and real-time voice input ([Audio Input Guide](audio-input.md))
@@ -153,7 +153,11 @@ const result = await neurolink.generate({
 - PNG (`.png`)
 - GIF (`.gif`)
 - WebP (`.webp`)
-- HEIC (`.heic`, `.heif`) - iOS photos
+- AVIF (`.avif`) - detected from content (`avif`/`avis`/`avio` brands) as well as extension
+- BMP (`.bmp`), TIFF (`.tif`, `.tiff`) - detected from content
+- HEIC (`.heic`, `.heif`) - iOS photos (accepted by extension; content-sniffing not yet implemented)
+
+The MIME type is sniffed from the buffer's magic bytes, not assumed from the filename. A buffer whose bytes match no known image format is labeled `application/octet-stream` (with a warning) rather than silently mislabeled as JPEG.
 
 **Input methods:**
 

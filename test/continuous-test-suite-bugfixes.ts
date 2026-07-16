@@ -50,7 +50,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join as pathJoin } from "node:path";
+import { basename, join as pathJoin, resolve as resolvePath } from "node:path";
+import { MockAgent, setGlobalDispatcher, getGlobalDispatcher } from "undici";
 import AdmZip from "adm-zip";
 import { PptxProcessor } from "../src/lib/processors/document/PptxProcessor.js";
 
@@ -73,6 +74,14 @@ import {
   buildPlaybackErrorMessage,
   escapePowerShellSingleQuoted,
 } from "../src/cli/utils/audioPlayer.js";
+import {
+  redactUrlForError,
+  redactUrlCredentials,
+  redactUrlsInText,
+  sanitizeErrorCause,
+} from "../src/lib/utils/logSanitize.js";
+import { getImageCache, resetImageCache } from "../src/lib/utils/imageCache.js";
+import { logger } from "../src/lib/utils/logger.js";
 
 import type {
   ParsedClaudeRequest,
@@ -911,6 +920,199 @@ const tests: TestFunction[] = [
       } finally {
         rmSync(base, { recursive: true, force: true });
         rmSync(outside, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "FileDetector.loadFromPath round 8: TOCTOU-safe — reads never follow a symlink re-targeted after allowedBaseDir validation",
+    category: "file-detector",
+    fn: async () => {
+      // Round 8: `loadFromPath` used to validate the realpath-resolved `real`
+      // but then open() the ORIGINAL `filePath`. If `filePath` is a symlink,
+      // an attacker can swap it between the realpath() check and the open()
+      // call so the validated path is inside `allowedBaseDir` but the actual
+      // read lands outside it. The fix opens the resolved `real` path
+      // directly (a plain string with no symlink components left to
+      // re-target), so retargeting the symlink after validation can no
+      // longer affect what gets read.
+      //
+      // This is a genuine, non-deterministic OS-level race (real fs calls
+      // round-trip through libuv's thread pool), so the test's PASS
+      // criterion never depends on winning it: it only asserts the safety
+      // invariant "a completed read is never the outside file's content",
+      // which the fix satisfies unconditionally (open() never sees the
+      // symlink `real` doesn't reference it) and which a reverted/buggy
+      // implementation would violate given enough attempts.
+      const load = (
+        FileDetector as unknown as {
+          loadFromPath: (
+            p: string,
+            o?: { allowedBaseDir?: string },
+          ) => Promise<Buffer>;
+        }
+      ).loadFromPath;
+
+      const base = mkdtempSync(pathJoin(tmpdir(), "nl-toctou-base-"));
+      const outside = mkdtempSync(pathJoin(tmpdir(), "nl-toctou-outside-"));
+      const safeFile = pathJoin(base, "safe.txt");
+      const evilFile = pathJoin(outside, "evil.txt");
+      const link = pathJoin(base, "target.txt");
+
+      try {
+        writeFileSync(safeFile, "SAFE");
+        writeFileSync(evilFile, "EVIL");
+
+        // Symlink creation isn't guaranteed on every platform/CI runner
+        // (e.g. unprivileged Windows) — skip cleanly rather than false-fail.
+        try {
+          symlinkSync(safeFile, link);
+        } catch {
+          return true;
+        }
+
+        let observedEvil = false;
+        const deadline = Date.now() + 1500;
+
+        while (Date.now() < deadline) {
+          // Repeatedly flip `link` between the safe (in-sandbox) and evil
+          // (outside-sandbox) target WHILE `loadFromPath` is in flight,
+          // giving a buggy implementation's realpath()→open() gap a
+          // realistic chance to be hit over many attempts.
+          const swap = async (): Promise<void> => {
+            for (let i = 0; i < 25; i++) {
+              try {
+                rmSync(link, { force: true });
+                symlinkSync(evilFile, link);
+              } catch {
+                // transient ENOENT/EEXIST mid-swap — ignore and keep trying
+              }
+              await Promise.resolve();
+            }
+            try {
+              rmSync(link, { force: true });
+              symlinkSync(safeFile, link);
+            } catch {
+              // leave as-is; next iteration re-establishes it
+            }
+          };
+
+          const [readResult] = await Promise.allSettled([
+            load(link, { allowedBaseDir: base }).catch(() => null),
+            swap(),
+          ]);
+
+          if (
+            readResult.status === "fulfilled" &&
+            readResult.value &&
+            readResult.value.toString("utf-8") === "EVIL"
+          ) {
+            observedEvil = true;
+            break;
+          }
+        }
+
+        return !observedEvil;
+      } finally {
+        rmSync(base, { recursive: true, force: true });
+        rmSync(outside, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "FileDetector.loadFromPath round 8: realpath resolution failure attaches a SANITIZED cause, never the raw ENOENT error",
+    category: "file-detector",
+    fn: async () => {
+      const load = (
+        FileDetector as unknown as {
+          loadFromPath: (
+            p: string,
+            o?: { allowedBaseDir?: string },
+          ) => Promise<Buffer>;
+        }
+      ).loadFromPath;
+
+      const base = mkdtempSync(pathJoin(tmpdir(), "nl-toctou-realpath-"));
+      const missing = pathJoin(base, "deeply", "nested", "missing-secret.png");
+      try {
+        try {
+          await load(missing, { allowedBaseDir: base });
+          return false; // realpath(missing) must fail — should have thrown
+        } catch (error) {
+          if (!(error instanceof Error)) {
+            return false;
+          }
+          // Outer message was already redacted before this round — basename only.
+          if (error.message.includes(missing)) {
+            return false;
+          }
+          // Round 8: `.cause` must be a SANITIZED copy of the realpath
+          // ENOENT error, not the raw original — Node's ENOENT message
+          // embeds the full attempted path verbatim, which would otherwise
+          // survive on the cause chain even though the outer message is
+          // redacted.
+          if (!(error.cause instanceof Error)) {
+            return false;
+          }
+          if (error.cause.message.includes(missing)) {
+            return false;
+          }
+          return error.cause.message.includes(basename(missing));
+        }
+      } finally {
+        rmSync(base, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "FileDetector.loadFromPath round 9: open() failure attaches a SANITIZED cause, never the raw path-bearing error",
+    category: "file-detector",
+    fn: async () => {
+      const load = (
+        FileDetector as unknown as {
+          loadFromPath: (
+            p: string,
+            o?: { allowedBaseDir?: string },
+          ) => Promise<Buffer>;
+        }
+      ).loadFromPath;
+
+      // No allowedBaseDir: realpath is skipped, so open() itself is the
+      // failing call. Its ENOENT message embeds the full path verbatim — the
+      // round-9 fix wraps open() and redacts it. (The sandbox case redacts
+      // the resolved `real` path through the SAME catch via `pathToOpen`;
+      // that variant can't be provoked here because realpath gates open, but
+      // the redaction mechanism is unit-tested directly via
+      // `sanitizeErrorCause({ filePath })`.)
+      const base = mkdtempSync(pathJoin(tmpdir(), "nl-open-fail-"));
+      const secretDir = pathJoin(base, "private-dir");
+      const missing = pathJoin(secretDir, "missing-secret.png");
+      try {
+        try {
+          await load(missing);
+          return false; // open(missing) must fail — should have thrown
+        } catch (error) {
+          if (!(error instanceof Error)) {
+            return false;
+          }
+          // Neither the thrown message nor the cause chain may carry the
+          // host directory layout; only the basename survives.
+          if (error.message.includes(secretDir)) {
+            return false;
+          }
+          if (!(error.cause instanceof Error)) {
+            return false;
+          }
+          if (error.cause.message.includes(secretDir)) {
+            return false;
+          }
+          // `.code` is preserved for retry/classification consumers.
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+            return false;
+          }
+          return error.cause.message.includes(basename(missing));
+        }
+      } finally {
+        rmSync(base, { recursive: true, force: true });
       }
     },
   },
@@ -5244,6 +5446,540 @@ exit 127
       }
     },
   },
+  // ---------- #564: image processing errors carry the source path/URL ----------
+  // (Follow-up hardening): the source context must not leak the full host
+  // directory layout or a signed-URL's query-string secrets — only the
+  // basename / origin+pathname is echoed into the thrown error.
+  {
+    name: "imageUtils #564: file-to-base64 error includes the basename, not the full path",
+    category: "image-processor",
+    fn: async () => {
+      const missing = "/nonexistent/neurolink-564-does-not-exist.png";
+      try {
+        await imageUtils.fileToBase64DataUri(missing);
+        return false; // should have thrown for a missing file
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        return (
+          msg.includes("Failed to convert file to base64") &&
+          msg.includes(basename(missing)) &&
+          !msg.includes("/nonexistent/")
+        );
+      }
+    },
+  },
+  {
+    name: "imageUtils #564: URL download error strips the query string but keeps host+path",
+    category: "image-processor",
+    fn: async () => {
+      const originalFetch = globalThis.fetch;
+      const secretUrl = "https://example.com/img.png?token=SUPERSECRET123";
+      globalThis.fetch = (async () => {
+        throw new Error("simulated network failure");
+      }) as typeof fetch;
+      try {
+        await imageUtils.urlToBase64DataUri(secretUrl, { maxAttempts: 1 });
+        return false; // should have thrown
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        // Exact equality (not a hostname substring check) — avoids the
+        // CodeQL js/incomplete-url-substring-sanitization anti-pattern and
+        // pins down the full redacted message, not just a fragment of it.
+        return (
+          msg ===
+          "Failed to download and convert URL to base64 (https://example.com/img.png): simulated network failure"
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  },
+  // ---------- Round-2: redactUrlForError must not echo embedded userinfo ----------
+  // (URL.origin already excludes userinfo for standard schemes, but the old
+  // implementation relied on that implicitly via `origin` and fell back to
+  // the raw, un-redacted string for unparseable input. Reconstructing
+  // explicitly from protocol+host+pathname — and running the raw fallback
+  // through redactUrlCredentials — closes both paths.)
+  //
+  // These assertions use exact string equality throughout rather than
+  // `.includes("<hostname>")` substring checks on URL-derived text: a
+  // substring check is the CodeQL js/incomplete-url-substring-sanitization
+  // anti-pattern (a hostname can appear anywhere in a string, including
+  // inside an attacker-controlled path/query segment), and exact equality
+  // is also a strictly stronger assertion of the redactor's exact output.
+  {
+    name: "logSanitize #564 round 2: redactUrlForError strips embedded user:pass@ credentials and the query string",
+    category: "image-processor",
+    fn: () => {
+      const out = redactUrlForError("https://user:secret@host/path?token=x");
+      return out === "https://host/path";
+    },
+  },
+  {
+    name: "logSanitize #564 round 2: redactUrlForError falls back safely (no credential leak) for unparseable input",
+    category: "image-processor",
+    fn: () => {
+      // Not a valid absolute URL — exercises the catch/fallback branch.
+      const out = redactUrlForError("//user:secret@host/path?token=x");
+      return out === "//***@host/path";
+    },
+  },
+  // ---------- Round-4: redactUrlCredentials must handle malformed authorities ----------
+  {
+    name: "logSanitize #564 round 4: redactUrlCredentials strips credentials containing an embedded slash",
+    category: "image-processor",
+    fn: () => {
+      const out = redactUrlCredentials("//user:sec/ret@host/path");
+      return out === "//***@host/path";
+    },
+  },
+  {
+    name: "logSanitize #564 round 4: redactUrlCredentials strips authorities with multiple @ characters",
+    category: "image-processor",
+    fn: () => {
+      const out = redactUrlCredentials("//a@b@host/path");
+      return out === "//***@host/path";
+    },
+  },
+  {
+    name: "logSanitize #564 round 4: redactUrlCredentials still redacts every authority when a second, well-formed URL follows",
+    category: "image-processor",
+    fn: () => {
+      // Guards against the two-pass fix regressing the existing multi-URL
+      // (query-embedded second URL) redaction behavior.
+      const out = redactUrlCredentials(
+        "https://u1:p1@host-a/path?next=https://u2:p2@host-b/cb",
+      );
+      return out === "https://***@host-a/path?next=https://***@host-b/cb";
+    },
+  },
+  {
+    name: "logSanitize #564 round 4: redactUrlForError fallback strips slash-in-credential and multi-@ malformed URLs",
+    category: "image-processor",
+    fn: () => {
+      const a = redactUrlForError("//user:sec/ret@host/path?token=x");
+      const b = redactUrlForError("//a@b@host/path?token=x");
+      return a === "//***@host/path" && b === "//***@host/path";
+    },
+  },
+  {
+    name: "logSanitize #564 round 4: redactUrlsInText scrubs URLs embedded in arbitrary error text",
+    category: "image-processor",
+    fn: () => {
+      const message =
+        "fetch failed: request to https://user:secret@host.example.com/path?token=abc123 failed, reason: getaddrinfo ENOTFOUND host.example.com";
+      const out = redactUrlsInText(message);
+      return (
+        out ===
+        "fetch failed: request to https://host.example.com/path failed, reason: getaddrinfo ENOTFOUND host.example.com"
+      );
+    },
+  },
+  {
+    name: "logSanitize #564 round 4: redactUrlsInText leaves URL-free text untouched",
+    category: "image-processor",
+    fn: () => {
+      const message = "connect ECONNREFUSED 127.0.0.1:443";
+      return redactUrlsInText(message) === message;
+    },
+  },
+  // ---------- Round-5: CRITICAL — redactUrlCredentials %40 / IPv6 / bypass hardening ----------
+  {
+    name: "logSanitize #564 round 5: redactUrlCredentials handles percent-encoded @ in the password",
+    category: "image-processor",
+    fn: () => {
+      const out = redactUrlCredentials("//user:pass%40evil.com@host/path");
+      return out === "//***@host/path";
+    },
+  },
+  {
+    name: "logSanitize #564 round 5: redactUrlCredentials handles a bracketed IPv6 authority",
+    category: "image-processor",
+    fn: () => {
+      const withoutPort = redactUrlCredentials("//user:pass@[::1]/path");
+      const withPort = redactUrlCredentials("http://user:pass@[::1]:8080/path");
+      const noCreds = redactUrlCredentials("http://[::1]:8080/path");
+      return (
+        withoutPort === "//***@[::1]/path" &&
+        withPort === "http://***@[::1]:8080/path" &&
+        noCreds === "http://[::1]:8080/path"
+      );
+    },
+  },
+  {
+    name: "logSanitize #564 round 5: redactUrlCredentials is not bypassed by a password containing both / and *",
+    category: "image-processor",
+    fn: () => {
+      // Regression for a real bypass: the old pass-2 regex excluded a
+      // literal "*" (to skip over its own "***" markers) instead of
+      // bounding on a nested authority, so a malformed but RFC-3986-legal
+      // password containing both "/" and "*" slipped through BOTH passes
+      // completely unredacted.
+      const out = redactUrlCredentials("//user:pa*ss/word@host/path");
+      return out === "//***@host/path";
+    },
+  },
+  {
+    name: "imageUtils #564 round 5: redactPathFromMessage also redacts the path.resolve()'d form",
+    category: "image-processor",
+    fn: () => {
+      // Node's own fs errors only ever embed the literal path as passed, so
+      // this branch is unreachable through fileToBase64DataUri's real async
+      // API — exercise the exported helper directly with a message shaped
+      // the way a normalizing wrapper (relative→absolute) would produce.
+      const relativePath = "some/relative/dir/secret-name.png";
+      const resolved = resolvePath(relativePath);
+      const message = `ENOENT: no such file or directory, open '${resolved}'`;
+      const redacted = imageUtils.redactPathFromMessage(message, relativePath);
+      const safeName = basename(relativePath);
+      // Round-6: redacting the shorter relative form first (a substring of
+      // the resolved form) used to leave the absolute parent directory
+      // behind — e.g. ".../neurolink/secret-name.png" — while still
+      // satisfying the three loose checks below. Assert the COMPLETE
+      // message to catch that: it must contain only the basename, with no
+      // directory prefix (absolute or relative) surviving anywhere.
+      return (
+        !redacted.includes(resolved) &&
+        !redacted.includes(relativePath) &&
+        redacted.includes(safeName) &&
+        redacted === `ENOENT: no such file or directory, open '${safeName}'`
+      );
+    },
+  },
+  {
+    name: "FileDetector.loadFromURL #564 round 7: network error redaction throws a NEW error with a SANITIZED cause, never the raw original",
+    category: "file-detector",
+    fn: async () => {
+      const mockAgent = new MockAgent();
+      mockAgent.disableNetConnect();
+      const originalDispatcher = getGlobalDispatcher();
+      setGlobalDispatcher(mockAgent);
+      try {
+        const origin = "http://mocked-host.neurolink-test.invalid";
+        const path = "/secret.png?token=SUPERSECRET123";
+        const pool = mockAgent.get(origin);
+        const underlying = new Error(
+          `getaddrinfo ENOTFOUND mocked-host.neurolink-test.invalid (request to ${origin}${path})`,
+        );
+        (underlying as NodeJS.ErrnoException).code = "ENOTFOUND";
+        pool.intercept({ path, method: "GET" }).replyWithError(underlying);
+
+        const loadFromURL = (
+          FileDetector as unknown as {
+            loadFromURL: (
+              url: string,
+              o?: { maxRetries?: number; retryDelay?: number },
+            ) => Promise<Buffer>;
+          }
+        ).loadFromURL;
+
+        try {
+          await loadFromURL(`${origin}${path}`, { maxRetries: 0 });
+          return false; // should have thrown
+        } catch (error) {
+          if (!(error instanceof Error)) {
+            return false;
+          }
+          // The thrown error's own message must be redacted (no secret).
+          if (error.message.includes("SUPERSECRET123")) {
+            return false;
+          }
+          // `.code` must survive onto the new error for retry classification.
+          if ((error as NodeJS.ErrnoException).code !== "ENOTFOUND") {
+            return false;
+          }
+          // Round 7: `.cause` must be a SANITIZED COPY, never the raw
+          // original — otherwise cause-aware logging/telemetry can still
+          // recover the secret via `error.cause.message`, bypassing the
+          // top-level redaction entirely.
+          if (!(error.cause instanceof Error)) {
+            return false;
+          }
+          if (error.cause === underlying) {
+            return false;
+          }
+          if (error.cause.message.includes("SUPERSECRET123")) {
+            return false;
+          }
+          // Retry classification must still work off the cause too.
+          return (error.cause as NodeJS.ErrnoException).code === "ENOTFOUND";
+        }
+      } finally {
+        setGlobalDispatcher(originalDispatcher);
+        await mockAgent.close();
+      }
+    },
+  },
+  // ---------- Round-8: cause-chain path redaction ----------
+  {
+    name: "logSanitize round 8: sanitizeErrorCause({ filePath }) redacts a known path from the cause message",
+    category: "image-processor",
+    fn: () => {
+      const filePath = "/Users/someone/private-project/secret-image.png";
+      const underlying = new Error(
+        `ENOENT: no such file or directory, stat '${filePath}'`,
+      );
+      (underlying as NodeJS.ErrnoException).code = "ENOENT";
+      const sanitized = sanitizeErrorCause(underlying, { filePath });
+      return (
+        sanitized !== underlying &&
+        !sanitized.message.includes(filePath) &&
+        sanitized.message.includes(basename(filePath)) &&
+        sanitized.name === "Error" &&
+        (sanitized as NodeJS.ErrnoException).code === "ENOENT"
+      );
+    },
+  },
+  {
+    name: "logSanitize round 8: sanitizeErrorCause({ filePath }) redacts a non-Error thrown value's string form too",
+    category: "image-processor",
+    fn: () => {
+      const filePath = "/Users/someone/private-project/secret-image.png";
+      const sanitized = sanitizeErrorCause(`read failed for ${filePath}`, {
+        filePath,
+      });
+      return (
+        sanitized instanceof Error &&
+        !sanitized.message.includes(filePath) &&
+        sanitized.message.includes(basename(filePath))
+      );
+    },
+  },
+  {
+    name: "imageUtils round 8: fileToBase64DataUri's thrown error attaches a SANITIZED cause, never the raw fs error",
+    category: "image-processor",
+    fn: async () => {
+      const missing = "/nonexistent/neurolink-564-round8-does-not-exist.png";
+      try {
+        await imageUtils.fileToBase64DataUri(missing);
+        return false; // should have thrown for a missing file
+      } catch (error) {
+        if (!(error instanceof Error)) {
+          return false;
+        }
+        // Outer message stays basename-only (already covered by the round-1
+        // test above); the new assertion here is about the cause chain.
+        if (!(error.cause instanceof Error)) {
+          return false;
+        }
+        if (error.cause.message.includes(missing)) {
+          return false;
+        }
+        return error.cause.message.includes(basename(missing));
+      }
+    },
+  },
+  {
+    name: "ImageCache round 8: debug logs redact the URL instead of a naive 50-char substring truncation",
+    category: "image-processor",
+    fn: async () => {
+      const secretUrl =
+        "https://example.com/img.png?token=SUPERSECRET1234567890ABCDEF";
+      const captured: unknown[] = [];
+      const originalDebug = logger.debug;
+      const originalEnv = process.env.NEUROLINK_IMAGE_CACHE_ENABLED;
+      try {
+        process.env.NEUROLINK_IMAGE_CACHE_ENABLED = "true";
+        resetImageCache();
+        logger.debug = ((...args: unknown[]) => {
+          captured.push(args);
+        }) as typeof logger.debug;
+        const cache = getImageCache();
+        cache.set(
+          secretUrl,
+          "data:image/png;base64,AAAA",
+          "image/png",
+          Buffer.from("AAAA"),
+        );
+        cache.get(secretUrl);
+        const serialized = JSON.stringify(captured);
+        // Assert against the redactor's OWN output (a computed value, not a
+        // bare host-string literal) so this stays clear of CodeQL's
+        // js/incomplete-url-substring-sanitization anti-pattern while still
+        // proving the redacted URL — scheme + host + path, query dropped —
+        // survives in the log for diagnostics.
+        const expectedRedacted = redactUrlForError(secretUrl);
+        return (
+          !serialized.includes("SUPERSECRET1234567890ABCDEF") &&
+          serialized.includes(expectedRedacted)
+        );
+      } finally {
+        logger.debug = originalDebug;
+        if (originalEnv === undefined) {
+          delete process.env.NEUROLINK_IMAGE_CACHE_ENABLED;
+        } else {
+          process.env.NEUROLINK_IMAGE_CACHE_ENABLED = originalEnv;
+        }
+        resetImageCache();
+      }
+    },
+  },
+  // ---------- #286: AVIF brand-variant magic-byte detection ----------
+  {
+    name: "ImageProcessor #286: detects AVIF brand variants (avif/avis/avio), not other ftyp brands",
+    category: "image-processor",
+    fn: async () => {
+      const mk = (brand: string): Buffer =>
+        Buffer.concat([
+          Buffer.from([0x00, 0x00, 0x00, 0x20]), // box size
+          Buffer.from("ftyp", "ascii"),
+          Buffer.from(brand, "ascii"), // major brand at offset 8
+          Buffer.from([0x00, 0x00, 0x00, 0x00]),
+        ]);
+      for (const brand of ["avif", "avis", "avio"]) {
+        if (ImageProcessor.detectImageType(mk(brand)) !== "image/avif") {
+          return false;
+        }
+      }
+      // A non-AVIF ftyp brand must NOT be misdetected as AVIF.
+      if (ImageProcessor.detectImageType(mk("mp42")) === "image/avif") {
+        return false;
+      }
+      return true;
+    },
+  },
+  {
+    name: "FileDetector #286: AVIF buffer detected as image via the user-facing detect path",
+    category: "image-processor",
+    fn: async () => {
+      // Minimal ISO-BMFF AVIF: box-size, 'ftyp', major brand, minor version.
+      const mkAvif = (brand: string): Buffer =>
+        Buffer.concat([
+          Buffer.from([0x00, 0x00, 0x00, 0x18]),
+          Buffer.from("ftyp", "ascii"),
+          Buffer.from(brand, "ascii"),
+          Buffer.from([0x00, 0x00, 0x00, 0x00]),
+          Buffer.from("mif1", "ascii"),
+        ]);
+      // Before the fix, an AVIF ftyp buffer was misrouted to the video pipeline
+      // (video/mp4). It must now resolve to an image through FileDetector — the
+      // path a user's image actually flows through (generate({ files }) etc.).
+      for (const brand of ["avif", "avis", "avio"]) {
+        const det = await FileDetector.detectAndProcess(mkAvif(brand), {
+          allowedTypes: ["image", "unknown"],
+        });
+        if (det.type !== "image" || det.mimeType !== "image/avif") {
+          return false;
+        }
+      }
+      // A generic MP4 brand must still route to video specifically — not
+      // just "anything but image" (that would pass for "unknown"/"audio" too).
+      const mp4 = await FileDetector.detectAndProcess(mkAvif("mp42"), {
+        allowedTypes: ["image", "video", "unknown"],
+      });
+      if (mp4.type !== "video" || mp4.mimeType !== "video/mp4") {
+        return false;
+      }
+      return true;
+    },
+  },
+  // ---------- #261: honest MIME fallback + BMP/TIFF detection ----------
+  {
+    name: "ImageProcessor #261: unknown bytes → octet-stream (not mislabeled jpeg); BMP/TIFF detected",
+    category: "image-processor",
+    fn: async () => {
+      // Bytes matching no known image signature must NOT be mislabeled jpeg.
+      const garbage = Buffer.from([
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+      ]);
+      if (
+        ImageProcessor.detectImageType(garbage) !== "application/octet-stream"
+      ) {
+        return false;
+      }
+      // Round-5: process() must NOT package the octet-stream sentinel as a
+      // "valid" image (vision providers reject that MIME type with an HTTP
+      // 400) — it must fail loud with a clear, specific error instead.
+      try {
+        await ImageProcessor.process(garbage);
+        return false; // should have thrown
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        if (!msg.includes("Unsupported or corrupted image")) {
+          return false;
+        }
+      }
+      // validateImageFormat must reject the sentinel directly too.
+      if (ImageProcessor.validateImageFormat("application/octet-stream")) {
+        return false;
+      }
+      // Newly-added magic bytes: BMP ("BM") and TIFF ("II*\0").
+      const bmp = Buffer.concat([Buffer.from([0x42, 0x4d]), Buffer.alloc(12)]);
+      if (ImageProcessor.detectImageType(bmp) !== "image/bmp") {
+        return false;
+      }
+      const tiff = Buffer.concat([
+        Buffer.from([0x49, 0x49, 0x2a, 0x00]),
+        Buffer.alloc(10),
+      ]);
+      if (ImageProcessor.detectImageType(tiff) !== "image/tiff") {
+        return false;
+      }
+      // Regression: a genuine PNG must still detect as image/png through the
+      // real user-facing path, not swept into the new fallback.
+      const png = Buffer.concat([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        Buffer.alloc(16),
+      ]);
+      const det = await FileDetector.detectAndProcess(png, {
+        allowedTypes: ["image", "unknown"],
+      });
+      return det.mimeType === "image/png";
+    },
+  },
+  {
+    name: "ImageProcessor #261 round 6: processImage() rejects the octet-stream sentinel too",
+    category: "image-processor",
+    fn: () => {
+      // process() already rejected undetectable bytes; processImage() is a
+      // separate public path (returns ProcessedImage.mediaType, which
+      // callers use to build their own data URI) that must reject them too,
+      // instead of silently returning mediaType: "application/octet-stream".
+      const garbage = Buffer.from([
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+      ]);
+      try {
+        ImageProcessor.processImage(garbage, "openai");
+        return false; // should have thrown
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        return msg.includes("Unsupported or corrupted image");
+      }
+    },
+  },
+  {
+    name: "imageUtils #261 round 6: fileToBase64DataUri() rejects the octet-stream sentinel too",
+    category: "image-processor",
+    fn: async () => {
+      // fileToBase64DataUri() is the third public path (alongside process()
+      // and processImage()) that turns raw bytes into image output — it must
+      // not package undetectable bytes into `data:application/octet-stream;
+      // base64,...`, which vision providers reject outright.
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-octet-stream-"));
+      try {
+        const filePath = pathJoin(dir, "garbage.png");
+        writeFileSync(
+          filePath,
+          Buffer.from([
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
+            0x0b,
+          ]),
+        );
+        try {
+          await imageUtils.fileToBase64DataUri(filePath);
+          return false; // should have thrown
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          return (
+            msg.includes("Unsupported or corrupted image") &&
+            msg.includes(basename(filePath))
+          );
+        }
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
   // ---------- round-2 review: CSVLoader must share the quote-aware, metadata-stripping path ----------
   {
     name: "CSVLoader: quoted multiline field and sep= preamble routed through shared quote-aware parsing",
@@ -5315,6 +6051,65 @@ exit 127
         !content.includes("Hello\nWorld") &&
         lines[2].startsWith("| Alice | Hello World | 30 |") &&
         lines[3].startsWith("| Bob | Simple note | 25 |")
+      );
+    },
+  },
+  {
+    name: "imageUtils #564 round 6: URL download retry log sanitizes a non-Error throw too",
+    category: "image-processor",
+    fn: async () => {
+      // The onRetry handler used to sanitize only the `error instanceof
+      // Error` branch via redactUrlsInText(error.message); the `String(error)`
+      // fallback for non-Error throws was logged raw. Force a retryable,
+      // non-Error rejection (a plain object with `.code` so
+      // isRetryableDownloadError() retries it, and a custom toString() so
+      // String(error) actually carries the secret) and assert the warn log
+      // never contains the unredacted token.
+      const originalFetch = globalThis.fetch;
+      const originalWarn = logger.warn;
+      const capturedWarnings: string[] = [];
+      logger.warn = (...args: unknown[]) => {
+        capturedWarnings.push(
+          args
+            .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+            .join(" "),
+        );
+      };
+      let attempts = 0;
+      globalThis.fetch = (async () => {
+        attempts++;
+        const fakeNetworkError = {
+          code: "ECONNRESET",
+          toString(): string {
+            return "custom failure at https://secret-retry-host.test/path?token=SUPERSECRET456";
+          },
+        };
+        throw fakeNetworkError;
+      }) as typeof fetch;
+
+      try {
+        try {
+          await imageUtils.urlToBase64DataUri("https://example.com/img.png", {
+            maxAttempts: 2,
+          });
+          return false; // should have thrown after exhausting retries
+        } catch {
+          // Expected — the retry-exhaustion error itself is covered by the
+          // "strips the query string but keeps host+path" test above; this
+          // test only cares about what got logged during the retry.
+        }
+      } finally {
+        globalThis.fetch = originalFetch;
+        logger.warn = originalWarn;
+      }
+
+      if (attempts < 2) {
+        return false; // retry never happened — test didn't exercise onRetry
+      }
+      const combined = capturedWarnings.join("\n");
+      return (
+        combined.includes("secret-retry-host.test/path") &&
+        !combined.includes("SUPERSECRET456")
       );
     },
   },

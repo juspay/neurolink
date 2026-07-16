@@ -3,7 +3,14 @@
  * Handles format conversion for different AI providers
  */
 
+import { basename } from "path";
 import { logger } from "./logger.js";
+import {
+  redactPathFromMessage,
+  redactUrlForError,
+  redactUrlsInText,
+  sanitizeErrorCause,
+} from "./logSanitize.js";
 import { urlDownloadRateLimiter } from "./rateLimiter.js";
 import { withRetry } from "./retryHandler.js";
 import { SYSTEM_LIMITS } from "../core/constants.js";
@@ -75,6 +82,28 @@ function isRetryableDownloadError(error: unknown): boolean {
 }
 
 /**
+ * Reject `detectImageType()`'s `application/octet-stream` sentinel — the
+ * honest "no known image signature (PNG/JPEG/GIF/WebP/BMP/TIFF/SVG/AVIF)
+ * matched" fallback (#261/#286). Packaging that sentinel into a data URI
+ * hands vision providers (OpenAI/Anthropic/Google) a MIME type they reject
+ * outright with an HTTP 400, so every public conversion path that turns
+ * unknown bytes into image output must fail loud here first instead of
+ * letting the sentinel slip through to a caller.
+ *
+ * @param mediaType - The MIME type returned by `detectImageType()`.
+ * @throws Error if `mediaType` is the octet-stream sentinel.
+ */
+function assertKnownImageType(mediaType: string): void {
+  if (mediaType === "application/octet-stream") {
+    logger.error("Unable to detect a supported image format from file content");
+    throw new Error(
+      "Unsupported or corrupted image: no known image signature " +
+        "(PNG/JPEG/GIF/WebP/BMP/TIFF/SVG/AVIF) was found in the file content.",
+    );
+  }
+}
+
+/**
  * Image processor class for handling provider-specific image formatting
  */
 export class ImageProcessor {
@@ -97,6 +126,11 @@ export class ImageProcessor {
     }
 
     const mediaType = this.detectImageType(content);
+
+    // #261/#286 follow-up: fail loud instead of packaging the octet-stream
+    // sentinel as a "valid" image (see assertKnownImageType() above).
+    assertKnownImageType(mediaType);
+
     const base64 = ImageProcessor.safeBase64Convert(
       content,
       "image processing",
@@ -401,20 +435,64 @@ export class ImageProcessor {
           }
         }
 
-        // AVIF: check for "ftypavif" signature at bytes 4-11
+        // AVIF (ISOBMFF): "ftyp" box at offset 4, major brand at offset 8.
+        // Accept the AVIF-spec brand variants — 'avif' (still image), 'avis'
+        // (image sequence), and 'avio' (intra-only AV1 image/sequence — the
+        // spec lists it under compatible_brands rather than major_brand, but
+        // real-world encoders emit it as major_brand too, so it's accepted
+        // here) — and compare bytes directly rather than via Buffer.toString()
+        // (which would utf-8-decode non-ASCII bytes) so the check is exact
+        // (#286).
         if (input.length >= 12) {
-          const ftyp = input.subarray(4, 8).toString();
-          const brand = input.subarray(8, 12).toString();
-          if (ftyp === "ftyp" && brand === "avif") {
+          const isFtyp =
+            input[4] === 0x66 && // 'f'
+            input[5] === 0x74 && // 't'
+            input[6] === 0x79 && // 'y'
+            input[7] === 0x70; // 'p'
+          const brand = String.fromCharCode(
+            input[8],
+            input[9],
+            input[10],
+            input[11],
+          );
+          if (
+            isFtyp &&
+            (brand === "avif" || brand === "avis" || brand === "avio")
+          ) {
             return "image/avif";
           }
         }
+
+        // BMP: "BM" magic (0x42 0x4D)
+        if (input[0] === 0x42 && input[1] === 0x4d) {
+          return "image/bmp";
+        }
+
+        // TIFF: little-endian "II*\0" or big-endian "MM\0*"
+        if (
+          (input[0] === 0x49 &&
+            input[1] === 0x49 &&
+            input[2] === 0x2a &&
+            input[3] === 0x00) ||
+          (input[0] === 0x4d &&
+            input[1] === 0x4d &&
+            input[2] === 0x00 &&
+            input[3] === 0x2a)
+        ) {
+          return "image/tiff";
+        }
       }
 
-      return "image/jpeg"; // Default fallback
+      // No known image signature matched. Return a safe, honest sentinel
+      // rather than mislabeling arbitrary bytes as JPEG (#261): a wrong
+      // image/jpeg label silently corrupts the downstream provider request.
+      logger.warn(
+        "Could not detect image type from magic bytes; using application/octet-stream",
+      );
+      return "application/octet-stream";
     } catch (error) {
       logger.warn("Failed to detect image type, using default:", error);
-      return "image/jpeg";
+      return "application/octet-stream";
     }
   }
 
@@ -509,6 +587,12 @@ export class ImageProcessor {
       "image/tiff",
       "image/svg+xml",
       "image/avif",
+      // Deliberately excludes "application/octet-stream": that's
+      // detectImageType()'s honest sentinel for bytes matching no known
+      // image signature (#261), not a real image format. Vision providers
+      // (OpenAI/Anthropic/Google) reject it outright with an HTTP 400, so
+      // process() must fail loud instead of packaging it as a valid image
+      // (see the octet-stream guard in process() below).
     ];
     return supportedFormats.includes(mediaType.toLowerCase());
   }
@@ -609,7 +693,19 @@ export class ImageProcessor {
     model?: string,
   ): ProcessedImage {
     try {
+      // #257: reject an oversized buffer before any format-detection or
+      // conversion work runs on it — mirrors the guard every
+      // `processImageForX()` branch below already applies via
+      // `safeBase64Convert()`, so the typed IMAGE_TOO_LARGE error surfaces
+      // here too instead of being pre-empted by the octet-stream check next.
+      if (Buffer.isBuffer(image)) {
+        ImageProcessor.validateBufferSize(image, "image processing");
+      }
       const mediaType = ImageProcessor.detectImageType(image);
+      // #261/#286 follow-up: reject the octet-stream sentinel here too — the
+      // returned ProcessedImage.mediaType is what callers use to build a
+      // data URI, so this is a separate public path that must not emit it.
+      assertKnownImageType(mediaType);
       const size =
         typeof image === "string"
           ? Buffer.byteLength(image, "base64")
@@ -835,6 +931,16 @@ export const imageUtils = {
   },
 
   /**
+   * Redact `filePath` (both as given and its `path.resolve()`'d form) from
+   * an error message. Exposed directly (not just used internally by
+   * {@link fileToBase64DataUri}) so the resolved-path branch can be verified
+   * by a deterministic unit test — real `fs` errors only ever embed the
+   * literal path as passed, never a resolved variant, so that branch isn't
+   * otherwise observable through the async file-reading API.
+   */
+  redactPathFromMessage,
+
+  /**
    * Convert file path to base64 data URI
    */
   fileToBase64DataUri: async (
@@ -864,13 +970,41 @@ export const imageUtils = {
         ImageProcessor.detectImageType(buffer) ||
         ImageProcessor.detectImageType(filePath);
 
+      // #261/#286 follow-up: reject the octet-stream sentinel here too —
+      // this is a third public path (alongside process() and
+      // processImage()) that can otherwise package unknown bytes into a
+      // `data:application/octet-stream;base64,...` URI a vision provider
+      // rejects outright.
+      assertKnownImageType(mimeType);
+
       const base64 = buffer.toString("base64");
       return `data:${mimeType};base64,${base64}`;
     } catch (error) {
-      throw new Error(
-        `Failed to convert file to base64: ${error instanceof Error ? error.message : "Unknown error"}`,
-        { cause: error },
+      // Full path stays in the debug log; the thrown (potentially
+      // client-facing) error only gets the basename. The underlying fs
+      // error's own message is scrubbed too — Node's ENOENT/EACCES text
+      // embeds the full path verbatim (e.g. "no such file or directory,
+      // stat '/full/path'"), which would otherwise leak the host's
+      // directory layout right back through the "reason" suffix. The raw
+      // `error` is never attached as `cause` either — that would leave the
+      // unredacted path reachable via `error.cause.message` for anything
+      // that walks the cause chain (cause-aware logging, telemetry); a
+      // sanitized copy (via the shared `sanitizeErrorCause`) is attached
+      // instead, mirroring `urlToBase64DataUri` below.
+      logger.debug("fileToBase64DataUri failed", { filePath, error });
+      const safeName = basename(filePath);
+      const cause = sanitizeErrorCause(error, { filePath });
+      const reason = error instanceof Error ? cause.message : "Unknown error";
+      // Assigned to a variable before throwing (rather than `throw new
+      // Error(...)` inline) so the sanitized `cause` — a deliberately NEW,
+      // redacted Error — isn't mistaken by tooling for a dropped/altered
+      // reference to the originally caught `error`; the raw error is never
+      // reachable from the thrown result at all, by design.
+      const wrapped = new Error(
+        `Failed to convert file to base64 (${safeName}): ${reason}`,
+        { cause },
       );
+      throw wrapped;
     }
   },
 
@@ -985,19 +1119,37 @@ export const imageUtils = {
         maxDelay: SYSTEM_LIMITS.DEFAULT_MAX_DELAY,
         retryCondition: isRetryableDownloadError,
         onRetry: (attempt: number, error: unknown) => {
-          const message =
-            error instanceof Error ? error.message : String(error);
+          // Some fetch/DNS/TLS errors embed the full request URL (including
+          // a presigned query token) in `error.message` — redact that text
+          // too, not just the explicit `url` interpolation below. The
+          // non-Error branch is sanitized too: String(error) on a thrown
+          // non-Error value (e.g. a raw string or object) can just as
+          // easily carry the same signed URL.
+          const message = redactUrlsInText(
+            error instanceof Error ? error.message : String(error),
+          );
           const attemptsLeft = maxAttempts - attempt;
           logger.warn(
-            `⚠️ Image download attempt ${attempt} failed for ${url}: ${message}. ${attemptsLeft} ${attemptsLeft === 1 ? "attempt" : "attempts"} remaining...`,
+            `⚠️ Image download attempt ${attempt} failed for ${redactUrlForError(url)}: ${message}. ${attemptsLeft} ${attemptsLeft === 1 ? "attempt" : "attempts"} remaining...`,
           );
         },
       });
     } catch (error) {
-      throw new Error(
-        `Failed to download and convert URL to base64: ${error instanceof Error ? error.message : "Unknown error"}`,
-        { cause: error },
+      // Query string / fragment stripped — a presigned S3/GCS URL or SAS
+      // token embedded there must not be echoed into a thrown error. The
+      // underlying error's own message is scrubbed too, since fetch/DNS/TLS
+      // errors often embed the full URL (query string and all) themselves.
+      // The raw `error` is never attached as `cause` — that would leave the
+      // unredacted URL reachable via `error.cause.message` for anything
+      // that walks the cause chain (cause-aware logging, telemetry); a
+      // sanitized copy is attached instead.
+      const sourceUrl = redactUrlForError(url);
+      const cause = sanitizeErrorCause(error);
+      const wrapped = new Error(
+        `Failed to download and convert URL to base64 (${sourceUrl}): ${cause.message}`,
+        { cause },
       );
+      throw wrapped;
     }
   },
 
