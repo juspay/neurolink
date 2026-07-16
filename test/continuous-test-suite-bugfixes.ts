@@ -25,7 +25,13 @@ import { PDFProcessor } from "../src/lib/utils/pdfProcessor.js";
 import { directAgentTools } from "../src/lib/agent/directTools.js";
 import { isMultimodalInput } from "../src/lib/types/index.js";
 import { FileDetector } from "../src/lib/utils/fileDetector.js";
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join as pathJoin } from "node:path";
 import AdmZip from "adm-zip";
@@ -44,6 +50,12 @@ import {
 import { OpenAICompatibleProvider } from "../src/lib/providers/openaiCompatible.js";
 import { LiteLLMProvider } from "../src/lib/providers/litellm.js";
 import { ModelAccessDeniedError } from "../src/lib/types/index.js";
+
+import {
+  getPlayerCandidates,
+  buildPlaybackErrorMessage,
+  escapePowerShellSingleQuoted,
+} from "../src/cli/utils/audioPlayer.js";
 
 import type {
   ParsedClaudeRequest,
@@ -3853,6 +3865,169 @@ exit 127
           return captured?.finishReason === "tool-calls";
         },
       ),
+  },
+  // ---------- #1138: Linux mp3 TTS playback (paplay can't decode mp3) ----------
+  {
+    name: "audioPlayer #1138: Linux mp3 leads with real decoders, not paplay/aplay",
+    category: "cli-tts",
+    fn: async () => {
+      const file = "/tmp/nl-tts-test.mp3";
+      const linuxMp3 = getPlayerCandidates(file, "mp3", "linux");
+      const commands = linuxMp3.map((c) => c.command);
+
+      // paplay/aplay cannot decode mp3, so they must not be tried first.
+      if (commands[0] === "paplay" || commands[0] === "aplay") {
+        return false;
+      }
+      // The intended priority is ffplay first (most reliable decoder).
+      if (commands[0] !== "ffplay") {
+        return false;
+      }
+      // A real mp3-capable decoder must be present and ordered ahead of paplay.
+      const decoders = ["ffplay", "mpv", "mpg123", "cvlc"];
+      const firstDecoderIdx = commands.findIndex((c) => decoders.includes(c));
+      const paplayIdx = commands.indexOf("paplay");
+      if (firstDecoderIdx === -1) {
+        return false;
+      }
+      if (paplayIdx !== -1 && firstDecoderIdx > paplayIdx) {
+        return false;
+      }
+      // mpg123 (mp3-only) should be offered for mp3 but not for opus.
+      if (!commands.includes("mpg123")) {
+        return false;
+      }
+      const linuxOpus = getPlayerCandidates(file, "opus", "linux").map(
+        (c) => c.command,
+      );
+      if (linuxOpus.includes("mpg123")) {
+        return false;
+      }
+
+      // wav still routes to aplay first on Linux; macOS uses afplay.
+      const linuxWav = getPlayerCandidates(file, "wav", "linux");
+      if (linuxWav[0]?.command !== "aplay") {
+        return false;
+      }
+      const macMp3 = getPlayerCandidates(file, "mp3", "darwin");
+      if (macMp3[0]?.command !== "afplay") {
+        return false;
+      }
+
+      return true;
+    },
+  },
+  {
+    name: "audioPlayer #1138: Linux mp3 playback error is format-aware, not misleading",
+    category: "cli-tts",
+    fn: async () => {
+      // The exact message a user sees when no decoder is installed.
+      const mp3Err = buildPlaybackErrorMessage("linux", "mp3", [
+        "ffplay: not installed",
+        "mpv: not installed",
+      ]);
+      // Must name the real decoders + the wav fallback, and explain the
+      // paplay/aplay limitation — NOT the old "Install PulseAudio" (which was
+      // misleading, since PulseAudio simply cannot decode mp3).
+      const namesDecoders =
+        mp3Err.includes("ffmpeg") &&
+        mp3Err.includes("mpv") &&
+        mp3Err.includes("mpg123") &&
+        mp3Err.includes("--tts-format wav");
+      const explainsLimitation = /paplay\/aplay cannot decode mp3/.test(mp3Err);
+      const surfacesAttempts = mp3Err.includes("ffplay: not installed");
+      if (!namesDecoders || !explainsLimitation || !surfacesAttempts) {
+        return false;
+      }
+      // The wav path keeps the simple ALSA/PulseAudio guidance.
+      const wavErr = buildPlaybackErrorMessage("linux", "wav", []);
+      if (!(wavErr.includes("aplay") && wavErr.includes("paplay"))) {
+        return false;
+      }
+      return true;
+    },
+  },
+  {
+    name: "audioPlayer #1180: ogg/opus playback error does not recommend mp3-only mpg123",
+    category: "cli-tts",
+    fn: async () => {
+      // mpg123 (see getPlayerCandidates) is only ever offered for mp3, so the
+      // error message must not send ogg/opus users chasing an mp3-only decoder,
+      // nor claim the categorical "paplay/aplay cannot decode" framing that
+      // only applies to mp3.
+      const oggErr = buildPlaybackErrorMessage("linux", "ogg", [
+        "ffplay: not installed",
+      ]);
+      const opusErr = buildPlaybackErrorMessage("linux", "opus", [
+        "ffplay: not installed",
+      ]);
+      for (const err of [oggErr, opusErr]) {
+        if (err.includes("mpg123")) {
+          return false;
+        }
+        if (/cannot decode/.test(err)) {
+          return false;
+        }
+        if (!(err.includes("ffmpeg") && err.includes("--tts-format wav"))) {
+          return false;
+        }
+      }
+      // mp3 keeps recommending mpg123 — only the ogg/opus branch changed.
+      const mp3Err = buildPlaybackErrorMessage("linux", "mp3", []);
+      if (!mp3Err.includes("mpg123")) {
+        return false;
+      }
+      return true;
+    },
+  },
+  {
+    name: "audioPlayer #1180: PowerShell single-quote escaping prevents command injection",
+    category: "cli-tts",
+    fn: async () => {
+      // A Windows username with an apostrophe (e.g. O'Brien) lands in %TEMP%,
+      // so filePath can legitimately contain a single quote. Unescaped, it
+      // would break out of the PS single-quoted string and let the remainder
+      // run as arbitrary PowerShell.
+      const maliciousPath =
+        "C:\\Users\\O'Brien\\nl-tts-1.mp3'; Remove-Item -Recurse -Force C:\\; '";
+      if (escapePowerShellSingleQuoted("O'Brien") !== "O''Brien") {
+        return false;
+      }
+
+      const wavCandidates = getPlayerCandidates(maliciousPath, "wav", "win32");
+      const mp3Candidates = getPlayerCandidates(maliciousPath, "mp3", "win32");
+      for (const candidates of [wavCandidates, mp3Candidates]) {
+        const psCommand = candidates[0]?.args[2] ?? "";
+        // The escaped path (quotes doubled) must appear intact...
+        if (!psCommand.includes(maliciousPath.replace(/'/g, "''"))) {
+          return false;
+        }
+        // ...and the raw, unescaped malicious path must NOT appear verbatim
+        // (that would mean it broke out of the single-quoted string).
+        if (psCommand.includes(`'${maliciousPath}'`)) {
+          return false;
+        }
+      }
+      return true;
+    },
+  },
+  {
+    name: "audioPlayer #1180: execFileAsync is invoked with a player timeout",
+    category: "cli-tts",
+    fn: async () => {
+      // Static check without spawning a real process: confirm the timeout
+      // option is wired into the execFileAsync call that plays candidates,
+      // so a hung decoder can't block the CLI forever.
+      const modulePath = pathJoin(
+        process.cwd(),
+        "src/cli/utils/audioPlayer.ts",
+      );
+      const source = readFileSync(modulePath, "utf8");
+      return (
+        /execFileAsync\(command, args, \{\s*timeout:/.test(source) &&
+        source.includes("killSignal")
+      );
+    },
   },
 ];
 

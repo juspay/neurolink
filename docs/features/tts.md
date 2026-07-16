@@ -309,11 +309,15 @@ tts: {
 - Auto-converts to WAV when `play: true` on Windows
 - Use MP3 for file output, WAV for immediate playback
 
-**macOS/Linux:**
+**macOS:**
 
-- All formats supported
-- `afplay` (macOS) and `ffplay` (Linux) handle all formats
-- Use MP3 for general purpose
+- `afplay` (built-in) decodes every format — no setup needed.
+
+**Linux:**
+
+- **WAV** requires ALSA (`aplay`) or PulseAudio (`paplay`), but no compressed-format decoder.
+- **Compressed formats (mp3/ogg/opus)** need a real decoder — NeuroLink tries `ffplay` (ffmpeg), then `mpv`, `mpg123` (mp3), then `cvlc` (VLC), in that order. Install any one of them.
+- `paplay`/`aplay` **cannot** decode mp3, so with none of the above installed a default `--tts-play` (which defaults to mp3) will report a clear error naming the decoders — or use `--tts-format wav` when `aplay` or `paplay` is available.
 
 ---
 
