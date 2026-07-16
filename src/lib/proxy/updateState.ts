@@ -19,6 +19,13 @@ import type { UpdateState } from "../types/index.js";
 
 const STATE_FILENAME = "update-state.json";
 const SUPPRESSION_TTL_MS = 86_400_000; // 24 hours
+const UPDATE_FAILURE_STAGES = new Set([
+  "check",
+  "install",
+  "validation",
+  "restart",
+  "health",
+]);
 
 // ============================================
 // Internal Helpers
@@ -45,6 +52,23 @@ function ensureParentDir(filePath: string): void {
   }
 }
 
+/** Reject malformed persisted failure metadata before it reaches status output. */
+function isValidLastFailure(
+  value: unknown,
+): value is NonNullable<UpdateState["lastFailure"]> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.at === "string" &&
+    typeof candidate.version === "string" &&
+    typeof candidate.stage === "string" &&
+    UPDATE_FAILURE_STAGES.has(candidate.stage) &&
+    typeof candidate.message === "string"
+  );
+}
+
 // ============================================
 // Exported Functions
 // ============================================
@@ -59,6 +83,8 @@ export function getDefaultUpdateState(): UpdateState {
     suppressedVersions: {},
     lastUpdateAt: null,
     lastUpdateVersion: null,
+    pendingRestartVersion: null,
+    lastFailure: null,
   };
 }
 
@@ -89,7 +115,19 @@ export function loadUpdateState(stateFilePath?: string): UpdateState | null {
     ) {
       return getDefaultUpdateState();
     }
-    return parsed as UpdateState;
+    const candidate = parsed as Partial<UpdateState>;
+    return {
+      ...getDefaultUpdateState(),
+      ...candidate,
+      suppressedVersions: candidate.suppressedVersions ?? {},
+      pendingRestartVersion:
+        typeof candidate.pendingRestartVersion === "string"
+          ? candidate.pendingRestartVersion
+          : null,
+      lastFailure: isValidLastFailure(candidate.lastFailure)
+        ? candidate.lastFailure
+        : null,
+    };
   } catch {
     // Corrupt or unreadable JSON — return default state
     return getDefaultUpdateState();
@@ -178,7 +216,65 @@ export function recordSuccessfulUpdate(
   const state = loadUpdateState(stateFilePath) ?? getDefaultUpdateState();
   state.lastUpdateAt = new Date().toISOString();
   state.lastUpdateVersion = version;
+  state.pendingRestartVersion = null;
+  state.lastFailure = null;
+  delete state.suppressedVersions[version];
   saveUpdateState(state, stateFilePath);
+}
+
+/** Record that package installation completed but the live restart is pending. */
+export function recordUpdateInstalled(
+  version: string,
+  stateFilePath?: string,
+): void {
+  const state = loadUpdateState(stateFilePath) ?? getDefaultUpdateState();
+  state.pendingRestartVersion = version;
+  state.lastFailure = null;
+  saveUpdateState(state, stateFilePath);
+}
+
+/** Abandon a matching installed version so the next cycle may reinstall it. */
+export function abandonPendingUpdate(
+  version: string,
+  stateFilePath?: string,
+): boolean {
+  const state = loadUpdateState(stateFilePath);
+  if (!state || state.pendingRestartVersion !== version) {
+    return false;
+  }
+  state.pendingRestartVersion = null;
+  saveUpdateState(state, stateFilePath);
+  return true;
+}
+
+/** Persist a stage-specific updater failure so status remains actionable. */
+export function recordUpdateFailure(
+  version: string,
+  stage: NonNullable<UpdateState["lastFailure"]>["stage"],
+  message: string,
+  stateFilePath?: string,
+): void {
+  const state = loadUpdateState(stateFilePath) ?? getDefaultUpdateState();
+  state.lastFailure = {
+    at: new Date().toISOString(),
+    version,
+    stage,
+    message: message.trim().slice(0, 1_000),
+  };
+  saveUpdateState(state, stateFilePath);
+}
+
+/** Complete an updater-managed install after a manual or automatic restart. */
+export function reconcileRunningUpdate(
+  runningVersion: string,
+  stateFilePath?: string,
+): boolean {
+  const state = loadUpdateState(stateFilePath);
+  if (!state || state.pendingRestartVersion !== runningVersion) {
+    return false;
+  }
+  recordSuccessfulUpdate(runningVersion, stateFilePath);
+  return true;
 }
 
 /**

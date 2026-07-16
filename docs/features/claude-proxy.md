@@ -544,7 +544,7 @@ The proxy persists its running state to `~/.neurolink/proxy-state.json` so that 
 
 ### Fail-open guard
 
-A foreground proxy spawns one detached `neurolink proxy guard` that removes stale Claude Code settings after confirming its parent process has died. A launchd-managed proxy keeps restart ownership in launchd and starts a separate updater-only worker. Automatic package updates are enabled by default and can be disabled with `NEUROLINK_PROXY_AUTO_UPDATE=off` (also accepts `0` or `false`). The worker validates the global package root and executable directory, requires the package manager that owns the running installation, and waits for every request and stream to finish plus a two-minute idle window before asking launchd to restart. Updater diagnostics are written to `~/.neurolink/logs/proxy-updater.log` and exposed in `neurolink proxy status`.
+A foreground proxy spawns one detached `neurolink proxy guard` that removes stale Claude Code settings after confirming its parent process has died. A launchd-managed proxy keeps restart ownership in launchd and starts a separate updater-only worker. Automatic package updates are enabled by default and can be disabled with `NEUROLINK_PROXY_AUTO_UPDATE=off` (also accepts `0` or `false`). The worker validates the global package root and executable directory, requires the package manager that owns the running installation, and waits for every request and stream to finish plus a two-minute idle window before asking launchd to restart. Post-install executable validation uses bounded retries, and the proxy supervises and replaces an updater worker that exits unexpectedly. Installed-but-not-running versions and stage-specific update failures remain persisted in `~/.neurolink/update-state.json`. Updater diagnostics are written to `~/.neurolink/logs/proxy-updater.log` and exposed in `neurolink proxy status`.
 
 ## Architecture
 
@@ -639,11 +639,13 @@ This prevents unbounded log growth without requiring external cron jobs.
 
 In-memory per-account statistics track:
 
-- Upstream attempt count, success count, error count, rate-limit count
-- Current backoff level and cooling state
-- Last attempt and last error timestamps
+- Final completed, successful, and failed request counts
+- Upstream attempts and failed attempts, including authentication retries,
+  network failures, and retries that later recovered
+- Transient-throttle and exhausted-quota attempt counts
+- Current account cooling state
 
-Proxy-wide status also tracks total upstream attempts separately from completed requests. Statistics reset on proxy restart. Access them via the `/status` endpoint or `neurolink proxy status`.
+Final request counters add up across accounts and match proxy-wide completed, success, and error totals. Attempt counters are intentionally separate because one final request can make several attempts or rotate accounts. Statistics reset on proxy restart. Access them via the `/status` endpoint or `neurolink proxy status`.
 
 ## Comparison with CLIProxyAPI
 

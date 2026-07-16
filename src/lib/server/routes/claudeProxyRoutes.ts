@@ -4010,24 +4010,11 @@ async function handleAnthropicAuthRetry(args: {
   buildUpstreamBody: (token: string) => { bodyStr: string; sessionId?: string };
   enabledAccounts: ProxyPassthroughAccount[];
   orderedAccounts: ProxyPassthroughAccount[];
-  response: Response;
   tracer?: ProxyTracer;
   requestStartTime: number;
-  fetchStartMs: number;
-  attemptNumber: number;
-  finalBodyStr: string;
+  allocateAttemptNumber: () => number;
   upstreamSpan?: import("@opentelemetry/api").Span;
-  logAttempt: (
-    status: number,
-    errorType?: string,
-    errorMessage?: string,
-    extra?: {
-      inputTokens?: number;
-      outputTokens?: number;
-      cacheCreationTokens?: number;
-      cacheReadTokens?: number;
-    },
-  ) => void;
+  logAttempt: AnthropicAttemptLogger;
   logProxyBody: ProxyBodyCaptureLogger;
   logFinalRequest: (
     status: number,
@@ -4057,12 +4044,9 @@ async function handleAnthropicAuthRetry(args: {
     buildUpstreamBody,
     enabledAccounts,
     orderedAccounts,
-    response: _response,
     tracer,
     requestStartTime,
-    fetchStartMs,
-    attemptNumber,
-    finalBodyStr,
+    allocateAttemptNumber,
     upstreamSpan,
     logAttempt,
     logProxyBody,
@@ -4074,6 +4058,9 @@ async function handleAnthropicAuthRetry(args: {
     sawNetworkError,
   } = args;
   recordAttemptError(account.label, account.type, 401);
+  logAttempt(401, "authentication_error", "received 401 from Anthropic", {
+    retryable: true,
+  });
   let currentLastError = lastError;
   let currentAuthFailureMessage = authFailureMessage;
   let currentSawRateLimit = sawRateLimit;
@@ -4119,6 +4106,30 @@ async function handleAnthropicAuthRetry(args: {
     }
     await clearAuthCooldownAfterRefresh(account, accountState);
     headers.authorization = `Bearer ${account.token}`;
+    const retryAttemptNumber = allocateAttemptNumber();
+    recordAttempt(account.label, account.type);
+    const retryLogAttempt: AnthropicAttemptLogger = (
+      status,
+      errorType,
+      errorMessage,
+      extra,
+    ) =>
+      logAttempt(status, errorType, errorMessage, {
+        ...extra,
+        attempt: retryAttemptNumber,
+      });
+    const retryBodyStr = buildUpstreamBody(account.token).bodyStr;
+    const retryFetchStartMs = Date.now();
+    logProxyBody({
+      phase: "upstream_request",
+      headers,
+      body: retryBodyStr,
+      bodySize: Buffer.byteLength(retryBodyStr, "utf8"),
+      contentType: headers["content-type"] ?? "application/json",
+      account: account.label,
+      accountType: account.type,
+      attempt: retryAttemptNumber,
+    });
 
     try {
       const retryResp = await fetch(
@@ -4126,7 +4137,7 @@ async function handleAnthropicAuthRetry(args: {
         {
           method: "POST",
           headers,
-          body: buildUpstreamBody(account.token).bodyStr,
+          body: retryBodyStr,
           signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
         },
       );
@@ -4144,9 +4155,9 @@ async function handleAnthropicAuthRetry(args: {
           retryResp,
           tracer,
           requestStartTime,
-          fetchStartMs,
-          attemptNumber,
-          finalBodyStr,
+          fetchStartMs: retryFetchStartMs,
+          attemptNumber: retryAttemptNumber,
+          finalBodyStr: retryBodyStr,
           upstreamSpan: currentUpstreamSpan,
           logProxyBody,
           logFinalRequest,
@@ -4188,9 +4199,9 @@ async function handleAnthropicAuthRetry(args: {
         contentType: retryRespHeaders["content-type"] ?? "application/json",
         account: account.label,
         accountType: account.type,
-        attempt: attemptNumber,
+        attempt: retryAttemptNumber,
         responseStatus: retryStatus,
-        durationMs: Date.now() - fetchStartMs,
+        durationMs: Date.now() - retryFetchStartMs,
       });
       authRetryError = `retry ${authRetry + 1}/${MAX_AUTH_RETRIES} failed with status ${retryStatus}`;
       currentLastError = retryBody;
@@ -4205,7 +4216,7 @@ async function handleAnthropicAuthRetry(args: {
         logger.always(
           `[proxy] ← 429 account=${account.label} anti-abuse/construction rejection after OAuth refresh — returning non-retryable request error`,
         );
-        logAttempt(429, "construction_rejection", retryBody);
+        retryLogAttempt(429, "construction_rejection", retryBody);
         tracer?.setError("construction_rejection", retryBody.slice(0, 500));
         currentUpstreamSpan?.end();
         return {
@@ -4214,7 +4225,7 @@ async function handleAnthropicAuthRetry(args: {
             account,
             tracer,
             requestStartTime,
-            attemptNumber,
+            attemptNumber: retryAttemptNumber,
             logProxyBody,
             logFinalRequest,
           }),
@@ -4227,8 +4238,6 @@ async function handleAnthropicAuthRetry(args: {
           upstreamSpan: undefined,
         };
       }
-
-      recordAttemptError(account.label, account.type, retryStatus);
 
       // Construction rejections return through the terminal 400 path above.
       // Every 429 reaching this branch is a genuine rate limit and must cool
@@ -4248,6 +4257,19 @@ async function handleAnthropicAuthRetry(args: {
           nowRetry,
           getUnifiedRateLimitStatus(retryRespHeaders),
         );
+        const rateLimitKind =
+          retryPlan.reason === "transient" ? "transient" : "quota";
+        recordAttemptError(
+          account.label,
+          account.type,
+          retryStatus,
+          rateLimitKind,
+        );
+        retryLogAttempt(429, "rate_limit_error", retryBody, {
+          retryable: true,
+          rateLimitKind,
+          cooldownReason: retryPlan.reason,
+        });
         if (
           !accountState.coolingUntil ||
           retryPlan.coolingUntil > accountState.coolingUntil
@@ -4276,6 +4298,13 @@ async function handleAnthropicAuthRetry(args: {
       }
 
       if (retryStatus === 401 || retryStatus === 402 || retryStatus === 403) {
+        recordAttemptError(account.label, account.type, retryStatus);
+        retryLogAttempt(
+          retryStatus,
+          "authentication_error",
+          summarizeErrorMessage(retryBody),
+          { retryable: true },
+        );
         if (authRetry < MAX_AUTH_RETRIES - 1) {
           await sleep(1000);
         }
@@ -4283,11 +4312,22 @@ async function handleAnthropicAuthRetry(args: {
       }
 
       if (isTransientHttpFailure(retryStatus, retryBody)) {
+        recordAttemptError(account.label, account.type, retryStatus);
+        retryLogAttempt(
+          retryStatus,
+          "api_error",
+          summarizeErrorMessage(retryBody),
+          { retryable: true },
+        );
         currentSawTransientFailure = true;
         break;
       }
 
-      logAttempt(retryStatus, "api_error", summarizeErrorMessage(retryBody));
+      retryLogAttempt(
+        retryStatus,
+        "api_error",
+        summarizeErrorMessage(retryBody),
+      );
       recordFinalError(retryStatus, account.label, account.type);
       try {
         logFinalRequest(
@@ -4335,6 +4375,7 @@ async function handleAnthropicAuthRetry(args: {
           : String(retryFetchErr);
       authRetryError = `network error on retry ${authRetry + 1}: ${message}`;
       currentLastError = authRetryError;
+      retryLogAttempt(502, "network_error", message, { retryable: true });
       logger.debug(`[proxy] ${authRetryError}`);
       break;
     }
@@ -4346,7 +4387,6 @@ async function handleAnthropicAuthRetry(args: {
     logger.always(
       `[proxy] ⚠ account=${account.label} auth retries exhausted, rotating to next account`,
     );
-    logAttempt(401, "authentication_error", authRetryError);
     tracer?.setError("authentication_error", authRetryError);
     tracer?.recordRetry(account.label, "auth_exhausted");
     currentUpstreamSpan?.end();
@@ -4496,17 +4536,7 @@ async function handleAnthropicNonOkResponse(args: {
   requestStartTime: number;
   fetchStartMs: number;
   attemptNumber: number;
-  logAttempt: (
-    status: number,
-    errorType?: string,
-    errorMessage?: string,
-    extra?: {
-      inputTokens?: number;
-      outputTokens?: number;
-      cacheCreationTokens?: number;
-      cacheReadTokens?: number;
-    },
-  ) => void;
+  logAttempt: AnthropicAttemptLogger;
   logProxyBody: ProxyBodyCaptureLogger;
   logFinalRequest: (
     status: number,
@@ -4702,13 +4732,29 @@ async function handleAnthropicNonOkResponse(args: {
   }
 
   if (isTransientHttpFailure(response.status, errBody)) {
-    recordAttemptError(account.label, account.type, response.status);
+    recordAttemptError(
+      account.label,
+      account.type,
+      response.status,
+      response.status === 429 ? "transient" : undefined,
+    );
     currentSawTransientFailure = true;
     logger.always(
       `[proxy] ← ${response.status} account=${account.label} (transient)`,
     );
     currentLastError = errBody;
-    logAttempt(response.status, "api_error", summarizeErrorMessage(errBody));
+    logAttempt(
+      response.status,
+      "api_error",
+      summarizeErrorMessage(errBody),
+      response.status === 429
+        ? {
+            retryable: true,
+            rateLimitKind: "transient",
+            cooldownReason: "transient",
+          }
+        : undefined,
+    );
     tracer?.setError("transient_error", summarizeErrorMessage(errBody));
     tracer?.recordRetry(account.label, "transient");
     return {
@@ -4906,7 +4952,7 @@ function createAnthropicAttemptLogger(args: {
     logRequestAttempt({
       timestamp: new Date().toISOString(),
       requestId: ctx.requestId,
-      attempt: attemptNumber,
+      attempt: extra?.attempt ?? attemptNumber,
       method: ctx.method,
       path: ctx.path,
       model: body.model,
@@ -4929,6 +4975,11 @@ function createAnthropicAttemptLogger(args: {
         : {}),
       ...(extra?.cacheReadTokens !== undefined
         ? { cacheReadTokens: extra.cacheReadTokens }
+        : {}),
+      ...(extra?.retryable !== undefined ? { retryable: extra.retryable } : {}),
+      ...(extra?.rateLimitKind ? { rateLimitKind: extra.rateLimitKind } : {}),
+      ...(extra?.cooldownReason
+        ? { cooldownReason: extra.cooldownReason }
         : {}),
       ...(traceCtx
         ? { traceId: traceCtx.traceId, spanId: traceCtx.spanId }
@@ -5319,7 +5370,6 @@ async function fetchAnthropicAccountResponse(args: {
       };
     }
     sawRateLimit = true;
-    recordAttemptError(account.label, account.type, 429);
     // Parse the unified-window quota headers (present on real rate-limit 429s)
     // and derive a reset-aware cooldown plan. This is the fix for "kept
     // hammering the 5h/7d-exhausted account instead of switching": on an
@@ -5334,6 +5384,9 @@ async function fetchAnthropicAccountResponse(args: {
       now,
       unifiedStatus,
     );
+    const rateLimitKind =
+      cooldownPlan.reason === "transient" ? "transient" : "quota";
+    recordAttemptError(account.label, account.type, 429, rateLimitKind);
     logger.always(
       `[proxy] ← 429 account=${account.label} reason=${cooldownPlan.reason} ` +
         `retry-after=${retryAfterMs}ms 5h-status=${errRespHeaders["anthropic-ratelimit-unified-5h-status"] ?? "unknown"} ` +
@@ -5341,7 +5394,11 @@ async function fetchAnthropicAccountResponse(args: {
         `unified-status=${unifiedStatus ?? "unknown"} ` +
         `→ ${cooldownPlan.rotateImmediately ? `rotate now, cool ${minutesUntil(cooldownPlan.coolingUntil, now)}m` : "retry same account (transient)"}`,
     );
-    logAttempt(429, "rate_limit_error", String(lastError));
+    logAttempt(429, "rate_limit_error", String(lastError), {
+      retryable: true,
+      rateLimitKind,
+      cooldownReason: cooldownPlan.reason,
+    });
     tracer?.setError("rate_limit_error", String(lastError).slice(0, 500));
     tracer?.recordRetry(account.label, "rate_limit");
     currentUpstreamSpan?.end();
@@ -5677,12 +5734,12 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           buildUpstreamBody: preparedAttempt.buildUpstreamBody,
           enabledAccounts,
           orderedAccounts,
-          response,
           tracer,
           requestStartTime,
-          fetchStartMs: preparedAttempt.fetchStartMs,
-          attemptNumber: loopState.attemptNumber,
-          finalBodyStr: preparedAttempt.finalBodyStr,
+          allocateAttemptNumber: () => {
+            loopState.attemptNumber += 1;
+            return loopState.attemptNumber;
+          },
           upstreamSpan,
           logAttempt,
           logProxyBody,

@@ -75,16 +75,31 @@ neurolink proxy status --format json
   "startTime": "2025-03-22T10:00:00.000Z",
   "uptime": 3600000,
   "url": "http://127.0.0.1:55669",
+  "autoUpdateEnabled": true,
+  "updaterPid": 12346,
+  "updaterRunning": true,
+  "latestVersion": "9.88.9",
+  "pendingRestartVersion": null,
+  "lastUpdateFailure": null,
   "fallbackChain": [{ "provider": "google-ai", "model": "gemini-2.5-pro" }],
   "stats": {
     "totalAttempts": 42,
+    "totalAttemptErrors": 5,
     "totalRequests": 31,
     "totalSuccess": 29,
     "totalErrors": 2,
-    "totalRateLimits": 5
+    "totalRateLimits": 3,
+    "totalTransientRateLimits": 2,
+    "totalQuotaRateLimits": 1
   }
 }
 ```
+
+`totalRequests`, `totalSuccess`, and `totalErrors` are final request outcomes.
+`totalAttempts`, `totalAttemptErrors`, and the rate-limit counters describe
+upstream attempts, including retries that later recovered. Per-account
+`requests`, `success`, and `errors` use the same final-outcome semantics;
+`attemptErrors` and the rate-limit fields remain attempt-level diagnostics.
 
 ### `neurolink proxy telemetry <action>`
 

@@ -9,10 +9,13 @@ import type { AccountStats, ProxyStats } from "../types/index.js";
 const stats: ProxyStats = {
   startedAt: Date.now(),
   totalAttempts: 0,
+  totalAttemptErrors: 0,
   totalRequests: 0,
   totalSuccess: 0,
   totalErrors: 0,
   totalRateLimits: 0,
+  totalTransientRateLimits: 0,
+  totalQuotaRateLimits: 0,
   accounts: {},
 };
 
@@ -39,13 +42,22 @@ export function recordAttemptError(
   accountLabel: string,
   accountType: string,
   status: number,
+  rateLimitKind?: "transient" | "quota",
 ): void {
   const acct = ensureAccount(accountLabel, accountType);
-  acct.errorCount++;
+  stats.totalAttemptErrors++;
+  acct.attemptErrorCount++;
   acct.lastErrorAt = Date.now();
   if (status === 429) {
     stats.totalRateLimits++;
     acct.rateLimitCount++;
+    if (rateLimitKind === "transient") {
+      stats.totalTransientRateLimits++;
+      acct.transientRateLimitCount++;
+    } else if (rateLimitKind === "quota") {
+      stats.totalQuotaRateLimits++;
+      acct.quotaRateLimitCount++;
+    }
   }
 }
 
@@ -79,10 +91,13 @@ export function getAccountStats(label: string): AccountStats | undefined {
 export function resetStats(): void {
   stats.startedAt = Date.now();
   stats.totalAttempts = 0;
+  stats.totalAttemptErrors = 0;
   stats.totalRequests = 0;
   stats.totalSuccess = 0;
   stats.totalErrors = 0;
   stats.totalRateLimits = 0;
+  stats.totalTransientRateLimits = 0;
+  stats.totalQuotaRateLimits = 0;
   stats.accounts = {};
 }
 
@@ -92,9 +107,12 @@ function ensureAccount(label: string, type: string): AccountStats {
       label,
       type,
       attemptCount: 0,
+      attemptErrorCount: 0,
       successCount: 0,
       errorCount: 0,
       rateLimitCount: 0,
+      transientRateLimitCount: 0,
+      quotaRateLimitCount: 0,
       lastAttemptAt: 0,
     };
   }
