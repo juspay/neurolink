@@ -1,3 +1,9 @@
+## [9.88.10](https://github.com/juspay/neurolink/compare/v9.88.9...v9.88.10) (2026-07-16)
+
+### Bug Fixes
+
+- **(message-builder):** image input download + data-URI safety ([746eab5](https://github.com/juspay/neurolink/commit/746eab54cce86a47ceec3049e46e2f51c4ef8547)), closes [#334](https://github.com/juspay/neurolink/issues/334) [#270](https://github.com/juspay/neurolink/issues/270) [#348](https://github.com/juspay/neurolink/issues/348)
+
 ## [9.88.9](https://github.com/juspay/neurolink/compare/v9.88.8...v9.88.9) (2026-07-15)
 
 ### Bug Fixes
