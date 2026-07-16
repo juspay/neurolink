@@ -18,7 +18,7 @@ NeuroLink goes beyond simple API wrappers to provide a comprehensive AI developm
 
 ## 🚀 Feature Overview
 
-- **[MCP Integration](mcp-integration.md)** — Model Context Protocol support with 6 built-in tools and 58+ discoverable external servers.
+- **[MCP Integration](mcp-integration.md)** — Model Context Protocol support: 6 built-in tools, plus connect any MCP-compliant external server.
 - **[Analytics & Evaluation](analytics.md)** — Built-in usage tracking, cost monitoring, performance metrics, and AI response quality evaluation.
 - **[Factory Patterns](factory-patterns.md)** — Unified provider architecture using the Factory Pattern for consistent interfaces and easy extensibility.
 - **[Dynamic Models](dynamic-models.md)** — Self-updating model configurations, automatic cost optimization, and smart model resolution.

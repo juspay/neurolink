@@ -1,16 +1,16 @@
 ---
-title: MCP Tools Ecosystem - 58+ Integrations
+title: MCP Tools Ecosystem - Built-in Tools + Any MCP Server
 description: Complete showcase of Model Context Protocol tools - built-in core tools and external MCP server ecosystem
 keywords: mcp, model context protocol, tools, integrations, ecosystem, servers
 ---
 
-# MCP Tools Ecosystem: 58+ Integrations
+# MCP Tools Ecosystem: Built-in Tools + Any MCP Server
 
 > **Since**: v7.0.0 | **Status**: Production Ready | **MCP Version**: 2024-11-05
 
 ## Overview
 
-NeuroLink's Model Context Protocol (MCP) integration provides a **universal plugin system** that transforms the SDK from a simple AI interface into a complete AI development platform. With 6 built-in core tools and access to 58+ community MCP servers, you can extend AI capabilities to interact with filesystems, databases, APIs, cloud services, and custom enterprise systems.
+NeuroLink's Model Context Protocol (MCP) integration provides a **universal plugin system** that transforms the SDK from a simple AI interface into a complete AI development platform. With 6 built-in core tools and the ability to connect any community MCP server (58+ cataloged in the [server directory](../guides/mcp/server-catalog.md)), you can extend AI capabilities to interact with filesystems, databases, APIs, cloud services, and custom enterprise systems.
 
 ### What is MCP?
 
@@ -22,13 +22,13 @@ The Model Context Protocol is an **open standard** (like USB-C for AI) that enab
 
 ### Why MCP Matters
 
-| Traditional Approach                    | MCP Approach                   | Benefit                 |
-| --------------------------------------- | ------------------------------ | ----------------------- |
-| Custom tool integrations per provider   | One MCP tool works everywhere  | 10x faster integration  |
-| Manual tool discovery and configuration | Automatic tool registry        | Zero-config tool usage  |
-| Provider-specific tool formats          | Universal JSON-RPC protocol    | Provider portability    |
-| Limited to SDK-defined tools            | 58+ community servers + custom | Unlimited extensibility |
-| Static tool set                         | Dynamic runtime addition       | Adapt to changing needs |
+| Traditional Approach                    | MCP Approach                      | Benefit                 |
+| --------------------------------------- | --------------------------------- | ----------------------- |
+| Custom tool integrations per provider   | One MCP tool works everywhere     | 10x faster integration  |
+| Manual tool discovery and configuration | Automatic tool registry           | Zero-config tool usage  |
+| Provider-specific tool formats          | Universal JSON-RPC protocol       | Provider portability    |
+| Limited to SDK-defined tools            | any community MCP server + custom | Unlimited extensibility |
+| Static tool set                         | Dynamic runtime addition          | Adapt to changing needs |
 
 ### NeuroLink's Deep MCP Integration
 
@@ -356,9 +356,9 @@ const result = await neurolink.generate({
 
 ---
 
-## External MCP Servers (58+)
+## External MCP Servers
 
-NeuroLink integrates with the growing MCP ecosystem of 58+ external servers across 6 major categories.
+NeuroLink connects to the growing MCP ecosystem — any MCP-compliant server works; the [server catalog](../guides/mcp/server-catalog.md) lists 58+ across 6 major categories.
 
 ### Quick Integration Example
 

@@ -79,7 +79,7 @@ $ npx @juspay/neurolink loop --enable-conversation-memory
 
 ╔══════════════════════════════════════════════════════════╗
 ║         NeuroLink Interactive Loop Mode v8.26.1          ║
-║  Universal AI Platform - 13 Providers | 58+ MCP Tools    ║
+║  Universal AI Platform - Multi-Provider | MCP Tools      ║
 ╚══════════════════════════════════════════════════════════╝
 
 💬 Conversation Memory: Enabled (Redis)
@@ -108,7 +108,7 @@ I'm an AI assistant powered by Google Gemini 3 Flash through NeuroLink. I have a
 
 1. **Text Generation**: Complex reasoning, creative writing, coding
 2. **Vision**: Image analysis and description
-3. **Tool Usage**: 58+ MCP tools including:
+3. **Tool Usage**: built-in + connected MCP tools including:
    - Filesystem operations (read, write, list files)
    - Web search and browsing
    - GitHub integration
