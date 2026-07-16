@@ -74,6 +74,7 @@
     "test:cache": "npx tsx test/continuous-test-suite-cache-breakpoints.ts",
     "test:evaluation": "npx tsx test/continuous-test-suite-evaluation.ts",
     "test:mcp": "npx tsx test/continuous-test-suite-mcp-infra.ts",
+    "test:tool-resolution": "npx tsx test/continuous-test-suite-tool-resolution.ts",
     "test:mcp:http": "npx tsx test/continuous-test-suite-mcp-http.ts",
     "test:mcp:sdk": "npx tsx test/continuous-test-suite-mcp-sdk.ts",
     "test:mcp:cli": "npx tsx test/continuous-test-suite-mcp-cli.ts",

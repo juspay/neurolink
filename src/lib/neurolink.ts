@@ -115,6 +115,7 @@ import type {
   ToolRoutingDecision,
   ToolRoutingServerDescriptor,
   ToolDedupConfig,
+  ToolConfig,
   RequestRouter,
   RouterInputContext,
 } from "./types/index.js";
@@ -261,7 +262,13 @@ import { resolveModel } from "./utils/modelAliasResolver.js";
 // Import orchestration components
 import { ModelRouter } from "./utils/modelRouter.js";
 import { getBestProvider } from "./utils/providerUtils.js";
-import { isZodSchema } from "./utils/schemaConversion.js";
+import {
+  isZodSchema,
+  convertZodToJsonSchema,
+} from "./utils/schemaConversion.js";
+import { resolveToolPolicy } from "./tools/toolPolicy.js";
+import { applyToolGate } from "./tools/toolGate.js";
+import { directAgentTools } from "./agent/directTools.js";
 import { BinaryTaskClassifier } from "./utils/taskClassifier.js";
 // Tool detection and execution imports
 // Transformation utilities
@@ -509,6 +516,31 @@ export const NEUROLINK_BRAND: unique symbol = Symbol.for(
 );
 
 /**
+ * Providers whose native tool-calling support is model-dependent or absent —
+ * i.e. every provider that overrides `supportsTools()` and can return false
+ * (verified against src/lib/providers: ollama and openrouter are
+ * model-dependent; huggingface is deployment-dependent; the rest are
+ * image/embedding providers). Only these still receive the full tool listing
+ * in the system prompt on the generate path, where no provider instance
+ * exists yet to ask directly; every other provider gets tool definitions
+ * natively via its `tools` parameter, so repeating them in the prompt was
+ * pure token duplication. The stream path asks the provider instance
+ * (`provider.supportsTools()`) instead of this list. Keep in sync with
+ * `supportsTools()` overrides when adding providers.
+ */
+const PROMPT_ONLY_TOOL_PROVIDERS = new Set<string>([
+  "ollama",
+  "huggingface",
+  "openrouter",
+  "ideogram",
+  "recraft",
+  "replicate",
+  "stability",
+  "jina",
+  "voyage",
+]);
+
+/**
  * Type-guard for opaque values that should be a {@link NeuroLink} instance.
  *
  * Designed for the provider-factory boundary where TS can't carry the type
@@ -651,6 +683,9 @@ export class NeuroLink {
 
   // Opt-in tool-signature deduplication config.
   private toolDedupConfig?: ToolDedupConfig;
+  private toolsConfig?: ToolConfig;
+  /** Session-scoped pins of tools discovered via search_tools (tools.discovery mode). */
+  private discoveryPins: Map<string, Set<string>> = new Map();
 
   // Add orchestration property
   private enableOrchestration: boolean;
@@ -1188,6 +1223,12 @@ export class NeuroLink {
       this.toolDedupConfig = { ...config.toolDedup };
     }
 
+    if (config?.tools) {
+      // Shallow-clone so later caller mutations of the config object don't
+      // change this instance's tool policy mid-flight.
+      this.toolsConfig = { ...config.tools };
+    }
+
     // ModelPool: build one instance from config; null when not configured.
     this.modelPool = config?.modelPool ? new ModelPool(config.modelPool) : null;
 
@@ -1616,10 +1657,19 @@ export class NeuroLink {
     const registrations = Object.entries(fileTools).map(
       async ([toolName, toolDef]) => {
         const toolId = `direct.${toolName}`;
+        // Register the real parameter schema (converted from Zod) instead of a
+        // `{}` placeholder so tool listings and token-budget accounting see the
+        // schema that actually ships to providers.
+        const fileToolSchema = convertZodToJsonSchema(
+          ((toolDef as Record<string, unknown>).inputSchema ??
+            (toolDef as Record<string, unknown>).parameters) as Parameters<
+            typeof convertZodToJsonSchema
+          >[0],
+        ) as ToolInfo["inputSchema"];
         const toolInfo: ToolInfo = {
           name: toolName,
           description: toolDef.description || `File tool: ${toolName}`,
-          inputSchema: {},
+          inputSchema: fileToolSchema,
           serverId: "direct",
           category: "built-in" as MCPServerCategory,
         };
@@ -7021,10 +7071,27 @@ Current user's request: ${currentInput}`;
       unavailableTools.length > 0
         ? `\n\nNOTE: The following tools are temporarily unavailable due to repeated failures: ${unavailableTools.join(", ")}. Do not attempt to call these tools.`
         : "";
+    // Circuit-breaker-open tools are ENFORCED out of the native tool set via
+    // the per-call denylist — asking the model nicely (the note above) is
+    // informational, exclusion is the guarantee. Previously only the
+    // system-prompt listing was filtered; the native array still shipped them.
+    if (unavailableTools.length > 0) {
+      options.excludeTools = [
+        ...new Set([...(options.excludeTools ?? []), ...unavailableTools]),
+      ];
+    }
+    // Providers with native tool calling receive full definitions via their
+    // `tools` parameter; only prompt-based providers still get the listing.
+    const nativeToolSupport = !PROMPT_ONLY_TOOL_PROVIDERS.has(
+      String(providerName).toLowerCase(),
+    );
     const enhancedSystemPrompt = options.skipToolPromptInjection
       ? (options.systemPrompt || "") + circuitBreakerNote
-      : this.createToolAwareSystemPrompt(options.systemPrompt, availableTools) +
-        circuitBreakerNote;
+      : this.createToolAwareSystemPrompt(
+          options.systemPrompt,
+          availableTools,
+          nativeToolSupport,
+        ) + circuitBreakerNote;
     logger.debug("Tool-aware system prompt created", {
       requestId,
       originalPromptLength: options.systemPrompt?.length || 0,
@@ -8065,6 +8132,11 @@ Current user's request: ${currentInput}`;
   /**
    * Apply per-call tool filtering (whitelist/blacklist) to a ToolInfo array.
    * Used to filter the tool list before building the system prompt.
+   *
+   * Resolves the SAME policy as the native gate (`BaseProvider`
+   * `applyToolFiltering`) — per-call options plus the instance-level `tools`
+   * config — so what the model is told about tools never diverges from the
+   * tools it can actually call.
    */
   private applyToolInfoFiltering(
     tools: ToolInfo[],
@@ -8072,37 +8144,34 @@ Current user's request: ${currentInput}`;
       toolFilter?: string[];
       enabledToolNames?: string[];
       excludeTools?: string[];
+      disableTools?: boolean;
     },
   ): ToolInfo[] {
-    // enabledToolNames is an additional whitelist — merged into toolFilter
-    const whitelist = [
-      ...(options.toolFilter ?? []),
-      ...(options.enabledToolNames ?? []),
-    ];
+    const policy = resolveToolPolicy({
+      options: {
+        disableTools: options.disableTools,
+        toolFilter: options.toolFilter,
+        enabledToolNames: options.enabledToolNames,
+        excludeTools: options.excludeTools,
+      },
+      instanceConfig: this.toolsConfig,
+      builtinToolNames: Object.keys(directAgentTools),
+    });
 
-    if (
-      whitelist.length === 0 &&
-      (!options.excludeTools || options.excludeTools.length === 0)
-    ) {
-      return tools;
+    const record: Record<string, ToolInfo> = {};
+    for (const tool of tools) {
+      if (!(tool.name in record)) {
+        record[tool.name] = tool;
+      }
     }
-
-    let filtered = tools;
-
-    if (whitelist.length > 0) {
-      const allowSet = new Set(whitelist);
-      filtered = filtered.filter((t) => allowSet.has(t.name));
-    }
-
-    if (options.excludeTools && options.excludeTools.length > 0) {
-      const denySet = new Set(options.excludeTools);
-      filtered = filtered.filter((t) => !denySet.has(t.name));
-    }
+    const gated = applyToolGate(record, policy);
+    const filtered = tools.filter((t) => t.name in gated);
 
     if (filtered.length !== tools.length) {
       logger.debug(`Tool info filtering applied for system prompt`, {
         beforeCount: tools.length,
         afterCount: filtered.length,
+        policySources: policy.sources,
         toolFilter: options.toolFilter,
         excludeTools: options.excludeTools,
       });
@@ -8114,12 +8183,14 @@ Current user's request: ${currentInput}`;
   private createToolAwareSystemPrompt(
     originalSystemPrompt: string | undefined,
     availableTools: ToolInfo[],
+    nativeToolSupport: boolean,
   ): string {
     // AI prompt generation with tool analysis and structured logging
     const promptGenerationData = {
       originalPromptLength: originalSystemPrompt?.length || 0,
       availableToolsCount: availableTools.length,
       hasOriginalPrompt: !!originalSystemPrompt,
+      nativeToolSupport,
     };
 
     logger.debug(
@@ -8130,6 +8201,18 @@ Current user's request: ${currentInput}`;
     if (availableTools.length === 0) {
       logger.debug("No tools available - returning original prompt");
       return originalSystemPrompt || "";
+    }
+
+    if (nativeToolSupport) {
+      // The provider receives full tool definitions natively via its `tools`
+      // parameter — repeating name/description/parameters here was pure
+      // duplication (~850 tokens on the default surface, tens of thousands
+      // with MCP servers attached). Keep only a short, static (cache-stable)
+      // damping line so models don't over-reach for tools.
+      return (
+        (originalSystemPrompt || "") +
+        "\n\nTools are available via native tool calling. Use them only when they genuinely improve your response; for creative or conversational requests, respond naturally without tools."
+      );
     }
 
     const toolDescriptions = transformToolsToDescriptions(
@@ -10568,10 +10651,17 @@ Current user's request: ${currentInput}`;
     // Apply per-call tool filtering for system prompt tool descriptions
     availableTools = this.applyToolInfoFiltering(availableTools, options);
 
-    // Skip tool prompt injection if skipToolPromptInjection is true
+    // Skip tool prompt injection if skipToolPromptInjection is true.
+    // For providers with native tool calling (instance truth via
+    // supportsTools()), the listing is skipped and only the short damping
+    // line is appended — full definitions ship natively via `tools`.
     const enhancedSystemPrompt = options.skipToolPromptInjection
       ? options.systemPrompt || ""
-      : this.createToolAwareSystemPrompt(options.systemPrompt, availableTools);
+      : this.createToolAwareSystemPrompt(
+          options.systemPrompt,
+          availableTools,
+          provider.supportsTools?.() ?? true,
+        );
 
     // Get conversation messages for context.
     // If the caller already supplied conversationMessages (e.g. proxy routes
@@ -11472,6 +11562,60 @@ Current user's request: ${currentInput}`;
    */
   getToolDedupConfig(): ToolDedupConfig | undefined {
     return this.toolDedupConfig;
+  }
+
+  /**
+   * Returns the instance-level `tools` config (master switch, include/exclude
+   * lists, discovery mode), or `undefined` when not provided at construction.
+   *
+   * Called by `BaseProvider.applyToolFiltering` so the tool gate composes the
+   * instance policy with per-call options on every generate/stream call.
+   */
+  getToolsConfig(): ToolConfig | undefined {
+    return this.toolsConfig;
+  }
+
+  /**
+   * Tools discovered via `search_tools` for a session (`tools.discovery`
+   * mode). Pinned tools are sent in full on every subsequent call of that
+   * session instead of being deferred — discovery cost is paid once.
+   * Reading refreshes the session's recency (LRU), so active conversations
+   * are never the ones evicted at the session cap.
+   */
+  getDiscoveryPins(sessionKey: string): ReadonlySet<string> {
+    const pins = this.discoveryPins.get(sessionKey);
+    if (!pins) {
+      return new Set<string>();
+    }
+    // Map iteration order is insertion order — re-inserting on access turns
+    // the eviction below into LRU rather than FIFO.
+    this.discoveryPins.delete(sessionKey);
+    this.discoveryPins.set(sessionKey, pins);
+    return pins;
+  }
+
+  /**
+   * Pin discovered tools to a session (called by the `search_tools`
+   * meta-tool on hydration). Append-only within a session; the map is
+   * bounded by evicting the least-recently-used session past 1000 sessions.
+   */
+  pinDiscoveredTools(sessionKey: string, toolNames: string[]): void {
+    let pins = this.discoveryPins.get(sessionKey);
+    if (!pins) {
+      pins = new Set<string>();
+    } else {
+      this.discoveryPins.delete(sessionKey);
+    }
+    this.discoveryPins.set(sessionKey, pins);
+    for (const name of toolNames) {
+      pins.add(name);
+    }
+    if (this.discoveryPins.size > 1000) {
+      const oldest = this.discoveryPins.keys().next().value;
+      if (oldest !== undefined) {
+        this.discoveryPins.delete(oldest);
+      }
+    }
   }
 
   /**
@@ -13434,8 +13578,13 @@ Current user's request: ${currentInput}`;
         }
       }
 
-      // Return canonical ToolInfo[]; defer presentation transforms to call sites
-      const tools: ToolInfo[] = uniqueTools;
+      // Return canonical ToolInfo[]; defer presentation transforms to call sites.
+      // Name-sorted: external MCP discovery completes in parallel, so Map
+      // insertion order varies across restarts — downstream consumers (tool
+      // listings, prompt construction, budget accounting) need a stable order.
+      const tools: ToolInfo[] = uniqueTools.sort((a, b) =>
+        a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+      );
 
       // Update the cache
       this.toolCache = {

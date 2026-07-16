@@ -345,6 +345,11 @@ export class ToolsManager {
           },
         );
 
+        // NOTE: insertion order here is phase order (direct → custom →
+        // external MCP), which the signature-dedup pass depends on (keep-first
+        // must prefer built-in implementations). Deterministic name-sorting
+        // for prompt-cache stability happens AFTER filtering+dedup, in
+        // BaseProvider.applyToolFiltering.
         return tools;
       },
     );

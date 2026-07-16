@@ -206,7 +206,13 @@ export function dedupeTools<T extends Tool>(
       return noOp;
     }
 
-    const dedupedTools: Record<string, T> = {};
+    // Null prototype: a tool named "__proto__" must become an own entry,
+    // not a prototype mutation that silently drops it (mirrors the tool
+    // records built in BaseProvider.sortToolRecord / applyToolGate).
+    const dedupedTools: Record<string, T> = Object.create(null) as Record<
+      string,
+      T
+    >;
     const removed: ToolDedupResult<Record<string, T>>["removed"] = [];
 
     for (const [name, tool] of entries) {

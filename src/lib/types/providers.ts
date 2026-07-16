@@ -731,6 +731,15 @@ export type AIProvider = {
    * Use this method instead of accessing `_traceContext` directly.
    */
   setTraceContext(ctx: { traceId: string; parentSpanId: string } | null): void;
+
+  /**
+   * Whether this provider supports native tool/function calling for the
+   * current model. Implemented by BaseProvider (default true); overridden by
+   * providers with model-dependent or absent tool support (ollama,
+   * huggingface, image providers). Optional for compile compatibility with
+   * external AIProvider implementations — callers treat absence as `true`.
+   */
+  supportsTools?(): boolean;
 };
 
 /**
