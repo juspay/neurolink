@@ -526,6 +526,8 @@ export type AgenticLoopReportType =
   | "META"
   | "GOOGLEADS"
   | "GOOGLEGA4"
+  | "SHOPIFY"
+  | "BREEZE"
   | "OTHER";
 
 /**

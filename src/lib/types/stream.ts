@@ -1,6 +1,10 @@
 import type { AIProviderName } from "../constants/enums.js";
 import type { EvaluationData } from "./evaluation.js";
 import type { RAGConfig } from "./rag.js";
+import type {
+  KnowledgeGroundingMetadata,
+  KnowledgeRequestScope,
+} from "./knowledge.js";
 import type { SkillsCallOptions } from "./skills.js";
 import type {
   AnalyticsData,
@@ -213,6 +217,19 @@ export type StreamChunk =
     };
 
 export type StreamOptions = {
+  /**
+   * Opt this stream call into the knowledge grounding configured on the
+   * NeuroLink instance. Defaults to `false` when omitted.
+   */
+  useKnowledgeGrounding?: boolean;
+
+  /**
+   * Enabled integrations used to scope knowledge retrieval for this turn.
+   * Used only when `useKnowledgeGrounding` is true and knowledge grounding is
+   * enabled on the NeuroLink instance.
+   */
+  knowledgeContext?: KnowledgeRequestScope;
+
   input: {
     /** Prompt text. Optional for media-only modes (avatar, music) that are driven by uploaded files rather than a prompt. */
     text?: string;
@@ -667,6 +684,8 @@ export type StreamOptions = {
  * Future-ready for multi-modal outputs while maintaining text focus
  */
 export type StreamResult = {
+  /** Knowledge-grounding diagnostics for this turn (present only when grounding ran). */
+  knowledge?: KnowledgeGroundingMetadata;
   stream: AsyncIterable<
     | { content: string; reasoning?: string }
     | StreamNoOutputSentinel

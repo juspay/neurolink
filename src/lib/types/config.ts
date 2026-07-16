@@ -29,6 +29,7 @@ import type { ModelPoolConfig } from "./modelPool.js";
 import type { RequestRouter } from "./requestRouter.js";
 import type { ClassifierRouterConfig } from "./classifierRouter.js";
 import type { SkillsConfig } from "./skills.js";
+import type { KnowledgeGroundingConfig } from "./knowledge.js";
 
 /**
  * Main NeuroLink configuration type
@@ -149,6 +150,17 @@ export type NeurolinkConstructorConfig = {
    * Opt-in and fails open on read paths. See {@link SkillsConfig}.
    */
   skills?: SkillsConfig;
+  /**
+   * Knowledge grounding: lexical-first host-supplied knowledge retrieval. When
+   * enabled with at least one source, a deterministic in-memory retrieval runs
+   * before each generate()/stream() turn — independently of tool routing — and
+   * attaches a token-bounded, ephemeral knowledge block to the model call. No
+   * embeddings or vector store. Opt-in (`enabled: false` by default) and fails
+   * open: any retrieval failure leaves the turn ungrounded. Sources are fixed
+   * for the lifetime of the instance. See
+   * {@link KnowledgeGroundingConfig}.
+   */
+  knowledgeGrounding?: KnowledgeGroundingConfig;
 };
 
 /**

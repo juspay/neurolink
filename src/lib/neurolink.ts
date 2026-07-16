@@ -118,6 +118,9 @@ import type {
   ToolConfig,
   RequestRouter,
   RouterInputContext,
+  KnowledgeEngineStatus,
+  KnowledgeGroundingOutcome,
+  KnowledgeGroundingCallOptions,
 } from "./types/index.js";
 import { emergencyContentTruncation } from "./context/emergencyTruncation.js";
 import {
@@ -139,6 +142,10 @@ import {
   resolveToolRoutingExclusions,
 } from "./core/toolRouting.js";
 import { ToolRoutingCache } from "./core/toolRoutingCache.js";
+import {
+  DEFAULT_RECENT_TURNS,
+  KnowledgeGroundingEngine,
+} from "./knowledge/index.js";
 import { AIProviderFactory } from "./core/factory.js";
 import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import { createToolEventPayload } from "./core/toolEvents.js";
@@ -165,6 +172,7 @@ import { MCPToolRegistry } from "./mcp/toolRegistry.js";
 // Dynamic argument resolution imports
 import { resolveDynamicArgument } from "./dynamic/dynamicResolver.js";
 import type {
+  DynamicArgument,
   DynamicOptions,
   DynamicResolutionContext,
   HippocampusConfig,
@@ -692,6 +700,10 @@ export class NeuroLink {
   // vectors are computed once. Cleared when the catalog changes via
   // setToolRoutingServers() so stale vectors are never reused.
   private toolRoutingVectorCache?: Map<string, number[]>;
+
+  // Knowledge grounding: lexical-first host-supplied retrieval engine. Built
+  // once from constructor config and undefined unless grounding is enabled.
+  private knowledgeGroundingEngine?: KnowledgeGroundingEngine;
 
   // Opt-in tool-signature deduplication config.
   private toolDedupConfig?: ToolDedupConfig;
@@ -1233,6 +1245,24 @@ export class NeuroLink {
       this.toolRoutingConfig = { ...config.toolRouting };
     }
 
+    const knowledgeGroundingConfig = config?.knowledgeGrounding;
+    if (knowledgeGroundingConfig?.enabled) {
+      if (
+        Array.isArray(knowledgeGroundingConfig.sources) &&
+        knowledgeGroundingConfig.sources.length > 0
+      ) {
+        // The engine builds its immutable index asynchronously; eligible
+        // generate() and stream() calls await readiness before retrieval.
+        this.knowledgeGroundingEngine = new KnowledgeGroundingEngine(
+          knowledgeGroundingConfig,
+        );
+      } else {
+        logger.warn(
+          "[KnowledgeGrounding] enabled but no sources were provided; grounding disabled for this instance",
+        );
+      }
+    }
+
     if (config?.toolDedup) {
       this.toolDedupConfig = { ...config.toolDedup };
     }
@@ -1254,7 +1284,9 @@ export class NeuroLink {
     this.classifierRouter = config?.classifierRouter?.enabled
       ? new ClassifierRouter(config.classifierRouter, {
           generate: (genOptions) =>
-            this.generate(genOptions as unknown as GenerateOptions),
+            this.generate({
+              ...(genOptions as unknown as GenerateOptions),
+            }),
           logger: {
             debug: (message, meta) =>
               logger.debug(message, meta as Record<string, unknown>),
@@ -4096,6 +4128,7 @@ Current user's request: ${currentInput}`;
    * @param optionsOrPrompt.maxTokens - Maximum tokens to generate
    * @param optionsOrPrompt.thinkingConfig - Extended thinking configuration (thinkingLevel: 'minimal'|'low'|'medium'|'high')
    * @param optionsOrPrompt.context - Context with conversationId and userId for memory
+   * @param optionsOrPrompt.useKnowledgeGrounding - Whether to use the instance's configured knowledge for this call
    * @returns Promise resolving to generation result with content and metadata
    *
    * @example Basic text generation
@@ -4186,9 +4219,27 @@ Current user's request: ${currentInput}`;
         optionsOrPrompt as unknown as StreamOptions | DynamicOptions,
       ) as unknown as GenerateOptions | DynamicOptions;
     }
+    // Retrieve once at the public call boundary so fallback attempts reuse the
+    // same grounding block and internal preparation cannot inject it twice.
+    const groundingOptions =
+      typeof optionsOrPrompt === "string"
+        ? ({ input: { text: optionsOrPrompt } } as GenerateOptions)
+        : (optionsOrPrompt as GenerateOptions);
+    const knowledgeOutcome =
+      await this.retrieveKnowledgeGrounding(groundingOptions);
+    if (knowledgeOutcome?.ephemeralContext) {
+      const block = knowledgeOutcome.ephemeralContext.content;
+      optionsOrPrompt = {
+        ...groundingOptions,
+        systemPrompt: this.appendKnowledgeGroundingBlockToSystemPrompt(
+          groundingOptions.systemPrompt,
+          block,
+        ),
+      } as GenerateOptions | DynamicOptions;
+    }
     const startedAt = Date.now();
     try {
-      return await this.runWithFallbackOrchestration(
+      const result = await this.runWithFallbackOrchestration(
         optionsOrPrompt,
         "generate",
         (opts) => {
@@ -4210,6 +4261,10 @@ Current user's request: ${currentInput}`;
           );
         },
       );
+      if (knowledgeOutcome) {
+        result.knowledge = knowledgeOutcome.metadata;
+      }
+      return result;
     } catch (error) {
       // Lifecycle middleware (wrapGenerate.catch in builtin/lifecycle.ts)
       // stamps errors it already surfaced with the shared Symbol marker
@@ -8485,6 +8540,7 @@ Current user's request: ${currentInput}`;
    * @param options.enableEvaluation - Whether to include response quality evaluation
    * @param options.context - Additional context for the request
    * @param options.evaluationDomain - Domain for specialized evaluation
+   * @param options.useKnowledgeGrounding - Whether to use the instance's configured knowledge for this call
    *
    * @returns Promise resolving to StreamResult with an async iterable stream
    *
@@ -8542,8 +8598,28 @@ Current user's request: ${currentInput}`;
     // top-level keys and left `options.input` shared with the caller.
     options = cloneOptionsForCallIsolation(options);
     const startedAt = Date.now();
+    // Retrieve once before provider/model fallback orchestration. Every fallback
+    // receives the same explicitly enriched options, without the retrieval helper
+    // mutating its input or injecting the same block more than once.
+    const knowledgeOutcome = await this.retrieveKnowledgeGrounding(options);
+    if (knowledgeOutcome?.ephemeralContext) {
+      const block = knowledgeOutcome.ephemeralContext.content;
+      options = {
+        ...options,
+        systemPrompt: this.appendKnowledgeGroundingBlockToSystemPrompt(
+          options.systemPrompt,
+          block,
+        ),
+      } as StreamOptions | DynamicOptions;
+    }
     try {
-      return await this.streamWithIterationFallback(options as StreamOptions);
+      const result = await this.streamWithIterationFallback(
+        options as StreamOptions,
+      );
+      if (knowledgeOutcome) {
+        result.knowledge = knowledgeOutcome.metadata;
+      }
+      return result;
     } catch (error) {
       // Mirror generate(): fire consumer onError for failures that
       // happened before the wrapped language-model middleware could
@@ -9296,7 +9372,7 @@ Current user's request: ${currentInput}`;
    * opening message already carries its own context.
    */
   private async fetchRecentRoutingHistory(
-    options: StreamOptions | GenerateOptions,
+    options: KnowledgeGroundingCallOptions,
   ): Promise<ChatMessage[]> {
     try {
       const requestContext = options.context as
@@ -9384,6 +9460,82 @@ Current user's request: ${currentInput}`;
     // Cached routing decisions are catalog-dependent too; force the next turn
     // to recompute exclusions against the new server/tool set.
     this.toolRoutingCacheInstance = undefined;
+  }
+
+  /** Knowledge-grounding engine health (null when it was not configured). */
+  getKnowledgeStatus(): KnowledgeEngineStatus | null {
+    return this.knowledgeGroundingEngine?.getStatus() ?? null;
+  }
+
+  private appendKnowledgeGroundingBlockToSystemPrompt(
+    systemPrompt:
+      | GenerateOptions["systemPrompt"]
+      | StreamOptions["systemPrompt"]
+      | DynamicOptions["systemPrompt"],
+    block: string,
+  ): DynamicOptions["systemPrompt"] {
+    if (typeof systemPrompt === "function") {
+      const originalSystemPrompt = systemPrompt;
+      return async (context: DynamicResolutionContext) => {
+        const resolved = await resolveDynamicArgument(
+          originalSystemPrompt as DynamicArgument<string>,
+          context,
+        );
+        return resolved.value ? `${resolved.value}\n\n${block}` : block;
+      };
+    }
+    return systemPrompt ? `${systemPrompt}\n\n${block}` : block;
+  }
+
+  /**
+   * Retrieve knowledge grounding for a public generate/stream call without
+   * mutating its options. The outer call boundary decides how to apply the
+   * returned context. Returns undefined when the call does not opt in,
+   * grounding is disabled/not applicable, or retrieval fails open.
+   */
+  private async retrieveKnowledgeGrounding(
+    options: KnowledgeGroundingCallOptions,
+  ): Promise<KnowledgeGroundingOutcome | undefined> {
+    const engine = this.knowledgeGroundingEngine;
+    if (
+      !engine ||
+      !engine.isEnabled() ||
+      options.useKnowledgeGrounding !== true
+    ) {
+      return undefined;
+    }
+    const query = options.input?.text;
+    if (!query) {
+      return undefined;
+    }
+    try {
+      const conversationMessages =
+        options.conversationMessages !== undefined
+          ? options.conversationMessages
+          : await this.fetchRecentRoutingHistory(options);
+      const recentTurns = conversationMessages
+        .filter(
+          (message) => message.role === "user" || message.role === "assistant",
+        )
+        .slice(-DEFAULT_RECENT_TURNS)
+        .map((message) => ({
+          role:
+            message.role === "assistant"
+              ? ("assistant" as const)
+              : ("user" as const),
+          text: typeof message.content === "string" ? message.content : "",
+        }));
+      return await engine.ground({
+        query,
+        recentTurns,
+        scope: options.knowledgeContext,
+      });
+    } catch (error) {
+      logger.warn("[KnowledgeGrounding] grounding hook failed open", {
+        error: String(error),
+      });
+      return undefined;
+    }
   }
 
   private async validateStreamRequestOptions(
@@ -11841,7 +11993,7 @@ Current user's request: ${currentInput}`;
         input: { text: probeText },
         maxTokens: 16,
         disableTools: true,
-      } as never);
+      } as GenerateOptions);
       return { provider, status: "ok", detail: "credentials valid" };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

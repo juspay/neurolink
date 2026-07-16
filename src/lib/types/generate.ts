@@ -1,5 +1,9 @@
 import type { AIProviderName } from "../constants/enums.js";
 import type { RAGConfig } from "./rag.js";
+import type {
+  KnowledgeGroundingMetadata,
+  KnowledgeRequestScope,
+} from "./knowledge.js";
 import type { SkillsCallOptions } from "./skills.js";
 import type { AnalyticsData, TokenUsage } from "./analytics.js";
 import type { JsonValue } from "./common.js";
@@ -611,6 +615,19 @@ export type GenerateOptions = {
   /** Pre-validated user context for the request */
   requestContext?: Record<string, unknown>;
 
+  /**
+   * Opt this generation call into the knowledge grounding configured on the
+   * NeuroLink instance. Defaults to `false` when omitted.
+   */
+  useKnowledgeGrounding?: boolean;
+
+  /**
+   * Enabled integrations used to scope knowledge retrieval for this turn.
+   * Used only when `useKnowledgeGrounding` is true and knowledge grounding is
+   * enabled on the NeuroLink instance.
+   */
+  knowledgeContext?: KnowledgeRequestScope;
+
   /** Raw auth token — validated by configured auth provider */
   auth?: { token: string };
 
@@ -783,6 +800,8 @@ export type GenerateStopReason =
  */
 export type GenerateResult = {
   content: string; // Primary output
+  /** Knowledge-grounding diagnostics for this turn (present only when grounding ran). */
+  knowledge?: KnowledgeGroundingMetadata;
   /**
    * Parsed structured object when a `schema` was requested. Populated from
    * AI-SDK experimental_output, or from text-mode coercion (balanced-scan +

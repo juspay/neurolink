@@ -190,6 +190,9 @@ importers:
       tar-stream:
         specifier: ^3.1.8
         version: 3.1.8
+      type-decoder:
+        specifier: ^2.3.1
+        version: 2.3.1
       undici:
         specifier: '>=7.24.0 <8.0.0'
         version: 7.27.2
@@ -8006,6 +8009,9 @@ packages:
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
+
+  type-decoder@2.3.1:
+    resolution: {integrity: sha512-jUtajc6jOzAvyabhi9o81GU1lq3UsvevMbV3zBv1RDI+PkOe6QrSJS/iVPYVW0yT32t6jJdfDppuTpYdQprC6Q==}
 
   type-fest@0.13.1:
     resolution: {integrity: sha512-34R7HTnG0XIJcBSn5XhDd7nNFPRcXYRZrBB2O2jdKqYODldSzBAqzsWoZYYvduky73toYS/ESqxPvkDf/F0XMg==}
@@ -17937,6 +17943,8 @@ snapshots:
   type-check@0.4.0:
     dependencies:
       prelude-ls: 1.2.1
+
+  type-decoder@2.3.1: {}
 
   type-fest@0.13.1:
     optional: true
