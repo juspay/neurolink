@@ -6,6 +6,7 @@
 
 import { open, readFile, realpath } from "fs/promises";
 import {
+  basename,
   isAbsolute as isAbsolutePath,
   relative as relativePath,
   resolve as resolvePath,
@@ -40,6 +41,7 @@ import { tracers, ATTR, withSpan } from "../telemetry/index.js";
 import { CSVProcessor } from "./csvProcessor.js";
 import { ImageProcessor } from "./imageProcessor.js";
 import { logger } from "./logger.js";
+import { redactUrlForError, sanitizeErrorCause } from "./logSanitize.js";
 import {
   mimeHintToExtension,
   mimeHintToFileType,
@@ -1804,33 +1806,64 @@ export class FileDetector {
 
     return withRetry(
       async () => {
-        const response = await request(url, {
-          dispatcher: getGlobalDispatcher().compose(
-            interceptors.redirect({ maxRedirections: 5 }),
-          ),
-          method: "GET",
-          headersTimeout: timeout,
-          bodyTimeout: timeout,
-        });
+        try {
+          const response = await request(url, {
+            dispatcher: getGlobalDispatcher().compose(
+              interceptors.redirect({ maxRedirections: 5 }),
+            ),
+            method: "GET",
+            headersTimeout: timeout,
+            bodyTimeout: timeout,
+          });
 
-        if (response.statusCode !== 200) {
-          throw new Error(`HTTP ${response.statusCode} fetching ${url}`);
-        }
-
-        const chunks: Buffer[] = [];
-        let totalSize = 0;
-
-        for await (const chunk of response.body) {
-          totalSize += chunk.length;
-          if (totalSize > maxSize) {
+          if (response.statusCode !== 200) {
+            // Query string / fragment stripped — a presigned URL's token must
+            // not be echoed into a thrown error.
             throw new Error(
-              `File too large: ${formatFileSize(totalSize)} (max: ${formatFileSize(maxSize)})`,
+              `HTTP ${response.statusCode} fetching ${redactUrlForError(url)}`,
             );
           }
-          chunks.push(chunk);
-        }
 
-        return Buffer.concat(chunks);
+          const chunks: Buffer[] = [];
+          let totalSize = 0;
+
+          for await (const chunk of response.body) {
+            totalSize += chunk.length;
+            if (totalSize > maxSize) {
+              throw new Error(
+                `File too large: ${formatFileSize(totalSize)} (max: ${formatFileSize(maxSize)})`,
+              );
+            }
+            chunks.push(chunk);
+          }
+
+          return Buffer.concat(chunks);
+        } catch (error) {
+          // Node/undici DNS, TLS, and connect-timeout errors embed the full
+          // request URL (including a presigned query token) in
+          // `error.message`. Redact into a NEW error instead of mutating the
+          // original in place, so anything that still holds a reference to
+          // the original — debug logs, telemetry spans, upstream callers —
+          // keeps seeing the real message. `.code` is copied onto the new
+          // error so `isRetryableNetworkError`'s retry check in the outer
+          // `withRetry` catch still classifies it correctly. The raw
+          // original error is NEVER attached as `cause` — that would leave
+          // the unredacted URL reachable via `error.cause.message` for
+          // anything that walks the cause chain (cause-aware logging,
+          // telemetry). `cause` instead gets its own sanitized copy.
+          // `sanitizeErrorCause` handles non-`Error` thrown values too (a raw
+          // string/object can just as easily carry the full URL), so there is
+          // no unconditional `throw error` fallback that would bypass
+          // redaction for that case.
+          const cause = sanitizeErrorCause(error);
+          const redacted = new Error(cause.message, { cause });
+          redacted.name = cause.name;
+          const code = (cause as NodeJS.ErrnoException).code;
+          if (code !== undefined) {
+            (redacted as NodeJS.ErrnoException).code = code;
+          }
+          throw redacted;
+        }
       },
       { maxRetries, retryDelay },
     );
@@ -1856,36 +1889,85 @@ export class FileDetector {
     // the base dir pointing outside cannot bypass containment. The
     // path.relative check (not a string prefix) correctly handles the root dir
     // ("/") and sibling-prefix ("/app" vs "/app-evil") edge cases.
+    //
+    // The actual open() below MUST target this validated `real` path, not the
+    // original `filePath` — otherwise a symlink swapped between the realpath()
+    // check and the open() call routes the read outside the sandbox even
+    // though validation passed (TOCTOU). With no sandbox configured there's no
+    // boundary to defend, so the original path is used as given.
+    let pathToOpen = filePath;
     if (options?.allowedBaseDir) {
       let base: string;
       let real: string;
       try {
         base = await realpath(resolvePath(options.allowedBaseDir));
         real = await realpath(filePath);
-      } catch {
-        throw new Error(
-          `Access denied: "${filePath}" could not be resolved within the allowed base directory`,
+      } catch (error) {
+        // Full path stays in the debug log; the thrown (potentially
+        // client-facing) error only gets the basename to avoid leaking the
+        // host's directory layout to an untrusted caller. The cause is
+        // sanitized too — Node's realpath ENOENT/EACCES messages embed the
+        // full path verbatim, which would otherwise survive on the cause
+        // chain (cause-aware logging, telemetry) even though the outer
+        // message is already redacted.
+        logger.debug("loadFromPath: realpath resolution failed", {
+          filePath,
+          error,
+        });
+        // Assigned to a variable before the throw (rather than an inline
+        // `{ cause: sanitizeErrorCause(...) }`) so the sanitized, path-redacted
+        // copy is unambiguously the attached cause — the raw `error`, whose
+        // message still embeds the full path, is never reachable from the
+        // thrown result.
+        const cause = sanitizeErrorCause(error, { filePath });
+        const denied = new Error(
+          `Access denied: "${basename(filePath)}" could not be resolved within the allowed base directory`,
+          { cause },
         );
+        throw denied;
       }
       const rel = relativePath(base, real);
       if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolutePath(rel)) {
+        logger.debug("loadFromPath: path resolves outside allowed base dir", {
+          filePath,
+          real,
+        });
         throw new Error(
-          `Access denied: "${filePath}" resolves outside the allowed base directory`,
+          `Access denied: "${basename(filePath)}" resolves outside the allowed base directory`,
         );
       }
+      pathToOpen = real;
     }
 
     // Open a handle and stat/read through the SAME descriptor so a symlink
     // swap between the size check and the read cannot occur (TOCTOU).
-    const handle = await open(filePath, "r");
+    let handle: Awaited<ReturnType<typeof open>>;
+    try {
+      handle = await open(pathToOpen, "r");
+    } catch (error) {
+      // A failed open (ENOENT/EACCES/…) embeds the opened path verbatim in
+      // its message. When a sandbox is configured `pathToOpen` is the
+      // realpath-resolved target (`real`), which differs from both `filePath`
+      // and its resolved form — so redact `pathToOpen` specifically, or the
+      // full host path would survive on both the thrown message and the cause
+      // chain despite this PR's path-redaction hardening.
+      const cause = sanitizeErrorCause(error, { filePath: pathToOpen });
+      const failed = new Error(cause.message, { cause });
+      failed.name = cause.name;
+      const code = (cause as NodeJS.ErrnoException).code;
+      if (code !== undefined) {
+        (failed as NodeJS.ErrnoException).code = code;
+      }
+      throw failed;
+    }
     try {
       const statInfo = await handle.stat();
       if (!statInfo.isFile()) {
-        throw new Error(`Not a file: ${filePath}`);
+        throw new Error(`Not a file: ${basename(filePath)}`);
       }
       if (statInfo.size > maxSize) {
         throw new Error(
-          `File too large: ${filePath} is ${formatFileSize(statInfo.size)} (max: ${formatFileSize(maxSize)})`,
+          `File too large: ${basename(filePath)} is ${formatFileSize(statInfo.size)} (max: ${formatFileSize(maxSize)})`,
         );
       }
       return await handle.readFile();
@@ -1945,6 +2027,15 @@ class MagicBytesStrategy implements DetectionStrategy {
       input[7] === 0x70
     ) {
       const brand = input.length >= 12 ? input.toString("latin1", 8, 12) : "";
+      // AVIF images share the ISO-BMFF ftyp box with MP4/MOV; the major brand
+      // ('avif' still, 'avis' sequence, 'avio' intra-only AV1 image/sequence
+      // — spec-listed under compatible_brands but also emitted as
+      // major_brand by real encoders) distinguishes them. Detect before the
+      // audio/video branches so an AVIF buffer isn't misrouted to the video
+      // pipeline (#286).
+      if (/^(avif|avis|avio)/.test(brand)) {
+        return this.result("image", "image/avif", 95);
+      }
       if (/^(M4A|M4B|M4P|F4A|F4B)/.test(brand)) {
         return this.result("audio", "audio/mp4", 95);
       }

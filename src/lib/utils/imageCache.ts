@@ -15,6 +15,7 @@
 
 import { createHash } from "crypto";
 import { logger } from "./logger.js";
+import { redactUrlForError } from "./logSanitize.js";
 import type {
   CachedImage,
   ImageCacheConfig,
@@ -186,7 +187,9 @@ export class ImageCache {
 
     if (!entry) {
       this.stats.misses++;
-      logger.debug("Image cache miss", { url: normalizedUrl.substring(0, 50) });
+      logger.debug("Image cache miss", {
+        url: redactUrlForError(normalizedUrl),
+      });
       return null;
     }
 
@@ -195,7 +198,7 @@ export class ImageCache {
       this.stats.expirations++;
       this.delete(normalizedUrl);
       logger.debug("Image cache entry expired", {
-        url: normalizedUrl.substring(0, 50),
+        url: redactUrlForError(normalizedUrl),
       });
       return null;
     }
@@ -210,7 +213,7 @@ export class ImageCache {
 
     this.stats.hits++;
     logger.debug("Image cache hit", {
-      url: normalizedUrl.substring(0, 50),
+      url: redactUrlForError(normalizedUrl),
       accessCount: entry.accessCount,
     });
 
@@ -250,7 +253,7 @@ export class ImageCache {
     // Skip caching if image exceeds max size
     if (size > this.maxImageSize) {
       logger.debug("Image too large to cache", {
-        url: normalizedUrl.substring(0, 50),
+        url: redactUrlForError(normalizedUrl),
         size,
         maxSize: this.maxImageSize,
       });
@@ -271,8 +274,8 @@ export class ImageCache {
         // Update content hash index to point to the new URL as well
         this.contentHashIndex.set(contentHash, normalizedUrl);
         logger.debug("Image cache dedup hit", {
-          newUrl: normalizedUrl.substring(0, 50),
-          existingUrl: existingUrl.substring(0, 50),
+          newUrl: redactUrlForError(normalizedUrl),
+          existingUrl: redactUrlForError(existingUrl),
         });
         return;
       }
@@ -298,7 +301,7 @@ export class ImageCache {
     this.contentHashIndex.set(contentHash, normalizedUrl);
 
     logger.debug("Image cached", {
-      url: normalizedUrl.substring(0, 50),
+      url: redactUrlForError(normalizedUrl),
       size,
       contentHash: contentHash.substring(0, 8),
       cacheSize: this.cache.size,
@@ -340,7 +343,7 @@ export class ImageCache {
       this.cache.delete(oldestKey);
       this.stats.evictions++;
       logger.debug("Image cache eviction", {
-        url: String(oldestKey).substring(0, 50),
+        url: redactUrlForError(String(oldestKey)),
       });
     }
   }
