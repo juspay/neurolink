@@ -45,11 +45,14 @@ export function filterSkillIndex(
       return false;
     }
 
-    // Scope filter: global skills always pass; scoped skills require a
-    // matching scopeId. When the caller provides no scopeId, scoped skills
-    // still pass (curator semantics — unscoped callers see everything).
-    if (query.scopeId && item.scope === "scoped") {
-      if (!(item.scopeIds ?? []).includes(query.scopeId)) {
+    // Scope filter: global skills always pass. Scoped skills require a
+    // scopeId that matches; when the caller supplies no scopeId we fail
+    // closed and exclude them, so a shared multi-tenant instance that forgets
+    // to pass a per-call scopeId never leaks one tenant's scoped skills to
+    // everyone (#1139). Callers that legitimately want a tenant's scoped
+    // skills must pass that tenant's scopeId.
+    if (item.scope === "scoped") {
+      if (!query.scopeId || !(item.scopeIds ?? []).includes(query.scopeId)) {
         return false;
       }
     }
@@ -94,13 +97,22 @@ export function isSafeSkillResourcePath(resourcePath: string): boolean {
   );
 }
 
-/** Whether a skill is visible from the calling scope. */
+/**
+ * Whether a skill is visible from the calling scope. Fails closed, matching
+ * `filterSkillIndex`: a scoped skill is hidden unless the caller supplies a
+ * `scopeId` that the skill explicitly lists. Omitting `scopeId` therefore
+ * yields global skills only — it must never expose a scoped skill by name
+ * through `use_skill` / `read_skill_resource` (#1139).
+ */
 export function isSkillVisibleInScope(
   skill: Pick<SkillDefinition, "scope" | "scopeIds">,
   scopeId?: string,
 ): boolean {
-  if (!scopeId || skill.scope !== "scoped") {
+  if (skill.scope !== "scoped") {
     return true;
+  }
+  if (!scopeId) {
+    return false;
   }
   return (skill.scopeIds ?? []).includes(scopeId);
 }
@@ -171,7 +183,10 @@ export function formatSkillsPromptIndex(
   items: SkillIndexItem[],
   maxItems: number,
 ): string | null {
-  if (items.length === 0) {
+  // Nothing visible, or the index is explicitly disabled (maxItems <= 0):
+  // skip injection entirely rather than emit a header + "N more skills exist"
+  // note with zero skill lines (#1139).
+  if (items.length === 0 || maxItems <= 0) {
     return null;
   }
 

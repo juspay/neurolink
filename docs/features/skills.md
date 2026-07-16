@@ -89,6 +89,8 @@ Every sibling file of `SKILL.md` becomes an on-demand resource, addressable by i
 
 Optional fields: `scope: "scoped"` + `scopeIds: [...]` restrict a skill to specific scopes (channels/teams/tenants); `status: "deprecated"` hides it from matching.
 
+> **Scoping is fail-closed (multi-tenant safe).** A `scoped` skill is returned only to callers that supply a **matching** `scopeId` — via the per-call `skills.scopeId`, the instance `defaultScopeId`, or the server route's `?scopeId=`. When **no** scopeId is resolvable, scoped skills are **excluded** from `use_skill`/`list_skills` discovery, from `search`, and from the prompt-index listing, so on a shared multi-tenant instance a forgotten scopeId never leaks one tenant's scoped skills to another. Global skills (the default, no `scope`) are always visible. To surface a tenant's scoped skills, pass that tenant's `scopeId`.
+
 ### Authoring guidance
 
 - **Description is the matching signal.** Say _what_ the skill does and _when_ to use it, in one or two sentences. The model selects skills purely from descriptions.
