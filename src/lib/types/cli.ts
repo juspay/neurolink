@@ -1944,3 +1944,13 @@ export type CliNetworkCommandArgs = BaseCommandArgs & {
   /** Show detailed information */
   detailed?: boolean;
 };
+
+/**
+ * A single audio-player invocation for CLI TTS playback: a binary plus its
+ * arguments for `execFile`. The player list is tried in order until one
+ * succeeds (see `src/cli/utils/audioPlayer.ts`).
+ */
+export type CliAudioPlayerCommand = {
+  command: string;
+  args: string[];
+};
