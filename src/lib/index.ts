@@ -1286,6 +1286,32 @@ export {
   WebLoader,
 } from "./rag/index.js";
 
+// Knowledge grounding — lexical-first host-supplied retrieval (no vectors).
+// Types flow via the ./types barrel above; these are the runtime values.
+export {
+  assembleKnowledgeContext,
+  buildDocument,
+  buildIndexSnapshot,
+  DEFAULT_ALIAS_BOOST,
+  DEFAULT_CANDIDATE_LIMIT,
+  DEFAULT_EXACT_BOOST,
+  DEFAULT_FIELD_WEIGHTS,
+  DEFAULT_MAX_CONTEXT_TOKENS,
+  DEFAULT_RECENT_TURNS,
+  DEFAULT_RELATION_LIMIT,
+  DEFAULT_RESULT_LIMIT,
+  DEFAULT_TIMEOUT_MS,
+  KnowledgeGroundingEngine,
+  KnowledgeLexicalIndex,
+  manifestToSources,
+  normalizeAndValidate,
+  normalizePhrases,
+  normalizeText,
+  resolveEntry,
+  retrieve,
+  tokenize,
+} from "./knowledge/index.js";
+
 // Legacy RAGAS evaluation classes are now exported from the unified
 // evaluation block above (via ./evaluation/index.js barrel).
 // ContextBuilder is the only class not covered by the barrel export.

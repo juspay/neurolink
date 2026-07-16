@@ -8,6 +8,7 @@
  */
 
 import type { AIProviderName } from "../constants/enums.js";
+import type { KnowledgeRequestScope } from "./knowledge.js";
 
 // ============================================================================
 // Core Types
@@ -56,6 +57,17 @@ export type DynamicArgument<T> =
  * instead of static values for context-aware resolution.
  */
 export type DynamicOptions = {
+  /**
+   * Opt this call into the knowledge grounding configured on the NeuroLink
+   * instance. This flag is intentionally static because grounding runs before
+   * dynamic arguments are resolved.
+   */
+  useKnowledgeGrounding?: boolean;
+  /**
+   * Enabled integrations used to scope knowledge retrieval for this turn.
+   * This scope is intentionally static for the same reason.
+   */
+  knowledgeContext?: KnowledgeRequestScope;
   model?: DynamicArgument<string>;
   provider?: DynamicArgument<AIProviderName | string>;
   temperature?: DynamicArgument<number>;
