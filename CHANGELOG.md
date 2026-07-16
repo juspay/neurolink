@@ -1,3 +1,9 @@
+## [9.88.12](https://github.com/juspay/neurolink/compare/v9.88.11...v9.88.12) (2026-07-16)
+
+### Bug Fixes
+
+- **(marketing):** correct provider count to 30+ and retire unbacked claims ([0db46ca](https://github.com/juspay/neurolink/commit/0db46ca5e49708c16805290d801d314cd6346e5c))
+
 ## [9.88.11](https://github.com/juspay/neurolink/compare/v9.88.10...v9.88.11) (2026-07-16)
 
 ### Bug Fixes
