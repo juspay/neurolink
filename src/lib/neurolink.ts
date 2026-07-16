@@ -386,7 +386,7 @@ const isNonRetryableProviderError = sharedIsNonRetryableProviderError;
  *
  * Main SDK class providing unified access to 14+ AI providers with enterprise features:
  * - Multi-provider support (OpenAI, Anthropic, Google AI Studio, Google Vertex, AWS Bedrock, etc.)
- * - MCP (Model Context Protocol) tool integration with 58+ external servers
+ * - MCP (Model Context Protocol) tool integration — connect any MCP-compliant server
  * - Human-in-the-Loop (HITL) security workflows for regulated industries
  * - Redis-based conversation memory and persistence
  * - Enterprise middleware system for monitoring and control

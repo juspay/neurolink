@@ -143,7 +143,7 @@ await stream.send("Compare to last week");
 - ✅ Enterprise features (proxy, Redis, failover, telemetry)
 - ✅ SDK + CLI for any workflow
 - ✅ Real-time streaming with tool support
-- ✅ 6 built-in tools + 58+ MCP servers
+- ✅ 6 built-in tools + any MCP-compliant server
 - ✅ Production deployment at scale (15M+ requests/month)
 
 **You can use this today.**

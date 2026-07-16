@@ -58,7 +58,7 @@ Comprehensive guides for all NeuroLink features organized by category. Each guid
 | **[Image Generation](../image-generation-streaming.md)** | Generate images from text prompts using Gemini models via Vertex AI or Google AI Studio.           |
 | **[Enterprise HITL](enterprise-hitl.md)**                | Production-ready HITL with approval workflows, confidence thresholds, and enterprise patterns.     |
 | **[Interactive CLI](interactive-cli.md)**                | AI development environment with loop mode, session variables, and conversation memory.             |
-| **[MCP Tools Showcase](mcp-tools-showcase.md)**          | Complete guide to 6 built-in tools and 58+ external MCP servers across 6 categories.               |
+| **[MCP Tools Showcase](mcp-tools-showcase.md)**          | Complete guide to 6 built-in tools and connecting external MCP servers across 6 categories.        |
 | **[Human-in-the-Loop (HITL)](hitl.md)**                  | Pause AI tool execution for user approval before risky operations like file deletion or API calls. |
 | **[Guardrails Middleware](guardrails.md)**               | Content filtering, PII detection, and safety checks for AI outputs with zero configuration.        |
 | **[Redis Conversation Export](conversation-history.md)** | Export complete session history as JSON for analytics, debugging, and compliance auditing.         |
@@ -253,7 +253,7 @@ NeuroLink includes **5 production-ready MCP servers** for enterprise agent deplo
 - **Tool Standards**: Full MCP specification compliance
 - **Context Passing**: Rich context with sessionId, userId, permissions (15+ fields)
 
-#### 58+ External MCP Servers
+#### External MCP Servers
 
 Supported for extended functionality:
 
@@ -283,7 +283,7 @@ const result = await neurolink.generate({
 ```
 
 **[MCP Integration Guide](../advanced/mcp-integration.md)** - Setup and usage
-**[MCP Server Catalog](../guides/mcp/server-catalog.md)** - Complete server list (58+)
+**[MCP Server Catalog](../guides/mcp/server-catalog.md)** - Directory of 58+ community servers you can connect
 
 ---
 

@@ -36,7 +36,7 @@ for await (const chunk of result.stream) {
 
 Extracted from production systems at Juspay, NeuroLink provides a practical, TypeScript-first way to integrate AI into any application. Whether you're building with OpenAI, Anthropic, Google, AWS Bedrock, Azure, or any of our 30+ supported providers, NeuroLink gives you a single, consistent interface that works everywhere.
 
-**Why NeuroLink?** Switch providers with a single parameter change, leverage 64+ built-in tools and MCP servers, deploy with confidence using enterprise features like Redis memory and multi-provider failover, and optimize costs automatically with intelligent routing. Use it via our professional CLI or TypeScript SDK—whichever fits your workflow.
+**Why NeuroLink?** Switch providers with a single parameter change, leverage built-in tools plus any MCP-compliant tool server, deploy with confidence using enterprise features like Redis memory and multi-provider failover, and optimize costs automatically with intelligent routing. Use it via our professional CLI or TypeScript SDK—whichever fits your workflow.
 
 **Where we're headed:** We're building for the future of AI—edge-first execution and continuous streaming architectures that make AI practically free and universally available. **[Read our vision →](docs/about/vision.md)**
 
@@ -489,7 +489,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is shi
 | `calculateMath`      | Mathematical operations  | ✅                      | [Tool Reference](docs/sdk/custom-tools.md) |
 | `websearchGrounding` | Google Vertex web search | ⚠️ Requires credentials | [Tool Reference](docs/sdk/custom-tools.md) |
 
-**58+ External MCP Servers** supported (GitHub, PostgreSQL, Google Drive, Slack, and more):
+**External MCP servers** — connect any MCP-compliant server via `neurolink mcp add`; 11 popular servers (GitHub, PostgreSQL, Google Drive, Slack, and more) ship with ready-made configs:
 
 ```typescript
 // stdio transport - local MCP servers via command execution
@@ -993,7 +993,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 - [Enterprise HITL Guide](docs/features/enterprise-hitl.md) - Approval workflows for high-stakes operations
 - [Interactive CLI Guide](docs/features/interactive-cli.md) - AI development environment
-- [MCP Tools Showcase](docs/features/mcp-tools-showcase.md) - 58+ external tools & 6 built-in tools
+- [MCP Tools Showcase](docs/features/mcp-tools-showcase.md) - 6 built-in tools & connecting external MCP servers
 
 **Provider Intelligence:**
 
