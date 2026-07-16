@@ -312,6 +312,30 @@ async function testSearch(): Promise<void> {
     },
   );
 
+  await runTest(
+    "6b. #1139: scoped skills fail closed when no scopeId is supplied",
+    async () => {
+      const nl = makeSkillsInstance();
+      const mgr = nl.getSkillsManager()!;
+      // No scopeId (and no defaultScopeId): scoped skills must NOT leak.
+      const searched = await mgr.search({ query: "standup" });
+      assert(
+        searched.length === 0,
+        "scoped skill leaked to search with no scopeId",
+      );
+      const listed = await mgr.list();
+      assert(
+        !listed.some((s) => s.name === "team_alpha_standup"),
+        "scoped skill leaked to list with no scopeId",
+      );
+      // The two global seed skills stay visible without a scopeId.
+      assert(
+        listed.length === 2,
+        `expected 2 global skills, got ${listed.length}`,
+      );
+    },
+  );
+
   await runTest("7. maxMatches caps hydrated results", async () => {
     const many = Array.from({ length: 8 }, (_, i) => ({
       id: `bulk-${i}`,
@@ -338,7 +362,9 @@ async function testSearch(): Promise<void> {
     async () => {
       const nl = makeSkillsInstance();
       const execute = getToolExecute(nl, "list_skills");
-      const result = (await execute({})) as {
+      // Scope supplied so the scoped seed skill is included (fail-closed
+      // filtering hides it without a scopeId — #1139).
+      const result = (await execute({ scopeId: "team-alpha" })) as {
         success: boolean;
         data: { skills: Array<Record<string, unknown>>; count: number };
       };
@@ -599,20 +625,46 @@ async function testDiscovery(): Promise<void> {
         !useSkill.description.includes("payments-oncall"),
         "instructions leaked into the listing",
       );
-      // Sorted by name: refund… < service_deployment < team_alpha_standup
+      // Sorted by name: refund… < service_deployment. The scoped
+      // team_alpha_standup is NOT listed without a scopeId (#1139 fail-closed):
+      // the default discovery listing must not leak scoped skills.
       const listing = useSkill.description;
       assert(
         listing.indexOf("refund_dispute_escalation") <
-          listing.indexOf("service_deployment") &&
-          listing.indexOf("service_deployment") <
-            listing.indexOf("team_alpha_standup"),
+          listing.indexOf("service_deployment"),
         "listing must be name-sorted",
+      );
+      assert(
+        !listing.includes("team_alpha_standup"),
+        "scoped skill must not appear in the default (no-scopeId) discovery listing",
       );
       // Deterministic: a second augmentation renders byte-identical listing
       const again = await applyAugmentation(nl, { systemPrompt: "x" });
       assert(
         getCallTool(again, "use_skill").description === useSkill.description,
         "listing must be byte-stable across calls",
+      );
+    },
+  );
+
+  await runTest(
+    "15b. #1139: promptIndexMaxItems=0 suppresses the system-prompt index",
+    async () => {
+      const nl = makeSkillsInstance({
+        discovery: "system-prompt",
+        promptIndexMaxItems: 0,
+      });
+      const options = await applyAugmentation(nl, {
+        systemPrompt: "You are Tara.",
+      });
+      const prompt = options.systemPrompt as string;
+      assert(
+        prompt === "You are Tara.",
+        "promptIndexMaxItems=0 must not inject the skills index",
+      );
+      assert(
+        !prompt.includes("## Available Skills"),
+        "promptIndexMaxItems=0 must suppress the '## Available Skills' block",
       );
     },
   );
@@ -748,6 +800,59 @@ async function testActivation(): Promise<void> {
       assert(
         !unknown.success && (unknown.error ?? "").includes("nope"),
         "unknown skill must return an error envelope",
+      );
+    },
+  );
+
+  await runTest(
+    "34b. #1139: use_skill fails closed on a scoped skill without a scopeId",
+    async () => {
+      const nl = makeSkillsInstance();
+      // No scopeId supplied: the scoped seed skill must be invisible by name,
+      // closing the per-call activation bypass (isSkillVisibleInScope).
+      const noScope = await applyAugmentation(nl, { systemPrompt: "" });
+      const blocked = (await getCallTool(noScope, "use_skill").execute({
+        name: "team_alpha_standup",
+      })) as { success: boolean; error?: string };
+      assert(
+        !blocked.success &&
+          (blocked.error ?? "").includes("team_alpha_standup"),
+        "scoped skill must not activate by name without a scopeId",
+      );
+
+      // The tenant's own scopeId makes exactly that scoped skill activatable.
+      const inScope = await applyAugmentation(nl, {
+        systemPrompt: "",
+        context: { sessionId: "sess-scope-alpha" },
+        skills: { scopeId: "team-alpha" },
+      });
+      const allowed = (await getCallTool(inScope, "use_skill").execute({
+        name: "team_alpha_standup",
+      })) as { success: boolean; data?: { instructions?: string } };
+      assert(
+        allowed.success &&
+          (allowed.data?.instructions ?? "").includes("alpha channel"),
+        "scoped skill must activate for its own scopeId",
+      );
+    },
+  );
+
+  await runTest(
+    "34c. #1139: read_skill_resource fails closed on a scoped skill without a scopeId",
+    async () => {
+      const nl = makeSkillsInstance();
+      const noScope = await applyAugmentation(nl, { systemPrompt: "" });
+      const blocked = (await getCallTool(
+        noScope,
+        "read_skill_resource",
+      ).execute({
+        skill: "team_alpha_standup",
+        path: "references/anything.md",
+      })) as { success: boolean; error?: string };
+      assert(
+        !blocked.success &&
+          (blocked.error ?? "").includes("team_alpha_standup"),
+        "scoped skill resources must not be readable without a scopeId",
       );
     },
   );
@@ -1145,7 +1250,11 @@ async function testMutations(): Promise<void> {
       const after = await nl.getSkillsManager()!.search({ query: "refund" });
       assert(after.length === 0, "deprecated skill still matches");
       const list = getToolExecute(nl, "list_skills");
-      const listed = (await list({})) as { data: { count: number } };
+      // Scope supplied so the scoped seed skill stays visible (fail-closed
+      // filtering hides it without a scopeId — #1139); refund must be gone.
+      const listed = (await list({ scopeId: "team-alpha" })) as {
+        data: { count: number };
+      };
       assert(listed.data.count === 2, "deprecated skill still listed");
     },
   );
@@ -1732,7 +1841,7 @@ async function testServerRoutes(): Promise<void> {
       const nl = makeSkillsInstance({ allowMutations: true });
 
       const listed = (await handlers.get("GET /api/agent/skills")!(
-        makeServerCtx(nl),
+        makeServerCtx(nl, { query: { scopeId: "team-alpha" } }),
       )) as { skills: unknown[]; count: number };
       assert(listed.count === 3, `expected 3 skills, got ${listed.count}`);
 
@@ -1804,7 +1913,7 @@ async function testServerRoutes(): Promise<void> {
         "create must be rejected when allowMutations is false",
       );
       const listed = (await handlers.get("GET /api/agent/skills")!(
-        makeServerCtx(nl),
+        makeServerCtx(nl, { query: { scopeId: "team-alpha" } }),
       )) as { count: number };
       assert(listed.count === 3, "blocked create must not have persisted");
     },
