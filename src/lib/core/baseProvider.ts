@@ -767,9 +767,15 @@ export abstract class BaseProvider implements AIProvider {
     toolFilter?: string[];
     excludeTools?: string[];
     enabledToolNames?: string[];
+    disableTools?: boolean;
   }): ResolvedToolPolicy {
     return resolveToolPolicy({
       options: {
+        // Defense-in-depth: both current call sites already zero the tool
+        // record via shouldUseTools before the gate runs, but forwarding
+        // disableTools makes the gate self-sufficient for any future call
+        // site that forgets the upstream check.
+        disableTools: options.disableTools,
         toolFilter: options.toolFilter,
         excludeTools: options.excludeTools,
         enabledToolNames: options.enabledToolNames,
@@ -786,6 +792,7 @@ export abstract class BaseProvider implements AIProvider {
       excludeTools?: string[];
       enabledToolNames?: string[];
       toolChoice?: unknown;
+      disableTools?: boolean;
     },
   ): Record<string, Tool> {
     const policy = this.getToolPolicy(options);
