@@ -235,6 +235,9 @@ importers:
       '@changesets/cli':
         specifier: ^2.29.8
         version: 2.30.0(@types/node@25.5.0)
+      '@electric-sql/pglite':
+        specifier: ^0.4.6
+        version: 0.4.6
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.1.0)
@@ -1146,6 +1149,9 @@ packages:
   '@derhuerst/http-basic@8.2.4':
     resolution: {integrity: sha512-F9rL9k9Xjf5blCz8HsJRO4diy111cayL2vkY2XE4r4t3n0yPXVYy3KD3nJ1qbrSn9743UWSXH4IwuCa/HWlGFw==}
     engines: {node: '>=6.0.0'}
+
+  '@electric-sql/pglite@0.4.6':
+    resolution: {integrity: sha512-qmlmfN8UyKCee35qkV0r/MBp+Znl8FjBz7OpoglNvww3GJpw0/DLP0o1ZymvLNmcD5DTLOQdzKPtF8Hd3mdl1w==}
 
   '@emnapi/core@1.9.1':
     resolution: {integrity: sha512-mukuNALVsoix/w1BJwFzwXBN/dHeejQtuVzcDsfOEsdpCumXb/E9j8w11h5S54tT1xhifGfbbSm/ICrObRb3KA==}
@@ -9852,6 +9858,8 @@ snapshots:
       http-response-object: 3.0.2
       parse-cache-control: 1.0.1
     optional: true
+
+  '@electric-sql/pglite@0.4.6': {}
 
   '@emnapi/core@1.9.1':
     dependencies:

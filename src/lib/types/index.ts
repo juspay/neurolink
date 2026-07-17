@@ -56,6 +56,8 @@ export * from "./taskClassification.js";
 export * from "./toolDedup.js";
 export * from "./toolRouting.js";
 export * from "./tools.js";
+export * from "./vectorStoreChroma.js";
+export * from "./vectorStorePinecone.js";
 export * from "./voice.js";
 export * from "./universalProviderOptions.js";
 export * from "./utilities.js";
