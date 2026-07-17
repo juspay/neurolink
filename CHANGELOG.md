@@ -1,3 +1,9 @@
+## [9.91.0](https://github.com/juspay/neurolink/compare/v9.90.0...v9.91.0) (2026-07-17)
+
+### Features
+
+- **(tools):** unified tool policy gate + on-demand MCP tool discovery ([52a749c](https://github.com/juspay/neurolink/commit/52a749c8e36e7f501f1265f5f0b6505a483c5fd9))
+
 ## [9.90.0](https://github.com/juspay/neurolink/compare/v9.89.0...v9.90.0) (2026-07-17)
 
 ### Features
