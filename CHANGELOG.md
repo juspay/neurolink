@@ -1,3 +1,9 @@
+## [9.92.0](https://github.com/juspay/neurolink/compare/v9.91.1...v9.92.0) (2026-07-17)
+
+### Features
+
+- **(proxy):** hot-reload routing configuration ([de31a3c](https://github.com/juspay/neurolink/commit/de31a3cac77326d49c5211099238a852b9623dda))
+
 ## [9.91.1](https://github.com/juspay/neurolink/compare/v9.91.0...v9.91.1) (2026-07-17)
 
 ### Bug Fixes
