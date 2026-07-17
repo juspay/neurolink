@@ -496,6 +496,44 @@ export type VectorStore = {
 };
 
 // ============================================================================
+// pgvector VectorStore adapter (src/lib/rag/stores/pgvector.ts)
+// ============================================================================
+
+/** Minimal shape of a query result, satisfied by both `pg` and `pglite`. */
+export type PgQueryResult<T = unknown> = {
+  rows: T[];
+};
+
+/**
+ * Minimal structural interface a caller-supplied Postgres client must
+ * satisfy. Both `pg.Pool` (`node-postgres`) and `@electric-sql/pglite`
+ * instances already expose a compatible `query(text, values?)` method —
+ * neither is a dependency of this package. Callers construct and own the
+ * client; `PgVectorStore` only ever calls `query()` on it.
+ */
+export type PgClientLike = {
+  query(text: string, values?: unknown[]): Promise<PgQueryResult>;
+};
+
+/** Construction options for `PgVectorStore`. */
+export type PgVectorStoreOptions = {
+  /**
+   * Prefix prepended to `indexName` to derive the backing table name.
+   * Must itself be a valid, unquoted Postgres identifier.
+   * @default "neurolink_vs_"
+   */
+  tablePrefix?: string;
+};
+
+/** Row shape returned by `PgVectorStore`'s SELECT queries. */
+export type PgVectorStoreRow = {
+  id: string;
+  metadata: unknown;
+  score: unknown;
+  embedding?: unknown;
+};
+
+// ============================================================================
 // Document Loader Types (from src/lib/rag/document/loaders.ts)
 // ============================================================================
 

@@ -155,6 +155,8 @@ export {
   linearCombination,
   reciprocalRankFusion,
 } from "./retrieval/index.js";
+// Vector store adapters (Pinecone, pgvector, Chroma — client-injection)
+export * from "./stores/index.js";
 
 // Types
 export * from "../types/index.js";
