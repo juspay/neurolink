@@ -32,6 +32,7 @@ import type {
 import { OtelBridge } from "../observability/otelBridge.js";
 import { SeverityNumber } from "@opentelemetry/api-logs";
 import type { LoggerProvider } from "@opentelemetry/sdk-logs";
+import { configureProxyLifecycleLogger } from "./proxyLifecycle.js";
 
 let logDir: string | null = null;
 let logEnabled = false;
@@ -74,8 +75,11 @@ export function initRequestLogger(
   enabled: boolean = true,
   customLogsDir?: string,
 ): void {
+  // Lifecycle metadata deliberately shares the request logger's enablement,
+  // directory permissions, retention boundary, and operator privacy control.
   logEnabled = enabled;
   if (!enabled) {
+    configureProxyLifecycleLogger({ enabled: false });
     return;
   }
 
@@ -85,9 +89,11 @@ export function initRequestLogger(
       mkdirSync(logDir, { recursive: true, mode: 0o700 });
     }
     chmodSync(logDir, 0o700);
+    configureProxyLifecycleLogger({ enabled: true, logDir });
   } catch (err) {
     logEnabled = false;
     logDir = null;
+    configureProxyLifecycleLogger({ enabled: false });
     logger.warn(
       `[proxy] Request logging disabled — failed to create log directory: ${err instanceof Error ? err.message : String(err)}`,
     );

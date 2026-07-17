@@ -16,6 +16,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
+import type { Hono } from "hono";
 import {
   buildProxyHealthResponse,
   createProxyReadinessState,
@@ -23,6 +24,7 @@ import {
   waitForProxyReadiness,
 } from "../../lib/proxy/proxyHealth.js";
 import { logger } from "../../lib/utils/logger.js";
+import { withTimeout } from "../../lib/utils/async/withTimeout.js";
 import {
   formatUptime,
   isProcessRunning,
@@ -66,6 +68,12 @@ import {
   trackProxyResponse,
 } from "../../lib/proxy/proxyActivity.js";
 import {
+  flushProxyLifecycleEvents,
+  getProxyLifecycleLoggerSnapshot,
+  hashProxyLifecycleSessionId,
+  logProxyLifecycleEvent,
+} from "../../lib/proxy/proxyLifecycle.js";
+import {
   describeInstallFailure,
   getGlobalInstallArgs,
   resolveGlobalInstaller,
@@ -99,6 +107,7 @@ const PROXY_TELEMETRY_SCRIPT_PATH = fileURLToPath(
     import.meta.url,
   ),
 );
+const PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS = 5_000;
 
 // =============================================================================
 // STATE MANAGEMENT
@@ -854,6 +863,21 @@ export function mapClaudeErrorTypeToStatus(errorType?: string): number {
   }
 }
 
+function getProxyRuntimeErrorCode(error: unknown): string | undefined {
+  let current = error;
+  for (let depth = 0; depth < 3; depth += 1) {
+    if (!current || typeof current !== "object") {
+      return undefined;
+    }
+    const code = (current as { code?: unknown }).code;
+    if (typeof code === "string") {
+      return code;
+    }
+    current = (current as { cause?: unknown }).cause;
+  }
+  return undefined;
+}
+
 async function ensureProxyStartAllowed(spinner: ProxySpinner): Promise<void> {
   const ignoreLaunchd =
     process.env.NEUROLINK_PROXY_IGNORE_LAUNCHD === "1" ||
@@ -953,6 +977,131 @@ async function createProxyNeurolinkRuntime(logsDir?: string) {
   return { neurolink, cleanupLogs };
 }
 
+function registerProxyRequestTracking(
+  app: Hono,
+  requestMetadata: WeakMap<Request, RuntimeRequestMetadata>,
+): void {
+  app.use("/v1/*", async (c, next) => {
+    const startedMonotonicMs = performance.now();
+    const contentLengthHeader = c.req.raw.headers.get("content-length");
+    const rawContentLength =
+      contentLengthHeader === null ? Number.NaN : Number(contentLengthHeader);
+    const requestBytes =
+      Number.isFinite(rawContentLength) && rawContentLength >= 0
+        ? rawContentLength
+        : undefined;
+    const sessionId =
+      c.req.raw.headers.get("x-neurolink-session-id") ??
+      c.req.raw.headers.get("x-claude-code-session-id") ??
+      undefined;
+    const sessionHash = hashProxyLifecycleSessionId(sessionId);
+    const metadata: RuntimeRequestMetadata = {
+      requestId: crypto.randomUUID(),
+      method: c.req.method,
+      path: c.req.path,
+      startedAt: Date.now(),
+      model: "-",
+      stream: false,
+      toolCount: 0,
+    };
+    requestMetadata.set(c.req.raw, metadata);
+    const finishActivity = beginProxyRequest();
+    const finish = () => {
+      finishActivity();
+      requestMetadata.delete(c.req.raw);
+    };
+    // The route adapter populates model/stream/toolCount after parsing. Omit
+    // them at acceptance instead of publishing misleading placeholder values;
+    // subsequent events carry the parsed metadata under the same request ID.
+    logProxyLifecycleEvent({
+      event: "request_accepted",
+      requestId: metadata.requestId,
+      method: metadata.method,
+      path: metadata.path,
+      sessionHash,
+      requestBytes,
+      elapsedMs: 0,
+      monotonicMs: startedMonotonicMs,
+    });
+    try {
+      await next();
+      const responseStatus = c.res.status;
+      logProxyLifecycleEvent({
+        event: "response_headers",
+        requestId: metadata.requestId,
+        method: metadata.method,
+        path: metadata.path,
+        model: metadata.model,
+        stream: metadata.stream,
+        toolCount: metadata.toolCount,
+        sessionHash,
+        requestBytes,
+        responseStatus,
+        elapsedMs: performance.now() - startedMonotonicMs,
+      });
+      c.res = trackProxyResponse(c.res, finish, {
+        onFirstChunk: ({ observedBodyBytes, responseChunks }) => {
+          logProxyLifecycleEvent({
+            event: "response_first_chunk",
+            requestId: metadata.requestId,
+            method: metadata.method,
+            path: metadata.path,
+            model: metadata.model,
+            stream: metadata.stream,
+            toolCount: metadata.toolCount,
+            sessionHash,
+            requestBytes,
+            responseStatus,
+            observedBodyBytes,
+            responseChunks,
+            elapsedMs: performance.now() - startedMonotonicMs,
+          });
+        },
+        onTerminal: ({ outcome, observedBodyBytes, responseChunks }) => {
+          logProxyLifecycleEvent({
+            event: "request_terminal",
+            requestId: metadata.requestId,
+            method: metadata.method,
+            path: metadata.path,
+            model: metadata.model,
+            stream: metadata.stream,
+            toolCount: metadata.toolCount,
+            sessionHash,
+            requestBytes,
+            responseStatus,
+            observedBodyBytes,
+            responseChunks,
+            elapsedMs: performance.now() - startedMonotonicMs,
+            terminalOutcome: outcome,
+            errorType: metadata.terminalErrorType,
+            errorCode: metadata.terminalErrorCode,
+          });
+        },
+      });
+    } catch (error) {
+      // Keep metadata available to app.onError, which records the client-facing
+      // failure with the same request ID before deleting the WeakMap entry.
+      finishActivity();
+      logProxyLifecycleEvent({
+        event: "request_terminal",
+        requestId: metadata.requestId,
+        method: metadata.method,
+        path: metadata.path,
+        model: metadata.model,
+        stream: metadata.stream,
+        toolCount: metadata.toolCount,
+        sessionHash,
+        requestBytes,
+        elapsedMs: performance.now() - startedMonotonicMs,
+        terminalOutcome: "handler_error",
+        errorType: error instanceof Error ? error.name : "unknown_error",
+        errorCode: getProxyRuntimeErrorCode(error),
+      });
+      throw error;
+    }
+  });
+}
+
 export async function createProxyStartApp(params: {
   neurolink: ProxyNeurolinkRuntime["neurolink"];
   modelRouter: ModelRouterInterface | undefined;
@@ -983,9 +1132,14 @@ export async function createProxyStartApp(params: {
     status: number,
     errorType: string,
     errorMessage: string,
-    clientMessage: string = errorMessage,
-    clientErrorType: string = errorType,
+    options?: {
+      clientMessage?: string;
+      clientErrorType?: string;
+      errorCode?: string;
+    },
   ): Promise<void> => {
+    const clientMessage = options?.clientMessage ?? errorMessage;
+    const clientErrorType = options?.clientErrorType ?? errorType;
     recordFinalError(status);
     await Promise.all([
       logRequest({
@@ -1002,6 +1156,7 @@ export async function createProxyStartApp(params: {
         responseTimeMs: Date.now() - metadata.startedAt,
         errorType,
         errorMessage,
+        ...(options?.errorCode ? { errorCode: options.errorCode } : {}),
       }),
       logBodyCapture({
         timestamp: new Date().toISOString(),
@@ -1036,14 +1191,13 @@ export async function createProxyStartApp(params: {
       stream: false,
       toolCount: 0,
     };
-    await recordRuntimeError(
-      metadata,
-      502,
-      "unhandled_proxy_error",
-      errMsg,
-      "Proxy internal error",
-      "api_error",
-    );
+    metadata.terminalErrorType = "unhandled_proxy_error";
+    metadata.terminalErrorCode = getProxyRuntimeErrorCode(err);
+    await recordRuntimeError(metadata, 502, "unhandled_proxy_error", errMsg, {
+      clientMessage: "Proxy internal error",
+      clientErrorType: "api_error",
+      errorCode: metadata.terminalErrorCode,
+    });
     requestMetadata.delete(c.req.raw);
     return c.json(
       {
@@ -1057,30 +1211,7 @@ export async function createProxyStartApp(params: {
     );
   });
 
-  app.use("/v1/*", async (c, next) => {
-    const metadata: RuntimeRequestMetadata = {
-      requestId: crypto.randomUUID(),
-      method: c.req.method,
-      path: c.req.path,
-      startedAt: Date.now(),
-      model: "-",
-      stream: false,
-      toolCount: 0,
-    };
-    requestMetadata.set(c.req.raw, metadata);
-    const finishActivity = beginProxyRequest();
-    const finish = () => {
-      finishActivity();
-      requestMetadata.delete(c.req.raw);
-    };
-    try {
-      await next();
-      c.res = trackProxyResponse(c.res, finish);
-    } catch (error) {
-      finishActivity();
-      throw error;
-    }
-  });
+  registerProxyRequestTracking(app, requestMetadata);
 
   const runtimeConfigStore = params.runtimeConfigStore;
   const runtimeConfigProvider = runtimeConfigStore
@@ -1368,6 +1499,9 @@ export async function createProxyStartApp(params: {
           lastActivityAt: activity.lastActivityAt?.toISOString() ?? null,
         };
       })(),
+      observability: {
+        lifecycle: getProxyLifecycleLoggerSnapshot(),
+      },
       autoUpdate: {
         enabled: isProxyAutoUpdateEnabled(),
         updaterPid: runtimeState?.updaterPid ?? null,
@@ -1743,6 +1877,18 @@ function registerProxyShutdownHandlers(params: {
       exitCode = 1;
       logger.error(
         `[proxy] failed to drain server during shutdown: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    try {
+      await withTimeout(
+        flushProxyLifecycleEvents(),
+        PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS,
+        "Timed out flushing proxy lifecycle metadata during shutdown",
+      );
+    } catch (error) {
+      logger.debug(
+        `[proxy] lifecycle metadata flush failed during shutdown: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 

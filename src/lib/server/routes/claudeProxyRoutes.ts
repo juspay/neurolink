@@ -4403,7 +4403,10 @@ async function handleAnthropicAuthRetry(args: {
           : String(retryFetchErr);
       authRetryError = `network error on retry ${authRetry + 1}: ${message}`;
       currentLastError = authRetryError;
-      retryLogAttempt(502, "network_error", message, { retryable: true });
+      retryLogAttempt(502, "network_error", message, {
+        retryable: isRetryableNetworkError(retryFetchErr),
+        errorCode: getErrorCode(retryFetchErr) ?? "unknown",
+      });
       logger.debug(`[proxy] ${authRetryError}`);
       break;
     }
@@ -4992,6 +4995,7 @@ function createAnthropicAttemptLogger(args: {
       responseTimeMs: Date.now() - requestStart,
       ...(errorType ? { errorType } : {}),
       ...(errorMessage ? { errorMessage } : {}),
+      ...(extra?.errorCode ? { errorCode: extra.errorCode } : {}),
       ...(extra?.inputTokens !== undefined
         ? { inputTokens: extra.inputTokens }
         : {}),
@@ -5317,9 +5321,9 @@ async function fetchAnthropicAccountResponse(args: {
       signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
     });
   } catch (fetchErr) {
-    if (!isRetryableNetworkError(fetchErr)) {
-      throw fetchErr;
-    }
+    const retryable = isRetryableNetworkError(fetchErr);
+    // Every dispatched upstream request is an attempt, including terminal
+    // transport failures. Record it once before preserving the throw behavior.
     sawNetworkError = true;
     recordAttemptError(account.label, account.type, 502);
     const errorCode = getErrorCode(fetchErr) ?? "unknown";
@@ -5327,12 +5331,20 @@ async function fetchAnthropicAccountResponse(args: {
       fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
     lastError = errorMessage;
     logger.always(
-      `[proxy] fetch error account=${account.label} code=${errorCode} (retryable): ${errorMessage}`,
+      `[proxy] fetch error account=${account.label} code=${errorCode} (${retryable ? "retryable" : "terminal"}): ${errorMessage}`,
     );
-    logAttempt(502, "network_error", errorMessage);
+    logAttempt(502, "network_error", errorMessage, {
+      retryable,
+      errorCode,
+    });
     tracer?.setError("network_error", errorMessage);
-    tracer?.recordRetry(account.label, "network_error");
+    if (retryable) {
+      tracer?.recordRetry(account.label, "network_error");
+    }
     currentUpstreamSpan?.end();
+    if (!retryable) {
+      throw fetchErr;
+    }
     return {
       continueLoop: true,
       retrySameAccount: true,
@@ -6386,18 +6398,14 @@ function describeTransportError(error: unknown): string {
 function isRetryableNetworkError(error: unknown): boolean {
   const code = getErrorCode(error);
 
-  // Check non-retryable codes FIRST — before the string-based heuristic
-  // which could false-positive on error messages containing these strings.
-  const NON_RETRYABLE_CODES = ["ENOTFOUND"];
-  if (code && NON_RETRYABLE_CODES.includes(code)) {
-    return false;
-  }
-
   if (
     code &&
     [
       "ECONNREFUSED",
       "ECONNRESET",
+      // The Anthropic host is fixed, so ENOTFOUND can be a transient resolver
+      // outage. Keep it inside the existing bounded same-account retry budget.
+      "ENOTFOUND",
       "ETIMEDOUT",
       "EHOSTUNREACH",
       "UND_ERR_CONNECT_TIMEOUT",
@@ -6412,15 +6420,10 @@ function isRetryableNetworkError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   const normalized = message.toLowerCase();
 
-  // Exclude ENOTFOUND from string-based heuristic — DNS failures are permanent
-  // and rotating accounts won't help since they all hit the same host.
-  if (normalized.includes("enotfound")) {
-    return false;
-  }
-
   return (
     normalized.includes("econnrefused") ||
     normalized.includes("econnreset") ||
+    normalized.includes("enotfound") ||
     normalized.includes("etimedout") ||
     normalized.includes("timed out") ||
     normalized.includes("connection error") ||

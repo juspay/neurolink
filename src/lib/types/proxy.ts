@@ -512,6 +512,8 @@ export type RequestLogEntry = {
   responseTimeMs: number;
   errorType?: string;
   errorMessage?: string;
+  /** Low-level transport code such as ETIMEDOUT or EADDRNOTAVAIL. */
+  errorCode?: string;
   inputTokens?: number;
   outputTokens?: number;
   cacheCreationTokens?: number;
@@ -537,6 +539,8 @@ export type RequestAttemptLogEntry = {
   responseTimeMs: number;
   errorType?: string;
   errorMessage?: string;
+  /** Low-level transport code such as ETIMEDOUT or EADDRNOTAVAIL. */
+  errorCode?: string;
   /** Whether this failed attempt may be retried without changing the request. */
   retryable?: boolean;
   /** Distinguishes short-lived admission throttles from exhausted quota windows. */
@@ -612,6 +616,8 @@ export type AnthropicAttemptLogger = (
     cacheCreationTokens?: number;
     cacheReadTokens?: number;
     retryable?: boolean;
+    /** Low-level transport code such as ETIMEDOUT or EADDRNOTAVAIL. */
+    errorCode?: string;
     rateLimitKind?: "transient" | "quota";
     cooldownReason?: "transient" | "session" | "weekly" | "unified";
     /** Override used when one account selection performs an OAuth retry fetch. */
@@ -1149,6 +1155,98 @@ export type ProxyRuntimeActivity = {
   lastActivityAt: string | null;
 };
 
+/** Terminal state observed while the HTTP adapter relays a response body. */
+export type ProxyResponseTerminalOutcome =
+  | "completed"
+  | "bodyless"
+  | "client_cancelled"
+  | "stream_error";
+
+/** Non-blocking callbacks for response lifecycle metadata. */
+export type ProxyResponseTrackingObserver = {
+  onFirstChunk?: (details: {
+    /** Decoded response-body bytes observed by the adapter. */
+    observedBodyBytes: number;
+    responseChunks: 1;
+  }) => void;
+  onTerminal?: (details: {
+    outcome: ProxyResponseTerminalOutcome;
+    /** Decoded response-body bytes observed by the adapter. */
+    observedBodyBytes: number;
+    responseChunks: number;
+  }) => void;
+};
+
+/** Versioned lifecycle event names persisted by the proxy adapter. */
+export type ProxyLifecycleEventName =
+  | "request_accepted"
+  | "response_headers"
+  | "response_first_chunk"
+  | "request_terminal";
+
+/** Client-facing terminal classifications recorded by lifecycle metadata. */
+export type ProxyLifecycleTerminalOutcome =
+  | ProxyResponseTerminalOutcome
+  | "handler_error";
+
+/** Content-free lifecycle event accepted by the bounded metadata logger. */
+export type ProxyLifecycleEventInput = {
+  event: ProxyLifecycleEventName;
+  requestId: string;
+  method: string;
+  path: string;
+  model?: string;
+  stream?: boolean;
+  toolCount?: number;
+  sessionHash?: string;
+  requestBytes?: number;
+  responseStatus?: number;
+  /** Decoded response-body bytes observed by the adapter. */
+  observedBodyBytes?: number;
+  responseChunks?: number;
+  elapsedMs?: number;
+  terminalOutcome?: ProxyLifecycleTerminalOutcome;
+  errorType?: string;
+  errorCode?: string;
+  timestampMs?: number;
+  monotonicMs?: number;
+};
+
+/** Data-quality counters for the bounded lifecycle metadata sink. */
+export type ProxyLifecycleLoggerSnapshot = {
+  enabled: boolean;
+  schemaVersion: number;
+  processInstanceId: string;
+  nextSequence: number;
+  attempted: number;
+  enqueued: number;
+  written: number;
+  dropped: number;
+  queueDrops: number;
+  invalidDrops: number;
+  writeDrops: number;
+  writeFailures: number;
+  pending: number;
+  inFlight: number;
+  flushing: boolean;
+};
+
+/** Lifecycle logger configuration. Queue overrides are used by stress tests. */
+export type ProxyLifecycleLoggerOptions = {
+  enabled: boolean;
+  logDir?: string;
+  queueCapacity?: number;
+  batchSize?: number;
+  flushIntervalMs?: number;
+};
+
+/** Serialized lifecycle line awaiting a bounded batch write. */
+export type QueuedProxyLifecycleEvent = {
+  logDir: string;
+  date: string;
+  record: Record<string, unknown>;
+};
+
 /** Request metadata retained by the HTTP adapter for terminal error logging. */
 export type RuntimeRequestMetadata = {
   requestId: string;
@@ -1158,6 +1256,8 @@ export type RuntimeRequestMetadata = {
   model: string;
   stream: boolean;
   toolCount: number;
+  terminalErrorType?: string;
+  terminalErrorCode?: string;
 };
 
 // =============================================================================

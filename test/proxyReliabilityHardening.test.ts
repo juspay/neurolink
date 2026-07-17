@@ -392,7 +392,7 @@ describe("OAuth request-shape preservation", () => {
   });
 });
 
-describe("429 classification and retry amplification", () => {
+describe("upstream attempt classification and retry amplification", () => {
   const fetchArgs = (
     logAttempt: ReturnType<typeof vi.fn>,
     logProxyBody: ReturnType<typeof vi.fn>,
@@ -419,6 +419,83 @@ describe("429 classification and retry amplification", () => {
     currentLastError: undefined,
     currentSawRateLimit: false,
     currentSawNetworkError: false,
+  });
+
+  it("persists the low-level code for retryable fetch failures", async () => {
+    const fetchError = Object.assign(new TypeError("fetch failed"), {
+      cause: { code: "EADDRNOTAVAIL" },
+    });
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(fetchError);
+    const logAttempt = vi.fn();
+
+    const result = await __testHooks.fetchAnthropicAccountResponse(
+      fetchArgs(logAttempt, vi.fn()),
+    );
+
+    expect(result).toMatchObject({
+      continueLoop: true,
+      retrySameAccount: true,
+      sawNetworkError: true,
+    });
+    expect(logAttempt).toHaveBeenCalledWith(
+      502,
+      "network_error",
+      "fetch failed",
+      {
+        retryable: true,
+        errorCode: "EADDRNOTAVAIL",
+      },
+    );
+    expect(getStats()).toMatchObject({ totalAttemptErrors: 1 });
+  });
+
+  it("retries transient DNS lookup failures on the same account", async () => {
+    const fetchError = Object.assign(new TypeError("fetch failed"), {
+      cause: { code: "ENOTFOUND" },
+    });
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(fetchError);
+    const logAttempt = vi.fn();
+
+    const result = await __testHooks.fetchAnthropicAccountResponse(
+      fetchArgs(logAttempt, vi.fn()),
+    );
+
+    expect(result).toMatchObject({
+      continueLoop: true,
+      retrySameAccount: true,
+      sawNetworkError: true,
+    });
+    expect(logAttempt).toHaveBeenCalledWith(
+      502,
+      "network_error",
+      "fetch failed",
+      {
+        retryable: true,
+        errorCode: "ENOTFOUND",
+      },
+    );
+  });
+
+  it("logs non-retryable fetch failures before preserving terminal behavior", async () => {
+    const fetchError = Object.assign(new TypeError("invalid URL"), {
+      cause: { code: "ERR_INVALID_URL" },
+    });
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(fetchError);
+    const logAttempt = vi.fn();
+
+    await expect(
+      __testHooks.fetchAnthropicAccountResponse(fetchArgs(logAttempt, vi.fn())),
+    ).rejects.toBe(fetchError);
+    expect(logAttempt).toHaveBeenCalledWith(
+      502,
+      "network_error",
+      "invalid URL",
+      {
+        retryable: false,
+        errorCode: "ERR_INVALID_URL",
+      },
+    );
+    expect(getStats()).toMatchObject({ totalAttemptErrors: 1 });
   });
 
   it("returns a construction rejection once without counting it as a rate limit", async () => {
@@ -623,6 +700,73 @@ describe("429 classification and retry amplification", () => {
         { phase: "upstream_response", attempt: 3 },
         { phase: "client_response", attempt: 3 },
       ]),
+    );
+  });
+
+  it("classifies terminal OAuth retry transport failures as non-retryable", async () => {
+    const retryError = Object.assign(new TypeError("invalid URL"), {
+      cause: { code: "ERR_INVALID_URL" },
+    });
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            access_token: "refreshed-access",
+            refresh_token: "refreshed-refresh",
+            expires_in: 3600,
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockRejectedValueOnce(retryError);
+    const account = {
+      key: "anthropic:primary@example.com",
+      label: "primary@example.com",
+      token: "expired-access",
+      refreshToken: "valid-refresh",
+      type: "oauth" as const,
+    };
+    const logAttempt = vi.fn();
+
+    const result = await __testHooks.handleAnthropicAuthRetry({
+      ctx: {} as never,
+      body: { model: "claude-sonnet-5", messages: [], stream: true },
+      account,
+      accountState: {
+        consecutiveRefreshFailures: 0,
+        permanentlyDisabled: false,
+      },
+      headers: { "content-type": "application/json" },
+      buildUpstreamBody: () => ({ bodyStr: "{}" }),
+      enabledAccounts: [account],
+      orderedAccounts: [account],
+      requestStartTime: Date.now(),
+      allocateAttemptNumber: () => 2,
+      logAttempt,
+      logProxyBody: vi.fn(),
+      logFinalRequest: vi.fn(),
+      lastError: undefined,
+      authFailureMessage: null,
+      sawRateLimit: false,
+      sawTransientFailure: false,
+      sawNetworkError: false,
+    });
+
+    expect(result).toMatchObject({
+      continueLoop: true,
+      sawNetworkError: true,
+      lastError: "network error on retry 1: invalid URL",
+    });
+    expect(logAttempt).toHaveBeenNthCalledWith(
+      2,
+      502,
+      "network_error",
+      "invalid URL",
+      {
+        retryable: false,
+        errorCode: "ERR_INVALID_URL",
+        attempt: 2,
+      },
     );
   });
 
