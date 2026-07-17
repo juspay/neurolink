@@ -42,6 +42,7 @@ import type {
   AuthStatusResult,
   CliProxyConfigDoc,
   OAuthTokens as OAuthTokensType,
+  ProxyState,
   StoredCredentials,
   SupportedProvider,
   YamlModule,
@@ -1086,23 +1087,61 @@ function readPrimaryFromRouting(
 
 /** Best-effort detection of a running proxy. Mirrors `proxy status` semantics
  *  without importing the proxy module. */
-function detectRunningProxyPid(): number | undefined {
+function detectRunningProxyState(): ProxyState | undefined {
   try {
     const stateFile = path.join(NEUROLINK_CONFIG_DIR, "proxy-state.json");
     if (!fs.existsSync(stateFile)) {
       return undefined;
     }
-    const parsed = JSON.parse(fs.readFileSync(stateFile, "utf-8")) as {
-      pid?: number;
-    };
+    const parsed = JSON.parse(
+      fs.readFileSync(stateFile, "utf-8"),
+    ) as ProxyState;
     if (!parsed.pid || typeof parsed.pid !== "number") {
       return undefined;
     }
     process.kill(parsed.pid, 0);
-    return parsed.pid;
+    return parsed;
   } catch {
     return undefined;
   }
+}
+
+function reportRunningProxyConfigUpdate(filePath: string): void {
+  const state = detectRunningProxyState();
+  if (!state) {
+    return;
+  }
+  logger.always("");
+  const editedPath = path.resolve(filePath);
+  const watchedPath = state.configFile
+    ? path.resolve(state.configFile)
+    : undefined;
+  if (watchedPath === editedPath) {
+    logger.always(
+      chalk.green(
+        `✓ Running proxy PID ${state.pid} is watching this file and will apply the change automatically.`,
+      ),
+    );
+    logger.always(
+      chalk.gray(
+        "  Verify the active generation with `neurolink proxy status`.",
+      ),
+    );
+    return;
+  }
+  if (watchedPath) {
+    logger.always(
+      chalk.yellow(
+        `⚠ Running proxy PID ${state.pid} watches ${watchedPath}, not ${editedPath}; this change will not affect that process.`,
+      ),
+    );
+    return;
+  }
+  logger.always(
+    chalk.yellow(
+      `⚠ Running proxy PID ${state.pid} does not report hot-reload support. Restart it to pick up the change.`,
+    ),
+  );
 }
 
 /**
@@ -1160,17 +1199,7 @@ export async function handleSetPrimary(argv: AuthCommandArgs): Promise<void> {
       );
     }
 
-    // Restart hint
-    const pid = detectRunningProxyPid();
-    if (pid) {
-      logger.always("");
-      logger.always(
-        chalk.yellow(
-          `⚠ A proxy is currently running (PID ${pid}). Restart it to pick\n` +
-            "  up the change: `neurolink proxy stop && neurolink proxy start`.",
-        ),
-      );
-    }
+    reportRunningProxyConfigUpdate(filePath);
   } catch (err) {
     logger.error(chalk.red("Failed to set primary account:"));
     logger.error(
@@ -1270,16 +1299,7 @@ export async function handleClearPrimary(argv: AuthCommandArgs): Promise<void> {
     logger.always(chalk.green(`✓ Cleared primary account (was: ${before})`));
     logger.always(chalk.green(`✓ Saved to ${filePath}`));
 
-    const pid = detectRunningProxyPid();
-    if (pid) {
-      logger.always("");
-      logger.always(
-        chalk.yellow(
-          `⚠ A proxy is currently running (PID ${pid}). Restart it to pick\n` +
-            "  up the change: `neurolink proxy stop && neurolink proxy start`.",
-        ),
-      );
-    }
+    reportRunningProxyConfigUpdate(filePath);
   } catch (err) {
     logger.error(chalk.red("Failed to clear primary account:"));
     logger.error(

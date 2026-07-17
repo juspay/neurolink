@@ -136,11 +136,11 @@ By default the "first" account is the first key in token-store insertion order. 
 
 ```bash
 neurolink auth set-primary alice@example.com
-neurolink proxy stop && neurolink proxy start
+neurolink proxy status   # Config: generation N
 curl http://127.0.0.1:55669/status   # stats.primaryAccount.label = alice@example.com
 ```
 
-After a 429 cools off, traffic returns to the configured primary (not literal index 0). When the configured account is missing or disabled, the proxy logs a warning at startup and falls back to insertion-order index 0. See the [config reference](./claude-proxy-config-reference.md#neurolink-auth-set-primary) for the full CLI surface (`set-primary` / `get-primary` / `clear-primary`).
+After a 429 cools off, traffic returns to the configured primary (not literal index 0). When the configured account is missing or disabled, the proxy logs a warning while loading the configuration and falls back to insertion-order index 0. See the [config reference](./claude-proxy-config-reference.md#neurolink-auth-set-primary) for the full CLI surface (`set-primary` / `get-primary` / `clear-primary`).
 
 #### Restricting eligible accounts
 
@@ -174,7 +174,7 @@ Fallback requests go through NeuroLink's `stream()` pipeline (translation mode),
 
 ### Proxy config file
 
-The proxy loads configuration from `~/.neurolink/proxy-config.yaml` by default (override with `--config`). The file supports YAML or JSON format with environment variable interpolation.
+The proxy loads configuration from `~/.neurolink/proxy-config.yaml` by default (override with `--config`). The file supports YAML or JSON format with environment variable interpolation. The running proxy watches this file and its resolved proxy env file. Valid routing edits are published atomically for new requests; in-flight requests keep their original generation. Invalid or deleted observed files are rejected and the last-known-good generation remains active.
 
 ```yaml
 # ~/.neurolink/proxy-config.yaml
@@ -193,6 +193,9 @@ accounts:
 # Routing configuration
 routing:
   strategy: fill-first # or round-robin
+  quota-routing: true
+  session-soft-limit: 0.97
+  session-reset-tolerance-ms: 900000
   primary-account: primary@example.com
   account-allowlist:
     - primary@example.com
@@ -838,13 +841,12 @@ WebSocket-based connections for real-time bidirectional communication.
 
 ### Hot-Reload of Config Files
 
-**Priority: Low** | **Complexity: Low** | **Partially Implemented**
+**Implemented**
 
-Watch configuration files for changes and reload without restart.
-
-- **Credentials hot-reload:** Already implemented — accounts are loaded per-request from disk, and runtime state auto-resets when credentials change (including re-enabling disabled accounts)
-- **What's missing:** Config file hot-reload (`proxy-config.yaml`) — currently requires proxy restart. Could use `chokidar` or `fs.watch` to detect YAML changes and reload ModelRouter, strategy, and other settings
-- **CLIProxyAPI pattern:** Uses `fsnotify` with debouncing (50ms for files, 150ms for config) and SHA256 change detection
+- **Credentials:** Accounts are loaded per request, and runtime state resets when credentials change.
+- **Routing config:** The config and proxy env files are polled with debouncing and SHA256 effective-config detection. Model mappings, fallback chain, passthrough models, strategy, primary account, account allowlist, and quota routing controls apply to the next request without a restart.
+- **Failure behavior:** Parse, validation, missing-file, and primary/allowlist conflicts leave the last-known-good generation active. `/status` and `neurolink proxy status` report the generation and last rejection.
+- **Manual trigger:** Send `SIGHUP` to request an immediate serialized reload. File watching remains the normal path.
 
 ### Quota-Aware Routing
 

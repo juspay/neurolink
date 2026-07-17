@@ -966,6 +966,14 @@ export type ProxyState = {
   managedBy?: "launchd" | "manual";
   /** Whether the proxy is running in transparent passthrough mode */
   passthrough?: boolean;
+  /** Active hot-reload configuration generation. */
+  configGeneration?: number;
+  /** Timestamp when the active configuration generation was loaded. */
+  configLoadedAt?: string;
+  /** Last rejected hot-reload error, when any. */
+  lastConfigReloadError?: string;
+  /** Absolute path watched for proxy routing configuration changes. */
+  configFile?: string;
 };
 
 // ============================================================================

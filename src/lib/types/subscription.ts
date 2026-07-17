@@ -1117,6 +1117,12 @@ export type ProxyRoutingConfig = {
   modelMappings: ModelMapping[];
   fallbackChain: FallbackEntry[];
   passthroughModels?: string[];
+  /** Enable quota-aware fill-first account ordering. Defaults to true. */
+  quotaRouting?: boolean;
+  /** Session utilization threshold used to proactively demote an account. */
+  sessionSoftLimit?: number;
+  /** Reset-time bucket width used when ordering quota windows. */
+  sessionResetToleranceMs?: number;
   /** Email/label of the Anthropic account that should be tried first
    *  ("home"). When absent, falls back to insertion-order index 0.
    *  Resolved per-request to a stable key (anthropic:<email>); does not

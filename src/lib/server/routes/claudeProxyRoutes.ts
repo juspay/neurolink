@@ -55,7 +55,6 @@ import {
   handleTranslatedStreamRequest,
   hasTranslatedOutput,
 } from "../../proxy/proxyTranslationEngine.js";
-import type { ModelRouter } from "../../proxy/modelRouter.js";
 import { tracers } from "../../telemetry/tracers.js";
 import { withSpan } from "../../telemetry/withSpan.js";
 import { ProxyTracer, recordFallbackAttempt } from "../../proxy/proxyTracer.js";
@@ -104,10 +103,12 @@ import type {
   ClaudeLoggedErrorBuilder,
   ClaudeRequest,
   ClaudeRequestRuntimeContext,
+  ClaudeProxyRouteRuntimeOptions,
   ClaudeSnapshot,
   ClaudeSnapshotBody,
   InternalResult,
   LoadedClaudeAccountContext,
+  ModelRouterInterface,
   ParsedClaudeError,
   ParsedClaudeRequest,
   PreparedAnthropicAccountAttempt,
@@ -147,10 +148,9 @@ const BLOCKED_UPSTREAM_HEADERS = new Set([
 let primaryAccountIndex = 0;
 /** Track account count so we can reset primaryAccountIndex when it changes. */
 let lastKnownAccountCount = 0;
-/** Stable account key (e.g. "anthropic:user@example.com") of the configured
- *  home/primary account. Set once at proxy boot from routing.primaryAccount.
- *  When undefined, home semantics fall back to enabledAccounts[0] (insertion
- *  order) — preserves pre-existing behavior. */
+/** Stable account key used by legacy fixed-config route factories. Runtime
+ *  config providers pass the request generation's primary key explicitly.
+ *  When undefined, home semantics retain insertion-order behavior. */
 let configuredPrimaryAccountKey: string | undefined;
 let configuredAccountAllowlist: AccountAllowlist | undefined;
 
@@ -243,8 +243,10 @@ function advancePrimaryIfCurrent(
  *  no key is configured or the key cannot be matched (account disabled/
  *  removed). The resolution is per-request because enabledAccounts membership
  *  can shift between requests. */
-function resolveHomeIndex(enabledAccounts: ProxyPassthroughAccount[]): number {
-  const primaryAccountKey = configuredPrimaryAccountKey;
+function resolveHomeIndex(
+  enabledAccounts: ProxyPassthroughAccount[],
+  primaryAccountKey: string | undefined = configuredPrimaryAccountKey,
+): number {
   if (!primaryAccountKey) {
     return 0;
   }
@@ -260,11 +262,12 @@ function resolveHomeIndex(enabledAccounts: ProxyPassthroughAccount[]): number {
  *  request. Home is resolved fresh per call via resolveHomeIndex. */
 function maybeResetPrimaryToHome(
   enabledAccounts: ProxyPassthroughAccount[],
+  primaryAccountKey: string | undefined = configuredPrimaryAccountKey,
 ): void {
   if (enabledAccounts.length <= 1) {
     return;
   }
-  const homeIndex = resolveHomeIndex(enabledAccounts);
+  const homeIndex = resolveHomeIndex(enabledAccounts, primaryAccountKey);
   if (primaryAccountIndex === homeIndex) {
     return;
   }
@@ -689,12 +692,10 @@ function accountSortMetrics(
 function orderAccountsByQuota(
   accounts: ProxyPassthroughAccount[],
   now: number,
+  primaryKey: string | undefined = configuredPrimaryAccountKey,
+  sessionSoftLimit: number = getSessionSoftLimit(),
+  sessionResetToleranceMs: number = getSessionResetToleranceMs(),
 ): ProxyPassthroughAccount[] {
-  const primaryKey = configuredPrimaryAccountKey;
-  // Read the env-tunable thresholds once per sort: cheaper than per-compare,
-  // and a mid-sort env change can never make the comparator intransitive.
-  const sessionSoftLimit = getSessionSoftLimit();
-  const sessionResetToleranceMs = getSessionResetToleranceMs();
   const metrics = (key: string) =>
     accountSortMetrics(key, now, sessionSoftLimit, sessionResetToleranceMs);
   return [...accounts].sort((a, b) => {
@@ -1300,7 +1301,7 @@ async function handleTranslatedClaudeRequest(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
   route: { provider: string; model: string };
-  modelRouter?: ModelRouter;
+  modelRouter?: ModelRouterInterface;
   tracer?: ProxyTracer;
   requestStartTime: number;
   logProxyBody: ProxyBodyCaptureLogger;
@@ -2050,6 +2051,11 @@ async function loadClaudeProxyAccounts(args: {
   tracer?: ProxyTracer;
   requestStartTime: number;
   accountStrategy: "round-robin" | "fill-first";
+  primaryAccountKey?: string;
+  accountAllowlist?: AccountAllowlist;
+  quotaRoutingEnabled?: boolean;
+  sessionSoftLimit?: number;
+  sessionResetToleranceMs?: number;
   buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
 }): Promise<LoadedClaudeAccountContext | { response: unknown }> {
   const {
@@ -2058,6 +2064,11 @@ async function loadClaudeProxyAccounts(args: {
     tracer,
     requestStartTime,
     accountStrategy,
+    primaryAccountKey = configuredPrimaryAccountKey,
+    accountAllowlist = configuredAccountAllowlist,
+    quotaRoutingEnabled = isQuotaRoutingEnabled(),
+    sessionSoftLimit = getSessionSoftLimit(),
+    sessionResetToleranceMs = getSessionResetToleranceMs(),
     buildLoggedClaudeError,
   } = args;
   const fs = await import("fs");
@@ -2074,7 +2085,7 @@ async function loadClaudeProxyAccounts(args: {
 
   const compoundKeys = await tokenStore.listByPrefix("anthropic:");
   for (const key of compoundKeys) {
-    if (!isAccountAllowed(key, configuredAccountAllowlist)) {
+    if (!isAccountAllowed(key, accountAllowlist)) {
       logger.debug(
         `[proxy] skipping account=${key} (not in account allowlist)`,
       );
@@ -2223,7 +2234,7 @@ async function loadClaudeProxyAccounts(args: {
     shouldLoadFallbackCredential(
       compoundKeys.length,
       LEGACY_ANTHROPIC_ACCOUNT_KEY,
-      configuredAccountAllowlist,
+      accountAllowlist,
     )
   ) {
     try {
@@ -2252,7 +2263,7 @@ async function loadClaudeProxyAccounts(args: {
     shouldLoadFallbackCredential(
       compoundKeys.length,
       ENV_ANTHROPIC_ACCOUNT_KEY,
-      configuredAccountAllowlist,
+      accountAllowlist,
     )
   ) {
     accounts.push({
@@ -2264,7 +2275,7 @@ async function loadClaudeProxyAccounts(args: {
   }
 
   if (accounts.length === 0) {
-    const noCredentialsMessage = configuredAccountAllowlist
+    const noCredentialsMessage = accountAllowlist
       ? "No allowed Anthropic credentials are currently available"
       : compoundKeys.length > 0
         ? "Configured Anthropic accounts are disabled or unavailable"
@@ -2314,12 +2325,18 @@ async function loadClaudeProxyAccounts(args: {
   const quotaOrdered =
     accountStrategy === "fill-first" &&
     orderedAccounts.length > 1 &&
-    isQuotaRoutingEnabled();
+    quotaRoutingEnabled;
   if (quotaOrdered) {
     // Fill-first with a smart fill order: spend the account whose window resets
     // soonest first (max utilization), proactively skipping any whose window is
     // rejected until its reset. Supersedes the static home/primary index.
-    orderedAccounts = orderAccountsByQuota(enabledAccounts, Date.now());
+    orderedAccounts = orderAccountsByQuota(
+      enabledAccounts,
+      Date.now(),
+      primaryAccountKey,
+      sessionSoftLimit,
+      sessionResetToleranceMs,
+    );
     if (logger.shouldLog("debug")) {
       logger.debug(
         `[proxy] quota-ordered fill sequence: ${orderedAccounts
@@ -2332,7 +2349,10 @@ async function loadClaudeProxyAccounts(args: {
       accountStrategy === "round-robin" &&
       orderedAccounts.length !== lastKnownAccountCount
     ) {
-      primaryAccountIndex = resolveHomeIndex(orderedAccounts);
+      primaryAccountIndex = resolveHomeIndex(
+        orderedAccounts,
+        primaryAccountKey,
+      );
       lastKnownAccountCount = orderedAccounts.length;
     }
     if (orderedAccounts.length > 1) {
@@ -2588,7 +2608,7 @@ async function tryConfiguredClaudeFallbackChain(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
   parsedFallbackRequest: ParsedClaudeRequest;
-  modelRouter?: ModelRouter;
+  modelRouter?: ModelRouterInterface;
   tracer?: ProxyTracer;
   requestStartTime: number;
   logProxyBody: ProxyBodyCaptureLogger;
@@ -5432,10 +5452,15 @@ function shouldAttemptClaudeFallback(loopState: AnthropicLoopState): boolean {
 async function handleAnthropicRoutedClaudeRequest(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
-  modelRouter?: ModelRouter;
+  modelRouter?: ModelRouterInterface;
   tracer?: ProxyTracer;
   requestStartTime: number;
   accountStrategy: "round-robin" | "fill-first";
+  primaryAccountKey?: string;
+  accountAllowlist?: AccountAllowlist;
+  quotaRoutingEnabled?: boolean;
+  sessionSoftLimit?: number;
+  sessionResetToleranceMs?: number;
   buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
   logProxyBody: ProxyBodyCaptureLogger;
   logFinalRequest: ClaudeFinalRequestLogger;
@@ -5447,6 +5472,11 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     tracer,
     requestStartTime,
     accountStrategy,
+    primaryAccountKey,
+    accountAllowlist,
+    quotaRoutingEnabled = isQuotaRoutingEnabled(),
+    sessionSoftLimit = getSessionSoftLimit(),
+    sessionResetToleranceMs = getSessionResetToleranceMs(),
     buildLoggedClaudeError,
     logProxyBody,
     logFinalRequest,
@@ -5458,6 +5488,11 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     tracer,
     requestStartTime,
     accountStrategy,
+    primaryAccountKey,
+    accountAllowlist,
+    quotaRoutingEnabled,
+    sessionSoftLimit,
+    sessionResetToleranceMs,
     buildLoggedClaudeError,
   });
   if ("response" in loadedAccounts) {
@@ -5493,9 +5528,9 @@ async function handleAnthropicRoutedClaudeRequest(args: {
   const usingQuotaOrder =
     accountStrategy === "fill-first" &&
     enabledAccounts.length > 1 &&
-    isQuotaRoutingEnabled();
+    quotaRoutingEnabled;
   if (!usingQuotaOrder) {
-    maybeResetPrimaryToHome(enabledAccounts);
+    maybeResetPrimaryToHome(enabledAccounts, primaryAccountKey);
   }
 
   // Never re-hammer accounts with a known active cooldown. When every account
@@ -5921,6 +5956,16 @@ async function handleAnthropicRoutedClaudeRequest(args: {
 // Route factory
 // ---------------------------------------------------------------------------
 
+function isClaudeProxyRouteRuntimeOptions(
+  value: AccountAllowlist | ClaudeProxyRouteRuntimeOptions | undefined,
+): value is ClaudeProxyRouteRuntimeOptions {
+  return (
+    value !== undefined &&
+    "runtimeConfigProvider" in value &&
+    typeof value.runtimeConfigProvider === "function"
+  );
+}
+
 /**
  * Create Claude-compatible proxy routes.
  *
@@ -5932,13 +5977,25 @@ async function handleAnthropicRoutedClaudeRequest(args: {
  * @returns RouteGroup with Claude-compatible endpoints.
  */
 export function createClaudeProxyRoutes(
-  modelRouter?: ModelRouter,
+  modelRouter?: ModelRouterInterface,
   basePath: string = "",
   accountStrategy: "round-robin" | "fill-first" = "fill-first",
   passthroughMode: boolean = false,
   primaryAccountKey?: string,
-  accountAllowlist?: AccountAllowlist,
+  accountAllowlistOrRuntimeOptions?:
+    | AccountAllowlist
+    | ClaudeProxyRouteRuntimeOptions,
 ): RouteGroup {
+  const accountAllowlist = isClaudeProxyRouteRuntimeOptions(
+    accountAllowlistOrRuntimeOptions,
+  )
+    ? accountAllowlistOrRuntimeOptions.accountAllowlist
+    : accountAllowlistOrRuntimeOptions;
+  const runtimeConfigProvider = isClaudeProxyRouteRuntimeOptions(
+    accountAllowlistOrRuntimeOptions,
+  )
+    ? accountAllowlistOrRuntimeOptions.runtimeConfigProvider
+    : undefined;
   configuredPrimaryAccountKey = primaryAccountKey;
   configuredAccountAllowlist = accountAllowlist
     ? new Set(accountAllowlist)
@@ -5953,6 +6010,18 @@ export function createClaudeProxyRoutes(
         method: "POST",
         path: `${basePath}/v1/messages`,
         handler: async (ctx: ServerContext) => {
+          const requestRouting = runtimeConfigProvider?.() ?? {
+            generation: 0,
+            strategy: accountStrategy,
+            modelRouter,
+            passthrough: passthroughMode,
+            primaryAccountKey,
+            accountAllowlist,
+            quotaRoutingEnabled: isQuotaRoutingEnabled(),
+            sessionSoftLimit: getSessionSoftLimit(),
+            sessionResetToleranceMs: getSessionResetToleranceMs(),
+          };
+          const requestModelRouter = requestRouting.modelRouter;
           const body = ctx.body as ClaudeRequest | undefined;
 
           // 1. Validate
@@ -5969,7 +6038,7 @@ export function createClaudeProxyRoutes(
           // 2. Resolve model via router (or pass through to anthropic)
           // Guard: without a model router, only Claude models are allowed.
           const modelLower = body.model.toLowerCase();
-          if (!modelRouter && !modelLower.startsWith("claude-")) {
+          if (!requestModelRouter && !modelLower.startsWith("claude-")) {
             return buildClaudeError(
               404,
               `Model '${body.model}' is not an Anthropic model. ` +
@@ -5978,7 +6047,7 @@ export function createClaudeProxyRoutes(
             );
           }
 
-          const route = modelRouter?.resolve(body.model) ?? {
+          const route = requestModelRouter?.resolve(body.model) ?? {
             provider: "anthropic",
             model: body.model,
           };
@@ -6014,7 +6083,7 @@ export function createClaudeProxyRoutes(
             if (route.provider === "anthropic") {
               tracer?.setMode("passthrough");
 
-              if (passthroughMode) {
+              if (requestRouting.passthrough) {
                 return handleClaudePassthroughRequest({
                   ctx,
                   body,
@@ -6028,10 +6097,15 @@ export function createClaudeProxyRoutes(
               return handleAnthropicRoutedClaudeRequest({
                 ctx,
                 body,
-                modelRouter,
+                modelRouter: requestModelRouter,
                 tracer,
                 requestStartTime,
-                accountStrategy,
+                accountStrategy: requestRouting.strategy,
+                primaryAccountKey: requestRouting.primaryAccountKey,
+                accountAllowlist: requestRouting.accountAllowlist,
+                quotaRoutingEnabled: requestRouting.quotaRoutingEnabled,
+                sessionSoftLimit: requestRouting.sessionSoftLimit,
+                sessionResetToleranceMs: requestRouting.sessionResetToleranceMs,
                 buildLoggedClaudeError,
                 logProxyBody,
                 logFinalRequest,
@@ -6044,7 +6118,7 @@ export function createClaudeProxyRoutes(
                   provider: route.provider,
                   model: route.model,
                 },
-                modelRouter,
+                modelRouter: requestModelRouter,
                 tracer,
                 requestStartTime,
                 logProxyBody,
@@ -6082,15 +6156,19 @@ export function createClaudeProxyRoutes(
       {
         method: "GET",
         path: `${basePath}/v1/models`,
-        handler: async (_ctx: ServerContext) =>
-          withSpan(
+        handler: async (_ctx: ServerContext) => {
+          const requestModelRouter = runtimeConfigProvider
+            ? runtimeConfigProvider().modelRouter
+            : modelRouter;
+          return withSpan(
             {
               name: "neurolink.http.claudeProxy.listModels",
               tracer: tracers.http,
               attributes: { "http.route": `${basePath}/v1/models` },
             },
-            async () => buildAnthropicModelsListResponse(modelRouter),
-          ),
+            async () => buildAnthropicModelsListResponse(requestModelRouter),
+          );
+        },
         description: "List available models (Anthropic schema)",
         tags: ["claude-proxy", "models"],
       },
