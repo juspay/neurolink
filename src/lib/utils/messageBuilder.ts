@@ -1321,6 +1321,29 @@ async function processExplicitPdfFiles(
     }
   }
 
+  // #309: enforce the provider's page/size ceilings across ALL PDFs, not just
+  // per-file. N files each just under the single-file limit can still blow past
+  // it in aggregate (e.g. three 40-page PDFs → 120 pages for a 100-page API).
+  const aggregateConfig = PDFProcessor.getProviderConfig(provider);
+  if (aggregateConfig && pdfFiles.length > 1) {
+    const totalPages = pdfFiles.reduce((sum, f) => sum + (f.pageCount ?? 0), 0);
+    const totalMB =
+      pdfFiles.reduce((sum, f) => sum + f.buffer.length, 0) / (1024 * 1024);
+    if (totalPages > aggregateConfig.maxPages) {
+      throw new Error(
+        `[PDF] Combined page count across ${pdfFiles.length} PDFs (${totalPages}) exceeds the ` +
+          `${aggregateConfig.maxPages}-page limit for ${provider}. ` +
+          `Split the request or reduce the number of PDFs.`,
+      );
+    }
+    if (totalMB > aggregateConfig.maxSizeMB) {
+      throw new Error(
+        `[PDF] Combined size across ${pdfFiles.length} PDFs (${totalMB.toFixed(2)}MB) exceeds the ` +
+          `${aggregateConfig.maxSizeMB}MB limit for ${provider}.`,
+      );
+    }
+  }
+
   return pdfFiles;
 }
 

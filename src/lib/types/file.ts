@@ -113,6 +113,8 @@ export type FileProcessingResult = {
     estimatedPages?: number | null;
     provider?: string;
     apiType?: PDFAPIType;
+    /** Provider's citations requirement for visual PDF analysis (#349). */
+    requiresCitations?: boolean | "auto";
     // Office-specific metadata
     officeFormat?: OfficeDocumentType;
     pageCount?: number;
@@ -256,6 +258,14 @@ export type PDFProviderConfig = {
   maxSizeMB: number;
   maxPages: number;
   supportsNative: boolean;
+  /**
+   * Whether this provider needs source citations enabled for visual PDF
+   * analysis (#349). `"auto"` = enable when the request requires visual
+   * grounding (currently Bedrock's Converse document blocks); `false` = the
+   * provider handles PDFs without an explicit citations flag. Surfaced on
+   * `FileProcessingResult.metadata.requiresCitations` so downstream provider
+   * adapters can act on it instead of the value being dead config.
+   */
   requiresCitations: boolean | "auto";
   apiType: PDFAPIType;
 };
@@ -462,11 +472,35 @@ export type PDFImageConversionOptions = {
   maxCanvasPixels?: number;
   /** Password for an encrypted PDF (passed to the underlying renderer) (#258). */
   password?: string;
+  /** Per-page progress callback invoked as each page is rendered (#302). */
+  onProgress?: (progress: PDFImageConversionProgress) => void | Promise<void>;
+};
+
+/** Progress reported per page during streaming conversion (#302). */
+export type PDFImageConversionProgress = {
+  /** Number of pages successfully converted so far. */
+  pagesConverted: number;
+  /** Total pages in the document (known up-front from the renderer). */
+  totalPages: number;
+  /** Elapsed time since conversion started, in milliseconds. */
+  elapsedMs: number;
+};
+
+/** A single streamed page result (#302). `error` is set when that page failed. */
+export type PDFImagePage = {
+  /** 1-based page index. */
+  pageIndex: number;
+  /** Base64-encoded PNG for the page (empty string when `error` is set). */
+  image: string;
+  /** Byte size of the rendered PNG (0 when `error` is set). */
+  imageSizeBytes: number;
+  /** Populated when this page failed to render (#294). */
+  error?: string;
 };
 
 /** Result of PDF to image conversion. */
 export type PDFImageConversionResult = {
-  /** Array of base64-encoded PNG images (one per page) */
+  /** Array of base64-encoded PNG images (one per successfully converted page) */
   images: string[];
   /** Number of pages converted */
   pageCount: number;
@@ -474,6 +508,8 @@ export type PDFImageConversionResult = {
   conversionTimeMs: number;
   /** Any warnings during conversion */
   warnings?: string[];
+  /** Per-page failures — present only when some pages failed to render (#294). */
+  errors?: Array<{ page: number; error: string }>;
 };
 
 // =============================================================================

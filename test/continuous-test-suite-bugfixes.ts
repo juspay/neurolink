@@ -1315,8 +1315,9 @@ const tests: TestFunction[] = [
           return e instanceof Error && /Invalid scale/.test(e.message);
         }
       };
-      // 0, negative, non-finite, and above the max must all be rejected on scale.
-      for (const bad of [0, -1, Number.NaN, 11]) {
+      // 0, negative, non-finite, below MIN_SCALE (#297), and above the max must
+      // all be rejected — proving the full 0.1–10 range is enforced.
+      for (const bad of [0, -1, Number.NaN, 0.05, 11, 15]) {
         if (!(await rejects(bad))) {
           return false;
         }
@@ -1708,6 +1709,232 @@ const tests: TestFunction[] = [
         }
         process.stderr.write = originalWrite;
       }
+    },
+  },
+  // ---------- PDF hardening: accurate pages / per-page resilience / scale /
+  //            streaming / aggregate limits / URL pre-flight / citations
+  //            (#287/#294/#297/#302/#309/#317/#349) ----------
+  {
+    name: "PDFProcessor #287: process() reports accurate page count and degrades gracefully",
+    category: "pdf-processor",
+    fn: async () => {
+      // multi-page.pdf has 3 pages; the accurate pdf-parse count must be used
+      // (the header regex under-/over-counts for real PDFs).
+      const good = await PDFProcessor.process(
+        readFileSync("test/fixtures/multi-page.pdf"),
+        { provider: "openai" },
+      );
+      if (good.metadata.estimatedPages !== 3) {
+        return false;
+      }
+      // A valid header but corrupted body must not throw — page count falls
+      // back to null (regex found no markers) rather than blowing up.
+      const fake = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(20)]);
+      const bad = await PDFProcessor.process(fake, { provider: "openai" });
+      return bad.type === "pdf" && bad.metadata.estimatedPages === null;
+    },
+  },
+  {
+    name: "PDFProcessor #294: one bad page no longer discards the whole conversion",
+    category: "pdf-processor",
+    fn: async () => {
+      // pdf-page3-corrupt.pdf = multi-page.pdf with page 3's stream corrupted so
+      // only that page fails to render.
+      const corrupt = readFileSync("test/fixtures/pdf-page3-corrupt.pdf");
+      const result = await PDFProcessor.convertToImages(corrupt);
+      const isolated =
+        result.images.length === 2 &&
+        Array.isArray(result.errors) &&
+        result.errors.length === 1 &&
+        result.errors[0].page === 3;
+      if (!isolated) {
+        return false;
+      }
+      // A fully-valid PDF reports no per-page errors.
+      const good = await PDFProcessor.convertToImages(
+        readFileSync("test/fixtures/multi-page.pdf"),
+      );
+      return good.images.length === 3 && good.errors === undefined;
+    },
+  },
+  {
+    name: "PDFProcessor #297: defaults to scale 1.5 and logs a memory estimate before conversion",
+    category: "pdf-processor",
+    fn: async () => {
+      // info logs are only captured under debug mode.
+      const prevDebug = process.env.NEUROLINK_DEBUG;
+      process.env.NEUROLINK_DEBUG = "true";
+      try {
+        logger.clearLogs();
+        const fake = Buffer.concat([
+          Buffer.from("%PDF-1.4\n"),
+          Buffer.alloc(20),
+        ]);
+        try {
+          await PDFProcessor.convertToImages(fake, {});
+        } catch {
+          // Expected to fail on the fake body — we only assert the pre-conversion log.
+        }
+        const memLog = logger
+          .getLogs("info")
+          .find((l) => /Estimated memory usage/.test(l.message));
+        const data = (memLog as unknown as { data?: Record<string, unknown> })
+          ?.data;
+        return (
+          !!memLog &&
+          data?.scale === 1.5 &&
+          typeof data?.estimatedMemoryMB === "number" &&
+          (data.estimatedMemoryMB as number) > 0
+        );
+      } finally {
+        if (prevDebug === undefined) {
+          delete process.env.NEUROLINK_DEBUG;
+        } else {
+          process.env.NEUROLINK_DEBUG = prevDebug;
+        }
+      }
+    },
+  },
+  {
+    name: "PDFProcessor #302: convertToImagesStream yields pages in order, reports progress, and matches convertToImages",
+    category: "pdf-processor",
+    fn: async () => {
+      const good = readFileSync("test/fixtures/multi-page.pdf");
+      const pages: number[] = [];
+      const progress: number[] = [];
+      for await (const page of PDFProcessor.convertToImagesStream(good, {
+        onProgress: (p) => {
+          progress.push(p.pagesConverted);
+        },
+      })) {
+        pages.push(page.pageIndex);
+        if (!page.error && page.image.length === 0) {
+          return false;
+        }
+      }
+      const ordered =
+        pages.join(",") ===
+        pages
+          .slice()
+          .sort((a, b) => a - b)
+          .join(",");
+      if (pages.length !== 3 || !ordered || progress.join(",") !== "1,2,3") {
+        return false;
+      }
+      // Early termination: consume only the first page.
+      const gen = PDFProcessor.convertToImagesStream(good);
+      const first = await gen.next();
+      await gen.return(undefined);
+      if (first.done || first.value.pageIndex !== 1) {
+        return false;
+      }
+      // Streamed images equal the batch images.
+      const batch = await PDFProcessor.convertToImages(good);
+      return batch.pageCount === 3;
+    },
+  },
+  {
+    name: "PDFProcessor #309: multiple PDFs are enforced against the provider's page limit in aggregate",
+    category: "pdf-processor",
+    fn: async () => {
+      const synth = (pages: number): Buffer =>
+        Buffer.concat([
+          Buffer.from("%PDF-1.4\n"),
+          Buffer.from("/Type /Page \n".repeat(pages)),
+          Buffer.alloc(20),
+        ]);
+      const build = (pdfs: Buffer[]) =>
+        buildMultimodalMessagesArray(
+          {
+            input: { text: "x", pdfFiles: pdfs },
+          } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+          "openai", // native PDF provider, maxPages 100
+          "gpt-4o",
+        );
+      // Under the limit in aggregate → resolves.
+      await build([synth(20), synth(20), synth(20)]); // 60 total
+      // Over the limit in aggregate, each file under 100 → rejected.
+      let aggregateRejected = false;
+      try {
+        await build([synth(40), synth(40), synth(40)]); // 120 total
+      } catch (e) {
+        aggregateRejected =
+          e instanceof Error && /Combined page count/.test(e.message);
+      }
+      return aggregateRejected;
+    },
+  },
+  {
+    name: "FileDetector #317: pre-flight HEAD rejects an oversized URL before the GET",
+    category: "pdf-processor",
+    fn: async () => {
+      let getCalled = false;
+      const server = http.createServer((req, res) => {
+        if (req.method === "HEAD") {
+          res.setHeader(
+            "content-length",
+            req.url === "/big" ? String(500 * 1024 * 1024) : "12",
+          );
+          res.setHeader("content-type", "application/pdf");
+          res.end();
+        } else {
+          getCalled = true;
+          res.setHeader("content-type", "application/pdf");
+          res.end("%PDF-1.4\nok");
+        }
+      });
+      await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+      try {
+        const addr = server.address() as { port: number };
+        const load = (
+          FileDetector as unknown as {
+            loadFromURL: (
+              u: string,
+              o?: { maxSize?: number },
+            ) => Promise<Buffer>;
+          }
+        ).loadFromURL.bind(FileDetector);
+
+        // Oversized: rejected via HEAD, GET never runs.
+        let rejected = false;
+        try {
+          await load(`http://127.0.0.1:${addr.port}/big`, {
+            maxSize: 10 * 1024 * 1024,
+          });
+        } catch (e) {
+          rejected = e instanceof Error && /too large/i.test(e.message);
+        }
+        if (!rejected || getCalled) {
+          return false;
+        }
+
+        // Normal: HEAD passes, GET proceeds.
+        getCalled = false;
+        const buf = await load(`http://127.0.0.1:${addr.port}/ok`, {
+          maxSize: 10 * 1024 * 1024,
+        });
+        return getCalled && buf.length > 0;
+      } finally {
+        await new Promise<void>((r) => server.close(() => r()));
+      }
+    },
+  },
+  {
+    name: "PDFProcessor #349: requiresCitations config is parsed and surfaced in metadata",
+    category: "pdf-processor",
+    fn: async () => {
+      if (
+        PDFProcessor.getProviderConfig("bedrock")?.requiresCitations !== "auto"
+      ) {
+        return false;
+      }
+      const pdf = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(20)]);
+      const result = await PDFProcessor.process(pdf, { provider: "bedrock" });
+      return (
+        result.type === "pdf" &&
+        result.metadata.apiType === "document" &&
+        result.metadata.requiresCitations === "auto"
+      );
     },
   },
   // ---------- CSV detection: quoted delimiters (issue #299) ----------

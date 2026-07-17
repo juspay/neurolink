@@ -243,6 +243,16 @@ export const PDF_LIMITS = {
   // Upper bound for the render scale factor. Above this, a single page can
   // allocate hundreds of MB; scale <= 0 produces a degenerate viewport.
   MAX_SCALE: 10,
+  // Lower bound for the render scale factor (#297). Below this the render is
+  // effectively unreadable; enforcing it makes the documented 0.1–10 range real
+  // (previously only scale <= 0 was rejected).
+  MIN_SCALE: 0.1,
+  // Default render scale (#297). Lowered from 2 → 1.5 to roughly halve the
+  // per-page canvas memory while staying legible for OCR/vision.
+  DEFAULT_SCALE: 1.5,
+  // Timeout (ms) for the accurate pdf-parse page-count probe (#287); on timeout
+  // the processor falls back to the regex estimate rather than blocking.
+  PAGE_COUNT_TIMEOUT_MS: 5000,
   // Default per-page pixel ceiling for image conversion (#260). 16.7M px ×
   // 4 bytes RGBA ≈ 64 MB per page — safely bounded. A larger page is
   // uniformly downscaled to stay under this instead of allocating gigabytes.
