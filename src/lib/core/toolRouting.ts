@@ -1,12 +1,12 @@
 /**
  * Pre-call tool routing.
  *
- * Once per stream() turn, a cheap router LLM call receives the user query and
- * the catalog of routable tool servers (id + description) and picks the
- * servers whose tools are plausibly needed. The tools of every unpicked
- * server are returned as an exclusion list, which the caller appends to the
- * request's `excludeTools` — the per-call denylist the provider enforces in
- * `baseProvider.applyToolFiltering`.
+ * For an explicitly opted-in generate()/stream() call, a cheap router LLM
+ * receives the user query and the catalog of routable tool servers (id +
+ * description) and picks the servers whose tools are plausibly needed. The
+ * tools of every unpicked server are returned as an exclusion list, which the
+ * caller appends to the request's `excludeTools` — the per-call denylist the
+ * provider enforces in `baseProvider.applyToolFiltering`.
  *
  * Denylist (not allowlist) semantics: the router only knows the declared
  * server catalog — a strict subset of the real tool set. Excluding unpicked

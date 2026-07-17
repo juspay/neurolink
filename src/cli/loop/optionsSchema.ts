@@ -121,6 +121,11 @@ export const textGenerationOptionsSchema: Record<
     type: "boolean",
     description: "Disable all tool usage for the AI.",
   },
+  useToolRouting: {
+    type: "boolean",
+    description:
+      "Pre-call tool routing for this request. Follows the SDK's toolRouting configuration unless set to false to skip routing for one call.",
+  },
   enabledToolNames: {
     type: "string",
     description:

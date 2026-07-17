@@ -33,6 +33,7 @@ export function convertGenerateToStreamOptions(
     // Tool configuration
     tools: generateOptions.tools,
     disableTools: generateOptions.disableTools,
+    useToolRouting: generateOptions.useToolRouting,
     // maxSteps only exists in StreamOptions, not GenerateOptions
 
     // Analytics and evaluation
@@ -76,6 +77,7 @@ export function convertStreamToGenerateOptions(
     // Tool configuration
     tools: streamOptions.tools,
     disableTools: streamOptions.disableTools,
+    useToolRouting: streamOptions.useToolRouting,
     // Note: maxSteps exists in StreamOptions but not in GenerateOptions
 
     // Analytics and evaluation

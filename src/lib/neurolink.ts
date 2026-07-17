@@ -1320,6 +1320,9 @@ export class NeuroLink {
           generate: (genOptions) =>
             this.generate({
               ...genOptions,
+              // Auxiliary call: classifying a turn must not itself trigger a
+              // tool-routing hop (BZ-4440).
+              useToolRouting: false,
             }),
           logger: {
             debug: (message, meta) =>
@@ -4613,17 +4616,21 @@ Current user's request: ${currentInput}`;
         return earlyResult;
       }
 
-      // Pre-call tool routing for generate(): mirrors the stream() routing path.
-      // Runs inside the generate's Langfuse context (setLangfuseContextFromOptions)
-      // so the router's own generation span nests under this turn's trace.
-      // After the early-result short-circuit so workflow/media turns skip it.
+      // Pre-call tool routing for generate(). Constructor-level `toolRouting`
+      // still decides whether routing is active at all (applyToolRoutingExclusions
+      // no-ops unless it is enabled with a non-empty catalog); this flag is a
+      // per-call OPT-OUT. Auxiliary internal calls pass false so they stop
+      // paying for a router hop, while existing SDK callers that configured
+      // routing on the constructor keep the behaviour they have today.
       const result = await this.setLangfuseContextFromOptions(
         options,
         async () => {
-          await this.applyToolRoutingExclusions(
-            options,
-            options.input?.text ?? "",
-          );
+          if (options.useToolRouting !== false) {
+            await this.applyToolRoutingExclusions(
+              options,
+              options.input?.text ?? "",
+            );
+          }
           return this.runStandardGenerateRequest(
             options,
             originalPrompt,
@@ -9008,20 +9015,15 @@ Current user's request: ${currentInput}`;
       // tool calls) parents under it — one Langfuse trace per turn, not a forest.
       const streamSpanContext = trace.setSpan(context.active(), streamSpan);
 
-      // Pre-call tool routing: run inside the stream-span + Langfuse context so
-      // the router's own generation span nests under this turn's trace instead
-      // of starting a separate one. Asks a cheap router LLM which tool servers
-      // the query needs and appends the unpicked servers' tools to
-      // `excludeTools`. Fails open (no exclusions). Routes on the current
-      // prompt enriched with a bounded window of recent conversation turns
-      // (pulled from conversation memory) so contextless follow-ups still
-      // classify correctly. After the workflow short-circuit, so workflow
-      // streams skip it.
-      await context.with(streamSpanContext, () =>
-        this.setLangfuseContextFromOptions(options, () =>
-          this.applyToolRoutingExclusions(options, originalPrompt),
-        ),
-      );
+      // Pre-call tool routing. Per-call OPT-OUT (see generate() above):
+      // constructor-level `toolRouting` remains the activation switch.
+      if (options.useToolRouting !== false) {
+        await context.with(streamSpanContext, () =>
+          this.setLangfuseContextFromOptions(options, () =>
+            this.applyToolRoutingExclusions(options, originalPrompt),
+          ),
+        );
+      }
 
       // Pre-call classifier router for stream: opt-in, fails open. Runs before
       // the request router so it takes precedence.
@@ -9102,13 +9104,14 @@ Current user's request: ${currentInput}`;
   }
 
   /**
-   * Pre-call tool routing for both stream() and generate() turns: runs the
-   * router LLM once per turn and appends the unpicked servers' registered tool
-   * names to `options.excludeTools` — the per-call denylist enforced by
-   * `baseProvider.applyToolFiltering`. No-op unless `toolRouting.enabled` is
-   * true and a non-empty server catalog has been supplied. Never throws (the
-   * resolver fails open to an empty exclusion list). Accepts both StreamOptions
-   * and GenerateOptions since both share the required fields.
+   * Pre-call tool routing for explicitly opted-in stream() and generate()
+   * turns: runs the router LLM once per turn and appends the unpicked servers'
+   * registered tool names to `options.excludeTools` — the per-call denylist
+   * enforced by `baseProvider.applyToolFiltering`. No-op unless
+   * constructor-level `toolRouting.enabled` is true and a non-empty server
+   * catalog has been supplied. Never throws (the resolver fails open to an
+   * empty exclusion list). Accepts both StreamOptions and GenerateOptions
+   * since both share the required fields.
    */
   private async applyToolRoutingExclusions(
     options: StreamOptions | GenerateOptions,
@@ -9396,6 +9399,8 @@ Current user's request: ${currentInput}`;
             this.generate({
               ...generateOptions,
               abortSignal: options.abortSignal,
+              // The router's own LLM call must never re-enter routing.
+              useToolRouting: false,
             }),
           emitDecision: captureDecision,
           // L2 / ITEM D — only populated when embedding is configured.
@@ -9573,9 +9578,9 @@ Current user's request: ${currentInput}`;
    * Supplies (or replaces) the pre-call tool routing server catalog.
    *
    * For hosts that only know their tool servers after constructing NeuroLink
-   * (e.g. tools are registered per session/conversation). Routing must still
-   * be enabled via the constructor's `toolRouting.enabled` — setting servers
-   * alone does not activate it.
+   * (e.g. tools are registered per session/conversation). Routing still
+   * requires constructor `toolRouting.enabled` — setting servers alone does
+   * not activate it. A single call can opt out with `useToolRouting: false`.
    */
   setToolRoutingServers(servers: ToolRoutingServerDescriptor[]): void {
     if (!this.toolRoutingConfig) {
@@ -12125,6 +12130,8 @@ Current user's request: ${currentInput}`;
         input: { text: probeText },
         maxTokens: 16,
         disableTools: true,
+        // Auxiliary call: a credential probe must not spend a router hop.
+        useToolRouting: false,
       } as GenerateOptions);
       return { provider, status: "ok", detail: "credentials valid" };
     } catch (err) {

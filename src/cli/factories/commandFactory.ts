@@ -1166,9 +1166,8 @@ export class CLICommandFactory {
         | "api"
         | undefined,
       enableBeta: argv.enableBeta as boolean | undefined,
-      // Tool-routing flags — constructor-level config, not a per-call option.
-      // Passed through the options bag so handlers can inject into the SDK
-      // instance before the first getOrCreateNeuroLink() call.
+      // Tool-routing flags. Config is injected into the SDK instance; the
+      // boolean flag is also forwarded per call as useToolRouting.
       toolRouting: argv.toolRouting as boolean | undefined,
       toolRoutingTimeout: argv.toolRoutingTimeout as number | undefined,
       toolRoutingRouterProvider: argv.toolRoutingRouterProvider as
@@ -3753,6 +3752,7 @@ export class CLICommandFactory {
             ? enhancedOptions.timeout * 1000
             : undefined,
           disableTools: enhancedOptions.disableTools,
+          useToolRouting: enhancedOptions.toolRouting === true,
           enabledToolNames: enhancedOptions.enabledToolNames as
             | string[]
             | undefined,
@@ -4101,6 +4101,7 @@ export class CLICommandFactory {
           ? (enhancedOptions.timeout as number) * 1000
           : undefined,
         disableTools: enhancedOptions.disableTools as boolean | undefined,
+        useToolRouting: enhancedOptions.toolRouting === true,
         enabledToolNames: enhancedOptions.enabledToolNames as
           | string[]
           | undefined,
@@ -4904,6 +4905,7 @@ export class CLICommandFactory {
                 ? enhancedOptions.timeout * 1000
                 : undefined,
               disableTools: enhancedOptions.disableTools,
+              useToolRouting: enhancedOptions.toolRouting === true,
               enabledToolNames: enhancedOptions.enabledToolNames as
                 | string[]
                 | undefined,

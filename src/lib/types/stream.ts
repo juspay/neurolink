@@ -417,6 +417,16 @@ export type StreamOptions = {
   /** Bounds for tool execution capture. See GenerateOptions.toolExecutionCapture. */
   toolExecutionCapture?: ToolExecutionCaptureOptions;
   disableTools?: boolean;
+  /**
+   * Per-call control over pre-call tool routing.
+   * Constructor-level `toolRouting` supplies router configuration and the
+   * server catalog; this flag only overrides whether routing runs for one
+   * call. Unset means "follow the instance configuration", so an instance
+   * with `toolRouting` configured keeps routing as before. NeuroLink's own
+   * auxiliary calls (classifier, router, credential probe) pass `false` so
+   * they no longer pay for a router hop.
+   */
+  useToolRouting?: boolean;
   /** Disable the schema-driven tool call repair mechanism (BZ-665). Default: false (repair enabled). */
   disableToolCallRepair?: boolean;
   maxSteps?: number; // Maximum tool execution steps. Defaults to 5 in the implementation if not specified.

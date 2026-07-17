@@ -3,10 +3,11 @@
  *
  * Host applications can register large numbers of custom tools (typically MCP
  * server tools) whose names are prefixed with their server id
- * (`${serverId}_${toolName}`). When tool routing is enabled, a cheap router
- * LLM call runs once per `stream()` turn, picks the servers relevant to the
- * user query, and the tools of every unpicked server are appended to the
- * request's `excludeTools` denylist before the main model call.
+ * (`${serverId}_${toolName}`). When a call explicitly sets
+ * `useToolRouting: true`, a cheap router LLM call picks the servers
+ * relevant to the user query, and the tools of every unpicked server are
+ * appended to the request's `excludeTools` denylist before the main model
+ * call.
  *
  * Denylist semantics are deliberate: the router only knows the declared
  * server catalog — a strict subset of the real tool set. Excluding unpicked
@@ -111,7 +112,10 @@ export type ToolRoutingEmbeddingConfig = {
 
 /** Constructor-level configuration for pre-call tool routing. */
 export type ToolRoutingConfig = {
-  /** Master switch. Routing runs only when true AND the server catalog is non-empty. */
+  /**
+   * Constructor-level master switch. A call still must pass
+   * `useToolRouting: true`, and the server catalog must be non-empty.
+   */
   enabled: boolean;
   /**
    * Routable server catalog. Hosts that only know their servers after

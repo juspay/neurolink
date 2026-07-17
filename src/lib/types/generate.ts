@@ -431,6 +431,14 @@ export type GenerateOptions = {
    */
   disableTools?: boolean;
 
+  /**
+   * Per-call opt-in to use pre-call tool routing.
+   * Constructor-level `toolRouting` supplies router configuration and server
+   * catalog, but routing runs only when this flag is explicitly true.
+   * Default: false.
+   */
+  useToolRouting?: boolean;
+
   /** Include only these tools by name (whitelist). If set, only matching tools are available. */
   toolFilter?: string[];
 
@@ -1264,6 +1272,16 @@ export type TextGenerationOptions = {
   disableTools?: boolean; // Disable tools (tools are enabled by default)
   /** Disable the schema-driven tool call repair mechanism (BZ-665). Default: false (repair enabled). */
   disableToolCallRepair?: boolean;
+  /**
+   * Per-call control over pre-call tool routing.
+   * Constructor-level `toolRouting` supplies router configuration and the
+   * server catalog; this flag only overrides whether routing runs for one
+   * call. Unset means "follow the instance configuration", so an instance
+   * with `toolRouting` configured keeps routing as before. NeuroLink's own
+   * auxiliary calls (suggestions, evaluation, summarisation) pass `false` so
+   * they no longer pay for a router hop.
+   */
+  useToolRouting?: boolean;
   maxSteps?: number; // Maximum tool execution steps (default: 200)
 
   /** Include only these tools by name (whitelist). If set, only matching tools are available. */

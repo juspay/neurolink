@@ -610,7 +610,104 @@ await test("second identical resolveToolRoutingExclusions call reuses cached res
 });
 
 // ============================================================================
-// Part 5 — LIVE-gated: NeuroLink.generate() wiring
+// Part 5 — BZ-4440: the per-call routing gate on generate()/stream()
+// ============================================================================
+
+/**
+ * Drive a NeuroLink call far enough to pass the routing gate, then let it fail.
+ * The gate runs before provider resolution, so an unroutable provider aborts
+ * the turn cheaply while still proving whether routing was consulted — no API
+ * key and no network required.
+ */
+function routedSdk(): InstanceType<typeof NeuroLink> {
+  const sdk = new NeuroLink({
+    toolRouting: {
+      enabled: true,
+      routerModel: { provider: "openai", model: "gpt-4o-mini", temperature: 0 },
+    },
+  });
+  sdk.setToolRoutingServers([
+    { id: "analytics", description: "Sales and payment analytics" },
+    { id: "shipping", description: "Shipment tracking" },
+  ]);
+  return sdk;
+}
+
+async function gateCallCount(
+  callOptions: Record<string, unknown>,
+): Promise<number> {
+  const sdk = routedSdk();
+  const proto = Object.getPrototypeOf(sdk) as Record<string, unknown>;
+  const spy = stub(proto, "applyToolRoutingExclusions", async () => undefined);
+  try {
+    return await withStubs([spy], async () => {
+      try {
+        await sdk.generate({
+          input: { text: "how are sales doing?" },
+          provider: "this-provider-does-not-exist",
+          ...callOptions,
+        } as never);
+      } catch {
+        // Expected — the turn dies after the gate, which is all we measure.
+      }
+      return spy.callCount;
+    });
+  } finally {
+    spy.restore();
+  }
+}
+
+await test("BZ-4440: a routed instance still routes a plain generate call", async () => {
+  // Regression guard. Gating routing behind an explicit per-call opt-in would
+  // silently disable routing for every existing SDK caller that configured
+  // `toolRouting` on the constructor. Unset must keep meaning "follow the
+  // instance configuration".
+  assertEqual(await gateCallCount({}), 1, "routing consulted when flag unset");
+});
+
+await test("BZ-4440: useToolRouting:false skips routing for that call", async () => {
+  // The actual fix: auxiliary calls opt out so they stop paying a router hop.
+  assertEqual(
+    await gateCallCount({ useToolRouting: false }),
+    0,
+    "routing skipped when explicitly opted out",
+  );
+});
+
+await test("BZ-4440: useToolRouting:true routes as before", async () => {
+  assertEqual(
+    await gateCallCount({ useToolRouting: true }),
+    1,
+    "routing consulted when explicitly requested",
+  );
+});
+
+await test("BZ-4440: an unrouted instance never consults routing", async () => {
+  const sdk = new NeuroLink();
+  const proto = Object.getPrototypeOf(sdk) as Record<string, unknown>;
+  const spy = stub(proto, "applyToolRoutingExclusions", async () => undefined);
+  try {
+    await withStubs([spy], async () => {
+      try {
+        await sdk.generate({
+          input: { text: "hello" },
+          provider: "this-provider-does-not-exist",
+        } as never);
+      } catch {
+        // Expected.
+      }
+    });
+    // The gate is reached, but applyToolRoutingExclusions is a no-op without
+    // config; asserting it is still *called* documents that the instance-level
+    // switch — not the per-call flag — is what activates routing.
+    assertEqual(spy.callCount, 1, "gate defers to the instance configuration");
+  } finally {
+    spy.restore();
+  }
+});
+
+// ============================================================================
+// Part 6 — LIVE-gated: NeuroLink.generate() wiring
 // ============================================================================
 
 await test("NeuroLink generate() routing narrows tools (live — skips without API keys)", async () => {
@@ -666,7 +763,7 @@ await test("NeuroLink generate() routing narrows tools (live — skips without A
     // was triggered (if it fails open, tools are unchanged — acceptable).
     const result = await sdk.generate({
       input: { text: "show me yesterday's sales figures" },
-      disableTools: false,
+      useToolRouting: true,
     });
 
     assert(
