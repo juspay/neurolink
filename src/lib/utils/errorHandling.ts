@@ -54,6 +54,7 @@ export const ERROR_CODES = {
   IMAGE_TOO_LARGE: "IMAGE_TOO_LARGE",
   IMAGE_TOO_SMALL: "IMAGE_TOO_SMALL",
   INVALID_IMAGE_FORMAT: "INVALID_IMAGE_FORMAT",
+  INVALID_IMAGE_SIZE: "INVALID_IMAGE_SIZE",
 
   // PDF validation errors
   PDF_PAGE_LIMIT_EXCEEDED: "PDF_PAGE_LIMIT_EXCEEDED",
@@ -668,6 +669,27 @@ export class ErrorFactory {
           "Use a lower quality JPEG compression",
           "Reduce image dimensions",
         ],
+      },
+    });
+  }
+
+  /**
+   * Create an invalid image size error (NaN/Infinity/negative byte length).
+   * Distinct from `imageTooLarge` — this rejects a malformed size value
+   * before it reaches the max-size comparison, since `NaN > maxSize` and
+   * `-1 > maxSize` both evaluate to `false` and would otherwise let a
+   * corrupted stat/header value silently skip the guard.
+   */
+  static invalidImageSize(size: number): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.INVALID_IMAGE_SIZE,
+      message: `Invalid image size: ${size} (must be a finite, non-negative number)`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {
+        field: "input.images",
+        size,
       },
     });
   }
