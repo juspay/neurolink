@@ -157,6 +157,65 @@ pdfFiles: [pdfBuffer];
 pdfFiles: ["invoice.pdf", pdfBuffer, "./report.pdf"];
 ```
 
+### Encrypted (Password-Protected) PDFs
+
+Providers without native PDF support fall back to rendering each page to an
+image. When the source PDF is encrypted, supply the open password so that
+image-conversion path can decrypt it. The password is only used locally
+during rendering — it is never sent to the model.
+
+```typescript
+// SDK — pass the password via pdfOptions
+const result = await neurolink.generate({
+  input: { text: "Summarise this statement", pdfFiles: ["./secured.pdf"] },
+  provider: "azure", // vision provider that renders PDF pages to images
+  pdfOptions: { password: "s3cret" },
+});
+```
+
+```bash
+# CLI — preferred: set NEUROLINK_PDF_PASSWORD so the password never appears
+# in shell history, `ps`/process listings, or CI logs.
+NEUROLINK_PDF_PASSWORD=s3cret neurolink generate "Summarise this statement" \
+  --pdf ./secured.pdf --provider azure
+
+# CLI — --pdf-password is still supported for convenience, but is visible in
+# shell history and process listings. Using it prints a one-line warning
+# recommending NEUROLINK_PDF_PASSWORD instead.
+neurolink generate "Summarise this statement" \
+  --pdf ./secured.pdf --provider azure --pdf-password s3cret
+```
+
+`--pdf-password` takes precedence when both are set. Both work for `generate`
+and `stream`.
+
+Error behaviour (both SDK and CLI):
+
+| Situation                        | Error code               | Message                                                              |
+| -------------------------------- | ------------------------ | -------------------------------------------------------------------- |
+| Encrypted PDF, no password given | `PDF_PASSWORD_REQUIRED`  | Prompts you to supply `pdfOptions: { password }` / `--pdf-password`. |
+| Wrong password supplied          | `PDF_INCORRECT_PASSWORD` | Tells you the supplied password is incorrect.                        |
+
+> Providers with **native** PDF support (Vertex, Anthropic, Bedrock, Google
+> AI Studio) forward the raw PDF bytes to the model and do not use the
+> image-conversion path, so `password` has no effect there — an encrypted
+> PDF must be decrypted upstream for those providers.
+
+### Memory Safety: Page Canvas Limits
+
+To prevent memory exhaustion on PDFs with very large page dimensions, the
+image-conversion path caps the rendered canvas at `maxCanvasPixels`
+(default 16,777,216 px ≈ 4096×4096). Oversized pages are automatically
+downscaled to fit the cap (a WARN is logged), so a malicious or malformed
+`/MediaBox` cannot force an unbounded allocation. Override the cap via
+`pdfOptions.maxCanvasPixels` when you need higher-resolution rendering:
+
+```typescript
+pdfOptions: {
+  maxCanvasPixels: 33_554_432, // 32 MP ceiling
+}
+```
+
 ## Provider Support
 
 ### Supported Providers
@@ -190,6 +249,8 @@ Options:
 2. Convert your PDF to text manually
 3. Wait for future update (Azure OpenAI conversion is planned)
 ```
+
+> **PDF-to-image page-size guard:** for providers reached via the image-conversion fallback, each page is rendered to a bounded canvas. A page whose dimensions × render scale would exceed the per-page pixel ceiling (`PDF_LIMITS.DEFAULT_MAX_CANVAS_PIXELS`, ~16.7M px ≈ 64 MB) is **uniformly downscaled** rather than allocating gigabytes of memory — so a large-format PDF (architectural drawing, map) is converted safely instead of exhausting memory. A warning is included in the conversion result when downscaling occurs.
 
 ### Provider-Specific Features
 

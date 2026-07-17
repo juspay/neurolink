@@ -282,6 +282,42 @@ export class PDFProcessor {
   // ============================================================================
 
   /**
+   * Estimate the largest page's rendered pixel count from the PDF's MediaBox
+   * entries, WITHOUT rendering (#260). Parses `/MediaBox [llx lly urx ury]`
+   * (dimensions in points); rendered pixels ≈ (width·scale)·(height·scale).
+   * Returns 0 when no plaintext MediaBox is found (e.g. compressed object
+   * streams) — the caller then skips downscaling, matching prior behavior.
+   *
+   * A crafted/malformed MediaBox can have finite but astronomically large
+   * width/height; `width * height * scale * scale` can then overflow past
+   * `Number.MAX_VALUE` to `Infinity`. Clamp the product to
+   * `Number.MAX_SAFE_INTEGER` so it stays finite — a large-but-finite pixel
+   * estimate still triggers downscaling, whereas `Infinity` would collapse
+   * the computed downscale factor to 0 (see `convertToImages`).
+   */
+  private static largestPagePixels(pdfBuffer: Buffer, scale: number): number {
+    const text = pdfBuffer.toString("latin1");
+    const re =
+      /\/MediaBox\s*\[\s*(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s*\]/g;
+    let max = 0;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(text)) !== null) {
+      const width = Math.abs(parseFloat(match[3]) - parseFloat(match[1]));
+      const height = Math.abs(parseFloat(match[4]) - parseFloat(match[2]));
+      if (Number.isFinite(width) && Number.isFinite(height)) {
+        const pixels = width * height * scale * scale;
+        const boundedPixels = Number.isFinite(pixels)
+          ? Math.min(pixels, Number.MAX_SAFE_INTEGER)
+          : Number.MAX_SAFE_INTEGER;
+        if (boundedPixels > max) {
+          max = boundedPixels;
+        }
+      }
+    }
+    return max;
+  }
+
+  /**
    * Convert a PDF buffer to an array of base64 PNG images
    *
    * This is used automatically when a provider (like Azure, Mistral, Ollama) doesn't
@@ -314,6 +350,8 @@ export class PDFProcessor {
       scale = 2,
       maxPages = PDF_LIMITS.DEFAULT_MAX_PAGES,
       format = "png",
+      maxCanvasPixels = PDF_LIMITS.DEFAULT_MAX_CANVAS_PIXELS,
+      password,
     } = options || {};
     const images: string[] = [];
     const warnings: string[] = [];
@@ -335,6 +373,14 @@ export class PDFProcessor {
     if (!Number.isFinite(scale) || scale <= 0 || scale > PDF_LIMITS.MAX_SCALE) {
       throw new Error(
         `Invalid scale: ${scale}. Scale must be a finite number greater than 0 and at most ${PDF_LIMITS.MAX_SCALE}.`,
+      );
+    }
+
+    // 0c. Validate the per-page pixel ceiling (#260). A non-finite or
+    // non-positive value would disable the guard or yield a NaN downscale.
+    if (!Number.isFinite(maxCanvasPixels) || maxCanvasPixels <= 0) {
+      throw new Error(
+        `Invalid maxCanvasPixels: ${maxCanvasPixels}. Must be a finite number greater than 0.`,
       );
     }
 
@@ -380,8 +426,44 @@ export class PDFProcessor {
         maxPages: maxPages || "all",
       });
 
-      // Create PDF document iterator
-      const document = await pdf(pdfBuffer, { scale });
+      // #260: pre-flight page-size check WITHOUT rendering. pdf-to-img applies
+      // `scale` uniformly with no per-page hook and no pixel guard, so a very
+      // large page (e.g. an architectural drawing with a huge MediaBox) can
+      // allocate gigabytes of canvas. Read the largest MediaBox from the PDF
+      // bytes and, if that page at the requested scale would exceed
+      // maxCanvasPixels, downscale the whole render uniformly to stay under it.
+      let effectiveScale = scale;
+      const largestPixels = PDFProcessor.largestPagePixels(pdfBuffer, scale);
+      if (largestPixels > maxCanvasPixels) {
+        const downscale = Math.sqrt(maxCanvasPixels / largestPixels);
+        // Floor the result: an astronomically large (but now finite, see
+        // `largestPagePixels`) pixel estimate would otherwise push `downscale`
+        // — and therefore `effectiveScale` — toward 0, handing `pdf-to-img` a
+        // degenerate viewport instead of a small-but-renderable page.
+        effectiveScale = Math.max(
+          PDF_LIMITS.MIN_EFFECTIVE_SCALE,
+          scale * downscale,
+        );
+        // Recompute the ratio actually applied (may differ from `downscale`
+        // when the floor above kicks in) so the logged estimate stays honest.
+        const actualDownscale = effectiveScale / scale;
+        const beforeMB = (largestPixels * 4) / (1024 * 1024);
+        const afterMB =
+          (largestPixels * actualDownscale * actualDownscale * 4) /
+          (1024 * 1024);
+        const msg =
+          `Downscaled render (scale ${scale} → ${effectiveScale.toFixed(3)}): ` +
+          `the largest page would allocate ~${beforeMB.toFixed(0)}MB, above the ` +
+          `maxCanvasPixels ceiling; reduced to ~${afterMB.toFixed(0)}MB per page.`;
+        logger.warn(`[PDF→Image] ⚠️ ${msg}`);
+        warnings.push(msg);
+      }
+
+      // Create PDF document iterator (password forwarded for encrypted PDFs, #258)
+      const document = await pdf(pdfBuffer, {
+        scale: effectiveScale,
+        ...(password ? { password } : {}),
+      });
 
       let pageIndex = 0;
 
@@ -434,6 +516,21 @@ export class PDFProcessor {
         error: errorMessage,
         conversionTimeMs,
       });
+
+      // #258: map pdfjs's PasswordException to an actionable typed error so a
+      // caller learns to supply (or correct) the password instead of seeing a
+      // generic "conversion failed". pdfjs code 1 = NEED_PASSWORD, 2 = INCORRECT.
+      const pdfErr = error as { name?: string; code?: number };
+      if (
+        pdfErr?.name === "PasswordException" ||
+        /password/i.test(errorMessage)
+      ) {
+        const incorrect =
+          pdfErr.code === 2 || /incorrect|invalid/i.test(errorMessage);
+        throw incorrect
+          ? ErrorFactory.pdfIncorrectPassword()
+          : ErrorFactory.pdfPasswordRequired();
+      }
 
       throw new Error(`PDF to image conversion failed: ${errorMessage}`, {
         cause: error,

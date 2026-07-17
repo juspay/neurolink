@@ -144,6 +144,14 @@ export type GenerateOptions = {
   // like parseTimeoutMs/encoding/sanitizeColumnNames reach the public API).
   csvOptions?: CSVProcessorOptions;
 
+  /** PDF processing options (#258). */
+  pdfOptions?: {
+    /** Password for an encrypted PDF (image-conversion fallback path). */
+    password?: string;
+    /** Max rendered-canvas pixels per page (#260 memory guard); oversized pages auto-downscale. */
+    maxCanvasPixels?: number;
+  };
+
   // Video processing options
   videoOptions?: {
     frames?: number; // Number of frames to extract (default: 8)
@@ -1272,6 +1280,14 @@ export type TextGenerationOptions = {
 
   // NEW: CSV Processing Options (#379: canonical shape — see above)
   csvOptions?: CSVProcessorOptions;
+
+  /** PDF processing options (#258). */
+  pdfOptions?: {
+    /** Password for an encrypted PDF (image-conversion fallback path). */
+    password?: string;
+    /** Max rendered-canvas pixels per page (#260 memory guard); oversized pages auto-downscale. */
+    maxCanvasPixels?: number;
+  };
 
   enableSummarization?: boolean; // Enable/disable summarization for this specific request
 

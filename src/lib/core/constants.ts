@@ -243,6 +243,15 @@ export const PDF_LIMITS = {
   // Upper bound for the render scale factor. Above this, a single page can
   // allocate hundreds of MB; scale <= 0 produces a degenerate viewport.
   MAX_SCALE: 10,
+  // Default per-page pixel ceiling for image conversion (#260). 16.7M px ×
+  // 4 bytes RGBA ≈ 64 MB per page — safely bounded. A larger page is
+  // uniformly downscaled to stay under this instead of allocating gigabytes.
+  DEFAULT_MAX_CANVAS_PIXELS: 16_777_216,
+  // Floor for the downscaled render scale (#260 follow-up). A crafted/malformed
+  // MediaBox can drive the estimated pixel count toward Infinity, which would
+  // otherwise collapse `effectiveScale` to 0 and hand `pdf-to-img` a degenerate
+  // viewport. Never let the downscale branch go below this.
+  MIN_EFFECTIVE_SCALE: 0.1,
 };
 
 // Performance and System Limits

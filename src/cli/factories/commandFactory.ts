@@ -197,6 +197,13 @@ export class CLICommandFactory {
       type: "string" as const,
       description: "Add PDF file for analysis (can be used multiple times)",
     },
+    "pdf-password": {
+      type: "string" as const,
+      description:
+        "Password for an encrypted PDF (used on the image-conversion path). " +
+        "Visible in shell history/process listings — prefer the " +
+        "NEUROLINK_PDF_PASSWORD env var instead.",
+    },
     video: {
       type: "string" as const,
       description:
@@ -921,6 +928,31 @@ export class CLICommandFactory {
     // Resolve relative paths to absolute paths before returning
     // URLs are preserved as-is by resolveFilePaths
     return resolveFilePaths(paths);
+  }
+
+  /**
+   * Resolve the PDF decryption password, preferring the NEUROLINK_PDF_PASSWORD
+   * env var over the `--pdf-password` flag. A plaintext CLI flag leaks into
+   * shell history, `ps`/process listings, and CI logs — the env var avoids
+   * that, matching the project's existing "credentials via env vars, not
+   * flags" stance for the loop session. The flag stays supported (dropping it
+   * would be a breaking CLI change), but using it prints a one-line stderr
+   * warning recommending the env var instead.
+   */
+  private static resolvePdfPassword(
+    argv: Record<string, unknown>,
+  ): string | undefined {
+    const flagValue = argv.pdfPassword as string | undefined;
+    const envValue = process.env.NEUROLINK_PDF_PASSWORD;
+    if (flagValue) {
+      process.stderr.write(
+        chalk.yellow(
+          "⚠️  --pdf-password is visible in shell history and process listings. " +
+            "Prefer the NEUROLINK_PDF_PASSWORD environment variable instead.\n",
+        ),
+      );
+    }
+    return flagValue || envValue;
   }
 
   // Helper method to process CLI files with auto-detection
@@ -3680,6 +3712,9 @@ export class CLICommandFactory {
       const runGenerate = () =>
         sdk.generate({
           input: generateInput,
+          pdfOptions: {
+            password: CLICommandFactory.resolvePdfPassword(argv),
+          },
           csvOptions: CLICommandFactory.buildCsvOptionsFromArgv(argv),
           videoOptions: {
             frames: argv.videoFrames as number | undefined,
@@ -4030,6 +4065,9 @@ export class CLICommandFactory {
           ...(pdfFiles && { pdfFiles }),
           ...(videoFiles && { videoFiles }),
           ...(files && { files }),
+        },
+        pdfOptions: {
+          password: CLICommandFactory.resolvePdfPassword(argv),
         },
         csvOptions: CLICommandFactory.buildCsvOptionsFromArgv(argv),
         videoOptions: {

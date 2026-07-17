@@ -63,6 +63,8 @@ export const ERROR_CODES = {
 
   // PDF validation errors
   PDF_PAGE_LIMIT_EXCEEDED: "PDF_PAGE_LIMIT_EXCEEDED",
+  PDF_PASSWORD_REQUIRED: "PDF_PASSWORD_REQUIRED",
+  PDF_INCORRECT_PASSWORD: "PDF_INCORRECT_PASSWORD",
 
   // Rate limiter errors
   RATE_LIMITER_QUEUE_FULL: "RATE_LIMITER_QUEUE_FULL",
@@ -652,6 +654,36 @@ export class ErrorFactory {
         provider,
         alternatives,
       },
+    });
+  }
+
+  /**
+   * The PDF is encrypted and no password was supplied (#258).
+   */
+  static pdfPasswordRequired(): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.PDF_PASSWORD_REQUIRED,
+      message:
+        "This PDF is password-protected. Supply the password via " +
+        "`pdfOptions: { password: '…' }` (SDK) or `--pdf-password` (CLI).",
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+    });
+  }
+
+  /**
+   * A password was supplied for an encrypted PDF but it was incorrect (#258).
+   */
+  static pdfIncorrectPassword(): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.PDF_INCORRECT_PASSWORD,
+      message:
+        "The password supplied for this PDF is incorrect. Check the " +
+        "`pdfOptions.password` / `--pdf-password` value and try again.",
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
     });
   }
 
