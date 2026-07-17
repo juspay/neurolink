@@ -6,7 +6,7 @@
  * @module adapters/tts/googleTTSHandler
  * @see https://cloud.google.com/text-to-speech/docs
  */
-import { TextToSpeechClient } from "@google-cloud/text-to-speech";
+import type { TextToSpeechClient } from "@google-cloud/text-to-speech";
 import { TTSError, TTS_ERROR_CODES } from "../../utils/ttsProcessor.js";
 import type {
   TTSGender,
@@ -56,12 +56,11 @@ export class GoogleTTSHandler implements TTSHandler {
   public readonly maxTextLength: number =
     GoogleTTSHandler.DEFAULT_MAX_TEXT_LENGTH;
 
-  constructor(credentialsPath?: string) {
-    const path = credentialsPath ?? process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  private readonly credentialsPath: string | undefined;
 
-    if (path) {
-      this.client = new TextToSpeechClient({ keyFilename: path });
-    }
+  constructor(credentialsPath?: string) {
+    this.credentialsPath =
+      credentialsPath ?? process.env.GOOGLE_APPLICATION_CREDENTIALS;
   }
 
   /**
@@ -70,7 +69,26 @@ export class GoogleTTSHandler implements TTSHandler {
    * @returns True if provider can generate TTS
    */
   isConfigured(): boolean {
-    return this.client !== null;
+    return this.credentialsPath !== undefined;
+  }
+
+  /**
+   * Lazily construct (and cache) the Google Cloud TTS client.
+   *
+   * `@google-cloud/text-to-speech` is an optional dependency: importing it
+   * only happens here, on first actual use, so a handler instance can be
+   * constructed (e.g. during auto-registration at module load) without the
+   * package being installed.
+   */
+  private async getClient(): Promise<TextToSpeechClient> {
+    if (!this.client) {
+      const { TextToSpeechClient } =
+        await import("@google-cloud/text-to-speech");
+      this.client = new TextToSpeechClient({
+        keyFilename: this.credentialsPath,
+      });
+    }
+    return this.client;
   }
 
   /**
@@ -83,7 +101,7 @@ export class GoogleTTSHandler implements TTSHandler {
    * @returns List of available voices
    */
   async getVoices(languageCode?: string): Promise<TTSVoice[]> {
-    if (!this.client) {
+    if (!this.isConfigured()) {
       throw new TTSError({
         code: TTS_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
         message:
@@ -93,6 +111,7 @@ export class GoogleTTSHandler implements TTSHandler {
         retriable: false,
       });
     }
+    const client = await this.getClient();
 
     const span = SpanSerializer.createSpan(
       SpanType.TTS,
@@ -117,7 +136,7 @@ export class GoogleTTSHandler implements TTSHandler {
       }
 
       // Call Google Cloud listVoices API
-      const [response] = await this.client.listVoices(
+      const [response] = await client.listVoices(
         languageCode ? { languageCode } : {},
       );
 
@@ -200,7 +219,7 @@ export class GoogleTTSHandler implements TTSHandler {
    * @returns Audio buffer with metadata
    */
   async synthesize(text: string, options: TTSOptions): Promise<TTSResult> {
-    if (!this.client) {
+    if (!this.isConfigured()) {
       throw new TTSError({
         code: TTS_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
         message:
@@ -210,6 +229,7 @@ export class GoogleTTSHandler implements TTSHandler {
         retriable: false,
       });
     }
+    const client = await this.getClient();
 
     const voiceId = options.voice ?? "en-US-Neural2-C";
     const span = SpanSerializer.createSpan(
@@ -260,7 +280,7 @@ export class GoogleTTSHandler implements TTSHandler {
         },
       };
 
-      const [response] = await this.client.synthesizeSpeech(request, {
+      const [response] = await client.synthesizeSpeech(request, {
         timeout: GoogleTTSHandler.DEFAULT_API_TIMEOUT_MS,
       });
 
