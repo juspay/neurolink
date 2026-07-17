@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TokenStore } from "../src/lib/auth/tokenStore.js";
+import { TokenStore, tokenStore } from "../src/lib/auth/tokenStore.js";
 import {
   anthropicAccountKeysEqual,
   createAccountAllowlist,
@@ -42,7 +42,10 @@ import {
   resetStats,
 } from "../src/lib/proxy/usageStats.js";
 import { parseProxyConfigString } from "../src/lib/proxy/proxyConfig.js";
-import { __testHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
+import {
+  __testHooks,
+  createClaudeProxyRoutes,
+} from "../src/lib/server/routes/claudeProxyRoutes.js";
 
 const tempDirs: string[] = [];
 
@@ -55,6 +58,240 @@ afterEach(async () => {
   );
   __testHooks.resetAllRuntimeState();
   resetStats();
+});
+
+describe("weekly-expiry quota routing", () => {
+  const account = (label: string) => ({
+    key: `anthropic:${label}`,
+    label,
+    token: "test-token",
+    type: "oauth" as const,
+  });
+  const quota = (
+    now: number,
+    overrides: Partial<{
+      sessionUsed: number;
+      sessionStatus: string;
+      sessionResetAt: number;
+      weeklyUsed: number;
+      weeklyStatus: string;
+      weeklyResetAt: number;
+    }>,
+  ) => ({
+    unifiedStatus: "allowed",
+    sessionUsed: 0,
+    sessionStatus: "allowed",
+    sessionResetAt: Math.floor(now / 1000) + 5 * 60 * 60,
+    weeklyUsed: 0,
+    weeklyStatus: "allowed",
+    weeklyResetAt: Math.floor(now / 1000) + 7 * 24 * 60 * 60,
+    fallbackPercentage: 0.5,
+    overageStatus: "allowed",
+    lastUpdated: now,
+    ...overrides,
+  });
+  const setQuota = (
+    label: string,
+    now: number,
+    overrides: Parameters<typeof quota>[1],
+  ): void => {
+    __testHooks.setAccountRuntimeState(`anthropic:${label}`, {
+      quota: quota(now, overrides),
+    });
+  };
+  const order = (labels: string[], now: number): string[] =>
+    __testHooks
+      .orderAccountsByQuota(
+        labels.map(account),
+        now,
+        "anthropic:hello@neurolink.ink",
+        0.97,
+        15 * 60 * 1000,
+      )
+      .map((item) => item.label);
+
+  it("prioritizes the observed account whose weekly allowance expires first", () => {
+    const now = Date.UTC(2026, 6, 17, 12, 52, 0);
+    const nowSec = Math.floor(now / 1000);
+    setQuota("hello@neurolink.ink", now, {
+      sessionUsed: 0.11,
+      sessionResetAt: nowSec + 98 * 60,
+      weeklyUsed: 0.51,
+      weeklyResetAt: nowSec + 52 * 60 * 60,
+    });
+    setQuota("sachiny09@gmail.com", now, {
+      sessionUsed: 0.44,
+      sessionResetAt: nowSec - 112 * 60,
+      weeklyUsed: 0.44,
+      weeklyResetAt: nowSec + 132 * 60 * 60,
+    });
+    setQuota("sachin.sharma@juspay.in", now, {
+      sessionUsed: 0.97,
+      sessionResetAt: nowSec - 172 * 60,
+      weeklyUsed: 0.39,
+      weeklyResetAt: nowSec + 12 * 60 * 60,
+    });
+
+    expect(
+      order(
+        [
+          "hello@neurolink.ink",
+          "sachiny09@gmail.com",
+          "sachin.sharma@juspay.in",
+        ],
+        now,
+      ),
+    ).toEqual([
+      "sachin.sharma@juspay.in",
+      "hello@neurolink.ink",
+      "sachiny09@gmail.com",
+    ]);
+  });
+
+  it("temporarily demotes an urgent weekly account at the session soft limit", () => {
+    const now = Date.UTC(2026, 6, 17, 12, 0, 0);
+    const nowSec = Math.floor(now / 1000);
+    setQuota("urgent@example.com", now, {
+      sessionUsed: 0.98,
+      sessionResetAt: nowSec + 30 * 60,
+      weeklyUsed: 0.4,
+      weeklyResetAt: nowSec + 12 * 60 * 60,
+    });
+    setQuota("later@example.com", now, {
+      sessionUsed: 0.2,
+      sessionResetAt: nowSec + 2 * 60 * 60,
+      weeklyUsed: 0.2,
+      weeklyResetAt: nowSec + 3 * 24 * 60 * 60,
+    });
+
+    expect(order(["urgent@example.com", "later@example.com"], now)).toEqual([
+      "later@example.com",
+      "urgent@example.com",
+    ]);
+    expect(
+      order(["urgent@example.com", "later@example.com"], now + 31 * 60 * 1000),
+    ).toEqual(["urgent@example.com", "later@example.com"]);
+  });
+
+  it("freshens an expired weekly window instead of routing on stale urgency", () => {
+    const now = Date.UTC(2026, 6, 17, 12, 0, 0);
+    const nowSec = Math.floor(now / 1000);
+    setQuota("expired@example.com", now, {
+      weeklyUsed: 0.99,
+      weeklyStatus: "allowed",
+      weeklyResetAt: nowSec - 60,
+    });
+    setQuota("active@example.com", now, {
+      weeklyUsed: 0.2,
+      weeklyResetAt: nowSec + 24 * 60 * 60,
+    });
+
+    expect(order(["expired@example.com", "active@example.com"], now)).toEqual([
+      "active@example.com",
+      "expired@example.com",
+    ]);
+  });
+
+  it("applies a hot-cleared primary to the immediately following request", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "neurolink-routing-reload-"));
+    tempDirs.push(dir);
+    initAccountCooldown(join(dir, "cooldowns.json"));
+    initAccountQuota(join(dir, "quotas.json"));
+
+    const accountKeys = [
+      "anthropic:first@example.com",
+      "anthropic:old@example.com",
+    ];
+    vi.spyOn(tokenStore, "pruneExpired").mockResolvedValue(undefined);
+    vi.spyOn(tokenStore, "listByPrefix").mockResolvedValue(accountKeys);
+    vi.spyOn(tokenStore, "isDisabled").mockResolvedValue(false);
+    vi.spyOn(tokenStore, "loadTokens").mockImplementation(async (key) => ({
+      accessToken: key.includes("old@example.com")
+        ? "old-account-token"
+        : "first-account-token",
+      refreshToken: "test-refresh-token",
+      expiresAt: Date.now() + 60 * 60 * 1000,
+      tokenType: "Bearer",
+    }));
+
+    const attemptedTokens: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      const headers = init?.headers as Record<string, string>;
+      attemptedTokens.push(headers.authorization);
+      return new Response(
+        JSON.stringify({
+          id: "msg_test",
+          type: "message",
+          role: "assistant",
+          model: "claude-test",
+          content: [{ type: "text", text: "ok" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+
+    let primaryAccountKey: string | undefined = "anthropic:old@example.com";
+    let generation = 1;
+    const routeGroup = createClaudeProxyRoutes(
+      undefined,
+      "",
+      "fill-first",
+      false,
+      primaryAccountKey,
+      {
+        runtimeConfigProvider: () => ({
+          generation,
+          strategy: "fill-first",
+          modelRouter: undefined,
+          passthrough: false,
+          primaryAccountKey,
+          accountAllowlist: undefined,
+          quotaRoutingEnabled: false,
+          sessionSoftLimit: 0.97,
+          sessionResetToleranceMs: 15 * 60 * 1000,
+        }),
+      },
+    );
+    const messagesRoute = routeGroup.routes.find(
+      (route) => route.method === "POST" && route.path === "/v1/messages",
+    );
+    expect(messagesRoute).toBeDefined();
+
+    const requestContext = (requestId: string) =>
+      ({
+        requestId,
+        method: "POST",
+        path: "/v1/messages",
+        headers: {},
+        query: {},
+        params: {},
+        body: {
+          model: "claude-test",
+          max_tokens: 16,
+          messages: [{ role: "user", content: "hello" }],
+        },
+        neurolink: {},
+        toolRegistry: {},
+        timestamp: Date.now(),
+        metadata: {},
+      }) as never;
+
+    await expect(
+      messagesRoute!.handler(requestContext("configured-primary")),
+    ).resolves.toMatchObject({ type: "message" });
+    primaryAccountKey = undefined;
+    generation += 1;
+    await expect(
+      messagesRoute!.handler(requestContext("cleared-primary")),
+    ).resolves.toMatchObject({ type: "message" });
+
+    expect(attemptedTokens).toEqual([
+      "Bearer old-account-token",
+      "Bearer first-account-token",
+    ]);
+  });
 });
 
 describe("OAuth request-shape preservation", () => {
