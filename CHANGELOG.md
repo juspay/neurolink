@@ -1,3 +1,9 @@
+## [9.92.2](https://github.com/juspay/neurolink/compare/v9.92.1...v9.92.2) (2026-07-17)
+
+### Bug Fixes
+
+- **(sagemaker):** fix tool/tool-choice format crash on AI SDK's flat tool shape ([344d628](https://github.com/juspay/neurolink/commit/344d628f44fb5a00c0862cc346f51afca8e7473c))
+
 ## [9.92.1](https://github.com/juspay/neurolink/compare/v9.92.0...v9.92.1) (2026-07-17)
 
 ### Bug Fixes
