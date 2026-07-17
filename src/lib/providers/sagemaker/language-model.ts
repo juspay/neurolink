@@ -12,6 +12,8 @@ import { handleSageMakerError } from "./errors.js";
 import { estimateTokenUsage, createSageMakerStream } from "./streaming.js";
 import type {
   ConnectivityResult,
+  OpenAICompatV3CallToolChoice,
+  OpenAICompatV3CallTools,
   SageMakerAsLanguageModel,
   SageMakerConfig,
   SageMakerModelConfig,
@@ -549,13 +551,22 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
       },
     };
 
-    // Add tool support if tools are present
+    // Add tool support if tools are present. `options.tools` arrives here in
+    // the AI SDK's LanguageModelV2/V3 call-options shape — a flat
+    // `{ type: "function", name, description?, inputSchema }` per tool (see
+    // `LanguageModelV3FunctionTool` in @ai-sdk/provider), the same shape
+    // every other provider's tool converter consumes (compare
+    // `v3ToolsToOpenAI` in openaiChatCompletionsClient.ts). It is NOT the
+    // nested OpenAI Chat Completions wire format.
     const tools = (options as UnknownRecord).tools;
     if (tools && Array.isArray(tools) && tools.length > 0) {
-      request.tools = this.convertToolsToSageMakerFormat(tools);
+      request.tools = this.convertToolsToSageMakerFormat(
+        tools as OpenAICompatV3CallTools,
+      );
 
       // Add tool choice if specified
-      const toolChoice = (options as UnknownRecord).toolChoice as UnknownRecord;
+      const toolChoice = (options as UnknownRecord)
+        .toolChoice as OpenAICompatV3CallToolChoice;
       if (toolChoice) {
         request.tool_choice =
           this.convertToolChoiceToSageMakerFormat(toolChoice);
@@ -589,46 +600,65 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
   }
 
   /**
-   * Convert Vercel AI SDK tools to SageMaker format
+   * Convert AI SDK tools (`LanguageModelV3FunctionTool | LanguageModelV3ProviderTool`,
+   * the same union every other provider's tool converter accepts — see
+   * `v3ToolsToOpenAI` in openaiChatCompletionsClient.ts) into the SageMaker
+   * wire format, which mirrors the OpenAI Chat Completions nested
+   * `{ function: { name, description, parameters } }` convention.
+   *
+   * Function tools carry their fields flat (`tool.name`, `tool.inputSchema`,
+   * etc.) — there is no `tool.function` sub-object on the AI SDK side.
+   * `type: "provider"` tools (provider-defined tools like web search) have
+   * no SageMaker equivalent; they're dropped explicitly with a debug log
+   * rather than crashing or being sent malformed.
    */
   private convertToolsToSageMakerFormat(
-    tools: UnknownRecord[],
+    tools: OpenAICompatV3CallTools,
   ): UnknownRecord[] {
-    return tools.map((tool) => {
-      if (tool.type === "function") {
-        return {
-          type: "function",
-          function: {
-            name: (tool.function as UnknownRecord).name,
-            description: (tool.function as UnknownRecord).description || "",
-            parameters: (tool.function as UnknownRecord).parameters || {},
-          },
-        };
+    const converted: UnknownRecord[] = [];
+    for (const tool of tools) {
+      if (tool.type !== "function") {
+        logger.debug("SageMaker: dropping tool with no SageMaker equivalent", {
+          toolType: tool.type,
+          toolName: tool.name,
+        });
+        continue;
       }
-      return tool; // Pass through other tool types
-    });
+      converted.push({
+        type: "function",
+        function: {
+          name: tool.name,
+          description: tool.description || "",
+          parameters: tool.inputSchema || {},
+        },
+      });
+    }
+    return converted;
   }
 
   /**
-   * Convert Vercel AI SDK tool choice to SageMaker format
+   * Convert an AI SDK tool choice (`LanguageModelV3ToolChoice`) into the
+   * SageMaker/OpenAI-style wire format. The AI SDK shape is
+   * `{ type: "auto" | "none" | "required" }` or `{ type: "tool", toolName }`
+   * — never the nested `{ type: "function", function: { name } }` shape.
    */
   private convertToolChoiceToSageMakerFormat(
-    toolChoice: UnknownRecord,
-  ): UnknownRecord {
+    toolChoice: OpenAICompatV3CallToolChoice,
+  ): UnknownRecord | string {
     if (typeof toolChoice === "string") {
-      return toolChoice; // 'auto', 'none', etc.
+      return toolChoice; // Defensive: tolerate a raw string if ever passed.
     }
 
-    if (toolChoice?.type === "function") {
-      return {
-        type: "function",
-        function: {
-          name: (toolChoice.function as UnknownRecord).name,
-        },
-      };
+    switch (toolChoice.type) {
+      case "auto":
+      case "none":
+      case "required":
+        return toolChoice.type;
+      case "tool":
+        return { type: "function", function: { name: toolChoice.toolName } };
+      default:
+        return "auto";
     }
-
-    return toolChoice;
   }
 
   /**
