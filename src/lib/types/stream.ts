@@ -237,6 +237,7 @@ export type StreamOptions = {
     images?: Array<Buffer | string | ImageWithAltText>;
     csvFiles?: Array<Buffer | string>; // Explicit CSV files (converted to text)
     pdfFiles?: Array<Buffer | string>; // Explicit PDF files (processed as binary documents, not converted to text)
+    audioFiles?: Array<Buffer | string>; // Explicit audio files (metadata/transcript extraction)
     videoFiles?: Array<Buffer | string>; // Explicit video files
     files?: Array<Buffer | string | FileWithMetadata>; // Auto-detect file types
     content?: Content[]; // Advanced multimodal content

@@ -52,6 +52,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join as pathJoin, resolve as resolvePath } from "node:path";
 import { MockAgent, setGlobalDispatcher, getGlobalDispatcher } from "undici";
+import http from "node:http";
 import AdmZip from "adm-zip";
 import { PptxProcessor } from "../src/lib/processors/document/PptxProcessor.js";
 
@@ -5843,6 +5844,9 @@ exit 127
     category: "image-processor",
     fn: async () => {
       // Minimal ISO-BMFF AVIF: box-size, 'ftyp', major brand, minor version.
+      // Padded to >= MIN_VALID_IMAGE_SIZE["image/avif"] (100 bytes) so the
+      // #293 truncated-buffer guard doesn't reject this strictly-identified
+      // AVIF as a corrupt/incomplete file before detection is even asserted.
       const mkAvif = (brand: string): Buffer =>
         Buffer.concat([
           Buffer.from([0x00, 0x00, 0x00, 0x18]),
@@ -5850,6 +5854,7 @@ exit 127
           Buffer.from(brand, "ascii"),
           Buffer.from([0x00, 0x00, 0x00, 0x00]),
           Buffer.from("mif1", "ascii"),
+          Buffer.alloc(100),
         ]);
       // Before the fix, an AVIF ftyp buffer was misrouted to the video pipeline
       // (video/mp4). It must now resolve to an image through FileDetector — the
@@ -5916,10 +5921,12 @@ exit 127
         return false;
       }
       // Regression: a genuine PNG must still detect as image/png through the
-      // real user-facing path, not swept into the new fallback.
+      // real user-facing path, not swept into the new fallback. Padded to
+      // >= MIN_VALID_IMAGE_SIZE["image/png"] (67 bytes) so the #293
+      // truncated-buffer guard doesn't reject it as corrupt/incomplete.
       const png = Buffer.concat([
         Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-        Buffer.alloc(16),
+        Buffer.alloc(64),
       ]);
       const det = await FileDetector.detectAndProcess(png, {
         allowedTypes: ["image", "unknown"],
@@ -6111,6 +6118,321 @@ exit 127
         combined.includes("secret-retry-host.test/path") &&
         !combined.includes("SUPERSECRET456")
       );
+    },
+  },
+  // ---------- MessageBuilder / FileDetector / Types hardening
+  //            (#273/#284/#289/#293/#323/#325) ----------
+  {
+    name: "MessageBuilder #284: audio/video-only inputs count as multimodal",
+    category: "message-builder",
+    fn: async () => {
+      // detectMultimodal() now defers to this canonical guard, which checks
+      // audioFiles/videoFiles — an audio/video-only request must be multimodal.
+      const videoOnly = isMultimodalInput({
+        videoFiles: [Buffer.from("x")],
+      } as Parameters<typeof isMultimodalInput>[0]);
+      const audioOnly = isMultimodalInput({
+        audioFiles: [Buffer.from("x")],
+      } as Parameters<typeof isMultimodalInput>[0]);
+      const textOnly = isMultimodalInput({
+        text: "hi",
+      } as Parameters<typeof isMultimodalInput>[0]);
+      return videoOnly === true && audioOnly === true && textOnly === false;
+    },
+  },
+  {
+    name: "MessageBuilder #284: audioFiles/videoFiles content actually reaches the built message",
+    category: "message-builder",
+    fn: async () => {
+      // Routing alone (the test above) isn't enough — Tara-ag's follow-up
+      // review found audioFiles/videoFiles were routed to the multimodal
+      // builder but then never forwarded into it, so the payload was
+      // silently dropped end-to-end. This proves the actual message content
+      // carries the "## Video File:"/"## Audio File:" markers that
+      // appendDetectedFileResult() emits, using magic-bytes-only buffers so
+      // FileDetector's graceful-degradation fallback (no real media
+      // decoding) keeps this deterministic and network-free.
+      const riffWave = Buffer.concat([
+        Buffer.from("RIFF"),
+        Buffer.from([0, 0, 0, 0]),
+        Buffer.from("WAVE"),
+        Buffer.alloc(16),
+      ]);
+      const ftypMp4 = Buffer.concat([
+        Buffer.from([0, 0, 0, 0x18]),
+        Buffer.from("ftyp"),
+        Buffer.from("mp42"),
+        Buffer.alloc(16),
+      ]);
+
+      const videoMessages = await buildMultimodalMessagesArray(
+        {
+          input: { text: "describe this", videoFiles: [ftypMp4] },
+        } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+        "openai",
+        "gpt-4o",
+      );
+      const audioMessages = await buildMultimodalMessagesArray(
+        {
+          input: { text: "describe this", audioFiles: [riffWave] },
+        } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+        "openai",
+        "gpt-4o",
+      );
+
+      const videoHasMarker =
+        JSON.stringify(videoMessages).includes("## Video File:");
+      const audioHasMarker =
+        JSON.stringify(audioMessages).includes("## Audio File:");
+      return videoHasMarker && audioHasMarker;
+    },
+  },
+  {
+    name: "ImageProcessor #293: rejects empty, too-small, and truncated image buffers",
+    category: "image-processor",
+    fn: async () => {
+      const rejects = async (buf: Buffer, re: RegExp): Promise<boolean> => {
+        try {
+          await ImageProcessor.process(buf);
+          return false;
+        } catch (e) {
+          return e instanceof Error && re.test(e.message);
+        }
+      };
+      const emptyOk = await rejects(Buffer.alloc(0), /buffer is empty/);
+      const tinyOk = await rejects(Buffer.from([0x89, 0x50]), /too small/);
+      // A PNG magic-byte header padded to 30 bytes is truncated (< 67).
+      const truncated = Buffer.alloc(30);
+      truncated[0] = 0x89;
+      truncated[1] = 0x50;
+      truncated[2] = 0x4e;
+      truncated[3] = 0x47;
+      const truncOk = await rejects(truncated, /truncated/);
+      // Review fix: a non-jpeg buffer (BMP "BM" magic, 100 bytes) that
+      // detectImageType falls back to "image/jpeg" must NOT be rejected as a
+      // truncated jpeg — the minimum only applies on a strict magic match.
+      const bmp = Buffer.alloc(100);
+      bmp[0] = 0x42;
+      bmp[1] = 0x4d;
+      const bmpOk = await ImageProcessor.process(bmp).then(
+        () => true,
+        () => false,
+      );
+      // Review fix: a tiny valid SVG must be allowed (text, not raster).
+      const svgOk = await ImageProcessor.process(Buffer.from("<svg/>")).then(
+        () => true,
+        () => false,
+      );
+      return emptyOk && tinyOk && truncOk && bmpOk && svgOk;
+    },
+  },
+  {
+    name: "MessageBuilder #273: a failed CSV/file input throws instead of being silently dropped",
+    category: "message-builder",
+    fn: async () => {
+      const badCsv = await buildMultimodalMessagesArray(
+        {
+          input: { text: "hi", csvFiles: ["/nonexistent/does-not-exist.csv"] },
+        } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+        "openai",
+        "gpt-4o",
+      ).then(
+        () => false,
+        (e) =>
+          e instanceof Error && /Failed to process CSV file/.test(e.message),
+      );
+      const badFile = await buildMultimodalMessagesArray(
+        {
+          input: { text: "hi", files: ["/nonexistent/does-not-exist.bin"] },
+        } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+        "openai",
+        "gpt-4o",
+      ).then(
+        () => false,
+        (e) => e instanceof Error && /Failed to process file/.test(e.message),
+      );
+      return badCsv && badFile;
+    },
+  },
+  {
+    name: "MessageBuilder #289: CSV content[] items are processed (not silently dropped)",
+    category: "message-builder",
+    fn: async () => {
+      const csvBuf = Buffer.from("a,b\n1,2\n3,4\n");
+      const build = (opts: Record<string, unknown>) =>
+        buildMultimodalMessagesArray(
+          opts as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+          "openai",
+          "gpt-4o",
+        );
+      // CSV-only content (no image/pdf) — the previously-gated path.
+      const csvOnly = JSON.stringify(
+        await build({
+          input: {
+            text: "analyze",
+            content: [
+              {
+                type: "csv",
+                data: csvBuf,
+                metadata: { filename: "t.csv", formatStyle: "json" },
+              },
+            ],
+          },
+        }),
+      );
+      return csvOnly.includes("CSV Data from t.csv");
+    },
+  },
+  {
+    name: "MessageBuilder #325: raw (non-base64) CSV string content is not corrupted by forced base64 decoding",
+    category: "message-builder",
+    fn: async () => {
+      // Reviewer-reported bug: appendCsvContentToText() used to
+      // unconditionally Buffer.from(raw, "base64") any string `data`, which
+      // silently mangles genuine raw CSV text (e.g. "a,b\n1,2") since it
+      // isn't valid base64. It must now be detected as non-base64 and
+      // decoded as UTF-8 instead, so the CSV content parses correctly.
+      const rawCsvText = "a,b\n1,2\n3,4\n";
+      const messages = await buildMultimodalMessagesArray(
+        {
+          input: {
+            text: "analyze",
+            content: [
+              {
+                type: "csv",
+                data: rawCsvText,
+                metadata: { filename: "raw.csv", formatStyle: "json" },
+              },
+            ],
+          },
+        } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+        "openai",
+        "gpt-4o",
+      );
+      const serialized = JSON.stringify(messages);
+      // A corrupted decode would produce garbled bytes/mojibake instead of
+      // recognizable "a"/"b"/"1"/"2" values in the parsed JSON CSV output.
+      // Note: `messages` is stringified twice over (once by
+      // appendCsvContentToText's JSON-format CSV output, again by this
+      // JSON.stringify), so the inner quotes appear escaped (\"a\").
+      return (
+        serialized.includes("CSV Data from raw.csv") &&
+        serialized.includes('\\"a\\": \\"1\\"') &&
+        serialized.includes('\\"b\\": \\"2\\"')
+      );
+    },
+  },
+  {
+    name: "Types #325: MessageContent exposes concrete fields without a loose index signature",
+    category: "types",
+    fn: async () => {
+      // Compile-time guarantee: the enumerated fields are all assignable, and an
+      // unknown key would now be a type error (verified by `pnpm run check`).
+      type MessageContentT = import("../src/lib/types/index.js").MessageContent;
+      type MultimodalChatMessageT =
+        import("../src/lib/types/index.js").MultimodalChatMessage;
+      const items: MessageContentT[] = [
+        { type: "text", text: "hi" },
+        { type: "image", image: "b64", mimeType: "image/png" },
+        {
+          type: "file",
+          data: Buffer.from("x"),
+          name: "a.pdf",
+          mimeType: "application/pdf",
+        },
+        {
+          type: "tool-call",
+          toolCallId: "1",
+          toolName: "t",
+          args: { a: 1 },
+        },
+        { type: "tool-result", toolCallId: "1", toolName: "t", result: 42 },
+      ];
+      // Negative case: an unsupported key must be a type error. If the
+      // removed index signature is ever reintroduced, this assignment stops
+      // erroring and the unused `@ts-expect-error` directive fails
+      // `pnpm run check`, catching the regression.
+      // @ts-expect-error -- MessageContent must reject unsupported fields
+      const invalidItem: MessageContentT = {
+        type: "text",
+        text: "hi",
+        unsupported: true,
+      };
+      void invalidItem;
+
+      // Runtime guard (Tara-ag round-2): the type-level check above can't
+      // catch a future runtime filtering regression, so also exercise the
+      // real conversion path and assert the known-good fields survive
+      // unstripped. tool-call/tool-result are not valid ModelMessage content
+      // parts and are intentionally dropped by convertContentItem — only
+      // text/image/file are expected to come through.
+      const chatMessages: MultimodalChatMessageT[] = [
+        { role: "user", content: items },
+      ];
+      const [converted] = convertToModelMessages(chatMessages);
+      const convertedContent = converted?.content;
+      const runtimeFieldsPreserved =
+        Array.isArray(convertedContent) &&
+        convertedContent.length === 3 &&
+        (convertedContent[0] as { type: string; text?: string }).text ===
+          "hi" &&
+        (convertedContent[1] as { type: string; image?: string }).image ===
+          "b64" &&
+        (convertedContent[1] as { mediaType?: string }).mediaType ===
+          "image/png" &&
+        Buffer.isBuffer((convertedContent[2] as { data?: unknown }).data) &&
+        (convertedContent[2] as { mediaType?: string }).mediaType ===
+          "application/pdf";
+
+      return (
+        items.length === 5 && items[0].text === "hi" && runtimeFieldsPreserved
+      );
+    },
+  },
+  {
+    name: "FileDetector #323: a cached URL Content-Type avoids a redundant HEAD",
+    category: "file-detector",
+    fn: async () => {
+      let headCount = 0;
+      // A real (1x1) valid PNG — the 4-byte magic-only stub previously used
+      // here is rejected by the buffer-size image validation added in this
+      // PR, so the test only "passed" because detectAndProcess() always
+      // threw, not because the caching path actually succeeded.
+      const png = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "base64",
+      );
+      const server = http.createServer((req, res) => {
+        if (req.method === "HEAD") {
+          headCount++;
+          res.setHeader("content-type", "image/png");
+          res.end();
+        } else {
+          res.setHeader("content-type", "image/png");
+          res.end(png);
+        }
+      });
+      await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+      try {
+        const addr = server.address() as { port: number };
+        const url = `http://127.0.0.1:${addr.port}/img-323.png`;
+        const load = (
+          FileDetector as unknown as {
+            loadFromURL: (
+              u: string,
+              o?: { maxSize?: number },
+            ) => Promise<Buffer>;
+          }
+        ).loadFromURL.bind(FileDetector);
+        // GET populates the content-type cache.
+        await load(url, { maxSize: 1024 });
+        // A subsequent detection of the same URL must NOT issue a HEAD.
+        headCount = 0;
+        const result = await FileDetector.detectAndProcess(url);
+        return result.type === "image" && headCount === 0;
+      } finally {
+        await new Promise<void>((r) => server.close(() => r()));
+      }
     },
   },
 ];

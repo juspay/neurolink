@@ -15,10 +15,11 @@ import {
   FILE_READ_BUDGET_PERCENT,
 } from "../context/fileTokenBudget.js";
 import type { FileReferenceRegistry } from "../files/fileReferenceRegistry.js";
-import { SIZE_TIER_THRESHOLDS } from "../types/index.js";
+import { isCSVContent, SIZE_TIER_THRESHOLDS } from "../types/index.js";
 import type {
   ChatMessage,
   Content,
+  CSVContent,
   FileInput,
   FileWithMetadata,
   GenerateOptions,
@@ -29,10 +30,10 @@ import type {
   TextGenerationOptions,
 } from "../types/index.js";
 import { tracers, ATTR, withSpan } from "../telemetry/index.js";
-import { NeuroLinkError } from "./errorHandling.js";
+import { ErrorFactory, NeuroLinkError, withTimeout } from "./errorHandling.js";
 import { FileDetector } from "./fileDetector.js";
 import { getImageCache } from "./imageCache.js";
-import { ImageProcessor } from "./imageProcessor.js";
+import { ImageProcessor, imageUtils } from "./imageProcessor.js";
 import { logger } from "./logger.js";
 import { PDFImageConverter, PDFProcessor } from "./pdfProcessor.js";
 import { urlDownloadRateLimiter } from "./rateLimiter.js";
@@ -1080,8 +1081,15 @@ export async function processUnifiedFilesArray(
           );
         } catch (error) {
           const errMsg = error instanceof Error ? error.message : String(error);
+          // #273: don't silently drop a failed file — log, then throw so the
+          // caller learns the file couldn't be processed (matches the explicit
+          // pdf/csv paths' fail-loud behavior).
           logger.error(
-            `[NEUROLINK] File skipped/failed: ${filename} — reason: ${errMsg}`,
+            `[NEUROLINK] File processing failed: ${filename} — reason: ${errMsg}`,
+          );
+          throw ErrorFactory.fileProcessingFailed(
+            filename,
+            error instanceof Error ? error : new Error(errMsg),
           );
         }
       }
@@ -1179,10 +1187,15 @@ async function processExplicitCsvFiles(
       options.input.text += csvSection;
       logger.info(`[CSV] ✅ Processed: ${filename}`);
     } catch (error) {
-      logger.error(`[CSV] ❌ Failed:`, error);
       const filename = extractFilename(csvFile, i);
-      options.input.text += `\n\n## CSV Data Error: Failed to process "${filename}"`;
-      options.input.text += `\nReason: ${error instanceof Error ? error.message : "Unknown error"}`;
+      const errMsg = error instanceof Error ? error.message : String(error);
+      // #273: fail loud instead of embedding the error into the prompt text
+      // (which the model would then "analyze"). Log, then throw.
+      logger.error(`[CSV] ❌ Failed to process ${filename}: ${errMsg}`);
+      throw ErrorFactory.csvProcessingFailed(
+        filename,
+        error instanceof Error ? error : new Error(errMsg),
+      );
     }
   }
 }
@@ -1367,6 +1380,19 @@ export async function buildMultimodalMessagesArray(
   // rest of this function, avoiding 60+ "possibly undefined" errors.
   const inp = options.input;
 
+  // #284: audioFiles/videoFiles have no dedicated processor — route them
+  // through the same auto-detecting `files` pipeline that already
+  // understands "audio"/"video" FileDetector results (see
+  // appendDetectedFileResult), instead of silently dropping them once
+  // detectMultimodal() routes an audio/video-only request here.
+  if (inp.audioFiles?.length || inp.videoFiles?.length) {
+    inp.files = [
+      ...(inp.files || []),
+      ...(inp.audioFiles || []),
+      ...(inp.videoFiles || []),
+    ];
+  }
+
   // Compute provider-specific max PDF size once for consistent validation
   const pdfConfig = PDFProcessor.getProviderConfig(provider);
   const maxSize = pdfConfig
@@ -1397,6 +1423,13 @@ export async function buildMultimodalMessagesArray(
 
   // If no images or PDFs, use standard message building and convert to MultimodalChatMessage[]
   if (!hasImages && !hasPDFs) {
+    // #289: CSV content[] items don't need vision, so they never reach the
+    // multimodal converter below — process them into the prompt text here
+    // (otherwise a `content: [{type:"csv"}]`-only request silently drops it).
+    const csvContentItems = inp.content?.filter(isCSVContent) ?? [];
+    if (csvContentItems.length > 0) {
+      inp.text = await appendCsvContentToText(csvContentItems, inp.text ?? "");
+    }
     if (inp.csvFiles) {
       inp.csvFiles = [];
     }
@@ -1563,6 +1596,59 @@ export async function buildMultimodalMessagesArray(
 }
 
 /**
+ * Timeout for detecting/parsing an in-memory CSV `content[]` buffer (#325
+ * review, round 2). Bounds a stalled detector rather than blocking the
+ * request indefinitely.
+ */
+const CSV_CONTENT_DETECTION_TIMEOUT_MS = 30_000;
+
+/**
+ * #289: process CSV `content[]` items into appended prompt text. CSV is
+ * delivered to the model as text (like the explicit `csvFiles` path), so this
+ * is shared by both the no-vision gate and the multimodal converter.
+ */
+async function appendCsvContentToText(
+  csvItems: CSVContent[],
+  baseText: string,
+): Promise<string> {
+  let text = baseText;
+  for (const csv of csvItems) {
+    const raw = csv.data;
+    if (raw === undefined) {
+      continue;
+    }
+    // #325: raw CSV text (e.g. "a,b\n1,2") is not base64 — decoding it as
+    // base64 silently corrupts the content. Only treat the string as base64
+    // when it actually validates as such; otherwise treat it as literal
+    // UTF-8 CSV text, matching how Buffer inputs are already handled as-is.
+    const buffer =
+      typeof raw === "string"
+        ? imageUtils.isValidBase64(raw)
+          ? Buffer.from(raw, "base64")
+          : Buffer.from(raw, "utf-8")
+        : raw;
+    const name = csv.metadata?.filename || "data.csv";
+    // #325 review (round 2): a stalled/hung detector must not block the
+    // request indefinitely — wrap with the project's standard withTimeout.
+    const result = await withTimeout(
+      FileDetector.detectAndProcess(buffer, {
+        allowedTypes: ["csv"],
+        csvOptions: {
+          maxRows: csv.metadata?.maxRows,
+          formatStyle: csv.metadata?.formatStyle,
+        },
+      }),
+      CSV_CONTENT_DETECTION_TIMEOUT_MS,
+      new Error(
+        `Timed out processing CSV content "${name}" after ${CSV_CONTENT_DETECTION_TIMEOUT_MS}ms`,
+      ),
+    );
+    text += `${text ? "\n\n" : ""}## CSV Data from ${name}\n${result.content}`;
+  }
+  return text;
+}
+
+/**
  * Convert advanced content format to provider-specific format
  */
 async function convertContentToProviderFormat(
@@ -1573,9 +1659,16 @@ async function convertContentToProviderFormat(
   const textContent = content.find((c) => c.type === "text");
   const imageContent = content.filter((c) => c.type === "image");
   const pdfContent = content.filter((c) => c.type === "pdf");
+  const csvContent = content.filter(isCSVContent);
 
   // Allow empty text when multimodal content is present (enables image-only or PDF-only queries)
-  const text = textContent?.text || "";
+  let text = textContent?.text || "";
+
+  // #289: CSV content[] items were silently dropped — fold each into the text.
+  if (csvContent.length > 0) {
+    text = await appendCsvContentToText(csvContent, text);
+  }
+
   const hasMultimodal = imageContent.length > 0 || pdfContent.length > 0;
 
   // Validate that we have at least some content
@@ -1583,7 +1676,7 @@ async function convertContentToProviderFormat(
     throw new Error("Content must include either text or multimodal content");
   }
 
-  // Text-only case
+  // Text-only case (CSV has already been folded into `text`)
   if (imageContent.length === 0 && pdfContent.length === 0) {
     return text;
   }

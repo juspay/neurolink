@@ -20,6 +20,25 @@ import { ErrorFactory, NeuroLinkError } from "./errorHandling.js";
 import type { ProcessedImage, FileProcessingResult } from "../types/index.js";
 
 /**
+ * Minimum bytes required just to detect an image format from magic bytes (#293).
+ */
+export const MIN_IMAGE_SIZE = 12;
+
+/**
+ * Minimum plausible byte size for a non-empty image of each format (#293). A
+ * buffer that carries a format's magic bytes but is smaller than this is
+ * truncated/corrupt and would fail (or render blank) downstream — reject early
+ * with a clear message instead.
+ */
+export const MIN_VALID_IMAGE_SIZE: Record<string, number> = {
+  "image/png": 67,
+  "image/jpeg": 125,
+  "image/gif": 43,
+  "image/webp": 20,
+  "image/avif": 100,
+};
+
+/**
  * Network error codes that should trigger a retry
  */
 const RETRYABLE_ERROR_CODES = new Set([
@@ -119,13 +138,9 @@ export class ImageProcessor {
     content: Buffer,
     _options?: unknown,
   ): Promise<FileProcessingResult> {
-    // Validate content is non-empty before processing
-    if (content.length === 0) {
-      logger.error("Empty buffer provided");
-      throw new Error("Invalid image processing: buffer is empty");
-    }
-
-    const mediaType = this.detectImageType(content);
+    // #293: reject empty AND small/truncated buffers (not just 0 bytes) before
+    // processing; returns the detected media type.
+    const mediaType = this.validateBufferNotEmpty(content);
 
     // #261/#286 follow-up: fail loud instead of packaging the octet-stream
     // sentinel as a "valid" image (see assertKnownImageType() above).
@@ -149,6 +164,92 @@ export class ImageProcessor {
         size: content.length,
       },
     } satisfies FileProcessingResult;
+  }
+
+  /**
+   * Strict magic-byte match: does `content` actually begin with `mediaType`'s
+   * signature? `detectImageType` returns `image/jpeg` as a *fallback* for
+   * unrecognized data, so a per-format minimum must only be enforced when the
+   * bytes genuinely match — otherwise valid BMP/TIFF/unknown buffers would be
+   * wrongly rejected as "truncated jpeg" (#293 review).
+   */
+  private static hasStrictImageMagic(
+    content: Buffer,
+    mediaType: string,
+  ): boolean {
+    const b = content;
+    switch (mediaType) {
+      case "image/png":
+        return (
+          b.length >= 4 &&
+          b[0] === 0x89 &&
+          b[1] === 0x50 &&
+          b[2] === 0x4e &&
+          b[3] === 0x47
+        );
+      case "image/jpeg":
+        return b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+      case "image/gif":
+        return b.length >= 3 && b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46;
+      case "image/webp":
+        return (
+          b.length >= 12 &&
+          b.subarray(0, 4).toString("latin1") === "RIFF" &&
+          b.subarray(8, 12).toString("latin1") === "WEBP"
+        );
+      case "image/avif":
+        return (
+          b.length >= 12 &&
+          b.subarray(4, 8).toString("latin1") === "ftyp" &&
+          b.subarray(8, 12).toString("latin1").startsWith("avif")
+        );
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Validate that a buffer is a plausibly-complete image (#293): non-empty and,
+   * for a strictly-identified raster format, at least the minimum plausible byte
+   * size. Returns the detected media type.
+   *
+   * @throws Error when the buffer is empty or a recognized format is truncated.
+   */
+  private static validateBufferNotEmpty(content: Buffer): string {
+    if (content.length === 0) {
+      logger.error("Empty buffer provided");
+      throw ErrorFactory.imageBufferInvalid(
+        "Invalid image processing: buffer is empty",
+      );
+    }
+    const mediaType = this.detectImageType(content);
+    // SVG is text and can be legitimately tiny (e.g. `<svg/>`), so the raster
+    // size floors don't apply to it (#293 review).
+    if (mediaType === "image/svg+xml") {
+      return mediaType;
+    }
+    // A buffer too small to carry any raster header is not a usable image.
+    if (content.length < MIN_IMAGE_SIZE) {
+      throw ErrorFactory.imageBufferInvalid(
+        `Invalid image processing: buffer too small (${content.length} bytes) — ` +
+          `a minimum of ${MIN_IMAGE_SIZE} bytes is required for a valid image.`,
+      );
+    }
+    // Only enforce a per-format minimum when the format was strictly identified
+    // from magic bytes (never from detectImageType's jpeg fallback), so valid
+    // BMP/TIFF/unknown buffers are not mis-rejected as "truncated jpeg".
+    const minForFormat = MIN_VALID_IMAGE_SIZE[mediaType];
+    if (
+      minForFormat !== undefined &&
+      content.length < minForFormat &&
+      this.hasStrictImageMagic(content, mediaType)
+    ) {
+      throw ErrorFactory.imageBufferInvalid(
+        `Invalid image processing: ${mediaType} buffer is truncated ` +
+          `(${content.length} bytes, minimum ${minForFormat} for a valid ${mediaType}).`,
+      );
+    }
+    return mediaType;
   }
 
   /**
