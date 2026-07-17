@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, statSync } from "fs";
+import { readFile as readFileAsync, stat as statAsync } from "fs/promises";
 import { getGlobalDispatcher, interceptors, request } from "undici";
 import {
   MultimodalLogger,
@@ -28,8 +29,10 @@ import type {
   TextGenerationOptions,
 } from "../types/index.js";
 import { tracers, ATTR, withSpan } from "../telemetry/index.js";
+import { NeuroLinkError } from "./errorHandling.js";
 import { FileDetector } from "./fileDetector.js";
 import { getImageCache } from "./imageCache.js";
+import { ImageProcessor } from "./imageProcessor.js";
 import { logger } from "./logger.js";
 import { PDFImageConverter, PDFProcessor } from "./pdfProcessor.js";
 import { urlDownloadRateLimiter } from "./rateLimiter.js";
@@ -1800,14 +1803,42 @@ function detectMimeTypeFromBuffer(buffer: Buffer): string | undefined {
 /**
  * Convert file path to raw base64 string.
  * Returns raw base64 (not a data: URI) to avoid SSRF validation in AI SDK v6.
+ * Uses async fs so a large/slow-filesystem image never blocks the event loop
+ * while the size guard (below) or the read itself is in flight.
  */
-function convertFilePathToBase64(filePath: string): string {
-  if (!existsSync(filePath)) {
-    throw new Error(`Image file not found: ${filePath}`);
+async function convertFilePathToBase64(filePath: string): Promise<string> {
+  let stats;
+  try {
+    stats = await statAsync(filePath);
+  } catch (error) {
+    // Only ENOENT means "not found" — EACCES/ELOOP/etc. are real access or
+    // filesystem problems that must not be misreported as a missing file.
+    const code =
+      error instanceof Error
+        ? (error as NodeJS.ErrnoException).code
+        : undefined;
+    if (code === "ENOENT") {
+      throw new Error(`Image file not found: ${filePath}`, { cause: error });
+    }
+    throw new Error(
+      `Cannot access image file ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+  if (!stats.isFile()) {
+    throw new Error(`Image path is not a file: ${filePath}`);
   }
 
-  const buffer = readFileSync(filePath);
-  return buffer.toString("base64");
+  // #257: check the file size via stat BEFORE reading it into memory, so a
+  // huge image path never triggers an unbounded read + base64 allocation.
+  // Delegates to ImageProcessor's shared guard (no local reimplementation).
+  const context = `image file "${filePath}"`;
+  ImageProcessor.validateSize(stats.size, context);
+  const buffer = await readFileAsync(filePath);
+  // TOCTOU: the file can grow, or a symlink can be swapped, between the stat
+  // above and this read completing. Re-validate the bytes actually read
+  // (not just the pre-read stat) before the base64 allocation.
+  return ImageProcessor.safeBase64Convert(buffer, context);
 }
 
 /**
@@ -1819,10 +1850,10 @@ function convertFilePathToBase64(filePath: string): string {
  * Passing raw base64 avoids this because `new URL(base64string)` throws and
  * the SDK treats the string as inline base64 data instead.
  */
-function processImageToBase64(
+async function processImageToBase64(
   image: Buffer | string,
   index: number,
-): { imageData: string; mimeType: string } {
+): Promise<{ imageData: string; mimeType: string }> {
   let imageData: string;
   let mimeType = "image/jpeg"; // Default mime type
 
@@ -1855,13 +1886,18 @@ function processImageToBase64(
     } else {
       // File path string - convert to raw base64
       try {
-        imageData = convertFilePathToBase64(image);
+        imageData = await convertFilePathToBase64(image);
         mimeType = getMimeTypeFromExtension(image);
       } catch (error) {
         MultimodalLogger.logError("FILE_PATH_CONVERSION", error as Error, {
           index,
           filePath: image,
         });
+        // Preserve typed errors (e.g. IMAGE_TOO_LARGE) as-is — don't flatten
+        // them into a generic Error and lose the error `code` for callers.
+        if (error instanceof NeuroLinkError) {
+          throw error;
+        }
         throw new Error(
           `Failed to convert file path to base64: ${image}. ${error}`,
           { cause: error },
@@ -1874,6 +1910,9 @@ function processImageToBase64(
     if (detectedMimeType) {
       mimeType = detectedMimeType;
     }
+    // #257: guard the buffer size before the unbounded base64 conversion.
+    // Delegates to ImageProcessor's shared guard (no local reimplementation).
+    ImageProcessor.validateBufferSize(image, `image input at index ${index}`);
     imageData = image.toString("base64");
   }
 
@@ -1957,11 +1996,13 @@ async function convertSimpleImagesToProviderFormat(
     { type: "text", text: enhancedText },
   ];
 
-  // Process all images (including downloaded URLs) for Vercel AI SDK
-  actualImages.forEach(({ data: image }, index) => {
+  // Process all images (including downloaded URLs) for Vercel AI SDK.
+  // Sequential for...of (not Promise.all) to preserve image ordering and
+  // keep the original forEach's one-at-a-time error semantics.
+  for (const [index, { data: image }] of actualImages.entries()) {
     try {
       // Use helper function to process image and reduce nesting depth
-      const { imageData, mimeType } = processImageToBase64(image, index);
+      const { imageData, mimeType } = await processImageToBase64(image, index);
 
       content.push({
         type: "image" as const,
@@ -1975,7 +2016,7 @@ async function convertSimpleImagesToProviderFormat(
       });
       throw error;
     }
-  });
+  }
 
   return content;
 }

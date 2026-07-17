@@ -35,10 +35,14 @@ import type { CSVLoaderOptions } from "../src/lib/types/index.js";
 import iconv from "iconv-lite";
 import { Readable, Transform } from "node:stream";
 import { PDFProcessor } from "../src/lib/utils/pdfProcessor.js";
+import { SIZE_LIMITS_BYTES } from "../src/lib/processors/config/sizeLimits.js";
 import { directAgentTools } from "../src/lib/agent/directTools.js";
 import { isMultimodalInput } from "../src/lib/types/index.js";
 import { FileDetector } from "../src/lib/utils/fileDetector.js";
+import { ImageProcessor, imageUtils } from "../src/lib/utils/imageProcessor.js";
+import { ERROR_CODES } from "../src/lib/utils/errorHandling.js";
 import {
+  chmodSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -4789,6 +4793,266 @@ exit 127
       }
     },
   },
+  // ---------- #257: image buffer size guard (memory exhaustion) ----------
+  {
+    name: "FileDetector #257: oversized image rejected before base64; at-limit passes",
+    category: "image-processor",
+    fn: async () => {
+      const IMAGE_MAX = SIZE_LIMITS_BYTES.IMAGE_MAX;
+      const pngHeader = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+      const mk = (size: number): Buffer => {
+        const b = Buffer.alloc(size);
+        pngHeader.forEach((byte, i) => (b[i] = byte));
+        return b;
+      };
+      // 11 MB image (the files→FileDetector→ImageProcessor path) must throw a
+      // descriptive size error instead of an unbounded base64 allocation.
+      let rejected = false;
+      try {
+        await FileDetector.detectAndProcess(mk(IMAGE_MAX + 1024 * 1024), {
+          allowedTypes: ["image", "unknown"],
+        });
+      } catch (e) {
+        rejected =
+          e instanceof Error && /too large|exceeds|limit/i.test(e.message);
+      }
+      if (!rejected) {
+        return false;
+      }
+      // An image exactly at the limit must still succeed (no false rejection).
+      const ok = await FileDetector.detectAndProcess(mk(IMAGE_MAX), {
+        allowedTypes: ["image", "unknown"],
+      });
+      return ok.type === "image";
+    },
+  },
+  {
+    name: "buildMultimodalMessagesArray #257: oversized image Buffer rejected (images path)",
+    category: "message-builder",
+    fn: async () => {
+      // The generate({ images: [...] }) path — distinct from files→FileDetector.
+      const oversized = Buffer.alloc(SIZE_LIMITS_BYTES.IMAGE_MAX + 1024 * 1024);
+      // Full 8-byte PNG signature so MIME detection succeeds
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(
+        oversized,
+      );
+      try {
+        await buildMultimodalMessagesArray(
+          {
+            input: { text: "hi", images: [oversized] },
+          } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+          "openai",
+          "gpt-4o",
+        );
+        return false; // should have thrown
+      } catch (e) {
+        return e instanceof Error && /too large|exceeds|limit/i.test(e.message);
+      }
+    },
+  },
+  // ---------- #257 round 2: NaN/negative size rejection, typed-error preservation ----------
+  {
+    name: "ImageProcessor.validateSize rejects NaN/Infinity/negative sizes with typed INVALID_IMAGE_SIZE (fail closed)",
+    category: "image-processor",
+    fn: async () => {
+      // NaN > maxSize and -1 > maxSize both evaluate to false, so a naive
+      // comparison-only guard silently lets malformed sizes through.
+      for (const size of [NaN, Infinity, -Infinity, -1]) {
+        try {
+          ImageProcessor.validateSize(size, "test");
+          return false; // must throw for every malformed size
+        } catch (e) {
+          if (
+            !(e instanceof NeuroLinkError) ||
+            e.code !== ERROR_CODES.INVALID_IMAGE_SIZE
+          ) {
+            return false;
+          }
+        }
+      }
+      // A valid in-range size must not throw.
+      try {
+        ImageProcessor.validateSize(1024, "test");
+      } catch {
+        return false;
+      }
+      // A valid but oversized number must still hit the pre-existing
+      // IMAGE_TOO_LARGE guard, not the new malformed-size guard.
+      try {
+        ImageProcessor.validateSize(SIZE_LIMITS_BYTES.IMAGE_MAX + 1, "test");
+        return false;
+      } catch (e) {
+        return (
+          e instanceof NeuroLinkError && e.code === ERROR_CODES.IMAGE_TOO_LARGE
+        );
+      }
+    },
+  },
+  {
+    name: "ImageProcessor.validateSize rejects malformed maxSize (NaN/Infinity/negative) instead of silently letting size through (fail closed)",
+    category: "image-processor",
+    fn: async () => {
+      // `size > NaN` and `size > -1` both evaluate to false, so a malformed
+      // maxSize previously bypassed the guard entirely — any size, however
+      // large, would compare as "not over the limit".
+      for (const maxSize of [NaN, Infinity, -1, -Infinity]) {
+        try {
+          ImageProcessor.validateSize(1024, "test", maxSize);
+          return false; // must throw for every malformed maxSize
+        } catch (e) {
+          if (
+            !(e instanceof NeuroLinkError) ||
+            e.code !== ERROR_CODES.INVALID_CONFIGURATION
+          ) {
+            return false;
+          }
+        }
+      }
+      // A valid maxSize must still behave exactly as before: in-range passes,
+      // over-range throws IMAGE_TOO_LARGE.
+      try {
+        ImageProcessor.validateSize(1024, "test", 2048);
+      } catch {
+        return false;
+      }
+      try {
+        ImageProcessor.validateSize(4096, "test", 2048);
+        return false;
+      } catch (e) {
+        return (
+          e instanceof NeuroLinkError && e.code === ERROR_CODES.IMAGE_TOO_LARGE
+        );
+      }
+    },
+  },
+  {
+    name: "ImageProcessor provider wrappers preserve typed IMAGE_TOO_LARGE error through every catch (not flattened to plain Error)",
+    category: "image-processor",
+    fn: async () => {
+      const oversized = Buffer.alloc(SIZE_LIMITS_BYTES.IMAGE_MAX + 1024);
+      const throwsTyped = (thrower: () => unknown): boolean => {
+        try {
+          thrower();
+          return false;
+        } catch (e) {
+          return (
+            e instanceof NeuroLinkError &&
+            e.code === ERROR_CODES.IMAGE_TOO_LARGE
+          );
+        }
+      };
+      return (
+        throwsTyped(() => ImageProcessor.processImageForOpenAI(oversized)) &&
+        throwsTyped(() => ImageProcessor.processImageForGoogle(oversized)) &&
+        throwsTyped(() => ImageProcessor.processImageForAnthropic(oversized)) &&
+        // Routes through processImageForGoogle, exercising its own
+        // enclosing catch on top of the one already exercised above.
+        throwsTyped(() =>
+          ImageProcessor.processImageForVertex(oversized, "gemini-pro"),
+        ) &&
+        // Default branch of processImage() — exercises the outermost catch.
+        throwsTyped(() =>
+          ImageProcessor.processImage(oversized, "some-other-provider"),
+        )
+      );
+    },
+  },
+  {
+    name: "ImageProcessor.safeBase64Convert revalidates actual buffer bytes independent of any prior size claim (TOCTOU guard)",
+    category: "image-processor",
+    fn: async () => {
+      // convertFilePathToBase64 must not trust the pre-read fs.stat size
+      // alone (a file can grow, or a symlink can be swapped, between stat
+      // and read) — it now re-runs this exact guard against the bytes
+      // actually read. Prove the guard is a real, independent check on the
+      // buffer itself, not a rubber stamp on a caller-supplied number.
+      const actuallyOversized = Buffer.alloc(SIZE_LIMITS_BYTES.IMAGE_MAX + 1);
+      try {
+        ImageProcessor.safeBase64Convert(actuallyOversized, "toctou-recheck");
+        return false;
+      } catch (e) {
+        return (
+          e instanceof NeuroLinkError && e.code === ERROR_CODES.IMAGE_TOO_LARGE
+        );
+      }
+    },
+  },
+  {
+    name: "imageUtils.bufferToBase64: default stays guarded at 10MB; explicit maxBytes override is opt-in (no silent break for internal callers)",
+    category: "image-processor",
+    fn: async () => {
+      const oversized = Buffer.alloc(SIZE_LIMITS_BYTES.IMAGE_MAX + 1024);
+      let defaultThrew = false;
+      try {
+        imageUtils.bufferToBase64(oversized);
+      } catch (e) {
+        defaultThrew =
+          e instanceof NeuroLinkError && e.code === ERROR_CODES.IMAGE_TOO_LARGE;
+      }
+      if (!defaultThrew) {
+        return false;
+      }
+      // A caller with a legitimate need for a higher ceiling can opt in
+      // explicitly instead of being silently capped.
+      const base64 = imageUtils.bufferToBase64(
+        oversized,
+        SIZE_LIMITS_BYTES.IMAGE_MAX * 2,
+      );
+      return typeof base64 === "string" && base64.length > 0;
+    },
+  },
+  {
+    name: "convertFilePathToBase64 (via buildMultimodalMessagesArray): oversized file path rejected pre-read; at-limit file path succeeds",
+    category: "message-builder",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-img-file-"));
+      const pngHeader = Buffer.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      ]);
+      try {
+        // Oversized file path — must be rejected by the stat-based guard
+        // BEFORE the file is read into memory, with the typed error intact.
+        const bigPath = pathJoin(dir, "big.png");
+        const big = Buffer.alloc(SIZE_LIMITS_BYTES.IMAGE_MAX + 1024 * 1024);
+        pngHeader.copy(big);
+        writeFileSync(bigPath, big);
+        try {
+          await buildMultimodalMessagesArray(
+            {
+              input: { text: "hi", images: [bigPath] },
+            } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+            "openai",
+            "gpt-4o",
+          );
+          return false; // should have thrown
+        } catch (e) {
+          if (
+            !(e instanceof NeuroLinkError) ||
+            e.code !== ERROR_CODES.IMAGE_TOO_LARGE
+          ) {
+            return false;
+          }
+        }
+
+        // At-limit file path must still succeed (no false rejection from
+        // the new post-read revalidation).
+        const okPath = pathJoin(dir, "ok.png");
+        const ok = Buffer.alloc(SIZE_LIMITS_BYTES.IMAGE_MAX);
+        pngHeader.copy(ok);
+        writeFileSync(okPath, ok);
+        const messages = await buildMultimodalMessagesArray(
+          {
+            input: { text: "hi", images: [okPath] },
+          } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+          "openai",
+          "gpt-4o",
+        );
+        return Array.isArray(messages) && messages.length > 0;
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
   // ---------- round-3 review: skipLines must reach csv-parser itself, not just the manual data-event counter ----------
   {
     name: "CSVProcessor.parseCSVFile: skipLines is passed to csv-parser so the sep= line never becomes the header",
@@ -4901,6 +5165,81 @@ exit 127
           fileRows[1].amount === "200"
         );
       } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "convertFilePathToBase64: ENOENT reports 'not found', EACCES/other stat errors are NOT misreported as 'not found'",
+    category: "message-builder",
+    fn: async () => {
+      // Permission bits are meaningless for root — chmod 000 does not deny
+      // access, so the EACCES half of this test cannot run under root. The
+      // ENOENT half is platform-independent and must still run under root,
+      // so this only skips the EACCES assertion below, not the whole test.
+      const isRoot =
+        typeof process.getuid === "function" && process.getuid() === 0;
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-img-access-"));
+      const filePath = pathJoin(dir, "photo.png");
+      try {
+        writeFileSync(
+          filePath,
+          Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        );
+
+        // ENOENT: a path that genuinely does not exist.
+        let enoentMessage = "";
+        try {
+          await buildMultimodalMessagesArray(
+            {
+              input: {
+                text: "hi",
+                images: [pathJoin(dir, "does-not-exist.png")],
+              },
+            } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+            "openai",
+            "gpt-4o",
+          );
+          return false;
+        } catch (e) {
+          enoentMessage = e instanceof Error ? e.message : String(e);
+        }
+        if (!/not found/i.test(enoentMessage)) {
+          return false;
+        }
+        if (isRoot) {
+          return null;
+        }
+
+        // EACCES: stat() itself fails (no execute permission to traverse
+        // into `dir`) — a real access error, not a missing file. The old
+        // `statAsync(...).catch(() => null)` regressed this to "not found".
+        chmodSync(dir, 0o000);
+        let eaccesMessage = "";
+        try {
+          await buildMultimodalMessagesArray(
+            {
+              input: { text: "hi", images: [filePath] },
+            } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+            "openai",
+            "gpt-4o",
+          );
+          return false;
+        } catch (e) {
+          eaccesMessage = e instanceof Error ? e.message : String(e);
+        } finally {
+          chmodSync(dir, 0o700); // restore so cleanup can remove the dir
+        }
+        return (
+          !/not found/i.test(eaccesMessage) &&
+          /cannot access/i.test(eaccesMessage)
+        );
+      } finally {
+        try {
+          chmodSync(dir, 0o700);
+        } catch {
+          /* already restored */
+        }
         rmSync(dir, { recursive: true, force: true });
       }
     },

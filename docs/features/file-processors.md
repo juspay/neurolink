@@ -354,23 +354,15 @@ const result = await neurolink.generate({
 
 Default size limits prevent denial-of-service attacks:
 
-| Category     | Default Limit | Configurable |
-| ------------ | ------------- | ------------ |
-| Documents    | 50 MB         | Yes          |
-| Data files   | 10 MB         | Yes          |
-| Code files   | 5 MB          | Yes          |
-| Config files | 1 MB          | Yes          |
-| Images       | 20 MB         | Yes          |
+| Category     | Default Limit | Configurable     |
+| ------------ | ------------- | ---------------- |
+| Documents    | 50 MB         | Yes              |
+| Data files   | 10 MB         | Yes              |
+| Code files   | 5 MB          | Yes              |
+| Config files | 1 MB          | Yes              |
+| Images       | 10 MB         | No — fixed limit |
 
-```typescript
-import { ProcessorConfig } from "@juspay/neurolink";
-
-// Configure size limits
-ProcessorConfig.setLimits({
-  maxDocumentSize: 100 * 1024 * 1024, // 100 MB
-  maxCodeSize: 10 * 1024 * 1024, // 10 MB
-});
-```
+The **image** limit (`SIZE_LIMITS_BYTES.IMAGE_MAX`, 10 MB) is enforced: an oversized image buffer, file, or download throws a descriptive error before any base64 conversion, so a large image can no longer exhaust process memory. This applies to both entry points — images passed via `generate({ files })` (routed through `FileDetector` → `ImageProcessor`) and via `generate({ images })` (routed through the message builder). The internal image helpers that convert buffers/files/URLs accept an optional size override, but it is not exposed through `generate()` or any other public API — the 10 MB limit is fixed for SDK callers.
 
 ## Error Handling
 

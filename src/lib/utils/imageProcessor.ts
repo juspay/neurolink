@@ -7,7 +7,9 @@ import { logger } from "./logger.js";
 import { urlDownloadRateLimiter } from "./rateLimiter.js";
 import { withRetry } from "./retryHandler.js";
 import { SYSTEM_LIMITS } from "../core/constants.js";
+import { SIZE_LIMITS_BYTES } from "../processors/config/sizeLimits.js";
 import { getImageCache } from "./imageCache.js";
+import { ErrorFactory, NeuroLinkError } from "./errorHandling.js";
 import type { ProcessedImage, FileProcessingResult } from "../types/index.js";
 
 /**
@@ -95,7 +97,10 @@ export class ImageProcessor {
     }
 
     const mediaType = this.detectImageType(content);
-    const base64 = content.toString("base64");
+    const base64 = ImageProcessor.safeBase64Convert(
+      content,
+      "image processing",
+    );
     const dataUri = `data:${mediaType};base64,${base64}`;
 
     // Validate output before returning
@@ -171,9 +176,17 @@ export class ImageProcessor {
       }
 
       // Handle Buffer - convert to data URI
-      const base64 = image.toString("base64");
+      const base64 = ImageProcessor.safeBase64Convert(
+        image,
+        "OpenAI image input",
+      );
       return `data:image/jpeg;base64,${base64}`;
     } catch (error) {
+      // Preserve typed errors (e.g. IMAGE_TOO_LARGE) as-is — don't flatten
+      // them into a generic Error and lose the error `code` for callers.
+      if (error instanceof NeuroLinkError) {
+        throw error;
+      }
       logger.error("Failed to process image for OpenAI:", error);
       throw new Error(
         `Image processing failed for OpenAI: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -207,7 +220,10 @@ export class ImageProcessor {
           base64Data = image;
         }
       } else {
-        base64Data = image.toString("base64");
+        base64Data = ImageProcessor.safeBase64Convert(
+          image,
+          "provider image input",
+        );
       }
 
       return {
@@ -215,6 +231,11 @@ export class ImageProcessor {
         data: base64Data, // Google wants base64 WITHOUT data URI prefix
       };
     } catch (error) {
+      // Preserve typed errors (e.g. IMAGE_TOO_LARGE) as-is — don't flatten
+      // them into a generic Error and lose the error `code` for callers.
+      if (error instanceof NeuroLinkError) {
+        throw error;
+      }
       logger.error("Failed to process image for Google AI:", error);
       throw new Error(
         `Image processing failed for Google AI: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -248,7 +269,10 @@ export class ImageProcessor {
           base64Data = image;
         }
       } else {
-        base64Data = image.toString("base64");
+        base64Data = ImageProcessor.safeBase64Convert(
+          image,
+          "provider image input",
+        );
       }
 
       return {
@@ -256,6 +280,11 @@ export class ImageProcessor {
         data: base64Data, // Anthropic wants base64 WITHOUT data URI prefix
       };
     } catch (error) {
+      // Preserve typed errors (e.g. IMAGE_TOO_LARGE) as-is — don't flatten
+      // them into a generic Error and lose the error `code` for callers.
+      if (error instanceof NeuroLinkError) {
+        throw error;
+      }
       logger.error("Failed to process image for Anthropic:", error);
       throw new Error(
         `Image processing failed for Anthropic: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -284,6 +313,11 @@ export class ImageProcessor {
         return ImageProcessor.processImageForGoogle(image);
       }
     } catch (error) {
+      // Preserve typed errors bubbling up from processImageForGoogle/
+      // processImageForAnthropic (e.g. IMAGE_TOO_LARGE) as-is.
+      if (error instanceof NeuroLinkError) {
+        throw error;
+      }
       logger.error("Failed to process image for Vertex AI:", error);
       throw new Error(
         `Image processing failed for Vertex AI: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -385,22 +419,81 @@ export class ImageProcessor {
   }
 
   /**
-   * Validate image size (default 10MB limit)
+   * Throwing size guard for a raw byte length. Prevents memory exhaustion by
+   * rejecting an oversized input BEFORE an unbounded read/allocation happens
+   * (#257) — callers that can get a size cheaply (e.g. `fs.stat`) should
+   * validate it before ever reading the bytes into memory. Default limit is
+   * the canonical `SIZE_LIMITS_BYTES.IMAGE_MAX` (10 MB); there is no public
+   * way to raise it — `maxSize` is an internal-only override for advanced
+   * callers (e.g. video image inputs use a higher limit).
+   *
+   * @param size - Byte length to validate
+   * @param context - Short label identifying the source (unused in the
+   *   thrown message today, kept for call-site readability and future use)
+   * @param maxSize - Max allowed size in bytes
+   * @throws NeuroLinkError (`INVALID_IMAGE_SIZE`) if `size` is not a finite,
+   *   non-negative number
+   * @throws NeuroLinkError (`IMAGE_TOO_LARGE`) if `size` exceeds `maxSize`
    */
-  static validateImageSize(
-    data: Buffer | string,
-    maxSize: number = 10 * 1024 * 1024,
-  ): boolean {
-    try {
-      const size =
-        typeof data === "string"
-          ? Buffer.byteLength(data, "base64")
-          : data.length;
-      return size <= maxSize;
-    } catch (error) {
-      logger.warn("Failed to validate image size:", error);
-      return false;
+  static validateSize(
+    size: number,
+    context: string,
+    maxSize: number = SIZE_LIMITS_BYTES.IMAGE_MAX,
+  ): void {
+    // Reject a malformed maxSize before it's ever compared: `size > NaN` and
+    // `size > Infinity` (for a negative maxSize) can both evaluate `false`,
+    // which would let a corrupted/negative limit bypass the guard entirely.
+    if (!Number.isFinite(maxSize) || maxSize < 0) {
+      throw ErrorFactory.invalidConfiguration(
+        "maxSize",
+        "must be a finite, non-negative byte count",
+        { maxSize, context },
+      );
     }
+    // Fail closed on malformed sizes first: `NaN > maxSize` and
+    // `-1 > maxSize` both evaluate to `false`, which would otherwise let a
+    // corrupted stat/header value silently skip the guard below.
+    if (!Number.isFinite(size) || size < 0) {
+      throw ErrorFactory.invalidImageSize(size);
+    }
+    if (size > maxSize) {
+      const mb = (size / (1024 * 1024)).toFixed(1);
+      const maxMb = (maxSize / (1024 * 1024)).toFixed(0);
+      throw ErrorFactory.imageTooLarge(mb, maxMb);
+    }
+  }
+
+  /**
+   * Throwing size guard for image buffers. Prevents memory exhaustion by
+   * rejecting oversized buffers with a descriptive error BEFORE an unbounded
+   * `Buffer.toString("base64")` allocation (#257). Delegates to
+   * `validateSize` so buffer-based and pre-read (stat-based) callers share
+   * one implementation.
+   *
+   * @param buffer - Image buffer to validate
+   * @param context - Short label identifying the source (see `validateSize`)
+   * @param maxSize - Max allowed size in bytes
+   * @throws NeuroLinkError (`IMAGE_TOO_LARGE`) if the buffer exceeds `maxSize`
+   */
+  static validateBufferSize(
+    buffer: Buffer,
+    context: string,
+    maxSize: number = SIZE_LIMITS_BYTES.IMAGE_MAX,
+  ): void {
+    ImageProcessor.validateSize(buffer.length, context, maxSize);
+  }
+
+  /**
+   * Size-guarded Buffer → base64. Use in place of `buffer.toString("base64")`
+   * on any path that converts a caller-supplied image buffer (#257).
+   */
+  static safeBase64Convert(
+    buffer: Buffer,
+    context: string,
+    maxSize: number = SIZE_LIMITS_BYTES.IMAGE_MAX,
+  ): string {
+    ImageProcessor.validateBufferSize(buffer, context, maxSize);
+    return buffer.toString("base64");
   }
 
   /**
@@ -564,7 +657,7 @@ export class ImageProcessor {
               ? image.split(",")[1] || image
               : image;
           } else {
-            data = image.toString("base64");
+            data = ImageProcessor.safeBase64Convert(image, "image input");
           }
           format = "base64";
       }
@@ -576,6 +669,11 @@ export class ImageProcessor {
         format,
       };
     } catch (error) {
+      // Preserve typed errors (e.g. IMAGE_TOO_LARGE) bubbling up from the
+      // provider-specific branches above as-is.
+      if (error instanceof NeuroLinkError) {
+        throw error;
+      }
       logger.error(`Failed to process image for ${provider}:`, error);
       throw new Error(
         `Image processing failed: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -708,10 +806,23 @@ export const imageUtils = {
   },
 
   /**
-   * Convert Buffer to base64 string
+   * Convert Buffer to base64 string. Guarded by the same #257 size limit as
+   * every other conversion site (default `SIZE_LIMITS_BYTES.IMAGE_MAX`);
+   * pass `maxBytes` to override for a caller with a legitimate need for a
+   * different ceiling rather than silently accepting an unbounded buffer.
+   * `imageUtils`/`ImageProcessor` are internal-only — not re-exported from
+   * `src/lib/index.ts` or the package's public `exports` map — so this
+   * default does not change behavior for any external SDK consumer.
    */
-  bufferToBase64: (buffer: Buffer): string => {
-    return buffer.toString("base64");
+  bufferToBase64: (
+    buffer: Buffer,
+    maxBytes: number = SIZE_LIMITS_BYTES.IMAGE_MAX,
+  ): string => {
+    return ImageProcessor.safeBase64Convert(
+      buffer,
+      "buffer-to-base64",
+      maxBytes,
+    );
   },
 
   /**
