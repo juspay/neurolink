@@ -1,0 +1,22 @@
+{
+  "name": "proxy-failover",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Status checker for the NeuroLink Claude proxy (multi-account pooling, rate-limit failover) used with Claude Code",
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@juspay/neurolink": "^9.88.12"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
