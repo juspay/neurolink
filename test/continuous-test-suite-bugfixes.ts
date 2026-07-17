@@ -43,6 +43,7 @@ import { ImageProcessor, imageUtils } from "../src/lib/utils/imageProcessor.js";
 import { ERROR_CODES } from "../src/lib/utils/errorHandling.js";
 import fs, {
   chmodSync,
+  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -51,9 +52,59 @@ import fs, {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join as pathJoin, resolve as resolvePath } from "node:path";
+import { pathToFileURL } from "node:url";
+import { spawn as spawnProcess } from "node:child_process";
 import { MockAgent, setGlobalDispatcher, getGlobalDispatcher } from "undici";
 import http from "node:http";
 import AdmZip from "adm-zip";
+
+const CLI_DIST_PATH = pathJoin(process.cwd(), "dist", "cli", "index.js");
+
+/**
+ * Spawn the built CLI (dist/cli/index.js) and capture exit code + separate
+ * stdout/stderr (plus `out`, the combined stream, for tests that don't care
+ * which stream a message landed on). Used by the CLI-file-validation E2E
+ * tests (#288/#291) — requires a prior `pnpm run build`.
+ */
+function runCliBugfix(
+  args: string[],
+  timeoutMs = 60_000,
+): Promise<{
+  code: number | null;
+  out: string;
+  stdout: string;
+  stderr: string;
+}> {
+  return new Promise((resolve, reject) => {
+    if (!existsSync(CLI_DIST_PATH)) {
+      const message = `dist/cli/index.js not found at ${CLI_DIST_PATH} — run 'pnpm run build:cli' first`;
+      // Surface on stderr too so it's visible when the suite is run directly,
+      // not just via the unhandled-rejection exit path.
+      process.stderr.write(`${message}\n`);
+      reject(new Error(message));
+      return;
+    }
+    const child = spawnProcess(process.execPath, [CLI_DIST_PATH, ...args], {
+      env: { ...process.env, NO_COLOR: "1" },
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d) => (stdout += String(d)));
+    child.stderr.on("data", (d) => (stderr += String(d)));
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error("CLI timed out"));
+    }, timeoutMs);
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ code, out: stdout + stderr, stdout, stderr });
+    });
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+  });
+}
 import { PptxProcessor } from "../src/lib/processors/document/PptxProcessor.js";
 import {
   validateCliInputFiles,
@@ -6725,6 +6776,376 @@ exit 127
         "utf-8",
       );
       return src.includes('"--file <path|url>"');
+    },
+  },
+  // ---------- #288: CLI rejects a directory as a file input (pre-flight) ----------
+  {
+    name: "CLI #288: --image pointing at a directory is rejected with troubleshooting",
+    category: "cli-file-validation",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-288-"));
+      try {
+        const res = await runCliBugfix([
+          "generate",
+          "hi",
+          "--image",
+          dir,
+          "--dry-run",
+          "--quiet",
+        ]);
+        // Was exit 0 (accepted) before the fix; now rejected pre-flight with a
+        // clear "directory" error + troubleshooting guidance.
+        return (
+          res.code !== 0 &&
+          /directory/i.test(res.out) &&
+          /troubleshoot/i.test(res.out)
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  // ---------- #291: batch recognizes/validates multimodal flags ----------
+  {
+    name: "CLI #291: batch now recognizes --csv (validates it; was silently ignored)",
+    category: "cli-file-validation",
+    fn: async () => {
+      const base = mkdtempSync(pathJoin(tmpdir(), "nl-291-"));
+      try {
+        const promptsFile = pathJoin(base, "prompts.txt");
+        writeFileSync(promptsFile, "What is the total?\nWhich is cheapest?\n");
+        // Before #291, batch ignored --csv entirely, so a bad path was silently
+        // dropped. Now batch validates it → a nonexistent --csv is reported
+        // with troubleshooting guidance (proves the flag is wired in).
+        const bad = await runCliBugfix([
+          "batch",
+          promptsFile,
+          "--csv",
+          pathJoin(base, "nope.csv"),
+          "--dry-run",
+        ]);
+        if (
+          !/--csv path not found/i.test(bad.out) ||
+          !/troubleshoot/i.test(bad.out)
+        ) {
+          return false;
+        }
+        // A valid --csv still completes the batch — one result per prompt.
+        // Parse stdout directly (no bracket-scanning): the multimodal attach
+        // notice is routed to stderr (see the dedicated regression test
+        // below), so stdout should be nothing but the JSON payload.
+        const csvFile = pathJoin(base, "data.csv");
+        writeFileSync(csvFile, "product,price\nApple,3\nPear,5\n");
+        const ok = await runCliBugfix([
+          "batch",
+          promptsFile,
+          "--csv",
+          csvFile,
+          "--dry-run",
+          "--format",
+          "json",
+        ]);
+        const arr = JSON.parse(ok.stdout.trim());
+        return Array.isArray(arr) && arr.length === 2;
+      } finally {
+        rmSync(base, { recursive: true, force: true });
+      }
+    },
+  },
+  // ---------- stdout/stderr separation: warnings/notices must not corrupt --format json ----------
+  {
+    name: "CLI: batch --format json stdout stays valid JSON even though the multimodal attach notice fires (notice goes to stderr)",
+    category: "cli-file-validation",
+    fn: async () => {
+      const base = mkdtempSync(pathJoin(tmpdir(), "nl-json-safe-"));
+      try {
+        const promptsFile = pathJoin(base, "prompts.txt");
+        writeFileSync(promptsFile, "Q1?\nQ2?\nQ3?\n");
+        const csvFile = pathJoin(base, "data.csv");
+        writeFileSync(csvFile, "a,b\n1,2\n");
+
+        const res = await runCliBugfix([
+          "batch",
+          promptsFile,
+          "--csv",
+          csvFile,
+          "--dry-run",
+          "--format",
+          "json",
+        ]);
+
+        if (res.code !== 0) {
+          return false;
+        }
+        // The notice is safety-relevant, so it must fire even though `quiet`
+        // defaults to true — but on stderr, never mixed into stdout.
+        if (!/attached to all prompts/i.test(res.stderr)) {
+          return false;
+        }
+        if (/attached to all prompts/i.test(res.stdout)) {
+          return false;
+        }
+        const parsed = JSON.parse(res.stdout.trim());
+        return Array.isArray(parsed) && parsed.length === 3;
+      } finally {
+        rmSync(base, { recursive: true, force: true });
+      }
+    },
+  },
+  // ---------- #288: statSync throwing after existsSync succeeds (TOCTOU) must not raw-crash ----------
+  {
+    name: "CLI #288: fs.statSync throwing after existsSync succeeds is caught and reported via the aggregated error, not a raw exception",
+    category: "cli-file-validation",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-288-stat-"));
+      const filePath = pathJoin(dir, "image.png");
+      writeFileSync(filePath, "fake-image-bytes");
+
+      const originalStatSync = fs.statSync;
+      // Simulate the TOCTOU race the review flagged: existsSync sees the
+      // file, but statSync then throws (permission denied, race, etc.).
+      fs.statSync = (() => {
+        const err = new Error("EACCES: permission denied, stat");
+        (err as NodeJS.ErrnoException).code = "EACCES";
+        throw err;
+      }) as unknown as typeof fs.statSync;
+
+      try {
+        validateCliInputFiles({ image: filePath });
+        return false; // should have thrown the aggregated error
+      } catch (error) {
+        if (!(error instanceof Error)) {
+          return false;
+        }
+        // Adapted (post-#1202/#1191 consolidation onto inputValidation.ts's
+        // standalone validateCliInputFiles): the surviving implementation
+        // labels a non-ENOENT statSync failure "could not be accessed" (the
+        // wording proven by the pre-existing "CLI (review #1202 round 2):
+        // --image statSync EACCES ..." test above), not "cannot be read" —
+        // same underlying TOCTOU behavior, reconciled wording.
+        return (
+          /could not be accessed/i.test(error.message) &&
+          /EACCES/.test(error.message) &&
+          /troubleshoot/i.test(error.message)
+        );
+      } finally {
+        fs.statSync = originalStatSync;
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  // ---------- #291: batch <file> positional directory case uses the friendly error path ----------
+  {
+    name: "CLI #291: batch <file> positional pointing at a directory gets the friendly aggregated error, not a raw EISDIR",
+    category: "cli-file-validation",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-291-dir-"));
+      try {
+        const res = await runCliBugfix(["batch", dir, "--dry-run"]);
+        return (
+          res.code !== 0 &&
+          !/EISDIR/i.test(res.out) &&
+          /directory/i.test(res.out) &&
+          /troubleshoot/i.test(res.out) &&
+          // Must not misattribute the positional to the (nonexistent in
+          // batch) --file flag.
+          !/--file path/i.test(res.out)
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  // ---------- Round-4 (#1191): batch validates multimodal flags BEFORE
+  //            reading/parsing the prompts file, not after ----------
+  {
+    name: "CLI (review #1191 round 4): batch reports an invalid --image path before 'No prompts found', proving multimodal validation runs pre-flight",
+    category: "cli-file-validation",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-1191-preflight-"));
+      try {
+        // Empty prompts file: if multimodal validation ran AFTER the
+        // prompts file was read/parsed (the pre-fix ordering), batch would
+        // throw "No prompts found in file" here — the --image error would
+        // never surface. Fixed ordering must throw the --image error first.
+        const promptsFile = pathJoin(dir, "empty-prompts.txt");
+        writeFileSync(promptsFile, "");
+        const res = await runCliBugfix([
+          "batch",
+          promptsFile,
+          "--image",
+          pathJoin(dir, "nope.png"),
+          "--dry-run",
+        ]);
+        return (
+          res.code !== 0 &&
+          /--image path not found/i.test(res.out) &&
+          !/No prompts found/i.test(res.out)
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  // ---------- Round-2: `file://` URLs must not bypass local-path validation ----------
+  {
+    name: "CLI: --image file:// URL pointing at a directory is rejected (was silently skipped as 'non-local')",
+    category: "cli-file-validation",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-fileurl-dir-"));
+      try {
+        validateCliInputFiles({ image: pathToFileURL(dir).href });
+        return false; // should have thrown — directory, not a file
+      } catch (error) {
+        if (!(error instanceof Error)) {
+          return false;
+        }
+        return (
+          /directory/i.test(error.message) &&
+          /troubleshoot/i.test(error.message)
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "CLI: --image file:// URL pointing at a missing path is rejected (not found)",
+    category: "cli-file-validation",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-fileurl-missing-"));
+      const missing = pathJoin(dir, "nope.png");
+      try {
+        validateCliInputFiles({ image: pathToFileURL(missing).href });
+        return false; // should have thrown — path not found
+      } catch (error) {
+        if (!(error instanceof Error)) {
+          return false;
+        }
+        return /path not found/i.test(error.message);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "CLI: --image file:// URL pointing at a real file passes validation; http(s) URLs remain skipped",
+    category: "cli-file-validation",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-fileurl-ok-"));
+      const filePath = pathJoin(dir, "image.png");
+      writeFileSync(filePath, "fake-image-bytes");
+      try {
+        // A valid file:// URL must not throw.
+        validateCliInputFiles({ image: pathToFileURL(filePath).href });
+        // A genuine remote URL to a nonexistent-looking path must still be
+        // skipped entirely (never touches the filesystem).
+        validateCliInputFiles({
+          image: "https://example.com/does/not/exist.png",
+        });
+        return true;
+      } catch {
+        return false;
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  // ---------- Round-5 (#1191): rawPath must never leak query/fragment or
+  //            embedded credentials into a user-facing error ----------
+  {
+    name: "CLI (review #1191 round 5): a file:// path with a sensitive query string/fragment is redacted before it reaches the error message",
+    category: "cli-file-validation",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-1191-redact-"));
+      try {
+        const missing = pathJoin(dir, "nope.png");
+        const secretUrl = `${pathToFileURL(missing).href}?token=SECRET123#frag`;
+        validateCliInputFiles({ image: secretUrl });
+        return false; // should have thrown — path not found
+      } catch (error) {
+        if (!(error instanceof Error)) {
+          return false;
+        }
+        return (
+          /path not found/i.test(error.message) &&
+          !error.message.includes("SECRET123") &&
+          !error.message.includes("frag") &&
+          !error.message.includes("?") &&
+          !error.message.includes("#")
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "CLI (review #1191 round 5): a file:// URL with embedded user:pass@ credentials is redacted in the 'not a valid file:// URL' error",
+    category: "cli-file-validation",
+    fn: async () => {
+      try {
+        // Malformed file:// URL (authority segment) — hits the "not a valid
+        // file:// URL" branch, which must still redact credentials/query
+        // before echoing the raw value back.
+        validateCliInputFiles({
+          image: "file://user:hunter2@host/nope.png?token=SECRET#frag",
+        });
+        return false; // should have thrown
+      } catch (error) {
+        if (!(error instanceof Error)) {
+          return false;
+        }
+        return (
+          /not a valid file:\/\/ URL/i.test(error.message) &&
+          !error.message.includes("hunter2") &&
+          !error.message.includes("SECRET") &&
+          !error.message.includes("frag")
+        );
+      }
+    },
+  },
+  // ---------- Round-5 (#1191): batch must not accept --file at all — it
+  //            collides with the <promptsFile> positional ----------
+  {
+    name: "CLI (review #1191 round 5): batch rejects --file as an unknown argument (no collision with the <promptsFile> positional)",
+    category: "cli-file-validation",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-1191-batchflag-"));
+      try {
+        const promptsFile = pathJoin(dir, "prompts.txt");
+        writeFileSync(promptsFile, "hello\n");
+        const other = pathJoin(dir, "other.txt");
+        writeFileSync(other, "world\n");
+        const res = await runCliBugfix([
+          "batch",
+          promptsFile,
+          "--file",
+          other,
+          "--dry-run",
+        ]);
+        return res.code !== 0 && /unknown argument.*file/i.test(res.out.trim());
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "CLI (review #1191 round 5): batch still works normally via the <promptsFile> positional after the --file exclusion",
+    category: "cli-file-validation",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-1191-batchok-"));
+      try {
+        const promptsFile = pathJoin(dir, "prompts.txt");
+        writeFileSync(promptsFile, "hello\nworld\n");
+        const res = await runCliBugfix(["batch", promptsFile, "--dry-run"]);
+        return (
+          res.code === 0 &&
+          !/unknown argument/i.test(res.out) &&
+          !/No prompts found/i.test(res.out)
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     },
   },
 ];

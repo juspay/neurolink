@@ -161,8 +161,13 @@ export type StreamCommandArgs = BaseCommandArgs &
 export type BatchCommandArgs = BaseCommandArgs &
   CliToolRoutingFlags &
   CliClassifierRouterFlags & {
-    /** Input file path */
-    file?: string;
+    // #1191 round-5: named `promptsFile`, not `file` — yargs implicitly
+    // treats a positional's key as a recognized flag name too, so keeping
+    // this "file" would let `--file` silently pass strictOptions() despite
+    // not being a registered batch option, colliding with the (unrelated)
+    // common `--file` auto-detect flag that batch intentionally omits.
+    /** Prompts-list file path (the `<promptsFile>` positional) */
+    promptsFile?: string;
     /** AI provider to use */
     provider?: string;
     /** Model name */
@@ -2002,3 +2007,18 @@ export type CliAudioPlayerCommand = {
   command: string;
   args: string[];
 };
+
+// =============================================================================
+// CLI INPUT VALIDATION (from cli/utils/inputValidation.ts)
+// =============================================================================
+
+/**
+ * The CLI flags validated by `validateCliInputFiles` before a
+ * generate/stream/batch run starts (--image/--csv/--pdf/--video/--file).
+ */
+export type CliValidatedFileOption =
+  | "--image"
+  | "--csv"
+  | "--pdf"
+  | "--video"
+  | "--file";
