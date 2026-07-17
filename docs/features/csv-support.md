@@ -112,6 +112,10 @@ type GenerateOptions = {
     maxRows?: number; // Default: 1000
     formatStyle?: "raw" | "markdown" | "json"; // Default: "raw"
     includeHeaders?: boolean; // Default: true
+    encoding?: string; // Override; else auto-detected (#362)
+    sanitizeColumnNames?: boolean; // Default: false (#378)
+    columnNameCase?: "camelCase" | "snake_case"; // Default: "snake_case"
+    parseTimeoutMs?: number; // Default: 30s strings / 5min files (#379)
   };
 
   // ... other options
@@ -217,6 +221,71 @@ csvOptions: {
   includeHeaders: false; // Skip headers
 }
 ```
+
+#### encoding
+
+Character-encoding override (#362). When omitted, the encoding is detected from
+a BOM, then `chardet`, falling back to UTF-8 — so Windows-1252 / Latin-1 /
+UTF-16 files no longer decode as mojibake. Accepts any label
+[`iconv-lite`](https://www.npmjs.com/package/iconv-lite) supports.
+
+```typescript
+csvOptions: {
+  encoding: "windows-1252", // force a specific encoding
+}
+```
+
+CLI: `--csv-encoding windows-1252`. The detected (or overridden) encoding is
+reported on `result.metadata.detectedEncoding` (plus `encodingConfidence`).
+
+**Streaming detection limitation**: for on-disk files, encoding is detected
+from the initial ~64 KiB only and then committed for the rest of the stream
+(so the parse-timeout guard can keep working against a single streaming
+pass). A file whose leading ~64 KiB is pure ASCII but which switches to a
+legacy encoding later on can therefore still be misdecoded as UTF-8. If your
+files may do this, pass `encoding` explicitly rather than relying on
+auto-detection.
+
+#### sanitizeColumnNames / columnNameCase
+
+Rewrite column headers into valid identifiers (#378). Opt-in — the default
+(`false`) preserves the raw header strings as object keys. `columnNameCase`
+selects `"snake_case"` (default) or `"camelCase"`.
+
+```typescript
+csvOptions: {
+  formatStyle: "json",
+  sanitizeColumnNames: true,
+  columnNameCase: "snake_case",
+}
+```
+
+| Original     | Sanitized (snake_case) |
+| ------------ | ---------------------- |
+| `Price ($)`  | `price`                |
+| `1st Place`  | `col_1st_place`        |
+| `Name/Title` | `name_title`           |
+
+Original names are preserved: `result.metadata.columnNameMapping` lists each
+renamed `{ original, sanitized }` pair (columns left unchanged by
+sanitization are omitted), and each renamed `columnMetadata` entry carries
+`originalName`. CLI: `--csv-sanitize-names [--csv-name-case camelCase]`. The
+same option is available on the RAG `CSVLoader` (`sanitizeColumnNames`).
+
+#### parseTimeoutMs
+
+Wall-clock cap for the streaming parse (#379). Defaults: 30s for in-memory
+strings, 5min for on-disk files. On timeout the parser returns the rows
+collected so far and sets `result.metadata.parseTimedOut = true` instead of
+hanging forever.
+
+```typescript
+csvOptions: {
+  parseTimeoutMs: 60000, // 60s cap
+}
+```
+
+CLI: `--csv-parse-timeout-ms 60000`.
 
 ## File Detection System
 
@@ -399,6 +468,10 @@ type CSVProcessorOptions = {
   maxRows?: number;
   formatStyle?: "raw" | "markdown" | "json";
   includeHeaders?: boolean;
+  encoding?: string; // #362 — override; else BOM/chardet auto-detect
+  sanitizeColumnNames?: boolean; // #378 — opt-in identifier-safe headers
+  columnNameCase?: "camelCase" | "snake_case"; // #378
+  parseTimeoutMs?: number; // #379 — wall-clock parse cap
 };
 
 // File detector options
@@ -474,7 +547,10 @@ files: ["data.csv", "chart.png", "report.pdf"]; // Auto-detects each type
 
 - **Max file size**: 10MB by default (configurable)
 - **Max rows**: 1000 by default (configurable)
-- **Encoding**: UTF-8 recommended (auto-detected)
+- **Encoding**: auto-detected via BOM + `chardet` (UTF-8 / UTF-16 / Windows-1252 / Latin-1 …), or forced with `encoding` (#362)
+- **Per-row size**: a single row is capped at 10MB to bound memory; larger rows fail fast with a clear error (#371)
+- **Parse timeout**: parsing is time-bounded (30s strings / 5min files); on timeout partial rows are returned with `metadata.parseTimedOut` (#379)
+- **Row shape**: parsed rows are validated to be string-keyed objects with string values; a malformed row aborts the parse with `[CSVProcessor] Invalid CSV row <n>` (#384)
 - **Token limits**: Large CSV files may exceed provider token limits
 - **Streaming**: CSV content is parsed and formatted before sending (not streamed to LLM)
 
@@ -494,7 +570,16 @@ try {
   } else if (error.message.includes("not allowed")) {
     // Handle file type restriction
   } else if (error.message.includes("CSV")) {
-    // Handle CSV parsing error
+    // Handle CSV parsing error. Failures now carry context, e.g.:
+    //   [CSVProcessor] Failed to open CSV file (/path/x.csv): ENOENT ...
+    //   [CSVProcessor] CSV parsing failed after 3 row(s) : <cause>
+    //     | headerCount: 3 | lastRow columns: 3 | Expected RFC 4180 CSV ...
+    // (only structural context — counts, never raw header or cell string
+    // values, which for headerless input may literally be first-row data —
+    // is included, so error messages can't leak CSV data (#1199))
+    //   [CSVProcessor] Invalid CSV row 2: expected a string-keyed object ...
+    // A bad/missing path is wrapped (not a raw ENOENT), and both the source
+    // and parser streams are always destroyed on any error path.
   }
 }
 ```

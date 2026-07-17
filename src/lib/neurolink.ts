@@ -5126,6 +5126,11 @@ Current user's request: ${currentInput}`;
       evaluationDomain: options.evaluationDomain,
       toolUsageContext: options.toolUsageContext,
       input: options.input,
+      // CSV processing options must survive the reconstruction into
+      // TextGenerationOptions — the message builder reads them (encoding,
+      // formatting, sanitization, parse timeout). Omitting them silently
+      // dropped every csvOptions field (incl. the CLI --csv-* flags).
+      csvOptions: options.csvOptions,
       region: options.region,
       tts: options.tts,
       stt: options.stt,

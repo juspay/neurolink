@@ -28,7 +28,7 @@ import type {
   ZodUnknownSchema,
 } from "./aliases.js";
 import type { NeurolinkCredentials } from "./providers.js";
-import type { FileWithMetadata } from "./file.js";
+import type { CSVProcessorOptions, FileWithMetadata } from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
 import type { Schema, Tool, ToolChoice } from "./tools.js";
 import type { StepResult, LanguageModel } from "./providers.js";
@@ -139,12 +139,9 @@ export type GenerateOptions = {
     music?: MusicOptions;
   };
 
-  // CSV processing options
-  csvOptions?: {
-    maxRows?: number;
-    formatStyle?: "raw" | "markdown" | "json";
-    includeHeaders?: boolean;
-  };
+  // CSV processing options (#379: reference the canonical shape so new fields
+  // like parseTimeoutMs/encoding/sanitizeColumnNames reach the public API).
+  csvOptions?: CSVProcessorOptions;
 
   // Video processing options
   videoOptions?: {
@@ -1272,12 +1269,8 @@ export type TextGenerationOptions = {
   expectedOutcome?: string; // Expected outcome for evaluation
   evaluationCriteria?: string[]; // Criteria for evaluation
 
-  // NEW: CSV Processing Options
-  csvOptions?: {
-    maxRows?: number;
-    formatStyle?: "raw" | "markdown" | "json";
-    includeHeaders?: boolean;
-  };
+  // NEW: CSV Processing Options (#379: canonical shape — see above)
+  csvOptions?: CSVProcessorOptions;
 
   enableSummarization?: boolean; // Enable/disable summarization for this specific request
 

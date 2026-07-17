@@ -100,6 +100,14 @@ export type FileProcessingResult = {
     hasHeaders?: boolean;
     /** Detected delimiter */
     detectedDelimiter?: string;
+    /** Detected (or overridden) character encoding used to decode the CSV (#362) */
+    detectedEncoding?: string;
+    /** Confidence (0-100) of the detected encoding (#362) */
+    encodingConfidence?: number;
+    /** Original→sanitized column-name mapping when sanitizeColumnNames is on (#378) */
+    columnNameMapping?: Array<{ original: string; sanitized: string }>;
+    /** True when the parse hit its time budget and returned partial rows (#379) */
+    parseTimedOut?: boolean;
     // PDF-specific metadata
     version?: string;
     estimatedPages?: number | null;
@@ -169,6 +177,8 @@ export type CSVDataQualityWarning = {
  */
 export type CSVColumnMetadata = {
   name: string;
+  /** Original header text before sanitization, when sanitizeColumnNames rewrote it (#378) */
+  originalName?: string;
   index: number;
   detectedType: CSVColumnDataType;
   /** Confidence of type detection (0-100) */
@@ -191,6 +201,19 @@ export type CSVColumnMetadata = {
   nameIssues?: string[];
 };
 
+/** A parsed CSV row: string-keyed with string (or missing) cell values (#384). */
+export type CSVRow = Record<string, string | undefined>;
+
+/** Result of decoding a buffer with encoding detection (#362). */
+export type DecodedBuffer = {
+  /** Decoded text with any BOM removed. */
+  text: string;
+  /** iconv-lite label actually used to decode. */
+  encoding: string;
+  /** Detection confidence 0-100 (100 for BOM/override, 0 for the UTF-8 fallback). */
+  confidence: number;
+};
+
 /**
  * CSV processor options
  */
@@ -200,6 +223,25 @@ export type CSVProcessorOptions = {
   includeHeaders?: boolean;
   sampleDataFormat?: SampleDataFormat;
   extension?: string | null;
+  /**
+   * Character encoding override (#362). When omitted, the encoding is detected
+   * from a BOM then `chardet`, falling back to UTF-8. Accepts any label
+   * `iconv-lite` supports (e.g. "utf-8", "utf-16le", "windows-1252", "latin1").
+   */
+  encoding?: string;
+  /**
+   * Rewrite column headers into valid identifiers (#378). Opt-in; default false
+   * preserves the raw header strings as object keys.
+   */
+  sanitizeColumnNames?: boolean;
+  /** Case style used when `sanitizeColumnNames` is on (#378). Default "snake_case". */
+  columnNameCase?: "camelCase" | "snake_case";
+  /**
+   * Wall-clock cap for the streaming parse in milliseconds (#379). On timeout the
+   * parse returns the rows collected so far and flags `metadata.parseTimedOut`,
+   * rather than hanging forever. Defaults: 30s for strings, 5min for files.
+   */
+  parseTimeoutMs?: number;
 };
 
 /**

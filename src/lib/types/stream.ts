@@ -26,7 +26,7 @@ import type {
 import type { TTSChunk, TTSOptions, TTSResult } from "./tts.js";
 import type { STTOptions, STTResult } from "./stt.js";
 import type { StandardRecord, ValidationSchema } from "./aliases.js";
-import type { FileWithMetadata } from "./file.js";
+import type { CSVProcessorOptions, FileWithMetadata } from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
 import type { LanguageModel, StepResult } from "./providers.js";
 import type { Tool, ToolChoice } from "./tools.js";
@@ -250,12 +250,8 @@ export type StreamOptions = {
     };
   }; // Future extensible
 
-  // CSV processing options
-  csvOptions?: {
-    maxRows?: number;
-    formatStyle?: "raw" | "markdown" | "json";
-    includeHeaders?: boolean;
-  };
+  // CSV processing options (#379: canonical shape — see CSVProcessorOptions)
+  csvOptions?: CSVProcessorOptions;
 
   // Video processing options
   videoOptions?: {

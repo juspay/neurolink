@@ -20,8 +20,20 @@ import {
   convertToModelMessages,
   buildMultimodalMessagesArray,
 } from "../src/lib/utils/messageBuilder.js";
-import { CSVProcessor } from "../src/lib/utils/csvProcessor.js";
+import {
+  CSVProcessor,
+  isValidCsvRow,
+  assertValidCsvRow,
+  sanitizeColumnName,
+  dedupeColumnNames,
+} from "../src/lib/utils/csvProcessor.js";
+import { NeuroLinkError } from "../src/lib/utils/errorHandling.js";
+import { ErrorCategory } from "../src/lib/constants/enums.js";
+import { decodeBuffer } from "../src/lib/utils/textEncoding.js";
 import { CSVLoader } from "../src/lib/rag/document/loaders.js";
+import type { CSVLoaderOptions } from "../src/lib/types/index.js";
+import iconv from "iconv-lite";
+import { Readable, Transform } from "node:stream";
 import { PDFProcessor } from "../src/lib/utils/pdfProcessor.js";
 import { directAgentTools } from "../src/lib/agent/directTools.js";
 import { isMultimodalInput } from "../src/lib/types/index.js";
@@ -218,6 +230,549 @@ const tests: TestFunction[] = [
         typeof raw.content === "string" &&
         raw.content.includes('"line1\rline2"')
       );
+    },
+  },
+  // ---------- CSV hardening: encoding / single-read / cleanup / context /
+  //            sanitization / timeout / row validation (#362/#368/#371/#375/
+  //            #378/#379/#384) ----------
+  {
+    name: "CSVProcessor #362: detects Windows-1252 and decodes non-ASCII without mojibake",
+    category: "csv-processor",
+    fn: async () => {
+      const buf = iconv.encode(
+        "name,city\ncafé,Zürich\nMüller,Köln\n",
+        "windows-1252",
+      );
+      const result = await FileDetector.detectAndProcess(buf);
+      const enc = result.metadata?.detectedEncoding;
+      return (
+        result.type === "csv" &&
+        typeof result.content === "string" &&
+        result.content.includes("café") &&
+        result.content.includes("Müller") &&
+        !result.content.includes("�") &&
+        enc !== undefined &&
+        enc !== "utf-8" // detected as latin1 / windows-1252, not hard-coded utf-8
+      );
+    },
+  },
+  {
+    name: "CSVProcessor #362: encoding override, UTF-16LE BOM, and plain-ASCII default",
+    category: "csv-processor",
+    fn: async () => {
+      const win = iconv.encode("name,note\ncafé,ok\n", "windows-1252");
+      const override = await CSVProcessor.process(win, {
+        formatStyle: "json",
+        encoding: "windows-1252",
+      });
+      if (override.metadata?.detectedEncoding !== "windows-1252") {
+        return false;
+      }
+      if (!override.content.includes("café")) {
+        return false;
+      }
+
+      // UTF-16LE with BOM decodes correctly.
+      const u16 = iconv.encode("﻿name,note\nAlice,hi\n", "utf-16le");
+      const r16 = await CSVProcessor.process(u16, { formatStyle: "json" });
+      if (
+        (r16.metadata?.detectedEncoding ?? "").toLowerCase() !== "utf-16le" ||
+        JSON.parse(r16.content)[0]?.name !== "Alice"
+      ) {
+        return false;
+      }
+
+      // Plain ASCII → "utf-8" (byte-identical to the pre-fix default).
+      const ascii = await CSVProcessor.process(
+        Buffer.from("id,name\n1,Alice\n2,Bob\n"),
+        { formatStyle: "json" },
+      );
+      return (
+        ascii.metadata?.detectedEncoding === "utf-8" &&
+        JSON.parse(ascii.content).length === 2
+      );
+    },
+  },
+  {
+    name: "CSVProcessor #368: single-read parseCSVFile skips a sep= metadata line via the real header",
+    category: "csv-processor",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(process.cwd(), ".tmp-csv-368-"));
+      try {
+        const p = pathJoin(dir, "meta.csv");
+        writeFileSync(p, "sep=,\nh1,h2\n1,2\n3,4\n5,6\n");
+        const rows = await CSVProcessor.parseCSVFile(p, 10);
+        if (rows.length !== 3 || rows[0]?.h1 !== "1" || rows[0]?.h2 !== "2") {
+          return false;
+        }
+        // End-to-end via the real analyzeCSV agent tool (its sandbox requires
+        // the fixture under process.cwd(), not os.tmpdir()).
+        const analyze = directAgentTools.analyzeCSV as unknown as {
+          execute: (
+            a: unknown,
+          ) => Promise<{ success: boolean; result?: string }>;
+        };
+        const rel = p.slice(process.cwd().length + 1);
+        const res = await analyze.execute({
+          filePath: rel,
+          operation: "describe",
+          column: "",
+          maxRows: 100,
+        });
+        if (!res.success) {
+          return false;
+        }
+        return JSON.parse(res.result ?? "{}").column_count === 2;
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "CSVProcessor #371: a parser error (oversized row) destroys BOTH the source and the parser",
+    category: "csv-processor",
+    fn: async () => {
+      // Patches Readable.prototype/Transform.prototype.destroy globally to spy
+      // on which stream classes get torn down. Safe in this suite specifically
+      // because tests run strictly sequentially (see continuous-test-suite.ts'
+      // `for (const test of tests) { await test.fn(); }`), never concurrently,
+      // and the patch is always unwound in the `finally` block below.
+      const destroyedCtors = new Set<string>();
+      const patch = (proto: { destroy: (...a: unknown[]) => unknown }) => {
+        const orig = proto.destroy;
+        proto.destroy = function (
+          this: { constructor?: { name?: string } },
+          ...a: unknown[]
+        ) {
+          destroyedCtors.add(this?.constructor?.name ?? "?");
+          return orig.apply(this, a);
+        };
+        return () => {
+          proto.destroy = orig;
+        };
+      };
+      const restores = [
+        patch(Readable.prototype as unknown as { destroy: () => unknown }),
+        patch(Transform.prototype as unknown as { destroy: () => unknown }),
+      ];
+      try {
+        // A single field beyond CSV_MAX_ROW_BYTES (10 MB) triggers csv-parser's
+        // "Row exceeds the maximum size" — the parser-error path.
+        const bigRow = "h1,h2\n" + "a".repeat(11 * 1024 * 1024);
+        let rejected = false;
+        try {
+          await CSVProcessor.parseCSVString(bigRow, 10);
+        } catch (e) {
+          rejected =
+            e instanceof Error &&
+            /exceed|maximum|parsing failed/i.test(e.message);
+        }
+        await new Promise((r) => setTimeout(r, 20));
+        return (
+          rejected &&
+          destroyedCtors.has("CsvParser") &&
+          destroyedCtors.has("Readable")
+        );
+      } finally {
+        restores.forEach((r) => r());
+      }
+    },
+  },
+  {
+    name: "CSVProcessor #375: bad path / directory yield [CSVProcessor] errors with file context",
+    category: "csv-processor",
+    fn: async () => {
+      let enoent = "";
+      try {
+        await CSVProcessor.parseCSVFile("/nonexistent/path/does-not-exist.csv");
+      } catch (e) {
+        enoent = e instanceof Error ? e.message : String(e);
+      }
+      if (
+        !/\[CSVProcessor\]/.test(enoent) ||
+        !/Failed to open/i.test(enoent) ||
+        !enoent.includes("does-not-exist")
+      ) {
+        return false;
+      }
+
+      const dir = mkdtempSync(pathJoin(process.cwd(), ".tmp-csv-375-"));
+      try {
+        let eisdir = "";
+        try {
+          await CSVProcessor.parseCSVFile(dir);
+        } catch (e) {
+          eisdir = e instanceof Error ? e.message : String(e);
+        }
+        return /\[CSVProcessor\]/.test(eisdir) && eisdir.includes(dir);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "CSVProcessor #378: opt-in column-name sanitization yields valid identifiers and preserves originals",
+    category: "csv-processor",
+    fn: async () => {
+      const buf = Buffer.from(
+        "Price ($),1st Place,Name/Title\n19.99,1,Widget\n",
+      );
+      const result = await FileDetector.detectAndProcess(buf, {
+        allowedTypes: ["csv"],
+        csvOptions: { formatStyle: "json", sanitizeColumnNames: true },
+      });
+      const parsed = JSON.parse(result.content);
+      const keys = Object.keys(parsed[0]);
+      const allValid = keys.every((k) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(k));
+      const priceUnchanged = parsed[0][keys[0]] === "19.99";
+      const mapping = result.metadata?.columnNameMapping ?? [];
+      const hasMapping =
+        mapping.some((m) => m.original === "Price ($)") &&
+        mapping.some((m) => m.original === "1st Place");
+      const meta = result.metadata?.columnMetadata ?? [];
+      const hasOriginal = meta.some((c) => c.originalName === "Price ($)");
+
+      // Default (opt-out) preserves the raw header as the JSON key.
+      const raw = await FileDetector.detectAndProcess(buf, {
+        allowedTypes: ["csv"],
+        csvOptions: { formatStyle: "json" },
+      });
+      const defaultRawKey =
+        Object.keys(JSON.parse(raw.content)[0])[0] === "Price ($)";
+
+      const unit =
+        sanitizeColumnName("Price ($)") === "price" &&
+        sanitizeColumnName("1st Place") === "col_1st_place";
+
+      return (
+        allValid &&
+        priceUnchanged &&
+        hasMapping &&
+        hasOriginal &&
+        defaultRawKey &&
+        unit
+      );
+    },
+  },
+  {
+    name: "CSVProcessor #378 review: dedupe avoids collisions, sanitize is ReDoS-safe and quote-aware",
+    category: "csv-processor",
+    fn: async () => {
+      // Dedupe must not overwrite an existing name_2 with a generated one.
+      const deduped = dedupeColumnNames(["name", "name", "name_2"]);
+      if (
+        deduped.length !== 3 ||
+        new Set(deduped).size !== 3 ||
+        deduped[0] !== "name"
+      ) {
+        return false;
+      }
+      // A pathological underscore/separator run must sanitize in linear time
+      // (the previous `^_+|_+$` regex was polynomial — CodeQL ReDoS). The run
+      // sits between non-underscore characters so it isn't consumed by a
+      // leading `^_+` alternation — this is what actually exercises the
+      // worst-case trailing `_+$` search.
+      const t0 = Date.now();
+      const sanitized = sanitizeColumnName("a" + "_".repeat(50_000) + "b");
+      if (Date.now() - t0 > 200 || sanitized !== "a_b") {
+        return false;
+      }
+      // Raw-format header sanitization is quote-aware: a quoted comma is field
+      // content, not a delimiter.
+      const raw = await CSVProcessor.process(
+        Buffer.from('"Price, USD",Qty\n"1,000",5\n'),
+        { formatStyle: "raw", sanitizeColumnNames: true },
+      );
+      const header = raw.content.split("\n")[0];
+      const mapping = raw.metadata?.columnNameMapping ?? [];
+      return (
+        header === "price_usd,qty" &&
+        mapping.some((m) => m.original === "Price, USD")
+      );
+    },
+  },
+  {
+    name: "CSVProcessor #379: parse timeout returns partial rows instead of hanging",
+    category: "csv-processor",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(process.cwd(), ".tmp-csv-379-"));
+      try {
+        const p = pathJoin(dir, "big.csv");
+        writeFileSync(
+          p,
+          "a,b\n" +
+            Array.from({ length: 200000 }, (_, i) => `${i},v${i}`).join("\n") +
+            "\n",
+        );
+        const raced = await Promise.race([
+          CSVProcessor.parseCSVFileWithMeta(p, 1_000_000, 1),
+          new Promise<never>((_, rej) =>
+            setTimeout(() => rej(new Error("HANG")), 3000),
+          ),
+        ]);
+        if (!raced.timedOut || !Array.isArray(raced.rows)) {
+          return false;
+        }
+        // Regression: the default timeout still parses a tiny CSV correctly.
+        const r = await CSVProcessor.parseCSVString("a,b\n1,2", 10);
+        return r.length === 1 && r[0]?.a === "1";
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "CSVProcessor #384: row-shape guard rejects bad shapes; ragged/duplicate CSVs still parse",
+    category: "csv-processor",
+    fn: async () => {
+      const guard =
+        isValidCsvRow({ a: "1" }) === true &&
+        isValidCsvRow(null) === false &&
+        isValidCsvRow(["a", "b"]) === false &&
+        isValidCsvRow("row") === false &&
+        isValidCsvRow(42) === false &&
+        isValidCsvRow({ a: 42 }) === false;
+      if (!guard) {
+        return false;
+      }
+      // Adversarial-but-valid CSVs (ragged, extra columns, duplicate headers)
+      // must still parse without throwing across every format.
+      const adversarial = "h1,h2,h3\n1,2\nx,y,z,extra\na,b,c\n";
+      for (const formatStyle of ["raw", "json", "markdown"] as const) {
+        const res = await CSVProcessor.process(Buffer.from(adversarial), {
+          formatStyle,
+        });
+        if (
+          res.type !== "csv" ||
+          typeof res.content !== "string" ||
+          res.content.length === 0
+        ) {
+          return false;
+        }
+      }
+      return true;
+    },
+  },
+  {
+    name: "CSVProcessor #1199: file-path parse also destroys the raw fs.createReadStream on abort",
+    category: "csv-processor",
+    fn: async () => {
+      const destroyedCtors = new Set<string>();
+      const patch = (proto: { destroy: (...a: unknown[]) => unknown }) => {
+        const orig = proto.destroy;
+        proto.destroy = function (
+          this: { constructor?: { name?: string } },
+          ...a: unknown[]
+        ) {
+          destroyedCtors.add(this?.constructor?.name ?? "?");
+          return orig.apply(this, a);
+        };
+        return () => {
+          proto.destroy = orig;
+        };
+      };
+      const restores = [
+        patch(Readable.prototype as unknown as { destroy: () => unknown }),
+        patch(Transform.prototype as unknown as { destroy: () => unknown }),
+      ];
+      const dir = mkdtempSync(
+        pathJoin(process.cwd(), ".tmp-csv-1199-rawsource-"),
+      );
+      try {
+        const p = pathJoin(dir, "big-row.csv");
+        // Same oversized-row trigger as #371 (a field beyond CSV_MAX_ROW_BYTES),
+        // this time through the file path, where prepareFileSource's
+        // rawSource = fs.createReadStream(...) (constructor name "ReadStream")
+        // is piped into an iconv decode Transform — .pipe() does not propagate
+        // .destroy() upstream, so rawSource must be destroyed explicitly.
+        writeFileSync(p, "h1,h2\n" + "a".repeat(11 * 1024 * 1024));
+        let rejected = false;
+        try {
+          await CSVProcessor.parseCSVFile(p, 10);
+        } catch (e) {
+          rejected =
+            e instanceof Error &&
+            /exceed|maximum|parsing failed/i.test(e.message);
+        }
+        await new Promise((r) => setTimeout(r, 20));
+        return (
+          rejected &&
+          destroyedCtors.has("CsvParser") &&
+          destroyedCtors.has("ReadStream")
+        );
+      } finally {
+        restores.forEach((r) => r());
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "CSVProcessor #1199: a single deadline covers access()+prepareFileSource(), not just streamParse",
+    category: "csv-processor",
+    fn: async () => {
+      const dir = mkdtempSync(
+        pathJoin(process.cwd(), ".tmp-csv-1199-deadline-"),
+      );
+      try {
+        const p = pathJoin(dir, "big.csv");
+        // Same large-file/1ms-timeout shape as the #379 test above, which
+        // reliably converges to `timedOut:true` regardless of which internal
+        // race wins. The difference this test targets: `remaining()` is now
+        // computed once and threaded through BOTH the prepareFileSource
+        // `withTimeout` wrapper and the final streamParse call, so the budget
+        // is honored even if it's exhausted during the access()/head-sniff
+        // phase (#1199) — not only inside streamParse's own timer as before.
+        writeFileSync(
+          p,
+          "a,b\n" +
+            Array.from({ length: 200000 }, (_, i) => `${i},v${i}`).join("\n") +
+            "\n",
+        );
+        const raced = await Promise.race([
+          CSVProcessor.parseCSVFileWithMeta(p, 1_000_000, 1),
+          new Promise<never>((_, rej) =>
+            setTimeout(() => rej(new Error("HANG")), 3000),
+          ),
+        ]);
+        return raced.timedOut === true && Array.isArray(raced.rows);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "decodeBuffer (#1199): a partial ASCII peek reports lower confidence than a complete ASCII buffer",
+    category: "csv-processor",
+    fn: async () => {
+      const buf = Buffer.from("a,b\n1,2\n");
+      const complete = decodeBuffer(buf); // isCompleteBuffer defaults to true
+      const partial = decodeBuffer(buf, undefined, false);
+      return (
+        complete.encoding === "utf-8" &&
+        complete.confidence === 100 &&
+        partial.encoding === "utf-8" &&
+        partial.confidence === 60 &&
+        partial.text === complete.text
+      );
+    },
+  },
+  {
+    name: "CSVProcessor #1199: raw-format columnCount/hasHeaders are quote-aware, matching sanitizeColumnNames",
+    category: "csv-processor",
+    fn: async () => {
+      // A quoted comma inside a header field must count as ONE column, not two.
+      const res = await CSVProcessor.process(
+        Buffer.from('"Price, USD",Qty\n"1,000",5\n'),
+        { formatStyle: "raw" },
+      );
+      return (
+        res.metadata?.columnCount === 2 && res.metadata?.hasHeaders === true
+      );
+    },
+  },
+  {
+    name: "CSVProcessor #1199: CSV failures are typed NeuroLinkError via ErrorFactory, message text preserved",
+    category: "csv-processor",
+    fn: async () => {
+      // Invalid input (empty path).
+      let inputErr: unknown;
+      try {
+        await CSVProcessor.parseCSVFile("");
+      } catch (e) {
+        inputErr = e;
+      }
+      const inputOk =
+        inputErr instanceof NeuroLinkError &&
+        inputErr.category === ErrorCategory.VALIDATION &&
+        /non-empty string/.test(inputErr.message);
+
+      // Bad path (ENOENT) — file-access error.
+      let accessErr: unknown;
+      try {
+        await CSVProcessor.parseCSVFile("/nonexistent/path/does-not-exist.csv");
+      } catch (e) {
+        accessErr = e;
+      }
+      const accessOk =
+        accessErr instanceof NeuroLinkError &&
+        accessErr.category === ErrorCategory.RESOURCE &&
+        /Failed to open/i.test(accessErr.message);
+
+      // Row-shape violation — same guard streamParse calls on every row (#384),
+      // exercised directly since csv-parser itself never emits a malformed row
+      // through the public parse API.
+      let rowErr: unknown;
+      try {
+        assertValidCsvRow(["a", "b"], 1);
+      } catch (e) {
+        rowErr = e;
+      }
+      const rowOk =
+        rowErr instanceof NeuroLinkError &&
+        rowErr.category === ErrorCategory.VALIDATION &&
+        /Invalid CSV row 1/.test((rowErr as NeuroLinkError).message);
+
+      return inputOk && accessOk && rowOk;
+    },
+  },
+  {
+    name: "CSVProcessor #1199: parse-error messages carry structural context only, never raw row cell values (PII)",
+    category: "csv-processor",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(process.cwd(), ".tmp-csv-1199-pii-"));
+      try {
+        const p = pathJoin(dir, "oversized.csv");
+        // Row 2's cell contains a "secret" marker — if it ever leaked into the
+        // thrown message that would be the PII regression this guards against.
+        // The header row also carries a marker: parsed header strings are
+        // user-controlled CSV data too (and, for headerless input, may
+        // literally be first-row cell values), so they must not be embedded
+        // in the error message either (round-2 #1199 finding).
+        const secretMarker = "SECRET-EMAIL-alice@example.com";
+        const secretHeader = "SECRET-HEADER-bob@example.com";
+        writeFileSync(
+          p,
+          `${secretHeader},h2\n${secretMarker},${"a".repeat(11 * 1024 * 1024)}\n`,
+        );
+        let error: unknown;
+        try {
+          await CSVProcessor.parseCSVFile(p, 10);
+        } catch (e) {
+          error = e;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        return (
+          error instanceof NeuroLinkError &&
+          error.category === ErrorCategory.EXECUTION &&
+          message.length > 0 &&
+          !message.includes(secretMarker) &&
+          !message.includes(secretHeader) &&
+          !message.includes("lastRow:")
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "CSVLoader (#1199): a header literally named __proto__ can't pollute Object.prototype in json output",
+    category: "csv-processor",
+    fn: async () => {
+      const loader = new CSVLoader();
+      const doc = await loader.load("__proto__,normal\nx,y\n", {
+        outputFormat: "json",
+      } as CSVLoaderOptions);
+      const parsed = JSON.parse(doc.getContent()) as Array<
+        Record<string, unknown>
+      >;
+      const rowHasOwnProp = Object.prototype.hasOwnProperty.call(
+        parsed[0],
+        "__proto__",
+      );
+      const globalUnaffected =
+        (Object.prototype as unknown as Record<string, unknown>).polluted ===
+        undefined;
+      return rowHasOwnProp && parsed[0].__proto__ === "x" && globalUnaffected;
     },
   },
   // ---------- Built-in file tools are sandboxed to cwd (issue #1004) ----------

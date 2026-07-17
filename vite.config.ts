@@ -27,7 +27,7 @@ const config: VitestConfig = {
 
   // SSR configuration - externalize native dependencies
   ssr: {
-    external: ["canvas"],
+    external: ["canvas", "chardet", "iconv-lite"],
     noExternal: [],
   },
 

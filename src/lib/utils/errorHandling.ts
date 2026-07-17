@@ -79,6 +79,12 @@ export const ERROR_CODES = {
   INVALID_PPT_LOGO_PATH: "INVALID_PPT_LOGO_PATH",
   INVALID_PPT_MODE: "INVALID_PPT_MODE",
   INVALID_PPT_PROMPT: "INVALID_PPT_PROMPT",
+
+  // CSV validation/parsing errors (#1199)
+  CSV_INVALID_INPUT: "CSV_INVALID_INPUT",
+  CSV_ROW_INVALID: "CSV_ROW_INVALID",
+  CSV_FILE_ACCESS_FAILED: "CSV_FILE_ACCESS_FAILED",
+  CSV_PARSE_FAILED: "CSV_PARSE_FAILED",
 } as const;
 
 /**
@@ -322,6 +328,79 @@ export class ErrorFactory {
       severity: ErrorSeverity.HIGH,
       retriable: false,
       context: context || {},
+    });
+  }
+
+  // ============================================================================
+  // CSV VALIDATION/PARSING ERRORS (#1199)
+  // ============================================================================
+
+  /**
+   * Create an invalid CSV input error (e.g. an empty filePath/csvString argument).
+   */
+  static csvInvalidInput(message: string): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.CSV_INVALID_INPUT,
+      message,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: {},
+    });
+  }
+
+  /**
+   * Create a CSV row-shape violation error (#384) — a parsed row that isn't a
+   * string-keyed object with string values.
+   */
+  static csvRowInvalid(message: string, rowNumber: number): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.CSV_ROW_INVALID,
+      message,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: { rowNumber },
+    });
+  }
+
+  /**
+   * Create a CSV file access error (bad path, permissions, ENOENT/EACCES) (#375).
+   */
+  static csvFileAccessFailed(
+    message: string,
+    filePath: string,
+    originalError?: Error,
+  ): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.CSV_FILE_ACCESS_FAILED,
+      message,
+      category: ErrorCategory.RESOURCE,
+      severity: ErrorSeverity.HIGH,
+      retriable: false,
+      context: { filePath },
+      originalError,
+    });
+  }
+
+  /**
+   * Create a CSV read/parse failure error (#375) — source stream errors and
+   * csv-parser errors both route through this, carrying the enriched
+   * `buildCsvParseErrorMessage` context in `message`.
+   */
+  static csvParseFailed(
+    message: string,
+    context: Record<string, unknown>,
+    originalError?: Error,
+  ): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.CSV_PARSE_FAILED,
+      message,
+      category: ErrorCategory.EXECUTION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context,
+      originalError,
     });
   }
 
