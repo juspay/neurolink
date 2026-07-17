@@ -75,33 +75,15 @@ importers:
       '@anthropic-ai/vertex-sdk':
         specifier: ^0.16.0
         version: 0.16.0(zod@4.3.6)
-      '@aws-sdk/client-bedrock':
-        specifier: ^3.1000.0
-        version: 3.1019.0
-      '@aws-sdk/client-bedrock-runtime':
-        specifier: ^3.1000.0
-        version: 3.1019.0
       '@aws-sdk/client-sagemaker-runtime':
         specifier: ^3.1000.0
         version: 3.1019.0
-      '@aws-sdk/credential-provider-node':
-        specifier: ^3.886.0
-        version: 3.972.30
       '@aws-sdk/types':
         specifier: ^3.862.0
         version: 3.973.7
-      '@google-cloud/text-to-speech':
-        specifier: ^6.4.0
-        version: 6.4.0
-      '@google-cloud/vertexai':
-        specifier: ^1.10.0
-        version: 1.10.3(@modelcontextprotocol/sdk@1.28.0(zod@4.3.6))
       '@google/genai':
         specifier: ^1.43.0
         version: 1.46.0(@modelcontextprotocol/sdk@1.28.0(zod@4.3.6))
-      '@huggingface/inference':
-        specifier: ^4.13.14
-        version: 4.13.15
       '@modelcontextprotocol/sdk':
         specifier: ^1.27.1
         version: 1.28.0(zod@4.3.6)
@@ -410,18 +392,36 @@ importers:
         specifier: ^3.2.2
         version: 3.2.2
     optionalDependencies:
+      '@aws-sdk/client-bedrock':
+        specifier: ^3.1000.0
+        version: 3.1019.0
+      '@aws-sdk/client-bedrock-runtime':
+        specifier: ^3.1000.0
+        version: 3.1019.0
       '@aws-sdk/client-sagemaker':
         specifier: ^3.1000.0
         version: 3.1019.0
+      '@aws-sdk/credential-provider-node':
+        specifier: ^3.886.0
+        version: 3.972.30
       '@fastify/cors':
         specifier: ^11.2.0
         version: 11.2.0
       '@fastify/rate-limit':
         specifier: ^10.3.0
         version: 10.3.0
+      '@google-cloud/text-to-speech':
+        specifier: ^6.4.0
+        version: 6.4.0
+      '@google-cloud/vertexai':
+        specifier: ^1.10.0
+        version: 1.10.3(@modelcontextprotocol/sdk@1.28.0(zod@4.3.6))
       '@hono/node-server':
         specifier: ^1.19.13
         version: 1.19.14(hono@4.12.25)
+      '@huggingface/inference':
+        specifier: ^4.13.14
+        version: 4.13.15
       '@koa/cors':
         specifier: ^5.0.0
         version: 5.0.0
@@ -8686,6 +8686,7 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
+    optional: true
 
   '@aws-sdk/client-bedrock-runtime@3.1068.0':
     dependencies:
@@ -8748,6 +8749,7 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
+    optional: true
 
   '@aws-sdk/client-bedrock@3.1068.0':
     dependencies:
@@ -9185,6 +9187,7 @@ snapshots:
       '@smithy/eventstream-codec': 4.2.12
       '@smithy/types': 4.13.1
       tslib: 2.8.1
+    optional: true
 
   '@aws-sdk/eventstream-handler-node@3.972.21':
     dependencies:
@@ -9216,6 +9219,7 @@ snapshots:
       '@smithy/protocol-http': 5.3.12
       '@smithy/types': 4.13.1
       tslib: 2.8.1
+    optional: true
 
   '@aws-sdk/middleware-expect-continue@3.972.8':
     dependencies:
@@ -9348,6 +9352,7 @@ snapshots:
       '@smithy/util-hex-encoding': 4.2.2
       '@smithy/util-utf8': 4.2.2
       tslib: 2.8.1
+    optional: true
 
   '@aws-sdk/middleware-websocket@3.972.28':
     dependencies:
@@ -9401,6 +9406,7 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
+    optional: true
 
   '@aws-sdk/nested-clients@3.996.19':
     dependencies:
@@ -9492,6 +9498,7 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
+    optional: true
 
   '@aws-sdk/token-providers@3.1026.0':
     dependencies:
@@ -9559,6 +9566,7 @@ snapshots:
       '@smithy/querystring-builder': 4.2.12
       '@smithy/types': 4.14.0
       tslib: 2.8.1
+    optional: true
 
   '@aws-sdk/util-locate-window@3.965.5':
     dependencies:
@@ -10091,6 +10099,7 @@ snapshots:
       google-gax: 5.0.6
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@google-cloud/text-to-speech@6.4.1':
     dependencies:
@@ -10108,6 +10117,7 @@ snapshots:
       - encoding
       - supports-color
       - utf-8-validate
+    optional: true
 
   '@google-cloud/vertexai@1.12.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))':
     dependencies:
@@ -10173,6 +10183,7 @@ snapshots:
       long: 5.3.2
       protobufjs: 7.6.4
       yargs: 17.7.2
+    optional: true
 
   '@grpc/proto-loader@0.8.1':
     dependencies:
@@ -10197,17 +10208,20 @@ snapshots:
     dependencies:
       '@huggingface/jinja': 0.5.6
       '@huggingface/tasks': 0.19.90
+    optional: true
 
   '@huggingface/inference@4.13.18':
     dependencies:
       '@huggingface/jinja': 0.5.9
       '@huggingface/tasks': 0.21.11
 
-  '@huggingface/jinja@0.5.6': {}
+  '@huggingface/jinja@0.5.6':
+    optional: true
 
   '@huggingface/jinja@0.5.9': {}
 
-  '@huggingface/tasks@0.19.90': {}
+  '@huggingface/tasks@0.19.90':
+    optional: true
 
   '@huggingface/tasks@0.21.11': {}
 
@@ -15223,6 +15237,7 @@ snapshots:
       rimraf: 5.0.10
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   google-gax@5.0.7:
     dependencies:
@@ -17084,6 +17099,7 @@ snapshots:
       teeny-request: 10.1.2
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   retry-request@8.0.3:
     dependencies:
@@ -17699,6 +17715,7 @@ snapshots:
       stream-events: 1.0.5
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   teeny-request@10.1.3:
     dependencies:

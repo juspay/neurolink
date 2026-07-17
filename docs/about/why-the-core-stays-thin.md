@@ -56,20 +56,41 @@ for.
 ## Where we're heavy today, honestly
 
 Lazy `import()` stops code from _running_ until it's needed, but it doesn't stop `npm install`
-from _downloading_ everything in `dependencies` (as opposed to `optionalDependencies`). Right now
-a handful of full provider SDKs — `@aws-sdk/client-bedrock`, `@aws-sdk/client-bedrock-runtime`,
-`@aws-sdk/client-sagemaker-runtime`, `@google-cloud/vertexai`, `@google-cloud/text-to-speech`, and
-`@huggingface/inference` — sit in regular `dependencies`, not `optionalDependencies`. That means
-every install pulls those SDKs to disk even if your app only ever calls OpenAI. The dynamic-import
-pattern keeps them out of your running process and out of a tree-shaken bundle, but it doesn't
-keep them off disk after `npm install`. Moving those specific packages into
-`optionalDependencies` — matching the treatment media/document deps already get — is the
-concrete next step, and it's the honest answer to "so is it actually thin," not a deflection.
+from _downloading_ everything in `dependencies` (as opposed to `optionalDependencies`).
+`@aws-sdk/client-bedrock`, `@aws-sdk/client-bedrock-runtime`, `@aws-sdk/credential-provider-node`,
+`@google-cloud/vertexai`, `@google-cloud/text-to-speech`, and `@huggingface/inference` now live in
+`optionalDependencies` — matching the treatment media/document deps already get.
+
+Optional doesn't mean skipped by default: a plain `npm install` still downloads all six, same as
+it always has for `sharp` or `pdf-parse`. What optional buys you is the ability to opt out —
+`npm install --omit=optional`, or an npm client falling back gracefully when one of them fails to
+build on an unsupported platform, drops them without breaking anything else. We verified that
+directly: a clean `--omit=optional` install still runs `import('@juspay/neurolink')` and
+`neurolink --version` correctly, and asking for a provider whose SDK got skipped — Bedrock, say —
+fails with a plain `Cannot find package '@aws-sdk/client-bedrock-runtime'` at the moment you
+request that provider, not a crash at import time.
+
+That safety only holds because all six are genuinely lazy — nothing reachable from
+`import '@juspay/neurolink'` touches them at load time. Two of them weren't, until this move
+forced the audit that found it: `@google-cloud/vertexai` was a top-of-file import in the built-in
+`websearchGrounding` agent tool (`src/lib/agent/directTools.ts`), and `@google-cloud/text-to-speech`
+was a top-of-file import in the TTS auto-registration that runs on `voice` module load
+(`src/lib/adapters/tts/googleTTSHandler.ts`) — both reachable the instant the root package is
+imported, whether or not you ever touch Vertex or Google TTS. Both now load via a dynamic
+`import()` at the point of use instead.
+
+One SDK didn't make this move: `@aws-sdk/client-sagemaker-runtime` is still a regular dependency,
+on purpose. Its client is constructed synchronously inside code the CLI's SageMaker command wiring
+imports statically from the CLI entry point, so `neurolink --version` reaches it today regardless
+of whether you ever run a SageMaker command. Making that safe means turning the client into a
+lazily-initialized one first — real work, not done here. (`@aws-sdk/credential-provider-node` is
+technically optional now but still installs every time in practice, because it's also a transitive
+dependency of `@aws-sdk/client-sagemaker-runtime` — one more reason SageMaker is the piece left.)
 
 ## Bottom line
 
 Thin doesn't mean small; it means the code you don't use doesn't run, and increasingly doesn't
-even load. Most of the surface already works that way today — provider selection and heavy
-media/document processing both prove it in the source, not just in the pitch. A specific, named
-part of it (a few cloud-provider SDKs) hasn't caught up yet, and that's the one place we're asking
-for patience rather than claiming it's already solved.
+even load. Most of the surface already works that way today — provider selection, heavy
+media/document processing, and now most of the cloud-provider SDKs all prove it in the source, not
+just in the pitch. One named piece — SageMaker's runtime SDK — hasn't caught up yet, and that's
+the one place we're asking for patience rather than claiming it's already solved.

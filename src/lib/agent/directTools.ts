@@ -3,7 +3,6 @@ import * as fs from "fs";
 import * as path from "path";
 import { execFile } from "child_process";
 import { logger } from "../utils/logger.js";
-import { VertexAI } from "@google-cloud/vertexai";
 import { CSVProcessor } from "../utils/csvProcessor.js";
 import { shouldEnableBashTool } from "../utils/toolUtils.js";
 import type {
@@ -746,6 +745,7 @@ export const directAgentTools = {
         }
 
         const limitedResults = Math.min(Math.max(maxResults, 1), 5);
+        const { VertexAI } = await import("@google-cloud/vertexai");
         const vertex_ai = new VertexAI({
           project: hasProjectId,
           location: projectLocation,
