@@ -1,3 +1,13 @@
+## [9.90.0](https://github.com/juspay/neurolink/compare/v9.89.0...v9.90.0) (2026-07-17)
+
+### Features
+
+- **(rag):** Pinecone, pgvector, and Chroma vector-store adapters (client injection) ([615e83b](https://github.com/juspay/neurolink/commit/615e83b604665922b4081c709694a268d43a0b95))
+
+### Bug Fixes
+
+- **(deps):** move lazily-imported cloud provider SDKs to optionalDependencies ([732f8aa](https://github.com/juspay/neurolink/commit/732f8aa2ff4009b987fb97d937747a168a6ef85b))
+
 ## [9.89.0](https://github.com/juspay/neurolink/compare/v9.88.12...v9.89.0) (2026-07-17)
 
 ### Features
