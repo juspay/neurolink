@@ -21,7 +21,7 @@ const npmStubs = [
   'mammoth','pdf-parse','exceljs','adm-zip','tar-stream','music-metadata','fluent-ffmpeg',
   'pptxgenjs','csv-parser','@juspay/hippocampus','@aws-sdk/client-bedrock',
   '@aws-sdk/client-bedrock-runtime','@aws-sdk/client-sagemaker-runtime','@hapi/bourne',
-  'ajv','ajv-formats','debug','iconv-lite','inherits','ip-address','pkce-challenge','qs',
+  'ajv','ajv-formats','chardet','debug','iconv-lite','inherits','ip-address','pkce-challenge','qs',
   'which','pdf-to-img','express-rate-limit','@hono/node-server','powershell-utils',
   'wsl-utils','default-browser','default-browser-id','run-applescript','open',
   '@langfuse/langfuse','undici','bullmq','croner','ioredis',

@@ -5,23 +5,48 @@
  */
 
 import csvParser from "csv-parser";
-import { Readable } from "stream";
+import iconv from "iconv-lite";
+import { Readable, Transform } from "stream";
 import { extname } from "path";
 import { logger } from "./logger.js";
 import {
-  countCSVColumns,
   splitCSVFields,
   detectDelimiter as detectDelimiterUtil,
   CANDIDATE_DELIMITERS,
 } from "./csvUtils.js";
+import { isObject } from "./typeUtils.js";
+import { decodeBuffer } from "./textEncoding.js";
+import { ErrorFactory } from "./errorHandling.js";
+import { withTimeout, TimeoutError } from "./async/withTimeout.js";
 import type {
   FileProcessingResult,
   CSVProcessorOptions,
+  CSVRow,
   SampleDataFormat,
   CSVColumnDataType,
   CSVColumnMetadata,
   CSVDataQualityWarning,
 } from "../types/index.js";
+
+// ============================================================================
+// Parse Safety Limits (#371 / #379)
+// ============================================================================
+
+/**
+ * Upper bound on a single CSV row's byte size (#371). csv-parser defaults to an
+ * effectively-unbounded `maxRowBytes`; a pathological unbroken row would grow
+ * memory without limit and never fire the parser's own error path. 10 MB/row is
+ * generous for legitimate data (e.g. a large JSON blob in one cell) while
+ * bounding a single allocation and making the parser-error cleanup path
+ * reachable/testable.
+ */
+const CSV_MAX_ROW_BYTES = 10 * 1024 * 1024;
+
+/** Default wall-clock cap for `parseCSVString` (#379). */
+const DEFAULT_CSV_STRING_PARSE_TIMEOUT_MS = 30_000;
+
+/** Default wall-clock cap for `parseCSVFile` (#379). */
+const DEFAULT_CSV_FILE_PARSE_TIMEOUT_MS = 300_000;
 
 // ============================================================================
 // Data Type Detection Patterns
@@ -93,6 +118,173 @@ function validateColumnName(name: string): string[] {
   }
 
   return issues;
+}
+
+// ============================================================================
+// Column Name Sanitization (#378)
+// ============================================================================
+
+/**
+ * Rewrite a raw header into a valid identifier. Trims, replaces non-identifier
+ * runs with `_`, prefixes a `col_` when it starts with a digit or is empty,
+ * then applies the requested case style. Never returns an empty string.
+ */
+export function sanitizeColumnName(
+  name: string,
+  style: "camelCase" | "snake_case" = "snake_case",
+  index = 0,
+): string {
+  const trimmed = (name ?? "").trim();
+  // Split on runs of non-alphanumeric characters. Using split (linear) instead
+  // of a `^_+|_+$` trim regex avoids the polynomial-backtracking ReDoS CodeQL
+  // flags on long underscore/separator runs, and drops leading/trailing/empty
+  // segments naturally.
+  let parts = trimmed.split(/[^A-Za-z0-9]+/).filter((p) => p.length > 0);
+  let base = parts.join("_");
+  if (base === "") {
+    base = `col_${index + 1}`;
+    parts = [base];
+  } else if (/^[0-9]/.test(base)) {
+    base = `col_${base}`;
+    parts = base.split("_").filter((p) => p.length > 0);
+  }
+  if (style === "camelCase") {
+    return parts
+      .map((p, i) =>
+        i === 0
+          ? p.charAt(0).toLowerCase() + p.slice(1)
+          : p.charAt(0).toUpperCase() + p.slice(1),
+      )
+      .join("");
+  }
+  return parts.map((p) => p.toLowerCase()).join("_");
+}
+
+/**
+ * Deduplicate a list of (already sanitized) names by suffixing `_2`, `_3`, … on
+ * collisions, preserving order. The suffixed candidate is bumped until it does
+ * not collide with ANY already-emitted name — so an existing `name_2` can't be
+ * silently overwritten by a generated `name_2` (which the naive counter did for
+ * `["name","name","name_2"]`).
+ */
+export function dedupeColumnNames(names: string[]): string[] {
+  const used = new Set<string>();
+  return names.map((name) => {
+    if (!used.has(name)) {
+      used.add(name);
+      return name;
+    }
+    let n = 2;
+    let candidate = `${name}_${n}`;
+    while (used.has(candidate)) {
+      n++;
+      candidate = `${name}_${n}`;
+    }
+    used.add(candidate);
+    return candidate;
+  });
+}
+
+/**
+ * Compute sanitized (and deduped) column names plus the original→sanitized
+ * mapping for the names that actually changed.
+ */
+function buildColumnNameMapping(
+  headers: string[],
+  style: "camelCase" | "snake_case",
+): {
+  sanitized: string[];
+  mapping: Array<{ original: string; sanitized: string }>;
+} {
+  const sanitized = dedupeColumnNames(
+    headers.map((h, i) => sanitizeColumnName(h, style, i)),
+  );
+  const mapping = headers
+    .map((original, i) => ({ original, sanitized: sanitized[i] }))
+    .filter((m) => m.original !== m.sanitized);
+  return { sanitized, mapping };
+}
+
+// ============================================================================
+// Row Validation (#384)
+// ============================================================================
+
+/**
+ * Predicate form of the row-shape invariant: a non-null, non-array object whose
+ * every value is a string or undefined. csv-parser's default output always
+ * satisfies this; the guard is defense-in-depth at the parse boundary.
+ */
+export function isValidCsvRow(row: unknown): row is CSVRow {
+  if (!isObject(row) || Array.isArray(row)) {
+    return false;
+  }
+  return Object.values(row).every(
+    (v) => typeof v === "string" || v === undefined,
+  );
+}
+
+/**
+ * Assertion form used inside the streaming `data` handlers. Throws a
+ * `[CSVProcessor]`-prefixed error (so existing `includes("CSV")` catches still
+ * match) when a row violates the invariant.
+ */
+export function assertValidCsvRow(
+  row: unknown,
+  rowNumber: number,
+): asserts row is CSVRow {
+  if (!isValidCsvRow(row)) {
+    throw ErrorFactory.csvRowInvalid(
+      `[CSVProcessor] Invalid CSV row ${rowNumber}: expected a string-keyed object with string values, got ${
+        Array.isArray(row) ? "array" : typeof row
+      }`,
+      rowNumber,
+    );
+  }
+}
+
+// ============================================================================
+// Parse Error Context (#375)
+// ============================================================================
+
+/**
+ * Build an enriched, consistent parse-failure message shared by all four
+ * source/parser reject sites so they can't re-diverge.
+ *
+ * Deliberately structural-only: `headerCount` and `lastRowColumnCount` report
+ * how many columns the header/last row had — counts, never the actual header
+ * or cell string values. Parsed header text is user-controlled CSV data (and,
+ * for headerless input, may literally be first-row cell values), so it must
+ * never be embedded in a thrown/logged message (#1199).
+ */
+function buildCsvParseErrorMessage(info: {
+  stage: "read" | "parse";
+  count: number;
+  headerCount?: number;
+  bytesRead?: number;
+  lastRowColumnCount?: number;
+  location?: string;
+  cause: string;
+}): string {
+  const parts = [
+    `[CSVProcessor] CSV ${info.stage === "read" ? "file read" : "parsing"} failed after ${info.count} row(s)`,
+  ];
+  if (info.location) {
+    parts.push(`(${info.location})`);
+  }
+  parts.push(`: ${info.cause}`);
+  parts.push(
+    typeof info.headerCount === "number"
+      ? `| headerCount: ${info.headerCount}`
+      : "| headerCount: unknown (failed before headers were parsed)",
+  );
+  if (typeof info.bytesRead === "number") {
+    parts.push(`| bytesRead: ${info.bytesRead}`);
+  }
+  if (typeof info.lastRowColumnCount === "number") {
+    parts.push(`| lastRow columns: ${info.lastRowColumnCount}`);
+  }
+  parts.push("| Expected RFC 4180 CSV (comma-separated, double-quote escaped)");
+  return parts.join(" ");
 }
 
 // ============================================================================
@@ -453,7 +645,7 @@ function csvResultConfidence(dataQualityScore: number): number {
   return Math.round((100 + clamped) / 2);
 }
 
-function analyzeColumns(rows: unknown[]): {
+function analyzeColumns(rows: CSVRow[]): {
   columnMetadata: CSVColumnMetadata[];
   dataQualityWarnings: CSVDataQualityWarning[];
   dataQualityScore: number;
@@ -466,14 +658,12 @@ function analyzeColumns(rows: unknown[]): {
     };
   }
 
-  const columnNames = Object.keys(rows[0] as Record<string, unknown>);
+  const columnNames = Object.keys(rows[0]);
   const columnMetadata: CSVColumnMetadata[] = [];
 
   for (let i = 0; i < columnNames.length; i++) {
     const colName = columnNames[i];
-    const values = rows.map((row) =>
-      String((row as Record<string, unknown>)[colName] ?? ""),
-    );
+    const values = rows.map((row) => String(row[colName] ?? ""));
     columnMetadata.push(analyzeColumn(colName, i, values));
   }
 
@@ -748,6 +938,10 @@ export class CSVProcessor {
       includeHeaders = true,
       sampleDataFormat = "json",
       extension = null,
+      encoding,
+      sanitizeColumnNames = false,
+      columnNameCase = "snake_case",
+      parseTimeoutMs = DEFAULT_CSV_STRING_PARSE_TIMEOUT_MS,
     } = options || {};
 
     const maxRows = Math.max(1, Math.min(10000, rawMaxRows));
@@ -759,7 +953,13 @@ export class CSVProcessor {
       includeHeaders,
     });
 
-    const csvString = content.toString("utf-8");
+    // #362: detect the encoding (BOM → chardet → UTF-8 fallback) or honor the
+    // caller's override, instead of the previous hard-coded UTF-8 decode.
+    const {
+      text: csvString,
+      encoding: detectedEncoding,
+      confidence: encodingConfidence,
+    } = decodeBuffer(content, encoding);
 
     // #361: split once and strip a leading Excel `sep=` metadata line before
     // detecting the delimiter (comma/tab/semicolon/pipe), so the preamble
@@ -786,7 +986,28 @@ export class CSVProcessor {
 
       const limitedLines = csvLines.slice(0, 1 + maxRows); // header + data rows
 
+      // #378: opt-in — rewrite the literal header line with sanitized,
+      // deduped identifiers so the raw CSV text shown to the LLM has clean
+      // column names too. (Splits on commas to match the existing raw-branch
+      // columnCount logic.)
+      let rawColumnNameMapping:
+        | Array<{ original: string; sanitized: string }>
+        | undefined;
+      if (sanitizeColumnNames && limitedLines.length > 0) {
+        const headerCols = splitCSVFields(limitedLines[0] || "", delimiter);
+        const { sanitized, mapping } = buildColumnNameMapping(
+          headerCols,
+          columnNameCase,
+        );
+        limitedLines[0] = sanitized.join(delimiter);
+        rawColumnNameMapping = mapping.length > 0 ? mapping : undefined;
+      }
+
       const limitedCSV = limitedLines.join("\n");
+
+      // #1199: quote-aware, delimiter-aware split (matches the
+      // sanitizeColumnNames branch above and #1192's detected delimiter).
+      const headerFields = splitCSVFields(limitedLines[0] || "", delimiter);
 
       const rowCount = limitedLines
         .slice(1)
@@ -814,21 +1035,28 @@ export class CSVProcessor {
       logger.info("[CSVProcessor] ✅ Processed CSV file", {
         formatStyle: "raw",
         rowCount,
-        columnCount: countCSVColumns(limitedLines[0] || "", delimiter),
+        columnCount: headerFields.length,
         truncated: wasTruncated,
       });
 
       // Parse a sample for enhanced metadata analysis (raw format still
       // benefits from column analysis). Reuse the already-split, already
-      // metadata-stripped `dataLines` via the shared parseCSVLines() core
-      // instead of routing `limitedCSV` back through parseCSVString(), which
-      // would re-split/re-join it and re-run a redundant BOM/metadata pass.
+      // metadata-stripped `dataLines` and the already-detected `delimiter`
+      // via the shared streamParse() core instead of routing `limitedCSV`
+      // back through parseCSVStringWithMeta(), which would re-split/re-join
+      // it and re-run a redundant BOM/metadata/delimiter-detection pass.
       const sampleRows = Math.min(rowCount, 500);
-      const sampleForAnalysis = await this.parseCSVLines(
-        dataLines.slice(0, 1 + sampleRows),
-        sampleRows,
-        delimiter,
-      );
+      const { rows: sampleForAnalysis, timedOut: rawTimedOut } =
+        await this.streamParse(
+          Readable.from([dataLines.slice(0, 1 + sampleRows).join("\n")]),
+          undefined,
+          {
+            maxRows: sampleRows,
+            skipLines: 0,
+            timeoutMs: parseTimeoutMs,
+            delimiter,
+          },
+        );
       const { columnMetadata, dataQualityWarnings, dataQualityScore } =
         analyzeColumns(sampleForAnalysis);
 
@@ -849,16 +1077,19 @@ export class CSVProcessor {
           size: content.length,
           rowCount,
           totalLines: limitedLines.length,
-          columnCount: countCSVColumns(limitedLines[0] || "", delimiter),
+          columnCount: headerFields.length,
           extension,
           columnMetadata,
           dataQualityWarnings,
           dataQualityScore,
-          hasHeaders: detectHasHeaders(
-            splitCSVFields(limitedLines[0] || "", delimiter),
-            undefined,
-          ),
+          hasHeaders: detectHasHeaders(headerFields, undefined),
           detectedDelimiter: delimiter,
+          detectedEncoding,
+          encodingConfidence,
+          ...(rawColumnNameMapping
+            ? { columnNameMapping: rawColumnNameMapping }
+            : {}),
+          ...(rawTimedOut ? { parseTimedOut: true } : {}),
         },
       };
     }
@@ -873,12 +1104,17 @@ export class CSVProcessor {
     );
 
     // dataLines was already split and metadata-stripped above (alongside
-    // `delimiter`) — reuse it instead of routing through parseCSVString(),
-    // which would re-split csvString and re-run metadata detection.
-    const rows = await this.parseCSVLines(dataLines, maxRows, delimiter);
+    // `delimiter`) — reuse both via the shared streamParse() core instead of
+    // routing csvString back through parseCSVStringWithMeta(), which would
+    // re-split it and re-run metadata/delimiter detection a second time.
+    const { rows, timedOut: structuredTimedOut } = await this.streamParse(
+      Readable.from([dataLines.join("\n")]),
+      undefined,
+      { maxRows, skipLines: 0, timeoutMs: parseTimeoutMs, delimiter },
+    );
 
     // Filter out empty rows (empty objects or rows with only whitespace values from blank lines)
-    const nonEmptyRows = rows.filter((row) => {
+    const filteredRows = rows.filter((row) => {
       if (!row || typeof row !== "object") {
         return false;
       }
@@ -892,12 +1128,41 @@ export class CSVProcessor {
       );
     });
 
+    // #378: opt-in — remap each row's keys from original → sanitized identifiers.
+    let structuredColumnNameMapping:
+      | Array<{ original: string; sanitized: string }>
+      | undefined;
+    const sanitizedToOriginal = new Map<string, string>();
+    let nonEmptyRows: CSVRow[] = filteredRows;
+    if (sanitizeColumnNames && filteredRows.length > 0) {
+      const origHeaders = Object.keys(filteredRows[0]);
+      const { sanitized, mapping } = buildColumnNameMapping(
+        origHeaders,
+        columnNameCase,
+      );
+      origHeaders.forEach((original, i) => {
+        if (original !== sanitized[i]) {
+          sanitizedToOriginal.set(sanitized[i], original);
+        }
+      });
+      nonEmptyRows = filteredRows.map((row) => {
+        // Defense-in-depth: a null-prototype target means an attacker-chosen
+        // header literally named "__proto__"/"constructor"/"prototype" can
+        // only ever create a harmless own property, never touch
+        // Object.prototype (#1199).
+        const out: CSVRow = Object.create(null);
+        origHeaders.forEach((h, i) => {
+          out[sanitized[i]] = row[h];
+        });
+        return out;
+      });
+      structuredColumnNameMapping = mapping.length > 0 ? mapping : undefined;
+    }
+
     // Extract metadata from parsed results
     const rowCount = nonEmptyRows.length;
     const columnNames =
-      nonEmptyRows.length > 0
-        ? Object.keys(nonEmptyRows[0] as Record<string, unknown>)
-        : [];
+      nonEmptyRows.length > 0 ? Object.keys(nonEmptyRows[0]) : [];
     const columnCount = columnNames.length;
     const hasEmptyColumns = columnNames.some(
       (col) => !col || col.trim() === "",
@@ -922,6 +1187,16 @@ export class CSVProcessor {
     // Perform enhanced column analysis
     const { columnMetadata, dataQualityWarnings, dataQualityScore } =
       analyzeColumns(nonEmptyRows);
+
+    // #378: carry the pre-sanitization header on each renamed column.
+    if (sanitizedToOriginal.size > 0) {
+      for (const col of columnMetadata) {
+        const original = sanitizedToOriginal.get(col.name);
+        if (original) {
+          col.originalName = original;
+        }
+      }
+    }
 
     // Log data quality summary
     if (dataQualityWarnings.length > 0) {
@@ -966,11 +1241,14 @@ export class CSVProcessor {
         columnMetadata,
         dataQualityWarnings,
         dataQualityScore,
-        hasHeaders: detectHasHeaders(
-          columnNames,
-          nonEmptyRows as Record<string, unknown>[],
-        ),
+        hasHeaders: detectHasHeaders(columnNames, nonEmptyRows),
         detectedDelimiter: delimiter,
+        detectedEncoding,
+        encodingConfidence,
+        ...(structuredColumnNameMapping
+          ? { columnNameMapping: structuredColumnNameMapping }
+          : {}),
+        ...(structuredTimedOut ? { parseTimedOut: true } : {}),
       },
     };
   }
@@ -1000,127 +1278,210 @@ export class CSVProcessor {
   static async parseCSVFile(
     filePath: string,
     maxRows: number = 1000,
-  ): Promise<unknown[]> {
+    timeoutMs: number = DEFAULT_CSV_FILE_PARSE_TIMEOUT_MS,
+  ): Promise<CSVRow[]> {
+    const { rows } = await this.parseCSVFileWithMeta(
+      filePath,
+      maxRows,
+      timeoutMs,
+    );
+    return rows;
+  }
+
+  /**
+   * File-parse variant that also reports whether the parse timed out, used by
+   * `process()` to surface `metadata.parseTimedOut`.
+   */
+  static async parseCSVFileWithMeta(
+    filePath: string,
+    maxRows: number = 1000,
+    timeoutMs: number = DEFAULT_CSV_FILE_PARSE_TIMEOUT_MS,
+    encoding?: string,
+  ): Promise<{ rows: CSVRow[]; timedOut: boolean }> {
     if (typeof filePath !== "string" || filePath.trim().length === 0) {
-      throw new Error(
+      throw ErrorFactory.csvInvalidInput(
         "CSVProcessor.parseCSVFile: filePath must be a non-empty string",
       );
     }
     const clampedMaxRows = Math.max(1, Math.min(10000, maxRows));
     const fs = await import("fs");
+    // #1199: a single wall-clock deadline covers access() + prepareFileSource()
+    // + streamParse() together, not just the streamParse phase — otherwise a
+    // stalled disk/network filesystem during the open/peek steps defeats the
+    // #379 timeout guard entirely.
+    const startTime = Date.now();
+    const remaining = () => Math.max(0, timeoutMs - (Date.now() - startTime));
 
     logger.debug("[CSVProcessor] Starting file parsing", {
       filePath,
       maxRows: clampedMaxRows,
     });
 
-    // Read first 2 lines to detect metadata
-    const fileHandle = await fs.promises.open(filePath, "r");
-    const firstLines: string[] = [];
-    const lineReader = fileHandle.createReadStream({ encoding: "utf-8" });
-
-    await new Promise<void>((resolve) => {
-      let buffer = "";
-      lineReader.on("data", (chunk: string | Buffer) => {
-        buffer += chunk.toString();
-        // Strip a leading UTF-8 BOM before the `sep=` check below, same as
-        // process(), parseCSVString(), and detectDelimiter() — otherwise an
-        // Excel export starting with a BOM + "sep=;" fails the /^sep=/i match.
-        const normalizedBuffer = stripBom(buffer);
-        const splitBuffer = normalizedBuffer.endsWith("\r")
-          ? normalizedBuffer.slice(0, -1)
-          : normalizedBuffer;
-        const lines = splitCsvLines(splitBuffer);
-        if (lines.length >= 2) {
-          firstLines.push(lines[0], lines[1]);
-          lineReader.destroy();
-          resolve();
-        }
-      });
-      lineReader.on("end", () => resolve());
-      // Metadata sniffing is best-effort — a read error here must not crash
-      // (the main read stream below will surface a real failure properly),
-      // but silently dropping it loses the diagnostic entirely, so log it.
-      lineReader.on("error", (error: Error) => {
-        logger.warn(
-          `[CSVProcessor] Metadata sniffing read failed for ${filePath}, proceeding without it: ${error.message}`,
-          { cause: error },
-        );
-        resolve();
-      });
-    });
-
-    await fileHandle.close();
-
-    const { dataLines, hasMetadataLine, explicitDelimiter } =
-      stripMetadataLine(firstLines);
-    const skipLines = hasMetadataLine ? 1 : 0;
-    // #361: pick the delimiter from the sniffed lines (metadata line
-    // stripped) + file extension so .tsv / semicolon / pipe files aren't
-    // collapsed into one column, and a `sep=` preamble can't skew detection.
-    const fileDelimiter =
-      explicitDelimiter ?? detectDelimiterUtil(dataLines, extname(filePath));
-
-    if (hasMetadataLine) {
-      logger.debug(
-        "[CSVProcessor] Detected metadata line in file, will skip first line",
+    // #375: a bad path (ENOENT/EACCES) should fail fast with clear context
+    // instead of a raw Node error surfacing from the stream. access() is a
+    // permission check, not a content read, so #368's single-read contract
+    // (one createReadStream, no second full pass) is preserved. Metadata-line
+    // and delimiter (#361) detection happen inside prepareFileSource() below,
+    // from the same peeked bytes used for encoding detection — not a second
+    // read of the file.
+    try {
+      await fs.promises.access(filePath, fs.constants.R_OK);
+    } catch (error) {
+      throw ErrorFactory.csvFileAccessFailed(
+        `[CSVProcessor] Failed to open CSV file (${filePath}): ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        filePath,
+        error instanceof Error ? error : undefined,
       );
     }
 
+    // #368: a SINGLE createReadStream. We peek its leading bytes to sniff the
+    // encoding (#362) and detect a metadata line + delimiter (#361), then
+    // replay those bytes back onto the same stream — no second disk read.
+    const rawSource = fs.createReadStream(filePath);
+    let prepared: { source: Readable; skipLines: number; delimiter: string };
+    try {
+      prepared = await withTimeout(
+        this.prepareFileSource(rawSource, encoding, extname(filePath)),
+        remaining(),
+        "[CSVProcessor] Timed out preparing CSV file source",
+      );
+    } catch (error) {
+      rawSource.destroy();
+      if (error instanceof TimeoutError) {
+        // Same contract as streamParse's own timeout path (#379): report a
+        // clean partial result instead of throwing, so the whole call never
+        // hangs OR surfaces a timeout as an exception.
+        logger.warn(
+          `[CSVProcessor] Prepare phase exceeded the ${timeoutMs}ms parse budget for ${filePath}; returning an empty partial result`,
+        );
+        return { rows: [], timedOut: true };
+      }
+      throw ErrorFactory.csvParseFailed(
+        buildCsvParseErrorMessage({
+          stage: "read",
+          count: 0,
+          location: filePath,
+          cause: error instanceof Error ? error.message : String(error),
+        }),
+        { filePath },
+        error instanceof Error ? error : undefined,
+      );
+    }
+
+    return this.streamParse(prepared.source, rawSource, {
+      maxRows: clampedMaxRows,
+      skipLines: prepared.skipLines,
+      timeoutMs: remaining(),
+      location: filePath,
+      delimiter: prepared.delimiter,
+    });
+  }
+
+  /**
+   * Peek the head of a raw file stream to resolve encoding, metadata-line
+   * skipping, and the delimiter (#361), then return a decoded text stream
+   * that still delivers the whole file from byte 0 (via `unshift`) — a
+   * single disk read (#368/#362).
+   */
+  private static prepareFileSource(
+    rawSource: Readable,
+    encodingOverride?: string,
+    extensionHint?: string,
+  ): Promise<{ source: Readable; skipLines: number; delimiter: string }> {
     return new Promise((resolve, reject) => {
-      const rows: unknown[] = [];
-      let count = 0;
+      const PEEK_LIMIT = 64 * 1024;
+      const chunks: Buffer[] = [];
+      let total = 0;
+      let settled = false;
 
-      const source = fs.createReadStream(filePath, { encoding: "utf-8" });
-      // Pass skipLines through to csv-parser itself so it skips the `sep=`
-      // metadata line BEFORE picking headers — otherwise csv-parser treats
-      // that line as the header row and the real header becomes a data row.
-      const parser = csvParser({ separator: fileDelimiter, skipLines });
-
-      const abort = () => {
-        source.destroy();
-        parser.destroy();
+      const cleanup = () => {
+        rawSource.removeListener("data", onData);
+        rawSource.removeListener("end", onEnd);
+        rawSource.removeListener("error", onError);
       };
 
-      // .pipe() does not forward source errors (disk read/permission failures)
-      // to the parser, so listen on the source directly or it throws unhandled.
-      source.on("error", (error: Error) => {
-        abort();
-        reject(
-          new Error(
-            `[CSVProcessor] CSV file read failed after ${count} row(s) (${filePath}): ${error.message}`,
-          ),
-        );
-      });
+      // #361: resolve the metadata-line skip count and the delimiter
+      // together from the same peeked/decoded text — an explicit `sep=`
+      // line wins outright, otherwise fall back to frequency-based
+      // detection (+ the file extension as a tie-breaker) over the
+      // post-metadata lines.
+      const resolveMeta = (
+        text: string,
+      ): {
+        hasMetadataLine: boolean;
+        dataLines: string[];
+        delimiter: string;
+      } => {
+        const { dataLines, hasMetadataLine, explicitDelimiter } =
+          stripMetadataLine(splitCsvLines(text));
+        const delimiter =
+          explicitDelimiter ?? detectDelimiterUtil(dataLines, extensionHint);
+        return { hasMetadataLine, dataLines, delimiter };
+      };
 
-      source
-        .pipe(parser)
-        .on("data", (row: unknown) => {
-          rows.push(row);
-          count++;
-
-          if (count >= clampedMaxRows) {
-            logger.debug(
-              `[CSVProcessor] Reached row limit ${clampedMaxRows}, stopping parse`,
-            );
-            abort();
-            resolve(rows);
+      const onData = (chunk: Buffer) => {
+        chunks.push(chunk);
+        total += chunk.length;
+        const head = Buffer.concat(chunks);
+        // isCompleteBuffer=false: `head` is only a peek, not necessarily the
+        // whole file (#1199) — see the confidence note on decodeBuffer.
+        const { text, encoding } = decodeBuffer(head, encodingOverride, false);
+        if (splitCsvLines(text).length >= 2 || total >= PEEK_LIMIT) {
+          if (settled) {
+            return;
           }
-        })
-        .on("end", () => {
-          logger.debug(
-            `[CSVProcessor] File parsing complete: ${rows.length} rows parsed`,
-          );
-          resolve(rows);
-        })
-        .on("error", (error: Error) => {
-          logger.error("[CSVProcessor] File parsing failed:", error);
-          reject(
-            new Error(
-              `[CSVProcessor] CSV parsing failed after ${count} row(s): ${error.message}`,
-            ),
-          );
-        });
+          settled = true;
+          cleanup();
+          const { hasMetadataLine, delimiter } = resolveMeta(text);
+          // Replay the consumed head bytes, then decode the full raw stream.
+          // NOTE (#1282): the encoding is committed from the peeked head to keep
+          // the parse streaming (which the parse-timeout guard #379 relies on).
+          // A file whose head is pure ASCII but which switches to a legacy
+          // encoding only later would be read as UTF-8; pass `encoding`
+          // explicitly for such files.
+          rawSource.pause();
+          rawSource.unshift(head);
+          const decodeStream = iconv.decodeStream(
+            encoding,
+          ) as unknown as Transform;
+          rawSource.on("error", (e) => decodeStream.destroy(e));
+          resolve({
+            source: rawSource.pipe(decodeStream),
+            skipLines: hasMetadataLine ? 1 : 0,
+            delimiter,
+          });
+        }
+      };
+
+      const onEnd = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        // Whole (small) file already buffered — decode it directly. unshift on
+        // an ended stream throws, so replay via an in-memory Readable instead.
+        const head = Buffer.concat(chunks);
+        const { text } = decodeBuffer(head, encodingOverride);
+        const { hasMetadataLine, dataLines, delimiter } = resolveMeta(text);
+        const data = hasMetadataLine ? dataLines.join("\n") : text;
+        resolve({ source: Readable.from([data]), skipLines: 0, delimiter });
+      };
+
+      const onError = (error: Error) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        reject(error);
+      };
+
+      rawSource.on("data", onData);
+      rawSource.on("end", onEnd);
+      rawSource.on("error", onError);
     });
   }
 
@@ -1130,119 +1491,230 @@ export class CSVProcessor {
    *
    * @param csvString - CSV data as string
    * @param maxRows - Maximum rows to parse (default: 1000)
+   * @param timeoutMs - Wall-clock parse cap; returns partial rows on timeout
    * @returns Array of row objects
    */
   static async parseCSVString(
     csvString: string,
     maxRows: number = 1000,
-    delimiter?: string,
-  ): Promise<unknown[]> {
+    timeoutMs: number = DEFAULT_CSV_STRING_PARSE_TIMEOUT_MS,
+  ): Promise<CSVRow[]> {
+    const { rows } = await this.parseCSVStringWithMeta(
+      csvString,
+      maxRows,
+      timeoutMs,
+    );
+    return rows;
+  }
+
+  /**
+   * String-parse variant that also reports whether the parse timed out, used by
+   * `process()` to surface `metadata.parseTimedOut`.
+   */
+  static async parseCSVStringWithMeta(
+    csvString: string,
+    maxRows: number = 1000,
+    timeoutMs: number = DEFAULT_CSV_STRING_PARSE_TIMEOUT_MS,
+  ): Promise<{ rows: CSVRow[]; timedOut: boolean }> {
     if (typeof csvString !== "string" || csvString.trim().length === 0) {
-      throw new Error(
+      throw ErrorFactory.csvInvalidInput(
         "CSVProcessor.parseCSVString: csvString must be a non-empty string",
       );
     }
     // Strip a leading UTF-8 BOM (common in Excel exports) so it does not glue
     // onto the first column name and break downstream key lookups.
     const normalized = stripBom(csvString);
+    const clampedMaxRows = Math.max(1, Math.min(10000, maxRows));
 
     logger.debug("[CSVProcessor] Starting string parsing", {
       inputLength: normalized.length,
-      maxRows,
+      maxRows: clampedMaxRows,
     });
 
     // Detect and skip a leading metadata line before detecting the
-    // delimiter, so a `sep=` preamble can't skew detection (#361).
+    // delimiter, so a `sep=` preamble can't skew detection (#361). No
+    // caller currently needs to override the delimiter here (#1192's own
+    // tests rely on self-detection), so it's always auto-detected.
     const lines = splitCsvLines(normalized);
     const { dataLines, hasMetadataLine, explicitDelimiter } =
       stripMetadataLine(lines);
-    // Caller-provided delimiter wins, then an explicit `sep=` declaration,
-    // then frequency-based detection over the post-metadata lines.
     const effectiveDelimiter =
-      delimiter ?? explicitDelimiter ?? detectDelimiterUtil(dataLines);
+      explicitDelimiter ?? detectDelimiterUtil(dataLines);
 
     if (hasMetadataLine) {
       logger.debug("[CSVProcessor] Detected metadata line in string, skipping");
     }
 
-    return this.parseCSVLines(dataLines, maxRows, effectiveDelimiter);
-  }
-
-  /**
-   * Stream-parse already-split, metadata-stripped data lines into row
-   * objects with a known delimiter. Shared core for parseCSVString() and
-   * process(), both of which need this after already splitting the content
-   * and resolving the delimiter once — calling parseCSVString() directly
-   * from process() would re-split and re-run metadata/delimiter detection
-   * over the same content a second time.
-   */
-  private static parseCSVLines(
-    dataLines: string[],
-    maxRows: number,
-    delimiter: string,
-  ): Promise<unknown[]> {
-    const clampedMaxRows = Math.max(1, Math.min(10000, maxRows));
     const csvData = dataLines.join("\n");
     if (csvData.trim().length === 0) {
-      // Shared core for both process() and parseCSVString() — use a generic
-      // message rather than naming one specific entry point, since either
-      // caller can land here with empty post-metadata data lines.
-      return Promise.reject(
-        new Error("CSVProcessor: CSV data must be a non-empty string"),
+      throw ErrorFactory.csvInvalidInput(
+        "CSVProcessor.parseCSVString: csvString must be a non-empty string",
       );
     }
 
-    return new Promise((resolve, reject) => {
-      const rows: unknown[] = [];
-      let count = 0;
+    return this.streamParse(Readable.from([csvData]), undefined, {
+      maxRows: clampedMaxRows,
+      skipLines: 0,
+      timeoutMs,
+      delimiter: effectiveDelimiter,
+    });
+  }
 
-      const source = Readable.from([csvData]);
-      const parser = csvParser({ separator: delimiter });
+  /**
+   * Shared streaming consumer for both parse methods. Guarantees:
+   *  - source, rawSource, and parser are all destroyed on ANY settle path
+   *    (#371) — `rawSource` matters for the file-parse path, where `source`
+   *    is a decode Transform piped FROM `rawSource`; `.pipe()` does not
+   *    propagate `.destroy()` upstream, so without this the underlying
+   *    `fs.createReadStream` fd would leak on abort/timeout/error,
+   *  - a wall-clock timeout returns partial rows instead of hanging (#379),
+   *  - every row is validated at the boundary (#384),
+   *  - reject messages carry columns/last-row-shape/format context (#375),
+   *  - the delimiter (#361, comma/tab/semicolon/pipe) detected by the caller
+   *    is honored, instead of csv-parser's hard-coded comma default.
+   *
+   * @param rawSource - The original file stream `source` was piped from, when
+   *   applicable (file-parse path only; `undefined` for string parsing).
+   */
+  private static streamParse(
+    source: Readable,
+    rawSource: Readable | undefined,
+    opts: {
+      maxRows: number;
+      skipLines: number;
+      timeoutMs: number;
+      location?: string;
+      delimiter?: string;
+    },
+  ): Promise<{ rows: CSVRow[]; timedOut: boolean }> {
+    return new Promise((resolve, reject) => {
+      const rows: CSVRow[] = [];
+      let count = 0;
+      let settled = false;
+      let capturedHeaders: string[] | undefined;
+      let lastRowColumnCount: number | undefined;
+      const startTime = Date.now();
+
+      // maxRowBytes bounds a single-row allocation (#371) — without it a
+      // pathological unbroken row grows memory unbounded and never errors.
+      // skipLines drops any pre-header metadata line (e.g. Excel's `sep=,`)
+      // BEFORE csv-parser reads the header, so the real header is used.
+      // separator (#361) defaults to comma when the caller has no better
+      // signal, matching csv-parser's own default.
+      const parser = csvParser({
+        separator: opts.delimiter ?? ",",
+        maxRowBytes: CSV_MAX_ROW_BYTES,
+        ...(opts.skipLines > 0 ? { skipLines: opts.skipLines } : {}),
+      });
 
       const abort = () => {
         source.destroy();
+        rawSource?.destroy();
         parser.destroy();
       };
+      const finish = (fn: () => void) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timer);
+        fn();
+      };
 
-      // .pipe() does not forward source-stream errors to the destination, so a
-      // source failure must be listened for directly or it throws as an
-      // unhandled EventEmitter error and can crash the process.
+      const timer = setTimeout(() => {
+        finish(() => {
+          logger.warn(
+            `[CSVProcessor] Parse timed out after ${Date.now() - startTime}ms with ${rows.length} partial row(s)`,
+          );
+          abort();
+          resolve({ rows, timedOut: true });
+        });
+      }, opts.timeoutMs);
+      if (typeof timer.unref === "function") {
+        timer.unref();
+      }
+
+      parser.on("headers", (h: string[]) => {
+        capturedHeaders = h;
+      });
+
+      // .pipe() does not forward source errors (disk/permission failures) to
+      // the destination, so listen on the source directly or it throws.
       source.on("error", (error: Error) => {
-        abort();
-        reject(
-          new Error(
-            `[CSVProcessor] CSV source stream failed after ${count} row(s): ${error.message}`,
-          ),
-        );
+        finish(() => {
+          abort();
+          reject(
+            ErrorFactory.csvParseFailed(
+              buildCsvParseErrorMessage({
+                stage: "read",
+                count,
+                headerCount: capturedHeaders?.length,
+                lastRowColumnCount,
+                location: opts.location,
+                cause: error.message,
+              }),
+              { location: opts.location, rowCount: count },
+              error,
+            ),
+          );
+        });
       });
 
       source
         .pipe(parser)
         .on("data", (row: unknown) => {
+          try {
+            assertValidCsvRow(row, count + 1);
+          } catch (err) {
+            finish(() => {
+              abort();
+              reject(err as Error);
+            });
+            return;
+          }
+          lastRowColumnCount = Object.keys(row).length;
           rows.push(row);
           count++;
 
-          if (count >= clampedMaxRows) {
+          if (count >= opts.maxRows) {
             logger.debug(
-              `[CSVProcessor] Reached row limit ${clampedMaxRows}, stopping parse`,
+              `[CSVProcessor] Reached row limit ${opts.maxRows}, stopping parse`,
             );
-            abort();
-            resolve(rows);
+            finish(() => {
+              abort();
+              resolve({ rows, timedOut: false });
+            });
           }
         })
         .on("end", () => {
-          logger.debug(
-            `[CSVProcessor] String parsing complete: ${rows.length} rows parsed`,
-          );
-          resolve(rows);
+          finish(() => {
+            logger.debug(
+              `[CSVProcessor] Parsing complete: ${rows.length} rows parsed`,
+            );
+            resolve({ rows, timedOut: false });
+          });
         })
         .on("error", (error: Error) => {
-          logger.error("[CSVProcessor] Parsing failed:", error);
-          reject(
-            new Error(
-              `[CSVProcessor] CSV parsing failed after ${count} row(s): ${error.message}`,
-            ),
-          );
+          // #371: destroy the source too — .pipe() does NOT auto-destroy the
+          // upstream when the parser Transform errors, leaking the fd/stream.
+          finish(() => {
+            abort();
+            logger.error("[CSVProcessor] Parsing failed:", error);
+            reject(
+              ErrorFactory.csvParseFailed(
+                buildCsvParseErrorMessage({
+                  stage: "parse",
+                  count,
+                  headerCount: capturedHeaders?.length,
+                  lastRowColumnCount,
+                  location: opts.location,
+                  cause: error.message,
+                }),
+                { location: opts.location, rowCount: count },
+                error,
+              ),
+            );
+          });
         });
     });
   }
@@ -1252,7 +1724,7 @@ export class CSVProcessor {
    * Only used for JSON and Markdown formats (raw format handled separately)
    */
   private static formatForLLM(
-    rows: unknown[],
+    rows: CSVRow[],
     formatStyle: "raw" | "markdown" | "json",
     includeHeaders: boolean,
   ): string {
@@ -1272,14 +1744,14 @@ export class CSVProcessor {
    * Best for small datasets (<100 rows)
    */
   private static toMarkdownTable(
-    rows: unknown[],
+    rows: CSVRow[],
     includeHeaders: boolean,
   ): string {
     if (rows.length === 0) {
       return "CSV file is empty or contains no data.";
     }
 
-    const headers = Object.keys(rows[0] as Record<string, unknown>);
+    const headers = Object.keys(rows[0]);
 
     // Escape backslashes, pipes, and sanitize newlines to keep rows intact
     const escapePipe = (str: string) =>
@@ -1298,11 +1770,7 @@ export class CSVProcessor {
     rows.forEach((row) => {
       markdown +=
         "| " +
-        headers
-          .map((h) =>
-            escapePipe(String((row as Record<string, unknown>)[h] || "")),
-          )
-          .join(" | ") +
+        headers.map((h) => escapePipe(String(row[h] || ""))).join(" | ") +
         " |\n";
     });
 
@@ -1318,7 +1786,7 @@ export class CSVProcessor {
    * @returns Formatted sample data as string or array
    */
   private static formatSampleData(
-    sampleRows: unknown[],
+    sampleRows: CSVRow[],
     format: SampleDataFormat,
     includeHeaders: boolean,
   ): string | unknown[] {
@@ -1347,12 +1815,12 @@ export class CSVProcessor {
    * @param includeHeaders - Whether to include header row
    * @returns CSV formatted string
    */
-  private static toCSVString(rows: unknown[], includeHeaders: boolean): string {
+  private static toCSVString(rows: CSVRow[], includeHeaders: boolean): string {
     if (rows.length === 0) {
       return "";
     }
 
-    const headers = Object.keys(rows[0] as Record<string, unknown>);
+    const headers = Object.keys(rows[0]);
 
     // Escape CSV values (wrap in quotes if contains comma, quote, or newline)
     const escapeCSV = (value: string): string => {
@@ -1373,9 +1841,7 @@ export class CSVProcessor {
     }
 
     rows.forEach((row) => {
-      const values = headers.map((h) =>
-        escapeCSV(String((row as Record<string, unknown>)[h] ?? "")),
-      );
+      const values = headers.map((h) => escapeCSV(String(row[h] ?? "")));
       lines.push(values.join(","));
     });
 

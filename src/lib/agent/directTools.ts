@@ -423,10 +423,9 @@ export const directAgentTools = {
         logger.info(
           `[analyzeCSV] Starting CSV parsing (max ${maxRows} rows)...`,
         );
-        const rows = (await CSVProcessor.parseCSVFile(
-          resolvedPath,
-          maxRows,
-        )) as Array<Record<string, string>>;
+        // #384: parseCSVFile now returns validated Record<string, string |
+        // undefined>[] rows, so the previous unchecked cast is unnecessary.
+        const rows = await CSVProcessor.parseCSVFile(resolvedPath, maxRows);
         logger.info(
           `[analyzeCSV] ✅ CSV parsing complete: ${rows.length} rows`,
         );
@@ -629,7 +628,7 @@ export const directAgentTools = {
 
             const values = rows
               .map((row) => row[column])
-              .filter((v) => v !== undefined && v !== "");
+              .filter((v): v is string => v !== undefined && v !== "");
 
             const numericValues = values
               .map((v) => parseFloat(v))

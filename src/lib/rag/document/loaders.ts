@@ -33,6 +33,8 @@ import {
   stripBom,
   stripMetadataLine,
   splitCsvLines,
+  dedupeColumnNames,
+  sanitizeColumnName,
 } from "../../utils/csvProcessor.js";
 import { splitCSVFields } from "../../utils/csvUtils.js";
 import type {
@@ -154,6 +156,8 @@ export class CSVLoader extends TextLoader {
       hasHeader = true,
       columns,
       outputFormat = "text",
+      sanitizeColumnNames = false,
+      columnNameCase = "snake_case",
     } = options || {};
 
     // #361: an explicit delimiter always wins; otherwise detect it from the
@@ -176,12 +180,19 @@ export class CSVLoader extends TextLoader {
     );
     const lines = strippedLines.filter((line) => line.trim());
 
-    const headers = hasHeader
+    const rawHeaders = hasHeader
       ? splitCSVFields(lines[0] ?? "", effectiveDelimiter).map((h) => h.trim())
       : columns ||
         splitCSVFields(lines[0] ?? "", effectiveDelimiter).map(
           (_, i) => `col${i + 1}`,
         );
+    // #378: apply the same opt-in header sanitization CSVProcessor offers, so
+    // the RAG ingestion path doesn't corrupt "Price ($)"-style headers as keys.
+    const headers = sanitizeColumnNames
+      ? dedupeColumnNames(
+          rawHeaders.map((h, i) => sanitizeColumnName(h, columnNameCase, i)),
+        )
+      : rawHeaders;
 
     const dataLines = hasHeader ? lines.slice(1) : lines;
     const rows = dataLines.map((line) =>
@@ -193,9 +204,19 @@ export class CSVLoader extends TextLoader {
     switch (outputFormat) {
       case "json":
         formattedContent = JSON.stringify(
-          rows.map((row) =>
-            Object.fromEntries(headers.map((h, i) => [h, row[i]])),
-          ),
+          rows.map((row) => {
+            // Defense-in-depth against a caller-controlled header literally
+            // named "__proto__"/"constructor"/"prototype" (#1199);
+            // Object.fromEntries can't actually pollute Object.prototype here
+            // (spec semantics), but a null-prototype target avoids relying on
+            // that for future readers.
+            const record: Record<string, string | undefined> =
+              Object.create(null);
+            headers.forEach((h, i) => {
+              record[h] = row[i];
+            });
+            return record;
+          }),
           null,
           2,
         );

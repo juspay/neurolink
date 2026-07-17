@@ -591,6 +591,13 @@ export type CSVLoaderOptions = LoaderOptions & {
   columns?: string[];
   /** Output format */
   outputFormat?: "text" | "json" | "markdown";
+  /**
+   * Rewrite headers into valid identifiers (#378). Opt-in; default false keeps
+   * the raw header strings as JSON keys / table columns.
+   */
+  sanitizeColumnNames?: boolean;
+  /** Case style used when `sanitizeColumnNames` is on (#378). Default "snake_case". */
+  columnNameCase?: "camelCase" | "snake_case";
 };
 
 /**

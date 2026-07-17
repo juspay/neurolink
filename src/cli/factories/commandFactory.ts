@@ -11,6 +11,7 @@ import type {
   TokenUsage,
   BaseCommandArgs,
   BatchCommandArgs,
+  CSVProcessorOptions,
   GenerateCommandArgs,
   CliGenerateResult,
   StreamCommandArgs,
@@ -236,6 +237,29 @@ export class CLICommandFactory {
         "  • raw: Plain CSV text (fastest, minimal tokens, best for large files)\n" +
         "  • markdown: Formatted table (readable, best for small files <100 rows)\n" +
         "  • json: Structured JSON array (best for programmatic use, higher tokens)",
+    },
+    "csv-encoding": {
+      type: "string" as const,
+      description:
+        "Character encoding for CSV files (e.g. utf-8, utf-16le, windows-1252). Auto-detected when omitted (#362).",
+    },
+    "csv-sanitize-names": {
+      type: "boolean" as const,
+      default: false,
+      description:
+        "Rewrite CSV column headers into valid identifiers (e.g. 'Price ($)' → 'price') (#378).",
+    },
+    "csv-name-case": {
+      type: "string" as const,
+      choices: ["snake_case", "camelCase"],
+      default: "snake_case",
+      description:
+        "Case style for sanitized CSV column names (used with --csv-sanitize-names) (#378).",
+    },
+    "csv-parse-timeout-ms": {
+      type: "number" as const,
+      description:
+        "Wall-clock cap (ms) for CSV parsing; returns partial rows on timeout (#379).",
     },
     model: {
       type: "string" as const,
@@ -3265,6 +3289,27 @@ export class CLICommandFactory {
   }
 
   /**
+   * Build CSV processor options from CLI argv (#1199). Shared by executeGenerate
+   * and executeRealStream, which previously built byte-for-byte identical
+   * objects independently.
+   */
+  private static buildCsvOptionsFromArgv(
+    argv: BaseCommandArgs & Record<string, unknown>,
+  ): CSVProcessorOptions {
+    return {
+      maxRows: argv.csvMaxRows as number | undefined,
+      formatStyle: argv.csvFormat as "raw" | "markdown" | "json" | undefined,
+      encoding: argv.csvEncoding as string | undefined,
+      sanitizeColumnNames: argv.csvSanitizeNames as boolean | undefined,
+      columnNameCase: argv.csvNameCase as
+        | "snake_case"
+        | "camelCase"
+        | undefined,
+      parseTimeoutMs: argv.csvParseTimeoutMs as number | undefined,
+    };
+  }
+
+  /**
    * Build output configuration for generate request
    */
   private static buildGenerateOutputConfig(
@@ -3607,14 +3652,7 @@ export class CLICommandFactory {
       const runGenerate = () =>
         sdk.generate({
           input: generateInput,
-          csvOptions: {
-            maxRows: argv.csvMaxRows as number | undefined,
-            formatStyle: argv.csvFormat as
-              | "raw"
-              | "markdown"
-              | "json"
-              | undefined,
-          },
+          csvOptions: CLICommandFactory.buildCsvOptionsFromArgv(argv),
           videoOptions: {
             frames: argv.videoFrames as number | undefined,
             quality: argv.videoQuality as number | undefined,
@@ -3965,14 +4003,7 @@ export class CLICommandFactory {
           ...(videoFiles && { videoFiles }),
           ...(files && { files }),
         },
-        csvOptions: {
-          maxRows: argv.csvMaxRows as number | undefined,
-          formatStyle: argv.csvFormat as
-            | "raw"
-            | "markdown"
-            | "json"
-            | undefined,
-        },
+        csvOptions: CLICommandFactory.buildCsvOptionsFromArgv(argv),
         videoOptions: {
           frames: argv.videoFrames as number | undefined,
           quality: argv.videoQuality as number | undefined,
