@@ -163,6 +163,12 @@ async function main() {
     assertEqual(gateNames({}, { enabled: false }), [], "instance disable");
   });
 
+  await test("disableTools yields an empty set at the gate itself", async () => {
+    // Defense-in-depth: call sites zero the record via shouldUseTools, but
+    // the gate must also be self-sufficient for future call sites.
+    assertEqual(gateNames({ disableTools: true }), [], "gate-level disable");
+  });
+
   await test("malformed tools.include fails CLOSED, never open", async () => {
     // A broken lockdown config must not expose every tool (fail-open would
     // invert the operator's intent). Objects/numbers → no tools.
@@ -314,6 +320,28 @@ async function main() {
     if (!promptOnly.includes("additional tools if needed")) {
       throw new Error("prompt-only provider lost the tool listing");
     }
+  });
+
+  await test("a tool named __proto__ survives the prompt-listing filter", async () => {
+    const nl = new NeuroLink();
+    const priv = nl as unknown as {
+      applyToolInfoFiltering(
+        tools: ToolInfo[],
+        options: Record<string, unknown>,
+      ): ToolInfo[];
+    };
+    const listing: ToolInfo[] = [
+      { name: "__proto__", description: "hostile name", serverId: "x" },
+      { name: "normal_tool", description: "ok", serverId: "x" },
+    ] as ToolInfo[];
+    const filtered = priv.applyToolInfoFiltering(listing, {});
+    // With a plain {} record, `"__proto__" in record` is truthy via the
+    // prototype and the tool silently vanished from the listing.
+    assertEqual(
+      filtered.map((t) => t.name).sort(),
+      ["__proto__", "normal_tool"],
+      "proto-named tool retained in listing",
+    );
   });
 
   logSection("Part 4 — Discovery (tools.discovery)");

@@ -8158,14 +8158,22 @@ Current user's request: ${currentInput}`;
       builtinToolNames: Object.keys(directAgentTools),
     });
 
-    const record: Record<string, ToolInfo> = {};
+    // Null prototype + own-property checks: a tool named "__proto__" must
+    // become an own entry — with a plain `{}`, `"__proto__" in record` is
+    // truthy via the prototype and the tool would be silently dropped from
+    // the listing while surviving the native gate. Matches the hardening on
+    // every other record in the tool-resolution pipeline.
+    const record: Record<string, ToolInfo> = Object.create(null) as Record<
+      string,
+      ToolInfo
+    >;
     for (const tool of tools) {
-      if (!(tool.name in record)) {
+      if (!Object.hasOwn(record, tool.name)) {
         record[tool.name] = tool;
       }
     }
     const gated = applyToolGate(record, policy);
-    const filtered = tools.filter((t) => t.name in gated);
+    const filtered = tools.filter((t) => Object.hasOwn(gated, t.name));
 
     if (filtered.length !== tools.length) {
       logger.debug(`Tool info filtering applied for system prompt`, {
