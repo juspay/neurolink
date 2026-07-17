@@ -1890,6 +1890,49 @@ export class FileDetector {
     const maxRetries = options?.maxRetries ?? DEFAULT_MAX_RETRIES;
     const retryDelay = options?.retryDelay ?? DEFAULT_RETRY_DELAY;
 
+    // #317: pre-flight HEAD to reject an oversized file BEFORE downloading any
+    // body. content-length is advisory (chunked responses omit it), so a
+    // missing/invalid header — or a server that refuses HEAD — falls through to
+    // the streaming byte guard below; only a genuine oversize rejection stops
+    // the GET from ever running.
+    //
+    // #323: skip the pre-flight entirely when this exact URL was recently seen
+    // (its Content-Type is still cached, whether from a prior loadFromURL GET
+    // or a MimeTypeStrategy HEAD) — issuing a fresh HEAD here would defeat the
+    // whole point of that cache. The streaming byte guard in the GET below
+    // still enforces maxSize even without a pre-flight, so this doesn't remove
+    // the oversize protection — it only skips the redundant round-trip for a
+    // URL we've already been talking to within the last 60s.
+    if (getCachedUrlContentType(url, Date.now()) === undefined) {
+      try {
+        const head = await request(url, {
+          dispatcher: getGlobalDispatcher().compose(
+            interceptors.redirect({ maxRedirections: 5 }),
+          ),
+          method: "HEAD",
+          headersTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
+          bodyTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
+        });
+        // Drain/close the (empty) HEAD body so the connection can be reused.
+        await head.body.dump();
+        const declaredLength = Number(head.headers["content-length"]);
+        if (Number.isFinite(declaredLength) && declaredLength > maxSize) {
+          throw new Error(
+            `File too large: ${formatFileSize(declaredLength)} (max: ${formatFileSize(maxSize)})`,
+          );
+        }
+      } catch (error) {
+        if (error instanceof Error && /File too large/.test(error.message)) {
+          throw error;
+        }
+        logger.debug(
+          `[FileDetector] HEAD pre-flight skipped for ${url}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
     return withRetry(
       async () => {
         try {

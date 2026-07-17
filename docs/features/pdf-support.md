@@ -216,6 +216,51 @@ pdfOptions: {
 }
 ```
 
+### Conversion Resilience & Limits
+
+The image-fallback path (providers without native PDF support) is hardened:
+
+- **Accurate page counts (#287).** Page-limit enforcement and the reported
+  `metadata.estimatedPages` use a real pdfjs parse (time-bounded), not a header
+  regex that miscounts compressed/object-stream PDFs. It degrades to the regex
+  estimate on timeout/failure.
+- **Per-page isolation (#294).** A single page that fails to render no longer
+  discards the whole conversion — the successful pages are returned and each
+  failure is reported in `result.errors` as `{ page, error }`.
+- **Default render scale 1.5 (#297).** Lowered from 2 to roughly halve per-page
+  canvas memory; the render scale is validated to the `0.1`–`10` range, and an
+  estimated-memory line is logged before conversion.
+- **Aggregate multi-PDF limits (#309).** When several PDFs are attached, their
+  combined page count and size are checked against the provider's ceiling — N
+  files each under the single-file limit can no longer exceed it together.
+- **URL pre-flight (#317).** A remote PDF's `Content-Length` is checked with a
+  `HEAD` request before any body is downloaded, so an oversized URL is rejected
+  up front (falling back to the streaming byte guard when the header is absent).
+
+### Streaming Conversion
+
+For large documents, `PDFProcessor.convertToImagesStream()` yields each page's
+image as soon as it renders (with an optional `onProgress` callback) instead of
+buffering the whole document (#302):
+
+```typescript
+import { PDFProcessor } from "@juspay/neurolink";
+
+for await (const page of PDFProcessor.convertToImagesStream(pdfBuffer, {
+  onProgress: ({ pagesConverted, totalPages, elapsedMs }) =>
+    console.log(`${pagesConverted}/${totalPages} in ${elapsedMs}ms`),
+})) {
+  if (page.error) {
+    console.warn(`page ${page.pageIndex} failed: ${page.error}`);
+  } else {
+    handlePng(page.image); // base64 PNG
+  }
+}
+```
+
+`convertToImages()` is the batch wrapper over this stream and returns the same
+per-page `errors` contract.
+
 ## Provider Support
 
 ### Supported Providers
