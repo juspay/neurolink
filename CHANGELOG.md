@@ -1,3 +1,9 @@
+## [9.92.1](https://github.com/juspay/neurolink/compare/v9.92.0...v9.92.1) (2026-07-17)
+
+### Bug Fixes
+
+- **(tools):** null-prototype prompt-listing record + forward disableTools to gate ([c2a2718](https://github.com/juspay/neurolink/commit/c2a27187098cb12a4804a82621771fcc3d51b07f))
+
 ## [9.92.0](https://github.com/juspay/neurolink/compare/v9.91.1...v9.92.0) (2026-07-17)
 
 ### Features
