@@ -18,6 +18,7 @@ import type {
   AIProvider,
   AnalyticsData,
   EnhancedGenerateResult,
+  TTSMetadata,
   TextGenerationOptions,
   TextGenerationResult,
   StandardRecord,
@@ -25,14 +26,17 @@ import type {
   ValidationSchema,
   ZodUnknownSchema,
 } from "../types/index.js";
-import { isAbortError } from "../utils/errorHandling.js";
+import { isAbortError, NeuroLinkError } from "../utils/errorHandling.js";
 import {
   hasLifecycleErrorFired,
   markLifecycleErrorFired,
 } from "../utils/lifecycleCallbacks.js";
 import { resolveLifecycleTimeoutMs } from "../utils/lifecycleTimeout.js";
 import { logger } from "../utils/logger.js";
-import { withTimeoutFn } from "../utils/async/withTimeout.js";
+import {
+  TimeoutError as AsyncTimeoutError,
+  withTimeoutFn,
+} from "../utils/async/withTimeout.js";
 import {
   composeAbortSignals,
   createTimeoutController,
@@ -44,7 +48,7 @@ import {
   ToolExecutionRecorder,
   resolveToolExecutionRecords,
 } from "./toolExecutionRecorder.js";
-import { TTSProcessor } from "../utils/ttsProcessor.js";
+import { TTS_ERROR_CODES, TTSProcessor } from "../utils/ttsProcessor.js";
 import {
   executeVideoAnalysis,
   hasVideoFrames,
@@ -1435,16 +1439,37 @@ export abstract class BaseProvider implements AIProvider {
       usage: { input: 0, output: 0, total: 0 },
     };
 
+    const ttsOptions = options.tts;
+    if (!ttsOptions) {
+      return this.enhanceResult(baseResult, options, startTime);
+    }
+
+    const ttsStartTime = Date.now();
+    const ttsProvider =
+      ttsOptions.provider ?? options.provider ?? this.providerName;
+    const ttsTimeout = this.getTimeout(options);
     try {
-      if (!options.tts) {
-        return this.enhanceResult(baseResult, options, startTime);
-      }
-      baseResult.audio = await TTSProcessor.synthesize(
-        textToSynthesize,
-        options.tts.provider ?? options.provider ?? this.providerName,
-        options.tts,
+      baseResult.audio = await withTimeoutFn(
+        () =>
+          TTSProcessor.synthesize(textToSynthesize, ttsProvider, ttsOptions),
+        ttsTimeout,
+        `TTS synthesis timed out after ${ttsTimeout}ms for provider "${ttsProvider}"`,
       );
+      baseResult.ttsMetadata = {
+        attempted: true,
+        success: true,
+        latency: Date.now() - ttsStartTime,
+      };
     } catch (ttsError) {
+      const latency = Date.now() - ttsStartTime;
+      const error = this.getTTSErrorDetails(ttsError);
+      baseResult.ttsMetadata = {
+        attempted: true,
+        success: false,
+        error,
+        latency,
+      };
+      this.telemetryHandler.recordTTSFailure(ttsProvider, error, latency);
       logger.error(
         `TTS synthesis failed in Mode 1 (direct input synthesis):`,
         ttsError,
@@ -1646,9 +1671,10 @@ export abstract class BaseProvider implements AIProvider {
       return enhancedResult;
     }
 
+    const ttsOptions = options.tts;
     const aiResponse = enhancedResult.content;
     const ttsProvider =
-      options.tts?.provider ?? options.provider ?? this.providerName;
+      ttsOptions.provider ?? options.provider ?? this.providerName;
     if (!aiResponse || !ttsProvider) {
       logger.warn(`TTS synthesis skipped despite being enabled`, {
         provider: this.providerName,
@@ -1663,26 +1689,75 @@ export abstract class BaseProvider implements AIProvider {
           ? "AI response is empty or undefined"
           : "Provider is missing",
       });
-      return enhancedResult;
+      return {
+        ...enhancedResult,
+        ttsMetadata: {
+          attempted: false,
+          success: false,
+        },
+      };
     }
 
+    const ttsStartTime = Date.now();
+    const ttsTimeout = this.getTimeout(options);
     try {
-      const ttsResult = await TTSProcessor.synthesize(
-        aiResponse,
-        ttsProvider,
-        options.tts,
+      const ttsResult = await withTimeoutFn(
+        () => TTSProcessor.synthesize(aiResponse, ttsProvider, ttsOptions),
+        ttsTimeout,
+        `TTS synthesis timed out after ${ttsTimeout}ms for provider "${ttsProvider}"`,
       );
       return {
         ...enhancedResult,
         audio: ttsResult,
+        ttsMetadata: {
+          attempted: true,
+          success: true,
+          latency: Date.now() - ttsStartTime,
+        },
       };
     } catch (ttsError) {
+      const latency = Date.now() - ttsStartTime;
+      const error = this.getTTSErrorDetails(ttsError);
+      this.telemetryHandler.recordTTSFailure(ttsProvider, error, latency);
       logger.error(
         `TTS synthesis failed in Mode 2 (AI response synthesis):`,
         ttsError,
       );
-      return enhancedResult;
+      return {
+        ...enhancedResult,
+        ttsMetadata: {
+          attempted: true,
+          success: false,
+          error,
+          latency,
+        },
+      };
     }
+  }
+
+  private getTTSErrorDetails(
+    error: unknown,
+  ): NonNullable<TTSMetadata["error"]> {
+    if (error instanceof AsyncTimeoutError) {
+      return {
+        code: TTS_ERROR_CODES.SYNTHESIS_FAILED,
+        message: error.message,
+        retriable: true,
+      };
+    }
+
+    if (error instanceof NeuroLinkError) {
+      return {
+        code: error.code,
+        message: error.message,
+        retriable: error.retriable,
+      };
+    }
+
+    return {
+      code: TTS_ERROR_CODES.SYNTHESIS_FAILED,
+      message: error instanceof Error ? error.message : String(error),
+    };
   }
 
   /**

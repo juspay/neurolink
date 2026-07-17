@@ -1597,9 +1597,26 @@ export type TextGenerationResult = {
 /**
  * Enhanced result type with optional analytics/evaluation
  */
+export type TTSMetadata = {
+  /** Whether TTS synthesis was invoked. False indicates TTS was skipped. */
+  attempted: boolean;
+  /** Whether TTS synthesis completed successfully. */
+  success: boolean;
+  /** Structured synthesis error details, present only when synthesis failed. */
+  error?: {
+    code: string;
+    message: string;
+    retriable?: boolean;
+  };
+  /** TTS synthesis time in milliseconds. */
+  latency?: number;
+};
+
 export type EnhancedGenerateResult = GenerateResult & {
   analytics?: AnalyticsData;
   evaluation?: EvaluationData;
+  /** Outcome metadata when TTS was enabled for this generation. */
+  ttsMetadata?: TTSMetadata;
 };
 
 /**

@@ -26,6 +26,7 @@ import type {
   RawUsageObject,
   TextGenerationOptions,
   TokenUsage,
+  TTSMetadata,
 } from "../../types/index.js";
 import { extractTokenUsage } from "../../utils/tokenUtils.js";
 import { logger } from "../../utils/logger.js";
@@ -136,6 +137,35 @@ export class TelemetryHandler {
       });
     } catch (perfError) {
       logger.warn("⚠️ Performance recording failed:", perfError);
+    }
+  }
+
+  /**
+   * Record a TTS synthesis failure without affecting the generation result.
+   */
+  recordTTSFailure(
+    ttsProvider: string,
+    error: NonNullable<TTSMetadata["error"]>,
+    latency: number,
+  ): void {
+    try {
+      const labels = {
+        provider: ttsProvider,
+        error_code: error.code,
+        ...(error.retriable !== undefined
+          ? { retriable: error.retriable.toString() }
+          : {}),
+      };
+      const telemetry = TelemetryService.getInstance();
+
+      telemetry.recordCustomMetric("tts_failures", 1, labels);
+      telemetry.recordCustomHistogram(
+        "tts_failure_latency_ms",
+        latency,
+        labels,
+      );
+    } catch (telemetryError) {
+      logger.warn("TTS failure telemetry recording failed:", telemetryError);
     }
   }
 
