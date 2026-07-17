@@ -81,8 +81,10 @@ Key flags:
 
 **CSV Options:**
 
-- `--csvMaxRows` – maximum number of CSV rows to process (default `1000`).
+- `--csvMaxRows` – maximum number of CSV rows to process — a positive integer in the range `1`–`100000` (default `1000`). Invalid values are rejected with a clear error.
 - `--csvFormat` – CSV output format: `raw` (default), `markdown`, `json`.
+
+Large local `--image`/`--csv`/`--pdf`/`--video` files emit a soft-limit size warning (they are not rejected) so slow processing or token/size blowups aren't a surprise.
 
 **Video Input (Analysis):**
 

@@ -47,6 +47,10 @@ import { initializeCliParser } from "../parser.js";
 import { formatFileSize, saveAudioToFile } from "../utils/audioFileUtils.js";
 import { playAudio } from "../utils/audioPlayer.js";
 import { resolveFilePaths } from "../utils/pathResolver.js";
+import {
+  validateCliInputFiles,
+  validateCsvMaxRows,
+} from "../utils/inputValidation.js";
 import { animatedWrite } from "../utils/typewriter.js";
 import { createStreamAbortHandler } from "../utils/abortHandler.js";
 import {
@@ -226,7 +230,8 @@ export class CLICommandFactory {
     csvMaxRows: {
       type: "number" as const,
       default: 1000,
-      description: "Maximum number of CSV rows to process",
+      description:
+        "Maximum number of CSV rows to process (positive integer, range 1-100000, default 1000)",
     },
     csvFormat: {
       type: "string" as const,
@@ -922,59 +927,6 @@ export class CLICommandFactory {
     // Resolve relative paths to absolute paths before returning
     // URLs are preserved as-is by resolveFilePaths
     return resolveFilePaths(paths);
-  }
-
-  private static isNonLocalFileReference(filePath: string): boolean {
-    const lower = filePath.toLowerCase();
-    return (
-      lower.startsWith("http://") ||
-      lower.startsWith("https://") ||
-      lower.startsWith("file://") ||
-      lower.startsWith("data:")
-    );
-  }
-
-  private static validateCliInputFiles(argv: Record<string, unknown>): void {
-    const fileArgs: Array<{
-      option: "--image" | "--csv" | "--pdf" | "--video" | "--file";
-      value?: string | string[];
-    }> = [
-      { option: "--image", value: argv.image as string | string[] | undefined },
-      { option: "--csv", value: argv.csv as string | string[] | undefined },
-      { option: "--pdf", value: argv.pdf as string | string[] | undefined },
-      { option: "--video", value: argv.video as string | string[] | undefined },
-      { option: "--file", value: argv.file as string | string[] | undefined },
-    ];
-
-    const missingPaths: string[] = [];
-
-    for (const { option, value } of fileArgs) {
-      if (!value) {
-        continue;
-      }
-
-      const rawPaths = Array.isArray(value) ? value : [value];
-      const resolvedPaths = resolveFilePaths(rawPaths);
-
-      for (let i = 0; i < resolvedPaths.length; i++) {
-        const resolvedPath = resolvedPaths[i];
-        if (CLICommandFactory.isNonLocalFileReference(resolvedPath)) {
-          continue;
-        }
-
-        if (!fs.existsSync(resolvedPath)) {
-          missingPaths.push(
-            `${option} path not found: ${rawPaths[i]} (resolved to ${resolvedPath})`,
-          );
-        }
-      }
-    }
-
-    if (missingPaths.length > 0) {
-      throw new Error(
-        `One or more input files do not exist:\n${missingPaths.join("\n")}`,
-      );
-    }
   }
 
   // Helper method to process common options
@@ -1968,6 +1920,26 @@ export class CLICommandFactory {
             .example(
               '$0 generate "Machine Learning 101" --pptTheme minimal --pptTone educational --pptNoImages',
               "Generate educational slides without AI images",
+            )
+            .example(
+              '$0 generate "Describe this image" --image ./photo.jpg',
+              "Analyze an image (multimodal input)",
+            )
+            .example(
+              '$0 generate "Summarize this report" --pdf ./report.pdf',
+              "Analyze a PDF document",
+            )
+            .example(
+              '$0 generate "Key trends?" --csv large-data.csv --csvMaxRows 100',
+              "Analyze a CSV with a row limit",
+            )
+            .example(
+              '$0 generate "Compare the chart and the report" --image ./chart.png --pdf ./report.pdf',
+              "Combine multiple file types in one prompt",
+            )
+            .example(
+              '$0 generate "What is in this file?" --file ./data.json',
+              "Auto-detect a file type with --file",
             ),
         );
       },
@@ -2006,6 +1978,18 @@ export class CLICommandFactory {
             .example(
               '$0 stream "Narrate this video" --video path/to/video.mp4',
               "Stream video analysis",
+            )
+            .example(
+              '$0 stream "Describe this image" --image ./photo.jpg',
+              "Stream image analysis (multimodal input)",
+            )
+            .example(
+              '$0 stream "Summarize this document" --pdf ./report.pdf',
+              "Stream PDF analysis",
+            )
+            .example(
+              '$0 stream "Explain this dataset" --csv ./data.csv --csv-format markdown',
+              "Stream CSV analysis",
             ),
         );
       },
@@ -3105,7 +3089,13 @@ export class CLICommandFactory {
         if (isSttOnly) {
           return "";
         }
-        throw new Error("No input received from stdin");
+        throw new Error(
+          "❌ No input received from stdin.\n" +
+            "💡 Try this:\n" +
+            '   neurolink generate "your prompt"\n' +
+            '   echo "your prompt" | neurolink generate\n' +
+            '   neurolink generate "Describe this image" --image ./photo.jpg',
+        );
       }
       return trimmedData;
     } else if (!argv.input) {
@@ -3113,7 +3103,11 @@ export class CLICommandFactory {
         return "";
       }
       throw new Error(
-        'Input required. Use: neurolink generate "your prompt" or echo "prompt" | neurolink generate',
+        "❌ Input required.\n" +
+          "💡 Try this:\n" +
+          '   neurolink generate "your prompt"\n' +
+          '   echo "your prompt" | neurolink generate\n' +
+          '   neurolink generate "Describe this image" --image ./photo.jpg',
       );
     }
     return argv.input as string;
@@ -3516,7 +3510,8 @@ export class CLICommandFactory {
         await new Promise((resolve) => setTimeout(resolve, options.delay));
       }
 
-      CLICommandFactory.validateCliInputFiles(argv);
+      validateCliInputFiles(argv);
+      validateCsvMaxRows(argv);
 
       // Process context
       const { inputText, contextMetadata } =
@@ -4531,7 +4526,13 @@ export class CLICommandFactory {
           argv.input = "";
           return;
         }
-        throw new Error("No input received from stdin");
+        throw new Error(
+          "❌ No input received from stdin.\n" +
+            "💡 Try this:\n" +
+            '   neurolink stream "your prompt"\n' +
+            '   echo "your prompt" | neurolink stream\n' +
+            '   neurolink stream "Describe this image" --image ./photo.jpg',
+        );
       }
     } else if (!argv.input) {
       if (isSttOnly) {
@@ -4539,7 +4540,11 @@ export class CLICommandFactory {
         return;
       }
       throw new Error(
-        'Input required. Use: neurolink stream "your prompt" or echo "prompt" | neurolink stream',
+        "❌ Input required.\n" +
+          "💡 Try this:\n" +
+          '   neurolink stream "your prompt"\n' +
+          '   echo "your prompt" | neurolink stream\n' +
+          '   neurolink stream "Describe this image" --image ./photo.jpg',
       );
     }
   }
@@ -4567,7 +4572,8 @@ export class CLICommandFactory {
         await new Promise((resolve) => setTimeout(resolve, options.delay));
       }
 
-      CLICommandFactory.validateCliInputFiles(argv);
+      validateCliInputFiles(argv);
+      validateCsvMaxRows(argv);
 
       const { inputText, contextMetadata } =
         await CLICommandFactory.processStreamContext(argv, options);
