@@ -1,0 +1,59 @@
+{
+  "referenceVersion": "9.88.12",
+  "bodyCapture": {
+    "phases": [
+      "client_request",
+      "upstream_request",
+      "upstream_response",
+      "client_response"
+    ],
+    "maxCapturedBodyBytes": 1048576,
+    "truncationMarker": "\n...[TRUNCATED]",
+    "indexType": "body_capture",
+    "artifactExtension": ".json.gz",
+    "directoryMode": "700",
+    "fileMode": "600",
+    "indexFields": [
+      "account",
+      "accountType",
+      "attempt",
+      "bodyPath",
+      "bodySha256",
+      "bodyTruncated",
+      "contentType",
+      "durationMs",
+      "headers",
+      "metadata",
+      "model",
+      "observedBodyBytes",
+      "phase",
+      "redactedBodyBytes",
+      "requestId",
+      "responseStatus",
+      "storedFileBytes",
+      "stream",
+      "spanId",
+      "timestamp",
+      "traceId",
+      "type"
+    ],
+    "artifactFields": [
+      "account",
+      "accountType",
+      "attempt",
+      "body",
+      "contentType",
+      "durationMs",
+      "headers",
+      "metadata",
+      "model",
+      "phase",
+      "requestId",
+      "responseStatus",
+      "spanId",
+      "stream",
+      "timestamp",
+      "traceId"
+    ]
+  }
+}
