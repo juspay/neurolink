@@ -1,3 +1,9 @@
+## [9.89.0](https://github.com/juspay/neurolink/compare/v9.88.12...v9.89.0) (2026-07-17)
+
+### Features
+
+- **(examples):** add degit-able starter templates — chat, mcp-client, proxy-failover ([e737e18](https://github.com/juspay/neurolink/commit/e737e18e071d8bad91736ba07ad4193fcbc9f15d))
+
 ## [9.88.12](https://github.com/juspay/neurolink/compare/v9.88.11...v9.88.12) (2026-07-16)
 
 ### Bug Fixes
