@@ -1,3 +1,9 @@
+## [9.91.1](https://github.com/juspay/neurolink/compare/v9.91.0...v9.91.1) (2026-07-17)
+
+### Bug Fixes
+
+- **(deps):** lazy-init SageMaker runtime client, move SDK to optionalDependencies ([0f4e232](https://github.com/juspay/neurolink/commit/0f4e2323caa97ee53e5c34206f0b6cb551e0396a))
+
 ## [9.91.0](https://github.com/juspay/neurolink/compare/v9.90.0...v9.91.0) (2026-07-17)
 
 ### Features
