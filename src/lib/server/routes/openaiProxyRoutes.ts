@@ -19,7 +19,6 @@ import {
   createClaudeToOpenAIStreamTransform,
   parseOpenAIRequest,
 } from "../../proxy/openaiFormat.js";
-import type { ModelRouter } from "../../proxy/modelRouter.js";
 import { ProxyTracer } from "../../proxy/proxyTracer.js";
 import {
   buildModelsListResponse,
@@ -30,8 +29,10 @@ import { logRequest } from "../../proxy/requestLogger.js";
 import { buildProxyTranslationPlan } from "../../proxy/routingPolicy.js";
 import type {
   ClaudeResponse,
+  ModelRouterInterface,
   OpenAICompletionRequest,
   ParsedOpenAIRequest,
+  ProxyRuntimeConfigProvider,
   RouteGroup,
   ServerContext,
 } from "../../types/index.js";
@@ -330,9 +331,10 @@ async function handleOpenAIToAnthropicBridge(args: {
  * @returns RouteGroup with OpenAI-compatible endpoints.
  */
 export function createOpenAIProxyRoutes(
-  modelRouter?: ModelRouter,
+  modelRouter?: ModelRouterInterface,
   basePath: string = "",
   loopbackPort: number = DEFAULT_LOOPBACK_PORT,
+  runtimeConfigProvider?: ProxyRuntimeConfigProvider,
 ): RouteGroup {
   return {
     prefix: `${basePath}/v1`,
@@ -345,6 +347,9 @@ export function createOpenAIProxyRoutes(
         path: `${basePath}/v1/chat/completions`,
         description: "OpenAI-compatible chat completions (translation mode)",
         handler: async (ctx: ServerContext) => {
+          const requestModelRouter = runtimeConfigProvider
+            ? runtimeConfigProvider().modelRouter
+            : modelRouter;
           const requestStartTime = Date.now();
           const body = ctx.body as OpenAICompletionRequest | undefined;
 
@@ -357,8 +362,8 @@ export function createOpenAIProxyRoutes(
           }
 
           // --- Resolve target provider/model ---
-          const route = modelRouter
-            ? modelRouter.resolve(body.model)
+          const route = requestModelRouter
+            ? requestModelRouter.resolve(body.model)
             : { provider: null, model: body.model };
           const targetProvider = route.provider ?? undefined;
           const targetModel = route.model ?? body.model;
@@ -423,7 +428,7 @@ export function createOpenAIProxyRoutes(
               provider: targetProvider ?? "auto",
               model: targetModel,
             },
-            modelRouter?.getFallbackChain() ?? [],
+            requestModelRouter?.getFallbackChain() ?? [],
             body.model,
             // The classifier only reads fields present on both types.
             adapted as Parameters<typeof buildProxyTranslationPlan>[3],
@@ -497,7 +502,10 @@ export function createOpenAIProxyRoutes(
         path: `${basePath}/v1/models`,
         description: "List available models in OpenAI format",
         handler: async () => {
-          return buildModelsListResponse(modelRouter);
+          const requestModelRouter = runtimeConfigProvider
+            ? runtimeConfigProvider().modelRouter
+            : modelRouter;
+          return buildModelsListResponse(requestModelRouter);
         },
       },
     ],

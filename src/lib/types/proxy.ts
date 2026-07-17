@@ -21,6 +21,7 @@ import type { MCPToolRegistry } from "../mcp/toolRegistry.js";
 import type { ProxyTracer } from "../proxy/proxyTracer.js";
 import type {
   FallbackEntry,
+  ModelMapping,
   ProxyRoutingConfig,
   CloakingConfig,
 } from "./subscription.js";
@@ -34,6 +35,8 @@ export type ModelRouterInterface = {
   resolve(requestedModel: string): RouteResult;
   isClaudeTarget(requestedModel: string): boolean;
   getFallbackChain(): FallbackEntry[];
+  getModelMappings?: () => ModelMapping[];
+  getPassthroughModels?: () => string[];
 };
 
 // =============================================================================
@@ -1500,6 +1503,89 @@ export type LoadedProxyConfig = {
     strategy?: ProxyStartStrategy;
   };
 };
+
+/** Routing values captured once when a proxy request begins. */
+export type ProxyRequestRoutingSnapshot = {
+  generation: number;
+  strategy: ProxyStartStrategy;
+  modelRouter?: ModelRouterInterface;
+  passthrough: boolean;
+  primaryAccountKey?: string;
+  accountAllowlist?: ReadonlySet<string>;
+  quotaRoutingEnabled: boolean;
+  sessionSoftLimit: number;
+  sessionResetToleranceMs: number;
+};
+
+/** Immutable last-known-good proxy configuration published at runtime. */
+export type ProxyRuntimeConfigSnapshot = ProxyRequestRoutingSnapshot & {
+  loadedAt: string;
+  configHash: string;
+  proxyConfig: LoadedProxyConfig | null;
+};
+
+/** Source that requested a runtime configuration reload. */
+export type ProxyRuntimeConfigReloadSource =
+  | "startup"
+  | "watch"
+  | "sighup"
+  | "manual";
+
+/** Result returned after a serialized runtime configuration reload attempt. */
+export type ProxyRuntimeConfigReloadResult = {
+  applied: boolean;
+  changed: boolean;
+  generation: number;
+  error?: string;
+};
+
+/** Safe runtime configuration diagnostics exposed through proxy status. */
+export type ProxyRuntimeConfigStatus = {
+  configPath: string;
+  envFilePath?: string;
+  generation: number;
+  loadedAt: string;
+  configHash: string;
+  watching: boolean;
+  lastReloadAttemptAt?: string;
+  lastReloadAt?: string;
+  lastReloadSource?: ProxyRuntimeConfigReloadSource;
+  lastReloadError?: string;
+  consecutiveFailures: number;
+};
+
+/** Constructor options for the proxy runtime configuration store. */
+export type ProxyRuntimeConfigStoreOptions = {
+  configPath: string;
+  configRequired: boolean;
+  envFilePath?: string;
+  envFileRequired?: boolean;
+  baseEnv: Record<string, string | undefined>;
+  strategyOverride?: ProxyStartStrategy;
+  passthrough: boolean;
+  watchIntervalMs?: number;
+  watchDebounceMs?: number;
+};
+
+/** Runtime configuration provider captured by route factories. */
+export type ProxyRuntimeConfigProvider = () => ProxyRequestRoutingSnapshot;
+
+/** Optional runtime configuration wiring for Claude proxy route factories. */
+export type ClaudeProxyRouteRuntimeOptions = {
+  accountAllowlist?: AccountAllowlist;
+  runtimeConfigProvider: ProxyRuntimeConfigProvider;
+};
+
+/** Listener invoked after a new configuration generation is published. */
+export type ProxyRuntimeConfigListener = (
+  snapshot: ProxyRuntimeConfigSnapshot,
+) => void;
+
+/** Listener invoked after every successful or rejected reload attempt. */
+export type ProxyRuntimeConfigReloadListener = (
+  result: ProxyRuntimeConfigReloadResult,
+  status: ProxyRuntimeConfigStatus,
+) => void;
 
 /**
  * Handle for a NeuroLink runtime created by the proxy start command.

@@ -366,8 +366,9 @@ When falling back to non-Anthropic providers, the proxy passes tools, thinking c
 proxy.ts (CLI command)
   │
   ├── Creates NeuroLink instance (NEUROLINK_SKIP_MCP=true)
-  ├── Loads proxy config (~/.neurolink/proxy-config.yaml)
-  ├── Creates ModelRouter (if routing configured)
+  ├── Loads the first last-known-good runtime config generation
+  ├── Watches proxy config + proxy env files (debounced; SIGHUP supported)
+  ├── Atomically publishes immutable routing snapshots for new requests
   ├── Initializes requestLogger + usageStats + OpenTelemetry (OTLP traces/metrics/logs)
   ├── Builds Hono app
   │     │

@@ -289,6 +289,47 @@ export function validateProxyConfig(config: unknown): string[] {
         });
       }
     }
+
+    const rawQuotaRouting = routing["quota-routing"] ?? routing.quotaRouting;
+    const normalizedQuotaRouting =
+      typeof rawQuotaRouting === "string"
+        ? rawQuotaRouting.trim().toLowerCase()
+        : undefined;
+    if (
+      rawQuotaRouting !== undefined &&
+      typeof rawQuotaRouting !== "boolean" &&
+      normalizedQuotaRouting !== "true" &&
+      normalizedQuotaRouting !== "false"
+    ) {
+      errors.push("routing.quota-routing must be a boolean");
+    }
+
+    const rawSessionSoftLimit =
+      routing["session-soft-limit"] ?? routing.sessionSoftLimit;
+    if (rawSessionSoftLimit !== undefined) {
+      const sessionSoftLimit = Number(rawSessionSoftLimit);
+      if (
+        !Number.isFinite(sessionSoftLimit) ||
+        sessionSoftLimit <= 0 ||
+        sessionSoftLimit > 1
+      ) {
+        errors.push("routing.session-soft-limit must be a number in (0, 1]");
+      }
+    }
+
+    const rawSessionResetToleranceMs =
+      routing["session-reset-tolerance-ms"] ?? routing.sessionResetToleranceMs;
+    if (rawSessionResetToleranceMs !== undefined) {
+      const sessionResetToleranceMs = Number(rawSessionResetToleranceMs);
+      if (
+        !Number.isInteger(sessionResetToleranceMs) ||
+        sessionResetToleranceMs <= 0
+      ) {
+        errors.push(
+          "routing.session-reset-tolerance-ms must be a positive integer",
+        );
+      }
+    }
   }
 
   if (!hasAccounts && !hasRouting) {
@@ -379,6 +420,9 @@ function warnPlaintextApiKeys(
  * - `model-mappings` / `modelMappings` — array of {from, to, provider}
  * - `fallback-chain` / `fallbackChain` — array of {provider, model}
  * - `passthroughModels` / `passthrough-models` — array of model IDs
+ * - `quota-routing` / `quotaRouting` — quota-aware fill-first ordering
+ * - `session-soft-limit` / `sessionSoftLimit` — proactive handoff threshold
+ * - `session-reset-tolerance-ms` / `sessionResetToleranceMs` — reset bucket
  * - `account-allowlist` / `accountAllowlist` — allowed Anthropic account IDs
  *
  * Accepts both camelCase and kebab-case keys for YAML-friendliness.
@@ -457,6 +501,54 @@ function parseRoutingConfig(
     raw.passthroughModels) as unknown[] | undefined;
   if (Array.isArray(rawPassthrough)) {
     result.passthroughModels = rawPassthrough.map(String);
+  }
+
+  const rawQuotaRouting = raw["quota-routing"] ?? raw.quotaRouting;
+  if (rawQuotaRouting !== undefined) {
+    if (typeof rawQuotaRouting === "boolean") {
+      result.quotaRouting = rawQuotaRouting;
+    } else if (
+      typeof rawQuotaRouting === "string" &&
+      ["true", "false"].includes(rawQuotaRouting.trim().toLowerCase())
+    ) {
+      result.quotaRouting = rawQuotaRouting.trim().toLowerCase() === "true";
+    } else {
+      logger.warn(
+        `[proxy-config] Ignoring routing.quotaRouting: expected boolean, got ${typeof rawQuotaRouting}`,
+      );
+    }
+  }
+
+  const rawSessionSoftLimit = raw["session-soft-limit"] ?? raw.sessionSoftLimit;
+  if (rawSessionSoftLimit !== undefined) {
+    const sessionSoftLimit = Number(rawSessionSoftLimit);
+    if (
+      Number.isFinite(sessionSoftLimit) &&
+      sessionSoftLimit > 0 &&
+      sessionSoftLimit <= 1
+    ) {
+      result.sessionSoftLimit = sessionSoftLimit;
+    } else {
+      logger.warn(
+        `[proxy-config] Ignoring routing.sessionSoftLimit: expected number in (0, 1], got ${String(rawSessionSoftLimit)}`,
+      );
+    }
+  }
+
+  const rawSessionResetToleranceMs =
+    raw["session-reset-tolerance-ms"] ?? raw.sessionResetToleranceMs;
+  if (rawSessionResetToleranceMs !== undefined) {
+    const sessionResetToleranceMs = Number(rawSessionResetToleranceMs);
+    if (
+      Number.isInteger(sessionResetToleranceMs) &&
+      sessionResetToleranceMs > 0
+    ) {
+      result.sessionResetToleranceMs = sessionResetToleranceMs;
+    } else {
+      logger.warn(
+        `[proxy-config] Ignoring routing.sessionResetToleranceMs: expected positive integer, got ${String(rawSessionResetToleranceMs)}`,
+      );
+    }
   }
 
   // Primary account (accept kebab-case or camelCase). Email or label of the

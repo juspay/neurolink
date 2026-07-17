@@ -32,6 +32,7 @@ import type {
   AccountAllowlist,
   FallbackInfo,
   LoadedProxyConfig,
+  ModelRouterInterface,
   ProxyGuardArgs,
   ProxyNeurolinkRuntime,
   ProxySpinner,
@@ -44,11 +45,12 @@ import type {
   ProxyTelemetryAction,
   ProxyTelemetryArgs,
   ProxyRuntimeActivity,
+  ProxyRuntimeConfigSnapshot,
   RuntimeRequestMetadata,
   StatusStats,
 } from "../../lib/types/index.js";
-import type { ModelRouter } from "../../lib/proxy/modelRouter.js";
 import { configureProxyKeepAliveDispatcher } from "../../lib/proxy/proxyDispatcher.js";
+import { ProxyRuntimeConfigStore } from "../../lib/proxy/runtimeConfig.js";
 import {
   anthropicAccountKeysEqual,
   createAccountAllowlist,
@@ -951,159 +953,9 @@ async function createProxyNeurolinkRuntime(logsDir?: string) {
   return { neurolink, cleanupLogs };
 }
 
-async function loadProxyStartConfiguration(
-  argv: ProxyStartArgs,
-  spinner: ProxySpinner,
-): Promise<{
-  configPath: string;
-  proxyConfig: LoadedProxyConfig | null;
-  strategy: ProxyStartStrategy;
-  modelRouter: ModelRouter | undefined;
-  passthrough: boolean;
-  primaryAccountKey: string | undefined;
-  accountAllowlist: AccountAllowlist | undefined;
-}> {
-  const configPath =
-    argv.config ?? join(homedir(), ".neurolink", "proxy-config.yaml");
-  let proxyConfig: LoadedProxyConfig | null = null;
-
-  try {
-    const { loadProxyConfig } = await import("../../lib/proxy/proxyConfig.js");
-    proxyConfig = (await loadProxyConfig(configPath)) as LoadedProxyConfig;
-    if (spinner) {
-      spinner.text = `Loaded proxy config from ${configPath}`;
-    }
-  } catch (configError) {
-    const isNotFound =
-      configError instanceof Error &&
-      "code" in configError &&
-      (configError as NodeJS.ErrnoException).code === "ENOENT";
-    if (argv.config || !isNotFound) {
-      if (spinner) {
-        spinner.fail(chalk.red(`Failed to load proxy config: ${configPath}`));
-      }
-      throw configError;
-    }
-  }
-
-  const strategy = (argv.strategy ??
-    proxyConfig?.routing?.strategy ??
-    "fill-first") as ProxyStartStrategy;
-  let modelRouter: ModelRouter | undefined;
-
-  if (proxyConfig?.routing) {
-    const { ModelRouter } = await import("../../lib/proxy/modelRouter.js");
-    modelRouter = new ModelRouter({
-      strategy,
-      modelMappings: proxyConfig.routing.modelMappings ?? [],
-      fallbackChain: proxyConfig.routing.fallbackChain ?? [],
-      passthroughModels: proxyConfig.routing.passthroughModels,
-    });
-  }
-
-  const primaryAccountKey = await resolveBootPrimaryAccountKey(
-    proxyConfig?.routing?.primaryAccount,
-  );
-  const accountAllowlist = await resolveBootAccountAllowlist(
-    proxyConfig?.routing?.accountAllowlist,
-  );
-  if (
-    primaryAccountKey &&
-    !isAccountAllowed(primaryAccountKey, accountAllowlist)
-  ) {
-    throw new Error(
-      `Configured routing.primaryAccount=${proxyConfig?.routing?.primaryAccount} is excluded by routing.accountAllowlist`,
-    );
-  }
-
-  return {
-    configPath,
-    proxyConfig,
-    strategy,
-    modelRouter,
-    passthrough: argv.passthrough ?? false,
-    primaryAccountKey,
-    accountAllowlist,
-  };
-}
-
-async function resolveBootAccountAllowlist(
-  configuredAccounts: string[] | undefined,
-): Promise<AccountAllowlist | undefined> {
-  const allowlist = createAccountAllowlist(configuredAccounts);
-  if (allowlist === undefined) {
-    return undefined;
-  }
-  if (allowlist.size === 0) {
-    logger.warn(
-      "[proxy] routing.accountAllowlist is empty; all stored Anthropic credentials are denied",
-    );
-    return allowlist;
-  }
-
-  try {
-    const { tokenStore } = await import("../../lib/auth/tokenStore.js");
-    const known = new Set(
-      (await tokenStore.listByPrefix("anthropic:")).map(
-        normalizeAnthropicAccountKey,
-      ),
-    );
-    known.add(LEGACY_ANTHROPIC_ACCOUNT_KEY);
-    known.add(ENV_ANTHROPIC_ACCOUNT_KEY);
-    for (const key of allowlist) {
-      if (!known.has(key)) {
-        logger.warn(
-          `[proxy] WARN: routing.accountAllowlist entry ${key} is allowed but not currently authenticated`,
-        );
-      }
-    }
-  } catch (err) {
-    logger.debug(
-      `[proxy] could not validate account allowlist against token store: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-    );
-  }
-  return allowlist;
-}
-
-/** Resolve the operator's configured primary email to a stable token-store
- *  key (anthropic:<email>). Cross-checks the token store and emits a one-time
- *  startup warning if the configured account isn't authenticated — but still
- *  returns the key so it activates automatically once the user runs
- *  `auth login --add`. */
-async function resolveBootPrimaryAccountKey(
-  primaryEmail: string | undefined,
-): Promise<string | undefined> {
-  const trimmed = primaryEmail?.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-  const key = normalizeAnthropicAccountKey(trimmed);
-  try {
-    const { tokenStore } = await import("../../lib/auth/tokenStore.js");
-    const known = await tokenStore.listByPrefix("anthropic:");
-    if (!known.some((knownKey) => anthropicAccountKeysEqual(knownKey, key))) {
-      logger.warn(
-        `[proxy] WARN: configured routing.primaryAccount=${trimmed} not ` +
-          `found in token store; falling back to first enabled account. ` +
-          `Run \`neurolink auth login --add\` to authenticate it, or ` +
-          `\`neurolink auth clear-primary\` to remove the setting.`,
-      );
-    }
-  } catch (err) {
-    logger.debug(
-      `[proxy] could not validate primary account against token store: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-    );
-  }
-  return key;
-}
-
 export async function createProxyStartApp(params: {
   neurolink: ProxyNeurolinkRuntime["neurolink"];
-  modelRouter: ModelRouter | undefined;
+  modelRouter: ModelRouterInterface | undefined;
   strategy: ProxyStartStrategy;
   passthrough: boolean;
   port: number;
@@ -1111,6 +963,7 @@ export async function createProxyStartApp(params: {
   proxyConfig: LoadedProxyConfig | null;
   primaryAccountKey: string | undefined;
   accountAllowlist: AccountAllowlist | undefined;
+  runtimeConfigStore?: ProxyRuntimeConfigStore;
 }) {
   const { createClaudeProxyRoutes } =
     await import("../../lib/server/routes/claudeProxyRoutes.js");
@@ -1229,19 +1082,29 @@ export async function createProxyStartApp(params: {
     }
   });
 
+  const runtimeConfigStore = params.runtimeConfigStore;
+  const runtimeConfigProvider = runtimeConfigStore
+    ? () => runtimeConfigStore.getSnapshot()
+    : undefined;
   const routeGroup = createClaudeProxyRoutes(
     params.modelRouter,
     "",
     params.strategy,
     params.passthrough,
     params.primaryAccountKey,
-    params.accountAllowlist,
+    runtimeConfigProvider
+      ? {
+          accountAllowlist: params.accountAllowlist,
+          runtimeConfigProvider,
+        }
+      : params.accountAllowlist,
   );
 
   const openaiRouteGroup = createOpenAIProxyRoutes(
     params.modelRouter,
     "",
     params.port,
+    runtimeConfigProvider,
   );
   const allProxyRoutes = [...routeGroup.routes, ...openaiRouteGroup.routes];
 
@@ -1397,17 +1260,34 @@ export async function createProxyStartApp(params: {
     });
   }
 
-  app.get("/health", (c) =>
-    c.json(
+  app.get("/health", (c) => {
+    const runtimeConfig = params.runtimeConfigStore?.getSnapshot();
+    return c.json(
       buildProxyHealthResponse(readiness, {
-        strategy: params.strategy,
-        passthrough: params.passthrough,
+        strategy: runtimeConfig ? runtimeConfig.strategy : params.strategy,
+        passthrough: runtimeConfig
+          ? runtimeConfig.passthrough
+          : params.passthrough,
         version: PROXY_VERSION,
       }),
-    ),
-  );
+    );
+  });
 
   app.get("/status", async (c) => {
+    const runtimeConfig = params.runtimeConfigStore?.getSnapshot();
+    const runtimeConfigStatus = params.runtimeConfigStore?.getStatus();
+    const activeStrategy = runtimeConfig
+      ? runtimeConfig.strategy
+      : params.strategy;
+    const activePassthrough = runtimeConfig
+      ? runtimeConfig.passthrough
+      : params.passthrough;
+    const activeProxyConfig = runtimeConfig
+      ? runtimeConfig.proxyConfig
+      : params.proxyConfig;
+    const activeAccountAllowlist = runtimeConfig
+      ? runtimeConfig.accountAllowlist
+      : params.accountAllowlist;
     const { getStats } = await import("../../lib/proxy/usageStats.js");
     const { loadAccountCooldowns } =
       await import("../../lib/proxy/accountCooldown.js");
@@ -1430,13 +1310,11 @@ export async function createProxyStartApp(params: {
     }
     const now = Date.now();
     const health = buildProxyHealthResponse(readiness, {
-      strategy: params.strategy,
-      passthrough: params.passthrough,
+      strategy: activeStrategy,
+      passthrough: activePassthrough,
       version: PROXY_VERSION,
     });
-    const primaryAccount = await resolveStatusPrimaryAccount(
-      params.proxyConfig,
-    );
+    const primaryAccount = await resolveStatusPrimaryAccount(activeProxyConfig);
     return c.json({
       status: "running",
       ready: health.ready,
@@ -1445,7 +1323,7 @@ export async function createProxyStartApp(params: {
       pid: process.pid,
       port: params.port,
       host: params.host,
-      strategy: params.strategy,
+      strategy: activeStrategy,
       uptime: process.uptime(),
       version: PROXY_VERSION,
       health,
@@ -1510,14 +1388,31 @@ export async function createProxyStartApp(params: {
             }
           : null,
       },
-      config: params.proxyConfig
+      config: params.runtimeConfigStore
         ? {
-            hasRouting: !!params.proxyConfig.routing,
-            accountAllowlist: params.accountAllowlist
-              ? [...params.accountAllowlist]
+            hasRouting: !!activeProxyConfig?.routing,
+            accountAllowlist: activeAccountAllowlist
+              ? [...activeAccountAllowlist]
               : null,
+            generation: runtimeConfig?.generation ?? null,
+            loadedAt: runtimeConfig?.loadedAt ?? null,
+            hash: runtimeConfig?.configHash ?? null,
+            watching: runtimeConfigStatus?.watching ?? false,
+            lastReloadAttemptAt:
+              runtimeConfigStatus?.lastReloadAttemptAt ?? null,
+            lastReloadAt: runtimeConfigStatus?.lastReloadAt ?? null,
+            lastReloadSource: runtimeConfigStatus?.lastReloadSource ?? null,
+            lastReloadError: runtimeConfigStatus?.lastReloadError ?? null,
+            consecutiveFailures: runtimeConfigStatus?.consecutiveFailures ?? 0,
           }
-        : null,
+        : params.proxyConfig
+          ? {
+              hasRouting: !!params.proxyConfig.routing,
+              accountAllowlist: params.accountAllowlist
+                ? [...params.accountAllowlist]
+                : null,
+            }
+          : null,
     });
   });
 
@@ -1751,7 +1646,7 @@ async function refreshProxyTokensInBackground(
 
 function startProxyBackgroundMaintenance(
   cleanupLogs: (days: number, maxMb: number) => void,
-  accountAllowlist?: AccountAllowlist,
+  getAccountAllowlist: () => AccountAllowlist | undefined,
 ): {
   refreshInterval: NodeJS.Timeout;
   logCleanupInterval: NodeJS.Timeout;
@@ -1761,7 +1656,7 @@ function startProxyBackgroundMaintenance(
       return;
     }
     backgroundRefreshInProgress = true;
-    void refreshProxyTokensInBackground(accountAllowlist)
+    void refreshProxyTokensInBackground(getAccountAllowlist())
       .catch((error) => {
         logger.debug(
           `[proxy] background token refresh cycle failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -1794,6 +1689,7 @@ function registerProxyShutdownHandlers(params: {
   refreshInterval: NodeJS.Timeout;
   logCleanupInterval: NodeJS.Timeout;
   updaterSupervisor?: { stop: () => void };
+  stopRuntimeConfig?: () => void;
 }): void {
   let shutdownStarted = false;
 
@@ -1837,6 +1733,7 @@ function registerProxyShutdownHandlers(params: {
     clearInterval(params.refreshInterval);
     clearInterval(params.logCleanupInterval);
     params.updaterSupervisor?.stop();
+    params.stopRuntimeConfig?.();
     logger.always(`\nShutting down proxy (${signal})...`);
     let exitCode = signal === "SIGINT" ? 0 : 1;
 
@@ -1916,6 +1813,7 @@ async function startProxyRuntime(params: {
   loadedEnvFile: string | undefined;
   passthrough: boolean;
   cleanupLogs: ProxyNeurolinkRuntime["cleanupLogs"];
+  runtimeConfigStore?: ProxyRuntimeConfigStore;
 }): Promise<void> {
   const { serve } = await import("@hono/node-server");
   const server = serve({
@@ -1970,17 +1868,31 @@ async function startProxyRuntime(params: {
         })
       : undefined;
   const updaterPid = updaterSupervisor?.currentPid();
+  const initialRuntimeConfig = params.runtimeConfigStore?.getSnapshot();
+  const activeStrategy = initialRuntimeConfig
+    ? initialRuntimeConfig.strategy
+    : params.strategy;
+  const activeProxyConfig = initialRuntimeConfig
+    ? initialRuntimeConfig.proxyConfig
+    : params.proxyConfig;
+  const activeAccountAllowlist = initialRuntimeConfig
+    ? initialRuntimeConfig.accountAllowlist
+    : params.accountAllowlist;
+  const activePassthrough = initialRuntimeConfig
+    ? initialRuntimeConfig.passthrough
+    : params.passthrough;
   const fallbackChain: FallbackInfo[] | undefined =
-    params.proxyConfig?.routing?.fallbackChain?.map((entry) => ({
+    activeProxyConfig?.routing?.fallbackChain?.map((entry) => ({
       provider: entry.provider as string,
       model: entry.model as string,
     }));
+  const initialConfigStatus = params.runtimeConfigStore?.getStatus();
 
   saveProxyState({
     pid: process.pid,
     port: params.port,
     host: params.host,
-    strategy: params.strategy,
+    strategy: activeStrategy,
     startTime: new Date().toISOString(),
     ready: true,
     readyAt: params.readiness.readyAtMs
@@ -1990,14 +1902,63 @@ async function startProxyRuntime(params: {
     statusPath: "/status",
     envFile: params.loadedEnvFile,
     fallbackChain,
-    accountAllowlist: params.accountAllowlist
-      ? [...params.accountAllowlist]
+    accountAllowlist: activeAccountAllowlist
+      ? [...activeAccountAllowlist]
       : undefined,
     guardPid,
     updaterPid,
     managedBy: managedByLaunchd ? "launchd" : "manual",
-    passthrough: params.passthrough,
+    passthrough: activePassthrough,
+    configGeneration: initialRuntimeConfig?.generation,
+    configLoadedAt: initialRuntimeConfig?.loadedAt,
+    lastConfigReloadError: initialConfigStatus?.lastReloadError,
+    configFile: initialConfigStatus?.configPath,
   });
+
+  const persistRuntimeConfig = (snapshot: ProxyRuntimeConfigSnapshot): void => {
+    const state = loadProxyState();
+    if (!state || state.pid !== process.pid) {
+      return;
+    }
+    const status = params.runtimeConfigStore?.getStatus();
+    const currentFallbackChain =
+      snapshot.proxyConfig?.routing?.fallbackChain?.map((entry) => ({
+        provider: entry.provider as string,
+        model: entry.model as string,
+      }));
+    saveProxyState({
+      ...state,
+      strategy: snapshot.strategy,
+      fallbackChain: currentFallbackChain,
+      accountAllowlist: snapshot.accountAllowlist
+        ? [...snapshot.accountAllowlist]
+        : undefined,
+      passthrough: snapshot.passthrough,
+      configGeneration: snapshot.generation,
+      configLoadedAt: snapshot.loadedAt,
+      lastConfigReloadError: status?.lastReloadError,
+    });
+  };
+  let stopRuntimeConfig: (() => void) | undefined;
+  if (params.runtimeConfigStore) {
+    const runtimeConfigStore = params.runtimeConfigStore;
+    const unsubscribeReload = runtimeConfigStore.subscribeReload(() => {
+      persistRuntimeConfig(runtimeConfigStore.getSnapshot());
+    });
+    const reloadOnSighup = (): void => {
+      void runtimeConfigStore.reload("sighup");
+    };
+    runtimeConfigStore.startWatching();
+    process.on("SIGHUP", reloadOnSighup);
+    stopRuntimeConfig = () => {
+      process.off("SIGHUP", reloadOnSighup);
+      unsubscribeReload();
+      runtimeConfigStore.stopWatching();
+    };
+    logger.always(
+      `[proxy] watching configuration generation ${initialRuntimeConfig?.generation ?? 1}; send SIGHUP to reload immediately`,
+    );
+  }
 
   if (params.spinner) {
     params.spinner.succeed(chalk.green("Claude proxy started successfully"));
@@ -2006,7 +1967,7 @@ async function startProxyRuntime(params: {
   const isDev = params.argv.dev ?? false;
   const normalizedHost = params.host === "0.0.0.0" ? "localhost" : params.host;
   const url = `http://${normalizedHost}:${params.port}`;
-  printProxyBanner(url, params.strategy);
+  printProxyBanner(url, activeStrategy);
 
   if (isDev) {
     logger.always(
@@ -2014,10 +1975,10 @@ async function startProxyRuntime(params: {
     );
   } else {
     logger.always(
-      `  ${chalk.bold("Mode:")}       ${chalk.cyan(params.passthrough ? "passthrough" : "full")}`,
+      `  ${chalk.bold("Mode:")}       ${chalk.cyan(activePassthrough ? "passthrough" : "full")}`,
     );
   }
-  if (params.passthrough) {
+  if (activePassthrough) {
     logger.always(
       chalk.yellow(
         "  ! Passthrough mode forwards client auth directly to Anthropic",
@@ -2065,9 +2026,10 @@ async function startProxyRuntime(params: {
     );
   }
 
-  const maintenance = startProxyBackgroundMaintenance(
-    params.cleanupLogs,
-    params.accountAllowlist,
+  const maintenance = startProxyBackgroundMaintenance(params.cleanupLogs, () =>
+    params.runtimeConfigStore
+      ? params.runtimeConfigStore.getSnapshot().accountAllowlist
+      : params.accountAllowlist,
   );
   registerProxyShutdownHandlers({
     server,
@@ -2075,6 +2037,7 @@ async function startProxyRuntime(params: {
     port: params.port,
     isDev,
     updaterSupervisor,
+    stopRuntimeConfig,
     ...maintenance,
   });
 }
@@ -2109,6 +2072,11 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
     if (!isDev) {
       await ensureProxyStartAllowed(spinner);
     }
+    const baseEnv = { ...process.env };
+    const envResolution = resolveProxyEnvFile({
+      explicitEnvFile: argv.envFile,
+      env: baseEnv,
+    });
     const loadedEnvFile = await loadProxyStartEnv(argv, spinner);
 
     // Reuse upstream TCP connections (longer keep-alive + bounded pool) instead
@@ -2119,6 +2087,19 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
     const { neurolink, cleanupLogs } = await createProxyNeurolinkRuntime(
       devPaths?.logsDir,
     );
+    const configPath = argv.config
+      ? resolve(argv.config)
+      : join(homedir(), ".neurolink", "proxy-config.yaml");
+    const runtimeConfigStore = await ProxyRuntimeConfigStore.create({
+      configPath,
+      configRequired: Boolean(argv.config),
+      envFilePath: envResolution.path ?? join(homedir(), ".neurolink", ".env"),
+      envFileRequired: envResolution.required,
+      baseEnv,
+      strategyOverride: argv.strategy as ProxyStartStrategy | undefined,
+      passthrough: argv.passthrough ?? false,
+    });
+    const initialConfig = runtimeConfigStore.getSnapshot();
     const {
       proxyConfig,
       strategy,
@@ -2126,7 +2107,10 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       passthrough,
       primaryAccountKey,
       accountAllowlist,
-    } = await loadProxyStartConfiguration(argv, spinner);
+    } = initialConfig;
+    if (spinner && proxyConfig) {
+      spinner.text = `Loaded proxy config from ${configPath}`;
+    }
 
     if (spinner) {
       spinner.text = "Configuring server...";
@@ -2144,6 +2128,7 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       proxyConfig,
       primaryAccountKey,
       accountAllowlist,
+      runtimeConfigStore,
     });
 
     await initializeProxyOpenTelemetry();
@@ -2165,6 +2150,7 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       loadedEnvFile,
       passthrough,
       cleanupLogs,
+      runtimeConfigStore,
     });
   } catch (error) {
     if (spinner) {
@@ -2388,6 +2374,9 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         envFile: null as string | null,
         fallbackChain: null as FallbackInfo[] | null,
         accountAllowlist: null as string[] | null,
+        configGeneration: null as number | null,
+        configLoadedAt: null as string | null,
+        lastConfigReloadError: null as string | null,
         autoUpdateEnabled: isProxyAutoUpdateEnabled(),
         updaterPid: null as number | null,
         updaterRunning: false,
@@ -2409,6 +2398,9 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         status.envFile = state.envFile ?? null;
         status.fallbackChain = state.fallbackChain ?? null;
         status.accountAllowlist = state.accountAllowlist ?? null;
+        status.configGeneration = state.configGeneration ?? null;
+        status.configLoadedAt = state.configLoadedAt ?? null;
+        status.lastConfigReloadError = state.lastConfigReloadError ?? null;
         status.updaterPid = state.updaterPid ?? null;
         status.updaterRunning = state.updaterPid
           ? isProcessRunning(state.updaterPid)
@@ -2417,6 +2409,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
 
       // Fetch live stats before rendering (JSON or text)
       let liveStats: Record<string, unknown> | null = null;
+      let liveConfig: Record<string, unknown> | null = null;
       if (status.running && status.url) {
         try {
           const statusResp = await fetch(`${status.url}/status`);
@@ -2426,6 +2419,17 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
               unknown
             >;
             liveStats = statusData.stats as Record<string, unknown> | null;
+            liveConfig = statusData.config as Record<string, unknown> | null;
+            if (typeof liveConfig?.generation === "number") {
+              status.configGeneration = liveConfig.generation;
+            }
+            if (typeof liveConfig?.loadedAt === "string") {
+              status.configLoadedAt = liveConfig.loadedAt;
+            }
+            status.lastConfigReloadError =
+              typeof liveConfig?.lastReloadError === "string"
+                ? liveConfig.lastReloadError
+                : null;
           }
         } catch {
           // Non-fatal — live stats unavailable
@@ -2433,7 +2437,13 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
       }
 
       if (argv.format === "json") {
-        logger.always(JSON.stringify({ ...status, stats: liveStats }, null, 2));
+        logger.always(
+          JSON.stringify(
+            { ...status, stats: liveStats, config: liveConfig },
+            null,
+            2,
+          ),
+        );
         return;
       }
 
@@ -2459,6 +2469,19 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         logger.always(
           `  ${chalk.bold("Mode:")}       ${chalk.cyan(status.mode ?? "full")}`,
         );
+        if (status.configGeneration !== null) {
+          logger.always(
+            `  ${chalk.bold("Config:")}     ${chalk.cyan(`generation ${status.configGeneration}`)}` +
+              (status.configLoadedAt
+                ? chalk.gray(` (${status.configLoadedAt})`)
+                : ""),
+          );
+        }
+        if (status.lastConfigReloadError) {
+          logger.always(
+            `  ${chalk.bold("Config error:")} ${chalk.red(status.lastConfigReloadError)}`,
+          );
+        }
         logger.always(
           `  ${chalk.bold("Started:")}    ${chalk.cyan(status.startTime)}`,
         );
