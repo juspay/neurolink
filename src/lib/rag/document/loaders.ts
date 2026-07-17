@@ -28,6 +28,13 @@ import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import { basename, extname } from "path";
 import { logger } from "../../utils/logger.js";
+import {
+  CSVProcessor,
+  stripBom,
+  stripMetadataLine,
+  splitCsvLines,
+} from "../../utils/csvProcessor.js";
+import { splitCSVFields } from "../../utils/csvUtils.js";
 import type {
   DocumentType,
   LoaderOptions,
@@ -143,19 +150,43 @@ export class CSVLoader extends TextLoader {
   async load(source: string, options?: CSVLoaderOptions): Promise<MDocument> {
     const content = await this.loadContent(source, options?.encoding);
     const {
-      delimiter = ",",
+      delimiter,
       hasHeader = true,
       columns,
       outputFormat = "text",
     } = options || {};
 
-    const lines = content.split("\n").filter((line) => line.trim());
+    // #361: an explicit delimiter always wins; otherwise detect it from the
+    // content + extension so a .tsv fed through RAG isn't collapsed into one
+    // comma-column (CSVLoader.canHandle already accepts .tsv).
+    const effectiveDelimiter =
+      delimiter ?? CSVProcessor.detectDelimiter(content, extname(source));
+
+    // Route header/row parsing through the same shared, quote-aware path
+    // detectDelimiter() above already uses internally: a quote-aware logical
+    // row split (splitCsvLines — a newline inside a quoted field stays part
+    // of that field instead of breaking the row) with a leading Excel `sep=`
+    // preamble line stripped (stripMetadataLine), so it can't be parsed as
+    // the header. Field-level splitting also goes through the shared
+    // RFC-4180-aware splitCSVFields() instead of the loader's own naive
+    // backslash-escape parser, which didn't handle doubled-quote (`""`)
+    // escaping or quoted delimiters in the headerless-columns branch.
+    const { dataLines: strippedLines } = stripMetadataLine(
+      splitCsvLines(stripBom(content)),
+    );
+    const lines = strippedLines.filter((line) => line.trim());
+
     const headers = hasHeader
-      ? this.parseCSVLine(lines[0], delimiter)
-      : columns || lines[0]?.split(delimiter).map((_, i) => `col${i + 1}`);
+      ? splitCSVFields(lines[0] ?? "", effectiveDelimiter).map((h) => h.trim())
+      : columns ||
+        splitCSVFields(lines[0] ?? "", effectiveDelimiter).map(
+          (_, i) => `col${i + 1}`,
+        );
 
     const dataLines = hasHeader ? lines.slice(1) : lines;
-    const rows = dataLines.map((line) => this.parseCSVLine(line, delimiter));
+    const rows = dataLines.map((line) =>
+      splitCSVFields(line, effectiveDelimiter).map((field) => field.trim()),
+    );
 
     let formattedContent: string;
 
@@ -192,38 +223,24 @@ export class CSVLoader extends TextLoader {
     return ext === ".csv" || ext === ".tsv";
   }
 
-  private parseCSVLine(line: string, delimiter: string): string[] {
-    const result: string[] = [];
-    let current = "";
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-
-      if (char === '"' && (i === 0 || line[i - 1] !== "\\")) {
-        inQuotes = !inQuotes;
-      } else if (char === delimiter && !inQuotes) {
-        result.push(current.trim());
-        current = "";
-      } else {
-        current += char;
-      }
-    }
-
-    result.push(current.trim());
-    return result;
-  }
-
   private toMarkdownTable(headers: string[], rows: string[][]): string {
-    const headerRow = `| ${headers.join(" | ")} |`;
-    const separator = `| ${headers.map(() => "---").join(" | ")} |`;
-    const dataRows = rows.map((row) => `| ${row.join(" | ")} |`);
+    const safeHeaders = headers.map((h) => this.collapseEmbeddedNewlines(h));
+    const headerRow = `| ${safeHeaders.join(" | ")} |`;
+    const separator = `| ${safeHeaders.map(() => "---").join(" | ")} |`;
+    const dataRows = rows.map(
+      (row) =>
+        `| ${row.map((cell) => this.collapseEmbeddedNewlines(cell)).join(" | ")} |`,
+    );
     return [headerRow, separator, ...dataRows].join("\n");
   }
 
   private toTextTable(headers: string[], rows: string[][]): string {
-    const allRows = [headers, ...rows];
-    const colWidths = headers.map((_, i) =>
+    const safeHeaders = headers.map((h) => this.collapseEmbeddedNewlines(h));
+    const safeRows = rows.map((row) =>
+      row.map((cell) => this.collapseEmbeddedNewlines(cell)),
+    );
+    const allRows = [safeHeaders, ...safeRows];
+    const colWidths = safeHeaders.map((_, i) =>
       Math.max(...allRows.map((row) => (row[i] || "").length)),
     );
 
@@ -231,10 +248,25 @@ export class CSVLoader extends TextLoader {
       row.map((cell, i) => (cell || "").padEnd(colWidths[i])).join(" | ");
 
     return [
-      formatRow(headers),
+      formatRow(safeHeaders),
       colWidths.map((w) => "-".repeat(w)).join("-+-"),
-      ...rows.map(formatRow),
+      ...safeRows.map(formatRow),
     ].join("\n");
+  }
+
+  /**
+   * Collapse embedded newlines to a single space so one logical CSV row
+   * renders as exactly one line in the text/markdown table output.
+   *
+   * The shared quote-aware parser (`splitCsvLines` + `splitCSVFields`)
+   * preserves newlines embedded inside a quoted field verbatim — correct
+   * for the `json` output format (where `JSON.stringify` escapes them), but
+   * left as-is here it would split a single record across multiple
+   * physical table rows. Mirrors the same normalization `CSVProcessor`
+   * already applies in its own markdown formatter.
+   */
+  private collapseEmbeddedNewlines(cell: string): string {
+    return cell.replace(/\r\n|\n|\r/g, " ");
   }
 }
 

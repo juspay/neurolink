@@ -21,6 +21,7 @@ import {
   buildMultimodalMessagesArray,
 } from "../src/lib/utils/messageBuilder.js";
 import { CSVProcessor } from "../src/lib/utils/csvProcessor.js";
+import { CSVLoader } from "../src/lib/rag/document/loaders.js";
 import { PDFProcessor } from "../src/lib/utils/pdfProcessor.js";
 import { directAgentTools } from "../src/lib/agent/directTools.js";
 import { isMultimodalInput } from "../src/lib/types/index.js";
@@ -4026,6 +4027,400 @@ exit 127
       return (
         /execFileAsync\(command, args, \{\s*timeout:/.test(source) &&
         source.includes("killSignal")
+      );
+    },
+  },
+  // ---------- #359: quote-aware column counting (RFC 4180) ----------
+  {
+    name: "CSVProcessor #359: quoted commas do not inflate columnCount (raw + detect path)",
+    category: "csv-processor",
+    fn: async () => {
+      const csv =
+        '"Full Name, Legal",Age,City\n"Smith, John",30,NYC\n"Doe, Jane",25,LA\n';
+      // Direct: was 4 (naive split on the quoted comma), must be 3.
+      const raw = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "raw",
+      });
+      if (raw.metadata.columnCount !== 3) {
+        return false;
+      }
+      // End-to-end through the real detect+process path (generate({ files })).
+      const det = await FileDetector.detectAndProcess(Buffer.from(csv));
+      return det.metadata?.columnCount === 3;
+    },
+  },
+  // ---------- #361: delimiter detection (TSV / semicolon / pipe) ----------
+  {
+    name: "CSVProcessor #361: detects tab/semicolon/pipe delimiters; comma unchanged",
+    category: "csv-processor",
+    fn: async () => {
+      // Tab-separated → parsed into name/age/city keys, delimiter reported.
+      const tsv = "name\tage\tcity\nAlice\t30\tNYC\nBob\t25\tLA";
+      const tabJson = (await CSVProcessor.process(Buffer.from(tsv), {
+        formatStyle: "json",
+      })) as { metadata: { detectedDelimiter?: string } };
+      if (tabJson.metadata.detectedDelimiter !== "\t") {
+        return false;
+      }
+      const tabRaw = await CSVProcessor.process(Buffer.from(tsv), {
+        formatStyle: "raw",
+      });
+      if (tabRaw.metadata.columnCount !== 3) {
+        return false;
+      }
+      // Semicolon.
+      const semi = "id;qty;price\n1;5;9.99\n2;3;4.50";
+      const semiRaw = await CSVProcessor.process(Buffer.from(semi), {
+        formatStyle: "raw",
+      });
+      if (
+        semiRaw.metadata.detectedDelimiter !== ";" ||
+        semiRaw.metadata.columnCount !== 3
+      ) {
+        return false;
+      }
+      // Pipe.
+      const pipe = "sku|qty|price\nA1|5|9.99\nA2|3|4.50";
+      const pipeRaw = await CSVProcessor.process(Buffer.from(pipe), {
+        formatStyle: "raw",
+      });
+      if (
+        pipeRaw.metadata.detectedDelimiter !== "|" ||
+        pipeRaw.metadata.columnCount !== 3
+      ) {
+        return false;
+      }
+      const pipeJson = (await CSVProcessor.process(Buffer.from(pipe), {
+        formatStyle: "json",
+      })) as {
+        metadata: { detectedDelimiter?: string; columnCount?: number };
+        content: string;
+      };
+      if (
+        pipeJson.metadata.detectedDelimiter !== "|" ||
+        pipeJson.metadata.columnCount !== 3
+      ) {
+        return false;
+      }
+      const pipeRows = JSON.parse(pipeJson.content) as Array<
+        Record<string, string>
+      >;
+      if (
+        pipeRows.length !== 2 ||
+        pipeRows[0].sku !== "A1" ||
+        pipeRows[0].qty !== "5" ||
+        pipeRows[0].price !== "9.99" ||
+        pipeRows[1].sku !== "A2"
+      ) {
+        return false;
+      }
+      // No regression: plain comma stays comma.
+      const comma = await CSVProcessor.process(Buffer.from("a,b\n1,2"), {
+        formatStyle: "raw",
+      });
+      if (
+        comma.metadata.detectedDelimiter !== "," ||
+        comma.metadata.columnCount !== 2
+      ) {
+        return false;
+      }
+      // End-to-end: a real .tsv file via the detect+process path.
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-361-"));
+      try {
+        const tsvPath = pathJoin(dir, "data.tsv");
+        writeFileSync(tsvPath, tsv);
+        const det = await FileDetector.detectAndProcess(tsvPath, {
+          allowedTypes: ["csv"],
+        });
+        return (
+          det.type === "csv" &&
+          det.metadata?.columnCount === 3 &&
+          det.metadata?.detectedDelimiter === "\t"
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  // ---------- #361 follow-up: `sep=` metadata line vs. delimiter detection ----------
+  {
+    name: "CSVProcessor: explicit sep=; metadata line wins over frequency-based tie-break (Excel semantics)",
+    category: "csv-processor",
+    fn: async () => {
+      // Header/data are ambiguous on their own — with the metadata line
+      // stripped but no explicit-declaration override, frequency detection
+      // ties between comma and semicolon and comma wins on its tie-break
+      // bias. The explicit `sep=;` declaration must win outright instead.
+      const csv = "sep=;\na,b;c\n1,2;3\n4,5;6";
+
+      if (CSVProcessor.detectDelimiter(csv) !== ";") {
+        return false;
+      }
+
+      const raw = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "raw",
+      });
+      if (
+        raw.metadata.detectedDelimiter !== ";" ||
+        raw.metadata.columnCount !== 2 ||
+        raw.content.includes("sep=;")
+      ) {
+        return false;
+      }
+
+      const json = (await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "json",
+      })) as {
+        metadata: {
+          detectedDelimiter?: string;
+          columnCount?: number;
+          rowCount?: number;
+        };
+      };
+      if (
+        json.metadata.detectedDelimiter !== ";" ||
+        json.metadata.columnCount !== 2 ||
+        json.metadata.rowCount !== 2
+      ) {
+        return false;
+      }
+
+      // parseCSVString() self-detection (no delimiter arg passed).
+      const rows = (await CSVProcessor.parseCSVString(csv, 10)) as Array<
+        Record<string, string>
+      >;
+      return (
+        rows.length === 2 &&
+        rows[0]["a,b"] === "1,2" &&
+        rows[0].c === "3" &&
+        rows[1]["a,b"] === "4,5" &&
+        rows[1].c === "6"
+      );
+    },
+  },
+  {
+    name: "CSVProcessor: sep=; is honored by parseCSVFile()'s streamed delimiter detection",
+    category: "csv-processor",
+    fn: async () => {
+      const csv = "sep=;\nid;name;amount\n1;Widget;100\n2;Gadget;200";
+      if (CSVProcessor.detectDelimiter(csv) !== ";") {
+        return false;
+      }
+
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-sep-"));
+      try {
+        const filePath = pathJoin(dir, "data.csv");
+        writeFileSync(filePath, csv);
+        const fileRows = (await CSVProcessor.parseCSVFile(
+          filePath,
+          10,
+        )) as Array<Record<string, string>>;
+        // The metadata row is skipped via csv-parser's own `skipLines`
+        // (passed through from the sniffed metadata detection), so the real
+        // header line ("id;name;amount") is used for keys — not misparsed
+        // as a data row keyed off "sep=;". Assert actual column names, not
+        // just value counts, to prove the header wasn't garbled.
+        return (
+          fileRows.length === 2 &&
+          fileRows[0].id === "1" &&
+          fileRows[0].name === "Widget" &&
+          fileRows[0].amount === "100" &&
+          fileRows[1].id === "2" &&
+          fileRows[1].name === "Gadget" &&
+          fileRows[1].amount === "200"
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  // ---------- round-3 review: skipLines must reach csv-parser itself, not just the manual data-event counter ----------
+  {
+    name: "CSVProcessor.parseCSVFile: skipLines is passed to csv-parser so the sep= line never becomes the header",
+    category: "csv-processor",
+    fn: async () => {
+      // Before this fix, `skipLines` was computed but never handed to
+      // csv-parser, so csv-parser used the "sep=;" line as the header row —
+      // producing a column literally named "sep=;" — and a manual
+      // lineCount-based skip in the "data" handler discarded the *real*
+      // header (now misparsed as the first data row) to compensate. That
+      // compensation hid the wrong keys instead of fixing them.
+      const csv = "sep=;\nid;name;amount\n1;Widget;100\n2;Gadget;200";
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-sep-header-"));
+      try {
+        const filePath = pathJoin(dir, "data.csv");
+        writeFileSync(filePath, csv);
+        const fileRows = (await CSVProcessor.parseCSVFile(
+          filePath,
+          10,
+        )) as Array<Record<string, string>>;
+        const keys = Object.keys(fileRows[0]);
+        return (
+          fileRows.length === 2 &&
+          keys.sort().join(",") === "amount,id,name" &&
+          !keys.some((k) => k.includes("sep=")) &&
+          fileRows[0].id === "1" &&
+          fileRows[1].id === "2"
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "CSVProcessor: delimiter detection isn't fooled by a non-sep metadata line containing stray delimiter chars",
+    category: "csv-processor",
+    fn: async () => {
+      // "A;B;C;D,x" isn't a `sep=` line, but it IS recognized as metadata
+      // (comma count differs from the real comma-delimited header below),
+      // and its stray semicolons used to out-score comma in frequency
+      // detection when the metadata line was left in the sample: comma is
+      // the correct delimiter, but pre-fix this detected ';' and produced a
+      // single garbled column.
+      const csv = "A;B;C;D,x\nid,name,amount\n1,Widget,100\n2,Gadget,200";
+
+      if (CSVProcessor.detectDelimiter(csv) !== ",") {
+        return false;
+      }
+
+      const json = (await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "json",
+      })) as {
+        metadata: {
+          detectedDelimiter?: string;
+          columnCount?: number;
+          rowCount?: number;
+        };
+      };
+      if (
+        json.metadata.detectedDelimiter !== "," ||
+        json.metadata.columnCount !== 3 ||
+        json.metadata.rowCount !== 2
+      ) {
+        return false;
+      }
+
+      const rows = (await CSVProcessor.parseCSVString(csv, 10)) as Array<
+        Record<string, string>
+      >;
+      return (
+        rows.length === 2 &&
+        rows[0].id === "1" &&
+        rows[0].name === "Widget" &&
+        rows[0].amount === "100"
+      );
+    },
+  },
+  // ---------- round-2 review: BOM must be stripped before parseCSVFile()'s sep= check ----------
+  {
+    name: "CSVProcessor.parseCSVFile: strips a leading UTF-8 BOM before the sep= metadata check",
+    category: "csv-processor",
+    fn: async () => {
+      // Excel exports often start with a BOM immediately followed by the
+      // `sep=;` preamble. Pre-fix, parseCSVFile() never stripped the BOM
+      // before matching /^sep=/i, so the preamble wasn't recognized as
+      // metadata (unlike process()/parseCSVString()/detectDelimiter(), which
+      // all strip it): skipLines stayed 0 and the real header line
+      // ("id;name;amount") leaked into the parsed rows as data, giving 3
+      // rows instead of 2.
+      const csv = "﻿sep=;\nid;name;amount\n1;Widget;100\n2;Gadget;200";
+      if (CSVProcessor.detectDelimiter(csv) !== ";") {
+        return false;
+      }
+
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-bom-sep-"));
+      try {
+        const filePath = pathJoin(dir, "data.csv");
+        writeFileSync(filePath, csv);
+        const fileRows = (await CSVProcessor.parseCSVFile(
+          filePath,
+          10,
+        )) as Array<Record<string, string>>;
+        return (
+          fileRows.length === 2 &&
+          fileRows[0].id === "1" &&
+          fileRows[0].name === "Widget" &&
+          fileRows[0].amount === "100" &&
+          fileRows[1].id === "2" &&
+          fileRows[1].name === "Gadget" &&
+          fileRows[1].amount === "200"
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  // ---------- round-2 review: CSVLoader must share the quote-aware, metadata-stripping path ----------
+  {
+    name: "CSVLoader: quoted multiline field and sep= preamble routed through shared quote-aware parsing",
+    category: "csv-processor",
+    fn: async () => {
+      // A newline embedded inside a quoted field must not be treated as a
+      // row boundary by a physical content.split("\n") (pre-fix, this would
+      // have split "Hello\nWorld" into two ragged physical lines and thrown
+      // off every row after it). A leading Excel `sep=;` preamble must also
+      // not be parsed as the header (pre-fix it was).
+      const csv =
+        'sep=;\nname;note;age\n"Alice";"Hello\nWorld";30\n"Bob";"Simple note";25\n';
+      const doc = await new CSVLoader().load(csv, { outputFormat: "json" });
+      const meta = doc.getMetadata();
+      const rows = JSON.parse(doc.getContent()) as Array<
+        Record<string, string>
+      >;
+      return (
+        meta.columnCount === 3 &&
+        meta.rowCount === 2 &&
+        Array.isArray(meta.columns) &&
+        (meta.columns as string[]).join(",") === "name,note,age" &&
+        rows.length === 2 &&
+        rows[0].name === "Alice" &&
+        rows[0].note === "Hello\nWorld" &&
+        rows[0].age === "30" &&
+        rows[1].name === "Bob" &&
+        rows[1].note === "Simple note" &&
+        rows[1].age === "25"
+      );
+    },
+  },
+  // ---------- round-4 review: embedded newlines must not split a row across output lines ----------
+  {
+    name: "CSVLoader: embedded newline in a quoted field renders as one row in the default text format",
+    category: "csv-processor",
+    fn: async () => {
+      const csv =
+        'name;note;age\n"Alice";"Hello\nWorld";30\n"Bob";"Simple note";25\n';
+      const doc = await new CSVLoader().load(csv, { outputFormat: "text" });
+      const content = doc.getContent();
+      const lines = content.split("\n");
+      // Header + separator + exactly 2 data lines = 4 lines total; a
+      // pre-fix implementation would split Alice's row across 2 physical
+      // lines, producing 5.
+      return (
+        lines.length === 4 &&
+        content.includes("Hello World") &&
+        !content.includes("Hello\nWorld") &&
+        lines[2].includes("Alice") &&
+        lines[2].includes("Hello World") &&
+        lines[3].includes("Bob")
+      );
+    },
+  },
+  {
+    name: "CSVLoader: embedded newline in a quoted field renders as one row in the markdown table format",
+    category: "csv-processor",
+    fn: async () => {
+      const csv =
+        'name;note;age\n"Alice";"Hello\nWorld";30\n"Bob";"Simple note";25\n';
+      const doc = await new CSVLoader().load(csv, { outputFormat: "markdown" });
+      const content = doc.getContent();
+      const lines = content.split("\n");
+      // Header row + separator row + exactly 2 data rows = 4 lines total.
+      return (
+        lines.length === 4 &&
+        content.includes("Hello World") &&
+        !content.includes("Hello\nWorld") &&
+        lines[2].startsWith("| Alice | Hello World | 30 |") &&
+        lines[3].startsWith("| Bob | Simple note | 25 |")
       );
     },
   },
