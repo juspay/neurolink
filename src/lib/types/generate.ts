@@ -67,6 +67,7 @@ export type GenerateOptions = {
     images?: Array<Buffer | string | ImageWithAltText>;
     csvFiles?: Array<Buffer | string>; // Explicit CSV files
     pdfFiles?: Array<Buffer | string>; // Explicit PDF files
+    audioFiles?: Array<Buffer | string>; // Explicit audio files (metadata/transcript extraction)
     videoFiles?: Array<Buffer | string>; // Explicit video files
     files?: Array<Buffer | string | FileWithMetadata>; // Auto-detect file types
     content?: Content[]; // Advanced multimodal content

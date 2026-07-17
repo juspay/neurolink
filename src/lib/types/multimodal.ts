@@ -487,15 +487,46 @@ export type MultimodalInput = {
 // ============================================
 
 /**
- * Content format for multimodal messages (used internally)
- * Compatible with Vercel AI SDK message format
+ * Content format for multimodal messages (used internally).
+ *
+ * #325: the loose `[key: string]: unknown` index signature has been replaced
+ * with the concrete fields the codebase actually reads/writes across the
+ * text / image / file / tool-call / tool-result shapes. This keeps the broad
+ * structural compatibility the internal pipeline relies on (a single object
+ * type, not a strict discriminated union that would force narrowing at every
+ * consumer) while removing the "any key is allowed" hole that let typos and
+ * unrelated keys through unchecked.
  */
 export type MessageContent = {
   type: string;
+  /** Text content (`type: "text"`). */
   text?: string;
+  /** Base64 / data-URI image (`type: "image"`). */
   image?: string;
+  /** MIME type for image/file parts. */
   mimeType?: string;
-  [key: string]: unknown; // Index signature for compatibility with Vercel AI SDK
+  /** Raw file bytes or base64 (`type: "file"`/document parts). */
+  data?: string | Buffer;
+  /** File name for document/file parts. */
+  name?: string;
+  /** File name (alias used by some file parts). */
+  filename?: string;
+  /** Tool-call identifier (`type: "tool-call"`/`"tool-result"`). */
+  toolCallId?: string;
+  /** Tool name (`type: "tool-call"`/`"tool-result"`). */
+  toolName?: string;
+  /** Tool-call arguments (`type: "tool-call"`). */
+  args?: Record<string, unknown>;
+  /** Tool-result payload (`type: "tool-result"`). */
+  result?: unknown;
+  /** Whether a tool-result represents an error (`type: "tool-result"`). */
+  isError?: boolean;
+  /**
+   * Provider-specific per-block options (e.g. Anthropic cache_control).
+   * Read as `item.providerOptions` when converting `MessageContent[]` to
+   * `ModelMessage[]` in `MessageBuilder.ts`.
+   */
+  providerOptions?: Record<string, unknown>;
 };
 
 /**

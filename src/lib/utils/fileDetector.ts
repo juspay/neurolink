@@ -41,6 +41,7 @@ import { tracers, ATTR, withSpan } from "../telemetry/index.js";
 import { CSVProcessor } from "./csvProcessor.js";
 import { ImageProcessor } from "./imageProcessor.js";
 import { logger } from "./logger.js";
+import { withTimeout } from "./errorHandling.js";
 import { redactUrlForError, sanitizeErrorCause } from "./logSanitize.js";
 import {
   mimeHintToExtension,
@@ -54,6 +55,91 @@ import { PDFProcessor } from "./pdfProcessor.js";
  */
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RETRY_DELAY = 1000; // milliseconds
+
+/**
+ * Short-TTL cache of URL → Content-Type (#323). A URL is commonly detected more
+ * than once (repeated multimodal prompts reuse the same asset URL); caching the
+ * HEAD's content-type avoids re-issuing the HEAD each time. `loadFromURL` also
+ * populates it from its GET response, so once a URL's body has been fetched a
+ * subsequent detection needs no network round-trip at all.
+ *
+ * Trade-off (round-2 review): this is a module-level cache shared by every
+ * request in the process, and correctness relies solely on the 60s TTL — a
+ * signed URL whose response changes at the same path within that window would
+ * read stale. That is an intentional, bounded trade-off (60s of possible
+ * staleness for far fewer HEAD round-trips), not a freshness guarantee.
+ * Expired entries are removed lazily on their next `get()` (see
+ * `getCachedUrlContentType`); `setCachedUrlContentType` additionally sweeps
+ * expired entries opportunistically once the cache hits its size cap, so a
+ * URL that is cached once and never looked up again doesn't linger until the
+ * FIFO eviction below forces it out.
+ */
+const URL_CONTENT_TYPE_TTL_MS = 60_000;
+const URL_CONTENT_TYPE_CACHE_MAX_SIZE = 512;
+const urlContentTypeCache = new Map<
+  string,
+  { contentType: string; expiresAt: number }
+>();
+
+function getCachedUrlContentType(url: string, now: number): string | undefined {
+  const hit = urlContentTypeCache.get(url);
+  if (hit && hit.expiresAt > now) {
+    // Bump recency: Map iteration order follows insertion order, and the
+    // eviction below deletes the *first* key, so a plain `get` on a hot
+    // entry would leave it first in line for eviction despite being the
+    // most recently used. Re-inserting turns the size-bounded FIFO below
+    // into an actual LRU.
+    urlContentTypeCache.delete(url);
+    urlContentTypeCache.set(url, hit);
+    return hit.contentType;
+  }
+  if (hit) {
+    // Entry exists but its TTL has passed — treat as a miss and evict it
+    // immediately rather than serving (or retaining) stale data.
+    urlContentTypeCache.delete(url);
+  }
+  return undefined;
+}
+
+/**
+ * Opportunistically remove already-expired entries. Only called once the
+ * cache is at its size cap (see `setCachedUrlContentType`) so it doesn't add
+ * an O(n) scan to the common-case hot path.
+ */
+function pruneExpiredUrlContentTypeEntries(now: number): void {
+  for (const [key, entry] of urlContentTypeCache) {
+    if (entry.expiresAt <= now) {
+      urlContentTypeCache.delete(key);
+    }
+  }
+}
+
+function setCachedUrlContentType(
+  url: string,
+  contentType: string,
+  now: number,
+): void {
+  if (!contentType) {
+    return;
+  }
+  urlContentTypeCache.set(url, {
+    contentType,
+    expiresAt: now + URL_CONTENT_TYPE_TTL_MS,
+  });
+  // Bound the cache so a long-lived process can't grow it unbounded. Prefer
+  // reclaiming already-expired entries first; only fall back to evicting the
+  // oldest still-live entry (FIFO/LRU-ish, see getCachedUrlContentType) if
+  // the cache is still over the cap after pruning.
+  if (urlContentTypeCache.size > URL_CONTENT_TYPE_CACHE_MAX_SIZE) {
+    pruneExpiredUrlContentTypeEntries(now);
+  }
+  if (urlContentTypeCache.size > URL_CONTENT_TYPE_CACHE_MAX_SIZE) {
+    const oldest = urlContentTypeCache.keys().next().value;
+    if (oldest !== undefined) {
+      urlContentTypeCache.delete(oldest);
+    }
+  }
+}
 
 /**
  * Retryable network error codes (Node.js/undici network errors)
@@ -1824,6 +1910,14 @@ export class FileDetector {
             );
           }
 
+          // #323: cache the Content-Type from this GET so a subsequent detection
+          // of the same URL needs no HEAD.
+          setCachedUrlContentType(
+            url,
+            (response.headers["content-type"] as string) || "",
+            Date.now(),
+          );
+
           const chunks: Buffer[] = [];
           let totalSize = 0;
 
@@ -2233,15 +2327,30 @@ class MimeTypeStrategy implements DetectionStrategy {
     }
 
     try {
-      const response = await request(input, {
-        dispatcher: getGlobalDispatcher().compose(
-          interceptors.redirect({ maxRedirections: 5 }),
-        ),
-        method: "HEAD",
-        headersTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
-        bodyTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
-      });
-      const contentType = (response.headers["content-type"] as string) || "";
+      // #323: reuse a recently-seen Content-Type for this URL instead of
+      // re-issuing a HEAD (populated here and by loadFromURL's GET).
+      const now = Date.now();
+      let contentType = getCachedUrlContentType(input, now);
+      if (contentType === undefined) {
+        // Wrap the whole HEAD (request + body drain) in withTimeout so a stalled
+        // dump() can't hang detection, per the project's async-timeout guideline.
+        contentType = await withTimeout(
+          (async () => {
+            const response = await request(input, {
+              dispatcher: getGlobalDispatcher().compose(
+                interceptors.redirect({ maxRedirections: 5 }),
+              ),
+              method: "HEAD",
+              headersTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
+              bodyTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
+            });
+            await response.body.dump();
+            return (response.headers["content-type"] as string) || "";
+          })(),
+          FileDetector.DEFAULT_HEAD_TIMEOUT,
+        );
+        setCachedUrlContentType(input, contentType, now);
+      }
       const type = this.mimeToFileType(contentType);
 
       return {

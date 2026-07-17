@@ -36,7 +36,18 @@ function computeTotalContentLength(messages: ModelMessage[]): number {
 }
 
 /**
- * Check whether input contains multimodal content (images, files, PDFs, CSVs).
+ * Check whether input contains multimodal content (images, files, PDFs, CSVs,
+ * audio, video). #284: audioFiles/videoFiles were previously ignored here, so a
+ * request carrying only audio or video was misrouted to the text-only path.
+ *
+ * Intentional (round-2 review): routing audio/video through `isMultimodal`
+ * does NOT mean vision is required. `buildMultimodalMessagesArray` folds
+ * `audioFiles`/`videoFiles` into `inp.files` for auto-detection, and
+ * `appendDetectedFileResult` injects their content as plain text markers
+ * (`## Audio File:` / `## Video File:`), not image/vision blocks — see
+ * `test/continuous-test-suite-bugfixes.ts` ("MessageBuilder #284: ...").
+ * "Multimodal" here means "needs the multimodal builder so the payload isn't
+ * dropped", not "needs a vision model".
  */
 function detectMultimodal(opts: TextGenerationOptions | StreamOptions): {
   isMultimodal: boolean;
@@ -49,11 +60,20 @@ function detectMultimodal(opts: TextGenerationOptions | StreamOptions): {
   const hasCSVFiles = !!input?.csvFiles?.length;
   const hasPdfFiles = !!input?.pdfFiles?.length;
   const hasFiles = !!input?.files?.length;
+  const hasAudioFiles = !!input?.audioFiles?.length;
+  const hasVideoFiles = !!input?.videoFiles?.length;
   return {
     isMultimodal:
-      hasImages || hasContent || hasCSVFiles || hasPdfFiles || hasFiles,
+      hasImages ||
+      hasContent ||
+      hasCSVFiles ||
+      hasPdfFiles ||
+      hasFiles ||
+      hasAudioFiles ||
+      hasVideoFiles,
     hasImages,
-    hasFiles: hasCSVFiles || hasPdfFiles || hasFiles,
+    hasFiles:
+      hasCSVFiles || hasPdfFiles || hasFiles || hasAudioFiles || hasVideoFiles,
   };
 }
 
@@ -100,6 +120,12 @@ export class MessageBuilder {
               content: input?.content,
               csvFiles: input?.csvFiles,
               pdfFiles: input?.pdfFiles,
+              // #284: audioFiles/videoFiles must be forwarded too, or the
+              // multimodal builder receives an empty payload despite
+              // detectMultimodal() correctly routing audio/video-only
+              // requests here.
+              audioFiles: input?.audioFiles,
+              videoFiles: input?.videoFiles,
               files: input?.files,
             },
             csvOptions: options.csvOptions,
@@ -244,6 +270,10 @@ export class MessageBuilder {
               content: input?.content,
               csvFiles: input?.csvFiles,
               pdfFiles: input?.pdfFiles,
+              // #284: forward audioFiles/videoFiles here too — see the
+              // matching comment in buildMessages() above.
+              audioFiles: input?.audioFiles,
+              videoFiles: input?.videoFiles,
               files: input?.files,
             },
             csvOptions: options.csvOptions,

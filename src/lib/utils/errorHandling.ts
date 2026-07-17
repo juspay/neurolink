@@ -55,6 +55,11 @@ export const ERROR_CODES = {
   IMAGE_TOO_SMALL: "IMAGE_TOO_SMALL",
   INVALID_IMAGE_FORMAT: "INVALID_IMAGE_FORMAT",
   INVALID_IMAGE_SIZE: "INVALID_IMAGE_SIZE",
+  IMAGE_BUFFER_INVALID: "IMAGE_BUFFER_INVALID",
+
+  // Generic file/CSV processing errors
+  FILE_PROCESSING_FAILED: "FILE_PROCESSING_FAILED",
+  CSV_PROCESSING_FAILED: "CSV_PROCESSING_FAILED",
 
   // PDF validation errors
   PDF_PAGE_LIMIT_EXCEEDED: "PDF_PAGE_LIMIT_EXCEEDED",
@@ -732,6 +737,23 @@ export class ErrorFactory {
     });
   }
 
+  /**
+   * Create an image buffer validation error: empty, undersized, or a
+   * truncated buffer detected by `ImageProcessor.validateBufferNotEmpty()`.
+   * Takes the fully-formed message so call sites keep their specific
+   * byte-count detail instead of a fixed generic message.
+   */
+  static imageBufferInvalid(message: string): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.IMAGE_BUFFER_INVALID,
+      message,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: { field: "input.images" },
+    });
+  }
+
   // ============================================================================
   // RATE LIMITER ERRORS
   // ============================================================================
@@ -1071,6 +1093,50 @@ export class ErrorFactory {
       severity: ErrorSeverity.HIGH,
       retriable: false,
       context: context || {},
+    });
+  }
+
+  // ============================================================================
+  // GENERIC FILE / CSV PROCESSING ERRORS
+  // ============================================================================
+
+  /**
+   * Create a generic file-processing-failed error (e.g. an unrecognized or
+   * corrupt file in `processUnifiedFilesArray`). Preserves the original error
+   * as `originalError` (stack + message copied onto the new error's context).
+   */
+  static fileProcessingFailed(
+    filename: string,
+    originalError: Error,
+  ): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.FILE_PROCESSING_FAILED,
+      message: `Failed to process file "${filename}": ${originalError.message}`,
+      category: ErrorCategory.EXECUTION,
+      severity: ErrorSeverity.HIGH,
+      retriable: false,
+      context: { filename },
+      originalError,
+    });
+  }
+
+  /**
+   * Create a generic CSV-processing-failed error (explicit `csvFiles` path,
+   * distinct from `fileProcessingFailed` so callers can classify CSV-specific
+   * failures separately). Preserves the original error as `originalError`.
+   */
+  static csvProcessingFailed(
+    filename: string,
+    originalError: Error,
+  ): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.CSV_PROCESSING_FAILED,
+      message: `Failed to process CSV file "${filename}": ${originalError.message}`,
+      category: ErrorCategory.EXECUTION,
+      severity: ErrorSeverity.HIGH,
+      retriable: false,
+      context: { filename },
+      originalError,
     });
   }
 }
