@@ -1,0 +1,22 @@
+{
+  "name": "neurolink-starter-mcp-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Registers the filesystem MCP server with NeuroLink and lets the model use it to read a local file",
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@juspay/neurolink": "^9.88.12"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

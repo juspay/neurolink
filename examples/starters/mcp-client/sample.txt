@@ -1,0 +1,4 @@
+This file is a fixture for the mcp-client starter.
+
+If a model can read this sentence back to you, the filesystem MCP server
+is wired up correctly and NeuroLink handed the tool call through to it.
