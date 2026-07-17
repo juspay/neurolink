@@ -6,7 +6,14 @@
 
 import csvParser from "csv-parser";
 import { Readable } from "stream";
+import { extname } from "path";
 import { logger } from "./logger.js";
+import {
+  countCSVColumns,
+  splitCSVFields,
+  detectDelimiter as detectDelimiterUtil,
+  CANDIDATE_DELIMITERS,
+} from "./csvUtils.js";
 import type {
   FileProcessingResult,
   CSVProcessorOptions,
@@ -569,8 +576,12 @@ function detectHasHeaders(
  * - Lines with significantly different delimiter count than line 2
  * - Lines that don't match CSV structure of subsequent lines
  */
-/** Strip a leading UTF-8 BOM (U+FEFF) if present. */
-function stripBom(text: string): string {
+/**
+ * Strip a leading UTF-8 BOM (U+FEFF) if present. Exported so every entry
+ * point that sniffs raw text (including the RAG CSVLoader) normalizes BOMs
+ * the same way before metadata/delimiter detection.
+ */
+export function stripBom(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
 
@@ -624,6 +635,37 @@ function isMetadataLine(lines: string[]): boolean {
 }
 
 /**
+ * Strip a leading metadata line (e.g. Excel's `sep=;` preamble) from
+ * already-split lines, and read the delimiter it explicitly declares.
+ * Excel semantics: an explicit `sep=<char>` always wins over frequency-based
+ * detection; a metadata line without a recognized delimiter character is
+ * simply dropped from the sample without forcing a delimiter. This is the
+ * single place process(), detectDelimiter(), parseCSVFile(), and
+ * parseCSVString() all go through, so none of them detect a delimiter over
+ * the raw, un-stripped lines (which lets the preamble skew detection).
+ * Exported so non-CSVProcessor callers (the RAG CSVLoader) share it too.
+ */
+export function stripMetadataLine(lines: string[]): {
+  dataLines: string[];
+  hasMetadataLine: boolean;
+  explicitDelimiter?: string;
+} {
+  if (!isMetadataLine(lines)) {
+    return { dataLines: lines, hasMetadataLine: false };
+  }
+  const sepChar = lines[0]?.trim().match(/^sep=(.)/i)?.[1];
+  const explicitDelimiter =
+    sepChar && (CANDIDATE_DELIMITERS as readonly string[]).includes(sepChar)
+      ? sepChar
+      : undefined;
+  return {
+    dataLines: lines.slice(1),
+    hasMetadataLine: true,
+    explicitDelimiter,
+  };
+}
+
+/**
  * Split CSV text into logical rows for metadata detection and raw row limiting.
  *
  * Supports Unix (LF), Windows (CRLF), and classic Mac (CR) line endings, and is
@@ -632,8 +674,12 @@ function isMetadataLine(lines: string[]): boolean {
  * `""` inside quotes is the RFC-4180 escaped quote and does not toggle the quote
  * state. For unquoted input this yields exactly the same result as a plain
  * `split(/\r\n|\n|\r/)`.
+ *
+ * Exported so non-CSVProcessor callers (the RAG CSVLoader) get the same
+ * quote-aware row boundaries instead of a physical `content.split("\n")`,
+ * which would break rows on a newline embedded in a quoted field.
  */
-function splitCsvLines(csvString: string): string[] {
+export function splitCsvLines(csvString: string): string[] {
   const rows: string[] = [];
   let current = "";
   let inQuotes = false;
@@ -715,22 +761,28 @@ export class CSVProcessor {
 
     const csvString = content.toString("utf-8");
 
+    // #361: split once and strip a leading Excel `sep=` metadata line before
+    // detecting the delimiter (comma/tab/semicolon/pipe), so the preamble
+    // can't skew detection — then reuse dataLines below instead of
+    // re-splitting csvString for the raw-format row handling.
+    const lines = splitCsvLines(csvString);
+    const { dataLines, hasMetadataLine, explicitDelimiter } =
+      stripMetadataLine(lines);
+    const delimiter =
+      explicitDelimiter ??
+      detectDelimiterUtil(dataLines, extension ?? undefined);
+
     // For raw format, return CSV text with row limit (no parsing needed)
     // This preserves the CSV shape while normalizing line endings for row handling.
     if (formatStyle === "raw") {
-      const lines = splitCsvLines(csvString);
-      const hasMetadataLine = isMetadataLine(lines);
-
       if (hasMetadataLine) {
         logger.debug(
           "[CSVProcessor] Detected metadata line, skipping first line",
         );
       }
 
-      // Skip metadata line if present, then take header + maxRows data rows
-      const csvLines = hasMetadataLine
-        ? lines.slice(1) // Skip metadata line
-        : lines;
+      // dataLines already has the metadata line (if any) stripped.
+      const csvLines = dataLines;
 
       const limitedLines = csvLines.slice(0, 1 + maxRows); // header + data rows
 
@@ -762,14 +814,20 @@ export class CSVProcessor {
       logger.info("[CSVProcessor] ✅ Processed CSV file", {
         formatStyle: "raw",
         rowCount,
-        columnCount: (limitedLines[0] || "").split(",").length,
+        columnCount: countCSVColumns(limitedLines[0] || "", delimiter),
         truncated: wasTruncated,
       });
 
-      // Parse a sample for enhanced metadata analysis (raw format still benefits from column analysis)
-      const sampleForAnalysis = await this.parseCSVString(
-        limitedCSV,
-        Math.min(rowCount, 500),
+      // Parse a sample for enhanced metadata analysis (raw format still
+      // benefits from column analysis). Reuse the already-split, already
+      // metadata-stripped `dataLines` via the shared parseCSVLines() core
+      // instead of routing `limitedCSV` back through parseCSVString(), which
+      // would re-split/re-join it and re-run a redundant BOM/metadata pass.
+      const sampleRows = Math.min(rowCount, 500);
+      const sampleForAnalysis = await this.parseCSVLines(
+        dataLines.slice(0, 1 + sampleRows),
+        sampleRows,
+        delimiter,
       );
       const { columnMetadata, dataQualityWarnings, dataQualityScore } =
         analyzeColumns(sampleForAnalysis);
@@ -791,16 +849,16 @@ export class CSVProcessor {
           size: content.length,
           rowCount,
           totalLines: limitedLines.length,
-          columnCount: (limitedLines[0] || "").split(",").length,
+          columnCount: countCSVColumns(limitedLines[0] || "", delimiter),
           extension,
           columnMetadata,
           dataQualityWarnings,
           dataQualityScore,
           hasHeaders: detectHasHeaders(
-            (limitedLines[0] || "").split(","),
+            splitCSVFields(limitedLines[0] || "", delimiter),
             undefined,
           ),
-          detectedDelimiter: ",",
+          detectedDelimiter: delimiter,
         },
       };
     }
@@ -814,7 +872,10 @@ export class CSVProcessor {
       },
     );
 
-    const rows = await this.parseCSVString(csvString, maxRows);
+    // dataLines was already split and metadata-stripped above (alongside
+    // `delimiter`) — reuse it instead of routing through parseCSVString(),
+    // which would re-split csvString and re-run metadata detection.
+    const rows = await this.parseCSVLines(dataLines, maxRows, delimiter);
 
     // Filter out empty rows (empty objects or rows with only whitespace values from blank lines)
     const nonEmptyRows = rows.filter((row) => {
@@ -909,15 +970,26 @@ export class CSVProcessor {
           columnNames,
           nonEmptyRows as Record<string, unknown>[],
         ),
-        detectedDelimiter: ",",
+        detectedDelimiter: delimiter,
       },
     };
   }
 
   /**
-   * Parse CSV string into array of row objects using streaming
-   * Memory-efficient for large files
+   * Detect the delimiter of DSV content (comma/tab/semicolon/pipe), respecting
+   * RFC-4180 quoting. An optional extension hint (`tsv` → tab, `psv` → pipe)
+   * breaks ambiguity. Used by callers (e.g. the RAG CSV loader) that parse
+   * DSV content themselves and need the same detection (#361). A leading
+   * Excel `sep=` metadata line is stripped before sampling so it can't skew
+   * detection, and an explicit `sep=<char>` value wins outright.
    */
+  static detectDelimiter(csvString: string, extensionHint?: string): string {
+    const { dataLines, explicitDelimiter } = stripMetadataLine(
+      splitCsvLines(stripBom(csvString)),
+    );
+    return explicitDelimiter ?? detectDelimiterUtil(dataLines, extensionHint);
+  }
+
   /**
    * Parse CSV file from disk using streaming (memory efficient)
    *
@@ -951,9 +1023,13 @@ export class CSVProcessor {
       let buffer = "";
       lineReader.on("data", (chunk: string | Buffer) => {
         buffer += chunk.toString();
-        const splitBuffer = buffer.endsWith("\r")
-          ? buffer.slice(0, -1)
-          : buffer;
+        // Strip a leading UTF-8 BOM before the `sep=` check below, same as
+        // process(), parseCSVString(), and detectDelimiter() — otherwise an
+        // Excel export starting with a BOM + "sep=;" fails the /^sep=/i match.
+        const normalizedBuffer = stripBom(buffer);
+        const splitBuffer = normalizedBuffer.endsWith("\r")
+          ? normalizedBuffer.slice(0, -1)
+          : normalizedBuffer;
         const lines = splitCsvLines(splitBuffer);
         if (lines.length >= 2) {
           firstLines.push(lines[0], lines[1]);
@@ -962,14 +1038,28 @@ export class CSVProcessor {
         }
       });
       lineReader.on("end", () => resolve());
-      // Metadata sniffing is best-effort — a read error here must not crash.
-      lineReader.on("error", () => resolve());
+      // Metadata sniffing is best-effort — a read error here must not crash
+      // (the main read stream below will surface a real failure properly),
+      // but silently dropping it loses the diagnostic entirely, so log it.
+      lineReader.on("error", (error: Error) => {
+        logger.warn(
+          `[CSVProcessor] Metadata sniffing read failed for ${filePath}, proceeding without it: ${error.message}`,
+          { cause: error },
+        );
+        resolve();
+      });
     });
 
     await fileHandle.close();
 
-    const hasMetadataLine = isMetadataLine(firstLines);
+    const { dataLines, hasMetadataLine, explicitDelimiter } =
+      stripMetadataLine(firstLines);
     const skipLines = hasMetadataLine ? 1 : 0;
+    // #361: pick the delimiter from the sniffed lines (metadata line
+    // stripped) + file extension so .tsv / semicolon / pipe files aren't
+    // collapsed into one column, and a `sep=` preamble can't skew detection.
+    const fileDelimiter =
+      explicitDelimiter ?? detectDelimiterUtil(dataLines, extname(filePath));
 
     if (hasMetadataLine) {
       logger.debug(
@@ -980,10 +1070,12 @@ export class CSVProcessor {
     return new Promise((resolve, reject) => {
       const rows: unknown[] = [];
       let count = 0;
-      let lineCount = 0;
 
       const source = fs.createReadStream(filePath, { encoding: "utf-8" });
-      const parser = csvParser();
+      // Pass skipLines through to csv-parser itself so it skips the `sep=`
+      // metadata line BEFORE picking headers — otherwise csv-parser treats
+      // that line as the header row and the real header becomes a data row.
+      const parser = csvParser({ separator: fileDelimiter, skipLines });
 
       const abort = () => {
         source.destroy();
@@ -1004,11 +1096,6 @@ export class CSVProcessor {
       source
         .pipe(parser)
         .on("data", (row: unknown) => {
-          lineCount++;
-          if (lineCount <= skipLines) {
-            return;
-          }
-
           rows.push(row);
           count++;
 
@@ -1048,6 +1135,7 @@ export class CSVProcessor {
   static async parseCSVString(
     csvString: string,
     maxRows: number = 1000,
+    delimiter?: string,
   ): Promise<unknown[]> {
     if (typeof csvString !== "string" || csvString.trim().length === 0) {
       throw new Error(
@@ -1057,22 +1145,51 @@ export class CSVProcessor {
     // Strip a leading UTF-8 BOM (common in Excel exports) so it does not glue
     // onto the first column name and break downstream key lookups.
     const normalized = stripBom(csvString);
-    const clampedMaxRows = Math.max(1, Math.min(10000, maxRows));
 
     logger.debug("[CSVProcessor] Starting string parsing", {
       inputLength: normalized.length,
-      maxRows: clampedMaxRows,
+      maxRows,
     });
 
-    // Detect and skip metadata line
+    // Detect and skip a leading metadata line before detecting the
+    // delimiter, so a `sep=` preamble can't skew detection (#361).
     const lines = splitCsvLines(normalized);
-    const hasMetadataLine = isMetadataLine(lines);
-    const csvData = hasMetadataLine
-      ? lines.slice(1).join("\n")
-      : lines.join("\n");
+    const { dataLines, hasMetadataLine, explicitDelimiter } =
+      stripMetadataLine(lines);
+    // Caller-provided delimiter wins, then an explicit `sep=` declaration,
+    // then frequency-based detection over the post-metadata lines.
+    const effectiveDelimiter =
+      delimiter ?? explicitDelimiter ?? detectDelimiterUtil(dataLines);
 
     if (hasMetadataLine) {
       logger.debug("[CSVProcessor] Detected metadata line in string, skipping");
+    }
+
+    return this.parseCSVLines(dataLines, maxRows, effectiveDelimiter);
+  }
+
+  /**
+   * Stream-parse already-split, metadata-stripped data lines into row
+   * objects with a known delimiter. Shared core for parseCSVString() and
+   * process(), both of which need this after already splitting the content
+   * and resolving the delimiter once — calling parseCSVString() directly
+   * from process() would re-split and re-run metadata/delimiter detection
+   * over the same content a second time.
+   */
+  private static parseCSVLines(
+    dataLines: string[],
+    maxRows: number,
+    delimiter: string,
+  ): Promise<unknown[]> {
+    const clampedMaxRows = Math.max(1, Math.min(10000, maxRows));
+    const csvData = dataLines.join("\n");
+    if (csvData.trim().length === 0) {
+      // Shared core for both process() and parseCSVString() — use a generic
+      // message rather than naming one specific entry point, since either
+      // caller can land here with empty post-metadata data lines.
+      return Promise.reject(
+        new Error("CSVProcessor: CSV data must be a non-empty string"),
+      );
     }
 
     return new Promise((resolve, reject) => {
@@ -1080,7 +1197,7 @@ export class CSVProcessor {
       let count = 0;
 
       const source = Readable.from([csvData]);
-      const parser = csvParser();
+      const parser = csvParser({ separator: delimiter });
 
       const abort = () => {
         source.destroy();

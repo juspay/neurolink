@@ -14,10 +14,12 @@ NeuroLink provides seamless CSV file support as a **multimodal input type** - at
 CSV support in NeuroLink works just like image support - it's a multimodal input that gets automatically processed and injected into your prompts. The system:
 
 1. **Auto-detects** CSV files using FileDetector (magic bytes, MIME types, extensions, content heuristics)
-2. **Parses** CSV data using streaming parser for memory efficiency
+2. **Parses** CSV data using a streaming parser for memory efficiency
 3. **Formats** CSV content into LLM-optimized text (markdown/json)
 4. **Injects** formatted CSV data into your prompt text
 5. **Works** with ALL AI providers (not limited to vision models)
+
+**Delimiter auto-detection:** the delimiter is detected from the content (comma, **tab / `.tsv`**, semicolon, or pipe) — so tab- and semicolon-separated files parse into the correct columns instead of collapsing into one. Comma remains the default on ambiguity, and parsing is **RFC-4180 quote-aware** (a delimiter inside a `"…"` quoted field, e.g. `"Smith, John"`, does not split the field). The detected delimiter is reported in `metadata.detectedDelimiter`.
 
 ## Quick Start
 
