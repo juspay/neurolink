@@ -254,6 +254,14 @@ export type StreamOptions = {
   // CSV processing options (#379: canonical shape — see CSVProcessorOptions)
   csvOptions?: CSVProcessorOptions;
 
+  /** PDF processing options (#258). */
+  pdfOptions?: {
+    /** Password for an encrypted PDF (image-conversion fallback path). */
+    password?: string;
+    /** Max rendered-canvas pixels per page (#260 memory guard); oversized pages auto-downscale. */
+    maxCanvasPixels?: number;
+  };
+
   // Video processing options
   videoOptions?: {
     frames?: number; // Number of frames to extract (default: 8)

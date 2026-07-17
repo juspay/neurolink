@@ -35,6 +35,8 @@ import type { CSVLoaderOptions } from "../src/lib/types/index.js";
 import iconv from "iconv-lite";
 import { Readable, Transform } from "node:stream";
 import { PDFProcessor } from "../src/lib/utils/pdfProcessor.js";
+import { PDF_LIMITS } from "../src/lib/core/constants.js";
+import { CLICommandFactory } from "../src/cli/factories/commandFactory.js";
 import { SIZE_LIMITS_BYTES } from "../src/lib/processors/config/sizeLimits.js";
 import { directAgentTools } from "../src/lib/agent/directTools.js";
 import { isMultimodalInput } from "../src/lib/types/index.js";
@@ -222,6 +224,28 @@ async function withTemporaryEnv<T>(
       }
     }
   }
+}
+
+/**
+ * Append a syntactically-standalone (unreferenced) PDF object carrying an
+ * explicit `/MediaBox` to a valid PDF buffer. `PDFProcessor`'s pre-flight
+ * page-size check does a raw byte-level regex scan for `/MediaBox`
+ * occurrences — it doesn't care whether the object is reachable via the xref
+ * table — so this lets pixel-guard tests control the "largest MediaBox"
+ * input deterministically without depending on whether the base fixture's
+ * own MediaBox happens to be stored as plaintext (vs. inside a compressed
+ * object stream, which the regex can't see). The decoy object is never part
+ * of the page tree, so it has no effect on what actually gets rendered.
+ */
+function appendDecoyMediaBox(
+  pdf: Buffer,
+  widthPoints: string,
+  heightPoints: string,
+): Buffer {
+  const decoy = Buffer.from(
+    `\n999 0 obj\n<< /Type /XObject /Subtype /Form /MediaBox [0 0 ${widthPoints} ${heightPoints}] >>\nendobj\n`,
+  );
+  return Buffer.concat([pdf, decoy]);
 }
 
 // ============================================================================
@@ -1307,6 +1331,383 @@ const tests: TestFunction[] = [
         }
       }
       return true;
+    },
+  },
+  // ---------- #260: PDF page-pixel guard (memory) ----------
+  {
+    name: "PDFProcessor #260: rejects invalid maxCanvasPixels; default ceiling stays under 100MB",
+    category: "pdf-processor",
+    fn: async () => {
+      const pdf = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(20)]);
+      const rejects = async (maxCanvasPixels: number): Promise<boolean> => {
+        try {
+          await PDFProcessor.convertToImages(pdf, { maxCanvasPixels });
+          return false;
+        } catch (e) {
+          return (
+            e instanceof Error && /Invalid maxCanvasPixels/.test(e.message)
+          );
+        }
+      };
+      for (const bad of [0, -1, Number.NaN]) {
+        if (!(await rejects(bad))) {
+          return false;
+        }
+      }
+      // The default ceiling keeps a page under 100MB (16.7M px × 4 bytes RGBA).
+      return (
+        PDF_LIMITS.DEFAULT_MAX_CANVAS_PIXELS === 16_777_216 &&
+        PDF_LIMITS.DEFAULT_MAX_CANVAS_PIXELS * 4 <= 100 * 1024 * 1024
+      );
+    },
+  },
+  {
+    name: "PDFProcessor #260: oversized page auto-downscales; normal page unaffected",
+    category: "pdf-processor",
+    fn: async () => {
+      const pdf = readFileSync("test/fixtures/valid-sample.pdf");
+      // Force the "largest MediaBox" via an explicit decoy object (see
+      // appendDecoyMediaBox) instead of relying on valid-sample.pdf's own
+      // /MediaBox happening to be plaintext — keeps this deterministic even
+      // if the fixture is ever regenerated with compressed object streams.
+      const oversized = appendDecoyMediaBox(pdf, "500", "500");
+      // A deliberately tiny ceiling forces the pre-flight to downscale rather
+      // than let pdf-to-img allocate the full canvas — must resolve, not crash.
+      const tiny = await PDFProcessor.convertToImages(oversized, {
+        maxCanvasPixels: 1000,
+      });
+      if (
+        tiny.images.length === 0 ||
+        !tiny.warnings?.some((w) => /downscal|maxCanvasPixels/i.test(w))
+      ) {
+        return false;
+      }
+      // Default options, unpatched fixture: a normal page converts with no
+      // downscale warning.
+      const normal = await PDFProcessor.convertToImages(pdf);
+      return (
+        normal.images.length > 0 &&
+        !normal.warnings?.some((w) => /downscal/i.test(w))
+      );
+    },
+  },
+  {
+    name: "PDFProcessor #260: overflowing MediaBox does not collapse effectiveScale below the floor",
+    category: "pdf-processor",
+    fn: async () => {
+      const pdf = readFileSync("test/fixtures/valid-sample.pdf");
+      // width * height * scale * scale must exceed Number.MAX_VALUE
+      // (~1.7976931348623157e308) to reproduce the overflow: with a default
+      // scale of 2, 1e160 * 1e160 = 1e320 already collapses to Infinity.
+      const hugeDigits = "1" + "0".repeat(160);
+      const malformed = appendDecoyMediaBox(pdf, hugeDigits, hugeDigits);
+
+      const result = await PDFProcessor.convertToImages(malformed, {
+        maxCanvasPixels: PDF_LIMITS.DEFAULT_MAX_CANVAS_PIXELS,
+      });
+
+      // Must still render — proves effectiveScale stayed a finite, positive,
+      // renderable value instead of collapsing to 0 (which would make
+      // pdf-to-img fail on a degenerate viewport).
+      if (result.images.length === 0) {
+        return false;
+      }
+
+      const downscaleWarning = result.warnings?.find((w) =>
+        /Downscaled render/.test(w),
+      );
+      if (!downscaleWarning) {
+        return false;
+      }
+      const match = /→ ([\d.]+)\)/.exec(downscaleWarning);
+      const effectiveScale = match ? Number(match[1]) : Number.NaN;
+      return (
+        Number.isFinite(effectiveScale) &&
+        effectiveScale >= PDF_LIMITS.MIN_EFFECTIVE_SCALE
+      );
+    },
+  },
+  // ---------- #258: encrypted PDF password handling ----------
+  {
+    name: "PDFProcessor #258: encrypted PDF — required/incorrect/correct password",
+    category: "pdf-processor",
+    fn: async () => {
+      // A real AES-256-encrypted PDF (password: neurolink-test). A fake buffer
+      // would not trigger pdfjs's PasswordException.
+      const pdf = readFileSync("test/fixtures/password-protected.pdf");
+      // No password → actionable "password-protected" error (not generic).
+      let needsPw = false;
+      try {
+        await PDFProcessor.convertToImages(pdf, {});
+      } catch (e) {
+        needsPw =
+          e instanceof Error &&
+          /password-protected|supply the password/i.test(e.message);
+      }
+      if (!needsPw) {
+        return false;
+      }
+      // Wrong password → distinct "incorrect password" error.
+      let wrongPw = false;
+      try {
+        await PDFProcessor.convertToImages(pdf, { password: "wrong-password" });
+      } catch (e) {
+        wrongPw = e instanceof Error && /incorrect/i.test(e.message);
+      }
+      if (!wrongPw) {
+        return false;
+      }
+      // Correct password → decrypts and converts.
+      const ok = await PDFProcessor.convertToImages(pdf, {
+        password: "neurolink-test",
+      });
+      return ok.images.length > 0;
+    },
+  },
+  // ---------- #258/#260: pdfOptions plumbing through the message builder ----------
+  // The tests above hit PDFProcessor.convertToImages directly. This one
+  // exercises the FULL generate/stream path — input.pdfFiles + pdfOptions →
+  // buildMultimodalMessagesArray → convertToImages — the plumbing that
+  // silently dropped pdfOptions (so --pdf-password / pdfOptions.password never
+  // reached the decoder) before the fix.
+  {
+    name: "buildMultimodalMessagesArray threads pdfOptions.password + maxCanvasPixels into image fallback",
+    category: "pdf-processor",
+    fn: async () => {
+      const encrypted = readFileSync("test/fixtures/password-protected.pdf");
+      const plain = readFileSync("test/fixtures/valid-sample.pdf");
+      // "azure" is a vision-capable provider without native PDF support, so
+      // pdfFiles route through the image-fallback path (convertToImages) —
+      // the path pdfOptions.password / maxCanvasPixels must reach.
+      const build = (opts: Record<string, unknown>) =>
+        buildMultimodalMessagesArray(
+          opts as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+          "azure",
+          "gpt-4o",
+        );
+
+      // (a) No password → PDF_PASSWORD_REQUIRED surfaces (not swallowed).
+      let required = false;
+      try {
+        await build({ input: { text: "x", pdfFiles: [encrypted] } });
+      } catch (e) {
+        required =
+          e instanceof Error &&
+          /password-protected|supply the password/i.test(e.message);
+      }
+      if (!required) {
+        return false;
+      }
+
+      // (b) Wrong password threads → PDF_INCORRECT_PASSWORD surfaces.
+      let incorrect = false;
+      try {
+        await build({
+          input: { text: "x", pdfFiles: [encrypted] },
+          pdfOptions: { password: "nope" },
+        });
+      } catch (e) {
+        incorrect = e instanceof Error && /incorrect/i.test(e.message);
+      }
+      if (!incorrect) {
+        return false;
+      }
+
+      // (c) Correct password threads → decrypts and yields image parts.
+      const okMsgs = await build({
+        input: { text: "x", pdfFiles: [encrypted] },
+        pdfOptions: { password: "neurolink-test" },
+      });
+      if (!JSON.stringify(okMsgs).includes('"type":"image"')) {
+        return false;
+      }
+
+      // (d) maxCanvasPixels threads to convertToImages — an invalid value is
+      // validated there (#260), so this error proves the value arrived.
+      let capThreaded = false;
+      try {
+        await build({
+          input: { text: "x", pdfFiles: [plain] },
+          pdfOptions: { maxCanvasPixels: -1 },
+        });
+      } catch (e) {
+        capThreaded =
+          e instanceof Error && /Invalid maxCanvasPixels/.test(e.message);
+      }
+      return capThreaded;
+    },
+  },
+  // Sibling to the test above: the advanced `input.content` (type: "pdf")
+  // path had its own copy of the pdfFiles mapping that silently dropped
+  // pdfOptions.password / maxCanvasPixels (asymmetric with input.pdfFiles).
+  {
+    name: "buildMultimodalMessagesArray threads pdfOptions.password + maxCanvasPixels through input.content PDF path",
+    category: "pdf-processor",
+    fn: async () => {
+      const encrypted = readFileSync("test/fixtures/password-protected.pdf");
+      const plain = readFileSync("test/fixtures/valid-sample.pdf");
+      // "azure" is a vision-capable provider without native PDF support, so
+      // the PDF content item routes through the image-fallback path
+      // (convertToImages) — the path pdfOptions must reach.
+      const build = (opts: Record<string, unknown>) =>
+        buildMultimodalMessagesArray(
+          opts as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+          "azure",
+          "gpt-4o",
+        );
+
+      // (a) Correct password threads via input.content[type=pdf] → decrypts
+      // and yields image parts.
+      const okMsgs = await build({
+        input: {
+          text: "x",
+          content: [
+            {
+              type: "pdf",
+              data: encrypted,
+              metadata: { filename: "encrypted.pdf" },
+            },
+          ],
+        },
+        pdfOptions: { password: "neurolink-test" },
+      });
+      if (!JSON.stringify(okMsgs).includes('"type":"image"')) {
+        return false;
+      }
+
+      // (b) maxCanvasPixels threads via input.content → an invalid value is
+      // validated inside convertToImages (#260), so this error proves it
+      // arrived rather than being silently dropped by the content-path copy.
+      let capThreaded = false;
+      try {
+        await build({
+          input: {
+            text: "x",
+            content: [
+              { type: "pdf", data: plain, metadata: { filename: "plain.pdf" } },
+            ],
+          },
+          pdfOptions: { maxCanvasPixels: -1 },
+        });
+      } catch (e) {
+        capThreaded =
+          e instanceof Error && /Invalid maxCanvasPixels/.test(e.message);
+      }
+      return capThreaded;
+    },
+  },
+  // ---------- round-3 review: hasPDFs gating + --pdf-password env fallback ----------
+  // buildMultimodalSystemPrompt used to be gated on `pdfFiles.length > 0`,
+  // which only covers input.pdfFiles. A PDF supplied purely via
+  // input.content (type: "pdf") still routed through the multimodal path
+  // (hasPDFs already covered that for routing) but the system prompt never
+  // got the "treat inlined content as an attachment" instructions, so the
+  // model could plausibly claim no file was attached.
+  {
+    name: "buildMultimodalMessagesArray: PDF supplied only via input.content still gets file-handling system prompt (hasPDFs gating fix)",
+    category: "pdf-processor",
+    fn: async () => {
+      const plain = readFileSync("test/fixtures/valid-sample.pdf");
+      const messages = await buildMultimodalMessagesArray(
+        {
+          input: {
+            text: "Summarise this",
+            content: [
+              {
+                type: "pdf",
+                data: plain,
+                metadata: { filename: "plain.pdf" },
+              },
+            ],
+          },
+        } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+        "azure",
+        "gpt-4o",
+      );
+      const systemMsg = messages.find((m) => m.role === "system");
+      const systemText =
+        systemMsg && typeof systemMsg.content === "string"
+          ? systemMsg.content
+          : "";
+      return (
+        /TREAT THE INLINED CONTENT AS IF IT WERE AN ATTACHMENT/.test(
+          systemText,
+        ) && /PDFs/.test(systemText)
+      );
+    },
+  },
+  // resolvePdfPassword: NEUROLINK_PDF_PASSWORD is the preferred, non-leaking
+  // way to supply a decryption password. --pdf-password stays supported (a
+  // breaking change to drop it) but must warn to stderr because it is
+  // visible in shell history / `ps` / CI logs — verify the precedence
+  // (flag wins when both are set, matching per-invocation override intent)
+  // and that the warning fires only when the flag is actually used.
+  {
+    name: "CLICommandFactory.resolvePdfPassword: NEUROLINK_PDF_PASSWORD fallback, flag precedence, warns only when the flag is used",
+    category: "cli",
+    fn: async () => {
+      const resolvePdfPassword = (
+        CLICommandFactory as unknown as {
+          resolvePdfPassword: (
+            argv: Record<string, unknown>,
+          ) => string | undefined;
+        }
+      ).resolvePdfPassword;
+
+      const originalEnv = process.env.NEUROLINK_PDF_PASSWORD;
+      const originalWrite = process.stderr.write;
+      let warned: boolean;
+      process.stderr.write = ((chunk: string | Uint8Array) => {
+        if (typeof chunk === "string" && /pdf-password/i.test(chunk)) {
+          warned = true;
+        }
+        return true;
+      }) as unknown as typeof process.stderr.write;
+
+      try {
+        // (a) Only env var set -> resolved from env, no warning.
+        delete process.env.NEUROLINK_PDF_PASSWORD;
+        process.env.NEUROLINK_PDF_PASSWORD = "env-secret";
+        warned = false;
+        if (resolvePdfPassword({}) !== "env-secret" || warned) {
+          return false;
+        }
+
+        // (b) Only flag set -> resolved from flag, warns.
+        delete process.env.NEUROLINK_PDF_PASSWORD;
+        warned = false;
+        if (
+          resolvePdfPassword({ pdfPassword: "flag-secret" }) !==
+            "flag-secret" ||
+          !warned
+        ) {
+          return false;
+        }
+
+        // (c) Both set -> flag takes precedence (explicit per-call override),
+        // and still warns since the flag was used.
+        process.env.NEUROLINK_PDF_PASSWORD = "env-secret";
+        warned = false;
+        if (
+          resolvePdfPassword({ pdfPassword: "flag-secret" }) !==
+            "flag-secret" ||
+          !warned
+        ) {
+          return false;
+        }
+
+        // (d) Neither set -> undefined, no warning.
+        delete process.env.NEUROLINK_PDF_PASSWORD;
+        warned = false;
+        return resolvePdfPassword({}) === undefined && !warned;
+      } finally {
+        if (originalEnv === undefined) {
+          delete process.env.NEUROLINK_PDF_PASSWORD;
+        } else {
+          process.env.NEUROLINK_PDF_PASSWORD = originalEnv;
+        }
+        process.stderr.write = originalWrite;
+      }
     },
   },
   // ---------- CSV detection: quoted delimiters (issue #299) ----------

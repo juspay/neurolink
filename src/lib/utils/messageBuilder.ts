@@ -1263,13 +1263,21 @@ async function processExplicitPdfFiles(
   maxSize: number,
   provider: string,
 ): Promise<
-  Array<{ buffer: Buffer; filename: string; pageCount?: number | null }>
+  Array<{
+    buffer: Buffer;
+    filename: string;
+    pageCount?: number | null;
+    password?: string;
+    maxCanvasPixels?: number;
+  }>
 > {
   options.input ??= {};
   const pdfFiles: Array<{
     buffer: Buffer;
     filename: string;
     pageCount?: number | null;
+    password?: string;
+    maxCanvasPixels?: number;
   }> = [];
 
   if (!options.input.pdfFiles || options.input.pdfFiles.length === 0) {
@@ -1296,6 +1304,12 @@ async function processExplicitPdfFiles(
           buffer: result.content,
           filename,
           pageCount: result.metadata?.estimatedPages ?? null,
+          // #258: carry the password so the image-fallback conversion can
+          // decrypt an encrypted PDF for providers without native PDF support.
+          password: options.pdfOptions?.password,
+          // #260: carry the per-page canvas-pixel ceiling so the caller can
+          // raise (or lower) the memory guard for the image-fallback render.
+          maxCanvasPixels: options.pdfOptions?.maxCanvasPixels,
         });
         logger.info(
           `[PDF] ✅ Queued for multimodal: ${filename} (${result.metadata?.estimatedPages ?? "unknown"} pages)`,
@@ -1419,7 +1433,14 @@ export async function buildMultimodalMessagesArray(
     (inp.images && inp.images.length > 0) ||
     (inp.content && inp.content.some((c) => c.type === "image"));
 
-  const hasPDFs = pdfFiles.length > 0;
+  // A PDF supplied only via input.content (type: "pdf", no explicit
+  // input.pdfFiles and no image alongside it) must still route through the
+  // multimodal path below — otherwise it silently falls through to the
+  // text-only branch and the PDF (and any pdfOptions) never reaches
+  // convertContentToProviderFormat at all.
+  const hasPDFs =
+    pdfFiles.length > 0 ||
+    !!(inp.content && inp.content.some((c) => c.type === "pdf"));
 
   // If no images or PDFs, use standard message building and convert to MultimodalChatMessage[]
   if (!hasImages && !hasPDFs) {
@@ -1464,11 +1485,11 @@ export async function buildMultimodalMessagesArray(
 
   const messages: MultimodalChatMessage[] = [];
 
-  // Build enhanced system prompt
-  const systemPrompt = buildMultimodalSystemPrompt(
-    options,
-    pdfFiles.length > 0,
-  );
+  // Build enhanced system prompt. Gate on the same `hasPDFs` predicate used
+  // for routing above — a PDF supplied only via input.content (no explicit
+  // input.pdfFiles) must still get the "treat inlined content as an
+  // attachment" instruction, or the model can claim no files were attached.
+  const systemPrompt = buildMultimodalSystemPrompt(options, hasPDFs);
 
   if (systemPrompt.trim()) {
     messages.push({
@@ -1555,6 +1576,7 @@ export async function buildMultimodalMessagesArray(
         inp.content,
         provider,
         model,
+        options.pdfOptions,
       );
     } else if ((inp.images && inp.images.length > 0) || pdfFiles.length > 0) {
       userContent = await convertMultimodalToProviderFormat(
@@ -1655,6 +1677,7 @@ async function convertContentToProviderFormat(
   content: Content[],
   provider: string,
   _model: string,
+  pdfOptions?: GenerateOptions["pdfOptions"],
 ): Promise<unknown> {
   const textContent = content.find((c) => c.type === "text");
   const imageContent = content.filter((c) => c.type === "image");
@@ -1690,6 +1713,11 @@ async function convertContentToProviderFormat(
       typeof pdf.data === "string" ? Buffer.from(pdf.data, "base64") : pdf.data,
     filename: pdf.metadata?.filename || "document.pdf",
     pageCount: pdf.metadata?.pages ?? null,
+    // #258/#260: carry password + canvas-pixel ceiling so a PDF supplied via
+    // the advanced `input.content` array gets the same decryption/memory
+    // guard as the `input.pdfFiles` path (see `processExplicitPdfFiles`).
+    password: pdfOptions?.password,
+    maxCanvasPixels: pdfOptions?.maxCanvasPixels,
   }));
 
   return await convertMultimodalToProviderFormat(
@@ -2124,6 +2152,8 @@ async function convertMultimodalToProviderFormat(
     buffer: Buffer;
     filename: string;
     pageCount?: number | null;
+    password?: string;
+    maxCanvasPixels?: number;
   }>,
   provider: string,
   model: string,
@@ -2180,6 +2210,10 @@ async function convertMultimodalToProviderFormat(
           {
             scale: 2.0, // High quality for OCR/analysis
             maxPages: 20, // Limit pages to prevent token overflow
+            ...(pdf.password ? { password: pdf.password } : {}), // #258
+            ...(pdf.maxCanvasPixels
+              ? { maxCanvasPixels: pdf.maxCanvasPixels }
+              : {}), // #260
           },
         );
 
@@ -2212,6 +2246,16 @@ async function convertMultimodalToProviderFormat(
         logger.error(
           `[PDF→Image] ❌ Failed to convert ${pdf.filename}: ${errorMessage}`,
         );
+
+        // #258: password errors are already actionable typed errors — re-throw
+        // them unwrapped so the "supply a password" guidance isn't buried.
+        const code = (error as { code?: string })?.code;
+        if (
+          code === "PDF_PASSWORD_REQUIRED" ||
+          code === "PDF_INCORRECT_PASSWORD"
+        ) {
+          throw error;
+        }
 
         // Re-throw so the user knows PDF processing failed
         throw new Error(

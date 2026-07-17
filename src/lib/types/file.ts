@@ -273,6 +273,8 @@ export type PDFProcessorOptions = {
    * Set to false to bypass limit enforcement (logs warning instead)
    */
   enforceLimits?: boolean;
+  /** Password for an encrypted PDF (used on the image-conversion path) (#258). */
+  password?: string;
 };
 
 /**
@@ -452,6 +454,14 @@ export type PDFImageConversionOptions = {
   maxPages?: number;
   /** Output format (default: png). Only PNG is currently implemented by PDFProcessor. */
   format?: "png";
+  /**
+   * Per-page pixel ceiling (#260). Any page whose width×height×scale² would
+   * exceed this is uniformly downscaled to stay under it, preventing a huge
+   * page from allocating gigabytes of canvas. Default: PDF_LIMITS.DEFAULT_MAX_CANVAS_PIXELS.
+   */
+  maxCanvasPixels?: number;
+  /** Password for an encrypted PDF (passed to the underlying renderer) (#258). */
+  password?: string;
 };
 
 /** Result of PDF to image conversion. */

@@ -5246,11 +5246,15 @@ Current user's request: ${currentInput}`;
       evaluationDomain: options.evaluationDomain,
       toolUsageContext: options.toolUsageContext,
       input: options.input,
-      // CSV processing options must survive the reconstruction into
-      // TextGenerationOptions — the message builder reads them (encoding,
-      // formatting, sanitization, parse timeout). Omitting them silently
-      // dropped every csvOptions field (incl. the CLI --csv-* flags).
+      // Multimodal file-processing options must survive the reconstruction
+      // into TextGenerationOptions — the message builder reads them downstream
+      // (csv encoding/formatting/sanitization/parse timeout, PDF
+      // password/decryption #258). Omitting them here silently dropped e.g.
+      // every csvOptions field (incl. the CLI --csv-* flags) or
+      // pdfOptions.password so the CLI --pdf-password / SDK pdfOptions never
+      // reached convertToImages.
       csvOptions: options.csvOptions,
+      pdfOptions: options.pdfOptions,
       region: options.region,
       tts: options.tts,
       stt: options.stt,
