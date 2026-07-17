@@ -4,6 +4,7 @@ const sidebars: SidebarsConfig = {
   docsSidebar: [
     "index",
     "about/vision",
+    "about/why-the-core-stays-thin",
     {
       type: "category",
       label: "Getting Started",
