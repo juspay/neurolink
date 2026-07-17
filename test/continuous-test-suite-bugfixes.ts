@@ -41,7 +41,7 @@ import { isMultimodalInput } from "../src/lib/types/index.js";
 import { FileDetector } from "../src/lib/utils/fileDetector.js";
 import { ImageProcessor, imageUtils } from "../src/lib/utils/imageProcessor.js";
 import { ERROR_CODES } from "../src/lib/utils/errorHandling.js";
-import {
+import fs, {
   chmodSync,
   mkdtempSync,
   readFileSync,
@@ -55,6 +55,11 @@ import { MockAgent, setGlobalDispatcher, getGlobalDispatcher } from "undici";
 import http from "node:http";
 import AdmZip from "adm-zip";
 import { PptxProcessor } from "../src/lib/processors/document/PptxProcessor.js";
+import {
+  validateCliInputFiles,
+  validateCsvMaxRows,
+  CLI_SOFT_LIMITS_MB,
+} from "../src/cli/utils/inputValidation.js";
 
 import {
   GoogleVertexProvider,
@@ -5289,6 +5294,106 @@ exit 127
       }
     },
   },
+  // ---------- CLI hardening: validation, size warnings, help/examples
+  //            (#296/#310/#312/#319/#352). These spawn the built CLI; they
+  //            skip gracefully when dist/cli is not built. ----------
+  {
+    name: "CLI #310: --csv-max-rows rejects a non-positive value with a clear message",
+    category: "cli",
+    fn: async () => {
+      const { spawnSync } = await import("node:child_process");
+      const { existsSync } = await import("node:fs");
+      const cli = "dist/cli/index.js";
+      if (!existsSync(cli)) {
+        return true; // dist not built in this run — covered by CI's built CLI.
+      }
+      const run = (rows: string) =>
+        spawnSync(
+          process.execPath,
+          [
+            cli,
+            "generate",
+            "x",
+            "--csv",
+            "test/fixtures/transactions.csv",
+            "--csv-max-rows",
+            rows,
+            "--provider",
+            "azure",
+          ],
+          { encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } },
+        );
+      const bad = run("0");
+      const neg = run("-5");
+      const combined = (r: { stdout: string; stderr: string }) =>
+        `${r.stdout}${r.stderr}`;
+      return (
+        bad.status !== 0 &&
+        /Invalid --csv-max-rows \(--csvMaxRows\) value/.test(combined(bad)) &&
+        neg.status !== 0 &&
+        /Invalid --csv-max-rows \(--csvMaxRows\) value/.test(combined(neg))
+      );
+    },
+  },
+  {
+    name: "CLI #312/#352: generate & stream help document multimodal file examples",
+    category: "cli",
+    fn: async () => {
+      const { spawnSync } = await import("node:child_process");
+      const { existsSync } = await import("node:fs");
+      const cli = "dist/cli/index.js";
+      if (!existsSync(cli)) {
+        return true;
+      }
+      const help = (cmd: string) =>
+        spawnSync(process.execPath, [cli, cmd, "--help"], {
+          encoding: "utf8",
+          env: { ...process.env, NO_COLOR: "1" },
+        }).stdout.replace(/\s+/g, " ");
+      const gen = help("generate");
+      const stream = help("stream");
+      return (
+        /Analyze an image/.test(gen) &&
+        /Analyze a PDF document/.test(gen) &&
+        /Combine multiple file types/.test(gen) &&
+        /range 1-100000/.test(gen) && // #310 description
+        /Stream image analysis/.test(stream) &&
+        /Stream PDF analysis/.test(stream)
+      );
+    },
+  },
+  {
+    name: "CLI #319: a large local multimodal file triggers a soft-limit warning",
+    category: "cli",
+    fn: async () => {
+      const { spawnSync } = await import("node:child_process");
+      const { existsSync, mkdtempSync, writeFileSync, rmSync } =
+        await import("node:fs");
+      const cli = "dist/cli/index.js";
+      if (!existsSync(cli)) {
+        return true;
+      }
+      const dir = mkdtempSync(pathJoin(tmpdir(), "cli-319-"));
+      try {
+        const big = pathJoin(dir, "big.png");
+        // 11MB — above IMAGE_MAX_MB (10). PNG magic bytes so detection is happy.
+        const buf = Buffer.alloc(11 * 1024 * 1024);
+        buf[0] = 0x89;
+        buf[1] = 0x50;
+        buf[2] = 0x4e;
+        buf[3] = 0x47;
+        writeFileSync(big, buf);
+        const r = spawnSync(
+          process.execPath,
+          [cli, "generate", "x", "--image", big, "--provider", "azure"],
+          { encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } },
+        );
+        return /above the 10MB soft limit/.test(`${r.stdout}${r.stderr}`);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
   {
     name: "CSVProcessor: delimiter detection isn't fooled by a non-sep metadata line containing stray delimiter chars",
     category: "csv-processor",
@@ -5443,6 +5548,34 @@ exit 127
         } catch {
           /* already restored */
         }
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "CLI (review #1202): --csv rejects a directory path with a friendly error, not EISDIR",
+    category: "cli",
+    fn: async () => {
+      const { spawnSync } = await import("node:child_process");
+      const { existsSync, mkdtempSync, rmSync } = await import("node:fs");
+      const cli = "dist/cli/index.js";
+      if (!existsSync(cli)) {
+        return true; // dist not built in this run — covered by CI's built CLI.
+      }
+      const dir = mkdtempSync(pathJoin(tmpdir(), "cli-dir-"));
+      try {
+        const r = spawnSync(
+          process.execPath,
+          [cli, "generate", "x", "--csv", dir, "--provider", "azure"],
+          { encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } },
+        );
+        const combined = `${r.stdout}${r.stderr}`;
+        return (
+          r.status !== 0 &&
+          /is a directory, not a file/.test(combined) &&
+          !/EISDIR/i.test(combined)
+        );
+      } finally {
         rmSync(dir, { recursive: true, force: true });
       }
     },
@@ -5771,6 +5904,79 @@ exit 127
     },
   },
   {
+    name: "CLI (review #1202): --csv-max-rows above 100000 is rejected (hard range) and names both flag spellings",
+    category: "cli",
+    fn: async () => {
+      const { spawnSync } = await import("node:child_process");
+      const { existsSync } = await import("node:fs");
+      const cli = "dist/cli/index.js";
+      if (!existsSync(cli)) {
+        return true; // dist not built in this run — covered by CI's built CLI.
+      }
+      const r = spawnSync(
+        process.execPath,
+        [
+          cli,
+          "generate",
+          "x",
+          "--csv",
+          "test/fixtures/transactions.csv",
+          "--csv-max-rows",
+          "100001",
+          "--provider",
+          "azure",
+        ],
+        { encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } },
+      );
+      const combined = `${r.stdout}${r.stderr}`;
+      return (
+        r.status !== 0 &&
+        /Invalid --csv-max-rows \(--csvMaxRows\) value/.test(combined)
+      );
+    },
+  },
+  // ---------- Round-2: statSync failures other than ENOENT must not be
+  //            mislabeled "not found" — the real errno/reason must surface ----------
+  {
+    name: "CLI (review #1202 round 2): --image statSync EACCES surfaces the real reason, not a blanket 'not found'",
+    category: "cli",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(tmpdir(), "cli-eacces-"));
+      const filePath = pathJoin(dir, "image.png");
+      writeFileSync(filePath, "fake-image-bytes");
+
+      // Mock is scoped to `filePath` only (falls through to the real
+      // statSync for anything else) so it can't mask unrelated statSync
+      // calls made elsewhere during the same test run (review #1202 round 4).
+      const originalStatSync = fs.statSync;
+      fs.statSync = ((targetPath: fs.PathLike) => {
+        if (targetPath.toString() === filePath) {
+          const err = new Error("EACCES: permission denied, stat");
+          (err as NodeJS.ErrnoException).code = "EACCES";
+          throw err;
+        }
+        return originalStatSync(targetPath);
+      }) as unknown as typeof fs.statSync;
+
+      try {
+        validateCliInputFiles({ image: filePath });
+        return false; // should have thrown the aggregated error
+      } catch (error) {
+        if (!(error instanceof Error)) {
+          return false;
+        }
+        return (
+          /could not be accessed/i.test(error.message) &&
+          /EACCES/.test(error.message) &&
+          !/path not found/i.test(error.message)
+        );
+      } finally {
+        fs.statSync = originalStatSync;
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
     name: "ImageCache round 8: debug logs redact the URL instead of a naive 50-char substring truncation",
     category: "image-processor",
     fn: async () => {
@@ -5982,6 +6188,25 @@ exit 127
             msg.includes(basename(filePath))
           );
         }
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    name: "CLI (review #1202 round 2): --image statSync ENOENT still reports 'path not found'",
+    category: "cli",
+    fn: async () => {
+      const dir = mkdtempSync(pathJoin(tmpdir(), "cli-enoent-"));
+      const missing = pathJoin(dir, "nope.png");
+      try {
+        validateCliInputFiles({ image: missing });
+        return false; // should have thrown — path does not exist
+      } catch (error) {
+        if (!(error instanceof Error)) {
+          return false;
+        }
+        return /path not found/i.test(error.message);
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
@@ -6433,6 +6658,73 @@ exit 127
       } finally {
         await new Promise<void>((r) => server.close(() => r()));
       }
+    },
+  },
+  // ---------- Round-4: CLI/processor decoupling + testable validators ----------
+  {
+    name: "CLI (review #1202 round 4): commandFactory.ts no longer imports processor sizeLimits (CLI/SDK layering)",
+    category: "cli",
+    fn: async () => {
+      const { readFileSync } = await import("fs");
+      const { join: pathJoin } = await import("path");
+      const src = readFileSync(
+        pathJoin(process.cwd(), "src/cli/factories/commandFactory.ts"),
+        "utf-8",
+      );
+      return (
+        !src.includes("lib/processors/config/sizeLimits") &&
+        !src.includes("SIZE_LIMITS_MB")
+      );
+    },
+  },
+  {
+    name: "CLI (review #1202 round 4): validateCliInputFiles/validateCsvMaxRows are directly importable named exports (no `unknown` cast needed)",
+    category: "cli",
+    fn: async () => {
+      return (
+        typeof validateCliInputFiles === "function" &&
+        typeof validateCsvMaxRows === "function"
+      );
+    },
+  },
+  {
+    name: "CLI (review #1202 round 4): CLI_SOFT_LIMITS_MB preserves the original soft-limit MB values",
+    category: "cli",
+    fn: async () => {
+      return (
+        CLI_SOFT_LIMITS_MB.IMAGE_MAX_MB === 10 &&
+        CLI_SOFT_LIMITS_MB.CSV_MAX_MB === 50 &&
+        CLI_SOFT_LIMITS_MB.PDF_MAX_MB === 100 &&
+        CLI_SOFT_LIMITS_MB.VIDEO_MAX_MB === 500
+      );
+    },
+  },
+  {
+    name: "CLI (review #1202 round 4): validateCsvMaxRows rejects out-of-range values via the standalone export",
+    category: "cli",
+    fn: async () => {
+      try {
+        validateCsvMaxRows({ csvMaxRows: "100001" });
+        return false; // should have thrown
+      } catch (error) {
+        if (!(error instanceof Error)) {
+          return false;
+        }
+        return /Invalid --csv-max-rows/.test(error.message);
+      }
+    },
+  },
+  {
+    name: "CLI (review #1202 round 4): session.ts --file help text documents URL support (<path|url>)",
+    category: "cli",
+    fn: async () => {
+      const { readFileSync } = await import("fs");
+      const { join: pathJoin } = await import("path");
+      const src = readFileSync(
+        pathJoin(process.cwd(), "src/cli/loop/session.ts"),
+        "utf-8",
+      );
+      return src.includes('"--file <path|url>"');
     },
   },
 ];

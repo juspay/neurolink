@@ -552,6 +552,27 @@ export class LoopSession {
       "\nAny other command will be executed as a standard neurolink CLI command.",
     );
 
+    // #315: multimodal file flags are buried in the raw yargs dump below — call
+    // them out explicitly so loop users know PDFs/images/CSVs/video are supported.
+    logger.always(chalk.cyan("\nMultimodal file inputs (per-command flags):"));
+    [
+      ["--image <path|url>", "Attach an image for analysis (repeatable)"],
+      ["--pdf <path|url>", "Attach a PDF document (repeatable)"],
+      [
+        "--csv <path|url>",
+        "Attach a CSV file (see --csv-format, --csv-max-rows)",
+      ],
+      ["--video <path|url>", "Attach a video for analysis"],
+      ["--file <path|url>", "Attach a file and auto-detect its type"],
+    ].forEach(([flag, desc]) => {
+      logger.always(chalk.yellow(`  ${flag.padEnd(20)}`) + `${desc}`);
+    });
+    logger.always(
+      chalk.gray(
+        '  e.g.  generate "Describe this" --image ./photo.jpg --pdf ./report.pdf',
+      ),
+    );
+
     // Also show the standard help output
     this.initializeCliParser().showHelp("log");
   }
@@ -569,6 +590,15 @@ export class LoopSession {
         logger.always(chalk.gray(`    Type: ${schema.type}`));
       }
     }
+    // #350: multimodal file inputs are per-command flags, not session variables,
+    // so they don't appear above — point users to them explicitly.
+    logger.always(
+      chalk.gray(
+        "\n  Note: file inputs (--image/--pdf/--csv/--video/--file) are per-command\n" +
+          "  flags, not session variables — pass them directly on a generate/stream line,\n" +
+          '  e.g.  generate "Summarize this" --pdf ./report.pdf',
+      ),
+    );
   }
 
   /**
