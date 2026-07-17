@@ -1415,15 +1415,13 @@ async function testPrimaryResolveHomeIndex(): Promise<boolean | null> {
   ];
 
   // Case: no key configured → 0
-  __testHooks.setConfiguredPrimaryAccountKey(undefined);
-  if (__testHooks.resolveHomeIndex(accts) !== 0) {
+  if (__testHooks.resolveHomeIndex(accts, undefined) !== 0) {
     log("resolveHomeIndex: undefined key did not return 0", "red");
     return false;
   }
 
   // Case: key resolves to its index
-  __testHooks.setConfiguredPrimaryAccountKey("anthropic:b@test");
-  if (__testHooks.resolveHomeIndex(accts) !== 1) {
+  if (__testHooks.resolveHomeIndex(accts, "anthropic:b@test") !== 1) {
     log(
       "resolveHomeIndex: did not return correct index for present key",
       "red",
@@ -1432,15 +1430,13 @@ async function testPrimaryResolveHomeIndex(): Promise<boolean | null> {
   }
 
   // Case: key not in list → 0
-  __testHooks.setConfiguredPrimaryAccountKey("anthropic:missing@test");
-  if (__testHooks.resolveHomeIndex(accts) !== 0) {
+  if (__testHooks.resolveHomeIndex(accts, "anthropic:missing@test") !== 0) {
     log("resolveHomeIndex: missing key did not fall back to 0", "red");
     return false;
   }
 
   // Case: empty enabledAccounts → 0
-  __testHooks.setConfiguredPrimaryAccountKey("anthropic:b@test");
-  if (__testHooks.resolveHomeIndex([]) !== 0) {
+  if (__testHooks.resolveHomeIndex([], "anthropic:b@test") !== 0) {
     log("resolveHomeIndex: empty list did not return 0", "red");
     return false;
   }
@@ -1463,9 +1459,8 @@ async function testPrimaryMaybeResetToHome(): Promise<boolean | null> {
   ];
 
   // Configure home as index 1 (b), simulate rotation to 2, expect reset to 1.
-  __testHooks.setConfiguredPrimaryAccountKey("anthropic:b@test");
   __testHooks.setPrimaryAccountIndex(2);
-  __testHooks.maybeResetPrimaryToHome(accts);
+  __testHooks.maybeResetPrimaryToHome(accts, "anthropic:b@test");
   if (__testHooks.getPrimaryAccountIndex() !== 1) {
     log(
       `maybeResetPrimaryToHome: expected index 1 after reset to home, got ${__testHooks.getPrimaryAccountIndex()}`,
@@ -1475,7 +1470,7 @@ async function testPrimaryMaybeResetToHome(): Promise<boolean | null> {
   }
 
   // Already at home → no-op
-  __testHooks.maybeResetPrimaryToHome(accts);
+  __testHooks.maybeResetPrimaryToHome(accts, "anthropic:b@test");
   if (__testHooks.getPrimaryAccountIndex() !== 1) {
     log("maybeResetPrimaryToHome: should have stayed at home", "red");
     return false;
@@ -1486,7 +1481,7 @@ async function testPrimaryMaybeResetToHome(): Promise<boolean | null> {
   __testHooks.setAccountRuntimeState("anthropic:b@test", {
     coolingUntil: Date.now() + 60_000,
   });
-  __testHooks.maybeResetPrimaryToHome(accts);
+  __testHooks.maybeResetPrimaryToHome(accts, "anthropic:b@test");
   if (__testHooks.getPrimaryAccountIndex() !== 2) {
     log(
       "maybeResetPrimaryToHome: should NOT have reset while home cooling",
@@ -1499,7 +1494,7 @@ async function testPrimaryMaybeResetToHome(): Promise<boolean | null> {
   __testHooks.setAccountRuntimeState("anthropic:b@test", {
     coolingUntil: Date.now() - 1_000,
   });
-  __testHooks.maybeResetPrimaryToHome(accts);
+  __testHooks.maybeResetPrimaryToHome(accts, "anthropic:b@test");
   if (__testHooks.getPrimaryAccountIndex() !== 1) {
     log(
       "maybeResetPrimaryToHome: should have reset after cooling expired",
@@ -1510,9 +1505,8 @@ async function testPrimaryMaybeResetToHome(): Promise<boolean | null> {
 
   // Configured key absent in enabledAccounts → home falls back to 0
   __testHooks.resetAllRuntimeState();
-  __testHooks.setConfiguredPrimaryAccountKey("anthropic:missing@test");
   __testHooks.setPrimaryAccountIndex(2);
-  __testHooks.maybeResetPrimaryToHome(accts);
+  __testHooks.maybeResetPrimaryToHome(accts, "anthropic:missing@test");
   if (__testHooks.getPrimaryAccountIndex() !== 0) {
     log(
       `maybeResetPrimaryToHome: missing key should fall back to 0, got ${__testHooks.getPrimaryAccountIndex()}`,
@@ -1678,7 +1672,7 @@ async function testOrderAccountsByQuota(): Promise<boolean | null> {
   });
 
   const ordered = __testHooks
-    .orderAccountsByQuota([a, b, c] as never, now)
+    .orderAccountsByQuota([a, b, c] as never, now, undefined)
     .map((x: { label: string }) => x.label);
   if (ordered.join(",") !== "b,a,c") {
     log(
@@ -1694,7 +1688,7 @@ async function testOrderAccountsByQuota(): Promise<boolean | null> {
   // it forever: never picked → never observed → never comparable.
   const d: Acct = { key: "anthropic:d", label: "d", token: "t", type: "oauth" };
   const probeOrdered = __testHooks
-    .orderAccountsByQuota([a, b, d] as never, now)
+    .orderAccountsByQuota([a, b, d] as never, now, undefined)
     .map((x: { label: string }) => x.label);
   if (probeOrdered.join(",") !== "d,b,a") {
     log(
@@ -1708,11 +1702,9 @@ async function testOrderAccountsByQuota(): Promise<boolean | null> {
   // Primary tie-break: with equal knowledge (both unknown), the configured
   // primary wins over insertion order.
   const e: Acct = { key: "anthropic:e", label: "e", token: "t", type: "oauth" };
-  __testHooks.setConfiguredPrimaryAccountKey("anthropic:e");
   const tieOrdered = __testHooks
-    .orderAccountsByQuota([d, e] as never, now)
+    .orderAccountsByQuota([d, e] as never, now, "anthropic:e")
     .map((x: { label: string }) => x.label);
-  __testHooks.setConfiguredPrimaryAccountKey(undefined);
   if (tieOrdered.join(",") !== "e,d") {
     log(
       `orderAccountsByQuota: expected e,d (primary tie-break), got ${tieOrdered.join(",")}`,
@@ -1731,10 +1723,10 @@ async function testOrderAccountsByQuota(): Promise<boolean | null> {
 }
 
 // ============================================================================
-// Tests: session-first ordering, soft limit, and reset freshening
+// Tests: weekly-expiry-first ordering, soft limit, and reset freshening
 // ============================================================================
 
-async function testSessionFirstOrdering(): Promise<boolean | null> {
+async function testWeeklyExpiryOrdering(): Promise<boolean | null> {
   const { __testHooks } =
     await import("../src/lib/server/routes/claudeProxyRoutes.js");
   // Isolate the quota env knobs: earlier cases assume the defaults, and a
@@ -1744,7 +1736,7 @@ async function testSessionFirstOrdering(): Promise<boolean | null> {
   delete process.env.NEUROLINK_PROXY_SESSION_SOFT_LIMIT;
   delete process.env.NEUROLINK_PROXY_SESSION_RESET_TOLERANCE_MS;
   try {
-    return await runSessionFirstOrderingCases(__testHooks);
+    return await runWeeklyExpiryOrderingCases(__testHooks);
   } finally {
     if (savedSoftLimit !== undefined) {
       process.env.NEUROLINK_PROXY_SESSION_SOFT_LIMIT = savedSoftLimit;
@@ -1759,7 +1751,7 @@ async function testSessionFirstOrdering(): Promise<boolean | null> {
   }
 }
 
-async function runSessionFirstOrderingCases(
+async function runWeeklyExpiryOrderingCases(
   __testHooks: (typeof import("../src/lib/server/routes/claudeProxyRoutes.js"))["__testHooks"],
 ): Promise<boolean | null> {
   const now = 1_800_000_000_000;
@@ -1778,7 +1770,7 @@ async function runSessionFirstOrderingCases(
   });
   const order = (list: Acct[]): string =>
     __testHooks
-      .orderAccountsByQuota(list as never, now)
+      .orderAccountsByQuota(list as never, now, undefined)
       .map((x: { label: string }) => x.label)
       .join(",");
   const setQuota = (l: string, over: Record<string, number | string>): void =>
@@ -1791,8 +1783,8 @@ async function runSessionFirstOrderingCases(
     return false;
   };
 
-  // 1. Session-first: x's session resets in 1h, y's in 3h. y's WEEKLY resets
-  //    far sooner — but the expiring session window must win.
+  // 1. Weekly-expiry-first: x's session resets in 1h, y's in 3h, but y's
+  //    overall weekly allowance expires far sooner and must be consumed first.
   __testHooks.resetAllRuntimeState();
   setQuota("x", {
     sessionResetAt: nowSec + 3600,
@@ -1803,39 +1795,55 @@ async function runSessionFirstOrderingCases(
     weeklyResetAt: nowSec + 6 * 3600,
   });
   let got = order([acct("x"), acct("y")]);
-  if (got !== "x,y") {
-    return fail(`session-first: expected x,y (1h session wins), got ${got}`);
+  if (got !== "y,x") {
+    return fail(`weekly-first: expected y,x (6h weekly wins), got ${got}`);
   }
 
-  // 2. Same session bucket → weekly decides.
+  // 2. Same weekly reset -> the earlier session-reset bucket wins.
   __testHooks.resetAllRuntimeState();
   setQuota("x", {
     sessionResetAt: baseSec + 60,
     weeklyResetAt: nowSec + 5 * 24 * 3600,
   });
   setQuota("y", {
-    sessionResetAt: baseSec + 120,
-    weeklyResetAt: nowSec + 6 * 3600,
+    sessionResetAt: baseSec + bucketSec + 60,
+    weeklyResetAt: nowSec + 5 * 24 * 3600,
   });
-  got = order([acct("x"), acct("y")]);
-  if (got !== "y,x") {
-    return fail(`same-bucket: expected y,x (weekly tie-break), got ${got}`);
+  got = order([acct("y"), acct("x")]);
+  if (got !== "x,y") {
+    return fail(`same-weekly: expected x,y (session tie-break), got ${got}`);
   }
 
   // 3. Soft limit (default 0.97): a saturated session demotes below headroom
-  //    even when its session reset is soonest.
+  //    even when its weekly allowance expires soonest.
   __testHooks.resetAllRuntimeState();
-  setQuota("x", { sessionResetAt: nowSec + 3600, sessionUsed: 0.98 });
-  setQuota("y", { sessionResetAt: nowSec + 3 * 3600, sessionUsed: 0.5 });
+  setQuota("x", {
+    sessionResetAt: nowSec + 3600,
+    sessionUsed: 0.98,
+    weeklyResetAt: nowSec + 6 * 3600,
+  });
+  setQuota("y", {
+    sessionResetAt: nowSec + 3 * 3600,
+    sessionUsed: 0.5,
+    weeklyResetAt: nowSec + 5 * 24 * 3600,
+  });
   got = order([acct("x"), acct("y")]);
   if (got !== "y,x") {
     return fail(`soft-limit: expected y,x (0.98 saturated), got ${got}`);
   }
 
-  // 4. Just under the limit is NOT saturated.
+  // 4. Just under the limit is NOT saturated, so weekly urgency wins.
   __testHooks.resetAllRuntimeState();
-  setQuota("x", { sessionResetAt: nowSec + 3600, sessionUsed: 0.96 });
-  setQuota("y", { sessionResetAt: nowSec + 3 * 3600, sessionUsed: 0.5 });
+  setQuota("x", {
+    sessionResetAt: nowSec + 3 * 3600,
+    sessionUsed: 0.96,
+    weeklyResetAt: nowSec + 6 * 3600,
+  });
+  setQuota("y", {
+    sessionResetAt: nowSec + 3600,
+    sessionUsed: 0.5,
+    weeklyResetAt: nowSec + 5 * 24 * 3600,
+  });
   got = order([acct("x"), acct("y")]);
   if (got !== "x,y") {
     return fail(`under-limit: expected x,y (0.96 has headroom), got ${got}`);
@@ -1850,17 +1858,29 @@ async function runSessionFirstOrderingCases(
     return fail(`throttled: expected y,x (throttled demoted), got ${got}`);
   }
 
-  // 6. Reset freshening: a PASSED session reset means a fresh window — high
-  //    stale utilization must not saturate it. It has nothing expiring, so it
-  //    sorts after ticking windows but ahead of saturated ones.
+  // 6. Reset freshening: a PASSED session reset means a fresh window — stale
+  //    utilization must not saturate the account. Weekly urgency still wins
+  //    among accounts with headroom, while a saturated account remains last.
   __testHooks.resetAllRuntimeState();
-  setQuota("x", { sessionResetAt: nowSec - 60, sessionUsed: 0.99 });
-  setQuota("y", { sessionResetAt: nowSec + 2 * 3600, sessionUsed: 0.5 });
-  setQuota("z", { sessionResetAt: nowSec + 1800, sessionUsed: 0.99 });
+  setQuota("x", {
+    sessionResetAt: nowSec - 60,
+    sessionUsed: 0.99,
+    weeklyResetAt: nowSec + 6 * 3600,
+  });
+  setQuota("y", {
+    sessionResetAt: nowSec + 2 * 3600,
+    sessionUsed: 0.5,
+    weeklyResetAt: nowSec + 5 * 24 * 3600,
+  });
+  setQuota("z", {
+    sessionResetAt: nowSec + 1800,
+    sessionUsed: 0.99,
+    weeklyResetAt: nowSec + 3600,
+  });
   got = order([acct("x"), acct("y"), acct("z")]);
-  if (got !== "y,x,z") {
+  if (got !== "x,y,z") {
     return fail(
-      `freshening: expected y,x,z (ticking first, fresh window not saturated, saturated last), got ${got}`,
+      `freshening: expected x,y,z (urgent fresh session first, saturated last), got ${got}`,
     );
   }
 
@@ -1874,8 +1894,8 @@ async function runSessionFirstOrderingCases(
     return fail(`both-saturated: expected y,x (soonest reset), got ${got}`);
   }
 
-  // 8. Both saturated, SAME bucket → tolerance still applies and weekly
-  //    decides, exactly like the unsaturated path.
+  // 8. Both saturated, SAME session bucket → weekly decides which urgent
+  //    account should be resumed first.
   __testHooks.resetAllRuntimeState();
   setQuota("x", {
     sessionResetAt: baseSec + 60,
@@ -1905,9 +1925,39 @@ async function runSessionFirstOrderingCases(
     return fail(`env-limit: expected y,x (0.6 >= 0.5 saturated), got ${got}`);
   }
 
+  // 10. Regression for the observed three-account snapshot: sachin's weekly
+  // allowance expires first and has substantial capacity left. Its stale 5h
+  // reset has passed, so it is fresh and must outrank hello's newer weekly
+  // window even though hello has an actively ticking 5h session.
+  __testHooks.resetAllRuntimeState();
+  setQuota("hello", {
+    sessionUsed: 0.11,
+    sessionResetAt: nowSec + 98 * 60,
+    weeklyUsed: 0.51,
+    weeklyResetAt: nowSec + 52 * 3600,
+  });
+  setQuota("sachiny", {
+    sessionUsed: 0.44,
+    sessionResetAt: nowSec - 112 * 60,
+    weeklyUsed: 0.44,
+    weeklyResetAt: nowSec + 132 * 3600,
+  });
+  setQuota("sachin", {
+    sessionUsed: 0.97,
+    sessionResetAt: nowSec - 172 * 60,
+    weeklyUsed: 0.39,
+    weeklyResetAt: nowSec + 12 * 3600,
+  });
+  got = order([acct("hello"), acct("sachiny"), acct("sachin")]);
+  if (got !== "sachin,hello,sachiny") {
+    return fail(
+      `observed-snapshot: expected sachin,hello,sachiny (weekly expiry priority), got ${got}`,
+    );
+  }
+
   __testHooks.resetAllRuntimeState();
   log(
-    "sessionFirstOrdering: 9 cases passed (session-first, bucket tie-break, 0.97 soft limit, throttle, freshening)",
+    "weeklyExpiryOrdering: 10 cases passed (weekly-first, session safety, bucket tie-break, freshening)",
     "green",
   );
   return true;
@@ -2371,8 +2421,8 @@ const tests: TestFunction[] = [
     category: "proxy-primary",
   },
   {
-    name: "Quota: session-first ordering + soft limit + freshening",
-    fn: testSessionFirstOrdering,
+    name: "Quota: weekly-expiry ordering + soft limit + freshening",
+    fn: testWeeklyExpiryOrdering,
     category: "proxy-primary",
   },
   {

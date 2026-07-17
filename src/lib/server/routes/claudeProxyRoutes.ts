@@ -148,12 +148,6 @@ const BLOCKED_UPSTREAM_HEADERS = new Set([
 let primaryAccountIndex = 0;
 /** Track account count so we can reset primaryAccountIndex when it changes. */
 let lastKnownAccountCount = 0;
-/** Stable account key used by legacy fixed-config route factories. Runtime
- *  config providers pass the request generation's primary key explicitly.
- *  When undefined, home semantics retain insertion-order behavior. */
-let configuredPrimaryAccountKey: string | undefined;
-let configuredAccountAllowlist: AccountAllowlist | undefined;
-
 const MAX_AUTH_RETRIES = 5;
 const MAX_TRANSIENT_SAME_ACCOUNT_RETRIES = 2;
 const TRANSIENT_SAME_ACCOUNT_RETRY_DELAYS_MS = [250, 1_000] as const;
@@ -245,7 +239,7 @@ function advancePrimaryIfCurrent(
  *  can shift between requests. */
 function resolveHomeIndex(
   enabledAccounts: ProxyPassthroughAccount[],
-  primaryAccountKey: string | undefined = configuredPrimaryAccountKey,
+  primaryAccountKey: string | undefined,
 ): number {
   if (!primaryAccountKey) {
     return 0;
@@ -262,7 +256,7 @@ function resolveHomeIndex(
  *  request. Home is resolved fresh per call via resolveHomeIndex. */
 function maybeResetPrimaryToHome(
   enabledAccounts: ProxyPassthroughAccount[],
-  primaryAccountKey: string | undefined = configuredPrimaryAccountKey,
+  primaryAccountKey: string | undefined,
 ): void {
   if (enabledAccounts.length <= 1) {
     return;
@@ -668,31 +662,33 @@ function accountSortMetrics(
 
 /**
  * Order accounts to MAXIMIZE quota utilization (fill-first, smart order):
- * spend the window that expires SOONEST first, so its about-to-reset
- * allowance isn't wasted, then move to accounts with longer-dated resets.
+ * spend the overall weekly allowance that expires SOONEST first, so quota
+ * cannot disappear while traffic is consuming a newer weekly window. The 5h
+ * window remains an availability boundary: a session at its soft limit is
+ * temporarily demoted until that session resets.
  *
  * Priority among usable accounts:
  *   1. no quota data yet — probe first: one request reveals its windows and
  *      self-corrects the ordering. (Ranking unknowns last would starve them
  *      forever: never picked → never observed → never comparable.)
  *   2. session headroom before session-saturated (>= soft limit or
- *      "throttled") — saturated accounts then follow the same bucketed
- *      session ordering below: soonest back in service first, weekly
- *      deciding same-bucket ties.
- *   3. soonest SESSION (5h) reset — the capacity expiring soonest; compared
- *      in tolerance buckets so near-simultaneous resets count as equal.
- *   4. soonest WEEKLY (7d) reset — decides between same-bucket sessions.
- *   5. highest weekly utilization — finish off the one closest to done
+ *      "throttled") — do not re-hammer an urgent weekly account while its 5h
+ *      capacity is temporarily unavailable.
+ *   3. soonest WEEKLY (7d) reset — consume the oldest overall allowance
+ *      before it expires.
+ *   4. soonest SESSION (5h) reset — decides equal-weekly or fresh-weekly ties,
+ *      using tolerance buckets for comparator stability.
+ *   5. highest weekly utilization — finish off the one closest to done.
  *   6. configured primary account, then insertion order
- * An account with NO ticking session window (fresh, not yet started) has
- * nothing expiring and sorts after ticking windows in step 3.
+ * Saturated pairs are ordered by soonest 5h recovery first, then weekly reset,
+ * because neither can consume more quota until session capacity returns.
  * Cooling/rejected accounts sort last, soonest-back-to-service first, as
  * last resort.
  */
 function orderAccountsByQuota(
   accounts: ProxyPassthroughAccount[],
   now: number,
-  primaryKey: string | undefined = configuredPrimaryAccountKey,
+  primaryKey: string | undefined,
   sessionSoftLimit: number = getSessionSoftLimit(),
   sessionResetToleranceMs: number = getSessionResetToleranceMs(),
 ): ProxyPassthroughAccount[] {
@@ -715,14 +711,20 @@ function orderAccountsByQuota(
     if (ma.saturated !== mb.saturated) {
       return ma.saturated ? 1 : -1;
     }
-    // Saturated pairs fall through to the same bucketed session ordering:
-    // soonest-back-in-service at bucket granularity, weekly deciding ties —
-    // honoring the configured tolerance instead of exact-epoch comparison.
-    if (ma.sessionResetBucket !== mb.sessionResetBucket) {
-      return ma.sessionResetBucket - mb.sessionResetBucket;
-    }
-    if (ma.weeklyReset !== mb.weeklyReset) {
-      return ma.weeklyReset - mb.weeklyReset;
+    if (ma.saturated && mb.saturated) {
+      if (ma.sessionResetBucket !== mb.sessionResetBucket) {
+        return ma.sessionResetBucket - mb.sessionResetBucket;
+      }
+      if (ma.weeklyReset !== mb.weeklyReset) {
+        return ma.weeklyReset - mb.weeklyReset;
+      }
+    } else {
+      if (ma.weeklyReset !== mb.weeklyReset) {
+        return ma.weeklyReset - mb.weeklyReset;
+      }
+      if (ma.sessionResetBucket !== mb.sessionResetBucket) {
+        return ma.sessionResetBucket - mb.sessionResetBucket;
+      }
     }
     if (ma.weeklyUsed !== mb.weeklyUsed) {
       return mb.weeklyUsed - ma.weeklyUsed;
@@ -2064,8 +2066,8 @@ async function loadClaudeProxyAccounts(args: {
     tracer,
     requestStartTime,
     accountStrategy,
-    primaryAccountKey = configuredPrimaryAccountKey,
-    accountAllowlist = configuredAccountAllowlist,
+    primaryAccountKey,
+    accountAllowlist,
     quotaRoutingEnabled = isQuotaRoutingEnabled(),
     sessionSoftLimit = getSessionSoftLimit(),
     sessionResetToleranceMs = getSessionResetToleranceMs(),
@@ -2326,10 +2328,16 @@ async function loadClaudeProxyAccounts(args: {
     accountStrategy === "fill-first" &&
     orderedAccounts.length > 1 &&
     quotaRoutingEnabled;
+  if (!quotaOrdered && accountStrategy === "fill-first") {
+    // Apply the request-scoped home before deriving this request's order. A
+    // hot-reloaded primary change must not lag by one request. Round-robin
+    // deliberately skips this reset so its rotating index remains strict.
+    maybeResetPrimaryToHome(enabledAccounts, primaryAccountKey);
+  }
   if (quotaOrdered) {
-    // Fill-first with a smart fill order: spend the account whose window resets
-    // soonest first (max utilization), proactively skipping any whose window is
-    // rejected until its reset. Supersedes the static home/primary index.
+    // Fill-first with a smart fill order: spend the account whose weekly window
+    // expires soonest while temporarily demoting sessions without headroom.
+    // Supersedes the static home/primary index.
     orderedAccounts = orderAccountsByQuota(
       enabledAccounts,
       Date.now(),
@@ -5522,17 +5530,6 @@ async function handleAnthropicRoutedClaudeRequest(args: {
   };
   const acctSelectionSpan = tracer?.startAccountSelection();
 
-  // Try to return to the home primary account if its cooling has expired.
-  // Skipped under quota routing, where the fill order is derived per-request
-  // from live quota (soonest-reset-first) rather than a static home index.
-  const usingQuotaOrder =
-    accountStrategy === "fill-first" &&
-    enabledAccounts.length > 1 &&
-    quotaRoutingEnabled;
-  if (!usingQuotaOrder) {
-    maybeResetPrimaryToHome(enabledAccounts, primaryAccountKey);
-  }
-
   // Never re-hammer accounts with a known active cooldown. When every account
   // is cooling, report the earliest persisted retry time without an upstream
   // call; restarting the proxy must not erase or bypass this quarantine.
@@ -5995,10 +5992,6 @@ export function createClaudeProxyRoutes(
     accountAllowlistOrRuntimeOptions,
   )
     ? accountAllowlistOrRuntimeOptions.runtimeConfigProvider
-    : undefined;
-  configuredPrimaryAccountKey = primaryAccountKey;
-  configuredAccountAllowlist = accountAllowlist
-    ? new Set(accountAllowlist)
     : undefined;
   return {
     prefix: `${basePath}/v1`,
@@ -6568,18 +6561,6 @@ export const __testHooks = {
     const state = accountRuntimeState.get(key);
     return state ? { ...state } : undefined;
   },
-  setConfiguredPrimaryAccountKey: (key: string | undefined): void => {
-    configuredPrimaryAccountKey = key;
-  },
-  getConfiguredPrimaryAccountKey: (): string | undefined =>
-    configuredPrimaryAccountKey,
-  setConfiguredAccountAllowlist: (
-    allowlist: AccountAllowlist | undefined,
-  ): void => {
-    configuredAccountAllowlist = allowlist ? new Set(allowlist) : undefined;
-  },
-  getConfiguredAccountAllowlist: (): string[] | undefined =>
-    configuredAccountAllowlist ? [...configuredAccountAllowlist] : undefined,
   setPrimaryAccountIndex: (index: number): void => {
     primaryAccountIndex = index;
   },
@@ -6599,8 +6580,6 @@ export const __testHooks = {
     transientCooldownAdmissionSchedules.clear();
     primaryAccountIndex = 0;
     lastKnownAccountCount = 0;
-    configuredPrimaryAccountKey = undefined;
-    configuredAccountAllowlist = undefined;
   },
   polyfillOAuthBody: (
     bodyStr: string,
