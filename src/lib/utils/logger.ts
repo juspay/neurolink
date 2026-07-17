@@ -397,6 +397,20 @@ class NeuroLinkLogger {
   }
 
   /**
+   * Logs messages unconditionally using `console.error` (stderr).
+   *
+   * Same semantics as `always()` — bypasses log level checks and debug mode
+   * gating — but targets stderr instead of stdout. Use this for output that
+   * must stay visible (safety warnings, notices) without risking corruption
+   * of machine-readable stdout (e.g. `--format json`).
+   *
+   * @param args - The arguments to log. These are passed directly to `console.error`.
+   */
+  alwaysStderr(...args: unknown[]): void {
+    console.error(...args);
+  }
+
+  /**
    * Displays tabular data unconditionally using `console.table`.
    *
    * Similar to the `always` method, this bypasses log level checks and
@@ -499,6 +513,9 @@ export const logger = {
   },
   always: (...args: unknown[]) => {
     neuroLinkLogger.always(...args);
+  },
+  alwaysStderr: (...args: unknown[]) => {
+    neuroLinkLogger.alwaysStderr(...args);
   },
   table: (data: unknown) => {
     neuroLinkLogger.table(data);

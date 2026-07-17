@@ -424,6 +424,25 @@ for await (const chunk of stream) {
 }
 ```
 
+### Batch with Multimodal (CLI)
+
+The `batch` command supports `--image`, `--csv`, `--pdf`, and `--video`. The file(s) are attached **identically to every prompt** in the batch (a one-line notice is printed to **stderr**, unconditionally — it is not suppressed by `--quiet`, so it never corrupts `--format json` output written to stdout):
+
+```bash
+neurolink batch questions.txt --csv sales.csv --format json
+```
+
+> `--file` (auto-detect) is **not** available in `batch`, because it collides with the `<file>` positional (the prompts-list path). Use the explicit `--image` / `--csv` / `--pdf` / `--video` flags instead.
+
+### File validation & troubleshooting (CLI)
+
+Before any provider call, the CLI validates local file inputs across `generate`, `stream`, and `batch`:
+
+- A path that points at a **directory**, doesn't exist, or can't be read (e.g. a permissions error) is rejected up front with a clear error and troubleshooting hints — no cryptic `EISDIR`/`EACCES` deep in processing. This also applies to the `batch` `<file>` prompts-list positional itself.
+- A **large** file (images > 10 MB, CSV/PDF > 50 MB) prints a non-blocking warning to **stderr**. Like the batch attachment notice, this is unconditional — visible without `--debug` and regardless of `--quiet` — and never mixes into stdout, so `--format json` output stays valid JSON even when large-file warnings fire.
+
+This runs even under `--dry-run` and without API keys configured.
+
 ---
 
 ## Configuration & Fine-tuning

@@ -50,6 +50,7 @@ import { resolveFilePaths } from "../utils/pathResolver.js";
 import {
   validateCliInputFiles,
   validateCsvMaxRows,
+  validatePromptsFilePath,
 } from "../utils/inputValidation.js";
 import { animatedWrite } from "../utils/typewriter.js";
 import { createStreamAbortHandler } from "../utils/abortHandler.js";
@@ -845,12 +846,31 @@ export class CLICommandFactory {
     },
   };
 
-  // Helper method to build options for commands
-  private static buildOptions(yargs: Argv, additionalOptions = {}) {
+  // Helper method to build options for commands. `excludeOptions` drops
+  // common flags from registration entirely (not just from validation) —
+  // #1191 round-5: batch uses this to omit `commonOptions.file` so `--file`
+  // isn't a recognized flag at all, since it would collide with the
+  // `<file>` positional (the prompts list).
+  private static buildOptions(
+    yargs: Argv,
+    additionalOptions = {},
+    excludeOptions: Array<keyof typeof CLICommandFactory.commonOptions> = [],
+  ) {
+    const baseOptions =
+      excludeOptions.length === 0
+        ? CLICommandFactory.commonOptions
+        : (Object.fromEntries(
+            Object.entries(CLICommandFactory.commonOptions).filter(
+              ([key]) =>
+                !excludeOptions.includes(
+                  key as keyof typeof CLICommandFactory.commonOptions,
+                ),
+            ),
+          ) as typeof CLICommandFactory.commonOptions);
     return (
       yargs
         .options({
-          ...CLICommandFactory.commonOptions,
+          ...baseOptions,
           ...additionalOptions,
         })
         // NEW9: implies relationships so users who pass --stt-provider or
@@ -2003,12 +2023,20 @@ export class CLICommandFactory {
    */
   static createBatchCommand(): CommandModule {
     return {
-      command: "batch <file>",
+      // #1191 round-5: the positional is named `promptsFile`, not `file` —
+      // yargs implicitly accepts `--<positionalName>` as a flag alias for
+      // any positional regardless of whether it's separately registered via
+      // `.options()`, so a positional literally named `file` would let
+      // `--file` silently pass strictOptions() even after removing
+      // `commonOptions.file` below. Renaming the key (invocation syntax is
+      // unaffected — it's still just `neurolink batch prompts.txt`) is what
+      // actually makes `--file` an unknown argument.
+      command: "batch <promptsFile>",
       describe: "Process multiple prompts from a file",
       builder: (yargs) => {
         return CLICommandFactory.buildOptions(
           yargs
-            .positional("file", {
+            .positional("promptsFile", {
               type: "string" as const,
               description: "File with prompts (one per line)",
               demandOption: true,
@@ -2026,6 +2054,11 @@ export class CLICommandFactory {
               "$0 batch batch.txt --output results.json",
               "Save results to file",
             ),
+          {},
+          // `--file` is not a batch flag — the positional above is the
+          // prompts-list path. Omit it from registration so it's rejected
+          // as unknown rather than silently accepted then ignored.
+          ["file"],
         );
       },
       handler: async (argv) =>
@@ -4616,15 +4649,41 @@ export class CLICommandFactory {
     const spinner = options.quiet ? null : ora().start();
 
     try {
-      if (!argv.file) {
+      if (!argv.promptsFile) {
         throw new Error("No file specified");
       }
 
-      if (!fs.existsSync(argv.file)) {
-        throw new Error(`File not found: ${argv.file}`);
-      }
+      // #291/round-4 #1191: validate multimodal flags and resolve their
+      // paths *before* the prompts file is read/parsed below, mirroring
+      // generate/stream (which validate all inputs before any processing).
+      // Previously this ran after `fs.readFileSync(resolvedPromptsPath)`,
+      // so a large prompts file paired with an invalid --image path paid
+      // the read/parse cost before the flag error ever surfaced. `--file`
+      // (the common auto-detect flag) isn't registered on batch at all —
+      // see createBatchCommand — so `argv.file` can never be set here; no
+      // exclusion needed to protect the (differently-named) positional.
+      validateCliInputFiles(argv as unknown as Record<string, unknown>);
+      const batchImages = CLICommandFactory.processCliImages(
+        argv.image as string | string[] | undefined,
+      );
+      const batchCsvFiles = CLICommandFactory.processCliCSVFiles(
+        argv.csv as string | string[] | undefined,
+      );
+      const batchPdfFiles = CLICommandFactory.processCliPDFFiles(
+        argv.pdf as string | string[] | undefined,
+      );
+      const batchVideoFiles = CLICommandFactory.processCliVideoFiles(
+        argv.video as string | string[] | undefined,
+      );
 
-      const buffer = fs.readFileSync(argv.file);
+      // #291: route the prompts-list positional through the same friendly
+      // aggregated-error path as the multimodal flags above (not found /
+      // unreadable / directory / malformed file:// URL), instead of a raw
+      // existsSync+readFileSync that throws an unfriendly EISDIR when
+      // pointed at a directory.
+      const resolvedPromptsPath = validatePromptsFilePath(argv.promptsFile);
+
+      const buffer = fs.readFileSync(resolvedPromptsPath);
       const prompts = buffer
         .toString("utf8")
         .split("\n")
@@ -4680,6 +4739,26 @@ export class CLICommandFactory {
       const enhancedOptions = { ...options, ...sessionVariables };
       const sessionId = globalSession.getCurrentSessionId();
 
+      // batchImages/batchCsvFiles/batchPdfFiles/batchVideoFiles were already
+      // validated and resolved above, before the prompts file was read.
+      if (
+        batchImages?.length ||
+        batchCsvFiles?.length ||
+        batchPdfFiles?.length ||
+        batchVideoFiles?.length
+      ) {
+        // Pause the spinner so the notice isn't swallowed by its re-renders.
+        // Safety-relevant, so always visible (not gated behind --quiet) and
+        // written to stderr so `--format json` output on stdout stays parseable.
+        spinner?.stop();
+        logger.alwaysStderr(
+          chalk.yellow(
+            "⚠️  Multimodal files (--image/--csv/--pdf/--video) are attached to ALL prompts in this batch.",
+          ),
+        );
+        spinner?.start();
+      }
+
       for (let i = 0; i < prompts.length; i++) {
         if (spinner) {
           spinner.text = `Processing ${i + 1}/${prompts.length}: ${prompts[i].substring(0, 30)}...`;
@@ -4729,7 +4808,37 @@ export class CLICommandFactory {
 
           const runBatchGenerate = () =>
             sdk.generate({
-              input: { text: inputText },
+              input: {
+                text: inputText,
+                ...(batchImages?.length && { images: batchImages }),
+                ...(batchCsvFiles?.length && { csvFiles: batchCsvFiles }),
+                ...(batchPdfFiles?.length && { pdfFiles: batchPdfFiles }),
+                ...(batchVideoFiles?.length && {
+                  videoFiles: batchVideoFiles,
+                }),
+              },
+              // Only construct these when the corresponding files are
+              // actually attached — batch has no CSV/video mode to opt into,
+              // unlike generate/stream, so an empty options object here is
+              // pure noise on every prompt of every batch run.
+              ...(batchCsvFiles?.length && {
+                csvOptions: {
+                  maxRows: argv.csvMaxRows as number | undefined,
+                  formatStyle: argv.csvFormat as
+                    | "raw"
+                    | "markdown"
+                    | "json"
+                    | undefined,
+                },
+              }),
+              ...(batchVideoFiles?.length && {
+                videoOptions: {
+                  frames: argv.videoFrames as number | undefined,
+                  quality: argv.videoQuality as number | undefined,
+                  format: argv.videoFormat as "jpeg" | "png" | undefined,
+                  transcribeAudio: argv.transcribeAudio as boolean | undefined,
+                },
+              }),
               provider: enhancedOptions.provider,
               model: enhancedOptions.model,
               temperature: enhancedOptions.temperature,
