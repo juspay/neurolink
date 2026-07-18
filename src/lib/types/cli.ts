@@ -920,6 +920,14 @@ export type ProxyStatusArgs = {
   quiet?: boolean;
 };
 
+/** Arguments accepted by `neurolink proxy analyze` */
+export type ProxyAnalyzeArgs = {
+  logsDir?: string;
+  since?: string;
+  format?: "text" | "json";
+  quiet?: boolean;
+};
+
 /** Arguments accepted by hidden `neurolink proxy guard` command */
 export type ProxyGuardArgs = {
   host?: string;

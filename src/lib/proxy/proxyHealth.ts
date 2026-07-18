@@ -10,6 +10,7 @@ export function createProxyReadinessState(
     startTimeMs,
     acceptingConnections: false,
     ready: false,
+    drainingForUpdate: false,
   };
 }
 
@@ -19,7 +20,30 @@ export function markProxyReady(
 ): void {
   state.acceptingConnections = true;
   state.ready = true;
+  state.drainingForUpdate = false;
   state.readyAtMs = readyAtMs;
+}
+
+/** Stop admitting new inference requests while existing responses drain. */
+export function markProxyDrainingForUpdate(
+  state: ProxyReadinessState,
+): boolean {
+  if (!state.ready) {
+    return false;
+  }
+  state.acceptingConnections = false;
+  state.drainingForUpdate = true;
+  return true;
+}
+
+/** Reopen inference admission after a deferred or failed update attempt. */
+export function resumeProxyConnections(state: ProxyReadinessState): boolean {
+  if (!state.ready) {
+    return false;
+  }
+  state.acceptingConnections = true;
+  state.drainingForUpdate = false;
+  return true;
 }
 
 export function buildProxyHealthResponse(
@@ -36,6 +60,7 @@ export function buildProxyHealthResponse(
     status: state.ready ? "ok" : "starting",
     ready: state.ready,
     acceptingConnections: state.acceptingConnections,
+    drainingForUpdate: state.drainingForUpdate,
     strategy: options.strategy,
     passthrough: options.passthrough,
     version: options.version,

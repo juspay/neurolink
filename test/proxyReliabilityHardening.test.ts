@@ -35,6 +35,7 @@ import {
 import {
   createStreamTerminalOutcomeTracker,
   mergeStreamTerminalOutcome,
+  preflightAnthropicStream,
 } from "../src/lib/proxy/streamOutcome.js";
 import {
   getStats,
@@ -670,7 +671,7 @@ describe("upstream attempt classification and retry amplification", () => {
       429,
       "construction_rejection",
       upstreamBody,
-      { attempt: 3 },
+      { attempt: 3, attemptDurationMs: expect.any(Number) },
     );
     expect(logFinalRequest).toHaveBeenCalledTimes(1);
     expect(logFinalRequest).toHaveBeenCalledWith(
@@ -766,6 +767,7 @@ describe("upstream attempt classification and retry amplification", () => {
         retryable: false,
         errorCode: "ERR_INVALID_URL",
         attempt: 2,
+        attemptDurationMs: expect.any(Number),
       },
     );
   });
@@ -1439,6 +1441,162 @@ describe("stream terminal outcomes", () => {
     );
   });
 
+  it("detects a fragmented SSE error before committing stream bytes", async () => {
+    const encoder = new TextEncoder();
+    const frames = [
+      "event: er",
+      'ror\ndata: {"type":"error","error":{"type":"rate_limit_error",',
+      '"message":"Rate limited"}}\n\n',
+    ];
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const frame of frames) {
+          controller.enqueue(encoder.encode(frame));
+        }
+        controller.close();
+      },
+    });
+
+    const result = await preflightAnthropicStream(stream.getReader());
+
+    expect(result).toMatchObject({
+      kind: "sse_error",
+      errorType: "rate_limit_error",
+      message: "Rate limited",
+    });
+    expect(
+      Buffer.concat(result.chunks.map((chunk) => Buffer.from(chunk))).toString(
+        "utf8",
+      ),
+    ).toBe(frames.join(""));
+  });
+
+  it("detects immediate SSE errors using CRLF framing", async () => {
+    const frame =
+      'event: error\r\ndata: {"type":"error","error":{"type":"api_error","message":"Unavailable"}}\r\n\r\n';
+    const stream = new Response(frame).body!;
+
+    await expect(
+      preflightAnthropicStream(stream.getReader()),
+    ).resolves.toMatchObject({
+      kind: "sse_error",
+      errorType: "api_error",
+      message: "Unavailable",
+    });
+  });
+
+  it("rotates on an immediate HTTP 200 SSE rate limit without a final failure", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "neurolink-sse-preflight-"));
+    tempDirs.push(dir);
+    initAccountCooldown(join(dir, "account-cooldowns.json"));
+    initAccountQuota(join(dir, "account-quotas.json"));
+
+    const encoder = new TextEncoder();
+    const frames = [
+      "event: er",
+      'ror\ndata: {"type":"error","error":{"details":null,',
+      '"type":"rate_limit_error","message":"Rate limited"}}\n\n',
+    ];
+    const upstreamStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const frame of frames) {
+          controller.enqueue(encoder.encode(frame));
+        }
+      },
+    });
+    const account = {
+      key: "anthropic:primary@example.com",
+      label: "primary@example.com",
+      token: "test-token",
+      type: "oauth" as const,
+    };
+    const accountState = {
+      consecutiveRefreshFailures: 0,
+      permanentlyDisabled: false,
+    };
+    const logAttempt = vi.fn();
+    const logFinalRequest = vi.fn();
+    const logProxyBody = vi.fn();
+    const upstreamSpan = { end: vi.fn() };
+    const tracer = { recordRetry: vi.fn() };
+    const nowSec = Math.floor(Date.now() / 1000);
+    const responseHeaders = {
+      "content-type": "text/event-stream",
+      "anthropic-ratelimit-unified-status": "allowed",
+      "anthropic-ratelimit-unified-5h-status": "allowed",
+      "anthropic-ratelimit-unified-5h-utilization": "0.06",
+      "anthropic-ratelimit-unified-5h-reset": String(nowSec + 60 * 60),
+      "anthropic-ratelimit-unified-7d-status": "allowed",
+      "anthropic-ratelimit-unified-7d-utilization": "0.01",
+      "anthropic-ratelimit-unified-7d-reset": String(nowSec + 24 * 60 * 60),
+    };
+
+    const result = await __testHooks.handleAnthropicStreamingSuccessResponse({
+      ctx: {} as never,
+      body: { model: "claude-opus-4-8", messages: [], stream: true },
+      account,
+      accountState,
+      response: new Response(upstreamStream, {
+        status: 200,
+        headers: responseHeaders,
+      }),
+      responseHeaders,
+      tracer: tracer as never,
+      requestStartTime: Date.now(),
+      fetchStartMs: Date.now(),
+      attemptNumber: 1,
+      finalBodyStr: "{}",
+      upstreamSpan: upstreamSpan as never,
+      logAttempt,
+      logProxyBody,
+      logFinalRequest,
+    });
+
+    expect(result).toEqual({
+      retryNextAccount: true,
+      failure: { message: "Rate limited", rateLimit: true },
+    });
+    expect(logAttempt).toHaveBeenCalledWith(
+      429,
+      "rate_limit_error",
+      "Rate limited",
+      {
+        retryable: true,
+        rateLimitKind: "transient",
+        cooldownReason: "transient",
+      },
+    );
+    expect(getStats()).toMatchObject({
+      totalRequests: 0,
+      totalAttemptErrors: 1,
+      totalRateLimits: 1,
+      totalTransientRateLimits: 1,
+      totalQuotaRateLimits: 0,
+    });
+    expect(accountState).toMatchObject({
+      coolingReason: "transient",
+      coolingUntil: expect.any(Number),
+    });
+    expect(accountState.coolingUntil).toBeGreaterThan(Date.now());
+    expect(logProxyBody).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "upstream_response",
+        body: frames.join(""),
+        responseStatus: 200,
+        metadata: {
+          logicalStatus: 429,
+          upstreamErrorType: "rate_limit_error",
+        },
+      }),
+    );
+    expect(logFinalRequest).not.toHaveBeenCalled();
+    expect(upstreamSpan.end).toHaveBeenCalledTimes(1);
+    expect(tracer.recordRetry).toHaveBeenCalledWith(
+      account.label,
+      "stream_rate_limit_before_commit",
+    );
+  });
+
   it("settles failed-stream telemetry exactly once", async () => {
     const encoder = new TextEncoder();
     const transportCause = Object.assign(new Error("other side closed"), {
@@ -1495,6 +1653,7 @@ describe("stream terminal outcomes", () => {
       attemptNumber: 1,
       finalBodyStr: "{}",
       upstreamSpan: upstreamSpan as never,
+      logAttempt: vi.fn(),
       logProxyBody,
       logFinalRequest,
     });

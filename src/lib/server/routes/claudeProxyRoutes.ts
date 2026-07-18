@@ -69,6 +69,7 @@ import { createSSEInterceptor } from "../../proxy/sseInterceptor.js";
 import {
   createStreamTerminalOutcomeTracker,
   mergeStreamTerminalOutcome,
+  preflightAnthropicStream,
 } from "../../proxy/streamOutcome.js";
 import {
   isPermanentRefreshFailure,
@@ -3053,6 +3054,7 @@ async function handleAnthropicSuccessfulResponse(args: {
   attemptNumber: number;
   finalBodyStr: string;
   upstreamSpan?: import("@opentelemetry/api").Span;
+  logAttempt: AnthropicAttemptLogger;
   logProxyBody: ProxyBodyCaptureLogger;
   logFinalRequest: (
     status: number,
@@ -3080,6 +3082,7 @@ async function handleAnthropicSuccessfulResponse(args: {
     attemptNumber,
     finalBodyStr,
     upstreamSpan,
+    logAttempt,
     logProxyBody,
     logFinalRequest,
   } = args;
@@ -3127,6 +3130,7 @@ async function handleAnthropicSuccessfulResponse(args: {
       attemptNumber,
       finalBodyStr,
       upstreamSpan,
+      logAttempt,
       logProxyBody,
       logFinalRequest,
     });
@@ -3160,6 +3164,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
   attemptNumber: number;
   finalBodyStr: string;
   upstreamSpan?: import("@opentelemetry/api").Span;
+  logAttempt: AnthropicAttemptLogger;
   logProxyBody: ProxyBodyCaptureLogger;
   logFinalRequest: (
     status: number,
@@ -3177,7 +3182,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
 }): Promise<AnthropicSuccessResult> {
   const {
     account,
-    accountState: _accountState,
+    accountState,
     response,
     responseHeaders,
     tracer,
@@ -3186,6 +3191,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
     attemptNumber,
     finalBodyStr,
     upstreamSpan,
+    logAttempt,
     logProxyBody,
     logFinalRequest,
   } = args;
@@ -3219,48 +3225,154 @@ async function handleAnthropicStreamingSuccessResponse(args: {
   }
 
   const reader = response.body.getReader();
-  let firstChunk: ReadableStreamReadResult<Uint8Array>;
-  try {
-    firstChunk = await reader.read();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+  const preflight = await preflightAnthropicStream(reader);
+  if (preflight.kind === "transport_error") {
+    const message = describeTransportError(preflight.error);
+    const partialBody = Buffer.concat(
+      preflight.chunks.map((chunk) => Buffer.from(chunk)),
+    ).toString("utf8");
     logger.always(
       `[proxy] stream failed before first chunk account=${account.label}: ${message}; trying next account`,
     );
     recordAttemptError(account.label, account.type, 502);
+    logAttempt(502, "stream_error", message, { retryable: true });
     tracer?.recordRetry(account.label, "stream_before_first_chunk");
     upstreamSpan?.end();
     logProxyBody({
       phase: "upstream_response",
       headers: responseHeaders,
-      body: message,
-      bodySize: Buffer.byteLength(message, "utf8"),
+      body: partialBody,
+      bodySize: Buffer.byteLength(partialBody, "utf8"),
       contentType: responseHeaders["content-type"] ?? "text/event-stream",
       account: account.label,
       accountType: account.type,
       attempt: attemptNumber,
-      responseStatus: 502,
+      responseStatus: response.status,
       durationMs: Date.now() - fetchStartMs,
+      metadata: { logicalStatus: 502, transportError: message },
     });
-    return { retryNextAccount: true };
+    return {
+      retryNextAccount: true,
+      failure: { message, rateLimit: false },
+    };
   }
-  if (firstChunk.done || !firstChunk.value || firstChunk.value.length === 0) {
+  if (preflight.kind === "empty") {
     await reader.cancel().catch(() => {
       // Best-effort release before rotating to another account.
     });
     logger.always(
       `[proxy] ← empty stream from account=${account.label}, trying next`,
     );
+    recordAttemptError(account.label, account.type, 502);
+    logAttempt(502, "empty_stream", "Empty upstream stream", {
+      retryable: true,
+    });
     tracer?.recordRetry(account.label, "empty_stream");
     upstreamSpan?.end();
-    return { retryNextAccount: true };
+    logProxyBody({
+      phase: "upstream_response",
+      headers: responseHeaders,
+      body: "",
+      bodySize: 0,
+      contentType: responseHeaders["content-type"] ?? "text/event-stream",
+      account: account.label,
+      accountType: account.type,
+      attempt: attemptNumber,
+      responseStatus: response.status,
+      durationMs: Date.now() - fetchStartMs,
+      metadata: { logicalStatus: 502, upstreamErrorType: "empty_stream" },
+    });
+    return {
+      retryNextAccount: true,
+      failure: { message: "Empty upstream stream", rateLimit: false },
+    };
+  }
+  if (preflight.kind === "sse_error") {
+    await reader.cancel().catch(() => {
+      // Best-effort release before rotating to another account.
+    });
+    const bodyText = Buffer.concat(
+      preflight.chunks.map((chunk) => Buffer.from(chunk)),
+    ).toString("utf8");
+    const isRateLimit = preflight.errorType === "rate_limit_error";
+    const logicalStatus = isRateLimit ? 429 : 502;
+    const quota = parseQuotaHeaders(responseHeaders);
+    const now = Date.now();
+    if (isRateLimit) {
+      const cooldownPlan = planCooldownFor429(
+        quota,
+        parseRetryAfterMs(responseHeaders["retry-after"] ?? null),
+        now,
+        getUnifiedRateLimitStatus(responseHeaders),
+      );
+      accountState.quota = quota ?? accountState.quota;
+      const rateLimitKind =
+        cooldownPlan.reason === "transient" ? "transient" : "quota";
+      if (
+        !accountState.coolingUntil ||
+        cooldownPlan.coolingUntil > accountState.coolingUntil
+      ) {
+        accountState.coolingUntil = cooldownPlan.coolingUntil;
+        accountState.coolingReason = cooldownPlan.reason;
+        await saveAccountCooldown(
+          account.key,
+          cooldownPlan.coolingUntil,
+          cooldownPlan.reason,
+        ).catch(() => {
+          // Non-fatal: routing already has the in-memory cooldown.
+        });
+      }
+      recordAttemptError(account.label, account.type, 429, rateLimitKind);
+      logAttempt(429, "rate_limit_error", preflight.message, {
+        retryable: true,
+        rateLimitKind,
+        cooldownReason: cooldownPlan.reason,
+      });
+    } else {
+      recordAttemptError(account.label, account.type, logicalStatus);
+      logAttempt(logicalStatus, preflight.errorType, preflight.message, {
+        retryable: true,
+      });
+    }
+    logger.always(
+      `[proxy] immediate SSE ${preflight.errorType} account=${account.label}: ${preflight.message}; rotating before client commit`,
+    );
+    tracer?.recordRetry(
+      account.label,
+      isRateLimit
+        ? "stream_rate_limit_before_commit"
+        : "stream_error_before_commit",
+    );
+    upstreamSpan?.end();
+    logProxyBody({
+      phase: "upstream_response",
+      headers: responseHeaders,
+      body: bodyText,
+      bodySize: Buffer.byteLength(bodyText, "utf8"),
+      contentType: responseHeaders["content-type"] ?? "text/event-stream",
+      account: account.label,
+      accountType: account.type,
+      attempt: attemptNumber,
+      responseStatus: response.status,
+      durationMs: Date.now() - fetchStartMs,
+      metadata: {
+        logicalStatus,
+        upstreamErrorType: preflight.errorType,
+      },
+    });
+    return {
+      retryNextAccount: true,
+      failure: { message: preflight.message, rateLimit: isRateLimit },
+    };
   }
 
   const streamOutcomeTracker = createStreamTerminalOutcomeTracker();
   let mainStreamClosed = false;
   const remainingStream = new ReadableStream({
     start(controller) {
-      controller.enqueue(firstChunk.value);
+      for (const chunk of preflight.chunks) {
+        controller.enqueue(chunk);
+      }
     },
     async pull(controller) {
       if (mainStreamClosed) {
@@ -4135,6 +4247,7 @@ async function handleAnthropicAuthRetry(args: {
     await clearAuthCooldownAfterRefresh(account, accountState);
     headers.authorization = `Bearer ${account.token}`;
     const retryAttemptNumber = allocateAttemptNumber();
+    const retryAttemptStartedAt = Date.now();
     recordAttempt(account.label, account.type);
     const retryLogAttempt: AnthropicAttemptLogger = (
       status,
@@ -4145,6 +4258,7 @@ async function handleAnthropicAuthRetry(args: {
       logAttempt(status, errorType, errorMessage, {
         ...extra,
         attempt: retryAttemptNumber,
+        attemptDurationMs: Date.now() - retryAttemptStartedAt,
       });
     const retryBodyStr = buildUpstreamBody(account.token).bodyStr;
     const retryFetchStartMs = Date.now();
@@ -4978,7 +5092,9 @@ function createAnthropicAttemptLogger(args: {
 }): AnthropicAttemptLogger {
   const { ctx, body, toolCount, requestStart, tracer, account, attemptNumber } =
     args;
+  const attemptStartedAt = Date.now();
   return (status, errorType, errorMessage, extra) => {
+    const attemptCompletedAt = Date.now();
     const traceCtx = tracer?.getTraceContext();
     logRequestAttempt({
       timestamp: new Date().toISOString(),
@@ -4992,7 +5108,9 @@ function createAnthropicAttemptLogger(args: {
       account: account.label,
       accountType: account.type,
       responseStatus: status,
-      responseTimeMs: Date.now() - requestStart,
+      responseTimeMs: attemptCompletedAt - requestStart,
+      attemptDurationMs:
+        extra?.attemptDurationMs ?? attemptCompletedAt - attemptStartedAt,
       ...(errorType ? { errorType } : {}),
       ...(errorMessage ? { errorMessage } : {}),
       ...(extra?.errorCode ? { errorCode: extra.errorCode } : {}),
@@ -5888,10 +6006,16 @@ async function handleAnthropicRoutedClaudeRequest(args: {
         attemptNumber: loopState.attemptNumber,
         finalBodyStr: preparedAttempt.finalBodyStr,
         upstreamSpan,
+        logAttempt,
         logProxyBody,
         logFinalRequest,
       });
       if ("retryNextAccount" in successResult) {
+        if (successResult.failure) {
+          loopState.lastError = successResult.failure.message;
+          loopState.sawRateLimit ||= successResult.failure.rateLimit;
+          loopState.sawTransientFailure ||= !successResult.failure.rateLimit;
+        }
         continue accountLoop;
       }
       return successResult.response;

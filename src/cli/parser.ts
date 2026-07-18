@@ -22,6 +22,7 @@ import {
   proxyInstallCommand,
   proxyUninstallCommand,
 } from "./commands/proxy.js";
+import { proxyAnalyzeCommand } from "./commands/proxyAnalyze.js";
 import { EvaluateCommandFactory } from "./commands/evaluate.js";
 import { TaskCommandFactory } from "./commands/task.js";
 import { AutoresearchCommandFactory } from "./commands/autoresearch.js";
@@ -255,6 +256,7 @@ export function initializeCliParser() {
           yargs
             .command(proxyStartCommand)
             .command(proxyStatusCommand)
+            .command(proxyAnalyzeCommand)
             .command(proxyTelemetryCommand)
             .command(proxySetupCommand)
             .command(proxyGuardCommand)
@@ -262,7 +264,7 @@ export function initializeCliParser() {
             .command(proxyUninstallCommand)
             .demandCommand(
               1,
-              "Please specify a proxy subcommand: start, status, telemetry <setup|start|stop|status|logs|import-dashboard>, setup, guard, install, or uninstall",
+              "Please specify a proxy subcommand: start, status, analyze, telemetry <setup|start|stop|status|logs|import-dashboard>, setup, guard, install, or uninstall",
             ),
         handler: () => {},
       })

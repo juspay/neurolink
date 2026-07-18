@@ -69,6 +69,31 @@ function isValidLastFailure(
   );
 }
 
+function isValidDeferredUpdate(
+  value: unknown,
+): value is NonNullable<UpdateState["deferredUpdate"]> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.version === "string" &&
+    typeof candidate.since === "string" &&
+    typeof candidate.updatedAt === "string" &&
+    [
+      "waiting_for_quiet",
+      "draining",
+      "drain_timeout",
+      "drain_unavailable",
+      "activity_unavailable",
+    ].includes(String(candidate.reason)) &&
+    (candidate.activeRequests === null ||
+      (typeof candidate.activeRequests === "number" &&
+        Number.isInteger(candidate.activeRequests) &&
+        candidate.activeRequests >= 0))
+  );
+}
+
 // ============================================
 // Exported Functions
 // ============================================
@@ -84,6 +109,7 @@ export function getDefaultUpdateState(): UpdateState {
     lastUpdateAt: null,
     lastUpdateVersion: null,
     pendingRestartVersion: null,
+    deferredUpdate: null,
     lastFailure: null,
   };
 }
@@ -124,6 +150,9 @@ export function loadUpdateState(stateFilePath?: string): UpdateState | null {
         typeof candidate.pendingRestartVersion === "string"
           ? candidate.pendingRestartVersion
           : null,
+      deferredUpdate: isValidDeferredUpdate(candidate.deferredUpdate)
+        ? candidate.deferredUpdate
+        : null,
       lastFailure: isValidLastFailure(candidate.lastFailure)
         ? candidate.lastFailure
         : null,
@@ -217,6 +246,7 @@ export function recordSuccessfulUpdate(
   state.lastUpdateAt = new Date().toISOString();
   state.lastUpdateVersion = version;
   state.pendingRestartVersion = null;
+  state.deferredUpdate = null;
   state.lastFailure = null;
   delete state.suppressedVersions[version];
   saveUpdateState(state, stateFilePath);
@@ -262,6 +292,45 @@ export function recordUpdateFailure(
     message: message.trim().slice(0, 1_000),
   };
   saveUpdateState(state, stateFilePath);
+}
+
+/** Persist why a discovered update is waiting without treating it as a failure. */
+export function recordUpdateDeferred(
+  version: string,
+  reason: NonNullable<UpdateState["deferredUpdate"]>["reason"],
+  activeRequests: number | null,
+  stateFilePath?: string,
+): void {
+  const state = loadUpdateState(stateFilePath) ?? getDefaultUpdateState();
+  const now = new Date().toISOString();
+  state.deferredUpdate = {
+    version,
+    since:
+      state.deferredUpdate?.version === version
+        ? state.deferredUpdate.since
+        : now,
+    updatedAt: now,
+    reason,
+    activeRequests,
+  };
+  saveUpdateState(state, stateFilePath);
+}
+
+/** Clear matching updater deferral metadata once work can proceed. */
+export function clearUpdateDeferral(
+  version?: string,
+  stateFilePath?: string,
+): boolean {
+  const state = loadUpdateState(stateFilePath);
+  if (
+    !state?.deferredUpdate ||
+    (version !== undefined && state.deferredUpdate.version !== version)
+  ) {
+    return false;
+  }
+  state.deferredUpdate = null;
+  saveUpdateState(state, stateFilePath);
+  return true;
 }
 
 /** Complete an updater-managed install after a manual or automatic restart. */
