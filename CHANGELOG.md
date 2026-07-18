@@ -1,3 +1,9 @@
+## [9.93.0](https://github.com/juspay/neurolink/compare/v9.92.3...v9.93.0) (2026-07-18)
+
+### Features
+
+- **(proxy):** add compatibility telemetry foundation ([e303c7c](https://github.com/juspay/neurolink/commit/e303c7c8044329baef3cb9e226da1363b63e118d))
+
 ## [9.92.3](https://github.com/juspay/neurolink/compare/v9.92.2...v9.92.3) (2026-07-18)
 
 ### Bug Fixes
