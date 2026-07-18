@@ -10,6 +10,11 @@ import {
   logProxyLifecycleEvent,
   resetProxyLifecycleLoggerForTests,
 } from "../../src/lib/proxy/proxyLifecycle.js";
+import {
+  beginProxyRequest,
+  resetProxyActivityForTests,
+  trackProxyResponse,
+} from "../../src/lib/proxy/proxyActivity.js";
 
 const configuredRequests = Number(
   process.env.PROXY_LIFECYCLE_BENCH_REQUESTS ?? 25_000,
@@ -19,6 +24,32 @@ const REQUESTS = Math.max(
   Number.isFinite(configuredRequests) ? Math.floor(configuredRequests) : 25_000,
 );
 const EVENTS_PER_REQUEST = 4;
+const configuredResponseSamples = Number(
+  process.env.PROXY_RESPONSE_BENCH_REQUESTS ?? 2_000,
+);
+const RESPONSE_SAMPLES = Math.max(
+  100,
+  Math.min(
+    REQUESTS,
+    Number.isFinite(configuredResponseSamples)
+      ? Math.floor(configuredResponseSamples)
+      : 2_000,
+  ),
+);
+const configuredHotPathBudget = Number(
+  process.env.PROXY_LIFECYCLE_MAX_P95_MICROS,
+);
+const MAX_HOT_PATH_P95_MICROS =
+  Number.isFinite(configuredHotPathBudget) && configuredHotPathBudget >= 0
+    ? configuredHotPathBudget
+    : 500;
+const configuredResponseBudget = Number(
+  process.env.PROXY_RESPONSE_MAX_P95_OVERHEAD_MICROS,
+);
+const MAX_RESPONSE_OVERHEAD_P95_MICROS =
+  Number.isFinite(configuredResponseBudget) && configuredResponseBudget >= 0
+    ? configuredResponseBudget
+    : 1_000;
 
 function percentile(sorted: number[], fraction: number): number {
   const index = Math.min(
@@ -84,6 +115,35 @@ function enqueueRequest(requestNumber: number): void {
   });
 }
 
+function makeResponse(): Response {
+  const chunks = Array.from({ length: 8 }, (_, index) =>
+    new TextEncoder().encode(`chunk-${index}-${"x".repeat(120)}`),
+  );
+  return new Response(
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const chunk of chunks) {
+          controller.enqueue(chunk);
+        }
+        controller.close();
+      },
+    }),
+  );
+}
+
+async function measureResponseConsumption(tracked: boolean): Promise<number[]> {
+  const samples: number[] = [];
+  for (let index = 0; index < RESPONSE_SAMPLES; index += 1) {
+    const startedAt = performance.now();
+    const response = tracked
+      ? trackProxyResponse(makeResponse(), beginProxyRequest())
+      : makeResponse();
+    await response.arrayBuffer();
+    samples.push(performance.now() - startedAt);
+  }
+  return samples;
+}
+
 const logDir = await mkdtemp(
   join(tmpdir(), "neurolink-proxy-lifecycle-bench-"),
 );
@@ -109,13 +169,36 @@ try {
   await flushProxyLifecycleEvents();
   const flushDurationMs = performance.now() - flushStartedAt;
   const afterFlush = getProxyLifecycleLoggerSnapshot();
+  const directResponse = summarize(await measureResponseConsumption(false));
+  const trackedResponse = summarize(await measureResponseConsumption(true));
+  const responseOverheadP95Micros = Math.max(
+    0,
+    trackedResponse.p95Micros - directResponse.p95Micros,
+  );
+  const hotPath = summarize(requestSamplesMs);
+  const budgets = {
+    hotPathP95Micros: MAX_HOT_PATH_P95_MICROS,
+    responseOverheadP95Micros: MAX_RESPONSE_OVERHEAD_P95_MICROS,
+  };
+  const passed =
+    hotPath.p95Micros <= budgets.hotPathP95Micros &&
+    responseOverheadP95Micros <= budgets.responseOverheadP95Micros &&
+    afterFlush.dropped === 0 &&
+    afterFlush.pending === 0 &&
+    afterFlush.inFlight === 0;
 
   process.stdout.write(
     `${JSON.stringify(
       {
         requests: REQUESTS,
         events: REQUESTS * EVENTS_PER_REQUEST,
-        hotPath: summarize(requestSamplesMs),
+        hotPath,
+        responseTracking: {
+          samples: RESPONSE_SAMPLES,
+          direct: directResponse,
+          tracked: trackedResponse,
+          addedP95Micros: responseOverheadP95Micros,
+        },
         flush: {
           durationMs: flushDurationMs,
           eventsPerSecond:
@@ -133,12 +216,18 @@ try {
           pending: afterFlush.pending,
           inFlight: afterFlush.inFlight,
         },
+        budgets,
+        passed,
       },
       null,
       2,
     )}\n`,
   );
+  if (!passed) {
+    process.exitCode = 1;
+  }
 } finally {
   resetProxyLifecycleLoggerForTests();
+  resetProxyActivityForTests();
   await rm(logDir, { recursive: true, force: true });
 }

@@ -536,7 +536,10 @@ export type RequestAttemptLogEntry = {
   account: string;
   accountType: string;
   responseStatus: number;
+  /** End-to-end request age when this attempt completed. */
   responseTimeMs: number;
+  /** Time spent in this specific account attempt. */
+  attemptDurationMs?: number;
   errorType?: string;
   errorMessage?: string;
   /** Low-level transport code such as ETIMEDOUT or EADDRNOTAVAIL. */
@@ -620,6 +623,8 @@ export type AnthropicAttemptLogger = (
     errorCode?: string;
     rateLimitKind?: "transient" | "quota";
     cooldownReason?: "transient" | "session" | "weekly" | "unified";
+    /** Override for nested retries whose attempt starts after this logger. */
+    attemptDurationMs?: number;
     /** Override used when one account selection performs an OAuth retry fetch. */
     attempt?: number;
   },
@@ -663,8 +668,32 @@ export type LoadedClaudeAccountContext = {
 };
 
 export type AnthropicSuccessResult =
-  | { retryNextAccount: true }
+  | {
+      retryNextAccount: true;
+      failure?: { message: string; rateLimit: boolean };
+    }
   | { response: Response | unknown };
+
+/** Result of buffering only enough upstream SSE to make a retry-safe decision. */
+export type AnthropicStreamPreflightResult =
+  | { kind: "ready"; chunks: Uint8Array[] }
+  | { kind: "empty"; chunks: Uint8Array[] }
+  | { kind: "transport_error"; chunks: Uint8Array[]; error: unknown }
+  | {
+      kind: "sse_error";
+      chunks: Uint8Array[];
+      errorType: string;
+      message: string;
+    };
+
+/** One complete Server-Sent Event extracted from an incremental buffer. */
+export type ParsedSSEEvent = { event: string; data: string };
+
+/** Complete SSE events plus the trailing partial frame. */
+export type ParsedSSEBuffer = {
+  events: ParsedSSEEvent[];
+  remainder: string;
+};
 
 export type AnthropicAuthRetryResult = {
   response?: Response | unknown;
@@ -981,6 +1010,8 @@ export type ProxyReadinessState = {
   startTimeMs: number;
   acceptingConnections: boolean;
   ready: boolean;
+  /** True only while the updater is draining inference traffic. */
+  drainingForUpdate: boolean;
   readyAtMs?: number;
 };
 
@@ -989,6 +1020,7 @@ export type ProxyHealthResponse = {
   status: "ok" | "starting";
   ready: boolean;
   acceptingConnections: boolean;
+  drainingForUpdate: boolean;
   strategy: string;
   passthrough: boolean;
   version: string;
@@ -1247,6 +1279,130 @@ export type QueuedProxyLifecycleEvent = {
   record: Record<string, unknown>;
 };
 
+/** Percentile summary used by offline proxy log analysis. */
+export type ProxyLatencySummary = {
+  count: number;
+  p50: number | null;
+  p95: number | null;
+  p99: number | null;
+  max: number | null;
+};
+
+/** Per-account request and rate-limit totals reconstructed from JSONL logs. */
+export type ProxyAnalysisAccount = {
+  account: string;
+  accountType: string;
+  attempts: number;
+  attemptErrors: number;
+  finalRequests: number;
+  finalErrors: number;
+  transientRateLimits: number;
+  quotaRateLimits: number;
+  unclassifiedRateLimits: number;
+};
+
+/** Offline report generated from proxy request, attempt, and lifecycle logs. */
+export type ProxyAnalysisReport = {
+  generatedAt: string;
+  since: string;
+  logsDir: string;
+  files: {
+    lifecycle: number;
+    requests: number;
+    attempts: number;
+  };
+  coverage: {
+    lifecycle: boolean;
+    finalRequests: boolean;
+    attempts: boolean;
+    attemptLatency: boolean;
+    cacheUsage: boolean;
+  };
+  dataQuality: {
+    linesRead: number;
+    malformedLines: number;
+    unsupportedLifecycleLines: number;
+    lifecycleSequenceGaps: number;
+    lifecycleSequenceDuplicates: number;
+  };
+  lifecycle: {
+    accepted: number;
+    headers: number;
+    firstChunks: number;
+    terminal: number;
+    unsettled: number;
+    terminalOutcomes: Record<string, number>;
+    errorTypes: Record<string, number>;
+    errorCodes: Record<string, number>;
+  };
+  requests: {
+    completed: number;
+    success: number;
+    errors: number;
+    finalRateLimits: number;
+    recoveredAfterRetry: number;
+    errorTypes: Record<string, number>;
+    errorCodes: Record<string, number>;
+  };
+  attempts: {
+    total: number;
+    errors: number;
+    errorTypes: Record<string, number>;
+    errorCodes: Record<string, number>;
+  };
+  rateLimits: {
+    attemptRateLimits: number;
+    transient: number;
+    quota: number;
+    unclassified: number;
+  };
+  latencyMs: {
+    headers: ProxyLatencySummary;
+    firstChunk: ProxyLatencySummary;
+    terminal: ProxyLatencySummary;
+    finalRequest: ProxyLatencySummary;
+    attempt: ProxyLatencySummary;
+    singleAttemptDelta: ProxyLatencySummary;
+  };
+  cache: {
+    requestsWithUsage: number;
+    requestsWithCacheRead: number;
+    cacheReadTokens: number;
+    cacheCreationTokens: number;
+    inputTokens: number;
+    requestHitRate: number | null;
+  };
+  accounts: ProxyAnalysisAccount[];
+};
+
+/** Inputs for the offline proxy JSONL analyzer. */
+export type ProxyAnalysisOptions = {
+  logsDir?: string;
+  since?: string;
+  nowMs?: number;
+};
+
+/** Attempt timing retained while joining offline proxy log records. */
+export type ProxyAnalysisAttemptRecord = {
+  count: number;
+  hadError: boolean;
+  totalDurationMs: number;
+  durationCount: number;
+};
+
+/** Final request fields retained while joining offline proxy log records. */
+export type ProxyAnalysisFinalRequestRecord = {
+  status: number;
+  durationMs: number | null;
+  account: string;
+  accountType: string;
+  inputTokens: number | null;
+  cacheReadTokens: number | null;
+  cacheCreationTokens: number | null;
+  errorType: string | null;
+  errorCode: string | null;
+};
+
 /** Request metadata retained by the HTTP adapter for terminal error logging. */
 export type RuntimeRequestMetadata = {
   requestId: string;
@@ -1256,6 +1412,8 @@ export type RuntimeRequestMetadata = {
   model: string;
   stream: boolean;
   toolCount: number;
+  /** Admission decision captured before an updater drain can race the route. */
+  rejectForUpdate?: boolean;
   terminalErrorType?: string;
   terminalErrorCode?: string;
 };
@@ -1443,6 +1601,19 @@ export type UpdateState = {
   lastUpdateVersion: string | null;
   /** Installed by the updater but not yet confirmed as the running version. */
   pendingRestartVersion: string | null;
+  /** Why an available update has not yet reached a safe install/restart boundary. */
+  deferredUpdate: {
+    version: string;
+    since: string;
+    updatedAt: string;
+    reason:
+      | "waiting_for_quiet"
+      | "draining"
+      | "drain_timeout"
+      | "drain_unavailable"
+      | "activity_unavailable";
+    activeRequests: number | null;
+  } | null;
   /** Last updater failure, retained until a successful update or replacement. */
   lastFailure: {
     at: string;
@@ -1450,6 +1621,31 @@ export type UpdateState = {
     stage: "check" | "install" | "validation" | "restart" | "health";
     message: string;
   } | null;
+};
+
+/** Result from waiting for a non-disruptive updater execution window. */
+export type ProxyUpdateWindowResult = {
+  ready: boolean;
+  draining: boolean;
+  reason?: "stopping" | "parent_stopped" | "drain_failed" | "drain_timeout";
+};
+
+/** Dependencies and timing controls for the updater's safe-window coordinator. */
+export type ProxyUpdateWindowOptions = {
+  quietThresholdMs: number;
+  quietWaitMs: number;
+  drainWaitMs: number;
+  pollIntervalMs: number;
+  getActivity: () => Promise<ProxyRuntimeActivity | null>;
+  setDraining: (draining: boolean) => Promise<boolean>;
+  isStopping: () => boolean;
+  isParentAlive: () => boolean;
+  onPhase?: (
+    phase: "waiting_for_quiet" | "draining" | "drain_timeout",
+    activity: ProxyRuntimeActivity | null,
+  ) => void;
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
 };
 
 /** Result of validating a newly installed CLI through the stable trampoline. */

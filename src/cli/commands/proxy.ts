@@ -20,7 +20,9 @@ import type { Hono } from "hono";
 import {
   buildProxyHealthResponse,
   createProxyReadinessState,
+  markProxyDrainingForUpdate,
   markProxyReady,
+  resumeProxyConnections,
   waitForProxyReadiness,
 } from "../../lib/proxy/proxyHealth.js";
 import { logger } from "../../lib/utils/logger.js";
@@ -48,6 +50,7 @@ import type {
   ProxyTelemetryArgs,
   ProxyRuntimeActivity,
   ProxyRuntimeConfigSnapshot,
+  ProxyReadinessState,
   RuntimeRequestMetadata,
   StatusStats,
 } from "../../lib/types/index.js";
@@ -80,12 +83,15 @@ import {
   validateInstalledVersion,
 } from "../../lib/proxy/globalInstaller.js";
 import { startUpdaterWorkerSupervisor } from "../../lib/proxy/updaterSupervisor.js";
+import { waitForProxyUpdateWindow } from "../../lib/proxy/updateCoordinator.js";
 import {
   abandonPendingUpdate,
+  clearUpdateDeferral,
   isVersionSuppressed,
   loadUpdateState,
   recordCheck,
   recordSuccessfulUpdate,
+  recordUpdateDeferred,
   recordUpdateFailure,
   recordUpdateInstalled,
   suppressVersion,
@@ -108,6 +114,9 @@ const PROXY_TELEMETRY_SCRIPT_PATH = fileURLToPath(
   ),
 );
 const PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS = 5_000;
+const PROXY_UPDATE_CONTROL_TOKEN =
+  process.env.NEUROLINK_PROXY_UPDATE_CONTROL_TOKEN?.trim() ||
+  crypto.randomUUID();
 
 // =============================================================================
 // STATE MANAGEMENT
@@ -523,22 +532,64 @@ async function getProxyRuntimeActivity(
   }
 }
 
-function isSafeUpdateWindow(
-  activity: ProxyRuntimeActivity,
-  quietThresholdMs: number,
-  nowMs: number = Date.now(),
-): boolean {
-  if (activity.activeRequests > 0) {
-    return false;
+async function setProxyUpdateDrain(
+  host: string,
+  port: number,
+  draining: boolean,
+): Promise<boolean> {
+  const confirmState = async (): Promise<boolean> => {
+    try {
+      const response = await fetch(`http://${host}:${port}/status`, {
+        signal: AbortSignal.timeout(3_000),
+      });
+      if (!response.ok) {
+        return false;
+      }
+      const payload = (await response.json()) as {
+        health?: { drainingForUpdate?: boolean };
+      };
+      return payload.health?.drainingForUpdate === draining;
+    } catch {
+      return false;
+    }
+  };
+  try {
+    const response = await fetch(
+      `http://${host}:${port}/internal/update-control`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-neurolink-update-token": PROXY_UPDATE_CONTROL_TOKEN,
+        },
+        body: JSON.stringify({ action: draining ? "drain" : "resume" }),
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!response.ok) {
+      return confirmState();
+    }
+    const payload = (await response.json()) as { draining?: boolean };
+    return payload.draining === draining;
+  } catch {
+    return confirmState();
   }
-  if (!activity.lastActivityAt) {
-    return true;
+}
+
+async function resumeProxyUpdateDrain(
+  host: string,
+  port: number,
+  attempts: number = 3,
+): Promise<boolean> {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    if (await setProxyUpdateDrain(host, port, false)) {
+      return true;
+    }
+    if (attempt < attempts) {
+      await sleep(1_000);
+    }
   }
-  const lastActivityMs = Date.parse(activity.lastActivityAt);
-  return (
-    Number.isFinite(lastActivityMs) &&
-    nowMs - lastActivityMs >= quietThresholdMs
-  );
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -747,7 +798,10 @@ function spawnProxyUpdater(
     const child = spawn(process.execPath, args, {
       detached: true,
       stdio: ["ignore", logFd, logFd],
-      env: process.env,
+      env: {
+        ...process.env,
+        NEUROLINK_PROXY_UPDATE_CONTROL_TOKEN: PROXY_UPDATE_CONTROL_TOKEN,
+      },
     });
     child.once("error", (error) => {
       logger.always(
@@ -980,6 +1034,7 @@ async function createProxyNeurolinkRuntime(logsDir?: string) {
 function registerProxyRequestTracking(
   app: Hono,
   requestMetadata: WeakMap<Request, RuntimeRequestMetadata>,
+  readiness: ProxyReadinessState,
 ): void {
   app.use("/v1/*", async (c, next) => {
     const startedMonotonicMs = performance.now();
@@ -1003,9 +1058,12 @@ function registerProxyRequestTracking(
       model: "-",
       stream: false,
       toolCount: 0,
+      rejectForUpdate: readiness.drainingForUpdate,
     };
     requestMetadata.set(c.req.raw, metadata);
-    const finishActivity = beginProxyRequest();
+    const finishActivity = metadata.rejectForUpdate
+      ? () => undefined
+      : beginProxyRequest();
     const finish = () => {
       finishActivity();
       requestMetadata.delete(c.req.raw);
@@ -1113,6 +1171,7 @@ export async function createProxyStartApp(params: {
   primaryAccountKey: string | undefined;
   accountAllowlist: AccountAllowlist | undefined;
   runtimeConfigStore?: ProxyRuntimeConfigStore;
+  updateControlToken?: string;
 }) {
   const { createClaudeProxyRoutes } =
     await import("../../lib/server/routes/claudeProxyRoutes.js");
@@ -1211,7 +1270,34 @@ export async function createProxyStartApp(params: {
     );
   });
 
-  registerProxyRequestTracking(app, requestMetadata);
+  app.post("/internal/update-control", async (c) => {
+    const suppliedToken = c.req.header("x-neurolink-update-token");
+    const expectedToken =
+      params.updateControlToken ?? PROXY_UPDATE_CONTROL_TOKEN;
+    if (!suppliedToken || suppliedToken !== expectedToken) {
+      return c.json({ error: "not_found" }, 404);
+    }
+    const payload = await c.req
+      .json<{ action?: string }>()
+      .catch(() => ({ action: undefined }));
+    if (payload.action === "drain") {
+      if (!markProxyDrainingForUpdate(readiness)) {
+        return c.json({ error: "proxy_not_ready" }, 409);
+      }
+    } else if (payload.action === "resume") {
+      if (!resumeProxyConnections(readiness)) {
+        return c.json({ error: "proxy_not_ready" }, 409);
+      }
+    } else {
+      return c.json({ error: "invalid_action" }, 400);
+    }
+    return c.json({
+      draining: readiness.drainingForUpdate,
+      acceptingConnections: readiness.acceptingConnections,
+    });
+  });
+
+  registerProxyRequestTracking(app, requestMetadata, readiness);
 
   const runtimeConfigStore = params.runtimeConfigStore;
   const runtimeConfigProvider = runtimeConfigStore
@@ -1242,6 +1328,33 @@ export async function createProxyStartApp(params: {
   for (const route of allProxyRoutes) {
     const method = route.method.toLowerCase() as "get" | "post";
     app[method](route.path, async (c) => {
+      const metadata = requestMetadata.get(c.req.raw);
+      if (metadata?.rejectForUpdate) {
+        if (metadata) {
+          metadata.terminalErrorType = "proxy_draining";
+          await recordRuntimeError(
+            metadata,
+            503,
+            "proxy_draining",
+            "Proxy is draining for an automatic update",
+            {
+              clientMessage: "Proxy is restarting; retry shortly",
+              clientErrorType: "overloaded_error",
+            },
+          );
+        }
+        c.header("Retry-After", "2");
+        return c.json(
+          {
+            type: "error",
+            error: {
+              type: "overloaded_error",
+              message: "Proxy is restarting; retry shortly",
+            },
+          },
+          503,
+        );
+      }
       const emptyBody = {};
       let body: unknown;
       let rawBody: string | undefined;
@@ -1280,7 +1393,6 @@ export async function createProxyStartApp(params: {
       const toolCount = Array.isArray(bodyRec?.tools)
         ? (bodyRec.tools as unknown[]).length
         : 0;
-      const metadata = requestMetadata.get(c.req.raw);
       if (metadata) {
         metadata.model = String(model);
         metadata.stream = stream === "stream";
@@ -1511,6 +1623,7 @@ export async function createProxyStartApp(params: {
         liveVersion: PROXY_VERSION,
         latestVersion: updateState?.lastCheckVersion || null,
         pendingRestartVersion: updateState?.pendingRestartVersion ?? null,
+        deferredUpdate: updateState?.deferredUpdate ?? null,
         lastCheckAt: updateState?.lastCheckAt ?? null,
         lastUpdateAt: updateState?.lastUpdateAt ?? null,
         lastUpdateVersion: updateState?.lastUpdateVersion ?? null,
@@ -2528,6 +2641,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         updaterRunning: false,
         latestVersion: updateState?.lastCheckVersion || null,
         pendingRestartVersion: updateState?.pendingRestartVersion ?? null,
+        deferredUpdate: updateState?.deferredUpdate ?? null,
         lastUpdateFailure: updateState?.lastFailure ?? null,
       };
 
@@ -2640,6 +2754,15 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         if (status.pendingRestartVersion) {
           logger.always(
             `  ${chalk.bold("Pending:")}    ${chalk.yellow(`v${status.pendingRestartVersion} installed; restart pending`)}`,
+          );
+        }
+        if (status.deferredUpdate) {
+          const active =
+            status.deferredUpdate.activeRequests === null
+              ? "unknown activity"
+              : `${status.deferredUpdate.activeRequests} active request(s)`;
+          logger.always(
+            `  ${chalk.bold("Deferred:")}   ${chalk.yellow(`v${status.deferredUpdate.version} ${status.deferredUpdate.reason} (${active})`)}`,
           );
         }
         if (status.latestVersion) {
@@ -2898,6 +3021,10 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
     // foreground fail-open guard remains cleanup-only.
     const UPDATE_CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
     const QUIET_THRESHOLD_MS = 120 * 1000; // 2 minutes of silence
+    const NATURAL_WINDOW_WAIT_MS = 10 * 60 * 1000; // prefer no admission pause
+    const UPDATE_DRAIN_TIMEOUT_MS = 30 * 60 * 1000; // preserve long streams
+    const UPDATE_RETRY_DELAY_MS = 5 * 60 * 1000;
+    const UPDATE_ACTIVITY_POLL_MS = 10 * 1000;
     const UPDATE_TIMEOUT_MS = 30 * 1000; // 30 seconds to come healthy
 
     // Get running version from /health endpoint (with timeout to avoid hanging)
@@ -2923,6 +3050,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
     let guardStopping = false;
     let updateCheckTimeout: NodeJS.Timeout | undefined;
     let updateCheckInterval: NodeJS.Timeout | undefined;
+    let updateRetryTimeout: NodeJS.Timeout | undefined;
     const stopUpdateChecks = (): void => {
       guardStopping = true;
       if (updateCheckTimeout) {
@@ -2932,6 +3060,10 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
       if (updateCheckInterval) {
         clearInterval(updateCheckInterval);
         updateCheckInterval = undefined;
+      }
+      if (updateRetryTimeout) {
+        clearTimeout(updateRetryTimeout);
+        updateRetryTimeout = undefined;
       }
     };
     /** Keep state-write failures observable without terminating the updater. */
@@ -2955,24 +3087,31 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
       }
       updateInProgress = true;
       let updateVersion = runningVersion;
+      let drainActive = false;
       try {
         // Lazy-load update modules so they're only imported at check time
         const { checkForUpdate } =
           await import("../../lib/proxy/updateChecker.js");
 
         // 1. Check for update
-        const result = await checkForUpdate(runningVersion);
+        let result = await checkForUpdate(runningVersion);
         updateVersion = result.latestVersion;
         persistUpdaterState("record update check", () =>
           recordCheck(result.latestVersion),
         );
 
         if (!result.updateAvailable) {
+          persistUpdaterState("clear update deferral", () =>
+            clearUpdateDeferral(),
+          );
           return;
         }
-        const pendingRestart =
+        const initiallyPendingRestart =
           loadUpdateState()?.pendingRestartVersion === result.latestVersion;
-        if (isVersionSuppressed(result.latestVersion) && !pendingRestart) {
+        if (
+          isVersionSuppressed(result.latestVersion) &&
+          !initiallyPendingRestart
+        ) {
           logger.debug(
             `[guard] version ${result.latestVersion} is suppressed, skipping`,
           );
@@ -2983,29 +3122,105 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           `[updater] update available: ${runningVersion} → ${result.latestVersion}`,
         );
 
-        // 2. Wait for an exact runtime-idle window. Never force an update while
-        // a request or stream is active; the next worker cycle can try again.
-        const quietPollMs = 10_000; // check every 10s
-        while (!guardStopping) {
-          if (getProcessStatus(parentPid) === "not_running") {
-            logger.always(
-              `[updater] parent process died while waiting for idle traffic`,
+        // 2. Prefer a naturally quiet period. Sustained traffic is handled by
+        // a bounded graceful drain so update checks cannot wait forever.
+        let lastDeferralSignature = "";
+        const waitForWindow = async (quietWaitMs: number) => {
+          const window = await waitForProxyUpdateWindow({
+            quietThresholdMs: QUIET_THRESHOLD_MS,
+            quietWaitMs,
+            drainWaitMs: UPDATE_DRAIN_TIMEOUT_MS,
+            pollIntervalMs: UPDATE_ACTIVITY_POLL_MS,
+            getActivity: () => getProxyRuntimeActivity(host, port),
+            setDraining: async (draining) => {
+              const changed = await setProxyUpdateDrain(host, port, draining);
+              if (changed) {
+                logger.always(
+                  `[updater] ${draining ? "draining new inference requests" : "inference admission resumed"}`,
+                );
+              }
+              return changed;
+            },
+            isStopping: () => guardStopping,
+            isParentAlive: () => getProcessStatus(parentPid) !== "not_running",
+            onPhase: (phase, activity) => {
+              const reason =
+                phase === "waiting_for_quiet" && !activity
+                  ? "activity_unavailable"
+                  : phase;
+              const signature = `${reason}:${activity?.activeRequests ?? "unknown"}`;
+              if (signature !== lastDeferralSignature) {
+                lastDeferralSignature = signature;
+                persistUpdaterState("record update deferral", () =>
+                  recordUpdateDeferred(
+                    result.latestVersion,
+                    reason,
+                    activity?.activeRequests ?? null,
+                  ),
+                );
+              }
+              logger.debug(
+                `[updater] ${reason} (${activity?.activeRequests ?? "unknown"} active requests)`,
+              );
+            },
+          });
+          drainActive = drainActive || window.draining;
+          return window;
+        };
+
+        let updateWindow = await waitForWindow(NATURAL_WINDOW_WAIT_MS);
+        if (!updateWindow.ready) {
+          if (updateWindow.reason === "drain_failed") {
+            persistUpdaterState("record unavailable update drain", () =>
+              recordUpdateDeferred(
+                result.latestVersion,
+                "drain_unavailable",
+                null,
+              ),
             );
-            return;
           }
-          const activity = await getProxyRuntimeActivity(host, port);
-          if (activity && isSafeUpdateWindow(activity, QUIET_THRESHOLD_MS)) {
-            logger.always(`[updater] traffic idle, proceeding with update`);
-            break;
-          }
-          logger.debug(
-            `[updater] waiting for idle traffic (${activity?.activeRequests ?? "unknown"} active requests)`,
-          );
-          await new Promise((r) => setTimeout(r, quietPollMs));
-        }
-        if (guardStopping) {
+          scheduleUpdateRetry();
           return;
         }
+
+        // Close the small race between observing zero activity and package
+        // mutation by holding admission closed through install and restart.
+        if (!drainActive) {
+          updateWindow = await waitForWindow(0);
+          if (!updateWindow.ready) {
+            scheduleUpdateRetry();
+            return;
+          }
+        }
+
+        // Refresh after waiting so a long deferral can never install a stale
+        // target while a newer release is already available.
+        const refreshedResult = await checkForUpdate(runningVersion);
+        result = refreshedResult;
+        updateVersion = result.latestVersion;
+        persistUpdaterState("record refreshed update check", () =>
+          recordCheck(result.latestVersion),
+        );
+        if (!result.updateAvailable) {
+          persistUpdaterState("clear update deferral", () =>
+            clearUpdateDeferral(),
+          );
+          return;
+        }
+        const pendingRestart =
+          loadUpdateState()?.pendingRestartVersion === result.latestVersion;
+        if (isVersionSuppressed(result.latestVersion) && !pendingRestart) {
+          logger.debug(
+            `[guard] refreshed version ${result.latestVersion} is suppressed, skipping`,
+          );
+          return;
+        }
+        persistUpdaterState("clear update deferral", () =>
+          clearUpdateDeferral(),
+        );
+        logger.always(
+          `[updater] safe update window acquired for v${result.latestVersion}`,
+        );
 
         // 3. Install update (validate version string before passing to shell)
         if (!/^\d+\.\d+\.\d+$/.test(result.latestVersion)) {
@@ -3124,25 +3339,8 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           return;
         }
 
-        // Installation can overlap new traffic. Re-establish a full idle window
-        // before restart so no accepted request or long stream is interrupted.
-        while (!guardStopping) {
-          if (getProcessStatus(parentPid) === "not_running") {
-            return;
-          }
-          const activity = await getProxyRuntimeActivity(host, port);
-          if (activity && isSafeUpdateWindow(activity, QUIET_THRESHOLD_MS)) {
-            break;
-          }
-          logger.debug(
-            `[updater] update installed; deferring restart (${activity?.activeRequests ?? "unknown"} active requests)`,
-          );
-          await sleep(10_000);
-        }
-        if (guardStopping) {
-          return;
-        }
-
+        // Admission has remained closed since active requests reached zero, so
+        // restart cannot interrupt an accepted request or long-lived stream.
         // Signal the health loop to not exit when it detects
         // the parent PID is gone — we're intentionally restarting.
         updateRestartInProgress = true;
@@ -3171,6 +3369,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           );
           return;
         }
+        drainActive = false;
 
         // 5. Wait for healthy restart
         let healthy = false;
@@ -3228,8 +3427,27 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           recordUpdateFailure(updateVersion, "check", message),
         );
       } finally {
+        if (drainActive && !updateRestartInProgress) {
+          const resumed = await resumeProxyUpdateDrain(host, port);
+          if (!resumed && getProcessStatus(parentPid) !== "not_running") {
+            logger.always(
+              `[updater] WARNING: failed to resume inference admission after deferred update`,
+            );
+          }
+        }
         updateInProgress = false;
       }
+    };
+
+    const scheduleUpdateRetry = (): void => {
+      if (guardStopping || updateRetryTimeout) {
+        return;
+      }
+      updateRetryTimeout = setTimeout(() => {
+        updateRetryTimeout = undefined;
+        void runUpdateCheck();
+      }, UPDATE_RETRY_DELAY_MS);
+      updateRetryTimeout.unref?.();
     };
 
     // Run first check after a short delay, then on interval

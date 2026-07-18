@@ -17,13 +17,17 @@ import {
 } from "../src/lib/proxy/proxyActivity.js";
 import { createClaudeToOpenAIStreamTransform } from "../src/lib/proxy/openaiFormat.js";
 import { startUpdaterWorkerSupervisor } from "../src/lib/proxy/updaterSupervisor.js";
+import { waitForProxyUpdateWindow } from "../src/lib/proxy/updateCoordinator.js";
 import {
   abandonPendingUpdate,
+  clearUpdateDeferral,
   loadUpdateState,
+  recordUpdateDeferred,
   recordUpdateFailure,
   recordUpdateInstalled,
   reconcileRunningUpdate,
 } from "../src/lib/proxy/updateState.js";
+import { markProxyReady } from "../src/lib/proxy/proxyHealth.js";
 import { __testHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
 import { createProxyStartApp } from "../src/cli/commands/proxy.js";
 import {
@@ -81,7 +85,10 @@ describe("proxy runtime activity", () => {
 });
 
 describe("proxy runtime error finalization", () => {
-  const createApp = async (getToolRegistry: () => unknown) =>
+  const createApp = async (
+    getToolRegistry: () => unknown,
+    updateControlToken?: string,
+  ) =>
     createProxyStartApp({
       neurolink: { getToolRegistry } as never,
       modelRouter: undefined,
@@ -92,6 +99,7 @@ describe("proxy runtime error finalization", () => {
       proxyConfig: null,
       primaryAccountKey: undefined,
       accountAllowlist: undefined,
+      updateControlToken,
     });
 
   it("records invalid JSON as one completed error", async () => {
@@ -202,6 +210,158 @@ describe("proxy runtime error finalization", () => {
       stage: "install",
     });
     expect(JSON.stringify(body.autoUpdate)).not.toContain("/private/internal");
+  });
+
+  it("drains and resumes inference routes through authenticated control", async () => {
+    const { app, readiness } = await createApp(() => ({}), "test-token");
+    markProxyReady(readiness);
+
+    const unauthorized = await app.request("/internal/update-control", {
+      method: "POST",
+      body: JSON.stringify({ action: "drain" }),
+    });
+    expect(unauthorized.status).toBe(404);
+
+    const drain = await app.request("/internal/update-control", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-neurolink-update-token": "test-token",
+      },
+      body: JSON.stringify({ action: "drain" }),
+    });
+    expect(await drain.json()).toMatchObject({
+      draining: true,
+      acceptingConnections: false,
+    });
+    await expect((await app.request("/health")).json()).resolves.toMatchObject({
+      status: "ok",
+      ready: true,
+      acceptingConnections: false,
+      drainingForUpdate: true,
+    });
+
+    const rejected = await app.request("/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+    expect(rejected.status).toBe(503);
+    expect(rejected.headers.get("retry-after")).toBe("2");
+    expect(getProxyActivitySnapshot().activeRequests).toBe(0);
+    await rejected.text();
+
+    const resume = await app.request("/internal/update-control", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-neurolink-update-token": "test-token",
+      },
+      body: JSON.stringify({ action: "resume" }),
+    });
+    expect(await resume.json()).toMatchObject({
+      draining: false,
+      acceptingConnections: true,
+    });
+  });
+});
+
+describe("proxy updater safe-window coordination", () => {
+  it("uses an already quiet window without draining", async () => {
+    const setDraining = vi.fn(async () => true);
+    const result = await waitForProxyUpdateWindow({
+      quietThresholdMs: 100,
+      quietWaitMs: 1_000,
+      drainWaitMs: 1_000,
+      pollIntervalMs: 10,
+      getActivity: async () => ({ activeRequests: 0, lastActivityAt: null }),
+      setDraining,
+      isStopping: () => false,
+      isParentAlive: () => true,
+    });
+
+    expect(result).toEqual({ ready: true, draining: false });
+    expect(setDraining).not.toHaveBeenCalled();
+  });
+
+  it("drains sustained traffic and waits for active requests to settle", async () => {
+    let now = 0;
+    let draining = false;
+    let drainPolls = 0;
+    const result = await waitForProxyUpdateWindow({
+      quietThresholdMs: 100,
+      quietWaitMs: 20,
+      drainWaitMs: 100,
+      pollIntervalMs: 10,
+      getActivity: async () => ({
+        activeRequests: draining && drainPolls++ > 0 ? 0 : 2,
+        lastActivityAt: new Date(now).toISOString(),
+      }),
+      setDraining: async (value) => {
+        draining = value;
+        return true;
+      },
+      isStopping: () => false,
+      isParentAlive: () => true,
+      now: () => now,
+      sleep: async (ms) => {
+        now += ms;
+      },
+    });
+
+    expect(result).toEqual({ ready: true, draining: true });
+    expect(draining).toBe(true);
+  });
+
+  it("bounds a drain when an active stream never settles", async () => {
+    let now = 0;
+    const phases: string[] = [];
+    const result = await waitForProxyUpdateWindow({
+      quietThresholdMs: 100,
+      quietWaitMs: 10,
+      drainWaitMs: 20,
+      pollIntervalMs: 10,
+      getActivity: async () => ({ activeRequests: 1, lastActivityAt: null }),
+      setDraining: async () => true,
+      isStopping: () => false,
+      isParentAlive: () => true,
+      onPhase: (phase) => phases.push(phase),
+      now: () => now,
+      sleep: async (ms) => {
+        now += ms;
+      },
+    });
+
+    expect(result).toEqual({
+      ready: false,
+      draining: true,
+      reason: "drain_timeout",
+    });
+    expect(phases).toContain("drain_timeout");
+  });
+
+  it("pessimistically requests resume when drain acknowledgement is lost", async () => {
+    let now = 0;
+    const result = await waitForProxyUpdateWindow({
+      quietThresholdMs: 100,
+      quietWaitMs: 10,
+      drainWaitMs: 20,
+      pollIntervalMs: 10,
+      getActivity: async () => ({ activeRequests: 1, lastActivityAt: null }),
+      setDraining: async () => false,
+      isStopping: () => false,
+      isParentAlive: () => true,
+      now: () => now,
+      sleep: async (ms) => {
+        now += ms;
+      },
+    });
+
+    expect(result).toEqual({
+      ready: false,
+      draining: true,
+      reason: "drain_failed",
+    });
   });
 });
 
@@ -424,6 +584,29 @@ describe("updater worker recovery", () => {
       lastUpdateVersion: "9.88.9",
       lastFailure: null,
     });
+  });
+
+  it("persists and clears actionable update deferral state", async () => {
+    const root = await mkdtemp(join(tmpdir(), "neurolink-update-state-"));
+    tempDirs.push(root);
+    const statePath = join(root, "update-state.json");
+
+    recordUpdateDeferred("9.93.1", "draining", 3, statePath);
+    const first = loadUpdateState(statePath)?.deferredUpdate;
+    expect(first).toMatchObject({
+      version: "9.93.1",
+      reason: "draining",
+      activeRequests: 3,
+    });
+
+    recordUpdateDeferred("9.93.1", "drain_timeout", 1, statePath);
+    expect(loadUpdateState(statePath)?.deferredUpdate).toMatchObject({
+      since: first?.since,
+      reason: "drain_timeout",
+      activeRequests: 1,
+    });
+    expect(clearUpdateDeferral("9.93.1", statePath)).toBe(true);
+    expect(loadUpdateState(statePath)?.deferredUpdate).toBeNull();
   });
 
   it("abandons invalid pending installs without dropping failure details", async () => {

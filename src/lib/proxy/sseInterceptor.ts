@@ -22,6 +22,7 @@ import type {
   SSEInterceptorResult,
   SSETelemetry,
   TelemetryAccumulator,
+  ParsedSSEBuffer,
 } from "../types/index.js";
 
 // ---------------------------------------------------------------------------
@@ -48,10 +49,7 @@ const TRUNCATION_MARKER = "...[TRUNCATED]";
  * field lines (`event: ...`, `data: ...`). We consume complete events and
  * return them, leaving any trailing partial event in the buffer.
  */
-function extractSSEEvents(buffer: string): {
-  events: Array<{ event: string; data: string }>;
-  remainder: string;
-} {
+export function extractSSEEvents(buffer: string): ParsedSSEBuffer {
   const events: Array<{ event: string; data: string }> = [];
 
   // Split on double-newline boundaries. The last segment may be an
@@ -59,20 +57,20 @@ function extractSSEEvents(buffer: string): {
   let cursor = 0;
 
   while (cursor < buffer.length) {
-    const boundary = buffer.indexOf("\n\n", cursor);
-
-    if (boundary === -1) {
+    const boundaryMatch = /\r\n\r\n|\n\n|\r\r/.exec(buffer.slice(cursor));
+    if (!boundaryMatch || boundaryMatch.index === undefined) {
       // No more complete events — everything from cursor onward is partial.
       break;
     }
+    const boundary = cursor + boundaryMatch.index;
 
     const rawBlock = buffer.slice(cursor, boundary);
-    cursor = boundary + 2; // skip past the \n\n
+    cursor = boundary + boundaryMatch[0].length;
 
     let eventType = "";
     let dataValue = "";
 
-    const lines = rawBlock.split("\n");
+    const lines = rawBlock.split(/\r\n|\n|\r/);
     for (const line of lines) {
       if (line.startsWith("event: ")) {
         eventType = line.slice(7).trim();
