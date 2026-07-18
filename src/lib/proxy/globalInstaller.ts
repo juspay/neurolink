@@ -31,7 +31,7 @@ function writableDirectory(path: string): boolean {
     if (!existsSync(path)) {
       return false;
     }
-    accessSync(path, constants.W_OK);
+    accessSync(path, constants.W_OK | constants.X_OK);
     return true;
   } catch {
     return false;

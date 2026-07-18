@@ -26,6 +26,7 @@ import {
   waitForProxyReadiness,
 } from "../../lib/proxy/proxyHealth.js";
 import { logger } from "../../lib/utils/logger.js";
+import { sanitizeForLog } from "../../lib/utils/logSanitize.js";
 import { withTimeout } from "../../lib/utils/async/withTimeout.js";
 import {
   formatUptime,
@@ -83,6 +84,7 @@ import {
   validateInstalledVersion,
 } from "../../lib/proxy/globalInstaller.js";
 import { startUpdaterWorkerSupervisor } from "../../lib/proxy/updaterSupervisor.js";
+import { openProxyWorkerLog } from "../../lib/proxy/workerLog.js";
 import { waitForProxyUpdateWindow } from "../../lib/proxy/updateCoordinator.js";
 import {
   abandonPendingUpdate,
@@ -726,21 +728,15 @@ function spawnFailOpenGuard(
     "--quiet",
   ];
 
-  // Write guard stdout/stderr to a log file instead of discarding them.
-  const { openSync, closeSync, mkdirSync, existsSync } = _require(
-    "fs",
-  ) as typeof import("fs");
-  const guardLogDir = join(homedir(), ".neurolink", "logs");
-  if (!existsSync(guardLogDir)) {
-    mkdirSync(guardLogDir, { recursive: true });
+  const workerLog = openProxyWorkerLog("proxy-guard.log");
+  if (workerLog.error) {
+    logger.debug(`[proxy] guard logging disabled: ${workerLog.error}`);
   }
-  const guardLogPath = join(guardLogDir, "proxy-guard.log");
-  const logFd = openSync(guardLogPath, "a");
 
   try {
     const child = spawn(process.execPath, args, {
       detached: true,
-      stdio: ["ignore", logFd, logFd],
+      stdio: ["ignore", workerLog.stdio, workerLog.stdio],
     });
     child.unref();
     return child.pid;
@@ -752,7 +748,7 @@ function spawnFailOpenGuard(
     );
     return undefined;
   } finally {
-    closeSync(logFd); // parent closes its copy; child keeps the fd
+    workerLog.close();
   }
 }
 
@@ -785,19 +781,15 @@ function spawnProxyUpdater(
     "--updater-only",
     "--quiet",
   ];
-  const { openSync, closeSync, mkdirSync, existsSync } = _require(
-    "fs",
-  ) as typeof import("fs");
-  const logsDir = join(homedir(), ".neurolink", "logs");
-  if (!existsSync(logsDir)) {
-    mkdirSync(logsDir, { recursive: true });
+  const workerLog = openProxyWorkerLog("proxy-updater.log");
+  if (workerLog.error) {
+    logger.always(`[proxy] updater logging disabled: ${workerLog.error}`);
   }
-  const logFd = openSync(join(logsDir, "proxy-updater.log"), "a");
 
   try {
     const child = spawn(process.execPath, args, {
       detached: true,
-      stdio: ["ignore", logFd, logFd],
+      stdio: ["ignore", workerLog.stdio, workerLog.stdio],
       env: {
         ...process.env,
         NEUROLINK_PROXY_UPDATE_CONTROL_TOKEN: PROXY_UPDATE_CONTROL_TOKEN,
@@ -821,7 +813,7 @@ function spawnProxyUpdater(
     );
     return undefined;
   } finally {
-    closeSync(logFd);
+    workerLog.close();
   }
 }
 
@@ -1398,8 +1390,9 @@ export async function createProxyStartApp(params: {
         metadata.stream = stream === "stream";
         metadata.toolCount = toolCount;
       }
+      const logModel = sanitizeForLog(String(model));
       logger.always(
-        `[proxy] ${c.req.method} ${c.req.path} → model=${model} ${stream} tools=${toolCount}`,
+        `[proxy] ${c.req.method} ${c.req.path} → model=${logModel} ${stream} tools=${toolCount}`,
       );
 
       const ctx = {

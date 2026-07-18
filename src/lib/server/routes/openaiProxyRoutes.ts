@@ -50,6 +50,22 @@ const LOOPBACK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes — long enough for slow
 // known (e.g. when started from the CLI handler).
 const DEFAULT_LOOPBACK_PORT = 55669;
 
+function resolveStreamCancellationLifecycle(
+  terminalStreamError: string | undefined,
+): { status: number; errorType: string; errorMessage: string } {
+  return terminalStreamError
+    ? {
+        status: 502,
+        errorType: "loopback_stream_error",
+        errorMessage: terminalStreamError,
+      }
+    : {
+        status: 499,
+        errorType: "client_cancelled",
+        errorMessage: "Client cancelled the OpenAI-compatible stream",
+      };
+}
+
 /**
  * Build an OpenAI-shaped error as a typed Response with the intended status.
  *
@@ -284,10 +300,12 @@ async function handleOpenAIToAnthropicBridge(args: {
         try {
           await reader.cancel(reason);
         } finally {
+          const cancellation =
+            resolveStreamCancellationLifecycle(terminalStreamError);
           await finishLifecycle(
-            499,
-            "client_cancelled",
-            "Client cancelled the OpenAI-compatible stream",
+            cancellation.status,
+            cancellation.errorType,
+            cancellation.errorMessage,
           );
         }
       },
@@ -511,3 +529,5 @@ export function createOpenAIProxyRoutes(
     ],
   };
 }
+
+export const __testHooks = { resolveStreamCancellationLifecycle };

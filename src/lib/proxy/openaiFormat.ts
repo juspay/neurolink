@@ -929,6 +929,7 @@ export function createClaudeToOpenAIStreamTransform(
         finished = true;
         options.onError?.(message);
         emit(controller, serializer.emitError(message));
+        controller.terminate();
         return;
       }
 

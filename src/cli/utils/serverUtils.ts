@@ -125,7 +125,10 @@ export class StateFileManager<T> {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     }
-    fs.writeFileSync(this.filePath, JSON.stringify(state, null, 2));
+    fs.writeFileSync(this.filePath, JSON.stringify(state, null, 2), {
+      mode: 0o600,
+    });
+    fs.chmodSync(this.filePath, 0o600);
   }
 
   /**

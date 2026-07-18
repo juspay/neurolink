@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -30,6 +30,9 @@ import {
 import { markProxyReady } from "../src/lib/proxy/proxyHealth.js";
 import { __testHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
 import { createProxyStartApp } from "../src/cli/commands/proxy.js";
+import { StateFileManager } from "../src/cli/utils/serverUtils.js";
+import { openProxyWorkerLog } from "../src/lib/proxy/workerLog.js";
+import { __testHooks as openAIProxyTestHooks } from "../src/lib/server/routes/openaiProxyRoutes.js";
 import {
   getStats,
   recordAttempt,
@@ -81,6 +84,68 @@ describe("proxy runtime activity", () => {
     expect(getProxyActivitySnapshot().activeRequests).toBe(1);
     await expect(response.text()).resolves.toBe("complete");
     expect(getProxyActivitySnapshot().activeRequests).toBe(0);
+  });
+
+  it("forwards the exact client cancellation reason upstream", async () => {
+    let upstreamReason: unknown;
+    const finish = beginProxyRequest();
+    const response = trackProxyResponse(
+      new Response(
+        new ReadableStream<Uint8Array>({
+          cancel(reason) {
+            upstreamReason = reason;
+          },
+        }),
+      ),
+      finish,
+    );
+    const reason = new Error("client disconnected");
+
+    await response.body!.cancel(reason);
+
+    expect(upstreamReason).toBe(reason);
+    expect(getProxyActivitySnapshot().activeRequests).toBe(0);
+  });
+});
+
+describe("proxy state and worker log permissions", () => {
+  it("forces state files to owner-only permissions", async () => {
+    const root = await mkdtemp(join(tmpdir(), "neurolink-state-mode-"));
+    tempDirs.push(root);
+    const path = join(root, "proxy-state.json");
+    await writeFile(path, "{}", { mode: 0o666 });
+    await chmod(path, 0o666);
+
+    new StateFileManager("proxy-state.json", root).save({ pid: 123 });
+
+    expect((await stat(path)).mode & 0o777).toBe(0o600);
+  });
+
+  it("opens restrictive worker logs and fails open when logging is unavailable", async () => {
+    const root = await mkdtemp(join(tmpdir(), "neurolink-worker-log-"));
+    tempDirs.push(root);
+    const logsDir = join(root, "logs");
+    await mkdir(logsDir, { mode: 0o777 });
+    const logPath = join(logsDir, "proxy-updater.log");
+    await writeFile(logPath, "existing", { mode: 0o666 });
+    await chmod(logPath, 0o666);
+
+    const opened = openProxyWorkerLog("proxy-updater.log", logsDir);
+    expect(typeof opened.stdio).toBe("number");
+    expect(opened.error).toBeUndefined();
+    opened.close();
+    expect((await stat(logsDir)).mode & 0o777).toBe(0o700);
+    expect((await stat(logPath)).mode & 0o777).toBe(0o600);
+
+    const blocker = join(root, "not-a-directory");
+    await writeFile(blocker, "blocked", { mode: 0o644 });
+    await chmod(blocker, 0o644);
+    const originalBlockerMode = (await stat(blocker)).mode & 0o777;
+    const unavailable = openProxyWorkerLog("proxy-updater.log", blocker);
+    expect(unavailable.stdio).toBe("ignore");
+    expect(unavailable.error).toBeTruthy();
+    expect((await stat(blocker)).mode & 0o777).toBe(originalBlockerMode);
+    expect(() => unavailable.close()).not.toThrow();
   });
 });
 
@@ -428,6 +493,45 @@ describe("global installer resolution", () => {
     expect(unrelated.tried.some((candidate) => candidate.installable)).toBe(
       true,
     );
+  });
+
+  it("rejects global directories that cannot be traversed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "neurolink-installer-mode-"));
+    tempDirs.push(root);
+    const npmPrefix = join(root, "npm-prefix");
+    const npmRoot = join(npmPrefix, "lib", "node_modules");
+    await mkdir(npmRoot, { recursive: true });
+    await mkdir(join(npmPrefix, "bin"), { recursive: true });
+    await chmod(npmRoot, 0o200);
+
+    const fakeExec = vi.fn((bin: string, args: string[]) => {
+      const outputs: Record<string, string> = {
+        "which npm": "/fake/npm",
+        "/fake/npm --version": "11.0.0",
+        "/fake/npm root -g": npmRoot,
+        "/fake/npm prefix -g": npmPrefix,
+      };
+      const key = `${bin} ${args.join(" ")}`;
+      if (!(key in outputs)) {
+        throw new Error(`unavailable: ${key}`);
+      }
+      return outputs[key];
+    });
+
+    try {
+      const result = resolveGlobalInstaller({
+        entryScript: join(npmRoot, "@juspay", "neurolink", "dist", "cli.js"),
+        env: {},
+        homeDir: root,
+        execFileSync: fakeExec as never,
+      });
+      expect(result.installer).toBeUndefined();
+      expect(
+        result.tried.find((candidate) => candidate.bin === "/fake/npm"),
+      ).toMatchObject({ installable: false });
+    } finally {
+      await chmod(npmRoot, 0o700);
+    }
   });
 
   it("includes stdout and stderr in install failures", () => {
@@ -828,6 +932,53 @@ describe("Anthropic to OpenAI stream bridge", () => {
     expect(result.output).toContain('"type":"server_error"');
     expect(result.output).toContain(message);
     expect(result.output).not.toContain("[DONE]");
+  });
+
+  it("terminates after an Anthropic error even when upstream stays open", async () => {
+    let cancelled = false;
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            `event: error\ndata: ${JSON.stringify({ type: "error", error: { message: "stream failed" } })}\n\n`,
+          ),
+        );
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+
+    const output = await Promise.race([
+      new Response(
+        source.pipeThrough(
+          createClaudeToOpenAIStreamTransform("claude-sonnet-5"),
+        ),
+      ).text(),
+      new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error("stream did not terminate")), 250),
+      ),
+    ]);
+
+    expect(output).toContain('"type":"server_error"');
+    await vi.waitFor(() => expect(cancelled).toBe(true), { timeout: 250 });
+  });
+
+  it("keeps terminal upstream errors when the downstream client cancels", () => {
+    expect(
+      openAIProxyTestHooks.resolveStreamCancellationLifecycle("stream failed"),
+    ).toEqual({
+      status: 502,
+      errorType: "loopback_stream_error",
+      errorMessage: "stream failed",
+    });
+    expect(
+      openAIProxyTestHooks.resolveStreamCancellationLifecycle(undefined),
+    ).toEqual({
+      status: 499,
+      errorType: "client_cancelled",
+      errorMessage: "Client cancelled the OpenAI-compatible stream",
+    });
   });
 
   it("treats a close without message_stop as an interruption", async () => {
