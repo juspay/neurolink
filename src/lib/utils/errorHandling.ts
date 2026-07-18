@@ -24,6 +24,7 @@ export const ERROR_CODES = {
   MEMORY_EXHAUSTED: "MEMORY_EXHAUSTED",
   NETWORK_ERROR: "NETWORK_ERROR",
   PERMISSION_DENIED: "PERMISSION_DENIED",
+  PROXY_WORKER_LIFECYCLE_FAILED: "PROXY_WORKER_LIFECYCLE_FAILED",
 
   // Provider errors
   PROVIDER_NOT_AVAILABLE: "PROVIDER_NOT_AVAILABLE",
@@ -945,6 +946,30 @@ export class ErrorFactory {
       severity: ErrorSeverity.HIGH,
       retriable: false,
       originalError,
+    });
+  }
+
+  // ============================================================================
+  // PROXY ROLLING-WORKER ERRORS
+  // ============================================================================
+
+  /**
+   * Create a proxy rolling-worker lifecycle error. Preserves the caller's exact
+   * message so existing substring-based assertions keep working, while giving
+   * callers a typed `code`/`category` to branch on instead of string-matching
+   * generic `Error` instances.
+   */
+  static proxyWorkerLifecycle(
+    message: string,
+    context?: Record<string, unknown>,
+  ): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.PROXY_WORKER_LIFECYCLE_FAILED,
+      message,
+      category: ErrorCategory.SYSTEM,
+      severity: ErrorSeverity.HIGH,
+      retriable: false,
+      context: context || {},
     });
   }
 }
