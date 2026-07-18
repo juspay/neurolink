@@ -950,6 +950,36 @@ export type ProxyTelemetryArgs = {
 /** A fallback chain entry (serialisable subset of FallbackEntry) */
 export type FallbackInfo = { provider: string; model: string };
 
+export type ProxyRollingState = {
+  generation: number;
+  active: { pid: number; version: string; generation: number } | null;
+  candidate: {
+    pid: number;
+    expectedVersion: string;
+    generation: number;
+  } | null;
+  draining: Array<{ pid: number; version: string; generation: number }>;
+  queuedSockets: number;
+  rejectedSockets: number;
+  failedTransfers: number;
+  lastFailure: {
+    at: string;
+    generation: number;
+    version: string;
+    phase: "startup" | "activation" | "runtime" | "transfer";
+    message: string;
+  } | null;
+};
+
+export type ProxySupervisorState = {
+  pid: number;
+  host: string;
+  port: number;
+  startTime: string;
+  updaterPid?: number;
+  rolling: ProxyRollingState;
+};
+
 /** Persisted state for a running proxy instance */
 export type ProxyState = {
   pid: number;
@@ -970,6 +1000,8 @@ export type ProxyState = {
   guardPid?: number;
   /** Dedicated updater PID for launchd-managed proxy installations. */
   updaterPid?: number;
+  /** Stable listener supervisor PID when requests are served by socket workers. */
+  supervisorPid?: number;
   /** How the proxy was launched — "launchd" if installed as service, "manual" otherwise */
   managedBy?: "launchd" | "manual";
   /** Whether the proxy is running in transparent passthrough mode */

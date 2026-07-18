@@ -1253,7 +1253,7 @@ const tests: TestFunction[] = [
     },
   },
   {
-    name: "launchd: auto-updater refreshes trampoline before atomic kickstart",
+    name: "launchd: auto-updater validates the trampoline before activation",
     category: "launchd-regression",
     fn: async () => {
       const { readFileSync } = await import("fs");
@@ -1262,15 +1262,16 @@ const tests: TestFunction[] = [
         pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
         "utf-8",
       );
-      // The updater refreshes the stable trampoline, then asks launchd for an
-      // atomic restart. Rewriting or unloading the plist here can strand the
-      // daemon if the updater is killed with its parent process.
+      // Rolling activation and the legacy kickstart fallback both require a
+      // validated trampoline. The updater must never rewrite the plist.
       const guardSection = src.slice(
         src.indexOf("[updater] package-manager candidates"),
         src.indexOf("// 5. Wait for healthy restart"),
       );
       return (
         guardSection.includes("writeTrampoline()") &&
+        guardSection.includes("validateInstalledVersion") &&
+        guardSection.includes('process.kill(parentPid, "SIGUSR2")') &&
         guardSection.includes('["kickstart", "-k"') &&
         !guardSection.includes("writeFileSync(PLIST_PATH") &&
         !guardSection.includes('["bootout"') &&
@@ -1316,7 +1317,7 @@ const tests: TestFunction[] = [
       );
       return (
         guardFn.includes("proxy-guard.log") &&
-        guardFn.includes("logFd") &&
+        guardFn.includes("workerLog.stdio") &&
         !guardFn.includes('stdio: "ignore"')
       );
     },
@@ -1447,7 +1448,7 @@ const tests: TestFunction[] = [
     },
   },
   {
-    name: "updater: validates trampoline resolves to a working neurolink before kickstart",
+    name: "updater: validates the exact installed version before activation",
     category: "launchd-regression",
     fn: async () => {
       const { readFileSync } = await import("fs");
@@ -1456,15 +1457,18 @@ const tests: TestFunction[] = [
         pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
         "utf-8",
       );
-      // Auto-updater must probe trampoline after writing, before kickstart.
+      // Auto-updater must validate the trampoline after writing it and before
+      // either rolling activation or the compatibility restart.
       const guardSection = src.slice(
         src.indexOf("[updater] package-manager candidates"),
         src.indexOf("// 5. Wait for healthy restart"),
       );
       return (
-        guardSection.includes("probeBinVersion(TRAMPOLINE_PATH)") &&
-        guardSection.includes("trampoline_broken_after_install") &&
-        guardSection.indexOf("probeBinVersion(TRAMPOLINE_PATH)") <
+        guardSection.includes("validateInstalledVersion") &&
+        guardSection.includes("validation.version !== result.latestVersion") &&
+        guardSection.indexOf("validateInstalledVersion") <
+          guardSection.indexOf('process.kill(parentPid, "SIGUSR2")') &&
+        guardSection.indexOf("validateInstalledVersion") <
           guardSection.indexOf('["kickstart", "-k"')
       );
     },
@@ -1479,18 +1483,18 @@ const tests: TestFunction[] = [
         pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
         "utf-8",
       );
-      // When the trampoline resolves to the wrong version after install,
-      // the code must abort (return) and suppressVersion, NOT continue.
+      // A mismatch must abandon the pending update and return before either
+      // activation path. Suppression is reserved for a candidate that starts
+      // but fails its post-activation health check.
       const mismatchSection = src.slice(
-        src.indexOf("probed !== result.latestVersion"),
-        src.indexOf("probed !== result.latestVersion") + 2000,
+        src.indexOf("validation.version !== result.latestVersion"),
+        src.indexOf("validation.version !== result.latestVersion") + 1200,
       );
       return (
-        mismatchSection.includes("ABORT") &&
-        mismatchSection.includes("suppressVersion") &&
-        mismatchSection.includes("version_mismatch") &&
+        mismatchSection.includes("recordUpdateFailure") &&
+        mismatchSection.includes("abandonPendingUpdate") &&
         mismatchSection.includes("return;") &&
-        !mismatchSection.includes("Continue anyway")
+        !mismatchSection.includes('process.kill(parentPid, "SIGUSR2")')
       );
     },
   },

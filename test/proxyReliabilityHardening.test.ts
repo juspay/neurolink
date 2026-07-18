@@ -1724,6 +1724,20 @@ describe("launchd lifecycle source invariants", () => {
     expect(source).toContain('["0", "off", "false"]');
     expect(source).toContain("spawnProxyUpdater");
     expect(source).toContain("startUpdaterWorkerSupervisor");
+    expect(source).toContain("startRollingProxyServer");
+    expect(source).toContain("attachSocketWorkerProcess");
+    expect(source).toContain("PROXY_ROLLING_SUPERVISOR_ENV");
+    expect(source).toContain('process.on("SIGUSR2", activatePendingUpdate)');
+    expect(source).toContain('process.kill(parentPid, "SIGUSR2")');
+    expect(source).toContain("command: TRAMPOLINE_PATH");
+    expect(source).toContain("NEUROLINK_PROXY_TRAMPOLINE_EXEC_ONLY");
+    expect(source).toContain("if (!rollingSupervisor)");
+    expect(source).toContain('"proxy-supervisor-state.json"');
+    expect(source).toContain("const servingWorker =");
+    expect(source).toContain(
+      "rolling activation failed; restoring @juspay/neurolink@",
+    );
+    expect(source).toContain("package rollback complete");
     expect(source).toMatch(
       /if \(updaterOnly && consecutiveUnhealthy >= failureThreshold\)/,
     );

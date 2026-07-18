@@ -1718,6 +1718,194 @@ export type UpdaterWorkerSupervisor = {
 };
 
 // =============================================================================
+// ROLLING PROXY WORKER HANDOFF
+// =============================================================================
+
+export type ProxyWorkerControlMessage =
+  | { type: "proxy-worker:activate"; generation: number }
+  | { type: "proxy-worker:drain"; generation: number }
+  | { type: "proxy-worker:shutdown"; generation: number }
+  | {
+      type: "proxy-worker:socket-commit";
+      generation: number;
+      socketId: string;
+    }
+  | {
+      type: "proxy-worker:socket-cancel";
+      generation: number;
+      socketId: string;
+    };
+
+export type ProxyWorkerStatusMessage =
+  | {
+      type: "proxy-worker:ready";
+      generation: number;
+      pid: number;
+      version: string;
+    }
+  | {
+      type: "proxy-worker:drained";
+      generation: number;
+      pid: number;
+    }
+  | {
+      type: "proxy-worker:activated";
+      generation: number;
+      pid: number;
+    }
+  | {
+      type: "proxy-worker:fatal";
+      generation: number;
+      pid: number;
+      message: string;
+    }
+  | {
+      type: "proxy-worker:socket-accepted";
+      generation: number;
+      pid: number;
+      socketId: string;
+    };
+
+export type ProxyWorkerSocketMessage = {
+  type: "proxy-worker:socket";
+  generation: number;
+  socketId: string;
+};
+
+export type ProxyWorkerIpcMessage =
+  | ProxyWorkerControlMessage
+  | ProxyWorkerStatusMessage
+  | ProxyWorkerSocketMessage;
+
+export type TransferableProxySocket = Pick<
+  import("node:net").Socket,
+  "destroy" | "end" | "pause" | "resume" | "once"
+>;
+
+export type RollingWorkerHandle = {
+  pid: number;
+  sendControl: (message: ProxyWorkerControlMessage) => void;
+  sendSocket: (
+    generation: number,
+    socket: TransferableProxySocket,
+    callback: (error?: Error | null) => void,
+  ) => void;
+  terminate: (signal?: NodeJS.Signals) => void;
+  onMessage: (
+    listener: (message: ProxyWorkerStatusMessage) => void,
+  ) => () => void;
+  onExit: (
+    listener: (code: number | null, signal: string | null) => void,
+  ) => () => void;
+};
+
+export type SpawnProxySocketWorkerOptions = {
+  generation: number;
+  expectedVersion: string;
+  command: string;
+  args: string[];
+  env?: NodeJS.ProcessEnv;
+  stdout?: "inherit" | "ignore";
+  stderr?: "inherit" | "ignore";
+  socketAckTimeoutMs?: number;
+};
+
+export type RollingWorkerSupervisorSnapshot = {
+  generation: number;
+  active: { pid: number; version: string; generation: number } | null;
+  candidate: {
+    pid: number;
+    expectedVersion: string;
+    generation: number;
+  } | null;
+  draining: Array<{ pid: number; version: string; generation: number }>;
+  queuedSockets: number;
+  rejectedSockets: number;
+  failedTransfers: number;
+  lastFailure: {
+    at: string;
+    generation: number;
+    version: string;
+    phase: "startup" | "activation" | "runtime" | "transfer";
+    message: string;
+  } | null;
+};
+
+export type RollingWorkerSupervisorOptions = {
+  spawnWorker: (
+    generation: number,
+    expectedVersion: string,
+  ) => RollingWorkerHandle;
+  readyTimeoutMs?: number;
+  socketQueueLimit?: number;
+  socketQueueTimeoutMs?: number;
+  shutdownTimeoutMs?: number;
+  onStateChange?: (snapshot: RollingWorkerSupervisorSnapshot) => void;
+  log?: (message: string) => void;
+};
+
+export type RollingProxyServerOptions = {
+  host: string;
+  port: number;
+  initialVersion: string;
+  spawnWorker: (
+    generation: number,
+    expectedVersion: string,
+  ) => RollingWorkerHandle;
+  readyTimeoutMs?: number;
+  socketQueueLimit?: number;
+  socketQueueTimeoutMs?: number;
+  shutdownTimeoutMs?: number;
+  recoveryDelayMs?: number;
+  maxRecoveryDelayMs?: number;
+  onStateChange?: (snapshot: RollingWorkerSupervisorSnapshot) => void;
+  log?: (message: string) => void;
+};
+
+export type RollingProxyServer = {
+  address: { host: string; port: number };
+  replace: (
+    expectedVersion: string,
+  ) => Promise<RollingWorkerSupervisorSnapshot>;
+  snapshot: () => RollingWorkerSupervisorSnapshot;
+  close: () => Promise<void>;
+};
+
+export type RollingManagedWorker = {
+  handle: RollingWorkerHandle;
+  generation: number;
+  version: string;
+  dispose: () => void;
+};
+
+export type RollingCandidateWorker = RollingManagedWorker & {
+  expectedVersion: string;
+  activationRequested: boolean;
+  settle: (error?: Error) => void;
+};
+
+export type RollingQueuedSocket = {
+  socket: TransferableProxySocket;
+  timeout: NodeJS.Timeout;
+};
+
+export type SocketWorkerRuntime = {
+  acceptSocket: (socket: TransferableProxySocket) => void;
+  drain: () => void;
+  close: () => void;
+  snapshot: () => {
+    draining: boolean;
+    sockets: number;
+    activeRequests: number;
+    drained: boolean;
+  };
+};
+
+export type SocketWorkerRuntimeOptions = {
+  onDrained?: () => void;
+};
+
+// =============================================================================
 // YAML LOADER (from proxy/proxyConfig.ts)
 // =============================================================================
 
