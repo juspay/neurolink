@@ -1,3 +1,9 @@
+## [9.92.3](https://github.com/juspay/neurolink/compare/v9.92.2...v9.92.3) (2026-07-18)
+
+### Bug Fixes
+
+- **(proxy):** prioritize expiring weekly quota ([72f2a60](https://github.com/juspay/neurolink/commit/72f2a608500bd5f7e6d7b58081574d3182c25f40))
+
 ## [9.92.2](https://github.com/juspay/neurolink/compare/v9.92.1...v9.92.2) (2026-07-17)
 
 ### Bug Fixes
