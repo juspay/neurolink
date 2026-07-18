@@ -422,7 +422,7 @@ function processEvent(
     const message = nestedError?.message ?? payload.message;
     acc.streamErrorMessage =
       typeof message === "string" && message.trim()
-        ? message.trim()
+        ? truncateString(message.trim(), MAX_EVENT_DATA_BYTES)
         : truncateString(event.data, MAX_EVENT_DATA_BYTES);
   }
 

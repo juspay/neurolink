@@ -234,6 +234,7 @@ describe("weekly-expiry quota routing", () => {
     });
 
     let primaryAccountKey: string | undefined = "anthropic:old@example.com";
+    let accountAllowlist = createAccountAllowlist(["old@example.com"]);
     let generation = 1;
     const routeGroup = createClaudeProxyRoutes(
       undefined,
@@ -248,7 +249,7 @@ describe("weekly-expiry quota routing", () => {
           modelRouter: undefined,
           passthrough: false,
           primaryAccountKey,
-          accountAllowlist: undefined,
+          accountAllowlist,
           quotaRoutingEnabled: false,
           sessionSoftLimit: 0.97,
           sessionResetToleranceMs: 15 * 60 * 1000,
@@ -283,6 +284,7 @@ describe("weekly-expiry quota routing", () => {
       messagesRoute!.handler(requestContext("configured-primary")),
     ).resolves.toMatchObject({ type: "message" });
     primaryAccountKey = undefined;
+    accountAllowlist = undefined;
     generation += 1;
     await expect(
       messagesRoute!.handler(requestContext("cleared-primary")),
@@ -1441,6 +1443,30 @@ describe("stream terminal outcomes", () => {
     );
   });
 
+  it("bounds upstream SSE error messages before logging", async () => {
+    const oversizedMessage = "x".repeat(10_000);
+    const { stream, telemetry } = createSSEInterceptor();
+    const writer = stream.writable.getWriter();
+    const reader = stream.readable.getReader();
+    const drain = (async () => {
+      while (!(await reader.read()).done) {
+        // Drain the passthrough stream so writes cannot backpressure the test.
+      }
+    })();
+
+    await writer.write(
+      new TextEncoder().encode(
+        `event: error\ndata: ${JSON.stringify({ type: "error", error: { message: oversizedMessage } })}\n\n`,
+      ),
+    );
+    await writer.close();
+    await drain;
+
+    const data = await telemetry;
+    expect(data.streamErrorMessage).toHaveLength(2048);
+    expect(data.streamErrorMessage).toMatch(/^x+\.\.\.\[TRUNCATED\]$/);
+  });
+
   it("detects a fragmented SSE error before committing stream bytes", async () => {
     const encoder = new TextEncoder();
     const frames = [
@@ -1698,8 +1724,14 @@ describe("launchd lifecycle source invariants", () => {
     expect(source).toContain('["0", "off", "false"]');
     expect(source).toContain("spawnProxyUpdater");
     expect(source).toContain("startUpdaterWorkerSupervisor");
-    expect(source).toContain("updaterOnly &&");
-    expect(source).toContain("!updaterOnly &&");
+    expect(source).toMatch(
+      /if \(updaterOnly && consecutiveUnhealthy >= failureThreshold\)/,
+    );
+    expect(source).toContain(
+      "if (\n        !updaterOnly &&\n        !updateRestartInProgress &&\n        !healthy &&\n        consecutiveUnhealthy >= failureThreshold",
+    );
+    expect(source).toContain("openProxyWorkerLog");
+    expect(source).toContain("sanitizeForLog(String(model))");
     expect(source).toContain("getProxyRuntimeActivity");
     expect(source).not.toContain("proceeding with update anyway");
     expect(source).toContain('["kickstart", "-k"');
