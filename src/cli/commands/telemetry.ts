@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable no-console, curly */
+
 /**
  * NeuroLink CLI Telemetry Commands
  *
@@ -18,6 +18,7 @@ import { logger } from "../../lib/utils/logger.js";
 import { NeuroLink } from "../../lib/neurolink.js";
 import { flushOpenTelemetry } from "../../lib/services/server/ai/observability/instrumentation.js";
 import { formatRow, formatCost } from "../utils/formatters.js";
+import { redactUrlCredentials } from "../../lib/utils/logSanitize.js";
 import type {
   ExporterName,
   TelemetryStatusArgs as StatusArgs,
@@ -102,36 +103,51 @@ export class TelemetryCommandFactory {
           const neurolink = new NeuroLink();
           const status = neurolink.getTelemetryStatus();
 
-          if (spinner) spinner.succeed("Status retrieved");
+          if (spinner) {
+            spinner.succeed("Status retrieved");
+          }
 
           if (args.format === "json") {
-            console.log(JSON.stringify(status, null, 2));
+            logger.always(
+              JSON.stringify(
+                status,
+                (_key, value) =>
+                  typeof value === "string" &&
+                  (_key === "baseUrl" || _key === "endpoint")
+                    ? redactUrlCredentials(value)
+                    : value,
+                2,
+              ),
+            );
           } else {
-            console.log("");
-            console.log(chalk.bold.cyan("=== Telemetry Status ==="));
-            console.log("");
+            logger.always("");
+            logger.always(chalk.bold.cyan("=== Telemetry Status ==="));
+            logger.always("");
 
             // Telemetry enabled status
             const enabledIcon = status.enabled
               ? chalk.green("ENABLED")
               : chalk.red("DISABLED");
-            console.log(formatRow("Telemetry:", enabledIcon));
+            logger.always(formatRow("Telemetry:", enabledIcon));
 
             // OpenTelemetry status
             if (status.openTelemetry) {
-              console.log("");
-              console.log(chalk.bold("OpenTelemetry:"));
+              logger.always("");
+              logger.always(chalk.bold("OpenTelemetry:"));
               const otelStatus = status.openTelemetry.enabled
                 ? chalk.green("Active")
                 : chalk.gray("Inactive");
-              console.log(formatRow("  Status:", otelStatus));
+              logger.always(formatRow("  Status:", otelStatus));
               if (status.openTelemetry.endpoint) {
-                console.log(
-                  formatRow("  Endpoint:", status.openTelemetry.endpoint),
+                logger.always(
+                  formatRow(
+                    "  Endpoint:",
+                    redactUrlCredentials(status.openTelemetry.endpoint),
+                  ),
                 );
               }
               if (status.openTelemetry.serviceName) {
-                console.log(
+                logger.always(
                   formatRow("  Service:", status.openTelemetry.serviceName),
                 );
               }
@@ -139,17 +155,22 @@ export class TelemetryCommandFactory {
 
             // Langfuse status
             if (status.langfuse) {
-              console.log("");
-              console.log(chalk.bold("Langfuse:"));
+              logger.always("");
+              logger.always(chalk.bold("Langfuse:"));
               const lfStatus = status.langfuse.enabled
                 ? chalk.green("Active")
                 : chalk.gray("Inactive");
-              console.log(formatRow("  Status:", lfStatus));
+              logger.always(formatRow("  Status:", lfStatus));
               if (status.langfuse.baseUrl) {
-                console.log(formatRow("  URL:", status.langfuse.baseUrl));
+                logger.always(
+                  formatRow(
+                    "  URL:",
+                    redactUrlCredentials(status.langfuse.baseUrl),
+                  ),
+                );
               }
               if (status.langfuse.environment) {
-                console.log(
+                logger.always(
                   formatRow("  Environment:", status.langfuse.environment),
                 );
               }
@@ -157,8 +178,8 @@ export class TelemetryCommandFactory {
 
             // Exporters health summary
             if (status.exporters && status.exporters.length > 0) {
-              console.log("");
-              console.log(chalk.bold("Exporter Health:"));
+              logger.always("");
+              logger.always(chalk.bold("Exporter Health:"));
               for (const exporter of status.exporters) {
                 const healthIcon = exporter.healthy
                   ? chalk.green("[OK]")
@@ -166,23 +187,25 @@ export class TelemetryCommandFactory {
                 const pendingInfo = exporter.pendingSpans
                   ? chalk.gray(` (${exporter.pendingSpans} pending)`)
                   : "";
-                console.log(`  ${healthIcon} ${exporter.name}${pendingInfo}`);
+                logger.always(`  ${healthIcon} ${exporter.name}${pendingInfo}`);
 
                 if (exporter.errors && exporter.errors.length > 0) {
                   for (const error of exporter.errors.slice(0, 2)) {
-                    console.log(chalk.red(`      Error: ${error}`));
+                    logger.always(chalk.red(`      Error: ${error}`));
                   }
                 }
               }
             } else {
-              console.log("");
-              console.log(chalk.gray("No exporters configured."));
+              logger.always("");
+              logger.always(chalk.gray("No exporters configured."));
             }
 
-            console.log("");
+            logger.always("");
           }
         } catch (error) {
-          if (spinner) spinner.fail("Failed to get status");
+          if (spinner) {
+            spinner.fail("Failed to get status");
+          }
           logger.error(
             "Error:",
             error instanceof Error ? error.message : String(error),
@@ -240,11 +263,13 @@ export class TelemetryCommandFactory {
           try {
             config = JSON.parse(args.config);
           } catch {
-            if (spinner) spinner.fail("Invalid JSON configuration");
-            console.log(chalk.red("Error: Configuration must be valid JSON"));
-            console.log("");
-            console.log("Example:");
-            console.log(
+            if (spinner) {
+              spinner.fail("Invalid JSON configuration");
+            }
+            logger.always(chalk.red("Error: Configuration must be valid JSON"));
+            logger.always("");
+            logger.always("Example:");
+            logger.always(
               chalk.gray(
                 `  neurolink telemetry configure --exporter langfuse --config '{"publicKey":"pk-...", "secretKey":"sk-..."}'`,
               ),
@@ -258,23 +283,28 @@ export class TelemetryCommandFactory {
             config,
           );
           if (!validationResult.valid) {
-            if (spinner) spinner.fail("Configuration validation failed");
-            console.log(chalk.red(`Error: ${validationResult.error}`));
-            console.log("");
-            console.log(chalk.yellow(`Required fields for ${args.exporter}:`));
+            if (spinner) {
+              spinner.fail("Configuration validation failed");
+            }
+            logger.always(chalk.red(`Error: ${validationResult.error}`));
+            logger.always("");
+            logger.always(
+              chalk.yellow(`Required fields for ${args.exporter}:`),
+            );
             for (const field of validationResult.requiredFields ?? []) {
-              console.log(chalk.gray(`  - ${field}`));
+              logger.always(chalk.gray(`  - ${field}`));
             }
             process.exit(1);
           }
 
           // Currently, exporter configuration is done via environment variables
           // or SDK initialization. This command provides guidance on how to configure.
-          if (spinner)
+          if (spinner) {
             spinner.succeed(`${args.exporter} configuration validated`);
+          }
 
           if (args.format === "json") {
-            console.log(
+            logger.always(
               JSON.stringify(
                 {
                   exporter: args.exporter,
@@ -288,39 +318,41 @@ export class TelemetryCommandFactory {
               ),
             );
           } else {
-            console.log("");
-            console.log(
+            logger.always("");
+            logger.always(
               chalk.bold.cyan(`=== ${args.exporter} Configuration ===`),
             );
-            console.log("");
-            console.log(chalk.green("Configuration validated successfully!"));
-            console.log("");
-            console.log(chalk.bold("To apply this configuration:"));
-            console.log("");
+            logger.always("");
+            logger.always(chalk.green("Configuration validated successfully!"));
+            logger.always("");
+            logger.always(chalk.bold("To apply this configuration:"));
+            logger.always("");
 
             // Show environment variable instructions
             const envVars = getExporterEnvVars(args.exporter as ExporterName);
-            console.log(chalk.yellow("Option 1: Set environment variables"));
+            logger.always(chalk.yellow("Option 1: Set environment variables"));
             for (const [key, description] of Object.entries(envVars)) {
-              console.log(chalk.gray(`  export ${key}="<${description}>"`));
+              logger.always(chalk.gray(`  export ${key}="<${description}>"`));
             }
 
-            console.log("");
-            console.log(chalk.yellow("Option 2: SDK initialization"));
-            console.log(chalk.gray(`  const neurolink = new NeuroLink({`));
-            console.log(chalk.gray(`    observability: {`));
-            console.log(
+            logger.always("");
+            logger.always(chalk.yellow("Option 2: SDK initialization"));
+            logger.always(chalk.gray(`  const neurolink = new NeuroLink({`));
+            logger.always(chalk.gray(`    observability: {`));
+            logger.always(
               chalk.gray(
                 `      ${args.exporter}: ${JSON.stringify(config, null, 6).split("\n").join("\n      ")}`,
               ),
             );
-            console.log(chalk.gray(`    }`));
-            console.log(chalk.gray(`  });`));
+            logger.always(chalk.gray(`    }`));
+            logger.always(chalk.gray(`  });`));
 
-            console.log("");
+            logger.always("");
           }
         } catch (error) {
-          if (spinner) spinner.fail("Failed to configure exporter");
+          if (spinner) {
+            spinner.fail("Failed to configure exporter");
+          }
           logger.error(
             "Error:",
             error instanceof Error ? error.message : String(error),
@@ -365,7 +397,9 @@ export class TelemetryCommandFactory {
           const neurolink = new NeuroLink();
           const status = neurolink.getTelemetryStatus();
 
-          if (spinner) spinner.succeed("Exporters listed");
+          if (spinner) {
+            spinner.succeed("Exporters listed");
+          }
 
           const configuredExporters = status.exporters ?? [];
           const configuredNames = new Set(
@@ -373,7 +407,7 @@ export class TelemetryCommandFactory {
           );
 
           if (args.format === "json") {
-            console.log(
+            logger.always(
               JSON.stringify(
                 {
                   available: AVAILABLE_EXPORTERS,
@@ -384,9 +418,9 @@ export class TelemetryCommandFactory {
               ),
             );
           } else {
-            console.log("");
-            console.log(chalk.bold.cyan("=== Available Exporters ==="));
-            console.log("");
+            logger.always("");
+            logger.always(chalk.bold.cyan("=== Available Exporters ==="));
+            logger.always("");
 
             for (const exporter of AVAILABLE_EXPORTERS) {
               const isConfigured = configuredNames.has(exporter);
@@ -401,12 +435,12 @@ export class TelemetryCommandFactory {
                 : chalk.gray("[AVAILABLE]");
 
               const description = getExporterDescription(exporter);
-              console.log(`${statusIcon} ${chalk.bold(exporter)}`);
-              console.log(chalk.gray(`    ${description}`));
+              logger.always(`${statusIcon} ${chalk.bold(exporter)}`);
+              logger.always(chalk.gray(`    ${description}`));
 
               if (isConfigured && configuredExporter) {
                 if (configuredExporter.pendingSpans) {
-                  console.log(
+                  logger.always(
                     chalk.gray(
                       `    Pending spans: ${configuredExporter.pendingSpans}`,
                     ),
@@ -416,24 +450,26 @@ export class TelemetryCommandFactory {
                   const lastExport = new Date(
                     configuredExporter.lastExportTime,
                   );
-                  console.log(
+                  logger.always(
                     chalk.gray(`    Last export: ${lastExport.toISOString()}`),
                   );
                 }
               }
-              console.log("");
+              logger.always("");
             }
 
-            console.log(chalk.bold("Configuration Help:"));
-            console.log(
+            logger.always(chalk.bold("Configuration Help:"));
+            logger.always(
               chalk.gray(
                 "  Use 'neurolink telemetry configure --exporter <name> --config <json>' to configure an exporter",
               ),
             );
-            console.log("");
+            logger.always("");
           }
         } catch (error) {
-          if (spinner) spinner.fail("Failed to list exporters");
+          if (spinner) {
+            spinner.fail("Failed to list exporters");
+          }
           logger.error(
             "Error:",
             error instanceof Error ? error.message : String(error),
@@ -490,8 +526,9 @@ export class TelemetryCommandFactory {
             ) ?? 0;
 
           // Create a timeout promise
+          let flushTimer: ReturnType<typeof setTimeout> | undefined;
           const timeoutPromise = new Promise<void>((_, reject) => {
-            setTimeout(
+            flushTimer = setTimeout(
               () => reject(new Error("Flush operation timed out")),
               args.timeout ?? 30000,
             );
@@ -503,6 +540,11 @@ export class TelemetryCommandFactory {
           // Race between flush and timeout
           await Promise.race([flushPromise, timeoutPromise]);
 
+          // Cancel the timeout timer to avoid unhandled rejection
+          if (flushTimer !== undefined) {
+            clearTimeout(flushTimer);
+          }
+
           // Get status after flush
           const statusAfter = neurolink.getTelemetryStatus();
           const pendingAfter =
@@ -513,10 +555,12 @@ export class TelemetryCommandFactory {
 
           const flushedCount = Math.max(0, pendingBefore - pendingAfter);
 
-          if (spinner) spinner.succeed("Flush completed");
+          if (spinner) {
+            spinner.succeed("Flush completed");
+          }
 
           if (args.format === "json") {
-            console.log(
+            logger.always(
               JSON.stringify(
                 {
                   success: true,
@@ -529,18 +573,20 @@ export class TelemetryCommandFactory {
               ),
             );
           } else {
-            console.log("");
-            console.log(chalk.bold.cyan("=== Flush Complete ==="));
-            console.log("");
-            console.log(formatRow("Spans before:", pendingBefore.toString()));
-            console.log(formatRow("Spans after:", pendingAfter.toString()));
-            console.log(
+            logger.always("");
+            logger.always(chalk.bold.cyan("=== Flush Complete ==="));
+            logger.always("");
+            logger.always(formatRow("Spans before:", pendingBefore.toString()));
+            logger.always(formatRow("Spans after:", pendingAfter.toString()));
+            logger.always(
               formatRow("Flushed:", chalk.green(flushedCount.toString())),
             );
-            console.log("");
+            logger.always("");
           }
         } catch (error) {
-          if (spinner) spinner.fail("Failed to flush spans");
+          if (spinner) {
+            spinner.fail("Failed to flush spans");
+          }
           logger.error(
             "Error:",
             error instanceof Error ? error.message : String(error),
@@ -601,10 +647,12 @@ export class TelemetryCommandFactory {
           const neurolink = new NeuroLink();
           const metrics = neurolink.getMetrics();
 
-          if (spinner) spinner.succeed("Statistics retrieved");
+          if (spinner) {
+            spinner.succeed("Statistics retrieved");
+          }
 
           if (args.format === "json") {
-            console.log(
+            logger.always(
               JSON.stringify(
                 {
                   tokens: {
@@ -632,25 +680,25 @@ export class TelemetryCommandFactory {
               ),
             );
           } else {
-            console.log("");
-            console.log(chalk.bold.cyan("=== Token & Cost Statistics ==="));
-            console.log("");
+            logger.always("");
+            logger.always(chalk.bold.cyan("=== Token & Cost Statistics ==="));
+            logger.always("");
 
             // Token usage
-            console.log(chalk.bold("Token Usage:"));
-            console.log(
+            logger.always(chalk.bold("Token Usage:"));
+            logger.always(
               formatRow(
                 "  Input tokens:",
                 metrics.tokens.totalInputTokens.toLocaleString(),
               ),
             );
-            console.log(
+            logger.always(
               formatRow(
                 "  Output tokens:",
                 metrics.tokens.totalOutputTokens.toLocaleString(),
               ),
             );
-            console.log(
+            logger.always(
               formatRow(
                 "  Total tokens:",
                 metrics.tokens.totalTokens.toLocaleString(),
@@ -659,7 +707,7 @@ export class TelemetryCommandFactory {
 
             if (args.detailed) {
               if (metrics.tokens.cacheReadTokens > 0) {
-                console.log(
+                logger.always(
                   formatRow(
                     "  Cache read:",
                     metrics.tokens.cacheReadTokens.toLocaleString(),
@@ -667,7 +715,7 @@ export class TelemetryCommandFactory {
                 );
               }
               if (metrics.tokens.reasoningTokens > 0) {
-                console.log(
+                logger.always(
                   formatRow(
                     "  Reasoning:",
                     metrics.tokens.reasoningTokens.toLocaleString(),
@@ -677,9 +725,9 @@ export class TelemetryCommandFactory {
             }
 
             // Cost summary
-            console.log("");
-            console.log(chalk.bold("Cost Summary:"));
-            console.log(
+            logger.always("");
+            logger.always(chalk.bold("Cost Summary:"));
+            logger.always(
               formatRow("  Total cost:", formatCost(metrics.totalCost ?? 0)),
             );
 
@@ -689,16 +737,16 @@ export class TelemetryCommandFactory {
               metrics.costByProvider &&
               metrics.costByProvider.length > 0
             ) {
-              console.log("");
-              console.log(chalk.bold("Cost by Provider:"));
+              logger.always("");
+              logger.always(chalk.bold("Cost by Provider:"));
               const sortedProviders = [...metrics.costByProvider].sort(
                 (a, b) => b.totalCost - a.totalCost,
               );
               for (const provider of sortedProviders) {
-                console.log(
+                logger.always(
                   `  ${chalk.cyan(provider.provider.padEnd(15))} ${formatCost(provider.totalCost)}`,
                 );
-                console.log(
+                logger.always(
                   chalk.gray(
                     `    ${provider.requestCount} requests, avg ${formatCost(provider.avgCostPerRequest)}/req`,
                   ),
@@ -712,21 +760,21 @@ export class TelemetryCommandFactory {
               metrics.costByModel &&
               metrics.costByModel.length > 0
             ) {
-              console.log("");
-              console.log(chalk.bold("Cost by Model:"));
+              logger.always("");
+              logger.always(chalk.bold("Cost by Model:"));
               const sortedModels = [...metrics.costByModel].sort(
                 (a, b) => b.totalCost - a.totalCost,
               );
               for (const model of sortedModels) {
-                console.log(`  ${chalk.cyan(model.model)}`);
-                console.log(`    Cost: ${formatCost(model.totalCost)}`);
-                console.log(
+                logger.always(`  ${chalk.cyan(model.model)}`);
+                logger.always(`    Cost: ${formatCost(model.totalCost)}`);
+                logger.always(
                   chalk.gray(
                     `    ${model.requestCount} requests, avg ${formatCost(model.avgCostPerRequest)}/req`,
                   ),
                 );
                 if (args.detailed) {
-                  console.log(
+                  logger.always(
                     chalk.gray(
                       `    ${model.inputTokens.toLocaleString()} input, ${model.outputTokens.toLocaleString()} output tokens`,
                     ),
@@ -736,24 +784,24 @@ export class TelemetryCommandFactory {
             }
 
             // Request statistics
-            console.log("");
-            console.log(chalk.bold("Request Statistics:"));
-            console.log(
+            logger.always("");
+            logger.always(chalk.bold("Request Statistics:"));
+            logger.always(
               formatRow(
                 "  Total requests:",
                 metrics.totalSpans.toLocaleString(),
               ),
             );
-            console.log(
+            logger.always(
               formatRow(
                 "  Successful:",
                 metrics.successfulSpans.toLocaleString(),
               ),
             );
-            console.log(
+            logger.always(
               formatRow("  Failed:", metrics.failedSpans.toLocaleString()),
             );
-            console.log(
+            logger.always(
               formatRow(
                 "  Success rate:",
                 `${(metrics.successRate * 100).toFixed(2)}%`,
@@ -762,11 +810,17 @@ export class TelemetryCommandFactory {
 
             // Latency (if detailed)
             if (args.detailed && metrics.latency.count > 0) {
-              console.log("");
-              console.log(chalk.bold("Latency (ms):"));
-              console.log(formatRow("  P50:", metrics.latency.p50.toFixed(2)));
-              console.log(formatRow("  P95:", metrics.latency.p95.toFixed(2)));
-              console.log(formatRow("  P99:", metrics.latency.p99.toFixed(2)));
+              logger.always("");
+              logger.always(chalk.bold("Latency (ms):"));
+              logger.always(
+                formatRow("  P50:", metrics.latency.p50.toFixed(2)),
+              );
+              logger.always(
+                formatRow("  P95:", metrics.latency.p95.toFixed(2)),
+              );
+              logger.always(
+                formatRow("  P99:", metrics.latency.p99.toFixed(2)),
+              );
             }
 
             // Tracking duration
@@ -774,18 +828,20 @@ export class TelemetryCommandFactory {
               const durationSec = metrics.trackingDurationMs / 1000;
               const throughput =
                 metrics.totalSpans > 0 ? metrics.totalSpans / durationSec : 0;
-              console.log("");
-              console.log(
+              logger.always("");
+              logger.always(
                 chalk.gray(
                   `Tracking: ${durationSec.toFixed(1)}s (${throughput.toFixed(2)} req/s)`,
                 ),
               );
             }
 
-            console.log("");
+            logger.always("");
           }
         } catch (error) {
-          if (spinner) spinner.fail("Failed to get statistics");
+          if (spinner) {
+            spinner.fail("Failed to get statistics");
+          }
           logger.error(
             "Error:",
             error instanceof Error ? error.message : String(error),
