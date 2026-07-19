@@ -1,3 +1,9 @@
+## [9.94.7](https://github.com/juspay/neurolink/compare/v9.94.6...v9.94.7) (2026-07-19)
+
+### Bug Fixes
+
+- **(cli):** validate csv-max-rows, warn on large files, and document multimodal inputs ([124f0d6](https://github.com/juspay/neurolink/commit/124f0d6ca95d7d0819ab001cb9cf753052308ed1))
+
 ## [9.94.6](https://github.com/juspay/neurolink/compare/v9.94.5...v9.94.6) (2026-07-19)
 
 ### Bug Fixes
