@@ -15,7 +15,7 @@
 
 import { createHash } from "crypto";
 import { logger } from "./logger.js";
-import { redactUrlForError } from "./logSanitize.js";
+import { normalizeUrlForCache, redactUrlForError } from "./logSanitize.js";
 import type {
   CachedImage,
   ImageCacheConfig,
@@ -123,29 +123,19 @@ export class ImageCache {
   }
 
   /**
-   * Normalize URL for consistent cache key generation
-   * Removes tracking parameters and normalizes the URL
+   * Normalize URL for consistent cache key generation.
+   *
+   * Delegates to the shared {@link normalizeUrlForCache} — this normalized
+   * URL is used as the in-memory Map key (see `get`/`set` below), which lives
+   * for the process lifetime, so both tracking-param noise and presigned-URL
+   * auth/signature secrets must be stripped consistently with
+   * `fileDetector.cacheKeyForUrl`'s identical requirement. See
+   * `stripSensitiveUrlParamsForCacheKey`'s doc comment for why a naive
+   * strip-only approach (no hash suffix) would be a correctness bug, not just
+   * a hygiene one.
    */
   private normalizeUrl(url: string): string {
-    try {
-      const parsed = new URL(url);
-      // Remove common tracking parameters that don't affect content
-      const trackingParams = [
-        "utm_source",
-        "utm_medium",
-        "utm_campaign",
-        "utm_term",
-        "utm_content",
-        "fbclid",
-        "gclid",
-        "_ga",
-      ];
-      trackingParams.forEach((param) => parsed.searchParams.delete(param));
-      return parsed.toString();
-    } catch {
-      // If URL parsing fails, use the original URL
-      return url;
-    }
+    return normalizeUrlForCache(url);
   }
 
   /**

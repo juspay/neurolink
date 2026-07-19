@@ -29,6 +29,31 @@ export const MIN_IMAGE_SIZE = 12;
  * buffer that carries a format's magic bytes but is smaller than this is
  * truncated/corrupt and would fail (or render blank) downstream — reject early
  * with a clear message instead.
+ *
+ * Each threshold approximates the smallest byte count that format's
+ * container can structurally be while still holding the mandatory
+ * header/chunk skeleton for a minimal (e.g. 1×1 pixel) image — not an exact
+ * spec minimum, but close enough that anything smaller is unambiguously
+ * truncated:
+ *  - **PNG (67)**: 8-byte signature + IHDR chunk (4 len + 4 type + 13 data +
+ *    4 CRC = 25) + a minimal IDAT chunk carrying one zlib-compressed
+ *    scanline (~22 bytes) + IEND chunk (4 len + 4 type + 0 data + 4 CRC =
+ *    12) — matches the commonly-cited size of the smallest possible valid
+ *    PNG (a 1×1 transparent pixel).
+ *  - **JPEG (125)**: SOI + APP0/JFIF marker (18) + at least one DQT
+ *    quantization table (~69 for one 8-bit luma table) + SOF0 + DHT + SOS
+ *    headers + a minimal entropy-coded scan + EOI — the smallest legal
+ *    baseline-JPEG skeleton for a 1×1 image.
+ *  - **GIF (43)**: 6-byte GIF87a/89a header + 7-byte Logical Screen
+ *    Descriptor + a 2-color (6-byte) color table + 10-byte Image
+ *    Descriptor + minimal LZW-coded image sub-blocks + 1-byte trailer.
+ *  - **WEBP (20)**: RIFF container header ("RIFF" + size + "WEBP" = 12
+ *    bytes) + the first chunk's fourCC + size (8 bytes) — enough to confirm
+ *    a well-formed RIFF/WEBP container and its first chunk, before any
+ *    actual VP8/VP8L bitstream payload.
+ *  - **AVIF (100)**: ISOBMFF `ftyp` box plus the mandatory `meta` box
+ *    skeleton (`hdlr`/`pitm`/`iloc`/`iinf` sub-boxes) — roughly the minimum
+ *    to hold AVIF's required box structure before any AV1 image item data.
  */
 export const MIN_VALID_IMAGE_SIZE: Record<string, number> = {
   "image/png": 67,
@@ -1150,7 +1175,9 @@ export const imageUtils = {
     const cache = getImageCache();
     const cached = cache.get(url);
     if (cached) {
-      logger.debug("Using cached image for URL", { url: url.substring(0, 50) });
+      logger.debug("Using cached image for URL", {
+        url: redactUrlForError(url),
+      });
       return cached.dataUri;
     }
 

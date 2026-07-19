@@ -224,9 +224,19 @@ csvOptions: {
 
 #### encoding
 
-Character-encoding override (#362). When omitted, the encoding is detected from
-a BOM, then `chardet`, falling back to UTF-8 — so Windows-1252 / Latin-1 /
-UTF-16 files no longer decode as mojibake. Accepts any label
+Character-encoding override (#362). When omitted, the encoding is detected in
+this order (see `decodeBuffer` in `src/lib/utils/textEncoding.ts`):
+
+1. **BOM** — authoritative when present (UTF-8/UTF-16 byte-order mark).
+2. **Pure-ASCII fast path** — if every byte in the peeked content is `< 0x80`,
+   it's reported as UTF-8 immediately (ASCII decodes identically to UTF-8),
+   without ever invoking `chardet`.
+3. **`chardet` statistical detection** — only reached for non-ASCII content
+   with no BOM.
+4. **UTF-8 fallback** — used if `chardet` can't identify anything.
+
+So Windows-1252 / Latin-1 / UTF-16 files no longer decode as mojibake, while
+the common plain-ASCII case never pays the `chardet` cost. Accepts any label
 [`iconv-lite`](https://www.npmjs.com/package/iconv-lite) supports.
 
 ```typescript

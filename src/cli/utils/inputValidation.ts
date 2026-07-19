@@ -30,6 +30,11 @@ export const CLI_SOFT_LIMITS_MB = {
   IMAGE_MAX_MB: 10,
   CSV_MAX_MB: 50,
   PDF_MAX_MB: 100,
+  // Distinct from PDF_MAX_MB above (which mirrors the processor's true
+  // 100MB hard cap in lib/processors/config/sizeLimits.ts and is kept here
+  // for backward compatibility). Docs promise a 50MB *warning* threshold
+  // specifically for --pdf — wire warnAtMB to this value, not the hard cap.
+  PDF_SOFT_MAX_MB: 50,
   VIDEO_MAX_MB: 500,
 } as const;
 
@@ -200,7 +205,7 @@ export function validateCliInputFiles(argv: Record<string, unknown>): void {
     {
       option: "--pdf",
       value: argv.pdf as string | string[] | undefined,
-      warnAtMB: CLI_SOFT_LIMITS_MB.PDF_MAX_MB,
+      warnAtMB: CLI_SOFT_LIMITS_MB.PDF_SOFT_MAX_MB,
     },
     {
       option: "--video",

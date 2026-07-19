@@ -3369,6 +3369,28 @@ export class CLICommandFactory {
   }
 
   /**
+   * Build video processor options from CLI argv. Shared by executeGenerate,
+   * executeStream and executeBatch, which previously built byte-for-byte
+   * identical `videoOptions` objects independently (mirrors
+   * {@link buildCsvOptionsFromArgv}).
+   */
+  private static buildVideoOptionsFromArgv(
+    argv: BaseCommandArgs & Record<string, unknown>,
+  ): {
+    frames?: number;
+    quality?: number;
+    format?: "jpeg" | "png";
+    transcribeAudio?: boolean;
+  } {
+    return {
+      frames: argv.videoFrames as number | undefined,
+      quality: argv.videoQuality as number | undefined,
+      format: argv.videoFormat as "jpeg" | "png" | undefined,
+      transcribeAudio: argv.transcribeAudio as boolean | undefined,
+    };
+  }
+
+  /**
    * Build output configuration for generate request
    */
   private static buildGenerateOutputConfig(
@@ -3716,12 +3738,7 @@ export class CLICommandFactory {
             password: CLICommandFactory.resolvePdfPassword(argv),
           },
           csvOptions: CLICommandFactory.buildCsvOptionsFromArgv(argv),
-          videoOptions: {
-            frames: argv.videoFrames as number | undefined,
-            quality: argv.videoQuality as number | undefined,
-            format: argv.videoFormat as "jpeg" | "png" | undefined,
-            transcribeAudio: argv.transcribeAudio as boolean | undefined,
-          },
+          videoOptions: CLICommandFactory.buildVideoOptionsFromArgv(argv),
           output: outputConfig,
           provider: enhancedOptions.provider,
           model: enhancedOptions.model,
@@ -4070,12 +4087,7 @@ export class CLICommandFactory {
           password: CLICommandFactory.resolvePdfPassword(argv),
         },
         csvOptions: CLICommandFactory.buildCsvOptionsFromArgv(argv),
-        videoOptions: {
-          frames: argv.videoFrames as number | undefined,
-          quality: argv.videoQuality as number | undefined,
-          format: argv.videoFormat as "jpeg" | "png" | undefined,
-          transcribeAudio: argv.transcribeAudio as boolean | undefined,
-        },
+        videoOptions: CLICommandFactory.buildVideoOptionsFromArgv(argv),
         provider: enhancedOptions.provider as string | undefined,
         model: enhancedOptions.model as string | undefined,
         temperature: enhancedOptions.temperature as number | undefined,
@@ -4701,6 +4713,7 @@ export class CLICommandFactory {
       // see createBatchCommand — so `argv.file` can never be set here; no
       // exclusion needed to protect the (differently-named) positional.
       validateCliInputFiles(argv as unknown as Record<string, unknown>);
+      validateCsvMaxRows(argv as unknown as Record<string, unknown>);
       const batchImages = CLICommandFactory.processCliImages(
         argv.image as string | string[] | undefined,
       );
@@ -4797,6 +4810,13 @@ export class CLICommandFactory {
         spinner?.start();
       }
 
+      // Resolve the PDF password once for the whole batch. resolvePdfPassword
+      // emits a "visible in shell history" stderr warning when the flag is set;
+      // it must fire once per run (like generate/stream), not once per prompt.
+      const batchPdfPassword = batchPdfFiles?.length
+        ? CLICommandFactory.resolvePdfPassword(argv)
+        : undefined;
+
       for (let i = 0; i < prompts.length; i++) {
         if (spinner) {
           spinner.text = `Processing ${i + 1}/${prompts.length}: ${prompts[i].substring(0, 30)}...`;
@@ -4860,22 +4880,15 @@ export class CLICommandFactory {
               // unlike generate/stream, so an empty options object here is
               // pure noise on every prompt of every batch run.
               ...(batchCsvFiles?.length && {
-                csvOptions: {
-                  maxRows: argv.csvMaxRows as number | undefined,
-                  formatStyle: argv.csvFormat as
-                    | "raw"
-                    | "markdown"
-                    | "json"
-                    | undefined,
+                csvOptions: CLICommandFactory.buildCsvOptionsFromArgv(argv),
+              }),
+              ...(batchPdfFiles?.length && {
+                pdfOptions: {
+                  password: batchPdfPassword,
                 },
               }),
               ...(batchVideoFiles?.length && {
-                videoOptions: {
-                  frames: argv.videoFrames as number | undefined,
-                  quality: argv.videoQuality as number | undefined,
-                  format: argv.videoFormat as "jpeg" | "png" | undefined,
-                  transcribeAudio: argv.transcribeAudio as boolean | undefined,
-                },
+                videoOptions: CLICommandFactory.buildVideoOptionsFromArgv(argv),
               }),
               provider: enhancedOptions.provider,
               model: enhancedOptions.model,

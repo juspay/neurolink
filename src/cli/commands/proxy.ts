@@ -124,6 +124,14 @@ const PROXY_TELEMETRY_SCRIPT_PATH = fileURLToPath(
   ),
 );
 const PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS = 5_000;
+// Allowed drift between a pid's OS-reported start time and the persisted
+// ProxySupervisorState.startTime before processLooksLikeProxySupervisor
+// treats it as a confident mismatch (recycled pid). Generous on purpose:
+// `supervisorStartedAt` is captured inside runLaunchdProxySupervisor, which
+// runs after Node has already booted and done setup, so it always lags the
+// OS-level fork/exec by a little — a tight tolerance would produce false
+// mismatches on a slow/cold-started machine.
+const PROXY_SUPERVISOR_START_TIME_TOLERANCE_MS = 10_000;
 const PROXY_UPDATE_CONTROL_TOKEN =
   process.env.NEUROLINK_PROXY_UPDATE_CONTROL_TOKEN?.trim() ||
   crypto.randomUUID();
@@ -203,22 +211,148 @@ function getProcessStatus(pid: number): "running" | "not_running" | "unknown" {
 }
 
 /**
+ * Read a single `ps -o <field>=` field for `pid`, off the event loop (async
+ * `execFile`, not `execFileSync`) and bounded by a short timeout, so a
+ * hung/zombie `ps` invocation can never block the event loop or hang the
+ * (often uninstall-path) async caller. Shared by {@link getProcessStartTime}
+ * and {@link processLooksLikeProxySupervisor}, which both read a single
+ * `ps -o <field>=` column for the same pid.
+ *
+ * Returns null — never throws — on any error, timeout, or empty output, so
+ * callers uniformly treat "couldn't read" as "can't confirm either way"
+ * rather than distinguishing the failure mode.
+ */
+async function readPsField(pid: number, field: string): Promise<string | null> {
+  try {
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const execFileAsync = promisify(execFile);
+    const { stdout } = await withTimeout(
+      execFileAsync("ps", ["-p", String(pid), "-o", `${field}=`], {
+        encoding: "utf-8" as const,
+      }),
+      2000,
+      `ps -o ${field}= timed out for pid ${pid}`,
+    );
+    const trimmed = stdout.trim();
+    return trimmed || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Best-effort, macOS-only (uninstall is macOS-only) read of `pid`'s
+ * OS-reported start time via `ps -o lstart=`, which prints a fixed-width
+ * `Www Mmm dd hh:mm:ss yyyy` timestamp — the same shape `Date`'s parser
+ * already understands (it's the format `Date#toString()` itself produces
+ * modulo the trailing timezone). Returns null (never throws) when `ps`
+ * fails or its output doesn't parse, so callers can tell "confirmed
+ * mismatch" apart from "couldn't confirm either way".
+ */
+async function getProcessStartTime(pid: number): Promise<Date | null> {
+  const out = await readPsField(pid, "lstart");
+  if (!out) {
+    return null;
+  }
+  // `ps -o lstart=` prints the OS start time in the machine's LOCAL timezone
+  // with no offset, e.g. "Sun Jul 19 20:12:41 2026". Parse the components and
+  // build the Date via the local-time constructor rather than relying on the
+  // engine's implementation-defined parsing of non-ISO date strings. The
+  // result is the same absolute instant the supervisor persisted as an
+  // ISO-UTC string, so the drift comparison against it is timezone-safe.
+  const m = out.match(
+    /^\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})\s+(\d{4})$/,
+  );
+  if (!m) {
+    return null;
+  }
+  const monthIndex = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ].indexOf(m[1]);
+  if (monthIndex < 0) {
+    return null;
+  }
+  const parsed = new Date(
+    Number(m[6]),
+    monthIndex,
+    Number(m[2]),
+    Number(m[3]),
+    Number(m[4]),
+    Number(m[5]),
+  );
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
  * Best-effort check that a pid actually belongs to a neurolink proxy process,
  * so a stale/recycled supervisor pid is never mistaken for a live supervisor
  * and signalled. Returns false when the process cannot be confirmed as ours.
+ *
+ * @param expectedStartTimeIso - The `ProxySupervisorState.startTime` (ISO
+ *   string) recorded when the supervisor we expect at `pid` was launched.
+ *   When provided, this is cross-checked against `pid`'s actual OS-reported
+ *   start time (see {@link getProcessStartTime}) — the args match alone
+ *   ("neurolink" + "proxy" both present) is not airtight, since an
+ *   unrelated process (e.g. a shell running this very test suite, or a
+ *   coincidentally-named script) could match it too. A pid recycled by such
+ *   a process would have a start time far from the recorded supervisor
+ *   startTime, which this catches.
+ *
+ *   Deliberately fail-open on anything unparseable: `ps -o lstart=` output
+ *   parsing is inherently a little fragile (locale/format quirks), and the
+ *   cost of a false "can't confirm" is silently regressing to pre-hardening
+ *   behavior, while the cost of a false "confirmed mismatch" is leaving a
+ *   real supervisor running and orphaning its socket during uninstall — the
+ *   former is the safer failure mode. So this only ever returns false for
+ *   the startTime check when BOTH timestamps parsed successfully AND their
+ *   drift exceeds the tolerance; any parse failure is treated as "can't
+ *   confirm a mismatch" and falls through to the args-only result.
  */
-async function processLooksLikeProxySupervisor(pid: number): Promise<boolean> {
-  try {
-    const { execFileSync } = await import("node:child_process");
-    const args = execFileSync("ps", ["-p", String(pid), "-o", "args="], {
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    return /neurolink/i.test(args);
-  } catch {
-    // `ps` unavailable or the pid vanished — do not signal an unverified pid.
+export async function processLooksLikeProxySupervisor(
+  pid: number,
+  expectedStartTimeIso?: string,
+): Promise<boolean> {
+  const args = await readPsField(pid, "args");
+  if (args === null) {
+    // `ps` unavailable, timed out, or the pid vanished — do not signal an
+    // unverified pid.
     return false;
   }
+  // `/neurolink/i` alone is too broad: any process whose args merely
+  // *mention* "neurolink" (e.g. a shell running in a directory named
+  // "neurolink", an editor with a neurolink file open) would match, and a
+  // stale/recycled pid running such a process could then be SIGTERM'd/
+  // SIGKILL'd by `ensureSupervisorStoppedBeforeClear` during uninstall.
+  // Require the actual proxy-supervisor invocation — both "neurolink" AND
+  // the "proxy" subcommand present in args.
+  if (!(/neurolink/i.test(args) && /\bproxy\b/i.test(args))) {
+    return false;
+  }
+  if (!expectedStartTimeIso) {
+    return true;
+  }
+  const expected = new Date(expectedStartTimeIso);
+  if (Number.isNaN(expected.getTime())) {
+    return true; // recorded startTime itself is unparseable — can't confirm a mismatch
+  }
+  const actual = await getProcessStartTime(pid);
+  if (!actual) {
+    return true; // ps -o lstart= unavailable/unparseable — can't confirm a mismatch
+  }
+  const driftMs = Math.abs(actual.getTime() - expected.getTime());
+  return driftMs <= PROXY_SUPERVISOR_START_TIME_TOLERANCE_MS;
 }
 
 /**
@@ -229,14 +363,19 @@ async function processLooksLikeProxySupervisor(pid: number): Promise<boolean> {
  * the uninstall instead of silently discarding the record.
  */
 async function ensureSupervisorStoppedBeforeClear(): Promise<boolean> {
-  const pid = loadProxySupervisorState()?.pid;
+  const supervisorState = loadProxySupervisorState();
+  const pid = supervisorState?.pid;
   if (!pid || getProcessStatus(pid) === "not_running") {
     return true;
   }
   // Guard against a stale/recycled pid: only signal a process that still looks
   // like a neurolink proxy supervisor, so uninstall never terminates an
-  // unrelated, same-user process that inherited the recorded pid.
-  if (!(await processLooksLikeProxySupervisor(pid))) {
+  // unrelated, same-user process that inherited the recorded pid. Also cross-
+  // checks the pid's actual OS start time against the recorded
+  // supervisorState.startTime (see processLooksLikeProxySupervisor).
+  if (
+    !(await processLooksLikeProxySupervisor(pid, supervisorState?.startTime))
+  ) {
     return true;
   }
   try {

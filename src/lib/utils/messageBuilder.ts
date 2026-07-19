@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from "fs";
 import { readFile as readFileAsync, stat as statAsync } from "fs/promises";
+import { basename } from "path";
 import { getGlobalDispatcher, interceptors, request } from "undici";
 import {
   MultimodalLogger,
@@ -1326,9 +1327,31 @@ async function processExplicitPdfFiles(
   // it in aggregate (e.g. three 40-page PDFs → 120 pages for a 100-page API).
   const aggregateConfig = PDFProcessor.getProviderConfig(provider);
   if (aggregateConfig && pdfFiles.length > 1) {
+    // A null pageCount (accurate count unavailable — see
+    // PDFProcessor.getAccuratePageCount) is treated as 0 in the sum below,
+    // which can undercount the aggregate and let a combined request over
+    // the provider's page limit slip through silently. Enforcement still
+    // runs against the known sum — a PDF with an unknown count must not
+    // fail the request outright — but the gap itself must not be silent.
+    const unknownPageCountFiles = pdfFiles.filter(
+      (f) => f.pageCount === null || f.pageCount === undefined,
+    );
     const totalPages = pdfFiles.reduce((sum, f) => sum + (f.pageCount ?? 0), 0);
     const totalMB =
       pdfFiles.reduce((sum, f) => sum + f.buffer.length, 0) / (1024 * 1024);
+    if (unknownPageCountFiles.length > 0) {
+      // Filenames are caller-controlled and may be full paths carrying
+      // PII/internal directory segments — log only the basename.
+      const unknownFileNames = unknownPageCountFiles
+        .map((f) => (f.filename ? basename(f.filename) : "<unnamed file>"))
+        .join(", ");
+      logger.warn(
+        `[PDF] Aggregate page-limit check across ${pdfFiles.length} PDFs could only be ` +
+          `partially verified: ${unknownPageCountFiles.length} file(s) have an unknown ` +
+          `page count (${unknownFileNames}), so the known total (${totalPages}) may ` +
+          `undercount the true combined page count.`,
+      );
+    }
     if (totalPages > aggregateConfig.maxPages) {
       throw new Error(
         `[PDF] Combined page count across ${pdfFiles.length} PDFs (${totalPages}) exceeds the ` +

@@ -42,7 +42,11 @@ import { CSVProcessor } from "./csvProcessor.js";
 import { ImageProcessor } from "./imageProcessor.js";
 import { logger } from "./logger.js";
 import { withTimeout } from "./errorHandling.js";
-import { redactUrlForError, sanitizeErrorCause } from "./logSanitize.js";
+import {
+  normalizeUrlForCache,
+  redactUrlForError,
+  sanitizeErrorCause,
+} from "./logSanitize.js";
 import {
   mimeHintToExtension,
   mimeHintToFileType,
@@ -81,22 +85,41 @@ const urlContentTypeCache = new Map<
   { contentType: string; expiresAt: number }
 >();
 
+/**
+ * Build the Map key for `urlContentTypeCache`. Delegates to the shared
+ * {@link normalizeUrlForCache} — this is a module-level, process-lifetime
+ * cache, so it must strip presigned-URL auth/signature query params (see
+ * `SENSITIVE_URL_QUERY_PARAM_DENYLIST`) the same way `ImageCache.normalizeUrl`
+ * does, folding a short hash of the stripped params into the key whenever any
+ * were present so two different presigned URLs for the same path don't
+ * collide and serve each other's cached content-type across auth contexts.
+ * Also strips tracking/analytics params first, so two URLs differing only by
+ * tracking noise (e.g. `utm_source`) still hit the same cache entry instead
+ * of missing each other. Falls back to the raw URL if it isn't a parseable
+ * absolute URL. Shared by both `getCachedUrlContentType` and
+ * `setCachedUrlContentType` so lookups and writes always agree on the key.
+ */
+function cacheKeyForUrl(url: string): string {
+  return normalizeUrlForCache(url);
+}
+
 function getCachedUrlContentType(url: string, now: number): string | undefined {
-  const hit = urlContentTypeCache.get(url);
+  const key = cacheKeyForUrl(url);
+  const hit = urlContentTypeCache.get(key);
   if (hit && hit.expiresAt > now) {
     // Bump recency: Map iteration order follows insertion order, and the
     // eviction below deletes the *first* key, so a plain `get` on a hot
     // entry would leave it first in line for eviction despite being the
     // most recently used. Re-inserting turns the size-bounded FIFO below
     // into an actual LRU.
-    urlContentTypeCache.delete(url);
-    urlContentTypeCache.set(url, hit);
+    urlContentTypeCache.delete(key);
+    urlContentTypeCache.set(key, hit);
     return hit.contentType;
   }
   if (hit) {
     // Entry exists but its TTL has passed — treat as a miss and evict it
     // immediately rather than serving (or retaining) stale data.
-    urlContentTypeCache.delete(url);
+    urlContentTypeCache.delete(key);
   }
   return undefined;
 }
@@ -122,7 +145,8 @@ function setCachedUrlContentType(
   if (!contentType) {
     return;
   }
-  urlContentTypeCache.set(url, {
+  const key = cacheKeyForUrl(url);
+  urlContentTypeCache.set(key, {
     contentType,
     expiresAt: now + URL_CONTENT_TYPE_TTL_MS,
   });
@@ -1915,19 +1939,28 @@ export class FileDetector {
         });
         // Drain/close the (empty) HEAD body so the connection can be reused.
         await head.body.dump();
-        const declaredLength = Number(head.headers["content-length"]);
-        if (Number.isFinite(declaredLength) && declaredLength > maxSize) {
-          throw new Error(
-            `File too large: ${formatFileSize(declaredLength)} (max: ${formatFileSize(maxSize)})`,
-          );
+        // Only trust `content-length` on a genuine 2xx response. A non-2xx
+        // HEAD (redirect the dispatcher didn't follow, 403/404/405 "HEAD not
+        // allowed", 5xx, …) can still carry a stale/irrelevant
+        // `content-length` header — enforcing size off of that would reject
+        // (or silently pass) based on the wrong body. Treat any non-2xx HEAD
+        // as if the header were missing and fall through to the streaming
+        // GET guard below, which enforces maxSize independently either way.
+        if (head.statusCode >= 200 && head.statusCode < 300) {
+          const declaredLength = Number(head.headers["content-length"]);
+          if (Number.isFinite(declaredLength) && declaredLength > maxSize) {
+            throw new Error(
+              `File too large: ${formatFileSize(declaredLength)} (max: ${formatFileSize(maxSize)})`,
+            );
+          }
         }
       } catch (error) {
         if (error instanceof Error && /File too large/.test(error.message)) {
           throw error;
         }
         logger.debug(
-          `[FileDetector] HEAD pre-flight skipped for ${url}: ${
-            error instanceof Error ? error.message : String(error)
+          `[FileDetector] HEAD pre-flight skipped for ${redactUrlForError(url)}: ${
+            sanitizeErrorCause(error).message
           }`,
         );
       }

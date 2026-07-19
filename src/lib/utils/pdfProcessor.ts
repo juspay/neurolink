@@ -297,22 +297,37 @@ export class PDFProcessor {
     try {
       const { PDFParse } = await import("pdf-parse");
       const pdf = new PDFParse({ data: new Uint8Array(buffer) });
+      // Captured outside the try so the `finally` below can always clear it
+      // — otherwise a `getInfo()` that wins the race leaves this timer
+      // running until PAGE_COUNT_TIMEOUT_MS fires for nothing. `.unref()`
+      // so it can never itself hold the process open in the meantime.
+      let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
       try {
         const info = await Promise.race([
           pdf.getInfo(),
-          new Promise<never>((_, reject) =>
-            setTimeout(
+          new Promise<never>((_, reject) => {
+            timeoutHandle = setTimeout(
               () => reject(new Error("page-count timeout")),
               PDF_LIMITS.PAGE_COUNT_TIMEOUT_MS,
-            ),
-          ),
+            );
+            timeoutHandle.unref?.();
+          }),
         ]);
         const total = (info as { total?: number }).total;
         return typeof total === "number" && total > 0 ? total : null;
       } finally {
-        await (
-          pdf as unknown as { destroy?: () => Promise<void> | void }
-        ).destroy?.();
+        if (timeoutHandle !== undefined) {
+          clearTimeout(timeoutHandle);
+        }
+        try {
+          await (
+            pdf as unknown as { destroy?: () => Promise<void> | void }
+          ).destroy?.();
+        } catch {
+          // A throwing destroy() must not discard an otherwise-valid page
+          // count returned above (matches fileReferenceRegistry.ts's
+          // pdf.destroy() cleanup pattern) — swallow it.
+        }
       }
     } catch (error) {
       logger.debug(
@@ -654,7 +669,13 @@ export class PDFProcessor {
    * base64 PNG as soon as it renders instead of buffering the whole document,
    * and reports progress via `options.onProgress`. A page that fails to render
    * is yielded with `error` set (per-page isolation, #294) rather than aborting
-   * the stream. `convertToImages` is the batch wrapper over this contract.
+   * the stream.
+   *
+   * NOT a wrapper of/over {@link convertToImages}, despite the similar
+   * contract — the two are independent, parallel implementations (each does
+   * its own `pdf-to-img` import, downscale calculation, and page loop)
+   * rather than one delegating to the other. Keep behavior changes (page
+   * isolation, downscale, password handling) in sync across both by hand.
    */
   static async *convertToImagesStream(
     pdfBuffer: Buffer,

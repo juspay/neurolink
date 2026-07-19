@@ -16,6 +16,7 @@
  *   - Generic key=value pairs: api_key=…, access_token: …, secret_key=…
  */
 
+import { createHash } from "crypto";
 import { basename, resolve as resolvePath } from "path";
 
 const TOKEN_PREFIXES = [
@@ -236,6 +237,174 @@ export function redactUrlForError(url: string): string {
     // string — never echo the input completely unredacted.
     const withoutQueryOrFragment = url.split(/[?#]/)[0];
     return truncate(redactUrlCredentials(withoutQueryOrFragment));
+  }
+}
+
+/**
+ * Query-parameter names that commonly carry authentication/signature
+ * secrets in presigned URLs, matched case-insensitively: generic
+ * `token`/`signature`, AWS SigV4 (`X-Amz-Signature`, `X-Amz-Credential`,
+ * `X-Amz-Security-Token`, and the legacy `AWSAccessKeyId`/`Signature`/
+ * `Expires` query-auth params), Azure SAS (`sig`/`se`/`sp`/`sr`/`sv`), and
+ * GCS V4 signed URLs (`X-Goog-Signature`, `X-Goog-Credential`,
+ * `X-Goog-Algorithm`, `X-Goog-Date`, `X-Goog-Expires`,
+ * `X-Goog-SignedHeaders`).
+ *
+ * Unlike {@link redactUrlForError} (which drops the *entire* query string
+ * for a one-off error message), this is used where a URL is normalized
+ * into a long-lived in-memory cache key — content-varying query params
+ * must survive so distinct resources still get distinct keys, but a
+ * presigned URL's secret must never persist as a Map key for the process
+ * lifetime.
+ */
+export const SENSITIVE_URL_QUERY_PARAM_DENYLIST: readonly string[] = [
+  "token",
+  "signature",
+  "x-amz-signature",
+  "x-amz-credential",
+  "x-amz-security-token",
+  "awsaccesskeyid",
+  "expires",
+  "sig",
+  "se",
+  "sp",
+  "sr",
+  "sv",
+  "x-goog-signature",
+  "x-goog-credential",
+  "x-goog-algorithm",
+  "x-goog-date",
+  "x-goog-expires",
+  "x-goog-signedheaders",
+];
+
+/** Common tracking/analytics query params that don't affect the fetched
+ * content, so two URLs differing only by these should map to the same
+ * cache key rather than missing each other. */
+const TRACKING_URL_QUERY_PARAMS: readonly string[] = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "fbclid",
+  "gclid",
+  "_ga",
+];
+
+/**
+ * Strip common tracking/analytics query params (`utm_*`, `fbclid`, `gclid`,
+ * `_ga`) from `parsed` in place, so callers that build a cache key from a
+ * URL don't miss a cache hit solely because two otherwise-identical URLs
+ * carry different tracking noise.
+ *
+ * Shared by `ImageCache.normalizeUrl` and `fileDetector.cacheKeyForUrl` —
+ * both build a long-lived in-memory cache key from a URL and should
+ * normalize tracking params the same way. Call this before
+ * {@link stripSensitiveUrlParamsForCacheKey} so both normalizations apply
+ * consistently regardless of caller.
+ *
+ * @param parsed - A `URL` instance to strip tracking params from in place.
+ */
+export function stripTrackingParams(parsed: URL): void {
+  TRACKING_URL_QUERY_PARAMS.forEach((param) =>
+    parsed.searchParams.delete(param),
+  );
+}
+
+/**
+ * Build a secret-free, but still auth-context-distinct, cache key from a
+ * URL that may carry presigned-URL secrets in its query string.
+ *
+ * Naively stripping {@link SENSITIVE_URL_QUERY_PARAM_DENYLIST} params before
+ * using a URL as a long-lived cache key (an earlier version of this code did
+ * exactly that) creates a correctness bug, not just a hygiene one: two
+ * *different* presigned URLs for the same underlying object — e.g. one
+ * whose signature has since expired or been revoked, and a fresh one —
+ * strip down to the *same* key and collide. A cache populated under the
+ * first would silently serve its bytes back for the second, without ever
+ * revalidating against the origin.
+ *
+ * Fix: still remove the sensitive params from `parsed` in place (so the
+ * plaintext key never retains a raw secret — the original goal), but fold a
+ * short, non-reversible hash of the *removed* key=value pairs into the
+ * returned suffix whenever any were present, so distinct auth contexts keep
+ * distinct cache keys. Two requests presenting the exact same secret value
+ * still collide (correct — that's genuinely the same authorized request);
+ * two different secret values for the same object no longer do.
+ *
+ * Callers combine the return value with the now-stripped `parsed.toString()`
+ * to form the final cache key (see `ImageCache.normalizeUrl` and
+ * `fileDetector.cacheKeyForUrl`), rather than this function returning the
+ * full key itself, so each caller can apply its own additional
+ * normalization (e.g. tracking-param removal) in between.
+ *
+ * Matching against {@link SENSITIVE_URL_QUERY_PARAM_DENYLIST} is
+ * case-insensitive (both the denylist lookup and the value folded into the
+ * hash lower-case the param name), so the original casing of a sensitive
+ * param's name is not preserved anywhere in the returned key. That's fine
+ * here — this produces a cache key, not a user-facing URL, and the same
+ * lower-cased name always hashes to the same suffix for the same value
+ * regardless of how the caller happened to case it (`Token=` vs `token=`).
+ * Non-sensitive params left on `parsed` keep their original casing untouched.
+ *
+ * @param parsed - A `URL` instance to strip sensitive params from in place.
+ * @returns "" when no sensitive params were present; otherwise a short hex
+ *   suffix — prefixed with `\0` (a byte `URL#toString()` never emits, since
+ *   every URL component is percent-encoded, so it can't collide with real
+ *   URL content) — to append to the caller's cache key.
+ */
+export function stripSensitiveUrlParamsForCacheKey(parsed: URL): string {
+  const strippedPairs: string[] = [];
+  const keysToDelete: string[] = [];
+  for (const [key, value] of parsed.searchParams.entries()) {
+    if (SENSITIVE_URL_QUERY_PARAM_DENYLIST.includes(key.toLowerCase())) {
+      strippedPairs.push(`${key.toLowerCase()}=${value}`);
+      keysToDelete.push(key);
+    }
+  }
+  if (strippedPairs.length === 0) {
+    return "";
+  }
+  keysToDelete.forEach((key) => parsed.searchParams.delete(key));
+  // Sort so key order in the original URL doesn't affect the hash — the
+  // same *set* of secret values must always hash to the same suffix.
+  strippedPairs.sort();
+  const hash = createHash("sha256")
+    .update(strippedPairs.join("&"))
+    .digest("hex")
+    .slice(0, 16);
+  return `\0auth=${hash}`;
+}
+
+/**
+ * Build a secret-free, auth-context-distinct cache key from a URL, for any
+ * caller that needs a long-lived in-memory Map key derived from a URL.
+ *
+ * Centralizes the exact sequence both existing callers used independently:
+ * parse via `new URL()`, strip tracking noise ({@link stripTrackingParams}),
+ * then strip and hash-suffix sensitive auth params
+ * ({@link stripSensitiveUrlParamsForCacheKey}) so distinct presigned URLs for
+ * the same object don't collide (see that function's doc comment for why a
+ * naive strip-only approach is a correctness bug, not just a hygiene one).
+ *
+ * Shared by `ImageCache.normalizeUrl` and `fileDetector.cacheKeyForUrl` — both
+ * build a cache key from a URL and must normalize it identically, or the same
+ * URL could hash to two different keys depending on which cache looked it up.
+ *
+ * Falls back to the raw `url` string unchanged when it isn't a parseable
+ * absolute URL (mirrors both callers' pre-existing catch behavior).
+ *
+ * @param url - The URL (or URL-shaped string) to normalize into a cache key.
+ */
+export function normalizeUrlForCache(url: string): string {
+  try {
+    const parsed = new URL(url);
+    stripTrackingParams(parsed);
+    const authSuffix = stripSensitiveUrlParamsForCacheKey(parsed);
+    return parsed.toString() + authSuffix;
+  } catch {
+    return url;
   }
 }
 
