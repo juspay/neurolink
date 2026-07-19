@@ -258,8 +258,13 @@ for await (const page of PDFProcessor.convertToImagesStream(pdfBuffer, {
 }
 ```
 
-`convertToImages()` is the batch wrapper over this stream and returns the same
-per-page `errors` contract.
+`convertToImages()` is **not** implemented as a wrapper over this stream — it's
+a separate, parallel implementation with its own page-render loop that
+happens to return the same per-page `errors` contract (an array of
+`{ page, error }` collected across the whole document instead of yielded
+per-page). Pick whichever fits the call site: `convertToImagesStream()` to
+start handling pages before the whole document finishes rendering,
+`convertToImages()` for a single buffered result.
 
 ## Provider Support
 

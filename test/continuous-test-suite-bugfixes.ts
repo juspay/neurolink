@@ -114,6 +114,8 @@ import {
   CLI_SOFT_LIMITS_MB,
 } from "../src/cli/utils/inputValidation.js";
 
+import { processLooksLikeProxySupervisor } from "../src/cli/commands/proxy.js";
+
 import {
   GoogleVertexProvider,
   resolveVertexLocation,
@@ -138,6 +140,8 @@ import {
   redactUrlCredentials,
   redactUrlsInText,
   sanitizeErrorCause,
+  SENSITIVE_URL_QUERY_PARAM_DENYLIST,
+  stripSensitiveUrlParamsForCacheKey,
 } from "../src/lib/utils/logSanitize.js";
 import { getImageCache, resetImageCache } from "../src/lib/utils/imageCache.js";
 import { logger } from "../src/lib/utils/logger.js";
@@ -7773,6 +7777,651 @@ exit 127
         );
       } finally {
         rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  // ---------- Post-merge review gaps: batch parity, pdf limits, url-secret
+  //            redaction, supervisor identity ----------
+  {
+    // (a) batch previously never attached pdfOptions at all, so
+    // --pdf-password / NEUROLINK_PDF_PASSWORD silently had no effect on
+    // `neurolink batch`. Assert the fix inside the specific closure
+    // (runBatchGenerate) rather than anywhere in the file, so this can't
+    // false-pass just because generate/stream already had pdfOptions.
+    name: "CLI batch (review): executeBatch wires pdfOptions.password via resolvePdfPassword when PDFs are attached (previously silently dropped)",
+    category: "cli",
+    fn: async () => {
+      const src = readFileSync(
+        resolvePath(process.cwd(), "src/cli/factories/commandFactory.ts"),
+        "utf-8",
+      );
+      // Scope to executeBatch (generate/stream are defined earlier in the
+      // file) so this can't false-pass on those; scan to EOF, not a fixed
+      // window, so it won't false-fail as the function grows (review feedback).
+      const start = src.indexOf("private static async executeBatch");
+      if (start === -1) {
+        return false;
+      }
+      const compact = src.slice(start).replace(/\s+/g, "");
+      // The password is resolved ONCE before the per-prompt loop (so the
+      // shell-history warning fires once per run, like generate/stream) and
+      // then wired into each prompt's pdfOptions.
+      return (
+        compact.includes(
+          "constbatchPdfPassword=batchPdfFiles?.length?CLICommandFactory.resolvePdfPassword(argv):undefined",
+        ) && compact.includes("pdfOptions:{password:batchPdfPassword")
+      );
+    },
+  },
+  {
+    // (b) validateCsvMaxRows was wired into generate/stream but not batch —
+    // an out-of-range --csv-max-rows on `batch` silently passed through
+    // instead of failing fast like the other two commands.
+    name: "CLI batch (review): --csv-max-rows is validated on `batch` too (validateCsvMaxRows was only wired into generate/stream)",
+    category: "cli",
+    fn: async () => {
+      if (!existsSync(CLI_DIST_PATH)) {
+        return true; // dist not built in this run — covered by CI's built CLI.
+      }
+      const dir = mkdtempSync(pathJoin(tmpdir(), "nl-batch-csvmaxrows-"));
+      try {
+        const promptsFile = pathJoin(dir, "prompts.txt");
+        writeFileSync(promptsFile, "hello\n");
+        const res = await runCliBugfix([
+          "batch",
+          promptsFile,
+          "--csv",
+          "test/fixtures/transactions.csv",
+          "--csv-max-rows",
+          "0",
+          "--dry-run",
+        ]);
+        return (
+          res.code !== 0 &&
+          /Invalid --csv-max-rows \(--csvMaxRows\) value/.test(res.out)
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
+  {
+    // (c) batch used to build a hand-rolled `csvOptions` inline (only
+    // maxRows/formatStyle), silently dropping encoding/sanitizeColumnNames/
+    // columnNameCase/parseTimeoutMs that generate/stream already supported.
+    // Verify both that batch now delegates to the shared helper, and that
+    // the shared helper itself carries every field through.
+    name: "CLI batch (review): executeBatch's csvOptions is built via the shared buildCsvOptionsFromArgv helper, and that helper carries encoding/sanitizeColumnNames/columnNameCase/parseTimeoutMs",
+    category: "cli",
+    fn: async () => {
+      const src = readFileSync(
+        resolvePath(process.cwd(), "src/cli/factories/commandFactory.ts"),
+        "utf-8",
+      );
+      const marker = "const runBatchGenerate = ()";
+      const start = src.indexOf(marker);
+      if (start === -1) {
+        return false;
+      }
+      // Scan from the marker to end-of-file rather than a fixed-size
+      // window — a fixed window (e.g. 2000 chars) false-fails as soon as
+      // the runBatchGenerate closure grows past it (review feedback).
+      const compact = src.slice(start).replace(/\s+/g, "");
+      if (
+        !compact.includes(
+          "batchCsvFiles?.length&&{csvOptions:CLICommandFactory.buildCsvOptionsFromArgv(argv)",
+        )
+      ) {
+        return false;
+      }
+
+      const buildCsvOptionsFromArgv = (
+        CLICommandFactory as unknown as {
+          buildCsvOptionsFromArgv: (argv: Record<string, unknown>) => {
+            maxRows?: number;
+            formatStyle?: string;
+            encoding?: string;
+            sanitizeColumnNames?: boolean;
+            columnNameCase?: string;
+            parseTimeoutMs?: number;
+          };
+        }
+      ).buildCsvOptionsFromArgv;
+
+      const opts = buildCsvOptionsFromArgv({
+        csvMaxRows: 250,
+        csvFormat: "markdown",
+        csvEncoding: "windows-1252",
+        csvSanitizeNames: true,
+        csvNameCase: "camelCase",
+        csvParseTimeoutMs: 45000,
+      });
+
+      return (
+        opts.maxRows === 250 &&
+        opts.formatStyle === "markdown" &&
+        opts.encoding === "windows-1252" &&
+        opts.sanitizeColumnNames === true &&
+        opts.columnNameCase === "camelCase" &&
+        opts.parseTimeoutMs === 45000
+      );
+    },
+  },
+  {
+    // (c2) T6 post-merge review gap: executeGenerate, executeStream and
+    // executeBatch each built a byte-for-byte identical inline
+    // `videoOptions: {...}` object. Extracted into a shared
+    // buildVideoOptionsFromArgv helper (mirrors buildCsvOptionsFromArgv
+    // above) — assert all three call sites now delegate to it (so the
+    // duplication can't silently regress), and that the helper itself maps
+    // every field through correctly.
+    name: "CLI (review): executeGenerate/executeStream/executeBatch's videoOptions is built via the shared buildVideoOptionsFromArgv helper (behavior-preserving extraction of T6)",
+    category: "cli",
+    fn: async () => {
+      const src = readFileSync(
+        resolvePath(process.cwd(), "src/cli/factories/commandFactory.ts"),
+        "utf-8",
+      );
+      const callSiteCount = (
+        src.match(
+          /videoOptions:\s*CLICommandFactory\.buildVideoOptionsFromArgv\(argv\)/g,
+        ) || []
+      ).length;
+      if (callSiteCount !== 3) {
+        return false; // expected exactly executeGenerate + executeStream + executeBatch
+      }
+      // No inline duplicate should remain outside the helper's own body.
+      const inlineDuplicates = (
+        src.match(/frames:\s*argv\.videoFrames as number \| undefined/g) || []
+      ).length;
+      if (inlineDuplicates !== 1) {
+        return false; // should appear exactly once, inside buildVideoOptionsFromArgv itself
+      }
+
+      const buildVideoOptionsFromArgv = (
+        CLICommandFactory as unknown as {
+          buildVideoOptionsFromArgv: (argv: Record<string, unknown>) => {
+            frames?: number;
+            quality?: number;
+            format?: string;
+            transcribeAudio?: boolean;
+          };
+        }
+      ).buildVideoOptionsFromArgv;
+
+      const opts = buildVideoOptionsFromArgv({
+        videoFrames: 12,
+        videoQuality: 90,
+        videoFormat: "png",
+        transcribeAudio: true,
+      });
+
+      return (
+        opts.frames === 12 &&
+        opts.quality === 90 &&
+        opts.format === "png" &&
+        opts.transcribeAudio === true
+      );
+    },
+  },
+  {
+    // (d) the aggregate PDF page-limit reduce() treated a null pageCount
+    // (accurate count unavailable) as 0, which could silently undercount the
+    // true combined total. Enforcement must still run against the known sum
+    // (no throw for a merely-unknown count) but the gap must be logged.
+    name: "messageBuilder (review): aggregate PDF page-limit check WARNs when any file's page count is unknown, instead of silently undercounting",
+    category: "pdf-processor",
+    fn: async () => {
+      // A valid PDF header with a corrupted body: FileDetector/PDFProcessor
+      // accept it as PDF content but the page-count regex finds no markers,
+      // so estimatedPages comes back null (mirrors the existing #287 test).
+      const unknownCountPdf = Buffer.concat([
+        Buffer.from("%PDF-1.4\n"),
+        Buffer.alloc(20),
+      ]);
+      const knownCountPdf = readFileSync("test/fixtures/multi-page.pdf"); // 3 pages
+
+      const originalWarn = logger.warn;
+      const warnings: string[] = [];
+      logger.warn = ((...args: unknown[]) => {
+        warnings.push(
+          args
+            .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+            .join(" "),
+        );
+      }) as typeof logger.warn;
+
+      try {
+        // "openai": native PDF support (FilePart, no page-image conversion),
+        // aggregateConfig maxPages=100/maxSizeMB=10 — well above this tiny
+        // combined input, so this must NOT throw; it must only warn about
+        // the unknown count. (A non-native provider would additionally try
+        // to rasterize these deliberately-corrupted stub PDFs to images and
+        // fail there, which is a different code path than the one under
+        // test here.)
+        const messages = await buildMultimodalMessagesArray(
+          {
+            input: {
+              text: "x",
+              pdfFiles: [unknownCountPdf, unknownCountPdf, knownCountPdf],
+            },
+          } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+          "openai",
+          "gpt-4o",
+        );
+        const warned = warnings.some((w) =>
+          /Aggregate page-limit check.*unknown/i.test(w),
+        );
+        return Array.isArray(messages) && warned;
+      } finally {
+        logger.warn = originalWarn;
+      }
+    },
+  },
+  {
+    // (e) the URL pre-flight HEAD used to trust content-length off ANY
+    // response, including non-2xx ones (a redirect the dispatcher didn't
+    // follow, 403/404/405 "HEAD not allowed", 5xx) — which can carry a
+    // stale/irrelevant content-length and cause a false "File too large"
+    // rejection before the real (small) body is ever fetched via GET.
+    name: "FileDetector.loadFromURL (review): a non-2xx HEAD's content-length is not trusted — falls through to the GET guard instead of over-rejecting",
+    category: "file-detector",
+    fn: async () => {
+      const png = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "base64",
+      );
+      const server = http.createServer((req, res) => {
+        if (req.method === "HEAD") {
+          // Non-2xx with a wildly oversized declared length — must be
+          // ignored, not trusted.
+          res.statusCode = 403;
+          res.setHeader("content-length", String(500 * 1024 * 1024));
+          res.end();
+        } else {
+          res.statusCode = 200;
+          res.setHeader("content-type", "image/png");
+          res.end(png);
+        }
+      });
+      await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+      try {
+        const addr = server.address() as { port: number };
+        const url = `http://127.0.0.1:${addr.port}/gate-review-nonstd.png`;
+        const loadFromURL = (
+          FileDetector as unknown as {
+            loadFromURL: (
+              u: string,
+              o?: { maxSize?: number },
+            ) => Promise<Buffer>;
+          }
+        ).loadFromURL;
+        const buf = await loadFromURL(url, { maxSize: 1024 * 1024 });
+        return Buffer.isBuffer(buf) && buf.equals(png);
+      } finally {
+        await new Promise<void>((r) => server.close(() => r()));
+      }
+    },
+  },
+  {
+    // (f) getAccuratePageCount raced getInfo() against a setTimeout without
+    // ever clearing the loser: when getInfo() won (the common case), the 5s
+    // timer stuck around doing nothing. Separately, an unguarded
+    // `pdf.destroy()` in the finally block could throw and discard an
+    // otherwise-valid page count.
+    //
+    // getInfo()'s resolution is driven via a `PDFParse.prototype.getInfo`
+    // patch rather than a real multi-page.pdf parse: pdf-parse's bundled
+    // pdfjs-dist (5.4.296, exact-pinned) and pdf-to-img's bundled pdfjs-dist
+    // (~5.4.0, independently resolved to 5.4.624 by pnpm) are two separate
+    // installs. Once anything in the process calls PDFProcessor.convertToImages
+    // (pdf-to-img) — which the pre-existing convertToImages test block above
+    // does many times over — every subsequent *real* pdf-parse getInfo() call
+    // in that same process starts rejecting with a pdfjs "API version does not
+    // match the Worker version" error and getAccuratePageCount silently
+    // degrades to null (its documented, correct behavior for a genuinely
+    // failing parse). That's a pre-existing, order-dependent cross-package
+    // quirk unrelated to the two behaviors this test verifies, so getInfo()
+    // is stubbed to keep this test deterministic regardless of what ran
+    // before it in the suite.
+    name: "PDFProcessor.getAccuratePageCount (review): clears its race timer when getInfo() wins, and a throwing destroy() doesn't discard a valid page count",
+    category: "pdf-processor",
+    fn: async () => {
+      const getAccuratePageCount = (
+        PDFProcessor as unknown as {
+          getAccuratePageCount: (buffer: Buffer) => Promise<number | null>;
+        }
+      ).getAccuratePageCount;
+      const buffer = readFileSync("test/fixtures/multi-page.pdf");
+
+      const { PDFParse } = await import("pdf-parse");
+      const originalGetInfo = PDFParse.prototype.getInfo;
+      const originalDestroy = PDFParse.prototype.destroy;
+      PDFParse.prototype.getInfo = async function patchedGetInfo() {
+        return { total: 3 } as Awaited<ReturnType<typeof originalGetInfo>>;
+      };
+
+      try {
+        // (1) No dangling 5s timers after repeated calls that resolve well
+        // before PAGE_COUNT_TIMEOUT_MS — proves the race loser is cleared.
+        const timeoutsBefore = process
+          .getActiveResourcesInfo()
+          .filter((r) => r === "Timeout").length;
+        for (let i = 0; i < 10; i++) {
+          const pages = await getAccuratePageCount(buffer);
+          if (pages !== 3) {
+            return false;
+          }
+        }
+        const timeoutsAfter = process
+          .getActiveResourcesInfo()
+          .filter((r) => r === "Timeout").length;
+        if (timeoutsAfter - timeoutsBefore >= 10) {
+          return false; // would indicate leaked timers, one per call
+        }
+
+        // (2) A throwing destroy() must not discard an otherwise-valid count
+        // (matches fileReferenceRegistry.ts's swallow-on-cleanup pattern).
+        PDFParse.prototype.destroy = async function patchedDestroy() {
+          throw new Error("simulated destroy() failure");
+        };
+        const pages = await getAccuratePageCount(buffer);
+        return pages === 3;
+      } finally {
+        PDFParse.prototype.getInfo = originalGetInfo;
+        PDFParse.prototype.destroy = originalDestroy;
+      }
+    },
+  },
+  {
+    // (g) both ImageCache.normalizeUrl and FileDetector's urlContentTypeCache
+    // used the full URL (secrets and all) as their in-memory Map key. A log
+    // line is one redacted moment; a Map key persists for the process
+    // lifetime — so a presigned URL's signature/token stayed resident in
+    // memory as a cache key for as long as the process ran.
+    //
+    // Post-merge review gap (T4): the original fix above merely STRIPPED
+    // sensitive params before using the result as a key, which traded the
+    // secret-leak bug for a worse correctness bug — two *different* signed
+    // URLs for the same object (e.g. one expired/revoked, one fresh) then
+    // stripped down to the SAME key and collided, so stale/invalid-auth
+    // bytes could be served without ever revalidating. The fix folds a
+    // short hash of the stripped param values into the key instead of just
+    // dropping them, so distinct auth contexts stay distinct while the raw
+    // secret still never appears in the key. This test asserts BOTH halves:
+    // no secret leak, AND no cross-auth-context collision.
+    name: "ImageCache + FileDetector url cache (review): cache keys strip sensitive query params AND stay distinct per auth context (hash suffix, no collision)",
+    category: "image-processor",
+    fn: async () => {
+      // -- ImageCache: the persistent Map key itself must not contain the
+      // secret; non-sensitive params must survive; and two URLs differing
+      // ONLY in signature must now be DISTINCT cache entries (no collision),
+      // while the identical URL requested twice must still hit the cache
+      // (the hash suffix is deterministic, not "always distinct").
+      const originalEnv = process.env.NEUROLINK_IMAGE_CACHE_ENABLED;
+      try {
+        process.env.NEUROLINK_IMAGE_CACHE_ENABLED = "true";
+        resetImageCache();
+        const cache = getImageCache();
+        const secretUrl =
+          "https://example.com/img.png?X-Amz-Signature=SUPERSECRETSIG&keep=1";
+        cache.set(
+          secretUrl,
+          "data:image/png;base64,AAAA",
+          "image/png",
+          Buffer.from("AAAA"),
+        );
+        const internalMap = (
+          cache as unknown as { cache: Map<string, unknown> }
+        ).cache;
+        const keys = Array.from(internalMap.keys());
+        if (keys.some((k) => k.includes("SUPERSECRETSIG"))) {
+          return false; // secret leaked into the persistent Map key
+        }
+        if (!keys.some((k) => k.includes("keep=1"))) {
+          return false; // non-sensitive params must survive
+        }
+        const differentSigHit = cache.get(
+          "https://example.com/img.png?X-Amz-Signature=DIFFERENTSIG&keep=1",
+        );
+        if (differentSigHit !== null) {
+          return false; // collision: a different signature must NOT hit the same entry
+        }
+        const sameSigHit = cache.get(secretUrl);
+        if (
+          sameSigHit === null ||
+          sameSigHit.dataUri !== "data:image/png;base64,AAAA"
+        ) {
+          return false; // the identical URL must still be a cache hit
+        }
+      } finally {
+        if (originalEnv === undefined) {
+          delete process.env.NEUROLINK_IMAGE_CACHE_ENABLED;
+        } else {
+          process.env.NEUROLINK_IMAGE_CACHE_ENABLED = originalEnv;
+        }
+        resetImageCache();
+      }
+
+      // -- FileDetector: two URLs differing only by a secret query param
+      // must NOT share a urlContentTypeCache entry anymore (a fresh HEAD is
+      // expected for the second, different-secret URL), while the identical
+      // URL requested again must still avoid a redundant HEAD.
+      let headCount = 0;
+      const png = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "base64",
+      );
+      const server = http.createServer((req, res) => {
+        if (req.method === "HEAD") {
+          headCount++;
+          res.setHeader("content-type", "image/png");
+          res.end();
+        } else {
+          res.setHeader("content-type", "image/png");
+          res.end(png);
+        }
+      });
+      await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+      try {
+        const addr = server.address() as { port: number };
+        const path = "/gate-review-secret.png";
+        const url1 = `http://127.0.0.1:${addr.port}${path}?token=SIGA&keep=1`;
+        const url2 = `http://127.0.0.1:${addr.port}${path}?token=SIGB&keep=1`;
+        const load = (
+          FileDetector as unknown as {
+            loadFromURL: (
+              u: string,
+              o?: { maxSize?: number },
+            ) => Promise<Buffer>;
+          }
+        ).loadFromURL.bind(FileDetector);
+        await load(url1, { maxSize: 1024 });
+
+        // Different secret (SIGB), same path: must NOT reuse url1's cache
+        // entry — this is the collision the T4 fix closes.
+        headCount = 0;
+        const result2 = await FileDetector.detectAndProcess(url2);
+        if (!(result2.type === "image" && headCount > 0)) {
+          return false;
+        }
+
+        // The exact same URL (SIGA) requested again must still hit the
+        // cache — proving the hash suffix is deterministic, not random.
+        headCount = 0;
+        const result1Again = await FileDetector.detectAndProcess(url1);
+        return result1Again.type === "image" && headCount === 0;
+      } finally {
+        await new Promise<void>((r) => server.close(() => r()));
+      }
+    },
+  },
+  {
+    // (g2) T3 + T4 unit coverage: the GCS V4 signed-URL query params must be
+    // in the shared denylist (case-insensitively), and
+    // stripSensitiveUrlParamsForCacheKey must (1) never leak a stripped
+    // value into its hash suffix, (2) return "" (no suffix) when nothing
+    // sensitive was present, (3) produce the SAME suffix for the same
+    // stripped values regardless of param order, and (4) produce a
+    // DIFFERENT suffix when a stripped value differs.
+    name: "logSanitize (review): GCS V4 signed-URL params are denylisted, and stripSensitiveUrlParamsForCacheKey hashes stripped values deterministically without leaking them",
+    category: "image-processor",
+    fn: async () => {
+      const gcsParams = [
+        "x-goog-signature",
+        "x-goog-credential",
+        "x-goog-algorithm",
+        "x-goog-date",
+        "x-goog-expires",
+        "x-goog-signedheaders",
+      ];
+      for (const p of gcsParams) {
+        if (!SENSITIVE_URL_QUERY_PARAM_DENYLIST.includes(p)) {
+          return false;
+        }
+      }
+      // Case-insensitive match: a mixed-case GCS param on an actual URL must
+      // still be recognized and stripped (denylist membership check
+      // lowercases the incoming key before comparing).
+      const mixedCase = new URL(
+        "https://storage.googleapis.com/bucket/obj?X-Goog-Signature=ZZZ",
+      );
+      stripSensitiveUrlParamsForCacheKey(mixedCase);
+      if (mixedCase.searchParams.has("X-Goog-Signature")) {
+        return false;
+      }
+
+      const noSecrets = new URL(
+        "https://storage.googleapis.com/bucket/obj?keep=1",
+      );
+      const noSuffix = stripSensitiveUrlParamsForCacheKey(noSecrets);
+      if (noSuffix !== "") {
+        return false; // nothing sensitive present -> no suffix
+      }
+      if (!noSecrets.searchParams.has("keep")) {
+        return false; // non-sensitive params must be untouched
+      }
+
+      const gcsUrlA = new URL(
+        "https://storage.googleapis.com/bucket/obj?X-Goog-Signature=AAA&X-Goog-Algorithm=GOOG4-RSA-SHA256&keep=1",
+      );
+      const suffixA = stripSensitiveUrlParamsForCacheKey(gcsUrlA);
+      if (suffixA === "" || suffixA.includes("AAA")) {
+        return false; // must produce a suffix, and never contain the raw secret
+      }
+      if (gcsUrlA.searchParams.has("x-goog-signature")) {
+        return false; // sensitive param must actually be removed from the URL
+      }
+      if (!gcsUrlA.searchParams.has("keep")) {
+        return false; // non-sensitive params must survive
+      }
+
+      // Same stripped values, different param ORDER -> same suffix (order
+      // must not affect the hash).
+      const gcsUrlAReordered = new URL(
+        "https://storage.googleapis.com/bucket/obj?X-Goog-Algorithm=GOOG4-RSA-SHA256&keep=1&X-Goog-Signature=AAA",
+      );
+      const suffixAReordered =
+        stripSensitiveUrlParamsForCacheKey(gcsUrlAReordered);
+      if (suffixAReordered !== suffixA) {
+        return false;
+      }
+
+      // Different secret VALUE -> different suffix (no collision).
+      const gcsUrlB = new URL(
+        "https://storage.googleapis.com/bucket/obj?X-Goog-Signature=BBB&X-Goog-Algorithm=GOOG4-RSA-SHA256&keep=1",
+      );
+      const suffixB = stripSensitiveUrlParamsForCacheKey(gcsUrlB);
+      return suffixB !== "" && suffixB !== suffixA;
+    },
+  },
+  {
+    // (h) processLooksLikeProxySupervisor used to match ANY process whose
+    // args merely mentioned "neurolink" (a shell in a directory named
+    // "neurolink", an editor with a neurolink file open) — a stale/recycled
+    // pid running such a process could then be SIGTERM'd/SIGKILL'd during
+    // uninstall. It must now require BOTH "neurolink" AND "proxy".
+    name: "proxy.ts (review): processLooksLikeProxySupervisor requires BOTH 'neurolink' and 'proxy' in process args, not 'neurolink' alone",
+    category: "cli",
+    fn: async () => {
+      const mkProc = (...args: string[]) =>
+        spawnProcess(
+          process.execPath,
+          ["-e", "setInterval(() => {}, 60000)", "--", ...args],
+          { stdio: "ignore" },
+        );
+      const neurolinkOnly = mkProc("neurolink-fake-worker");
+      const neurolinkProxy = mkProc("neurolink", "proxy");
+      try {
+        // Give both children a moment to register with the OS before `ps`
+        // is asked about them.
+        await new Promise((r) => setTimeout(r, 300));
+        if (!neurolinkOnly.pid || !neurolinkProxy.pid) {
+          return false;
+        }
+        const notSupervisor = await processLooksLikeProxySupervisor(
+          neurolinkOnly.pid,
+        );
+        const isSupervisor = await processLooksLikeProxySupervisor(
+          neurolinkProxy.pid,
+        );
+        return notSupervisor === false && isSupervisor === true;
+      } finally {
+        neurolinkOnly.kill("SIGKILL");
+        neurolinkProxy.kill("SIGKILL");
+      }
+    },
+  },
+  {
+    // (i) T7 post-merge review gap: the args match alone ("neurolink" +
+    // "proxy") isn't airtight — a recycled pid could be reassigned to an
+    // unrelated process whose args coincidentally contain both words (e.g.
+    // this very test file's own child-process args above). Harden with a
+    // startTime cross-check: processLooksLikeProxySupervisor's optional
+    // second argument is the persisted ProxySupervisorState.startTime (ISO
+    // string); when it's far from the pid's actual OS-reported start time
+    // (ps -o lstart=), that's a confident mismatch and the pid must be
+    // rejected. When it's close (as it always is for the actual current
+    // process), it must still be accepted.
+    name: "proxy.ts (review): processLooksLikeProxySupervisor cross-checks the pid's actual start time against the persisted supervisor startTime",
+    category: "cli",
+    fn: async () => {
+      const mkProc = (...args: string[]) =>
+        spawnProcess(
+          process.execPath,
+          ["-e", "setInterval(() => {}, 60000)", "--", ...args],
+          { stdio: "ignore" },
+        );
+      const neurolinkProxy = mkProc("neurolink", "proxy");
+      try {
+        await new Promise((r) => setTimeout(r, 300));
+        if (!neurolinkProxy.pid) {
+          return false;
+        }
+        // Recorded startTime close to "now" (this process was just spawned)
+        // must still be accepted.
+        const closeMatch = await processLooksLikeProxySupervisor(
+          neurolinkProxy.pid,
+          new Date().toISOString(),
+        );
+        // A wildly wrong recorded startTime (this pid was "recorded" as
+        // having started 25 years ago) must be a confident mismatch and
+        // rejected — this is exactly the recycled-pid scenario T7 hardens
+        // against.
+        const wildMismatch = await processLooksLikeProxySupervisor(
+          neurolinkProxy.pid,
+          new Date("2000-01-01T00:00:00Z").toISOString(),
+        );
+        // No expected startTime at all -> falls back to args-only (matches
+        // pre-hardening behavior, and the h-test above).
+        const argsOnly = await processLooksLikeProxySupervisor(
+          neurolinkProxy.pid,
+        );
+        return (
+          closeMatch === true && wildMismatch === false && argsOnly === true
+        );
+      } finally {
+        neurolinkProxy.kill("SIGKILL");
       }
     },
   },
