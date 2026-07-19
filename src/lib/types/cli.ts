@@ -933,6 +933,23 @@ export type ProxyAnalyzeArgs = {
   quiet?: boolean;
 };
 
+/** Arguments accepted by `neurolink proxy replay <export|compare>`. */
+export type ProxyReplayArgs = {
+  action?: "export" | "compare";
+  requestId?: string;
+  attempt?: number;
+  logsDir?: string;
+  bundle?: string;
+  output?: string;
+  execute?: boolean;
+  headerEnv?: string[];
+  bodyFile?: string;
+  url?: string;
+  timeoutMs?: number;
+  format?: "text" | "json";
+  quiet?: boolean;
+};
+
 /** Arguments accepted by hidden `neurolink proxy guard` command */
 export type ProxyGuardArgs = {
   host?: string;

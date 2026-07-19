@@ -23,6 +23,7 @@ import {
   proxyUninstallCommand,
 } from "./commands/proxy.js";
 import { proxyAnalyzeCommand } from "./commands/proxyAnalyze.js";
+import { proxyReplayCommand } from "./commands/proxyReplay.js";
 import { EvaluateCommandFactory } from "./commands/evaluate.js";
 import { TaskCommandFactory } from "./commands/task.js";
 import { AutoresearchCommandFactory } from "./commands/autoresearch.js";
@@ -257,6 +258,7 @@ export function initializeCliParser() {
             .command(proxyStartCommand)
             .command(proxyStatusCommand)
             .command(proxyAnalyzeCommand)
+            .command(proxyReplayCommand)
             .command(proxyTelemetryCommand)
             .command(proxySetupCommand)
             .command(proxyGuardCommand)
@@ -264,7 +266,7 @@ export function initializeCliParser() {
             .command(proxyUninstallCommand)
             .demandCommand(
               1,
-              "Please specify a proxy subcommand: start, status, analyze, telemetry <setup|start|stop|status|logs|import-dashboard>, setup, guard, install, or uninstall",
+              "Please specify a proxy subcommand: start, status, analyze, replay <export|compare>, telemetry <setup|start|stop|status|logs|import-dashboard>, setup, guard, install, or uninstall",
             ),
         handler: () => {},
       })

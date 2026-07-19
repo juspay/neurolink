@@ -418,6 +418,27 @@ function prepareRedactedBody(body: unknown): {
   return truncateUtf8String(redacted, MAX_CAPTURED_BODY_BYTES);
 }
 
+/** Shared redaction used by offline replay exports and direct comparisons. */
+export function redactProxyHeadersForLogging(
+  headers: Record<string, string> | undefined,
+): Record<string, string> | undefined {
+  return redactHeaders(headers);
+}
+
+/**
+ * Apply the same bounded body redaction used by persisted proxy captures.
+ * `value` and `bytes` are omitted only when the input is null or undefined.
+ * This performs serialization immediately, so callers must keep it off proxy
+ * hot paths unless body processing has already been explicitly requested.
+ */
+export function prepareProxyBodyForLogging(body: unknown): {
+  value?: string;
+  bytes?: number;
+  truncated: boolean;
+} {
+  return prepareRedactedBody(body);
+}
+
 function collectManagedLogFiles(rootDir: string): ManagedLogFile[] {
   const managedFiles: ManagedLogFile[] = [];
 

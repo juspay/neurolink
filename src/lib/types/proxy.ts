@@ -1460,6 +1460,133 @@ export type ProxyBodyCaptureEntry = {
   metadata?: Record<string, unknown>;
 };
 
+/** JSON object retained in deterministic proxy replay artifacts. */
+export type ProxyReplayJsonRecord = Record<string, unknown>;
+
+/** One verified body-capture record in a proxy replay bundle. */
+export type ProxyReplayCapture = {
+  timestamp: string;
+  phase: string;
+  attempt: number | null;
+  model: string | null;
+  stream: boolean | null;
+  account: string | null;
+  accountType: string | null;
+  responseStatus: number | null;
+  durationMs: number | null;
+  contentType: string | null;
+  headers: Record<string, string>;
+  body: string | null;
+  bodySha256: string | null;
+  bodyTruncated: boolean;
+  observedBodyBytes: number | null;
+  metadata: ProxyReplayJsonRecord | null;
+  source: {
+    indexFile: string;
+    indexLine: number;
+    artifactPath: string | null;
+  };
+  issues: string[];
+};
+
+/** Deterministic, redacted reconstruction of one captured proxy request. */
+export type ProxyReplayBundle = {
+  schemaVersion: 1;
+  kind: "neurolink.proxy.replay-bundle";
+  requestId: string;
+  selectedAttempt: number;
+  source: {
+    logsDirectory: string;
+    indexFiles: string[];
+  };
+  completeness: {
+    captures: number;
+    phasesPresent: string[];
+    missingRequiredPhases: string[];
+    truncatedCaptures: number;
+    artifactsWithIssues: number;
+    replayable: boolean;
+    blockers: string[];
+  };
+  request: {
+    method: string;
+    url: string | null;
+    headers: Record<string, string>;
+    requiredHeaderInputs: string[];
+    body: string | null;
+    bodySha256: string | null;
+    bodyTruncated: boolean;
+    contentType: string | null;
+    account: string | null;
+    accountType: string | null;
+    model: string | null;
+    stream: boolean | null;
+  };
+  capturedResponse: ProxyReplayCapture | null;
+  captures: ProxyReplayCapture[];
+};
+
+/** Redacted direct-upstream response and comparison with captured evidence. */
+export type ProxyReplayComparison = {
+  schemaVersion: 1;
+  kind: "neurolink.proxy.replay-comparison";
+  requestId: string;
+  selectedAttempt: number;
+  endpoint: string;
+  request: {
+    method: string;
+    headers: Record<string, string>;
+    bodySha256: string;
+    bodyBytes: number;
+    usedBodyOverride: boolean;
+  };
+  captured: {
+    status: number | null;
+    contentType: string | null;
+    bodySha256: string | null;
+    bodyBytes: number | null;
+    bodyTruncated: boolean;
+    jsonShape: string[] | null;
+  } | null;
+  direct: {
+    status: number;
+    headers: Record<string, string>;
+    contentType: string | null;
+    body: string;
+    bodySha256: string;
+    observedBodyBytes: number;
+    storedBodyBytes: number;
+    bodyTruncated: boolean;
+    timeToHeadersMs: number;
+    totalMs: number;
+    jsonShape: string[] | null;
+  };
+  comparison: {
+    statusMatches: boolean | null;
+    contentTypeMatches: boolean | null;
+    bodyHashMatches: boolean | null;
+    jsonShapeMatches: boolean | null;
+  };
+};
+
+/** Inputs for deterministic proxy replay bundle export. */
+export type ExportProxyReplayOptions = {
+  requestId: string;
+  logsDir?: string;
+  attempt?: number;
+};
+
+/** Inputs for an explicitly authorized direct-upstream comparison. */
+export type CompareProxyReplayOptions = {
+  execute: boolean;
+  headerValues?: Record<string, string>;
+  bodyOverride?: string;
+  urlOverride?: string;
+  timeoutMs?: number;
+  now?: () => number;
+  fetchImpl?: typeof fetch;
+};
+
 /** Persisted artifact produced when a body is stored to disk. */
 export type StoredBodyArtifact = {
   bodyPath?: string;
