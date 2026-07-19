@@ -1,3 +1,9 @@
+## [9.95.2](https://github.com/juspay/neurolink/compare/v9.95.1...v9.95.2) (2026-07-19)
+
+### Bug Fixes
+
+- **(pdf):** guard page-canvas memory ([#260](https://github.com/juspay/neurolink/issues/260)) and decrypt password-protected PDFs ([#258](https://github.com/juspay/neurolink/issues/258)) ([4aa7530](https://github.com/juspay/neurolink/commit/4aa7530e761d8905ec66a24bf327dbf4a41a7f58))
+
 ## [9.95.1](https://github.com/juspay/neurolink/compare/v9.95.0...v9.95.1) (2026-07-19)
 
 ### Bug Fixes
