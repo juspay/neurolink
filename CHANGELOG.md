@@ -1,3 +1,9 @@
+## [9.94.3](https://github.com/juspay/neurolink/compare/v9.94.2...v9.94.3) (2026-07-19)
+
+### Bug Fixes
+
+- **(csv):** harden CSV processing — encoding, single-read, cleanup, context, sanitization, timeout, validation ([3124f9e](https://github.com/juspay/neurolink/commit/3124f9eb3506c7b85f6aadd0aa9e0904723b06f5))
+
 ## [9.94.2](https://github.com/juspay/neurolink/compare/v9.94.1...v9.94.2) (2026-07-19)
 
 ### Bug Fixes
