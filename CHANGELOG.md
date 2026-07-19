@@ -1,3 +1,9 @@
+## [9.94.6](https://github.com/juspay/neurolink/compare/v9.94.5...v9.94.6) (2026-07-19)
+
+### Bug Fixes
+
+- **(multimodal):** fail-loud file errors, empty-image guard, CSV content items, audio/video detection, URL cache, tighter MessageContent ([0c0b2dc](https://github.com/juspay/neurolink/commit/0c0b2dcaf2ea3b6d67f572ca30ea16ecc990a497))
+
 ## [9.94.5](https://github.com/juspay/neurolink/compare/v9.94.4...v9.94.5) (2026-07-19)
 
 ### Bug Fixes
