@@ -1,3 +1,9 @@
+## [9.95.3](https://github.com/juspay/neurolink/compare/v9.95.2...v9.95.3) (2026-07-19)
+
+### Bug Fixes
+
+- **(pdf):** harden image conversion — accurate pages, per-page resilience, scale, streaming, aggregate & URL limits ([d58b0c9](https://github.com/juspay/neurolink/commit/d58b0c9f375fdabce913e0b85f30f6996c2d6f6a))
+
 ## [9.95.2](https://github.com/juspay/neurolink/compare/v9.95.1...v9.95.2) (2026-07-19)
 
 ### Bug Fixes
