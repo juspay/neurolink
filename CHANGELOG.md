@@ -1,3 +1,9 @@
+## [9.93.2](https://github.com/juspay/neurolink/compare/v9.93.1...v9.93.2) (2026-07-19)
+
+### Bug Fixes
+
+- **(proxy):** resolve reliability review findings ([8592e15](https://github.com/juspay/neurolink/commit/8592e1574e158799d315b8795be5b42e3bc52007))
+
 ## [9.93.1](https://github.com/juspay/neurolink/compare/v9.93.0...v9.93.1) (2026-07-18)
 
 ### Bug Fixes
