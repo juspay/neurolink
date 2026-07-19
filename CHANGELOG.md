@@ -1,3 +1,9 @@
+## [9.94.5](https://github.com/juspay/neurolink/compare/v9.94.4...v9.94.5) (2026-07-19)
+
+### Bug Fixes
+
+- **(image):** detection correctness — AVIF variants, BMP/TIFF, honest fallback + error context ([#564](https://github.com/juspay/neurolink/issues/564), [#286](https://github.com/juspay/neurolink/issues/286), [#261](https://github.com/juspay/neurolink/issues/261)) ([de1c998](https://github.com/juspay/neurolink/commit/de1c99889a7ecdde04ffdf913258756157caf031))
+
 ## [9.94.4](https://github.com/juspay/neurolink/compare/v9.94.3...v9.94.4) (2026-07-19)
 
 ### Bug Fixes
