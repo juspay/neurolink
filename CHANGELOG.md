@@ -1,3 +1,9 @@
+## [9.94.2](https://github.com/juspay/neurolink/compare/v9.94.1...v9.94.2) (2026-07-19)
+
+### Bug Fixes
+
+- **(csv):** RFC-4180 quote-aware columns + delimiter (TSV) detection ([#359](https://github.com/juspay/neurolink/issues/359), [#361](https://github.com/juspay/neurolink/issues/361)) ([a73204a](https://github.com/juspay/neurolink/commit/a73204a19d88809681d063a9b42fa40e63bf67cb))
+
 ## [9.94.1](https://github.com/juspay/neurolink/compare/v9.94.0...v9.94.1) (2026-07-19)
 
 ### Bug Fixes
