@@ -1,3 +1,9 @@
+## [9.95.1](https://github.com/juspay/neurolink/compare/v9.95.0...v9.95.1) (2026-07-19)
+
+### Bug Fixes
+
+- **(cli):** validate file inputs + wire multimodal flags into batch ([#288](https://github.com/juspay/neurolink/issues/288), [#291](https://github.com/juspay/neurolink/issues/291)) ([510bb58](https://github.com/juspay/neurolink/commit/510bb58b0f97c3cbba5ee443a2fbc43f269ad2e0))
+
 ## [9.95.0](https://github.com/juspay/neurolink/compare/v9.94.7...v9.95.0) (2026-07-19)
 
 ### Features
