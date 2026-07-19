@@ -1,3 +1,9 @@
+## [9.94.0](https://github.com/juspay/neurolink/compare/v9.93.2...v9.94.0) (2026-07-19)
+
+### Features
+
+- **(proxy):** add zero-downtime rolling workers ([93e2067](https://github.com/juspay/neurolink/commit/93e2067adf82245ae1482c116664bb10a54c2835))
+
 ## [9.93.2](https://github.com/juspay/neurolink/compare/v9.93.1...v9.93.2) (2026-07-19)
 
 ### Bug Fixes
