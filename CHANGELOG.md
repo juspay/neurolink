@@ -1,3 +1,9 @@
+## [9.95.0](https://github.com/juspay/neurolink/compare/v9.94.7...v9.95.0) (2026-07-19)
+
+### Features
+
+- **(analytics):** add production-ready advanced analytics SDK methods ([374dad7](https://github.com/juspay/neurolink/commit/374dad73debc2accfc8d6523d631335ac1365d43))
+
 ## [9.94.7](https://github.com/juspay/neurolink/compare/v9.94.6...v9.94.7) (2026-07-19)
 
 ### Bug Fixes
