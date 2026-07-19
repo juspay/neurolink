@@ -182,13 +182,25 @@ import {
   getMetricsAggregator,
   MetricsAggregator,
 } from "./observability/metricsAggregator.js";
-
+import {
+  AnalyticsService,
+  calculateAdvancedCost,
+  parseAnalyticsQualityScore,
+} from "./analytics/index.js";
 import {
   SpanStatus,
   SpanType,
   CircuitBreakerOpenError,
   ConversationMemoryError,
   ModelAccessDeniedError,
+} from "./types/index.js";
+import type {
+  CostAnalysisOptions,
+  CostAnalysisResult,
+  ProviderMetricsOptions,
+  ProviderMetricsResult,
+  TeamAnalyticsOptions,
+  TeamAnalyticsResult,
 } from "./types/index.js";
 import { SpanSerializer } from "./observability/utils/spanSerializer.js";
 import {
@@ -1181,6 +1193,7 @@ export class NeuroLink {
    */
   private observabilityConfig?: ObservabilityConfig;
   private metricsAggregator: MetricsAggregator = new MetricsAggregator();
+  private analyticsService: AnalyticsService;
   /**
    * Per-request metrics trace context backed by AsyncLocalStorage.
    * Safe for concurrent requests on the same SDK instance.
@@ -1194,6 +1207,7 @@ export class NeuroLink {
     this.toolRegistry = config?.toolRegistry || new MCPToolRegistry();
     this.fileRegistry = new FileReferenceRegistry();
     this.observabilityConfig = config?.observability;
+    this.analyticsService = new AnalyticsService();
 
     // Initialize orchestration setting
     this.enableOrchestration = config?.enableOrchestration ?? false;
@@ -3491,6 +3505,47 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * Get provider metrics analysis
+   * Retrieves aggregated performance, token usage, latency, and success rates per provider.
+   *
+   * @param options - Filtering options
+   * @returns Comprehensive provider metrics result
+   */
+  async getProviderMetrics(
+    options?: ProviderMetricsOptions,
+  ): Promise<ProviderMetricsResult> {
+    // Propagate unexpected failures — empty datasets are returned by the
+    // service as valid zeroed results; fabricating those here hid real bugs.
+    return this.analyticsService.getProviderMetrics(options);
+  }
+
+  /**
+   * Get cost analysis breakdown
+   * Analyzes AI generation costs across requested groups and provides future projections.
+   *
+   * @param options - Cost configuration options
+   * @returns Detailed cost analysis breakdown
+   */
+  async getCostAnalysis(
+    options?: CostAnalysisOptions,
+  ): Promise<CostAnalysisResult> {
+    return this.analyticsService.getCostAnalysis(options);
+  }
+
+  /**
+   * Get team-wide usage analytics
+   * Retrieves request counts, unique active users, provider breakdown, and quality scoring.
+   *
+   * @param options - Team query options
+   * @returns Comprehensive team analytics report
+   */
+  async getTeamAnalytics(
+    options?: TeamAnalyticsOptions,
+  ): Promise<TeamAnalyticsResult> {
+    return this.analyticsService.getTeamAnalytics(options);
+  }
+
+  /**
    * Record a memory operation span to both instance and global metrics aggregators.
    * This ensures memory spans are visible via sdk.getSpans() and getMetricsAggregator().getSpans().
    */
@@ -3614,33 +3669,71 @@ Current user's request: ${currentInput}`;
   }
 
   /**
-   * Initialize event listeners that feed span data to MetricsAggregator.
-   * Listens to generation:end, stream:complete, and tool:end events.
+   * Fire-and-forget analytics tracking with rejection logging.
    */
-  private initializeMetricsListeners(): void {
-    this.emitter.on("generation:end", ((...args: unknown[]) => {
-      const data = args[0] as Record<string, unknown>;
-      // A2 fix: When Pipeline A (AI SDK → @langfuse/otel) already creates a
-      // GENERATION observation, skip the Pipeline B span to avoid duplicates.
-      // Native providers (Bedrock, Ollama, Gemini 3) do NOT set this flag —
-      // Pipeline B remains their only observation source.
-      if (data.pipelineAHandled) {
-        return;
-      }
-      try {
-        const result = data.result as Record<string, unknown> | undefined;
-        const usage = result?.usage as
-          | { input?: number; output?: number; total?: number }
-          | undefined;
-        const analytics = result?.analytics as { cost?: number } | undefined;
-        const provider =
-          (data.provider as string) ||
-          (result?.provider as string) ||
-          "unknown";
-        const model = (result?.model as string) || "unknown";
-        const responseTime = (data.responseTime as number) || 0;
-        const traceCtx = this._metricsTraceContext;
+  private enqueueAnalyticsTrackRequest(
+    record: Parameters<AnalyticsService["trackRequest"]>[0],
+  ): void {
+    this.analyticsService.trackRequest(record).catch((error: unknown) => {
+      logger.debug("[NeuroLink] analytics trackRequest failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }
 
+  /**
+   * Estimate cost using the canonical SDK pricing table (same source as
+   * AnalyticsService.trackRequest) — avoids diverging TokenTracker rates.
+   */
+  private estimateCostFromUsage(
+    provider: string,
+    model: string,
+    usage: { input?: number; output?: number; total?: number } | undefined,
+  ): number | undefined {
+    if (!usage || model === "unknown") {
+      return undefined;
+    }
+    const totalCost = calculateAdvancedCost(
+      model,
+      usage.input || 0,
+      usage.output || 0,
+      provider === "unknown" ? undefined : provider,
+    );
+    return totalCost > 0 ? totalCost : undefined;
+  }
+
+  /**
+   * Handle generation:end for Pipeline B spans + advanced analytics.
+   * When pipelineAHandled is set, skips Pipeline B spans but still tracks
+   * analytics so successful AI-SDK generate/stream calls are recorded.
+   * Stream analytics are owned here (not stream:complete) to avoid duplicates.
+   */
+  private handleGenerationEndMetrics(data: Record<string, unknown>): void {
+    const skipPipelineBSpan = data.pipelineAHandled === true;
+
+    try {
+      const result = data.result as Record<string, unknown> | undefined;
+      const usage = result?.usage as
+        | { input?: number; output?: number; total?: number }
+        | undefined;
+      const analytics = result?.analytics as { cost?: number } | undefined;
+      const provider =
+        (data.provider as string) || (result?.provider as string) || "unknown";
+      const model =
+        (result?.model as string) || (data.model as string) || "unknown";
+      const responseTime = (data.responseTime as number) || 0;
+      const eventTimestamp =
+        typeof data.timestamp === "number" && Number.isFinite(data.timestamp)
+          ? data.timestamp
+          : Date.now();
+      const traceCtx = this._metricsTraceContext;
+
+      let computedCost: number | undefined =
+        typeof analytics?.cost === "number" && Number.isFinite(analytics.cost)
+          ? analytics.cost
+          : undefined;
+
+      if (!skipPipelineBSpan) {
         let span = SpanSerializer.createGenerationSpan({
           provider,
           model,
@@ -3650,17 +3743,9 @@ Current user's request: ${currentInput}`;
           temperature: data.temperature as number | undefined,
           maxTokens: data.maxTokens as number | undefined,
         });
-        // Link to the OTel parent span; each Pipeline B span keeps its own
-        // unique spanId to comply with OTel/W3C uniqueness requirements.
         if (traceCtx) {
           span.parentSpanId = traceCtx.parentSpanId;
         }
-        // Mark failed generations with ERROR status so metrics count them
-        // correctly. Client aborts (data.aborted === true) are NOT failures —
-        // they are user-initiated cancellations and must not pollute the
-        // failure rate. Map them to WARNING with the canonical
-        // "Generation aborted by client" message (matches the Langfuse
-        // ContextEnricher mapping for outer/internal generation spans).
         let spanStatus: SpanStatus;
         let statusMessage: string | undefined;
         if (data.aborted === true) {
@@ -3675,7 +3760,6 @@ Current user's request: ${currentInput}`;
         span = SpanSerializer.endSpan(span, spanStatus, statusMessage);
         span.durationMs = responseTime;
 
-        // G2 fix: Check finishReason and escalate to WARNING for partial failures
         const finishReason =
           (result?.finishReason as string | undefined) ??
           (data.finishReason as string | undefined);
@@ -3690,7 +3774,6 @@ Current user's request: ${currentInput}`;
           }
         }
 
-        // G6 fix: Record retry count on Pipeline B span
         if (data.retryCount !== undefined) {
           span.attributes["gen_ai.retry_count"] = data.retryCount as number;
         }
@@ -3708,27 +3791,15 @@ Current user's request: ${currentInput}`;
           span = SpanSerializer.enrichWithCost(span, {
             totalCost: analytics.cost,
           });
-        } else if (usage && model !== "unknown") {
-          // Fallback: compute cost from token usage + built-in pricing
-          const tokenTracker = this.metricsAggregator.getTokenTracker();
-          const pricing = tokenTracker.getModelPricing(model);
-          if (pricing) {
-            const inputCost =
-              ((usage.input || 0) / 1_000_000) * pricing.inputPricePerMillion;
-            const outputCost =
-              ((usage.output || 0) / 1_000_000) * pricing.outputPricePerMillion;
-            const totalCost = inputCost + outputCost;
-            if (totalCost > 0) {
-              span = SpanSerializer.enrichWithCost(span, {
-                inputCost,
-                outputCost,
-                totalCost,
-              });
-            }
+        } else {
+          const estimated = this.estimateCostFromUsage(provider, model, usage);
+          if (estimated !== undefined) {
+            span = SpanSerializer.enrichWithCost(span, {
+              totalCost: estimated,
+            });
           }
         }
 
-        // Record output (truncated for safety)
         const content = (result?.content as string) || (result?.text as string);
         if (content) {
           span = SpanSerializer.updateAttributes(span, {
@@ -3741,214 +3812,263 @@ Current user's request: ${currentInput}`;
 
         this.metricsAggregator.recordSpan(span);
         getMetricsAggregator().recordSpan(span);
-      } catch {
-        // Non-blocking
+
+        const spanCost = span.attributes["ai.cost.total"];
+        if (typeof spanCost === "number" && spanCost > 0) {
+          computedCost = spanCost;
+        }
+
+        this.enqueueAnalyticsTrackRequest({
+          provider,
+          model,
+          userId: (data.userId as string) || (data.user as string) || undefined,
+          teamId: (data.teamId as string) || undefined,
+          department: (data.department as string) || undefined,
+          timestamp: eventTimestamp,
+          latency: responseTime,
+          inputTokens: usage?.input || 0,
+          outputTokens: usage?.output || 0,
+          totalTokens:
+            usage?.total || (usage?.input || 0) + (usage?.output || 0),
+          cost: computedCost,
+          isError: span.status === SpanStatus.ERROR,
+          errorMessage: statusMessage,
+          qualityScore: parseAnalyticsQualityScore(data.qualityScore),
+        });
+      } else {
+        // Pipeline A handled the observation — still record analytics so
+        // successful AI-SDK generate()/stream() calls are not silently dropped.
+        if (computedCost === undefined) {
+          computedCost = this.estimateCostFromUsage(provider, model, usage);
+        }
+
+        this.enqueueAnalyticsTrackRequest({
+          provider,
+          model,
+          userId: (data.userId as string) || (data.user as string) || undefined,
+          teamId: (data.teamId as string) || undefined,
+          department: (data.department as string) || undefined,
+          timestamp: eventTimestamp,
+          latency: responseTime,
+          inputTokens: usage?.input || 0,
+          outputTokens: usage?.output || 0,
+          totalTokens:
+            usage?.total || (usage?.input || 0) + (usage?.output || 0),
+          cost: computedCost,
+          isError: data.success === false || Boolean(data.error),
+          errorMessage: data.error ? String(data.error) : undefined,
+          qualityScore: parseAnalyticsQualityScore(data.qualityScore),
+        });
       }
+    } catch {
+      // Non-blocking
+    }
+  }
+
+  /**
+   * Pipeline B span recording for stream:complete.
+   * Advanced analytics are recorded from generation:end only (avoids duplicates
+   * when both stream:complete and generation:end fire for the same request).
+   */
+  private handleStreamCompleteMetrics(data: Record<string, unknown>): void {
+    try {
+      const metadata = data.metadata as Record<string, unknown> | undefined;
+      const durationMs = (metadata?.durationMs as number) || 0;
+      const chunkCount = (metadata?.chunkCount as number) || 0;
+      const totalLength = (metadata?.totalLength as number) || 0;
+      const provider = (data.provider as string) || "unknown";
+      const model = (data.model as string) || "unknown";
+      const traceCtx = this._metricsTraceContext;
+
+      let span = SpanSerializer.createGenerationSpan({
+        provider,
+        model,
+        name: `gen_ai.${provider}.stream`,
+        traceId: traceCtx?.traceId,
+      });
+      if (traceCtx) {
+        span.parentSpanId = traceCtx.parentSpanId;
+      }
+      span = SpanSerializer.endSpan(span, SpanStatus.OK);
+      span.durationMs = durationMs;
+      span.attributes["stream.chunk_count"] = chunkCount;
+      span.attributes["stream.content_length"] = totalLength;
+
+      const streamFinishReason =
+        (metadata?.finishReason as string | undefined) ??
+        (data.finishReason as string | undefined);
+      if (streamFinishReason) {
+        span.attributes["gen_ai.finish_reason"] = streamFinishReason;
+        if (
+          streamFinishReason === "content-filter" ||
+          streamFinishReason === "length"
+        ) {
+          span = SpanSerializer.endSpan(
+            span,
+            SpanStatus.WARNING,
+            `Stream stopped: finishReason=${streamFinishReason}`,
+          );
+        }
+      }
+
+      if (data.prompt) {
+        const promptStr = String(data.prompt);
+        span = SpanSerializer.updateAttributes(span, {
+          input:
+            promptStr.length > 5000
+              ? promptStr.substring(0, 5000) + "...[truncated]"
+              : promptStr,
+        });
+      }
+
+      const streamContent = data.content as string;
+      if (streamContent) {
+        span = SpanSerializer.updateAttributes(span, {
+          output:
+            streamContent.length > 5000
+              ? streamContent.substring(0, 5000) + "...[truncated]"
+              : streamContent,
+        });
+      }
+
+      const usage = metadata?.usage as
+        | { input?: number; output?: number; total?: number }
+        | undefined;
+      if (usage) {
+        span = SpanSerializer.enrichWithTokenUsage(span, {
+          promptTokens: usage.input || 0,
+          completionTokens: usage.output || 0,
+          totalTokens: usage.total || (usage.input || 0) + (usage.output || 0),
+        });
+
+        const estimated = this.estimateCostFromUsage(provider, model, usage);
+        if (estimated !== undefined) {
+          span = SpanSerializer.enrichWithCost(span, { totalCost: estimated });
+        }
+      }
+
+      this.metricsAggregator.recordSpan(span);
+      getMetricsAggregator().recordSpan(span);
+    } catch {
+      // Non-blocking
+    }
+  }
+
+  private handleToolEndMetrics(data: Record<string, unknown>): void {
+    try {
+      const toolName =
+        (data.toolName as string) || (data.tool as string) || "unknown";
+      const responseTime =
+        (data.responseTime as number) || (data.duration as number) || 0;
+      const success =
+        data.success !== undefined ? (data.success as boolean) : !data.error;
+      const traceCtx = this._metricsTraceContext;
+
+      let span = SpanSerializer.createSpan(
+        SpanType.TOOL_CALL,
+        `tool.${toolName}`,
+        {
+          "tool.name": toolName,
+          "tool.success": success,
+        },
+        traceCtx?.parentSpanId,
+        traceCtx?.traceId,
+      );
+      span = SpanSerializer.endSpan(
+        span,
+        success ? SpanStatus.OK : SpanStatus.ERROR,
+      );
+      span.durationMs = responseTime;
+
+      if (!success) {
+        if (data.error) {
+          span.statusMessage = String(data.error);
+        } else if (data.result) {
+          span.statusMessage = extractMcpErrorText(data.result);
+        }
+      }
+
+      if (data.result) {
+        try {
+          span.attributes["tool.result"] = JSON.stringify(
+            data.result,
+          ).substring(0, 500);
+        } catch {
+          // Non-blocking
+        }
+      }
+
+      this.metricsAggregator.recordSpan(span);
+      getMetricsAggregator().recordSpan(span);
+    } catch {
+      // Non-blocking
+    }
+  }
+
+  /**
+   * Pipeline B span recording for stream:error.
+   * Analytics for failed streams come from generation:end (success: false).
+   */
+  private handleStreamErrorMetrics(data: Record<string, unknown>): void {
+    try {
+      const metadata = data.metadata as Record<string, unknown> | undefined;
+      const durationMs = (metadata?.durationMs as number) || 0;
+      const chunkCount = (metadata?.chunkCount as number) || 0;
+      const errorName = (metadata?.errorName as string) || "UnknownError";
+      const errorMessage = (data.content as string) || "Stream error";
+      const provider = (data.provider as string) || "unknown";
+      const model = (data.model as string) || "unknown";
+      const traceCtx = this._metricsTraceContext;
+
+      let span = SpanSerializer.createGenerationSpan({
+        provider,
+        model,
+        name: `gen_ai.${provider}.stream.error`,
+        traceId: traceCtx?.traceId,
+      });
+      if (traceCtx) {
+        span.parentSpanId = traceCtx.parentSpanId;
+      }
+      span = SpanSerializer.endSpan(span, SpanStatus.ERROR);
+      span.durationMs = durationMs;
+      span.statusMessage = `${errorName}: ${errorMessage}`;
+      span.attributes["stream.chunk_count"] = chunkCount;
+
+      const isAbort =
+        errorName === "AbortError" ||
+        errorMessage.toLowerCase().includes("aborted") ||
+        errorMessage.toLowerCase().includes("abort");
+      span.attributes["error.type"] = isAbort ? "abort" : errorName;
+      if (isAbort) {
+        span.attributes["stream.aborted"] = true;
+      }
+
+      this.metricsAggregator.recordSpan(span);
+      getMetricsAggregator().recordSpan(span);
+    } catch {
+      // Non-blocking
+    }
+  }
+
+  /**
+   * Initialize event listeners that feed span data to MetricsAggregator.
+   * Listens to generation:end, stream:complete, and tool:end events.
+   */
+  private initializeMetricsListeners(): void {
+    this.emitter.on("generation:end", ((...args: unknown[]) => {
+      this.handleGenerationEndMetrics(args[0] as Record<string, unknown>);
     }) as (...args: unknown[]) => void);
 
     this.emitter.on("stream:complete", ((...args: unknown[]) => {
-      const data = args[0] as Record<string, unknown>;
-      try {
-        const metadata = data.metadata as Record<string, unknown> | undefined;
-        const durationMs = (metadata?.durationMs as number) || 0;
-        const chunkCount = (metadata?.chunkCount as number) || 0;
-        const totalLength = (metadata?.totalLength as number) || 0;
-        const provider = (data.provider as string) || "unknown";
-        const model = (data.model as string) || "unknown";
-        const traceCtx = this._metricsTraceContext;
-
-        let span = SpanSerializer.createGenerationSpan({
-          provider,
-          model,
-          name: `gen_ai.${provider}.stream`,
-          traceId: traceCtx?.traceId,
-        });
-        // Link to the OTel parent span; keep unique spanId per W3C spec.
-        if (traceCtx) {
-          span.parentSpanId = traceCtx.parentSpanId;
-        }
-        span = SpanSerializer.endSpan(span, SpanStatus.OK);
-        span.durationMs = durationMs;
-        span.attributes["stream.chunk_count"] = chunkCount;
-        span.attributes["stream.content_length"] = totalLength;
-
-        // S3 fix: Record finishReason on Pipeline B stream span
-        const streamFinishReason =
-          (metadata?.finishReason as string | undefined) ??
-          (data.finishReason as string | undefined);
-        if (streamFinishReason) {
-          span.attributes["gen_ai.finish_reason"] = streamFinishReason;
-          if (
-            streamFinishReason === "content-filter" ||
-            streamFinishReason === "length"
-          ) {
-            span = SpanSerializer.endSpan(
-              span,
-              SpanStatus.WARNING,
-              `Stream stopped: finishReason=${streamFinishReason}`,
-            );
-          }
-        }
-
-        // Record stream input prompt
-        if (data.prompt) {
-          const promptStr = String(data.prompt);
-          span = SpanSerializer.updateAttributes(span, {
-            input:
-              promptStr.length > 5000
-                ? promptStr.substring(0, 5000) + "...[truncated]"
-                : promptStr,
-          });
-        }
-
-        // Record streamed output (truncated for safety)
-        const streamContent = data.content as string;
-        if (streamContent) {
-          span = SpanSerializer.updateAttributes(span, {
-            output:
-              streamContent.length > 5000
-                ? streamContent.substring(0, 5000) + "...[truncated]"
-                : streamContent,
-          });
-        }
-
-        // Enrich stream span with token usage if available
-        const usage = metadata?.usage as
-          | { input?: number; output?: number; total?: number }
-          | undefined;
-        if (usage) {
-          span = SpanSerializer.enrichWithTokenUsage(span, {
-            promptTokens: usage.input || 0,
-            completionTokens: usage.output || 0,
-            totalTokens:
-              usage.total || (usage.input || 0) + (usage.output || 0),
-          });
-
-          // Compute cost from token usage
-          if (model !== "unknown") {
-            const tokenTracker = this.metricsAggregator.getTokenTracker();
-            const pricing = tokenTracker.getModelPricing(model);
-            if (pricing) {
-              const inputCost =
-                ((usage.input || 0) / 1_000_000) * pricing.inputPricePerMillion;
-              const outputCost =
-                ((usage.output || 0) / 1_000_000) *
-                pricing.outputPricePerMillion;
-              const totalCost = inputCost + outputCost;
-              if (totalCost > 0) {
-                span = SpanSerializer.enrichWithCost(span, {
-                  inputCost,
-                  outputCost,
-                  totalCost,
-                });
-              }
-            }
-          }
-        }
-
-        this.metricsAggregator.recordSpan(span);
-        getMetricsAggregator().recordSpan(span);
-      } catch {
-        // Non-blocking
-      }
+      this.handleStreamCompleteMetrics(args[0] as Record<string, unknown>);
     }) as (...args: unknown[]) => void);
 
     this.emitter.on("tool:end", ((...args: unknown[]) => {
-      const data = args[0] as Record<string, unknown>;
-      try {
-        // Handle both event formats: {toolName} (from emitToolEnd) and {tool} (from executeToolInternal)
-        const toolName =
-          (data.toolName as string) || (data.tool as string) || "unknown";
-        const responseTime =
-          (data.responseTime as number) || (data.duration as number) || 0;
-        // success is explicit in one format; infer from error presence in the other
-        const success =
-          data.success !== undefined ? (data.success as boolean) : !data.error;
-        const traceCtx = this._metricsTraceContext;
-
-        let span = SpanSerializer.createSpan(
-          SpanType.TOOL_CALL,
-          `tool.${toolName}`,
-          {
-            "tool.name": toolName,
-            "tool.success": success,
-          },
-          traceCtx?.parentSpanId,
-          traceCtx?.traceId,
-        );
-        span = SpanSerializer.endSpan(
-          span,
-          success ? SpanStatus.OK : SpanStatus.ERROR,
-        );
-        span.durationMs = responseTime;
-
-        if (!success) {
-          if (data.error) {
-            span.statusMessage = String(data.error);
-          } else if (data.result) {
-            span.statusMessage = extractMcpErrorText(data.result);
-          }
-        }
-
-        if (data.result) {
-          try {
-            span.attributes["tool.result"] = JSON.stringify(
-              data.result,
-            ).substring(0, 500);
-          } catch {
-            // Non-blocking
-          }
-        }
-
-        this.metricsAggregator.recordSpan(span);
-        getMetricsAggregator().recordSpan(span);
-      } catch {
-        // Non-blocking
-      }
+      this.handleToolEndMetrics(args[0] as Record<string, unknown>);
     }) as (...args: unknown[]) => void);
 
     this.emitter.on("stream:error", ((...args: unknown[]) => {
-      const data = args[0] as Record<string, unknown>;
-      try {
-        const metadata = data.metadata as Record<string, unknown> | undefined;
-        const durationMs = (metadata?.durationMs as number) || 0;
-        const chunkCount = (metadata?.chunkCount as number) || 0;
-        const errorName = (metadata?.errorName as string) || "UnknownError";
-        const errorMessage = (data.content as string) || "Stream error";
-        const provider = (data.provider as string) || "unknown";
-        const model = (data.model as string) || "unknown";
-        const traceCtx = this._metricsTraceContext;
-
-        let span = SpanSerializer.createGenerationSpan({
-          provider,
-          model,
-          name: `gen_ai.${provider}.stream.error`,
-          traceId: traceCtx?.traceId,
-        });
-        // Link to the OTel parent span; keep unique spanId per W3C spec.
-        if (traceCtx) {
-          span.parentSpanId = traceCtx.parentSpanId;
-        }
-        span = SpanSerializer.endSpan(span, SpanStatus.ERROR);
-        span.durationMs = durationMs;
-        span.statusMessage = `${errorName}: ${errorMessage}`;
-        span.attributes["stream.chunk_count"] = chunkCount;
-
-        // S7 fix: Distinguish aborts from errors
-        const isAbort =
-          errorName === "AbortError" ||
-          errorMessage.toLowerCase().includes("aborted") ||
-          errorMessage.toLowerCase().includes("abort");
-        span.attributes["error.type"] = isAbort ? "abort" : errorName;
-        if (isAbort) {
-          span.attributes["stream.aborted"] = true;
-        }
-
-        this.metricsAggregator.recordSpan(span);
-        getMetricsAggregator().recordSpan(span);
-      } catch {
-        // Non-blocking
-      }
+      this.handleStreamErrorMetrics(args[0] as Record<string, unknown>);
     }) as (...args: unknown[]) => void);
   }
 
@@ -11272,20 +11392,39 @@ Current user's request: ${currentInput}`;
             },
           );
 
-          // S6 fix: Emit stream:complete after successful fallback so Pipeline B records it
+          // S6 fix: Emit stream:complete after successful fallback so Pipeline B records it.
+          // Also emit generation:end so advanced analytics tracks the successful fallback
+          // (stream:complete no longer records analytics — avoids double-counting elsewhere).
           try {
+            const fallbackModel = options.model || "unknown";
+            const fallbackDuration = Date.now() - startTime;
             self.emitter.emit("stream:complete", {
               content: fallbackAccumulatedContent,
               provider: providerName,
-              model: options.model || "unknown",
+              model: fallbackModel,
               finishReason: "stop",
               metadata: {
-                durationMs: Date.now() - startTime,
+                durationMs: fallbackDuration,
                 chunkCount: 0,
                 totalLength: fallbackAccumulatedContent.length,
                 isFallback: true,
                 finishReason: "stop",
               },
+            });
+            self.emitter.emit("generation:end", {
+              provider: providerName,
+              model: fallbackModel,
+              responseTime: fallbackDuration,
+              timestamp: Date.now(),
+              result: {
+                content: fallbackAccumulatedContent,
+                usage: { input: 0, output: 0, total: 0 },
+                model: fallbackModel,
+                provider: providerName,
+                finishReason: "stop",
+              },
+              success: true,
+              pipelineAHandled: true,
             });
           } catch {
             /* non-blocking */

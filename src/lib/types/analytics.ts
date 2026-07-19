@@ -86,3 +86,143 @@ export type PerformanceMetrics = {
     external: number;
   };
 };
+
+export type TimeRangeOption = {
+  start: Date;
+  end: Date;
+};
+
+/**
+ * Quality score subset captured on an analytics telemetry record.
+ */
+export type AnalyticsQualityScore = {
+  overall: number;
+  relevance: number;
+  accuracy: number;
+  completeness: number;
+  reasoning?: string;
+};
+
+/**
+ * Single request lifecycle record for advanced analytics aggregation.
+ */
+export type TelemetryRecord = {
+  id: string;
+  provider: string;
+  model: string;
+  userId?: string;
+  teamId?: string;
+  department?: string;
+  timestamp: number;
+  latency: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  cost: number;
+  isError: boolean;
+  errorMessage?: string;
+  qualityScore?: AnalyticsQualityScore;
+};
+
+/**
+ * Pluggable storage backend for analytics telemetry records.
+ */
+export type AnalyticsStorage = {
+  /** Save a telemetry record */
+  saveRecord(record: TelemetryRecord): Promise<void>;
+  /** Retrieve all records */
+  getRecords(): Promise<TelemetryRecord[]>;
+  /** Clear storage */
+  clear(): Promise<void>;
+};
+
+/**
+ * Options for the bounded in-memory analytics storage backend.
+ */
+export type InMemoryAnalyticsStorageOptions = {
+  /** Maximum records to retain. Oldest records are evicted when exceeded. */
+  maxRecords?: number;
+};
+
+export type ProviderMetricsOptions = {
+  providers?: string[];
+  timeRange?: TimeRangeOption | string;
+  metrics?: string[];
+};
+
+export type ProviderMetricItem = {
+  name: string;
+  averageLatency: number;
+  averageResponseTime: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  errorRate: number;
+  successRate: number;
+  costPerToken: number;
+  totalCost: number;
+  requestCount: number;
+};
+
+export type ProviderMetricsResult = {
+  averageLatency: number;
+  averageResponseTime: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  errorRate: number;
+  successRate: number;
+  costPerToken: number;
+  totalCost: number;
+  requestCount: number;
+  providers: ProviderMetricItem[];
+};
+
+export type CostAnalysisOptions = {
+  timeRange?: TimeRangeOption | string;
+  groupBy?: string | string[];
+  includeProjections?: boolean;
+};
+
+export type CostGroupItem = {
+  groupKey: string;
+  provider?: string;
+  model?: string;
+  userId?: string;
+  totalCost: number;
+  costPerToken: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  requestCount: number;
+};
+
+export type CostAnalysisResult = {
+  totalCost: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  requestCount: number;
+  groups: Record<string, CostGroupItem>;
+  providers: CostGroupItem[];
+  projections?: {
+    nextMonth: number;
+    nextQuarter: number;
+  };
+};
+
+export type TeamAnalyticsOptions = {
+  teamId?: string;
+  departments?: string[];
+  metrics?: string[];
+  timeRange?: TimeRangeOption | string;
+};
+
+export type TeamAnalyticsResult = {
+  totalRequests: number;
+  uniqueUsers: number;
+  providersUsed: string[];
+  costBreakdownByProvider: Record<string, number>;
+  costBreakdownByUser: Record<string, number>;
+  qualityScores?: AnalyticsQualityScore;
+};
