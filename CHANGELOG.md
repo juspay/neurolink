@@ -1,3 +1,9 @@
+## [9.94.4](https://github.com/juspay/neurolink/compare/v9.94.3...v9.94.4) (2026-07-19)
+
+### Bug Fixes
+
+- **(image):** guard image buffer size to prevent memory exhaustion ([#257](https://github.com/juspay/neurolink/issues/257)) ([fb518c9](https://github.com/juspay/neurolink/commit/fb518c9537aa4afdb2f3c261618e8d79c3c7416b))
+
 ## [9.94.3](https://github.com/juspay/neurolink/compare/v9.94.2...v9.94.3) (2026-07-19)
 
 ### Bug Fixes
