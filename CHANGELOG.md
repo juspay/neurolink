@@ -1,3 +1,10 @@
+## [9.94.1](https://github.com/juspay/neurolink/compare/v9.94.0...v9.94.1) (2026-07-19)
+
+### Bug Fixes
+
+- **(cli):** play mp3 TTS on Linux via real decoders, not paplay ([#1138](https://github.com/juspay/neurolink/issues/1138)) ([a5a9a16](https://github.com/juspay/neurolink/commit/a5a9a16ef5fc71a084962faa031a74bb322155e2))
+- **(skills):** fail closed on scoped skills without a scopeId ([#1139](https://github.com/juspay/neurolink/issues/1139)) ([5ae7b9f](https://github.com/juspay/neurolink/commit/5ae7b9f77168262fdff54c6df03bb3103d34d1cc)), closes [#1135](https://github.com/juspay/neurolink/issues/1135)
+
 ## [9.94.0](https://github.com/juspay/neurolink/compare/v9.93.2...v9.94.0) (2026-07-19)
 
 ### Features
