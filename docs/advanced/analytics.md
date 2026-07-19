@@ -179,12 +179,15 @@ const result = await neurolink.generate({
 });
 ```
 
-## 📊 Currently Available Methods
+## 📊 Available Methods
 
-The following methods are available today for analytics and monitoring:
+The following methods are fully available in the SDK for advanced analytics, performance monitoring, and cost calculations:
 
 | Method                                 | Description                                       |
 | -------------------------------------- | ------------------------------------------------- |
+| `neurolink.getProviderMetrics()`       | Get aggregated provider metrics and performance   |
+| `neurolink.getCostAnalysis()`          | Get granular cost breakdown and projections       |
+| `neurolink.getTeamAnalytics()`         | Get team-wide usage, unique users, and quality    |
 | `neurolink.getProviderStatus()`        | Get provider availability status                  |
 | `neurolink.getProviderHealthSummary()` | Get health summary for all providers              |
 | `neurolink.getToolExecutionMetrics()`  | Get tool execution statistics                     |
@@ -192,63 +195,61 @@ The following methods are available today for analytics and monitoring:
 
 ```typescript
 import { NeuroLink } from "@juspay/neurolink";
-import { getAnalyticsMetrics } from "@juspay/neurolink";
 
 const neurolink = new NeuroLink();
 
-// Get provider health status
-const healthSummary = neurolink.getProviderHealthSummary();
-console.log(healthSummary);
+// Get provider metrics
+const providerMetrics = await neurolink.getProviderMetrics({
+  timeRange: "last_7_days",
+});
+console.log(providerMetrics);
 
-// Get tool execution metrics
-const toolMetrics = neurolink.getToolExecutionMetrics();
-console.log(toolMetrics);
+// Get granular cost analysis
+const costAnalysis = await neurolink.getCostAnalysis({
+  includeProjections: true,
+});
+console.log(costAnalysis);
 
-// Get analytics from middleware
-const metrics = getAnalyticsMetrics();
-console.log(metrics);
+// Get team usage analytics
+const teamAnalytics = await neurolink.getTeamAnalytics({
+  teamId: "engineering-core",
+});
+console.log(teamAnalytics);
 ```
 
 ---
 
 ## 📊 Use Cases
 
-> **Planned Feature**
->
-> The following methods (`getProviderMetrics()`, `getCostAnalysis()`, `getTeamAnalytics()`) are planned for a future release and are **not yet available** in the current SDK version.
-> These examples illustrate the planned API design.
-
-### Planned API: Performance Monitoring
+### Performance Monitoring
 
 ```typescript
-// PLANNED - Monitor provider performance
+// Monitor provider performance
 const perfMetrics = await neurolink.getProviderMetrics({
-  providers: ["openai", "google-ai", "anthropic"],
+  providers: ["openai", "google", "anthropic"],
   timeRange: "last_24_hours",
-  metrics: ["response_time", "success_rate", "cost_per_token"],
 });
 
-// Identify best performing provider
+// Identify best performing provider by average latency
 const bestProvider = perfMetrics.providers.sort(
-  (a, b) => a.averageResponseTime - b.averageResponseTime,
+  (a, b) => a.averageLatency - b.averageLatency,
 )[0];
 
 console.log(`Best provider: ${bestProvider.name}`);
 ```
 
-### Planned API: Cost Optimization
+### Cost Optimization
 
 ```typescript
-// PLANNED - Track costs and optimize
+// Track costs and project future spend
 const costAnalysis = await neurolink.getCostAnalysis({
   timeRange: "current_month",
-  groupBy: ["provider", "model", "user_id"],
+  groupBy: ["provider", "model"],
+  includeProjections: true,
 });
 
-// Find cost-effective providers
-const cheapestProvider = costAnalysis.providers.sort(
-  (a, b) => a.costPerToken - b.costPerToken,
-)[0];
+console.log(`Current spend: $${costAnalysis.totalCost}`);
+console.log(`Projected next month: $${costAnalysis.projections?.nextMonth}`);
 ```
 
 ### Quality Assurance
@@ -268,26 +269,22 @@ jq '.evaluation.overall' evaluations.json | awk '{sum+=$1} END {print "Average q
 
 ## 🚀 Enterprise Features
 
-> **Planned Feature**
->
-> The enterprise analytics methods below (`getTeamAnalytics()`, custom metrics configuration) are planned for a future release.
-> These examples illustrate the planned API design for enterprise deployments.
-
-### Planned API: Team Analytics
+### Team Analytics
 
 ```typescript
-// PLANNED - Department-level analytics
+// Department-level analytics and user attribution
 const teamMetrics = await neurolink.getTeamAnalytics({
   departments: ["engineering", "product", "marketing"],
-  metrics: ["usage", "cost", "quality_scores"],
-  timeRange: "current_quarter",
+  timeRange: "last_30_days",
 });
+
+console.log(`Total active unique users: ${teamMetrics.uniqueUsers}`);
 ```
 
-### Planned API: Custom Metrics
+### Custom Metrics
 
 ```typescript
-// PLANNED - Define custom analytics
+// Define custom analytics tracking
 const result = await neurolink.generate({
   input: { text: "Generate report" },
   analytics: {

@@ -123,6 +123,7 @@
     "test:json-e2e": "npx tsx test/continuous-test-suite-json-e2e.ts",
     "test:workflow": "npx tsx test/continuous-test-suite-workflow.ts",
     "test:hitl": "npx tsx test/continuous-test-suite-hitl.ts",
+    "test:analytics": "npx tsx test/continuous-test-suite-analytics.ts",
     "test:tasks": "npx tsx test/continuous-test-suite-tasks.ts",
     "test:auth": "npx tsx test/continuous-test-suite-auth.ts",
     "test:autoresearch": "npx tsx test/continuous-test-suite-autoresearch.ts",
