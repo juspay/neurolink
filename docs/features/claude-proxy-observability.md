@@ -115,6 +115,31 @@ Do not point dashboard panels at the stale log stream `neurolink_proxy_logs` unl
 - In OpenObserve, body captures arrive in the same `neurolink_proxy` log stream with `event.name=proxy.body_capture`, so request panels must filter to request-summary rows, for example `http_method IS NOT NULL`.
 - Attempt logs are local-only on purpose. They should help explain retries without inflating dashboard request counts.
 
+### Deterministic Request Reconstruction
+
+When body capture is enabled, export one request and its upstream attempts without contacting the proxy or provider:
+
+```bash
+neurolink proxy replay export \
+  --request-id <request-id> \
+  --output replay.json
+```
+
+Use `--attempt <number>` to select a specific upstream attempt and `--logs-dir <path>` for a non-default log directory. The command verifies that every compressed artifact remains inside the managed body directory and matches the SHA-256 value in its debug index. The generated bundle is deterministic, redacted, written with `0o600` permissions, and reports missing phases, missing artifacts, and truncation instead of presenting partial evidence as complete.
+
+Credentials are never included in a replay bundle. To perform a direct comparison, inject each redacted header from a named environment variable and explicitly permit network execution:
+
+```bash
+export ANTHROPIC_AUTHORIZATION='Bearer ...'
+neurolink proxy replay compare \
+  --bundle replay.json \
+  --output comparison.json \
+  --execute \
+  --header-env authorization=ANTHROPIC_AUTHORIZATION
+```
+
+The direct response is bounded and redacted using the same rules as proxy body logging. The comparison records status, content type, body hash, JSON shape, time to headers, and total duration. Redirects are not followed. HTTPS is required except for loopback fixture testing. A truncated or body-redacted request requires a complete `--body-file` override before execution.
+
 ## What This Dashboard Should Answer
 
 Use the dashboard to answer seven operational questions:

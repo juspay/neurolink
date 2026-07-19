@@ -1417,6 +1417,10 @@ async function handleClaudePassthroughRequest(args: {
     account: "passthrough",
     accountType: "passthrough",
     attempt: 1,
+    metadata: {
+      upstreamMethod: "POST",
+      upstreamUrl: "https://api.anthropic.com/v1/messages?beta=true",
+    },
   });
 
   let response: Response;
@@ -4148,6 +4152,7 @@ async function handleAnthropicAuthRetry(args: {
   accountState: RuntimeAccountState;
   headers: Record<string, string>;
   buildUpstreamBody: (token: string) => { bodyStr: string; sessionId?: string };
+  url: string;
   enabledAccounts: ProxyPassthroughAccount[];
   orderedAccounts: ProxyPassthroughAccount[];
   tracer?: ProxyTracer;
@@ -4182,6 +4187,7 @@ async function handleAnthropicAuthRetry(args: {
     accountState,
     headers,
     buildUpstreamBody,
+    url,
     enabledAccounts,
     orderedAccounts,
     tracer,
@@ -4271,18 +4277,16 @@ async function handleAnthropicAuthRetry(args: {
       account: account.label,
       accountType: account.type,
       attempt: retryAttemptNumber,
+      metadata: { upstreamMethod: "POST", upstreamUrl: url },
     });
 
     try {
-      const retryResp = await fetch(
-        "https://api.anthropic.com/v1/messages?beta=true",
-        {
-          method: "POST",
-          headers,
-          body: retryBodyStr,
-          signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
-        },
-      );
+      const retryResp = await fetch(url, {
+        method: "POST",
+        headers,
+        body: retryBodyStr,
+        signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
+      });
       if (retryResp.ok) {
         authRetrySucceeded = true;
         accountState.consecutiveRefreshFailures = 0;
@@ -5332,6 +5336,7 @@ async function prepareAnthropicAccountAttempt(args: {
     account: account.label,
     accountType: account.type,
     attempt: attemptNumber,
+    metadata: { upstreamMethod: "POST", upstreamUrl: url },
   });
 
   return {
@@ -5894,6 +5899,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           accountState,
           headers: preparedAttempt.headers,
           buildUpstreamBody: preparedAttempt.buildUpstreamBody,
+          url,
           enabledAccounts,
           orderedAccounts,
           tracer,
