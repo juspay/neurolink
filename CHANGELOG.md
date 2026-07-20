@@ -1,3 +1,9 @@
+## [10.1.1](https://github.com/juspay/neurolink/compare/v10.1.0...v10.1.1) (2026-07-20)
+
+### Bug Fixes
+
+- **(timeout):** add missing litellm entry to DEFAULT_TIMEOUTS.providers ([c24a54c](https://github.com/juspay/neurolink/commit/c24a54ca2fa96e7e9cfc5bcb2a82b32dd3d3eecf))
+
 ## [10.1.0](https://github.com/juspay/neurolink/compare/v10.0.1...v10.1.0) (2026-07-20)
 
 ### Features
