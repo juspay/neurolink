@@ -1,3 +1,20 @@
+## [10.0.0](https://github.com/juspay/neurolink/compare/v9.95.3...v10.0.0) (2026-07-20)
+
+### ⚠ BREAKING CHANGES
+
+- **(multimodal):** three breaking changes shipped earlier in 9.94.x-9.95.x
+  are now documented in docs/MIGRATION.md: (1) multimodal file/CSV
+  processing is fail-loud since v9.94.6 (throws ErrorFactory.fileProcessingFailed
+  /csvProcessingFailed instead of log-and-skip), (2) MessageContent
+  (src/lib/types/multimodal.ts) dropped its open index signature since
+  v9.94.6 (closed shape, TS2353 on unknown fields), (3) BatchCommandArgs.file
+  was renamed to .promptsFile since v9.95.1. No further behavior changes to
+  these three in this commit — this commit only adds the migration doc.
+
+### Bug Fixes
+
+- **(multimodal):** close post-merge review gaps (batch parity, pdf limits, url-secret redaction, supervisor identity) ([1956f4a](https://github.com/juspay/neurolink/commit/1956f4ae0f525501da4fe1d017b4833cf8fc9665))
+
 ## [9.95.3](https://github.com/juspay/neurolink/compare/v9.95.2...v9.95.3) (2026-07-19)
 
 ### Bug Fixes

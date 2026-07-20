@@ -1,6 +1,6 @@
 {
   "name": "@juspay/neurolink",
-  "version": "9.95.3",
+  "version": "10.0.0",
   "packageManager": "pnpm@10.15.1",
   "description": "TypeScript AI SDK with 24+ LLM providers behind one consistent API. MCP-native (connect any MCP server), voice TTS/STT/realtime, RAG, agents, memory, context compaction. OpenAI · Anthropic · Gemini · Bedrock · Azure · Ollama · DeepSeek · NVIDIA NIM and more.",
   "author": {
