@@ -143,7 +143,11 @@ import {
   SENSITIVE_URL_QUERY_PARAM_DENYLIST,
   stripSensitiveUrlParamsForCacheKey,
 } from "../src/lib/utils/logSanitize.js";
-import { getImageCache, resetImageCache } from "../src/lib/utils/imageCache.js";
+import {
+  ImageCache,
+  getImageCache,
+  resetImageCache,
+} from "../src/lib/utils/imageCache.js";
 import { logger } from "../src/lib/utils/logger.js";
 
 import type {
@@ -8446,6 +8450,159 @@ exit 127
         );
       } finally {
         neurolinkProxy.kill("SIGKILL");
+      }
+    },
+  },
+  {
+    // (i) #1213: contentHashIndex used to map a content hash to a SINGLE
+    // url (Map<contentHash, url>). When the same image content was cached
+    // under two urls, set() repointed the index to the newer url, dropping
+    // the older url's mapping. Deleting/evicting that newer url then
+    // removed the index entry entirely, even though the OLDER url's entry
+    // was still live in `this.cache` - so getByContentHash() returned null
+    // and the dedup benefit was lost. The fix stores a Set of urls per
+    // content hash (Map<contentHash, Set<url>>) so removing one url only
+    // drops it from the set, not the whole mapping.
+    name: "ImageCache #1213: content-hash dedup index survives deletion of one of two same-content urls",
+    category: "image-processor",
+    fn: async () => {
+      const originalEnv = process.env.NEUROLINK_IMAGE_CACHE_ENABLED;
+      try {
+        process.env.NEUROLINK_IMAGE_CACHE_ENABLED = "true";
+        resetImageCache();
+        const cache = getImageCache();
+
+        const content = Buffer.from("neurolink-1213-dedup-content");
+        const dataUri = "data:image/png;base64,AAAA";
+        const urlA = "https://example.com/dedup-a.png";
+        const urlB = "https://example.com/dedup-b.png";
+
+        // Same content cached under two different urls - set() must ADD
+        // urlB to the hash's url set rather than replacing urlA.
+        cache.set(urlA, dataUri, "image/png", content);
+        cache.set(urlB, dataUri, "image/png", content);
+
+        const entryA = cache.get(urlA);
+        if (!entryA) {
+          return false; // sanity: first url must be cached
+        }
+        const contentHash = entryA.contentHash;
+
+        const beforeDelete = cache.getByContentHash(contentHash);
+        if (!beforeDelete || beforeDelete.dataUri !== dataUri) {
+          return false;
+        }
+
+        // Delete the SECOND (newer) url. Pre-fix, set(urlB, ...) had
+        // repointed the single-url index to urlB, so deleting urlB wiped
+        // out the only mapping for this hash - getByContentHash() would
+        // return null even though urlA's entry is still live in the cache.
+        cache.delete(urlB);
+
+        const afterDelete = cache.getByContentHash(contentHash);
+        return (
+          afterDelete !== null &&
+          afterDelete.dataUri === dataUri &&
+          cache.get(urlA) !== null &&
+          cache.get(urlB) === null
+        );
+      } finally {
+        if (originalEnv === undefined) {
+          delete process.env.NEUROLINK_IMAGE_CACHE_ENABLED;
+        } else {
+          process.env.NEUROLINK_IMAGE_CACHE_ENABLED = originalEnv;
+        }
+        resetImageCache();
+      }
+    },
+  },
+  {
+    name: "ImageCache #1213: dedup index survives EVICTION of the indexed url, not just deletion",
+    category: "image-processor",
+    fn: async () => {
+      const originalEnv = process.env.NEUROLINK_IMAGE_CACHE_ENABLED;
+      try {
+        process.env.NEUROLINK_IMAGE_CACHE_ENABLED = "true";
+        // maxSize=2 so a third distinct-content entry forces an eviction.
+        const cache = new ImageCache({ maxSize: 2 });
+        const content = Buffer.from("neurolink-1213-evict-content");
+        const other = Buffer.from("neurolink-1213-other-content");
+        const dataUri = "data:image/png;base64,AAAA";
+        const urlA = "https://example.com/evict-a.png";
+        const urlB = "https://example.com/evict-b.png";
+        const urlC = "https://example.com/evict-c.png";
+
+        cache.set(urlA, dataUri, "image/png", content); // A (content)
+        cache.set(urlB, dataUri, "image/png", content); // B (dedup, same content)
+        // Reading A returns its entry AND bumps it to most-recently-used, so B
+        // becomes the least-recently-used and is what evictOldest() removes.
+        const entryA = cache.get(urlA);
+        if (!entryA) {
+          return false;
+        }
+        const contentHash = entryA.contentHash;
+
+        // A third, different-content image at maxSize=2 evicts the oldest (B).
+        // Pre-fix, the single-url index pointed at B (the newest same-content
+        // url), so evicting B dropped the only mapping for this hash and
+        // getByContentHash() returned null even though A's entry is still live.
+        cache.set(urlC, dataUri, "image/png", other);
+
+        const found = cache.getByContentHash(contentHash);
+        return (
+          found !== null &&
+          found.dataUri === dataUri &&
+          cache.get(urlA) !== null && // survivor still cached
+          cache.get(urlB) === null // B was evicted
+        );
+      } finally {
+        if (originalEnv === undefined) {
+          delete process.env.NEUROLINK_IMAGE_CACHE_ENABLED;
+        } else {
+          process.env.NEUROLINK_IMAGE_CACHE_ENABLED = originalEnv;
+        }
+        resetImageCache();
+      }
+    },
+  },
+  {
+    name: "ImageCache #1213: dedup copy at capacity re-creates the hash index (no orphaned set)",
+    category: "image-processor",
+    fn: async () => {
+      const originalEnv = process.env.NEUROLINK_IMAGE_CACHE_ENABLED;
+      try {
+        process.env.NEUROLINK_IMAGE_CACHE_ENABLED = "true";
+        // maxSize=1: caching the dedup copy under a second url must evict the
+        // first (emptying that hash's url set), yet the content must stay
+        // reachable. The fix re-fetches/re-creates the index entry after the
+        // eviction instead of adding to the now-orphaned set.
+        const cache = new ImageCache({ maxSize: 1 });
+        const content = Buffer.from("neurolink-1213-orphan-content");
+        const dataUri = "data:image/png;base64,BBBB";
+        const urlA = "https://example.com/orphan-a.png";
+        const urlB = "https://example.com/orphan-b.png";
+
+        cache.set(urlA, dataUri, "image/png", content); // A
+        cache.set(urlB, dataUri, "image/png", content); // B: dedup hit; evicts A (maxSize=1)
+
+        const entryB = cache.get(urlB);
+        if (!entryB) {
+          return false;
+        }
+        const found = cache.getByContentHash(entryB.contentHash);
+        return (
+          found !== null &&
+          found.dataUri === dataUri &&
+          cache.get(urlA) === null && // A evicted to make room
+          cache.get(urlB) !== null // B survives and stays indexed
+        );
+      } finally {
+        if (originalEnv === undefined) {
+          delete process.env.NEUROLINK_IMAGE_CACHE_ENABLED;
+        } else {
+          process.env.NEUROLINK_IMAGE_CACHE_ENABLED = originalEnv;
+        }
+        resetImageCache();
       }
     },
   },
