@@ -1,3 +1,9 @@
+## [10.0.1](https://github.com/juspay/neurolink/compare/v10.0.0...v10.0.1) (2026-07-20)
+
+### Bug Fixes
+
+- **(cli):** redact URL credentials in observability/telemetry output and clear flush timer leak ([cbb91a4](https://github.com/juspay/neurolink/commit/cbb91a4957520e798a13b09f2486e63b27ed3590))
+
 ## [10.0.0](https://github.com/juspay/neurolink/compare/v9.95.3...v10.0.0) (2026-07-20)
 
 ### ⚠ BREAKING CHANGES
