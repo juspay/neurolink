@@ -1,3 +1,9 @@
+## [10.1.0](https://github.com/juspay/neurolink/compare/v10.0.1...v10.1.0) (2026-07-20)
+
+### Features
+
+- **(proxy):** add deterministic request replay ([b4cae3d](https://github.com/juspay/neurolink/commit/b4cae3db193f319be287649627a71248fc1f7526))
+
 ## [10.0.1](https://github.com/juspay/neurolink/compare/v10.0.0...v10.0.1) (2026-07-20)
 
 ### Bug Fixes
