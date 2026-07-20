@@ -1,3 +1,9 @@
+## [10.2.2](https://github.com/juspay/neurolink/compare/v10.2.1...v10.2.2) (2026-07-20)
+
+### Bug Fixes
+
+- **(litellm):** discover real model context windows from the proxy /model/info ([9bb9446](https://github.com/juspay/neurolink/commit/9bb9446ca20359d7e905143da8d52f82043a5d36))
+
 ## [10.2.1](https://github.com/juspay/neurolink/compare/v10.2.0...v10.2.1) (2026-07-20)
 
 ### Bug Fixes
