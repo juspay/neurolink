@@ -1,3 +1,10 @@
+## [10.1.2](https://github.com/juspay/neurolink/compare/v10.1.1...v10.1.2) (2026-07-20)
+
+### Bug Fixes
+
+- **(cache):** keep image content-hash dedup index resilient across eviction ([#1213](https://github.com/juspay/neurolink/issues/1213)) ([a722798](https://github.com/juspay/neurolink/commit/a7227986c0640be6ff72a42ab275c8666a78fb28))
+- **(pdf):** pin pdfjs-dist to one version so page counting survives image conversion ([#1212](https://github.com/juspay/neurolink/issues/1212)) ([4eb5dfb](https://github.com/juspay/neurolink/commit/4eb5dfb83c933c5e2338ee65be6aee5c7edc34e6))
+
 ## [10.1.1](https://github.com/juspay/neurolink/compare/v10.1.0...v10.1.1) (2026-07-20)
 
 ### Bug Fixes
