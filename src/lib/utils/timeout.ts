@@ -102,6 +102,7 @@ export const DEFAULT_TIMEOUTS = {
     huggingface: "2m", // Open source models vary significantly
     ollama: "5m", // Local models need more time, especially large ones
     mistral: "45s", // Mistral AI moderate speed
+    litellm: "5m", // Self-hosted proxy over arbitrary backends, same variable-latency profile as ollama
   },
   tools: {
     default: "10s", // Default timeout for MCP tool execution
