@@ -25,7 +25,10 @@ import {
   parseQuotaHeaders,
   saveAccountQuota,
 } from "../src/lib/proxy/accountQuota.js";
-import { resolveProxyPaths } from "../src/lib/proxy/proxyPaths.js";
+import {
+  resolveProxyPaths,
+  resolveProxyUsageStatsPath,
+} from "../src/lib/proxy/proxyPaths.js";
 import { createSSEInterceptor } from "../src/lib/proxy/sseInterceptor.js";
 import {
   clearRefreshStateForTests,
@@ -40,7 +43,7 @@ import {
 import {
   getStats,
   recordAttempt,
-  resetStats,
+  resetUsageStatsForTests,
 } from "../src/lib/proxy/usageStats.js";
 import { parseProxyConfigString } from "../src/lib/proxy/proxyConfig.js";
 import {
@@ -58,7 +61,7 @@ afterEach(async () => {
     tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })),
   );
   __testHooks.resetAllRuntimeState();
-  resetStats();
+  await resetUsageStatsForTests();
 });
 
 describe("weekly-expiry quota routing", () => {
@@ -1717,6 +1720,10 @@ describe("launchd lifecycle source invariants", () => {
       new URL("../src/lib/proxy/globalInstaller.ts", import.meta.url),
       "utf8",
     );
+    const startHandler = source.slice(
+      source.indexOf("async function startProxyCommandHandler"),
+      source.indexOf("export const proxyStartCommand"),
+    );
 
     expect(source).not.toContain("tryLaunchdRestart");
     expect(source).toContain("params.argv.dev || managedByLaunchd");
@@ -1766,6 +1773,22 @@ describe("launchd lifecycle source invariants", () => {
     expect(source).not.toContain("cooling: false");
     expect(source).toContain("catch(forceExitAfterShutdownFailure)");
     expect(source).toContain("Timed out draining the proxy server");
+    expect(source).toContain("await Promise.allSettled([");
+    expect(source).toContain(
+      "Timed out flushing proxy usage statistics during shutdown",
+    );
+    expect(source).toContain(
+      "Timed out flushing proxy lifecycle metadata during shutdown",
+    );
+    const startAllowedIndex = startHandler.indexOf(
+      "await ensureProxyStartAllowed(spinner)",
+    );
+    const statsInitIndex = startHandler.indexOf(
+      "await initUsageStats(resolveProxyUsageStatsPath(proxyPaths))",
+    );
+    expect(startAllowedIndex).toBeGreaterThanOrEqual(0);
+    expect(statsInitIndex).toBeGreaterThanOrEqual(0);
+    expect(startAllowedIndex).toBeLessThan(statsInitIndex);
     expect(updateState).toContain("randomUUID()");
     expect(updateState).not.toContain("const tempPath = `${filePath}.tmp`");
     expect(installer).toContain('["bin", "-g"]');
@@ -1779,6 +1802,18 @@ describe("launchd lifecycle source invariants", () => {
     expect(paths.cooldownFile).toBe(
       join(process.cwd(), ".neurolink-dev", "account-cooldowns.json"),
     );
+    expect(paths.statsFile).toBe(
+      join(process.cwd(), ".neurolink-dev", "proxy-usage-stats.json"),
+    );
+    expect(
+      resolveProxyUsageStatsPath({
+        stateDir: paths.stateDir,
+        logsDir: paths.logsDir,
+        quotaFile: paths.quotaFile,
+        cooldownFile: paths.cooldownFile,
+        isDev: true,
+      }),
+    ).toBe(join(paths.stateDir, "proxy-usage-stats.json"));
   });
 
   it("does not fall back to known-cooling accounts", async () => {

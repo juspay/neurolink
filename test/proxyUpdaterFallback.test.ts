@@ -31,6 +31,7 @@ import { markProxyReady } from "../src/lib/proxy/proxyHealth.js";
 import { __testHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
 import { createProxyStartApp } from "../src/cli/commands/proxy.js";
 import { StateFileManager } from "../src/cli/utils/serverUtils.js";
+import { tokenStore } from "../src/lib/auth/tokenStore.js";
 import { openProxyWorkerLog } from "../src/lib/proxy/workerLog.js";
 import { __testHooks as openAIProxyTestHooks } from "../src/lib/server/routes/openaiProxyRoutes.js";
 import {
@@ -39,7 +40,7 @@ import {
   recordAttemptError,
   recordFinalError,
   recordFinalSuccess,
-  resetStats,
+  resetUsageStatsForTests,
 } from "../src/lib/proxy/usageStats.js";
 
 const tempDirs: string[] = [];
@@ -49,7 +50,7 @@ afterEach(async () => {
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
   resetProxyActivityForTests();
-  resetStats();
+  await resetUsageStatsForTests();
   await Promise.all(
     tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })),
   );
@@ -217,6 +218,7 @@ describe("proxy runtime error finalization", () => {
     const body = await response.json();
 
     expect(body.stats).toMatchObject({
+      startedAt: expect.any(Number),
       totalAttempts: 3,
       totalAttemptErrors: 1,
       totalRequests: 2,
@@ -225,6 +227,11 @@ describe("proxy runtime error finalization", () => {
       totalRateLimits: 1,
       totalTransientRateLimits: 1,
       totalQuotaRateLimits: 0,
+      persistence: {
+        enabled: false,
+        pendingMutations: 6,
+        lastError: null,
+      },
     });
     expect(body.stats.accounts).toEqual(
       expect.arrayContaining([
@@ -238,6 +245,7 @@ describe("proxy runtime error finalization", () => {
           rateLimits: 1,
           transientRateLimits: 1,
           quotaRateLimits: 0,
+          status: "removed",
         }),
         expect.objectContaining({
           label: "fallback@example.com",
@@ -246,6 +254,50 @@ describe("proxy runtime error finalization", () => {
           success: 1,
           errors: 0,
           attemptErrors: 0,
+          status: "removed",
+        }),
+      ]),
+    );
+  });
+
+  it("keeps an active legacy OAuth account distinct from removed history", async () => {
+    const root = await mkdtemp(join(tmpdir(), "neurolink-legacy-status-"));
+    tempDirs.push(root);
+    const stateDir = join(root, ".neurolink");
+    await mkdir(stateDir, { recursive: true });
+    const credentialsPath = join(stateDir, "anthropic-credentials.json");
+    await writeFile(
+      credentialsPath,
+      JSON.stringify({
+        email: "legacy@example.com",
+        oauth: { accessToken: "redacted-test-token" },
+      }),
+    );
+    vi.stubEnv("HOME", root);
+    vi.spyOn(tokenStore, "listByPrefix").mockResolvedValue([]);
+    vi.spyOn(tokenStore, "listDisabled").mockResolvedValue([]);
+    recordAttempt("legacy@example.com", "oauth");
+    recordFinalSuccess("legacy@example.com", "oauth");
+
+    const { app } = await createApp(() => ({}));
+    const body = await (await app.request("/status")).json();
+
+    expect(body.stats.accounts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "legacy@example.com",
+          status: "active",
+        }),
+      ]),
+    );
+
+    await rm(credentialsPath);
+    const cachedBody = await (await app.request("/status")).json();
+    expect(cachedBody.stats.accounts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "legacy@example.com",
+          status: "active",
         }),
       ]),
     );

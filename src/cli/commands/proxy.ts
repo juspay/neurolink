@@ -124,6 +124,10 @@ const PROXY_TELEMETRY_SCRIPT_PATH = fileURLToPath(
   ),
 );
 const PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS = 5_000;
+const LEGACY_STATUS_ACCOUNT_CACHE_TTL_MS = 5_000;
+let legacyStatusAccountCache:
+  | { credentialsPath: string; expiresAt: number; label: string | null }
+  | undefined;
 // Allowed drift between a pid's OS-reported start time and the persisted
 // ProxySupervisorState.startTime before processLooksLikeProxySupervisor
 // treats it as a confident mismatch (recycled pid). Generous on purpose:
@@ -457,6 +461,45 @@ async function resolveStatusPrimaryAccount(
     label: fallbackLabel,
     source: "fallback",
   };
+}
+
+async function resolveLegacyStatusAccountLabel(
+  storedAnthropicAccountCount: number,
+): Promise<string | null> {
+  if (storedAnthropicAccountCount !== 0) {
+    return null;
+  }
+  const credentialsPath = join(
+    homedir(),
+    ".neurolink",
+    "anthropic-credentials.json",
+  );
+  const now = Date.now();
+  if (
+    legacyStatusAccountCache?.credentialsPath === credentialsPath &&
+    legacyStatusAccountCache.expiresAt > now
+  ) {
+    return legacyStatusAccountCache.label;
+  }
+  let label: string | null = null;
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const parsed = JSON.parse(await readFile(credentialsPath, "utf8")) as {
+      email?: string;
+      oauth?: { accessToken?: string };
+    };
+    if (parsed.oauth?.accessToken) {
+      label = parsed.email?.trim() || "legacy-default";
+    }
+  } catch {
+    label = null;
+  }
+  legacyStatusAccountCache = {
+    credentialsPath,
+    expiresAt: now + LEGACY_STATUS_ACCOUNT_CACHE_TTL_MS,
+    label,
+  };
+  return label;
 }
 
 /**
@@ -1907,20 +1950,27 @@ export async function createProxyStartApp(params: {
     const activeAccountAllowlist = runtimeConfig
       ? runtimeConfig.accountAllowlist
       : params.accountAllowlist;
-    const { getStats } = await import("../../lib/proxy/usageStats.js");
+    const { getReconciledStats, getUsageStatsPersistenceStatus } =
+      await import("../../lib/proxy/usageStats.js");
     const { loadAccountCooldowns } =
       await import("../../lib/proxy/accountCooldown.js");
-    const stats = getStats();
+    const stats = await getReconciledStats();
     const runtimeState = loadProxyState();
     const supervisorState = loadProxySupervisorState();
     const updateState = loadUpdateState();
     const cooldowns = await loadAccountCooldowns();
     const storedAccountKeys = new Set<string>();
+    const disabledAccountKeys = new Set<string>();
+    let accountInventoryLoaded = false;
     try {
       const { tokenStore } = await import("../../lib/auth/tokenStore.js");
       for (const key of await tokenStore.listByPrefix("anthropic:")) {
         storedAccountKeys.add(normalizeAnthropicAccountKey(key));
       }
+      for (const key of await tokenStore.listDisabled()) {
+        disabledAccountKeys.add(normalizeAnthropicAccountKey(key));
+      }
+      accountInventoryLoaded = true;
     } catch (err) {
       logger.debug(
         `[proxy] /status: failed to resolve account cooldown labels: ${
@@ -1928,6 +1978,9 @@ export async function createProxyStartApp(params: {
         }`,
       );
     }
+    const legacyAccountLabel = accountInventoryLoaded
+      ? await resolveLegacyStatusAccountLabel(storedAccountKeys.size)
+      : null;
     const now = Date.now();
     const health = buildProxyHealthResponse(readiness, {
       strategy: activeStrategy,
@@ -1950,6 +2003,7 @@ export async function createProxyStartApp(params: {
       version: PROXY_VERSION,
       health,
       stats: {
+        startedAt: stats.startedAt,
         totalAttempts: stats.totalAttempts,
         totalAttemptErrors: stats.totalAttemptErrors,
         totalRequests: stats.totalRequests,
@@ -1960,13 +2014,26 @@ export async function createProxyStartApp(params: {
         totalQuotaRateLimits: stats.totalQuotaRateLimits,
         accounts: Object.values(stats.accounts).map((account) => {
           const normalizedKey = normalizeAnthropicAccountKey(account.label);
+          const isLegacyAccount =
+            account.type === "oauth" && account.label === legacyAccountLabel;
           const accountKey = storedAccountKeys.has(normalizedKey)
             ? normalizedKey
-            : account.label === "env"
-              ? ENV_ANTHROPIC_ACCOUNT_KEY
-              : account.type === "oauth"
-                ? LEGACY_ANTHROPIC_ACCOUNT_KEY
+            : isLegacyAccount
+              ? LEGACY_ANTHROPIC_ACCOUNT_KEY
+              : account.label === "env"
+                ? ENV_ANTHROPIC_ACCOUNT_KEY
                 : normalizedKey;
+          const isStored = storedAccountKeys.has(accountKey) || isLegacyAccount;
+          const cooling = (cooldowns[accountKey]?.coolingUntil ?? 0) > now;
+          const accountStatus = disabledAccountKeys.has(accountKey)
+            ? "disabled"
+            : !isAccountAllowed(accountKey, activeAccountAllowlist)
+              ? "excluded"
+              : accountInventoryLoaded && account.type === "oauth" && !isStored
+                ? "removed"
+                : cooling
+                  ? "cooling"
+                  : "active";
           return {
             label: account.label,
             type: account.type,
@@ -1978,10 +2045,12 @@ export async function createProxyStartApp(params: {
             rateLimits: account.rateLimitCount,
             transientRateLimits: account.transientRateLimitCount,
             quotaRateLimits: account.quotaRateLimitCount,
-            cooling: (cooldowns[accountKey]?.coolingUntil ?? 0) > now,
+            cooling,
+            status: accountStatus,
           };
         }),
         primaryAccount,
+        persistence: getUsageStatsPersistenceStatus(),
       },
       activity: (() => {
         const activity = getProxyActivitySnapshot();
@@ -2380,13 +2449,30 @@ function registerProxyShutdownHandlers(params: {
       }
     }
 
-    try {
-      await withTimeout(
-        flushProxyLifecycleEvents(),
-        PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS,
-        "Timed out flushing proxy lifecycle metadata during shutdown",
+    const usageStatsFlush = import("../../lib/proxy/usageStats.js").then(
+      ({ flushUsageStats }) => flushUsageStats(),
+    );
+    const [usageStatsFlushResult, lifecycleFlushResult] =
+      await Promise.allSettled([
+        withTimeout(
+          usageStatsFlush,
+          PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS,
+          "Timed out flushing proxy usage statistics during shutdown",
+        ),
+        withTimeout(
+          flushProxyLifecycleEvents(),
+          PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS,
+          "Timed out flushing proxy lifecycle metadata during shutdown",
+        ),
+      ]);
+    if (usageStatsFlushResult.status === "rejected") {
+      const error = usageStatsFlushResult.reason;
+      logger.warn(
+        `[proxy] usage statistics flush failed during shutdown: ${error instanceof Error ? error.message : String(error)}`,
       );
-    } catch (error) {
+    }
+    if (lifecycleFlushResult.status === "rejected") {
+      const error = lifecycleFlushResult.reason;
       logger.debug(
         `[proxy] lifecycle metadata flush failed during shutdown: ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -2888,10 +2974,11 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
     }
     // In dev mode: redirect writable state to .neurolink-dev/ and skip singleton check
     let devPaths: import("../../lib/types/index.js").ProxyPaths | undefined;
+    const { resolveProxyPaths, resolveProxyUsageStatsPath } =
+      await import("../../lib/proxy/proxyPaths.js");
+    const proxyPaths = resolveProxyPaths(isDev);
     if (isDev) {
-      const { resolveProxyPaths } =
-        await import("../../lib/proxy/proxyPaths.js");
-      devPaths = resolveProxyPaths(true);
+      devPaths = proxyPaths;
       setProxyStateDir(devPaths.stateDir);
 
       const { initAccountQuota } =
@@ -2911,6 +2998,21 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
     if (!isDev && !socketWorker) {
       await ensureProxyStartAllowed(spinner);
     }
+
+    const { initUsageStats, getUsageStatsPersistenceStatus } =
+      await import("../../lib/proxy/usageStats.js");
+    await initUsageStats(resolveProxyUsageStatsPath(proxyPaths));
+    const usageStatsPersistence = getUsageStatsPersistenceStatus();
+    if (usageStatsPersistence.lastError) {
+      logger.warn(
+        `[proxy] usage statistics persistence unavailable: ${usageStatsPersistence.lastError}`,
+      );
+    } else if (usageStatsPersistence.lastRecoveryAt) {
+      logger.warn(
+        `[proxy] recovered corrupt usage statistics state at ${new Date(usageStatsPersistence.lastRecoveryAt).toISOString()}`,
+      );
+    }
+
     const baseEnv = { ...process.env };
     const envResolution = resolveProxyEnvFile({
       explicitEnvFile: argv.envFile,
@@ -3135,7 +3237,7 @@ function printStatusStats(stats: StatusStats): void {
       String(account.success ?? 0),
       String(account.errors ?? 0),
       String(account.rateLimits ?? 0),
-      account.cooling ? "cooling" : "active",
+      account.status ?? (account.cooling ? "cooling" : "active"),
     ]);
     const widths = headers.map((header, index) =>
       Math.max(header.length, ...rows.map((row) => row[index].length)),
@@ -3162,7 +3264,7 @@ function printStatusStats(stats: StatusStats): void {
       const prefix = formatted.slice(0, statusStart);
       const paddedStatus = formatted.slice(statusStart);
       console.info(
-        `    ${chalk.cyan(prefix.slice(0, widths[0]))}${prefix.slice(widths[0])}${status === "cooling" ? chalk.red(paddedStatus) : chalk.green(paddedStatus)}`,
+        `    ${chalk.cyan(prefix.slice(0, widths[0]))}${prefix.slice(widths[0])}${status === "active" ? chalk.green(paddedStatus) : status === "cooling" ? chalk.red(paddedStatus) : chalk.yellow(paddedStatus)}`,
       );
     }
   }
