@@ -1,3 +1,9 @@
+## [10.2.0](https://github.com/juspay/neurolink/compare/v10.1.2...v10.2.0) (2026-07-20)
+
+### Features
+
+- **(proxy):** persist usage stats across workers ([318623a](https://github.com/juspay/neurolink/commit/318623aaf3812ba9eae22dac0a42fc93e8c88932))
+
 ## [10.1.2](https://github.com/juspay/neurolink/compare/v10.1.1...v10.1.2) (2026-07-20)
 
 ### Bug Fixes
