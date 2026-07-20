@@ -2518,9 +2518,9 @@ const tests: TestFunction[] = [
     name: "AccountStats has no cooldown or backoff fields",
     category: "429-regression",
     fn: async () => {
-      const { resetStats, getStats } =
+      const { resetUsageStatsForTests, getStats } =
         await import("../src/lib/proxy/usageStats.js");
-      resetStats();
+      await resetUsageStatsForTests();
       const stats = getStats();
       // The type should not have coolingUntil or currentBackoffLevel
       const accountDefaults = Object.values(stats.accounts);

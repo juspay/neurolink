@@ -811,6 +811,44 @@ export type ProxyStats = {
   accounts: Record<string, AccountStats>;
 };
 
+/** Durability and reconciliation state for the proxy usage counters. */
+export type ProxyStatsPersistenceStatus = {
+  enabled: boolean;
+  filePath: string | null;
+  revision: number;
+  pendingMutations: number;
+  inFlightMutations: number;
+  unpersistedMutations: number;
+  lastFlushedAt: number | null;
+  lastReconciledAt: number | null;
+  lastRecoveryAt: number | null;
+  lastError: string | null;
+};
+
+/** Versioned on-disk snapshot shared by overlapping proxy workers. */
+export type PersistedProxyStatsSnapshot = {
+  schemaVersion: 1;
+  revision: number;
+  updatedAt: number;
+  stats: ProxyStats;
+};
+
+/** Ownership metadata for the proxy statistics cross-process lock. */
+export type ProxyStatsLockOwner = {
+  token: string;
+  pid: number;
+  acquiredAt: number;
+};
+
+/** Construction options for an isolated proxy statistics store. */
+export type ProxyUsageStatsStoreOptions = {
+  filePath?: string;
+  flushIntervalMs?: number;
+  lockTimeoutMs?: number;
+  staleLockMs?: number;
+  now?: () => number;
+};
+
 // =============================================================================
 // TOKEN REFRESH TYPES (from tokenRefresh.ts)
 // =============================================================================
@@ -1040,6 +1078,8 @@ export type ProxyPaths = {
   quotaFile: string;
   /** account-cooldowns.json — restart-safe account cooldown state */
   cooldownFile: string;
+  /** proxy-usage-stats.json — restart- and handoff-safe usage counters */
+  statsFile?: string;
   /** Whether this is a dev-mode isolated instance */
   isDev: boolean;
 };
@@ -2219,6 +2259,7 @@ export type ProxyStartApp = {
 
 /** Stats shape consumed by the proxy status printer. */
 export type StatusStats = {
+  startedAt?: number;
   totalAttempts?: number;
   totalAttemptErrors?: number;
   totalRequests: number;
@@ -2239,7 +2280,9 @@ export type StatusStats = {
     transientRateLimits?: number;
     quotaRateLimits?: number;
     cooling: boolean;
+    status?: "active" | "cooling" | "disabled" | "excluded" | "removed";
   }[];
+  persistence?: ProxyStatsPersistenceStatus;
 };
 
 /** Sub-action of the `proxy telemetry` CLI command. */

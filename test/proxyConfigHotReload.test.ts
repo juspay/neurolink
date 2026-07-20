@@ -6,7 +6,7 @@ import { ProxyRuntimeConfigStore } from "../src/lib/proxy/runtimeConfig.js";
 import { parseProxyConfigString } from "../src/lib/proxy/proxyConfig.js";
 import { createClaudeProxyRoutes } from "../src/lib/server/routes/claudeProxyRoutes.js";
 import { createOpenAIProxyRoutes } from "../src/lib/server/routes/openaiProxyRoutes.js";
-import { resetStats } from "../src/lib/proxy/usageStats.js";
+import { resetUsageStatsForTests } from "../src/lib/proxy/usageStats.js";
 import { createProxyStartApp } from "../src/cli/commands/proxy.js";
 
 const tempDirs: string[] = [];
@@ -53,7 +53,7 @@ afterEach(async () => {
   for (const store of stores.splice(0)) {
     store.stopWatching();
   }
-  resetStats();
+  await resetUsageStatsForTests();
   await Promise.all(
     tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })),
   );
