@@ -1,5 +1,6 @@
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { AIProviderName } from "../constants/enums.js";
+import { registerRuntimeContextWindow } from "../constants/contextWindows.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type {
   OpenAICompatBuildBodyArgs,
@@ -67,6 +68,12 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
   private static modelsCache: string[] = [];
   private static modelsCacheTime = 0;
   private static readonly MODELS_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+  /**
+   * Dedupes the fire-and-forget `/model/info` discovery per base URL, so a
+   * process constructing many LiteLLM providers fetches each proxy's limits
+   * once per cache period.
+   */
+  private static modelInfoFetchTime = new Map<string, number>();
 
   constructor(
     modelName?: string,
@@ -79,6 +86,13 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
       baseURL: credentials?.baseURL ?? envConfig.baseURL,
       apiKey: credentials?.apiKey ?? envConfig.apiKey,
     });
+
+    // Fire-and-forget: discover real per-model context windows from the
+    // proxy's /model/info. The static table only has a one-size litellm
+    // `_default` (128K), while proxied models range from 8K to 2M — budget
+    // checks and compaction need the real window. Failures degrade cleanly
+    // to the static default.
+    this.discoverModelContextWindows();
 
     logger.debug("LiteLLM Provider initialized", {
       modelName: this.modelName,
@@ -297,6 +311,105 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
     }
 
     return this.getFallbackModels();
+  }
+
+  /**
+   * Discover real per-model context windows from the LiteLLM proxy's
+   * `GET /model/info` (`data[].model_info.max_input_tokens`) and register
+   * them with the context-window resolver. Fire-and-forget with the same
+   * cache period as the models list; any failure (endpoint absent, auth,
+   * timeout) is logged at debug and leaves the static `_default` in force.
+   */
+  private discoverModelContextWindows(): void {
+    const baseURL = stripTrailingSlash(this.config.baseURL);
+    const now = Date.now();
+    const lastFetch = LiteLLMProvider.modelInfoFetchTime.get(baseURL) ?? 0;
+    if (now - lastFetch < LiteLLMProvider.MODELS_CACHE_DURATION) {
+      return;
+    }
+    LiteLLMProvider.modelInfoFetchTime.set(baseURL, now);
+
+    void this.fetchModelInfoFromAPI()
+      .then((windows) => {
+        for (const [model, contextWindow] of windows) {
+          registerRuntimeContextWindow("litellm", model, contextWindow);
+        }
+        if (windows.size > 0) {
+          logger.debug(
+            "[LiteLLMProvider] Registered runtime context windows from /model/info",
+            { baseURL: redactUrlCredentials(baseURL), models: windows.size },
+          );
+        }
+      })
+      .catch((error) => {
+        // Allow a retry before the cache period when discovery failed.
+        LiteLLMProvider.modelInfoFetchTime.delete(baseURL);
+        logger.debug(
+          "[LiteLLMProvider] /model/info discovery failed; static context-window defaults remain in force",
+          { error: error instanceof Error ? error.message : String(error) },
+        );
+      });
+  }
+
+  /**
+   * Fetch `GET /model/info` and map model group name → max_input_tokens.
+   * Same fetch/auth/abort scaffolding as {@link fetchModelsFromAPI}.
+   */
+  private async fetchModelInfoFromAPI(): Promise<Map<string, number>> {
+    const infoUrl = `${stripTrailingSlash(this.config.baseURL)}/model/info`;
+    const proxyFetch = createProxyFetch();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await proxyFetch(infoUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.config.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const data = (await response.json()) as {
+        data?: Array<{
+          model_name?: string;
+          model_info?: { max_input_tokens?: number };
+        }>;
+      };
+      const windows = new Map<string, number>();
+      for (const entry of data.data ?? []) {
+        const model = entry?.model_name;
+        const maxInput = entry?.model_info?.max_input_tokens;
+        if (
+          typeof model === "string" &&
+          model.length > 0 &&
+          typeof maxInput === "number" &&
+          Number.isFinite(maxInput) &&
+          maxInput > 0
+        ) {
+          // A model group can appear once per underlying deployment; keep the
+          // smallest advertised window so budgets are safe for every replica.
+          const existing = windows.get(model);
+          windows.set(
+            model,
+            existing === undefined ? maxInput : Math.min(existing, maxInput),
+          );
+        }
+      }
+      return windows;
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw new NetworkError(
+          "Request timed out after 5 seconds",
+          this.providerName,
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   private async fetchModelsFromAPI(): Promise<string[]> {

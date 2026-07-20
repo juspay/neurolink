@@ -401,11 +401,49 @@ function normalizeProviderForLookup(provider: string): string {
 }
 
 /**
+ * Runtime-discovered context windows, keyed `${provider}:${model}`.
+ *
+ * Populated asynchronously by providers that can discover real per-model
+ * limits at runtime (e.g. the LiteLLM provider reads `max_input_tokens` from
+ * the proxy's `/model/info`), and read synchronously by
+ * {@link getContextWindowSize} — the same async-populate/sync-read contract as
+ * the DynamicModelProvider registry. Keys use the RAW provider string callers
+ * pass into budget calculations (see the alias-map comment above: normalized
+ * provider names never reach these lookups).
+ */
+const RUNTIME_CONTEXT_WINDOWS = new Map<string, number>();
+
+/**
+ * Register a runtime-discovered context window for a provider/model pair.
+ * Later registrations overwrite earlier ones (rediscovery refreshes values).
+ * Non-positive/non-finite windows are ignored so a malformed discovery source
+ * can never shrink a budget to zero.
+ */
+export function registerRuntimeContextWindow(
+  provider: string,
+  model: string,
+  contextWindow: number,
+): void {
+  if (!Number.isFinite(contextWindow) || contextWindow <= 0) {
+    return;
+  }
+  RUNTIME_CONTEXT_WINDOWS.set(`${provider}:${model}`, contextWindow);
+}
+
+/** Test hook: clear runtime-discovered windows (state is module-global). */
+export function clearRuntimeContextWindows(): void {
+  RUNTIME_CONTEXT_WINDOWS.clear();
+}
+
+/**
  * Resolve context window size for a provider/model combination.
  *
  * Priority:
  *  0. Dynamic model registry (DynamicModelProvider) — resolves cross-provider
  *     models (e.g. Claude on Vertex) that the static table cannot handle
+ *  0.5 Runtime-discovered windows (registerRuntimeContextWindow) — real
+ *      per-model limits fetched from the serving infrastructure (LiteLLM
+ *      `/model/info`)
  *  1. Exact model match under provider in static registry
  *  2. Prefix match under provider in static registry
  *  3. Provider's _default in static registry
@@ -428,6 +466,14 @@ export function getContextWindowSize(provider: string, model?: string): number {
       }
     } catch {
       // Dynamic registry not initialized yet — fall through to static lookup
+    }
+  }
+
+  // Step 0.5: Runtime-discovered window for this exact provider/model.
+  if (model) {
+    const discovered = RUNTIME_CONTEXT_WINDOWS.get(`${provider}:${model}`);
+    if (discovered !== undefined) {
+      return discovered;
     }
   }
 
