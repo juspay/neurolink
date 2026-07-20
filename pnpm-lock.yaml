@@ -45,6 +45,7 @@ overrides:
   rollup@>=4.0.0 <4.59.0: '>=4.59.0'
   shell-quote@<1.8.4: '>=1.8.4'
   undici@>=8.0.0: '>=7.24.0 <8.0.0'
+  pdfjs-dist: 5.4.624
 
 pnpmfileChecksum: sha256-qFFlrDVMxTAG02VWf3xBAHmYpquoAuUauBBYPNQv57g=
 
@@ -7023,10 +7024,6 @@ packages:
     resolution: {integrity: sha512-QJy7P2Qbk86lntPPIC3HVZAyw/CvM+CP592UbO7grborOJ74Icspb8A2sdHO33MDb/WHwHZpSJxd771rQTlZKA==}
     engines: {node: '>=20'}
     hasBin: true
-
-  pdfjs-dist@5.4.296:
-    resolution: {integrity: sha512-DlOzet0HO7OEnmUmB6wWGJrrdvbyJKftI1bhMitK7O2N8W2gc757yyYBbINy9IDafXAV9wmKr9t7xsTaNKRG5Q==}
-    engines: {node: '>=20.16.0 || >=22.3.0'}
 
   pdfjs-dist@5.4.624:
     resolution: {integrity: sha512-sm6TxKTtWv1Oh6n3C6J6a8odejb5uO4A4zo/2dgkHuC0iu8ZMAXOezEODkVaoVp8nX1Xzr+0WxFJJmUr45hQzg==}
@@ -16622,15 +16619,11 @@ snapshots:
   pdf-parse@2.4.5:
     dependencies:
       '@napi-rs/canvas': 0.1.80
-      pdfjs-dist: 5.4.296
+      pdfjs-dist: 5.4.624
 
   pdf-to-img@5.0.0:
     dependencies:
       pdfjs-dist: 5.4.624
-
-  pdfjs-dist@5.4.296:
-    optionalDependencies:
-      '@napi-rs/canvas': 0.1.80
 
   pdfjs-dist@5.4.624:
     optionalDependencies:

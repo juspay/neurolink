@@ -1367,6 +1367,30 @@ const tests: TestFunction[] = [
     },
   },
   {
+    name: "PDFProcessor #1212: getAccuratePageCount stays accurate after convertToImages (single pdfjs-dist version)",
+    category: "pdf-processor",
+    fn: async () => {
+      // Regression guard for the pdf-parse (pdfjs-dist@5.4.296) vs pdf-to-img
+      // version skew: once convertToImages() had loaded a *different* pdfjs
+      // worker version, every later getAccuratePageCount() failed pdfjs's
+      // API-vs-Worker equality check and silently degraded to null for the rest
+      // of the process. With both libraries pinned to one pdfjs-dist version
+      // (pnpm.overrides), counting must survive an image conversion in the same
+      // process.
+      const pdf = readFileSync("test/fixtures/valid-sample.pdf");
+      // Baseline count BEFORE any image conversion loads a pdfjs worker.
+      const before = await PDFProcessor.getAccuratePageCount(pdf);
+      // Do NOT swallow: a conversion failure here (e.g. the very version skew
+      // this guards against) must fail the test, not be hidden — nearby tests
+      // already rely on convertToImages succeeding in this environment.
+      await PDFProcessor.convertToImages(pdf, { maxPages: 1 });
+      const after = await PDFProcessor.getAccuratePageCount(pdf);
+      // The count must survive the conversion (the skew made `after` null) and
+      // stay identical to the pre-conversion count — not merely be positive.
+      return before !== null && after !== null && after === before;
+    },
+  },
+  {
     name: "PDFProcessor #260: oversized page auto-downscales; normal page unaffected",
     category: "pdf-processor",
     fn: async () => {
