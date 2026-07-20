@@ -156,6 +156,24 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
   }
 
   /**
+   * When true (default), `response_format` is NOT sent on requests that carry
+   * tools. The AI SDK sets responseFormat on EVERY step of a tool loop, and
+   * generic/proxy backends (LiteLLM→vllm/GLM, openai-compatible, local
+   * servers) may silently honor it over tool calling — answering with
+   * final-shape JSON on step 1 instead of running the agentic loop. No error
+   * is raised, so the runtime tools↔schema conflict detector cannot catch it.
+   * The schema is still enforced post-hoc (GenerationHandler coerces the final
+   * text against it) — the same contract as the Gemini tools↔schema exclusion.
+   * Mirrors the streaming path, which never sends response_format.
+   *
+   * Backends with first-party support for tools + json_schema in one request
+   * (OpenAI, Azure OpenAI) override this to false.
+   */
+  protected suppressResponseFormatWithTools(): boolean {
+    return true;
+  }
+
+  /**
    * Hook to adjust the fully-built wire request body before it is sent, on
    * both the streaming and non-streaming paths. Default identity. Override for
    * provider/model quirks that can't be expressed through buildBody options —
@@ -323,6 +341,8 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     const adjustResponseFormat = this.adjustResponseFormat.bind(this);
     const adjustRequestBody = this.adjustRequestBody.bind(this);
     const adjustBodyAfter400 = this.adjustBodyAfter400.bind(this);
+    const suppressResponseFormatWithTools =
+      this.suppressResponseFormatWithTools.bind(this);
     const getTimeoutForOptions = (
       opts: Record<string, unknown> | undefined,
     ): number => this.getTimeout((opts ?? {}) as never);
@@ -356,12 +376,16 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         const baseMessages = messageBuilderToOpenAI(
           options.prompt as OpenAICompatMessage[],
         );
-        const responseFormat = options.responseFormat
-          ? adjustResponseFormat(
-              v3ResponseFormatToOpenAI(options.responseFormat),
-              modelId,
-            )
-          : undefined;
+        const hasTools =
+          Array.isArray(options.tools) && options.tools.length > 0;
+        const responseFormat =
+          options.responseFormat &&
+          !(hasTools && suppressResponseFormatWithTools())
+            ? adjustResponseFormat(
+                v3ResponseFormatToOpenAI(options.responseFormat),
+                modelId,
+              )
+            : undefined;
         // ensureJsonWordInBody runs LAST — on the body after adjustRequestBody —
         // so the json_object word guard reflects whatever a subclass left on
         // the wire (it may rewrite response_format/messages), not an
