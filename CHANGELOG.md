@@ -1,3 +1,9 @@
+## [10.2.1](https://github.com/juspay/neurolink/compare/v10.2.0...v10.2.1) (2026-07-20)
+
+### Bug Fixes
+
+- **(providers):** suppress response_format on chat-completions requests that carry tools ([0144643](https://github.com/juspay/neurolink/commit/0144643273d6abefcc0d1fb99e6ef701f3347ff0))
+
 ## [10.2.0](https://github.com/juspay/neurolink/compare/v10.1.2...v10.2.0) (2026-07-20)
 
 ### Features
