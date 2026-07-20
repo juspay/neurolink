@@ -115,6 +115,15 @@ export class OpenAIProvider extends OpenAIChatCompletionsProvider {
   // Abstract hook implementations
   // ===========================================================================
 
+  /**
+   * OpenAI natively supports `response_format: json_schema` together with
+   * tool calling in one request, so structured output stays wire-enforced
+   * mid-loop instead of deferring to post-hoc coercion.
+   */
+  protected override suppressResponseFormatWithTools(): boolean {
+    return false;
+  }
+
   protected getProviderName(): AIProviderName {
     return AIProviderNameEnum.OPENAI;
   }

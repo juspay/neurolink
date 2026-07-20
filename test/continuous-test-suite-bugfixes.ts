@@ -127,6 +127,7 @@ import {
 } from "../src/lib/providers/googleNativeGemini3.js";
 
 import { OpenAICompatibleProvider } from "../src/lib/providers/openaiCompatible.js";
+import { OpenAIProvider } from "../src/lib/providers/openAI.js";
 import { LiteLLMProvider } from "../src/lib/providers/litellm.js";
 import { ModelAccessDeniedError } from "../src/lib/types/index.js";
 
@@ -3172,7 +3173,7 @@ exit 127
   //   P2.1 streaming analytics saw stale 0/0/0 usage
   //   P2.2 getAvailableModels stripped pathful base URLs
   {
-    name: "openai-compatible.doGenerate forwards maxTokens/temperature/tools/responseFormat to the wire body",
+    name: "openai-compatible.doGenerate forwards maxTokens/temperature/tools and SUPPRESSES response_format while tools are present",
     category: "openai-compatible",
     fn: async () => {
       const originalFetch = globalThis.fetch;
@@ -3245,9 +3246,133 @@ exit 127
           tools.length === 1 &&
           tools[0].function.name === "echo" &&
           capturedBody?.tool_choice === "auto" &&
+          // response_format must NOT ride alongside tools on generic backends:
+          // proxied models (LiteLLM→vllm/GLM) can silently honor it over tool
+          // calling, answering with final JSON on step 1 and killing the loop.
+          capturedBody?.response_format === undefined
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  },
+  {
+    name: "openai-compatible.doGenerate keeps response_format json_schema on single-shot calls WITHOUT tools",
+    category: "openai-compatible",
+    fn: async () => {
+      const originalFetch = globalThis.fetch;
+      let capturedBody: Record<string, unknown> | undefined;
+      try {
+        globalThis.fetch = (async (
+          _input: RequestInfo | URL,
+          init?: RequestInit,
+        ) => {
+          capturedBody = JSON.parse(String(init?.body)) as Record<
+            string,
+            unknown
+          >;
+          return new Response(
+            JSON.stringify({
+              id: "chatcmpl-x",
+              model: "test-model",
+              choices: [
+                {
+                  index: 0,
+                  message: { role: "assistant", content: "{}" },
+                  finish_reason: "stop",
+                },
+              ],
+              usage: { prompt_tokens: 1, completion_tokens: 1 },
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }) as typeof fetch;
+
+        const provider = new OpenAICompatibleProvider(
+          "test-model",
+          undefined,
+          undefined,
+          { apiKey: "k", baseURL: "http://fake.local/v1" },
+        );
+        const model = (await provider.getAISDKModel()) as unknown as {
+          doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
+        };
+        await model.doGenerate({
+          prompt: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
+          responseFormat: { type: "json", schema: { type: "object" } },
+        });
+
+        return (
           typeof capturedBody?.response_format === "object" &&
           (capturedBody.response_format as { type: string }).type ===
             "json_schema"
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  },
+  {
+    name: "openai.doGenerate keeps response_format alongside tools (first-party json_schema+tools support)",
+    category: "openai-compatible",
+    fn: async () => {
+      const originalFetch = globalThis.fetch;
+      let capturedBody: Record<string, unknown> | undefined;
+      try {
+        globalThis.fetch = (async (
+          _input: RequestInfo | URL,
+          init?: RequestInit,
+        ) => {
+          capturedBody = JSON.parse(String(init?.body)) as Record<
+            string,
+            unknown
+          >;
+          return new Response(
+            JSON.stringify({
+              id: "chatcmpl-x",
+              model: "gpt-4o",
+              choices: [
+                {
+                  index: 0,
+                  message: { role: "assistant", content: "hi" },
+                  finish_reason: "stop",
+                },
+              ],
+              usage: { prompt_tokens: 1, completion_tokens: 1 },
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }) as typeof fetch;
+
+        const provider = new OpenAIProvider("gpt-4o", undefined, undefined, {
+          apiKey: "k",
+        });
+        const model = (await provider.getAISDKModel()) as unknown as {
+          doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
+        };
+        await model.doGenerate({
+          prompt: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
+          tools: [
+            {
+              type: "function",
+              name: "echo",
+              description: "echo back",
+              inputSchema: {
+                type: "object",
+                properties: { msg: { type: "string" } },
+                required: ["msg"],
+              },
+            },
+          ],
+          toolChoice: { type: "auto" },
+          responseFormat: { type: "json", schema: { type: "object" } },
+        });
+
+        return (
+          typeof capturedBody?.response_format === "object" &&
+          (capturedBody.response_format as { type: string }).type ===
+            "json_schema" &&
+          Array.isArray(capturedBody?.tools)
         );
       } finally {
         globalThis.fetch = originalFetch;
