@@ -657,6 +657,29 @@ export type BudgetCheckResult = {
   };
 };
 
+/**
+ * Configuration for the per-step context budget guard that compacts the
+ * AI-SDK tool loop's messages before they overflow the model window
+ * (context/stepBudgetGuard.ts).
+ */
+export type StepBudgetGuardConfig = {
+  provider: string;
+  model?: string;
+  /** The caller's requested output budget (reserved out of the window). */
+  maxTokens?: number;
+  /** Static token cost of the hoisted system prompt + tool definitions. */
+  fixedOverheadTokens?: number;
+  /**
+   * Dynamic overhead resolver, re-evaluated on EVERY guard invocation. Takes
+   * precedence over `fixedOverheadTokens`. Use when the tool set can grow
+   * mid-loop (search_tools hydration) so newly added definitions count toward
+   * the budget.
+   */
+  getFixedOverheadTokens?: () => number;
+  /** Override the trigger ratio; defaults to DEFAULT_CONTEXT_GUARD_RATIO. */
+  thresholdRatio?: number;
+};
+
 /** Parameters for budget checking. */
 export type BudgetCheckParams = {
   provider: string;

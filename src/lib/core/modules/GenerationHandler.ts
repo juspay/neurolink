@@ -40,6 +40,10 @@ import {
 } from "../../utils/tokenUtils.js";
 import { DEFAULT_MAX_STEPS } from "../constants.js";
 import {
+  createStepBudgetGuard,
+  estimateFixedOverheadTokens,
+} from "../../context/stepBudgetGuard.js";
+import {
   isTemperatureDeprecatedError,
   isSchemaComplexityError,
   isToolsSchemaConflictError,
@@ -187,6 +191,43 @@ export class GenerationHandler {
     // rejected in v7). See extractSystemMessages for the rationale. (#1024)
     const { system, messages: nonSystemMessages } =
       extractSystemMessages(messages);
+
+    // Per-step context budget guard: the tool loop appends assistant turns and
+    // tool results on every step — growth the pre-call budget check never
+    // sees. Estimate each step's projected request and deterministically
+    // reclaim budget (truncate old tool outputs, then drop oldest exchanges)
+    // so long agentic runs cannot overflow the model's window mid-loop.
+    // Parity with the googleVertex native loops' createContextGuard, upgraded
+    // from stop-only to compact-and-continue. The caller's prepareStep result
+    // wins on conflicts; the guard only contributes `messages`.
+    //
+    // Overhead is resolved PER STEP because `toolsWithCache` is deliberately
+    // mutable (search_tools hydration adds discovered tools mid-loop) — a
+    // once-captured estimate would undercount later steps. Tools are only
+    // ever added, so memoizing on tool count keeps the common step O(1).
+    let cachedOverhead = { toolCount: -1, tokens: 0 };
+    const stepBudgetGuard = createStepBudgetGuard({
+      provider: this.providerName ?? "unknown",
+      model: this.modelName,
+      maxTokens: options.maxTokens,
+      getFixedOverheadTokens: () => {
+        const toolCount = shouldUseTools
+          ? Object.keys(toolsWithCache).length
+          : 0;
+        if (toolCount !== cachedOverhead.toolCount) {
+          cachedOverhead = {
+            toolCount,
+            tokens: estimateFixedOverheadTokens(
+              system,
+              shouldUseTools ? toolsWithCache : undefined,
+              this.providerName,
+            ),
+          };
+        }
+        return cachedOverhead.tokens;
+      },
+    });
+
     return await generateText({
       model,
       ...(system && { system }),
@@ -196,13 +237,32 @@ export class GenerationHandler {
       stopWhen: stepCountIs(options.maxSteps ?? DEFAULT_MAX_STEPS),
       ...(shouldUseTools &&
         options.toolChoice && { toolChoice: options.toolChoice }),
-      ...(prepareStep && {
-        experimental_prepareStep: ((stepOptions) =>
-          prepareStep({
-            ...stepOptions,
-            maxSteps: options.maxSteps ?? DEFAULT_MAX_STEPS,
-          })) satisfies PrepareStepFunction,
-      }),
+      experimental_prepareStep: (async (stepOptions) => {
+        // Public contract preserved: a caller-supplied prepareStep receives
+        // the ORIGINAL AI-SDK step options, exactly as before the guard
+        // existed — callers that inspect message history see the real thing.
+        const callerResult = prepareStep
+          ? await prepareStep({
+              ...stepOptions,
+              maxSteps: options.maxSteps ?? DEFAULT_MAX_STEPS,
+            })
+          : undefined;
+        // The guard runs LAST, on the messages that will actually be sent:
+        // the caller's override when one was returned (out-of-contract for
+        // NeuroLink's public prepareStep type, but possible at runtime), else
+        // the step's own messages. It never replaces a caller's content
+        // choices — it only reclaims budget from whatever was chosen.
+        const callerMessages = (
+          callerResult as { messages?: ModelMessage[] } | undefined
+        )?.messages;
+        const compacted = stepBudgetGuard(
+          callerMessages ?? stepOptions.messages,
+        );
+        if (!compacted) {
+          return callerResult;
+        }
+        return { ...(callerResult ?? {}), messages: compacted };
+      }) satisfies PrepareStepFunction,
       temperature: options.temperature,
       maxOutputTokens: options.maxTokens,
       maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
