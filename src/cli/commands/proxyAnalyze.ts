@@ -22,7 +22,7 @@ function printAnalysis(
   logger.always(`  Since:       ${chalk.cyan(report.since)}`);
   logger.always(`  Logs:        ${chalk.cyan(report.logsDir)}`);
   logger.always(
-    `  Files:       ${report.files.requests} request, ${report.files.attempts} attempt, ${report.files.lifecycle} lifecycle`,
+    `  Files:       ${report.files.requests} request, ${report.files.attempts} attempt, ${report.files.lifecycle} lifecycle, ${report.files.debug} debug`,
   );
   logger.always("");
   logger.always(chalk.bold("  Reliability"));
@@ -99,6 +99,19 @@ function printAnalysis(
   logger.always(
     `    ${report.dataQuality.linesRead} lines scanned, ${report.dataQuality.malformedLines} malformed, ${report.dataQuality.unsupportedLifecycleLines} unsupported lifecycle, ${report.dataQuality.lifecycleSequenceGaps} sequence gaps, ${report.dataQuality.lifecycleSequenceDuplicates} duplicates`,
   );
+  for (const [stream, range] of Object.entries(report.dataQuality.streams)) {
+    if (range.observedFrom) {
+      logger.always(
+        `    ${stream}: ${range.observedFrom} to ${range.observedTo}${range.startsAtOrBeforeRequestedWindow ? "" : chalk.yellow(" (starts after requested window)")}`,
+      );
+    }
+  }
+  const artifacts = report.dataQuality.bodyArtifacts;
+  if (artifacts.capturesIndexed > 0) {
+    logger.always(
+      `    Body artifacts: ${artifacts.artifactsPresent}/${artifacts.artifactsReferenced} present, ${artifacts.artifactsMissing} missing, ${artifacts.writeFailures} write failures, ${artifacts.invalidPaths} invalid paths, ${artifacts.truncatedCaptures} truncated captures`,
+    );
+  }
   if (report.accounts.length > 0) {
     logger.always("");
     logger.always(chalk.bold("  Accounts"));

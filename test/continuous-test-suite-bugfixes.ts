@@ -8493,8 +8493,8 @@ exit 127
     // args merely mentioned "neurolink" (a shell in a directory named
     // "neurolink", an editor with a neurolink file open) — a stale/recycled
     // pid running such a process could then be SIGTERM'd/SIGKILL'd during
-    // uninstall. It must now require BOTH "neurolink" AND "proxy".
-    name: "proxy.ts (review): processLooksLikeProxySupervisor requires BOTH 'neurolink' and 'proxy' in process args, not 'neurolink' alone",
+    // uninstall. It must require the exact `neurolink proxy start` command.
+    name: "proxy.ts (review): processLooksLikeProxySupervisor requires the proxy start command",
     category: "cli",
     fn: async () => {
       const mkProc = (...args: string[]) =>
@@ -8504,24 +8504,37 @@ exit 127
           { stdio: "ignore" },
         );
       const neurolinkOnly = mkProc("neurolink-fake-worker");
-      const neurolinkProxy = mkProc("neurolink", "proxy");
+      const neurolinkProxyStatus = mkProc("neurolink", "proxy", "status");
+      const neurolinkProxyStart = mkProc("neurolink", "proxy", "start");
       try {
-        // Give both children a moment to register with the OS before `ps`
+        // Give all children a moment to register with the OS before `ps`
         // is asked about them.
         await new Promise((r) => setTimeout(r, 300));
-        if (!neurolinkOnly.pid || !neurolinkProxy.pid) {
+        if (
+          !neurolinkOnly.pid ||
+          !neurolinkProxyStatus.pid ||
+          !neurolinkProxyStart.pid
+        ) {
           return false;
         }
         const notSupervisor = await processLooksLikeProxySupervisor(
           neurolinkOnly.pid,
         );
-        const isSupervisor = await processLooksLikeProxySupervisor(
-          neurolinkProxy.pid,
+        const statusIsNotSupervisor = await processLooksLikeProxySupervisor(
+          neurolinkProxyStatus.pid,
         );
-        return notSupervisor === false && isSupervisor === true;
+        const isSupervisor = await processLooksLikeProxySupervisor(
+          neurolinkProxyStart.pid,
+        );
+        return (
+          notSupervisor === false &&
+          statusIsNotSupervisor === false &&
+          isSupervisor === true
+        );
       } finally {
         neurolinkOnly.kill("SIGKILL");
-        neurolinkProxy.kill("SIGKILL");
+        neurolinkProxyStatus.kill("SIGKILL");
+        neurolinkProxyStart.kill("SIGKILL");
       }
     },
   },
@@ -8545,7 +8558,7 @@ exit 127
           ["-e", "setInterval(() => {}, 60000)", "--", ...args],
           { stdio: "ignore" },
         );
-      const neurolinkProxy = mkProc("neurolink", "proxy");
+      const neurolinkProxy = mkProc("neurolink", "proxy", "start");
       try {
         await new Promise((r) => setTimeout(r, 300));
         if (!neurolinkProxy.pid) {

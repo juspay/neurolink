@@ -1,6 +1,7 @@
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import type { Socket } from "node:net";
 import type {
+  DetachableTransferableProxySocket,
   ProxyWorkerStatusMessage,
   SocketWorkerRuntime,
   SocketWorkerRuntimeOptions,
@@ -10,7 +11,7 @@ import { isProxyWorkerControlMessage } from "./rollingWorkerProtocol.js";
 
 function isTransferableProxySocket(
   handle: unknown,
-): handle is TransferableProxySocket {
+): handle is DetachableTransferableProxySocket {
   if (!handle || typeof handle !== "object") {
     return false;
   }
@@ -20,6 +21,7 @@ function isTransferableProxySocket(
     typeof candidate.resume === "function" &&
     typeof candidate.destroy === "function" &&
     typeof candidate.end === "function" &&
+    typeof candidate.off === "function" &&
     typeof candidate.once === "function"
   );
 }
@@ -160,7 +162,14 @@ export function attachSocketWorkerProcess(
 ): SocketWorkerRuntime {
   let activated = false;
   let gracefulDrain = false;
-  const pendingSockets = new Map<string, TransferableProxySocket>();
+  const pendingSockets = new Map<
+    string,
+    {
+      socket: DetachableTransferableProxySocket;
+      onError: () => void;
+      onClose: () => void;
+    }
+  >();
   const send = (message: ProxyWorkerStatusMessage): void => {
     if (!process.connected || !process.send) {
       return;
@@ -190,6 +199,18 @@ export function attachSocketWorkerProcess(
     // synchronously here would truncate that in-flight request.
     setImmediate(() => runtime.drain());
   };
+  const takePendingSocket = (
+    socketId: string,
+  ): DetachableTransferableProxySocket | undefined => {
+    const pending = pendingSockets.get(socketId);
+    if (!pending) {
+      return undefined;
+    }
+    pendingSockets.delete(socketId);
+    pending.socket.off("error", pending.onError);
+    pending.socket.off("close", pending.onClose);
+    return pending.socket;
+  };
   const onMessage = (message: unknown, handle: unknown): void => {
     if (
       message &&
@@ -204,7 +225,7 @@ export function attachSocketWorkerProcess(
         isTransferableProxySocket(handle)
       ) {
         const socketId = (message as { socketId: string }).socketId;
-        const socket = handle as TransferableProxySocket;
+        const socket = handle;
         socket.pause();
         if (
           !activated ||
@@ -219,7 +240,27 @@ export function attachSocketWorkerProcess(
           socket.destroy();
           return;
         }
-        pendingSockets.set(socketId, socket);
+        // A client can reset while the transferred handle is paused between
+        // acceptance and commit. The HTTP server has not seen the socket yet,
+        // so it cannot install its normal transport-error handler for us.
+        const onError = (): void => {
+          if (pendingSockets.get(socketId)?.socket !== socket) {
+            return;
+          }
+          takePendingSocket(socketId);
+          socket.destroy();
+          drainWhenPendingSettled();
+        };
+        const onClose = (): void => {
+          if (pendingSockets.get(socketId)?.socket !== socket) {
+            return;
+          }
+          takePendingSocket(socketId);
+          drainWhenPendingSettled();
+        };
+        pendingSockets.set(socketId, { socket, onError, onClose });
+        socket.once("error", onError);
+        socket.once("close", onClose);
         try {
           process.send(
             {
@@ -230,14 +271,14 @@ export function attachSocketWorkerProcess(
             },
             (error) => {
               if (error) {
-                pendingSockets.delete(socketId);
-                socket.destroy();
+                takePendingSocket(socketId)?.destroy();
+                drainWhenPendingSettled();
               }
             },
           );
         } catch {
-          pendingSockets.delete(socketId);
-          socket.destroy();
+          takePendingSocket(socketId)?.destroy();
+          drainWhenPendingSettled();
         }
       } else {
         destroyTransferredHandle(handle);
@@ -275,11 +316,10 @@ export function attachSocketWorkerProcess(
         message.type === "proxy-worker:socket-commit" ||
         message.type === "proxy-worker:socket-cancel"
       ) {
-        const socket = pendingSockets.get(message.socketId);
+        const socket = takePendingSocket(message.socketId);
         if (!socket) {
           return;
         }
-        pendingSockets.delete(message.socketId);
         if (message.type === "proxy-worker:socket-commit") {
           runtime.acceptSocket(socket);
         } else {
@@ -303,10 +343,9 @@ export function attachSocketWorkerProcess(
   // is exiting. The zero-downtime guarantee applies to the rolling handoff
   // (control-message) path, not to process termination.
   const drain = (): void => {
-    for (const socket of pendingSockets.values()) {
-      socket.destroy();
+    for (const socketId of [...pendingSockets.keys()]) {
+      takePendingSocket(socketId)?.destroy();
     }
-    pendingSockets.clear();
     runtime.drain();
   };
   const onTerminationSignal = (): void => drain();
@@ -327,10 +366,9 @@ export function attachSocketWorkerProcess(
       process.off("disconnect", drain);
       process.off("SIGTERM", onTerminationSignal);
       process.off("SIGINT", onTerminationSignal);
-      for (const socket of pendingSockets.values()) {
-        socket.destroy();
+      for (const socketId of [...pendingSockets.keys()]) {
+        takePendingSocket(socketId)?.destroy();
       }
-      pendingSockets.clear();
       runtime.close();
     },
   };

@@ -16,7 +16,7 @@ import {
 export function spawnProxySocketWorker(
   options: SpawnProxySocketWorkerOptions,
 ): RollingWorkerHandle {
-  const socketAckTimeoutMs = Math.max(1, options.socketAckTimeoutMs ?? 5_000);
+  const socketAckTimeoutMs = Math.max(1, options.socketAckTimeoutMs ?? 30_000);
   let nextSocketId = 0;
   const pendingSockets = new Map<
     string,
@@ -86,6 +86,20 @@ export function spawnProxySocketWorker(
     }
     pendingSockets.delete(socketId);
     clearTimeout(pending.timeout);
+    if (error && child.connected && !pending.accepted) {
+      try {
+        child.send(
+          {
+            type: "proxy-worker:socket-cancel",
+            generation: options.generation,
+            socketId,
+          },
+          () => undefined,
+        );
+      } catch {
+        // The supervisor will quarantine the worker after the failed transfer.
+      }
+    }
     if (!error) {
       pending.socket.destroy();
     }
@@ -126,11 +140,19 @@ export function spawnProxySocketWorker(
       publishStatus(message);
     }
   });
-  child.once("exit", () => {
+  child.once("exit", (code, signal) => {
     for (const socketId of [...pendingSockets.keys()]) {
       settleSocket(
         socketId,
-        new Error(`proxy worker ${childPid} exited before accepting socket`),
+        ErrorFactory.proxyWorkerLifecycle(
+          `proxy worker ${childPid} exited before socket transfer committed (code=${code ?? "none"}, signal=${signal ?? "none"})`,
+          {
+            workerPid: childPid,
+            generation: options.generation,
+            exitCode: code,
+            signal,
+          },
+        ),
       );
     }
   });
@@ -156,17 +178,6 @@ export function spawnProxySocketWorker(
       }
       const socketId = `${generation}:${++nextSocketId}`;
       const timeout = setTimeout(() => {
-        if (child.connected) {
-          try {
-            child.send({
-              type: "proxy-worker:socket-cancel",
-              generation,
-              socketId,
-            });
-          } catch {
-            // The worker is terminated after the failed transfer is reported.
-          }
-        }
         settleSocket(
           socketId,
           new Error(

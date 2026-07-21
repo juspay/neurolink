@@ -19,6 +19,10 @@ export async function startRollingProxyServer(
   let listening = false;
   let recoveryFailures = 0;
   let recoveryTimer: NodeJS.Timeout | undefined;
+  let requestedReplacementTimer: NodeJS.Timeout | undefined;
+  let requestedReplacementSchedule = 0;
+  let requestedReplacementPending = false;
+  let replacementQueueTail: Promise<void> | null = null;
 
   const recoveryDelayMs = Math.max(
     1,
@@ -28,6 +32,26 @@ export async function startRollingProxyServer(
     recoveryDelayMs,
     options.maxRecoveryDelayMs ?? DEFAULT_MAX_RECOVERY_DELAY_MS,
   );
+
+  const queueReplacement = <T>(operation: () => Promise<T>): Promise<T> => {
+    const predecessor = replacementQueueTail;
+    const result = (predecessor ?? Promise.resolve()).then(operation);
+    const completion = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    replacementQueueTail = completion;
+    void completion.finally(() => {
+      if (replacementQueueTail !== completion) {
+        return;
+      }
+      replacementQueueTail = null;
+      if (requestedReplacementPending) {
+        scheduleRequestedReplacement();
+      }
+    });
+    return result;
+  };
 
   const scheduleRecovery = (): void => {
     if (closing || !listening || recoveryTimer) {
@@ -45,11 +69,13 @@ export async function startRollingProxyServer(
       // An explicit replace() may have started (or completed) a generation
       // while this timer was pending. Re-validate before recovering so we never
       // launch a duplicate generation that conflicts with the requested worker.
-      const snapshot = supervisor.snapshot();
-      if (closing || snapshot.active || snapshot.candidate) {
-        return;
-      }
-      void supervisor.replace(desiredVersion).then(
+      void queueReplacement(async () => {
+        const snapshot = supervisor.snapshot();
+        if (closing || snapshot.active || snapshot.candidate) {
+          return;
+        }
+        await supervisor.replace(desiredVersion);
+      }).then(
         () => {
           recoveryFailures = 0;
         },
@@ -77,6 +103,45 @@ export async function startRollingProxyServer(
       scheduleRecovery();
     }
   };
+
+  function scheduleRequestedReplacement(): void {
+    if (closing) {
+      return;
+    }
+    requestedReplacementPending = true;
+    if (requestedReplacementTimer || replacementQueueTail) {
+      return;
+    }
+    const schedule = ++requestedReplacementSchedule;
+    requestedReplacementTimer = setTimeout(() => {
+      requestedReplacementTimer = undefined;
+      if (schedule !== requestedReplacementSchedule) {
+        return;
+      }
+      if (closing || !supervisor.snapshot().active) {
+        return;
+      }
+      requestedReplacementPending = false;
+      const replacementVersion = desiredVersion;
+      void queueReplacement(async () => {
+        if (closing || !supervisor.snapshot().active) {
+          return;
+        }
+        options.log?.(
+          `[proxy-supervisor] preparing same-version worker replacement version=${replacementVersion} reason=environment`,
+        );
+        await supervisor.replace(replacementVersion);
+        options.log?.(
+          `[proxy-supervisor] same-version worker replacement complete version=${replacementVersion} reason=environment`,
+        );
+      }).catch((error) => {
+        options.log?.(
+          `[proxy-supervisor] same-version worker replacement failed version=${replacementVersion} reason=environment: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+    }, 50);
+    requestedReplacementTimer.unref?.();
+  }
   const supervisor = new RollingWorkerSupervisor({
     spawnWorker: options.spawnWorker,
     readyTimeoutMs: options.readyTimeoutMs,
@@ -84,9 +149,14 @@ export async function startRollingProxyServer(
     socketQueueTimeoutMs: options.socketQueueTimeoutMs,
     shutdownTimeoutMs: options.shutdownTimeoutMs,
     onStateChange: stateChanged,
+    onReplacementRequested: scheduleRequestedReplacement,
     log: options.log,
   });
   const listener = createServer({ pauseOnConnect: true }, (socket) => {
+    // The parent keeps its descriptor until the worker commits the IPC
+    // transfer. Consume client resets during that interval so they cannot
+    // terminate the long-lived supervisor process.
+    socket.once("error", () => socket.destroy());
     supervisor.acceptSocket(socket);
   });
   await new Promise<void>((resolve, reject) => {
@@ -119,8 +189,8 @@ export async function startRollingProxyServer(
   }
   const address = listener.address();
   if (!address || typeof address === "string") {
-    listener.close();
-    void supervisor.close();
+    await new Promise<void>((resolve) => listener.close(() => resolve()));
+    await supervisor.close().catch(() => undefined);
     throw ErrorFactory.proxyWorkerLifecycle(
       "rolling proxy listener did not expose a TCP address",
     );
@@ -144,8 +214,16 @@ export async function startRollingProxyServer(
         clearTimeout(recoveryTimer);
         recoveryTimer = undefined;
       }
+      if (requestedReplacementTimer) {
+        clearTimeout(requestedReplacementTimer);
+        requestedReplacementTimer = undefined;
+      }
+      requestedReplacementSchedule += 1;
+      requestedReplacementPending = false;
       try {
-        const snapshot = await supervisor.replace(expectedVersion);
+        const snapshot = await queueReplacement(() =>
+          supervisor.replace(expectedVersion),
+        );
         recoveryFailures = 0;
         return snapshot;
       } catch (error) {
@@ -171,6 +249,12 @@ export async function startRollingProxyServer(
         clearTimeout(recoveryTimer);
         recoveryTimer = undefined;
       }
+      if (requestedReplacementTimer) {
+        clearTimeout(requestedReplacementTimer);
+        requestedReplacementTimer = undefined;
+      }
+      requestedReplacementSchedule += 1;
+      requestedReplacementPending = false;
       const listenerClosed = new Promise<void>((resolve, reject) => {
         listener.close((error) => (error ? reject(error) : resolve()));
       });

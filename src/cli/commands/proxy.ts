@@ -308,7 +308,7 @@ async function getProcessStartTime(pid: number): Promise<Date | null> {
  *   string) recorded when the supervisor we expect at `pid` was launched.
  *   When provided, this is cross-checked against `pid`'s actual OS-reported
  *   start time (see {@link getProcessStartTime}) — the args match alone
- *   ("neurolink" + "proxy" both present) is not airtight, since an
+ *   (the `neurolink proxy start` command is present) is not airtight, since an
  *   unrelated process (e.g. a shell running this very test suite, or a
  *   coincidentally-named script) could match it too. A pid recycled by such
  *   a process would have a start time far from the recorded supervisor
@@ -339,9 +339,9 @@ export async function processLooksLikeProxySupervisor(
   // "neurolink", an editor with a neurolink file open) would match, and a
   // stale/recycled pid running such a process could then be SIGTERM'd/
   // SIGKILL'd by `ensureSupervisorStoppedBeforeClear` during uninstall.
-  // Require the actual proxy-supervisor invocation — both "neurolink" AND
-  // the "proxy" subcommand present in args.
-  if (!(/neurolink/i.test(args) && /\bproxy\b/i.test(args))) {
+  // Require the actual proxy-supervisor invocation. Commands such as
+  // `neurolink proxy status` must never be mistaken for the listener owner.
+  if (!/\bneurolink(?:-proxy)?\b.*\bproxy\s+start\b/i.test(args)) {
     return false;
   }
   if (!expectedStartTimeIso) {
@@ -1990,6 +1990,96 @@ export async function createProxyStartApp(params: {
     const primaryAccount = await resolveStatusPrimaryAccount(activeProxyConfig);
     const activeUpdaterPid =
       supervisorState?.updaterPid ?? runtimeState?.updaterPid;
+    const accountRows: NonNullable<StatusStats["accounts"]> = Object.values(
+      stats.accounts,
+    ).map((account) => {
+      const normalizedKey = normalizeAnthropicAccountKey(account.label);
+      const isLegacyAccount =
+        account.type === "oauth" && account.label === legacyAccountLabel;
+      const accountKey = storedAccountKeys.has(normalizedKey)
+        ? normalizedKey
+        : isLegacyAccount
+          ? LEGACY_ANTHROPIC_ACCOUNT_KEY
+          : account.label === "env"
+            ? ENV_ANTHROPIC_ACCOUNT_KEY
+            : normalizedKey;
+      const isStored = storedAccountKeys.has(accountKey) || isLegacyAccount;
+      const cooling = (cooldowns[accountKey]?.coolingUntil ?? 0) > now;
+      const accountStatus = disabledAccountKeys.has(accountKey)
+        ? "disabled"
+        : !isAccountAllowed(accountKey, activeAccountAllowlist)
+          ? "excluded"
+          : accountInventoryLoaded && account.type === "oauth" && !isStored
+            ? "removed"
+            : cooling
+              ? "cooling"
+              : "active";
+      return {
+        label: account.label,
+        type: account.type,
+        attempts: account.attemptCount,
+        requests: account.successCount + account.errorCount,
+        success: account.successCount,
+        errors: account.errorCount,
+        attemptErrors: account.attemptErrorCount,
+        rateLimits: account.rateLimitCount,
+        transientRateLimits: account.transientRateLimitCount,
+        quotaRateLimits: account.quotaRateLimitCount,
+        cooling,
+        status: accountStatus,
+      };
+    });
+    const attributed = accountRows.reduce(
+      (total, account) => ({
+        attempts: total.attempts + (account.attempts ?? 0),
+        requests: total.requests + (account.requests ?? 0),
+        success: total.success + (account.success ?? 0),
+        errors: total.errors + (account.errors ?? 0),
+        attemptErrors: total.attemptErrors + (account.attemptErrors ?? 0),
+        rateLimits: total.rateLimits + (account.rateLimits ?? 0),
+        transientRateLimits:
+          total.transientRateLimits + (account.transientRateLimits ?? 0),
+        quotaRateLimits: total.quotaRateLimits + (account.quotaRateLimits ?? 0),
+      }),
+      {
+        attempts: 0,
+        requests: 0,
+        success: 0,
+        errors: 0,
+        attemptErrors: 0,
+        rateLimits: 0,
+        transientRateLimits: 0,
+        quotaRateLimits: 0,
+      },
+    );
+    const unattributed = {
+      attempts: Math.max(0, stats.totalAttempts - attributed.attempts),
+      requests: Math.max(0, stats.totalRequests - attributed.requests),
+      success: Math.max(0, stats.totalSuccess - attributed.success),
+      errors: Math.max(0, stats.totalErrors - attributed.errors),
+      attemptErrors: Math.max(
+        0,
+        stats.totalAttemptErrors - attributed.attemptErrors,
+      ),
+      rateLimits: Math.max(0, stats.totalRateLimits - attributed.rateLimits),
+      transientRateLimits: Math.max(
+        0,
+        stats.totalTransientRateLimits - attributed.transientRateLimits,
+      ),
+      quotaRateLimits: Math.max(
+        0,
+        stats.totalQuotaRateLimits - attributed.quotaRateLimits,
+      ),
+    };
+    if (Object.values(unattributed).some((count) => count > 0)) {
+      accountRows.push({
+        label: "unattributed",
+        type: "internal",
+        ...unattributed,
+        cooling: false,
+        status: "unattributed",
+      });
+    }
     return c.json({
       status: "running",
       ready: health.ready,
@@ -2012,43 +2102,7 @@ export async function createProxyStartApp(params: {
         totalRateLimits: stats.totalRateLimits,
         totalTransientRateLimits: stats.totalTransientRateLimits,
         totalQuotaRateLimits: stats.totalQuotaRateLimits,
-        accounts: Object.values(stats.accounts).map((account) => {
-          const normalizedKey = normalizeAnthropicAccountKey(account.label);
-          const isLegacyAccount =
-            account.type === "oauth" && account.label === legacyAccountLabel;
-          const accountKey = storedAccountKeys.has(normalizedKey)
-            ? normalizedKey
-            : isLegacyAccount
-              ? LEGACY_ANTHROPIC_ACCOUNT_KEY
-              : account.label === "env"
-                ? ENV_ANTHROPIC_ACCOUNT_KEY
-                : normalizedKey;
-          const isStored = storedAccountKeys.has(accountKey) || isLegacyAccount;
-          const cooling = (cooldowns[accountKey]?.coolingUntil ?? 0) > now;
-          const accountStatus = disabledAccountKeys.has(accountKey)
-            ? "disabled"
-            : !isAccountAllowed(accountKey, activeAccountAllowlist)
-              ? "excluded"
-              : accountInventoryLoaded && account.type === "oauth" && !isStored
-                ? "removed"
-                : cooling
-                  ? "cooling"
-                  : "active";
-          return {
-            label: account.label,
-            type: account.type,
-            attempts: account.attemptCount,
-            requests: account.successCount + account.errorCount,
-            success: account.successCount,
-            errors: account.errorCount,
-            attemptErrors: account.attemptErrorCount,
-            rateLimits: account.rateLimitCount,
-            transientRateLimits: account.transientRateLimitCount,
-            quotaRateLimits: account.quotaRateLimitCount,
-            cooling,
-            status: accountStatus,
-          };
-        }),
+        accounts: accountRows,
         primaryAccount,
         persistence: getUsageStatsPersistenceStatus(),
       },
@@ -2452,19 +2506,30 @@ function registerProxyShutdownHandlers(params: {
     const usageStatsFlush = import("../../lib/proxy/usageStats.js").then(
       ({ flushUsageStats }) => flushUsageStats(),
     );
-    const [usageStatsFlushResult, lifecycleFlushResult] =
-      await Promise.allSettled([
-        withTimeout(
-          usageStatsFlush,
-          PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS,
-          "Timed out flushing proxy usage statistics during shutdown",
-        ),
-        withTimeout(
-          flushProxyLifecycleEvents(),
-          PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS,
-          "Timed out flushing proxy lifecycle metadata during shutdown",
-        ),
-      ]);
+    const requestLogsFlush = import("../../lib/proxy/requestLogger.js").then(
+      ({ flushRequestLogs }) => flushRequestLogs(),
+    );
+    const [
+      usageStatsFlushResult,
+      lifecycleFlushResult,
+      requestLogsFlushResult,
+    ] = await Promise.allSettled([
+      withTimeout(
+        usageStatsFlush,
+        PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS,
+        "Timed out flushing proxy usage statistics during shutdown",
+      ),
+      withTimeout(
+        flushProxyLifecycleEvents(),
+        PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS,
+        "Timed out flushing proxy lifecycle metadata during shutdown",
+      ),
+      withTimeout(
+        requestLogsFlush,
+        PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS,
+        "Timed out flushing proxy request logs during shutdown",
+      ),
+    ]);
     if (usageStatsFlushResult.status === "rejected") {
       const error = usageStatsFlushResult.reason;
       logger.warn(
@@ -2475,6 +2540,12 @@ function registerProxyShutdownHandlers(params: {
       const error = lifecycleFlushResult.reason;
       logger.debug(
         `[proxy] lifecycle metadata flush failed during shutdown: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    if (requestLogsFlushResult.status === "rejected") {
+      const error = requestLogsFlushResult.reason;
+      logger.warn(
+        `[proxy] request log flush failed during shutdown: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 
@@ -2643,7 +2714,6 @@ async function startProxyRuntime(params: {
       model: entry.model as string,
     }));
   const initialConfigStatus = params.runtimeConfigStore?.getStatus();
-
   const persistInitialProxyState = (): void => {
     const supervisorState = socketWorker ? loadProxySupervisorState() : null;
     saveProxyState({
@@ -2707,8 +2777,30 @@ async function startProxyRuntime(params: {
   let stopRuntimeConfig: (() => void) | undefined;
   if (params.runtimeConfigStore) {
     const runtimeConfigStore = params.runtimeConfigStore;
-    const unsubscribeReload = runtimeConfigStore.subscribeReload(() => {
-      persistRuntimeConfig(runtimeConfigStore.getSnapshot());
+    const unsubscribeReload = runtimeConfigStore.subscribeReload((result) => {
+      const snapshot = runtimeConfigStore.getSnapshot();
+      persistRuntimeConfig(snapshot);
+      if (
+        socketWorker &&
+        result.applied &&
+        result.changed &&
+        result.environmentChanged &&
+        process.connected &&
+        process.send
+      ) {
+        try {
+          process.send({
+            type: "proxy-worker:replacement-requested",
+            generation: getProxyWorkerGeneration(),
+            pid: process.pid,
+            reason: "environment",
+          });
+        } catch (error) {
+          logger.warn(
+            `[proxy] failed to request environment replacement: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
     });
     const reloadOnSighup = (): void => {
       void runtimeConfigStore.reload("sighup");
@@ -3345,20 +3437,23 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
               supervisorState.rolling.active?.pid === state?.pid)
           : true);
       if ((state || supervisorState) && (servingWorker || supervisorRunning)) {
-        const activeHost = state?.host ?? supervisorState?.host ?? null;
-        const activePort = state?.port ?? supervisorState?.port ?? null;
+        const servingState = servingWorker ? state : null;
+        const activeHost = servingState?.host ?? supervisorState?.host ?? null;
+        const activePort = servingState?.port ?? supervisorState?.port ?? null;
         status.running = true;
         status.pid = servingWorker && state ? state.pid : null;
         status.port = activePort;
         status.host = activeHost;
-        status.mode = state
-          ? state.passthrough
+        status.mode = servingState
+          ? servingState.passthrough
             ? "passthrough"
             : "full"
           : null;
-        status.strategy = state?.strategy ?? null;
+        status.strategy = servingState?.strategy ?? null;
         status.startTime =
-          state?.startTime ?? supervisorState?.startTime ?? null;
+          (supervisorRunning ? supervisorState?.startTime : null) ??
+          servingState?.startTime ??
+          null;
         status.uptime = status.startTime
           ? Date.now() - new Date(status.startTime).getTime()
           : null;
@@ -3366,17 +3461,18 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
           activeHost && activePort
             ? `http://${activeHost === "0.0.0.0" ? "localhost" : activeHost}:${activePort}`
             : null;
-        status.envFile = state?.envFile ?? null;
-        status.fallbackChain = state?.fallbackChain ?? null;
-        status.accountAllowlist = state?.accountAllowlist ?? null;
-        status.configGeneration = state?.configGeneration ?? null;
-        status.configLoadedAt = state?.configLoadedAt ?? null;
-        status.lastConfigReloadError = state?.lastConfigReloadError ?? null;
+        status.envFile = servingState?.envFile ?? null;
+        status.fallbackChain = servingState?.fallbackChain ?? null;
+        status.accountAllowlist = servingState?.accountAllowlist ?? null;
+        status.configGeneration = servingState?.configGeneration ?? null;
+        status.configLoadedAt = servingState?.configLoadedAt ?? null;
+        status.lastConfigReloadError =
+          servingState?.lastConfigReloadError ?? null;
         status.supervisorPid = supervisorPid ?? null;
         status.supervisorRunning = supervisorRunning;
         status.rolling = supervisorState?.rolling ?? null;
         status.updaterPid =
-          supervisorState?.updaterPid ?? state?.updaterPid ?? null;
+          supervisorState?.updaterPid ?? servingState?.updaterPid ?? null;
         status.updaterRunning = status.updaterPid
           ? isProcessRunning(status.updaterPid)
           : false;
@@ -3574,29 +3670,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
           });
           if (statusResp.ok) {
             const statusData = (await statusResp.json()) as {
-              stats?: {
-                totalAttempts?: number;
-                totalAttemptErrors?: number;
-                totalRequests: number;
-                totalSuccess: number;
-                totalErrors: number;
-                totalRateLimits: number;
-                totalTransientRateLimits?: number;
-                totalQuotaRateLimits?: number;
-                accounts?: {
-                  label: string;
-                  type: string;
-                  attempts?: number;
-                  requests?: number;
-                  success?: number;
-                  errors?: number;
-                  attemptErrors?: number;
-                  rateLimits?: number;
-                  transientRateLimits?: number;
-                  quotaRateLimits?: number;
-                  cooling: boolean;
-                }[];
-              };
+              stats?: StatusStats;
             };
             if (statusData.stats) {
               printStatusStats(statusData.stats);

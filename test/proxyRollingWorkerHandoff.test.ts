@@ -123,6 +123,17 @@ class FakeWorker implements RollingWorkerHandle {
     }
   }
 
+  requestReplacement(generation: number): void {
+    for (const listener of this.messages) {
+      listener({
+        type: "proxy-worker:replacement-requested",
+        generation,
+        pid: this.pid,
+        reason: "environment",
+      });
+    }
+  }
+
   activated(generation: number): void {
     for (const listener of this.messages) {
       listener({ type: "proxy-worker:activated", generation, pid: this.pid });
@@ -497,12 +508,14 @@ describe("rolling proxy worker supervisor", () => {
 
   it("fails every uncommitted socket without replaying after a worker transfer failure", async () => {
     const workers: FakeWorker[] = [];
+    const logs: string[] = [];
     const supervisor = new RollingWorkerSupervisor({
       spawnWorker: () => {
         const worker = new FakeWorker(475 + workers.length);
         workers.push(worker);
         return worker;
       },
+      log: (message) => logs.push(message),
     });
     const initial = supervisor.start("9.93.1");
     workers[0].ready(1, "9.93.1");
@@ -516,12 +529,32 @@ describe("rolling proxy worker supervisor", () => {
     workers[0].failPendingSockets("worker IPC failed");
     expect(supervisor.snapshot()).toMatchObject({
       active: null,
+      draining: [{ pid: 475 }],
       queuedSockets: 0,
       failedTransfers: 3,
       rejectedSockets: 3,
+      lastFailure: {
+        phase: "transfer",
+        message: expect.stringContaining("worker IPC failed"),
+      },
     });
-    expect(sockets.every((socket) => socket.destroyed)).toBe(true);
     expect(workers[0].terminated).toContain("SIGKILL");
+    expect(sockets.every((socket) => socket.destroyed)).toBe(true);
+    expect(logs).toContainEqual(expect.stringContaining("worker IPC failed"));
+
+    workers[0].exit(null, "SIGKILL");
+    const replacement = supervisor.replace("9.93.1");
+    workers[1].ready(2, "9.93.1");
+    await replacement;
+    expect(supervisor.snapshot()).toMatchObject({
+      active: { pid: 476 },
+      queuedSockets: 0,
+      rejectedSockets: 3,
+      lastFailure: {
+        phase: "transfer",
+        message: expect.stringContaining("worker IPC failed"),
+      },
+    });
     void supervisor.close();
   });
 });
@@ -690,6 +723,8 @@ describe("socket worker runtime", () => {
       expect(sent.some((m) => m?.type === "proxy-worker:socket-accepted")).toBe(
         true,
       );
+      const pendingErrorListeners = socket.listeners("error");
+      const pendingCloseListeners = socket.listeners("close");
 
       // Drain arrives before the commit: the acknowledged socket must survive.
       process.emit("message", { type: "proxy-worker:drain", generation: 91 });
@@ -704,6 +739,85 @@ describe("socket worker runtime", () => {
       });
       expect(socket.destroyed).toBe(false);
       expect(socket.resumed).toBe(true);
+      for (const listener of pendingErrorListeners) {
+        expect(socket.listeners("error")).not.toContain(listener);
+      }
+      for (const listener of pendingCloseListeners) {
+        expect(socket.listeners("close")).not.toContain(listener);
+      }
+    } finally {
+      if (originalConnected) {
+        Object.defineProperty(process, "connected", originalConnected);
+      } else {
+        delete (process as { connected?: boolean }).connected;
+      }
+      if (originalSend) {
+        process.send = originalSend;
+      } else {
+        delete (process as { send?: unknown }).send;
+      }
+    }
+  });
+
+  it("survives a client reset while a transferred socket awaits commit", () => {
+    const httpServer = createHttpServer();
+    const runtime = attachSocketWorkerProcess(httpServer, {
+      generation: 92,
+      version: "9.93.1",
+    });
+    trackCleanup(() => runtime.close());
+
+    const originalSend = process.send;
+    const originalConnected = Object.getOwnPropertyDescriptor(
+      process,
+      "connected",
+    );
+    (process as { send?: unknown }).send = (
+      _message: unknown,
+      handleOrCallback?: unknown,
+      _options?: unknown,
+      maybeCallback?: unknown,
+    ): boolean => {
+      const ack =
+        typeof handleOrCallback === "function"
+          ? handleOrCallback
+          : maybeCallback;
+      if (typeof ack === "function") {
+        (ack as (error: Error | null) => void)(null);
+      }
+      return true;
+    };
+    Object.defineProperty(process, "connected", {
+      value: true,
+      configurable: true,
+    });
+
+    try {
+      process.emit("message", {
+        type: "proxy-worker:activate",
+        generation: 92,
+      });
+      const socket = new FakeSocket();
+      process.emit(
+        "message",
+        { type: "proxy-worker:socket", generation: 92, socketId: "reset" },
+        socket,
+      );
+
+      expect(() =>
+        socket.emit(
+          "error",
+          Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }),
+        ),
+      ).not.toThrow();
+      expect(socket.destroyed).toBe(true);
+
+      process.emit("message", {
+        type: "proxy-worker:socket-commit",
+        generation: 92,
+        socketId: "reset",
+      });
+      expect(socket.resumed).toBe(false);
     } finally {
       if (originalConnected) {
         Object.defineProperty(process, "connected", originalConnected);
@@ -819,6 +933,49 @@ describe("cross-process socket handoff", () => {
     await closing;
   });
 
+  it("keeps the worker alive when a client resets before socket commit", async () => {
+    const rollingServer = await startTrackedRollingServer({
+      host: "127.0.0.1",
+      port: 0,
+      initialVersion: "9.93.1",
+      spawnWorker: (generation, expectedVersion) =>
+        spawnProxySocketWorker({
+          generation,
+          expectedVersion,
+          command: process.execPath,
+          args: [IPC_HTTP_WORKER],
+          stdout: "ignore",
+          stderr: "ignore",
+          env: { NEUROLINK_PROXY_WORKER_SOCKET_ACCEPT_DELAY_MS: "100" },
+        }),
+    });
+    const initialWorker = rollingServer.snapshot().active;
+    expect(initialWorker).not.toBeNull();
+
+    const client = createConnection({
+      host: "127.0.0.1",
+      port: rollingServer.address.port,
+    });
+    trackConnection(client);
+    await new Promise<void>((resolve, reject) => {
+      client.once("connect", resolve);
+      client.once("error", reject);
+    });
+    client.resetAndDestroy();
+    await new Promise<void>((resolve) => setTimeout(resolve, 150));
+
+    expect(rollingServer.snapshot()).toMatchObject({
+      active: initialWorker,
+      failedTransfers: 0,
+    });
+    const response = await fetch(
+      `http://127.0.0.1:${rollingServer.address.port}/health`,
+      { headers: { connection: "close" } },
+    );
+    expect(await response.text()).toBe("worker-9.93.1");
+    await rollingServer.close();
+  });
+
   it("keeps the listener alive and recovers after initial worker startup fails", async () => {
     let spawnCount = 0;
     const rollingServer = await startTrackedRollingServer({
@@ -854,6 +1011,116 @@ describe("cross-process socket handoff", () => {
       rejectedSockets: 0,
     });
     await rollingServer.close();
+  });
+
+  it("rolls to a same-version worker when the active worker reports an environment change", async () => {
+    const workers: FakeWorker[] = [];
+    const rollingServer = await startTrackedRollingServer({
+      host: "127.0.0.1",
+      port: 0,
+      initialVersion: "9.93.1",
+      spawnWorker: (generation, expectedVersion) => {
+        const worker = new FakeWorker(500 + generation);
+        workers.push(worker);
+        queueMicrotask(() => worker.ready(generation, expectedVersion));
+        return worker;
+      },
+    });
+
+    workers[0].requestReplacement(1);
+
+    await vi.waitFor(() =>
+      expect(rollingServer.snapshot().active).toMatchObject({
+        generation: 2,
+        version: "9.93.1",
+      }),
+    );
+    expect(workers).toHaveLength(2);
+    expect(workers[0].controls).toContainEqual({
+      type: "proxy-worker:drain",
+      generation: 1,
+    });
+    const closing = rollingServer.close();
+    workers[0].exit(0, null);
+    workers[1].exit(0, null);
+    await closing;
+  });
+
+  it("serializes an explicit replacement behind an environment replacement", async () => {
+    const workers: FakeWorker[] = [];
+    const rollingServer = await startTrackedRollingServer({
+      host: "127.0.0.1",
+      port: 0,
+      initialVersion: "9.93.1",
+      spawnWorker: (generation, expectedVersion) => {
+        const worker = new FakeWorker(520 + generation);
+        workers.push(worker);
+        if (generation !== 2) {
+          queueMicrotask(() => worker.ready(generation, expectedVersion));
+        }
+        return worker;
+      },
+    });
+
+    workers[0].requestReplacement(1);
+    await vi.waitFor(() => expect(workers).toHaveLength(2));
+
+    const explicitReplacement = rollingServer.replace("9.94.0");
+    await new Promise<void>((resolve) => setTimeout(resolve, 10));
+    expect(workers).toHaveLength(2);
+
+    workers[1].ready(2, "9.93.1");
+    await explicitReplacement;
+
+    expect(workers).toHaveLength(3);
+    expect(rollingServer.snapshot().active).toMatchObject({
+      generation: 3,
+      version: "9.94.0",
+    });
+    const closing = rollingServer.close();
+    for (const worker of workers) {
+      worker.exit(0, null);
+    }
+    await closing;
+  });
+
+  it("preserves an environment replacement when the active worker exits during debounce", async () => {
+    const workers: FakeWorker[] = [];
+    const rollingServer = await startTrackedRollingServer({
+      host: "127.0.0.1",
+      port: 0,
+      initialVersion: "9.93.1",
+      recoveryDelayMs: 100,
+      maxRecoveryDelayMs: 100,
+      spawnWorker: (generation, expectedVersion) => {
+        const worker = new FakeWorker(540 + generation);
+        workers.push(worker);
+        queueMicrotask(() => worker.ready(generation, expectedVersion));
+        return worker;
+      },
+    });
+
+    workers[0].requestReplacement(1);
+    workers[0].exit(1, null);
+
+    await vi.waitFor(
+      () =>
+        expect(rollingServer.snapshot().active).toMatchObject({
+          generation: 3,
+          version: "9.93.1",
+        }),
+      { timeout: 1_000 },
+    );
+    expect(workers).toHaveLength(3);
+    expect(workers[1].controls).toContainEqual({
+      type: "proxy-worker:drain",
+      generation: 2,
+    });
+    const closing = rollingServer.close();
+    for (const worker of workers) {
+      worker.exit(0, null);
+    }
+    await closing;
   });
 
   it("atomically routes new TCP connections to a replacement process", async () => {
