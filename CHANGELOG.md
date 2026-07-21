@@ -1,3 +1,9 @@
+## [10.3.0](https://github.com/juspay/neurolink/compare/v10.2.2...v10.3.0) (2026-07-21)
+
+### Features
+
+- **(context):** per-step budget guard compacts the AI-SDK tool loop before overflow ([0dc64de](https://github.com/juspay/neurolink/commit/0dc64de51b03e42bc9be508b699cc9df407aa8db))
+
 ## [10.2.2](https://github.com/juspay/neurolink/compare/v10.2.1...v10.2.2) (2026-07-20)
 
 ### Bug Fixes
