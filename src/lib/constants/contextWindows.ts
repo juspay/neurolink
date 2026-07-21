@@ -436,6 +436,71 @@ export function clearRuntimeContextWindows(): void {
 }
 
 /**
+ * Runtime-discovered window for an exact provider/model pair, or undefined.
+ *
+ * Unlike {@link getContextWindowSize} this NEVER falls back to static table
+ * values. Callers use it to distinguish "the serving infrastructure told us
+ * the real window" (safe to hard-enforce: clamp max_tokens, fail fast) from
+ * "static guess" (advisory only — hard-enforcing a guessed window would
+ * falsely reject requests that the real deployment accepts).
+ */
+export function getRuntimeContextWindow(
+  provider: string,
+  model?: string,
+): number | undefined {
+  if (!model) {
+    return undefined;
+  }
+  return RUNTIME_CONTEXT_WINDOWS.get(`${provider}:${model}`);
+}
+
+/**
+ * Runtime-discovered output-token ceilings, keyed `${provider}:${model}` —
+ * the `max_output_tokens` the serving infrastructure advertises for a model
+ * (e.g. LiteLLM `/model/info`). Same async-populate/sync-read contract as
+ * {@link registerRuntimeContextWindow}. Consumed by `getSafeMaxTokens` so
+ * requested maxTokens is clamped to the deployed model's real cap instead of
+ * a static per-provider table value.
+ */
+const RUNTIME_OUTPUT_CEILINGS = new Map<string, number>();
+
+/**
+ * Register a runtime-discovered output-token ceiling for a provider/model
+ * pair. Later registrations overwrite earlier ones (rediscovery refreshes
+ * values). Non-positive/non-finite ceilings are ignored so a malformed
+ * discovery source can never shrink an output budget to zero.
+ */
+export function registerRuntimeOutputCeiling(
+  provider: string,
+  model: string,
+  maxOutputTokens: number,
+): void {
+  if (!Number.isFinite(maxOutputTokens) || maxOutputTokens <= 0) {
+    return;
+  }
+  RUNTIME_OUTPUT_CEILINGS.set(`${provider}:${model}`, maxOutputTokens);
+}
+
+/**
+ * Runtime-discovered output ceiling for an exact provider/model pair, or
+ * undefined when the serving infrastructure has not advertised one.
+ */
+export function getRuntimeOutputCeiling(
+  provider: string,
+  model?: string,
+): number | undefined {
+  if (!model) {
+    return undefined;
+  }
+  return RUNTIME_OUTPUT_CEILINGS.get(`${provider}:${model}`);
+}
+
+/** Test hook: clear runtime-discovered output ceilings (state is module-global). */
+export function clearRuntimeOutputCeilings(): void {
+  RUNTIME_OUTPUT_CEILINGS.clear();
+}
+
+/**
  * Resolve context window size for a provider/model combination.
  *
  * Priority:

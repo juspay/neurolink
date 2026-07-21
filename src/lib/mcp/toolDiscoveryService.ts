@@ -29,6 +29,7 @@ import {
   validateToolDescription,
 } from "../utils/parameterValidation.js";
 import { withTimeout } from "../utils/errorHandling.js";
+import { coerceType } from "../utils/toolCallRepair.js";
 import { extractMcpErrorText } from "../utils/mcpErrorText.js";
 import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { tracers } from "../telemetry/tracers.js";
@@ -567,15 +568,19 @@ export class ToolDiscoveryService extends EventEmitter {
         throw new Error(`Tool '${toolName}' is not available`);
       }
 
-      // Validate input parameters if requested
+      // Validate input parameters if requested. Validation coerces
+      // recoverable mismatches (numeric strings for number params, "true"
+      // for booleans, JSON-encoded objects/arrays) instead of rejecting —
+      // a rejection here costs the agent loop a full model round-trip.
+      let effectiveParameters = parameters;
       if (options.validateInput !== false) {
-        this.validateToolParameters(toolInfo, parameters);
+        effectiveParameters = this.validateToolParameters(toolInfo, parameters);
       }
 
       mcpLogger.debug(
         `[ToolDiscoveryService] Executing tool: ${toolName} on ${serverId}`,
         {
-          parameters,
+          parameters: effectiveParameters,
         },
       );
 
@@ -611,7 +616,7 @@ export class ToolDiscoveryService extends EventEmitter {
               "gen_ai.request": safeJsonStringify(
                 {
                   name: toolName,
-                  arguments: redactForPreview(parameters),
+                  arguments: redactForPreview(effectiveParameters),
                 },
                 2048,
               ),
@@ -620,11 +625,21 @@ export class ToolDiscoveryService extends EventEmitter {
           async (callSpan) => {
             try {
               const timeout = effectiveTimeout;
+              // Pass the timeout as MCP RequestOptions too: without it the
+              // SDK applies its own DEFAULT_REQUEST_TIMEOUT_MSEC (60s), so a
+              // configured server timeout above 60s never took effect — the
+              // SDK aborted first. The SDK timeout also cancels the transport
+              // request and sends a cancellation notification, which the
+              // outer Promise.race below (kept as a backstop) cannot do.
               const callResult = await withTimeout(
-                client.callTool({
-                  name: toolName,
-                  arguments: parameters,
-                }),
+                client.callTool(
+                  {
+                    name: toolName,
+                    arguments: effectiveParameters,
+                  },
+                  undefined,
+                  { timeout: effectiveTimeout },
+                ),
                 timeout,
                 new Error(`Tool execution timeout: ${toolName}`),
               );
@@ -812,33 +827,70 @@ export class ToolDiscoveryService extends EventEmitter {
   private validateToolParameters(
     toolInfo: ExternalMCPToolInfo,
     parameters: JsonObject,
-  ): void {
+  ): JsonObject {
     if (!toolInfo.inputSchema) {
-      return; // No schema to validate against
+      return parameters; // No schema to validate against
     }
+
+    const schema = toolInfo.inputSchema;
+    const properties =
+      schema.properties && typeof schema.properties === "object"
+        ? (schema.properties as Record<string, JsonObject>)
+        : {};
+    const requiredProps = Array.isArray(schema.required)
+      ? (schema.required as unknown[]).filter(
+          (r): r is string => typeof r === "string",
+        )
+      : [];
+    // The thrown message is fed back to the MODEL as the tool result, so it
+    // restates the full contract — a bare "missing X" made weaker models
+    // guess again and burn another loop step per attempt.
+    const contract = () =>
+      Object.entries(properties)
+        .map(
+          ([key, prop]) =>
+            `${key}${requiredProps.includes(key) ? "" : "?"}: ${
+              (prop as { type?: string }).type ?? "any"
+            }`,
+        )
+        .join(", ");
 
     // Basic validation - check required properties
-    const schema = toolInfo.inputSchema;
-    if (schema.required && Array.isArray(schema.required)) {
-      for (const requiredProp of schema.required) {
-        if (typeof requiredProp === "string" && !(requiredProp in parameters)) {
-          throw new Error(`Missing required parameter: ${requiredProp}`);
-        }
-      }
+    const missing = requiredProps.filter((prop) => !(prop in parameters));
+    if (missing.length > 0) {
+      throw new Error(
+        `Missing required parameter${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}. ` +
+          `Expected arguments: { ${contract()} }; received keys: [${Object.keys(parameters).join(", ")}]`,
+      );
     }
 
-    // Type validation for properties
-    if (schema.properties) {
-      for (const [propName, propSchema] of Object.entries(schema.properties)) {
-        if (propName in parameters) {
-          this.validateParameterType(
-            propName,
-            parameters[propName],
-            propSchema as JsonObject,
+    // Type validation for properties — coerce recoverable mismatches first
+    // (numeric strings, "true"/"false", JSON-encoded objects/arrays) so a
+    // sloppy-but-unambiguous call executes instead of failing back to the
+    // model. Only genuinely wrong types still throw.
+    let coerced: JsonObject | undefined;
+    for (const [propName, propSchema] of Object.entries(properties)) {
+      if (propName in parameters) {
+        const originalValue = parameters[propName];
+        const coercedValue = coerceType(
+          originalValue,
+          propSchema as Record<string, unknown>,
+        );
+        if (coercedValue !== originalValue) {
+          mcpLogger.debug(
+            `[ToolDiscoveryService] Coerced parameter '${propName}' for tool '${toolInfo.name}': ${typeof originalValue} → ${typeof coercedValue}`,
           );
+          coerced = coerced ?? { ...parameters };
+          coerced[propName] = coercedValue as JsonValue;
         }
+        this.validateParameterType(
+          propName,
+          (coerced ? coerced[propName] : originalValue) as JsonValue,
+          propSchema as JsonObject,
+        );
       }
     }
+    return coerced ?? parameters;
   }
 
   /**
@@ -868,6 +920,18 @@ export class ToolDiscoveryService extends EventEmitter {
         if (actualType !== "number") {
           throw new Error(
             `Parameter '${name}' must be a number, got ${actualType}`,
+          );
+        }
+        break;
+      case "integer":
+        // coerceType treats "integer" as distinct from "number"; without
+        // this case an uncoercible value ("3.7", "abc") passed through to
+        // the MCP server unvalidated.
+        if (actualType !== "number" || !Number.isInteger(value as number)) {
+          throw new Error(
+            `Parameter '${name}' must be an integer, got ${
+              actualType === "number" ? String(value) : actualType
+            }`,
           );
         }
         break;

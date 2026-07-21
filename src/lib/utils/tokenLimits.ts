@@ -3,6 +3,7 @@
  * Provides safe maxTokens values based on provider and model capabilities
  */
 
+import { getRuntimeOutputCeiling } from "../constants/contextWindows.js";
 import { PROVIDER_MAX_TOKENS } from "../core/constants.js";
 import { logger } from "./logger.js";
 import {
@@ -46,6 +47,30 @@ export function getSafeMaxTokens(
       return RESTRICTED_OUTPUT_TOKEN_LIMIT;
     }
     // Otherwise, use the requested value (it's within limits, including 0)
+    return requestedMaxTokens;
+  }
+
+  // Runtime-discovered output ceiling (e.g. LiteLLM /model/info
+  // max_output_tokens): the serving infrastructure's own number for the
+  // deployed model, authoritative over the static per-provider table. This
+  // both clamps over-large requests to the real cap AND replaces the static
+  // provider default for callers that pass no maxTokens — the litellm
+  // blanket default (128000) is a context-window-sized value that slashed
+  // usable input on total-context backends. Checked AFTER the
+  // restricted-model branch so hard caps proven at the origin API (Gemini 3
+  // / image models) still win over a proxy that over-advertises them.
+  const runtimeCeiling = getRuntimeOutputCeiling(provider, model);
+  if (runtimeCeiling !== undefined) {
+    if (requestedMaxTokens === undefined || requestedMaxTokens === null) {
+      return runtimeCeiling;
+    }
+    if (requestedMaxTokens > runtimeCeiling) {
+      logger.warn(
+        `Requested maxTokens ${requestedMaxTokens} exceeds the advertised ` +
+          `${provider}/${model} output ceiling of ${runtimeCeiling}. Using ${runtimeCeiling} instead.`,
+      );
+      return runtimeCeiling;
+    }
     return requestedMaxTokens;
   }
 

@@ -346,8 +346,15 @@ export type GenerateOptions = {
    * never the step-cap text. Unset = no turn-level deadline (the library
    * imposes no product policy).
    *
-   * Enforced by the native Vertex loops (Gemini + Claude); AI-SDK-driven
-   * providers currently ignore it.
+   * Enforced by the native Vertex loops (Gemini + Claude) AND the AI-SDK
+   * loop path (litellm and other OpenAI-compatible providers). On the AI-SDK
+   * path, an explicit `timeout` also engages the same wrap-up when
+   * `turnTimeoutMs` is unset. Once the wrap-up window begins (see
+   * `wrapupTimeLeadMs`), the loop forcibly sets `toolChoice: "none"` for the
+   * remaining steps — overriding any caller-supplied `toolChoice` or
+   * `prepareStep` tool selection — and appends an honest time message that a
+   * caller's `prepareStep` callback does not observe (it runs before the
+   * wrap-up nudge is applied). An honest partial beats a discarded turn.
    */
   turnTimeoutMs?: number;
   /**
@@ -363,6 +370,11 @@ export type GenerateOptions = {
    * next tool-result turn telling the model to consolidate what it has and
    * produce its final answer. Defaults to 120_000 when `turnTimeoutMs` is
    * set; ignored when it is not.
+   *
+   * On the AI-SDK loop path the lead is clamped to a quarter of the turn
+   * budget (so short budgets don't wrap up on step one) and wrap-up steps
+   * run with a forced `toolChoice: "none"` — see `turnTimeoutMs` for the
+   * exact override semantics.
    */
   wrapupTimeLeadMs?: number;
   /**
@@ -373,6 +385,8 @@ export type GenerateOptions = {
   toolTimeoutMs?: number;
   /** AbortSignal for external cancellation of the AI call */
   abortSignal?: AbortSignal;
+  /** Disable the schema-driven tool call repair mechanism (BZ-665). Default: false (repair enabled). */
+  disableToolCallRepair?: boolean;
   /**
    * Disable tool execution (including built-in tools)
    *
@@ -1132,6 +1146,8 @@ export type TextGenerationOptions = {
   /** AbortSignal for external cancellation of the AI call */
   abortSignal?: AbortSignal;
   disableTools?: boolean; // Disable tools (tools are enabled by default)
+  /** Disable the schema-driven tool call repair mechanism (BZ-665). Default: false (repair enabled). */
+  disableToolCallRepair?: boolean;
   maxSteps?: number; // Maximum tool execution steps (default: 200)
 
   /** Include only these tools by name (whitelist). If set, only matching tools are available. */

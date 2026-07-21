@@ -242,6 +242,9 @@ export abstract class BaseProvider implements AIProvider {
     optionsOrPrompt: StreamOptions | string,
     analysisSchema?: ValidationSchema,
   ): Promise<StreamResult> {
+    // Runtime model limits must land before normalizeStreamOptions resolves
+    // maxTokens (getSafeMaxTokens consults the discovered output ceiling).
+    await this.ensureModelLimits();
     let options = this.normalizeStreamOptions(optionsOrPrompt);
 
     logger.info(`Starting stream`, {
@@ -1206,10 +1209,26 @@ export abstract class BaseProvider implements AIProvider {
    * IMPLEMENTATION NOTE: Uses streamText() under the hood and accumulates results
    * for consistency and better performance
    */
+  /**
+   * Ensure runtime-discovered model limits (context window, output-token
+   * ceiling) are registered before any budget math runs. Generation
+   * pipelines await this BEFORE `checkContextBudget`, and generate()/stream()
+   * await it before options normalization so `getSafeMaxTokens` sees the
+   * discovered output ceiling.
+   *
+   * Default no-op. Providers with a runtime discovery source override it
+   * (e.g. LiteLLM's `/model/info`). Implementations must NEVER reject —
+   * discovery failure degrades to the static defaults.
+   */
+  async ensureModelLimits(): Promise<void> {}
+
   async generate(
     optionsOrPrompt: TextGenerationOptions | string,
     _analysisSchema?: ValidationSchema,
   ): Promise<EnhancedGenerateResult | null> {
+    // Runtime model limits must land before normalizeTextOptions resolves
+    // maxTokens (getSafeMaxTokens consults the discovered output ceiling).
+    await this.ensureModelLimits();
     const options = this.normalizeTextOptions(optionsOrPrompt);
     this.validateOptions(options);
     const startTime = Date.now();

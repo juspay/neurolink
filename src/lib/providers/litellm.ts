@@ -1,6 +1,9 @@
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { AIProviderName } from "../constants/enums.js";
-import { registerRuntimeContextWindow } from "../constants/contextWindows.js";
+import {
+  registerRuntimeContextWindow,
+  registerRuntimeOutputCeiling,
+} from "../constants/contextWindows.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type {
   OpenAICompatBuildBodyArgs,
@@ -42,6 +45,209 @@ const getLiteLLMConfig = () => ({
 const getDefaultLiteLLMModel = (): string =>
   getProviderModel("LITELLM_MODEL", FALLBACK_LITELLM_MODEL);
 
+/** Cache period for `/model/info` limit discovery (same as the models list). */
+const MODEL_INFO_CACHE_DURATION = 10 * 60 * 1000;
+
+/** In-flight `/model/info` discovery per base URL — dedupes concurrent callers. */
+const modelInfoInFlight = new Map<string, Promise<void>>();
+
+/** Last successful `/model/info` discovery per base URL. */
+const modelInfoLastSuccess = new Map<string, number>();
+
+/**
+ * Discovered limits per base URL. The runtime registries key by
+ * (provider, model) only — budget call sites carry no deployment identity —
+ * so when a process talks to MULTIPLE proxies that share a model-group name,
+ * registrations use the MIN across every discovered deployment: budgets stay
+ * safe for all of them instead of last-writer-wins silently overstating one.
+ * Single-proxy processes (the normal case) are unaffected.
+ */
+const modelInfoLimitsByURL = new Map<
+  string,
+  Map<string, { maxInputTokens?: number; maxOutputTokens?: number }>
+>();
+
+/** Test hook: reset the discovery caches (state is module-global). */
+export function clearLiteLLMModelLimitsCache(): void {
+  modelInfoInFlight.clear();
+  modelInfoLastSuccess.clear();
+  modelInfoLimitsByURL.clear();
+}
+
+/**
+ * Fetch `GET /model/info` and map model group name → advertised limits
+ * (`model_info.max_input_tokens` / `model_info.max_output_tokens`).
+ * A model group can appear once per underlying deployment; the SMALLEST
+ * advertised value wins per field so budgets are safe for every replica.
+ */
+async function fetchLiteLLMModelLimits(
+  baseURL: string,
+  apiKey: string,
+): Promise<Map<string, { maxInputTokens?: number; maxOutputTokens?: number }>> {
+  const infoUrl = `${baseURL}/model/info`;
+  const proxyFetch = createProxyFetch();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await proxyFetch(infoUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    const data = (await response.json()) as {
+      data?: Array<{
+        model_name?: string;
+        model_info?: { max_input_tokens?: number; max_output_tokens?: number };
+      }>;
+    };
+    const isUsable = (v: unknown): v is number =>
+      typeof v === "number" && Number.isFinite(v) && v > 0;
+    const limits = new Map<
+      string,
+      { maxInputTokens?: number; maxOutputTokens?: number }
+    >();
+    for (const entry of data.data ?? []) {
+      const model = entry?.model_name;
+      if (typeof model !== "string" || model.length === 0) {
+        continue;
+      }
+      const maxInput = entry?.model_info?.max_input_tokens;
+      const maxOutput = entry?.model_info?.max_output_tokens;
+      if (!isUsable(maxInput) && !isUsable(maxOutput)) {
+        continue;
+      }
+      const existing = limits.get(model) ?? {};
+      if (isUsable(maxInput)) {
+        existing.maxInputTokens =
+          existing.maxInputTokens === undefined
+            ? maxInput
+            : Math.min(existing.maxInputTokens, maxInput);
+      }
+      if (isUsable(maxOutput)) {
+        existing.maxOutputTokens =
+          existing.maxOutputTokens === undefined
+            ? maxOutput
+            : Math.min(existing.maxOutputTokens, maxOutput);
+      }
+      limits.set(model, existing);
+    }
+    return limits;
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new NetworkError(
+        "Request timed out after 5 seconds",
+        "litellm" as AIProviderName,
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Discover real per-model limits from the LiteLLM proxy's `GET /model/info`
+ * and register them with the runtime resolvers: `max_input_tokens` → context
+ * window, `max_output_tokens` → output ceiling. The static table only has a
+ * one-size litellm `_default` (128K) while proxied models range from 8K to
+ * 2M — budget checks, compaction, and max_tokens clamping need the real
+ * numbers.
+ *
+ * Awaitable and deduped per base URL: generation pipelines await this (via
+ * `LiteLLMProvider.ensureModelLimits`) BEFORE any budget math, so even the
+ * FIRST call in a fresh process budgets against real windows — the previous
+ * constructor-scoped fire-and-forget lost that race every time, and a
+ * budget-blocked call then prevented the discovery that would have unblocked
+ * it. Never rejects: any failure (endpoint absent, auth, timeout) is logged
+ * at debug, leaves the static defaults in force, and allows a retry on the
+ * next call.
+ */
+export function ensureLiteLLMModelLimits(
+  baseURL: string,
+  apiKey: string,
+): Promise<void> {
+  const key = stripTrailingSlash(baseURL);
+  const lastSuccess = modelInfoLastSuccess.get(key) ?? 0;
+  if (Date.now() - lastSuccess < MODEL_INFO_CACHE_DURATION) {
+    return Promise.resolve();
+  }
+  const inFlight = modelInfoInFlight.get(key);
+  if (inFlight) {
+    return inFlight;
+  }
+  const discovery = fetchLiteLLMModelLimits(key, apiKey)
+    .then((limits) => {
+      modelInfoLimitsByURL.set(key, limits);
+      // Min-merge across every base URL discovered so far (see
+      // modelInfoLimitsByURL) before registering.
+      const merged = new Map<
+        string,
+        { maxInputTokens?: number; maxOutputTokens?: number }
+      >();
+      for (const urlLimits of modelInfoLimitsByURL.values()) {
+        for (const [model, modelLimits] of urlLimits) {
+          const existing = merged.get(model) ?? {};
+          if (modelLimits.maxInputTokens !== undefined) {
+            existing.maxInputTokens =
+              existing.maxInputTokens === undefined
+                ? modelLimits.maxInputTokens
+                : Math.min(existing.maxInputTokens, modelLimits.maxInputTokens);
+          }
+          if (modelLimits.maxOutputTokens !== undefined) {
+            existing.maxOutputTokens =
+              existing.maxOutputTokens === undefined
+                ? modelLimits.maxOutputTokens
+                : Math.min(
+                    existing.maxOutputTokens,
+                    modelLimits.maxOutputTokens,
+                  );
+          }
+          merged.set(model, existing);
+        }
+      }
+      for (const [model, modelLimits] of merged) {
+        if (modelLimits.maxInputTokens !== undefined) {
+          registerRuntimeContextWindow(
+            "litellm",
+            model,
+            modelLimits.maxInputTokens,
+          );
+        }
+        if (modelLimits.maxOutputTokens !== undefined) {
+          registerRuntimeOutputCeiling(
+            "litellm",
+            model,
+            modelLimits.maxOutputTokens,
+          );
+        }
+      }
+      modelInfoLastSuccess.set(key, Date.now());
+      if (limits.size > 0) {
+        logger.debug(
+          "[LiteLLM] Registered runtime model limits from /model/info",
+          { baseURL: redactUrlCredentials(key), models: limits.size },
+        );
+      }
+    })
+    .catch((error) => {
+      logger.debug(
+        "[LiteLLM] /model/info discovery failed; static context-window defaults remain in force",
+        { error: error instanceof Error ? error.message : String(error) },
+      );
+    })
+    .finally(() => {
+      modelInfoInFlight.delete(key);
+    });
+  modelInfoInFlight.set(key, discovery);
+  return discovery;
+}
+
 // LiteLLM model ids come in `provider/model` form (e.g. "google/gemini-2.5-flash").
 // Strip the provider prefix and delegate to the canonical anchored-regex
 // check in src/lib/utils/modelDetection.ts so the truth lives in one place.
@@ -68,12 +274,6 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
   private static modelsCache: string[] = [];
   private static modelsCacheTime = 0;
   private static readonly MODELS_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
-  /**
-   * Dedupes the fire-and-forget `/model/info` discovery per base URL, so a
-   * process constructing many LiteLLM providers fetches each proxy's limits
-   * once per cache period.
-   */
-  private static modelInfoFetchTime = new Map<string, number>();
 
   constructor(
     modelName?: string,
@@ -87,18 +287,26 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
       apiKey: credentials?.apiKey ?? envConfig.apiKey,
     });
 
-    // Fire-and-forget: discover real per-model context windows from the
-    // proxy's /model/info. The static table only has a one-size litellm
-    // `_default` (128K), while proxied models range from 8K to 2M — budget
-    // checks and compaction need the real window. Failures degrade cleanly
-    // to the static default.
-    this.discoverModelContextWindows();
+    // Warm the model-limit discovery early (deduped per base URL). The
+    // generation pipelines still AWAIT ensureModelLimits() before budget
+    // math — this fire-and-forget only shaves latency off that first await.
+    void ensureLiteLLMModelLimits(this.config.baseURL, this.config.apiKey);
 
     logger.debug("LiteLLM Provider initialized", {
       modelName: this.modelName,
       provider: this.providerName,
       baseURL: redactUrlCredentials(this.config.baseURL),
     });
+  }
+
+  /**
+   * Awaitable model-limit discovery — generation pipelines call this before
+   * budget checks so window/output-ceiling math uses the proxy's real
+   * numbers (see BaseProvider.ensureModelLimits). Deduped and cached per
+   * base URL; never rejects (failure degrades to static defaults).
+   */
+  async ensureModelLimits(): Promise<void> {
+    await ensureLiteLLMModelLimits(this.config.baseURL, this.config.apiKey);
   }
 
   protected getProviderName(): AIProviderName {
@@ -311,105 +519,6 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
     }
 
     return this.getFallbackModels();
-  }
-
-  /**
-   * Discover real per-model context windows from the LiteLLM proxy's
-   * `GET /model/info` (`data[].model_info.max_input_tokens`) and register
-   * them with the context-window resolver. Fire-and-forget with the same
-   * cache period as the models list; any failure (endpoint absent, auth,
-   * timeout) is logged at debug and leaves the static `_default` in force.
-   */
-  private discoverModelContextWindows(): void {
-    const baseURL = stripTrailingSlash(this.config.baseURL);
-    const now = Date.now();
-    const lastFetch = LiteLLMProvider.modelInfoFetchTime.get(baseURL) ?? 0;
-    if (now - lastFetch < LiteLLMProvider.MODELS_CACHE_DURATION) {
-      return;
-    }
-    LiteLLMProvider.modelInfoFetchTime.set(baseURL, now);
-
-    void this.fetchModelInfoFromAPI()
-      .then((windows) => {
-        for (const [model, contextWindow] of windows) {
-          registerRuntimeContextWindow("litellm", model, contextWindow);
-        }
-        if (windows.size > 0) {
-          logger.debug(
-            "[LiteLLMProvider] Registered runtime context windows from /model/info",
-            { baseURL: redactUrlCredentials(baseURL), models: windows.size },
-          );
-        }
-      })
-      .catch((error) => {
-        // Allow a retry before the cache period when discovery failed.
-        LiteLLMProvider.modelInfoFetchTime.delete(baseURL);
-        logger.debug(
-          "[LiteLLMProvider] /model/info discovery failed; static context-window defaults remain in force",
-          { error: error instanceof Error ? error.message : String(error) },
-        );
-      });
-  }
-
-  /**
-   * Fetch `GET /model/info` and map model group name → max_input_tokens.
-   * Same fetch/auth/abort scaffolding as {@link fetchModelsFromAPI}.
-   */
-  private async fetchModelInfoFromAPI(): Promise<Map<string, number>> {
-    const infoUrl = `${stripTrailingSlash(this.config.baseURL)}/model/info`;
-    const proxyFetch = createProxyFetch();
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    try {
-      const response = await proxyFetch(infoUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.config.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      const data = (await response.json()) as {
-        data?: Array<{
-          model_name?: string;
-          model_info?: { max_input_tokens?: number };
-        }>;
-      };
-      const windows = new Map<string, number>();
-      for (const entry of data.data ?? []) {
-        const model = entry?.model_name;
-        const maxInput = entry?.model_info?.max_input_tokens;
-        if (
-          typeof model === "string" &&
-          model.length > 0 &&
-          typeof maxInput === "number" &&
-          Number.isFinite(maxInput) &&
-          maxInput > 0
-        ) {
-          // A model group can appear once per underlying deployment; keep the
-          // smallest advertised window so budgets are safe for every replica.
-          const existing = windows.get(model);
-          windows.set(
-            model,
-            existing === undefined ? maxInput : Math.min(existing, maxInput),
-          );
-        }
-      }
-      return windows;
-    } catch (error) {
-      if (isAbortError(error)) {
-        throw new NetworkError(
-          "Request timed out after 5 seconds",
-          this.providerName,
-        );
-      }
-      throw error;
-    } finally {
-      clearTimeout(timeoutId);
-    }
   }
 
   private async fetchModelsFromAPI(): Promise<string[]> {

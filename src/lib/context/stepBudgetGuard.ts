@@ -44,6 +44,14 @@ import { logger } from "../utils/logger.js";
 /** Estimated tokens for a tool definition that fails to serialize. */
 const TOKENS_PER_TOOL_DEFINITION = 200;
 
+/**
+ * Upper bound on the usage-feedback calibration ratio. Real tokenizers count
+ * dense code/diff content at up to ~1.3× the char-based estimate; anything
+ * far beyond that indicates inconsistent provider usage reporting, and an
+ * unbounded ratio would compact the loop into uselessness.
+ */
+const MAX_CALIBRATION_RATIO = 3;
+
 /** Messages at the end of the conversation the guard never modifies. */
 const PROTECTED_TAIL_MESSAGES = 4;
 
@@ -285,8 +293,22 @@ function dropOldestToolExchanges(
 
 /**
  * Create a per-step budget guard. Returns a function that, given the step's
- * messages, returns a compacted replacement array when the projected request
- * exceeds the threshold — or `undefined` when no change is needed.
+ * messages (and optionally the REAL input-token count the provider reported
+ * for the previous step), returns a compacted replacement array when the
+ * projected request exceeds the threshold — or `undefined` when no change is
+ * needed.
+ *
+ * Two dynamic behaviours:
+ *  - the available-input budget is re-resolved on EVERY invocation, so
+ *    runtime window discovery (`/model/info`, overflow self-healing) that
+ *    lands mid-loop takes effect immediately instead of the guard staying
+ *    frozen on the value captured at loop start;
+ *  - usage feedback calibrates the estimator: the ratio between the real
+ *    prompt tokens of the previous step and this guard's own estimate for
+ *    what that step sent scales later estimates (only UP — underestimates
+ *    overflow, overestimates merely compact earlier), eliminating the
+ *    char-based estimator's drift on dense code/diff content without
+ *    shipping a tokenizer.
  */
 export function createStepBudgetGuard(config: StepBudgetGuardConfig) {
   const {
@@ -298,18 +320,36 @@ export function createStepBudgetGuard(config: StepBudgetGuardConfig) {
     thresholdRatio = DEFAULT_CONTEXT_GUARD_RATIO,
   } = config;
 
-  const availableInput = getAvailableInputTokens(provider, model, maxTokens);
-  const thresholdTokens = Math.floor(availableInput * thresholdRatio);
+  // Calibration state: raw estimate for the messages the PREVIOUS guard
+  // invocation let through (what was actually sent), and the current ratio.
+  let lastRawEstimate = 0;
+  let calibration = 1;
 
   return function guardStepMessages(
     messages: readonly ModelMessage[],
+    observedInputTokensLastStep?: number,
   ): ModelMessage[] | undefined {
+    const availableInput = getAvailableInputTokens(provider, model, maxTokens);
+    const thresholdTokens = Math.floor(availableInput * thresholdRatio);
     // Resolve overhead per invocation: the tool set can GROW mid-loop
     // (search_tools hydration adds discovered tools between steps), so a
     // once-captured value would undercount later steps.
     const overheadTokens = getFixedOverheadTokens?.() ?? fixedOverheadTokens;
-    const estimate =
+    const rawEstimate =
       overheadTokens + estimateStepMessagesTokens(messages, provider);
+    if (
+      observedInputTokensLastStep !== undefined &&
+      observedInputTokensLastStep > 0 &&
+      lastRawEstimate > 0
+    ) {
+      calibration = Math.min(
+        MAX_CALIBRATION_RATIO,
+        Math.max(1, observedInputTokensLastStep / lastRawEstimate),
+      );
+    }
+    // Apply calibration to the THRESHOLD instead of every estimate so the
+    // compaction stages keep operating on raw numbers.
+    const effectiveThreshold = Math.floor(thresholdTokens / calibration);
     // Logger Guard: per-step diagnostics for debugging why a long run does
     // (or does not) trigger compaction — gated so nothing is serialized when
     // debug logging is off.
@@ -318,12 +358,15 @@ export function createStepBudgetGuard(config: StepBudgetGuardConfig) {
         provider,
         model,
         messageCount: messages.length,
-        estimatedTokens: estimate,
-        thresholdTokens,
-        willCompact: estimate > thresholdTokens,
+        estimatedTokens: rawEstimate,
+        thresholdTokens: effectiveThreshold,
+        calibration,
+        observedInputTokensLastStep,
+        willCompact: rawEstimate > effectiveThreshold,
       });
     }
-    if (estimate <= thresholdTokens) {
+    if (rawEstimate <= effectiveThreshold) {
+      lastRawEstimate = rawEstimate;
       return undefined;
     }
 
@@ -335,10 +378,10 @@ export function createStepBudgetGuard(config: StepBudgetGuardConfig) {
 
     // Stage 2: drop oldest complete tool exchanges if still over.
     let droppedExchanges = 0;
-    if (newEstimate > thresholdTokens) {
+    if (newEstimate > effectiveThreshold) {
       const stage2 = dropOldestToolExchanges(
         compacted,
-        thresholdTokens,
+        effectiveThreshold,
         overheadTokens,
         provider,
       );
@@ -349,18 +392,21 @@ export function createStepBudgetGuard(config: StepBudgetGuardConfig) {
     }
 
     if (stage1.truncated === 0 && droppedExchanges === 0) {
+      lastRawEstimate = rawEstimate;
       return undefined; // nothing actionable (already all-protected)
     }
 
     logger.info("[StepBudgetGuard] Compacted agent-loop step messages", {
       provider,
       model,
-      estimatedTokens: estimate,
-      thresholdTokens,
+      estimatedTokens: rawEstimate,
+      thresholdTokens: effectiveThreshold,
+      calibration,
       afterTokens: newEstimate,
       toolOutputsTruncated: stage1.truncated,
       exchangesDropped: droppedExchanges,
     });
+    lastRawEstimate = newEstimate;
     return compacted;
   };
 }

@@ -19,6 +19,16 @@
  */
 
 import type { AIProviderName } from "../constants/enums.js";
+import {
+  getRuntimeContextWindow,
+  getRuntimeOutputCeiling,
+  registerRuntimeContextWindow,
+} from "../constants/contextWindows.js";
+import {
+  isContextOverflowError,
+  parseProviderOverflowDetails,
+} from "../context/errorDetection.js";
+import { ContextBudgetExceededError } from "../context/errors.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
 import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
@@ -57,7 +67,7 @@ import {
   stampNoOutputSpan,
 } from "../utils/noOutputSentinel.js";
 import {
-  composeAbortSignals,
+  composeAbortSignalsScoped,
   createTimeoutController,
   mergeAbortSignals,
 } from "../utils/timeout.js";
@@ -68,9 +78,11 @@ import {
   buildAPIError,
   buildBody,
   buildToolsForOpenAI,
+  buildWireToolNameMaps,
   createChunkQueue,
   createDeferredAnalytics,
   ensureJsonWordInBody,
+  estimateWireTokens,
   mapNeuroLinkToolChoice,
   mergeUsage,
   messageBuilderToOpenAI,
@@ -81,6 +93,13 @@ import {
   v3ToolChoiceToOpenAI,
   v3ToolsToOpenAI,
 } from "./openaiChatCompletionsClient.js";
+
+/**
+ * Safety margin (tokens) when fitting `max_tokens` to a runtime-discovered
+ * context window: the char-based input estimate and the backend's own prompt
+ * framing differ by a few hundred tokens, so an exact fit would still 400.
+ */
+const WINDOW_FIT_MARGIN_TOKENS = 512;
 
 /**
  * Abstract HTTP+SSE provider for OpenAI chat-completions-shaped endpoints.
@@ -200,6 +219,139 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     _error: Error & { statusCode?: number; responseBody?: string },
   ): OpenAICompatChatRequest | undefined {
     return undefined;
+  }
+
+  /**
+   * Fit the outgoing `max_tokens` to what the target deployment can actually
+   * accept, using ONLY runtime-discovered limits — static table values are
+   * guesses, and hard-enforcing a guess would falsely reject requests the
+   * real deployment accepts:
+   *
+   *   effective = min(requested, discovered output ceiling,
+   *                   discovered window − estimated input − margin)
+   *
+   * Returns the caller's value untouched when nothing was discovered, and
+   * `undefined` when the caller sent nothing and no ceiling is known (the
+   * wire then omits max_tokens and the backend applies its own default — no
+   * invented numbers). Throws ContextBudgetExceededError when the estimated
+   * input ALONE exceeds a discovered window: that request cannot succeed,
+   * and failing fast with honest numbers beats a guaranteed provider 400
+   * (plus any proxy-side fallback cascade) after a full round-trip.
+   */
+  protected resolveWireMaxTokens(
+    modelId: string,
+    requested: number | undefined,
+    messages: ReadonlyArray<OpenAICompatChatMessage>,
+    tools: OpenAICompatChatTool[] | undefined,
+  ): number | undefined {
+    const ceiling = getRuntimeOutputCeiling(this.providerName, modelId);
+    let effective = requested;
+    if (
+      ceiling !== undefined &&
+      (effective === undefined || effective > ceiling)
+    ) {
+      if (effective !== undefined) {
+        logger.debug(
+          `${this.providerName}: clamping max_tokens ${effective} to the advertised ${modelId} output ceiling ${ceiling}`,
+        );
+      }
+      effective = ceiling;
+    }
+    const window = getRuntimeContextWindow(this.providerName, modelId);
+    if (window !== undefined) {
+      const estimatedInput = estimateWireTokens(
+        messages,
+        tools,
+        this.providerName,
+      );
+      const fit = window - estimatedInput - WINDOW_FIT_MARGIN_TOKENS;
+      if (fit <= 0) {
+        throw new ContextBudgetExceededError(
+          `Estimated input (${estimatedInput} tokens) alone exceeds the ` +
+            `${this.providerName}/${modelId} context window advertised by ` +
+            `the serving infrastructure (${window} tokens). Reduce the ` +
+            `prompt/conversation size — no max_tokens value can make this ` +
+            `request fit.`,
+          {
+            estimatedTokens: estimatedInput,
+            availableTokens: Math.max(0, window - WINDOW_FIT_MARGIN_TOKENS),
+            stagesUsed: [],
+            breakdown: {},
+          },
+        );
+      }
+      if (effective !== undefined && effective > fit) {
+        logger.warn(
+          `${this.providerName}: max_tokens ${effective} cannot fit the ` +
+            `${modelId} window (${window}) with ~${estimatedInput} input ` +
+            `tokens — re-fitting to ${fit}`,
+        );
+        effective = fit;
+      }
+    }
+    return effective;
+  }
+
+  /**
+   * Learn from a provider context-overflow 400 and, when possible, produce a
+   * corrected body for the one-shot retry slot. Two dynamic effects, zero
+   * static data:
+   *
+   *  - the window stated in the error is registered with the runtime
+   *    resolver, so every later budget check / compaction / max_tokens fit
+   *    uses the backend's own number — self-healing even when a discovery
+   *    endpoint (`/model/info`) is absent or unauthorized;
+   *  - when the error also states the real input size (vllm/LiteLLM
+   *    phrasing) and the body carried `max_tokens`, it is re-fit to
+   *    `window − input − margin` and the request retried once.
+   *
+   * Returns undefined when the error is not an overflow, or when no smaller
+   * `max_tokens` can make the request fit (input alone too large) — the
+   * original error then propagates unchanged.
+   */
+  private correctBodyAfterContextOverflow(
+    body: OpenAICompatChatRequest,
+    error: Error & { statusCode?: number; responseBody?: string },
+  ): OpenAICompatChatRequest | undefined {
+    if (!isContextOverflowError(error)) {
+      return undefined;
+    }
+    const details =
+      parseProviderOverflowDetails(error) ??
+      parseProviderOverflowDetails(error.responseBody);
+    if (!details || details.budgetTokens <= 0) {
+      return undefined;
+    }
+    registerRuntimeContextWindow(
+      this.providerName,
+      body.model,
+      details.budgetTokens,
+    );
+    // When the body carried no max_tokens (server-defaulted output), the
+    // vllm/LiteLLM phrasing still states what the backend counted — use it
+    // so those requests get a re-fit retry too instead of propagating.
+    const previousMaxTokens =
+      typeof body.max_tokens === "number"
+        ? body.max_tokens
+        : details.requestedOutputTokens;
+    if (previousMaxTokens === undefined || details.actualTokens <= 0) {
+      return undefined;
+    }
+    const refit =
+      details.budgetTokens - details.actualTokens - WINDOW_FIT_MARGIN_TOKENS;
+    if (refit <= 0 || refit >= previousMaxTokens) {
+      return undefined;
+    }
+    logger.warn(
+      `${this.providerName}: ${body.model} rejected the request as over-window — retrying once with max_tokens re-fit from the provider's own numbers`,
+      {
+        window: details.budgetTokens,
+        inputTokens: details.actualTokens,
+        previousMaxTokens,
+        refitMaxTokens: refit,
+      },
+    );
+    return { ...body, max_tokens: refit };
   }
 
   /**
@@ -341,6 +493,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     const adjustResponseFormat = this.adjustResponseFormat.bind(this);
     const adjustRequestBody = this.adjustRequestBody.bind(this);
     const adjustBodyAfter400 = this.adjustBodyAfter400.bind(this);
+    const correctBodyAfterContextOverflow =
+      this.correctBodyAfterContextOverflow.bind(this);
+    const resolveWireMaxTokens = this.resolveWireMaxTokens.bind(this);
     const suppressResponseFormatWithTools =
       this.suppressResponseFormatWithTools.bind(this);
     const getTimeoutForOptions = (
@@ -373,8 +528,17 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           };
         } & Record<string, unknown>,
       ) => {
+        // Wire-name mapping: only materializes when at least one tool name
+        // is outside the OpenAI-compatible alphabet (see
+        // buildWireToolNameMaps) — the common all-valid case is a no-op.
+        const wireNameMaps = buildWireToolNameMaps(
+          (options.tools ?? [])
+            .filter((t) => t.type === "function")
+            .map((t) => t.name),
+        );
         const baseMessages = messageBuilderToOpenAI(
           options.prompt as OpenAICompatMessage[],
+          wireNameMaps?.toWire,
         );
         const hasTools =
           Array.isArray(options.tools) && options.tools.length > 0;
@@ -390,13 +554,22 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         // so the json_object word guard reflects whatever a subclass left on
         // the wire (it may rewrite response_format/messages), not an
         // intermediate state.
+        const wireTools = v3ToolsToOpenAI(options.tools, wireNameMaps?.toWire);
+        // Fit max_tokens to the runtime-discovered output ceiling and
+        // context window (no-op when nothing was discovered).
+        const wireMaxTokens = resolveWireMaxTokens(
+          modelId,
+          options.maxOutputTokens,
+          baseMessages,
+          wireTools,
+        );
         const body = ensureJsonWordInBody(
           adjustRequestBody(
             buildBody({
               modelId,
               messages: baseMessages,
               options: adjustBuildBodyOptions(modelId, {
-                maxTokens: options.maxOutputTokens,
+                maxTokens: wireMaxTokens,
                 temperature: options.temperature,
                 topP: options.topP,
                 presencePenalty: options.presencePenalty,
@@ -404,9 +577,14 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
                 seed: options.seed,
                 stopSequences: options.stopSequences,
               }),
-              tools: v3ToolsToOpenAI(options.tools),
+              tools: wireTools,
               ...(options.toolChoice
-                ? { toolChoice: v3ToolChoiceToOpenAI(options.toolChoice) }
+                ? {
+                    toolChoice: v3ToolChoiceToOpenAI(
+                      options.toolChoice,
+                      wireNameMaps?.toWire,
+                    ),
+                  }
                 : {}),
               streaming: false,
               ...(responseFormat ? { responseFormat } : {}),
@@ -414,18 +592,36 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             modelId,
           ),
         );
+        // Per-step timeout: the AI-SDK V3 call options never carry `timeout`,
+        // so resolving from them always returned the provider default — a
+        // caller's explicit `timeout: "15m"` bounded the outer loop but each
+        // step request stayed capped at the default (litellm: 5m). The
+        // orchestrator forwards the caller's resolved timeout via
+        // providerOptions.neurolink.timeoutMs; prefer it when present.
+        const nlStepTimeoutMs = (
+          options.providerOptions as
+            | { neurolink?: { timeoutMs?: number } }
+            | undefined
+        )?.neurolink?.timeoutMs;
         const timeoutController = createTimeoutController(
-          getTimeoutForOptions(options),
+          typeof nlStepTimeoutMs === "number"
+            ? nlStepTimeoutMs
+            : getTimeoutForOptions(options),
           providerName,
           "generate",
         );
-        const composedSignal = composeAbortSignals(
-          options.abortSignal,
-          timeoutController?.controller.signal,
-        );
-        let res: Response;
+        // Scoped composition: a plain AbortSignal.any per step accumulates
+        // registrations on the long-lived generate-call signal for the whole
+        // turn (MaxListenersExceededWarning at 10+ steps); dispose() detaches
+        // this step's listeners the moment the request settles.
+        const { signal: composedSignal, dispose: disposeComposedSignal } =
+          composeAbortSignalsScoped(
+            options.abortSignal,
+            timeoutController?.controller.signal,
+          );
+        let json: OpenAICompatChatResponse;
         try {
-          res = await fetchImpl(url, {
+          let res = await fetchImpl(url, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -436,21 +632,30 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           });
           if (!res.ok) {
             const apiErr = await buildAPIError(url, body, res);
-            // One-shot 400 retry: a subclass may strip a rejected field and
-            // return a modified body (e.g. NIM's chat_template /
-            // reasoning_budget). The retry runs under the SAME timeout
-            // controller as the first attempt, so the configured timeout caps
-            // the overall call — matching the streaming path, which reuses
-            // its composed signal for the retry.
+            // One-shot 400 retry. The overflow corrector runs FIRST (it can
+            // re-fit max_tokens from the provider's own numbers and also
+            // self-heals the runtime window registry); otherwise a subclass
+            // may strip a rejected field and return a modified body (e.g.
+            // NIM's chat_template / reasoning_budget). The retry runs under
+            // the SAME timeout controller as the first attempt, so the
+            // configured timeout caps the overall call — matching the
+            // streaming path, which reuses its composed signal for the retry.
             const retryBody =
               res.status === 400
-                ? adjustBodyAfter400(
+                ? (correctBodyAfterContextOverflow(
                     body,
                     apiErr as Error & {
                       statusCode?: number;
                       responseBody?: string;
                     },
-                  )
+                  ) ??
+                  adjustBodyAfter400(
+                    body,
+                    apiErr as Error & {
+                      statusCode?: number;
+                      responseBody?: string;
+                    },
+                  ))
                 : undefined;
             if (!retryBody) {
               throw apiErr;
@@ -468,10 +673,15 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
               throw await buildAPIError(url, retryBody, res);
             }
           }
+          // Body read stays INSIDE the timeout window: it previously ran
+          // after cleanup(), so a response whose headers arrived but whose
+          // body stalled mid-transfer was bounded by nothing but the caller's
+          // outer wall-clock.
+          json = (await res.json()) as OpenAICompatChatResponse;
         } finally {
           timeoutController?.cleanup();
+          disposeComposedSignal();
         }
-        const json = (await res.json()) as OpenAICompatChatResponse;
         const choice = json.choices?.[0];
         const text =
           (typeof choice?.message?.content === "string"
@@ -495,7 +705,10 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           content.push({
             type: "tool-call",
             toolCallId: tc.id,
-            toolName: tc.function.name,
+            // Reverse-map wire names so tool lookup/execution and results
+            // reported to the caller use the registered names.
+            toolName:
+              wireNameMaps?.fromWire.get(tc.function.name) ?? tc.function.name,
             input: tc.function.arguments ?? "",
           });
         }
@@ -584,6 +797,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
 
     let modelId: string;
     let toolsRecord: Record<string, Tool>;
+    let wireNameMaps: ReturnType<typeof buildWireToolNameMaps>;
     let openAITools: OpenAICompatChatTool[] | undefined;
     let openAIToolChoice: OpenAICompatToolChoiceWire | undefined;
     let conversation: OpenAICompatChatMessage[];
@@ -593,16 +807,23 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       toolsRecord = shouldUseTools
         ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
         : {};
+      // Wire-name mapping: only materializes when a registered tool name is
+      // outside the OpenAI-compatible alphabet (see buildWireToolNameMaps).
+      wireNameMaps = shouldUseTools
+        ? buildWireToolNameMaps(Object.keys(toolsRecord))
+        : undefined;
       openAITools = shouldUseTools
-        ? buildToolsForOpenAI(toolsRecord)
+        ? buildToolsForOpenAI(toolsRecord, wireNameMaps?.toWire)
         : undefined;
       openAIToolChoice = mapNeuroLinkToolChoice(
         resolveToolChoice(options, toolsRecord, shouldUseTools),
+        wireNameMaps?.toWire,
       );
 
       const initialMessages = await this.buildMessagesForStream(options);
       conversation = messageBuilderToOpenAI(
         initialMessages as OpenAICompatMessage[],
+        wireNameMaps?.toWire,
       );
     } catch (setupErr) {
       timeoutController?.cleanup();
@@ -636,6 +857,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       openAITools,
       openAIToolChoice,
       toolsRecord,
+      toolNameFromWire: wireNameMaps?.fromWire,
       emitter,
       toolsUsed,
       toolExecutionSummaries,
@@ -801,6 +1023,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       openAITools,
       openAIToolChoice,
       toolsRecord,
+      toolNameFromWire,
       emitter,
       toolsUsed,
       toolExecutionSummaries,
@@ -838,6 +1061,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           stepResult,
           conversation,
           toolsRecord,
+          toolNameFromWire,
           emitter,
           toolsUsed,
           toolExecutionSummaries,
@@ -878,12 +1102,25 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     openAIToolChoice: OpenAICompatToolChoiceWire | undefined;
     pushChunk: (chunk: OpenAICompatStreamChunk) => void;
   }): Promise<OpenAICompatSSEResult> {
+    // Per-step max_tokens fit: the conversation grows every step of the
+    // tool loop, so the window fit is recomputed per request (no-op when
+    // nothing was runtime-discovered).
+    const wireMaxTokens = this.resolveWireMaxTokens(
+      args.modelId,
+      args.options.maxTokens ?? undefined,
+      args.conversation,
+      args.openAITools,
+    );
+    const stepOptions =
+      wireMaxTokens !== args.options.maxTokens
+        ? { ...args.options, maxTokens: wireMaxTokens }
+        : args.options;
     const body = ensureJsonWordInBody(
       this.adjustRequestBody(
         buildBody({
           modelId: args.modelId,
           messages: args.conversation,
-          options: this.adjustBuildBodyOptions(args.modelId, args.options),
+          options: this.adjustBuildBodyOptions(args.modelId, stepOptions),
           tools: args.openAITools,
           ...(args.openAIToolChoice !== undefined
             ? { toolChoice: args.openAIToolChoice }
@@ -904,14 +1141,20 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     });
     if (!res.ok) {
       const apiErr = await buildAPIError(args.url, body, res);
-      // One-shot 400 retry — same hook as the doGenerate path (e.g. NIM
-      // strips chat_template/reasoning_budget when a model rejects them).
+      // One-shot 400 retry — overflow corrector first (re-fits max_tokens
+      // from the provider's own numbers + self-heals the window registry),
+      // then the subclass hook (e.g. NIM strips chat_template /
+      // reasoning_budget when a model rejects them).
       const retryBody =
         res.status === 400
-          ? this.adjustBodyAfter400(
+          ? (this.correctBodyAfterContextOverflow(
               body,
               apiErr as Error & { statusCode?: number; responseBody?: string },
-            )
+            ) ??
+            this.adjustBodyAfter400(
+              body,
+              apiErr as Error & { statusCode?: number; responseBody?: string },
+            ))
           : undefined;
       if (!retryBody) {
         throw apiErr;
@@ -949,6 +1192,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     stepResult: OpenAICompatSSEResult;
     conversation: OpenAICompatChatMessage[];
     toolsRecord: Record<string, Tool>;
+    toolNameFromWire?: Map<string, string>;
     emitter: ReturnType<NeuroLink["getEventEmitter"]> | undefined;
     toolsUsed: string[];
     toolExecutionSummaries: ToolExecutionSummaryInternal[];
@@ -958,6 +1202,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       stepResult,
       conversation,
       toolsRecord,
+      toolNameFromWire,
       emitter,
       toolsUsed,
       toolExecutionSummaries,
@@ -988,14 +1233,18 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       }
       let output: unknown;
       let errorMsg: string | undefined;
-      const toolDef = toolsRecord[t.name];
+      // The model calls tools by their WIRE names; execution, events, and
+      // reporting use the registered names (reverse-mapped when a wire-name
+      // map is in effect — see buildWireToolNameMaps).
+      const registryName = toolNameFromWire?.get(t.name) ?? t.name;
+      const toolDef = toolsRecord[registryName];
       emitter?.emit("tool:start", {
-        toolName: t.name,
+        toolName: registryName,
         toolCallId: t.id,
         input,
       });
       if (!toolDef || typeof toolDef.execute !== "function") {
-        errorMsg = `Tool '${t.name}' is not registered.`;
+        errorMsg = `Tool '${registryName}' is not registered.`;
         output = { error: errorMsg };
       } else {
         try {
@@ -1006,10 +1255,10 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         }
       }
       const endedAt = new Date();
-      toolsUsed.push(t.name);
+      toolsUsed.push(registryName);
       toolExecutionSummaries.push({
         toolCallId: t.id,
-        toolName: t.name,
+        toolName: registryName,
         input,
         output,
         ...(errorMsg ? { error: errorMsg } : {}),

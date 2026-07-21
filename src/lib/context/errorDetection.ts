@@ -106,6 +106,12 @@ export function getContextOverflowProvider(error: unknown): string | null {
 export function parseProviderOverflowDetails(error: unknown): {
   actualTokens: number;
   budgetTokens: number;
+  /**
+   * Output tokens the rejected request asked for, when the message states
+   * them separately (vllm/LiteLLM phrasing). Lets recovery re-fit
+   * max_tokens instead of shrinking the input.
+   */
+  requestedOutputTokens?: number;
 } | null {
   const message = extractErrorMessage(error);
   if (!message) {
@@ -129,6 +135,32 @@ export function parseProviderOverflowDetails(error: unknown): {
     return {
       actualTokens: parseInt(openaiActual[1].replace(/,/g, ""), 10),
       budgetTokens: parseInt(openaiMax[1].replace(/,/g, ""), 10),
+    };
+  }
+
+  // vllm / LiteLLM-proxied backends: "This model's maximum context length is
+  // N tokens. However, you requested X output tokens and your prompt contains
+  // at least Y input tokens..." — input and requested-output are stated
+  // separately (no "resulted in"), so recovery can re-fit max_tokens to
+  // N − Y instead of shrinking the input.
+  const vllmInput = message.match(
+    /prompt\s+contains\s+at\s+least\s+(\d[\d,]{0,19})\s+input\s+tokens/i,
+  );
+  if (vllmInput && openaiMax) {
+    const requestedOutput = message.match(
+      /requested\s+(\d[\d,]{0,19})\s+output\s+tokens/i,
+    );
+    return {
+      actualTokens: parseInt(vllmInput[1].replace(/,/g, ""), 10),
+      budgetTokens: parseInt(openaiMax[1].replace(/,/g, ""), 10),
+      ...(requestedOutput
+        ? {
+            requestedOutputTokens: parseInt(
+              requestedOutput[1].replace(/,/g, ""),
+              10,
+            ),
+          }
+        : {}),
     };
   }
 
