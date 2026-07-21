@@ -1,16 +1,18 @@
 import {
+  mkdir,
   mkdtemp,
   readFile,
   readdir,
   rm,
   stat,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { gunzip } from "node:zlib";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createProxyStartApp } from "../src/cli/commands/proxy.js";
 import {
   beginProxyRequest,
@@ -26,8 +28,12 @@ import {
   resetProxyLifecycleLoggerForTests,
 } from "../src/lib/proxy/proxyLifecycle.js";
 import {
+  __requestLoggerTestHooks,
+  cleanupLogs,
+  flushRequestLogs,
   initRequestLogger,
   logBodyCapture,
+  logRequestAttempt,
 } from "../src/lib/proxy/requestLogger.js";
 import type { ProxyResponseTerminalOutcome } from "../src/lib/types/index.js";
 import compatibilityFixture from "./fixtures/proxy-compatibility-v9.88.12.json";
@@ -65,6 +71,7 @@ function permissionBits(mode: number): string {
 }
 
 afterEach(async () => {
+  vi.useRealTimers();
   await flushProxyLifecycleEvents();
   initRequestLogger(false);
   resetProxyLifecycleLoggerForTests();
@@ -164,6 +171,123 @@ describe("proxy 9.88.12 compatibility contract", () => {
         ),
       ).toBe(true);
     }
+  });
+
+  it("preserves current-day metadata while evicting older logs and body artifacts", async () => {
+    const logDir = await makeTempDir();
+    initRequestLogger(true, logDir);
+    const now = Date.now();
+    const currentDate = new Date(now).toISOString().split("T")[0];
+    const previousDate = new Date(now - 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0];
+    const currentMetadata = [
+      `proxy-${currentDate}.jsonl`,
+      `proxy-attempts-${currentDate}.jsonl`,
+      `proxy-debug-${currentDate}.jsonl`,
+      `proxy-lifecycle-${currentDate}.jsonl`,
+    ].map((name) => join(logDir, name));
+    const previousLog = join(logDir, `proxy-${previousDate}.jsonl`);
+    const previousLifecycleLog = join(
+      logDir,
+      `proxy-lifecycle-${previousDate}.jsonl`,
+    );
+    const bodyDir = join(logDir, "bodies", currentDate, "request-1");
+    const bodyArtifact = join(bodyDir, "response.json.gz");
+
+    await mkdir(bodyDir, { recursive: true });
+    await Promise.all([
+      ...currentMetadata.map((path) => writeFile(path, "x".repeat(4096))),
+      writeFile(previousLog, "x".repeat(4096)),
+      writeFile(previousLifecycleLog, "x".repeat(4096)),
+      writeFile(bodyArtifact, "x".repeat(4096)),
+    ]);
+    const older = new Date(now - 60_000);
+    await Promise.all([
+      utimes(previousLog, older, older),
+      utimes(previousLifecycleLog, older, older),
+      utimes(bodyArtifact, older, older),
+    ]);
+
+    cleanupLogs(7, 0.001);
+
+    await Promise.all(
+      currentMetadata.map((path) => expect(stat(path)).resolves.toBeDefined()),
+    );
+    await expect(stat(previousLog)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(stat(previousLifecycleLog)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(stat(bodyArtifact)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("flushes admitted attempt writes before a rolling worker exits", async () => {
+    const logDir = await makeTempDir();
+    initRequestLogger(true, logDir);
+    const timestamp = new Date().toISOString();
+
+    void logRequestAttempt({
+      timestamp,
+      requestId: "draining-attempt",
+      attempt: 1,
+      method: "POST",
+      path: "/v1/messages",
+      model: "claude-sonnet-5",
+      stream: true,
+      toolCount: 0,
+      account: "primary@example.com",
+      accountType: "oauth",
+      responseStatus: 200,
+      responseTimeMs: 25,
+      attemptDurationMs: 20,
+    });
+    await flushRequestLogs();
+
+    const date = timestamp.split("T")[0];
+    await expect(
+      readJsonLines(join(logDir, `proxy-attempts-${date}.jsonl`)),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        requestId: "draining-attempt",
+        responseStatus: 200,
+      }),
+    ]);
+  });
+
+  it("bounds request-log flushing when an admitted operation never settles", async () => {
+    const neverSettles = new Promise<void>(() => undefined);
+    void __requestLoggerTestHooks.trackLogOperation(neverSettles);
+
+    await expect(flushRequestLogs(10)).rejects.toThrow(
+      "Timed out flushing 1 proxy request log operation(s)",
+    );
+    await expect(flushRequestLogs(10)).resolves.toBeUndefined();
+  });
+
+  it("retains operations admitted while a flush batch reaches its deadline", async () => {
+    vi.useFakeTimers();
+    let resolveLateOperation: (() => void) | undefined;
+    const lateOperation = new Promise<void>((resolve) => {
+      resolveLateOperation = resolve;
+    });
+    const firstOperation = new Promise<void>((resolve) =>
+      setTimeout(resolve, 10),
+    ).then(() => {
+      void __requestLoggerTestHooks.trackLogOperation(lateOperation);
+    });
+    void __requestLoggerTestHooks.trackLogOperation(firstOperation);
+
+    const flushing = flushRequestLogs(10);
+    const flushExpectation = expect(flushing).rejects.toThrow(
+      "Timed out flushing 1 proxy request log operation(s)",
+    );
+    await vi.advanceTimersByTimeAsync(10);
+    await flushExpectation;
+    expect(__requestLoggerTestHooks.pendingOperationCount()).toBe(1);
+
+    resolveLateOperation?.();
+    await Promise.resolve();
+    await expect(flushRequestLogs(10)).resolves.toBeUndefined();
   });
 });
 

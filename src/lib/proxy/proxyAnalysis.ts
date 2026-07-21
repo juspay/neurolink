@@ -1,26 +1,57 @@
 import { createReadStream } from "node:fs";
-import { readdir } from "node:fs/promises";
+import { lstat, readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { createInterface } from "node:readline";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import type {
   ProxyAnalysisAccount,
   ProxyAnalysisAttemptRecord,
   ProxyAnalysisFinalRequestRecord,
   ProxyAnalysisOptions,
   ProxyAnalysisReport,
+  ProxyAnalysisStreamName,
   ProxyLatencySummary,
 } from "../types/index.js";
 
 const LIFECYCLE_FILE_PATTERN = /^proxy-lifecycle-\d{4}-\d{2}-\d{2}\.jsonl$/;
 const REQUEST_FILE_PATTERN = /^proxy-\d{4}-\d{2}-\d{2}\.jsonl$/;
 const ATTEMPT_FILE_PATTERN = /^proxy-attempts-\d{4}-\d{2}-\d{2}\.jsonl$/;
+const DEBUG_FILE_PATTERN = /^proxy-debug-\d{4}-\d{2}-\d{2}\.jsonl$/;
+const ARTIFACT_STAT_CONCURRENCY = 64;
 const LIFECYCLE_EVENTS = new Set([
   "request_accepted",
   "response_headers",
   "response_first_chunk",
   "request_terminal",
 ]);
+
+function isContainedPath(root: string, candidate: string): boolean {
+  const candidateRelative = relative(root, candidate);
+  return (
+    candidateRelative.length > 0 &&
+    !isAbsolute(candidateRelative) &&
+    candidateRelative !== ".." &&
+    !candidateRelative.startsWith(`..${sep}`)
+  );
+}
+
+async function inspectBodyArtifact(
+  artifactPath: string,
+  canonicalBodiesRoot: string | null,
+): Promise<"invalid" | "missing" | "present"> {
+  if (!canonicalBodiesRoot) {
+    return "missing";
+  }
+  try {
+    const canonicalArtifactPath = await realpath(artifactPath);
+    if (!isContainedPath(canonicalBodiesRoot, canonicalArtifactPath)) {
+      return "invalid";
+    }
+    return (await stat(canonicalArtifactPath)).isFile() ? "present" : "missing";
+  } catch {
+    return "missing";
+  }
+}
 
 function increment(counter: Record<string, number>, key: string): void {
   counter[key] = (counter[key] ?? 0) + 1;
@@ -245,6 +276,7 @@ async function discoverLogFiles(logsDir: string) {
     lifecycleFiles: matching(LIFECYCLE_FILE_PATTERN),
     requestFiles: matching(REQUEST_FILE_PATTERN),
     attemptFiles: matching(ATTEMPT_FILE_PATTERN),
+    debugFiles: matching(DEBUG_FILE_PATTERN),
   };
 }
 
@@ -257,8 +289,32 @@ export async function analyzeProxyLogs(
   const logsDir = resolve(
     options?.logsDir ?? join(homedir(), ".neurolink", "logs"),
   );
-  const { lifecycleFiles, requestFiles, attemptFiles } =
+  const { lifecycleFiles, requestFiles, attemptFiles, debugFiles } =
     await discoverLogFiles(logsDir);
+
+  const observedRanges: Record<
+    ProxyAnalysisStreamName,
+    { from: number | null; to: number | null }
+  > = {
+    lifecycle: { from: null, to: null },
+    requests: { from: null, to: null },
+    attempts: { from: null, to: null },
+    debug: { from: null, to: null },
+  };
+  const observeTimestamp = (
+    stream: ProxyAnalysisStreamName,
+    record: Record<string, unknown>,
+  ): number | null => {
+    const timestamp = Date.parse(String(record.timestamp ?? ""));
+    if (!Number.isFinite(timestamp)) {
+      return null;
+    }
+    const range = observedRanges[stream];
+    range.from =
+      range.from === null ? timestamp : Math.min(range.from, timestamp);
+    range.to = range.to === null ? timestamp : Math.max(range.to, timestamp);
+    return timestamp;
+  };
 
   let linesRead = 0;
   let malformedLines = 0;
@@ -279,8 +335,8 @@ export async function analyzeProxyLogs(
     linesRead += await readJsonLines(
       filePath,
       (record) => {
-        const timestamp = Date.parse(String(record.timestamp ?? ""));
-        if (!Number.isFinite(timestamp) || timestamp < sinceMs) {
+        const timestamp = observeTimestamp("lifecycle", record);
+        if (timestamp === null || timestamp < sinceMs) {
           return;
         }
         const event = stringValue(record.event);
@@ -369,8 +425,8 @@ export async function analyzeProxyLogs(
     linesRead += await readJsonLines(
       filePath,
       (record) => {
-        const timestamp = Date.parse(String(record.timestamp ?? ""));
-        if (!Number.isFinite(timestamp) || timestamp < sinceMs) {
+        const timestamp = observeTimestamp("attempts", record);
+        if (timestamp === null || timestamp < sinceMs) {
           return;
         }
         const requestId = stringValue(record.requestId);
@@ -437,8 +493,8 @@ export async function analyzeProxyLogs(
     linesRead += await readJsonLines(
       filePath,
       (record) => {
-        const timestamp = Date.parse(String(record.timestamp ?? ""));
-        if (!Number.isFinite(timestamp) || timestamp < sinceMs) {
+        const timestamp = observeTimestamp("requests", record);
+        if (timestamp === null || timestamp < sinceMs) {
           return;
         }
         const requestId = stringValue(record.requestId);
@@ -471,6 +527,81 @@ export async function analyzeProxyLogs(
     );
   }
 
+  let capturesIndexed = 0;
+  let truncatedCaptures = 0;
+  let writeFailures = 0;
+  let invalidPaths = 0;
+  const referencedArtifacts = new Set<string>();
+  const bodiesRoot = resolve(logsDir, "bodies");
+  for (const filePath of debugFiles) {
+    linesRead += await readJsonLines(
+      filePath,
+      (record) => {
+        const timestamp = observeTimestamp("debug", record);
+        if (timestamp === null || timestamp < sinceMs) {
+          return;
+        }
+        if (record.type !== "body_capture") {
+          return;
+        }
+        capturesIndexed += 1;
+        truncatedCaptures += record.bodyTruncated === true ? 1 : 0;
+        writeFailures += record.bodyWriteFailed === true ? 1 : 0;
+        const bodyPath = stringValue(record.bodyPath);
+        if (!bodyPath) {
+          return;
+        }
+        if (bodyPath.includes("\0") || bodyPath.split(/[\\/]/).includes("..")) {
+          invalidPaths += 1;
+          return;
+        }
+        const resolvedBodyPath = resolve(logsDir, bodyPath);
+        if (!isContainedPath(bodiesRoot, resolvedBodyPath)) {
+          invalidPaths += 1;
+          return;
+        }
+        referencedArtifacts.add(resolvedBodyPath);
+      },
+      () => {
+        malformedLines += 1;
+      },
+    );
+  }
+  const artifactPaths = [...referencedArtifacts];
+  let canonicalBodiesRoot: string | null = null;
+  let bodiesRootUnsafe = false;
+  try {
+    const bodiesRootStat = await lstat(bodiesRoot);
+    if (bodiesRootStat.isDirectory() && !bodiesRootStat.isSymbolicLink()) {
+      canonicalBodiesRoot = await realpath(bodiesRoot);
+    } else {
+      bodiesRootUnsafe = true;
+    }
+  } catch {
+    // A missing body directory means every lexically valid reference is absent.
+  }
+  let artifactsPresent = 0;
+  let artifactsMissing = 0;
+  for (
+    let offset = 0;
+    offset < artifactPaths.length;
+    offset += ARTIFACT_STAT_CONCURRENCY
+  ) {
+    const presence = await Promise.all(
+      artifactPaths
+        .slice(offset, offset + ARTIFACT_STAT_CONCURRENCY)
+        .map((artifactPath) =>
+          bodiesRootUnsafe
+            ? Promise.resolve<"invalid" | "missing" | "present">("invalid")
+            : inspectBodyArtifact(artifactPath, canonicalBodiesRoot),
+        ),
+    );
+    artifactsPresent += presence.filter((value) => value === "present").length;
+    artifactsMissing += presence.filter((value) => value === "missing").length;
+    invalidPaths += presence.filter((value) => value === "invalid").length;
+  }
+  const artifactsReferenced = artifactsPresent + artifactsMissing;
+
   const finalSummary = summarizeFinalRequests(
     finalRequests,
     terminalStreamErrors,
@@ -486,11 +617,13 @@ export async function analyzeProxyLogs(
       lifecycle: lifecycleFiles.length,
       requests: requestFiles.length,
       attempts: attemptFiles.length,
+      debug: debugFiles.length,
     },
     coverage: {
-      lifecycle: lifecycleFiles.length > 0,
-      finalRequests: requestFiles.length > 0,
-      attempts: attemptFiles.length > 0,
+      lifecycle:
+        accepted.size + headers.size + firstChunks.size + terminal.size > 0,
+      finalRequests: finalRequests.size > 0 || terminalStreamErrors.size > 0,
+      attempts: totalAttempts > 0,
       attemptLatency: attemptLatency.length > 0,
       cacheUsage: finalSummary.cache.requestsWithUsage > 0,
     },
@@ -500,6 +633,28 @@ export async function analyzeProxyLogs(
       unsupportedLifecycleLines,
       lifecycleSequenceGaps,
       lifecycleSequenceDuplicates,
+      streams: Object.fromEntries(
+        Object.entries(observedRanges).map(([stream, range]) => [
+          stream,
+          {
+            observedFrom:
+              range.from === null ? null : new Date(range.from).toISOString(),
+            observedTo:
+              range.to === null ? null : new Date(range.to).toISOString(),
+            startsAtOrBeforeRequestedWindow:
+              range.from !== null && range.from <= sinceMs,
+          },
+        ]),
+      ) as ProxyAnalysisReport["dataQuality"]["streams"],
+      bodyArtifacts: {
+        capturesIndexed,
+        artifactsReferenced,
+        artifactsPresent,
+        artifactsMissing,
+        invalidPaths,
+        writeFailures,
+        truncatedCaptures,
+      },
     },
     lifecycle: {
       accepted: accepted.size,

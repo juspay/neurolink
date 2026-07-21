@@ -179,6 +179,19 @@ describe("proxy runtime error finalization", () => {
     expect(response.status).toBe(400);
     await response.text();
     expect(getStats()).toMatchObject({ totalRequests: 1, totalErrors: 1 });
+    const status = await (await app.request("/status")).json();
+    expect(status.stats.accounts).toEqual([
+      expect.objectContaining({
+        label: "unattributed",
+        type: "internal",
+        attempts: 0,
+        requests: 1,
+        success: 0,
+        errors: 1,
+        cooling: false,
+        status: "unattributed",
+      }),
+    ]);
     expect(getProxyActivitySnapshot().activeRequests).toBe(0);
   });
 

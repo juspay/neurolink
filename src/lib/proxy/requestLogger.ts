@@ -18,7 +18,7 @@ import {
   statSync,
   unlinkSync,
 } from "fs";
-import { appendFile, writeFile } from "fs/promises";
+import { writeFile } from "fs/promises";
 import { createHash } from "crypto";
 import { promisify } from "util";
 import { gzip as gzipCallback } from "zlib";
@@ -33,9 +33,56 @@ import { OtelBridge } from "../observability/otelBridge.js";
 import { SeverityNumber } from "@opentelemetry/api-logs";
 import type { LoggerProvider } from "@opentelemetry/sdk-logs";
 import { configureProxyLifecycleLogger } from "./proxyLifecycle.js";
+import { withTimeout } from "../utils/async/withTimeout.js";
 
 let logDir: string | null = null;
 let logEnabled = false;
+const pendingLogOperations = new Set<Promise<unknown>>();
+const REQUEST_LOG_IO_TIMEOUT_MS = 5_000;
+
+function trackLogOperation<T>(operation: Promise<T>): Promise<T> {
+  pendingLogOperations.add(operation);
+  void operation.then(
+    () => pendingLogOperations.delete(operation),
+    () => pendingLogOperations.delete(operation),
+  );
+  return operation;
+}
+
+/** Wait, up to a bounded deadline, for admitted request/body writes to settle. */
+export async function flushRequestLogs(
+  timeoutMs: number = REQUEST_LOG_IO_TIMEOUT_MS,
+): Promise<void> {
+  const deadline = Date.now() + Math.max(1, timeoutMs);
+  while (pendingLogOperations.size > 0) {
+    const admitted = [...pendingLogOperations];
+    const remainingMs = Math.max(1, deadline - Date.now());
+    try {
+      await withTimeout(
+        Promise.allSettled(admitted),
+        remainingMs,
+        `Timed out flushing ${admitted.length} proxy request log operation(s)`,
+      );
+    } catch (error) {
+      for (const operation of admitted) {
+        pendingLogOperations.delete(operation);
+      }
+      throw error;
+    }
+    if (Date.now() >= deadline && pendingLogOperations.size > 0) {
+      const remaining = pendingLogOperations.size;
+      throw new Error(
+        `Timed out flushing ${remaining} proxy request log operation(s)`,
+      );
+    }
+  }
+}
+
+/** @internal Test-only hook for exercising shutdown behavior without real I/O. */
+export const __requestLoggerTestHooks = {
+  pendingOperationCount: () => pendingLogOperations.size,
+  trackLogOperation,
+};
 
 /**
  * Lazily-resolved LoggerProvider from OTel instrumentation.
@@ -124,7 +171,13 @@ export async function logRequest(entry: RequestLogEntry): Promise<void> {
   const line = JSON.stringify(entry) + "\n";
 
   try {
-    await appendFile(logFile, line, { mode: 0o600 });
+    await trackLogOperation(
+      writeFile(logFile, line, {
+        mode: 0o600,
+        flag: "a",
+        signal: AbortSignal.timeout(REQUEST_LOG_IO_TIMEOUT_MS),
+      }),
+    );
   } catch {
     // Non-fatal — don't crash proxy for logging failures
   }
@@ -161,7 +214,13 @@ export async function logRequestAttempt(
   const line = JSON.stringify(entry) + "\n";
 
   try {
-    await appendFile(logFile, line, { mode: 0o600 });
+    await trackLogOperation(
+      writeFile(logFile, line, {
+        mode: 0o600,
+        flag: "a",
+        signal: AbortSignal.timeout(REQUEST_LOG_IO_TIMEOUT_MS),
+      }),
+    );
   } catch {
     // Non-fatal — don't crash proxy for logging failures
   }
@@ -452,7 +511,7 @@ function collectManagedLogFiles(rootDir: string): ManagedLogFile[] {
 
       const isTopLevelProxyLog =
         directory === rootDir &&
-        /^proxy(?:-attempts|-debug)?-.*\.jsonl$/.test(entry.name);
+        /^proxy(?:-attempts|-debug|-lifecycle)?-.*\.jsonl$/.test(entry.name);
       const isBodyArtifact =
         entry.name.endsWith(".json.gz") &&
         entryPath.includes(`${join(rootDir, "bodies")}`);
@@ -540,7 +599,10 @@ async function writeBodyArtifact(
     metadata: entry.metadata,
   });
   const compressed = await gzip(payload);
-  await writeFile(bodyPath, compressed, { mode: 0o600 });
+  await writeFile(bodyPath, compressed, {
+    mode: 0o600,
+    signal: AbortSignal.timeout(REQUEST_LOG_IO_TIMEOUT_MS),
+  });
 
   return {
     bodyPath,
@@ -641,11 +703,13 @@ export async function logBodyCapture(
 
   let stored: StoredBodyArtifact;
   try {
-    stored = await writeBodyArtifact(
-      entry,
-      redactedHeaders,
-      preparedBody.value,
-      preparedBody.truncated,
+    stored = await trackLogOperation(
+      writeBodyArtifact(
+        entry,
+        redactedHeaders,
+        preparedBody.value,
+        preparedBody.truncated,
+      ),
     );
   } catch (writeError) {
     logger.warn(
@@ -656,6 +720,7 @@ export async function logBodyCapture(
       redactedBody: preparedBody.value,
       redactedBodyBytes: preparedBody.bytes,
       bodyTruncated: preparedBody.truncated,
+      bodyWriteFailed: true,
     };
   }
 
@@ -681,6 +746,7 @@ export async function logBodyCapture(
     redactedBodyBytes: stored.redactedBodyBytes ?? preparedBody.bytes,
     storedFileBytes: stored.storedFileBytes,
     bodyTruncated: stored.bodyTruncated ?? preparedBody.truncated,
+    bodyWriteFailed: stored.bodyWriteFailed,
     metadata: entry.metadata,
   };
 
@@ -690,9 +756,13 @@ export async function logBodyCapture(
   }
 
   try {
-    await appendFile(logFile, JSON.stringify(indexEntry) + "\n", {
-      mode: 0o600,
-    });
+    await trackLogOperation(
+      writeFile(logFile, JSON.stringify(indexEntry) + "\n", {
+        mode: 0o600,
+        flag: "a",
+        signal: AbortSignal.timeout(REQUEST_LOG_IO_TIMEOUT_MS),
+      }),
+    );
   } catch {
     // Non-fatal
   }
@@ -797,9 +867,13 @@ export async function logStreamError(entry: {
   }
 
   try {
-    await appendFile(logFile, JSON.stringify(logEntry) + "\n", {
-      mode: 0o600,
-    });
+    await trackLogOperation(
+      writeFile(logFile, JSON.stringify(logEntry) + "\n", {
+        mode: 0o600,
+        flag: "a",
+        signal: AbortSignal.timeout(REQUEST_LOG_IO_TIMEOUT_MS),
+      }),
+    );
   } catch {
     // Non-fatal — don't crash proxy for logging failures
   }
@@ -824,6 +898,14 @@ export function cleanupLogs(
     const files = collectManagedLogFiles(activeLogDir).sort(
       (a, b) => a.mtime - b.mtime,
     ); // oldest first
+    const currentDate = new Date().toISOString().split("T")[0];
+    const currentMetadataLogs = new Set(
+      ["proxy", "proxy-attempts", "proxy-debug", "proxy-lifecycle"].map(
+        (prefix) => join(activeLogDir, `${prefix}-${currentDate}.jsonl`),
+      ),
+    );
+    const canDelete = (file: ManagedLogFile) =>
+      !currentMetadataLogs.has(file.path);
 
     const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
     let deletedCount = 0;
@@ -832,7 +914,7 @@ export function cleanupLogs(
     // Pass 1: delete files older than maxAgeDays
     const remaining = [];
     for (const file of files) {
-      if (file.mtime < cutoff) {
+      if (file.mtime < cutoff && canDelete(file)) {
         unlinkSync(file.path);
         deletedCount++;
         freedBytes += file.size;
@@ -849,9 +931,14 @@ export function cleanupLogs(
     // Pass 2: if total size exceeds maxSizeMb, delete oldest until under limit
     const maxBytes = maxSizeMb * 1024 * 1024;
     let totalSize = remaining.reduce((sum, f) => sum + f.size, 0);
+    const deletionCandidates = remaining.filter(canDelete);
 
-    while (totalSize > maxBytes && remaining.length > 0) {
-      const oldest = remaining.shift();
+    // Current-day metadata is the only reliable source for final-request,
+    // attempt, lifecycle, and body-index reconciliation. Keep those indexes
+    // intact during size cleanup; body artifacts and older indexes remain
+    // eligible for eviction.
+    while (totalSize > maxBytes && deletionCandidates.length > 0) {
+      const oldest = deletionCandidates.shift();
       if (!oldest) {
         break;
       }

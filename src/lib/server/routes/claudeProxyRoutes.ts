@@ -3150,6 +3150,7 @@ async function handleAnthropicSuccessfulResponse(args: {
     attemptNumber,
     finalBodyStr,
     upstreamSpan,
+    logAttempt,
     logProxyBody,
     logFinalRequest,
   });
@@ -3200,6 +3201,8 @@ async function handleAnthropicStreamingSuccessResponse(args: {
     logFinalRequest,
   } = args;
   if (!response.body) {
+    recordAttemptError(account.label, account.type, 502);
+    logAttempt(502, "stream_error", "No response body from upstream");
     upstreamSpan?.end();
     tracer?.setError("stream_error", "No response body from upstream");
     tracer?.end(502, Date.now() - requestStartTime);
@@ -3370,6 +3373,9 @@ async function handleAnthropicStreamingSuccessResponse(args: {
     };
   }
 
+  logAttempt(response.status, undefined, undefined, {
+    attemptDurationMs: Date.now() - fetchStartMs,
+  });
   const streamOutcomeTracker = createStreamTerminalOutcomeTracker();
   let mainStreamClosed = false;
   const remainingStream = new ReadableStream({
@@ -3812,6 +3818,7 @@ async function handleAnthropicJsonSuccessResponse(args: {
   attemptNumber: number;
   finalBodyStr: string;
   upstreamSpan?: import("@opentelemetry/api").Span;
+  logAttempt: AnthropicAttemptLogger;
   logProxyBody: ProxyBodyCaptureLogger;
   logFinalRequest: (
     status: number,
@@ -3837,10 +3844,14 @@ async function handleAnthropicJsonSuccessResponse(args: {
     attemptNumber,
     finalBodyStr,
     upstreamSpan,
+    logAttempt,
     logProxyBody,
     logFinalRequest,
   } = args;
   const responseText = await response.text();
+  logAttempt(response.status, undefined, undefined, {
+    attemptDurationMs: Date.now() - fetchStartMs,
+  });
   tracer?.logUpstreamResponseBody(responseText);
   logProxyBody({
     phase: "upstream_response",
@@ -3951,9 +3962,7 @@ async function handleAnthropicJsonSuccessResponse(args: {
   return { response: responseJson };
 }
 
-async function handleAnthropicSuccessfulRetryResponse(args: {
-  ctx: ServerContext;
-  body: ClaudeRequest;
+async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
   account: ProxyPassthroughAccount;
   accountState: RuntimeAccountState;
   retryResp: Response;
@@ -3963,6 +3972,7 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
   attemptNumber: number;
   finalBodyStr: string;
   upstreamSpan?: import("@opentelemetry/api").Span;
+  logAttempt: AnthropicAttemptLogger;
   logProxyBody: ProxyBodyCaptureLogger;
   logFinalRequest: (
     status: number,
@@ -3979,7 +3989,6 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
   ) => void;
 }): Promise<Response | unknown> {
   const {
-    body,
     account,
     accountState,
     retryResp,
@@ -3989,6 +3998,7 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
     attemptNumber,
     finalBodyStr,
     upstreamSpan,
+    logAttempt,
     logProxyBody,
     logFinalRequest,
   } = args;
@@ -4016,66 +4026,11 @@ async function handleAnthropicSuccessfulRetryResponse(args: {
     });
   }
 
-  if (body.stream && retryResp.body) {
-    const retryReader = retryResp.body.getReader();
-    const streamOutcomeTracker = createStreamTerminalOutcomeTracker();
-    let retryStreamClosed = false;
-    const retryStream = new ReadableStream({
-      async pull(controller) {
-        if (retryStreamClosed) {
-          return;
-        }
-        try {
-          const { done, value } = await retryReader.read();
-          if (retryStreamClosed) {
-            return;
-          }
-          if (done) {
-            retryStreamClosed = true;
-            streamOutcomeTracker.complete();
-            controller.close();
-            return;
-          }
-          controller.enqueue(value);
-        } catch (streamErr) {
-          const errMsg = describeTransportError(streamErr);
-          logger.always(
-            `[proxy] mid-stream error (auth-retry) account=${account.label}: ${errMsg}`,
-          );
-          streamOutcomeTracker.fail(errMsg);
-          if (!retryStreamClosed) {
-            retryStreamClosed = true;
-            const errorEvent = `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "api_error", message: `Upstream stream interrupted: ${errMsg}` } })}\n\n`;
-            controller.enqueue(new TextEncoder().encode(errorEvent));
-            controller.close();
-          }
-        }
-      },
-      cancel() {
-        retryStreamClosed = true;
-        streamOutcomeTracker.cancel();
-        return retryReader.cancel();
-      },
-    });
-
-    return attachAnthropicSuccessStreamTelemetry({
-      account,
-      response: retryResp,
-      responseHeaders: Object.fromEntries([...retryResp.headers.entries()]),
-      remainingStream: retryStream,
-      streamOutcome: streamOutcomeTracker.outcome,
-      tracer,
-      requestStartTime,
-      attemptNumber,
-      finalBodyStr,
-      upstreamSpan,
-      logProxyBody,
-      logFinalRequest,
-    });
-  }
-
   const retryRespHeaders = Object.fromEntries([...retryResp.headers.entries()]);
   const retryText = await retryResp.text();
+  logAttempt(retryResp.status, undefined, undefined, {
+    attemptDurationMs: Date.now() - fetchStartMs,
+  });
   tracer?.logUpstreamResponseHeaders(retryRespHeaders);
   tracer?.logUpstreamResponseBody(retryText);
   logProxyBody({
@@ -4264,7 +4219,8 @@ async function handleAnthropicAuthRetry(args: {
       logAttempt(status, errorType, errorMessage, {
         ...extra,
         attempt: retryAttemptNumber,
-        attemptDurationMs: Date.now() - retryAttemptStartedAt,
+        attemptDurationMs:
+          extra?.attemptDurationMs ?? Date.now() - retryAttemptStartedAt,
       });
     const retryBodyStr = buildUpstreamBody(account.token).bodyStr;
     const retryFetchStartMs = Date.now();
@@ -4293,23 +4249,55 @@ async function handleAnthropicAuthRetry(args: {
         logger.always(
           `[proxy] ← 200 account=${account.label} (after ${authRetry + 1} refresh(es))`,
         );
-        const successResponse = await handleAnthropicSuccessfulRetryResponse({
-          ctx,
-          body,
-          account,
-          accountState,
-          retryResp,
-          tracer,
-          requestStartTime,
-          fetchStartMs: retryFetchStartMs,
-          attemptNumber: retryAttemptNumber,
-          finalBodyStr: retryBodyStr,
-          upstreamSpan: currentUpstreamSpan,
-          logProxyBody,
-          logFinalRequest,
-        });
+        const successResult = body.stream
+          ? await handleAnthropicSuccessfulResponse({
+              ctx,
+              body,
+              account,
+              accountState,
+              response: retryResp,
+              tracer,
+              requestStartTime,
+              fetchStartMs: retryFetchStartMs,
+              attemptNumber: retryAttemptNumber,
+              finalBodyStr: retryBodyStr,
+              upstreamSpan: currentUpstreamSpan,
+              logAttempt: retryLogAttempt,
+              logProxyBody,
+              logFinalRequest,
+            })
+          : {
+              response: await handleAnthropicSuccessfulNonStreamRetryResponse({
+                account,
+                accountState,
+                retryResp,
+                tracer,
+                requestStartTime,
+                fetchStartMs: retryFetchStartMs,
+                attemptNumber: retryAttemptNumber,
+                finalBodyStr: retryBodyStr,
+                upstreamSpan: currentUpstreamSpan,
+                logAttempt: retryLogAttempt,
+                logProxyBody,
+                logFinalRequest,
+              }),
+            };
+        if ("retryNextAccount" in successResult) {
+          const failure = successResult.failure;
+          return {
+            continueLoop: true,
+            lastError: failure?.message ?? currentLastError,
+            authFailureMessage: currentAuthFailureMessage,
+            sawRateLimit: currentSawRateLimit || Boolean(failure?.rateLimit),
+            sawTransientFailure:
+              currentSawTransientFailure ||
+              Boolean(failure && !failure.rateLimit),
+            sawNetworkError: currentSawNetworkError,
+            upstreamSpan: undefined,
+          };
+        }
         return {
-          response: successResponse,
+          response: successResult.response,
           continueLoop: false,
           lastError: currentLastError,
           authFailureMessage: currentAuthFailureMessage,

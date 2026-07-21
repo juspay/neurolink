@@ -709,6 +709,77 @@ describe("upstream attempt classification and retry amplification", () => {
     );
   });
 
+  it("records duration for a successful non-stream OAuth retry", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            access_token: "refreshed-access",
+            refresh_token: "refreshed-refresh",
+            expires_in: 3600,
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            type: "message",
+            usage: { input_tokens: 7, output_tokens: 3 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    const account = {
+      key: "anthropic:primary@example.com",
+      label: "primary@example.com",
+      token: "expired-access",
+      refreshToken: "valid-refresh",
+      type: "oauth" as const,
+    };
+    const logAttempt = vi.fn();
+    const logFinalRequest = vi.fn();
+    recordAttempt(account.label, account.type);
+
+    const result = await __testHooks.handleAnthropicAuthRetry({
+      ctx: {} as never,
+      body: { model: "claude-sonnet-5", messages: [], stream: false },
+      account,
+      accountState: {
+        consecutiveRefreshFailures: 0,
+        permanentlyDisabled: false,
+      },
+      headers: { "content-type": "application/json" },
+      buildUpstreamBody: () => ({ bodyStr: "{}" }),
+      enabledAccounts: [account],
+      orderedAccounts: [account],
+      requestStartTime: Date.now(),
+      allocateAttemptNumber: () => 3,
+      logAttempt,
+      logProxyBody: vi.fn(),
+      logFinalRequest,
+      lastError: undefined,
+      authFailureMessage: null,
+      sawRateLimit: false,
+      sawTransientFailure: false,
+      sawNetworkError: false,
+    });
+
+    expect(result).toMatchObject({
+      continueLoop: false,
+      response: { type: "message" },
+    });
+    expect(logAttempt).toHaveBeenNthCalledWith(2, 200, undefined, undefined, {
+      attempt: 3,
+      attemptDurationMs: expect.any(Number),
+    });
+    expect(logFinalRequest).toHaveBeenCalledWith(
+      200,
+      account.label,
+      account.type,
+    );
+  });
+
   it("classifies terminal OAuth retry transport failures as non-retryable", async () => {
     const retryError = Object.assign(new TypeError("invalid URL"), {
       cause: { code: "ERR_INVALID_URL" },
@@ -775,6 +846,90 @@ describe("upstream attempt classification and retry amplification", () => {
         attemptDurationMs: expect.any(Number),
       },
     );
+  });
+
+  it("preflights immediate SSE rate limits after OAuth refresh before client commit", async () => {
+    const streamError =
+      'event: error\ndata: {"type":"error","error":{"type":"rate_limit_error","message":"rate limited after refresh"}}\n\n';
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            access_token: "refreshed-access",
+            refresh_token: "refreshed-refresh",
+            expires_in: 3600,
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(streamError, {
+          status: 200,
+          headers: {
+            "content-type": "text/event-stream",
+            "retry-after": "1",
+            "anthropic-ratelimit-unified-status": "allowed",
+          },
+        }),
+      );
+    const account = {
+      key: "anthropic:primary@example.com",
+      label: "primary@example.com",
+      token: "expired-access",
+      refreshToken: "valid-refresh",
+      type: "oauth" as const,
+    };
+    const logAttempt = vi.fn();
+    recordAttempt(account.label, account.type);
+
+    const result = await __testHooks.handleAnthropicAuthRetry({
+      ctx: {} as never,
+      body: { model: "claude-sonnet-5", messages: [], stream: true },
+      account,
+      accountState: {
+        consecutiveRefreshFailures: 0,
+        permanentlyDisabled: false,
+      },
+      headers: { "content-type": "application/json" },
+      buildUpstreamBody: () => ({ bodyStr: "{}" }),
+      enabledAccounts: [account],
+      orderedAccounts: [account],
+      requestStartTime: Date.now(),
+      allocateAttemptNumber: () => 2,
+      logAttempt,
+      logProxyBody: vi.fn(),
+      logFinalRequest: vi.fn(),
+      lastError: undefined,
+      authFailureMessage: null,
+      sawRateLimit: false,
+      sawTransientFailure: false,
+      sawNetworkError: false,
+    });
+
+    expect(result).toMatchObject({
+      continueLoop: true,
+      sawRateLimit: true,
+      sawTransientFailure: false,
+      lastError: "rate limited after refresh",
+    });
+    expect(result.response).toBeUndefined();
+    expect(logAttempt).toHaveBeenNthCalledWith(
+      2,
+      429,
+      "rate_limit_error",
+      "rate limited after refresh",
+      expect.objectContaining({
+        attempt: 2,
+        retryable: true,
+        rateLimitKind: "transient",
+      }),
+    );
+    expect(getStats()).toMatchObject({
+      totalAttempts: 2,
+      totalAttemptErrors: 2,
+      totalRateLimits: 1,
+      totalRequests: 0,
+    });
   });
 
   it("still counts and plans cooldown for a genuine transient 429", async () => {
@@ -1650,6 +1805,7 @@ describe("stream terminal outcomes", () => {
       type: "oauth" as const,
     };
     const logFinalRequest = vi.fn();
+    const logAttempt = vi.fn();
     const logProxyBody = vi.fn();
     const upstreamSpan = { end: vi.fn() };
     const tracer = {
@@ -1682,7 +1838,7 @@ describe("stream terminal outcomes", () => {
       attemptNumber: 1,
       finalBodyStr: "{}",
       upstreamSpan: upstreamSpan as never,
-      logAttempt: vi.fn(),
+      logAttempt,
       logProxyBody,
       logFinalRequest,
     });
@@ -1690,6 +1846,10 @@ describe("stream terminal outcomes", () => {
     expect(result).not.toHaveProperty("retryNextAccount");
     await (result.response as Response).text();
     await vi.waitFor(() => expect(logFinalRequest).toHaveBeenCalledTimes(1));
+
+    expect(logAttempt).toHaveBeenCalledWith(200, undefined, undefined, {
+      attemptDurationMs: expect.any(Number),
+    });
 
     expect(logFinalRequest).toHaveBeenCalledWith(
       502,
@@ -1742,6 +1902,14 @@ describe("launchd lifecycle source invariants", () => {
     expect(source).toContain('"proxy-supervisor-state.json"');
     expect(source).toContain("const servingWorker =");
     expect(source).toContain(
+      "const servingState = servingWorker ? state : null",
+    );
+    expect(source).toContain('type: "proxy-worker:replacement-requested"');
+    expect(source).toContain(
+      "status.strategy = servingState?.strategy ?? null",
+    );
+    expect(source).not.toContain("status.strategy = state?.strategy ?? null");
+    expect(source).toContain(
       "rolling activation failed; restoring @juspay/neurolink@",
     );
     expect(source).toContain("package rollback complete");
@@ -1770,7 +1938,6 @@ describe("launchd lifecycle source invariants", () => {
     expect(source).not.toContain("tokenChanged || legacyTransientDisable");
     expect(source).toContain("initAccountCooldown(devPaths.cooldownFile)");
     expect(source).not.toContain("Ignoring default config");
-    expect(source).not.toContain("cooling: false");
     expect(source).toContain("catch(forceExitAfterShutdownFailure)");
     expect(source).toContain("Timed out draining the proxy server");
     expect(source).toContain("await Promise.allSettled([");
@@ -1779,6 +1946,19 @@ describe("launchd lifecycle source invariants", () => {
     );
     expect(source).toContain(
       "Timed out flushing proxy lifecycle metadata during shutdown",
+    );
+    expect(source).toContain(
+      "Timed out flushing proxy request logs during shutdown",
+    );
+    const rollingServer = await readFile(
+      new URL("../src/lib/proxy/rollingProxyServer.ts", import.meta.url),
+      "utf8",
+    );
+    expect(rollingServer).toContain(
+      "await new Promise<void>((resolve) => listener.close(() => resolve()))",
+    );
+    expect(rollingServer).toContain(
+      "await supervisor.close().catch(() => undefined)",
     );
     const startAllowedIndex = startHandler.indexOf(
       "await ensureProxyStartAllowed(spinner)",

@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -269,6 +269,75 @@ describe("offline proxy log analysis", () => {
     });
   });
 
+  it("reports per-stream coverage and missing body artifacts without reading bodies", async () => {
+    const logDir = await mkdtemp(join(tmpdir(), "neurolink-analysis-"));
+    tempDirs.push(logDir);
+    const bodyDir = join(logDir, "bodies", "2026-07-18", "request-1");
+    const presentBody = join(bodyDir, "present.json.gz");
+    const missingBody = join(bodyDir, "missing.json.gz");
+    const escapedBody = join(bodyDir, "escaped.json.gz");
+    const outsideBody = join(logDir, "outside-body.json.gz");
+    await mkdir(bodyDir, { recursive: true });
+    await writeFile(presentBody, "not-read-by-the-analyzer");
+    await writeFile(outsideBody, "outside-the-body-sandbox");
+    await symlink(outsideBody, escapedBody);
+    await writeJsonLines(logDir, "proxy-debug-2026-07-18.jsonl", [
+      {
+        timestamp: "2026-07-18T10:00:00.000Z",
+        type: "body_capture",
+        bodyPath: presentBody,
+        bodyTruncated: true,
+      },
+      {
+        timestamp: "2026-07-18T11:00:00.000Z",
+        type: "body_capture",
+        bodyPath: missingBody,
+      },
+      {
+        timestamp: "2026-07-18T11:30:00.000Z",
+        type: "body_capture",
+        bodyWriteFailed: true,
+      },
+      {
+        timestamp: "2026-07-18T11:45:00.000Z",
+        type: "body_capture",
+        bodyPath: join(logDir, "outside.json.gz"),
+      },
+      {
+        timestamp: "2026-07-18T11:46:00.000Z",
+        type: "body_capture",
+        bodyPath: escapedBody,
+      },
+      {
+        timestamp: "2026-07-18T11:47:00.000Z",
+        type: "body_capture",
+        bodyPath: "bodies/unsafe\0artifact.json.gz",
+      },
+    ]);
+
+    const report = await analyzeProxyLogs({
+      logsDir: logDir,
+      since: "2h",
+      nowMs,
+    });
+
+    expect(report.files.debug).toBe(1);
+    expect(report.dataQuality.streams.debug).toEqual({
+      observedFrom: "2026-07-18T10:00:00.000Z",
+      observedTo: "2026-07-18T11:47:00.000Z",
+      startsAtOrBeforeRequestedWindow: true,
+    });
+    expect(report.dataQuality.bodyArtifacts).toEqual({
+      capturesIndexed: 6,
+      artifactsReferenced: 2,
+      artifactsPresent: 1,
+      artifactsMissing: 1,
+      invalidPaths: 3,
+      writeFailures: 1,
+      truncatedCaptures: 1,
+    });
+  });
+
   it("marks absent telemetry as unavailable instead of treating it as zero", async () => {
     const logDir = await mkdtemp(join(tmpdir(), "neurolink-analysis-"));
     tempDirs.push(logDir);
@@ -288,5 +357,33 @@ describe("offline proxy log analysis", () => {
     });
     expect(report.requests.completed).toBe(0);
     expect(report.lifecycle.unsettled).toBe(0);
+  });
+
+  it("does not claim attempt coverage from a file with no records in the requested window", async () => {
+    const logDir = await mkdtemp(join(tmpdir(), "neurolink-analysis-"));
+    tempDirs.push(logDir);
+    await writeJsonLines(logDir, "proxy-attempts-2026-07-18.jsonl", [
+      {
+        timestamp: "2026-07-18T08:00:00.000Z",
+        requestId: "old-attempt",
+        account: "old@example.com",
+        accountType: "oauth",
+        responseStatus: 200,
+        attemptDurationMs: 10,
+      },
+    ]);
+
+    const report = await analyzeProxyLogs({
+      logsDir: logDir,
+      since: "2h",
+      nowMs,
+    });
+
+    expect(report.files.attempts).toBe(1);
+    expect(report.coverage.attempts).toBe(false);
+    expect(report.attempts.total).toBe(0);
+    expect(report.dataQuality.streams.attempts.observedTo).toBe(
+      "2026-07-18T08:00:00.000Z",
+    );
   });
 });

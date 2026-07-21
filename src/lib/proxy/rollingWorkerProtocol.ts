@@ -50,6 +50,7 @@ export function isProxyWorkerStatusMessage(
     version?: unknown;
     message?: unknown;
     socketId?: unknown;
+    reason?: unknown;
   };
   if (
     !Number.isSafeInteger(message.generation) ||
@@ -70,6 +71,9 @@ export function isProxyWorkerStatusMessage(
   }
   if (message.type === "proxy-worker:socket-accepted") {
     return typeof message.socketId === "string" && message.socketId.length > 0;
+  }
+  if (message.type === "proxy-worker:replacement-requested") {
+    return message.reason === "environment";
   }
   return (
     message.type === "proxy-worker:fatal" && typeof message.message === "string"

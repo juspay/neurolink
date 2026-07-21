@@ -120,7 +120,6 @@ export class RollingWorkerSupervisor {
           );
     }
 
-    this.lastFailure = null;
     this.replacement = this.spawnCandidate(expectedVersion).finally(() => {
       this.replacement = null;
     });
@@ -319,6 +318,16 @@ export class RollingWorkerSupervisor {
           }
           return;
         }
+        if (message.type === "proxy-worker:replacement-requested") {
+          if (this.active?.generation === generation) {
+            this.options.onReplacementRequested?.({
+              generation,
+              pid: handle.pid,
+              reason: message.reason,
+            });
+          }
+          return;
+        }
         if (message.type === "proxy-worker:ready") {
           if (message.version !== expectedVersion) {
             finish(
@@ -409,7 +418,7 @@ export class RollingWorkerSupervisor {
             );
           }
           this.options.log?.(
-            `[proxy-supervisor] active worker exited generation=${generation} pid=${handle.pid}`,
+            `[proxy-supervisor] active worker exited generation=${generation} pid=${handle.pid} code=${code ?? "none"} signal=${signal ?? "none"}`,
           );
         }
         const drained = this.draining.get(generation);
@@ -467,31 +476,38 @@ export class RollingWorkerSupervisor {
     try {
       worker.handle.sendSocket(worker.generation, socket, (error) => {
         if (error) {
-          this.handleTransferFailure(worker, socket);
+          this.handleTransferFailure(worker, socket, error);
         }
       });
-    } catch {
-      this.handleTransferFailure(worker, socket);
+    } catch (error) {
+      this.handleTransferFailure(worker, socket, error);
     }
   }
 
   private handleTransferFailure(
     worker: RollingManagedWorker,
     socket: TransferableProxySocket,
+    error: unknown,
   ): void {
     this.failedTransfers += 1;
+    const detail = this.describeTransferError(error);
     this.recordFailure(
       worker.generation,
       worker.version,
       "transfer",
-      `worker ${worker.handle.pid} failed to accept a transferred socket`,
+      `worker ${worker.handle.pid} failed to accept a transferred socket: ${detail}`,
+    );
+    this.options.log?.(
+      `[proxy-supervisor] socket transfer failed generation=${worker.generation} pid=${worker.handle.pid}: ${detail}`,
     );
     if (this.active?.generation === worker.generation && !this.closed) {
-      // Do not let worker-side graceful shutdown call shutdown(2) on an
-      // offered-but-uncommitted duplicate descriptor.
-      worker.dispose();
-      worker.handle.terminate("SIGKILL");
       this.active = null;
+      this.draining.set(worker.generation, worker);
+      // The child may own a duplicate of an incompletely transferred socket.
+      // SIGKILL closes its descriptor without worker-side shutdown(2), after
+      // which the parent rejects its copy rather than attempting unsafe replay.
+      worker.handle.terminate("SIGKILL");
+      this.publishState();
     }
     this.rejectSocket(socket);
   }
@@ -500,6 +516,14 @@ export class RollingWorkerSupervisor {
     this.rejectedSockets += 1;
     socket.destroy();
     this.publishState();
+  }
+
+  private describeTransferError(error: unknown): string {
+    if (!(error instanceof Error)) {
+      return String(error ?? "unknown transfer failure");
+    }
+    const code = (error as NodeJS.ErrnoException).code;
+    return code ? `${code}: ${error.message}` : error.message;
   }
 
   private recordFailure(

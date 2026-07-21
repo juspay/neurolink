@@ -1342,6 +1342,12 @@ export type ProxyAnalysisAccount = {
 };
 
 /** Offline report generated from proxy request, attempt, and lifecycle logs. */
+export type ProxyAnalysisStreamName =
+  | "lifecycle"
+  | "requests"
+  | "attempts"
+  | "debug";
+
 export type ProxyAnalysisReport = {
   generatedAt: string;
   since: string;
@@ -1350,6 +1356,7 @@ export type ProxyAnalysisReport = {
     lifecycle: number;
     requests: number;
     attempts: number;
+    debug: number;
   };
   coverage: {
     lifecycle: boolean;
@@ -1364,6 +1371,23 @@ export type ProxyAnalysisReport = {
     unsupportedLifecycleLines: number;
     lifecycleSequenceGaps: number;
     lifecycleSequenceDuplicates: number;
+    streams: Record<
+      ProxyAnalysisStreamName,
+      {
+        observedFrom: string | null;
+        observedTo: string | null;
+        startsAtOrBeforeRequestedWindow: boolean;
+      }
+    >;
+    bodyArtifacts: {
+      capturesIndexed: number;
+      artifactsReferenced: number;
+      artifactsPresent: number;
+      artifactsMissing: number;
+      invalidPaths: number;
+      writeFailures: number;
+      truncatedCaptures: number;
+    };
   };
   lifecycle: {
     accepted: number;
@@ -1635,6 +1659,7 @@ export type StoredBodyArtifact = {
   storedFileBytes?: number;
   redactedBody?: string;
   bodyTruncated?: boolean;
+  bodyWriteFailed?: boolean;
 };
 
 /** File the proxy logger tracks for rotation and cleanup. */
@@ -1931,6 +1956,12 @@ export type ProxyWorkerStatusMessage =
       generation: number;
       pid: number;
       socketId: string;
+    }
+  | {
+      type: "proxy-worker:replacement-requested";
+      generation: number;
+      pid: number;
+      reason: "environment";
     };
 
 export type ProxyWorkerSocketMessage = {
@@ -1948,6 +1979,10 @@ export type TransferableProxySocket = Pick<
   import("node:net").Socket,
   "destroy" | "end" | "pause" | "resume" | "once"
 >;
+
+/** A transferred socket whose temporary handoff listeners can be detached. */
+export type DetachableTransferableProxySocket = TransferableProxySocket &
+  Pick<import("node:net").Socket, "off">;
 
 export type RollingWorkerHandle = {
   pid: number;
@@ -2008,6 +2043,11 @@ export type RollingWorkerSupervisorOptions = {
   socketQueueTimeoutMs?: number;
   shutdownTimeoutMs?: number;
   onStateChange?: (snapshot: RollingWorkerSupervisorSnapshot) => void;
+  onReplacementRequested?: (request: {
+    generation: number;
+    pid: number;
+    reason: "environment";
+  }) => void;
   log?: (message: string) => void;
 };
 
@@ -2187,6 +2227,7 @@ export type ProxyRuntimeConfigReloadResult = {
   applied: boolean;
   changed: boolean;
   generation: number;
+  environmentChanged?: boolean;
   error?: string;
 };
 
@@ -2280,7 +2321,13 @@ export type StatusStats = {
     transientRateLimits?: number;
     quotaRateLimits?: number;
     cooling: boolean;
-    status?: "active" | "cooling" | "disabled" | "excluded" | "removed";
+    status?:
+      | "active"
+      | "cooling"
+      | "disabled"
+      | "excluded"
+      | "removed"
+      | "unattributed";
   }[];
   persistence?: ProxyStatsPersistenceStatus;
 };

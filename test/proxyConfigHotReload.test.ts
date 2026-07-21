@@ -336,6 +336,47 @@ routing:
     expect(store.getSnapshot()).toBe(stable);
   });
 
+  it("publishes non-routing env changes so a supervised worker can be replaced", async () => {
+    const directory = await createTempDir();
+    const configPath = join(directory, "proxy-config.yaml");
+    const envFilePath = join(directory, ".env");
+    await writeFile(configPath, "routing:\n  strategy: fill-first\n");
+    await writeFile(envFilePath, "OTEL_EXPORTER_OTLP_ENDPOINT=http://one\n");
+    const store = await ProxyRuntimeConfigStore.create({
+      configPath,
+      configRequired: true,
+      envFilePath,
+      envFileRequired: true,
+      baseEnv: {},
+      passthrough: false,
+    });
+    const initial = store.getSnapshot();
+
+    await writeFile(
+      envFilePath,
+      "# Cosmetic edits must not roll the worker.\nOTEL_EXPORTER_OTLP_ENDPOINT = http://one\n",
+    );
+    await expect(store.reload("manual")).resolves.toEqual({
+      applied: true,
+      changed: false,
+      generation: 1,
+    });
+    expect(store.getSnapshot()).toBe(initial);
+
+    await writeFile(envFilePath, "OTEL_EXPORTER_OTLP_ENDPOINT=http://two\n");
+    await expect(store.reload("manual")).resolves.toEqual({
+      applied: true,
+      changed: true,
+      generation: 2,
+      environmentChanged: true,
+    });
+
+    const reloaded = store.getSnapshot();
+    expect(reloaded.configHash).toBe(initial.configHash);
+    expect(reloaded.strategy).toBe(initial.strategy);
+    expect(reloaded).not.toHaveProperty("envFileHash");
+  });
+
   it("serializes concurrent reload attempts and notifies rejected reloads", async () => {
     const dir = await createTempDir();
     const configPath = join(dir, "proxy-config.json");

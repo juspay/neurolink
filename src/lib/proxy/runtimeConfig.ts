@@ -243,14 +243,17 @@ async function buildCandidate(
   snapshot: ProxyRuntimeConfigSnapshot;
   configFilePresent: boolean;
   envFilePresent: boolean;
+  envFileHash: string;
 }> {
   const effectiveEnv = { ...options.baseEnv };
   let envFilePresent = false;
+  let envFileValues: Record<string, string> = {};
   if (options.envFilePath) {
     try {
-      const envContent = await readFile(options.envFilePath, "utf8");
+      const envFileContent = await readFile(options.envFilePath, "utf8");
       const { parse } = await import("dotenv");
-      Object.assign(effectiveEnv, parse(envContent));
+      envFileValues = parse(envFileContent);
+      Object.assign(effectiveEnv, envFileValues);
       envFilePresent = true;
     } catch (error) {
       if (
@@ -332,6 +335,18 @@ async function buildCandidate(
         accountAllowlist: routing.accountAllowlist,
       })
     : undefined;
+  const envFileHash = createHash("sha256")
+    .update(
+      envFilePresent
+        ? JSON.stringify(
+            Object.entries(envFileValues).sort(([left], [right]) =>
+              left < right ? -1 : left > right ? 1 : 0,
+            ),
+          )
+        : "[missing]",
+    )
+    .digest("hex")
+    .slice(0, 16);
   const fingerprintSource = JSON.stringify({
     strategy,
     passthrough: options.passthrough,
@@ -364,6 +379,7 @@ async function buildCandidate(
     }),
     configFilePresent,
     envFilePresent,
+    envFileHash,
   };
 }
 
@@ -379,6 +395,7 @@ export class ProxyRuntimeConfigStore {
   private reloadTimer: ReturnType<typeof setTimeout> | undefined;
   private configFileObserved: boolean;
   private envFileObserved: boolean;
+  private currentEnvFileHash: string;
   private readonly watchListener = (current: Stats, previous: Stats): void => {
     if (
       current.mtimeMs === previous.mtimeMs &&
@@ -395,11 +412,13 @@ export class ProxyRuntimeConfigStore {
     snapshot: ProxyRuntimeConfigSnapshot,
     configFileObserved: boolean,
     envFileObserved: boolean,
+    envFileHash: string,
   ) {
     this.options = { ...options, baseEnv: { ...options.baseEnv } };
     this.currentSnapshot = snapshot;
     this.configFileObserved = configFileObserved;
     this.envFileObserved = envFileObserved;
+    this.currentEnvFileHash = envFileHash;
     this.status = {
       configPath: options.configPath,
       ...(options.envFilePath ? { envFilePath: options.envFilePath } : {}),
@@ -420,6 +439,7 @@ export class ProxyRuntimeConfigStore {
       candidate.snapshot,
       candidate.configFilePresent,
       candidate.envFilePresent,
+      candidate.envFileHash,
     );
   }
 
@@ -526,7 +546,10 @@ export class ProxyRuntimeConfigStore {
       );
       this.configFileObserved ||= candidate.configFilePresent;
       this.envFileObserved ||= candidate.envFilePresent;
-      if (candidate.snapshot.configHash === this.currentSnapshot.configHash) {
+      if (
+        candidate.snapshot.configHash === this.currentSnapshot.configHash &&
+        candidate.envFileHash === this.currentEnvFileHash
+      ) {
         this.status = {
           ...this.status,
           lastReloadAt: attemptedAt,
@@ -542,7 +565,10 @@ export class ProxyRuntimeConfigStore {
         return result;
       }
 
+      const environmentChanged =
+        candidate.envFileHash !== this.currentEnvFileHash;
       this.currentSnapshot = candidate.snapshot;
+      this.currentEnvFileHash = candidate.envFileHash;
       this.status = {
         ...this.status,
         generation: candidate.snapshot.generation,
@@ -568,6 +594,7 @@ export class ProxyRuntimeConfigStore {
         applied: true,
         changed: true,
         generation: candidate.snapshot.generation,
+        ...(environmentChanged ? { environmentChanged: true } : {}),
       };
       this.notifyReloadListeners(result);
       return result;

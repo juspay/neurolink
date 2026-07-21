@@ -1,4 +1,4 @@
-/* global process, Buffer, setInterval, clearInterval */
+/* global process, Buffer, setInterval, clearInterval, setTimeout */
 
 const http = require("node:http");
 
@@ -7,6 +7,9 @@ const version = process.env.NEUROLINK_PROXY_WORKER_EXPECTED_VERSION;
 const sockets = new Set();
 const activeBySocket = new Map();
 const pendingSockets = new Map();
+const socketAcceptDelayMs = Number(
+  process.env.NEUROLINK_PROXY_WORKER_SOCKET_ACCEPT_DELAY_MS ?? 0,
+);
 let draining = false;
 
 // When the rolling handoff benchmark asks for it, flush this worker's exit-time
@@ -110,20 +113,42 @@ process.on("message", (message, socket) => {
     }
     socket.pause();
     pendingSockets.set(message.socketId, socket);
-    process.send?.(
-      {
-        type: "proxy-worker:socket-accepted",
-        generation,
-        pid: process.pid,
-        socketId: message.socketId,
-      },
-      (error) => {
-        if (error) {
-          pendingSockets.delete(message.socketId);
-          socket.destroy();
-        }
-      },
-    );
+    socket.once("error", () => {
+      if (pendingSockets.get(message.socketId) !== socket) {
+        return;
+      }
+      pendingSockets.delete(message.socketId);
+      socket.destroy();
+      reportDrained();
+    });
+    socket.once("close", () => {
+      if (pendingSockets.get(message.socketId) !== socket) {
+        return;
+      }
+      pendingSockets.delete(message.socketId);
+      reportDrained();
+    });
+    const acknowledge = () => {
+      process.send?.(
+        {
+          type: "proxy-worker:socket-accepted",
+          generation,
+          pid: process.pid,
+          socketId: message.socketId,
+        },
+        (error) => {
+          if (error) {
+            pendingSockets.delete(message.socketId);
+            socket.destroy();
+          }
+        },
+      );
+    };
+    if (socketAcceptDelayMs > 0) {
+      setTimeout(acknowledge, socketAcceptDelayMs);
+    } else {
+      acknowledge();
+    }
     return;
   }
   if (
