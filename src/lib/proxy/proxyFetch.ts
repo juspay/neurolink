@@ -106,6 +106,51 @@ function extractHostname(url: string | URL | RequestInfo): string {
   }
 }
 
+/** Error codes classified as transient (module-scope: the retry path is hot). */
+const TRANSIENT_NETWORK_CODES = new Set([
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "ECONNREFUSED",
+  "EPIPE",
+  "UND_ERR_SOCKET",
+  "UND_ERR_CONNECT_TIMEOUT",
+]);
+
+/**
+ * Classify a fetch failure as a transient network error worth retrying.
+ *
+ * undici's `fetch()` wraps the real failure in `TypeError: fetch failed`
+ * with the actionable code (`ECONNRESET`, `UND_ERR_SOCKET`, ...) on
+ * `error.cause` — sometimes nested another level (e.g. SocketError inside
+ * a ConnectTimeoutError). Walk the cause chain so those are recognized;
+ * checking only the top-level error silently classified every undici
+ * connection death as non-retryable.
+ *
+ * Deliberately NOT retried: `UND_ERR_HEADERS_TIMEOUT` / `UND_ERR_BODY_TIMEOUT`
+ * — those already waited out undici's own long deadline (default 300s), and
+ * replaying them can triple a stall under the caller's wall-clock budget.
+ *
+ * Exported for direct coverage by the no-API test suite.
+ */
+export function isTransientNetworkError(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current; depth++) {
+    const err = current as { code?: string; message?: string; cause?: unknown };
+    if (err.code && TRANSIENT_NETWORK_CODES.has(err.code)) {
+      return true;
+    }
+    if (
+      err.message?.includes("socket hang up") ||
+      err.message?.includes("network socket disconnected") ||
+      err.message?.includes("other side closed")
+    ) {
+      return true;
+    }
+    current = err.cause;
+  }
+  return false;
+}
+
 /**
  * Retry-aware fetch wrapper for transient network errors (ECONNRESET, ETIMEDOUT, socket hang up).
  * Protects all LLM API calls and token refreshes that go through createProxyFetch().
@@ -142,12 +187,8 @@ async function fetchWithRetry(
 
             return response;
           } catch (error: unknown) {
+            const isRetryable = isTransientNetworkError(error);
             const err = error as { code?: string; message?: string };
-            const isRetryable =
-              err?.code === "ECONNRESET" ||
-              err?.code === "ETIMEDOUT" ||
-              err?.message?.includes("socket hang up") ||
-              err?.message?.includes("network socket disconnected");
 
             if (!isRetryable || attempt === maxRetries) {
               // Final failure — record on span and rethrow

@@ -12,13 +12,17 @@
  *   pnpm exec vitest run test/stepBudgetGuard.test.ts
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import type { ModelMessage } from "ai";
 import {
   createStepBudgetGuard,
   estimateStepMessagesTokens,
   estimateFixedOverheadTokens,
 } from "../src/lib/context/stepBudgetGuard.js";
+import {
+  registerRuntimeContextWindow,
+  clearRuntimeContextWindows,
+} from "../src/lib/constants/contextWindows.js";
 
 const user = (text: string): ModelMessage => ({
   role: "user",
@@ -294,5 +298,44 @@ describe("createStepBudgetGuard", () => {
       };
       expect(lastTool.content[0].output.value.length).toBe(50_000);
     }
+  });
+});
+
+describe("dynamic budget + usage calibration", () => {
+  afterEach(() => clearRuntimeContextWindows());
+
+  it("re-resolves the available budget on every invocation (mid-loop discovery)", () => {
+    clearRuntimeContextWindows();
+    const guard = createStepBudgetGuard({
+      provider: "litellm",
+      model: "guard-discovery-model",
+      maxTokens: 4_000,
+    });
+    // ~115K estimated tokens: over the litellm static-default threshold
+    // (0.85 × (128K − 4K) ≈ 105K) → the guard compacts…
+    const messages = conversation(10, 44_000);
+    expect(guard(messages)).toBeDefined();
+    // …but the SAME guard no-ops once /model/info discovery (or overflow
+    // self-healing) registers the real 1M window mid-loop — the budget must
+    // be re-resolved per invocation, not frozen at loop start.
+    registerRuntimeContextWindow("litellm", "guard-discovery-model", 1_000_000);
+    expect(guard(messages)).toBeUndefined();
+  });
+
+  it("usage feedback tightens the threshold when the provider reports more tokens than estimated", () => {
+    clearRuntimeContextWindows();
+    const guard = createStepBudgetGuard({
+      provider: "litellm",
+      model: "guard-calibration-model",
+      maxTokens: 4_000,
+    });
+    // ~63K estimated tokens: comfortably under the ~105K threshold → no-op.
+    const messages = conversation(6, 40_000);
+    expect(guard(messages)).toBeUndefined();
+    // The provider reports the previous step's REAL prompt at 2× the guard's
+    // estimate (dense diff content) — calibration halves the effective
+    // threshold and the same conversation now compacts.
+    const estimate = estimateStepMessagesTokens(messages);
+    expect(guard(messages, estimate * 2)).toBeDefined();
   });
 });

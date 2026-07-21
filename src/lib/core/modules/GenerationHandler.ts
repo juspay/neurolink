@@ -23,22 +23,29 @@ import type {
   AISDKGenerateResult,
   EnhancedGenerateResult,
   ExtendedTool,
+  GenerateStopReason,
   NeuroLinkEvents,
   StandardRecord,
   TextGenerationOptions,
+  ToolCallRepairFunction,
+  ToolSet,
   TypedEventEmitter,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { emitToolEndFromStepFinish } from "../../utils/toolEndEmitter.js";
 import { calculateCost } from "../../utils/pricing.js";
 import { withProviderRetry } from "../../utils/providerRetry.js";
+import { parseTimeout } from "../../utils/timeout.js";
 import {
   calculateCacheSavingsPercent,
   extractCacheCreationTokens,
   extractCacheReadTokens,
   extractTokenUsage,
 } from "../../utils/tokenUtils.js";
-import { DEFAULT_MAX_STEPS } from "../constants.js";
+import {
+  DEFAULT_MAX_STEPS,
+  DEFAULT_WRAPUP_TIME_LEAD_MS,
+} from "../constants.js";
 import {
   createStepBudgetGuard,
   estimateFixedOverheadTokens,
@@ -80,6 +87,121 @@ function safePreview(v: unknown): string {
 }
 
 /**
+ * Turn budget + wrap-up deadline (parity with the googleVertex native loops).
+ * A deadline is engaged only when the caller expressed one: turnTimeoutMs
+ * wins, else an explicit generate timeout. Callers that set neither keep the
+ * pre-existing behaviour (no wrap-up; the outer defensive timeout in
+ * executeStandardGenerateFlow still applies). With `wrapupTimeLeadMs` left of
+ * the deadline, the loop stops offering tools (toolChoice: "none") so the
+ * model spends the remaining budget producing a final answer instead of being
+ * guillotined mid-tool-loop with all work discarded. The lead is clamped to a
+ * quarter of the budget so short explicit timeouts (e.g. 30s) don't trigger
+ * wrap-up on the very first step.
+ *
+ * `turnStartMs` anchors the deadline to the ORIGINAL generation start:
+ * callGenerateText re-runs on executeGeneration's fallback retries
+ * (structured-output conflict, temperature-deprecated) and provider retries,
+ * and a deadline computed from Date.now() per attempt would hand each retry
+ * a fresh budget — multiplying the caller's wall-clock cap.
+ */
+function resolveTurnBudget(
+  options: TextGenerationOptions,
+  turnStartMs: number,
+): {
+  callerTimeoutMs: number | undefined;
+  turnBudgetMs: number | undefined;
+  wrapupLeadMs: number;
+  turnDeadline: number | undefined;
+} {
+  const callerTimeoutMs = parseTimeout(options.timeout);
+  const hasValidTurnTimeout =
+    typeof options.turnTimeoutMs === "number" &&
+    Number.isFinite(options.turnTimeoutMs) &&
+    options.turnTimeoutMs > 0;
+  if (options.turnTimeoutMs !== undefined && !hasValidTurnTimeout) {
+    logger.warn(
+      "[GenerationHandler] Ignoring invalid turnTimeoutMs — expected a positive number of milliseconds; falling back to the timeout option",
+      { turnTimeoutMs: options.turnTimeoutMs },
+    );
+  }
+  const turnBudgetMs = hasValidTurnTimeout
+    ? options.turnTimeoutMs
+    : callerTimeoutMs;
+  const wrapupLeadMs = turnBudgetMs
+    ? Math.min(
+        options.wrapupTimeLeadMs ?? DEFAULT_WRAPUP_TIME_LEAD_MS,
+        Math.floor(turnBudgetMs / 4),
+      )
+    : 0;
+  const turnDeadline = turnBudgetMs ? turnStartMs + turnBudgetMs : undefined;
+  return { callerTimeoutMs, turnBudgetMs, wrapupLeadMs, turnDeadline };
+}
+
+/**
+ * Merge the per-call providerOptions namespaces for generateText. Both the
+ * timeout forwarding (`neurolink.timeoutMs`, read by NeuroLink's delegating
+ * chat-completions models) and Gemini thinking (`google.thinkingConfig`) may
+ * apply on the same call — built here as ONE object because two conditional
+ * `providerOptions:` spreads in the args literal would silently clobber each
+ * other (object spread does not deep-merge).
+ */
+function buildProviderOptions(
+  options: TextGenerationOptions,
+  isGoogleProvider: boolean,
+  callerTimeoutMs: number | undefined,
+): Parameters<typeof generateText>[0]["providerOptions"] {
+  const providerOptions: Record<string, Record<string, unknown>> = {};
+  if (callerTimeoutMs !== undefined) {
+    providerOptions.neurolink = { timeoutMs: callerTimeoutMs };
+  }
+  if (options.thinkingConfig?.enabled && isGoogleProvider) {
+    // Gemini 3 uses thinkingLevel; Gemini 2.5 uses thinkingBudget.
+    providerOptions.google = {
+      thinkingConfig: {
+        ...(options.thinkingConfig.thinkingLevel && {
+          thinkingLevel: options.thinkingConfig.thinkingLevel,
+        }),
+        ...(options.thinkingConfig.budgetTokens &&
+          !options.thinkingConfig.thinkingLevel && {
+            thinkingBudget: options.thinkingConfig.budgetTokens,
+          }),
+        includeThoughts: true,
+      },
+    };
+  }
+  return Object.keys(providerOptions).length > 0
+    ? (providerOptions as Parameters<typeof generateText>[0]["providerOptions"])
+    : undefined;
+}
+
+/**
+ * Build the prepareStep result for a forced wrap-up step: tools withdrawn
+ * (toolChoice: "none") plus an honest time message (native-loop parity) —
+ * without the message, weaker models keep trying to emit tool calls and leak
+ * raw tool-call tokens into the text answer.
+ */
+function buildWrapupStepResult(
+  prepared: Record<string, unknown> | undefined,
+  stepMessages: ModelMessage[],
+): Record<string, unknown> {
+  const baseMessages =
+    (prepared as { messages?: ModelMessage[] } | undefined)?.messages ??
+    stepMessages;
+  return {
+    ...(prepared ?? {}),
+    messages: [
+      ...baseMessages,
+      {
+        role: "user" as const,
+        content:
+          "The time budget for this task is nearly exhausted. Do not call any more tools. Give your best final answer NOW from the information already gathered, and note anything you could not verify in the remaining time.",
+      },
+    ],
+    toolChoice: "none" as const,
+  };
+}
+
+/**
  * GenerationHandler class - Handles text generation operations for AI providers
  */
 export class GenerationHandler {
@@ -117,9 +239,16 @@ export class GenerationHandler {
     messages: ModelMessage[],
     tools: Record<string, Tool>,
     options: TextGenerationOptions,
-    shouldUseTools: boolean,
-    includeStructuredOutput: boolean,
+    callConfig: {
+      shouldUseTools: boolean;
+      includeStructuredOutput: boolean;
+      /** Anchor for the turn deadline — the ORIGINAL executeGeneration start,
+       *  shared across fallback/provider retries so they can't refresh the
+       *  wall-clock budget. */
+      turnStartMs: number;
+    },
   ): Promise<Awaited<ReturnType<typeof generateText>>> {
+    const { shouldUseTools, includeStructuredOutput, turnStartMs } = callConfig;
     // Check if this is a Google provider (for provider-specific options)
     const isGoogleProvider =
       this.providerName === "google-ai" || this.providerName === "vertex";
@@ -186,6 +315,15 @@ export class GenerationHandler {
 
     const prepareStep = options.prepareStep;
 
+    const { callerTimeoutMs, turnBudgetMs, wrapupLeadMs, turnDeadline } =
+      resolveTurnBudget(options, turnStartMs);
+    let wrapupForced = false;
+    const providerOptions = buildProviderOptions(
+      options,
+      isGoogleProvider,
+      callerTimeoutMs,
+    );
+
     // Hoist system-role messages into generateText's top-level `system` option
     // rather than passing them inside `messages` (deprecated by the AI SDK,
     // rejected in v7). See extractSystemMessages for the rationale. (#1024)
@@ -228,7 +366,7 @@ export class GenerationHandler {
       },
     });
 
-    return await generateText({
+    const result = await generateText({
       model,
       ...(system && { system }),
       messages: nonSystemMessages,
@@ -255,55 +393,84 @@ export class GenerationHandler {
         const callerMessages = (
           callerResult as { messages?: ModelMessage[] } | undefined
         )?.messages;
+        // Usage feedback: the provider's REAL prompt-token count for the
+        // previous step calibrates the guard's char-based estimator (see
+        // createStepBudgetGuard) — free precision, no tokenizer.
+        const previousStep = stepOptions.steps[stepOptions.steps.length - 1];
         const compacted = stepBudgetGuard(
           callerMessages ?? stepOptions.messages,
+          previousStep?.usage?.inputTokens,
         );
-        if (!compacted) {
-          return callerResult;
+        const prepared = compacted
+          ? { ...(callerResult ?? {}), messages: compacted }
+          : callerResult;
+        // Wrap-up: inside the lead window before the turn deadline, stop
+        // offering tools so this step produces the final answer. Overrides
+        // any caller toolChoice — an honest partial beats a discarded turn.
+        if (
+          turnDeadline !== undefined &&
+          shouldUseTools &&
+          Date.now() >= turnDeadline - wrapupLeadMs
+        ) {
+          if (!wrapupForced) {
+            wrapupForced = true;
+            logger.warn(
+              "[GenerationHandler] Turn budget nearly exhausted — forcing wrap-up (toolChoice: none)",
+              {
+                provider: this.providerName,
+                turnBudgetMs,
+                wrapupLeadMs,
+                stepNumber: stepOptions.stepNumber,
+              },
+            );
+          }
+          return buildWrapupStepResult(prepared, stepOptions.messages);
         }
-        return { ...(callerResult ?? {}), messages: compacted };
+        return prepared;
       }) satisfies PrepareStepFunction,
       temperature: options.temperature,
       maxOutputTokens: options.maxTokens,
       maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
       abortSignal: options.abortSignal,
+      // Schema-driven tool-call repair (BZ-665): fixes near-miss tool names
+      // (case/substring/Levenshtein) and — for tools whose schema carries a
+      // validator — coerces mis-typed arguments ("123" → 123) and remaps
+      // near-miss parameter names before the call is marked invalid. Wired
+      // for every AI-SDK-loop provider; native loops have their own paths.
+      ...(shouldUseTools &&
+        !options.disableToolCallRepair && {
+          experimental_repairToolCall: (async (
+            ...repairArgs: Parameters<ToolCallRepairFunction<ToolSet>>
+          ) => {
+            // Lazy import to avoid a circular dependency at module load time
+            const { createToolCallRepair } =
+              await import("../../utils/toolCallRepair.js");
+            return createToolCallRepair()(...repairArgs);
+          }) as ToolCallRepairFunction<ToolSet>,
+        }),
+      // Forward the caller's resolved timeout to the model layer: the AI-SDK
+      // V3 call options carry no `timeout`, so delegating chat-completions
+      // models (litellm & friends) could otherwise only ever apply their
+      // provider default per step — an explicit `timeout: "15m"` bounded the
+      // outer loop while each step stayed capped at the default.
+      // Merged namespaces (neurolink timeout forwarding + Gemini thinking) —
+      // built as ONE object; see buildProviderOptions.
+      ...(providerOptions && { providerOptions }),
       ...(useStructuredOutput &&
         options.schema && {
           experimental_output: Output.object({ schema: options.schema }),
         }),
-      // Add thinking configuration for extended reasoning
-      // Gemini 3 models use providerOptions.google.thinkingConfig with thinkingLevel
-      // Gemini 2.5 models use thinkingBudget
-      // Anthropic models use experimental_thinking with budgetTokens
-      ...(options.thinkingConfig?.enabled && {
-        // For Anthropic: experimental_thinking with budgetTokens
-        ...(isAnthropicProvider &&
-          options.thinkingConfig.budgetTokens &&
-          !options.thinkingConfig.thinkingLevel && {
-            experimental_thinking: {
-              type: "enabled" as const,
-              budgetTokens: options.thinkingConfig.budgetTokens,
-            },
-          }),
-        // For Google Gemini 3: providerOptions with thinkingLevel
-        // For Gemini 2.5: providerOptions with thinkingBudget
-        ...(isGoogleProvider && {
-          providerOptions: {
-            google: {
-              thinkingConfig: {
-                ...(options.thinkingConfig.thinkingLevel && {
-                  thinkingLevel: options.thinkingConfig.thinkingLevel,
-                }),
-                ...(options.thinkingConfig.budgetTokens &&
-                  !options.thinkingConfig.thinkingLevel && {
-                    thinkingBudget: options.thinkingConfig.budgetTokens,
-                  }),
-                includeThoughts: true,
-              },
-            },
+      // Anthropic thinking: experimental_thinking with budgetTokens.
+      // (Gemini thinking rides providerOptions.google above.)
+      ...(options.thinkingConfig?.enabled &&
+        isAnthropicProvider &&
+        options.thinkingConfig.budgetTokens &&
+        !options.thinkingConfig.thinkingLevel && {
+          experimental_thinking: {
+            type: "enabled" as const,
+            budgetTokens: options.thinkingConfig.budgetTokens,
           },
         }),
-      }),
       experimental_telemetry: this.getTelemetryConfigFn(options, "generate"),
       onStepFinish: ({ toolCalls, toolResults }) => {
         logger.info("Tool execution completed", { toolResults, toolCalls });
@@ -336,6 +503,16 @@ export class GenerationHandler {
         });
       },
     });
+    if (wrapupForced) {
+      // Non-enumerable marker read by formatEnhancedResult to report
+      // stopReason "time-limit" — the result object itself is the only
+      // artifact that travels from this call to result formatting.
+      Object.defineProperty(result, "__nlTurnWrapup", {
+        value: true,
+        enumerable: false,
+      });
+    }
+    return result;
   }
 
   /**
@@ -416,14 +593,11 @@ export class GenerationHandler {
         try {
           const result = await withProviderRetry(
             () =>
-              this.callGenerateText(
-                model,
-                messages,
-                tools,
-                options,
+              this.callGenerateText(model, messages, tools, options, {
                 shouldUseTools,
-                true, // includeStructuredOutput
-              ),
+                includeStructuredOutput: true,
+                turnStartMs: genStartTime,
+              }),
             span,
             "generateText",
           );
@@ -563,14 +737,12 @@ export class GenerationHandler {
             // will extract JSON from the text response
             const result = await withProviderRetry(
               () =>
-                this.callGenerateText(
-                  model,
-                  messages,
-                  tools,
-                  options,
+                this.callGenerateText(model, messages, tools, options, {
                   shouldUseTools,
-                  false, // includeStructuredOutput - intentionally omitted
-                ),
+                  // includeStructuredOutput intentionally omitted
+                  includeStructuredOutput: false,
+                  turnStartMs: genStartTime,
+                }),
               span,
               "generateText(fallback)",
             );
@@ -659,8 +831,12 @@ export class GenerationHandler {
                   messages,
                   tools,
                   { ...options, temperature: undefined },
-                  shouldUseTools,
-                  true, // mirror the initial call; the structured-output policy still applies
+                  {
+                    shouldUseTools,
+                    // mirror the initial call; the structured-output policy still applies
+                    includeStructuredOutput: true,
+                    turnStartMs: genStartTime,
+                  },
                 ),
               span,
               "generateText(no-temperature)",
@@ -1054,11 +1230,42 @@ export class GenerationHandler {
       : undefined;
     const reasoningTokens: number | undefined = usage.reasoning ?? undefined;
 
+    // stopReason / stepsUsed parity with the native loops (Vertex Gemini /
+    // Claude / Bedrock): the AI-SDK loop path previously left both undefined,
+    // so consumers could not distinguish a completed turn from one truncated
+    // by the step cap or ended by the turn budget.
+    const steps = (generateResult as { steps?: unknown[] }).steps;
+    const stepsUsed = Array.isArray(steps) ? steps.length : undefined;
+    const maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
+    let stopReason: GenerateStopReason | undefined;
+    if (
+      (generateResult as { __nlTurnWrapup?: boolean }).__nlTurnWrapup === true
+    ) {
+      stopReason = "time-limit";
+    } else if (
+      stepsUsed !== undefined &&
+      stepsUsed >= maxSteps &&
+      generateResult.finishReason === "tool-calls"
+    ) {
+      stopReason = "step-cap";
+    } else if (generateResult.finishReason === "error") {
+      // Parity with resolveTurnStopReason (native loops): a turn that ended
+      // on a provider "error" finish is not a completion. length /
+      // content-filter DO map to "completed" — deliberately matching the
+      // native contract, where truncation is signaled via finishReason /
+      // rawFinishReason / jsonTruncated, never via stopReason.
+      stopReason = "provider-error";
+    } else if (stepsUsed !== undefined) {
+      stopReason = "completed";
+    }
+
     return {
       content,
       structuredData,
       usage,
       finishReason: generateResult.finishReason,
+      stopReason,
+      stepsUsed,
       jsonRepaired: jsonRepaired || undefined,
       jsonTruncated: jsonTruncated || undefined,
       provider: this.providerName,

@@ -1181,15 +1181,20 @@ export async function withTimeout<T>(
   timeoutMs: number,
   timeoutError?: Error,
 ): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
+    timer = setTimeout(() => {
       reject(
         timeoutError || new Error(`Operation timed out after ${timeoutMs}ms`),
       );
     }, timeoutMs);
   });
 
-  return Promise.race([promise, timeoutPromise]);
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**

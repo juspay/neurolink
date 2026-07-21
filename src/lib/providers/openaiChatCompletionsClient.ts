@@ -34,9 +34,91 @@ import type {
   DeferredUsage,
   Tool,
 } from "../types/index.js";
-import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
+import { sanitizeToolName } from "../mcp/toolConverter.js";
+import {
+  convertZodToJsonSchema,
+  normalizeWireToolSchema,
+} from "../utils/schemaConversion.js";
+import {
+  estimateTokens,
+  TOKENS_PER_MESSAGE,
+} from "../utils/tokenEstimation.js";
 
 export const stripTrailingSlash = (s: string): string => s.replace(/\/+$/, "");
+
+// OpenAI-compatible wire tool names: first char letter/underscore (some
+// chat templates treat a leading digit or hyphen as invalid identifiers),
+// then letters/digits/underscore/hyphen, 64 chars total — exactly the
+// pattern below, which mirrors sanitizeToolName's output alphabet. MCP
+// servers can register names outside it (dots, colons, spaces); sent
+// verbatim they make backends reject the tools block or emit tool_calls
+// that no longer match the registry.
+const WIRE_TOOL_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_-]{0,63}$/;
+
+/**
+ * Build a bijective original ↔ wire tool-name map. Returns undefined when
+ * every name is already wire-valid (the common case — the wire then uses
+ * original names untouched and callers skip all mapping). Sanitized names
+ * that collide get a deterministic numeric suffix so the map stays
+ * invertible.
+ */
+export const buildWireToolNameMaps = (
+  names: readonly string[],
+):
+  | { toWire: Map<string, string>; fromWire: Map<string, string> }
+  | undefined => {
+  if (names.every((name) => WIRE_TOOL_NAME_RE.test(name))) {
+    return undefined;
+  }
+  const toWire = new Map<string, string>();
+  const fromWire = new Map<string, string>();
+  for (const name of names) {
+    let wire = WIRE_TOOL_NAME_RE.test(name) ? name : sanitizeToolName(name);
+    if (fromWire.has(wire)) {
+      let suffix = 2;
+      let candidate: string;
+      do {
+        const tail = `_${suffix}`;
+        candidate = `${wire.slice(0, 64 - tail.length)}${tail}`;
+        suffix++;
+      } while (fromWire.has(candidate));
+      wire = candidate;
+    }
+    toWire.set(name, wire);
+    fromWire.set(wire, name);
+  }
+  return { toWire, fromWire };
+};
+
+/**
+ * Estimate the input-token cost of a fully-built wire request (messages +
+ * tool definitions). Used by the per-request max_tokens fit against a
+ * RUNTIME-DISCOVERED context window — deliberately the same char-based
+ * estimator the budget pipeline uses, so both layers agree.
+ */
+export const estimateWireTokens = (
+  messages: ReadonlyArray<OpenAICompatChatMessage>,
+  tools: OpenAICompatChatTool[] | undefined,
+  provider?: string,
+): number => {
+  let total = 0;
+  for (const message of messages) {
+    const content =
+      typeof message.content === "string"
+        ? message.content
+        : safeStringify(message.content);
+    total += estimateTokens(content, provider) + TOKENS_PER_MESSAGE;
+    // tool_calls only exists on the assistant variant of the message union.
+    const toolCalls = (message as { tool_calls?: unknown }).tool_calls;
+    if (toolCalls) {
+      total += estimateTokens(safeStringify(toolCalls), provider);
+    }
+  }
+  if (tools && tools.length > 0) {
+    total += estimateTokens(safeStringify(tools), provider);
+  }
+  return total;
+};
 
 export const safeStringify = (value: unknown): string => {
   try {
@@ -167,6 +249,7 @@ export const convertContentForOpenAI = (
 
 export const messageBuilderToOpenAI = (
   messages: ReadonlyArray<OpenAICompatMessage>,
+  toolNameToWire?: Map<string, string>,
 ): OpenAICompatChatMessage[] => {
   const out: OpenAICompatChatMessage[] = [];
   for (const msg of messages) {
@@ -204,11 +287,14 @@ export const messageBuilderToOpenAI = (
                 toolName?: string;
                 input?: unknown;
               };
+              // History tool-call names must match the wire `tools` block —
+              // forward-map when a wire-name map is in effect.
+              const historyName = tc.toolName ?? "";
               toolCalls.push({
                 id: tc.toolCallId ?? "",
                 type: "function",
                 function: {
-                  name: tc.toolName ?? "",
+                  name: toolNameToWire?.get(historyName) ?? historyName,
                   arguments: stringifyToolInput(tc.input),
                 },
               });
@@ -268,6 +354,7 @@ export const messageBuilderToOpenAI = (
 
 export const buildToolsForOpenAI = (
   tools: Record<string, Tool>,
+  toolNameToWire?: Map<string, string>,
 ): OpenAICompatChatTool[] | undefined => {
   const entries = Object.entries(tools);
   if (entries.length === 0) {
@@ -284,14 +371,18 @@ export const buildToolsForOpenAI = (
     // tool.inputSchema may be a Zod schema, an AI SDK jsonSchema() wrapper,
     // or plain JSON Schema — convertZodToJsonSchema normalizes all three.
     // Sending raw Zod internals (with `_def`) gets rejected by most
-    // OpenAI-compatible endpoints.
+    // OpenAI-compatible endpoints. normalizeWireToolSchema then strips
+    // $schema/$defs indirection that proxied backends render into chat
+    // templates verbatim (degrading argument generation).
     const parameters = rawSchema
-      ? (convertZodToJsonSchema(rawSchema as never) as never)
+      ? (normalizeWireToolSchema(
+          convertZodToJsonSchema(rawSchema as never),
+        ) as never)
       : ({ type: "object", properties: {} } as never);
     out.push({
       type: "function",
       function: {
-        name,
+        name: toolNameToWire?.get(name) ?? name,
         ...(t.description ? { description: t.description } : {}),
         parameters,
       },
@@ -307,6 +398,7 @@ export const buildToolsForOpenAI = (
 
 export const v3ToolsToOpenAI = (
   tools: OpenAICompatV3CallTools | undefined,
+  toolNameToWire?: Map<string, string>,
 ): OpenAICompatChatTool[] | undefined => {
   if (!tools || tools.length === 0) {
     return undefined;
@@ -317,9 +409,12 @@ export const v3ToolsToOpenAI = (
       out.push({
         type: "function",
         function: {
-          name: t.name,
+          name: toolNameToWire?.get(t.name) ?? t.name,
           ...(t.description ? { description: t.description } : {}),
-          parameters: t.inputSchema,
+          // The AI SDK serializes inputSchema to JSON Schema before
+          // doGenerate; normalize the wire form ($ref/$defs inlining,
+          // annotation stripping, nullable collapse) for proxied backends.
+          parameters: normalizeWireToolSchema(t.inputSchema),
           ...(t.strict !== undefined ? { strict: t.strict } : {}),
         },
       });
@@ -332,6 +427,7 @@ export const v3ToolsToOpenAI = (
 
 export const v3ToolChoiceToOpenAI = (
   choice: OpenAICompatV3CallToolChoice,
+  toolNameToWire?: Map<string, string>,
 ): OpenAICompatToolChoiceWire | undefined => {
   switch (choice.type) {
     case "auto":
@@ -339,7 +435,12 @@ export const v3ToolChoiceToOpenAI = (
     case "required":
       return choice.type;
     case "tool":
-      return { type: "function", function: { name: choice.toolName } };
+      return {
+        type: "function",
+        function: {
+          name: toolNameToWire?.get(choice.toolName) ?? choice.toolName,
+        },
+      };
   }
 };
 
@@ -368,6 +469,7 @@ export const v3ResponseFormatToOpenAI = (rf: {
 
 export const mapNeuroLinkToolChoice = (
   choice: unknown,
+  toolNameToWire?: Map<string, string>,
 ): OpenAICompatToolChoiceWire | undefined => {
   if (!choice) {
     return undefined;
@@ -378,7 +480,10 @@ export const mapNeuroLinkToolChoice = (
   if (typeof choice === "object" && choice !== null) {
     const c = choice as { type?: string; toolName?: string };
     if (c.type === "tool" && c.toolName) {
-      return { type: "function", function: { name: c.toolName } };
+      return {
+        type: "function",
+        function: { name: toolNameToWire?.get(c.toolName) ?? c.toolName },
+      };
     }
   }
   return undefined;

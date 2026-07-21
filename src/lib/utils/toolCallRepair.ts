@@ -225,8 +225,11 @@ function findMatchingKey(
 /**
  * Coerce a value to match the expected schema type.
  * Handles: string→number, JSON string→object, JSON string→array, value→[value].
+ * Exported for reuse by the MCP-layer parameter validator
+ * (toolDiscoveryService), which coerces before rejecting so a recoverable
+ * mismatch doesn't cost the agent loop a full model round-trip.
  */
-function coerceType(
+export function coerceType(
   value: unknown,
   propSchema: Record<string, unknown>,
 ): unknown {

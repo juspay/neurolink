@@ -740,6 +740,16 @@ export type AIProvider = {
    * external AIProvider implementations — callers treat absence as `true`.
    */
   supportsTools?(): boolean;
+
+  /**
+   * Ensure runtime-discovered model limits (context window, output-token
+   * ceiling) are registered before budget math runs. Implemented by
+   * BaseProvider (default no-op); providers with a discovery source override
+   * it (LiteLLM `/model/info`). Must never reject — discovery failure
+   * degrades to static defaults. Optional for compile compatibility with
+   * external AIProvider implementations — callers treat absence as no-op.
+   */
+  ensureModelLimits?(): Promise<void>;
 };
 
 /**

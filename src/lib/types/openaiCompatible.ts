@@ -295,6 +295,8 @@ export type StreamLoopArgs = {
   openAITools: OpenAICompatChatTool[] | undefined;
   openAIToolChoice: OpenAICompatToolChoiceWire | undefined;
   toolsRecord: Record<string, Tool>;
+  /** Wire → registered tool-name map when sanitization was needed (see buildWireToolNameMaps). */
+  toolNameFromWire?: Map<string, string>;
   emitter: TypedEventEmitter<NeuroLinkEvents> | undefined;
   toolsUsed: string[];
   toolExecutionSummaries: ToolExecutionSummaryInternal[];

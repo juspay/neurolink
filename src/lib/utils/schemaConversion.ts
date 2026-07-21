@@ -108,10 +108,15 @@ export function inlineJsonSchema(
   visited: Set<string> = new Set(),
   rootSchema?: Record<string, unknown>,
 ): Record<string, unknown> {
-  // Use definitions from schema if not provided
+  // Use definitions from schema if not provided. Modern MCP servers and
+  // zod v4's native toJSONSchema emit the 2020-12 `$defs` keyword; older
+  // emitters use draft-07 `definitions`. Support both.
   const defs =
     definitions ||
-    (schema.definitions as Record<string, Record<string, unknown>>);
+    ((schema.definitions ?? schema.$defs) as Record<
+      string,
+      Record<string, unknown>
+    >);
 
   // Keep track of the root schema for deep ref resolution
   const root = rootSchema || schema;
@@ -129,11 +134,17 @@ export function inlineJsonSchema(
       return { type: "object" };
     }
 
-    // Try simple definition lookup first (for #/definitions/SomeName)
-    if (refPath.startsWith("#/definitions/")) {
-      const defName = refPath.replace("#/definitions/", "");
+    // Try simple definition lookup first (#/definitions/SomeName or the
+    // 2020-12 #/$defs/SomeName form)
+    if (
+      refPath.startsWith("#/definitions/") ||
+      refPath.startsWith("#/$defs/")
+    ) {
+      const defName = refPath
+        .replace("#/definitions/", "")
+        .replace("#/$defs/", "");
 
-      // Check if it's a simple definition name (no slashes after definitions/)
+      // Check if it's a simple definition name (no slashes after the prefix)
       if (!defName.includes("/") && defs && defs[defName]) {
         visited.add(refPath);
         const resolved = inlineJsonSchema(
@@ -169,8 +180,8 @@ export function inlineJsonSchema(
   const result: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(schema)) {
-    // Skip $ref and definitions keys
-    if (key === "$ref" || key === "definitions") {
+    // Skip $ref and definition-container keys (both draft-07 and 2020-12)
+    if (key === "$ref" || key === "definitions" || key === "$defs") {
       continue;
     }
 
@@ -553,6 +564,190 @@ function ensureTypeField(
     return result;
   }
   return schema;
+}
+
+/** JSON Schema keys whose values are themselves schemas (single). */
+const SCHEMA_VALUE_KEYS = new Set([
+  "items",
+  "additionalProperties",
+  "not",
+  "if",
+  "then",
+  "else",
+  "contains",
+  "propertyNames",
+]);
+
+/** JSON Schema keys whose values are arrays of schemas. */
+const SCHEMA_ARRAY_KEYS = new Set(["allOf", "anyOf", "oneOf", "prefixItems"]);
+
+/** JSON Schema keys whose values are name → schema maps. */
+const SCHEMA_MAP_KEYS = new Set([
+  "properties",
+  "patternProperties",
+  "$defs",
+  "definitions",
+]);
+
+/**
+ * Annotation keys that carry no validation semantics for a model and that
+ * generic OpenAI-compatible backends (vllm, GLM/Qwen chat templates, local
+ * servers) may render into the prompt verbatim, confusing argument
+ * generation. Removed only at SCHEMA positions — never inside data values
+ * like `default`, `const`, `enum` or `examples`, where `$id` etc. are
+ * legitimate payload.
+ */
+const SCHEMA_ANNOTATION_KEYS = new Set(["$schema", "$id", "$comment"]);
+
+/** Walk schema positions only, dropping annotation-only keys. */
+function stripSchemaAnnotations(
+  schema: Record<string, unknown>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema)) {
+    if (SCHEMA_ANNOTATION_KEYS.has(key)) {
+      continue;
+    }
+    if (
+      SCHEMA_VALUE_KEYS.has(key) &&
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+    ) {
+      result[key] = stripSchemaAnnotations(value as Record<string, unknown>);
+    } else if (SCHEMA_ARRAY_KEYS.has(key) && Array.isArray(value)) {
+      result[key] = value.map((item) =>
+        item && typeof item === "object" && !Array.isArray(item)
+          ? stripSchemaAnnotations(item as Record<string, unknown>)
+          : item,
+      );
+    } else if (
+      SCHEMA_MAP_KEYS.has(key) &&
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+    ) {
+      const map: Record<string, unknown> = {};
+      for (const [name, sub] of Object.entries(
+        value as Record<string, unknown>,
+      )) {
+        map[name] =
+          sub && typeof sub === "object" && !Array.isArray(sub)
+            ? stripSchemaAnnotations(sub as Record<string, unknown>)
+            : sub;
+      }
+      result[key] = map;
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+/**
+ * Collapse the zod-emitted nullable pattern `anyOf/oneOf: [T, {type:"null"}]`
+ * into `{...T, type: [t, "null"]}`. Weaker OSS models handle a plain type
+ * array far better than composition keywords when choosing tool arguments.
+ * Conservative: only fires for exactly-two variants where the non-null
+ * variant has a primitive `type` string — everything else passes through.
+ */
+function collapseNullableVariants(
+  schema: Record<string, unknown>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema)) {
+    if (
+      SCHEMA_VALUE_KEYS.has(key) &&
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+    ) {
+      result[key] = collapseNullableVariants(value as Record<string, unknown>);
+    } else if (SCHEMA_ARRAY_KEYS.has(key) && Array.isArray(value)) {
+      result[key] = value.map((item) =>
+        item && typeof item === "object" && !Array.isArray(item)
+          ? collapseNullableVariants(item as Record<string, unknown>)
+          : item,
+      );
+    } else if (
+      SCHEMA_MAP_KEYS.has(key) &&
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+    ) {
+      const map: Record<string, unknown> = {};
+      for (const [name, sub] of Object.entries(
+        value as Record<string, unknown>,
+      )) {
+        map[name] =
+          sub && typeof sub === "object" && !Array.isArray(sub)
+            ? collapseNullableVariants(sub as Record<string, unknown>)
+            : sub;
+      }
+      result[key] = map;
+    } else {
+      result[key] = value;
+    }
+  }
+
+  for (const compositionKey of ["anyOf", "oneOf"] as const) {
+    const variants = result[compositionKey];
+    if (!Array.isArray(variants) || variants.length !== 2) {
+      continue;
+    }
+    const isNullVariant = (v: unknown): boolean =>
+      !!v &&
+      typeof v === "object" &&
+      (v as Record<string, unknown>).type === "null";
+    const nullIndex = variants.findIndex(isNullVariant);
+    if (nullIndex === -1) {
+      continue;
+    }
+    const other = variants[1 - nullIndex] as Record<string, unknown>;
+    if (
+      !other ||
+      typeof other !== "object" ||
+      Array.isArray(other) ||
+      typeof other.type !== "string" ||
+      other.type === "null"
+    ) {
+      continue;
+    }
+    // Merge: variant content + outer annotations (description etc.) win.
+    const { [compositionKey]: _dropped, ...outer } = result;
+    return { ...other, ...outer, type: [other.type, "null"] };
+  }
+  return result;
+}
+
+/**
+ * Normalize a JSON Schema for the OpenAI chat-completions `tools` wire
+ * block. Generic proxied backends (LiteLLM → vllm/GLM/Qwen, local servers)
+ * render tool schemas into chat templates more or less verbatim, so `$ref`
+ * indirection, `$defs` containers, `$schema` annotations, and zod's
+ * nullable `anyOf` pattern all measurably degrade argument generation —
+ * this is the parity gap behind "the model can't find the right arguments"
+ * on litellm while the same tools work on Gemini/Claude native paths
+ * (which sanitize schemas before the wire).
+ *
+ * Pipeline: strip annotation keys → inline local `$ref`/`$defs`/
+ * `definitions` → collapse nullable variants → guarantee a top-level object
+ * shape. Identity for already-clean schemas; `description`, `required`,
+ * `enum`, and `default` — what models actually read — are always preserved.
+ */
+export function normalizeWireToolSchema(
+  schema: unknown,
+): Record<string, unknown> {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    return { type: "object", properties: {} };
+  }
+  return ensureTypeField(
+    collapseNullableVariants(
+      inlineJsonSchema(
+        stripSchemaAnnotations(schema as Record<string, unknown>),
+      ),
+    ),
+  );
 }
 
 /**

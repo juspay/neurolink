@@ -26,6 +26,115 @@ function makeToolAbortError(): Error {
 }
 
 /**
+ * Compiled-validator cache, keyed by the ORIGINAL MCP tool inputSchema
+ * object. createExternalMCPTool runs once per external tool on EVERY
+ * getAllTools() (i.e. every generation call), and the schema object identity
+ * is stable for the lifetime of a server connection — without the cache the
+ * same JSON Schema is recompiled on every generate() (hot-path CPU for
+ * 50+-tool deployments). Rediscovery produces new schema objects, so stale
+ * entries fall out via WeakMap semantics. `undefined` values (schemas that
+ * failed to compile) are cached too — hence has()/get() rather than a
+ * get()-only check.
+ */
+const mcpValidatorCache = new WeakMap<
+  Record<string, unknown>,
+  Awaited<ReturnType<typeof buildMCPSchemaValidator>>
+>();
+
+/**
+ * Build an argument validator for an external MCP tool's JSON Schema, in the
+ * shape the AI SDK's `jsonSchema()` wrapper expects. Returns undefined when
+ * the schema can't be compiled (exotic dialect) — the tool then keeps the
+ * previous declarative-only behaviour instead of failing registration.
+ *
+ * The error message is written for the MODEL (it is fed back verbatim as the
+ * tool-error text): it names the offending fields and restates the contract
+ * (required properties + types) so the retry can succeed on the first attempt.
+ */
+export async function buildMCPSchemaValidator(
+  toolName: string,
+  schema: Record<string, unknown>,
+): Promise<
+  | ((
+      value: unknown,
+    ) => { success: true; value: unknown } | { success: false; error: Error })
+  | undefined
+> {
+  try {
+    const { Validator } = await import("@cfworker/json-schema");
+    // draft-07: the lingua franca of MCP server inputSchemas. shortCircuit
+    // false so the error lists every violation, not just the first.
+    const validator = new Validator(schema as never, "7", false);
+    const required = Array.isArray(schema.required)
+      ? (schema.required as string[])
+      : [];
+    const properties =
+      schema.properties && typeof schema.properties === "object"
+        ? (schema.properties as Record<string, { type?: string }>)
+        : {};
+    const contract = Object.entries(properties)
+      .map(
+        ([key, prop]) =>
+          `${key}${required.includes(key) ? "" : "?"}: ${prop?.type ?? "any"}`,
+      )
+      .join(", ");
+    return (value: unknown) => {
+      try {
+        const result = validator.validate(value);
+        if (result.valid) {
+          return { success: true, value };
+        }
+        // Root-level entries ("#") are mostly generic "instance does not
+        // match schema" noise — EXCEPT missing-required errors, which carry
+        // the offending property name and must reach the model.
+        const details = result.errors
+          .filter(
+            (e) =>
+              e.instanceLocation !== "#" || /required property/i.test(e.error),
+          )
+          .slice(0, 3)
+          .map((e) => {
+            const loc = e.instanceLocation.replace(/^#\/?/, "");
+            return loc ? `${loc}: ${e.error}` : e.error;
+          })
+          .join("; ");
+        return {
+          success: false,
+          error: new Error(
+            `Invalid arguments for tool '${toolName}'${details ? ` — ${details}` : ""}. ` +
+              `Expected: { ${contract} } (send every non-optional property with the exact name and JSON type).`,
+          ),
+        };
+      } catch (validationError) {
+        // Validator crashed on this instance — treat as valid rather than
+        // block the call; the MCP-layer validator still backstops execution.
+        logger.debug(
+          `[ToolsManager] Schema validator failed for '${toolName}', passing through`,
+          {
+            error:
+              validationError instanceof Error
+                ? validationError.message
+                : String(validationError),
+          },
+        );
+        return { success: true, value };
+      }
+    };
+  } catch (compileError) {
+    logger.debug(
+      `[ToolsManager] Could not compile schema validator for '${toolName}' — arguments will not be pre-validated`,
+      {
+        error:
+          compileError instanceof Error
+            ? compileError.message
+            : String(compileError),
+      },
+    );
+    return undefined;
+  }
+}
+
+/**
  * Race a tool-execution promise against an AbortSignal so the calling loop
  * observes a deadline/caller abort IMMEDIATELY instead of waiting for the
  * tool to finish or its execution timeout to expire. The underlying call is
@@ -817,7 +926,23 @@ export class ToolsManager {
         const fixedSchema = this.utilities?.fixSchemaForOpenAIStrictMode
           ? this.utilities.fixSchemaForOpenAIStrictMode(originalSchema)
           : originalSchema;
-        finalSchema = jsonSchema(fixedSchema);
+        // A jsonSchema() wrapper WITHOUT a validate function is declarative
+        // only — the AI SDK passes any parsed arguments straight through
+        // (safeValidateTypes short-circuits on `validate == null`). That let
+        // malformed calls (missing required params, "123" for a number)
+        // reach execution, where the MCP-layer validator rejected them at
+        // the cost of a full model round-trip. Attach a real validator so
+        // invalid calls fail at parse time, where experimental_repairToolCall
+        // can still fix them silently. Compiled once per schema object —
+        // see mcpValidatorCache.
+        let validate: Awaited<ReturnType<typeof buildMCPSchemaValidator>>;
+        if (mcpValidatorCache.has(originalSchema)) {
+          validate = mcpValidatorCache.get(originalSchema);
+        } else {
+          validate = await buildMCPSchemaValidator(tool.name, fixedSchema);
+          mcpValidatorCache.set(originalSchema, validate);
+        }
+        finalSchema = jsonSchema(fixedSchema, validate ? { validate } : {});
       } else {
         finalSchema = this.utilities?.createPermissiveZodSchema
           ? this.utilities.createPermissiveZodSchema()

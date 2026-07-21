@@ -174,4 +174,9 @@ export const textGenerationOptionsSchema: Record<
     description:
       "Disable tool result caching for this request (overrides global mcp.cache.enabled).",
   },
+  disableToolCallRepair: {
+    type: "boolean",
+    description:
+      "Disable the schema-driven tool call repair mechanism (near-miss tool names, mis-typed arguments). Repair is enabled by default.",
+  },
 };

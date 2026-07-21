@@ -7080,6 +7080,23 @@ Current user's request: ${currentInput}`;
         return null;
       }
 
+      // Provider construction runs BEFORE the budget check so runtime
+      // model-limit discovery (ensureModelLimits) can register real context
+      // windows first — ensureMCPGenerationBudget otherwise computes against
+      // the static default window (see directProviderGeneration for the
+      // lock-out this ordering prevents).
+      const provider = await AIProviderFactory.createProvider(
+        generationContext.providerName as AIProviderName,
+        options.model,
+        !options.disableTools,
+        this as unknown as UnknownRecord,
+        options.region,
+        this.resolveCredentials(options.credentials),
+      );
+      provider.setTraceContext(this._metricsTraceContext);
+      // Never rejects — discovery failure degrades to static defaults.
+      await provider.ensureModelLimits?.();
+
       const conversationMessages = await this.ensureMCPGenerationBudget(
         options,
         requestId,
@@ -7094,6 +7111,7 @@ Current user's request: ${currentInput}`;
         requestId,
         functionTag,
         tryMCPStartTime,
+        provider,
         providerName: generationContext.providerName,
         availableTools: generationContext.availableTools,
         enhancedSystemPrompt: generationContext.enhancedSystemPrompt,
@@ -7516,6 +7534,8 @@ Current user's request: ${currentInput}`;
     requestId: string;
     functionTag: string;
     tryMCPStartTime: number;
+    /** Constructed by the caller BEFORE the budget check (see tryMCPGeneration). */
+    provider: Awaited<ReturnType<typeof AIProviderFactory.createProvider>>;
     providerName: string;
     availableTools: ToolInfo[];
     enhancedSystemPrompt: string;
@@ -7526,21 +7546,12 @@ Current user's request: ${currentInput}`;
       requestId,
       functionTag,
       tryMCPStartTime,
+      provider,
       providerName,
       availableTools,
       enhancedSystemPrompt,
       conversationMessages,
     } = context;
-    const provider = await AIProviderFactory.createProvider(
-      providerName as AIProviderName,
-      options.model,
-      !options.disableTools,
-      this as unknown as UnknownRecord,
-      options.region,
-      this.resolveCredentials(options.credentials),
-    );
-
-    provider.setTraceContext(this._metricsTraceContext);
     this.emitter.emit("connected");
     this.emitter.emit(
       "message",
@@ -7900,6 +7911,28 @@ Current user's request: ${currentInput}`;
           ? optionsWithMessages.conversationMessages
           : await getConversationMessages(this.conversationMemory, options);
 
+        // Provider construction runs BEFORE the budget check so runtime
+        // model-limit discovery (ensureModelLimits) can register real
+        // context windows first. The previous order created a lock-out:
+        // checkContextBudget ran against the static default window, its
+        // pre-dispatch hard cap threw before the provider (whose
+        // constructor owns the discovery) ever existed — so a blocked call
+        // prevented the very discovery that would have unblocked it.
+        const provider = await AIProviderFactory.createProvider(
+          providerName as AIProviderName,
+          options.model,
+          !options.disableTools, // Pass disableTools as inverse of enableMCP
+          this as unknown as UnknownRecord, // Pass SDK instance
+          options.region, // Pass region parameter
+          this.resolveCredentials(options.credentials),
+        );
+
+        // Propagate trace context for parent-child span hierarchy
+        provider.setTraceContext(this._metricsTraceContext);
+
+        // Never rejects — discovery failure degrades to static defaults.
+        await provider.ensureModelLimits?.();
+
         // Pre-generation budget check
         const budgetCheck = checkContextBudget({
           provider: providerName,
@@ -8103,18 +8136,6 @@ Current user's request: ${currentInput}`;
             }
           }
         }
-
-        const provider = await AIProviderFactory.createProvider(
-          providerName as AIProviderName,
-          options.model,
-          !options.disableTools, // Pass disableTools as inverse of enableMCP
-          this as unknown as UnknownRecord, // Pass SDK instance
-          options.region, // Pass region parameter
-          this.resolveCredentials(options.credentials),
-        );
-
-        // Propagate trace context for parent-child span hierarchy
-        provider.setTraceContext(this._metricsTraceContext);
 
         // ADD: Emit connection events for successful provider creation (Bedrock-compatible)
         this.emitter.emit("connected");
@@ -10765,6 +10786,11 @@ Current user's request: ${currentInput}`;
       options.region, // Pass region parameter
       this.resolveCredentials(options.credentials),
     );
+
+    // Runtime model-limit discovery must land BEFORE the stream budget
+    // check below — otherwise it computes against the static default
+    // window. Never rejects; failure degrades to static defaults.
+    await provider.ensureModelLimits?.();
 
     // Propagate trace context for parent-child span hierarchy
     provider.setTraceContext(this._metricsTraceContext);
