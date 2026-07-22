@@ -1,3 +1,9 @@
+## [10.4.2](https://github.com/juspay/neurolink/compare/v10.4.1...v10.4.2) (2026-07-22)
+
+### Bug Fixes
+
+- **(tools):** resolve tool discovery failures in native agent loops ([6524c81](https://github.com/juspay/neurolink/commit/6524c815c0e69d450ee4bd793c5302043ec03c88))
+
 ## [10.4.1](https://github.com/juspay/neurolink/compare/v10.4.0...v10.4.1) (2026-07-22)
 
 ### Bug Fixes
