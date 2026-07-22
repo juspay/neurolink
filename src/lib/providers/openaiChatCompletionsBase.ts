@@ -74,6 +74,7 @@ import {
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { transformToolExecutions } from "../utils/transformationUtils.js";
+import { resolveDeferredTool } from "../tools/toolDiscovery.js";
 import {
   buildAPIError,
   buildBody,
@@ -1035,8 +1036,49 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     try {
       let stepFinish: OpenAICompatChatChoice["finish_reason"] = null;
       let stepUsage: OpenAICompatChatResponse["usage"] | undefined;
+      // May grow mid-turn: hydrated tools with wire-unsafe names need
+      // reverse-mapping even when the initial name set required none.
+      let effectiveToolNameFromWire = toolNameFromWire;
 
       for (let step = 0; step < maxSteps; step++) {
+        // Mid-turn discovery sync: search_tools (tools.discovery) hydrates
+        // new tools into toolsRecord between steps. Dispatch already re-reads
+        // the record — this block makes the request DECLARE them so the model
+        // can call them, keeping the wire-name round-trip intact.
+        if (openAITools) {
+          const declared = new Set(
+            openAITools.map(
+              (t) =>
+                effectiveToolNameFromWire?.get(t.function.name) ??
+                t.function.name,
+            ),
+          );
+          const hydrated = Object.fromEntries(
+            Object.entries(toolsRecord).filter(([name]) => !declared.has(name)),
+          );
+          if (Object.keys(hydrated).length > 0) {
+            // Seed with the wire names already declared this turn — mapping
+            // only the hydrated subset could otherwise re-issue a wire name
+            // an earlier tool claimed (sanitized or literal), making the
+            // reverse mapping ambiguous.
+            const extraMaps = buildWireToolNameMaps(
+              Object.keys(hydrated),
+              new Set(openAITools.map((t) => t.function.name)),
+            );
+            if (extraMaps) {
+              effectiveToolNameFromWire ??= new Map<string, string>();
+              for (const [wireName, registryName] of extraMaps.fromWire) {
+                effectiveToolNameFromWire.set(wireName, registryName);
+              }
+            }
+            openAITools.push(
+              ...(buildToolsForOpenAI(hydrated, extraMaps?.toWire) ?? []),
+            );
+            logger.info(
+              `${this.providerName}: ${Object.keys(hydrated).length} tool(s) hydrated mid-turn via discovery: ${Object.keys(hydrated).join(", ")}`,
+            );
+          }
+        }
         const stepResult = await this.streamOneStep({
           modelId,
           url,
@@ -1061,7 +1103,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           stepResult,
           conversation,
           toolsRecord,
-          toolNameFromWire,
+          toolNameFromWire: effectiveToolNameFromWire,
           emitter,
           toolsUsed,
           toolExecutionSummaries,
@@ -1237,7 +1279,12 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       // reporting use the registered names (reverse-mapped when a wire-name
       // map is in effect — see buildWireToolNameMaps).
       const registryName = toolNameFromWire?.get(t.name) ?? t.name;
-      const toolDef = toolsRecord[registryName];
+      // Live record lookup, then deferred-catalog auto-hydration: with
+      // tools.discovery on, the model may call a cataloged tool it never
+      // loaded via search_tools — that's a real tool, not a hallucination.
+      const toolDef =
+        toolsRecord[registryName] ??
+        resolveDeferredTool(toolsRecord, registryName);
       emitter?.emit("tool:start", {
         toolName: registryName,
         toolCallId: t.id,

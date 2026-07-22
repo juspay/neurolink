@@ -9,6 +9,7 @@
  */
 
 import type { ToolConfig } from "./config.js";
+import type { Tool } from "./tools.js";
 
 /**
  * The resolved, merged tool policy for one request. Produced by
@@ -75,3 +76,13 @@ export type DeferredToolIndexEntry = {
   /** Originating MCP server id, when known. */
   serverId?: string;
 };
+
+/**
+ * Resolver attached (under a symbol key, invisible to enumeration) to the
+ * hot tool record by `partitionToolsForDiscovery`. Given a deferred tool's
+ * name it hydrates that tool into the record, persists the session pin, and
+ * returns it — `undefined` when the name is not in the deferred catalog.
+ * Native agent loops call it on a dispatch miss so a model that calls a
+ * cataloged tool directly (without `search_tools` first) still succeeds.
+ */
+export type DeferredToolResolver = (name: string) => Tool | undefined;

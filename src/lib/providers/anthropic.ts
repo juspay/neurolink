@@ -60,6 +60,7 @@ import {
 } from "../utils/anthropicCacheBreakpoints.js";
 import type { VertexAnthropicMessage } from "../types/index.js";
 import { calculateCost } from "../utils/pricing.js";
+import { resolveDeferredTool } from "../tools/toolDiscovery.js";
 import {
   createAnthropicConfig,
   getProviderModel,
@@ -1814,6 +1815,22 @@ export class AnthropicProvider extends BaseProvider {
       let lastStop: string | null = null;
 
       for (let step = 0; step < maxSteps; step++) {
+        // Mid-turn discovery sync: search_tools (tools.discovery) hydrates
+        // new tools into toolsRecord between steps; Claude only calls tools
+        // declared in the request, so advertise them now (`params` below
+        // rebuilds from anthropicTools every step).
+        if (anthropicTools) {
+          const declared = new Set(anthropicTools.map((t) => t.name));
+          const hydrated = Object.fromEntries(
+            Object.entries(toolsRecord).filter(([name]) => !declared.has(name)),
+          );
+          if (Object.keys(hydrated).length > 0) {
+            anthropicTools.push(...(toolsToAnthropic(hydrated) ?? []));
+            logger.info(
+              `[Anthropic] ${Object.keys(hydrated).length} tool(s) hydrated mid-turn via discovery: ${Object.keys(hydrated).join(", ")}`,
+            );
+          }
+        }
         // Prompt-cache parity with the native Vertex+Claude path — rolling
         // history breakpoints, re-applied per step so the stable prefix
         // stays byte-identical while the breakpoint follows the growing
@@ -2000,7 +2017,11 @@ export class AnthropicProvider extends BaseProvider {
           });
           toolsUsed.push(acc.name);
 
-          const tool = toolsRecord[acc.name] as
+          // Live record lookup, then deferred-catalog auto-hydration: with
+          // tools.discovery on, the model may call a cataloged tool it never
+          // loaded via search_tools — a real tool, not a hallucination.
+          const tool = (toolsRecord[acc.name] ??
+            resolveDeferredTool(toolsRecord, acc.name)) as
             | {
                 execute?: (
                   input: Record<string, unknown>,

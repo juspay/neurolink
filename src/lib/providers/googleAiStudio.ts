@@ -29,6 +29,7 @@ import type {
   GoogleLiveAudioQueueItem,
   LiveServerMessage,
   AudioChunk,
+  NativeToolDeclarationsResult,
   NativeToolsConfig,
   StreamOptions,
   StreamResult,
@@ -66,6 +67,7 @@ import {
   handleMaxStepsTermination,
   prependConversationMessages,
   pushModelResponseToHistory,
+  refreshNativeToolDeclarations,
   DedupExecuteMap,
 } from "./googleNativeGemini3.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
@@ -738,6 +740,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
           let toolsConfig: NativeToolsConfig | undefined;
           let executeMap: Map<string, Tool["execute"]> = new DedupExecuteMap();
           let originalNameMap = new Map<string, string>();
+          let declarationsResult: NativeToolDeclarationsResult | undefined;
 
           if (
             options.tools &&
@@ -745,6 +748,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
             !options.disableTools
           ) {
             const result = buildNativeToolDeclarations(options.tools);
+            declarationsResult = result;
             toolsConfig = result.toolsConfig;
             executeMap = result.executeMap;
             originalNameMap = result.originalNameMap;
@@ -843,6 +847,14 @@ export class GoogleAIStudioProvider extends BaseProvider {
                     : new Error("Request aborted");
                 }
                 step++;
+                // Mid-turn discovery sync: advertise tools hydrated into the
+                // live record by search_tools during the previous step.
+                if (declarationsResult) {
+                  refreshNativeToolDeclarations(
+                    options.tools,
+                    declarationsResult,
+                  );
+                }
                 logger.debug(
                   `[GoogleAIStudio] Native SDK step ${step}/${maxSteps}`,
                 );
@@ -914,6 +926,8 @@ export class GoogleAIStudioProvider extends BaseProvider {
                       abortSignal: composedSignal,
                       originalNameMap,
                       toolExecutions,
+                      liveTools: options.tools,
+                      declarations: declarationsResult,
                     },
                   );
 
@@ -1153,6 +1167,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
           let toolsConfig: NativeToolsConfig | undefined;
           let executeMap: Map<string, Tool["execute"]> = new DedupExecuteMap();
           let originalNameMap = new Map<string, string>();
+          let declarationsResult: NativeToolDeclarationsResult | undefined;
 
           const shouldUseTools = !options.disableTools;
           if (shouldUseTools) {
@@ -1160,6 +1175,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
             if (Object.keys(tools).length > 0) {
               const result = buildNativeToolDeclarations(tools);
+              declarationsResult = result;
               toolsConfig = result.toolsConfig;
               executeMap = result.executeMap;
               originalNameMap = result.originalNameMap;
@@ -1230,6 +1246,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 : new Error("Request aborted");
             }
             step++;
+            // Mid-turn discovery sync — see the stream twin.
+            if (declarationsResult) {
+              refreshNativeToolDeclarations(options.tools, declarationsResult);
+            }
             logger.debug(
               `[GoogleAIStudio] Native SDK generate step ${step}/${maxSteps}`,
             );
@@ -1293,6 +1313,8 @@ export class GoogleAIStudioProvider extends BaseProvider {
                   toolExecutions,
                   abortSignal: composedSignal,
                   originalNameMap,
+                  liveTools: options.tools,
+                  declarations: declarationsResult,
                 },
               );
 

@@ -57,31 +57,42 @@ const WIRE_TOOL_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_-]{0,63}$/;
 
 /**
  * Build a bijective original ↔ wire tool-name map. Returns undefined when
- * every name is already wire-valid (the common case — the wire then uses
- * original names untouched and callers skip all mapping). Sanitized names
- * that collide get a deterministic numeric suffix so the map stays
- * invertible.
+ * every name is already wire-valid and unreserved (the common case — the
+ * wire then uses original names untouched and callers skip all mapping).
+ * Sanitized names that collide get a deterministic numeric suffix so the
+ * map stays invertible.
+ *
+ * `reservedWireNames` seeds the collision set with wire names already
+ * declared in the request — a mid-turn discovery refresh maps only the
+ * newly hydrated subset, and without seeding a hydrated name (sanitized OR
+ * wire-valid) could reuse a wire name an earlier tool already claimed,
+ * making the reverse mapping ambiguous.
  */
 export const buildWireToolNameMaps = (
   names: readonly string[],
+  reservedWireNames?: ReadonlySet<string>,
 ):
   | { toWire: Map<string, string>; fromWire: Map<string, string> }
   | undefined => {
-  if (names.every((name) => WIRE_TOOL_NAME_RE.test(name))) {
+  if (
+    names.every(
+      (name) => WIRE_TOOL_NAME_RE.test(name) && !reservedWireNames?.has(name),
+    )
+  ) {
     return undefined;
   }
   const toWire = new Map<string, string>();
   const fromWire = new Map<string, string>();
   for (const name of names) {
     let wire = WIRE_TOOL_NAME_RE.test(name) ? name : sanitizeToolName(name);
-    if (fromWire.has(wire)) {
+    if (fromWire.has(wire) || reservedWireNames?.has(wire)) {
       let suffix = 2;
       let candidate: string;
       do {
         const tail = `_${suffix}`;
         candidate = `${wire.slice(0, 64 - tail.length)}${tail}`;
         suffix++;
-      } while (fromWire.has(candidate));
+      } while (fromWire.has(candidate) || reservedWireNames?.has(candidate));
       wire = candidate;
     }
     toWire.set(name, wire);
