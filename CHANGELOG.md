@@ -1,3 +1,9 @@
+## [10.4.0](https://github.com/juspay/neurolink/compare/v10.3.1...v10.4.0) (2026-07-22)
+
+### Features
+
+- **(knowledge):** add generic knowledge grounding engine ([6038947](https://github.com/juspay/neurolink/commit/6038947cc687c04b5359375b530e6a0ac712cc6e))
+
 ## [10.3.1](https://github.com/juspay/neurolink/compare/v10.3.0...v10.3.1) (2026-07-22)
 
 ### Bug Fixes
