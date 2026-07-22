@@ -87,7 +87,7 @@ export abstract class BaseProvider implements AIProvider {
   protected modelName: string;
   protected readonly providerName: AIProviderName;
   protected readonly defaultTimeout: number = 30000; // 30 seconds
-  protected middlewareOptions?: MiddlewareFactoryOptions; // TODO: Implement global level middlewares that can be used
+  protected middlewareOptions?: MiddlewareFactoryOptions; // TODO(#1179): Implement global level middlewares that can be used
 
   // Tools are conditionally included based on centralized configuration
   protected readonly directTools = shouldDisableBuiltinTools()
@@ -1859,7 +1859,7 @@ export abstract class BaseProvider implements AIProvider {
   /**
    * Get AI SDK model with middleware applied
    * This method wraps the base model with any configured middleware
-   * TODO: Implement global level middlewares that can be used
+   * TODO(#1179): Implement global level middlewares that can be used
    */
   protected async getAISDKModelWithMiddleware(
     options: TextGenerationOptions | StreamOptions = {},
