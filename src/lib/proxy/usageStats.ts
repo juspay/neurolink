@@ -19,13 +19,20 @@ import {
 import { basename, dirname, join } from "node:path";
 import type {
   AccountStats,
+  PersistedProxyTerminalErrorSnapshot,
   PersistedProxyStatsSnapshot,
+  ProxyTerminalErrorCategory,
+  ProxyTerminalErrorDetails,
+  ProxyTerminalErrorJournal,
+  ProxyTerminalErrorSummary,
   ProxyStatsLockOwner,
   ProxyStats,
   ProxyStatsPersistenceStatus,
+  ProxyUsageStatsSnapshot,
   ProxyUsageStatsStoreOptions,
 } from "../types/index.js";
 import { AsyncMutex } from "../utils/asyncMutex.js";
+import { redactUrlsInText, sanitizeForLog } from "../utils/logSanitize.js";
 import { writeJsonSnapshotAtomically } from "./snapshotPersistence.js";
 
 const SNAPSHOT_SCHEMA_VERSION = 1;
@@ -34,6 +41,31 @@ const DEFAULT_LOCK_TIMEOUT_MS = 2_000;
 const DEFAULT_STALE_LOCK_MS = 30_000;
 const LOCK_RETRY_MS = 25;
 const MAX_CORRUPT_SNAPSHOTS = 3;
+const MAX_RECENT_TERMINAL_ERRORS = 20;
+const MAX_TERMINAL_ERROR_FIELD_LENGTH = 128;
+const MAX_TERMINAL_ERROR_MESSAGE_LENGTH = 500;
+const TERMINAL_ERROR_ESCAPE = String.fromCharCode(27);
+const TERMINAL_ERROR_BELL = String.fromCharCode(7);
+const TERMINAL_ERROR_OSC_PATTERN = new RegExp(
+  `${TERMINAL_ERROR_ESCAPE}\\][\\s\\S]*?(?:${TERMINAL_ERROR_BELL}|${TERMINAL_ERROR_ESCAPE}\\\\)`,
+  "g",
+);
+const TERMINAL_ERROR_ANSI_PATTERN = new RegExp(
+  `${TERMINAL_ERROR_ESCAPE}\\[[0-?]*[ -/]*[@-~]`,
+  "g",
+);
+const TERMINAL_ERROR_CATEGORIES = [
+  "authentication",
+  "client_cancelled",
+  "fallback_exhausted",
+  "invalid_request",
+  "proxy_error",
+  "rate_limit",
+  "stream_error",
+  "unclassified",
+  "upstream_error",
+  "other",
+] as const satisfies readonly ProxyTerminalErrorCategory[];
 
 class InvalidProxyStatsSnapshotError extends Error {}
 
@@ -49,6 +81,183 @@ function emptyStats(startedAt: number): ProxyStats {
     totalTransientRateLimits: 0,
     totalQuotaRateLimits: 0,
     accounts: {},
+  };
+}
+
+function emptyTerminalErrorCounts(): Record<
+  ProxyTerminalErrorCategory,
+  number
+> {
+  return Object.fromEntries(
+    TERMINAL_ERROR_CATEGORIES.map((category) => [category, 0]),
+  ) as Record<ProxyTerminalErrorCategory, number>;
+}
+
+function emptyTerminalErrorJournal(
+  startedAt: number,
+): ProxyTerminalErrorJournal {
+  return {
+    startedAt,
+    totalErrors: 0,
+    counts: emptyTerminalErrorCounts(),
+    recent: [],
+  };
+}
+
+function cloneTerminalErrorSummary(
+  summary: ProxyTerminalErrorSummary,
+): ProxyTerminalErrorSummary {
+  return { ...summary };
+}
+
+function cloneTerminalErrorJournal(
+  journal: ProxyTerminalErrorJournal,
+): ProxyTerminalErrorJournal {
+  return {
+    ...journal,
+    counts: { ...journal.counts },
+    recent: journal.recent.map(cloneTerminalErrorSummary),
+  };
+}
+
+function mergeTerminalErrorJournals(
+  left: ProxyTerminalErrorJournal,
+  right: ProxyTerminalErrorJournal,
+): ProxyTerminalErrorJournal {
+  const counts = emptyTerminalErrorCounts();
+  for (const category of TERMINAL_ERROR_CATEGORIES) {
+    counts[category] = left.counts[category] + right.counts[category];
+  }
+  const byId = new Map<string, ProxyTerminalErrorSummary>();
+  for (const summary of [...left.recent, ...right.recent]) {
+    byId.set(summary.id, cloneTerminalErrorSummary(summary));
+  }
+  const recent = [...byId.values()]
+    .sort((a, b) => a.at - b.at || a.id.localeCompare(b.id))
+    .slice(-MAX_RECENT_TERMINAL_ERRORS);
+  return {
+    startedAt: Math.min(left.startedAt, right.startedAt),
+    totalErrors: left.totalErrors + right.totalErrors,
+    counts,
+    recent,
+  };
+}
+
+function terminalErrorsPathForStats(filePath: string): string {
+  return join(dirname(filePath), "proxy-terminal-errors.json");
+}
+
+function clipTerminalErrorField(value: string | undefined): string | undefined {
+  const clipped = value?.slice(0, MAX_TERMINAL_ERROR_FIELD_LENGTH);
+  return clipped ? clipped : undefined;
+}
+
+function stripTerminalErrorControlCharacters(value: string): string {
+  const withoutAnsi = value
+    .replace(TERMINAL_ERROR_OSC_PATTERN, "")
+    .replace(TERMINAL_ERROR_ANSI_PATTERN, "");
+  return Array.from(withoutAnsi, (character) => {
+    const code = character.charCodeAt(0);
+    return code < 32 || (code >= 127 && code <= 159) ? " " : character;
+  }).join("");
+}
+
+function terminalErrorCategory(
+  status: number,
+  errorType: string | undefined,
+): ProxyTerminalErrorCategory {
+  const normalized = errorType?.toLowerCase() ?? "";
+  if (status === 499 || normalized.includes("client_cancel")) {
+    return "client_cancelled";
+  }
+  if (normalized.includes("stream_telemetry")) {
+    return "proxy_error";
+  }
+  if (normalized.includes("stream")) {
+    return "stream_error";
+  }
+  if (status === 429 || normalized.includes("rate_limit")) {
+    return "rate_limit";
+  }
+  if (normalized.includes("auth") || normalized.includes("token_refresh")) {
+    return "authentication";
+  }
+  if (
+    status === 404 ||
+    normalized.includes("invalid_request") ||
+    normalized.includes("not_found") ||
+    normalized.includes("construction_rejection")
+  ) {
+    return "invalid_request";
+  }
+  if (normalized.includes("fallback_exhausted")) {
+    return "fallback_exhausted";
+  }
+  if (
+    normalized.includes("proxy") ||
+    normalized.includes("handler_error") ||
+    normalized.includes("runtime")
+  ) {
+    return "proxy_error";
+  }
+  if (
+    normalized.includes("upstream") ||
+    normalized.includes("network") ||
+    normalized.includes("transient") ||
+    normalized.includes("generation") ||
+    normalized.includes("all_accounts") ||
+    normalized === "api_error" ||
+    status >= 500
+  ) {
+    return "upstream_error";
+  }
+  return normalized ? "other" : "unclassified";
+}
+
+function createTerminalErrorSummary(args: {
+  now: number;
+  status: number;
+  accountLabel?: string;
+  accountType?: string;
+  details?: ProxyTerminalErrorDetails;
+}): ProxyTerminalErrorSummary {
+  const { now, status, accountLabel, accountType, details } = args;
+  const errorType = clipTerminalErrorField(details?.errorType);
+  const message = details?.message
+    ? stripTerminalErrorControlCharacters(
+        sanitizeForLog(
+          redactUrlsInText(details.message),
+          MAX_TERMINAL_ERROR_MESSAGE_LENGTH + MAX_TERMINAL_ERROR_FIELD_LENGTH,
+        ),
+      )
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, MAX_TERMINAL_ERROR_MESSAGE_LENGTH)
+    : undefined;
+  return {
+    id: randomUUID(),
+    at: now,
+    status,
+    category: terminalErrorCategory(status, errorType),
+    ...(clipTerminalErrorField(details?.requestId)
+      ? { requestId: clipTerminalErrorField(details?.requestId) }
+      : {}),
+    ...(clipTerminalErrorField(accountLabel)
+      ? { account: clipTerminalErrorField(accountLabel) }
+      : {}),
+    ...(clipTerminalErrorField(accountType)
+      ? { accountType: clipTerminalErrorField(accountType) }
+      : {}),
+    ...(errorType ? { errorType } : {}),
+    ...(clipTerminalErrorField(details?.errorCode)
+      ? { errorCode: clipTerminalErrorField(details?.errorCode) }
+      : {}),
+    ...(clipTerminalErrorField(details?.terminalOutcome)
+      ? {
+          terminalOutcome: clipTerminalErrorField(details?.terminalOutcome),
+        }
+      : {}),
+    ...(message ? { message } : {}),
   };
 }
 
@@ -174,6 +383,76 @@ function validStats(value: unknown): value is ProxyStats {
   );
 }
 
+function validOptionalString(value: unknown, maxLength: number): boolean {
+  return (
+    value === undefined ||
+    (typeof value === "string" && value.length <= maxLength)
+  );
+}
+
+function validTerminalErrorSummary(
+  value: unknown,
+): value is ProxyTerminalErrorSummary {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Partial<ProxyTerminalErrorSummary>;
+  return (
+    typeof candidate.id === "string" &&
+    candidate.id.length > 0 &&
+    candidate.id.length <= MAX_TERMINAL_ERROR_FIELD_LENGTH &&
+    finiteNonNegativeInteger(candidate.at) &&
+    finiteNonNegativeInteger(candidate.status) &&
+    typeof candidate.category === "string" &&
+    TERMINAL_ERROR_CATEGORIES.includes(candidate.category) &&
+    validOptionalString(candidate.requestId, MAX_TERMINAL_ERROR_FIELD_LENGTH) &&
+    validOptionalString(candidate.account, MAX_TERMINAL_ERROR_FIELD_LENGTH) &&
+    validOptionalString(
+      candidate.accountType,
+      MAX_TERMINAL_ERROR_FIELD_LENGTH,
+    ) &&
+    validOptionalString(candidate.errorType, MAX_TERMINAL_ERROR_FIELD_LENGTH) &&
+    validOptionalString(candidate.errorCode, MAX_TERMINAL_ERROR_FIELD_LENGTH) &&
+    validOptionalString(
+      candidate.terminalOutcome,
+      MAX_TERMINAL_ERROR_FIELD_LENGTH,
+    ) &&
+    validOptionalString(candidate.message, MAX_TERMINAL_ERROR_MESSAGE_LENGTH)
+  );
+}
+
+function validTerminalErrorJournal(
+  value: unknown,
+): value is ProxyTerminalErrorJournal {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Partial<ProxyTerminalErrorJournal>;
+  if (
+    !finiteNonNegativeInteger(candidate.startedAt) ||
+    !finiteNonNegativeInteger(candidate.totalErrors) ||
+    !candidate.counts ||
+    typeof candidate.counts !== "object" ||
+    !Array.isArray(candidate.recent) ||
+    candidate.recent.length > MAX_RECENT_TERMINAL_ERRORS ||
+    !candidate.recent.every(validTerminalErrorSummary)
+  ) {
+    return false;
+  }
+  const countEntries = Object.entries(candidate.counts);
+  return (
+    countEntries.length === TERMINAL_ERROR_CATEGORIES.length &&
+    countEntries.every(
+      ([category, count]) =>
+        TERMINAL_ERROR_CATEGORIES.includes(
+          category as ProxyTerminalErrorCategory,
+        ) && finiteNonNegativeInteger(count),
+    ) &&
+    countEntries.reduce((total, [, count]) => total + Number(count), 0) ===
+      candidate.totalErrors
+  );
+}
+
 function validSnapshot(value: unknown): value is PersistedProxyStatsSnapshot {
   if (!value || typeof value !== "object") {
     return false;
@@ -184,6 +463,21 @@ function validSnapshot(value: unknown): value is PersistedProxyStatsSnapshot {
     finiteNonNegativeInteger(candidate.revision) &&
     finiteNonNegativeInteger(candidate.updatedAt) &&
     validStats(candidate.stats)
+  );
+}
+
+function validTerminalErrorSnapshot(
+  value: unknown,
+): value is PersistedProxyTerminalErrorSnapshot {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Partial<PersistedProxyTerminalErrorSnapshot>;
+  return (
+    candidate.schemaVersion === SNAPSHOT_SCHEMA_VERSION &&
+    finiteNonNegativeInteger(candidate.revision) &&
+    finiteNonNegativeInteger(candidate.updatedAt) &&
+    validTerminalErrorJournal(candidate.journal)
   );
 }
 
@@ -309,17 +603,27 @@ export class ProxyUsageStatsStore {
   private readonly lockTimeoutMs: number;
   private readonly staleLockMs: number;
   private filePath?: string;
+  private terminalErrorsFilePath?: string;
   private stats: ProxyStats;
   private pending: ProxyStats;
+  private terminalErrors: ProxyTerminalErrorJournal;
+  private pendingTerminalErrors: ProxyTerminalErrorJournal;
   private pendingMutations = 0;
   private inFlightMutations = 0;
+  private pendingTerminalErrorMutations = 0;
+  private inFlightTerminalErrorMutations = 0;
   private revision = 0;
+  private terminalErrorsRevision = 0;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly flushMutex = new AsyncMutex();
   private lastFlushedAt?: number;
   private lastReconciledAt?: number;
   private lastRecoveryAt?: number;
   private lastError?: string;
+  private terminalErrorsLastFlushedAt?: number;
+  private terminalErrorsLastRecoveryAt?: number;
+  private terminalErrorsLastError?: string;
+  private snapshotVersion = 0;
 
   constructor(options: ProxyUsageStatsStoreOptions = {}) {
     this.now = options.now ?? Date.now;
@@ -327,24 +631,50 @@ export class ProxyUsageStatsStore {
     this.lockTimeoutMs = options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS;
     this.staleLockMs = options.staleLockMs ?? DEFAULT_STALE_LOCK_MS;
     this.filePath = options.filePath;
+    this.terminalErrorsFilePath =
+      options.terminalErrorsFilePath ??
+      (options.filePath
+        ? terminalErrorsPathForStats(options.filePath)
+        : undefined);
     const startedAt = this.now();
     this.stats = emptyStats(startedAt);
     this.pending = emptyStats(startedAt);
+    this.terminalErrors = emptyTerminalErrorJournal(startedAt);
+    this.pendingTerminalErrors = emptyTerminalErrorJournal(startedAt);
   }
 
   async initialize(filePath: string = this.filePath ?? ""): Promise<void> {
     this.cancelFlushTimer();
+    const configuredStatsPath = this.filePath;
+    const configuredTerminalErrorsPath = this.terminalErrorsFilePath;
     this.filePath = filePath || undefined;
+    this.terminalErrorsFilePath =
+      this.filePath &&
+      configuredStatsPath === this.filePath &&
+      configuredTerminalErrorsPath
+        ? configuredTerminalErrorsPath
+        : this.filePath
+          ? terminalErrorsPathForStats(this.filePath)
+          : undefined;
     const startedAt = this.now();
     this.stats = emptyStats(startedAt);
     this.pending = emptyStats(startedAt);
+    this.terminalErrors = emptyTerminalErrorJournal(startedAt);
+    this.pendingTerminalErrors = emptyTerminalErrorJournal(startedAt);
     this.pendingMutations = 0;
     this.inFlightMutations = 0;
+    this.pendingTerminalErrorMutations = 0;
+    this.inFlightTerminalErrorMutations = 0;
     this.revision = 0;
+    this.terminalErrorsRevision = 0;
     this.lastFlushedAt = undefined;
     this.lastReconciledAt = undefined;
     this.lastRecoveryAt = undefined;
     this.lastError = undefined;
+    this.terminalErrorsLastFlushedAt = undefined;
+    this.terminalErrorsLastRecoveryAt = undefined;
+    this.terminalErrorsLastError = undefined;
+    this.snapshotVersion = 0;
     if (!this.filePath) {
       return;
     }
@@ -370,6 +700,29 @@ export class ProxyUsageStatsStore {
         }
       } else {
         this.lastError = this.describeError(error);
+      }
+    }
+    if (!this.terminalErrorsFilePath) {
+      return;
+    }
+    try {
+      const snapshot = await this.readTerminalErrorSnapshot();
+      if (snapshot) {
+        this.applyTerminalErrorSnapshot(snapshot);
+      }
+    } catch (error) {
+      if (isCorruptSnapshotError(error)) {
+        try {
+          const recoveredSnapshot =
+            await this.recoverCorruptTerminalErrorSnapshot();
+          if (recoveredSnapshot) {
+            this.applyTerminalErrorSnapshot(recoveredSnapshot);
+          }
+        } catch (recoveryError) {
+          this.terminalErrorsLastError = this.describeError(recoveryError);
+        }
+      } else {
+        this.terminalErrorsLastError = this.describeError(error);
       }
     }
   }
@@ -414,13 +767,26 @@ export class ProxyUsageStatsStore {
   }
 
   recordFinalError(
-    _status: number,
+    status: number,
     accountLabel?: string,
     accountType?: string,
+    details?: ProxyTerminalErrorDetails,
   ): void {
     const failedAt = this.now();
+    const summary = createTerminalErrorSummary({
+      now: failedAt,
+      status,
+      accountLabel,
+      accountType,
+      details,
+    });
     this.applyFinalError(this.stats, accountLabel, accountType, failedAt);
     this.applyFinalError(this.pending, accountLabel, accountType, failedAt);
+    this.applyTerminalError(this.terminalErrors, summary);
+    if (this.terminalErrorsFilePath) {
+      this.applyTerminalError(this.pendingTerminalErrors, summary);
+      this.pendingTerminalErrorMutations += 1;
+    }
     this.markMutation();
   }
 
@@ -431,6 +797,20 @@ export class ProxyUsageStatsStore {
   getAccountStats(label: string): AccountStats | undefined {
     const account = this.stats.accounts[label];
     return account ? cloneAccount(account) : undefined;
+  }
+
+  getTerminalErrors(): ProxyTerminalErrorJournal {
+    return cloneTerminalErrorJournal(this.terminalErrors);
+  }
+
+  getUsageSnapshot(): ProxyUsageStatsSnapshot {
+    const version = this.snapshotVersion;
+    return {
+      stats: this.getStats(),
+      statsVersion: version,
+      terminalErrors: this.getTerminalErrors(),
+      terminalErrorsVersion: version,
+    };
   }
 
   getPersistenceStatus(): ProxyStatsPersistenceStatus {
@@ -445,80 +825,205 @@ export class ProxyUsageStatsStore {
       lastReconciledAt: this.lastReconciledAt ?? null,
       lastRecoveryAt: this.lastRecoveryAt ?? null,
       lastError: this.lastError ?? null,
+      terminalErrorsFilePath: this.terminalErrorsFilePath ?? null,
+      terminalErrorsRevision: this.terminalErrorsRevision,
+      terminalErrorsPending: this.pendingTerminalErrorMutations,
+      terminalErrorsInFlight: this.inFlightTerminalErrorMutations,
+      terminalErrorsUnpersisted:
+        this.pendingTerminalErrorMutations +
+        this.inFlightTerminalErrorMutations,
+      terminalErrorsLastFlushedAt: this.terminalErrorsLastFlushedAt ?? null,
+      terminalErrorsLastRecoveryAt: this.terminalErrorsLastRecoveryAt ?? null,
+      terminalErrorsLastError: this.terminalErrorsLastError ?? null,
     };
   }
 
   async flush(): Promise<void> {
     if (
       !this.filePath ||
-      (this.pendingMutations === 0 && this.inFlightMutations === 0)
+      (this.pendingMutations === 0 &&
+        this.inFlightMutations === 0 &&
+        this.pendingTerminalErrorMutations === 0 &&
+        this.inFlightTerminalErrorMutations === 0)
     ) {
       return;
     }
     this.cancelFlushTimer();
     await this.flushMutex.runExclusive(async () => {
-      if (!this.filePath || this.pendingMutations === 0) {
+      if (!this.filePath) {
         return;
       }
-      const delta = this.pending;
-      const deltaMutations = this.pendingMutations;
-      this.pending = emptyStats(this.now());
-      this.pendingMutations = 0;
-      this.inFlightMutations = deltaMutations;
-      const lockPath = `${this.filePath}.lock`;
-      let releaseLock: (() => Promise<void>) | undefined;
-      try {
-        releaseLock = await acquireFileLock(
-          lockPath,
-          this.lockTimeoutMs,
-          this.staleLockMs,
-          this.now,
-        );
-        let existing: PersistedProxyStatsSnapshot | null;
-        try {
-          existing = await this.readSnapshot();
-        } catch (error) {
-          if (!isCorruptSnapshotError(error)) {
-            throw error;
-          }
-          await this.quarantineCorruptSnapshot();
-          existing = null;
+      let statsDelta: { value: ProxyStats; mutations: number } | undefined;
+      let terminalErrorDelta:
+        | { value: ProxyTerminalErrorJournal; mutations: number }
+        | undefined;
+      if (this.pendingMutations > 0) {
+        statsDelta = {
+          value: this.pending,
+          mutations: this.pendingMutations,
+        };
+        this.pending = emptyStats(this.now());
+        this.pendingMutations = 0;
+        this.inFlightMutations = statsDelta.mutations;
+      }
+      if (
+        this.terminalErrorsFilePath &&
+        this.pendingTerminalErrorMutations > 0
+      ) {
+        terminalErrorDelta = {
+          value: this.pendingTerminalErrors,
+          mutations: this.pendingTerminalErrorMutations,
+        };
+        this.pendingTerminalErrors = emptyTerminalErrorJournal(this.now());
+        this.pendingTerminalErrorMutations = 0;
+        this.inFlightTerminalErrorMutations = terminalErrorDelta.mutations;
+      }
+
+      const countersPersisted = statsDelta
+        ? await this.persistStatsDelta(statsDelta.value, statsDelta.mutations)
+        : true;
+      if (terminalErrorDelta) {
+        if (countersPersisted) {
+          await this.persistTerminalErrorDelta(
+            terminalErrorDelta.value,
+            terminalErrorDelta.mutations,
+          );
+        } else {
+          this.pendingTerminalErrors = mergeTerminalErrorJournals(
+            terminalErrorDelta.value,
+            this.pendingTerminalErrors,
+          );
+          this.pendingTerminalErrorMutations += terminalErrorDelta.mutations;
+          this.inFlightTerminalErrorMutations = 0;
         }
-        const persisted = existing?.stats ?? emptyStats(delta.startedAt);
-        const merged = mergeStats(persisted, delta);
-        const revision = (existing?.revision ?? 0) + 1;
-        const updatedAt = this.now();
-        await writeJsonSnapshotAtomically(
-          this.filePath,
-          {
-            schemaVersion: SNAPSHOT_SCHEMA_VERSION,
-            revision,
-            updatedAt,
-            stats: merged,
-          } satisfies PersistedProxyStatsSnapshot,
-          0o600,
-        );
-        this.revision = revision;
-        this.lastFlushedAt = updatedAt;
-        this.lastReconciledAt = updatedAt;
-        this.lastError = undefined;
-        this.stats = mergeStats(merged, this.pending);
-        this.inFlightMutations = 0;
-      } catch (error) {
-        this.pending = mergeStats(delta, this.pending);
-        this.pendingMutations += deltaMutations;
-        this.inFlightMutations = 0;
-        this.lastError = this.describeError(error);
+      }
+      if (this.pendingMutations > 0 || this.pendingTerminalErrorMutations > 0) {
         this.scheduleFlush();
-      } finally {
-        await releaseLock?.();
       }
     });
   }
 
-  async reconcile(): Promise<ProxyStats> {
+  private async persistStatsDelta(
+    delta: ProxyStats,
+    deltaMutations: number,
+  ): Promise<boolean> {
     if (!this.filePath) {
-      return this.getStats();
+      return false;
+    }
+    let releaseLock: (() => Promise<void>) | undefined;
+    try {
+      releaseLock = await acquireFileLock(
+        `${this.filePath}.lock`,
+        this.lockTimeoutMs,
+        this.staleLockMs,
+        this.now,
+      );
+      let existing: PersistedProxyStatsSnapshot | null;
+      try {
+        existing = await this.readSnapshot();
+      } catch (error) {
+        if (!isCorruptSnapshotError(error)) {
+          throw error;
+        }
+        await this.quarantineCorruptSnapshot();
+        existing = null;
+      }
+      const persisted = existing?.stats ?? emptyStats(delta.startedAt);
+      const merged = mergeStats(persisted, delta);
+      const revision = (existing?.revision ?? 0) + 1;
+      const updatedAt = this.now();
+      await writeJsonSnapshotAtomically(
+        this.filePath,
+        {
+          schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+          revision,
+          updatedAt,
+          stats: merged,
+        } satisfies PersistedProxyStatsSnapshot,
+        0o600,
+      );
+      this.revision = revision;
+      this.lastFlushedAt = updatedAt;
+      this.lastReconciledAt = updatedAt;
+      this.lastError = undefined;
+      this.stats = mergeStats(merged, this.pending);
+      this.inFlightMutations = 0;
+      return true;
+    } catch (error) {
+      this.pending = mergeStats(delta, this.pending);
+      this.pendingMutations += deltaMutations;
+      this.inFlightMutations = 0;
+      this.lastError = this.describeError(error);
+      return false;
+    } finally {
+      await releaseLock?.();
+    }
+  }
+
+  private async persistTerminalErrorDelta(
+    delta: ProxyTerminalErrorJournal,
+    deltaMutations: number,
+  ): Promise<void> {
+    if (!this.terminalErrorsFilePath) {
+      return;
+    }
+    let releaseLock: (() => Promise<void>) | undefined;
+    try {
+      releaseLock = await acquireFileLock(
+        `${this.terminalErrorsFilePath}.lock`,
+        this.lockTimeoutMs,
+        this.staleLockMs,
+        this.now,
+      );
+      let existing: PersistedProxyTerminalErrorSnapshot | null;
+      try {
+        existing = await this.readTerminalErrorSnapshot();
+      } catch (error) {
+        if (!isCorruptSnapshotError(error)) {
+          throw error;
+        }
+        await this.quarantineCorruptTerminalErrorSnapshot();
+        existing = null;
+      }
+      const persisted =
+        existing?.journal ?? emptyTerminalErrorJournal(delta.startedAt);
+      const merged = mergeTerminalErrorJournals(persisted, delta);
+      const revision = (existing?.revision ?? 0) + 1;
+      const updatedAt = this.now();
+      await writeJsonSnapshotAtomically(
+        this.terminalErrorsFilePath,
+        {
+          schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+          revision,
+          updatedAt,
+          journal: merged,
+        } satisfies PersistedProxyTerminalErrorSnapshot,
+        0o600,
+      );
+      this.terminalErrorsRevision = revision;
+      this.terminalErrorsLastFlushedAt = updatedAt;
+      this.terminalErrorsLastError = undefined;
+      this.terminalErrors = mergeTerminalErrorJournals(
+        merged,
+        this.pendingTerminalErrors,
+      );
+      this.inFlightTerminalErrorMutations = 0;
+    } catch (error) {
+      this.pendingTerminalErrors = mergeTerminalErrorJournals(
+        delta,
+        this.pendingTerminalErrors,
+      );
+      this.pendingTerminalErrorMutations += deltaMutations;
+      this.inFlightTerminalErrorMutations = 0;
+      this.terminalErrorsLastError = this.describeError(error);
+    } finally {
+      await releaseLock?.();
+    }
+  }
+
+  async reconcileUsageSnapshot(): Promise<ProxyUsageStatsSnapshot> {
+    if (!this.filePath) {
+      return this.getUsageSnapshot();
     }
 
     return this.flushMutex.runExclusive(async () => {
@@ -534,8 +1039,29 @@ export class ProxyUsageStatsStore {
       } catch (error) {
         this.lastError = this.describeError(error);
       }
-      return this.getStats();
+      if (this.terminalErrorsFilePath) {
+        try {
+          const snapshot = await this.readTerminalErrorSnapshot();
+          if (snapshot) {
+            this.terminalErrors = mergeTerminalErrorJournals(
+              snapshot.journal,
+              this.pendingTerminalErrors,
+            );
+            this.terminalErrorsRevision = snapshot.revision;
+            this.terminalErrorsLastFlushedAt = snapshot.updatedAt;
+          }
+          this.terminalErrorsLastError = undefined;
+        } catch (error) {
+          this.terminalErrorsLastError = this.describeError(error);
+        }
+      }
+      this.snapshotVersion += 1;
+      return this.getUsageSnapshot();
     });
+  }
+
+  async reconcile(): Promise<ProxyStats> {
+    return (await this.reconcileUsageSnapshot()).stats;
   }
 
   resetMemory(): void {
@@ -543,24 +1069,35 @@ export class ProxyUsageStatsStore {
     const startedAt = this.now();
     this.stats = emptyStats(startedAt);
     this.pending = emptyStats(startedAt);
+    this.terminalErrors = emptyTerminalErrorJournal(startedAt);
+    this.pendingTerminalErrors = emptyTerminalErrorJournal(startedAt);
     this.pendingMutations = 0;
     this.inFlightMutations = 0;
+    this.pendingTerminalErrorMutations = 0;
+    this.inFlightTerminalErrorMutations = 0;
     this.revision = 0;
+    this.terminalErrorsRevision = 0;
     this.lastFlushedAt = undefined;
     this.lastReconciledAt = undefined;
     this.lastRecoveryAt = undefined;
     this.lastError = undefined;
+    this.terminalErrorsLastFlushedAt = undefined;
+    this.terminalErrorsLastRecoveryAt = undefined;
+    this.terminalErrorsLastError = undefined;
+    this.snapshotVersion = 0;
   }
 
   async resetForTests(): Promise<void> {
     await this.flushMutex.runExclusive(async () => {
       this.resetMemory();
       this.filePath = undefined;
+      this.terminalErrorsFilePath = undefined;
     });
   }
 
   private markMutation(): void {
     this.pendingMutations += 1;
+    this.snapshotVersion += 1;
     this.scheduleFlush();
   }
 
@@ -629,6 +1166,21 @@ export class ProxyUsageStatsStore {
     }
   }
 
+  private applyTerminalError(
+    target: ProxyTerminalErrorJournal,
+    summary: ProxyTerminalErrorSummary,
+  ): void {
+    target.totalErrors += 1;
+    target.counts[summary.category] += 1;
+    target.recent.push(cloneTerminalErrorSummary(summary));
+    if (target.recent.length > MAX_RECENT_TERMINAL_ERRORS) {
+      target.recent.splice(
+        0,
+        target.recent.length - MAX_RECENT_TERMINAL_ERRORS,
+      );
+    }
+  }
+
   private ensureAccount(
     target: ProxyStats,
     label: string,
@@ -694,11 +1246,42 @@ export class ProxyUsageStatsStore {
     return parsed;
   }
 
+  private async readTerminalErrorSnapshot(): Promise<PersistedProxyTerminalErrorSnapshot | null> {
+    if (!this.terminalErrorsFilePath) {
+      return null;
+    }
+    let raw: string;
+    try {
+      raw = await readFile(this.terminalErrorsFilePath, "utf8");
+    } catch (error) {
+      if (isMissingFileError(error)) {
+        return null;
+      }
+      throw error;
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    if (!validTerminalErrorSnapshot(parsed)) {
+      throw new InvalidProxyStatsSnapshotError(
+        `Invalid proxy terminal-error snapshot ${this.terminalErrorsFilePath}`,
+      );
+    }
+    return parsed;
+  }
+
   private applySnapshot(snapshot: PersistedProxyStatsSnapshot): void {
     this.stats = cloneStats(snapshot.stats);
     this.pending = emptyStats(this.now());
     this.revision = snapshot.revision;
     this.lastFlushedAt = snapshot.updatedAt;
+  }
+
+  private applyTerminalErrorSnapshot(
+    snapshot: PersistedProxyTerminalErrorSnapshot,
+  ): void {
+    this.terminalErrors = cloneTerminalErrorJournal(snapshot.journal);
+    this.pendingTerminalErrors = emptyTerminalErrorJournal(this.now());
+    this.terminalErrorsRevision = snapshot.revision;
+    this.terminalErrorsLastFlushedAt = snapshot.updatedAt;
   }
 
   private async recoverCorruptSnapshot(): Promise<PersistedProxyStatsSnapshot | null> {
@@ -726,6 +1309,31 @@ export class ProxyUsageStatsStore {
     }
   }
 
+  private async recoverCorruptTerminalErrorSnapshot(): Promise<PersistedProxyTerminalErrorSnapshot | null> {
+    if (!this.terminalErrorsFilePath) {
+      return null;
+    }
+    const releaseLock = await acquireFileLock(
+      `${this.terminalErrorsFilePath}.lock`,
+      this.lockTimeoutMs,
+      this.staleLockMs,
+      this.now,
+    );
+    try {
+      try {
+        return await this.readTerminalErrorSnapshot();
+      } catch (error) {
+        if (!isCorruptSnapshotError(error)) {
+          throw error;
+        }
+        await this.quarantineCorruptTerminalErrorSnapshot();
+        return null;
+      }
+    } finally {
+      await releaseLock();
+    }
+  }
+
   private async quarantineCorruptSnapshot(): Promise<void> {
     if (!this.filePath) {
       return;
@@ -742,15 +1350,31 @@ export class ProxyUsageStatsStore {
     }
     this.lastRecoveryAt = recoveredAt;
     this.lastError = undefined;
-    await this.pruneCorruptSnapshots();
+    await this.pruneCorruptSnapshots(this.filePath);
   }
 
-  private async pruneCorruptSnapshots(): Promise<void> {
-    if (!this.filePath) {
+  private async quarantineCorruptTerminalErrorSnapshot(): Promise<void> {
+    if (!this.terminalErrorsFilePath) {
       return;
     }
-    const directory = dirname(this.filePath);
-    const prefix = `${basename(this.filePath)}.corrupt.`;
+    const recoveredAt = this.now();
+    const quarantinePath = `${this.terminalErrorsFilePath}.corrupt.${recoveredAt}.${randomUUID()}`;
+    try {
+      await rename(this.terminalErrorsFilePath, quarantinePath);
+    } catch (error) {
+      if (!isMissingFileError(error)) {
+        throw error;
+      }
+      return;
+    }
+    this.terminalErrorsLastRecoveryAt = recoveredAt;
+    this.terminalErrorsLastError = undefined;
+    await this.pruneCorruptSnapshots(this.terminalErrorsFilePath);
+  }
+
+  private async pruneCorruptSnapshots(filePath: string): Promise<void> {
+    const directory = dirname(filePath);
+    const prefix = `${basename(filePath)}.corrupt.`;
     const quarantined = (await readdir(directory))
       .filter((entry) => entry.startsWith(prefix))
       .sort()
@@ -802,11 +1426,12 @@ export function recordAttemptError(
 }
 
 export function recordFinalError(
-  _status: number,
+  status: number,
   accountLabel?: string,
   accountType?: string,
+  details?: ProxyTerminalErrorDetails,
 ): void {
-  defaultStore.recordFinalError(_status, accountLabel, accountType);
+  defaultStore.recordFinalError(status, accountLabel, accountType, details);
 }
 
 export function getStats(): ProxyStats {
@@ -817,8 +1442,16 @@ export async function getReconciledStats(): Promise<ProxyStats> {
   return defaultStore.reconcile();
 }
 
+export async function getReconciledUsageSnapshot(): Promise<ProxyUsageStatsSnapshot> {
+  return defaultStore.reconcileUsageSnapshot();
+}
+
 export function getAccountStats(label: string): AccountStats | undefined {
   return defaultStore.getAccountStats(label);
+}
+
+export function getTerminalErrors(): ProxyTerminalErrorJournal {
+  return defaultStore.getTerminalErrors();
 }
 
 export function getUsageStatsPersistenceStatus(): ProxyStatsPersistenceStatus {

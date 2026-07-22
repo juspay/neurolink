@@ -33,7 +33,9 @@ import { createSSEInterceptor } from "../src/lib/proxy/sseInterceptor.js";
 import {
   clearRefreshStateForTests,
   needsRefresh,
+  persistTokens,
   refreshToken,
+  refreshTokenFromLatest,
 } from "../src/lib/proxy/tokenRefresh.js";
 import {
   createStreamTerminalOutcomeTracker,
@@ -42,7 +44,9 @@ import {
 } from "../src/lib/proxy/streamOutcome.js";
 import {
   getStats,
+  getTerminalErrors,
   recordAttempt,
+  recordFinalError,
   resetUsageStatsForTests,
 } from "../src/lib/proxy/usageStats.js";
 import { parseProxyConfigString } from "../src/lib/proxy/proxyConfig.js";
@@ -52,6 +56,29 @@ import {
 } from "../src/lib/server/routes/claudeProxyRoutes.js";
 
 const tempDirs: string[] = [];
+
+function createRecordingErrorFinalRequestLogger() {
+  return vi.fn(
+    (
+      status: number,
+      accountLabel: string,
+      accountType: string,
+      errorType?: string,
+      errorMessage?: string,
+    ) => {
+      recordFinalError(status, accountLabel, accountType, {
+        errorType,
+        terminalOutcome:
+          errorType === "client_cancelled"
+            ? "client_cancelled"
+            : errorType?.includes("stream")
+              ? "stream_error"
+              : "handler_error",
+        message: errorMessage,
+      });
+    },
+  );
+}
 
 afterEach(async () => {
   vi.useRealTimers();
@@ -528,7 +555,7 @@ describe("upstream attempt classification and retry amplification", () => {
     );
     const logAttempt = vi.fn();
     const logProxyBody = vi.fn();
-    const logFinalRequest = vi.fn();
+    const logFinalRequest = createRecordingErrorFinalRequestLogger();
     const args = fetchArgs(logAttempt, logProxyBody);
 
     const result = await __testHooks.fetchAnthropicAccountResponse(args);
@@ -613,7 +640,7 @@ describe("upstream attempt classification and retry amplification", () => {
     };
     const logAttempt = vi.fn();
     const logProxyBody = vi.fn();
-    const logFinalRequest = vi.fn();
+    const logFinalRequest = createRecordingErrorFinalRequestLogger();
     const tracer = {
       logUpstreamResponseHeaders: vi.fn(),
       logUpstreamResponseBody: vi.fn(),
@@ -1117,6 +1144,53 @@ describe("upstream attempt classification and retry amplification", () => {
       }),
     ).toBe(false);
   });
+
+  it("counts a malformed terminal invalid-request body exactly once", () => {
+    const recordLoggedError = (
+      status: number,
+      _account: string,
+      _accountType: string,
+      errorType?: string,
+      message?: string,
+    ) => {
+      recordFinalError(status, undefined, undefined, {
+        requestId: "malformed-invalid-request",
+        errorType,
+        terminalOutcome: "handler_error",
+        message,
+      });
+    };
+
+    const result = __testHooks.buildClaudeAnthropicFailureResponse({
+      tracer: undefined,
+      requestStartTime: Date.now(),
+      authFailureMessage: null,
+      authCooldownMessage: null,
+      invalidRequestFailure: {
+        status: 400,
+        body: "upstream returned malformed invalid-request content",
+        contentType: "text/plain",
+      },
+      sawNetworkError: false,
+      sawTransientFailure: false,
+      sawRateLimit: false,
+      lastError: undefined,
+      fallbackFailureMessage: undefined,
+      orderedAccounts: [],
+      buildLoggedClaudeError: (status, message, errorType) => {
+        recordLoggedError(status, "", "final", errorType, message);
+        return { status, message, errorType };
+      },
+      logProxyBody: vi.fn(),
+      logFinalRequest: recordLoggedError,
+    });
+
+    expect(result).toMatchObject({
+      status: 400,
+      errorType: "invalid_request_error",
+    });
+    expect(getStats()).toMatchObject({ totalRequests: 1, totalErrors: 1 });
+  });
 });
 
 describe("authoritative unified rate-limit handling", () => {
@@ -1336,6 +1410,126 @@ describe("refresh failure classification", () => {
     expect(__testHooks.isPermanentRefreshFailure(result)).toBe(false);
   });
 
+  it("uses the same form-encoded refresh contract as the interactive auth flow", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          access_token: "new-access",
+          refresh_token: "new-refresh",
+          expires_in: 3600,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    await refreshToken({
+      token: "old-access",
+      refreshToken: "old-refresh",
+      label: "account-form",
+    });
+
+    // OAuth 2.0 token endpoints require application/x-www-form-urlencoded
+    // (RFC 6749 §6) — matching anthropicOAuth.ts::_refreshAccessToken. A JSON
+    // body is nonstandard for this grant and can be rejected upstream.
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.anthropic.com/v1/oauth/token",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        }),
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: "old-refresh",
+          client_id: "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
+        }).toString(),
+      }),
+    );
+  });
+
+  it("keeps refreshing when persisted-state reconciliation (peekTokens) throws", async () => {
+    // A decryption/IO failure in the best-effort reconciliation read must not
+    // abort the refresh — otherwise a still-valid account is spuriously
+    // disabled instead of getting a fresh token.
+    vi.spyOn(tokenStore, "peekTokens").mockRejectedValue(
+      new Error("decrypt failed"),
+    );
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ access_token: "fresh-access", expires_in: 3600 }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+
+    const account = {
+      token: "old-access",
+      refreshToken: "rt-value",
+      expiresAt: Date.now() - 1000,
+      label: "account-peek-throws",
+    };
+
+    const result = await refreshTokenFromLatest(account, {
+      providerKey: "anthropic:peek@example.com",
+    });
+
+    expect(result.success).toBe(true);
+    expect(account.token).toBe("fresh-access");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("bounds TokenStore reads while persisting refreshed credentials", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(tokenStore, "peekTokens").mockReturnValue(
+      new Promise(() => undefined),
+    );
+    const saveTokens = vi
+      .spyOn(tokenStore, "saveTokens")
+      .mockResolvedValue(undefined);
+    const persistence = persistTokens(
+      { providerKey: "anthropic:peek-hangs@example.com" },
+      {
+        token: "fresh-access",
+        refreshToken: "fresh-refresh",
+        expiresAt: Date.now() + 60_000,
+        label: "peek-hangs@example.com",
+      },
+    );
+
+    await vi.advanceTimersByTimeAsync(2_000);
+
+    await expect(persistence).resolves.toBeUndefined();
+    expect(saveTokens).not.toHaveBeenCalled();
+  });
+
+  it("bounds TokenStore writes while persisting refreshed credentials", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(tokenStore, "peekTokens").mockResolvedValue({
+      accessToken: "old-access",
+      refreshToken: "old-refresh",
+      expiresAt: Date.now() + 30_000,
+      tokenType: "Bearer",
+    });
+    vi.spyOn(tokenStore, "saveTokens").mockReturnValue(
+      new Promise(() => undefined),
+    );
+    const persistence = persistTokens(
+      { providerKey: "anthropic:save-hangs@example.com" },
+      {
+        token: "fresh-access",
+        refreshToken: "fresh-refresh",
+        expiresAt: Date.now() + 60_000,
+        label: "save-hangs@example.com",
+      },
+    );
+
+    await vi.advanceTimersByTimeAsync(2_000);
+
+    await expect(persistence).resolves.toBeUndefined();
+  });
+
   it("serializes concurrent rotating-token refreshes", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
@@ -1382,6 +1576,74 @@ describe("refresh failure classification", () => {
     expect(await refreshToken(rotatedTokenCaller)).toEqual({ success: true });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(rotatedTokenCaller).toMatchObject({
+      token: "new-access",
+      refreshToken: "new-refresh",
+    });
+  });
+
+  it("adopts a newer persisted credential before refreshing a queued request", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    vi.spyOn(tokenStore, "peekTokens").mockResolvedValue({
+      accessToken: "new-access",
+      refreshToken: "new-refresh",
+      expiresAt: Date.now() + 60 * 60 * 1000,
+      tokenType: "Bearer",
+    });
+    const account = {
+      token: "stale-access",
+      refreshToken: "stale-refresh",
+      expiresAt: Date.now() - 1,
+      label: "account-a",
+    };
+
+    await expect(
+      refreshTokenFromLatest(account, {
+        providerKey: "anthropic:account-a",
+      }),
+    ).resolves.toEqual({ success: true });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(account).toMatchObject({
+      token: "new-access",
+      refreshToken: "new-refresh",
+    });
+  });
+
+  it("adopts credentials rotated while a stale refresh is in flight", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          type: "error",
+          error: { type: "not_found_error", message: "Not found" },
+        }),
+        { status: 404 },
+      ),
+    );
+    vi.spyOn(tokenStore, "peekTokens")
+      .mockResolvedValueOnce({
+        accessToken: "stale-access",
+        refreshToken: "stale-refresh",
+        expiresAt: 1,
+        tokenType: "Bearer",
+      })
+      .mockResolvedValueOnce({
+        accessToken: "new-access",
+        refreshToken: "new-refresh",
+        expiresAt: Date.now() + 60 * 60 * 1000,
+        tokenType: "Bearer",
+      });
+    const account = {
+      token: "stale-access",
+      refreshToken: "stale-refresh",
+      expiresAt: 1,
+      label: "account-a",
+    };
+
+    await expect(
+      refreshTokenFromLatest(account, {
+        providerKey: "anthropic:account-a",
+      }),
+    ).resolves.toEqual({ success: true });
+    expect(account).toMatchObject({
       token: "new-access",
       refreshToken: "new-refresh",
     });
@@ -1511,6 +1773,97 @@ describe("account restriction", () => {
     expect(await store.getDisabledReason(key)).toBe(
       "concurrent_operator_disable",
     );
+  });
+
+  it("does not let stale work disable a newer credential generation", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "neurolink-token-store-"));
+    tempDirs.push(dir);
+    const store = new TokenStore({
+      encryptionEnabled: false,
+      customStoragePath: join(dir, "tokens.json"),
+    });
+    const key = "anthropic:rotated@example.com";
+    const stale = {
+      accessToken: "stale-access",
+      refreshToken: "stale-refresh",
+      expiresAt: 100,
+    };
+    await store.saveTokens(key, { ...stale, tokenType: "Bearer" });
+    await store.saveTokens(key, {
+      accessToken: "new-access",
+      refreshToken: "new-refresh",
+      expiresAt: 200,
+      tokenType: "Bearer",
+    });
+
+    await expect(
+      store.markDisabledIfCurrent(key, stale, "refresh_invalid"),
+    ).resolves.toBe(false);
+    expect(await store.isDisabled(key)).toBe(false);
+    await expect(
+      store.markDisabledIfCurrent(
+        key,
+        {
+          accessToken: "new-access",
+          refreshToken: "new-refresh",
+          expiresAt: 200,
+        },
+        "refresh_invalid",
+      ),
+    ).resolves.toBe(true);
+    expect(await store.isDisabled(key)).toBe(true);
+  });
+
+  it("peeks credentials without rewriting token-store metadata", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "neurolink-token-store-"));
+    tempDirs.push(dir);
+    const storagePath = join(dir, "tokens.json");
+    const store = new TokenStore({
+      encryptionEnabled: false,
+      customStoragePath: storagePath,
+    });
+    const key = "anthropic:peek@example.com";
+    await store.saveTokens(key, {
+      accessToken: "access",
+      refreshToken: "refresh",
+      expiresAt: 200,
+      tokenType: "Bearer",
+    });
+    const before = await readFile(storagePath, "utf8");
+
+    await expect(store.peekTokens(key)).resolves.toMatchObject({
+      accessToken: "access",
+      refreshToken: "refresh",
+      expiresAt: 200,
+    });
+
+    expect(await readFile(storagePath, "utf8")).toBe(before);
+  });
+
+  it("clears runtime disable state when auth enable keeps the same token", () => {
+    const account = {
+      key: "anthropic:enabled@example.com",
+      label: "enabled@example.com",
+      token: "same-access",
+      refreshToken: "same-refresh",
+      expiresAt: Date.now() + 60_000,
+      type: "oauth" as const,
+    };
+    __testHooks.setAccountRuntimeState(account.key, {
+      permanentlyDisabled: true,
+      consecutiveRefreshFailures: 3,
+      lastToken: account.token,
+      lastRefreshToken: account.refreshToken,
+    });
+
+    __testHooks.reconcileEligibleAccountRuntimeState(account);
+
+    expect(__testHooks.getAccountRuntimeState(account.key)).toMatchObject({
+      permanentlyDisabled: false,
+      consecutiveRefreshFailures: 0,
+      lastToken: account.token,
+      lastRefreshToken: account.refreshToken,
+    });
   });
 });
 
@@ -1804,7 +2157,7 @@ describe("stream terminal outcomes", () => {
       token: "test-token",
       type: "oauth" as const,
     };
-    const logFinalRequest = vi.fn();
+    const logFinalRequest = createRecordingErrorFinalRequestLogger();
     const logAttempt = vi.fn();
     const logProxyBody = vi.fn();
     const upstreamSpan = { end: vi.fn() };
@@ -1818,6 +2171,7 @@ describe("stream terminal outcomes", () => {
       setError: vi.fn(),
       end: vi.fn(),
     };
+    recordAttempt(account.label, account.type);
 
     const result = await __testHooks.handleAnthropicStreamingSuccessResponse({
       ctx: {} as never,
@@ -1862,7 +2216,247 @@ describe("stream terminal outcomes", () => {
     expect(tracer.setError).toHaveBeenCalledTimes(1);
     expect(tracer.end).toHaveBeenCalledTimes(1);
     expect(upstreamSpan.end).toHaveBeenCalledTimes(1);
-    expect(getStats()).toMatchObject({ totalRequests: 1, totalErrors: 1 });
+    expect(getStats()).toMatchObject({
+      totalAttempts: 1,
+      totalAttemptErrors: 1,
+      totalRequests: 1,
+      totalErrors: 1,
+    });
+  });
+
+  it("settles client-cancelled stream telemetry without failing the attempt", async () => {
+    const encoder = new TextEncoder();
+    let resolvePull: (() => void) | undefined;
+    const cancelUpstream = vi.fn(() => {
+      resolvePull?.();
+    });
+    const upstreamStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'event: message_start\ndata: {"type":"message_start","message":{"usage":{"input_tokens":1,"output_tokens":0}}}\n\n',
+          ),
+        );
+      },
+      pull() {
+        return new Promise<void>((resolve) => {
+          resolvePull = resolve;
+        });
+      },
+      cancel: cancelUpstream,
+    });
+    const account = {
+      key: "anthropic:primary@example.com",
+      label: "primary@example.com",
+      token: "test-token",
+      type: "oauth" as const,
+    };
+    const logFinalRequest = createRecordingErrorFinalRequestLogger();
+    recordAttempt(account.label, account.type);
+
+    const result = await __testHooks.handleAnthropicStreamingSuccessResponse({
+      ctx: {} as never,
+      body: { model: "claude-opus-4-8", messages: [], stream: true },
+      account,
+      accountState: {
+        consecutiveRefreshFailures: 0,
+        permanentlyDisabled: false,
+      },
+      response: new Response(upstreamStream, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      }),
+      responseHeaders: { "content-type": "text/event-stream" },
+      requestStartTime: Date.now(),
+      fetchStartMs: Date.now(),
+      attemptNumber: 1,
+      finalBodyStr: "{}",
+      logAttempt: vi.fn(),
+      logProxyBody: vi.fn(),
+      logFinalRequest,
+    });
+
+    const reader = (result.response as Response).body!.getReader();
+    await reader.read();
+    await reader.cancel("client disconnected");
+    expect(cancelUpstream).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(logFinalRequest).toHaveBeenCalledTimes(1));
+
+    expect(logFinalRequest).toHaveBeenCalledWith(
+      499,
+      account.label,
+      account.type,
+      "client_cancelled",
+      "Client cancelled the streaming response",
+      expect.any(Object),
+    );
+    expect(getStats()).toMatchObject({
+      totalAttempts: 1,
+      totalAttemptErrors: 0,
+      totalRequests: 1,
+      totalSuccess: 0,
+      totalErrors: 1,
+    });
+  });
+});
+
+describe("terminal request coverage", () => {
+  const requestContext = (requestId: string, body: Record<string, unknown>) =>
+    ({
+      requestId,
+      method: "POST",
+      path: "/v1/messages",
+      headers: { "content-type": "application/json" },
+      query: {},
+      params: {},
+      body,
+      neurolink: {},
+      toolRegistry: {},
+      timestamp: Date.now(),
+      metadata: {},
+    }) as never;
+
+  const messagesHandler = (passthrough: boolean) => {
+    const route = createClaudeProxyRoutes(
+      undefined,
+      "",
+      "fill-first",
+      passthrough,
+    ).routes.find(
+      (candidate) =>
+        candidate.method === "POST" && candidate.path === "/v1/messages",
+    );
+    if (!route) {
+      throw new Error("messages route not found");
+    }
+    return route.handler;
+  };
+
+  it("accounts for validation failures before routing starts", async () => {
+    const result = await messagesHandler(false)(
+      requestContext("invalid-request", { model: "claude-test" }),
+    );
+
+    expect(result).toMatchObject({
+      type: "error",
+      error: { type: "invalid_request_error" },
+    });
+    expect(getStats()).toMatchObject({
+      totalAttempts: 0,
+      totalRequests: 1,
+      totalErrors: 1,
+    });
+    expect(getTerminalErrors()).toMatchObject({
+      totalErrors: 1,
+      counts: { invalid_request: 1 },
+      recent: [
+        expect.objectContaining({
+          requestId: "invalid-request",
+          status: 400,
+          errorType: "invalid_request_error",
+        }),
+      ],
+    });
+  });
+
+  it("accounts for direct passthrough rate limits exactly once", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          type: "error",
+          error: { type: "rate_limit_error", message: "quota exhausted" },
+        }),
+        { status: 429, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    await messagesHandler(true)(
+      requestContext("passthrough-rate-limit", {
+        model: "claude-test",
+        messages: [{ role: "user", content: "hello" }],
+      }),
+    );
+
+    expect(getStats()).toMatchObject({
+      totalAttempts: 1,
+      totalAttemptErrors: 1,
+      totalRequests: 1,
+      totalErrors: 1,
+      totalRateLimits: 1,
+      totalQuotaRateLimits: 1,
+    });
+    expect(getTerminalErrors()).toMatchObject({
+      totalErrors: 1,
+      counts: { rate_limit: 1 },
+      recent: [
+        expect.objectContaining({
+          requestId: "passthrough-rate-limit",
+          status: 429,
+          account: "passthrough",
+          errorType: "rate_limit_error",
+        }),
+      ],
+    });
+  });
+
+  it("settles a cancelled direct passthrough stream", async () => {
+    let resolvePull: (() => void) | undefined;
+    const cancelUpstream = vi.fn(() => {
+      resolvePull?.();
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(
+              new TextEncoder().encode(
+                'event: message_start\ndata: {"type":"message_start","message":{"usage":{"input_tokens":1,"output_tokens":0}}}\n\n',
+              ),
+            );
+          },
+          pull() {
+            return new Promise<void>((resolve) => {
+              resolvePull = resolve;
+            });
+          },
+          cancel: cancelUpstream,
+        }),
+        { status: 200, headers: { "content-type": "text/event-stream" } },
+      ),
+    );
+
+    const result = (await messagesHandler(true)(
+      requestContext("passthrough-cancelled", {
+        model: "claude-test",
+        stream: true,
+        messages: [{ role: "user", content: "hello" }],
+      }),
+    )) as Response;
+    const reader = result.body!.getReader();
+    await reader.read();
+    await reader.cancel("client disconnected");
+    await vi.waitFor(() => expect(getStats().totalRequests).toBe(1));
+
+    expect(cancelUpstream).toHaveBeenCalledOnce();
+    expect(getStats()).toMatchObject({
+      totalAttempts: 1,
+      totalAttemptErrors: 0,
+      totalRequests: 1,
+      totalSuccess: 0,
+      totalErrors: 1,
+    });
+    expect(getTerminalErrors()).toMatchObject({
+      totalErrors: 1,
+      counts: { client_cancelled: 1 },
+      recent: [
+        expect.objectContaining({
+          requestId: "passthrough-cancelled",
+          status: 499,
+          account: "passthrough",
+          errorType: "client_cancelled",
+        }),
+      ],
+    });
   });
 });
 
@@ -2002,7 +2596,7 @@ describe("launchd lifecycle source invariants", () => {
       "utf8",
     );
     expect(source).toContain("let effectiveAccounts = nonCoolingAccounts;");
-    expect(source).toContain("eligible credentials reloaded");
+    expect(source).toContain("is enabled in the token store");
     expect(source).toContain("authCooldownMessage");
     expect(source).not.toContain("credentials changed, re-enabling");
     expect(source).not.toContain(

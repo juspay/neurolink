@@ -68,8 +68,12 @@ export function createRawStreamCapture(): RawStreamCaptureResult {
   });
 
   const innerWriter = transform.writable.getWriter();
+  let writableController: WritableStreamDefaultController;
 
   const writable = new WritableStream<Uint8Array>({
+    start(controller) {
+      writableController = controller;
+    },
     write(chunk) {
       return innerWriter.write(chunk);
     },
@@ -82,9 +86,49 @@ export function createRawStreamCapture(): RawStreamCaptureResult {
     },
   });
 
+  // A downstream reader cancellation errors the TransformStream's writable
+  // side, but this wrapper otherwise hides that state from the upstream pipe.
+  // Mirror it onto the wrapper so cancellation reaches the source reader.
+  void innerWriter.closed.catch((reason) => {
+    settle();
+    try {
+      writableController.error(reason);
+    } catch {
+      // The wrapper may already be closing or aborted.
+    }
+  });
+
+  const innerReader = transform.readable.getReader();
+  const readable = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { done, value } = await innerReader.read();
+        if (done) {
+          controller.close();
+        } else {
+          controller.enqueue(value);
+        }
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+    async cancel(reason) {
+      settle();
+      try {
+        writableController.error(reason);
+      } catch {
+        // The wrapper may already be closing or aborted.
+      }
+      await Promise.allSettled([
+        innerReader.cancel(reason),
+        innerWriter.abort(reason),
+      ]);
+    },
+  });
+
   return {
     stream: {
-      readable: transform.readable,
+      readable,
       writable,
     },
     capture,

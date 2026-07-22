@@ -262,6 +262,22 @@ export class TokenStore {
     );
   }
 
+  /** Reads tokens without updating access metadata or rewriting the store. */
+  async peekTokens(provider: string): Promise<StoredOAuthTokens | null> {
+    return this._mutex.runExclusive(async () => {
+      try {
+        const storageData = await this.loadStorageData();
+        const tokens = storageData.providers[provider]?.tokens;
+        return tokens ? { ...tokens } : null;
+      } catch (error) {
+        if (error instanceof TokenStoreError && error.code === "NOT_FOUND") {
+          return null;
+        }
+        throw error;
+      }
+    });
+  }
+
   /**
    * Internal load without mutex — callers must already hold the mutex.
    */
@@ -645,6 +661,55 @@ export class TokenStore {
         provider,
         reason: reason ?? "unspecified",
       });
+    });
+  }
+
+  /**
+   * Disables an account only when the persisted credentials still match the
+   * request that observed the authentication failure.
+   */
+  async markDisabledIfCurrent(
+    provider: string,
+    expectedTokens: Pick<
+      StoredOAuthTokens,
+      "accessToken" | "refreshToken" | "expiresAt"
+    >,
+    reason?: string,
+  ): Promise<boolean> {
+    return this._mutex.runExclusive(async () => {
+      let storageData: TokenStorageData;
+      try {
+        storageData = await this.loadStorageData();
+      } catch (error) {
+        if (error instanceof TokenStoreError && error.code === "NOT_FOUND") {
+          return false;
+        }
+        throw error;
+      }
+
+      const providerData = storageData.providers[provider];
+      if (!providerData) {
+        return false;
+      }
+      const current = providerData.tokens;
+      if (
+        current.accessToken !== expectedTokens.accessToken ||
+        current.refreshToken !== expectedTokens.refreshToken ||
+        current.expiresAt !== expectedTokens.expiresAt
+      ) {
+        return false;
+      }
+
+      providerData.disabled = true;
+      providerData.disabledAt = Date.now();
+      providerData.disabledReason = reason;
+      storageData.lastModified = Date.now();
+      await this.saveStorageData(storageData);
+      logger.info("Provider marked as disabled", {
+        provider,
+        reason: reason ?? "unspecified",
+      });
+      return true;
     });
   }
 
