@@ -1,3 +1,9 @@
+## [10.3.1](https://github.com/juspay/neurolink/compare/v10.3.0...v10.3.1) (2026-07-22)
+
+### Bug Fixes
+
+- **(litellm):** tool-calling and timeout parity for the chat-completions agent loop ([d2f9982](https://github.com/juspay/neurolink/commit/d2f9982129861c7ee92abbd31f3e12c26b52bebb))
+
 ## [10.3.0](https://github.com/juspay/neurolink/compare/v10.2.2...v10.3.0) (2026-07-21)
 
 ### Features
