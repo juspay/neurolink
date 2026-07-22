@@ -104,7 +104,7 @@ function safePreview(v: unknown): string {
  * and a deadline computed from Date.now() per attempt would hand each retry
  * a fresh budget — multiplying the caller's wall-clock cap.
  */
-function resolveTurnBudget(
+export function resolveTurnBudget(
   options: TextGenerationOptions,
   turnStartMs: number,
 ): {
@@ -124,15 +124,30 @@ function resolveTurnBudget(
       { turnTimeoutMs: options.turnTimeoutMs },
     );
   }
-  const turnBudgetMs = hasValidTurnTimeout
+  let turnBudgetMs = hasValidTurnTimeout
     ? options.turnTimeoutMs
     : callerTimeoutMs;
-  const wrapupLeadMs = turnBudgetMs
+  let wrapupLeadMs = turnBudgetMs
     ? Math.min(
         options.wrapupTimeLeadMs ?? DEFAULT_WRAPUP_TIME_LEAD_MS,
         Math.floor(turnBudgetMs / 4),
       )
     : 0;
+  // When the budget is DERIVED from the generate `timeout`, the hard abort in
+  // executeStandardGenerateFlow fires at exactly callerTimeoutMs — the same
+  // instant as the turn deadline. Wrap-up would engage at (deadline − lead)
+  // but its final, tools-off generation then RACES the abort and loses on
+  // slow models (observed: wrap-up engaged at T−lead, final answer killed at
+  // exactly T → TimeoutError, all work discarded). Pull the turn deadline one
+  // wrap-up lead earlier so the final generation runs in EXCLUSIVE margin
+  // before the abort. An explicit turnTimeoutMs is left untouched — the
+  // caller separated the two deadlines deliberately.
+  if (!hasValidTurnTimeout && turnBudgetMs !== undefined && wrapupLeadMs > 0) {
+    turnBudgetMs = turnBudgetMs - wrapupLeadMs;
+    // Keep the quarter-budget clamp invariant against the reduced budget so
+    // short timeouts still don't wrap up on the very first step.
+    wrapupLeadMs = Math.min(wrapupLeadMs, Math.floor(turnBudgetMs / 4));
+  }
   const turnDeadline = turnBudgetMs ? turnStartMs + turnBudgetMs : undefined;
   return { callerTimeoutMs, turnBudgetMs, wrapupLeadMs, turnDeadline };
 }

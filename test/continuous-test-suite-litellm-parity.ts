@@ -35,7 +35,10 @@ import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { defineSuite, assertEqual, assert } from "./helpers/harness.js";
 import { coerceType } from "../src/lib/utils/toolCallRepair.js";
 import { buildMCPSchemaValidator } from "../src/lib/core/modules/ToolsManager.js";
-import { GenerationHandler } from "../src/lib/core/modules/GenerationHandler.js";
+import {
+  GenerationHandler,
+  resolveTurnBudget,
+} from "../src/lib/core/modules/GenerationHandler.js";
 import { ToolDiscoveryService } from "../src/lib/mcp/toolDiscoveryService.js";
 import { isTransientNetworkError } from "../src/lib/proxy/proxyFetch.js";
 import {
@@ -683,6 +686,66 @@ await test("overflow 400 self-heals the window registry and re-fits max_tokens",
     "re-fit bound derives from requestedOutputTokens when max_tokens was unset",
   );
   clearRuntimeContextWindows();
+});
+
+// ---------------------------------------------------------------------------
+// Part 4 — Turn budget vs hard abort separation
+// ---------------------------------------------------------------------------
+// The hard abort in executeStandardGenerateFlow fires at exactly the generate
+// `timeout`. When the turn budget is DERIVED from that same timeout, the turn
+// deadline must sit one wrap-up lead EARLIER so the wrap-up's final,
+// tools-off generation runs in exclusive margin instead of racing the abort
+// (observed on litellm/private-large: wrap-up engaged at T−lead, final answer
+// killed at exactly T → TimeoutError with the whole turn discarded).
+
+await test("derived-from-timeout turn deadline ends one wrap-up lead before the hard abort", () => {
+  const start = 1_000_000;
+  const { callerTimeoutMs, turnBudgetMs, wrapupLeadMs, turnDeadline } =
+    resolveTurnBudget({ timeout: "15m" } as never, start);
+  assertEqual(callerTimeoutMs, 900_000, "15m parses to 900000ms");
+  assertEqual(turnBudgetMs, 780_000, "budget = 15m − 120s default lead");
+  assertEqual(wrapupLeadMs, 120_000, "default lead preserved");
+  assert(
+    (turnDeadline ?? 0) + 120_000 <= start + 900_000,
+    "final generation gets a full lead of exclusive margin before the abort",
+  );
+});
+
+await test("short derived timeouts keep the quarter-budget lead clamp", () => {
+  const { turnBudgetMs, wrapupLeadMs } = resolveTurnBudget(
+    { timeout: "5m" } as never,
+    0,
+  );
+  // lead clamps to 300s/4 = 75s, budget shrinks to 225s, lead re-clamps to 56s.
+  assertEqual(turnBudgetMs, 225_000, "5m budget shrinks by its clamped lead");
+  assertEqual(
+    wrapupLeadMs,
+    56_250,
+    "lead re-clamped to a quarter of the reduced budget",
+  );
+});
+
+await test("an explicit turnTimeoutMs is honored verbatim (caller separated the deadlines)", () => {
+  const { turnBudgetMs, wrapupLeadMs } = resolveTurnBudget(
+    { timeout: "15m", turnTimeoutMs: 600_000 } as never,
+    0,
+  );
+  assertEqual(turnBudgetMs, 600_000, "explicit turn budget untouched");
+  assertEqual(
+    wrapupLeadMs,
+    120_000,
+    "default lead against the explicit budget",
+  );
+});
+
+await test("no timeout and no turnTimeoutMs → no turn deadline (pre-existing behaviour)", () => {
+  const { turnBudgetMs, turnDeadline, wrapupLeadMs } = resolveTurnBudget(
+    {} as never,
+    0,
+  );
+  assertEqual(turnBudgetMs, undefined, "no budget without a caller deadline");
+  assertEqual(turnDeadline, undefined, "no deadline engaged");
+  assertEqual(wrapupLeadMs, 0, "no lead without a budget");
 });
 
 await runSuite();
