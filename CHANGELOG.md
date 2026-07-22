@@ -1,3 +1,9 @@
+## [10.4.1](https://github.com/juspay/neurolink/compare/v10.4.0...v10.4.1) (2026-07-22)
+
+### Bug Fixes
+
+- **(context):** end the derived turn deadline one wrap-up lead before the hard abort ([b2f2d77](https://github.com/juspay/neurolink/commit/b2f2d77599dc0582c75ca3306353e3271a66a1ad))
+
 ## [10.4.0](https://github.com/juspay/neurolink/compare/v10.3.1...v10.4.0) (2026-07-22)
 
 ### Features
