@@ -341,6 +341,7 @@ export async function handleTranslatedStreamRequest(args: {
   let keepAliveTimer: ReturnType<typeof setInterval> | undefined;
   let cancelled = false;
   let succeeded = false;
+  let streamInterruptedAfterOutput = false;
   let translatedModel: string | undefined;
   let finalStreamError = "No translation providers succeeded";
   let upstreamIterator: AsyncIterator<unknown> | undefined;
@@ -367,6 +368,9 @@ export async function handleTranslatedStreamRequest(args: {
           attemptIndex < attempts.length;
           attemptIndex++
         ) {
+          if (cancelled) {
+            break;
+          }
           const attempt = attempts[attemptIndex];
           lastAttemptLabel = attempt.label ?? "translation";
           logger.always(
@@ -409,15 +413,19 @@ export async function handleTranslatedStreamRequest(args: {
               }
             }
 
+            if (cancelled) {
+              return;
+            }
+
             const toolCalls = streamResult.toolCalls ?? [];
             if (!hasTranslatedOutput(collectedText, toolCalls)) {
               finalStreamError = `Translated provider ${attempt.label} returned no content or tool calls`;
               logger.debug(
                 `${tag} translation attempt ${attempt.label} returned no content or tool calls`,
               );
+              recordAttemptError(lastAttemptLabel, "translation", 502);
               continue;
             }
-
             if (!cancelled && toolCalls.length) {
               for (const toolCall of toolCalls) {
                 const toolName =
@@ -462,7 +470,6 @@ export async function handleTranslatedStreamRequest(args: {
 
             translatedModel = streamResult.model;
             succeeded = true;
-            recordFinalSuccess(lastAttemptLabel, "translation");
             return;
           } catch (streamErr) {
             if (cancelled) {
@@ -473,6 +480,8 @@ export async function handleTranslatedStreamRequest(args: {
                 ? streamErr.message
                 : String(streamErr);
             if (collectedText.trim().length > 0) {
+              streamInterruptedAfterOutput = true;
+              recordAttemptError(lastAttemptLabel, "translation", 502);
               logger.always(`${tag} mid-stream error: ${finalStreamError}`);
               for (const frame of serializer.emitError(
                 `Upstream stream interrupted: ${finalStreamError}`,
@@ -489,7 +498,6 @@ export async function handleTranslatedStreamRequest(args: {
         }
 
         // All attempts exhausted
-        recordFinalError(500, lastAttemptLabel, "translation");
         if (!cancelled) {
           logger.always(
             `${tag} all translation attempts failed: ${finalStreamError}`,
@@ -508,12 +516,40 @@ export async function handleTranslatedStreamRequest(args: {
         if (tracer && translatedModel && translatedModel !== requestModel) {
           tracer.setModelSubstitution(requestModel, translatedModel);
         }
-        if (!succeeded) {
-          tracer?.setError("generation_error", finalStreamError.slice(0, 500));
+        const terminalStatus = cancelled
+          ? 499
+          : succeeded
+            ? 200
+            : streamInterruptedAfterOutput
+              ? 502
+              : 500;
+        const terminalErrorType = cancelled
+          ? "client_cancelled"
+          : streamInterruptedAfterOutput
+            ? "stream_error"
+            : succeeded
+              ? undefined
+              : "generation_error";
+        const terminalErrorMessage = cancelled
+          ? "Client cancelled the streaming response"
+          : succeeded
+            ? undefined
+            : finalStreamError;
+        if (terminalErrorType && terminalErrorMessage) {
+          tracer?.setError(
+            terminalErrorType,
+            terminalErrorMessage.slice(0, 500),
+          );
+          recordFinalError(terminalStatus, lastAttemptLabel, "translation", {
+            requestId: ctx.requestId,
+            errorType: terminalErrorType,
+            terminalOutcome: terminalErrorType,
+            message: terminalErrorMessage,
+          });
+        } else {
+          recordFinalSuccess(lastAttemptLabel, "translation");
         }
-        // Use the real outcome status so trace data matches the logged
-        // responseStatus below (success path is 200, exhausted-attempts path is 500).
-        tracer?.end(succeeded ? 200 : 500, Date.now() - requestStartTime);
+        tracer?.end(terminalStatus, Date.now() - requestStartTime);
 
         const traceCtx = tracer?.getTraceContext();
         logRequest({
@@ -526,8 +562,12 @@ export async function handleTranslatedStreamRequest(args: {
           toolCount: Object.keys(parsed.tools).length,
           account: "translation",
           accountType: "translation",
-          responseStatus: succeeded ? 200 : 500,
+          responseStatus: terminalStatus,
           responseTimeMs: Date.now() - requestStartTime,
+          ...(terminalErrorType ? { errorType: terminalErrorType } : {}),
+          ...(terminalErrorMessage
+            ? { errorMessage: terminalErrorMessage.slice(0, 500) }
+            : {}),
           ...(traceCtx?.traceId ? { traceId: traceCtx.traceId } : {}),
           ...(traceCtx?.spanId ? { spanId: traceCtx.spanId } : {}),
         });
@@ -573,6 +613,7 @@ export async function handleTranslatedJsonRequest(args: {
   attempts: ProxyTranslationAttempt[];
   tracer?: ProxyTracer;
   requestStartTime: number;
+  terminalFailureStatus?: number;
 }): Promise<unknown> {
   const {
     ctx,
@@ -582,6 +623,7 @@ export async function handleTranslatedJsonRequest(args: {
     attempts,
     tracer,
     requestStartTime,
+    terminalFailureStatus = 500,
   } = args;
   const tag = logTag(format);
   let lastAttemptError = "No translation providers succeeded";
@@ -622,6 +664,7 @@ export async function handleTranslatedJsonRequest(args: {
         logger.debug(
           `${tag} translation attempt ${attempt.label} returned no content or tool calls`,
         );
+        recordAttemptError(lastAttemptLabel, "translation", 502);
         continue;
       }
 
@@ -687,10 +730,15 @@ export async function handleTranslatedJsonRequest(args: {
     }
   }
 
-  recordFinalError(500, lastAttemptLabel, "translation");
+  recordFinalError(terminalFailureStatus, lastAttemptLabel, "translation", {
+    requestId: ctx.requestId,
+    errorType: "generation_error",
+    terminalOutcome: "handler_error",
+    message: lastAttemptError,
+  });
 
   tracer?.setError("generation_error", lastAttemptError.slice(0, 500));
-  tracer?.end(500, Date.now() - requestStartTime);
+  tracer?.end(terminalFailureStatus, Date.now() - requestStartTime);
 
   const traceCtx = tracer?.getTraceContext();
   logRequest({
@@ -703,7 +751,7 @@ export async function handleTranslatedJsonRequest(args: {
     toolCount: Object.keys(parsed.tools).length,
     account: "translation",
     accountType: "translation",
-    responseStatus: 500,
+    responseStatus: terminalFailureStatus,
     responseTimeMs: Date.now() - requestStartTime,
     errorType: "generation_error",
     errorMessage: lastAttemptError.slice(0, 500),

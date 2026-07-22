@@ -780,6 +780,42 @@ export type AnthropicUpstreamFetchResult = {
 // USAGE STATS TYPES (from usageStats.ts)
 // =============================================================================
 
+export type ProxyTerminalErrorCategory =
+  | "authentication"
+  | "client_cancelled"
+  | "fallback_exhausted"
+  | "invalid_request"
+  | "proxy_error"
+  | "rate_limit"
+  | "stream_error"
+  | "unclassified"
+  | "upstream_error"
+  | "other";
+
+/** Compact, redacted terminal failure retained independently of body logs. */
+export type ProxyTerminalErrorSummary = {
+  id: string;
+  at: number;
+  status: number;
+  category: ProxyTerminalErrorCategory;
+  requestId?: string;
+  account?: string;
+  accountType?: string;
+  errorType?: string;
+  errorCode?: string;
+  terminalOutcome?: string;
+  message?: string;
+};
+
+/** Optional terminal context supplied when a final request error is recorded. */
+export type ProxyTerminalErrorDetails = {
+  requestId?: string;
+  errorType?: string;
+  errorCode?: string;
+  terminalOutcome?: string;
+  message?: string;
+};
+
 export type AccountStats = {
   label: string;
   type: string;
@@ -811,6 +847,21 @@ export type ProxyStats = {
   accounts: Record<string, AccountStats>;
 };
 
+/** Bounded terminal-error state stored separately from counters and body logs. */
+export type ProxyTerminalErrorJournal = {
+  startedAt: number;
+  totalErrors: number;
+  counts: Record<ProxyTerminalErrorCategory, number>;
+  recent: ProxyTerminalErrorSummary[];
+};
+
+export type ProxyUsageStatsSnapshot = {
+  stats: ProxyStats;
+  statsVersion: number;
+  terminalErrors: ProxyTerminalErrorJournal;
+  terminalErrorsVersion: number;
+};
+
 /** Durability and reconciliation state for the proxy usage counters. */
 export type ProxyStatsPersistenceStatus = {
   enabled: boolean;
@@ -823,6 +874,14 @@ export type ProxyStatsPersistenceStatus = {
   lastReconciledAt: number | null;
   lastRecoveryAt: number | null;
   lastError: string | null;
+  terminalErrorsFilePath?: string | null;
+  terminalErrorsRevision?: number;
+  terminalErrorsPending?: number;
+  terminalErrorsInFlight?: number;
+  terminalErrorsUnpersisted?: number;
+  terminalErrorsLastFlushedAt?: number | null;
+  terminalErrorsLastRecoveryAt?: number | null;
+  terminalErrorsLastError?: string | null;
 };
 
 /** Versioned on-disk snapshot shared by overlapping proxy workers. */
@@ -831,6 +890,14 @@ export type PersistedProxyStatsSnapshot = {
   revision: number;
   updatedAt: number;
   stats: ProxyStats;
+};
+
+/** Versioned terminal-error snapshot isolated from rolling-worker counter writes. */
+export type PersistedProxyTerminalErrorSnapshot = {
+  schemaVersion: 1;
+  revision: number;
+  updatedAt: number;
+  journal: ProxyTerminalErrorJournal;
 };
 
 /** Ownership metadata for the proxy statistics cross-process lock. */
@@ -843,6 +910,7 @@ export type ProxyStatsLockOwner = {
 /** Construction options for an isolated proxy statistics store. */
 export type ProxyUsageStatsStoreOptions = {
   filePath?: string;
+  terminalErrorsFilePath?: string;
   flushIntervalMs?: number;
   lockTimeoutMs?: number;
   staleLockMs?: number;
@@ -2309,6 +2377,11 @@ export type StatusStats = {
   totalRateLimits: number;
   totalTransientRateLimits?: number;
   totalQuotaRateLimits?: number;
+  terminalErrors?: ProxyTerminalErrorJournal;
+  lastTerminalError?: ProxyTerminalErrorSummary | null;
+  terminalErrorDetailsComparable?: boolean;
+  terminalErrorDetailsMissing?: number;
+  terminalErrorDetailsExcess?: number;
   accounts?: {
     label: string;
     type: string;
@@ -2321,12 +2394,16 @@ export type StatusStats = {
     transientRateLimits?: number;
     quotaRateLimits?: number;
     cooling: boolean;
+    allowed?: boolean;
+    expired?: boolean;
     status?:
       | "active"
       | "cooling"
       | "disabled"
+      | "expired"
       | "excluded"
       | "removed"
+      | "internal"
       | "unattributed";
   }[];
   persistence?: ProxyStatsPersistenceStatus;

@@ -1,6 +1,14 @@
 import { logger } from "../utils/logger.js";
 import { tokenStore } from "../auth/tokenStore.js";
+import {
+  ANTHROPIC_TOKEN_URL,
+  ANTHROPIC_TOKEN_URL_FALLBACK,
+  CLAUDE_CLI_USER_AGENT,
+  CLAUDE_CODE_CLIENT_ID,
+} from "../auth/anthropicOAuth.js";
 import { writeJsonSnapshotAtomically } from "./snapshotPersistence.js";
+import { withTimeout } from "../utils/async/withTimeout.js";
+import { redactUrlForError } from "../utils/logSanitize.js";
 import type {
   RefreshableAccount,
   RefreshResult,
@@ -9,12 +17,11 @@ import type {
   TokenPersistTarget,
 } from "../types/index.js";
 
-const REFRESH_URL = "https://api.anthropic.com/v1/oauth/token";
-const REFRESH_URL_FALLBACK = "https://console.anthropic.com/v1/oauth/token";
-const CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 const BUFFER_MS = 5 * 60 * 1000;
 const SUCCESS_CACHE_MS = 60_000;
-const USER_AGENT = "claude-cli/2.1.80 (external, cli)";
+// Bound the best-effort persisted-credential reconciliation read so a hung or
+// slow token-store decrypt can never stall (or abort) a live token refresh.
+const PEEK_TOKENS_TIMEOUT_MS = 2_000;
 
 const refreshesInFlight = new Map<string, Promise<SharedRefreshResult>>();
 
@@ -41,18 +48,23 @@ async function performTokenRefresh(
     return { success: false, error: "No refresh token available" };
   }
 
-  const formBody = new URLSearchParams({
+  // OAuth 2.0 token endpoints require an `application/x-www-form-urlencoded`
+  // request body (RFC 6749 §6); a JSON body is nonstandard for this grant and
+  // is rejected by RFC-compliant endpoints. Mirror the interactive auth flow
+  // in `anthropicOAuth.ts::_refreshAccessToken`.
+  const requestBody = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: account.refreshToken,
-    client_id: CLIENT_ID,
+    client_id: CLAUDE_CODE_CLIENT_ID,
   }).toString();
 
   const headers = {
     "Content-Type": "application/x-www-form-urlencoded",
-    "User-Agent": USER_AGENT,
+    Accept: "application/json",
+    "User-Agent": CLAUDE_CLI_USER_AGENT,
   };
 
-  const urls = [REFRESH_URL, REFRESH_URL_FALLBACK];
+  const urls = [ANTHROPIC_TOKEN_URL, ANTHROPIC_TOKEN_URL_FALLBACK];
   let terminalFailure: RefreshResult | undefined;
 
   for (const url of urls) {
@@ -60,16 +72,19 @@ async function performTokenRefresh(
       const resp = await fetch(url, {
         method: "POST",
         headers,
-        body: formBody,
+        body: requestBody,
         signal: AbortSignal.timeout(10_000),
       });
 
       if (!resp.ok) {
         const errorBody = await resp.text();
-        logger.warn(`[token-refresh] failed for ${account.label} at ${url}`, {
-          status: resp.status,
-          error: errorBody.slice(0, 500),
-        });
+        logger.warn(
+          `[token-refresh] failed for ${account.label} at ${redactUrlForError(url)}`,
+          {
+            status: resp.status,
+            error: errorBody.slice(0, 500),
+          },
+        );
         const failure = {
           success: false,
           error: errorBody,
@@ -79,7 +94,7 @@ async function performTokenRefresh(
           terminalFailure = failure;
         }
         // If primary URL returned a non-ok status, try fallback.
-        if (url === REFRESH_URL) {
+        if (url === ANTHROPIC_TOKEN_URL) {
           continue;
         }
         return terminalFailure ?? failure;
@@ -101,11 +116,14 @@ async function performTokenRefresh(
       logger.debug(`[token-refresh] refreshed for ${account.label}`);
       return { success: true };
     } catch (e) {
-      logger.warn(`[token-refresh] exception for ${account.label} at ${url}`, {
-        error: String(e),
-      });
+      logger.warn(
+        `[token-refresh] exception for ${account.label} at ${redactUrlForError(url)}`,
+        {
+          error: String(e),
+        },
+      );
       // If primary URL threw, try fallback
-      if (url === REFRESH_URL) {
+      if (url === ANTHROPIC_TOKEN_URL) {
         continue;
       }
       return terminalFailure ?? { success: false, error: String(e) };
@@ -190,6 +208,74 @@ export async function refreshToken(
   return shared.result;
 }
 
+async function reloadPersistedTokenStoreAccount(
+  account: RefreshableAccount,
+  target: TokenPersistTarget | undefined,
+): Promise<boolean> {
+  if (!target || typeof target === "string" || !("providerKey" in target)) {
+    return false;
+  }
+  // Best-effort, bounded reconciliation: this only adopts a newer persisted
+  // credential generation if one exists. A decryption/IO failure — or a hung
+  // read — must NOT abort the caller, which can still refresh with the
+  // already-loaded token. Swallow the failure and treat it as "no newer
+  // persisted generation found" so refresh proceeds instead of the account
+  // being spuriously disabled.
+  let stored: StoredOAuthTokens | null;
+  try {
+    stored = await withTimeout(
+      tokenStore.peekTokens(target.providerKey),
+      PEEK_TOKENS_TIMEOUT_MS,
+      "[token-refresh] peekTokens reconciliation timed out",
+    );
+  } catch (err) {
+    logger.debug(
+      "[token-refresh] skipping persisted-state reconciliation (peek failed)",
+      { error: err instanceof Error ? err.message : String(err) },
+    );
+    return false;
+  }
+  if (
+    !stored ||
+    stored.expiresAt <= (account.expiresAt ?? 0) ||
+    (stored.accessToken === account.token &&
+      stored.refreshToken === account.refreshToken &&
+      stored.expiresAt === account.expiresAt)
+  ) {
+    return false;
+  }
+  account.token = stored.accessToken;
+  account.refreshToken = stored.refreshToken;
+  account.expiresAt = stored.expiresAt;
+  return true;
+}
+
+/**
+ * Refreshes against the latest persisted credential generation. Queued
+ * requests can otherwise reject a rotated refresh token and disable a newer
+ * login that was saved while they were waiting.
+ */
+export async function refreshTokenFromLatest(
+  account: RefreshableAccount,
+  target?: TokenPersistTarget,
+): Promise<RefreshResult> {
+  const reloadedBeforeRefresh = await reloadPersistedTokenStoreAccount(
+    account,
+    target,
+  );
+  if (reloadedBeforeRefresh && !needsRefresh(account)) {
+    return { success: true };
+  }
+
+  const result = await refreshToken(account);
+  if (result.success) {
+    return result;
+  }
+  return (await reloadPersistedTokenStoreAccount(account, target))
+    ? { success: true }
+    : result;
+}
+
 export function clearRefreshStateForTests(): void {
   refreshesInFlight.clear();
 }
@@ -234,7 +320,11 @@ async function persistTokenStoreAccount(
   account: RefreshableAccount,
 ): Promise<void> {
   try {
-    const existing = await tokenStore.loadTokens(providerKey);
+    const existing = await withTimeout(
+      tokenStore.peekTokens(providerKey),
+      PEEK_TOKENS_TIMEOUT_MS,
+      "[token-refresh] peekTokens for persistence timed out",
+    );
     const merged: StoredOAuthTokens = {
       accessToken: account.token,
       refreshToken: account.refreshToken ?? existing?.refreshToken,
@@ -243,7 +333,11 @@ async function persistTokenStoreAccount(
       tokenType: existing?.tokenType ?? "Bearer",
       ...(existing?.scope ? { scope: existing.scope } : {}),
     };
-    await tokenStore.saveTokens(providerKey, merged);
+    await withTimeout(
+      tokenStore.saveTokens(providerKey, merged),
+      PEEK_TOKENS_TIMEOUT_MS,
+      "[token-refresh] saveTokens timed out",
+    );
   } catch (err) {
     logger.warn("[token-refresh] Failed to persist TokenStore credentials", {
       error: err instanceof Error ? err.message : String(err),

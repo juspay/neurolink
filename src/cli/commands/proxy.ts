@@ -14,6 +14,7 @@ import type { CommandModule, Argv } from "yargs";
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import chalk from "chalk";
 import ora from "ora";
 import type { Hono } from "hono";
@@ -26,7 +27,10 @@ import {
   waitForProxyReadiness,
 } from "../../lib/proxy/proxyHealth.js";
 import { logger } from "../../lib/utils/logger.js";
-import { sanitizeForLog } from "../../lib/utils/logSanitize.js";
+import {
+  redactUrlsInText,
+  sanitizeForLog,
+} from "../../lib/utils/logSanitize.js";
 import { withTimeout } from "../../lib/utils/async/withTimeout.js";
 import {
   formatUptime,
@@ -38,6 +42,7 @@ import type {
   FallbackInfo,
   LoadedProxyConfig,
   ModelRouterInterface,
+  PersistedAccountCooldown,
   ProxyGuardArgs,
   ProxyNeurolinkRuntime,
   ProxySpinner,
@@ -116,6 +121,7 @@ import packageJson from "../../../package.json" with { type: "json" };
 
 const _require = createRequire(import.meta.url);
 const PROXY_VERSION = packageJson.version;
+const PROXY_INTERNAL_ACCOUNT_LABEL = "proxy/internal";
 
 const PROXY_TELEMETRY_SCRIPT_PATH = fileURLToPath(
   new URL(
@@ -125,6 +131,7 @@ const PROXY_TELEMETRY_SCRIPT_PATH = fileURLToPath(
 );
 const PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS = 5_000;
 const LEGACY_STATUS_ACCOUNT_CACHE_TTL_MS = 5_000;
+const PROXY_STATUS_TOKEN_READ_TIMEOUT_MS = 2_000;
 let legacyStatusAccountCache:
   | { credentialsPath: string; expiresAt: number; label: string | null }
   | undefined;
@@ -500,6 +507,22 @@ async function resolveLegacyStatusAccountLabel(
     label,
   };
   return label;
+}
+
+function deriveAccountAllowance(
+  accountKey: string,
+  now: number,
+  allowlist: AccountAllowlist | undefined,
+  expirations: ReadonlyMap<string, number>,
+  cooldowns: Readonly<Record<string, PersistedAccountCooldown>>,
+): { allowed: boolean; expired: boolean; cooling: boolean } {
+  const allowed = isAccountAllowed(accountKey, allowlist);
+  const expiresAt = expirations.get(accountKey);
+  return {
+    allowed,
+    expired: expiresAt !== undefined && expiresAt <= now,
+    cooling: (cooldowns[accountKey]?.coolingUntil ?? 0) > now,
+  };
 }
 
 /**
@@ -1617,7 +1640,13 @@ export async function createProxyStartApp(params: {
   ): Promise<void> => {
     const clientMessage = options?.clientMessage ?? errorMessage;
     const clientErrorType = options?.clientErrorType ?? errorType;
-    recordFinalError(status);
+    recordFinalError(status, undefined, undefined, {
+      requestId: metadata.requestId,
+      errorType,
+      errorCode: options?.errorCode,
+      terminalOutcome: "handler_error",
+      message: errorMessage,
+    });
     await Promise.all([
       logRequest({
         timestamp: new Date().toISOString(),
@@ -1950,23 +1979,57 @@ export async function createProxyStartApp(params: {
     const activeAccountAllowlist = runtimeConfig
       ? runtimeConfig.accountAllowlist
       : params.accountAllowlist;
-    const { getReconciledStats, getUsageStatsPersistenceStatus } =
+    const { getReconciledUsageSnapshot, getUsageStatsPersistenceStatus } =
       await import("../../lib/proxy/usageStats.js");
     const { loadAccountCooldowns } =
       await import("../../lib/proxy/accountCooldown.js");
-    const stats = await getReconciledStats();
+    const usageSnapshot = await getReconciledUsageSnapshot();
+    const { stats, terminalErrors } = usageSnapshot;
+    const terminalErrorDetailsComparable =
+      usageSnapshot.statsVersion === usageSnapshot.terminalErrorsVersion;
+    const lastTerminalError = terminalErrors.recent.at(-1) ?? null;
+    const terminalErrorDetailsMissing = terminalErrorDetailsComparable
+      ? Math.max(0, stats.totalErrors - terminalErrors.totalErrors)
+      : undefined;
+    const terminalErrorDetailsExcess = terminalErrorDetailsComparable
+      ? Math.max(0, terminalErrors.totalErrors - stats.totalErrors)
+      : undefined;
     const runtimeState = loadProxyState();
     const supervisorState = loadProxySupervisorState();
     const updateState = loadUpdateState();
     const cooldowns = await loadAccountCooldowns();
     const storedAccountKeys = new Set<string>();
+    const storedAccountExpirations = new Map<string, number>();
     const disabledAccountKeys = new Set<string>();
     let accountInventoryLoaded = false;
     try {
       const { tokenStore } = await import("../../lib/auth/tokenStore.js");
-      for (const key of await tokenStore.listByPrefix("anthropic:")) {
-        storedAccountKeys.add(normalizeAnthropicAccountKey(key));
+      const storedKeys = await tokenStore.listByPrefix("anthropic:");
+      for (const key of storedKeys) {
+        const normalizedKey = normalizeAnthropicAccountKey(key);
+        storedAccountKeys.add(normalizedKey);
       }
+      await Promise.all(
+        storedKeys.map(async (key) => {
+          const normalizedKey = normalizeAnthropicAccountKey(key);
+          try {
+            const tokens = await withTimeout(
+              tokenStore.peekTokens(key),
+              PROXY_STATUS_TOKEN_READ_TIMEOUT_MS,
+              "[proxy] /status token inspection timed out",
+            );
+            if (tokens) {
+              storedAccountExpirations.set(normalizedKey, tokens.expiresAt);
+            }
+          } catch (err) {
+            logger.debug(
+              `[proxy] /status: failed to inspect token metadata for ${normalizedKey}: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            );
+          }
+        }),
+      );
       for (const key of await tokenStore.listDisabled()) {
         disabledAccountKeys.add(normalizeAnthropicAccountKey(key));
       }
@@ -2004,16 +2067,29 @@ export async function createProxyStartApp(params: {
             ? ENV_ANTHROPIC_ACCOUNT_KEY
             : normalizedKey;
       const isStored = storedAccountKeys.has(accountKey) || isLegacyAccount;
-      const cooling = (cooldowns[accountKey]?.coolingUntil ?? 0) > now;
-      const accountStatus = disabledAccountKeys.has(accountKey)
-        ? "disabled"
-        : !isAccountAllowed(accountKey, activeAccountAllowlist)
-          ? "excluded"
-          : accountInventoryLoaded && account.type === "oauth" && !isStored
-            ? "removed"
-            : cooling
-              ? "cooling"
-              : "active";
+      const { allowed, expired, cooling } = deriveAccountAllowance(
+        accountKey,
+        now,
+        activeAccountAllowlist,
+        storedAccountExpirations,
+        cooldowns,
+      );
+      const accountStatus =
+        account.type === "internal"
+          ? "internal"
+          : disabledAccountKeys.has(accountKey)
+            ? "disabled"
+            : expired
+              ? "expired"
+              : !allowed
+                ? "excluded"
+                : accountInventoryLoaded &&
+                    account.type === "oauth" &&
+                    !isStored
+                  ? "removed"
+                  : cooling
+                    ? "cooling"
+                    : "active";
       return {
         label: account.label,
         type: account.type,
@@ -2027,8 +2103,51 @@ export async function createProxyStartApp(params: {
         quotaRateLimits: account.quotaRateLimitCount,
         cooling,
         status: accountStatus,
+        allowed: account.type === "internal" ? undefined : allowed,
+        expired: account.type === "oauth" ? expired : undefined,
       };
     });
+    const representedAccountKeys = new Set(
+      accountRows
+        .filter((account) => account.type === "oauth")
+        .map((account) => normalizeAnthropicAccountKey(account.label)),
+    );
+    for (const accountKey of storedAccountKeys) {
+      if (representedAccountKeys.has(accountKey)) {
+        continue;
+      }
+      const { allowed, expired, cooling } = deriveAccountAllowance(
+        accountKey,
+        now,
+        activeAccountAllowlist,
+        storedAccountExpirations,
+        cooldowns,
+      );
+      accountRows.push({
+        label: accountKey.slice("anthropic:".length),
+        type: "oauth",
+        attempts: 0,
+        requests: 0,
+        success: 0,
+        errors: 0,
+        attemptErrors: 0,
+        rateLimits: 0,
+        transientRateLimits: 0,
+        quotaRateLimits: 0,
+        cooling,
+        status: disabledAccountKeys.has(accountKey)
+          ? "disabled"
+          : expired
+            ? "expired"
+            : !allowed
+              ? "excluded"
+              : cooling
+                ? "cooling"
+                : "active",
+        allowed,
+        expired,
+      });
+    }
     const attributed = accountRows.reduce(
       (total, account) => ({
         attempts: total.attempts + (account.attempts ?? 0),
@@ -2072,13 +2191,34 @@ export async function createProxyStartApp(params: {
       ),
     };
     if (Object.values(unattributed).some((count) => count > 0)) {
-      accountRows.push({
-        label: "unattributed",
-        type: "internal",
-        ...unattributed,
-        cooling: false,
-        status: "unattributed",
-      });
+      const internalRow = accountRows.find(
+        (account) => account.label === PROXY_INTERNAL_ACCOUNT_LABEL,
+      );
+      if (internalRow) {
+        internalRow.attempts =
+          (internalRow.attempts ?? 0) + unattributed.attempts;
+        internalRow.requests =
+          (internalRow.requests ?? 0) + unattributed.requests;
+        internalRow.success = (internalRow.success ?? 0) + unattributed.success;
+        internalRow.errors = (internalRow.errors ?? 0) + unattributed.errors;
+        internalRow.attemptErrors =
+          (internalRow.attemptErrors ?? 0) + unattributed.attemptErrors;
+        internalRow.rateLimits =
+          (internalRow.rateLimits ?? 0) + unattributed.rateLimits;
+        internalRow.transientRateLimits =
+          (internalRow.transientRateLimits ?? 0) +
+          unattributed.transientRateLimits;
+        internalRow.quotaRateLimits =
+          (internalRow.quotaRateLimits ?? 0) + unattributed.quotaRateLimits;
+      } else {
+        accountRows.push({
+          label: PROXY_INTERNAL_ACCOUNT_LABEL,
+          type: "internal",
+          ...unattributed,
+          cooling: false,
+          status: "internal",
+        });
+      }
     }
     return c.json({
       status: "running",
@@ -2102,6 +2242,11 @@ export async function createProxyStartApp(params: {
         totalRateLimits: stats.totalRateLimits,
         totalTransientRateLimits: stats.totalTransientRateLimits,
         totalQuotaRateLimits: stats.totalQuotaRateLimits,
+        terminalErrors,
+        lastTerminalError,
+        terminalErrorDetailsComparable,
+        terminalErrorDetailsMissing,
+        terminalErrorDetailsExcess,
         accounts: accountRows,
         primaryAccount,
         persistence: getUsageStatsPersistenceStatus(),
@@ -3104,6 +3249,15 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
         `[proxy] recovered corrupt usage statistics state at ${new Date(usageStatsPersistence.lastRecoveryAt).toISOString()}`,
       );
     }
+    if (usageStatsPersistence.terminalErrorsLastError) {
+      logger.warn(
+        `[proxy] terminal-error persistence unavailable: ${usageStatsPersistence.terminalErrorsLastError}`,
+      );
+    } else if (usageStatsPersistence.terminalErrorsLastRecoveryAt) {
+      logger.warn(
+        `[proxy] recovered corrupt terminal-error state at ${new Date(usageStatsPersistence.terminalErrorsLastRecoveryAt).toISOString()}`,
+      );
+    }
 
     const baseEnv = { ...process.env };
     const envResolution = resolveProxyEnvFile({
@@ -3293,8 +3447,22 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
 // STATUS DISPLAY HELPERS
 // =============================================================================
 
+export function sanitizeProxyStatusTerminalErrorMessage(
+  message: string,
+): string {
+  return stripVTControlCharacters(
+    sanitizeForLog(redactUrlsInText(message), 700),
+  )
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 200);
+}
+
 function printStatusStats(stats: StatusStats): void {
   console.info(`\n  Stats:`);
+  if (stats.startedAt !== undefined) {
+    console.info(`    Since:       ${new Date(stats.startedAt).toISOString()}`);
+  }
   if (stats.totalAttempts !== undefined) {
     console.info(`    Attempts:    ${stats.totalAttempts}`);
   }
@@ -3311,6 +3479,46 @@ function printStatusStats(stats: StatusStats): void {
         ? ` (${stats.totalTransientRateLimits} transient, ${stats.totalQuotaRateLimits} quota)`
         : ""),
   );
+  if (stats.terminalErrors) {
+    const causes = Object.entries(stats.terminalErrors.counts)
+      .filter(([, count]) => count > 0)
+      .map(([category, count]) => `${category}=${count}`)
+      .join(", ");
+    console.info(
+      `    Error details: ${stats.terminalErrors.totalErrors}/${stats.totalErrors}` +
+        (causes ? ` (${causes})` : ""),
+    );
+    console.info(
+      `    Detail since: ${new Date(stats.terminalErrors.startedAt).toISOString()}`,
+    );
+    if (
+      (stats.terminalErrorDetailsMissing ?? 0) > 0 ||
+      (stats.terminalErrorDetailsExcess ?? 0) > 0
+    ) {
+      console.info(
+        `    Detail gap:  ${stats.terminalErrorDetailsMissing ?? 0} missing, ${stats.terminalErrorDetailsExcess ?? 0} awaiting counter reconciliation`,
+      );
+    } else if (stats.terminalErrorDetailsComparable === false) {
+      console.info(
+        "    Detail gap:  unavailable during snapshot reconciliation",
+      );
+    }
+    const lastError =
+      stats.lastTerminalError ?? stats.terminalErrors.recent.at(-1);
+    if (lastError) {
+      const cause = lastError.errorType ?? lastError.category;
+      const code = lastError.errorCode ? `/${lastError.errorCode}` : "";
+      const account = lastError.account ? ` account=${lastError.account}` : "";
+      console.info(
+        `    Last error:  ${new Date(lastError.at).toISOString()} ${cause}${code} status=${lastError.status}${account}`,
+      );
+      if (lastError.message) {
+        console.info(
+          `    Last cause:  ${sanitizeProxyStatusTerminalErrorMessage(lastError.message)}`,
+        );
+      }
+    }
+  }
   if (stats.accounts?.length) {
     console.info(`\n  Accounts:`);
     const headers = [
@@ -3329,7 +3537,18 @@ function printStatusStats(stats: StatusStats): void {
       String(account.success ?? 0),
       String(account.errors ?? 0),
       String(account.rateLimits ?? 0),
-      account.status ?? (account.cooling ? "cooling" : "active"),
+      (() => {
+        const status =
+          account.status ?? (account.cooling ? "cooling" : "active");
+        const states = [status];
+        if (account.expired && status !== "expired") {
+          states.push("expired");
+        }
+        if (account.allowed === false && status !== "excluded") {
+          states.push("excluded");
+        }
+        return states.join(", ");
+      })(),
     ]);
     const widths = headers.map((header, index) =>
       Math.max(header.length, ...rows.map((row) => row[index].length)),

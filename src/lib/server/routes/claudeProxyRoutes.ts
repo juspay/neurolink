@@ -76,6 +76,7 @@ import {
   needsRefresh,
   persistTokens,
   refreshToken,
+  refreshTokenFromLatest,
 } from "../../proxy/tokenRefresh.js";
 import {
   buildProxyTranslationPlan,
@@ -139,6 +140,8 @@ const BLOCKED_UPSTREAM_HEADERS = new Set([
   "content-length",
   "transfer-encoding",
 ]);
+const PROXY_INTERNAL_ACCOUNT_LABEL = "proxy/internal";
+const PROXY_INTERNAL_ACCOUNT_TYPE = "internal";
 
 // ---------------------------------------------------------------------------
 // Module-level state
@@ -1344,15 +1347,37 @@ async function handleTranslatedClaudeRequest(args: {
     });
   }
 
-  return handleTranslatedJsonRequest({
-    ctx,
-    format: "claude",
-    requestModel: body.model,
-    parsed,
-    attempts,
-    tracer,
-    requestStartTime,
-  });
+  try {
+    return await handleTranslatedJsonRequest({
+      ctx,
+      format: "claude",
+      requestModel: body.model,
+      parsed,
+      attempts,
+      tracer,
+      requestStartTime,
+      terminalFailureStatus: 502,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    logger.error(
+      `[claude-proxy] Translated generation failed for ${body.model}: ${message}`,
+    );
+    const clientError = buildClaudeError(502, `Generation failed: ${message}`);
+    const clientErrorBody = JSON.stringify(clientError);
+    logProxyBody({
+      phase: "client_response",
+      headers: { "content-type": "application/json" },
+      body: clientErrorBody,
+      bodySize: Buffer.byteLength(clientErrorBody, "utf8"),
+      contentType: "application/json",
+      account: "translation",
+      accountType: "translation",
+      responseStatus: 502,
+      durationMs: Date.now() - requestStartTime,
+    });
+    return clientError;
+  }
 }
 
 function logProxyRoutingPlan(
@@ -1377,6 +1402,7 @@ async function handleClaudePassthroughRequest(args: {
   tracer?: ProxyTracer;
   requestStartTime: number;
   logProxyBody: ProxyBodyCaptureLogger;
+  logFinalRequest: ClaudeFinalRequestLogger;
 }): Promise<unknown> {
   const {
     ctx,
@@ -1385,6 +1411,7 @@ async function handleClaudePassthroughRequest(args: {
     tracer,
     requestStartTime,
     logProxyBody,
+    logFinalRequest,
   } = args;
   tracer?.setMode("passthrough-cli");
   const bodyStr = clientRequestBody;
@@ -1422,6 +1449,7 @@ async function handleClaudePassthroughRequest(args: {
       upstreamUrl: "https://api.anthropic.com/v1/messages?beta=true",
     },
   });
+  recordAttempt("passthrough", "passthrough");
 
   let response: Response;
   try {
@@ -1434,24 +1462,11 @@ async function handleClaudePassthroughRequest(args: {
   } catch (fetchErr) {
     const errMsg =
       fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+    recordAttemptError("passthrough", "passthrough", 502);
     tracer?.setError("network_error", errMsg);
     upstreamSpan?.end();
     tracer?.end(502, Date.now() - requestStartTime);
-    logRequest({
-      timestamp: new Date().toISOString(),
-      requestId: ctx.requestId,
-      method: ctx.method,
-      path: ctx.path,
-      model: body.model,
-      stream: body.stream ?? false,
-      toolCount,
-      account: "passthrough",
-      accountType: "passthrough",
-      responseStatus: 502,
-      responseTimeMs: Date.now() - requestStartTime,
-      errorType: "network_error",
-      errorMessage: errMsg,
-    });
+    logFinalRequest(502, "passthrough", "passthrough", "network_error", errMsg);
     const errorBody = buildClaudeError(
       502,
       `Passthrough fetch failed: ${errMsg}`,
@@ -1480,6 +1495,12 @@ async function handleClaudePassthroughRequest(args: {
 
   if (!response.ok) {
     const errorText = await response.text();
+    recordAttemptError(
+      "passthrough",
+      "passthrough",
+      response.status,
+      response.status === 429 ? "quota" : undefined,
+    );
     tracer?.logUpstreamResponseBody(errorText);
     logProxyBody({
       phase: "upstream_response",
@@ -1510,6 +1531,13 @@ async function handleClaudePassthroughRequest(args: {
     upstreamSpan?.end();
     tracer?.setError("api_error", errorText.slice(0, 500));
     tracer?.end(response.status, Date.now() - requestStartTime);
+    logFinalRequest(
+      response.status,
+      "passthrough",
+      "passthrough",
+      response.status === 429 ? "rate_limit_error" : "api_error",
+      errorText,
+    );
     try {
       return JSON.parse(errorText);
     } catch {
@@ -1529,6 +1557,7 @@ async function handleClaudePassthroughRequest(args: {
       upstreamSpan,
       upstreamResponseHeaders,
       logProxyBody,
+      logFinalRequest,
     });
   }
 
@@ -1543,6 +1572,7 @@ async function handleClaudePassthroughRequest(args: {
     upstreamSpan,
     upstreamResponseHeaders,
     logProxyBody,
+    logFinalRequest,
   });
 }
 
@@ -1597,28 +1627,57 @@ async function handleClaudePassthroughStreamResponse(args: {
   upstreamSpan?: ReturnType<ProxyTracer["startUpstreamAttempt"]>;
   upstreamResponseHeaders: Record<string, string>;
   logProxyBody: ProxyBodyCaptureLogger;
+  logFinalRequest: ClaudeFinalRequestLogger;
 }): Promise<Response> {
   const {
-    ctx,
-    body,
     bodyStr,
     response,
     tracer,
     requestStartTime,
-    toolCount,
     upstreamSpan,
     upstreamResponseHeaders,
     logProxyBody,
+    logFinalRequest,
   } = args;
   const responseHeaders = { ...upstreamResponseHeaders };
   const { stream: clientCaptureStream, capture: clientCapture } =
     createRawStreamCapture();
   const responseBody = response.body;
   if (!responseBody) {
+    recordAttemptError("passthrough", "passthrough", 502);
     throw new Error("Expected passthrough stream response body");
   }
   const trackedStream = trackUpstreamReadableStream(responseBody);
   let streamSource: ReadableStream<Uint8Array> = trackedStream.stream;
+  let streamFinalized = false;
+  const finalizeStream = (
+    status: number,
+    errorType?: string,
+    errorMessage?: string,
+    usage?: {
+      inputTokens?: number;
+      outputTokens?: number;
+      cacheCreationTokens?: number;
+      cacheReadTokens?: number;
+    },
+  ): boolean => {
+    if (streamFinalized) {
+      return false;
+    }
+    streamFinalized = true;
+    if (errorType === "stream_error") {
+      recordAttemptError("passthrough", "passthrough", status);
+    }
+    logFinalRequest(
+      status,
+      "passthrough",
+      "passthrough",
+      errorType,
+      errorMessage,
+      usage,
+    );
+    return true;
+  };
 
   if (tracer) {
     try {
@@ -1688,32 +1747,17 @@ async function handleClaudePassthroughStreamResponse(args: {
             Date.now() - requestStartTime,
           );
 
-          const traceCtx = capturedTracer.getTraceContext();
-          logRequest({
-            timestamp: new Date().toISOString(),
-            requestId: ctx.requestId,
-            method: ctx.method,
-            path: ctx.path,
-            model: body.model,
-            stream: true,
-            toolCount,
-            account: "passthrough",
-            accountType: "passthrough",
-            responseStatus: failure?.status ?? response.status,
-            responseTimeMs: Date.now() - requestStartTime,
-            inputTokens: data.usage.inputTokens,
-            outputTokens: data.usage.outputTokens,
-            cacheCreationTokens: data.usage.cacheCreationInputTokens,
-            cacheReadTokens: data.usage.cacheReadInputTokens,
-            traceId: traceCtx.traceId,
-            spanId: traceCtx.spanId,
-            ...(failure
-              ? {
-                  errorType: failure.errorType,
-                  errorMessage: failure.message,
-                }
-              : {}),
-          });
+          finalizeStream(
+            failure?.status ?? response.status,
+            failure?.errorType,
+            failure?.message,
+            {
+              inputTokens: data.usage.inputTokens,
+              outputTokens: data.usage.outputTokens,
+              cacheCreationTokens: data.usage.cacheCreationInputTokens,
+              cacheReadTokens: data.usage.cacheReadInputTokens,
+            },
+          );
           logProxyBody({
             phase: "upstream_response",
             headers: responseHeaders,
@@ -1740,32 +1784,15 @@ async function handleClaudePassthroughStreamResponse(args: {
           });
         })
         .catch((error) => {
-          capturedTracer.setError(
-            "stream_error",
-            error instanceof Error ? error.message : String(error),
-          );
+          if (streamFinalized) {
+            return;
+          }
+          const message =
+            error instanceof Error ? error.message : String(error);
+          capturedTracer.setError("stream_telemetry_error", message);
           capturedUpstreamSpan?.end();
           capturedTracer.end(500, Date.now() - requestStartTime);
-
-          const traceCtx = capturedTracer.getTraceContext();
-          logRequest({
-            timestamp: new Date().toISOString(),
-            requestId: ctx.requestId,
-            method: ctx.method,
-            path: ctx.path,
-            model: body.model,
-            stream: true,
-            toolCount,
-            account: "passthrough",
-            accountType: "passthrough",
-            responseStatus: 500,
-            responseTimeMs: Date.now() - requestStartTime,
-            errorType: "stream_error",
-            errorMessage:
-              error instanceof Error ? error.message : String(error),
-            traceId: traceCtx.traceId,
-            spanId: traceCtx.spanId,
-          });
+          finalizeStream(500, "stream_telemetry_error", message);
         });
     } catch {
       trackedStream.outcome.then((outcome) => {
@@ -1778,28 +1805,11 @@ async function handleClaudePassthroughStreamResponse(args: {
           failure?.status ?? response.status,
           Date.now() - requestStartTime,
         );
-        const traceCtx = tracer.getTraceContext();
-        logRequest({
-          timestamp: new Date().toISOString(),
-          requestId: ctx.requestId,
-          method: ctx.method,
-          path: ctx.path,
-          model: body.model,
-          stream: true,
-          toolCount,
-          account: "passthrough",
-          accountType: "passthrough",
-          responseStatus: failure?.status ?? response.status,
-          responseTimeMs: Date.now() - requestStartTime,
-          traceId: traceCtx.traceId,
-          spanId: traceCtx.spanId,
-          ...(failure
-            ? {
-                errorType: failure.errorType,
-                errorMessage: failure.message,
-              }
-            : {}),
-        });
+        finalizeStream(
+          failure?.status ?? response.status,
+          failure?.errorType,
+          failure?.message,
+        );
       });
     }
   } else {
@@ -1815,29 +1825,17 @@ async function handleClaudePassthroughStreamResponse(args: {
             data.streamErrorMessage,
           );
           const failure = getStreamFailureDetails(terminalOutcome);
-          logRequest({
-            timestamp: new Date().toISOString(),
-            requestId: ctx.requestId,
-            method: ctx.method,
-            path: ctx.path,
-            model: body.model,
-            stream: true,
-            toolCount,
-            account: "passthrough",
-            accountType: "passthrough",
-            responseStatus: failure?.status ?? response.status,
-            responseTimeMs: Date.now() - requestStartTime,
-            inputTokens: data.usage.inputTokens,
-            outputTokens: data.usage.outputTokens,
-            cacheCreationTokens: data.usage.cacheCreationInputTokens,
-            cacheReadTokens: data.usage.cacheReadInputTokens,
-            ...(failure
-              ? {
-                  errorType: failure.errorType,
-                  errorMessage: failure.message,
-                }
-              : {}),
-          });
+          finalizeStream(
+            failure?.status ?? response.status,
+            failure?.errorType,
+            failure?.message,
+            {
+              inputTokens: data.usage.inputTokens,
+              outputTokens: data.usage.outputTokens,
+              cacheCreationTokens: data.usage.cacheCreationInputTokens,
+              cacheReadTokens: data.usage.cacheReadInputTokens,
+            },
+          );
           logProxyBody({
             phase: "upstream_response",
             headers: responseHeaders,
@@ -1864,47 +1862,24 @@ async function handleClaudePassthroughStreamResponse(args: {
           });
         })
         .catch((error) => {
-          logRequest({
-            timestamp: new Date().toISOString(),
-            requestId: ctx.requestId,
-            method: ctx.method,
-            path: ctx.path,
-            model: body.model,
-            stream: true,
-            toolCount,
-            account: "passthrough",
-            accountType: "passthrough",
-            responseStatus: 500,
-            responseTimeMs: Date.now() - requestStartTime,
-            errorType: "stream_telemetry_error",
-            errorMessage:
+          if (!streamFinalized) {
+            finalizeStream(
+              500,
+              "stream_telemetry_error",
               error instanceof Error ? error.message : String(error),
-          });
+            );
+          }
         });
     } catch {
       // Streaming capture is best-effort; the tracked source still propagates
       // the transport failure to the client.
       trackedStream.outcome.then((outcome) => {
         const failure = getStreamFailureDetails(outcome);
-        logRequest({
-          timestamp: new Date().toISOString(),
-          requestId: ctx.requestId,
-          method: ctx.method,
-          path: ctx.path,
-          model: body.model,
-          stream: true,
-          toolCount,
-          account: "passthrough",
-          accountType: "passthrough",
-          responseStatus: failure?.status ?? response.status,
-          responseTimeMs: Date.now() - requestStartTime,
-          ...(failure
-            ? {
-                errorType: failure.errorType,
-                errorMessage: failure.message,
-              }
-            : {}),
-        });
+        finalizeStream(
+          failure?.status ?? response.status,
+          failure?.errorType,
+          failure?.message,
+        );
       });
     }
   }
@@ -1927,18 +1902,17 @@ async function handleClaudePassthroughJsonResponse(args: {
   upstreamSpan?: ReturnType<ProxyTracer["startUpstreamAttempt"]>;
   upstreamResponseHeaders: Record<string, string>;
   logProxyBody: ProxyBodyCaptureLogger;
+  logFinalRequest: ClaudeFinalRequestLogger;
 }): Promise<unknown> {
   const {
-    ctx,
-    body,
     bodyStr,
     response,
     tracer,
     requestStartTime,
-    toolCount,
     upstreamSpan,
     upstreamResponseHeaders,
     logProxyBody,
+    logFinalRequest,
   } = args;
   const responseText = await response.text();
   tracer?.logUpstreamResponseBody(responseText);
@@ -2011,42 +1985,23 @@ async function handleClaudePassthroughJsonResponse(args: {
     upstreamSpan?.end();
     tracer.end(response.status, Date.now() - requestStartTime);
 
-    const traceCtx = tracer.getTraceContext();
-    logRequest({
-      timestamp: new Date().toISOString(),
-      requestId: ctx.requestId,
-      method: ctx.method,
-      path: ctx.path,
-      model: body.model,
-      stream: false,
-      toolCount,
-      account: "passthrough",
-      accountType: "passthrough",
-      responseStatus: response.status,
-      responseTimeMs: Date.now() - requestStartTime,
-      inputTokens: usage?.input_tokens,
-      outputTokens: usage?.output_tokens,
-      cacheCreationTokens: usage?.cache_creation_input_tokens,
-      cacheReadTokens: usage?.cache_read_input_tokens,
-      traceId: traceCtx.traceId,
-      spanId: traceCtx.spanId,
-    });
+    logFinalRequest(
+      response.status,
+      "passthrough",
+      "passthrough",
+      undefined,
+      undefined,
+      {
+        inputTokens: usage?.input_tokens,
+        outputTokens: usage?.output_tokens,
+        cacheCreationTokens: usage?.cache_creation_input_tokens,
+        cacheReadTokens: usage?.cache_read_input_tokens,
+      },
+    );
   } else {
     upstreamSpan?.end();
     tracer?.end(response.status, Date.now() - requestStartTime);
-    logRequest({
-      timestamp: new Date().toISOString(),
-      requestId: ctx.requestId,
-      method: ctx.method,
-      path: ctx.path,
-      model: body.model,
-      stream: false,
-      toolCount,
-      account: "passthrough",
-      accountType: "passthrough",
-      responseStatus: response.status,
-      responseTimeMs: Date.now() - requestStartTime,
-    });
+    logFinalRequest(response.status, "passthrough", "passthrough");
   }
 
   return responseJson;
@@ -2188,7 +2143,9 @@ async function loadClaudeProxyAccounts(args: {
         expiresAt,
         label,
       };
-      const refreshed = await refreshToken(tempAccount);
+      const refreshed = await refreshTokenFromLatest(tempAccount, {
+        providerKey: key,
+      });
       if (!refreshed.success) {
         const account = {
           key,
@@ -2295,23 +2252,7 @@ async function loadClaudeProxyAccounts(args: {
   }
 
   for (const account of accounts) {
-    const state = getOrCreateRuntimeState(account.key);
-    const tokenChanged =
-      state.lastToken !== account.token ||
-      state.lastRefreshToken !== account.refreshToken;
-    if (tokenChanged) {
-      if (state.permanentlyDisabled) {
-        logger.always(
-          `[proxy] account=${account.label} eligible credentials reloaded; clearing stale runtime auth-disable state`,
-        );
-      }
-      // Eligibility was already resolved while loading accounts. This only
-      // clears stale in-process auth state after an explicit credential reload.
-      state.consecutiveRefreshFailures = 0;
-      state.permanentlyDisabled = false;
-    }
-    state.lastToken = account.token;
-    state.lastRefreshToken = account.refreshToken;
+    reconcileEligibleAccountRuntimeState(account);
   }
 
   await seedRuntimeQuotasFromDisk(accounts);
@@ -2529,7 +2470,6 @@ async function executeClaudeFallbackTranslation(args: {
 
     // Telemetry AFTER validation — not before like the old lazy path
     tracer?.end(200, Date.now() - requestStartTime);
-    recordFinalSuccess();
     logFinalRequest(200, "", providerLabel, undefined, undefined, {
       inputTokens: resolvedUsage.input,
       outputTokens: resolvedUsage.output,
@@ -2573,7 +2513,6 @@ async function executeClaudeFallbackTranslation(args: {
     toolCalls: streamResult.toolCalls as InternalResult["toolCalls"],
   };
   tracer?.end(200, Date.now() - requestStartTime);
-  recordFinalSuccess();
   const clientResponse = serializeClaudeResponse(internal, body.model);
   logFinalRequest(200, "", providerLabel, undefined, undefined, {
     inputTokens: internal.usage?.input,
@@ -2925,7 +2864,6 @@ function buildClaudeAnthropicFailureResponse(args: {
       summarizeErrorMessage(invalidRequestFailure.body),
     );
     tracer?.end(invalidRequestFailure.status, Date.now() - requestStartTime);
-    recordFinalError(invalidRequestFailure.status);
     try {
       const parsedError = JSON.parse(invalidRequestFailure.body);
       logFinalRequest(
@@ -3022,7 +2960,6 @@ function buildClaudeAnthropicFailureResponse(args: {
   const errorBody = buildClaudeError(429, errorMessage, "overloaded_error");
   tracer?.setError("rate_limit_error", errorMessage);
   tracer?.end(429, Date.now() - requestStartTime);
-  recordFinalError(429);
   logFinalRequest(429, "", "final", "rate_limit_error", errorMessage);
   const errorBodyText = JSON.stringify(errorBody);
   logProxyBody({
@@ -3206,7 +3143,6 @@ async function handleAnthropicStreamingSuccessResponse(args: {
     upstreamSpan?.end();
     tracer?.setError("stream_error", "No response body from upstream");
     tracer?.end(502, Date.now() - requestStartTime);
-    recordFinalError(502, account.label, account.type);
     logFinalRequest(
       502,
       account.label,
@@ -3458,6 +3394,15 @@ function getStreamFailureDetails(
   return undefined;
 }
 
+function recordCommittedAnthropicStreamAttemptFailure(
+  outcome: StreamTerminalOutcome,
+  account: ProxyPassthroughAccount,
+): void {
+  if (outcome.kind === "upstream_error") {
+    recordAttemptError(account.label, account.type, 502);
+  }
+}
+
 function attachAnthropicSuccessStreamTelemetry(args: {
   account: ProxyPassthroughAccount;
   response: Response;
@@ -3520,6 +3465,10 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             rawOutcome,
             data.streamErrorMessage,
           );
+          recordCommittedAnthropicStreamAttemptFailure(
+            terminalOutcome,
+            account,
+          );
           capturedTracer.setUsage({
             inputTokens: data.usage.inputTokens,
             outputTokens: data.usage.outputTokens,
@@ -3571,11 +3520,6 @@ function attachAnthropicSuccessStreamTelemetry(args: {
           if (failure) {
             capturedTracer.setError(failure.errorType, failure.message);
             capturedTracer.end(failure.status, Date.now() - requestStartTime);
-            recordFinalError(
-              failure.status,
-              capturedAccountLabel,
-              account.type,
-            );
             logFinalRequest(
               failure.status,
               capturedAccountLabel,
@@ -3586,7 +3530,6 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             );
           } else {
             capturedTracer.end(200, Date.now() - requestStartTime);
-            recordFinalSuccess(capturedAccountLabel, account.type);
             logFinalRequest(
               200,
               capturedAccountLabel,
@@ -3623,17 +3566,16 @@ function attachAnthropicSuccessStreamTelemetry(args: {
         })
         .catch((error) => {
           capturedTracer.setError(
-            "stream_error",
+            "stream_telemetry_error",
             error instanceof Error ? error.message : String(error),
           );
           capturedUpstreamSpan?.end();
           capturedTracer.end(500, Date.now() - requestStartTime);
-          recordFinalError(500, capturedAccountLabel, account.type);
           logFinalRequest(
             500,
             capturedAccountLabel,
             account.type,
-            "stream_error",
+            "stream_telemetry_error",
             error instanceof Error ? error.message : String(error),
           );
         });
@@ -3641,12 +3583,12 @@ function attachAnthropicSuccessStreamTelemetry(args: {
       // Interceptor attachment failed after stream setup. Preserve delivery but
       // still settle the request from the actual stream terminal outcome.
       streamOutcome.then((outcome) => {
+        recordCommittedAnthropicStreamAttemptFailure(outcome, account);
         const failure = getStreamFailureDetails(outcome);
         upstreamSpan?.end();
         if (failure) {
           tracer.setError(failure.errorType, failure.message);
           tracer.end(failure.status, Date.now() - requestStartTime);
-          recordFinalError(failure.status, account.label, account.type);
           logFinalRequest(
             failure.status,
             account.label,
@@ -3656,7 +3598,6 @@ function attachAnthropicSuccessStreamTelemetry(args: {
           );
         } else {
           tracer.end(response.status, Date.now() - requestStartTime);
-          recordFinalSuccess(account.label, account.type);
           logFinalRequest(response.status, account.label, account.type);
         }
       });
@@ -3676,6 +3617,10 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             rawOutcome,
             data.streamErrorMessage,
           );
+          recordCommittedAnthropicStreamAttemptFailure(
+            terminalOutcome,
+            account,
+          );
           const failure = getStreamFailureDetails(terminalOutcome);
           const usage = {
             inputTokens: data.usage.inputTokens,
@@ -3684,11 +3629,6 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             cacheReadTokens: data.usage.cacheReadInputTokens,
           };
           if (failure) {
-            recordFinalError(
-              failure.status,
-              capturedAccountLabel,
-              account.type,
-            );
             logFinalRequest(
               failure.status,
               capturedAccountLabel,
@@ -3698,7 +3638,6 @@ function attachAnthropicSuccessStreamTelemetry(args: {
               usage,
             );
           } else {
-            recordFinalSuccess(capturedAccountLabel, account.type);
             logFinalRequest(
               200,
               capturedAccountLabel,
@@ -3736,7 +3675,6 @@ function attachAnthropicSuccessStreamTelemetry(args: {
         .catch((error) => {
           const message =
             error instanceof Error ? error.message : String(error);
-          recordFinalError(500, account.label, account.type);
           logFinalRequest(
             500,
             account.label,
@@ -3765,9 +3703,9 @@ function attachAnthropicSuccessStreamTelemetry(args: {
           // Non-fatal
         });
       streamOutcome.then((outcome) => {
+        recordCommittedAnthropicStreamAttemptFailure(outcome, account);
         const failure = getStreamFailureDetails(outcome);
         if (failure) {
-          recordFinalError(failure.status, account.label, account.type);
           logFinalRequest(
             failure.status,
             account.label,
@@ -3776,7 +3714,6 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             failure.message,
           );
         } else {
-          recordFinalSuccess(account.label, account.type);
           logFinalRequest(response.status, account.label, account.type);
         }
       });
@@ -3921,7 +3858,6 @@ async function handleAnthropicJsonSuccessResponse(args: {
     tracer.recordBodySizes(finalBodyStr.length, responseJsonStr.length);
     upstreamSpan?.end();
     tracer.end(response.status, Date.now() - requestStartTime);
-    recordFinalSuccess(account.label, account.type);
     logFinalRequest(
       response.status,
       account.label,
@@ -3943,7 +3879,6 @@ async function handleAnthropicJsonSuccessResponse(args: {
             | Record<string, number>
             | undefined)
         : undefined;
-    recordFinalSuccess(account.label, account.type);
     logFinalRequest(
       response.status,
       account.label,
@@ -4077,7 +4012,6 @@ async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
     tracer.recordBodySizes(finalBodyStr.length, retryJsonStr.length);
     upstreamSpan?.end();
     tracer.end(retryResp.status, Date.now() - requestStartTime);
-    recordFinalSuccess(account.label, account.type);
     logFinalRequest(
       retryResp.status,
       account.label,
@@ -4093,7 +4027,6 @@ async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
     );
   } else {
     upstreamSpan?.end();
-    recordFinalSuccess(account.label, account.type);
     logFinalRequest(retryResp.status, account.label, account.type);
   }
 
@@ -4175,7 +4108,10 @@ async function handleAnthropicAuthRetry(args: {
     logger.always(
       `[proxy] ← 401 account=${account.label} refreshing (attempt ${authRetry + 1}/${MAX_AUTH_RETRIES})`,
     );
-    const refreshSucceeded = await refreshToken(account);
+    const refreshSucceeded = await refreshTokenFromLatest(
+      account,
+      account.persistTarget,
+    );
     if (!refreshSucceeded.success) {
       authRetryError = `refresh failed for account=${account.label} attempt ${authRetry + 1}/${MAX_AUTH_RETRIES}: ${refreshSucceeded.error?.slice(0, 200) ?? "unknown"}`;
       currentLastError = authRetryError;
@@ -4462,7 +4398,6 @@ async function handleAnthropicAuthRetry(args: {
         "api_error",
         summarizeErrorMessage(retryBody),
       );
-      recordFinalError(retryStatus, account.label, account.type);
       try {
         logFinalRequest(
           retryStatus,
@@ -4648,7 +4583,6 @@ function finalizeAnthropicTerminalFetchError(args: {
     logProxyBody,
     logFinalRequest,
   } = args;
-  recordFinalError(terminalError.status, account.label, account.type);
   tracer?.end(terminalError.status, Date.now() - requestStartTime);
   return buildAnthropicTerminalErrorResponse({
     responseStatus: terminalError.status,
@@ -4842,7 +4776,6 @@ async function handleAnthropicNonOkResponse(args: {
   }
 
   if (response.status === 404) {
-    recordFinalError(response.status, account.label, account.type);
     logger.always(`[proxy] ← 404 account=${account.label}`);
     logAttempt(404, "not_found_error", summarizeErrorMessage(errBody));
     tracer?.setError("not_found_error", summarizeErrorMessage(errBody));
@@ -4905,7 +4838,6 @@ async function handleAnthropicNonOkResponse(args: {
     };
   }
 
-  recordFinalError(response.status, account.label, account.type);
   logger.always(`[proxy] ← ${response.status} account=${account.label}`);
   logger.debug(`[claude-proxy] error body: ${errBody.substring(0, 200)}`);
   logAttempt(response.status, "api_error", summarizeErrorMessage(errBody));
@@ -4987,6 +4919,7 @@ function createClaudeRequestRuntimeContext(args: {
         : {}),
     });
   };
+  let finalRequestLogged = false;
   const logFinalRequest: ClaudeFinalRequestLogger = (
     status,
     accountLabel,
@@ -4995,6 +4928,36 @@ function createClaudeRequestRuntimeContext(args: {
     errorMessage,
     extra,
   ) => {
+    if (finalRequestLogged) {
+      logger.debug(
+        `[claude-proxy] ignored duplicate finalization for request ${ctx.requestId}`,
+      );
+      return;
+    }
+    finalRequestLogged = true;
+    const finalAccountLabel =
+      accountLabel ||
+      (status >= 400 ? PROXY_INTERNAL_ACCOUNT_LABEL : undefined);
+    const finalAccountType = accountLabel
+      ? accountType || undefined
+      : status >= 400
+        ? PROXY_INTERNAL_ACCOUNT_TYPE
+        : undefined;
+    if (status >= 400) {
+      recordFinalError(status, finalAccountLabel, finalAccountType, {
+        requestId: ctx.requestId,
+        errorType,
+        terminalOutcome:
+          errorType === "client_cancelled"
+            ? "client_cancelled"
+            : errorType?.includes("stream")
+              ? "stream_error"
+              : "handler_error",
+        message: errorMessage,
+      });
+    } else {
+      recordFinalSuccess(finalAccountLabel, finalAccountType);
+    }
     const traceCtx = tracer?.getTraceContext();
     logRequest({
       timestamp: new Date().toISOString(),
@@ -5004,8 +4967,8 @@ function createClaudeRequestRuntimeContext(args: {
       model: body.model,
       stream: !!body.stream,
       toolCount: Array.isArray(body.tools) ? body.tools.length : 0,
-      account: accountLabel,
-      accountType,
+      account: finalAccountLabel ?? "",
+      accountType: finalAccountType ?? "",
       responseStatus: status,
       responseTimeMs: Date.now() - requestStartTime,
       ...(errorType ? { errorType } : {}),
@@ -5035,7 +4998,6 @@ function createClaudeRequestRuntimeContext(args: {
   ) => {
     const errorBody = buildClaudeError(status, message, errorType);
     const errorBodyText = JSON.stringify(errorBody);
-    recordFinalError(status, extra?.account, extra?.accountType);
     logFinalRequest(
       status,
       extra?.account ?? "",
@@ -5162,7 +5124,10 @@ async function prepareAnthropicAccountAttempt(args: {
   let authFailureMessage = currentAuthFailureMessage;
 
   if (needsRefresh(account)) {
-    const refreshed = await refreshToken(account);
+    const refreshed = await refreshTokenFromLatest(
+      account,
+      account.persistTarget,
+    );
     if (refreshed.success) {
       if (account.persistTarget) {
         await persistTokens(account.persistTarget, account);
@@ -6093,6 +6058,43 @@ function isClaudeProxyRouteRuntimeOptions(
   );
 }
 
+function buildEarlyClaudeRequestError(args: {
+  ctx: ServerContext;
+  body: ClaudeRequest | undefined;
+  status: number;
+  message: string;
+  errorType: string;
+}): unknown {
+  const { ctx, body, status, message, errorType } = args;
+  recordFinalError(
+    status,
+    PROXY_INTERNAL_ACCOUNT_LABEL,
+    PROXY_INTERNAL_ACCOUNT_TYPE,
+    {
+      requestId: ctx.requestId,
+      errorType,
+      terminalOutcome: "handler_error",
+      message,
+    },
+  );
+  void logRequest({
+    timestamp: new Date().toISOString(),
+    requestId: ctx.requestId,
+    method: ctx.method,
+    path: ctx.path,
+    model: typeof body?.model === "string" ? body.model : "",
+    stream: body?.stream ?? false,
+    toolCount: Array.isArray(body?.tools) ? body.tools.length : 0,
+    account: PROXY_INTERNAL_ACCOUNT_LABEL,
+    accountType: PROXY_INTERNAL_ACCOUNT_TYPE,
+    responseStatus: status,
+    responseTimeMs: 0,
+    errorType,
+    errorMessage: message,
+  });
+  return buildClaudeError(status, message);
+}
+
 /**
  * Create Claude-compatible proxy routes.
  *
@@ -6152,22 +6154,29 @@ export function createClaudeProxyRoutes(
             typeof body?.model !== "string" ||
             !Array.isArray(body?.messages)
           ) {
-            return buildClaudeError(
-              400,
-              "Missing required fields: model, messages",
-            );
+            return buildEarlyClaudeRequestError({
+              ctx,
+              body,
+              status: 400,
+              message: "Missing required fields: model, messages",
+              errorType: "invalid_request_error",
+            });
           }
 
           // 2. Resolve model via router (or pass through to anthropic)
           // Guard: without a model router, only Claude models are allowed.
           const modelLower = body.model.toLowerCase();
           if (!requestModelRouter && !modelLower.startsWith("claude-")) {
-            return buildClaudeError(
-              404,
-              `Model '${body.model}' is not an Anthropic model. ` +
+            return buildEarlyClaudeRequestError({
+              ctx,
+              body,
+              status: 404,
+              message:
+                `Model '${body.model}' is not an Anthropic model. ` +
                 `The proxy only supports Claude models. ` +
                 `Use a model router to route non-Claude models to other providers.`,
-            );
+              errorType: "not_found_error",
+            });
           }
 
           const route = requestModelRouter?.resolve(body.model) ?? {
@@ -6214,6 +6223,7 @@ export function createClaudeProxyRoutes(
                   tracer,
                   requestStartTime,
                   logProxyBody,
+                  logFinalRequest,
                 });
               }
 
@@ -6365,26 +6375,71 @@ function getOrCreateRuntimeState(accountKey: string): RuntimeAccountState {
   return initial;
 }
 
+function reconcileEligibleAccountRuntimeState(
+  account: ProxyPassthroughAccount,
+): void {
+  const state = getOrCreateRuntimeState(account.key);
+  const tokenChanged =
+    state.lastToken !== account.token ||
+    state.lastRefreshToken !== account.refreshToken;
+  const wasPermanentlyDisabled = state.permanentlyDisabled;
+  if (wasPermanentlyDisabled) {
+    logger.always(
+      `[proxy] account=${account.label} is enabled in the token store; clearing stale runtime auth-disable state`,
+    );
+  }
+  state.permanentlyDisabled = false;
+  if (tokenChanged || wasPermanentlyDisabled) {
+    state.consecutiveRefreshFailures = 0;
+  }
+  state.lastToken = account.token;
+  state.lastRefreshToken = account.refreshToken;
+}
+
 async function disableAccountUntilReauth(
   account: ProxyPassthroughAccount,
   state: RuntimeAccountState,
   reason: "missing_refresh_token" | "refresh_invalid",
-): Promise<void> {
-  state.permanentlyDisabled = true;
-
-  // Decision 7 (usage): Persist disabled state to disk so it survives restarts
+): Promise<boolean> {
   try {
     const { tokenStore } = await import("../../auth/tokenStore.js");
-    await tokenStore.markDisabled(account.key, reason);
+    const providerKey =
+      account.persistTarget &&
+      typeof account.persistTarget !== "string" &&
+      "providerKey" in account.persistTarget
+        ? account.persistTarget.providerKey
+        : undefined;
+    if (providerKey) {
+      const disabled = await tokenStore.markDisabledIfCurrent(
+        providerKey,
+        {
+          accessToken: account.token,
+          refreshToken: account.refreshToken,
+          expiresAt: account.expiresAt ?? 0,
+        },
+        reason,
+      );
+      if (!disabled) {
+        state.permanentlyDisabled = false;
+        logger.always(
+          `[proxy] account=${account.label} credentials changed while authentication was in flight; ignored stale disable`,
+        );
+        return false;
+      }
+    } else {
+      await tokenStore.markDisabled(account.key, reason);
+    }
   } catch (e) {
     logger.debug(
       `[proxy] failed to persist disabled state for ${account.label}: ${e instanceof Error ? e.message : String(e)}`,
     );
   }
 
+  state.permanentlyDisabled = true;
   logger.always(
     `[proxy] account=${account.label} disabled until re-authentication. Run: neurolink auth login anthropic --method oauth`,
   );
+  return true;
 }
 
 async function coolAccountAfterTransientRefreshFailure(
@@ -6678,6 +6733,7 @@ export const __testHooks = {
   orderAccountsByQuota,
   resetEpochToMs,
   seedRuntimeQuotasFromDisk,
+  reconcileEligibleAccountRuntimeState,
   getAccountRuntimeState: (key: string): RuntimeAccountState | undefined => {
     const state = accountRuntimeState.get(key);
     return state ? { ...state } : undefined;

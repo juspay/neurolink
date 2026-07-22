@@ -530,8 +530,12 @@ export function createSSEInterceptor(
   // Wrap the writable side so we can intercept abort() — which does NOT
   // trigger the TransformStream's flush() or cancel() callbacks.
   const innerWriter = transform.writable.getWriter();
+  let writableController: WritableStreamDefaultController;
 
   const writable = new WritableStream<Uint8Array>({
+    start(controller) {
+      writableController = controller;
+    },
     write(chunk) {
       return innerWriter.write(chunk);
     },
@@ -546,8 +550,48 @@ export function createSSEInterceptor(
     },
   });
 
+  // Preserve downstream cancellation across the wrapped writable. Without
+  // this bridge, client disconnects leave the upstream source and telemetry
+  // promise open indefinitely after the readable side is cancelled.
+  void innerWriter.closed.catch((reason) => {
+    settle();
+    try {
+      writableController.error(reason);
+    } catch {
+      // The wrapper may already be closing or aborted.
+    }
+  });
+
+  const innerReader = transform.readable.getReader();
+  const readable = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { done, value } = await innerReader.read();
+        if (done) {
+          controller.close();
+        } else {
+          controller.enqueue(value);
+        }
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+    async cancel(reason) {
+      settle();
+      try {
+        writableController.error(reason);
+      } catch {
+        // The wrapper may already be closing or aborted.
+      }
+      await Promise.allSettled([
+        innerReader.cancel(reason),
+        innerWriter.abort(reason),
+      ]);
+    },
+  });
+
   const stream: TransformStream<Uint8Array, Uint8Array> = {
-    readable: transform.readable,
+    readable,
     writable,
   };
 

@@ -1,7 +1,7 @@
 import { chmod, mkdtemp, mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   describeInstallFailure,
   getGlobalInstallArgs,
@@ -29,7 +29,10 @@ import {
 } from "../src/lib/proxy/updateState.js";
 import { markProxyReady } from "../src/lib/proxy/proxyHealth.js";
 import { __testHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
-import { createProxyStartApp } from "../src/cli/commands/proxy.js";
+import {
+  createProxyStartApp,
+  sanitizeProxyStatusTerminalErrorMessage,
+} from "../src/cli/commands/proxy.js";
 import { StateFileManager } from "../src/cli/utils/serverUtils.js";
 import { tokenStore } from "../src/lib/auth/tokenStore.js";
 import { openProxyWorkerLog } from "../src/lib/proxy/workerLog.js";
@@ -168,6 +171,11 @@ describe("proxy runtime error finalization", () => {
       updateControlToken,
     });
 
+  beforeEach(() => {
+    vi.spyOn(tokenStore, "listByPrefix").mockResolvedValue([]);
+    vi.spyOn(tokenStore, "listDisabled").mockResolvedValue([]);
+  });
+
   it("records invalid JSON as one completed error", async () => {
     const { app } = await createApp(() => ({}));
     const response = await app.request("/v1/messages", {
@@ -182,14 +190,14 @@ describe("proxy runtime error finalization", () => {
     const status = await (await app.request("/status")).json();
     expect(status.stats.accounts).toEqual([
       expect.objectContaining({
-        label: "unattributed",
+        label: "proxy/internal",
         type: "internal",
         attempts: 0,
         requests: 1,
         success: 0,
         errors: 1,
         cooling: false,
-        status: "unattributed",
+        status: "internal",
       }),
     ]);
     expect(getProxyActivitySnapshot().activeRequests).toBe(0);
@@ -224,7 +232,13 @@ describe("proxy runtime error finalization", () => {
     recordAttempt("fallback@example.com", "oauth");
     recordFinalSuccess("fallback@example.com", "oauth");
     recordAttempt("primary@example.com", "oauth");
-    recordFinalError(502, "primary@example.com", "oauth");
+    recordFinalError(502, "primary@example.com", "oauth", {
+      requestId: "status-terminal-request",
+      errorType: "stream_error",
+      errorCode: "UND_ERR_SOCKET",
+      terminalOutcome: "stream_error",
+      message: "upstream stream interrupted",
+    });
 
     const response = await app.request("/status");
     expect(response.status).toBe(200);
@@ -240,6 +254,21 @@ describe("proxy runtime error finalization", () => {
       totalRateLimits: 1,
       totalTransientRateLimits: 1,
       totalQuotaRateLimits: 0,
+      terminalErrors: {
+        totalErrors: 1,
+        counts: { stream_error: 1 },
+      },
+      lastTerminalError: {
+        requestId: "status-terminal-request",
+        status: 502,
+        category: "stream_error",
+        errorType: "stream_error",
+        errorCode: "UND_ERR_SOCKET",
+        terminalOutcome: "stream_error",
+      },
+      terminalErrorDetailsComparable: true,
+      terminalErrorDetailsMissing: 0,
+      terminalErrorDetailsExcess: 0,
       persistence: {
         enabled: false,
         pendingMutations: 6,
@@ -271,6 +300,110 @@ describe("proxy runtime error finalization", () => {
         }),
       ]),
     );
+  });
+
+  it("shows stored accounts even before they have proxy traffic", async () => {
+    vi.mocked(tokenStore.listByPrefix).mockResolvedValue([
+      "anthropic:active@example.com",
+      "anthropic:expired@example.com",
+    ]);
+    vi.mocked(tokenStore.listDisabled).mockResolvedValue([
+      "anthropic:expired@example.com",
+    ]);
+    vi.spyOn(tokenStore, "peekTokens").mockImplementation(async (key) => ({
+      accessToken: "redacted-test-token",
+      expiresAt:
+        key === "anthropic:expired@example.com"
+          ? Date.now() - 1_000
+          : Date.now() + 60_000,
+      tokenType: "Bearer",
+    }));
+
+    const { app } = await createProxyStartApp({
+      neurolink: { getToolRegistry: () => ({}) } as never,
+      modelRouter: undefined,
+      strategy: "fill-first",
+      passthrough: false,
+      port: 55123,
+      host: "127.0.0.1",
+      proxyConfig: null,
+      primaryAccountKey: undefined,
+      accountAllowlist: new Set(["anthropic:active@example.com"]),
+    });
+    const body = await (await app.request("/status")).json();
+
+    expect(body.stats.accounts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "active@example.com",
+          attempts: 0,
+          success: 0,
+          errors: 0,
+          status: "active",
+          allowed: true,
+          expired: false,
+        }),
+        expect.objectContaining({
+          label: "expired@example.com",
+          attempts: 0,
+          success: 0,
+          errors: 0,
+          status: "disabled",
+          allowed: false,
+          expired: true,
+        }),
+      ]),
+    );
+  });
+
+  it("bounds status token inspection when a token-store read hangs", async () => {
+    vi.useFakeTimers();
+    vi.mocked(tokenStore.listByPrefix).mockResolvedValue([
+      "anthropic:blocked@example.com",
+    ]);
+    vi.spyOn(tokenStore, "peekTokens").mockReturnValue(
+      new Promise(() => undefined),
+    );
+
+    const { app } = await createProxyStartApp({
+      neurolink: { getToolRegistry: () => ({}) } as never,
+      modelRouter: undefined,
+      strategy: "fill-first",
+      passthrough: false,
+      port: 55123,
+      host: "127.0.0.1",
+      proxyConfig: null,
+      primaryAccountKey: undefined,
+      accountAllowlist: undefined,
+    });
+    const responsePromise = app.request("/status");
+
+    await vi.advanceTimersByTimeAsync(2_000);
+    const response = await responsePromise;
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.stats.accounts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "blocked@example.com",
+          attempts: 0,
+          status: "active",
+        }),
+      ]),
+    );
+  });
+
+  it("sanitizes terminal error messages before printing status", () => {
+    const message =
+      "\u001b[31mfailed\nrequest https://user:secret@api.example.com/path?access_token=hidden\u001b[0m Bearer abcdefghijklmnop";
+    const sanitized = sanitizeProxyStatusTerminalErrorMessage(message);
+
+    expect(sanitized).toBe("failed request https://api.example.com/path ***");
+    expect(sanitized).not.toContain("\u001b");
+    expect(sanitized).not.toContain("\n");
+    expect(sanitized).not.toContain("hidden");
+    expect(sanitized).not.toContain("abcdefghijklmnop");
   });
 
   it("keeps an active legacy OAuth account distinct from removed history", async () => {
