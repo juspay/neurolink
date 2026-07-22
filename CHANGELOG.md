@@ -1,3 +1,9 @@
+## [10.4.3](https://github.com/juspay/neurolink/compare/v10.4.2...v10.4.3) (2026-07-22)
+
+### Bug Fixes
+
+- **(proxy):** close restartless observability gaps ([b956836](https://github.com/juspay/neurolink/commit/b95683661e120875b2621041f9ce5959be4a64a7))
+
 ## [10.4.2](https://github.com/juspay/neurolink/compare/v10.4.1...v10.4.2) (2026-07-22)
 
 ### Bug Fixes
