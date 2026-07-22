@@ -18,6 +18,10 @@ import "dotenv/config";
  *   Part 4 — Discovery (tools.discovery): partition behind search_tools,
  *     catalog rendering + degradation ladder, lexical search, live
  *     hydration, session pinning, miss handling.
+ *   Part 5 — Mid-turn hydration parity (native loops): the deferred-tool
+ *     resolver on the hot record, resolveLiveTool/resolveDeferredTool,
+ *     refreshNativeToolDeclarations, and the shared native executor's
+ *     dispatch-miss recovery (the curator T1/T7 regression shapes).
  *
  * Run: npx tsx test/continuous-test-suite-tool-resolution.ts
  *      pnpm run test:tool-resolution
@@ -33,7 +37,15 @@ import { applyToolGate } from "../src/lib/tools/toolGate.js";
 import {
   partitionToolsForDiscovery,
   isDiscoveryMetaTool,
+  resolveDeferredTool,
+  resolveLiveTool,
 } from "../src/lib/tools/toolDiscovery.js";
+import {
+  buildNativeToolDeclarations,
+  executeNativeToolCalls,
+  refreshNativeToolDeclarations,
+} from "../src/lib/providers/googleNativeGemini3.js";
+import { buildWireToolNameMaps } from "../src/lib/providers/openaiChatCompletionsClient.js";
 import { MCPToolRegistry } from "../src/lib/mcp/toolRegistry.js";
 import { NeuroLink } from "../src/lib/neurolink.js";
 import type { Tool, ToolInfo } from "../src/lib/types/index.js";
@@ -543,6 +555,303 @@ async function main() {
     nl.pinDiscoveredTools("s-overflow", ["t"]);
     assertEqual([...nl.getDiscoveryPins("s-0")], ["t"], "touched survives");
     assertEqual([...nl.getDiscoveryPins("s-1")], [], "untouched LRU evicted");
+  });
+
+  logSection("Part 5 — Mid-turn hydration parity (native loops)");
+
+  await test("resolveDeferredTool auto-hydrates a cataloged tool and pins it", async () => {
+    const tools: Record<string, Tool> = {
+      readFile: fakeTool("Read a file"),
+      jira_create: fakeTool("Create a Jira ticket in a project"),
+    };
+    const pinned: string[] = [];
+    const hot = partitionToolsForDiscovery(tools, {
+      deferrableNames: ["jira_create"],
+      pinnedNames: new Set(),
+      onHydrate: (names) => pinned.push(...names),
+    });
+    const resolved = resolveDeferredTool(hot, "jira_create");
+    if (!resolved || resolved !== tools["jira_create"]) {
+      throw new Error("resolver did not return the deferred tool");
+    }
+    if (!("jira_create" in hot)) {
+      throw new Error("resolver did not hydrate the live record");
+    }
+    if (!pinned.includes("jira_create")) {
+      throw new Error("auto-hydration must persist the session pin");
+    }
+    // Idempotent: a second resolve returns the same tool without re-pinning.
+    resolveDeferredTool(hot, "jira_create");
+    assertEqual(pinned, ["jira_create"], "no duplicate pin");
+    // Genuinely unknown names stay unknown — the hallucinated-name defense
+    // in the native loops must keep firing for these.
+    assertEqual(
+      resolveDeferredTool(hot, "not_a_tool"),
+      undefined,
+      "unknown name",
+    );
+    // Records without a resolver (discovery off) are a clean no-op.
+    assertEqual(
+      resolveDeferredTool({ a: fakeTool("A") }, "a"),
+      undefined,
+      "plain record",
+    );
+  });
+
+  await test("deferred resolver rides a symbol key — invisible to enumeration", async () => {
+    const tools: Record<string, Tool> = {
+      readFile: fakeTool("Read a file"),
+      jira_create: fakeTool("Create a Jira ticket"),
+    };
+    const hot = partitionToolsForDiscovery(tools, {
+      deferrableNames: ["jira_create"],
+      pinnedNames: new Set(),
+      onHydrate: () => {},
+    });
+    // Declaration builders iterate string keys — the resolver must never
+    // surface there or it would be sent to providers as a "tool".
+    assertEqual(
+      Object.keys(hot).sort(),
+      ["readFile", "search_tools"],
+      "string keys",
+    );
+    if (Object.getOwnPropertySymbols(hot).length === 0) {
+      throw new Error("resolver symbol missing from the hot record");
+    }
+  });
+
+  await test("resolveLiveTool: hot record first, deferred catalog second", async () => {
+    const tools: Record<string, Tool> = {
+      readFile: fakeTool("Read a file"),
+      jira_create: fakeTool("Create a Jira ticket"),
+    };
+    const hot = partitionToolsForDiscovery(tools, {
+      deferrableNames: ["jira_create"],
+      pinnedNames: new Set(),
+      onHydrate: () => {},
+    });
+    if (resolveLiveTool(hot, "readFile") !== tools["readFile"]) {
+      throw new Error("hot tool must resolve from the record directly");
+    }
+    if (resolveLiveTool(hot, "jira_create") !== tools["jira_create"]) {
+      throw new Error("deferred tool must resolve via the catalog");
+    }
+    assertEqual(resolveLiveTool(hot, "ghost"), undefined, "unknown name");
+    assertEqual(resolveLiveTool(undefined, "a"), undefined, "no record");
+  });
+
+  await test("refreshNativeToolDeclarations syncs snapshot with hydrated record", async () => {
+    const initial: Record<string, Tool> = {
+      readFile: fakeTool("Read a file"),
+    };
+    const snapshot = buildNativeToolDeclarations(initial);
+    // Simulate search_tools hydrating a tool into the live record mid-turn.
+    const live: Record<string, Tool> = {
+      ...initial,
+      jira_create: fakeTool("Create a Jira ticket"),
+    };
+    if (!refreshNativeToolDeclarations(live, snapshot)) {
+      throw new Error("refresh must report additions");
+    }
+    assertEqual(
+      snapshot.toolsConfig[0].functionDeclarations.map((d) => d.name).sort(),
+      ["jira_create", "readFile"],
+      "declarations after refresh",
+    );
+    if (typeof snapshot.executeMap.get("jira_create") !== "function") {
+      throw new Error("executeMap missing hydrated tool");
+    }
+    assertEqual(
+      snapshot.originalNameMap.get("jira_create"),
+      "jira_create",
+      "name map after refresh",
+    );
+    // Second refresh with an unchanged record is a no-op.
+    assertEqual(
+      refreshNativeToolDeclarations(live, snapshot),
+      false,
+      "idempotent refresh",
+    );
+  });
+
+  await test("refresh disambiguates sanitized names against the snapshot", async () => {
+    // "my/tool" sanitizes to "my_tool" in the pre-loop snapshot; a tool
+    // hydrated later that literally claims "my_tool" must be suffixed, not
+    // silently collide (reservedNames seeding).
+    const initial: Record<string, Tool> = {
+      "my/tool": fakeTool("Slashed name"),
+    };
+    const snapshot = buildNativeToolDeclarations(initial);
+    assertEqual(
+      snapshot.toolsConfig[0].functionDeclarations.map((d) => d.name),
+      ["my_tool"],
+      "sanitized snapshot",
+    );
+    const live: Record<string, Tool> = {
+      ...initial,
+      my_tool: fakeTool("Claims the sanitized name"),
+    };
+    refreshNativeToolDeclarations(live, snapshot);
+    assertEqual(
+      snapshot.toolsConfig[0].functionDeclarations.map((d) => d.name).sort(),
+      ["my_tool", "my_tool_2"],
+      "collision suffixed",
+    );
+    assertEqual(
+      snapshot.originalNameMap.get("my_tool_2"),
+      "my_tool",
+      "round-trip mapping for the suffixed name",
+    );
+  });
+
+  await test("native executor: tool loaded by search_tools runs in the same batch (T1 shape)", async () => {
+    const tools: Record<string, Tool> = {
+      readFile: fakeTool("Read a file"),
+      jira_create: fakeTool("Create a Jira ticket in a project"),
+    };
+    const hot = partitionToolsForDiscovery(tools, {
+      deferrableNames: ["jira_create"],
+      pinnedNames: new Set(),
+      onHydrate: () => {},
+    });
+    const snapshot = buildNativeToolDeclarations(hot);
+    const failedTools = new Map<string, { count: number; lastError: string }>();
+    const responses = await executeNativeToolCalls(
+      "[Test]",
+      [
+        { name: "search_tools", args: { query: "jira_create" } },
+        { name: "jira_create", args: { x: "1" } },
+      ],
+      snapshot.executeMap,
+      failedTools,
+      [],
+      {
+        originalNameMap: snapshot.originalNameMap,
+        liveTools: hot,
+        declarations: snapshot,
+      },
+    );
+    const second = JSON.stringify(responses[1]);
+    if (second.includes("TOOL_NOT_FOUND")) {
+      throw new Error(`same-batch call died as TOOL_NOT_FOUND: ${second}`);
+    }
+    if (!second.includes('"ok"')) {
+      throw new Error(`expected the tool's real result, got: ${second}`);
+    }
+    if (failedTools.has("jira_create")) {
+      throw new Error("hydrated tool must not carry breaker strikes");
+    }
+  });
+
+  await test("native executor: direct call to a deferred tool auto-hydrates (T7 shape)", async () => {
+    const tools: Record<string, Tool> = {
+      readFile: fakeTool("Read a file"),
+      slack_channels_list: fakeTool("List Slack channels in the workspace"),
+    };
+    const pinned: string[] = [];
+    const hot = partitionToolsForDiscovery(tools, {
+      deferrableNames: ["slack_channels_list"],
+      pinnedNames: new Set(),
+      onHydrate: (names) => pinned.push(...names),
+    });
+    const snapshot = buildNativeToolDeclarations(hot);
+    const failedTools = new Map<string, { count: number; lastError: string }>();
+    // No search_tools call at all — the model read the exact name from the
+    // catalog and called it directly (the curator T7 failure).
+    const responses = await executeNativeToolCalls(
+      "[Test]",
+      [{ name: "slack_channels_list", args: { x: "1" } }],
+      snapshot.executeMap,
+      failedTools,
+      [],
+      {
+        originalNameMap: snapshot.originalNameMap,
+        liveTools: hot,
+        declarations: snapshot,
+      },
+    );
+    const payload = JSON.stringify(responses[0]);
+    if (payload.includes("TOOL_NOT_FOUND")) {
+      throw new Error(
+        `direct deferred call died as TOOL_NOT_FOUND: ${payload}`,
+      );
+    }
+    if (!payload.includes('"ok"')) {
+      throw new Error(`expected the tool's real result, got: ${payload}`);
+    }
+    if (!pinned.includes("slack_channels_list")) {
+      throw new Error("auto-hydration must persist the session pin");
+    }
+    if (
+      !snapshot.toolsConfig[0].functionDeclarations.some(
+        (d) => d.name === "slack_channels_list",
+      )
+    ) {
+      throw new Error("hydrated tool missing from refreshed declarations");
+    }
+  });
+
+  await test("native executor: genuinely unknown names still die as TOOL_NOT_FOUND", async () => {
+    const tools: Record<string, Tool> = {
+      readFile: fakeTool("Read a file"),
+      jira_create: fakeTool("Create a Jira ticket"),
+    };
+    const hot = partitionToolsForDiscovery(tools, {
+      deferrableNames: ["jira_create"],
+      pinnedNames: new Set(),
+      onHydrate: () => {},
+    });
+    const snapshot = buildNativeToolDeclarations(hot);
+    const responses = await executeNativeToolCalls(
+      "[Test]",
+      [{ name: "hallucinated_tool", args: {} }],
+      snapshot.executeMap,
+      new Map(),
+      [],
+      {
+        originalNameMap: snapshot.originalNameMap,
+        liveTools: hot,
+        declarations: snapshot,
+      },
+    );
+    if (!JSON.stringify(responses[0]).includes("TOOL_NOT_FOUND")) {
+      throw new Error("hallucinated-name defense must keep firing");
+    }
+  });
+
+  await test("wire-name maps seed reserved names so hydration refresh cannot collide", async () => {
+    // Chat-completions mid-turn refresh maps only the hydrated subset; the
+    // reserved seed must keep it from re-issuing a wire name an earlier
+    // tool already claimed.
+    // Sanitized hydrated name lands on an already-declared wire name.
+    const sanitized = buildWireToolNameMaps(["my/tool"], new Set(["my_tool"]));
+    if (!sanitized) {
+      throw new Error("reserved collision must materialize maps");
+    }
+    assertEqual(
+      sanitized.toWire.get("my/tool"),
+      "my_tool_2",
+      "sanitized collision suffixed",
+    );
+    // Even a wire-VALID hydrated name must be remapped when reserved.
+    const literal = buildWireToolNameMaps(
+      ["github_search"],
+      new Set(["github_search"]),
+    );
+    if (!literal) {
+      throw new Error("literal reserved collision must materialize maps");
+    }
+    assertEqual(
+      literal.toWire.get("github_search"),
+      "github_search_2",
+      "literal collision suffixed",
+    );
+    // All-valid, unreserved names keep the no-mapping fast path.
+    assertEqual(
+      buildWireToolNameMaps(["a_tool"], new Set(["other_tool"])),
+      undefined,
+      "fast path intact",
+    );
   });
 
   await runSuite();

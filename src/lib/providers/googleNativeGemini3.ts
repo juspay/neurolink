@@ -47,6 +47,7 @@ import {
 } from "../utils/schemaConversion.js";
 
 import { createNativeThinkingConfig } from "../utils/thinkingConfig.js";
+import { resolveLiveTool } from "../tools/toolDiscovery.js";
 import type { ToolExecuteFunction, Tool } from "../types/index.js";
 import {
   jsonSchema as aiJsonSchema,
@@ -495,6 +496,7 @@ export function normalizeToolsForJsonSchemaProvider(
  */
 export function buildNativeToolDeclarations(
   tools: Record<string, Tool>,
+  reservedNames?: ReadonlySet<string>,
 ): NativeToolDeclarationsResult {
   const functionDeclarations: NativeFunctionDeclaration[] = [];
   const executeMap = new DedupExecuteMap();
@@ -510,8 +512,10 @@ export function buildNativeToolDeclarations(
   // execute are still pushed to functionDeclarations). The originalNameMap
   // lets the calling stream loop translate Google-returned function-call
   // names back to the consumer-facing identifier so the sanitization is
-  // transport-only.
-  const usedNames = new Set<string>();
+  // transport-only. `reservedNames` seeds the collision set so a mid-turn
+  // refresh (see refreshNativeToolDeclarations) never re-issues a safe name
+  // already assigned by the pre-loop snapshot.
+  const usedNames = new Set<string>(reservedNames ?? []);
   const originalNameMap = new Map<string, string>();
 
   for (const [name, tool] of Object.entries(tools)) {
@@ -594,6 +598,49 @@ export function buildNativeToolDeclarations(
     executeMap,
     originalNameMap,
   };
+}
+
+/**
+ * Mid-turn tool sync for the native Gemini loops that build their snapshot
+ * via buildNativeToolDeclarations. `search_tools` (tools.discovery) hydrates
+ * discovered tools into the live record between steps; without this refresh
+ * they stay invisible to the rest of the turn and every call dies as
+ * TOOL_NOT_FOUND. Mutates the snapshot in place — the request config holds
+ * `toolsConfig` by reference — and returns true when anything was added.
+ */
+export function refreshNativeToolDeclarations(
+  liveTools: Record<string, Tool> | undefined,
+  current: NativeToolDeclarationsResult,
+): boolean {
+  if (!liveTools) {
+    return false;
+  }
+  const declaredOriginals = new Set(current.originalNameMap.values());
+  const missing = Object.entries(liveTools).filter(
+    ([name]) => !declaredOriginals.has(name),
+  );
+  if (missing.length === 0) {
+    return false;
+  }
+  const built = buildNativeToolDeclarations(
+    Object.fromEntries(missing),
+    new Set(current.originalNameMap.keys()),
+  );
+  current.toolsConfig[0].functionDeclarations.push(
+    ...built.toolsConfig[0].functionDeclarations,
+  );
+  for (const [safeName, originalName] of built.originalNameMap) {
+    current.originalNameMap.set(safeName, originalName);
+  }
+  for (const [safeName, execute] of built.executeMap) {
+    current.executeMap.set(safeName, execute);
+  }
+  logger.info(
+    `[buildNativeToolDeclarations] ${missing.length} tool(s) hydrated mid-turn via discovery: ${missing
+      .map(([name]) => name)
+      .join(", ")}`,
+  );
+  return true;
 }
 
 /**
@@ -1019,6 +1066,15 @@ export async function executeNativeToolCalls(
     }>;
     abortSignal?: AbortSignal;
     originalNameMap?: Map<string, string>;
+    /**
+     * Live tool record + declaration snapshot for mid-turn discovery: on a
+     * dispatch miss the executor re-resolves against `liveTools` (hydrated
+     * by search_tools, or auto-hydrated from the deferred catalog) and syncs
+     * `declarations` in place. `declarations.executeMap` must be the same
+     * map passed as the `executeMap` argument (true at every call site).
+     */
+    liveTools?: Record<string, Tool>;
+    declarations?: NativeToolDeclarationsResult;
   },
 ): Promise<NativeFunctionResponse[]> {
   const functionResponses: NativeFunctionResponse[] = [];
@@ -1065,7 +1121,33 @@ export async function executeNativeToolCalls(
       continue;
     }
 
-    const execute = executeMap.get(call.name);
+    let execute = executeMap.get(call.name);
+    if (!execute && options?.declarations) {
+      // Snapshot miss: the tool may have been hydrated into the live record
+      // by search_tools within this very step batch, or the model called a
+      // deferred catalog tool directly by its advertised name.
+      const liveTool = resolveLiveTool(options.liveTools, exposedName);
+      if (liveTool?.execute) {
+        refreshNativeToolDeclarations(options.liveTools, options.declarations);
+        // NOT_FOUND strikes accrued while the tool was deferred are snapshot
+        // artifacts, not real failures — reset so the breaker starts clean.
+        failedTools.delete(call.name);
+        // The refresh registered the executor under its Google-safe name —
+        // resolve it for this dispatch (later calls use the declared name).
+        for (const [safeName, originalName] of options.declarations
+          .originalNameMap) {
+          if (originalName === exposedName) {
+            execute = executeMap.get(safeName);
+            break;
+          }
+        }
+        if (execute) {
+          logger.info(
+            `${logLabel} Tool "${exposedName}" resolved mid-turn via discovery — executing.`,
+          );
+        }
+      }
+    }
     if (execute) {
       try {
         // AI SDK Tool execute requires (args, options) - provide minimal options

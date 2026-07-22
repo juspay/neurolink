@@ -6,11 +6,18 @@
  * requested tools, and previously discovered tools) plus ONE `search_tools`
  * meta-tool whose description embeds a compact name+summary catalog of the
  * deferred tools. Calling `search_tools` loads matching tools:
- *  - immediately into the live tool record (providers that re-read the tools
- *    record between agent-loop steps — the AI SDK path — can call them on the
- *    very next step), and
+ *  - immediately into the live tool record — the AI SDK path re-reads the
+ *    record between agent-loop steps, and the native loops (Vertex
+ *    Gemini/Claude, AI Studio, chat-completions, direct Anthropic) re-resolve
+ *    against it on a dispatch miss and refresh their wire declarations per
+ *    step — so discovered tools are callable on the very next step, and
  *  - into the session pin set (all providers include them in full on every
  *    subsequent call of the session).
+ *
+ * The record additionally carries a symbol-keyed {@link DeferredToolResolver}
+ * (see `resolveDeferredTool`) so a loop can hydrate a cataloged tool the
+ * model called directly by name WITHOUT a prior search_tools call — the
+ * catalog advertises exact names, so models legitimately do this.
  *
  * Evidence for this design: catalogs past ~30-50 tools measurably degrade
  * tool-selection accuracy, and deferral+search both cuts definition tokens by
@@ -22,9 +29,22 @@
 
 import { z } from "zod";
 import { tool as createAISDKTool } from "../utils/tool.js";
-import type { DeferredToolIndexEntry, Tool } from "../types/index.js";
+import type {
+  DeferredToolIndexEntry,
+  DeferredToolResolver,
+  Tool,
+} from "../types/index.js";
 import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
 import { logger } from "../utils/logger.js";
+
+/**
+ * Symbol key under which the hot record carries its deferred-tool resolver.
+ * Symbol-keyed properties are skipped by Object.keys/entries, for-in, and
+ * JSON.stringify, so no declaration builder (or the AI SDK) ever sees the
+ * resolver as a tool. `Symbol.for` (global registry) keeps the key stable
+ * even if this module is loaded twice (ESM/CJS dual load of the bundle).
+ */
+const DEFERRED_TOOL_RESOLVER_KEY = Symbol.for("neurolink.deferredToolResolver");
 
 /**
  * Above this many tools, a WARN suggests enabling `tools.discovery` when it
@@ -200,6 +220,36 @@ export function partitionToolsForDiscovery(
 
   hot["search_tools"] = buildSearchTool(entries, tools, hot, args.onHydrate);
 
+  // Dispatch-miss escape hatch for the native agent loops: hydrate a
+  // deferred tool the model called directly by its cataloged name (the
+  // catalog advertises exact names, so this is legitimate model behavior,
+  // not hallucination). Hydration mutates the hot record and persists the
+  // session pin — identical side effects to a search_tools hit.
+  const resolver: DeferredToolResolver = (name) => {
+    if (name in hot) {
+      return hot[name];
+    }
+    if (!deferredSet.has(name)) {
+      return undefined;
+    }
+    const toolDef = tools[name];
+    if (!toolDef) {
+      return undefined;
+    }
+    hot[name] = toolDef;
+    args.onHydrate([name]);
+    logger.debug("[ToolDiscovery] Auto-hydrated deferred tool on direct call", {
+      name,
+    });
+    return toolDef;
+  };
+  Object.defineProperty(hot, DEFERRED_TOOL_RESOLVER_KEY, {
+    value: resolver,
+    enumerable: false,
+    writable: false,
+    configurable: true,
+  });
+
   logger.debug("[ToolDiscovery] Deferred external tools behind search_tools", {
     hotCount: Object.keys(hot).length - 1,
     deferredCount: deferredNames.length,
@@ -207,6 +257,44 @@ export function partitionToolsForDiscovery(
   });
 
   return hot;
+}
+
+/**
+ * Hydrate-and-return a deferred tool by name, when `record` was produced by
+ * `partitionToolsForDiscovery` and `name` is in its deferred catalog.
+ * Returns `undefined` for records without a resolver (discovery off) and for
+ * names that are genuinely unknown — callers keep their hallucinated-name
+ * handling for that case.
+ */
+export function resolveDeferredTool(
+  record: Record<string, Tool> | undefined,
+  name: string,
+): Tool | undefined {
+  if (!record) {
+    return undefined;
+  }
+  const resolver = (record as Record<symbol, unknown>)[
+    DEFERRED_TOOL_RESOLVER_KEY
+  ];
+  return typeof resolver === "function"
+    ? (resolver as DeferredToolResolver)(name)
+    : undefined;
+}
+
+/**
+ * Live tool lookup for native agent loops on a dispatch miss: first re-reads
+ * the record (a tool hydrated by search_tools after the loop built its
+ * pre-step snapshot), then falls back to auto-hydrating from the deferred
+ * catalog. Returns `undefined` only when the name is genuinely unknown.
+ */
+export function resolveLiveTool(
+  record: Record<string, Tool> | undefined,
+  name: string,
+): Tool | undefined {
+  if (!record) {
+    return undefined;
+  }
+  return record[name] ?? resolveDeferredTool(record, name);
 }
 
 function buildSearchTool(
@@ -285,7 +373,7 @@ function buildSearchTool(
         found: loaded.length,
         tools: loaded,
         message:
-          "These tools are now loaded for this session. Call them directly by name with arguments matching their inputSchema. If a call reports the tool as unavailable, it will be available from the next message onward.",
+          "These tools are now loaded for this session. Call them directly by name with arguments matching their inputSchema.",
       };
     },
   }) as Tool;
