@@ -198,7 +198,7 @@ export function calculateModelMetrics(
 /**
  * Calculate consensus level between responses
  * NOTE: Placeholder implementation - uses response length similarity
- * TODO: Implement semantic similarity in Phase 2
+ * TODO(#1179): Implement semantic similarity in Phase 2
  */
 export function calculateConsensus(responses: EnsembleResponse[]): number {
   const successful = responses.filter((r) => r.status === "success");

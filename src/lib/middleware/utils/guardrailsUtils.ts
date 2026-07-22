@@ -417,7 +417,7 @@ export function applyContentFiltering(
 
       for (const pattern of badWordsConfig.regexPatterns) {
         try {
-          // TODO: Add blocking for overly complex or long patterns
+          // TODO(#1179): Add blocking for overly complex or long patterns
           if (pattern.length > 1000) {
             logger.warn(
               `[ContentFiltering:${context}] Regex pattern exceeds max length (1000 chars): "${pattern.substring(0, 50)}..."`,

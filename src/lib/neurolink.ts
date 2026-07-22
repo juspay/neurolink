@@ -12073,7 +12073,7 @@ Current user's request: ${currentInput}`;
   // ENHANCED: Tool Event Emission API
   // ========================================
 
-  // TODO: Add ToolExecutionEvent utility methods in future version
+  // TODO(#1179): Add ToolExecutionEvent utility methods in future version
   // Will provide structured event format for consistent tool event processing
 
   /**
@@ -12233,7 +12233,7 @@ Current user's request: ${currentInput}`;
     this.currentStreamToolExecutions = [];
   }
 
-  // TODO: Add getToolExecutionEvents() method in future version
+  // TODO(#1179): Add getToolExecutionEvents() method in future version
   // Will return properly formatted ToolExecutionEvent objects for structured event processing
 
   // ========================================

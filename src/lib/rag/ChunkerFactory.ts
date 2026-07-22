@@ -237,7 +237,7 @@ export class ChunkerFactory extends BaseFactory<Chunker, ChunkerConfig> {
     this.registerChunker(
       "semantic",
       async (config?: ChunkerConfig) => {
-        // TODO: Implement dedicated SemanticChunker with LLM support
+        // TODO(#1179): Implement dedicated SemanticChunker with LLM support
         // For now, fall back to RecursiveChunker with semantic defaults
         const { RecursiveChunker } =
           await import("./chunkers/RecursiveChunker.js");

@@ -450,7 +450,7 @@ export function getAllJudges(config: WorkflowConfig): JudgeConfig[] {
 
 /**
  * Calculate estimated workflow cost (placeholder)
- * TODO: Implement actual provider-specific pricing
+ * TODO(#1179): Implement actual provider-specific pricing
  * @param config - Workflow configuration
  * @param estimatedTokens - Estimated number of tokens for the request
  * @returns Estimated cost in USD

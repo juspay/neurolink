@@ -22,7 +22,7 @@ const functionTag = "WorkflowRegistry";
 
 /**
  * In-memory workflow registry
- * TODO: Consider persistent storage in future phases
+ * TODO(#1179): Consider persistent storage in future phases
  */
 const workflowRegistry = new Map<string, RegistryEntry>();
 

@@ -244,7 +244,7 @@ export async function runWorkflow(
             totalInputTokens: calculateInputTokens(ensembleResult.responses),
             totalOutputTokens: calculateOutputTokens(ensembleResult.responses),
             totalTokens: calculateTotalTokens(ensembleResult.responses),
-            byModel: [], // TODO: Populate per-model breakdown
+            byModel: [], // TODO(#1179): Populate per-model breakdown
           },
 
           // Additional metadata
