@@ -1,3 +1,9 @@
+## [10.5.1](https://github.com/juspay/neurolink/compare/v10.5.0...v10.5.1) (2026-07-23)
+
+### Bug Fixes
+
+- **(proxy):** retry subscription beta-rejection 400s on the next account ([4b67bd1](https://github.com/juspay/neurolink/commit/4b67bd1e93391967694d6a00e0db3742851128f1))
+
 ## [10.5.0](https://github.com/juspay/neurolink/compare/v10.4.4...v10.5.0) (2026-07-23)
 
 ### Features
