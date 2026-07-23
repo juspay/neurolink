@@ -399,10 +399,6 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
   // Public/protected concrete methods (shared by all subclasses)
   // ===========================================================================
 
-  supportsTools(): boolean {
-    return true;
-  }
-
   /**
    * Health-check hook — part of the documented public provider contract
    * (`docs/provider-integration/00-architecture.md`). Default returns true

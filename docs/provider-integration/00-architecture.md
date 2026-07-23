@@ -66,18 +66,18 @@ constructor(
 | `handleToolExecutionStorage(...)`                        | 1944        | Persists tool I/O to memory                                               |
 | `createTextStream(result)`                               | 1499        | Adapts `streamText` result → Neurolink stream contract                    |
 | `getTimeout(options)`                                    | 1937        | Resolves per-call/instance/default timeout                                |
-| `supportsTools()`                                        | 157         | Default `true`; override to `false` for vision-only/embedding-only models |
+| `supportsTools()`                                        | 230         | Registry-backed; unknown models stay `true`; provider overrides still win |
 | `handleProviderError(error)`                             | 1384        | Wraps `formatProviderError` + common-error handling                       |
 | `setSessionContext(sessionId, userId)`                   | 1365        | Public; called by NeuroLink instance                                      |
 
 ### Optional overrides
 
-| Method                       | Line | Purpose                                                                   |
-| ---------------------------- | ---- | ------------------------------------------------------------------------- |
-| `supportsTools()`            | 157  | Default `true`; override to `false` if your provider can't call functions |
-| `getDefaultEmbeddingModel()` | 1166 | Return embed model name; `undefined` means embeddings unsupported         |
-| `validateConfiguration()`    | —    | Public method; usually checks env vars and returns `boolean`              |
-| `getConfiguration()`         | —    | Public method; returns `{ provider, model, defaultModel }`                |
+| Method                       | Line | Purpose                                                                |
+| ---------------------------- | ---- | ---------------------------------------------------------------------- |
+| `supportsTools()`            | 230  | Provider-specific policy override; the base default is registry-backed |
+| `getDefaultEmbeddingModel()` | 1166 | Return embed model name; `undefined` means embeddings unsupported      |
+| `validateConfiguration()`    | —    | Public method; usually checks env vars and returns `boolean`           |
+| `getConfiguration()`         | —    | Public method; returns `{ provider, model, defaultModel }`             |
 
 ### What NOT to override
 

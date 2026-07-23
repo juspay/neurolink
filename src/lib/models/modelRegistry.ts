@@ -15,7 +15,11 @@ import {
   MistralModels,
   OllamaModels,
 } from "../constants/enums.js";
-import type { JsonValue, ModelInfo } from "../types/index.js";
+import type {
+  JsonValue,
+  ModelCapabilities,
+  ModelInfo,
+} from "../types/index.js";
 
 /**
  * Comprehensive model registry
@@ -764,7 +768,7 @@ export const MODEL_REGISTRY: Record<string, ModelInfo> = {
     description: "Preview version of O1 reasoning model",
     capabilities: {
       vision: false,
-      functionCalling: true,
+      functionCalling: false,
       codeGeneration: true,
       reasoning: true,
       multimodal: false,
@@ -809,7 +813,7 @@ export const MODEL_REGISTRY: Record<string, ModelInfo> = {
     description: "Cost-effective O1 variant with strong reasoning capabilities",
     capabilities: {
       vision: false,
-      functionCalling: true,
+      functionCalling: false,
       codeGeneration: true,
       reasoning: true,
       multimodal: false,
@@ -2435,6 +2439,29 @@ export function getAllModels(): ModelInfo[] {
  */
 export function getModelById(id: string): ModelInfo | undefined {
   return MODEL_REGISTRY[id];
+}
+
+/**
+ * Check whether a model supports a registered capability.
+ *
+ * Aliases resolve to their canonical model ID before the provider is
+ * cross-checked. Unknown provider/model pairs default to supported so new or
+ * custom models retain the existing behavior until capability data is added.
+ */
+export function modelSupports(
+  capability: keyof ModelCapabilities,
+  provider: string,
+  model: string,
+): boolean {
+  const normalizedModel = model.toLowerCase();
+  const modelId = MODEL_ALIASES[normalizedModel] ?? normalizedModel;
+  const modelInfo = MODEL_REGISTRY[modelId];
+
+  if (!modelInfo || modelInfo.provider !== provider.toLowerCase()) {
+    return true;
+  }
+
+  return modelInfo.capabilities[capability];
 }
 
 /**

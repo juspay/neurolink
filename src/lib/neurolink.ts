@@ -545,8 +545,9 @@ export const NEUROLINK_BRAND: unique symbol = Symbol.for(
  * exists yet to ask directly; every other provider gets tool definitions
  * natively via its `tools` parameter, so repeating them in the prompt was
  * pure token duplication. The stream path asks the provider instance
- * (`provider.supportsTools()`) instead of this list. Keep in sync with
- * `supportsTools()` overrides when adding providers.
+ * (`provider.supportsTools()`) instead of this list. BaseProvider resolves its
+ * default through MODEL_REGISTRY's `modelSupports()` facade; keep this list in
+ * sync with provider-specific `supportsTools()` overrides when adding providers.
  */
 const PROMPT_ONLY_TOOL_PROVIDERS = new Set<string>([
   "ollama",
