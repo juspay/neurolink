@@ -11,6 +11,7 @@ import "dotenv/config";
  * - OpenRouter (generate, stream, tool use, structured output, model discovery)
  * - Thinking levels (minimal, low, medium, high)
  * - Model registry completeness
+ * - Provider registration completeness (dynamic imports in ProviderRegistry)
  * - Network retry and provider fallback
  * - All-provider generate/stream loop
  * - LiteLLM vision capability (supportsVision, validateImageCount, convertToContent, countImagesInMessage)
@@ -22,6 +23,7 @@ import "dotenv/config";
  */
 
 import * as fs from "fs";
+import * as path from "path";
 import { NeuroLink } from "../dist/index.js";
 import { ProviderImageAdapter } from "../dist/adapters/providerImageAdapter.js";
 import { resolveModel } from "../dist/utils/modelAliasResolver.js";
@@ -2169,6 +2171,194 @@ async function testModelRegistryCompleteness(): Promise<boolean | null> {
   }
 }
 
+/**
+ * Modules under src/lib/providers/ that are not ProviderRegistry entries
+ * (barrel, helpers, legacy alternate). Keep in sync with providerRegistry.ts.
+ */
+const PROVIDER_REGISTRATION_EXCLUSIONS = new Set([
+  "index",
+  "providerTypeUtils",
+  "anthropicBaseProvider",
+  "googleNativeGemini3",
+]);
+
+const DYNAMIC_PROVIDER_IMPORT_RE =
+  /import\s*\(\s*["']\.\.\/providers\/([A-Za-z][\w-]*)\.js["']\s*\)/g;
+
+// --- Test #20b: Provider Registration Completeness (Issue #1178) ---
+async function testProviderRegistrationCompleteness(): Promise<boolean | null> {
+  logTest("Provider Registration Completeness", "TESTING");
+  try {
+    const providersDir = path.join(process.cwd(), "src", "lib", "providers");
+    const registryPath = path.join(
+      process.cwd(),
+      "src",
+      "lib",
+      "factories",
+      "providerRegistry.ts",
+    );
+
+    if (!fs.existsSync(providersDir) || !fs.existsSync(registryPath)) {
+      logTest(
+        "Provider Registration Completeness",
+        "FAIL",
+        "providers/ or providerRegistry.ts not found (run from repo root)",
+      );
+      return false;
+    }
+
+    const registrySource = fs.readFileSync(registryPath, "utf8");
+    const concreteProviders = fs
+      .readdirSync(providersDir)
+      .filter((name) => name.endsWith(".ts"))
+      .map((name) => name.replace(/\.ts$/, ""))
+      .filter((base) => !PROVIDER_REGISTRATION_EXCLUSIONS.has(base))
+      .sort();
+
+    const importCounts = new Map<string, number>();
+    for (const match of registrySource.matchAll(DYNAMIC_PROVIDER_IMPORT_RE)) {
+      const base = match[1];
+      importCounts.set(base, (importCounts.get(base) ?? 0) + 1);
+    }
+
+    const failures: string[] = [];
+
+    for (const base of concreteProviders) {
+      const count = importCounts.get(base) ?? 0;
+      if (count === 0) {
+        failures.push(`missing dynamic import: ${base}`);
+      } else if (count > 1) {
+        failures.push(`duplicate dynamic import: ${base} (${count}x)`);
+      }
+
+      const source = fs.readFileSync(
+        path.join(providersDir, `${base}.ts`),
+        "utf8",
+      );
+      if (!/export\s+class\s+\w+/.test(source)) {
+        failures.push(`no exported class in ${base}.ts`);
+      }
+    }
+
+    // Stale registry imports: dynamic import target with no matching .ts file
+    for (const [base, count] of [...importCounts.entries()].sort()) {
+      if (!fs.existsSync(path.join(providersDir, `${base}.ts`))) {
+        failures.push(
+          `stale dynamic import: ${base}.js (${count}x, file missing)`,
+        );
+      }
+    }
+
+    if (failures.length > 0) {
+      logTest(
+        "Provider Registration Completeness",
+        "FAIL",
+        failures.join("; "),
+      );
+      return false;
+    }
+
+    const { ProviderRegistry } =
+      await import("../dist/lib/factories/providerRegistry.js");
+    const { ProviderFactory } =
+      await import("../dist/lib/factories/providerFactory.js");
+    const { AIProviderName } = await import("../dist/lib/constants/enums.js");
+
+    ProviderRegistry.clearRegistrations();
+    await ProviderRegistry.registerAllProviders();
+
+    const canonicalIds = Object.values(AIProviderName)
+      .filter(
+        (v): v is string => typeof v === "string" && v !== AIProviderName.AUTO,
+      )
+      .sort();
+
+    if (new Set(canonicalIds).size !== canonicalIds.length) {
+      logTest(
+        "Provider Registration Completeness",
+        "FAIL",
+        "duplicate AIProviderName values detected",
+      );
+      return false;
+    }
+
+    const unresolved = canonicalIds.filter(
+      (id) => !ProviderFactory.hasProvider(id),
+    );
+    if (unresolved.length > 0) {
+      logTest(
+        "Provider Registration Completeness",
+        "FAIL",
+        `canonical IDs not resolvable: ${unresolved.join(", ")}`,
+      );
+      return false;
+    }
+
+    // AUTO must stay unregistered as a concrete provider factory entry
+    if (ProviderFactory.hasProvider(AIProviderName.AUTO)) {
+      logTest(
+        "Provider Registration Completeness",
+        "FAIL",
+        "AUTO must not be registered as a concrete provider",
+      );
+      return false;
+    }
+
+    // Each primary ID + its aliases must claim unique map keys (no cross-provider collisions)
+    const claimedKeys = new Map<string, string>();
+    const keyCollisions: string[] = [];
+    for (const id of canonicalIds) {
+      const info = ProviderFactory.getProviderInfo(id);
+      if (!info) {
+        keyCollisions.push(`${id}: missing registration info`);
+        continue;
+      }
+      const keys = [
+        id.toLowerCase(),
+        ...(info.aliases ?? []).map((a) => a.toLowerCase()),
+      ];
+      for (const key of keys) {
+        const owner = claimedKeys.get(key);
+        if (owner && owner !== id) {
+          keyCollisions.push(`key "${key}" claimed by ${owner} and ${id}`);
+        } else {
+          claimedKeys.set(key, id);
+        }
+      }
+
+      // Aliases must resolve to the same registration as the primary ID
+      for (const alias of info.aliases ?? []) {
+        if (ProviderFactory.getProviderInfo(alias) !== info) {
+          keyCollisions.push(
+            `alias "${alias}" does not resolve to primary "${id}"`,
+          );
+        }
+      }
+    }
+
+    if (keyCollisions.length > 0) {
+      logTest(
+        "Provider Registration Completeness",
+        "FAIL",
+        keyCollisions.join("; "),
+      );
+      return false;
+    }
+
+    const available = ProviderFactory.getAvailableProviders();
+    logTest(
+      "Provider Registration Completeness",
+      "PASS",
+      `${concreteProviders.length} modules, ${canonicalIds.length} canonical IDs, ${claimedKeys.size} unique keys (${available.length} factory keys)`,
+    );
+    return true;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logTest("Provider Registration Completeness", "FAIL", msg);
+    return false;
+  }
+}
+
 // --- Test #21: Network Retry (Smoke) ---
 // NOTE: This test cannot truly verify retry/backoff behavior without mocking
 // the network layer or injecting transient failures. It only confirms that a
@@ -3527,6 +3717,11 @@ async function runAllTests(): Promise<void> {
     {
       name: "Model Registry Completeness",
       fn: () => testModelRegistryCompleteness(),
+    },
+    // Provider Registration (Issue #1178 / Pattern Analysis provider-registration)
+    {
+      name: "Provider Registration Completeness",
+      fn: () => testProviderRegistrationCompleteness(),
     },
 
     // Network Retry & Manual Provider Loop (Tests #21-#22)

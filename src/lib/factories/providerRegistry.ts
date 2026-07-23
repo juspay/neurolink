@@ -86,10 +86,15 @@ export class ProviderRegistry {
   /**
    * Internal registration implementation
    *
-   * This method is a flat list of 13 provider registrations. Each registration
-   * is self-contained and extracting helpers would add indirection without
-   * reducing complexity — the function is long because there are many providers,
-   * not because any single registration is complex.
+   * Flat list of ProviderFactory.registerProvider() calls. Providers load via
+   * dynamic import() of ../providers/<module>.js only - never static imports
+   * (avoids circular dependencies; see CLAUDE.md).
+   *
+   * Not registered (by design): index.ts, providerTypeUtils.ts,
+   * anthropicBaseProvider.ts (legacy; anthropic.ts is live),
+   * googleNativeGemini3.ts (shared helpers). Filename != provider ID
+   * (e.g. amazonBedrock -> "bedrock"); static scanners that miss dynamic
+   * imports may false-positive (Pattern Analysis #1178).
    */
   // eslint-disable-next-line max-lines-per-function
   private static async _doRegister(): Promise<void> {
