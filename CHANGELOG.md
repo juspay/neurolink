@@ -1,3 +1,9 @@
+## [10.5.0](https://github.com/juspay/neurolink/compare/v10.4.4...v10.5.0) (2026-07-23)
+
+### Features
+
+- **(file-detector):** add HEIC support and image/archive magic-byte detection ([e89d470](https://github.com/juspay/neurolink/commit/e89d4705a30ca60ba98bbb79e168f39c1faaaef5))
+
 ## [10.4.4](https://github.com/juspay/neurolink/compare/v10.4.3...v10.4.4) (2026-07-23)
 
 ### Bug Fixes
