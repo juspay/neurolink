@@ -53,6 +53,7 @@ import { parseProxyConfigString } from "../src/lib/proxy/proxyConfig.js";
 import {
   __testHooks,
   createClaudeProxyRoutes,
+  isSubscriptionBetaRejection,
 } from "../src/lib/server/routes/claudeProxyRoutes.js";
 
 const tempDirs: string[] = [];
@@ -2603,4 +2604,309 @@ describe("launchd lifecycle source invariants", () => {
       "nonCoolingAccounts.length > 0 ? nonCoolingAccounts : orderedAccounts",
     );
   });
+});
+
+describe("OAuth subscription beta-rejection handling", () => {
+  const BETA_REJECTION_BODY = JSON.stringify({
+    type: "error",
+    error: {
+      type: "invalid_request_error",
+      message:
+        "The long context beta is not yet available for this subscription.",
+    },
+  });
+
+  const messagesRequestContext = (requestId: string) =>
+    ({
+      requestId,
+      method: "POST",
+      path: "/v1/messages",
+      headers: {},
+      query: {},
+      params: {},
+      body: {
+        model: "claude-test",
+        max_tokens: 16,
+        messages: [{ role: "user", content: "hello" }],
+      },
+      neurolink: {},
+      toolRegistry: {},
+      timestamp: Date.now(),
+      metadata: {},
+    }) as never;
+
+  const successResponse = () =>
+    new Response(
+      JSON.stringify({
+        id: "msg_test",
+        type: "message",
+        role: "assistant",
+        model: "claude-test",
+        content: [{ type: "text", text: "ok" }],
+        stop_reason: "end_turn",
+        usage: { input_tokens: 1, output_tokens: 1 },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+
+  it("classifies a subscription beta rejection, not a generic invalid_request", () => {
+    // Real Anthropic subscription-beta rejection → retryable on next account.
+    expect(isSubscriptionBetaRejection(400, BETA_REJECTION_BODY)).toBe(true);
+    // Generic malformed request → NOT a beta rejection (must fast-fail).
+    expect(
+      isSubscriptionBetaRejection(
+        400,
+        JSON.stringify({
+          type: "error",
+          error: {
+            type: "invalid_request_error",
+            message: "model: field required",
+          },
+        }),
+      ),
+    ).toBe(false);
+    // Same message shape but a non-400 status → not classified.
+    expect(isSubscriptionBetaRejection(429, BETA_REJECTION_BODY)).toBe(false);
+    // A different error type at 400, even with matching words → not classified.
+    expect(
+      isSubscriptionBetaRejection(
+        400,
+        JSON.stringify({
+          type: "error",
+          error: {
+            type: "rate_limit_error",
+            message: "beta available subscription",
+          },
+        }),
+      ),
+    ).toBe(false);
+    // Unparseable body → not classified.
+    expect(isSubscriptionBetaRejection(400, "not json")).toBe(false);
+  });
+
+  it("advances to the next account when one account's subscription lacks the beta", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "neurolink-beta-advance-"));
+    tempDirs.push(dir);
+    initAccountCooldown(join(dir, "cooldowns.json"));
+    initAccountQuota(join(dir, "quotas.json"));
+
+    const accountKeys = [
+      "anthropic:betaless@example.com",
+      "anthropic:betaok@example.com",
+    ];
+    vi.spyOn(tokenStore, "pruneExpired").mockResolvedValue(undefined);
+    vi.spyOn(tokenStore, "listByPrefix").mockResolvedValue(accountKeys);
+    vi.spyOn(tokenStore, "isDisabled").mockResolvedValue(false);
+    vi.spyOn(tokenStore, "loadTokens").mockImplementation(async (key) => ({
+      accessToken: key.includes("betaless@example.com")
+        ? "betaless-token"
+        : "betaok-token",
+      refreshToken: "test-refresh-token",
+      expiresAt: Date.now() + 60 * 60 * 1000,
+      tokenType: "Bearer",
+    }));
+
+    const attemptedTokens: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      const headers = init?.headers as Record<string, string>;
+      attemptedTokens.push(headers.authorization);
+      if (headers.authorization === "Bearer betaless-token") {
+        return new Response(BETA_REJECTION_BODY, {
+          status: 400,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return successResponse();
+    });
+
+    const primaryAccountKey = "anthropic:betaless@example.com";
+    const routeGroup = createClaudeProxyRoutes(
+      undefined,
+      "",
+      "fill-first",
+      false,
+      primaryAccountKey,
+      {
+        runtimeConfigProvider: () => ({
+          generation: 1,
+          strategy: "fill-first",
+          modelRouter: undefined,
+          passthrough: false,
+          primaryAccountKey,
+          accountAllowlist: undefined,
+          quotaRoutingEnabled: false,
+          sessionSoftLimit: 0.97,
+          sessionResetToleranceMs: 15 * 60 * 1000,
+        }),
+      },
+    );
+    const messagesRoute = routeGroup.routes.find(
+      (route) => route.method === "POST" && route.path === "/v1/messages",
+    );
+    expect(messagesRoute).toBeDefined();
+
+    // betaless rejects the beta → proxy advances → betaok returns 200.
+    await expect(
+      messagesRoute!.handler(messagesRequestContext("beta-advance")),
+    ).resolves.toMatchObject({ type: "message" });
+    expect(attemptedTokens).toEqual([
+      "Bearer betaless-token",
+      "Bearer betaok-token",
+    ]);
+  });
+
+  it("returns an explanatory exhaustion error when every account's subscription lacks the beta", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "neurolink-beta-allfail-"));
+    tempDirs.push(dir);
+    initAccountCooldown(join(dir, "cooldowns.json"));
+    initAccountQuota(join(dir, "quotas.json"));
+
+    const accountKeys = [
+      "anthropic:betaless-a@example.com",
+      "anthropic:betaless-b@example.com",
+    ];
+    vi.spyOn(tokenStore, "pruneExpired").mockResolvedValue(undefined);
+    vi.spyOn(tokenStore, "listByPrefix").mockResolvedValue(accountKeys);
+    vi.spyOn(tokenStore, "isDisabled").mockResolvedValue(false);
+    vi.spyOn(tokenStore, "loadTokens").mockImplementation(async (key) => ({
+      accessToken: key.includes("betaless-a@example.com")
+        ? "token-a"
+        : "token-b",
+      refreshToken: "test-refresh-token",
+      expiresAt: Date.now() + 60 * 60 * 1000,
+      tokenType: "Bearer",
+    }));
+
+    const attemptedTokens: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      const headers = init?.headers as Record<string, string>;
+      attemptedTokens.push(headers.authorization);
+      return new Response(BETA_REJECTION_BODY, {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    const primaryAccountKey = "anthropic:betaless-a@example.com";
+    const routeGroup = createClaudeProxyRoutes(
+      undefined,
+      "",
+      "fill-first",
+      false,
+      primaryAccountKey,
+      {
+        runtimeConfigProvider: () => ({
+          generation: 1,
+          strategy: "fill-first",
+          modelRouter: undefined,
+          passthrough: false,
+          primaryAccountKey,
+          accountAllowlist: undefined,
+          quotaRoutingEnabled: false,
+          sessionSoftLimit: 0.97,
+          sessionResetToleranceMs: 15 * 60 * 1000,
+        }),
+      },
+    );
+    const messagesRoute = routeGroup.routes.find(
+      (route) => route.method === "POST" && route.path === "/v1/messages",
+    );
+
+    // Both accounts reject the beta → after exhausting the rotation the client
+    // gets an error that still explains the beta reason (carried via lastError),
+    // but the beta rejection is NOT recorded as a deterministic invalid_request
+    // 400 (which would suppress fallback and outrank later failures).
+    const result = await messagesRoute!.handler(
+      messagesRequestContext("beta-allfail"),
+    );
+    expect(result).toMatchObject({ type: "error" });
+    expect(JSON.stringify(result)).toContain(
+      "beta is not yet available for this subscription",
+    );
+    expect(attemptedTokens).toEqual(["Bearer token-a", "Bearer token-b"]);
+  });
+
+  it("lets a later account's real failure take precedence over an earlier beta rejection", async () => {
+    // Mixed failure: account A lacks the beta, account B is rate-limited, none
+    // succeed. The client must see the rate-limit (429/retry) reality — the
+    // earlier beta rejection must NOT be stored as invalidRequestFailure and
+    // mask it.
+    const dir = await mkdtemp(join(tmpdir(), "neurolink-beta-mixed-"));
+    tempDirs.push(dir);
+    initAccountCooldown(join(dir, "cooldowns.json"));
+    initAccountQuota(join(dir, "quotas.json"));
+
+    const accountKeys = [
+      "anthropic:betaless@example.com",
+      "anthropic:limited@example.com",
+    ];
+    vi.spyOn(tokenStore, "pruneExpired").mockResolvedValue(undefined);
+    vi.spyOn(tokenStore, "listByPrefix").mockResolvedValue(accountKeys);
+    vi.spyOn(tokenStore, "isDisabled").mockResolvedValue(false);
+    vi.spyOn(tokenStore, "loadTokens").mockImplementation(async (key) => ({
+      accessToken: key.includes("betaless@example.com")
+        ? "betaless-token"
+        : "limited-token",
+      refreshToken: "test-refresh-token",
+      expiresAt: Date.now() + 60 * 60 * 1000,
+      tokenType: "Bearer",
+    }));
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      const headers = init?.headers as Record<string, string>;
+      if (headers.authorization === "Bearer betaless-token") {
+        return new Response(BETA_REJECTION_BODY, {
+          status: 400,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          type: "error",
+          error: { type: "rate_limit_error", message: "slow down" },
+        }),
+        { status: 429, headers: { "content-type": "application/json" } },
+      );
+    });
+
+    const primaryAccountKey = "anthropic:betaless@example.com";
+    const routeGroup = createClaudeProxyRoutes(
+      undefined,
+      "",
+      "fill-first",
+      false,
+      primaryAccountKey,
+      {
+        runtimeConfigProvider: () => ({
+          generation: 1,
+          strategy: "fill-first",
+          modelRouter: undefined,
+          passthrough: false,
+          primaryAccountKey,
+          accountAllowlist: undefined,
+          quotaRoutingEnabled: false,
+          sessionSoftLimit: 0.97,
+          sessionResetToleranceMs: 15 * 60 * 1000,
+        }),
+      },
+    );
+    const messagesRoute = routeGroup.routes.find(
+      (route) => route.method === "POST" && route.path === "/v1/messages",
+    );
+
+    const result = await messagesRoute!.handler(
+      messagesRequestContext("beta-mixed"),
+    );
+    // The client sees the rate-limit reality: a 429 Response with retry-after,
+    // NOT the earlier beta rejection masking it as a deterministic 400.
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(429);
+    const body = await (result as Response).text();
+    expect(body).toContain("overloaded_error");
+    expect(body).not.toContain(
+      "beta is not yet available for this subscription",
+    );
+    // Real 429 same-account retry backoff runs here — allow headroom over the
+    // default 5s per-test timeout so slower CI can't flake this.
+  }, 15000);
 });

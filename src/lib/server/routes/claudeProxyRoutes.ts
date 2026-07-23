@@ -4675,6 +4675,48 @@ async function handleAnthropicNonOkResponse(args: {
   });
 
   if (isInvalidRequestError(response.status, errBody)) {
+    if (isSubscriptionBetaRejection(response.status, errBody)) {
+      // Subscription-specific beta rejection (an account whose plan tier lacks
+      // an optional beta the proxy injected). The SAME request can succeed on
+      // another account whose tier grants the beta — or on a fallback provider —
+      // so advance to the next account instead of failing the client here.
+      //
+      // Deliberately do NOT store this in `currentInvalidRequestFailure`: that
+      // field is a deterministic "malformed request" signal that both
+      // suppresses provider fallback (shouldAttemptClaudeFallback) and outranks
+      // transient/rate-limit failures in the final response. A beta rejection is
+      // neither terminal nor higher-priority — a later account's real 429/5xx
+      // must still take precedence, and fallback must stay eligible. The reason
+      // is carried in `lastError`, so if every account rejects the beta the
+      // exhaustion response still explains why.
+      logger.always(
+        `[proxy] ← ${response.status} account=${account.label} beta unavailable for subscription; advancing to next account`,
+      );
+      logAttempt(
+        response.status,
+        "invalid_request_error",
+        summarizeErrorMessage(errBody),
+      );
+      tracer?.setError("invalid_request_error", summarizeErrorMessage(errBody));
+      tracer?.recordRetry(account.label, "beta_unavailable");
+      // A tier's lack of a beta is stable, not transient — advance the
+      // fill-first primary pointer (like the auth/rate-limit rotation paths) so
+      // this account stops being retried first on every future request.
+      advancePrimaryIfCurrent(
+        account.key,
+        enabledAccounts.length,
+        orderedAccounts[0]?.key,
+      );
+      currentLastError = summarizeErrorMessage(errBody);
+      return {
+        continueLoop: true,
+        lastError: currentLastError,
+        authFailureMessage: currentAuthFailureMessage,
+        sawTransientFailure: currentSawTransientFailure,
+        invalidRequestFailure: currentInvalidRequestFailure,
+        upstreamSpan: undefined,
+      };
+    }
     logger.always(
       `[proxy] ← ${response.status} upstream invalid_request_error`,
     );
@@ -6654,6 +6696,35 @@ export function isInvalidRequestError(
   return (
     parsed.errorType === "invalid_request_error" ||
     errBody.includes("invalid_request_error")
+  );
+}
+
+/**
+ * A subscription-specific beta rejection. Anthropic returns
+ * `400 invalid_request_error` with a message like
+ * "The long context beta is not yet available for this subscription." when an
+ * account's plan tier does not grant an optional beta the proxy injected (see
+ * CLAUDE_CODE_OAUTH_BETAS in anthropicOAuth.ts). Unlike a genuinely malformed
+ * request, the SAME request can succeed on a different account whose tier
+ * grants the beta — so this must be treated as retryable on the next account
+ * rather than a terminal client-facing 400.
+ */
+export function isSubscriptionBetaRejection(
+  status: number,
+  errBody: string,
+): boolean {
+  if (status !== 400) {
+    return false;
+  }
+  const parsed = parseClaudeErrorBody(errBody);
+  if (parsed.errorType !== "invalid_request_error") {
+    return false;
+  }
+  const message = (parsed.message ?? "").toLowerCase();
+  return (
+    message.includes("beta") &&
+    message.includes("subscription") &&
+    message.includes("available")
   );
 }
 
