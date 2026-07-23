@@ -17,6 +17,7 @@ import { SYSTEM_LIMITS } from "../core/constants.js";
 import { SIZE_LIMITS_BYTES } from "../processors/config/sizeLimits.js";
 import { getImageCache } from "./imageCache.js";
 import { ErrorFactory, NeuroLinkError } from "./errorHandling.js";
+import { detectIsoBmffImageMimeType, hasFtypBoxSignature } from "./isoBmff.js";
 import type { ProcessedImage, FileProcessingResult } from "../types/index.js";
 
 /**
@@ -127,7 +128,7 @@ function isRetryableDownloadError(error: unknown): boolean {
 
 /**
  * Reject `detectImageType()`'s `application/octet-stream` sentinel — the
- * honest "no known image signature (PNG/JPEG/GIF/WebP/BMP/TIFF/SVG/AVIF)
+ * honest "no known image signature (PNG/JPEG/GIF/WebP/BMP/TIFF/ICO/SVG/AVIF/HEIC/HEIF)
  * matched" fallback (#261/#286). Packaging that sentinel into a data URI
  * hands vision providers (OpenAI/Anthropic/Google) a MIME type they reject
  * outright with an HTTP 400, so every public conversion path that turns
@@ -142,7 +143,7 @@ function assertKnownImageType(mediaType: string): void {
     logger.error("Unable to detect a supported image format from file content");
     throw new Error(
       "Unsupported or corrupted image: no known image signature " +
-        "(PNG/JPEG/GIF/WebP/BMP/TIFF/SVG/AVIF) was found in the file content.",
+        "(PNG/JPEG/GIF/WebP/BMP/TIFF/ICO/SVG/AVIF/HEIC/HEIF) was found in the file content.",
     );
   }
 }
@@ -561,32 +562,25 @@ export class ImageProcessor {
           }
         }
 
-        // AVIF (ISOBMFF): "ftyp" box at offset 4, major brand at offset 8.
-        // Accept the AVIF-spec brand variants — 'avif' (still image), 'avis'
-        // (image sequence), and 'avio' (intra-only AV1 image/sequence — the
-        // spec lists it under compatible_brands rather than major_brand, but
-        // real-world encoders emit it as major_brand too, so it's accepted
-        // here) — and compare bytes directly rather than via Buffer.toString()
-        // (which would utf-8-decode non-ASCII bytes) so the check is exact
-        // (#286).
-        if (input.length >= 12) {
-          const isFtyp =
-            input[4] === 0x66 && // 'f'
-            input[5] === 0x74 && // 't'
-            input[6] === 0x79 && // 'y'
-            input[7] === 0x70; // 'p'
-          const brand = String.fromCharCode(
-            input[8],
-            input[9],
-            input[10],
-            input[11],
-          );
-          if (
-            isFtyp &&
-            (brand === "avif" || brand === "avis" || brand === "avio")
-          ) {
-            return "image/avif";
-          }
+        // ISO-BMFF images: "ftyp" box at offset 4, major brand at offset 8.
+        // AVIF has codec-specific major brands. HEIC uses HEVC image/sequence
+        // brands, while generic HEIF structural brands (mif1/msf1) need a
+        // compatible codec brand to avoid mistaking AVIF or generic MP4 data
+        // for HEIF.
+        const isoBmffMimeType = detectIsoBmffImageMimeType(input);
+        if (isoBmffMimeType) {
+          return isoBmffMimeType;
+        }
+
+        // ICO: 00 00 01 00 (icon type=1)
+        if (
+          input[0] === 0x00 &&
+          input[1] === 0x00 &&
+          input[2] === 0x01 &&
+          input[3] === 0x00 &&
+          !hasFtypBoxSignature(input)
+        ) {
+          return "image/x-icon";
         }
 
         // BMP: "BM" magic (0x42 0x4D)

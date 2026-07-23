@@ -312,6 +312,8 @@ export const EXTENSION_MIME_MAP: Record<string, string> = {
   ".webp": IMAGE_MIME_TYPES.WEBP,
   ".bmp": IMAGE_MIME_TYPES.BMP,
   ".ico": IMAGE_MIME_TYPES.ICO,
+  ".heic": IMAGE_MIME_TYPES.HEIC,
+  ".heif": IMAGE_MIME_TYPES.HEIF,
 
   // Source code
   ".js": TEXT_MIME_TYPES.JAVASCRIPT,
