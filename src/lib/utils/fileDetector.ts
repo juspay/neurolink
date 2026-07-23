@@ -40,6 +40,7 @@ import type {
 import { tracers, ATTR, withSpan } from "../telemetry/index.js";
 import { CSVProcessor } from "./csvProcessor.js";
 import { ImageProcessor } from "./imageProcessor.js";
+import { detectIsoBmffImageMimeType, hasFtypBoxSignature } from "./isoBmff.js";
 import { logger } from "./logger.js";
 import { withTimeout } from "./errorHandling.js";
 import {
@@ -2182,6 +2183,32 @@ class MagicBytesStrategy implements DetectionStrategy {
     if (this.isWebP(input)) {
       return this.result("image", "image/webp", 95);
     }
+    if (input.length >= 2 && input[0] === 0x42 && input[1] === 0x4d) {
+      return this.result("image", "image/bmp", 95);
+    }
+    if (
+      input.length >= 4 &&
+      ((input[0] === 0x49 &&
+        input[1] === 0x49 &&
+        input[2] === 0x2a &&
+        input[3] === 0x00) ||
+        (input[0] === 0x4d &&
+          input[1] === 0x4d &&
+          input[2] === 0x00 &&
+          input[3] === 0x2a))
+    ) {
+      return this.result("image", "image/tiff", 95);
+    }
+    if (
+      input.length >= 4 &&
+      input[0] === 0x00 &&
+      input[1] === 0x00 &&
+      input[2] === 0x01 &&
+      input[3] === 0x00 &&
+      !hasFtypBoxSignature(input)
+    ) {
+      return this.result("image", "image/x-icon", 95);
+    }
     if (this.isPDF(input)) {
       return this.result("pdf", "application/pdf", 95);
     }
@@ -2189,13 +2216,7 @@ class MagicBytesStrategy implements DetectionStrategy {
     // ISO-BMFF ("ftyp" at offset 4): MP4 video, QuickTime MOV, or M4A/M4B/M4P
     // audio all share this box — disambiguate by the major brand at offset 8-11,
     // otherwise an .m4a audio file is misrouted to the video pipeline.
-    if (
-      input.length >= 8 &&
-      input[4] === 0x66 &&
-      input[5] === 0x74 &&
-      input[6] === 0x79 &&
-      input[7] === 0x70
-    ) {
+    if (hasFtypBoxSignature(input)) {
       const brand = input.length >= 12 ? input.toString("latin1", 8, 12) : "";
       // AVIF images share the ISO-BMFF ftyp box with MP4/MOV; the major brand
       // ('avif' still, 'avis' sequence, 'avio' intra-only AV1 image/sequence
@@ -2203,8 +2224,9 @@ class MagicBytesStrategy implements DetectionStrategy {
       // major_brand by real encoders) distinguishes them. Detect before the
       // audio/video branches so an AVIF buffer isn't misrouted to the video
       // pipeline (#286).
-      if (/^(avif|avis|avio)/.test(brand)) {
-        return this.result("image", "image/avif", 95);
+      const imageMimeType = detectIsoBmffImageMimeType(input);
+      if (imageMimeType) {
+        return this.result("image", imageMimeType, 95);
       }
       if (/^(M4A|M4B|M4P|F4A|F4B)/.test(brand)) {
         return this.result("audio", "audio/mp4", 95);
@@ -2314,6 +2336,18 @@ class MagicBytesStrategy implements DetectionStrategy {
     // GZIP: 1F 8B
     if (input.length >= 2 && input[0] === 0x1f && input[1] === 0x8b) {
       return this.result("archive", "application/gzip", 90);
+    }
+    // 7z: 37 7A BC AF 27 1C
+    if (
+      input.length >= 6 &&
+      input[0] === 0x37 &&
+      input[1] === 0x7a &&
+      input[2] === 0xbc &&
+      input[3] === 0xaf &&
+      input[4] === 0x27 &&
+      input[5] === 0x1c
+    ) {
+      return this.result("archive", "application/x-7z-compressed", 95);
     }
     // RAR: "Rar!"
     if (
@@ -2596,6 +2630,8 @@ class ExtensionStrategy implements DetectionStrategy {
       // AI providers don't support SVG format, so we process it as sanitized text
       svg: "svg",
       avif: "image",
+      heic: "image",
+      heif: "image",
       pdf: "pdf",
       // Video formats
       mp4: "video",
@@ -2777,6 +2813,8 @@ class ExtensionStrategy implements DetectionStrategy {
       tif: "image/tiff",
       svg: "image/svg+xml",
       avif: "image/avif",
+      heic: "image/heic",
+      heif: "image/heif",
       pdf: "application/pdf",
       // Video MIME types
       mp4: "video/mp4",

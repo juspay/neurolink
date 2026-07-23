@@ -155,7 +155,7 @@ const result = await neurolink.generate({
 - WebP (`.webp`)
 - AVIF (`.avif`) - detected from content (`avif`/`avis`/`avio` brands) as well as extension
 - BMP (`.bmp`), TIFF (`.tif`, `.tiff`) - detected from content
-- HEIC (`.heic`, `.heif`) - iOS photos (accepted by extension; content-sniffing not yet implemented)
+- HEIC (`.heic`, `.heif`) - detected from HEIC/HEIF content brands as well as extension; unsupported provider formats still require PNG/JPEG conversion
 
 The MIME type is sniffed from the buffer's magic bytes, not assumed from the filename. A buffer whose bytes match no known image format is labeled `application/octet-stream` (with a warning) rather than silently mislabeled as JPEG.
 
