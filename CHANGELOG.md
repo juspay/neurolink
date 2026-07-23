@@ -1,3 +1,9 @@
+## [10.4.4](https://github.com/juspay/neurolink/compare/v10.4.3...v10.4.4) (2026-07-23)
+
+### Bug Fixes
+
+- **(proxy):** persist explainable terminal failures ([1684203](https://github.com/juspay/neurolink/commit/16842035e6199a3b1bdd1876a614d5ce869cf3fd))
+
 ## [10.4.3](https://github.com/juspay/neurolink/compare/v10.4.2...v10.4.3) (2026-07-22)
 
 ### Bug Fixes
