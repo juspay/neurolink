@@ -4,6 +4,7 @@ import type { AIProviderName } from "../constants/enums.js";
 import { IMAGE_GENERATION_MODELS } from "../core/constants.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
+import { modelSupports } from "../models/modelRegistry.js";
 import type { NeuroLink } from "../neurolink.js";
 import { ATTR, tracers } from "../telemetry/index.js";
 import type {
@@ -224,10 +225,36 @@ export abstract class BaseProvider implements AIProvider {
   /**
    * Check if this provider supports tool/function calling
    * Override in subclasses to disable tools for specific providers or models
-   * @returns true by default, providers can override to return false
+   * @returns the current model's registered capability, or true when unknown
    */
   supportsTools(): boolean {
-    return true;
+    return modelSupports("functionCalling", this.providerName, this.modelName);
+  }
+
+  /**
+   * Apply the shared tool gate and optionally report registry-backed
+   * suppression at the request entry point.
+   */
+  private shouldUseTools(
+    options: { disableTools?: boolean },
+    warnWhenUnsupported = false,
+  ): boolean {
+    if (options.disableTools) {
+      return false;
+    }
+
+    const supportsTools = this.supportsTools();
+    if (!supportsTools && warnWhenUnsupported) {
+      logger.warn(
+        `Tools disabled for ${this.providerName}/${this.modelName} because the model does not support function calling`,
+        {
+          provider: this.providerName,
+          model: this.modelName,
+        },
+      );
+    }
+
+    return supportsTools;
   }
 
   // ===================
@@ -322,7 +349,7 @@ export abstract class BaseProvider implements AIProvider {
     // tools (e.g. RAG tools) into options.tools. This way, every provider's
     // executeStream() can simply use options.tools (or getAllTools() + options.tools)
     // and get the complete tool set without needing per-provider merge logic.
-    if (!options.disableTools && this.supportsTools()) {
+    if (this.shouldUseTools(options, true)) {
       const mergedTools = await this.getToolsForStream(options);
       options = { ...options, tools: mergedTools };
     } else {
@@ -1016,7 +1043,7 @@ export abstract class BaseProvider implements AIProvider {
     tools: Record<string, Tool>;
     model: LanguageModel;
   }> {
-    const shouldUseTools = !options.disableTools && this.supportsTools();
+    const shouldUseTools = this.shouldUseTools(options, true);
     const baseTools = shouldUseTools ? await this.getAllTools() : {};
     let tools = shouldUseTools
       ? {
@@ -1057,7 +1084,7 @@ export abstract class BaseProvider implements AIProvider {
   protected async getToolsForStream(
     options: StreamOptions | TextGenerationOptions,
   ): Promise<Record<string, Tool>> {
-    const shouldUseTools = !options.disableTools && this.supportsTools();
+    const shouldUseTools = this.shouldUseTools(options);
     if (!shouldUseTools) {
       return {};
     }
