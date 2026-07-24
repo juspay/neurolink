@@ -1,3 +1,9 @@
+## [10.5.2](https://github.com/juspay/neurolink/compare/v10.5.1...v10.5.2) (2026-07-24)
+
+### Bug Fixes
+
+- **(core):** make supportsTools model-aware via the model registry ([c4137f3](https://github.com/juspay/neurolink/commit/c4137f3784f8268eeda36cb57f5776f49939979e))
+
 ## [10.5.1](https://github.com/juspay/neurolink/compare/v10.5.0...v10.5.1) (2026-07-23)
 
 ### Bug Fixes
