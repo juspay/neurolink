@@ -99,11 +99,18 @@ jobs:
         # Don't auto-fail the job on the action's exit code — the next step maps
         # the verdict to the check result explicitly.
         continue-on-error: true
-        # External consumer → published action. Owned by juspay, so a tag pin is
-        # acceptable; for strict supply-chain immutability replace with the full
-        # commit SHA behind this tag, e.g.
-        #   uses: juspay/yama@fb05b9f62837ea0cba729c1c48dbe7f547f65d0c  # v2.6.0
-        uses: juspay/yama@v2.6.0
+        # External consumer → published action, pinned to an immutable commit
+        # SHA (a tag can be moved; the SHA cannot).
+        #
+        # v2.7.2 is a floor, not a cosmetic bump: it bundles
+        # @juspay/neurolink ^10.1.2, whose DEFAULT_TIMEOUTS carries
+        # litellm: "5m" (#1216). v2.6.0 bundled ^9.42.0, where the litellm
+        # default was 30s — reviews of large diffs die with "litellm generate
+        # operation timed out after 30000" and report an infrastructure failure
+        # with no verdict, which re-running the job does NOT fix.
+        #
+        # When bumping, keep the trailing tag comment in sync with the SHA.
+        uses: juspay/yama@b89b3aaaf5c9faa830d17d50611a7c2845de8159 # v2.7.2
         with:
           github-token: ${{ secrets.YAMA_GITHUB_TOKEN }}
           ai-provider: litellm
