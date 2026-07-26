@@ -1,3 +1,9 @@
+## [10.5.3](https://github.com/juspay/neurolink/compare/v10.5.2...v10.5.3) (2026-07-26)
+
+### Bug Fixes
+
+- **(ci):** raise yama floor to v2.7.2 for the 5m litellm timeout ([0dcf295](https://github.com/juspay/neurolink/commit/0dcf295547aaabfcaa95da2956f5c045d909db9b))
+
 ## [10.5.2](https://github.com/juspay/neurolink/compare/v10.5.1...v10.5.2) (2026-07-24)
 
 ### Bug Fixes
