@@ -5,6 +5,7 @@
  */
 
 import { DEFAULT_MODEL_ALIASES } from "../types/index.js";
+import { logger } from "../utils/logger.js";
 import {
   AIProviderName,
   OpenAIModels,
@@ -2461,7 +2462,85 @@ export function modelSupports(
     return true;
   }
 
-  return modelInfo.capabilities[capability];
+  // Optional capabilities (e.g. samplingParams) default to supported.
+  return modelInfo.capabilities[capability] ?? true;
+}
+
+/**
+ * Model families known to reject classic sampling parameters
+ * (`temperature` / `topP`) in favour of reasoning-effort controls:
+ * Claude Sonnet 5, Opus 4.7+ (including Opus 5), and the Fable/Mythos 5
+ * tier — notably as served through Vertex. Kept as patterns because gateway
+ * model ids carry arbitrary prefixes/suffixes
+ * (`vertex_ai/claude-sonnet-5@20260203`) that exact registry ids can't cover.
+ */
+const SAMPLING_PARAM_REJECTING_FAMILIES: RegExp[] = [
+  /sonnet[-_.]?5(?![0-9])/i,
+  /opus[-_.]?4[-_.]?(?:[7-9]|\d{2,})(?![0-9])/i,
+  /opus[-_.]?5(?![0-9])/i,
+  /fable/i,
+  /mythos/i,
+];
+
+/**
+ * Whether a model accepts classic sampling parameters
+ * (`temperature` / `topP`).
+ *
+ * Resolution order: an explicit `capabilities.samplingParams` on a matching
+ * registry entry wins; otherwise the known rejecting-family patterns decide.
+ * Unknown models default to supported (same fail-open contract as
+ * `modelSupports`). Providers strip the parameters — including on
+ * retry/fallback request rebuilds — when this returns false.
+ */
+export function modelSupportsSamplingParams(
+  provider: string,
+  model: string | undefined,
+): boolean {
+  const normalizedModel = (model ?? "").toLowerCase();
+  if (!normalizedModel) {
+    return true;
+  }
+  const modelId = MODEL_ALIASES[normalizedModel] ?? normalizedModel;
+  const modelInfo = MODEL_REGISTRY[modelId];
+  if (
+    modelInfo &&
+    modelInfo.provider === provider.toLowerCase() &&
+    modelInfo.capabilities.samplingParams !== undefined
+  ) {
+    return modelInfo.capabilities.samplingParams;
+  }
+  return !SAMPLING_PARAM_REJECTING_FAMILIES.some(
+    (family) => family.test(modelId) || family.test(normalizedModel),
+  );
+}
+
+/**
+ * Sampling params to actually send for a model: passthrough when supported,
+ * `{}` (with a debug log) when the model rejects them. Apply at every
+ * request-build site, including retry/fallback rebuilds.
+ */
+export function resolveSamplingParams(
+  provider: string,
+  model: string | undefined,
+  params: { temperature?: number; topP?: number },
+  site: string,
+): { temperature?: number; topP?: number } {
+  if (modelSupportsSamplingParams(provider, model)) {
+    return params;
+  }
+  if (params.temperature !== undefined || params.topP !== undefined) {
+    logger.debug(
+      `[ModelRegistry] Stripping sampling params for ${provider}/${model} at ${site} — model rejects temperature/topP`,
+      {
+        provider,
+        model,
+        site,
+        hadTemperature: params.temperature !== undefined,
+        hadTopP: params.topP !== undefined,
+      },
+    );
+  }
+  return {};
 }
 
 /**

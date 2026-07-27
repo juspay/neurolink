@@ -38,6 +38,7 @@ import type {
   GeminiMultimodalInput,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { resolveSamplingParams } from "../models/modelRegistry.js";
 import {
   convertZodToJsonSchema,
   ensureNestedSchemaTypes,
@@ -659,6 +660,8 @@ export function buildNativeConfig(
     temperature?: number;
     maxTokens?: number;
     systemPrompt?: string;
+    /** Model id, used for the registry-driven sampling-param strip. */
+    model?: string;
     thinkingConfig?: ThinkingConfig;
     /**
      * When true (and `toolsConfig` is undefined), set
@@ -673,8 +676,18 @@ export function buildNativeConfig(
   },
   toolsConfig?: NativeToolsConfig,
 ): Record<string, unknown> {
+  // Registry-driven sampling strip applied for uniformity with every other
+  // provider path (inert for current Gemini models).
+  const samplingParams = resolveSamplingParams(
+    "google-ai",
+    options.model,
+    { temperature: options.temperature ?? 1.0 }, // Gemini 3 requires 1.0 for tool calling
+    "googleAiStudio.buildNativeConfig",
+  );
   const config: Record<string, unknown> = {
-    temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
+    ...(samplingParams.temperature !== undefined && {
+      temperature: samplingParams.temperature,
+    }),
     maxOutputTokens: options.maxTokens,
   };
 

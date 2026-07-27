@@ -86,7 +86,7 @@ import {
   toAnthropicImageBlock,
   fileToAnthropicBlock,
 } from "./anthropicImageBlocks.js";
-import { modelDeprecatesTemperature } from "../core/modules/structuredOutputPolicy.js";
+import { resolveSamplingParams } from "../models/modelRegistry.js";
 import {
   createChunkQueue,
   createDeferredAnalytics,
@@ -1471,18 +1471,33 @@ export class AnthropicProvider extends BaseProvider {
           ANTHROPIC_MAX_CACHE_BREAKPOINTS - cacheMarkersUsed,
         ) as unknown as Anthropic.Messages.MessageParam[];
 
+        // Registry-driven strip: Sonnet 5 / Opus 4.7+ / Fable 5 families
+        // reject sampling params (also covers the retry paths — this params
+        // object is what any rebuild spreads).
+        const samplingParams = resolveSamplingParams(
+          "anthropic",
+          modelId,
+          {
+            ...(options.temperature !== undefined &&
+            options.temperature !== null
+              ? { temperature: options.temperature }
+              : {}),
+            ...(options.topP !== undefined && options.topP !== null
+              ? { topP: options.topP }
+              : {}),
+          },
+          "anthropic.doGenerate",
+        );
         const params: Anthropic.Messages.MessageCreateParamsNonStreaming = {
           model: modelId,
           messages: cachedMessages,
           max_tokens: resolveClaudeMaxTokens(modelId, options.maxOutputTokens),
           ...(system ? { system } : {}),
-          ...(options.temperature !== undefined &&
-          options.temperature !== null &&
-          !modelDeprecatesTemperature(modelId)
-            ? { temperature: options.temperature }
+          ...(samplingParams.temperature !== undefined
+            ? { temperature: samplingParams.temperature }
             : {}),
-          ...(options.topP !== undefined && options.topP !== null
-            ? { top_p: options.topP }
+          ...(samplingParams.topP !== undefined
+            ? { top_p: samplingParams.topP }
             : {}),
           ...(options.stopSequences && options.stopSequences.length > 0
             ? { stop_sequences: options.stopSequences }
@@ -1847,16 +1862,23 @@ export class AnthropicProvider extends BaseProvider {
           conversation as unknown as VertexAnthropicMessage[],
           ANTHROPIC_MAX_CACHE_BREAKPOINTS - cacheMarkersUsed,
         ) as unknown as Anthropic.Messages.MessageParam[];
+        // Registry-driven strip (Sonnet 5 / Opus 4.7+ / Fable 5 families)
+        const streamSamplingParams = resolveSamplingParams(
+          "anthropic",
+          modelId,
+          options.temperature !== undefined && options.temperature !== null
+            ? { temperature: options.temperature }
+            : {},
+          "anthropic.executeStream",
+        );
         const params: Anthropic.Messages.MessageCreateParamsStreaming = {
           model: modelId,
           messages: cachedConversation,
           max_tokens: resolveClaudeMaxTokens(modelId, options.maxTokens),
           stream: true,
           ...(payload.system ? { system: payload.system } : {}),
-          ...(options.temperature !== undefined &&
-          options.temperature !== null &&
-          !modelDeprecatesTemperature(modelId)
-            ? { temperature: options.temperature }
+          ...(streamSamplingParams.temperature !== undefined
+            ? { temperature: streamSamplingParams.temperature }
             : {}),
           ...(anthropicTools && anthropicTools.length > 0
             ? { tools: anthropicTools }

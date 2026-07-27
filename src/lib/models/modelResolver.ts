@@ -151,6 +151,7 @@ export class ModelResolver {
       multimodal: [],
       streaming: [],
       jsonMode: [],
+      samplingParams: [],
     };
 
     // Group models by capabilities

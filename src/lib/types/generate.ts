@@ -389,6 +389,13 @@ export type GenerateOptions = {
   toolTimeoutMs?: number;
   /** AbortSignal for external cancellation of the AI call */
   abortSignal?: AbortSignal;
+  /**
+   * Bounds for the per-call tool execution records surfaced on
+   * `GenerateResult.toolExecutions`. Capture is on by default
+   * (maxResultChars 8192, maxRecords 500); pass larger caps when the caller
+   * needs full result texts.
+   */
+  toolExecutionCapture?: ToolExecutionCaptureOptions;
   /** Disable the schema-driven tool call repair mechanism (BZ-665). Default: false (repair enabled). */
   disableToolCallRepair?: boolean;
   /**
@@ -768,6 +775,54 @@ export type AdditionalMemoryUser = {
 };
 
 /**
+ * One real tool invocation captured during an agentic turn.
+ *
+ * Replaces the historical `{name, input, output}` stub on `GenerateResult`:
+ * every record is produced at the actual execution site (AI-SDK loop and the
+ * native Gemini/Anthropic loops alike), so `params`, timing, and error status
+ * reflect what really ran — consumers no longer need proxy "recorder" tools
+ * to observe their own tool traffic.
+ */
+export type ToolExecutionRecord = {
+  /** Tool name as the model called it. */
+  toolName: string;
+  /** Parameters the tool was invoked with, as parsed by the loop. */
+  params: unknown;
+  /**
+   * Serialized tool result (JSON when serializable, else String()), bounded
+   * by `toolExecutionCapture.maxResultChars` (default ~8KB). Truncated text
+   * ends with a `…[truncated N chars]` marker.
+   */
+  resultText: string;
+  /** True when the execution threw or returned an error-shaped result. */
+  isError: boolean;
+  /** Epoch milliseconds when the execution started. */
+  startedAt: number;
+  /** Wall-clock duration of the execution in milliseconds. */
+  durationMs: number;
+};
+
+/**
+ * Bounds for per-call tool execution capture (see `ToolExecutionRecord`).
+ * Capture is ON by default with these caps; raise them when a caller needs
+ * full result texts (e.g. caller-side evidence verification).
+ */
+export type ToolExecutionCaptureOptions = {
+  /** Max serialized result characters kept per record (default 8192). */
+  maxResultChars?: number;
+  /** Max records kept per turn; oldest are dropped first (default 500). */
+  maxRecords?: number;
+  /**
+   * Fire-and-forget per-record callback, invoked as each tool execution
+   * completes. Listener errors — synchronous throws AND async rejections —
+   * are swallowed; they never break the turn. Used by supervisors (e.g. the
+   * isolated-agent runner's waste detection) and callers that stream
+   * evidence as it is gathered.
+   */
+  onRecord?: (record: ToolExecutionRecord) => void | Promise<void>;
+};
+
+/**
  * Why an agentic turn ended — the discriminator consumers should branch on
  * instead of sniffing the provider-shaped `finishReason` (whose values are
  * overloaded: e.g. "tool-calls" historically covered both step-cap exits and
@@ -938,11 +993,13 @@ export type GenerateResult = {
   }>;
   toolResults?: unknown[]; // Results from tool execution (Vercel AI SDK)
   toolsUsed?: string[];
-  toolExecutions?: Array<{
-    name: string;
-    input: StandardRecord;
-    output: unknown;
-  }>;
+  /**
+   * Real per-call tool execution records captured in the tool loop —
+   * params, bounded serialized result, error flag, and timing per call.
+   * Populated on the AI-SDK loop and the native agentic loops alike.
+   * Bounded by `toolExecutionCapture` (default on, ~8KB per result).
+   */
+  toolExecutions?: ToolExecutionRecord[];
   enhancedWithTools?: boolean;
   availableTools?: Array<{
     name: string;
@@ -1164,6 +1221,15 @@ export type TextGenerationOptions = {
   toolTimeoutMs?: number;
   /** AbortSignal for external cancellation of the AI call */
   abortSignal?: AbortSignal;
+  /** Bounds for tool execution capture. See GenerateOptions.toolExecutionCapture. */
+  toolExecutionCapture?: ToolExecutionCaptureOptions;
+  /**
+   * Per-call ToolExecutionRecorder instance riding on the request so provider
+   * loops and result assembly see the same capture state.
+   *
+   * @internal Set by BaseProvider — not for external callers.
+   */
+  toolExecutionRecorder?: unknown;
   disableTools?: boolean; // Disable tools (tools are enabled by default)
   /** Disable the schema-driven tool call repair mechanism (BZ-665). Default: false (repair enabled). */
   disableToolCallRepair?: boolean;

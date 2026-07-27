@@ -84,9 +84,19 @@ class NeuroLinkLogger {
 
   /**
    * Clears the event emitter reference.
-   * Should be called when a NeuroLink instance is disposed to prevent memory leaks.
+   * Should be called when a NeuroLink instance is disposed to prevent memory
+   * leaks. Pass the disposing instance's emitter so a short-lived instance
+   * (e.g. a worker sub-agent) only clears the bridge when it actually owns
+   * it — never yanking a host instance's live log bridge.
+   *
+   * @param ifEmitter - When provided, clear only if it is the current emitter
    */
-  clearEventEmitter(): void {
+  clearEventEmitter(ifEmitter?: {
+    emit: (event: string, ...args: unknown[]) => boolean;
+  }): void {
+    if (ifEmitter !== undefined && this.eventEmitter !== ifEmitter) {
+      return;
+    }
     this.eventEmitter = undefined;
   }
 
@@ -529,7 +539,9 @@ export const logger = {
   setEventEmitter: (emitter: {
     emit: (event: string, ...args: unknown[]) => boolean;
   }) => neuroLinkLogger.setEventEmitter(emitter),
-  clearEventEmitter: () => neuroLinkLogger.clearEventEmitter(),
+  clearEventEmitter: (ifEmitter?: {
+    emit: (event: string, ...args: unknown[]) => boolean;
+  }) => neuroLinkLogger.clearEventEmitter(ifEmitter),
 };
 
 /**

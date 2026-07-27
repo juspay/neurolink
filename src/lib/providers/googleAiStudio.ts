@@ -52,6 +52,7 @@ import {
 import { withTimeout } from "../utils/async/index.js";
 import { estimateTokens } from "../utils/tokenEstimation.js";
 import { transformToolExecutions } from "../utils/transformationUtils.js";
+import { resolveToolExecutionRecords } from "../core/toolExecutionRecorder.js";
 import {
   buildGeminiResponseSchema,
   buildNativeConfig,
@@ -775,6 +776,9 @@ export class GoogleAIStudioProvider extends BaseProvider {
           const config = buildNativeConfig(
             {
               ...options,
+              // Effective model (falls back to the instance default) so the
+              // registry sampling-support check sees the model actually used.
+              model: modelName,
               wantsJsonOutput: wantsNativeJson,
               responseSchema: nativeResponseSchema,
             },
@@ -1206,6 +1210,9 @@ export class GoogleAIStudioProvider extends BaseProvider {
           const config = buildNativeConfig(
             {
               ...options,
+              // Effective model (falls back to the instance default) so the
+              // registry sampling-support check sees the model actually used.
+              model: modelName,
               wantsJsonOutput: wantsNativeJson,
               responseSchema: nativeResponseSchema,
             },
@@ -1414,7 +1421,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
             },
             responseTime,
             toolsUsed: allToolCalls.map((tc) => tc.toolName),
-            toolExecutions: transformToolExecutions(toolExecutions),
+            toolExecutions: resolveToolExecutionRecords(
+              options,
+              toolExecutions,
+            ),
             enhancedWithTools: allToolCalls.length > 0,
           };
           return this.enhanceResult(baseResult, options, startTime);

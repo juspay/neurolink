@@ -193,7 +193,7 @@ export function defineRealtimeVoiceAgent(
 
     if (onLog) {
       const room = ctx.room.name ?? "unknown";
-      logger.setEventEmitter({
+      const voiceLogEmitter = {
         emit: (event: string, ...args: unknown[]): boolean => {
           if (event === "log-event") {
             const decoded = realtimeLogEventSchema.safeParse(args[0]);
@@ -207,9 +207,12 @@ export function defineRealtimeVoiceAgent(
           }
           return true;
         },
-      });
+      };
+      logger.setEventEmitter(voiceLogEmitter);
       ctx.addShutdownCallback(async () => {
-        logger.clearEventEmitter();
+        // Clear only if this agent's emitter is still the active sink —
+        // never yank a bridge some other instance installed since.
+        logger.clearEventEmitter(voiceLogEmitter);
       });
     }
 

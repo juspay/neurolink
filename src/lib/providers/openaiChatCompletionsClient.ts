@@ -35,6 +35,7 @@ import type {
   Tool,
 } from "../types/index.js";
 import { sanitizeToolName } from "../mcp/toolConverter.js";
+import { resolveSamplingParams } from "../models/modelRegistry.js";
 import {
   convertZodToJsonSchema,
   normalizeWireToolSchema,
@@ -574,11 +575,28 @@ export const buildBody = (
   if (options.maxTokens !== undefined && options.maxTokens !== null) {
     body.max_tokens = options.maxTokens;
   }
-  if (options.temperature !== undefined && options.temperature !== null) {
-    body.temperature = options.temperature;
+  // Registry-driven strip: models that reject sampling params (Sonnet 5 /
+  // Opus 4.7+ / Fable 5 families — e.g. Claude served through litellm)
+  // must not receive temperature/top_p. Applied in buildBody so the 400
+  // one-shot retries, which reuse the built body, inherit the strip.
+  const samplingParams = resolveSamplingParams(
+    "openai-compatible",
+    modelId,
+    {
+      ...(options.temperature !== undefined && options.temperature !== null
+        ? { temperature: options.temperature }
+        : {}),
+      ...(options.topP !== undefined && options.topP !== null
+        ? { topP: options.topP }
+        : {}),
+    },
+    "openaiCompatible.buildBody",
+  );
+  if (samplingParams.temperature !== undefined) {
+    body.temperature = samplingParams.temperature;
   }
-  if (options.topP !== undefined && options.topP !== null) {
-    body.top_p = options.topP;
+  if (samplingParams.topP !== undefined) {
+    body.top_p = samplingParams.topP;
   }
   if (
     options.presencePenalty !== undefined &&
