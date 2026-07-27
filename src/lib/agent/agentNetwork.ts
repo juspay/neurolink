@@ -28,12 +28,17 @@ import type {
   NetworkStreamChunk,
   NetworkTokenUsage,
   Primitive,
+  ToolExecutionRecord,
   ToolPrimitive,
   WorkflowPrimitive,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { ErrorFactory } from "../utils/errorHandling.js";
 import { Agent } from "./agent.js";
+import {
+  acquireDelegationSlot,
+  runWithNestedDelegationDepth,
+} from "./agentToolRegistrar.js";
 
 /**
  * AgentNetwork - Multi-agent orchestration using the ai SDK tool loop
@@ -227,27 +232,70 @@ export class AgentNetwork {
       const capturedId = id;
       const capturedAgent = agentInstance;
 
-      const schema = z.object({
-        task: z.string().describe("The task to delegate to this agent"),
-      });
+      // Honor the agent's declared inputSchema; default to a plain task
+      // string when the definition doesn't declare one.
+      const customSchema = capturedAgent.inputSchema;
+      const schema =
+        customSchema ??
+        z.object({
+          task: z.string().describe("The task to delegate to this agent"),
+        });
 
       tools[`agent_${capturedId}`] = tool({
         description: `Agent: ${capturedAgent.name} - ${capturedAgent.description}`,
         inputSchema: schema,
-        execute: async (params: z.infer<typeof schema>) => {
+        execute: async (params: unknown) => {
+          // With a custom inputSchema the parsed object passes through to
+          // the agent untouched; the default schema unwraps the task string.
+          const input = customSchema
+            ? (params as Record<string, unknown>)
+            : (params as { task: string }).task;
           logger.debug(
             `[AgentNetwork:${this.id}] Delegating to agent: ${capturedAgent.name}`,
-            { task: params.task.slice(0, 100) },
+            {
+              task:
+                typeof input === "string"
+                  ? input.slice(0, 100)
+                  : input && typeof input === "object"
+                    ? Object.keys(input).join(",")
+                    : String(input),
+            },
           );
-          const result = await capturedAgent.execute(params.task);
-          return {
-            agentId: capturedId,
-            content: result.content,
-            status: result.status,
-            error: result.error,
-          };
+          // Standalone-mode delegations share the same process-wide pool as
+          // host-loop delegations (registerAgentTool), so concurrent agent
+          // fan-out is bounded framework-wide. Refusals carry the recovery
+          // instruction, mirroring the host-loop contract.
+          let release: (() => void) | undefined;
+          try {
+            release = await acquireDelegationSlot();
+          } catch {
+            return {
+              agentId: capturedId,
+              content: "",
+              status: "error" as const,
+              error: `All delegation slots are busy and the queue timed out. Do not retry agent_${capturedId} immediately; synthesize from the results you already have.`,
+            };
+          }
+          try {
+            // The agent executes one delegation level deeper: this tool call
+            // holds a pool slot for its whole duration, so any
+            // registered-agent-tool delegation the agent makes from inside
+            // must take the nested path instead of queueing behind the slot
+            // its own caller is holding.
+            const result = await runWithNestedDelegationDepth(() =>
+              capturedAgent.execute(input),
+            );
+            return {
+              agentId: capturedId,
+              content: result.content,
+              status: result.status,
+              error: result.error,
+            };
+          } finally {
+            release();
+          }
         },
-      });
+      } as unknown as Parameters<typeof tool>[0]) as Tool;
     }
 
     return tools;
@@ -278,18 +326,16 @@ Use the appropriate agent tool(s) to handle the task. Return a clear, complete f
    * Build NetworkExecutionTrace steps from generate() toolExecutions.
    */
   private buildTrace(
-    toolExecutions:
-      | Array<{ name: string; input: Record<string, unknown>; output: unknown }>
-      | undefined,
+    toolExecutions: ToolExecutionRecord[] | undefined,
     traceId: string,
     startTime: number,
   ): NetworkExecutionTrace {
     const steps: NetworkExecutionStep[] = (toolExecutions ?? []).map(
       (exec, index) => {
         // Tool name format is "agent_<id>" — extract agent id
-        const agentId = exec.name.startsWith("agent_")
-          ? exec.name.slice("agent_".length)
-          : exec.name;
+        const agentId = exec.toolName.startsWith("agent_")
+          ? exec.toolName.slice("agent_".length)
+          : exec.toolName;
 
         const primitive = this.primitives.get(agentId);
 
@@ -300,10 +346,11 @@ Use the appropriate agent tool(s) to handle the task. Return a clear, complete f
             id: agentId,
             name: primitive?.name ?? agentId,
           },
-          input: exec.input,
-          output: exec.output,
-          duration: 0, // individual step timing not available from generate()
-          timestamp: startTime,
+          input: exec.params,
+          output: exec.resultText,
+          ...(exec.isError && { error: exec.resultText }),
+          duration: exec.durationMs,
+          timestamp: exec.startedAt || startTime,
         };
       },
     );
@@ -361,13 +408,7 @@ Use the appropriate agent tool(s) to handle the task. Return a clear, complete f
         tools: agentTools,
       } as Parameters<NeuroLink["generate"]>[0]);
 
-      const toolExecutions = (result.toolExecutions ?? []) as Array<{
-        name: string;
-        input: Record<string, unknown>;
-        output: unknown;
-      }>;
-
-      const trace = this.buildTrace(toolExecutions, traceId, startTime);
+      const trace = this.buildTrace(result.toolExecutions, traceId, startTime);
 
       // Aggregate token usage across all agent tool calls
       const usage = result.usage;

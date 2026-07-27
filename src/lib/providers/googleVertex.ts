@@ -122,6 +122,8 @@ import {
 } from "@opentelemetry/api";
 import { calculateCost } from "../utils/pricing.js";
 import { transformToolExecutions } from "../utils/transformationUtils.js";
+import { resolveToolExecutionRecords } from "../core/toolExecutionRecorder.js";
+import { resolveSamplingParams } from "../models/modelRegistry.js";
 import { sanitizeAnthropicMessagesForTrace } from "../utils/anthropicTraceSanitizer.js";
 import {
   extractMcpToolErrorMessage,
@@ -1833,9 +1835,21 @@ export class GoogleVertexProvider extends BaseProvider {
       );
     }
 
-    // Build config
+    // Build config. Registry-driven sampling strip applied for uniformity
+    // with every other provider path (inert for current Gemini models).
+    const geminiSampling = resolveSamplingParams(
+      this.providerName,
+      modelName,
+      {
+        temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
+        ...(options.topP !== undefined && { topP: options.topP }),
+      },
+      "vertex.gemini",
+    );
     const config: Record<string, unknown> = {
-      temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
+      ...(geminiSampling.temperature !== undefined && {
+        temperature: geminiSampling.temperature,
+      }),
       maxOutputTokens: options.maxTokens,
     };
 
@@ -1858,8 +1872,8 @@ export class GoogleVertexProvider extends BaseProvider {
     }
 
     // Add topP, topK, stopSequences if provided
-    if (options.topP !== undefined) {
-      config.topP = options.topP;
+    if (geminiSampling.topP !== undefined) {
+      config.topP = geminiSampling.topP;
     }
     if (options.topK !== undefined) {
       config.topK = options.topK;
@@ -3017,9 +3031,21 @@ export class GoogleVertexProvider extends BaseProvider {
       );
     }
 
-    // Build config
+    // Build config. Registry-driven sampling strip applied for uniformity
+    // with every other provider path (inert for current Gemini models).
+    const geminiSampling = resolveSamplingParams(
+      this.providerName,
+      modelName,
+      {
+        temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
+        ...(options.topP !== undefined && { topP: options.topP }),
+      },
+      "vertex.gemini",
+    );
     const config: Record<string, unknown> = {
-      temperature: options.temperature ?? 1.0, // Gemini 3 requires 1.0 for tool calling
+      ...(geminiSampling.temperature !== undefined && {
+        temperature: geminiSampling.temperature,
+      }),
       maxOutputTokens: options.maxTokens,
     };
 
@@ -3042,8 +3068,8 @@ export class GoogleVertexProvider extends BaseProvider {
     }
 
     // Add topP, topK, stopSequences if provided
-    if (options.topP !== undefined) {
-      config.topP = options.topP;
+    if (geminiSampling.topP !== undefined) {
+      config.topP = geminiSampling.topP;
     }
     if (options.topK !== undefined) {
       config.topK = options.topK;
@@ -3887,7 +3913,10 @@ export class GoogleVertexProvider extends BaseProvider {
       },
       responseTime,
       toolsUsed: externalToolCalls.map((tc) => tc.toolName),
-      toolExecutions: transformToolExecutions(externalToolExecutions),
+      toolExecutions: resolveToolExecutionRecords(
+        options,
+        externalToolExecutions,
+      ),
       enhancedWithTools: externalToolCalls.length > 0,
     };
 
@@ -4355,6 +4384,22 @@ export class GoogleVertexProvider extends BaseProvider {
         ? schemaSystemPromptSuffix.trim()
         : undefined;
 
+    // Registry-driven strip: Sonnet 5 / Opus 4.7+ / Fable 5 on Vertex reject
+    // sampling params. Applied here so every rebuild that spreads
+    // `...requestParams` (forced finalization, tools-off backstop) inherits
+    // the strip automatically.
+    const streamSampling = resolveSamplingParams(
+      this.providerName,
+      modelName,
+      {
+        ...(options.temperature !== undefined && {
+          temperature: options.temperature,
+        }),
+        ...(options.topP !== undefined && { topP: options.topP }),
+      },
+      "vertex.anthropic.stream",
+    );
+
     const requestParams: Parameters<typeof client.messages.stream>[0] = {
       model: modelName,
       // Default to the model's real output ceiling (e.g. 64K for Sonnet 4.x)
@@ -4368,10 +4413,12 @@ export class GoogleVertexProvider extends BaseProvider {
       ...(tools && tools.length > 0 && { tools }),
       ...(useFinalResultTool && { tool_choice: { type: "any" as const } }),
       ...(systemPromptWithSchema && { system: systemPromptWithSchema }),
-      ...(options.temperature !== undefined && {
-        temperature: options.temperature,
+      ...(streamSampling.temperature !== undefined && {
+        temperature: streamSampling.temperature,
       }),
-      ...(options.topP !== undefined && { top_p: options.topP }),
+      ...(streamSampling.topP !== undefined && {
+        top_p: streamSampling.topP,
+      }),
       ...(options.stopSequences &&
         options.stopSequences.length > 0 && {
           stop_sequences: options.stopSequences,
@@ -6002,6 +6049,22 @@ export class GoogleVertexProvider extends BaseProvider {
         ? schemaSystemPromptSuffix.trim()
         : undefined;
 
+    // Registry-driven strip: Sonnet 5 / Opus 4.7+ / Fable 5 on Vertex reject
+    // sampling params. Applied at the requestParams build so the forced
+    // finalization and tools-off backstop rebuilds (`...requestParams`)
+    // inherit the strip automatically.
+    const generateSampling = resolveSamplingParams(
+      this.providerName,
+      modelName,
+      {
+        ...(options.temperature !== undefined && {
+          temperature: options.temperature,
+        }),
+        ...(options.topP !== undefined && { topP: options.topP }),
+      },
+      "vertex.anthropic.generate",
+    );
+
     const requestParams = {
       model: modelName,
       // Default to the model's real output ceiling (see stream path note).
@@ -6010,10 +6073,12 @@ export class GoogleVertexProvider extends BaseProvider {
       ...(tools && tools.length > 0 && { tools }),
       ...(useFinalResultTool && { tool_choice: { type: "any" as const } }),
       ...(systemPromptWithSchema && { system: systemPromptWithSchema }),
-      ...(options.temperature !== undefined && {
-        temperature: options.temperature,
+      ...(generateSampling.temperature !== undefined && {
+        temperature: generateSampling.temperature,
       }),
-      ...(options.topP !== undefined && { top_p: options.topP }),
+      ...(generateSampling.topP !== undefined && {
+        top_p: generateSampling.topP,
+      }),
       ...(options.stopSequences &&
         options.stopSequences.length > 0 && {
           stop_sequences: options.stopSequences,
@@ -6954,7 +7019,10 @@ export class GoogleVertexProvider extends BaseProvider {
       },
       responseTime,
       toolsUsed: externalToolCalls.map((tc) => tc.toolName),
-      toolExecutions: transformToolExecutions(externalToolExecutions),
+      toolExecutions: resolveToolExecutionRecords(
+        options,
+        externalToolExecutions,
+      ),
       enhancedWithTools: externalToolCalls.length > 0,
     };
 

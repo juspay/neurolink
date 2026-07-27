@@ -44,6 +44,8 @@ export const textGenerationOptionsSchema: Record<
     | "piiDetection" // Complex config, wired via CLI flags instead
     | "responseValidation" // Complex config, wired via CLI flags instead
     | "inputValidation" // Complex config, wired via CLI flags instead
+    | "toolExecutionCapture" // Complex config object, only usable via SDK
+    | "toolExecutionRecorder" // Internal: set by BaseProvider, not by CLI
   >,
   OptionSchema
 > = {

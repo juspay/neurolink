@@ -34,6 +34,27 @@
 export { Agent } from "./agent.js";
 export { AgentNetwork } from "./agentNetwork.js";
 
+// Isolated sub-agent runtime (N4/N5)
+export {
+  runIsolatedAgent,
+  continueIsolatedAgent,
+  stopIsolatedAgent,
+  buildMechanicalDigest,
+  hasOpenIsolatedAgentHandle,
+} from "./isolatedAgentRunner.js";
+export {
+  registerAgentTool,
+  beginDelegationTurn,
+  acquireDelegationSlot,
+  runWithNestedDelegationDepth,
+  resetDelegationPoolForTests,
+} from "./agentToolRegistrar.js";
+export {
+  collectStructuredCandidates,
+  recoverStructuredData,
+  summarizeZodError,
+} from "./structuredRecovery.js";
+
 // Direct tools (existing)
 export {
   directAgentTools,

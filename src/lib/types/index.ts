@@ -30,6 +30,7 @@ export * from "./generate.js";
 export * from "./grounding.js";
 export * from "./guardrails.js";
 export * from "./hitl.js";
+export * from "./isolatedAgent.js";
 export * from "./knowledge.js";
 export * from "./livekit.js";
 export * from "./mcp.js";

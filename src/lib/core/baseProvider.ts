@@ -20,6 +20,7 @@ import type {
   TextGenerationOptions,
   TextGenerationResult,
   StandardRecord,
+  ToolExecutionRecord,
   ValidationSchema,
   ZodUnknownSchema,
 } from "../types/index.js";
@@ -38,6 +39,10 @@ import {
 } from "../utils/timeout.js";
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
 import { getKeyCount, getKeysAsString } from "../utils/transformationUtils.js";
+import {
+  ToolExecutionRecorder,
+  resolveToolExecutionRecords,
+} from "./toolExecutionRecorder.js";
 import { TTSProcessor } from "../utils/ttsProcessor.js";
 import {
   executeVideoAnalysis,
@@ -1055,6 +1060,12 @@ export abstract class BaseProvider implements AIProvider {
     // Apply per-call tool filtering (whitelist/blacklist)
     tools = this.applyToolFiltering(tools, options);
 
+    // Per-call execution capture: wrap every executable tool so real
+    // params/results/timing surface on result.toolExecutions. Must run
+    // BEFORE discovery — search_tools hydration mutates the discovery
+    // record in place, so tools hydrated mid-turn stay wrapped.
+    tools = this.wrapToolsForExecutionCapture(tools, options);
+
     // On-demand discovery: defer external MCP schemas behind search_tools
     tools = await this.applyToolDiscovery(tools, options);
 
@@ -1095,6 +1106,11 @@ export abstract class BaseProvider implements AIProvider {
     // Apply per-call tool filtering (whitelist/blacklist)
     merged = this.applyToolFiltering(merged, options);
 
+    // Per-call execution capture (native loops obtain their tools here, so
+    // this single wrap covers the Gemini/Anthropic native paths too). Must
+    // run BEFORE discovery so tools hydrated mid-turn stay wrapped.
+    merged = this.wrapToolsForExecutionCapture(merged, options);
+
     // On-demand discovery: defer external MCP schemas behind search_tools
     merged = await this.applyToolDiscovery(merged, options);
 
@@ -1106,6 +1122,30 @@ export abstract class BaseProvider implements AIProvider {
     });
 
     return merged;
+  }
+
+  /**
+   * Create (or reuse) the per-call ToolExecutionRecorder and wrap the final
+   * tool record with it. The recorder rides on the options object so provider
+   * loops and result assembly observe the same capture state; wrapping is
+   * idempotent, so paths that re-enter (stream→generate fallback) never
+   * double-record.
+   */
+  protected wrapToolsForExecutionCapture(
+    tools: Record<string, Tool>,
+    options: StreamOptions | TextGenerationOptions,
+  ): Record<string, Tool> {
+    if (Object.keys(tools).length === 0) {
+      return tools;
+    }
+    let recorder = ToolExecutionRecorder.from(options);
+    if (!recorder) {
+      recorder = new ToolExecutionRecorder(
+        (options as TextGenerationOptions).toolExecutionCapture,
+      );
+      recorder.attachTo(options as unknown as Record<string, unknown>);
+    }
+    return recorder.wrapTools(tools);
   }
 
   /**
@@ -1192,11 +1232,7 @@ export abstract class BaseProvider implements AIProvider {
     generateResult: Awaited<ReturnType<typeof generateText>>,
     tools: Record<string, Tool>,
     toolsUsed: string[],
-    toolExecutions: Array<{
-      name: string;
-      input: StandardRecord;
-      output: unknown;
-    }>,
+    toolExecutions: ToolExecutionRecord[],
     options: TextGenerationOptions,
   ): EnhancedGenerateResult {
     return this.generationHandler.formatEnhancedResult(
@@ -1559,11 +1595,18 @@ export abstract class BaseProvider implements AIProvider {
 
     const { toolsUsed, toolExecutions } =
       this.extractToolInformation(generateResult);
+    // Prefer the per-call recorder's real records (params/result/timing per
+    // execution); fall back to a conversion of the step-extraction entries
+    // for tools the recorder could not wrap (provider-executed tools).
+    const toolExecutionRecords = resolveToolExecutionRecords(
+      options,
+      toolExecutions,
+    );
     let enhancedResult = this.formatEnhancedResult(
       generateResult,
       tools,
       toolsUsed,
-      toolExecutions,
+      toolExecutionRecords,
       options,
     );
     enhancedResult = await this.synthesizeAIResponseIfNeeded(
@@ -1665,26 +1708,13 @@ export abstract class BaseProvider implements AIProvider {
       },
       responseTime: 0, // BaseProvider doesn't track response time directly
       toolsUsed: result.toolsUsed || [],
-      // Map toolExecutions from EnhancedGenerateResult shape to TextGenerationResult shape
-      // Preserve original timing/status fields when present, fall back to safe defaults
-      toolExecutions: result.toolExecutions?.map((te) => {
-        const t = te as Record<string, unknown>;
-        return {
-          // Spread original fields first so normalized fields take precedence
-          ...te,
-          toolName: te.name,
-          executionTime:
-            typeof t.executionTime === "number"
-              ? t.executionTime
-              : typeof t.duration === "number"
-                ? t.duration
-                : 0,
-          success:
-            typeof t.success === "boolean"
-              ? t.success
-              : t.status === undefined || t.status === "success",
-        };
-      }),
+      // Map ToolExecutionRecord entries to the legacy TextGenerationResult
+      // shape: real timing and error status now come from the records.
+      toolExecutions: result.toolExecutions?.map((te) => ({
+        toolName: te.toolName,
+        executionTime: te.durationMs,
+        success: !te.isError,
+      })),
       enhancedWithTools: !!(result.toolsUsed && result.toolsUsed.length > 0),
       analytics: result.analytics,
       evaluation: result.evaluation,

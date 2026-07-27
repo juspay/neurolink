@@ -22,7 +22,11 @@ import type { JsonValue, UnknownRecord } from "./common.js";
 import type { Content, ImageWithAltText } from "./content.js";
 import type { ChatMessage } from "./conversation.js";
 import type { StreamNoOutputSentinel } from "./noOutputSentinel.js";
-import type { AdditionalMemoryUser, GenerateStopReason } from "./generate.js";
+import type {
+  AdditionalMemoryUser,
+  GenerateStopReason,
+  ToolExecutionCaptureOptions,
+} from "./generate.js";
 import type {
   AIModelProviderConfig,
   NeurolinkCredentials,
@@ -410,6 +414,8 @@ export type StreamOptions = {
   toolTimeoutMs?: number;
   /** AbortSignal for external cancellation of the AI call */
   abortSignal?: AbortSignal;
+  /** Bounds for tool execution capture. See GenerateOptions.toolExecutionCapture. */
+  toolExecutionCapture?: ToolExecutionCaptureOptions;
   disableTools?: boolean;
   /** Disable the schema-driven tool call repair mechanism (BZ-665). Default: false (repair enabled). */
   disableToolCallRepair?: boolean;

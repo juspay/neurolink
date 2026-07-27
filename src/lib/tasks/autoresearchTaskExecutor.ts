@@ -24,6 +24,7 @@ import type {
   TaskRunResult,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { toolExecutionRecordsToToolCalls } from "../utils/transformationUtils.js";
 
 // ── Worker cache ────────────────────────────────────────
 
@@ -314,7 +315,11 @@ export async function executeAutoresearchTick(
     const calledTools: string[] = (result.toolExecutions ?? [])
       .map((te) => {
         const t = te as Record<string, unknown>;
-        return typeof t.name === "string" ? t.name : "";
+        return typeof t.toolName === "string"
+          ? t.toolName
+          : typeof t.name === "string"
+            ? t.name
+            : "";
       })
       .filter(Boolean);
 
@@ -335,11 +340,7 @@ export async function executeAutoresearchTick(
       runId,
       status: "success",
       output: result.content,
-      toolCalls: result.toolExecutions?.map((te) => ({
-        name: te.name,
-        input: te.input,
-        output: te.output,
-      })),
+      toolCalls: toolExecutionRecordsToToolCalls(result.toolExecutions),
       tokensUsed: result.usage
         ? { input: result.usage.input ?? 0, output: result.usage.output ?? 0 }
         : undefined,

@@ -18,6 +18,7 @@ import type {
   TaskStore,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { toolExecutionRecordsToToolCalls } from "../utils/transformationUtils.js";
 import { executeAutoresearchTick } from "./autoresearchTaskExecutor.js";
 
 /** Errors that are transient and should be retried */
@@ -165,11 +166,7 @@ export class TaskExecutor {
       runId,
       status: "success",
       output: result.content,
-      toolCalls: result.toolExecutions?.map((te) => ({
-        name: te.name,
-        input: te.input,
-        output: te.output,
-      })),
+      toolCalls: toolExecutionRecordsToToolCalls(result.toolExecutions),
       tokensUsed: result.usage
         ? {
             input: result.usage.input ?? 0,

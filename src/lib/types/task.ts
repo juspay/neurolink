@@ -295,7 +295,11 @@ export type RedisClient = ReturnType<typeof createClient>;
 export type NeuroLinkExecutable = {
   generate(optionsOrPrompt: unknown): Promise<{
     content: string;
-    toolExecutions?: Array<{ name: string; input: unknown; output: unknown }>;
+    toolExecutions?: Array<{
+      toolName: string;
+      params: unknown;
+      resultText: string;
+    }>;
     usage?: {
       input?: number;
       output?: number;

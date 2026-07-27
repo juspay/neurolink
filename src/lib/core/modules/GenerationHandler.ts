@@ -15,6 +15,7 @@
 
 import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import { getModelId } from "../../providers/providerTypeUtils.js";
+import { resolveSamplingParams } from "../../models/modelRegistry.js";
 import { tracers } from "../../telemetry/tracers.js";
 import type {
   UnknownRecord,
@@ -28,6 +29,7 @@ import type {
   StandardRecord,
   TextGenerationOptions,
   ToolCallRepairFunction,
+  ToolExecutionRecord,
   ToolSet,
   TypedEventEmitter,
 } from "../../types/index.js";
@@ -381,6 +383,20 @@ export class GenerationHandler {
       },
     });
 
+    // Registry-driven strip: models that reject sampling params (Sonnet 5 /
+    // Opus 4.7+ / Fable 5 families — e.g. Claude on Bedrock or behind any
+    // AI-SDK provider) must not receive temperature. Applies uniformly to
+    // every provider on this loop path; the reactive
+    // isTemperatureDeprecatedError retry below remains the safety net.
+    const samplingParams = resolveSamplingParams(
+      this.providerName,
+      getModelId(model, this.modelName || ""),
+      options.temperature !== undefined
+        ? { temperature: options.temperature }
+        : {},
+      "aiSdk.generateText",
+    );
+
     const result = await generateText({
       model,
       ...(system && { system }),
@@ -443,7 +459,7 @@ export class GenerationHandler {
         }
         return prepared;
       }) satisfies PrepareStepFunction,
-      temperature: options.temperature,
+      temperature: samplingParams.temperature,
       maxOutputTokens: options.maxTokens,
       maxRetries: 0, // NL11: Disable AI SDK's invisible internal retries; we handle retries with OTel instrumentation
       abortSignal: options.abortSignal,
@@ -1076,11 +1092,7 @@ export class GenerationHandler {
     generateResult: Awaited<ReturnType<typeof generateText>>,
     tools: Record<string, Tool>,
     toolsUsed: string[],
-    toolExecutions: Array<{
-      name: string;
-      input: StandardRecord;
-      output: unknown;
-    }>,
+    toolExecutions: ToolExecutionRecord[],
     options: TextGenerationOptions,
   ): EnhancedGenerateResult {
     // Structured output check — schema alone is sufficient to activate

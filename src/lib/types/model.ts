@@ -121,6 +121,14 @@ export type ModelCapabilities = {
   multimodal: boolean;
   streaming: boolean;
   jsonMode: boolean;
+  /**
+   * Whether the model accepts classic sampling parameters
+   * (`temperature` / `topP`). Reasoning-effort models (Claude Sonnet 5,
+   * Opus 4.7+, Fable 5 families) reject them. Optional: unset means
+   * supported, and `modelSupportsSamplingParams` falls back to the known
+   * family patterns.
+   */
+  samplingParams?: boolean;
 };
 
 /**

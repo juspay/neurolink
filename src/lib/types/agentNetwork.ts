@@ -8,6 +8,7 @@
 import type { z } from "zod";
 import type { AIProviderName } from "../constants/enums.js";
 import type { TokenUsage } from "./analytics.js";
+import type { GenerateStopReason, ToolExecutionRecord } from "./generate.js";
 
 // ============================================================================
 // AGENT DEFINITION TYPES
@@ -81,13 +82,17 @@ export type AgentResult = {
   /** Tools used during execution */
   toolsUsed?: string[];
 
-  /** Detailed tool execution info */
-  toolExecutions?: Array<{
-    name: string;
-    input: Record<string, unknown>;
-    output: unknown;
-    duration: number;
-  }>;
+  /**
+   * Real per-call tool execution records from the underlying generate()
+   * turn (params, bounded result text, error flag, timing per call).
+   */
+  toolExecutions?: ToolExecutionRecord[];
+
+  /**
+   * Why the agentic turn ended (`completed`, `step-cap`, `time-limit`,
+   * `stalled`, `aborted`, …) — see {@link GenerateStopReason}.
+   */
+  stopReason?: GenerateStopReason;
 
   /** Execution duration in milliseconds */
   duration: number;
@@ -118,8 +123,23 @@ export type AgentExecutionOptions = {
   /** Parent span ID for nested tracing */
   parentSpanId?: string;
 
-  /** Timeout in milliseconds */
+  /** Per-model-call timeout in milliseconds (see GenerateOptions.timeout) */
   timeout?: number;
+
+  /**
+   * Abort signal threaded into every generate() the agent makes. An aborted
+   * parent stops the agent — no ghost runs.
+   */
+  abortSignal?: AbortSignal;
+
+  /** Wall-clock cap for the whole agentic turn (ms). See GenerateOptions.turnTimeoutMs. */
+  turnTimeoutMs?: number;
+
+  /** Remaining-time threshold for the wrap-up nudge (ms). See GenerateOptions.wrapupTimeLeadMs. */
+  wrapupTimeLeadMs?: number;
+
+  /** Max time with no progress before the turn ends as "stalled" (ms). See GenerateOptions.stallTimeoutMs. */
+  stallTimeoutMs?: number;
 
   /** Per-execution credentials override */
   credentials?: Record<string, unknown>;

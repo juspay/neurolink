@@ -49,6 +49,7 @@ import {
 import { isAbortError, withTimeout } from "../utils/errorHandling.js";
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { logger } from "../utils/logger.js";
+import { resolveSamplingParams } from "../models/modelRegistry.js";
 import { calculateCost } from "../utils/pricing.js";
 import { buildMultimodalMessagesArray } from "../utils/messageBuilder.js";
 import { buildMultimodalOptions } from "../utils/multimodalOptionsBuilder.js";
@@ -479,6 +480,16 @@ export class AmazonBedrockProvider extends BaseProvider {
           const allTools = this.convertAISDKToolsToToolDefinitions(aiTools);
           const toolConfig = this.formatToolsForBedrock(allTools);
 
+          // Registry-driven strip: models that reject sampling params
+          // (Sonnet 5 / Opus 4.7+ / Fable 5 Claude families on Bedrock)
+          // must not receive the legacy 0.7 default temperature.
+          const generateSampling = resolveSamplingParams(
+            this.providerName,
+            this.modelName || this.getDefaultModel(),
+            { temperature: options.temperature ?? 0.7 },
+            "bedrock.converse",
+          );
+
           const commandInput: ConverseCommandInput = {
             modelId: this.modelName || this.getDefaultModel(),
             messages: this.convertToAWSMessages(this.conversationHistory),
@@ -491,7 +502,9 @@ export class AmazonBedrockProvider extends BaseProvider {
             ],
             inferenceConfig: {
               maxTokens: options.maxTokens, // No default limit - unlimited unless specified
-              temperature: options.temperature || 0.7,
+              ...(generateSampling.temperature !== undefined && {
+                temperature: generateSampling.temperature,
+              }),
             },
           };
 
@@ -1819,6 +1832,16 @@ export class AmazonBedrockProvider extends BaseProvider {
       });
     }
 
+    // Registry-driven strip: models that reject sampling params (Sonnet 5 /
+    // Opus 4.7+ / Fable 5 Claude families on Bedrock) must not receive the
+    // legacy 0.7 default temperature.
+    const streamSampling = resolveSamplingParams(
+      this.providerName,
+      this.modelName || this.getDefaultModel(),
+      { temperature: options.temperature ?? 0.7 },
+      "bedrock.converseStream",
+    );
+
     const commandInput: ConverseStreamCommandInput = {
       modelId: this.modelName || this.getDefaultModel(),
       messages: convertedMessages,
@@ -1831,7 +1854,9 @@ export class AmazonBedrockProvider extends BaseProvider {
       ],
       inferenceConfig: {
         maxTokens: options.maxTokens, // No default limit - unlimited unless specified
-        temperature: options.temperature || 0.7,
+        ...(streamSampling.temperature !== undefined && {
+          temperature: streamSampling.temperature,
+        }),
       },
     };
 

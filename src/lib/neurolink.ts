@@ -26,10 +26,15 @@ import { ErrorCategory, ErrorSeverity } from "./constants/enums.js";
 import type {
   AgentDefinition,
   AgentNetworkConfig,
+  AgentRunOptions,
+  AgentRunOutcome,
+  AgentToolRegistrationOptions,
+  IsolatedAgentDefinition,
   NetworkExecutionInput,
   NetworkExecutionOptions,
   NetworkExecutionResult,
   NetworkStreamChunk,
+  WorkerInstanceOptions,
 } from "./types/index.js";
 import {
   CIRCUIT_BREAKER,
@@ -297,12 +302,12 @@ import {
   optimizeToolForCollection,
   transformAvailableTools,
   transformParamsForLogging,
-  transformToolExecutions,
   transformToolExecutionsForMCP,
   transformToolsForMCP,
   transformToolsToDescriptions,
   transformToolsToExpectedFormat,
 } from "./utils/transformationUtils.js";
+import { toToolExecutionRecords } from "./core/toolExecutionRecorder.js";
 import { isNonNullObject } from "./utils/typeUtils.js";
 import { getWorkflow } from "./workflow/core/workflowRegistry.js";
 import { runWorkflow } from "./workflow/core/workflowRunner.js";
@@ -1152,6 +1157,12 @@ export class NeuroLink {
    * This context will be merged with any runtime context passed by the AI model
    */
   private toolExecutionContext?: Record<string, unknown>;
+
+  /**
+   * Set when registerAgentTool() has registered at least one delegation
+   * tool — gates the per-turn delegation scope in generate().
+   */
+  private hasAgentTools = false;
 
   /**
    * Creates a new NeuroLink instance for AI text generation with MCP tool integration.
@@ -4209,6 +4220,23 @@ Current user's request: ${currentInput}`;
   async generate(
     optionsOrPrompt: GenerateOptions | DynamicOptions | string,
   ): Promise<GenerateResult> {
+    // Host-loop delegation (registerAgentTool): enter a per-turn scope so
+    // delegation caps count against THIS top-level generate, and withhold
+    // depth-limited agent tools from the request. beginDelegationTurn
+    // returns null when a scope is already active, so the re-entrant call
+    // below proceeds through the normal body sharing the turn's counters.
+    if (this.hasAgentTools) {
+      const { beginDelegationTurn } =
+        await import("./agent/agentToolRegistrar.js");
+      const scope = beginDelegationTurn(this, optionsOrPrompt);
+      if (scope) {
+        return scope.run(() =>
+          this.generate(
+            scope.options as GenerateOptions | DynamicOptions | string,
+          ),
+        );
+      }
+    }
     // Defensive call-isolation clone — mirrors stream(): downstream
     // generate-prep (memory retrieval, orchestration, RAG/MCP tool
     // injection) mutates nested branches on the caller-supplied options
@@ -5526,7 +5554,7 @@ Current user's request: ${currentInput}`;
         : undefined,
       responseTime: textResult.responseTime,
       toolsUsed: textResult.toolsUsed,
-      toolExecutions: transformToolExecutions(textResult.toolExecutions),
+      toolExecutions: toToolExecutionRecords(textResult.toolExecutions),
       enhancedWithTools: textResult.enhancedWithTools,
       availableTools: transformAvailableTools(textResult.availableTools),
       analytics: textResult.analytics,
@@ -7860,23 +7888,16 @@ Current user's request: ${currentInput}`;
             rawFinishReason: poolResult.rawFinishReason,
             stepsUsed: poolResult.stepsUsed,
             toolsUsed: poolResult.toolsUsed || [],
-            toolExecutions: poolResult.toolExecutions?.map((te) => {
-              const t = te as Record<string, unknown>;
-              return {
-                ...te,
-                toolName: te.name,
-                executionTime:
-                  typeof t.executionTime === "number"
-                    ? t.executionTime
-                    : typeof t.duration === "number"
-                      ? t.duration
-                      : 0,
-                success:
-                  typeof t.success === "boolean"
-                    ? t.success
-                    : t.status === "success",
-              };
-            }),
+            // Lossless pass-through: keep the full ToolExecutionRecord
+            // fields (params/resultText/isError/timing) alongside the
+            // legacy {toolName,executionTime,success} shape this internal
+            // result declares, so the final GenerateResult mapping
+            // reconstructs real records instead of empty ones.
+            toolExecutions: poolResult.toolExecutions?.map((te) => ({
+              ...te,
+              executionTime: te.durationMs,
+              success: !te.isError,
+            })),
             enhancedWithTools: !!poolResult.toolExecutions?.length,
             analytics: poolResult.analytics,
             evaluation: poolResult.evaluation,
@@ -8238,27 +8259,15 @@ Current user's request: ${currentInput}`;
           rawFinishReason: result.rawFinishReason,
           stepsUsed: result.stepsUsed,
           toolsUsed: result.toolsUsed || [],
-          // Map toolExecutions from EnhancedGenerateResult shape ({name,input,output})
-          // to TextGenerationResult shape ({toolName,executionTime,success}).
-          // Preserve original timing/status when present, fall back to safe defaults.
-          toolExecutions: result.toolExecutions?.map((te) => {
-            const t = te as Record<string, unknown>;
-            return {
-              // Spread original fields first so normalized fields take precedence
-              ...te,
-              toolName: te.name,
-              executionTime:
-                typeof t.executionTime === "number"
-                  ? t.executionTime
-                  : typeof t.duration === "number"
-                    ? t.duration
-                    : 0,
-              success:
-                typeof t.success === "boolean"
-                  ? t.success
-                  : t.status === "success",
-            };
-          }),
+          // Lossless pass-through: keep the full ToolExecutionRecord fields
+          // alongside the legacy {toolName,executionTime,success} shape this
+          // internal result declares, so the final GenerateResult mapping
+          // reconstructs real records instead of empty ones.
+          toolExecutions: result.toolExecutions?.map((te) => ({
+            ...te,
+            executionTime: te.durationMs,
+            success: !te.isError,
+          })),
           enhancedWithTools: !!result.toolExecutions?.length,
           analytics: result.analytics,
           evaluation: result.evaluation,
@@ -8577,6 +8586,22 @@ Current user's request: ${currentInput}`;
    * @throws {Error} When conversation memory operations fail (if enabled)
    */
   async stream(options: StreamOptions | DynamicOptions): Promise<StreamResult> {
+    // Host-loop delegation (registerAgentTool): the same per-turn scope as
+    // generate() — delegation caps count against THIS streamed turn and
+    // depth-limited agent tools are withheld from the request. The provider
+    // stream loops start inside this call, so the ALS scope propagates into
+    // their tool executions. beginDelegationTurn returns null when a scope
+    // is already active (the re-entrant call below shares the counters).
+    if (this.hasAgentTools) {
+      const { beginDelegationTurn } =
+        await import("./agent/agentToolRegistrar.js");
+      const scope = beginDelegationTurn(this, options);
+      if (scope) {
+        return scope.run(() =>
+          this.stream(scope.options as StreamOptions | DynamicOptions),
+        );
+      }
+    }
     logger.debug("[NeuroLink] stream() called with options", {
       provider: options.provider,
       model: options.model,
@@ -16736,6 +16761,177 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * Create a worker-mode NeuroLink instance for sub-agent execution.
+   *
+   * Worker mode is the framework-provided version of the config block every
+   * consumer used to copy by hand: conversation memory OFF, orchestration
+   * OFF, observability inherited from this instance with
+   * `autoDetectExternalProvider: true` + `skipLangfuseSpanProcessor: true`
+   * (worker spans join the host's tracer without duplicate Langfuse
+   * exports), credentials inherited, the host's tool registry shared (so
+   * worker tool calls reuse the host's connections), and an internal log
+   * bridge attached with a caller-supplied tag.
+   *
+   * Dispose the worker (`worker.dispose()`) when done — `runIsolatedAgent`
+   * does this automatically in a `finally`.
+   *
+   * @param options - Worker options (log tag/sink, registry sharing, config)
+   * @returns A new worker-mode NeuroLink instance
+   * @see {@link WorkerInstanceOptions}
+   */
+  createWorkerInstance(options?: WorkerInstanceOptions): NeuroLink {
+    const tag = options?.logTag ?? "worker";
+    const hostEmitter = this.emitter;
+    const configOverrides = (options?.config ?? {}) as Record<string, unknown>;
+
+    const workerConfig = {
+      ...(this.credentials ? { credentials: this.credentials } : {}),
+      ...configOverrides,
+      // Worker-mode fields always win over the config merge.
+      conversationMemory: { enabled: false },
+      enableOrchestration: false,
+      observability: {
+        ...(this.observabilityConfig ?? {}),
+        langfuse: {
+          ...(this.observabilityConfig?.langfuse ?? {}),
+          autoDetectExternalProvider: true,
+          skipLangfuseSpanProcessor: true,
+        },
+      },
+      ...(options?.shareToolRegistry !== false && {
+        toolRegistry: this.toolRegistry,
+      }),
+    } as NeurolinkConstructorConfig;
+
+    const worker = new NeuroLink(workerConfig);
+
+    // Constructing an instance rebinds the process-global logger sink to the
+    // new instance's emitter — restore the host as the active sink so host
+    // log bridges keep flowing while workers come and go.
+    logger.setEventEmitter(hostEmitter);
+
+    if (options?.onLog) {
+      const onLog = options.onLog;
+      const forward = (raw: unknown) => {
+        try {
+          const entry = (raw ?? {}) as {
+            level?: unknown;
+            message?: unknown;
+            timestamp?: unknown;
+            data?: unknown;
+          };
+          onLog({
+            tag,
+            level: String(entry.level ?? "info"),
+            message: String(entry.message ?? ""),
+            timestamp:
+              typeof entry.timestamp === "number"
+                ? entry.timestamp
+                : Date.now(),
+            data: entry.data,
+          });
+        } catch {
+          // Log-bridge listener errors never disrupt the worker.
+        }
+      };
+      hostEmitter.on("log-event", forward);
+      const originalDispose = worker.dispose.bind(worker);
+      worker.dispose = async () => {
+        hostEmitter.off("log-event", forward);
+        await originalDispose();
+      };
+    }
+
+    logger.debug("[NeuroLink] Created worker instance", {
+      tag,
+      sharedToolRegistry: options?.shareToolRegistry !== false,
+    });
+    return worker;
+  }
+
+  /**
+   * Run an isolated sub-agent: a worker instance (see
+   * {@link createWorkerInstance}) executes a tool-using research pass under
+   * the turn budget (wrap-up nudge, stall watchdog, honest `stopReason`),
+   * then an extraction pass ALWAYS runs tools-off on its own timeout with a
+   * structured-recovery ladder and corrective re-asks. A non-empty execution
+   * record never produces an empty result (mechanical digest fallback), a
+   * parent `abortSignal` stops everything cleanly, and `options.leg` enables
+   * leashed mode with TTL'd resume handles ({@link continueAgent} /
+   * {@link stopAgent}).
+   *
+   * @param definition - Agent definition (+ optional structured extraction)
+   * @param input - Task input: string or structured object
+   * @param options - Run options (abort, overrides, tool context, events, leg)
+   * @returns The run outcome
+   * @see {@link IsolatedAgentDefinition}
+   * @see {@link AgentRunOptions}
+   * @see {@link AgentRunOutcome}
+   */
+  async runIsolatedAgent(
+    definition: IsolatedAgentDefinition,
+    input: string | Record<string, unknown>,
+    options?: AgentRunOptions,
+  ): Promise<AgentRunOutcome> {
+    const { runIsolatedAgent } = await import("./agent/isolatedAgentRunner.js");
+    return runIsolatedAgent(this, definition, input, options);
+  }
+
+  /**
+   * Resume a leashed isolated-agent run by handle. `guidance`, when given,
+   * is appended as a user turn before the next leg — the supervisor's
+   * re-steering channel. An expired handle returns its tombstoned final
+   * outcome exactly once.
+   *
+   * @param handle - Handle from an `in_progress` {@link AgentRunOutcome}
+   * @param guidance - Optional supervisor guidance for the next leg
+   * @returns The next leg's outcome (or the final outcome)
+   */
+  async continueAgent(
+    handle: string,
+    guidance?: string,
+  ): Promise<AgentRunOutcome> {
+    const { continueIsolatedAgent } =
+      await import("./agent/isolatedAgentRunner.js");
+    return continueIsolatedAgent(this, handle, guidance);
+  }
+
+  /**
+   * Stop a leashed isolated-agent run: dispose its worker and return the
+   * final outcome (mechanical digest over everything gathered so far).
+   *
+   * @param handle - Handle from an `in_progress` {@link AgentRunOutcome}
+   * @returns The final outcome
+   */
+  async stopAgent(handle: string): Promise<AgentRunOutcome> {
+    const { stopIsolatedAgent } =
+      await import("./agent/isolatedAgentRunner.js");
+    return stopIsolatedAgent(this, handle);
+  }
+
+  /**
+   * Register an isolated agent as a delegation tool on THIS instance, so
+   * its existing generate() loop can delegate — no second router generate.
+   * Framework policy (per-turn caps, depth withholding, a process-wide
+   * concurrency pool with queue timeout) is enforced in the loop itself,
+   * and every refusal carries its recovery instruction in the error text.
+   *
+   * @param definition - Agent definition (+ optional structured extraction)
+   * @param options - Registration options (name, caps, depth, pool, leg)
+   * @returns The registered tool name
+   * @see {@link AgentToolRegistrationOptions}
+   */
+  async registerAgentTool(
+    definition: IsolatedAgentDefinition,
+    options?: AgentToolRegistrationOptions,
+  ): Promise<{ name: string }> {
+    const { registerAgentTool } = await import("./agent/agentToolRegistrar.js");
+    const registered = registerAgentTool(this, definition, options);
+    this.hasAgentTools = true;
+    return registered;
+  }
+
+  /**
    * Execute an agent network with the given input.
    *
    * @param network - The agent network to execute
@@ -16897,7 +17093,9 @@ Current user's request: ${currentInput}`;
         try {
           logger.debug("[NeuroLink] Removing all event listeners...");
           this.emitter.removeAllListeners();
-          logger.clearEventEmitter();
+          // Clear only if this instance's emitter is the active log sink —
+          // disposing a worker instance must not yank the host's bridge.
+          logger.clearEventEmitter(this.emitter);
           logger.debug("[NeuroLink] Event listeners removed successfully");
         } catch (error) {
           const err =

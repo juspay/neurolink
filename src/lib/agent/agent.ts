@@ -150,6 +150,15 @@ export class Agent implements AgentInstance {
     });
 
     try {
+      // No ghost runs: an already-aborted parent stops the agent before any
+      // model call is made. Typed so callers can branch on the ABORT
+      // category instead of parsing free text.
+      if (options?.abortSignal?.aborted) {
+        throw ErrorFactory.aborted(
+          new Error("Agent execution aborted before start"),
+        );
+      }
+
       // Validate input if schema provided
       if (this.inputSchema && typeof input !== "string") {
         const validation = this.inputSchema.safeParse(input);
@@ -202,20 +211,14 @@ export class Agent implements AgentInstance {
         toolsUsed: result.toolsUsed?.length || 0,
       });
 
-      // Pass through toolExecutions, adding duration (not provided by generate())
-      const toolExecutions = result.toolExecutions?.map((te) => ({
-        name: te.name,
-        input: te.input,
-        output: te.output,
-        duration: 0,
-      }));
-
       const agentResult: AgentResult = {
         content: result.content || "",
         object: parsedOutput,
         usage: result.usage,
         toolsUsed: result.toolsUsed,
-        toolExecutions,
+        // Real per-call records straight from the tool loop (N2)
+        toolExecutions: result.toolExecutions,
+        stopReason: result.stopReason,
         duration,
         status: "success",
         agentId: this.id,
@@ -284,6 +287,13 @@ export class Agent implements AgentInstance {
     };
 
     try {
+      // Mirror execute(): an already-aborted parent never starts the stream.
+      if (options?.abortSignal?.aborted) {
+        throw ErrorFactory.aborted(
+          new Error("Agent stream aborted before start"),
+        );
+      }
+
       // Validate input if schema provided
       if (this.inputSchema && typeof input !== "string") {
         const validation = this.inputSchema.safeParse(input);
@@ -467,6 +477,20 @@ export class Agent implements AgentInstance {
       ...(this.tools && this.tools.length > 0 && { toolFilter: this.tools }),
       maxSteps: options?.maxSteps ?? this.maxSteps,
       requestId: traceId,
+      // Turn budget + cancellation, forwarded verbatim to generate() — the
+      // machinery (wrap-up nudge, stall watchdog, honest stopReason) lives
+      // in the tool loop; the agent layer just passes it through.
+      ...(options?.abortSignal && { abortSignal: options.abortSignal }),
+      ...(options?.timeout !== undefined && { timeout: options.timeout }),
+      ...(options?.turnTimeoutMs !== undefined && {
+        turnTimeoutMs: options.turnTimeoutMs,
+      }),
+      ...(options?.wrapupTimeLeadMs !== undefined && {
+        wrapupTimeLeadMs: options.wrapupTimeLeadMs,
+      }),
+      ...(options?.stallTimeoutMs !== undefined && {
+        stallTimeoutMs: options.stallTimeoutMs,
+      }),
       context: {
         agentId: this.id,
         agentName: this.name,
@@ -495,6 +519,18 @@ export class Agent implements AgentInstance {
       // toolFilter delegates to BaseProvider.applyToolFiltering() natively
       ...(this.tools && this.tools.length > 0 && { toolFilter: this.tools }),
       maxSteps: options?.maxSteps ?? this.maxSteps,
+      // Turn budget + cancellation, forwarded verbatim to stream()
+      ...(options?.abortSignal && { abortSignal: options.abortSignal }),
+      ...(options?.timeout !== undefined && { timeout: options.timeout }),
+      ...(options?.turnTimeoutMs !== undefined && {
+        turnTimeoutMs: options.turnTimeoutMs,
+      }),
+      ...(options?.wrapupTimeLeadMs !== undefined && {
+        wrapupTimeLeadMs: options.wrapupTimeLeadMs,
+      }),
+      ...(options?.stallTimeoutMs !== undefined && {
+        stallTimeoutMs: options.stallTimeoutMs,
+      }),
       context: {
         agentId: this.id,
         agentName: this.name,

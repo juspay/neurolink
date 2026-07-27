@@ -161,16 +161,16 @@ export class ContextBuilder {
     }
     return result.toolExecutions.map((exec): ToolExecution => {
       const toolResult: ToolResult = {
-        success: true,
-        data: exec.output as JsonValue,
+        success: !exec.isError,
+        data: exec.resultText as JsonValue,
       };
 
       return {
-        toolName: exec.name,
-        params: exec.input as ToolArgs,
+        toolName: exec.toolName,
+        params: exec.params as ToolArgs,
         result: toolResult,
-        executionTime: 0,
-        timestamp: Date.now(),
+        executionTime: exec.durationMs,
+        timestamp: exec.startedAt || Date.now(),
       };
     });
   }
