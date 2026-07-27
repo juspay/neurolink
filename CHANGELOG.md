@@ -1,3 +1,9 @@
+## [10.6.0](https://github.com/juspay/neurolink/compare/v10.5.3...v10.6.0) (2026-07-27)
+
+### Features
+
+- **(agent):** add isolated sub-agent runtime and host-loop delegation ([e62390f](https://github.com/juspay/neurolink/commit/e62390f2348d492a21703e7df734de2e23e543e5))
+
 ## [10.5.3](https://github.com/juspay/neurolink/compare/v10.5.2...v10.5.3) (2026-07-26)
 
 ### Bug Fixes
