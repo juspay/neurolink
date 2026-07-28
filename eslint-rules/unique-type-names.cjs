@@ -44,6 +44,19 @@ function register(context, node, name) {
   declarations.set(name, filename);
 }
 
+function isDeprecatedAlias(context, node) {
+  const sourceCode = context.sourceCode || (context.getSourceCode ? context.getSourceCode() : null);
+  if (!sourceCode) return false;
+  const comments = [
+    ...sourceCode.getCommentsBefore(node),
+    ...(node.parent ? sourceCode.getCommentsBefore(node.parent) : []),
+  ];
+  for (const comment of comments) {
+    if (comment.value.includes("@deprecated")) return true;
+  }
+  return false;
+}
+
 /** @type {import("eslint").Rule.RuleModule} */
 module.exports = {
   meta: {
@@ -65,6 +78,7 @@ module.exports = {
         // Only flag `export type X = ...` declarations
         if (!node.parent || node.parent.type !== "ExportNamedDeclaration")
           return;
+        if (isDeprecatedAlias(context, node)) return;
         register(context, node, node.id.name);
       },
       TSInterfaceDeclaration(node) {

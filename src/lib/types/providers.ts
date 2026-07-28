@@ -1728,6 +1728,8 @@ export namespace BedrockTypes {
       credentials?: unknown;
     };
   };
+  /** @deprecated Renamed to BedrockClient for unique type names compliance (Rule 9). */
+  export type Client = BedrockClient;
 
   // Based on AWS SDK types
   export type InvokeModelCommand = {
@@ -1750,6 +1752,8 @@ export namespace MistralTypes {
       stream?: (options: unknown) => AsyncIterable<unknown>;
     };
   };
+  /** @deprecated Renamed to MistralClient for unique type names compliance (Rule 9). */
+  export type Client = MistralClient;
 }
 
 /**

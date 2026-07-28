@@ -751,11 +751,15 @@ export namespace OpenAISetup {
     checkOnly?: boolean;
     interactive?: boolean;
   };
+  /** @deprecated Renamed to OpenAISetupOptions for unique type names compliance (Rule 9). */
+  export type SetupOptions = OpenAISetupOptions;
 
   export type OpenAISetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
   };
+  /** @deprecated Renamed to OpenAISetupArgv for unique type names compliance (Rule 9). */
+  export type SetupArgv = OpenAISetupArgv;
 
   export type OpenAISetupConfig = {
     apiKey?: string;
@@ -763,6 +767,8 @@ export namespace OpenAISetup {
     model?: string;
     isReconfiguring?: boolean;
   };
+  /** @deprecated Renamed to OpenAISetupConfig for unique type names compliance (Rule 9). */
+  export type Config = OpenAISetupConfig;
 }
 
 /**
@@ -773,17 +779,23 @@ export namespace AnthropicSetup {
     checkOnly?: boolean;
     interactive?: boolean;
   };
+  /** @deprecated Renamed to AnthropicSetupOptions for unique type names compliance (Rule 9). */
+  export type SetupOptions = AnthropicSetupOptions;
 
   export type AnthropicSetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
   };
+  /** @deprecated Renamed to AnthropicSetupArgv for unique type names compliance (Rule 9). */
+  export type SetupArgv = AnthropicSetupArgv;
 
   export type AnthropicSetupConfig = {
     apiKey?: string;
     model?: string;
     isReconfiguring?: boolean;
   };
+  /** @deprecated Renamed to AnthropicSetupConfig for unique type names compliance (Rule 9). */
+  export type Config = AnthropicSetupConfig;
 }
 
 /**
@@ -794,17 +806,23 @@ export namespace GoogleAISetup {
     checkOnly?: boolean;
     interactive?: boolean;
   };
+  /** @deprecated Renamed to GoogleAISetupOptions for unique type names compliance (Rule 9). */
+  export type SetupOptions = GoogleAISetupOptions;
 
   export type GoogleAISetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
   };
+  /** @deprecated Renamed to GoogleAISetupArgv for unique type names compliance (Rule 9). */
+  export type SetupArgv = GoogleAISetupArgv;
 
   export type GoogleAISetupConfig = {
     apiKey?: string;
     model?: string;
     isReconfiguring?: boolean;
   };
+  /** @deprecated Renamed to GoogleAISetupConfig for unique type names compliance (Rule 9). */
+  export type Config = GoogleAISetupConfig;
 }
 
 /**
@@ -815,11 +833,15 @@ export namespace AzureSetup {
     checkOnly?: boolean;
     interactive?: boolean;
   };
+  /** @deprecated Renamed to AzureSetupOptions for unique type names compliance (Rule 9). */
+  export type SetupOptions = AzureSetupOptions;
 
   export type AzureSetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
   };
+  /** @deprecated Renamed to AzureSetupArgv for unique type names compliance (Rule 9). */
+  export type SetupArgv = AzureSetupArgv;
 
   export type AzureSetupConfig = {
     apiKey?: string;
@@ -829,6 +851,8 @@ export namespace AzureSetup {
     model?: string;
     isReconfiguring?: boolean;
   };
+  /** @deprecated Renamed to AzureSetupConfig for unique type names compliance (Rule 9). */
+  export type Config = AzureSetupConfig;
 }
 
 /**
@@ -839,11 +863,15 @@ export namespace BedrockSetup {
     checkOnly?: boolean;
     interactive?: boolean;
   };
+  /** @deprecated Renamed to BedrockSetupOptions for unique type names compliance (Rule 9). */
+  export type SetupOptions = BedrockSetupOptions;
 
   export type BedrockSetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
   };
+  /** @deprecated Renamed to BedrockSetupArgv for unique type names compliance (Rule 9). */
+  export type SetupArgv = BedrockSetupArgv;
 
   export type ConfigData = {
     region?: string;
@@ -868,11 +896,15 @@ export namespace GCPSetup {
     checkOnly?: boolean;
     interactive?: boolean;
   };
+  /** @deprecated Renamed to GCPSetupOptions for unique type names compliance (Rule 9). */
+  export type SetupOptions = GCPSetupOptions;
 
   export type GCPSetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
   };
+  /** @deprecated Renamed to GCPSetupArgv for unique type names compliance (Rule 9). */
+  export type SetupArgv = GCPSetupArgv;
 
   export type AuthMethodStatus = {
     hasServiceAccount: boolean;
@@ -891,6 +923,8 @@ export namespace HuggingFaceSetup {
     nonInteractive?: boolean;
     help?: boolean;
   };
+  /** @deprecated Renamed to HuggingFaceSetupArgs for unique type names compliance (Rule 9). */
+  export type SetupArgs = HuggingFaceSetupArgs;
 }
 
 /**
@@ -902,6 +936,8 @@ export namespace MistralSetup {
     nonInteractive?: boolean;
     help?: boolean;
   };
+  /** @deprecated Renamed to MistralSetupArgs for unique type names compliance (Rule 9). */
+  export type SetupArgs = MistralSetupArgs;
 }
 
 // ============================================================================
