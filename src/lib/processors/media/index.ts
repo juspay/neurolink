@@ -12,8 +12,8 @@
  *   videoProcessor,
  *   isVideoFile,
  *   processVideo,
- *   type ProcessedVideo,
  * } from "./media/index.js";
+ * import type { ProcessedVideo } from "../../types/index.js";
  *
  * if (isVideoFile(file.mimetype, file.name)) {
  *   const result = await processVideo(fileInfo);
