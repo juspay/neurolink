@@ -71,7 +71,7 @@ export class CognitoProvider extends BaseAuthProvider {
       );
     }
 
-    this.cognitoConfig = config as unknown as CognitoConfig;
+    this.cognitoConfig = config as CognitoConfig;
 
     if (!this.cognitoConfig.userPoolId) {
       throw AuthError.create(

@@ -281,6 +281,13 @@ export class LRUCache<K, V> {
   }
 
   /**
+   * Iterate over all keys currently in the cache
+   */
+  keys(): IterableIterator<K> {
+    return this.cache.keys();
+  }
+
+  /**
    * Delete a key from the cache
    */
   delete(key: K): boolean {
@@ -411,11 +418,7 @@ export class ResponseCacheStore<T = unknown> {
     let invalidated = 0;
     const keysToDelete: string[] = [];
 
-    // Get all keys (requires accessing internal cache)
-    const internalCache = (
-      this.cache as unknown as { cache: Map<string, unknown> }
-    ).cache;
-    for (const key of internalCache.keys()) {
+    for (const key of this.cache.keys()) {
       const matches =
         pattern instanceof RegExp ? pattern.test(key) : key.includes(pattern);
       if (matches) {

@@ -140,6 +140,26 @@ export default [
           message:
             "Dynamic import('@ai-sdk/provider') must go through the seam: src/lib/types/middleware.ts (types) or src/lib/utils/generationErrors.ts (runtime).",
         },
+        // Critical Rule 14: no double type assertions through unknown/any.
+        // `x as unknown as T` defeats the compiler's structural-overlap check
+        // entirely — the value is trusted as T with zero validation. Fix the
+        // type at the source, use a runtime-validating type guard, or a single
+        // `as T` (still overlap-checked). Covers `as` and angle-bracket forms.
+        // (@typescript-eslint/no-unsafe-type-assertion is the stricter official
+        // alternative, but it bans ALL narrowing assertions — 2,790 hits as of
+        // 2026-07 — so the precise pattern is banned via selector instead.)
+        {
+          selector:
+            ":matches(TSAsExpression, TSTypeAssertion):matches([expression.type='TSAsExpression'], [expression.type='TSTypeAssertion'])[expression.typeAnnotation.type='TSUnknownKeyword']",
+          message:
+            "Unsafe double type assertion (`... as unknown as T`) defeats all compiler checking. Fix the type at the source, use a runtime-validating type guard, or a single `as T`. See CLAUDE.md Critical Rule 14.",
+        },
+        {
+          selector:
+            ":matches(TSAsExpression, TSTypeAssertion):matches([expression.type='TSAsExpression'], [expression.type='TSTypeAssertion'])[expression.typeAnnotation.type='TSAnyKeyword']",
+          message:
+            "Unsafe double type assertion (`... as any as T`) defeats all compiler checking. Fix the type at the source, use a runtime-validating type guard, or a single `as T`. See CLAUDE.md Critical Rule 14.",
+        },
       ],
 
       // Disable base rules that are covered by TypeScript

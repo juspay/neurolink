@@ -10,6 +10,7 @@ import { ATTR, tracers } from "../telemetry/index.js";
 import type {
   JsonValue,
   UnknownRecord,
+  LifecycleMiddlewareConfig,
   MiddlewareFactoryOptions,
   OptionsWithLifecycleMiddleware,
   StreamOptions,
@@ -74,6 +75,21 @@ import type {
   ToolSet,
 } from "../types/index.js";
 import { generateText } from "../utils/generation.js";
+
+/**
+ * Read the consumer-facing lifecycle callbacks buried inside a request's
+ * middleware blob. The parameter is `unknown` on purpose: request options
+ * arrive as several structurally-unrelated shapes (StreamOptions,
+ * TextGenerationOptions), and the lifecycle branch is an optional add-on
+ * none of them declare — a single structural view keeps the read cast-free
+ * at every call site.
+ */
+function getLifecycleMiddlewareConfig(
+  options: unknown,
+): LifecycleMiddlewareConfig | undefined {
+  return (options as OptionsWithLifecycleMiddleware | undefined)?.middleware
+    ?.middlewareConfig?.lifecycle?.config;
+}
 
 /**
  * Abstract base class for all AI providers
@@ -459,8 +475,7 @@ export abstract class BaseProvider implements AIProvider {
     result: StreamResult,
     options: StreamOptions,
   ): StreamResult {
-    const lifecycle = (options as unknown as OptionsWithLifecycleMiddleware)
-      ?.middleware?.middlewareConfig?.lifecycle?.config;
+    const lifecycle = getLifecycleMiddlewareConfig(options);
 
     if (!lifecycle?.onChunk && !lifecycle?.onFinish && !lifecycle?.onError) {
       return result;
@@ -582,8 +597,7 @@ export abstract class BaseProvider implements AIProvider {
     if (hasLifecycleErrorFired(err)) {
       return;
     }
-    const lifecycle = (options as unknown as OptionsWithLifecycleMiddleware)
-      ?.middleware?.middlewareConfig?.lifecycle?.config;
+    const lifecycle = getLifecycleMiddlewareConfig(options);
     const onError = lifecycle?.onError;
     if (!onError) {
       return;
@@ -1143,7 +1157,7 @@ export abstract class BaseProvider implements AIProvider {
       recorder = new ToolExecutionRecorder(
         (options as TextGenerationOptions).toolExecutionCapture,
       );
-      recorder.attachTo(options as unknown as Record<string, unknown>);
+      recorder.attachTo(options);
     }
     return recorder.wrapTools(tools);
   }
@@ -1247,7 +1261,7 @@ export abstract class BaseProvider implements AIProvider {
   /**
    * Analyze AI response structure and log detailed debugging information - delegated to GenerationHandler
    */
-  private analyzeAIResponse(result: Record<string, unknown>): void {
+  private analyzeAIResponse(result: unknown): void {
     this.generationHandler.analyzeAIResponse(result);
   }
 
@@ -1586,9 +1600,7 @@ export abstract class BaseProvider implements AIProvider {
       timeoutController?.cleanup();
     }
 
-    this.analyzeAIResponse(
-      generateResult as unknown as Record<string, unknown>,
-    );
+    this.analyzeAIResponse(generateResult);
     this.logGenerationComplete(generateResult);
     const responseTime = Date.now() - startTime;
     await this.recordPerformanceMetrics(generateResult.usage, responseTime);

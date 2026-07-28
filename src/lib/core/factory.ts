@@ -1,6 +1,7 @@
 // ✅ CIRCULAR DEPENDENCY FIX: Remove barrel export import
 // Providers are now managed via ProviderFactory instead of direct imports
 import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import type { NeuroLink } from "../neurolink.js";
 import { tracers } from "../telemetry/tracers.js";
 import { ProviderFactory } from "../factories/providerFactory.js";
 import { ProviderRegistry } from "../factories/providerRegistry.js";
@@ -12,7 +13,6 @@ import type {
   AIProvider,
   SupportedModelName,
   NeurolinkCredentials,
-  UnknownRecord,
   ProviderPairResult,
 } from "../types/index.js";
 import { AIProviderName } from "../constants/enums.js";
@@ -243,7 +243,7 @@ export class AIProviderFactory {
   private static async createResolvedProvider(
     providerName: string,
     resolvedModelName: string | null | undefined,
-    sdk: UnknownRecord | undefined,
+    sdk: NeuroLink | undefined,
     region: string | undefined,
     functionTag: string,
     credentials?: NeurolinkCredentials,
@@ -298,7 +298,7 @@ export class AIProviderFactory {
     providerName: string,
     modelName?: string | null,
     enableMCP: boolean = true,
-    sdk?: UnknownRecord,
+    sdk?: NeuroLink,
     region?: string,
     credentials?: NeurolinkCredentials,
   ): Promise<AIProvider> {
@@ -466,7 +466,7 @@ export class AIProviderFactory {
     requestedProvider?: string,
     modelName?: string | null,
     enableMCP: boolean = true,
-    sdk?: UnknownRecord,
+    sdk?: NeuroLink,
   ): Promise<AIProvider> {
     const functionTag = "AIProviderFactory.createBestProvider";
 

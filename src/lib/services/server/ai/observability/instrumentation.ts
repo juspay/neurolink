@@ -8,7 +8,7 @@
  */
 
 import type { LangfuseSpanProcessor as LangfuseSpanProcessorType } from "@langfuse/otel";
-import type { Context } from "@opentelemetry/api";
+import type { Context, TracerProvider } from "@opentelemetry/api";
 import {
   metrics,
   SpanStatusCode,
@@ -42,7 +42,6 @@ import { AsyncLocalStorage } from "async_hooks";
 import type {
   LangfuseConfig,
   LangfuseContext,
-  LangfuseSpanAttributes,
 } from "../../../../types/index.js";
 import { extractMcpErrorText } from "../../../../utils/mcpErrorText.js";
 import { logger } from "../../../../utils/logger.js";
@@ -291,7 +290,8 @@ class ContextEnricher implements SpanProcessor {
     const sessionId = context?.sessionId ?? currentConfig?.sessionId;
 
     // Get span name for operation auto-detection
-    const spanName = (span as unknown as { name?: string }).name;
+    // (sdk-trace-base's Span type includes the ReadableSpan members)
+    const spanName = span.name;
 
     // Determine if auto-detection is enabled for this context
     const autoDetect = this.shouldAutoDetectOperationName(context);
@@ -499,12 +499,11 @@ class ContextEnricher implements SpanProcessor {
    */
   onEnd(span: Span): void {
     try {
-      // Get span attributes (ReadableSpan interface)
-      const readableSpan = span as unknown as {
-        attributes?: LangfuseSpanAttributes;
-        name?: string;
-      };
-      const attributes = readableSpan.attributes || {};
+      // Get span attributes (sdk-trace-base's Span type includes the
+      // ReadableSpan members, so attributes/name/status are directly typed).
+      // Keep the {} fallback: this processor can be attached to an external
+      // app-owned TracerProvider whose span implementation may omit attributes.
+      const attributes = span.attributes ?? {};
 
       // Handle wrapper/trace-root spans: update trace name with detected operation
       // This supports host apps (like Curator) that create wrapper spans before AI calls
@@ -576,7 +575,7 @@ class ContextEnricher implements SpanProcessor {
           (attributes["ai.model.provider"] as string);
 
         logger.debug(`${LOG_PREFIX} GenAI span detected`, {
-          spanName: readableSpan.name,
+          spanName: span.name,
           model,
           provider,
         });
@@ -584,9 +583,7 @@ class ContextEnricher implements SpanProcessor {
         // L4/L6 fix: Set explicit Langfuse observation attributes so
         // cost dashboards and model analytics work correctly.
         try {
-          const mAttrs = (
-            span as unknown as { attributes: Record<string, unknown> }
-          ).attributes;
+          const mAttrs = span.attributes;
 
           // L6: Model identity
           if (model) {
@@ -679,13 +676,9 @@ class ContextEnricher implements SpanProcessor {
       // ContextEnricher in the spanProcessors array and reads these attributes,
       // so setting them here allows Langfuse to surface the correct level and
       // status message on the trace/generation.
-      const readableStatus = (
-        span as unknown as { status?: { code?: number; message?: string } }
-      ).status;
+      const readableStatus = span.status;
       try {
-        const mutableAttrs = (
-          span as unknown as { attributes: Record<string, unknown> }
-        ).attributes;
+        const mutableAttrs = span.attributes;
 
         // Curator P0-1/P0-2: detect MCP isError pattern on AI SDK tool call spans.
         // The AI SDK's `ai.toolCall` span stays status=UNSET when the tool
@@ -693,7 +686,7 @@ class ContextEnricher implements SpanProcessor {
         // level=DEFAULT and no status message. Parse the stringified result
         // and surface the embedded error text.
         if (
-          readableSpan.name === "ai.toolCall" &&
+          span.name === "ai.toolCall" &&
           readableStatus?.code !== SpanStatusCode.ERROR
         ) {
           applyToolCallIsErrorStatus(mutableAttrs);
@@ -839,7 +832,7 @@ async function initializeExternalOpenTelemetryMode(
 
     try {
       const globalProvider = trace.getTracerProvider();
-      const provider = globalProvider as unknown as {
+      const provider = globalProvider as TracerProvider & {
         addSpanProcessor?: (processor: SpanProcessor) => void;
       };
 

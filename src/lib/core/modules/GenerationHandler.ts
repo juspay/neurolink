@@ -21,7 +21,6 @@ import type {
   UnknownRecord,
   ToolCallObject,
   AIProviderName,
-  AISDKGenerateResult,
   EnhancedGenerateResult,
   ExtendedTool,
   GenerateStopReason,
@@ -1018,14 +1017,10 @@ export class GenerationHandler {
     }
 
     // Extract from steps
-    if (
-      (generateResult as unknown as AISDKGenerateResult).steps &&
-      Array.isArray((generateResult as unknown as AISDKGenerateResult).steps)
-    ) {
+    if (generateResult.steps && Array.isArray(generateResult.steps)) {
       const toolCallArgsMap = new Map<string, StandardRecord>();
 
-      for (const step of (generateResult as unknown as AISDKGenerateResult)
-        .steps || []) {
+      for (const step of generateResult.steps || []) {
         // Collect tool calls and their arguments
         if (step?.toolCalls && Array.isArray(step.toolCalls)) {
           for (const toolCall of step.toolCalls) {
@@ -1324,7 +1319,11 @@ export class GenerationHandler {
   /**
    * Analyze AI response structure and log detailed debugging information
    */
-  analyzeAIResponse(result: Record<string, unknown>): void {
+  analyzeAIResponse(rawResult: unknown): void {
+    if (rawResult === null || typeof rawResult !== "object") {
+      return;
+    }
+    const result = rawResult as Record<string, unknown>;
     logger.debug("NeuroLink Raw AI Response Analysis", {
       provider: this.providerName,
       model: this.modelName,

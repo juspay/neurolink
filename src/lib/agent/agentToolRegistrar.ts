@@ -44,10 +44,10 @@ const hostRegistrations = new WeakMap<
 function registrationsFor(
   host: NeuroLink,
 ): Map<string, AgentToolRegistrationRecord> {
-  let map = hostRegistrations.get(host as unknown as object);
+  let map = hostRegistrations.get(host);
   if (!map) {
     map = new Map();
-    hostRegistrations.set(host as unknown as object, map);
+    hostRegistrations.set(host, map);
   }
   return map;
 }

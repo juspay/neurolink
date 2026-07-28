@@ -482,7 +482,7 @@ export function createSelectRequest(
     defaultValue: options.defaultValue,
     timeout: options.timeout,
     options: {
-      options: selectOptions as unknown as JsonValue,
+      options: selectOptions,
     },
   });
 }
@@ -501,7 +501,7 @@ export function createFormRequest(
   },
 ): ElicitationRequestMessage {
   const requestOptions: Record<string, JsonValue> = {
-    fields: fields as unknown as JsonValue,
+    fields,
   };
   if (options.submitLabel !== undefined) {
     requestOptions.submitLabel = options.submitLabel;

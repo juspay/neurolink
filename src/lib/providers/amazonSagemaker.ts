@@ -7,7 +7,6 @@ import type {
   SageMakerModelConfig,
   StreamOptions,
   StreamResult,
-  ConnectivityResult,
   SageMakerAsLanguageModel,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
@@ -28,7 +27,10 @@ import type { LanguageModel, Schema } from "../types/index.js";
  * Amazon SageMaker Provider extending BaseProvider
  */
 export class AmazonSageMakerProvider extends BaseProvider {
-  private sagemakerModel: LanguageModel;
+  // Kept as the concrete class so SageMaker-specific members
+  // (testConnectivity, getModelCapabilities) stay typed; getAISDKModel()
+  // narrows to the AI SDK handle shape at its boundary.
+  private sagemakerModel: SageMakerLanguageModel;
   private sagemakerConfig: SageMakerConfig;
   private modelConfig: SageMakerModelConfig;
 
@@ -76,12 +78,11 @@ export class AmazonSageMakerProvider extends BaseProvider {
       // SageMakerLanguageModel implements SageMakerAsLanguageModel which is
       // structurally compatible with LanguageModelV2 (specificationVersion "v2",
       // modelId, provider, supportedUrls, doGenerate, doStream).
-      const smModel: SageMakerAsLanguageModel = new SageMakerLanguageModel(
+      this.sagemakerModel = new SageMakerLanguageModel(
         this.modelName,
         this.sagemakerConfig,
         this.modelConfig,
       );
-      this.sagemakerModel = smModel as LanguageModel;
 
       logger.debug("Amazon SageMaker Provider initialized", {
         modelName: this.modelName,
@@ -109,7 +110,11 @@ export class AmazonSageMakerProvider extends BaseProvider {
   }
 
   protected getAISDKModel(): LanguageModel {
-    return this.sagemakerModel;
+    // Same sanctioned two-step as construction previously used: the class
+    // satisfies the structural SageMakerAsLanguageModel shape, which is
+    // single-assertable to the AI SDK LanguageModel handle.
+    const smModel: SageMakerAsLanguageModel = this.sagemakerModel;
+    return smModel as LanguageModel;
   }
 
   protected async executeStream(
@@ -240,9 +245,7 @@ export class AmazonSageMakerProvider extends BaseProvider {
     success: boolean;
     error?: string;
   }> {
-    const model = this.sagemakerModel as unknown as {
-      testConnectivity?: () => Promise<ConnectivityResult>;
-    };
+    const model = this.sagemakerModel;
     return model.testConnectivity
       ? await model.testConnectivity()
       : { success: false, error: "Test method not available" };
@@ -252,19 +255,7 @@ export class AmazonSageMakerProvider extends BaseProvider {
    * Get model capabilities and information
    */
   public getModelCapabilities() {
-    const model = this.sagemakerModel as unknown as {
-      getModelCapabilities?: () => {
-        capabilities: {
-          streaming: boolean;
-          toolCalling: boolean;
-          structuredOutput: boolean;
-          batchInference: boolean;
-          supportedResponseFormats: string[];
-          supportedToolTypes: string[];
-          maxBatchSize: number;
-        };
-      };
-    };
+    const model = this.sagemakerModel;
     return model.getModelCapabilities
       ? model.getModelCapabilities()
       : {

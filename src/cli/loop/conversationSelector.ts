@@ -11,7 +11,6 @@ import type {
   RedisStorageConfig,
   ConversationChoice,
   MenuChoice,
-  CliRedisClient,
 } from "../../lib/types/index.js";
 import {
   createRedisClient,
@@ -30,7 +29,8 @@ import {
 } from "../../lib/utils/loopUtils.js";
 
 export class ConversationSelector {
-  private redisClient: CliRedisClient | null = null;
+  private redisClient: Awaited<ReturnType<typeof createRedisClient>> | null =
+    null;
   private redisConfig: Required<RedisStorageConfig>;
   private conversationCache: ConversationSummary[] | null = null;
   private cacheTimestamp: number = 0;
@@ -44,12 +44,7 @@ export class ConversationSelector {
    */
   private async initializeRedis(): Promise<void> {
     if (!this.redisClient) {
-      // Cast is necessary: createRedisClient returns the ioredis client type which
-      // does not structurally match our CliRedisClient interface due to overloaded
-      // method signatures. The runtime value is fully compatible.
-      this.redisClient = (await createRedisClient(
-        this.redisConfig,
-      )) as unknown as CliRedisClient;
+      this.redisClient = await createRedisClient(this.redisConfig);
     }
   }
 
@@ -140,10 +135,7 @@ export class ConversationSelector {
     }
 
     const pattern = `${this.redisConfig.keyPrefix}*`;
-    const keys = await scanKeys(
-      this.redisClient as unknown as Parameters<typeof scanKeys>[0],
-      pattern,
-    );
+    const keys = await scanKeys(this.redisClient, pattern);
     logger.debug(`Found ${keys.length} conversation keys in Redis`);
     return keys;
   }
@@ -230,9 +222,10 @@ export class ConversationSelector {
         value: "NEW_CONVERSATION",
         short: "New Conversation",
       },
-      // Cast is intentional: inquirer's Separator type is not exported cleanly
-      // and does not overlap with MenuChoice, but inquirer accepts it at runtime.
-      new inquirer.Separator() as unknown as MenuChoice,
+      // Cast is intentional: inquirer's Separator (type: string) narrows to the
+      // MenuChoice separator variant (type: "separator"); inquirer accepts it
+      // at runtime.
+      new inquirer.Separator() as MenuChoice,
     ];
 
     for (const conversation of conversations.slice(

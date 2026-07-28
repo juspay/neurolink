@@ -292,7 +292,7 @@ export class StreamHandler {
               ...options.context,
             },
           );
-          return analytics as unknown as UnknownRecord;
+          return analytics;
         } catch (error) {
           logger.warn(
             `Analytics creation failed for ${this.providerName}:`,

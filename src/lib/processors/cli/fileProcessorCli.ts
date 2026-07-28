@@ -253,7 +253,7 @@ function formatOutput(
   }
 
   // Text format - extract text content if available
-  const dataRecord = data as unknown as Record<string, unknown>;
+  const dataRecord: Record<string, unknown> = data;
   const textFields = ["textContent", "content", "text", "parsedContent"];
   for (const field of textFields) {
     const value = dataRecord[field];

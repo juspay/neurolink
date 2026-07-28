@@ -42,13 +42,14 @@ export async function loadPptxGenJS(): Promise<new () => PptxPresentation> {
   }
   try {
     const mod = await import(/* @vite-ignore */ "pptxgenjs");
-    // ESM/CJS interop: pptxgenjs v4 may double-wrap the default export
+    // ESM/CJS interop: pptxgenjs v4 may double-wrap the default export.
+    // The runtime shape is genuinely dynamic, so probe it as `unknown`.
+    const rawDefault: unknown = mod.default;
     const Ctor =
-      typeof mod.default === "function"
-        ? mod.default
-        : (mod.default as unknown as { default: new () => PptxPresentation })
-            .default;
-    _pptxGenJS = Ctor as unknown as new () => PptxPresentation;
+      typeof rawDefault === "function"
+        ? rawDefault
+        : (rawDefault as { default: new () => PptxPresentation }).default;
+    _pptxGenJS = Ctor as new () => PptxPresentation;
     return _pptxGenJS;
   } catch (err) {
     const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;

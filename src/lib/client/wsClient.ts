@@ -169,10 +169,11 @@ export class NeuroLinkWebSocket {
 
     try {
       if (isNode && Object.keys(authHeaders).length > 0) {
-        this.ws = new (WebSocket as unknown as new (
-          url: string,
-          opts: { headers: Record<string, string> },
-        ) => WebSocket)(url.toString(), { headers: authHeaders });
+        this.ws = new (WebSocket as typeof WebSocket &
+          (new (
+            url: string,
+            opts: { headers: Record<string, string> },
+          ) => WebSocket))(url.toString(), { headers: authHeaders });
       } else {
         this.ws = new WebSocket(url.toString());
       }

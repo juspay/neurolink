@@ -276,7 +276,9 @@ const SENSITIVE_HEADERS = new Set([
 /**
  * Clone response and read body + headers for debug logging
  */
-async function readResponseBody(response: Response): Promise<{
+async function readResponseBody(
+  response: Response | import("undici").Response,
+): Promise<{
   parsed: unknown;
   size: number;
   type: string;
@@ -579,7 +581,7 @@ async function executeProxiedFetch(
         timestamp: new Date().toISOString(),
       });
 
-      const globalWithCache = globalThis as unknown as {
+      const globalWithCache = globalThis as {
         __NL_PROXY_AGENT_CACHE__?: Map<string, ProxyAgent>;
       };
       if (!globalWithCache.__NL_PROXY_AGENT_CACHE__) {
@@ -618,10 +620,16 @@ async function executeProxiedFetch(
       }
 
       const undici = await import("undici");
-      const response = await undici.fetch(fetchInput, {
+      // undici's fetch types and lib.dom's diverge on iterator helper details,
+      // so the runtime-identical response is typed as either flavor (widening
+      // assertion so control flow keeps the union) and narrowed
+      // (overlap-checked) back to the DOM flavor at the return boundary.
+      const response = (await undici.fetch(fetchInput, {
         ...fetchInit,
         dispatcher,
-      } as unknown as import("undici").RequestInit);
+      } as import("undici").RequestInit)) as
+        | Response
+        | import("undici").Response;
 
       if (logger.shouldLog("debug")) {
         const {
@@ -629,7 +637,7 @@ async function executeProxiedFetch(
           size: responseSize,
           type: responseType,
           headers: responseHeaders,
-        } = await readResponseBody(response as unknown as Response);
+        } = await readResponseBody(response);
         logger.debug("[Observability] HTTP response from LLM provider", {
           requestId,
           url: targetUrl,
@@ -652,7 +660,7 @@ async function executeProxiedFetch(
         timestamp: new Date().toISOString(),
       });
 
-      return response as unknown as Response;
+      return response as Response;
     }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);

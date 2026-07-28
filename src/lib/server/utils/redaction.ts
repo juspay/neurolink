@@ -95,21 +95,21 @@ function redactChunkByType(
   placeholder: string,
   config?: RedactionConfig,
 ): DataStreamEvent {
-  const typedChunk = chunk as Record<string, unknown>;
+  const typedChunk: Record<string, unknown> = chunk;
   const chunkType = typedChunk.type as string;
 
   switch (chunkType) {
     case "step-start":
-      return redactStepStart(typedChunk, redactedFields, placeholder);
+      return redactStepStart(chunk, redactedFields, placeholder);
 
     case "tool-call":
-      return redactToolCall(typedChunk, redactedFields, placeholder, config);
+      return redactToolCall(chunk, redactedFields, placeholder, config);
 
     case "tool-result":
-      return redactToolResult(typedChunk, redactedFields, placeholder, config);
+      return redactToolResult(chunk, redactedFields, placeholder, config);
 
     case "error":
-      return redactError(typedChunk, redactedFields, placeholder);
+      return redactError(chunk, redactedFields, placeholder);
 
     default:
       return redactGenericChunk(
@@ -124,35 +124,29 @@ function redactChunkByType(
  * Redact step-start chunks
  */
 function redactStepStart(
-  chunk: Record<string, unknown>,
+  chunk: DataStreamEvent,
   redactedFields: Set<string>,
   placeholder: string,
 ): DataStreamEvent {
   if (!hasPayload(chunk)) {
-    return chunk as DataStreamEvent;
+    return chunk;
   }
 
   const { payload, ...rest } = chunk;
-  const payloadObj = payload as Record<string, unknown>;
-  const redactedPayload = redactObject(
-    payloadObj,
-    redactedFields,
-    placeholder,
-    0,
-  );
+  const redactedPayload = redactObject(payload, redactedFields, placeholder, 0);
 
-  return {
+  const redacted = {
     ...rest,
-    type: "step-start",
     payload: redactedPayload,
-  } as unknown as DataStreamEvent;
+  };
+  return redacted;
 }
 
 /**
  * Redact tool-call chunks
  */
 function redactToolCall(
-  chunk: Record<string, unknown>,
+  chunk: DataStreamEvent,
   redactedFields: Set<string>,
   placeholder: string,
   config?: RedactionConfig,
@@ -160,68 +154,64 @@ function redactToolCall(
   // Handle chunks with payload structure
   if (hasPayload(chunk)) {
     const { payload, ...rest } = chunk;
-    const payloadObj = payload as Record<string, unknown>;
 
     // Redact tool arguments if configured
-    if (payloadObj.toolCall && typeof payloadObj.toolCall === "object") {
-      const toolCall = payloadObj.toolCall as Record<string, unknown>;
+    if (payload.toolCall && typeof payload.toolCall === "object") {
+      const toolCall = payload.toolCall as Record<string, unknown>;
       const redactArgs =
         config?.redactToolArgs !== false && redactedFields.has("args");
 
-      return {
+      const redacted = {
         ...rest,
-        type: "tool-call",
         payload: {
-          ...payloadObj,
+          ...payload,
           toolCall: {
             ...toolCall,
             args: redactArgs ? placeholder : toolCall.args,
           },
         },
-      } as unknown as DataStreamEvent;
+      };
+      return redacted;
     }
 
-    return {
+    const redacted = {
       ...rest,
-      type: "tool-call",
-      payload: redactObject(payloadObj, redactedFields, placeholder, 0),
-    } as unknown as DataStreamEvent;
+      payload: redactObject(payload, redactedFields, placeholder, 0),
+    };
+    return redacted;
   }
 
   // Handle chunks with data structure (DataStreamEvent format)
   if (hasData(chunk)) {
     const { data, ...rest } = chunk;
-    const dataObj = data as Record<string, unknown>;
     const redactArgs =
       config?.redactToolArgs !== false && redactedFields.has("args");
 
     // Check for arguments field in data
-    if ("arguments" in dataObj && redactArgs) {
+    if ("arguments" in data && redactArgs) {
       return {
         ...rest,
-        type: "tool-call",
         data: {
-          ...dataObj,
+          ...data,
           arguments: placeholder,
         },
-      } as unknown as DataStreamEvent;
+      };
     }
 
     return {
       ...rest,
-      type: "tool-call",
-      data: redactObject(dataObj, redactedFields, placeholder, 0),
-    } as unknown as DataStreamEvent;
+      data: redactObject(data, redactedFields, placeholder, 0),
+    };
   }
 
-  return chunk as DataStreamEvent;
+  return chunk;
 }
 
 /**
  * Redact tool-result chunks
  */
 function redactToolResult(
-  chunk: Record<string, unknown>,
+  chunk: DataStreamEvent,
   redactedFields: Set<string>,
   placeholder: string,
   config?: RedactionConfig,
@@ -232,41 +222,38 @@ function redactToolResult(
   // Handle chunks with payload structure
   if (hasPayload(chunk)) {
     const { payload, ...rest } = chunk;
-    const payloadObj = payload as Record<string, unknown>;
 
-    return {
+    const redacted = {
       ...rest,
-      type: "tool-result",
       payload: {
-        ...payloadObj,
-        result: redactResult ? placeholder : payloadObj.result,
+        ...payload,
+        result: redactResult ? placeholder : payload.result,
       },
-    } as unknown as DataStreamEvent;
+    };
+    return redacted;
   }
 
   // Handle chunks with data structure (DataStreamEvent format)
   if (hasData(chunk)) {
     const { data, ...rest } = chunk;
-    const dataObj = data as Record<string, unknown>;
 
     return {
       ...rest,
-      type: "tool-result",
       data: {
-        ...dataObj,
-        result: redactResult ? placeholder : dataObj.result,
+        ...data,
+        result: redactResult ? placeholder : data.result,
       },
-    } as unknown as DataStreamEvent;
+    };
   }
 
-  return chunk as DataStreamEvent;
+  return chunk;
 }
 
 /**
  * Redact error chunks (remove stack traces in production)
  */
 function redactError(
-  chunk: Record<string, unknown>,
+  chunk: DataStreamEvent,
   redactedFields: Set<string>,
   placeholder: string,
 ): DataStreamEvent {
@@ -275,21 +262,20 @@ function redactError(
   // Handle chunks with data structure (DataStreamEvent format)
   if (hasData(chunk)) {
     const { data, ...rest } = chunk;
-    const dataObj = data as Record<string, unknown>;
-    const { stack, ...dataRest } = dataObj;
+    const { stack, ...dataRest } = data;
 
     return {
       ...rest,
-      type: "error",
       data: {
         ...redactObject(dataRest, redactedFields, placeholder, 0),
         ...(isProduction ? {} : { stack }),
       },
-    } as unknown as DataStreamEvent;
+    };
   }
 
   // Handle direct chunk with stack
-  const { stack, ...restChunk } = chunk;
+  const chunkRecord: Record<string, unknown> = chunk;
+  const { stack, ...restChunk } = chunkRecord;
   const redactedRest = redactObject(restChunk, redactedFields, placeholder, 0);
 
   return {
@@ -369,12 +355,13 @@ function redactObject(
  * Type guard for chunks with payload
  */
 function hasPayload(
-  chunk: Record<string, unknown>,
-): chunk is Record<string, unknown> & { payload: Record<string, unknown> } {
+  chunk: DataStreamEvent,
+): chunk is DataStreamEvent & { payload: Record<string, unknown> } {
+  const record: Record<string, unknown> = chunk;
   return (
-    "payload" in chunk &&
-    chunk.payload !== null &&
-    typeof chunk.payload === "object"
+    "payload" in record &&
+    record.payload !== null &&
+    typeof record.payload === "object"
   );
 }
 
@@ -382,8 +369,8 @@ function hasPayload(
  * Type guard for chunks with data (DataStreamEvent format)
  */
 function hasData(
-  chunk: Record<string, unknown>,
-): chunk is Record<string, unknown> & { data: Record<string, unknown> } {
+  chunk: DataStreamEvent,
+): chunk is DataStreamEvent & { data: Record<string, unknown> } {
   return (
     "data" in chunk && chunk.data !== null && typeof chunk.data === "object"
   );

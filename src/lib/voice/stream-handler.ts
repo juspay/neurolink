@@ -488,7 +488,7 @@ export function streamToAsyncIterable(
         done = true;
         if (resolveNext) {
           resolveNext({
-            value: undefined as unknown as AudioStreamChunk,
+            value: undefined,
             done: true,
           });
           resolveNext = null;
@@ -540,7 +540,7 @@ export function streamToAsyncIterable(
 
           if (done) {
             return {
-              value: undefined as unknown as AudioStreamChunk,
+              value: undefined,
               done: true,
             };
           }
@@ -558,7 +558,7 @@ export function streamToAsyncIterable(
           cleanup();
           done = true;
           return {
-            value: undefined as unknown as AudioStreamChunk,
+            value: undefined,
             done: true,
           };
         },

@@ -40,6 +40,7 @@ import type {
   Tool,
   ToolWithLegacyParams,
   VertexNativePart,
+  VertexNativeLoopPart,
   VertexGenaiFunctionDeclaration,
   VertexAnthropicMessage,
   VertexAnthropicTool,
@@ -1963,7 +1964,13 @@ export class GoogleVertexProvider extends BaseProvider {
       Number.isFinite(rawMaxSteps) && rawMaxSteps > 0
         ? Math.min(Math.floor(rawMaxSteps), 100) // Cap at 100 for safety
         : Math.min(DEFAULT_MAX_STEPS, 100);
-    const currentContents = [...contents];
+    // Widened per-turn copy: the agentic loop appends functionCall /
+    // functionResponse parts on top of the plain text/inlineData parts the
+    // initial contents carry.
+    const currentContents: Array<{
+      role: string;
+      parts: VertexNativeLoopPart[];
+    }> = [...contents];
     let finalText = "";
     // Last SDK finish reason seen across steps (Bug 2: previously never read,
     // so callers fell back to "unknown"). Last non-empty value wins — the
@@ -2270,16 +2277,23 @@ export class GoogleVertexProvider extends BaseProvider {
             role: "model",
             parts:
               rawResponseParts.length > 0
-                ? (rawResponseParts as Array<{ text: string }>)
-                : (stepFunctionCalls.map((fc) => ({
+                ? (rawResponseParts as VertexNativeLoopPart[])
+                : stepFunctionCalls.map((fc) => ({
                     functionCall: fc,
-                  })) as unknown as Array<{ text: string }>),
+                  })),
           });
 
-          // Execute each function and collect responses
-          const functionResponses: Array<{
-            functionResponse: { name: string; response: unknown };
-          }> = [];
+          // Execute each function and collect responses (plus an optional
+          // trailing wrap-up nudge text part).
+          const functionResponses: Array<
+            | {
+                functionResponse: {
+                  name: string;
+                  response: Record<string, unknown>;
+                };
+              }
+            | { text: string }
+          > = [];
           // Per-step bookkeeping for conversation-memory storage.
           const stepStorageCalls: Array<{
             toolName: string;
@@ -2548,7 +2562,7 @@ export class GoogleVertexProvider extends BaseProvider {
           if (turnClock.shouldNudgeWrapup()) {
             functionResponses.push({
               text: buildWrapupNudgeText(useFinalResultTool),
-            } as unknown as (typeof functionResponses)[number]);
+            });
           }
 
           // The @google/genai SDK only accepts "user" and "model" as valid
@@ -2559,7 +2573,7 @@ export class GoogleVertexProvider extends BaseProvider {
           // request validator.
           currentContents.push({
             role: "user",
-            parts: functionResponses as unknown as Array<{ text: string }>,
+            parts: functionResponses,
           });
           // Project this step's growth for the context guard: the appended
           // tool results ride the next prompt (Gemini reports usage per call,
@@ -2762,9 +2776,14 @@ export class GoogleVertexProvider extends BaseProvider {
       // (assistant text empty but tools ran) and downstream consumers see
       // the same shape AI-SDK-driven providers expose.
       toolsUsed: externalToolCalls.map((tc) => tc.toolName),
+      // transformToolExecutions' record shape (name/input/output/duration) is
+      // what downstream consumers read at runtime; it shares no required
+      // members with the declared ToolExecutionSummary element type, so the
+      // assertion carries both shapes instead of erasing the real one.
       toolExecutions: transformToolExecutions(
         externalToolExecutions,
-      ) as unknown as StreamResult["toolExecutions"],
+      ) as ReturnType<typeof transformToolExecutions> &
+        NonNullable<StreamResult["toolExecutions"]>,
       metadata: {
         streamId: `native-vertex-${Date.now()}`,
         startTime,
@@ -3159,7 +3178,13 @@ export class GoogleVertexProvider extends BaseProvider {
       Number.isFinite(rawMaxSteps) && rawMaxSteps > 0
         ? Math.min(Math.floor(rawMaxSteps), 100) // Cap at 100 for safety
         : Math.min(DEFAULT_MAX_STEPS, 100);
-    const currentContents = [...contents];
+    // Widened per-turn copy: the agentic loop appends functionCall /
+    // functionResponse parts on top of the plain text/inlineData parts the
+    // initial contents carry.
+    const currentContents: Array<{
+      role: string;
+      parts: VertexNativeLoopPart[];
+    }> = [...contents];
     let finalText = "";
     // Cross-step text accumulation + last SDK finish reason, so the
     // maxSteps-exhaustion exit can surface real gathered text (Bug 1) and a
@@ -3455,16 +3480,23 @@ export class GoogleVertexProvider extends BaseProvider {
             role: "model",
             parts:
               rawResponseParts.length > 0
-                ? (rawResponseParts as Array<{ text: string }>)
-                : (stepFunctionCalls.map((fc) => ({
+                ? (rawResponseParts as VertexNativeLoopPart[])
+                : stepFunctionCalls.map((fc) => ({
                     functionCall: fc,
-                  })) as unknown as Array<{ text: string }>),
+                  })),
           });
 
-          // Execute each function and collect responses
-          const functionResponses: Array<{
-            functionResponse: { name: string; response: unknown };
-          }> = [];
+          // Execute each function and collect responses (plus an optional
+          // trailing wrap-up nudge text part).
+          const functionResponses: Array<
+            | {
+                functionResponse: {
+                  name: string;
+                  response: Record<string, unknown>;
+                };
+              }
+            | { text: string }
+          > = [];
           const toolCallsBefore = allToolCalls.length;
           const toolExecsBefore = toolExecutions.length;
           // Note: tool:start / tool:end events are emitted by ToolsManager's
@@ -3712,7 +3744,7 @@ export class GoogleVertexProvider extends BaseProvider {
           if (turnClock.shouldNudgeWrapup()) {
             functionResponses.push({
               text: buildWrapupNudgeText(useFinalResultTool),
-            } as unknown as (typeof functionResponses)[number]);
+            });
           }
 
           // The @google/genai SDK only accepts "user" and "model" as valid
@@ -3721,7 +3753,7 @@ export class GoogleVertexProvider extends BaseProvider {
           // the Google AI Studio path). See note in executeNativeGemini3Stream.
           currentContents.push({
             role: "user",
-            parts: functionResponses as unknown as VertexNativePart[],
+            parts: functionResponses,
           });
           // Project this step's growth for the context guard: the appended
           // tool results ride the next prompt (Gemini reports usage per call,
@@ -3955,7 +3987,7 @@ export class GoogleVertexProvider extends BaseProvider {
     client: GenAIClient,
     modelName: string,
     config: Record<string, unknown>,
-    contents: Array<{ role: string; parts: VertexNativePart[] }>,
+    contents: Array<{ role: string; parts: VertexNativeLoopPart[] }>,
     useFinalResultTool: boolean,
     timeoutMs: number,
     abortSignal?: AbortSignal,
@@ -4088,11 +4120,18 @@ export class GoogleVertexProvider extends BaseProvider {
     // `prepareOptions()` is a separate continuation and still surfaces auth
     // errors to callers. `void` flags the returned promise as deliberately
     // ignored (codebase convention for fire-and-forget).
-    void (
-      client as unknown as { _authClientPromise?: Promise<unknown> }
-    )._authClientPromise?.catch(() => {
-      // Intentionally ignored — see above.
-    });
+    //
+    // `_authClientPromise` is a private SDK internal, so it is reached via
+    // runtime narrowing (`in` + `instanceof`) rather than a type assertion.
+    const clientInternals: object = client;
+    if ("_authClientPromise" in clientInternals) {
+      const authClientPromise = clientInternals._authClientPromise;
+      if (authClientPromise instanceof Promise) {
+        void authClientPromise.catch(() => {
+          // Intentionally ignored — see above.
+        });
+      }
+    }
     return client;
   }
 
@@ -5728,7 +5767,7 @@ export class GoogleVertexProvider extends BaseProvider {
       get: () =>
         transformToolExecutions(
           toolExecutions.filter((te) => te.name !== "final_result"),
-        ) as unknown as StreamResult["toolExecutions"],
+        ),
     });
 
     Object.defineProperty(result, "structuredOutput", {

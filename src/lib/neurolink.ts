@@ -76,7 +76,6 @@ import type {
   JsonValue,
   NeuroLinkEvents,
   TypedEventEmitter,
-  UnknownRecord,
   MCPEnhancementsConfig,
   NeuroLinkAuthConfig,
   NeurolinkConstructorConfig,
@@ -581,6 +580,19 @@ export function isNeuroLink(value: unknown): value is NeuroLink {
   );
 }
 
+/**
+ * Create a Node {@link EventEmitter} exposed through the typed-emitter
+ * surface. The runtime object is a plain EventEmitter — the typed view only
+ * narrows the event-name/payload relationship for callers, so the widening
+ * hop through `unknown` is contained here once.
+ */
+function createTypedEmitter<
+  TEvents extends Record<string, unknown>,
+>(): TypedEventEmitter<TEvents> {
+  const emitter: unknown = new EventEmitter();
+  return emitter as TypedEventEmitter<TEvents>;
+}
+
 export class NeuroLink {
   /** @internal Brand for cross-module identification — see {@link isNeuroLink}. */
   readonly [NEUROLINK_BRAND] = true as const;
@@ -588,8 +600,7 @@ export class NeuroLink {
   private mcpInitialized = false;
   private mcpSkipped = false;
   private mcpInitPromise: Promise<void> | null = null;
-  private emitter =
-    new EventEmitter() as unknown as TypedEventEmitter<NeuroLinkEvents>;
+  private emitter = createTypedEmitter<NeuroLinkEvents>();
 
   // TaskManager — lazy-initialized on first access via `this.tasks`
   private _taskManager?: TaskManager;
@@ -1297,7 +1308,7 @@ export class NeuroLink {
       ? new ClassifierRouter(config.classifierRouter, {
           generate: (genOptions) =>
             this.generate({
-              ...(genOptions as unknown as GenerateOptions),
+              ...genOptions,
             }),
           logger: {
             debug: (message, meta) =>
@@ -1377,11 +1388,7 @@ export class NeuroLink {
     // Eagerly create TaskManager and register tools if config is provided
     if (this._taskManagerConfig) {
       this._taskManager = new TaskManager(this, this._taskManagerConfig);
-      this._taskManager.setEmitter(
-        this.emitter as unknown as {
-          emit(event: string, ...args: unknown[]): boolean;
-        },
-      );
+      this._taskManager.setEmitter(this.emitter);
       this.registerTaskTools(this._taskManager);
     }
   }
@@ -1395,11 +1402,7 @@ export class NeuroLink {
   get tasks(): TaskManager {
     if (!this._taskManager) {
       this._taskManager = new TaskManager(this, this._taskManagerConfig);
-      this._taskManager.setEmitter(
-        this.emitter as unknown as {
-          emit(event: string, ...args: unknown[]): boolean;
-        },
-      );
+      this._taskManager.setEmitter(this.emitter);
       this.registerTaskTools(this._taskManager);
     }
     return this._taskManager;
@@ -1884,8 +1887,7 @@ export class NeuroLink {
         retrieveContextDef.description ?? "Retrieve context or artifacts",
       // Pass the Zod schema so ToolsManager gives the LLM full parameter types.
       // registerTool() detects isZodSchema on inputSchema and preserves it.
-      inputSchema: (retrieveContextDef as unknown as { inputSchema: object })
-        .inputSchema,
+      inputSchema: retrieveContextDef.inputSchema,
       execute: async (params: unknown) => {
         // Lazy: conversationMemory is initialized on the first generate() call.
         // When only an artifact store is present (no Redis), memoryManager is
@@ -1963,8 +1965,7 @@ export class NeuroLink {
         description: toolDef.description ?? toolName,
         // Zod schema — registerTool() detects isZodSchema and preserves it
         // so ToolsManager gives the LLM full parameter types.
-        inputSchema: (toolDef as unknown as { inputSchema: object })
-          .inputSchema,
+        inputSchema: toolDef.inputSchema,
         execute: async (params: unknown) =>
           withTimeout(
             (
@@ -4244,9 +4245,7 @@ Current user's request: ${currentInput}`;
     // bag across generate() calls accumulate state across them.
     // String prompts are immutable, so they pass through.
     if (typeof optionsOrPrompt !== "string") {
-      optionsOrPrompt = cloneOptionsForCallIsolation(
-        optionsOrPrompt as unknown as StreamOptions | DynamicOptions,
-      ) as unknown as GenerateOptions | DynamicOptions;
+      optionsOrPrompt = cloneOptionsForCallIsolation(optionsOrPrompt);
     }
     // Retrieve once at the public call boundary so fallback attempts reuse the
     // same grounding block and internal preparation cannot inject it twice.
@@ -4486,13 +4485,13 @@ Current user's request: ${currentInput}`;
       const retriedOptions =
         typeof optionsOrPrompt === "object"
           ? cloneOptionsForCallIsolation({
-              ...(optionsOrPrompt as Record<string, unknown>),
+              ...optionsOrPrompt,
               ...(next.provider && { provider: next.provider }),
               ...(next.model && { model: next.model }),
               // Strip the fallback hooks so the retry doesn't re-orchestrate.
               providerFallback: undefined,
               modelChain: undefined,
-            } as unknown as StreamOptions | DynamicOptions)
+            })
           : optionsOrPrompt;
 
       const retryAttempt = await this.attemptInner(
@@ -5749,7 +5748,7 @@ Current user's request: ${currentInput}`;
       requestedProvider,
       options.model,
       true,
-      this as unknown as Record<string, unknown>,
+      this,
       undefined,
       this.resolveCredentials(options.credentials),
     );
@@ -7173,7 +7172,7 @@ Current user's request: ${currentInput}`;
         generationContext.providerName as AIProviderName,
         options.model,
         !options.disableTools,
-        this as unknown as UnknownRecord,
+        this,
         options.region,
         this.resolveCredentials(options.credentials),
       );
@@ -7841,7 +7840,7 @@ Current user's request: ${currentInput}`;
             poolProviderName as AIProviderName,
             options.model,
             !options.disableTools,
-            this as unknown as UnknownRecord,
+            this,
             options.region,
             this.resolveCredentials(options.credentials),
           );
@@ -7999,7 +7998,7 @@ Current user's request: ${currentInput}`;
           providerName as AIProviderName,
           options.model,
           !options.disableTools, // Pass disableTools as inverse of enableMCP
-          this as unknown as UnknownRecord, // Pass SDK instance
+          this, // Pass SDK instance
           options.region, // Pass region parameter
           this.resolveCredentials(options.credentials),
         );
@@ -9237,7 +9236,7 @@ Current user's request: ${currentInput}`;
                 embProviderName,
                 embeddingCfg.model,
                 true,
-                this as unknown as Record<string, unknown>,
+                this,
                 undefined,
                 this.resolveCredentials(options.credentials),
               );
@@ -10960,7 +10959,7 @@ Current user's request: ${currentInput}`;
       providerName,
       options.model,
       !options.disableTools, // Pass disableTools as inverse of enableMCP
-      this as unknown as UnknownRecord, // Pass SDK instance
+      this, // Pass SDK instance
       options.region, // Pass region parameter
       this.resolveCredentials(options.credentials),
     );
@@ -11263,7 +11262,7 @@ Current user's request: ${currentInput}`;
             poolStreamProviderName as AIProviderName,
             poolStreamModel,
             !options.disableTools,
-            this as unknown as UnknownRecord,
+            this,
             poolStreamRegion,
             this.resolveCredentials(options.credentials),
           );
@@ -13544,10 +13543,17 @@ Current user's request: ${currentInput}`;
             execute: async () => ({}),
           } as MCPServerTool;
           // Provide minimal context — elicitation is optional for most middleware
-          const middlewareContext = {
+          const middlewareContext: Partial<
+            import("./types/index.js").EnhancedExecutionContext
+          > = {
             toolMeta: { name: toolName, annotations: toolAnnotations },
-          } as unknown as import("./types/index.js").EnhancedExecutionContext;
-          return middleware(toolStub, params, middlewareContext, next);
+          };
+          return middleware(
+            toolStub,
+            params,
+            middlewareContext as import("./types/index.js").EnhancedExecutionContext,
+            next,
+          );
         }
         return executeFn();
       };

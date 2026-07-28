@@ -334,7 +334,11 @@ export class ExcelProcessor extends BaseFileProcessor<ProcessedExcel> {
    */
   private async parseWorkbook(buffer: Buffer): Promise<ExcelJSWorkbook> {
     const ExcelJS = await loadExcelJS();
-    const workbook = new ExcelJS.Workbook() as unknown as ExcelJSWorkbook;
+    // The exceljs constructor comes from a normalised CJS/ESM interop
+    // namespace (see loadExcelJS); probe the instance as `unknown` and
+    // narrow to the structural subset this processor uses.
+    const workbookInstance: unknown = new ExcelJS.Workbook();
+    const workbook = workbookInstance as ExcelJSWorkbook;
     // ExcelJS load() types expect Buffer but Node 22+ Buffer<ArrayBufferLike>
     // is not directly assignable. Extract a clean ArrayBuffer for the exact
     // byte range via slice, then cast for type compatibility.

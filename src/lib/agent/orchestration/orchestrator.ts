@@ -43,8 +43,12 @@ export class NetworkOrchestrator {
   private config: Required<OrchestratorConfig>;
   private emitter: EventEmitter;
   private executionQueue: ExecutionRequest[] = [];
-  private activeExecutions: Map<string, Promise<NetworkExecutionResult>> =
-    new Map();
+  // `void` admits the resolved placeholder used by streamNetwork to track
+  // an in-flight stream; only .size/.set/.delete are ever used on this map.
+  private activeExecutions: Map<
+    string,
+    Promise<NetworkExecutionResult | void>
+  > = new Map();
 
   constructor(neurolink: NeuroLink, config?: OrchestratorConfig) {
     this.neurolink = neurolink;
@@ -400,8 +404,8 @@ export class NetworkOrchestrator {
     info.state = "executing";
     info.executionCount++;
 
-    const streamPromise =
-      Promise.resolve() as unknown as Promise<NetworkExecutionResult>; // placeholder to track in activeExecutions
+    const streamPromise: Promise<NetworkExecutionResult | void> =
+      Promise.resolve(); // placeholder to track in activeExecutions
     this.activeExecutions.set(networkId, streamPromise);
 
     try {

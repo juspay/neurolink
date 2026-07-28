@@ -96,7 +96,7 @@ export class ImageGenService {
       this.neurolinkInstance = new NeuroLink({
         conversationMemory: { enabled: false },
         enableOrchestration: false,
-      }) as unknown as NeuroLinkInstance;
+      }) as NeuroLinkInstance;
     }
     return this.neurolinkInstance;
   }

@@ -371,23 +371,31 @@ export class PDFLoader implements DocumentLoader {
       info: Record<string, unknown>;
     }>
   > {
+    // pdf-parse is an optional dependency — resolve it dynamically and
+    // validate at runtime that it exposes a callable parser (either the
+    // module itself or its default export) instead of blindly asserting.
+    let pdfParseModule: unknown;
     try {
-      // pdf-parse is an optional dependency - use dynamic import with type assertion
-      const pdfParse = (await import("pdf-parse")) as unknown as {
-        default?: (dataBuffer: Buffer) => Promise<{
-          numpages: number;
-          text: string;
-          info: Record<string, unknown>;
-        }>;
-      } & ((dataBuffer: Buffer) => Promise<{
-        numpages: number;
-        text: string;
-        info: Record<string, unknown>;
-      }>);
-      return pdfParse.default || pdfParse;
+      pdfParseModule = await import("pdf-parse");
     } catch {
       throw new Error("pdf-parse module not available");
     }
+    const candidate: unknown =
+      (typeof pdfParseModule === "object" &&
+      pdfParseModule !== null &&
+      "default" in pdfParseModule
+        ? pdfParseModule.default
+        : undefined) || pdfParseModule;
+    if (typeof candidate !== "function") {
+      // Outside the try/catch so this message isn't swallowed by the
+      // module-not-available rethrow.
+      throw new Error("pdf-parse module does not export a parse function");
+    }
+    return candidate as (buffer: Buffer) => Promise<{
+      text: string;
+      numpages: number;
+      info: Record<string, unknown>;
+    }>;
   }
 
   private parsePageRange(range: string, totalPages: number): number[] {

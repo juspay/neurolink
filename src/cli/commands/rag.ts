@@ -618,10 +618,7 @@ function createIndexCommand(): CommandModule<{}, RagIndexArgs> {
         );
 
         // Verify the provider has an embed method
-        if (
-          typeof (embeddingProvider as unknown as { embed?: unknown }).embed !==
-          "function"
-        ) {
+        if (typeof embeddingProvider.embed !== "function") {
           spinner.fail(
             chalk.red(
               `Provider ${embeddingProviderName} with model ${embeddingModelName} does not support embeddings. ` +
@@ -634,11 +631,7 @@ function createIndexCommand(): CommandModule<{}, RagIndexArgs> {
         // Generate embeddings
         const embeddings: number[][] = [];
         for (const chunk of chunks) {
-          const embedding = await (
-            embeddingProvider as unknown as {
-              embed: (s: string) => Promise<number[]>;
-            }
-          ).embed(chunk.text);
+          const embedding = await embeddingProvider.embed(chunk.text);
           embeddings.push(embedding);
           chunk.embedding = embedding;
         }
@@ -821,10 +814,7 @@ function createQueryCommand(): CommandModule<{}, RagQueryArgs> {
         );
 
         // Verify the provider has an embed method
-        if (
-          typeof (embeddingProvider as unknown as { embed?: unknown }).embed !==
-          "function"
-        ) {
+        if (typeof embeddingProvider.embed !== "function") {
           spinner.fail(
             chalk.red(
               `Provider ${embeddingProviderName} with model ${embeddingModelName} does not support embeddings. ` +
@@ -834,11 +824,7 @@ function createQueryCommand(): CommandModule<{}, RagQueryArgs> {
           process.exit(1);
         }
 
-        const queryEmbedding = await (
-          embeddingProvider as unknown as {
-            embed: (s: string) => Promise<number[]>;
-          }
-        ).embed(args.query);
+        const queryEmbedding = await embeddingProvider.embed(args.query);
 
         let results: Array<{ id: string; score: number; text: string }>;
 

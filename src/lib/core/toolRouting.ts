@@ -39,7 +39,6 @@ import type {
   ToolRoutingOutcome,
   ToolRoutingResolutionParams,
   ToolRoutingServerDescriptor,
-  ValidationSchema,
 } from "../types/index.js";
 
 const routerOutputSchema = z.object({
@@ -521,7 +520,7 @@ export async function resolveToolRoutingExclusions(
     const generateResult = await withTimeout(
       generateFn({
         input: { text: routerPrompt },
-        schema: routerOutputSchema as unknown as ValidationSchema,
+        schema: routerOutputSchema,
         disableTools: true,
         temperature: routerModel.temperature ?? 0,
         timeout: timeoutMs,

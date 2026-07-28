@@ -164,7 +164,7 @@ export function serializeError(
 
   for (const key of errorKeys) {
     if (!excludedKeys.includes(key)) {
-      const value = (error as unknown as Record<string, unknown>)[key];
+      const value = (error as Error & Record<string, unknown>)[key];
       metadata[key] = sanitizeAndTruncate(
         key,
         value,

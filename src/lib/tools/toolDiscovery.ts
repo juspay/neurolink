@@ -378,8 +378,6 @@ function buildSearchTool(
     },
   }) as Tool;
 
-  (searchTool as unknown as Record<string, unknown>)[
-    DISCOVERY_META_TOOL_MARKER
-  ] = true;
+  (searchTool as Record<string, unknown>)[DISCOVERY_META_TOOL_MARKER] = true;
   return searchTool;
 }

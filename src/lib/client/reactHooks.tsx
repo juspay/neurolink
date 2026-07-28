@@ -997,17 +997,12 @@ export function useVoice(options: UseVoiceOptions = {}): UseVoiceReturn {
       return null;
     }
 
+    const speechWindow = window as typeof window & {
+      SpeechRecognition?: { new (): SpeechRecognitionInternal };
+      webkitSpeechRecognition?: { new (): SpeechRecognitionInternal };
+    };
     const SpeechRecognitionCtor =
-      (
-        window as unknown as {
-          SpeechRecognition?: { new (): SpeechRecognitionInternal };
-        }
-      ).SpeechRecognition ||
-      (
-        window as unknown as {
-          webkitSpeechRecognition?: { new (): SpeechRecognitionInternal };
-        }
-      ).webkitSpeechRecognition;
+      speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
 
     if (!SpeechRecognitionCtor) {
       return null;

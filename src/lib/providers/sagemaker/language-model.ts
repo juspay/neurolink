@@ -450,7 +450,7 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
           stream: stream as ReadableStream<Record<string, unknown>>,
           rawCall: {
             rawPrompt: sagemakerRequest,
-            rawSettings: this.modelConfig as unknown as Record<string, unknown>,
+            rawSettings: this.modelConfig,
           },
           rawResponse: {
             headers: {

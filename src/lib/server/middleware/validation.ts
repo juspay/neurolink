@@ -110,7 +110,8 @@ export function createRequestValidationMiddleware(
         );
         const error = new ServerValidationError(errors, ctx.requestId);
         // Attach formatted response to error
-        (error as unknown as { response: unknown }).response = formattedError;
+        (error as ServerValidationError & { response: unknown }).response =
+          formattedError;
         throw error;
       }
 

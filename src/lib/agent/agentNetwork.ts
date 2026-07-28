@@ -295,7 +295,7 @@ export class AgentNetwork {
             release();
           }
         },
-      } as unknown as Parameters<typeof tool>[0]) as Tool;
+      }) as Tool;
     }
 
     return tools;

@@ -78,6 +78,29 @@ function buildPinnedAgent(
 }
 
 /**
+ * Runtime-validating narrow across the undici → DOM `Response` type boundary.
+ * `readBoundedBuffer` only touches `headers.get()` and `arrayBuffer()`; the
+ * two libraries' `Response` declarations disagree on unrelated members
+ * (headers iterator shapes), so validate the members actually used instead
+ * of blindly asserting.
+ */
+function isBoundedBufferResponse(value: unknown): value is Response {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as {
+    arrayBuffer?: unknown;
+    headers?: { get?: unknown };
+  };
+  return (
+    typeof candidate.arrayBuffer === "function" &&
+    typeof candidate.headers === "object" &&
+    candidate.headers !== null &&
+    typeof candidate.headers.get === "function"
+  );
+}
+
+/**
  * Safely download a binary asset from an external URL.
  *
  * @throws {Error} if the URL is unsafe, the response is too large, a redirect
@@ -129,9 +152,10 @@ export async function safeDownload(
 
   // readBoundedBuffer expects a Response that exposes Content-Length and
   // arrayBuffer(). undici Response satisfies both.
-  return readBoundedBuffer(
-    response as unknown as Response,
-    options.maxBytes,
-    options.label,
-  );
+  if (!isBoundedBufferResponse(response)) {
+    throw new Error(
+      `safeDownload(${options.label}): response is missing headers.get()/arrayBuffer()`,
+    );
+  }
+  return readBoundedBuffer(response, options.maxBytes, options.label);
 }
