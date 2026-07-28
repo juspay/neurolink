@@ -1,3 +1,9 @@
+## [10.6.1](https://github.com/juspay/neurolink/compare/v10.6.0...v10.6.1) (2026-07-28)
+
+### Bug Fixes
+
+- **(media):** remove commented-out type re-export in media barrel ([72a7a54](https://github.com/juspay/neurolink/commit/72a7a54095a4d55592d129aefb6e3a4126a08391))
+
 ## [10.6.0](https://github.com/juspay/neurolink/compare/v10.5.3...v10.6.0) (2026-07-27)
 
 ### Features
