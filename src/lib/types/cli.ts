@@ -744,17 +744,17 @@ export type CLIMCPServerConfig = {
  * OpenAI setup configuration types
  */
 export namespace OpenAISetup {
-  export type SetupOptions = {
+  export type OpenAISetupOptions = {
     checkOnly?: boolean;
     interactive?: boolean;
   };
 
-  export type SetupArgv = {
+  export type OpenAISetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
   };
 
-  export type Config = {
+  export type OpenAISetupConfig = {
     apiKey?: string;
     organization?: string;
     model?: string;
@@ -766,17 +766,17 @@ export namespace OpenAISetup {
  * Anthropic setup configuration types
  */
 export namespace AnthropicSetup {
-  export type SetupOptions = {
+  export type AnthropicSetupOptions = {
     checkOnly?: boolean;
     interactive?: boolean;
   };
 
-  export type SetupArgv = {
+  export type AnthropicSetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
   };
 
-  export type Config = {
+  export type AnthropicSetupConfig = {
     apiKey?: string;
     model?: string;
     isReconfiguring?: boolean;
@@ -787,17 +787,17 @@ export namespace AnthropicSetup {
  * Google AI setup configuration types
  */
 export namespace GoogleAISetup {
-  export type SetupOptions = {
+  export type GoogleAISetupOptions = {
     checkOnly?: boolean;
     interactive?: boolean;
   };
 
-  export type SetupArgv = {
+  export type GoogleAISetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
   };
 
-  export type Config = {
+  export type GoogleAISetupConfig = {
     apiKey?: string;
     model?: string;
     isReconfiguring?: boolean;
@@ -808,17 +808,17 @@ export namespace GoogleAISetup {
  * Azure setup configuration types
  */
 export namespace AzureSetup {
-  export type SetupOptions = {
+  export type AzureSetupOptions = {
     checkOnly?: boolean;
     interactive?: boolean;
   };
 
-  export type SetupArgv = {
+  export type AzureSetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
   };
 
-  export type Config = {
+  export type AzureSetupConfig = {
     apiKey?: string;
     endpoint?: string;
     deploymentName?: string;
@@ -832,12 +832,12 @@ export namespace AzureSetup {
  * AWS Bedrock setup configuration types
  */
 export namespace BedrockSetup {
-  export type SetupOptions = {
+  export type BedrockSetupOptions = {
     checkOnly?: boolean;
     interactive?: boolean;
   };
 
-  export type SetupArgv = {
+  export type BedrockSetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
   };
@@ -861,12 +861,12 @@ export namespace BedrockSetup {
  * GCP/Vertex AI setup configuration types
  */
 export namespace GCPSetup {
-  export type SetupOptions = {
+  export type GCPSetupOptions = {
     checkOnly?: boolean;
     interactive?: boolean;
   };
 
-  export type SetupArgv = {
+  export type GCPSetupArgv = {
     check?: boolean;
     nonInteractive?: boolean;
   };
@@ -883,7 +883,7 @@ export namespace GCPSetup {
  * Hugging Face setup configuration types
  */
 export namespace HuggingFaceSetup {
-  export type SetupArgs = {
+  export type HuggingFaceSetupArgs = {
     check?: boolean;
     nonInteractive?: boolean;
     help?: boolean;
@@ -894,7 +894,7 @@ export namespace HuggingFaceSetup {
  * Mistral setup configuration types
  */
 export namespace MistralSetup {
-  export type SetupArgs = {
+  export type MistralSetupArgs = {
     check?: boolean;
     nonInteractive?: boolean;
     help?: boolean;
