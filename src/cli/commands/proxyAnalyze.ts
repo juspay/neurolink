@@ -68,6 +68,26 @@ function printAnalysis(
     logger.always(chalk.yellow("    Rate limits: unavailable"));
   }
   logger.always("");
+  logger.always(chalk.bold("  Account Routing"));
+  if (report.coverage.routingDecisions) {
+    logger.always(
+      `    Decisions: ${report.routing.records.length}, modes: ${JSON.stringify(report.routing.modes)}`,
+    );
+    logger.always(
+      `    Selection reasons: ${JSON.stringify(report.routing.selectionReasons)}`,
+    );
+    logger.always(
+      `    Initial accounts: ${JSON.stringify(report.routing.initialAccounts)}`,
+    );
+    logger.always(
+      `    Final account changed after retry: ${report.routing.finalAccountChanges}, outside candidate set: ${report.routing.finalOutsideCandidateSet}`,
+    );
+  } else {
+    logger.always(
+      chalk.yellow("    Routing decisions: unavailable (legacy or no logs)"),
+    );
+  }
+  logger.always("");
   logger.always(chalk.bold("  Latency (ms)"));
   const latencyHeader = `${"METRIC".padEnd(22)} ${"COUNT".padStart(7)} ${"P50".padStart(9)} ${"P95".padStart(9)} ${"P99".padStart(9)} ${"MAX".padStart(9)}`;
   logger.always(`    ${chalk.gray(latencyHeader)}`);
@@ -98,6 +118,9 @@ function printAnalysis(
   logger.always(chalk.bold("  Data Quality"));
   logger.always(
     `    ${report.dataQuality.linesRead} lines scanned, ${report.dataQuality.malformedLines} malformed, ${report.dataQuality.unsupportedLifecycleLines} unsupported lifecycle, ${report.dataQuality.lifecycleSequenceGaps} sequence gaps, ${report.dataQuality.lifecycleSequenceDuplicates} duplicates`,
+  );
+  logger.always(
+    `    Routing decisions: ${report.dataQuality.routingDecisions.valid} valid, ${report.dataQuality.routingDecisions.invalid} invalid, ${report.dataQuality.routingDecisions.absent} absent`,
   );
   for (const [stream, range] of Object.entries(report.dataQuality.streams)) {
     if (range.observedFrom) {

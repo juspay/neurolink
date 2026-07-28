@@ -307,6 +307,22 @@ function emitOtlpLogRecord(entry: RequestLogEntry): void {
           "account.name": entry.account,
           "account.type": entry.accountType,
 
+          // Compact routing summary. Full candidate evidence stays in JSONL.
+          ...(entry.routingDecision && {
+            "routing.mode": entry.routingDecision.mode,
+            "routing.strategy": entry.routingDecision.strategy,
+            "routing.selection_reason": entry.routingDecision.selectionReason,
+            "routing.initial_account": entry.routingDecision.initialAccount,
+            "routing.candidate_count": entry.routingDecision.candidates.length,
+            "routing.final_account_changed":
+              entry.routingDecision.initialAccount !== entry.account &&
+              entry.routingDecision.candidates.some(
+                (candidate) =>
+                  candidate.account === entry.account &&
+                  candidate.accountType === entry.accountType,
+              ),
+          }),
+
           // Token usage (when available)
           ...(entry.inputTokens !== undefined && {
             "ai.input_tokens": entry.inputTokens,

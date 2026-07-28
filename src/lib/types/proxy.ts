@@ -20,6 +20,13 @@ import type { Ora } from "ora";
 import type { MCPToolRegistry } from "../mcp/toolRegistry.js";
 import type { ProxyTracer } from "../proxy/proxyTracer.js";
 import type {
+  ACCOUNT_COOLING_REASONS,
+  PROXY_ACCOUNT_TYPES,
+  PROXY_ACCOUNT_ROUTING_MODES,
+  PROXY_ACCOUNT_ROUTING_REASONS,
+  PROXY_ACCOUNT_ROUTING_STRATEGIES,
+} from "../proxy/routingEvidence.js";
+import type {
   FallbackEntry,
   ModelMapping,
   ProxyRoutingConfig,
@@ -498,6 +505,80 @@ export type LoadProxyConfigOptions = {
 // REQUEST LOGGER TYPES (from requestLogger.ts)
 // =============================================================================
 
+export type ProxyAccountRoutingStrategy =
+  (typeof PROXY_ACCOUNT_ROUTING_STRATEGIES)[number];
+
+export type ProxyAccountRoutingMode =
+  (typeof PROXY_ACCOUNT_ROUTING_MODES)[number];
+
+export type ProxyAccountRoutingReason =
+  (typeof PROXY_ACCOUNT_ROUTING_REASONS)[number];
+
+export type ProxyAccountType = (typeof PROXY_ACCOUNT_TYPES)[number];
+
+export type ProxyAccountRoutingCandidate = {
+  account: string;
+  accountType: ProxyAccountType;
+  sourceIndex: number;
+  rank: number;
+  configuredPrimary: boolean;
+  usable: boolean;
+  saturated: boolean;
+  quotaObserved: boolean;
+  quotaLastUpdated: number | null;
+  quotaAgeMs: number | null;
+  coolingActive: boolean;
+  coolingReason: AccountCoolingReason | null;
+  coolingUntil: number | null;
+  unifiedStatus: string | null;
+  overageStatus: string | null;
+  sessionStatus: string | null;
+  sessionUsed: number | null;
+  sessionResetAt: number | null;
+  sessionResetBucket: number | null;
+  weeklyStatus: string | null;
+  weeklyUsed: number | null;
+  weeklyResetAt: number | null;
+};
+
+export type ProxyAccountRoutingDecision = {
+  schemaVersion: 1;
+  evaluatedAt: string;
+  strategy: ProxyAccountRoutingStrategy;
+  mode: ProxyAccountRoutingMode;
+  selectionReason: ProxyAccountRoutingReason;
+  quotaRoutingEnabled: boolean;
+  quotaInputsUsed: boolean;
+  sessionSoftLimit: number;
+  sessionResetToleranceMs: number;
+  configuredPrimaryAccount: string | null;
+  configuredPrimaryMatched: boolean;
+  rotationOffset: number;
+  initialAccount: string;
+  candidates: ProxyAccountRoutingCandidate[];
+};
+
+export type ProxyAccountSortMetrics = {
+  usable: boolean;
+  saturated: boolean;
+  hasQuota: boolean;
+  quotaLastUpdated: number | null;
+  quotaAgeMs: number | null;
+  coolingActive: boolean;
+  coolingReason: AccountCoolingReason | null;
+  coolingUntil: number;
+  unifiedStatus: string | null;
+  overageStatus: string | null;
+  sessionStatus: string | null;
+  sessionUsed: number | null;
+  sessionResetBucket: number;
+  sessionReset: number;
+  weeklyStatus: string | null;
+  weeklyReset: number;
+  weeklyUsed: number | null;
+  weeklyUsedForSort: number;
+};
+
 export type RequestLogEntry = {
   timestamp: string;
   requestId: string;
@@ -522,6 +603,8 @@ export type RequestLogEntry = {
   traceId?: string;
   /** OTel span ID for correlation with distributed traces */
   spanId?: string;
+  /** Exact secret-free inputs and result of initial account selection. */
+  routingDecision?: ProxyAccountRoutingDecision;
 };
 
 export type RequestAttemptLogEntry = {
@@ -607,6 +690,10 @@ export type ClaudeRequestRuntimeContext = {
   logProxyBody: ProxyBodyCaptureLogger;
   logFinalRequest: ClaudeFinalRequestLogger;
   buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
+};
+
+export type RoutedClaudeRequestRuntimeContext = ClaudeRequestRuntimeContext & {
+  setRoutingDecision: (decision: ProxyAccountRoutingDecision) => void;
 };
 
 export type AnthropicAttemptLogger = (
@@ -985,12 +1072,7 @@ export type AccountQuota = {
  *  - "unified"   : top-level unified limit rejected — cool for retry-after.
  *  - "transient" : short per-minute/burst 429 — cool for retry-after only.
  *  - "auth"      : transient refresh failure with bounded backoff. */
-export type AccountCoolingReason =
-  | "weekly"
-  | "session"
-  | "unified"
-  | "transient"
-  | "auth";
+export type AccountCoolingReason = (typeof ACCOUNT_COOLING_REASONS)[number];
 
 /** Restart-safe cooldown snapshot for one account. */
 export type PersistedAccountCooldown = {
@@ -1028,7 +1110,7 @@ export type ProxyPassthroughAccount = {
   token: string;
   refreshToken?: string;
   expiresAt?: number;
-  type: "oauth" | "api_key";
+  type: ProxyAccountType;
   persistTarget?: TokenPersistTarget;
 };
 
@@ -1432,6 +1514,7 @@ export type ProxyAnalysisReport = {
     attempts: boolean;
     attemptLatency: boolean;
     cacheUsage: boolean;
+    routingDecisions: boolean;
   };
   dataQuality: {
     linesRead: number;
@@ -1455,6 +1538,11 @@ export type ProxyAnalysisReport = {
       invalidPaths: number;
       writeFailures: number;
       truncatedCaptures: number;
+    };
+    routingDecisions: {
+      valid: number;
+      invalid: number;
+      absent: number;
     };
   };
   lifecycle: {
@@ -1504,6 +1592,14 @@ export type ProxyAnalysisReport = {
     inputTokens: number;
     requestHitRate: number | null;
   };
+  routing: {
+    modes: Record<string, number>;
+    selectionReasons: Record<string, number>;
+    initialAccounts: Record<string, number>;
+    finalAccountChanges: number;
+    finalOutsideCandidateSet: number;
+    records: ProxyAnalysisRoutingRecord[];
+  };
   accounts: ProxyAnalysisAccount[];
 };
 
@@ -1524,6 +1620,7 @@ export type ProxyAnalysisAttemptRecord = {
 
 /** Final request fields retained while joining offline proxy log records. */
 export type ProxyAnalysisFinalRequestRecord = {
+  timestamp: string;
   status: number;
   durationMs: number | null;
   account: string;
@@ -1533,6 +1630,17 @@ export type ProxyAnalysisFinalRequestRecord = {
   cacheCreationTokens: number | null;
   errorType: string | null;
   errorCode: string | null;
+  routingDecision: ProxyAccountRoutingDecision | null;
+};
+
+/** Validated account-routing evidence joined to a final request log. */
+export type ProxyAnalysisRoutingRecord = {
+  requestId: string;
+  timestamp: string;
+  responseStatus: number;
+  finalAccount: string;
+  finalAccountType: string;
+  decision: ProxyAccountRoutingDecision;
 };
 
 /** Request metadata retained by the HTTP adapter for terminal error logging. */

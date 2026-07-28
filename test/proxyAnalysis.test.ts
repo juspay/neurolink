@@ -33,6 +33,71 @@ describe("offline proxy log analysis", () => {
     const logDir = await mkdtemp(join(tmpdir(), "neurolink-analysis-"));
     tempDirs.push(logDir);
     const timestamp = "2026-07-18T11:00:00.000Z";
+    const routingDecision = {
+      schemaVersion: 1,
+      evaluatedAt: timestamp,
+      strategy: "fill-first",
+      mode: "quota",
+      selectionReason: "weekly_reset",
+      quotaRoutingEnabled: true,
+      quotaInputsUsed: true,
+      sessionSoftLimit: 0.97,
+      sessionResetToleranceMs: 900_000,
+      configuredPrimaryAccount: "anthropic:primary@example.com",
+      configuredPrimaryMatched: true,
+      rotationOffset: 0,
+      initialAccount: "primary@example.com",
+      candidates: [
+        {
+          account: "primary@example.com",
+          accountType: "oauth",
+          sourceIndex: 0,
+          rank: 0,
+          configuredPrimary: true,
+          usable: true,
+          saturated: false,
+          quotaObserved: true,
+          quotaLastUpdated: nowMs - 60_000,
+          quotaAgeMs: 60_000,
+          coolingActive: false,
+          coolingReason: null,
+          coolingUntil: null,
+          unifiedStatus: "allowed",
+          overageStatus: "allowed",
+          sessionStatus: "allowed",
+          sessionUsed: 0.2,
+          sessionResetAt: nowMs + 3_600_000,
+          sessionResetBucket: 1_970_700,
+          weeklyStatus: "allowed",
+          weeklyUsed: 0.7,
+          weeklyResetAt: nowMs + 86_400_000,
+        },
+        {
+          account: "fallback@example.com",
+          accountType: "oauth",
+          sourceIndex: 1,
+          rank: 1,
+          configuredPrimary: false,
+          usable: true,
+          saturated: false,
+          quotaObserved: true,
+          quotaLastUpdated: nowMs - 120_000,
+          quotaAgeMs: 120_000,
+          coolingActive: false,
+          coolingReason: null,
+          coolingUntil: null,
+          unifiedStatus: "allowed",
+          overageStatus: "allowed",
+          sessionStatus: "allowed",
+          sessionUsed: 0.1,
+          sessionResetAt: nowMs + 7_200_000,
+          sessionResetBucket: 1_970_704,
+          weeklyStatus: "allowed",
+          weeklyUsed: 0.1,
+          weeklyResetAt: nowMs + 172_800_000,
+        },
+      ],
+    };
 
     await writeJsonLines(logDir, "proxy-lifecycle-2026-07-18.jsonl", [
       {
@@ -129,6 +194,15 @@ describe("offline proxy log analysis", () => {
         inputTokens: 100,
         cacheReadTokens: 80,
         cacheCreationTokens: 5,
+        routingDecision: {
+          ...routingDecision,
+          unexpectedTopLevel: "discarded",
+          candidates: routingDecision.candidates.map((candidate, index) =>
+            index === 0
+              ? { ...candidate, unexpectedCandidateField: "discarded" }
+              : candidate,
+          ),
+        },
       },
       {
         timestamp,
@@ -138,6 +212,7 @@ describe("offline proxy log analysis", () => {
         accountType: "oauth",
         responseStatus: 429,
         responseTimeMs: 35,
+        routingDecision,
       },
       {
         timestamp,
@@ -149,6 +224,16 @@ describe("offline proxy log analysis", () => {
         responseTimeMs: 40,
         errorType: "transport_error",
         errorCode: "ETIMEDOUT",
+        routingDecision: { ...routingDecision, schemaVersion: 99 },
+      },
+      {
+        timestamp,
+        requestId: "request-4",
+        method: "POST",
+        account: "fallback@example.com",
+        accountType: "oauth",
+        responseStatus: 200,
+        responseTimeMs: 50,
       },
     ]);
 
@@ -162,6 +247,7 @@ describe("offline proxy log analysis", () => {
       malformedLines: 1,
       unsupportedLifecycleLines: 1,
       lifecycleSequenceGaps: 1,
+      routingDecisions: { valid: 2, invalid: 1, absent: 1 },
     });
     expect(report.coverage).toEqual({
       lifecycle: true,
@@ -169,6 +255,7 @@ describe("offline proxy log analysis", () => {
       attempts: true,
       attemptLatency: true,
       cacheUsage: true,
+      routingDecisions: true,
     });
     expect(report.lifecycle).toMatchObject({
       accepted: 2,
@@ -177,8 +264,8 @@ describe("offline proxy log analysis", () => {
       unsettled: 1,
     });
     expect(report.requests).toEqual({
-      completed: 3,
-      success: 1,
+      completed: 4,
+      success: 2,
       errors: 2,
       finalRateLimits: 1,
       recoveredAfterRetry: 1,
@@ -212,6 +299,28 @@ describe("offline proxy log analysis", () => {
       inputTokens: 100,
       requestHitRate: 1,
     });
+    expect(report.routing).toMatchObject({
+      modes: { quota: 2 },
+      selectionReasons: { weekly_reset: 2 },
+      initialAccounts: { "primary@example.com": 2 },
+      finalAccountChanges: 1,
+      finalOutsideCandidateSet: 0,
+    });
+    expect(report.routing.records).toHaveLength(2);
+    expect(report.routing.records[0]).toMatchObject({
+      requestId: "request-1",
+      timestamp,
+      responseStatus: 200,
+      finalAccount: "fallback@example.com",
+      finalAccountType: "oauth",
+      decision: routingDecision,
+    });
+    expect(report.routing.records[0]?.decision).not.toHaveProperty(
+      "unexpectedTopLevel",
+    );
+    expect(
+      report.routing.records[0]?.decision.candidates[0],
+    ).not.toHaveProperty("unexpectedCandidateField");
     expect(report.accounts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -354,6 +463,12 @@ describe("offline proxy log analysis", () => {
       attempts: false,
       attemptLatency: false,
       cacheUsage: false,
+      routingDecisions: false,
+    });
+    expect(report.dataQuality.routingDecisions).toEqual({
+      valid: 0,
+      invalid: 0,
+      absent: 0,
     });
     expect(report.requests.completed).toBe(0);
     expect(report.lifecycle.unsettled).toBe(0);

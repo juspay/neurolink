@@ -104,7 +104,6 @@ import type {
   ClaudeFinalRequestLogger,
   ClaudeLoggedErrorBuilder,
   ClaudeRequest,
-  ClaudeRequestRuntimeContext,
   ClaudeProxyRouteRuntimeOptions,
   ClaudeSnapshot,
   ClaudeSnapshotBody,
@@ -114,10 +113,15 @@ import type {
   ParsedClaudeError,
   ParsedClaudeRequest,
   PreparedAnthropicAccountAttempt,
+  ProxyAccountRoutingCandidate,
+  ProxyAccountRoutingDecision,
+  ProxyAccountRoutingReason,
+  ProxyAccountSortMetrics,
   ProxyBodyCaptureLogger,
   ProxyPassthroughAccount,
   ResponseInfoContext,
   RouteGroup,
+  RoutedClaudeRequestRuntimeContext,
   RuntimeAccountState,
   ServerContext,
   StreamResult,
@@ -626,7 +630,7 @@ function accountSortMetrics(
   now: number,
   sessionSoftLimit: number,
   sessionResetToleranceMs: number,
-) {
+): ProxyAccountSortMetrics {
   const st = accountRuntimeState.get(accountKey);
   const q = st?.quota;
   const coolingActive = !!st?.coolingUntil && now < st.coolingUntil;
@@ -636,17 +640,23 @@ function accountSortMetrics(
   const sessionReset = resetEpochToMs(q?.sessionResetAt, now);
   const sessionTicking = sessionReset !== undefined;
   const weeklyTicking = weeklyReset !== undefined;
-  const sessionUsed = sessionTicking ? (q?.sessionUsed ?? 0) : 0;
-  const weeklyUsed = weeklyTicking ? (q?.weeklyUsed ?? -1) : q ? 0 : -1;
-  const sessionStatus = sessionTicking
-    ? (q?.sessionStatus ?? "unknown")
-    : "allowed";
-  const weeklyStatus = weeklyTicking
-    ? (q?.weeklyStatus ?? "unknown")
-    : "allowed";
+  const sessionUsed = q ? (sessionTicking ? (q.sessionUsed ?? 0) : 0) : null;
+  const weeklyUsed = q ? (weeklyTicking ? (q.weeklyUsed ?? null) : 0) : null;
+  const sessionStatus = q
+    ? sessionTicking
+      ? (q.sessionStatus ?? "unknown")
+      : "allowed"
+    : null;
+  const weeklyStatus = q
+    ? weeklyTicking
+      ? (q.weeklyStatus ?? "unknown")
+      : "allowed"
+    : null;
   const saturated =
     sessionStatus === "throttled" ||
-    (sessionTicking && sessionUsed >= sessionSoftLimit);
+    (sessionTicking && (sessionUsed ?? 0) >= sessionSoftLimit);
+  const quotaLastUpdated =
+    q && Number.isFinite(q.lastUpdated) ? q.lastUpdated : null;
   return {
     usable:
       !coolingActive &&
@@ -654,13 +664,105 @@ function accountSortMetrics(
       sessionStatus !== "rejected",
     saturated,
     hasQuota: !!q,
+    quotaLastUpdated,
+    quotaAgeMs:
+      quotaLastUpdated === null ? null : Math.max(0, now - quotaLastUpdated),
+    coolingActive,
+    coolingReason: st?.coolingReason ?? null,
     coolingUntil: st?.coolingUntil ?? 0,
+    unifiedStatus: q?.unifiedStatus ?? null,
+    overageStatus: q?.overageStatus ?? null,
+    sessionStatus,
+    sessionUsed,
     sessionResetBucket: sessionTicking
       ? Math.floor(sessionReset / sessionResetToleranceMs)
       : Number.POSITIVE_INFINITY,
     sessionReset: sessionReset ?? Number.POSITIVE_INFINITY,
+    weeklyStatus,
     weeklyReset: weeklyReset ?? Number.POSITIVE_INFINITY,
     weeklyUsed,
+    weeklyUsedForSort: weeklyUsed ?? -1,
+  };
+}
+
+function compareAccountRoutingFactors(
+  a: ProxyPassthroughAccount,
+  b: ProxyPassthroughAccount,
+  metricsByKey: ReadonlyMap<string, ProxyAccountSortMetrics>,
+  primaryKey: string | undefined,
+): [number, ProxyAccountRoutingReason] {
+  const ma = metricsByKey.get(a.key);
+  const mb = metricsByKey.get(b.key);
+  if (!ma || !mb) {
+    return [0, "insertion_order"];
+  }
+  if (ma.usable !== mb.usable) {
+    return [ma.usable ? -1 : 1, "availability"];
+  }
+  if (!ma.usable && !mb.usable) {
+    const au = ma.coolingUntil || Number.POSITIVE_INFINITY;
+    const bu = mb.coolingUntil || Number.POSITIVE_INFINITY;
+    return [
+      au === bu ? 0 : au - bu,
+      au === bu ? "insertion_order" : "cooldown_recovery",
+    ];
+  }
+  if (ma.hasQuota !== mb.hasQuota) {
+    return [ma.hasQuota ? 1 : -1, "quota_probe"];
+  }
+  if (ma.saturated !== mb.saturated) {
+    return [ma.saturated ? 1 : -1, "session_headroom"];
+  }
+  if (ma.saturated && mb.saturated) {
+    if (ma.sessionResetBucket !== mb.sessionResetBucket) {
+      return [ma.sessionResetBucket - mb.sessionResetBucket, "session_reset"];
+    }
+    if (ma.weeklyReset !== mb.weeklyReset) {
+      return [ma.weeklyReset - mb.weeklyReset, "weekly_reset"];
+    }
+  } else {
+    if (ma.weeklyReset !== mb.weeklyReset) {
+      return [ma.weeklyReset - mb.weeklyReset, "weekly_reset"];
+    }
+    if (ma.sessionResetBucket !== mb.sessionResetBucket) {
+      return [ma.sessionResetBucket - mb.sessionResetBucket, "session_reset"];
+    }
+  }
+  if (ma.weeklyUsedForSort !== mb.weeklyUsedForSort) {
+    return [mb.weeklyUsedForSort - ma.weeklyUsedForSort, "weekly_utilization"];
+  }
+  if (primaryKey && (a.key === primaryKey) !== (b.key === primaryKey)) {
+    return [a.key === primaryKey ? -1 : 1, "configured_primary"];
+  }
+  return [0, "insertion_order"];
+}
+
+function orderAccountsByQuotaWithMetrics(
+  accounts: ProxyPassthroughAccount[],
+  now: number,
+  primaryKey: string | undefined,
+  sessionSoftLimit: number,
+  sessionResetToleranceMs: number,
+): {
+  orderedAccounts: ProxyPassthroughAccount[];
+  metricsByKey: Map<string, ProxyAccountSortMetrics>;
+} {
+  const metricsByKey = new Map(
+    accounts.map((account) => [
+      account.key,
+      accountSortMetrics(
+        account.key,
+        now,
+        sessionSoftLimit,
+        sessionResetToleranceMs,
+      ),
+    ]),
+  );
+  return {
+    orderedAccounts: [...accounts].sort(
+      (a, b) => compareAccountRoutingFactors(a, b, metricsByKey, primaryKey)[0],
+    ),
+    metricsByKey,
   };
 }
 
@@ -696,48 +798,231 @@ function orderAccountsByQuota(
   sessionSoftLimit: number = getSessionSoftLimit(),
   sessionResetToleranceMs: number = getSessionResetToleranceMs(),
 ): ProxyPassthroughAccount[] {
-  const metrics = (key: string) =>
-    accountSortMetrics(key, now, sessionSoftLimit, sessionResetToleranceMs);
-  return [...accounts].sort((a, b) => {
-    const ma = metrics(a.key);
-    const mb = metrics(b.key);
-    if (ma.usable !== mb.usable) {
-      return ma.usable ? -1 : 1;
-    }
-    if (!ma.usable && !mb.usable) {
-      const au = ma.coolingUntil || Number.POSITIVE_INFINITY;
-      const bu = mb.coolingUntil || Number.POSITIVE_INFINITY;
-      return au - bu;
-    }
-    if (ma.hasQuota !== mb.hasQuota) {
-      return ma.hasQuota ? 1 : -1;
-    }
-    if (ma.saturated !== mb.saturated) {
-      return ma.saturated ? 1 : -1;
-    }
-    if (ma.saturated && mb.saturated) {
-      if (ma.sessionResetBucket !== mb.sessionResetBucket) {
-        return ma.sessionResetBucket - mb.sessionResetBucket;
+  return orderAccountsByQuotaWithMetrics(
+    accounts,
+    now,
+    primaryKey,
+    sessionSoftLimit,
+    sessionResetToleranceMs,
+  ).orderedAccounts;
+}
+
+function buildRoutingDecision(args: {
+  accounts: ProxyPassthroughAccount[];
+  orderedAccounts: ProxyPassthroughAccount[];
+  metricsByKey: ReadonlyMap<string, ProxyAccountSortMetrics>;
+  evaluatedAt: number;
+  strategy: "round-robin" | "fill-first";
+  primaryKey: string | undefined;
+  quotaRoutingEnabled: boolean;
+  quotaOrdered: boolean;
+  sessionSoftLimit: number;
+  sessionResetToleranceMs: number;
+  rotationOffset: number;
+}): ProxyAccountRoutingDecision {
+  const {
+    accounts,
+    orderedAccounts,
+    metricsByKey,
+    evaluatedAt,
+    strategy,
+    primaryKey,
+    quotaRoutingEnabled,
+    quotaOrdered,
+    sessionSoftLimit,
+    sessionResetToleranceMs,
+    rotationOffset,
+  } = args;
+  const sourceIndexes = new Map(
+    accounts.map((account, index) => [account.key, index]),
+  );
+  const configuredPrimaryMatched =
+    !!primaryKey && accounts.some((account) => account.key === primaryKey);
+  const candidates: ProxyAccountRoutingCandidate[] = orderedAccounts.map(
+    (account, rank) => {
+      const metrics = metricsByKey.get(account.key);
+      if (!metrics) {
+        throw new Error(
+          `Missing precomputed routing metrics for account ${account.label}`,
+        );
       }
-      if (ma.weeklyReset !== mb.weeklyReset) {
-        return ma.weeklyReset - mb.weeklyReset;
+      return {
+        account: account.label,
+        accountType: account.type,
+        sourceIndex: sourceIndexes.get(account.key) ?? rank,
+        rank,
+        configuredPrimary: !!primaryKey && account.key === primaryKey,
+        usable: metrics.usable,
+        saturated: metrics.saturated,
+        quotaObserved: metrics.hasQuota,
+        quotaLastUpdated: metrics.quotaLastUpdated,
+        quotaAgeMs: metrics.quotaAgeMs,
+        coolingActive: metrics.coolingActive,
+        coolingReason: metrics.coolingReason,
+        coolingUntil:
+          metrics.coolingUntil > 0 && Number.isFinite(metrics.coolingUntil)
+            ? metrics.coolingUntil
+            : null,
+        unifiedStatus: metrics.unifiedStatus,
+        overageStatus: metrics.overageStatus,
+        sessionStatus: metrics.sessionStatus,
+        sessionUsed: metrics.sessionUsed,
+        sessionResetAt: Number.isFinite(metrics.sessionReset)
+          ? metrics.sessionReset
+          : null,
+        sessionResetBucket: Number.isFinite(metrics.sessionResetBucket)
+          ? metrics.sessionResetBucket
+          : null,
+        weeklyStatus: metrics.weeklyStatus,
+        weeklyUsed: metrics.weeklyUsed,
+        weeklyResetAt: Number.isFinite(metrics.weeklyReset)
+          ? metrics.weeklyReset
+          : null,
+      };
+    },
+  );
+  const initialAccount = orderedAccounts[0];
+  let mode: ProxyAccountRoutingDecision["mode"];
+  let selectionReason: ProxyAccountRoutingReason;
+  if (orderedAccounts.length === 1) {
+    mode = "single_account";
+    selectionReason = "single_account";
+  } else if (quotaOrdered) {
+    mode = "quota";
+    selectionReason = compareAccountRoutingFactors(
+      orderedAccounts[0],
+      orderedAccounts[1],
+      metricsByKey,
+      primaryKey,
+    )[1];
+  } else if (strategy === "round-robin") {
+    mode = "round_robin";
+    selectionReason = "round_robin";
+  } else {
+    mode = "primary";
+    selectionReason =
+      configuredPrimaryMatched && initialAccount?.key === primaryKey
+        ? "configured_primary"
+        : "insertion_order";
+  }
+
+  return {
+    schemaVersion: 1,
+    evaluatedAt: new Date(evaluatedAt).toISOString(),
+    strategy,
+    mode,
+    selectionReason,
+    quotaRoutingEnabled,
+    quotaInputsUsed: quotaOrdered,
+    sessionSoftLimit,
+    sessionResetToleranceMs,
+    configuredPrimaryAccount: primaryKey ?? null,
+    configuredPrimaryMatched,
+    rotationOffset,
+    initialAccount: initialAccount?.label ?? "",
+    candidates,
+  };
+}
+
+function selectClaudeProxyAccountOrder(args: {
+  enabledAccounts: ProxyPassthroughAccount[];
+  accountStrategy: "round-robin" | "fill-first";
+  primaryAccountKey: string | undefined;
+  quotaRoutingEnabled: boolean;
+  sessionSoftLimit: number;
+  sessionResetToleranceMs: number;
+  setRoutingDecision: (decision: ProxyAccountRoutingDecision) => void;
+}): ProxyPassthroughAccount[] {
+  const {
+    enabledAccounts,
+    accountStrategy,
+    primaryAccountKey,
+    quotaRoutingEnabled,
+    sessionSoftLimit,
+    sessionResetToleranceMs,
+    setRoutingDecision,
+  } = args;
+  let orderedAccounts = [...enabledAccounts];
+  const evaluatedAt = Date.now();
+  let metricsByKey: Map<string, ProxyAccountSortMetrics>;
+  let rotationOffset = 0;
+  const quotaOrdered =
+    accountStrategy === "fill-first" &&
+    orderedAccounts.length > 1 &&
+    quotaRoutingEnabled;
+
+  if (!quotaOrdered && accountStrategy === "fill-first") {
+    // A hot-reloaded primary change must apply to this request.
+    maybeResetPrimaryToHome(enabledAccounts, primaryAccountKey);
+  }
+  if (quotaOrdered) {
+    const quotaOrder = orderAccountsByQuotaWithMetrics(
+      enabledAccounts,
+      evaluatedAt,
+      primaryAccountKey,
+      sessionSoftLimit,
+      sessionResetToleranceMs,
+    );
+    orderedAccounts = quotaOrder.orderedAccounts;
+    metricsByKey = quotaOrder.metricsByKey;
+    if (logger.shouldLog("debug")) {
+      logger.debug(
+        `[proxy] quota-ordered fill sequence: ${orderedAccounts
+          .map((account) => account.label)
+          .join(" → ")}`,
+      );
+    }
+  } else {
+    if (
+      accountStrategy === "round-robin" &&
+      orderedAccounts.length !== lastKnownAccountCount
+    ) {
+      primaryAccountIndex = resolveHomeIndex(
+        orderedAccounts,
+        primaryAccountKey,
+      );
+      lastKnownAccountCount = orderedAccounts.length;
+    }
+    if (orderedAccounts.length > 1) {
+      rotationOffset = primaryAccountIndex % orderedAccounts.length;
+      if (accountStrategy === "round-robin") {
+        primaryAccountIndex =
+          (primaryAccountIndex + 1) % orderedAccounts.length;
       }
-    } else {
-      if (ma.weeklyReset !== mb.weeklyReset) {
-        return ma.weeklyReset - mb.weeklyReset;
-      }
-      if (ma.sessionResetBucket !== mb.sessionResetBucket) {
-        return ma.sessionResetBucket - mb.sessionResetBucket;
+      if (rotationOffset > 0) {
+        const head = orderedAccounts.splice(0, rotationOffset);
+        orderedAccounts.push(...head);
       }
     }
-    if (ma.weeklyUsed !== mb.weeklyUsed) {
-      return mb.weeklyUsed - ma.weeklyUsed;
-    }
-    if (primaryKey && (a.key === primaryKey) !== (b.key === primaryKey)) {
-      return a.key === primaryKey ? -1 : 1;
-    }
-    return 0;
-  });
+    metricsByKey = new Map(
+      enabledAccounts.map((account) => [
+        account.key,
+        accountSortMetrics(
+          account.key,
+          evaluatedAt,
+          sessionSoftLimit,
+          sessionResetToleranceMs,
+        ),
+      ]),
+    );
+  }
+
+  setRoutingDecision(
+    buildRoutingDecision({
+      accounts: enabledAccounts,
+      orderedAccounts,
+      metricsByKey,
+      evaluatedAt,
+      strategy: accountStrategy,
+      primaryKey: primaryAccountKey,
+      quotaRoutingEnabled,
+      quotaOrdered,
+      sessionSoftLimit,
+      sessionResetToleranceMs,
+      rotationOffset,
+    }),
+  );
+  return orderedAccounts;
 }
 
 // ---------------------------------------------------------------------------
@@ -2019,6 +2304,7 @@ async function loadClaudeProxyAccounts(args: {
   sessionSoftLimit?: number;
   sessionResetToleranceMs?: number;
   buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
+  setRoutingDecision: (decision: ProxyAccountRoutingDecision) => void;
 }): Promise<LoadedClaudeAccountContext | { response: unknown }> {
   const {
     ctx,
@@ -2032,6 +2318,7 @@ async function loadClaudeProxyAccounts(args: {
     sessionSoftLimit = getSessionSoftLimit(),
     sessionResetToleranceMs = getSessionResetToleranceMs(),
     buildLoggedClaudeError,
+    setRoutingDecision,
   } = args;
   const fs = await import("fs");
   const os = await import("os");
@@ -2269,58 +2556,15 @@ async function loadClaudeProxyAccounts(args: {
     return { response: buildLoggedClaudeError(401, reauthMsg) };
   }
 
-  let orderedAccounts = [...enabledAccounts];
-  const quotaOrdered =
-    accountStrategy === "fill-first" &&
-    orderedAccounts.length > 1 &&
-    quotaRoutingEnabled;
-  if (!quotaOrdered && accountStrategy === "fill-first") {
-    // Apply the request-scoped home before deriving this request's order. A
-    // hot-reloaded primary change must not lag by one request. Round-robin
-    // deliberately skips this reset so its rotating index remains strict.
-    maybeResetPrimaryToHome(enabledAccounts, primaryAccountKey);
-  }
-  if (quotaOrdered) {
-    // Fill-first with a smart fill order: spend the account whose weekly window
-    // expires soonest while temporarily demoting sessions without headroom.
-    // Supersedes the static home/primary index.
-    orderedAccounts = orderAccountsByQuota(
-      enabledAccounts,
-      Date.now(),
-      primaryAccountKey,
-      sessionSoftLimit,
-      sessionResetToleranceMs,
-    );
-    if (logger.shouldLog("debug")) {
-      logger.debug(
-        `[proxy] quota-ordered fill sequence: ${orderedAccounts
-          .map((a) => a.label)
-          .join(" → ")}`,
-      );
-    }
-  } else {
-    if (
-      accountStrategy === "round-robin" &&
-      orderedAccounts.length !== lastKnownAccountCount
-    ) {
-      primaryAccountIndex = resolveHomeIndex(
-        orderedAccounts,
-        primaryAccountKey,
-      );
-      lastKnownAccountCount = orderedAccounts.length;
-    }
-    if (orderedAccounts.length > 1) {
-      const idx = primaryAccountIndex % orderedAccounts.length;
-      if (accountStrategy === "round-robin") {
-        primaryAccountIndex =
-          (primaryAccountIndex + 1) % orderedAccounts.length;
-      }
-      if (idx > 0) {
-        const head = orderedAccounts.splice(0, idx);
-        orderedAccounts.push(...head);
-      }
-    }
-  }
+  const orderedAccounts = selectClaudeProxyAccountOrder({
+    enabledAccounts,
+    accountStrategy,
+    primaryAccountKey,
+    quotaRoutingEnabled,
+    sessionSoftLimit,
+    sessionResetToleranceMs,
+    setRoutingDecision,
+  });
 
   const normalizedAnthropicBody = normalizeClaudeRequestForAnthropic(body);
   const bodyStr = JSON.stringify(normalizedAnthropicBody);
@@ -4910,7 +5154,7 @@ function createClaudeRequestRuntimeContext(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
   clientRequestBody: string;
-}): ClaudeRequestRuntimeContext {
+}): RoutedClaudeRequestRuntimeContext {
   const { ctx, body, clientRequestBody } = args;
   let tracer: ProxyTracer | undefined;
   try {
@@ -4960,6 +5204,16 @@ function createClaudeRequestRuntimeContext(args: {
         ? { traceId: traceCtx.traceId, spanId: traceCtx.spanId }
         : {}),
     });
+  };
+  let routingDecision: ProxyAccountRoutingDecision | undefined;
+  const setRoutingDecision = (decision: ProxyAccountRoutingDecision): void => {
+    if (routingDecision) {
+      logger.debug(
+        `[claude-proxy] ignored duplicate routing decision for request ${ctx.requestId}`,
+      );
+      return;
+    }
+    routingDecision = decision;
   };
   let finalRequestLogged = false;
   const logFinalRequest: ClaudeFinalRequestLogger = (
@@ -5030,6 +5284,7 @@ function createClaudeRequestRuntimeContext(args: {
       ...(traceCtx
         ? { traceId: traceCtx.traceId, spanId: traceCtx.spanId }
         : {}),
+      ...(routingDecision ? { routingDecision } : {}),
     });
   };
   const buildLoggedClaudeError: ClaudeLoggedErrorBuilder = (
@@ -5074,6 +5329,7 @@ function createClaudeRequestRuntimeContext(args: {
     logProxyBody,
     logFinalRequest,
     buildLoggedClaudeError,
+    setRoutingDecision,
   };
 }
 
@@ -5602,6 +5858,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
   buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
   logProxyBody: ProxyBodyCaptureLogger;
   logFinalRequest: ClaudeFinalRequestLogger;
+  setRoutingDecision: (decision: ProxyAccountRoutingDecision) => void;
 }): Promise<unknown> {
   const {
     ctx,
@@ -5618,6 +5875,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     buildLoggedClaudeError,
     logProxyBody,
     logFinalRequest,
+    setRoutingDecision,
   } = args;
   const parsedRequest = parseClaudeRequest(body);
   const loadedAccounts = await loadClaudeProxyAccounts({
@@ -5632,6 +5890,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     sessionSoftLimit,
     sessionResetToleranceMs,
     buildLoggedClaudeError,
+    setRoutingDecision,
   });
   if ("response" in loadedAccounts) {
     return loadedAccounts.response;
@@ -6234,6 +6493,7 @@ export function createClaudeProxyRoutes(
             logProxyBody,
             logFinalRequest,
             buildLoggedClaudeError,
+            setRoutingDecision,
           } = createClaudeRequestRuntimeContext({
             ctx,
             body,
@@ -6284,6 +6544,7 @@ export function createClaudeProxyRoutes(
                 buildLoggedClaudeError,
                 logProxyBody,
                 logFinalRequest,
+                setRoutingDecision,
               });
             } else {
               return handleTranslatedClaudeRequest({
@@ -6802,6 +7063,34 @@ export const __testHooks = {
   getStreamFailureDetails,
   trackUpstreamReadableStream,
   orderAccountsByQuota,
+  buildQuotaRoutingDecision: (
+    accounts: ProxyPassthroughAccount[],
+    now: number,
+    primaryKey: string | undefined,
+    sessionSoftLimit: number = getSessionSoftLimit(),
+    sessionResetToleranceMs: number = getSessionResetToleranceMs(),
+  ): ProxyAccountRoutingDecision => {
+    const order = orderAccountsByQuotaWithMetrics(
+      accounts,
+      now,
+      primaryKey,
+      sessionSoftLimit,
+      sessionResetToleranceMs,
+    );
+    return buildRoutingDecision({
+      accounts,
+      orderedAccounts: order.orderedAccounts,
+      metricsByKey: order.metricsByKey,
+      evaluatedAt: now,
+      strategy: "fill-first",
+      primaryKey,
+      quotaRoutingEnabled: true,
+      quotaOrdered: accounts.length > 1,
+      sessionSoftLimit,
+      sessionResetToleranceMs,
+      rotationOffset: 0,
+    });
+  },
   resetEpochToMs,
   seedRuntimeQuotasFromDisk,
   reconcileEligibleAccountRuntimeState,
