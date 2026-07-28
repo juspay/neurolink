@@ -668,13 +668,16 @@ export type CLISetupResult = {
 /**
  * Main setup command arguments
  */
-export type SetupArgs = {
+export type CliSetupArgs = {
   provider?: string;
   list?: boolean;
   status?: boolean;
   interactive?: boolean;
   help?: boolean;
 };
+
+/** @deprecated Alias for CliSetupArgs */
+export type SetupArgs = CliSetupArgs;
 
 /**
  * Narrowed ProviderInfo used by the main `neurolink setup` command,

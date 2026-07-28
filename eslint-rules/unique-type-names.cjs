@@ -30,7 +30,7 @@ function register(context, node, name) {
   if (!isInsideTypesFolder(filename)) return;
 
   const existing = declarations.get(name);
-  if (existing && existing !== filename) {
+  if (existing) {
     context.report({
       node,
       messageId: "duplicate",
