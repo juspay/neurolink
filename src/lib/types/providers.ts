@@ -1721,7 +1721,7 @@ export type ProviderHealthCheckOptions = {
  */
 export namespace BedrockTypes {
   // Based on AWS SDK Bedrock types
-  export type Client = {
+  export type BedrockClient = {
     send(command: unknown): Promise<unknown>;
     config: {
       region?: string;
@@ -1744,7 +1744,7 @@ export namespace BedrockTypes {
  */
 export namespace MistralTypes {
   // Based on Mistral SDK types
-  export type Client = {
+  export type MistralClient = {
     chat?: {
       complete?: (options: unknown) => Promise<unknown>;
       stream?: (options: unknown) => AsyncIterable<unknown>;
