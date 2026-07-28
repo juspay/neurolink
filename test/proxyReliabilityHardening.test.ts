@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -29,6 +29,10 @@ import {
   resolveProxyPaths,
   resolveProxyUsageStatsPath,
 } from "../src/lib/proxy/proxyPaths.js";
+import {
+  flushRequestLogs,
+  initRequestLogger,
+} from "../src/lib/proxy/requestLogger.js";
 import { createSSEInterceptor } from "../src/lib/proxy/sseInterceptor.js";
 import {
   clearRefreshStateForTests,
@@ -84,6 +88,8 @@ function createRecordingErrorFinalRequestLogger() {
 afterEach(async () => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  await flushRequestLogs().catch(() => undefined);
+  initRequestLogger(false);
   clearRefreshStateForTests();
   await Promise.all(
     tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })),
@@ -141,6 +147,14 @@ describe("weekly-expiry quota routing", () => {
         15 * 60 * 1000,
       )
       .map((item) => item.label);
+  const decision = (labels: string[], now: number) =>
+    __testHooks.buildQuotaRoutingDecision(
+      labels.map(account),
+      now,
+      "anthropic:hello@neurolink.ink",
+      0.97,
+      15 * 60 * 1000,
+    );
 
   it("prioritizes the observed account whose weekly allowance expires first", () => {
     const now = Date.UTC(2026, 6, 17, 12, 52, 0);
@@ -178,6 +192,63 @@ describe("weekly-expiry quota routing", () => {
       "hello@neurolink.ink",
       "sachiny09@gmail.com",
     ]);
+
+    const routingDecision = decision(
+      ["hello@neurolink.ink", "sachiny09@gmail.com", "sachin.sharma@juspay.in"],
+      now,
+    );
+    expect(routingDecision).toMatchObject({
+      schemaVersion: 1,
+      evaluatedAt: "2026-07-17T12:52:00.000Z",
+      strategy: "fill-first",
+      mode: "quota",
+      selectionReason: "weekly_reset",
+      quotaRoutingEnabled: true,
+      quotaInputsUsed: true,
+      sessionSoftLimit: 0.97,
+      sessionResetToleranceMs: 900_000,
+      configuredPrimaryAccount: "anthropic:hello@neurolink.ink",
+      configuredPrimaryMatched: true,
+      rotationOffset: 0,
+      initialAccount: "sachin.sharma@juspay.in",
+      candidates: [
+        expect.objectContaining({
+          account: "sachin.sharma@juspay.in",
+          sourceIndex: 2,
+          rank: 0,
+          configuredPrimary: false,
+          usable: true,
+          saturated: false,
+          quotaObserved: true,
+          quotaLastUpdated: now,
+          quotaAgeMs: 0,
+          coolingActive: false,
+          coolingReason: null,
+          coolingUntil: null,
+          sessionStatus: "allowed",
+          sessionUsed: 0,
+          sessionResetAt: null,
+          sessionResetBucket: null,
+          weeklyStatus: "allowed",
+          weeklyUsed: 0.39,
+          weeklyResetAt: now + 12 * 60 * 60 * 1000,
+        }),
+        expect.objectContaining({
+          account: "hello@neurolink.ink",
+          sourceIndex: 0,
+          rank: 1,
+          configuredPrimary: true,
+        }),
+        expect.objectContaining({
+          account: "sachiny09@gmail.com",
+          sourceIndex: 1,
+          rank: 2,
+        }),
+      ],
+    });
+    expect(
+      Buffer.byteLength(JSON.stringify(routingDecision), "utf8"),
+    ).toBeLessThan(4096);
   });
 
   it("temporarily demotes an urgent weekly account at the session soft limit", () => {
@@ -201,8 +272,127 @@ describe("weekly-expiry quota routing", () => {
       "urgent@example.com",
     ]);
     expect(
+      decision(["urgent@example.com", "later@example.com"], now),
+    ).toMatchObject({
+      initialAccount: "later@example.com",
+      selectionReason: "session_headroom",
+    });
+    expect(
       order(["urgent@example.com", "later@example.com"], now + 31 * 60 * 1000),
     ).toEqual(["urgent@example.com", "later@example.com"]);
+  });
+
+  it("probes an account with no quota snapshot before observed accounts", () => {
+    const now = Date.UTC(2026, 6, 17, 12, 0, 0);
+    setQuota("observed@example.com", now, {
+      weeklyUsed: 0.1,
+      weeklyResetAt: Math.floor(now / 1000) + 60 * 60,
+    });
+
+    expect(
+      decision(["observed@example.com", "unknown@example.com"], now),
+    ).toMatchObject({
+      initialAccount: "unknown@example.com",
+      selectionReason: "quota_probe",
+      candidates: [
+        expect.objectContaining({
+          account: "unknown@example.com",
+          quotaObserved: false,
+          quotaLastUpdated: null,
+          quotaAgeMs: null,
+        }),
+        expect.objectContaining({
+          account: "observed@example.com",
+          quotaObserved: true,
+        }),
+      ],
+    });
+  });
+
+  it("reports the exact comparator factor that selected the first account", () => {
+    const now = Date.UTC(2026, 6, 17, 12, 0, 0);
+    const nowSec = Math.floor(now / 1000);
+    __testHooks.setAccountRuntimeState("anthropic:cooling@example.com", {
+      coolingUntil: now + 60_000,
+      coolingReason: "transient",
+    });
+    expect(
+      decision(["cooling@example.com", "available@example.com"], now),
+    ).toMatchObject({
+      initialAccount: "available@example.com",
+      selectionReason: "availability",
+    });
+
+    __testHooks.setAccountRuntimeState("anthropic:early@example.com", {
+      coolingUntil: now + 30_000,
+      coolingReason: "transient",
+    });
+    __testHooks.setAccountRuntimeState("anthropic:late@example.com", {
+      coolingUntil: now + 90_000,
+      coolingReason: "transient",
+    });
+    expect(
+      decision(["late@example.com", "early@example.com"], now),
+    ).toMatchObject({
+      initialAccount: "early@example.com",
+      selectionReason: "cooldown_recovery",
+    });
+
+    setQuota("high-usage@example.com", now, {
+      sessionUsed: 0.4,
+      sessionResetAt: nowSec + 60 * 60,
+      weeklyUsed: 0.8,
+      weeklyResetAt: nowSec + 24 * 60 * 60,
+    });
+    setQuota("low-usage@example.com", now, {
+      sessionUsed: 0.2,
+      sessionResetAt: nowSec + 60 * 60,
+      weeklyUsed: 0.2,
+      weeklyResetAt: nowSec + 24 * 60 * 60,
+    });
+    expect(
+      decision(["low-usage@example.com", "high-usage@example.com"], now),
+    ).toMatchObject({
+      initialAccount: "high-usage@example.com",
+      selectionReason: "weekly_utilization",
+    });
+
+    expect(
+      decision(["other@example.com", "hello@neurolink.ink"], now),
+    ).toMatchObject({
+      initialAccount: "hello@neurolink.ink",
+      selectionReason: "configured_primary",
+    });
+  });
+
+  it("keeps unknown weekly usage out of evidence without changing its sort sentinel", () => {
+    const now = Date.UTC(2026, 6, 17, 12, 0, 0);
+    const nowSec = Math.floor(now / 1000);
+    setQuota("unknown-usage@example.com", now, {
+      weeklyUsed: undefined,
+      weeklyResetAt: nowSec + 24 * 60 * 60,
+    });
+    setQuota("known-usage@example.com", now, {
+      weeklyUsed: 0.2,
+      weeklyResetAt: nowSec + 24 * 60 * 60,
+    });
+
+    expect(
+      decision(["unknown-usage@example.com", "known-usage@example.com"], now),
+    ).toMatchObject({
+      initialAccount: "known-usage@example.com",
+      selectionReason: "weekly_utilization",
+      candidates: [
+        expect.objectContaining({
+          account: "known-usage@example.com",
+          weeklyUsed: 0.2,
+        }),
+        expect.objectContaining({
+          account: "unknown-usage@example.com",
+          weeklyUsed: null,
+        }),
+      ],
+    });
   });
 
   it("freshens an expired weekly window instead of routing on stale urgency", () => {
@@ -229,6 +419,7 @@ describe("weekly-expiry quota routing", () => {
     tempDirs.push(dir);
     initAccountCooldown(join(dir, "cooldowns.json"));
     initAccountQuota(join(dir, "quotas.json"));
+    initRequestLogger(true, dir);
 
     const accountKeys = [
       "anthropic:first@example.com",
@@ -325,6 +516,68 @@ describe("weekly-expiry quota routing", () => {
       "Bearer old-account-token",
       "Bearer first-account-token",
     ]);
+    await flushRequestLogs();
+    const requestLogName = (await readdir(dir)).find((name) =>
+      /^proxy-\d{4}-\d{2}-\d{2}\.jsonl$/.test(name),
+    );
+    expect(requestLogName).toBeDefined();
+    const requestLogText = await readFile(join(dir, requestLogName!), "utf8");
+    const requestLogs = requestLogText
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    expect(requestLogText).not.toContain("old-account-token");
+    expect(requestLogs).toHaveLength(2);
+    expect(requestLogs[0]).toMatchObject({
+      requestId: "configured-primary",
+      account: "old@example.com",
+      routingDecision: {
+        schemaVersion: 1,
+        strategy: "fill-first",
+        mode: "single_account",
+        selectionReason: "single_account",
+        quotaRoutingEnabled: false,
+        quotaInputsUsed: false,
+        configuredPrimaryAccount: "anthropic:old@example.com",
+        configuredPrimaryMatched: true,
+        rotationOffset: 0,
+        initialAccount: "old@example.com",
+        candidates: [
+          expect.objectContaining({
+            account: "old@example.com",
+            quotaObserved: false,
+            sessionStatus: null,
+            weeklyStatus: null,
+          }),
+        ],
+      },
+    });
+    expect(requestLogs[1]).toMatchObject({
+      requestId: "cleared-primary",
+      account: "first@example.com",
+      routingDecision: {
+        schemaVersion: 1,
+        strategy: "fill-first",
+        mode: "primary",
+        selectionReason: "insertion_order",
+        configuredPrimaryAccount: null,
+        configuredPrimaryMatched: false,
+        rotationOffset: 0,
+        initialAccount: "first@example.com",
+        candidates: [
+          expect.objectContaining({
+            account: "first@example.com",
+            sourceIndex: 0,
+            rank: 0,
+          }),
+          expect.objectContaining({
+            account: "old@example.com",
+            sourceIndex: 1,
+            rank: 1,
+          }),
+        ],
+      },
+    });
   });
 });
 

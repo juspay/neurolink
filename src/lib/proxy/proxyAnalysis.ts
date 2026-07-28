@@ -9,9 +9,19 @@ import type {
   ProxyAnalysisFinalRequestRecord,
   ProxyAnalysisOptions,
   ProxyAnalysisReport,
+  ProxyAnalysisRoutingRecord,
   ProxyAnalysisStreamName,
+  ProxyAccountRoutingCandidate,
+  ProxyAccountRoutingDecision,
   ProxyLatencySummary,
 } from "../types/index.js";
+import {
+  ACCOUNT_COOLING_REASONS,
+  PROXY_ACCOUNT_TYPES,
+  PROXY_ACCOUNT_ROUTING_MODES,
+  PROXY_ACCOUNT_ROUTING_REASONS,
+  PROXY_ACCOUNT_ROUTING_STRATEGIES,
+} from "./routingEvidence.js";
 
 const LIFECYCLE_FILE_PATTERN = /^proxy-lifecycle-\d{4}-\d{2}-\d{2}\.jsonl$/;
 const REQUEST_FILE_PATTERN = /^proxy-\d{4}-\d{2}-\d{2}\.jsonl$/;
@@ -24,6 +34,11 @@ const LIFECYCLE_EVENTS = new Set([
   "response_first_chunk",
   "request_terminal",
 ]);
+const ROUTING_STRATEGIES = new Set<string>(PROXY_ACCOUNT_ROUTING_STRATEGIES);
+const ROUTING_MODES = new Set<string>(PROXY_ACCOUNT_ROUTING_MODES);
+const ROUTING_REASONS = new Set<string>(PROXY_ACCOUNT_ROUTING_REASONS);
+const ROUTING_ACCOUNT_TYPES = new Set<string>(PROXY_ACCOUNT_TYPES);
+const COOLING_REASONS = new Set<string>(ACCOUNT_COOLING_REASONS);
 
 function isContainedPath(root: string, candidate: string): boolean {
   const candidateRelative = relative(root, candidate);
@@ -63,6 +78,155 @@ function finiteNumber(value: unknown): number | null {
 
 function stringValue(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || (typeof value === "string" && value.length > 0);
+}
+
+function isNullableFiniteNumber(value: unknown): value is number | null {
+  return value === null || finiteNumber(value) !== null;
+}
+
+function routingCandidateValue(
+  value: unknown,
+): ProxyAccountRoutingCandidate | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const candidate = value as Record<string, unknown>;
+  const requiredBooleanFields = [
+    "configuredPrimary",
+    "usable",
+    "saturated",
+    "quotaObserved",
+    "coolingActive",
+  ];
+  const requiredNullableNumberFields = [
+    "quotaLastUpdated",
+    "quotaAgeMs",
+    "coolingUntil",
+    "sessionUsed",
+    "sessionResetAt",
+    "sessionResetBucket",
+    "weeklyUsed",
+    "weeklyResetAt",
+  ];
+  const requiredNullableStringFields = [
+    "unifiedStatus",
+    "overageStatus",
+    "sessionStatus",
+    "weeklyStatus",
+  ];
+  if (
+    !stringValue(candidate.account) ||
+    typeof candidate.accountType !== "string" ||
+    !ROUTING_ACCOUNT_TYPES.has(candidate.accountType) ||
+    !Number.isInteger(candidate.sourceIndex) ||
+    (candidate.sourceIndex as number) < 0 ||
+    !Number.isInteger(candidate.rank) ||
+    (candidate.rank as number) < 0 ||
+    requiredBooleanFields.some(
+      (field) => typeof candidate[field] !== "boolean",
+    ) ||
+    requiredNullableNumberFields.some(
+      (field) => !isNullableFiniteNumber(candidate[field]),
+    ) ||
+    requiredNullableStringFields.some(
+      (field) => !isNullableString(candidate[field]),
+    ) ||
+    !(
+      candidate.coolingReason === null ||
+      (typeof candidate.coolingReason === "string" &&
+        COOLING_REASONS.has(candidate.coolingReason))
+    )
+  ) {
+    return null;
+  }
+  return {
+    account: candidate.account as string,
+    accountType:
+      candidate.accountType as ProxyAccountRoutingCandidate["accountType"],
+    sourceIndex: candidate.sourceIndex as number,
+    rank: candidate.rank as number,
+    configuredPrimary: candidate.configuredPrimary as boolean,
+    usable: candidate.usable as boolean,
+    saturated: candidate.saturated as boolean,
+    quotaObserved: candidate.quotaObserved as boolean,
+    quotaLastUpdated: candidate.quotaLastUpdated as number | null,
+    quotaAgeMs: candidate.quotaAgeMs as number | null,
+    coolingActive: candidate.coolingActive as boolean,
+    coolingReason:
+      candidate.coolingReason as ProxyAccountRoutingCandidate["coolingReason"],
+    coolingUntil: candidate.coolingUntil as number | null,
+    unifiedStatus: candidate.unifiedStatus as string | null,
+    overageStatus: candidate.overageStatus as string | null,
+    sessionStatus: candidate.sessionStatus as string | null,
+    sessionUsed: candidate.sessionUsed as number | null,
+    sessionResetAt: candidate.sessionResetAt as number | null,
+    sessionResetBucket: candidate.sessionResetBucket as number | null,
+    weeklyStatus: candidate.weeklyStatus as string | null,
+    weeklyUsed: candidate.weeklyUsed as number | null,
+    weeklyResetAt: candidate.weeklyResetAt as number | null,
+  };
+}
+
+function routingDecisionValue(
+  value: unknown,
+): ProxyAccountRoutingDecision | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const decision = value as Record<string, unknown>;
+  const candidates = Array.isArray(decision.candidates)
+    ? decision.candidates.map(routingCandidateValue)
+    : [];
+  if (
+    decision.schemaVersion !== 1 ||
+    !stringValue(decision.evaluatedAt) ||
+    !Number.isFinite(Date.parse(String(decision.evaluatedAt))) ||
+    typeof decision.strategy !== "string" ||
+    !ROUTING_STRATEGIES.has(decision.strategy) ||
+    typeof decision.mode !== "string" ||
+    !ROUTING_MODES.has(decision.mode) ||
+    typeof decision.selectionReason !== "string" ||
+    !ROUTING_REASONS.has(decision.selectionReason) ||
+    typeof decision.quotaRoutingEnabled !== "boolean" ||
+    typeof decision.quotaInputsUsed !== "boolean" ||
+    finiteNumber(decision.sessionSoftLimit) === null ||
+    (decision.sessionSoftLimit as number) <= 0 ||
+    (decision.sessionSoftLimit as number) > 1 ||
+    !Number.isInteger(decision.sessionResetToleranceMs) ||
+    (decision.sessionResetToleranceMs as number) <= 0 ||
+    !isNullableString(decision.configuredPrimaryAccount) ||
+    typeof decision.configuredPrimaryMatched !== "boolean" ||
+    !Number.isInteger(decision.rotationOffset) ||
+    (decision.rotationOffset as number) < 0 ||
+    !stringValue(decision.initialAccount) ||
+    candidates.length === 0 ||
+    candidates.some((candidate) => candidate === null)
+  ) {
+    return null;
+  }
+  return {
+    schemaVersion: 1,
+    evaluatedAt: decision.evaluatedAt as string,
+    strategy: decision.strategy as ProxyAccountRoutingDecision["strategy"],
+    mode: decision.mode as ProxyAccountRoutingDecision["mode"],
+    selectionReason:
+      decision.selectionReason as ProxyAccountRoutingDecision["selectionReason"],
+    quotaRoutingEnabled: decision.quotaRoutingEnabled as boolean,
+    quotaInputsUsed: decision.quotaInputsUsed as boolean,
+    sessionSoftLimit: decision.sessionSoftLimit as number,
+    sessionResetToleranceMs: decision.sessionResetToleranceMs as number,
+    configuredPrimaryAccount: decision.configuredPrimaryAccount as
+      | string
+      | null,
+    configuredPrimaryMatched: decision.configuredPrimaryMatched as boolean,
+    rotationOffset: decision.rotationOffset as number,
+    initialAccount: decision.initialAccount as string,
+    candidates: candidates as ProxyAccountRoutingCandidate[],
+  };
 }
 
 function percentile(sorted: number[], fraction: number): number | null {
@@ -256,6 +420,54 @@ function summarizeFinalRequests(
     },
     finalRequestLatency,
     singleAttemptDelta,
+  };
+}
+
+function summarizeRouting(
+  finalRequests: Map<string, ProxyAnalysisFinalRequestRecord>,
+): ProxyAnalysisReport["routing"] {
+  const modes: Record<string, number> = {};
+  const selectionReasons: Record<string, number> = {};
+  const initialAccounts: Record<string, number> = {};
+  const records: ProxyAnalysisRoutingRecord[] = [];
+  let finalAccountChanges = 0;
+  let finalOutsideCandidateSet = 0;
+
+  for (const [requestId, request] of finalRequests) {
+    const decision = request.routingDecision;
+    if (!decision) {
+      continue;
+    }
+    increment(modes, decision.mode);
+    increment(selectionReasons, decision.selectionReason);
+    increment(initialAccounts, decision.initialAccount);
+    const finalCandidate = decision.candidates.some(
+      (candidate) =>
+        candidate.account === request.account &&
+        candidate.accountType === request.accountType,
+    );
+    if (!finalCandidate) {
+      finalOutsideCandidateSet += 1;
+    } else if (decision.initialAccount !== request.account) {
+      finalAccountChanges += 1;
+    }
+    records.push({
+      requestId,
+      timestamp: request.timestamp,
+      responseStatus: request.status,
+      finalAccount: request.account,
+      finalAccountType: request.accountType,
+      decision,
+    });
+  }
+
+  return {
+    modes,
+    selectionReasons,
+    initialAccounts,
+    finalAccountChanges,
+    finalOutsideCandidateSet,
+    records,
   };
 }
 
@@ -489,6 +701,9 @@ export async function analyzeProxyLogs(
 
   const finalRequests = new Map<string, ProxyAnalysisFinalRequestRecord>();
   const terminalStreamErrors = new Set<string>();
+  let validRoutingDecisions = 0;
+  let invalidRoutingDecisions = 0;
+  let absentRoutingDecisions = 0;
   for (const filePath of requestFiles) {
     linesRead += await readJsonLines(
       filePath,
@@ -509,7 +724,22 @@ export async function analyzeProxyLogs(
         if (status === null || !stringValue(record.method)) {
           return;
         }
+        const hasRoutingDecision = Object.prototype.hasOwnProperty.call(
+          record,
+          "routingDecision",
+        );
+        const routingDecision = hasRoutingDecision
+          ? routingDecisionValue(record.routingDecision)
+          : null;
+        if (routingDecision) {
+          validRoutingDecisions += 1;
+        } else if (hasRoutingDecision) {
+          invalidRoutingDecisions += 1;
+        } else {
+          absentRoutingDecisions += 1;
+        }
         finalRequests.set(requestId, {
+          timestamp: new Date(timestamp).toISOString(),
           status,
           durationMs: finiteNumber(record.responseTimeMs),
           account: stringValue(record.account) ?? "unknown",
@@ -519,6 +749,7 @@ export async function analyzeProxyLogs(
           cacheCreationTokens: finiteNumber(record.cacheCreationTokens),
           errorType: stringValue(record.errorType),
           errorCode: stringValue(record.errorCode),
+          routingDecision,
         });
       },
       () => {
@@ -608,6 +839,7 @@ export async function analyzeProxyLogs(
     attemptsByRequest,
     accounts,
   );
+  const routingSummary = summarizeRouting(finalRequests);
 
   return {
     generatedAt: new Date(nowMs).toISOString(),
@@ -626,6 +858,7 @@ export async function analyzeProxyLogs(
       attempts: totalAttempts > 0,
       attemptLatency: attemptLatency.length > 0,
       cacheUsage: finalSummary.cache.requestsWithUsage > 0,
+      routingDecisions: routingSummary.records.length > 0,
     },
     dataQuality: {
       linesRead,
@@ -654,6 +887,11 @@ export async function analyzeProxyLogs(
         invalidPaths,
         writeFailures,
         truncatedCaptures,
+      },
+      routingDecisions: {
+        valid: validRoutingDecisions,
+        invalid: invalidRoutingDecisions,
+        absent: absentRoutingDecisions,
       },
     },
     lifecycle: {
@@ -689,6 +927,7 @@ export async function analyzeProxyLogs(
       singleAttemptDelta: summarizeLatency(finalSummary.singleAttemptDelta),
     },
     cache: finalSummary.cache,
+    routing: routingSummary,
     accounts: [...accounts.values()].sort(
       (left, right) => right.attempts - left.attempts,
     ),

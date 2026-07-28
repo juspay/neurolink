@@ -6,16 +6,11 @@ import type {
   PersistedAccountCooldown,
 } from "../types/index.js";
 import { AsyncMutex } from "../utils/asyncMutex.js";
+import { ACCOUNT_COOLING_REASONS } from "./routingEvidence.js";
 import { writeJsonSnapshotAtomically } from "./snapshotPersistence.js";
 
 const COOLDOWN_FILE = "account-cooldowns.json";
-const VALID_REASONS = new Set<AccountCoolingReason>([
-  "weekly",
-  "session",
-  "unified",
-  "transient",
-  "auth",
-]);
+const VALID_REASONS = new Set<AccountCoolingReason>(ACCOUNT_COOLING_REASONS);
 
 let customCooldownFilePath: string | null = null;
 let cacheLoaded = false;
