@@ -58,7 +58,10 @@ import {
   applyAnthropicHistoryCacheBreakpoints,
   countAnthropicCacheMarkers,
 } from "../utils/anthropicCacheBreakpoints.js";
-import type { VertexAnthropicMessage } from "../types/index.js";
+import type {
+  SageMakerAsLanguageModel,
+  VertexAnthropicMessage,
+} from "../types/index.js";
 import { calculateCost } from "../utils/pricing.js";
 import { resolveDeferredTool } from "../tools/toolDiscovery.js";
 import {
@@ -810,7 +813,7 @@ export class AnthropicProvider extends BaseProvider {
       client = new Anthropic({
         apiKey: "oauth-authenticated", // Placeholder, actual auth is in fetch wrapper
         // Note: No headers passed - fetch wrapper sets oauth-2025-04-20 beta header
-        fetch: oauthFetch as unknown as typeof globalThis.fetch,
+        fetch: oauthFetch,
         timeout: ANTHROPIC_CLIENT_TIMEOUT_MS,
       });
       logger.debug(
@@ -864,7 +867,7 @@ export class AnthropicProvider extends BaseProvider {
         apiKey: apiKeyToUse,
         defaultHeaders: headers,
         ...(normalizedBaseURL && { baseURL: normalizedBaseURL }),
-        fetch: createProxyFetch() as unknown as typeof globalThis.fetch,
+        fetch: createProxyFetch(),
         timeout: ANTHROPIC_CLIENT_TIMEOUT_MS,
       });
 
@@ -1366,7 +1369,11 @@ export class AnthropicProvider extends BaseProvider {
     ): number => this.getTimeout((opts ?? {}) as never);
     const refreshAuth = () => this.refreshAuthIfNeeded();
 
-    return {
+    // Structural AI-SDK model shape (`SageMakerAsLanguageModel`, the
+    // sanctioned intermediate from src/lib/types/providers.ts): assigning the
+    // literal to it keeps the compiler's member checks, and the intermediate
+    // is single-assertable to the ai-package `LanguageModel` handle.
+    const delegatingModel: SageMakerAsLanguageModel = {
       specificationVersion: "v3",
       provider: providerName,
       modelId,
@@ -1464,12 +1471,12 @@ export class AnthropicProvider extends BaseProvider {
         const cacheMarkersUsed = countAnthropicCacheMarkers({
           system,
           tools,
-          messages: messages as unknown as VertexAnthropicMessage[],
+          messages: messages as VertexAnthropicMessage[],
         });
         const cachedMessages = applyAnthropicHistoryCacheBreakpoints(
-          messages as unknown as VertexAnthropicMessage[],
+          messages as VertexAnthropicMessage[],
           ANTHROPIC_MAX_CACHE_BREAKPOINTS - cacheMarkersUsed,
-        ) as unknown as Anthropic.Messages.MessageParam[];
+        ) as Anthropic.Messages.MessageParam[];
 
         // Registry-driven strip: Sonnet 5 / Opus 4.7+ / Fable 5 families
         // reject sampling params (also covers the retry paths — this params
@@ -1605,7 +1612,8 @@ export class AnthropicProvider extends BaseProvider {
           `${providerName}: doStream is not implemented on the delegating model — the streaming path uses executeStream directly.`,
         );
       },
-    } as unknown as LanguageModel;
+    };
+    return delegatingModel as LanguageModel;
   }
 
   protected formatProviderError(error: unknown): Error {
@@ -1856,12 +1864,12 @@ export class AnthropicProvider extends BaseProvider {
         const cacheMarkersUsed = countAnthropicCacheMarkers({
           system: payload.system,
           tools: anthropicTools,
-          messages: conversation as unknown as VertexAnthropicMessage[],
+          messages: conversation as VertexAnthropicMessage[],
         });
         const cachedConversation = applyAnthropicHistoryCacheBreakpoints(
-          conversation as unknown as VertexAnthropicMessage[],
+          conversation as VertexAnthropicMessage[],
           ANTHROPIC_MAX_CACHE_BREAKPOINTS - cacheMarkersUsed,
-        ) as unknown as Anthropic.Messages.MessageParam[];
+        ) as Anthropic.Messages.MessageParam[];
         // Registry-driven strip (Sonnet 5 / Opus 4.7+ / Fable 5 families)
         const streamSamplingParams = resolveSamplingParams(
           "anthropic",

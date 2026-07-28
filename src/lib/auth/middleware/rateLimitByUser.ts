@@ -114,7 +114,7 @@ export class RedisRateLimitStorage implements RateLimitStorage {
       const { createClient } = await import("redis");
       const client = createClient({ url: this.redisUrl });
       await client.connect();
-      this.client = client as unknown as AuthRateLimitRedisClient;
+      this.client = client as typeof client & AuthRateLimitRedisClient;
       return this.client;
     } catch {
       this.initPromise = null;

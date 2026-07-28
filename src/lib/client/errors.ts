@@ -224,7 +224,7 @@ export class ClientValidationError extends HttpError {
       details: {
         ...options?.details,
         ...(options?.fieldErrors && {
-          fieldErrors: options.fieldErrors as unknown as JsonObject,
+          fieldErrors: options.fieldErrors,
         }),
       },
       requestId: options?.requestId,

@@ -61,6 +61,7 @@ import type {
   RuntimeRequestMetadata,
   StatusStats,
 } from "../../lib/types/index.js";
+import type { NeuroLink } from "../../lib/neurolink.js";
 import { configureProxyKeepAliveDispatcher } from "../../lib/proxy/proxyDispatcher.js";
 import { ProxyRuntimeConfigStore } from "../../lib/proxy/runtimeConfig.js";
 import {
@@ -1859,11 +1860,13 @@ export async function createProxyStartApp(params: {
         params: c.req.param() as Record<string, string>,
         body,
         rawBody,
-        neurolink: params.neurolink,
+        // The proxy runtime exposes only the structural slice of NeuroLink the
+        // routes use; narrow (overlap-checked) to the full class for ServerContext.
+        neurolink: params.neurolink as NeuroLink,
         toolRegistry: params.neurolink.getToolRegistry(),
         timestamp: Date.now(),
         metadata: {},
-      } as unknown as Parameters<typeof route.handler>[0];
+      };
 
       const result = await route.handler(ctx);
       if (result instanceof Response) {

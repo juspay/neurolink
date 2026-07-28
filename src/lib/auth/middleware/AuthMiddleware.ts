@@ -568,8 +568,7 @@ export async function createProtectedMiddleware(config: {
     // so that role/permission checks are not silently bypassed. Pass a
     // context without a user — the RBAC middleware already handles the
     // missing-user case and returns a 401.
-    const rbacContext =
-      authResult.context ?? (context as unknown as AuthenticatedContext);
+    const rbacContext = authResult.context ?? (context as AuthenticatedContext);
 
     // Run RBAC middleware
     return rbacMiddleware(rbacContext);

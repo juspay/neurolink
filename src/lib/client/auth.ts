@@ -150,15 +150,12 @@ export class OAuth2TokenManager {
       );
     }
 
-    const data = (await response.json()) as ClientTokenRefreshResult;
-    this.token =
-      data.accessToken ||
-      (data as unknown as { access_token?: string }).access_token ||
-      "";
-    const expiresIn =
-      data.expiresIn ||
-      (data as unknown as { expires_in?: number }).expires_in ||
-      3600;
+    const data = (await response.json()) as ClientTokenRefreshResult & {
+      access_token?: string;
+      expires_in?: number;
+    };
+    this.token = data.accessToken || data.access_token || "";
+    const expiresIn = data.expiresIn ?? data.expires_in ?? 3600;
     this.tokenExpiry = Date.now() + expiresIn * 1000;
 
     if (!this.token) {

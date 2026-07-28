@@ -920,10 +920,7 @@ export class ServerCommandFactory {
 
       // Handle --get
       if (argv.get) {
-        const value = getNestedValue(
-          config as unknown as Record<string, unknown>,
-          argv.get,
-        );
+        const value = getNestedValue(config, argv.get);
         if (value === undefined) {
           logger.error(chalk.red(`Unknown config key: ${argv.get}`));
           process.exit(1);
@@ -945,11 +942,7 @@ export class ServerCommandFactory {
           process.exit(1);
         }
 
-        setNestedValue(
-          config as unknown as Record<string, unknown>,
-          key,
-          parseConfigValue(value),
-        );
+        setNestedValue(config, key, parseConfigValue(value));
         saveServerConfig(config);
         logger.always(chalk.green(`Set ${key} = ${value}`));
         return;

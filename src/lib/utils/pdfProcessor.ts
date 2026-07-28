@@ -320,9 +320,9 @@ export class PDFProcessor {
           clearTimeout(timeoutHandle);
         }
         try {
-          await (
-            pdf as unknown as { destroy?: () => Promise<void> | void }
-          ).destroy?.();
+          // Optional call: guards against a runtime pdf-parse version whose
+          // instances lack destroy(), while the typed v2 class declares it.
+          await pdf.destroy?.();
         } catch {
           // A throwing destroy() must not discard an otherwise-valid page
           // count returned above (matches fileReferenceRegistry.ts's

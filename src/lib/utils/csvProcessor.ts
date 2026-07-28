@@ -1443,9 +1443,7 @@ export class CSVProcessor {
           // explicitly for such files.
           rawSource.pause();
           rawSource.unshift(head);
-          const decodeStream = iconv.decodeStream(
-            encoding,
-          ) as unknown as Transform;
+          const decodeStream = iconv.decodeStream(encoding) as Transform;
           rawSource.on("error", (e) => decodeStream.destroy(e));
           resolve({
             source: rawSource.pipe(decodeStream),

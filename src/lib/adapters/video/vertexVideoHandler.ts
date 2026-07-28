@@ -196,7 +196,9 @@ async function getAccessToken(): Promise<string> {
     // google-auth-library is a transitive dependency from @google-cloud/vertexai
     // Using dynamic import with type assertion for runtime resolution
     const googleAuthLib = (await import(
-      "google-auth-library" as unknown as string
+      // Widening the literal to `string` skips compile-time module resolution
+      // (the package is an untyped transitive dependency).
+      "google-auth-library" as string
     )) as {
       GoogleAuth: new (options: {
         keyFilename?: string;

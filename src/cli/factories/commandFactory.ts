@@ -1767,7 +1767,7 @@ export class CLICommandFactory {
       return false;
     }
 
-    const tokensObj = tokens as unknown as Record<string, unknown>;
+    const tokensObj = tokens as Record<string, unknown>;
 
     // Check primary format: analytics.tokens {input, output, total}
     if (
@@ -1796,7 +1796,7 @@ export class CLICommandFactory {
       return null;
     }
 
-    const tokensObj = tokens as unknown as Record<string, unknown>;
+    const tokensObj = tokens as Record<string, unknown>;
 
     // Primary format: analytics.tokens {input, output, total}
     if (
@@ -1866,10 +1866,11 @@ export class CLICommandFactory {
     }
 
     // Response time with fallback handling for requestDuration vs responseTime
+    const analyticsRecord: Record<string, unknown> = analytics;
     const duration =
       analytics.requestDuration ||
-      (analytics as unknown as Record<string, unknown>).responseTime ||
-      (analytics as unknown as Record<string, unknown>).duration;
+      analyticsRecord.responseTime ||
+      analyticsRecord.duration;
     if (duration && typeof duration === "number") {
       const timeInSeconds = (duration / 1000).toFixed(1);
       analyticsText += `   Time: ${timeInSeconds}s\n`;
@@ -3278,7 +3279,7 @@ export class CLICommandFactory {
 
     if (options.context && options.contextConfig) {
       const processedContextResult = ContextFactory.processContext(
-        options.context as unknown as BaseContext,
+        options.context as BaseContext,
         options.contextConfig,
       );
 
@@ -3289,7 +3290,7 @@ export class CLICommandFactory {
 
       contextMetadata = {
         ...ContextFactory.extractAnalyticsContext(
-          options.context as unknown as BaseContext,
+          options.context as BaseContext,
         ),
         contextMode: processedContextResult.config.mode,
         contextTruncated: processedContextResult.metadata.truncated,
@@ -4487,16 +4488,15 @@ export class CLICommandFactory {
       const resolvedAnalytics = await (stream.analytics instanceof Promise
         ? stream.analytics
         : Promise.resolve(stream.analytics));
-      const streamAnalytics = {
+      const streamAnalytics: CliGenerateResult = {
         success: true,
         content: fullContent,
-        analytics: resolvedAnalytics,
+        analytics: resolvedAnalytics as AnalyticsData,
         model: stream.model,
         toolsUsed: stream.toolCalls?.map((tc) => tc.toolName) || [],
       };
-      const analyticsDisplay = CLICommandFactory.formatAnalyticsForTextMode(
-        streamAnalytics as unknown as CliGenerateResult,
-      );
+      const analyticsDisplay =
+        CLICommandFactory.formatAnalyticsForTextMode(streamAnalytics);
       logger.always(analyticsDisplay);
     }
 
@@ -4712,8 +4712,8 @@ export class CLICommandFactory {
       // (the common auto-detect flag) isn't registered on batch at all —
       // see createBatchCommand — so `argv.file` can never be set here; no
       // exclusion needed to protect the (differently-named) positional.
-      validateCliInputFiles(argv as unknown as Record<string, unknown>);
-      validateCsvMaxRows(argv as unknown as Record<string, unknown>);
+      validateCliInputFiles(argv);
+      validateCsvMaxRows(argv);
       const batchImages = CLICommandFactory.processCliImages(
         argv.image as string | string[] | undefined,
       );

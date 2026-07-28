@@ -1081,10 +1081,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
           Object.defineProperty(result, "toolExecutions", {
             enumerable: true,
             configurable: true,
-            get: () =>
-              transformToolExecutions(
-                toolExecutions,
-              ) as unknown as StreamResult["toolExecutions"],
+            get: () => transformToolExecutions(toolExecutions),
           });
           return result;
         } finally {
@@ -1797,13 +1794,9 @@ export class GoogleAIStudioProvider extends BaseProvider {
             if (queue.length > 0) {
               const item = queue.shift();
               if (!item) {
-                return {
-                  value: undefined as unknown as {
-                    type: "audio";
-                    audio: AudioChunk;
-                  },
-                  done: true,
-                };
+                // `done: true` selects the IteratorReturnResult arm, whose
+                // value type accepts undefined.
+                return { value: undefined, done: true };
               }
               if (item.type === "audio") {
                 return {
@@ -1813,13 +1806,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
               }
               if (item.type === "end") {
                 done = true;
-                return {
-                  value: undefined as unknown as {
-                    type: "audio";
-                    audio: AudioChunk;
-                  },
-                  done: true,
-                };
+                return { value: undefined, done: true };
               }
               if (item.type === "error") {
                 done = true;
@@ -1829,13 +1816,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
               }
             }
             if (done) {
-              return {
-                value: undefined as unknown as {
-                  type: "audio";
-                  audio: AudioChunk;
-                },
-                done: true,
-              };
+              return { value: undefined, done: true };
             }
             return await new Promise<
               IteratorResult<{ type: "audio"; audio: AudioChunk }>

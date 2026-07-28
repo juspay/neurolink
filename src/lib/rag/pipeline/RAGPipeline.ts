@@ -470,21 +470,14 @@ export class RAGPipeline {
       throw new Error("Embedding provider not initialized");
     }
 
-    if (
-      typeof (this.embeddingProvider as unknown as { embed?: unknown })
-        .embed !== "function"
-    ) {
+    if (typeof this.embeddingProvider.embed !== "function") {
       throw new Error(
         `Provider ${this.config.embeddingModel.provider} does not support embeddings`,
       );
     }
 
     return await withTimeout(
-      (
-        this.embeddingProvider as unknown as {
-          embed: (s: string) => Promise<number[]>;
-        }
-      ).embed(text),
+      this.embeddingProvider.embed(text),
       DEFAULT_TIMEOUT_MS,
       "Embedding generation timed out",
     );

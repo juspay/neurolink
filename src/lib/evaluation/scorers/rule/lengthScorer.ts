@@ -344,8 +344,7 @@ export class LengthScorer extends BaseRuleScorer {
       ...result,
       metadata: {
         ...result.metadata,
-        lengthMeasurement:
-          measurement as unknown as import("../../../types/index.js").JsonObject,
+        lengthMeasurement: measurement,
         configuredUnit: unit,
         configuredConstraint: this._lengthConfig.constraintType ?? "range",
         actualLength: this._getLengthInUnit(input.response, unit),

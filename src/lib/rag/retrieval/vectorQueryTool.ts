@@ -105,20 +105,13 @@ export function createVectorQueryTool(
             );
 
             // Check if provider has embed method
-            if (
-              typeof (embeddingProvider as unknown as { embed?: unknown })
-                .embed !== "function"
-            ) {
+            if (typeof embeddingProvider.embed !== "function") {
               throw new Error(
                 `Provider ${embeddingModel.provider} does not support embeddings`,
               );
             }
 
-            const queryEmbedding = await (
-              embeddingProvider as unknown as {
-                embed: (s: string) => Promise<number[]>;
-              }
-            ).embed(params.query);
+            const queryEmbedding = await embeddingProvider.embed(params.query);
 
             // Query the vector store
             let results = await store.query({

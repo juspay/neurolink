@@ -372,8 +372,12 @@ export function validateTool(name: string, tool: SdkSimpleTool): void {
       );
     }
 
-    // Check for common schema validation methods (Zod uses 'parse', others might use 'validate')
-    const params = tool.parameters as unknown as Record<string, unknown>;
+    // Check for common schema validation methods (Zod uses 'parse', others might use 'validate').
+    // Despite the declared Zod type, callers may pass custom schema objects at
+    // runtime — this function's whole purpose is to validate that; probe as
+    // `unknown` and narrow to a generic record for feature detection.
+    const paramsCandidate: unknown = tool.parameters;
+    const params = paramsCandidate as Record<string, unknown>;
     const hasValidationMethod =
       typeof params.parse === "function" ||
       typeof params.validate === "function" ||

@@ -272,21 +272,14 @@ export class MDocument {
       modelName,
     );
 
-    if (
-      typeof (embeddingProvider as unknown as { embed?: unknown }).embed !==
-      "function"
-    ) {
+    if (typeof embeddingProvider.embed !== "function") {
       throw new Error(`Provider ${provider} does not support embeddings`);
     }
 
     this.state.embeddings = [];
 
     for (const chunk of this.state.chunks) {
-      const embedding = await (
-        embeddingProvider as unknown as {
-          embed: (s: string) => Promise<number[]>;
-        }
-      ).embed(chunk.text);
+      const embedding = await embeddingProvider.embed(chunk.text);
       this.state.embeddings.push(embedding);
       chunk.embedding = embedding;
     }

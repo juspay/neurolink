@@ -123,7 +123,7 @@ export class Auth0Provider extends BaseAuthProvider {
         audience: this.audience,
       });
 
-      const auth0Payload = payload as unknown as Auth0TokenPayload;
+      const auth0Payload = payload as Auth0TokenPayload;
 
       // Validate audience / authorized party against clientId
       if (this.audience) {
@@ -183,7 +183,7 @@ export class Auth0Provider extends BaseAuthProvider {
 
       return {
         valid: true,
-        payload: payload as unknown as Record<string, unknown>,
+        payload,
         user,
         expiresAt: new Date(auth0Payload.exp * 1000),
         tokenType: "jwt",

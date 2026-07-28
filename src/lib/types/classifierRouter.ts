@@ -14,6 +14,8 @@
  * `src/lib/types/` (see CLAUDE.md rule 9).
  */
 
+import type { ValidationSchema } from "./aliases.js";
+
 /** Coarse difficulty buckets the classifier maps a request into. */
 export type ClassifierDifficulty =
   | "trivial"
@@ -183,7 +185,7 @@ export type ClassifierGenerateOptions = {
   temperature?: number;
   maxTokens?: number;
   disableTools?: boolean;
-  schema?: unknown;
+  schema?: ValidationSchema;
   timeout?: number | string;
   context?: Record<string, unknown>;
 };

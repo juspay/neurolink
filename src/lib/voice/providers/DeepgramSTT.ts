@@ -469,7 +469,7 @@ export class DeepgramSTT implements STTHandler {
       error = err;
       if (resolveNext) {
         resolveNext({
-          value: undefined as unknown as TranscriptionSegment,
+          value: undefined,
           done: true,
         });
         resolveNext = null;
@@ -479,7 +479,7 @@ export class DeepgramSTT implements STTHandler {
       done = true;
       if (resolveNext) {
         resolveNext({
-          value: undefined as unknown as TranscriptionSegment,
+          value: undefined,
           done: true,
         });
         resolveNext = null;
@@ -538,7 +538,7 @@ export class DeepgramSTT implements STTHandler {
         error = sendError as Error;
         if (resolveNext) {
           resolveNext({
-            value: undefined as unknown as TranscriptionSegment,
+            value: undefined,
             done: true,
           });
           resolveNext = null;

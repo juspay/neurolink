@@ -70,7 +70,7 @@ export class KeycloakProvider extends BaseAuthProvider {
       );
     }
 
-    this.keycloakConfig = config as unknown as KeycloakConfig;
+    this.keycloakConfig = config as KeycloakConfig;
 
     if (!this.keycloakConfig.serverUrl) {
       throw AuthError.create(

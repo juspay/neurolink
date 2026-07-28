@@ -7,6 +7,7 @@ import type {
   JsonValue,
   StreamingCapability,
 } from "./common.js";
+import type { NeuroLink } from "../neurolink.js";
 import {
   AIProviderName,
   AnthropicModels,
@@ -1947,7 +1948,7 @@ export type ProviderConstructor =
       new (
         modelName?: string,
         providerName?: string,
-        sdk?: UnknownRecord,
+        sdk?: NeuroLink,
         region?: string,
         credentials?: UnknownRecord,
       ): AIProvider;
@@ -1955,7 +1956,7 @@ export type ProviderConstructor =
   | ((
       modelName?: string,
       providerName?: string,
-      sdk?: UnknownRecord,
+      sdk?: NeuroLink,
       region?: string,
       credentials?: UnknownRecord,
     ) => Promise<AIProvider>);
@@ -2090,6 +2091,19 @@ export type GoogleLiveAudioQueueItem =
 export type VertexNativePart =
   | { text: string }
   | { inlineData: { mimeType: string; data: string } };
+
+/**
+ * Part variants that ride the native Gemini agentic tool loop in addition to
+ * the plain `VertexNativePart` content shapes: model-issued function calls
+ * replayed into history, and the function responses (plus wrap-up nudge text
+ * parts) sent back on the next user turn. Mirrors the optional
+ * `functionCall` / `functionResponse` members of the @google/genai SDK's
+ * `Part` type, so loop contents stay directly assignable to the SDK payload.
+ */
+export type VertexNativeLoopPart =
+  | VertexNativePart
+  | { functionCall: { name: string; args: Record<string, unknown> } }
+  | { functionResponse: { name: string; response: Record<string, unknown> } };
 
 /**
  * Subset of `GenerateOptions["input"]` consumed by the shared Gemini-native

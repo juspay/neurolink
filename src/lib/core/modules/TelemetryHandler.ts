@@ -271,11 +271,15 @@ export class TelemetryHandler {
 
     const sessionId =
       (options.context?.sessionId as string) ||
-      (options as unknown as { sessionId?: string }).sessionId ||
+      (("sessionId" in options ? options.sessionId : undefined) as
+        | string
+        | undefined) ||
       `session-${nanoid()}`;
     const userId =
       (options.context?.userId as string) ||
-      (options as unknown as { userId?: string }).userId;
+      (("userId" in options ? options.userId : undefined) as
+        | string
+        | undefined);
 
     try {
       await this.neurolink.storeToolExecutions(

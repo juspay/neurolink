@@ -5,6 +5,7 @@
 
 import type {
   ContentSimilarityConfig,
+  JsonObject,
   ScoreResult,
   ScorerInput,
   ScorerMetadata,
@@ -341,7 +342,9 @@ export class ContentSimilarityScorer extends BaseScorer {
     const metrics = this._similarityConfig.metrics ?? [
       this._similarityConfig.metric ?? "jaccard",
     ];
-    const details: SimilarityDetails[] = [];
+    // Intersected with JsonObject so the rows are JSON-typed at the source
+    // and flow into result metadata without a cast.
+    const details: (SimilarityDetails & JsonObject)[] = [];
 
     for (const metric of metrics) {
       const score = this._calculateSimilarity(
@@ -377,8 +380,7 @@ export class ContentSimilarityScorer extends BaseScorer {
       this._generateSimilarityReasoning(details, combinedScore),
       {
         metadata: {
-          similarityDetails:
-            details as unknown as import("../../../types/index.js").JsonArray,
+          similarityDetails: details,
           combinedScore,
           compareWith: this._similarityConfig.compareWith ?? "groundTruth",
           tokenLevel: this._similarityConfig.tokenLevel ?? "word",

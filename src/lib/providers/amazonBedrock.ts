@@ -253,8 +253,9 @@ export class AmazonBedrockProvider extends BaseProvider {
     this.conversationHistory = [];
 
     // Check for multimodal input (images, PDFs, CSVs, files)
-    // Cast to any to access multimodal properties (runtime check is safe)
-    const input = options.input as unknown as StreamOptions["input"];
+    // Narrow to the StreamOptions input shape to access multimodal
+    // properties (runtime check is safe)
+    const input = options.input as StreamOptions["input"];
     const hasMultimodalInput = !!(
       input?.images?.length ||
       input?.content?.length ||
@@ -281,7 +282,7 @@ export class AmazonBedrockProvider extends BaseProvider {
       );
 
       // Cast options to StreamOptions for multimodal processing
-      const streamOptions = options as unknown as StreamOptions;
+      const streamOptions = options as StreamOptions;
       const multimodalOptions = buildMultimodalOptions(
         streamOptions,
         this.providerName,
@@ -1280,10 +1281,8 @@ export class AmazonBedrockProvider extends BaseProvider {
 
           // Check if error is related to streaming permissions
           const isPermissionError =
-            (errorObj as unknown as Record<string, unknown>)?.name ===
-              "AccessDeniedException" ||
-            (errorObj as unknown as Record<string, unknown>)?.name ===
-              "UnauthorizedOperation" ||
+            errorObj?.name === "AccessDeniedException" ||
+            errorObj?.name === "UnauthorizedOperation" ||
             errorObj?.message?.includes(
               "bedrock:InvokeModelWithResponseStream",
             ) ||

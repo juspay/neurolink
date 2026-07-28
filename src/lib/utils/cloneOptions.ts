@@ -49,7 +49,7 @@ export function cloneOptionsForCallIsolation<T>(options: T): T {
     return options;
   }
   const cloned = { ...(options as object) } as T;
-  const o = cloned as unknown as Record<string, unknown>;
+  const o = cloned as Record<string, unknown>;
   for (const branch of CLONE_MUTABLE_OPTION_BRANCHES) {
     const value = o[branch];
     if (value && typeof value === "object") {

@@ -441,14 +441,16 @@ export function ensureNestedSchemaTypes(
  * 3. Plain JSON Schema objects (have `type`/`properties` but no `_def`) -- returned as-is
  */
 export function convertZodToJsonSchema(
-  zodSchema: ZodUnknownSchema,
+  // The union mirrors the three documented input shapes: Zod schemas plus
+  // plain-object forms (AI SDK `jsonSchema()` wrappers and raw JSON Schema).
+  zodSchema: ZodUnknownSchema | Record<string, unknown>,
   // Default to JSON Schema draft-07 so non-Vertex consumers (Bedrock, MCP
   // tool registration, etc.) keep their pre-migration dialect. Vertex/Gemini
   // callers opt into "openApi3" explicitly to get `nullable: true` instead
   // of `anyOf: [..., {type: "null"}]`.
   target: "jsonSchema7" | "openApi3" = "jsonSchema7",
 ): object {
-  const schema = zodSchema as unknown as Record<string, unknown>;
+  const schema = zodSchema as Record<string, unknown>;
 
   if (!schema || typeof schema !== "object") {
     return { type: "object", properties: {} };
@@ -506,6 +508,7 @@ export function convertZodToJsonSchema(
   try {
     // Zod 4→3 boundary: zodToJsonSchema types reference Zod 3's ZodSchema via zod/v3.
     // Runtime compatible — cast through unknown at this third-party boundary only.
+    // eslint-disable-next-line no-restricted-syntax -- genuine third-party type-system boundary: zod-to-json-schema's input type is zod/v3's ZodType, structurally incompatible with the Zod 4 schema held here (no overlap, single assertion cannot compile); runtime-compatible fallback contract documented above.
     const zodV3Schema = zodSchema as unknown as ZodToJsonSchemaInput;
     const jsonSchema = zodToJsonSchema(zodV3Schema, {
       name: "ToolParameters",

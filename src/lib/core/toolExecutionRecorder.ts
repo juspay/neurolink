@@ -178,21 +178,21 @@ export class ToolExecutionRecorder {
     for (const [name, tool] of Object.entries(tools)) {
       const execute = (
         tool as {
-          execute?: (
+          execute?: ((
             params: unknown,
             execOptions?: unknown,
-          ) => Promise<unknown>;
+          ) => Promise<unknown>) & { [RECORDER_WRAPPED]?: boolean };
         }
       ).execute;
-      if (
-        typeof execute !== "function" ||
-        (execute as unknown as Record<symbol, unknown>)[RECORDER_WRAPPED]
-      ) {
+      if (typeof execute !== "function" || execute[RECORDER_WRAPPED]) {
         wrapped[name] = tool;
         continue;
       }
       const recorder = this;
-      const recordingExecute = async (
+      const recordingExecute: ((
+        params: unknown,
+        execOptions?: unknown,
+      ) => Promise<unknown>) & { [RECORDER_WRAPPED]?: boolean } = async (
         params: unknown,
         execOptions?: unknown,
       ): Promise<unknown> => {
@@ -218,9 +218,7 @@ export class ToolExecutionRecorder {
           throw error;
         }
       };
-      (recordingExecute as unknown as Record<symbol, unknown>)[
-        RECORDER_WRAPPED
-      ] = true;
+      recordingExecute[RECORDER_WRAPPED] = true;
       wrapped[name] = { ...tool, execute: recordingExecute } as Tool;
     }
     return wrapped;
@@ -231,8 +229,8 @@ export class ToolExecutionRecorder {
    * enumerable on purpose: downstream stages spread options (`{...options}`)
    * and the recorder must survive into the provider loops.
    */
-  attachTo(options: Record<string, unknown>): void {
-    options[RECORDER_OPTIONS_KEY] = this;
+  attachTo(options: object): void {
+    (options as Record<string, unknown>)[RECORDER_OPTIONS_KEY] = this;
   }
 
   /** Retrieve the recorder a request is carrying, if any. */

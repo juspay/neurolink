@@ -12,7 +12,9 @@ import { hasProviderEnvVars } from "../../utils/providerUtils.js";
 import { logger } from "../../utils/logger.js";
 import { AIProviderName } from "../../constants/enums.js";
 import { PPTError, PPT_ERROR_CODES } from "./pptError.js";
+import type { NeuroLink } from "../../neurolink.js";
 import type {
+  AIProvider,
   PPTGenerationContext,
   AspectRatioOption,
   EffectivePPTProviderResult,
@@ -129,14 +131,15 @@ export async function getEffectivePPTProvider(
   currentProvider: unknown,
   currentProviderName: string,
   currentModelName: string,
-  neurolink?: unknown,
+  neurolink?: NeuroLink,
 ): Promise<EffectivePPTProviderResult> {
   const { ErrorFactory } = await import("../../utils/errorHandling.js");
   const normalizedProvider = currentProviderName.toLowerCase();
 
   if (PPT_VALID_PROVIDERS.includes(normalizedProvider)) {
-    const providerInstance = currentProvider as unknown as {
-      modelName: string;
+    // Single assertion from `unknown` — the shape is probed defensively below.
+    const providerInstance = currentProvider as {
+      modelName?: string;
       getDefaultModel?: () => string;
     };
     const actualModelName =
@@ -181,7 +184,7 @@ export async function getEffectivePPTProvider(
           provider as AIProviderName,
           undefined,
           true,
-          neurolink as Record<string, unknown>,
+          neurolink,
         ),
         PPT_GENERATION_TIMEOUT_MS / 4,
         ErrorFactory.toolTimeout(
@@ -193,7 +196,7 @@ export async function getEffectivePPTProvider(
       return {
         provider: createdProvider,
         providerName: provider,
-        modelName: (createdProvider as unknown as { modelName: string })
+        modelName: (createdProvider as AIProvider & { modelName: string })
           .modelName,
         wasAutoSelected: true,
       };

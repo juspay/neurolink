@@ -1,10 +1,10 @@
+import type { NeuroLink } from "../neurolink.js";
 import type { AIProviderName } from "../constants/enums.js";
 import type {
   AIProvider,
   NeurolinkCredentials,
   ProviderConstructor,
   ProviderRegistration,
-  UnknownRecord,
 } from "../types/index.js";
 
 import { logger } from "../utils/logger.js";
@@ -56,7 +56,7 @@ export class ProviderFactory {
   static async createProvider(
     providerName?: AIProviderName | string,
     modelName?: string,
-    sdk?: UnknownRecord,
+    sdk?: NeuroLink,
     region?: string,
     credentials?: NeurolinkCredentials,
   ): Promise<AIProvider> {
@@ -129,7 +129,7 @@ export class ProviderFactory {
           registration.constructor as (
             modelName?: string,
             providerName?: string,
-            sdk?: UnknownRecord,
+            sdk?: NeuroLink,
             region?: string,
             credentials?: Record<string, unknown>,
           ) => Promise<AIProvider> | AIProvider
@@ -150,7 +150,7 @@ export class ProviderFactory {
             result = new (registration.constructor as new (
               modelName?: string,
               providerName?: string,
-              sdk?: UnknownRecord,
+              sdk?: NeuroLink,
               region?: string,
               credentials?: Record<string, unknown>,
             ) => AIProvider)(
@@ -263,7 +263,7 @@ export class ProviderFactory {
     providerName: AIProviderName | string,
     modelName?: string,
     enableMCP?: boolean,
-    sdk?: UnknownRecord,
+    sdk?: NeuroLink,
     credentials?: NeurolinkCredentials,
   ): Promise<AIProvider> {
     return await ProviderFactory.createProvider(

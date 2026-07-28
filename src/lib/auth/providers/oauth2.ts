@@ -179,7 +179,7 @@ export class OAuth2Provider extends BaseAuthProvider {
 
         return {
           valid: true,
-          payload: payload as unknown as Record<string, unknown>,
+          payload,
           user,
           expiresAt: payload.exp ? new Date(payload.exp * 1000) : undefined,
           tokenType: "jwt",

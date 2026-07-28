@@ -46,7 +46,9 @@ These are non-negotiable. Violating them breaks the build or introduces bugs.
 
 13. **Barrel-only imports for internal types** — Code outside `src/lib/types/` must import internal types from the barrel (`../types/index.js` or `../types`), never from specific type files (`../types/rag.js`, `../types/mcp.js`). External library types (`zod`, `@ai-sdk/provider`, etc.) can be imported normally. Files inside `src/lib/types/` are exempt (they import from each other).
 
-**Enforcement:** All rules (2, 7-13) are enforced by custom ESLint rules in `eslint-rules/`. Run `pnpm run lint` (or the pre-commit hook) — no shell scripts, no regex heuristics, everything AST-based.
+14. **No double type assertions** — Never cast through `unknown`/`any` (`x as unknown as T`, `x as any as T`). A double assertion defeats the compiler's structural-overlap check entirely — the value is trusted as `T` with zero validation. Fix the type at the source, narrow with a runtime-validating type guard, or use a single `as T` (still overlap-checked). Applies to `src/`; test files are exempt. The rare genuine type-system boundary requires `// eslint-disable-next-line no-restricted-syntax -- <reason>`.
+
+**Enforcement:** All rules (2, 7-14) are enforced via ESLint. Rules 2 and 7-13 use custom rules in `eslint-rules/`; rule 14 uses core `no-restricted-syntax` AST selectors in `eslint.config.js`. Run `pnpm run lint` (or the pre-commit hook) — no shell scripts, no regex heuristics, everything AST-based.
 
 | Rule     | ESLint rule                              |
 | -------- | ---------------------------------------- |
@@ -58,6 +60,7 @@ These are non-negotiable. Violating them breaks the build or introduces bugs.
 | 11 & 11b | `neurolink/no-local-types-folder`        |
 | 12       | `neurolink/no-type-export-outside-types` |
 | 13       | `neurolink/barrel-type-imports`          |
+| 14       | `no-restricted-syntax` (AST selectors)   |
 
 ---
 

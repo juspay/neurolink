@@ -49,7 +49,7 @@ export class SentryExporter extends BaseExporter {
         release: this.release,
         environment: this.config.environment ?? "production",
       });
-      this.sentryHub = sentry as unknown as SentryModule;
+      this.sentryHub = sentry;
     }
 
     this.initialized = true;
@@ -64,7 +64,7 @@ export class SentryExporter extends BaseExporter {
       // Use standard dynamic import for optional peer dependency
       // @ts-expect-error - @sentry/node is an optional peer dependency
       const sentry = await import("@sentry/node");
-      return sentry as unknown as SentryModule;
+      return sentry as SentryModule;
     } catch {
       logger.warn(
         "[Sentry] Sentry SDK not installed. Install @sentry/node to use SentryExporter.",

@@ -433,7 +433,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
    */
   protected async getAISDKModel(): Promise<LanguageModel> {
     const modelId = await this.resolveModelName();
-    return this.buildDelegatingModel(modelId) as unknown as LanguageModel;
+    // buildDelegatingModel returns `unknown`, so this is a single
+    // unknown-to-target assertion.
+    return this.buildDelegatingModel(modelId) as LanguageModel;
   }
 
   protected async resolveModelName(): Promise<string> {

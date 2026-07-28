@@ -62,7 +62,7 @@ export function transformCliResponse(
 ): Omit<ActionExecutionResult, "success" | "error"> {
   return {
     response: cliResponse.content,
-    responseJson: cliResponse as unknown as Record<string, unknown>,
+    responseJson: cliResponse,
     // Use top-level provider/model if available, otherwise fallback to analytics
     provider: cliResponse.provider || cliResponse.analytics?.provider,
     model: cliResponse.model || cliResponse.analytics?.model,

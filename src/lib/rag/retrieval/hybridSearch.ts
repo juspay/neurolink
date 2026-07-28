@@ -269,21 +269,14 @@ export function createHybridSearch(options: HybridSearchOptions) {
         embeddingModel?.modelName,
       );
 
-      if (
-        typeof (embeddingProvider as unknown as Record<string, unknown>)
-          .embed !== "function"
-      ) {
+      if (typeof embeddingProvider.embed !== "function") {
         throw new Error(
           `Embedding provider does not support the embed() method. ` +
             `Please use a provider that supports embeddings (e.g., OpenAI text-embedding-3-small, Vertex text-embedding-004).`,
         );
       }
 
-      const queryEmbedding = await (
-        embeddingProvider as unknown as {
-          embed: (s: string) => Promise<number[]>;
-        }
-      ).embed(query);
+      const queryEmbedding = await embeddingProvider.embed(query);
 
       // Parallel retrieval
       const [vectorResults, bm25Results] = await Promise.all([

@@ -114,7 +114,10 @@ jobs:
         with:
           github-token: ${{ secrets.YAMA_GITHUB_TOKEN }}
           ai-provider: litellm
-          ai-model: private-large
+          # Model alias on the LiteLLM gateway the LITELLM_* secrets point at
+          # (grid.breezehq.dev). The gateway exposes general / general-fast /
+          # coder; the old private-large alias no longer exists there.
+          ai-model: general-fast
           litellm-base-url: ${{ secrets.LITELLM_BASE_URL }}
           litellm-api-key: ${{ secrets.LITELLM_API_KEY }}
           config-path: yama.config.yaml

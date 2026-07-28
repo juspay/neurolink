@@ -111,9 +111,7 @@ export function createTaskTools(manager: TaskManager): Record<string, Tool> {
       }),
       execute: async ({ name, prompt, schedule, mode }) => {
         try {
-          const parsedSchedule = parseSchedule(
-            schedule as unknown as Record<string, unknown>,
-          );
+          const parsedSchedule = parseSchedule(schedule);
           const task = await manager.create({
             name,
             prompt,

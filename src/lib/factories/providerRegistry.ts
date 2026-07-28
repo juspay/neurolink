@@ -108,7 +108,7 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
@@ -116,11 +116,7 @@ export class ProviderRegistry {
             credentials as NeurolinkCredentials["googleAiStudio"];
           const { GoogleAIStudioProvider } =
             await import("../providers/googleAiStudio.js");
-          return new GoogleAIStudioProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            googleAiCreds,
-          );
+          return new GoogleAIStudioProvider(modelName, sdk, googleAiCreds);
         },
         GoogleAIModels.GEMINI_2_5_FLASH,
         ["googleAiStudio", "google", "gemini", "google-ai", "google-ai-studio"],
@@ -132,18 +128,13 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const openaiCreds = credentials as NeurolinkCredentials["openai"];
           const { OpenAIProvider } = await import("../providers/openAI.js");
-          return new OpenAIProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            openaiCreds,
-          );
+          return new OpenAIProvider(modelName, sdk, undefined, openaiCreds);
         },
         OpenAIModels.GPT_4O_MINI,
         ["gpt", "chatgpt"],
@@ -155,7 +146,7 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
@@ -165,7 +156,7 @@ export class ProviderRegistry {
             await import("../providers/anthropic.js");
           return new AnthropicProvider(
             modelName,
-            sdk as unknown as NeuroLink | undefined,
+            sdk,
             undefined,
             anthropicCreds,
           );
@@ -180,7 +171,7 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           region?: string,
           credentials?: UnknownRecord,
         ) => {
@@ -189,7 +180,7 @@ export class ProviderRegistry {
             await import("../providers/amazonBedrock.js");
           return new AmazonBedrockProvider(
             modelName,
-            sdk as unknown as NeuroLink | undefined,
+            sdk,
             region,
             bedrockCreds,
           );
@@ -204,19 +195,14 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const azureCreds = credentials as NeurolinkCredentials["azure"];
           const { AzureOpenAIProvider } =
             await import("../providers/azureOpenai.js");
-          return new AzureOpenAIProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            azureCreds,
-          );
+          return new AzureOpenAIProvider(modelName, sdk, undefined, azureCreds);
         },
         process.env.AZURE_MODEL ||
           process.env.AZURE_OPENAI_MODEL ||
@@ -232,7 +218,7 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           region?: string,
           credentials?: UnknownRecord,
         ) => {
@@ -242,7 +228,7 @@ export class ProviderRegistry {
           return new GoogleVertexProvider(
             modelName,
             providerName,
-            sdk as unknown as NeuroLink | undefined,
+            sdk,
             region,
             vertexCreds,
           );
@@ -257,7 +243,7 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          _sdk?: UnknownRecord,
+          _sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
@@ -277,18 +263,13 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const mistralCreds = credentials as NeurolinkCredentials["mistral"];
           const { MistralProvider } = await import("../providers/mistral.js");
-          return new MistralProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            mistralCreds,
-          );
+          return new MistralProvider(modelName, sdk, undefined, mistralCreds);
         },
         MistralModels.MISTRAL_LARGE_LATEST,
         ["mistral"],
@@ -300,18 +281,13 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const ollamaCreds = credentials as NeurolinkCredentials["ollama"];
           const { OllamaProvider } = await import("../providers/ollama.js");
-          return new OllamaProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            ollamaCreds,
-          );
+          return new OllamaProvider(modelName, sdk, undefined, ollamaCreds);
         },
         process.env.OLLAMA_MODEL || OllamaModels.LLAMA3_2_LATEST,
         ["ollama", "local"],
@@ -323,18 +299,13 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const litellmCreds = credentials as NeurolinkCredentials["litellm"];
           const { LiteLLMProvider } = await import("../providers/litellm.js");
-          return new LiteLLMProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            litellmCreds,
-          );
+          return new LiteLLMProvider(modelName, sdk, undefined, litellmCreds);
         },
         process.env.LITELLM_MODEL || LiteLLMModels.OPENAI_GPT_4O_MINI,
         ["litellm"],
@@ -346,7 +317,7 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
@@ -356,7 +327,7 @@ export class ProviderRegistry {
             await import("../providers/openaiCompatible.js");
           return new OpenAICompatibleProvider(
             modelName,
-            sdk as unknown as NeuroLink | undefined,
+            sdk,
             undefined,
             openaiCompatCreds,
           );
@@ -371,7 +342,7 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
@@ -381,7 +352,7 @@ export class ProviderRegistry {
             await import("../providers/openRouter.js");
           return new OpenRouterProvider(
             modelName,
-            sdk as unknown as NeuroLink | undefined,
+            sdk,
             undefined,
             openrouterCreds,
           );
@@ -401,7 +372,7 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          _sdk?: UnknownRecord,
+          _sdk?: NeuroLink,
           region?: string,
           credentials?: UnknownRecord,
         ) => {
@@ -427,18 +398,13 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const deepseekCreds = credentials as NeurolinkCredentials["deepseek"];
           const { DeepSeekProvider } = await import("../providers/deepseek.js");
-          return new DeepSeekProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            deepseekCreds,
-          );
+          return new DeepSeekProvider(modelName, sdk, undefined, deepseekCreds);
         },
         process.env.DEEPSEEK_MODEL || DeepSeekModels.DEEPSEEK_CHAT,
         ["deepseek", "ds"],
@@ -450,19 +416,14 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const nimCreds = credentials as NeurolinkCredentials["nvidiaNim"];
           const { NvidiaNimProvider } =
             await import("../providers/nvidiaNim.js");
-          return new NvidiaNimProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            nimCreds,
-          );
+          return new NvidiaNimProvider(modelName, sdk, undefined, nimCreds);
         },
         process.env.NVIDIA_NIM_MODEL || NvidiaNimModels.LLAMA_3_3_70B_INSTRUCT,
         ["nvidia", "nim", "nvidia-nim"],
@@ -474,18 +435,13 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const lmStudioCreds = credentials as NeurolinkCredentials["lmStudio"];
           const { LMStudioProvider } = await import("../providers/lmStudio.js");
-          return new LMStudioProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            lmStudioCreds,
-          );
+          return new LMStudioProvider(modelName, sdk, undefined, lmStudioCreds);
         },
         process.env.LM_STUDIO_MODEL || undefined,
         ["lmstudio", "lm-studio", "lms"],
@@ -497,18 +453,13 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const llamaCppCreds = credentials as NeurolinkCredentials["llamacpp"];
           const { LlamaCppProvider } = await import("../providers/llamaCpp.js");
-          return new LlamaCppProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            llamaCppCreds,
-          );
+          return new LlamaCppProvider(modelName, sdk, undefined, llamaCppCreds);
         },
         process.env.LLAMACPP_MODEL || undefined,
         ["llamacpp", "llama.cpp", "llama-cpp"],
@@ -519,18 +470,13 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const xaiCreds = credentials as NeurolinkCredentials["xai"];
           const { XaiProvider } = await import("../providers/xai.js");
-          return new XaiProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            xaiCreds,
-          );
+          return new XaiProvider(modelName, sdk, undefined, xaiCreds);
         },
         process.env.XAI_MODEL || XaiModels.GROK_3,
         ["xai", "grok"],
@@ -542,18 +488,13 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const groqCreds = credentials as NeurolinkCredentials["groq"];
           const { GroqProvider } = await import("../providers/groq.js");
-          return new GroqProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            groqCreds,
-          );
+          return new GroqProvider(modelName, sdk, undefined, groqCreds);
         },
         process.env.GROQ_MODEL || GroqModels.LLAMA_3_3_70B_VERSATILE,
         ["groq"],
@@ -565,18 +506,13 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const cohereCreds = credentials as NeurolinkCredentials["cohere"];
           const { CohereProvider } = await import("../providers/cohere.js");
-          return new CohereProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            cohereCreds,
-          );
+          return new CohereProvider(modelName, sdk, undefined, cohereCreds);
         },
         process.env.COHERE_MODEL || CohereModels.COMMAND_R_PLUS,
         ["cohere"],
@@ -588,7 +524,7 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
@@ -597,7 +533,7 @@ export class ProviderRegistry {
             await import("../providers/togetherAi.js");
           return new TogetherAIProvider(
             modelName,
-            sdk as unknown as NeuroLink | undefined,
+            sdk,
             undefined,
             togetherCreds,
           );
@@ -613,7 +549,7 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
@@ -623,7 +559,7 @@ export class ProviderRegistry {
             await import("../providers/fireworks.js");
           return new FireworksProvider(
             modelName,
-            sdk as unknown as NeuroLink | undefined,
+            sdk,
             undefined,
             fireworksCreds,
           );
@@ -638,7 +574,7 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
@@ -648,7 +584,7 @@ export class ProviderRegistry {
             await import("../providers/perplexity.js");
           return new PerplexityProvider(
             modelName,
-            sdk as unknown as NeuroLink | undefined,
+            sdk,
             undefined,
             perplexityCreds,
           );
@@ -663,7 +599,7 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
@@ -673,7 +609,7 @@ export class ProviderRegistry {
             await import("../providers/cloudflare.js");
           return new CloudflareProvider(
             modelName,
-            sdk as unknown as NeuroLink | undefined,
+            sdk,
             undefined,
             cloudflareCreds,
           );
@@ -688,18 +624,13 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const voyageCreds = credentials as NeurolinkCredentials["voyage"];
           const { VoyageProvider } = await import("../providers/voyage.js");
-          return new VoyageProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            voyageCreds,
-          );
+          return new VoyageProvider(modelName, sdk, undefined, voyageCreds);
         },
         process.env.VOYAGE_MODEL || VoyageModels.VOYAGE_3_5,
         ["voyage", "voyage-ai"],
@@ -711,18 +642,13 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const jinaCreds = credentials as NeurolinkCredentials["jina"];
           const { JinaProvider } = await import("../providers/jina.js");
-          return new JinaProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            jinaCreds,
-          );
+          return new JinaProvider(modelName, sdk, undefined, jinaCreds);
         },
         process.env.JINA_MODEL || JinaModels.JINA_EMBEDDINGS_V3,
         ["jina", "jina-ai"],
@@ -734,7 +660,7 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
@@ -744,7 +670,7 @@ export class ProviderRegistry {
             await import("../providers/stability.js");
           return new StabilityProvider(
             modelName,
-            sdk as unknown as NeuroLink | undefined,
+            sdk,
             undefined,
             stabilityCreds,
           );
@@ -759,18 +685,13 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const ideogramCreds = credentials as NeurolinkCredentials["ideogram"];
           const { IdeogramProvider } = await import("../providers/ideogram.js");
-          return new IdeogramProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            ideogramCreds,
-          );
+          return new IdeogramProvider(modelName, sdk, undefined, ideogramCreds);
         },
         process.env.IDEOGRAM_MODEL || IdeogramModels.IDEOGRAM_V3,
         ["ideogram"],
@@ -783,7 +704,7 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
@@ -793,7 +714,7 @@ export class ProviderRegistry {
             await import("../providers/replicate.js");
           return new ReplicateProvider(
             modelName,
-            sdk as unknown as NeuroLink | undefined,
+            sdk,
             undefined,
             replicateCreds,
           );
@@ -808,18 +729,13 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          sdk?: UnknownRecord,
+          sdk?: NeuroLink,
           _region?: string,
           credentials?: UnknownRecord,
         ) => {
           const recraftCreds = credentials as NeurolinkCredentials["recraft"];
           const { RecraftProvider } = await import("../providers/recraft.js");
-          return new RecraftProvider(
-            modelName,
-            sdk as unknown as NeuroLink | undefined,
-            undefined,
-            recraftCreds,
-          );
+          return new RecraftProvider(modelName, sdk, undefined, recraftCreds);
         },
         process.env.RECRAFT_MODEL || RecraftModels.RECRAFT_V3,
         ["recraft"],
