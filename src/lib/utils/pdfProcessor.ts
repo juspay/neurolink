@@ -101,14 +101,14 @@ const PDF_PROVIDER_CONFIGS: Record<string, PDFProviderConfig> = {
   litellm: {
     maxSizeMB: 10,
     maxPages: 100,
-    supportsNative: true,
+    supportsNative: false, // LiteLLM is a proxy — underlying model may not support native PDF; default to safe text extraction
     requiresCitations: false,
     apiType: "files-api",
   },
   "openai-compatible": {
     maxSizeMB: 10,
     maxPages: 100,
-    supportsNative: false, // LiteLLM is a proxy — underlying model may not support native PDF; default to safe text extraction
+    supportsNative: false,
     requiresCitations: false,
     apiType: "files-api",
   },
