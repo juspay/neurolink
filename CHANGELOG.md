@@ -1,3 +1,9 @@
+## [10.7.0](https://github.com/juspay/neurolink/compare/v10.6.5...v10.7.0) (2026-07-29)
+
+### Features
+
+- **(proxy):** persist exact account routing decisions ([61246c6](https://github.com/juspay/neurolink/commit/61246c6f18180584dcb65901b567cce81cc44005))
+
 ## [10.6.5](https://github.com/juspay/neurolink/compare/v10.6.4...v10.6.5) (2026-07-29)
 
 ### Bug Fixes
