@@ -5,6 +5,7 @@
  */
 
 import { mcpLogger } from "../utils/logger.js";
+import { parseRetryAfterMs } from "../utils/retryAfter.js";
 import type {
   TokenBucketRateLimitConfig,
   RateLimiterStats,
@@ -229,61 +230,54 @@ export class HTTPRateLimiter {
    * @returns Wait time in milliseconds, or 0 if no rate limit headers found
    */
   handleRateLimitResponse(headers: Headers): number {
-    // Check for Retry-After header (standard HTTP 429 response)
+    const parsedWaitTimeMs = parseRetryAfterMs(headers);
+
+    // Keep the existing source-specific logs while delegating delay parsing.
     const retryAfter = headers.get("Retry-After");
 
-    if (retryAfter) {
-      // Retry-After can be either a number of seconds or an HTTP-date
+    if (retryAfter && parsedWaitTimeMs !== undefined) {
       const seconds = parseInt(retryAfter, 10);
 
       if (!isNaN(seconds)) {
-        // It's a number of seconds
-        const waitTimeMs = seconds * 1000;
         mcpLogger.info(
           `[HTTPRateLimiter] Server requested retry after ${seconds} seconds`,
         );
-        return waitTimeMs;
+        return parsedWaitTimeMs;
       } else {
-        // Try to parse as HTTP-date
         const retryDate = new Date(retryAfter);
         if (!isNaN(retryDate.getTime())) {
-          const waitTimeMs = Math.max(0, retryDate.getTime() - Date.now());
           mcpLogger.info(
-            `[HTTPRateLimiter] Server requested retry at ${retryDate.toISOString()} (${waitTimeMs}ms)`,
+            `[HTTPRateLimiter] Server requested retry at ${retryDate.toISOString()} (${parsedWaitTimeMs}ms)`,
           );
-          return waitTimeMs;
+          return parsedWaitTimeMs;
         }
       }
     }
 
     // Check for X-RateLimit-Reset header (common non-standard header)
     const rateLimitReset = headers.get("X-RateLimit-Reset");
-    if (rateLimitReset) {
+    if (rateLimitReset && parsedWaitTimeMs !== undefined) {
       const resetTimestamp = parseInt(rateLimitReset, 10);
       if (!isNaN(resetTimestamp)) {
-        // Could be Unix timestamp (seconds) or milliseconds
         const resetTime =
           resetTimestamp > 1e12 ? resetTimestamp : resetTimestamp * 1000;
-        const waitTimeMs = Math.max(0, resetTime - Date.now());
         mcpLogger.info(
-          `[HTTPRateLimiter] Rate limit resets at ${new Date(resetTime).toISOString()} (${waitTimeMs}ms)`,
+          `[HTTPRateLimiter] Rate limit resets at ${new Date(resetTime).toISOString()} (${parsedWaitTimeMs}ms)`,
         );
-        return waitTimeMs;
+        return parsedWaitTimeMs;
       }
     }
 
     // Check for X-RateLimit-Remaining header
     const remaining = headers.get("X-RateLimit-Remaining");
-    if (remaining === "0") {
-      // No remaining requests, use default backoff
-      const defaultBackoffMs = 1000;
+    if (remaining === "0" && parsedWaitTimeMs !== undefined) {
       mcpLogger.info(
-        `[HTTPRateLimiter] Rate limit exhausted, using default backoff: ${defaultBackoffMs}ms`,
+        `[HTTPRateLimiter] Rate limit exhausted, using default backoff: ${parsedWaitTimeMs}ms`,
       );
-      return defaultBackoffMs;
+      return parsedWaitTimeMs;
     }
 
-    return 0;
+    return parsedWaitTimeMs ?? 0;
   }
 
   /**
