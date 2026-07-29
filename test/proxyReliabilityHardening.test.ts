@@ -251,6 +251,25 @@ describe("weekly-expiry quota routing", () => {
     ).toBeLessThan(4096);
   });
 
+  it("omits routing evidence instead of throwing when its metrics snapshot is incomplete", () => {
+    const primary = account("primary@example.com");
+    expect(
+      __testHooks.buildRoutingDecision({
+        accounts: [primary],
+        orderedAccounts: [primary],
+        metricsByKey: new Map(),
+        evaluatedAt: Date.UTC(2026, 6, 17, 12, 0, 0),
+        strategy: "fill-first",
+        primaryKey: primary.key,
+        quotaRoutingEnabled: true,
+        quotaOrdered: false,
+        sessionSoftLimit: 0.97,
+        sessionResetToleranceMs: 900_000,
+        rotationOffset: 0,
+      }),
+    ).toBeUndefined();
+  });
+
   it("temporarily demotes an urgent weekly account at the session soft limit", () => {
     const now = Date.UTC(2026, 6, 17, 12, 0, 0);
     const nowSec = Math.floor(now / 1000);

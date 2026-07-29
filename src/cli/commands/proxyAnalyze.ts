@@ -71,7 +71,7 @@ function printAnalysis(
   logger.always(chalk.bold("  Account Routing"));
   if (report.coverage.routingDecisions) {
     logger.always(
-      `    Decisions: ${report.routing.records.length}, modes: ${JSON.stringify(report.routing.modes)}`,
+      `    Decisions: ${report.routing.totalRecords} (${report.routing.records.length} retained), modes: ${JSON.stringify(report.routing.modes)}`,
     );
     logger.always(
       `    Selection reasons: ${JSON.stringify(report.routing.selectionReasons)}`,

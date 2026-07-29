@@ -819,7 +819,7 @@ function buildRoutingDecision(args: {
   sessionSoftLimit: number;
   sessionResetToleranceMs: number;
   rotationOffset: number;
-}): ProxyAccountRoutingDecision {
+}): ProxyAccountRoutingDecision | undefined {
   const {
     accounts,
     orderedAccounts,
@@ -838,49 +838,49 @@ function buildRoutingDecision(args: {
   );
   const configuredPrimaryMatched =
     !!primaryKey && accounts.some((account) => account.key === primaryKey);
-  const candidates: ProxyAccountRoutingCandidate[] = orderedAccounts.map(
-    (account, rank) => {
-      const metrics = metricsByKey.get(account.key);
-      if (!metrics) {
-        throw new Error(
-          `Missing precomputed routing metrics for account ${account.label}`,
-        );
-      }
-      return {
-        account: account.label,
-        accountType: account.type,
-        sourceIndex: sourceIndexes.get(account.key) ?? rank,
-        rank,
-        configuredPrimary: !!primaryKey && account.key === primaryKey,
-        usable: metrics.usable,
-        saturated: metrics.saturated,
-        quotaObserved: metrics.hasQuota,
-        quotaLastUpdated: metrics.quotaLastUpdated,
-        quotaAgeMs: metrics.quotaAgeMs,
-        coolingActive: metrics.coolingActive,
-        coolingReason: metrics.coolingReason,
-        coolingUntil:
-          metrics.coolingUntil > 0 && Number.isFinite(metrics.coolingUntil)
-            ? metrics.coolingUntil
-            : null,
-        unifiedStatus: metrics.unifiedStatus,
-        overageStatus: metrics.overageStatus,
-        sessionStatus: metrics.sessionStatus,
-        sessionUsed: metrics.sessionUsed,
-        sessionResetAt: Number.isFinite(metrics.sessionReset)
-          ? metrics.sessionReset
+  const candidates: ProxyAccountRoutingCandidate[] = [];
+  for (const account of orderedAccounts) {
+    const metrics = metricsByKey.get(account.key);
+    if (!metrics) {
+      logger.warn(
+        `[proxy] routing evidence omitted because metrics are missing for account=${account.label}`,
+      );
+      return undefined;
+    }
+    candidates.push({
+      account: account.label,
+      accountType: account.type,
+      sourceIndex: sourceIndexes.get(account.key) ?? candidates.length,
+      rank: candidates.length,
+      configuredPrimary: !!primaryKey && account.key === primaryKey,
+      usable: metrics.usable,
+      saturated: metrics.saturated,
+      quotaObserved: metrics.hasQuota,
+      quotaLastUpdated: metrics.quotaLastUpdated,
+      quotaAgeMs: metrics.quotaAgeMs,
+      coolingActive: metrics.coolingActive,
+      coolingReason: metrics.coolingReason,
+      coolingUntil:
+        metrics.coolingUntil > 0 && Number.isFinite(metrics.coolingUntil)
+          ? metrics.coolingUntil
           : null,
-        sessionResetBucket: Number.isFinite(metrics.sessionResetBucket)
-          ? metrics.sessionResetBucket
-          : null,
-        weeklyStatus: metrics.weeklyStatus,
-        weeklyUsed: metrics.weeklyUsed,
-        weeklyResetAt: Number.isFinite(metrics.weeklyReset)
-          ? metrics.weeklyReset
-          : null,
-      };
-    },
-  );
+      unifiedStatus: metrics.unifiedStatus,
+      overageStatus: metrics.overageStatus,
+      sessionStatus: metrics.sessionStatus,
+      sessionUsed: metrics.sessionUsed,
+      sessionResetAt: Number.isFinite(metrics.sessionReset)
+        ? metrics.sessionReset
+        : null,
+      sessionResetBucket: Number.isFinite(metrics.sessionResetBucket)
+        ? metrics.sessionResetBucket
+        : null,
+      weeklyStatus: metrics.weeklyStatus,
+      weeklyUsed: metrics.weeklyUsed,
+      weeklyResetAt: Number.isFinite(metrics.weeklyReset)
+        ? metrics.weeklyReset
+        : null,
+    });
+  }
   const initialAccount = orderedAccounts[0];
   let mode: ProxyAccountRoutingDecision["mode"];
   let selectionReason: ProxyAccountRoutingReason;
@@ -1007,21 +1007,22 @@ function selectClaudeProxyAccountOrder(args: {
     );
   }
 
-  setRoutingDecision(
-    buildRoutingDecision({
-      accounts: enabledAccounts,
-      orderedAccounts,
-      metricsByKey,
-      evaluatedAt,
-      strategy: accountStrategy,
-      primaryKey: primaryAccountKey,
-      quotaRoutingEnabled,
-      quotaOrdered,
-      sessionSoftLimit,
-      sessionResetToleranceMs,
-      rotationOffset,
-    }),
-  );
+  const routingDecision = buildRoutingDecision({
+    accounts: enabledAccounts,
+    orderedAccounts,
+    metricsByKey,
+    evaluatedAt,
+    strategy: accountStrategy,
+    primaryKey: primaryAccountKey,
+    quotaRoutingEnabled,
+    quotaOrdered,
+    sessionSoftLimit,
+    sessionResetToleranceMs,
+    rotationOffset,
+  });
+  if (routingDecision) {
+    setRoutingDecision(routingDecision);
+  }
   return orderedAccounts;
 }
 
@@ -7069,7 +7070,7 @@ export const __testHooks = {
     primaryKey: string | undefined,
     sessionSoftLimit: number = getSessionSoftLimit(),
     sessionResetToleranceMs: number = getSessionResetToleranceMs(),
-  ): ProxyAccountRoutingDecision => {
+  ): ProxyAccountRoutingDecision | undefined => {
     const order = orderAccountsByQuotaWithMetrics(
       accounts,
       now,
@@ -7091,6 +7092,7 @@ export const __testHooks = {
       rotationOffset: 0,
     });
   },
+  buildRoutingDecision,
   resetEpochToMs,
   seedRuntimeQuotasFromDisk,
   reconcileEligibleAccountRuntimeState,

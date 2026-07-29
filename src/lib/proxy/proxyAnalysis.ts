@@ -39,6 +39,8 @@ const ROUTING_MODES = new Set<string>(PROXY_ACCOUNT_ROUTING_MODES);
 const ROUTING_REASONS = new Set<string>(PROXY_ACCOUNT_ROUTING_REASONS);
 const ROUTING_ACCOUNT_TYPES = new Set<string>(PROXY_ACCOUNT_TYPES);
 const COOLING_REASONS = new Set<string>(ACCOUNT_COOLING_REASONS);
+const MAX_RETAINED_ROUTING_RECORDS = 200;
+const MAX_ROUTING_RECORDS_BEFORE_COMPACTION = MAX_RETAINED_ROUTING_RECORDS * 2;
 
 function isContainedPath(root: string, candidate: string): boolean {
   const candidateRelative = relative(root, candidate);
@@ -429,7 +431,12 @@ function summarizeRouting(
   const modes: Record<string, number> = {};
   const selectionReasons: Record<string, number> = {};
   const initialAccounts: Record<string, number> = {};
-  const records: ProxyAnalysisRoutingRecord[] = [];
+  const retainedRecords: Array<{
+    record: ProxyAnalysisRoutingRecord;
+    timestampMs: number;
+    sequence: number;
+  }> = [];
+  let totalRecords = 0;
   let finalAccountChanges = 0;
   let finalOutsideCandidateSet = 0;
 
@@ -451,15 +458,39 @@ function summarizeRouting(
     } else if (decision.initialAccount !== request.account) {
       finalAccountChanges += 1;
     }
-    records.push({
-      requestId,
-      timestamp: request.timestamp,
-      responseStatus: request.status,
-      finalAccount: request.account,
-      finalAccountType: request.accountType,
-      decision,
+    totalRecords += 1;
+    retainedRecords.push({
+      record: {
+        requestId,
+        timestamp: request.timestamp,
+        responseStatus: request.status,
+        finalAccount: request.account,
+        finalAccountType: request.accountType,
+        decision,
+      },
+      timestampMs: Date.parse(request.timestamp),
+      sequence: totalRecords,
     });
+    if (retainedRecords.length > MAX_ROUTING_RECORDS_BEFORE_COMPACTION) {
+      retainedRecords.sort(
+        (left, right) =>
+          left.timestampMs - right.timestampMs ||
+          left.sequence - right.sequence,
+      );
+      retainedRecords.splice(
+        0,
+        retainedRecords.length - MAX_RETAINED_ROUTING_RECORDS,
+      );
+    }
   }
+
+  retainedRecords.sort(
+    (left, right) =>
+      left.timestampMs - right.timestampMs || left.sequence - right.sequence,
+  );
+  const records = retainedRecords
+    .slice(-MAX_RETAINED_ROUTING_RECORDS)
+    .map(({ record }) => record);
 
   return {
     modes,
@@ -467,6 +498,7 @@ function summarizeRouting(
     initialAccounts,
     finalAccountChanges,
     finalOutsideCandidateSet,
+    totalRecords,
     records,
   };
 }
@@ -858,7 +890,7 @@ export async function analyzeProxyLogs(
       attempts: totalAttempts > 0,
       attemptLatency: attemptLatency.length > 0,
       cacheUsage: finalSummary.cache.requestsWithUsage > 0,
-      routingDecisions: routingSummary.records.length > 0,
+      routingDecisions: routingSummary.totalRecords > 0,
     },
     dataQuality: {
       linesRead,
