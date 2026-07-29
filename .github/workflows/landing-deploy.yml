@@ -1,0 +1,119 @@
+name: Deploy Landing (Vercel)
+
+# Replaces Vercel's Git integration for the landing site.
+#
+# Why: the Vercel project sits on a personal (Hobby) scope with
+# `gitForkProtection: true`, so every fork PR gets a "requires authorization"
+# commit status that reports as FAILED — on arrival, before any build runs. No
+# vercel.json / ignoreCommand can suppress that, because the authorization gate
+# is upstream of the build step, and fork authors cannot be added as team
+# members on a Hobby scope.
+#
+# Driving the deploy from Actions instead means a PR we don't want to deploy is
+# SKIPPED (neutral) rather than failed, and the gate is explicit and readable.
+# GitHub also withholds secrets from fork `pull_request` runs, so a fork
+# physically cannot deploy even if the `if:` below were wrong — the condition is
+# the intent, the secret withholding is the enforcement.
+
+on:
+  push:
+    branches: [release]
+    paths:
+      - "landing/**"
+      - ".github/workflows/landing-deploy.yml"
+  pull_request:
+    paths:
+      - "landing/**"
+      - ".github/workflows/landing-deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: landing-deploy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  deploy:
+    # Same-repo refs only. Fork PRs skip → no check, rather than a red one.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # package.json pins "packageManager": "pnpm@10.15.1", so `vercel build`
+      # shells out to pnpm for the install. Without pnpm on the runner it dies
+      # with `spawn pnpm ENOENT` before the build starts. Version kept in step
+      # with the pin and with the other workflows in this repo.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      # push → production, pull_request/dispatch → preview.
+      - name: Resolve target environment
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "env=production" >> "$GITHUB_OUTPUT"
+            echo "flag=--prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "env=preview" >> "$GITHUB_OUTPUT"
+            echo "flag=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Pulls project settings too — including rootDirectory=landing — so the
+      # build runs against the landing app without duplicating config here.
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=${{ steps.target.outputs.env }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        run: vercel build ${{ steps.target.outputs.flag }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy
+        id: deploy
+        run: |
+          url="$(vercel deploy --prebuilt ${{ steps.target.outputs.flag }} --token=${{ secrets.VERCEL_TOKEN }})"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Landing deployed (${{ steps.target.outputs.env }})"
+            echo ""
+            echo "$url"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Restores the one thing the Git integration gave us for free.
+      - name: Comment preview URL on the PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = ${{ toJSON(steps.deploy.outputs.url) }};
+            const marker = '<!-- landing-preview -->';
+            const body = `${marker}\n**Landing preview:** ${url}\n\n<sub>Deployed from \`${context.sha.slice(0, 7)}\` by the landing-deploy workflow.</sub>`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const existing = (
+              await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 100 })
+            ).data.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
