@@ -2006,11 +2006,14 @@ export class GoogleVertexProvider extends BaseProvider {
     );
     let hitContextLimit = false;
 
-    // Track token usage across all steps
-    // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
+    // Track token usage across all steps. Every loop step is a separate
+    // billed API call, so per-step usage is folded into these turn totals
+    // after each step's chunk drain — assigning them directly from chunk
+    // metadata would record only the last step of a multi-step tool loop.
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     let totalCacheReadTokens = 0;
+    let totalReasoningTokens = 0;
 
     // Track text parts as they arrive from the SDK so the returned async
     // iterable yields multiple chunks instead of a single buffered chunk.
@@ -2115,6 +2118,18 @@ export class GoogleVertexProvider extends BaseProvider {
           // lastFinishReason) — drives the single MALFORMED_FUNCTION_CALL
           // retry below.
           let stepFinishReason: string | undefined;
+          // Per-step usage trackers for WRITE-THROUGH accumulation: within a
+          // step's chunk stream the counts are latest-wins (promptTokenCount
+          // arrives once in the final chunk; candidates/thoughts counts are
+          // cumulative across chunks), so each chunk folds only the DELTA
+          // over this step's previous value into the turn totals. The totals
+          // are therefore correct at every point mid-drain — a step killed
+          // mid-stream (abort / turn deadline / stall watchdog) still counts
+          // the billed tokens it already reported.
+          let stepInputTokens = 0;
+          let stepOutputTokens = 0;
+          let stepCacheReadTokens = 0;
+          let stepReasoningTokens = 0;
 
           for await (const chunk of stream) {
             turnClock.noteProgress();
@@ -2157,6 +2172,7 @@ export class GoogleVertexProvider extends BaseProvider {
                   promptTokenCount?: number;
                   candidatesTokenCount?: number;
                   cachedContentTokenCount?: number;
+                  thoughtsTokenCount?: number;
                   totalTokenCount?: number;
                 }
               | undefined;
@@ -2166,26 +2182,44 @@ export class GoogleVertexProvider extends BaseProvider {
                 usageMetadata.promptTokenCount !== undefined &&
                 usageMetadata.promptTokenCount > 0
               ) {
-                totalInputTokens = usageMetadata.promptTokenCount;
+                totalInputTokens +=
+                  usageMetadata.promptTokenCount - stepInputTokens;
+                stepInputTokens = usageMetadata.promptTokenCount;
                 // Feed the context guard the REAL prompt size of this call.
                 contextGuard.noteUsage(
                   usageMetadata.promptTokenCount,
                   usageMetadata.candidatesTokenCount ?? 0,
                 );
                 // cachedContentTokenCount is OVERLAPPING (a subset already inside
-                // promptTokenCount). Clamp to the prompt count so a later uncached
-                // step resets it to 0 instead of leaving a stale cached value.
-                totalCacheReadTokens = Math.min(
+                // promptTokenCount). Clamp to the prompt count so an uncached
+                // step reports 0 instead of a stale cached value.
+                const chunkCacheReadTokens = Math.min(
                   usageMetadata.cachedContentTokenCount ?? 0,
                   usageMetadata.promptTokenCount,
                 );
+                totalCacheReadTokens +=
+                  chunkCacheReadTokens - stepCacheReadTokens;
+                stepCacheReadTokens = chunkCacheReadTokens;
               }
               // Take the latest candidatesTokenCount (accumulates through chunks)
               if (
                 usageMetadata.candidatesTokenCount !== undefined &&
                 usageMetadata.candidatesTokenCount > 0
               ) {
-                totalOutputTokens = usageMetadata.candidatesTokenCount;
+                totalOutputTokens +=
+                  usageMetadata.candidatesTokenCount - stepOutputTokens;
+                stepOutputTokens = usageMetadata.candidatesTokenCount;
+              }
+              // thoughtsTokenCount (thinking tokens, billed at the output
+              // rate) is NOT part of candidatesTokenCount — Gemini reports
+              // totalTokenCount = prompt + candidates + thoughts.
+              if (
+                usageMetadata.thoughtsTokenCount !== undefined &&
+                usageMetadata.thoughtsTokenCount > 0
+              ) {
+                totalReasoningTokens +=
+                  usageMetadata.thoughtsTokenCount - stepReasoningTokens;
+                stepReasoningTokens = usageMetadata.thoughtsTokenCount;
               }
             }
           }
@@ -2668,6 +2702,7 @@ export class GoogleVertexProvider extends BaseProvider {
             incrementalTextChunks.push(synth.text);
             totalInputTokens += synth.inputTokens;
             totalOutputTokens += synth.outputTokens;
+            totalReasoningTokens += synth.reasoningTokens ?? 0;
             if (synth.finishReason) {
               lastFinishReason = synth.finishReason;
             }
@@ -2761,10 +2796,22 @@ export class GoogleVertexProvider extends BaseProvider {
       rawFinishReason: lastFinishReason,
       usage: {
         input: adjustedInputTokens,
-        output: totalOutputTokens,
-        total: adjustedInputTokens + totalCacheReadTokens + totalOutputTokens,
+        // Thinking tokens are billed at the output rate but Gemini does NOT
+        // include them in candidatesTokenCount (totalTokenCount = prompt +
+        // candidates + thoughts), so they are folded into `output` — that is
+        // what calculateCost bills at the output rate — with `reasoning`
+        // reporting the thinking subset.
+        output: totalOutputTokens + totalReasoningTokens,
+        total:
+          adjustedInputTokens +
+          totalCacheReadTokens +
+          totalOutputTokens +
+          totalReasoningTokens,
         ...(totalCacheReadTokens > 0 && {
           cacheReadTokens: totalCacheReadTokens,
+        }),
+        ...(totalReasoningTokens > 0 && {
+          reasoning: totalReasoningTokens,
         }),
       },
       toolCalls: externalToolCalls.map((tc) => ({
@@ -3217,11 +3264,14 @@ export class GoogleVertexProvider extends BaseProvider {
     );
     let hitContextLimit = false;
 
-    // Track token usage across all steps
-    // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
+    // Track token usage across all steps. Every loop step is a separate
+    // billed API call, so per-step usage is folded into these turn totals
+    // after each step's chunk drain — assigning them directly from chunk
+    // metadata would record only the last step of a multi-step tool loop.
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     let totalCacheReadTokens = 0;
+    let totalReasoningTokens = 0;
 
     // Abort scaffolding (mirrors executeNativeAnthropicStream). The native
     // Gemini SDK cancels via config.abortSignal, so drive an internal
@@ -3318,6 +3368,18 @@ export class GoogleVertexProvider extends BaseProvider {
           // lastFinishReason) — drives the single MALFORMED_FUNCTION_CALL
           // retry below.
           let stepFinishReason: string | undefined;
+          // Per-step usage trackers for WRITE-THROUGH accumulation: within a
+          // step's chunk stream the counts are latest-wins (promptTokenCount
+          // arrives once in the final chunk; candidates/thoughts counts are
+          // cumulative across chunks), so each chunk folds only the DELTA
+          // over this step's previous value into the turn totals. The totals
+          // are therefore correct at every point mid-drain — a step killed
+          // mid-stream (abort / turn deadline / stall watchdog) still counts
+          // the billed tokens it already reported.
+          let stepInputTokens = 0;
+          let stepOutputTokens = 0;
+          let stepCacheReadTokens = 0;
+          let stepReasoningTokens = 0;
 
           // Collect all chunks from stream
           for await (const chunk of stream) {
@@ -3354,6 +3416,7 @@ export class GoogleVertexProvider extends BaseProvider {
                   promptTokenCount?: number;
                   candidatesTokenCount?: number;
                   cachedContentTokenCount?: number;
+                  thoughtsTokenCount?: number;
                   totalTokenCount?: number;
                 }
               | undefined;
@@ -3363,26 +3426,44 @@ export class GoogleVertexProvider extends BaseProvider {
                 usageMetadata.promptTokenCount !== undefined &&
                 usageMetadata.promptTokenCount > 0
               ) {
-                totalInputTokens = usageMetadata.promptTokenCount;
+                totalInputTokens +=
+                  usageMetadata.promptTokenCount - stepInputTokens;
+                stepInputTokens = usageMetadata.promptTokenCount;
                 // Feed the context guard the REAL prompt size of this call.
                 contextGuard.noteUsage(
                   usageMetadata.promptTokenCount,
                   usageMetadata.candidatesTokenCount ?? 0,
                 );
                 // cachedContentTokenCount is OVERLAPPING (a subset already inside
-                // promptTokenCount). Clamp to the prompt count so a later uncached
-                // step resets it to 0 instead of leaving a stale cached value.
-                totalCacheReadTokens = Math.min(
+                // promptTokenCount). Clamp to the prompt count so an uncached
+                // step reports 0 instead of a stale cached value.
+                const chunkCacheReadTokens = Math.min(
                   usageMetadata.cachedContentTokenCount ?? 0,
                   usageMetadata.promptTokenCount,
                 );
+                totalCacheReadTokens +=
+                  chunkCacheReadTokens - stepCacheReadTokens;
+                stepCacheReadTokens = chunkCacheReadTokens;
               }
               // Take the latest candidatesTokenCount (accumulates through chunks)
               if (
                 usageMetadata.candidatesTokenCount !== undefined &&
                 usageMetadata.candidatesTokenCount > 0
               ) {
-                totalOutputTokens = usageMetadata.candidatesTokenCount;
+                totalOutputTokens +=
+                  usageMetadata.candidatesTokenCount - stepOutputTokens;
+                stepOutputTokens = usageMetadata.candidatesTokenCount;
+              }
+              // thoughtsTokenCount (thinking tokens, billed at the output
+              // rate) is NOT part of candidatesTokenCount — Gemini reports
+              // totalTokenCount = prompt + candidates + thoughts.
+              if (
+                usageMetadata.thoughtsTokenCount !== undefined &&
+                usageMetadata.thoughtsTokenCount > 0
+              ) {
+                totalReasoningTokens +=
+                  usageMetadata.thoughtsTokenCount - stepReasoningTokens;
+                stepReasoningTokens = usageMetadata.thoughtsTokenCount;
               }
             }
           }
@@ -3862,6 +3943,7 @@ export class GoogleVertexProvider extends BaseProvider {
             finalText = synth.text;
             totalInputTokens += synth.inputTokens;
             totalOutputTokens += synth.outputTokens;
+            totalReasoningTokens += synth.reasoningTokens ?? 0;
             if (synth.finishReason) {
               lastFinishReason = synth.finishReason;
             }
@@ -3937,12 +4019,27 @@ export class GoogleVertexProvider extends BaseProvider {
       stepsUsed: step,
       usage: {
         input: adjustedInputTokens,
-        output: totalOutputTokens,
-        total: adjustedInputTokens + totalCacheReadTokens + totalOutputTokens,
+        // Thinking tokens are billed at the output rate but Gemini does NOT
+        // include them in candidatesTokenCount (totalTokenCount = prompt +
+        // candidates + thoughts), so they are folded into `output` — that is
+        // what calculateCost bills at the output rate — with `reasoning`
+        // reporting the thinking subset.
+        output: totalOutputTokens + totalReasoningTokens,
+        total:
+          adjustedInputTokens +
+          totalCacheReadTokens +
+          totalOutputTokens +
+          totalReasoningTokens,
         ...(totalCacheReadTokens > 0 && {
           cacheReadTokens: totalCacheReadTokens,
         }),
+        ...(totalReasoningTokens > 0 && {
+          reasoning: totalReasoningTokens,
+        }),
       },
+      ...(totalReasoningTokens > 0 && {
+        reasoningTokens: totalReasoningTokens,
+      }),
       responseTime,
       toolsUsed: externalToolCalls.map((tc) => tc.toolName),
       toolExecutions: resolveToolExecutionRecords(
@@ -3996,11 +4093,12 @@ export class GoogleVertexProvider extends BaseProvider {
     finishReason?: string;
     inputTokens: number;
     outputTokens: number;
+    reasoningTokens: number;
   }> {
     // Already aborted — never issue the synth request (would add +300s after a
     // blown budget). Return empty so the caller maps to the graceful message.
     if (abortSignal?.aborted) {
-      return { text: "", inputTokens: 0, outputTokens: 0 };
+      return { text: "", inputTokens: 0, outputTokens: 0, reasoningTokens: 0 };
     }
     try {
       // Shallow clone so the loop's config is never mutated; dropping the
@@ -4041,6 +4139,7 @@ export class GoogleVertexProvider extends BaseProvider {
           let finishReason: string | undefined;
           let inputTokens = 0;
           let outputTokens = 0;
+          let reasoningTokens = 0;
           for await (const chunk of stream) {
             const chunkRecord = chunk as Record<string, unknown>;
             const candidates = chunkRecord.candidates as
@@ -4058,7 +4157,11 @@ export class GoogleVertexProvider extends BaseProvider {
               parts.push(...chunkContent.parts);
             }
             const usageMetadata = chunkRecord.usageMetadata as
-              | { promptTokenCount?: number; candidatesTokenCount?: number }
+              | {
+                  promptTokenCount?: number;
+                  candidatesTokenCount?: number;
+                  thoughtsTokenCount?: number;
+                }
               | undefined;
             if (usageMetadata) {
               if (
@@ -4073,6 +4176,12 @@ export class GoogleVertexProvider extends BaseProvider {
               ) {
                 outputTokens = usageMetadata.candidatesTokenCount;
               }
+              if (
+                usageMetadata.thoughtsTokenCount !== undefined &&
+                usageMetadata.thoughtsTokenCount > 0
+              ) {
+                reasoningTokens = usageMetadata.thoughtsTokenCount;
+              }
             }
           }
 
@@ -4084,7 +4193,13 @@ export class GoogleVertexProvider extends BaseProvider {
             .map((part) => part.text)
             .join("");
 
-          return { text, finishReason, inputTokens, outputTokens };
+          return {
+            text,
+            finishReason,
+            inputTokens,
+            outputTokens,
+            reasoningTokens,
+          };
         })(),
         timeoutMs,
         "Gemini synthesis call timed out",
@@ -4094,7 +4209,7 @@ export class GoogleVertexProvider extends BaseProvider {
         "[GoogleVertex] Tools-disabled synthesis call failed; falling back to placeholder",
         { error: error instanceof Error ? error.message : String(error) },
       );
-      return { text: "", inputTokens: 0, outputTokens: 0 };
+      return { text: "", inputTokens: 0, outputTokens: 0, reasoningTokens: 0 };
     }
   }
 
@@ -4825,7 +4940,14 @@ export class GoogleVertexProvider extends BaseProvider {
 
             usage.input += response.usage?.input_tokens || 0;
             usage.output += response.usage?.output_tokens || 0;
-            usage.total = usage.input + usage.output;
+            // Anthropic's input_tokens is only the UNCACHED remainder; cache
+            // reads/writes are billed tokens reported separately, so the
+            // total must include them (matches proxyTracer + anthropic.ts).
+            usage.total =
+              usage.input +
+              usage.output +
+              turnCacheUsage.read +
+              turnCacheUsage.creation;
             lastStopReason = response.stop_reason;
             // Feed the context guard the FULL prompt size of this call
             // (uncached input + cache reads/writes).
@@ -5413,7 +5535,6 @@ export class GoogleVertexProvider extends BaseProvider {
               activeStream = undefined;
               usage.input += response.usage?.input_tokens || 0;
               usage.output += response.usage?.output_tokens || 0;
-              usage.total = usage.input + usage.output;
               turnCacheUsage.read +=
                 response.usage?.cache_read_input_tokens ?? 0;
               turnCacheUsage.creation +=
@@ -5422,6 +5543,13 @@ export class GoogleVertexProvider extends BaseProvider {
                 response.usage?.cache_creation?.ephemeral_5m_input_tokens ?? 0;
               turnCacheUsage.creation1h +=
                 response.usage?.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+              // Total counts cache reads/writes — input_tokens is only the
+              // uncached remainder.
+              usage.total =
+                usage.input +
+                usage.output +
+                turnCacheUsage.read +
+                turnCacheUsage.creation;
               lastStopReason = response.stop_reason;
               const forcedFinalResult = (
                 response.content as VertexAnthropicContentBlock[]
@@ -5531,7 +5659,6 @@ export class GoogleVertexProvider extends BaseProvider {
                 activeStream = undefined;
                 usage.input += response.usage?.input_tokens || 0;
                 usage.output += response.usage?.output_tokens || 0;
-                usage.total = usage.input + usage.output;
                 turnCacheUsage.read +=
                   response.usage?.cache_read_input_tokens ?? 0;
                 turnCacheUsage.creation +=
@@ -5542,6 +5669,13 @@ export class GoogleVertexProvider extends BaseProvider {
                 turnCacheUsage.creation1h +=
                   response.usage?.cache_creation?.ephemeral_1h_input_tokens ??
                   0;
+                // Total counts cache reads/writes — input_tokens is only the
+                // uncached remainder.
+                usage.total =
+                  usage.input +
+                  usage.output +
+                  turnCacheUsage.read +
+                  turnCacheUsage.creation;
                 lastStopReason = response.stop_reason;
                 const backstopText = (
                   response.content as VertexAnthropicContentBlock[]
@@ -7048,7 +7182,14 @@ export class GoogleVertexProvider extends BaseProvider {
       usage: {
         input: totalInputTokens,
         output: totalOutputTokens,
-        total: totalInputTokens + totalOutputTokens,
+        // Anthropic's input_tokens is only the UNCACHED remainder; cache
+        // reads/writes are billed tokens reported separately, so the total
+        // must include them (matches proxyTracer + anthropic.ts).
+        total:
+          totalInputTokens +
+          totalOutputTokens +
+          totalCacheReadTokens +
+          totalCacheCreationTokens,
         ...(totalCacheReadTokens > 0 && {
           cacheReadTokens: totalCacheReadTokens,
         }),

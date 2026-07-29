@@ -835,6 +835,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
             let totalInputTokens = 0;
             let totalOutputTokens = 0;
             let totalCacheReadTokens = 0;
+            let totalReasoningTokens = 0;
             let step = 0;
             let completedWithFinalAnswer = false;
             const failedTools = new Map<
@@ -885,6 +886,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
                   totalInputTokens += chunkResult.inputTokens;
                   totalOutputTokens += chunkResult.outputTokens;
                   totalCacheReadTokens += chunkResult.cacheReadTokens ?? 0;
+                  totalReasoningTokens += chunkResult.reasoningTokens ?? 0;
 
                   const stepText = extractTextFromParts(
                     chunkResult.rawResponseParts,
@@ -1036,13 +1038,21 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 model: modelName,
                 tokenUsage: {
                   input: adjustedInputTokens,
-                  output: totalOutputTokens,
+                  // Thinking tokens are billed at the output rate but Gemini
+                  // does NOT include them in candidatesTokenCount, so they
+                  // are folded into `output` — what calculateCost bills at
+                  // the output rate — with `reasoning` as the subset.
+                  output: totalOutputTokens + totalReasoningTokens,
                   total:
                     adjustedInputTokens +
                     totalCacheReadTokens +
-                    totalOutputTokens,
+                    totalOutputTokens +
+                    totalReasoningTokens,
                   ...(totalCacheReadTokens > 0
                     ? { cacheReadTokens: totalCacheReadTokens }
+                    : {}),
+                  ...(totalReasoningTokens > 0
+                    ? { reasoning: totalReasoningTokens }
                     : {}),
                 },
                 requestDuration: responseTime,
@@ -1227,6 +1237,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
           let totalInputTokens = 0;
           let totalOutputTokens = 0;
           let totalCacheReadTokens = 0;
+          let totalReasoningTokens = 0;
           const allToolCalls: Array<{
             toolName: string;
             args: Record<string, unknown>;
@@ -1272,6 +1283,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
               totalInputTokens += chunkResult.inputTokens;
               totalOutputTokens += chunkResult.outputTokens;
               totalCacheReadTokens += chunkResult.cacheReadTokens ?? 0;
+              totalReasoningTokens += chunkResult.reasoningTokens ?? 0;
 
               const stepText = extractTextFromParts(
                 chunkResult.rawResponseParts,
@@ -1409,13 +1421,26 @@ export class GoogleAIStudioProvider extends BaseProvider {
             model: modelName,
             usage: {
               input: adjustedInputTokens,
-              output: totalOutputTokens,
+              // Thinking tokens are billed at the output rate but Gemini
+              // does NOT include them in candidatesTokenCount, so they are
+              // folded into `output` — what calculateCost bills at the
+              // output rate — with `reasoning` as the subset.
+              output: totalOutputTokens + totalReasoningTokens,
               total:
-                adjustedInputTokens + totalCacheReadTokens + totalOutputTokens,
+                adjustedInputTokens +
+                totalCacheReadTokens +
+                totalOutputTokens +
+                totalReasoningTokens,
               ...(totalCacheReadTokens > 0
                 ? { cacheReadTokens: totalCacheReadTokens }
                 : {}),
+              ...(totalReasoningTokens > 0
+                ? { reasoning: totalReasoningTokens }
+                : {}),
             },
+            ...(totalReasoningTokens > 0 && {
+              reasoningTokens: totalReasoningTokens,
+            }),
             responseTime,
             toolsUsed: allToolCalls.map((tc) => tc.toolName),
             toolExecutions: resolveToolExecutionRecords(

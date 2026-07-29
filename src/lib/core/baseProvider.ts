@@ -68,13 +68,16 @@ import { Utilities } from "./modules/Utilities.js";
 import type {
   LanguageModel,
   ModelMessage,
+  RawUsageObject,
   ResolvedToolPolicy,
   Tool,
+  TokenUsage,
   ToolCallRepairFunction,
   ToolDedupConfig,
   ToolSet,
 } from "../types/index.js";
 import { generateText } from "../utils/generation.js";
+import { extractTokenUsage } from "../utils/tokenUtils.js";
 
 /**
  * Read the consumer-facing lifecycle callbacks buried inside a request's
@@ -1215,9 +1218,7 @@ export abstract class BaseProvider implements AIProvider {
    * Record performance metrics - delegated to TelemetryHandler
    */
   private async recordPerformanceMetrics(
-    usage:
-      | { inputTokens: number | undefined; outputTokens: number | undefined }
-      | undefined,
+    usage: RawUsageObject | undefined,
     responseTime: number,
   ): Promise<void> {
     await this.telemetryHandler.recordPerformanceMetrics(usage, responseTime);
@@ -1526,13 +1527,9 @@ export abstract class BaseProvider implements AIProvider {
           ),
         });
         formattedContent = formattedResult.text;
-        usage = {
-          input: formattedResult.usage?.inputTokens || 0,
-          output: formattedResult.usage?.outputTokens || 0,
-          total:
-            (formattedResult.usage?.inputTokens || 0) +
-            (formattedResult.usage?.outputTokens || 0),
-        };
+        usage = extractTokenUsage(
+          formattedResult.totalUsage ?? formattedResult.usage,
+        );
 
         logger.debug("[VideoAnalysis] Claude formatting complete", {
           formattedLength: formattedContent.length,
@@ -1603,7 +1600,6 @@ export abstract class BaseProvider implements AIProvider {
     this.analyzeAIResponse(generateResult);
     this.logGenerationComplete(generateResult);
     const responseTime = Date.now() - startTime;
-    await this.recordPerformanceMetrics(generateResult.usage, responseTime);
 
     const { toolsUsed, toolExecutions } =
       this.extractToolInformation(generateResult);
@@ -1621,6 +1617,14 @@ export abstract class BaseProvider implements AIProvider {
       toolExecutionRecords,
       options,
     );
+
+    // Recorded AFTER formatEnhancedResult so telemetry sees the same usage
+    // the caller gets: the cross-step aggregate (totalUsage, not last-step
+    // usage) WITH the providerMetadata cache merge applied — otherwise
+    // providers whose cache data lives only in providerMetadata would have
+    // their cache tokens billed at the full input rate in OTEL metrics,
+    // diverging from analytics.cost.
+    await this.recordPerformanceMetrics(enhancedResult.usage, responseTime);
     enhancedResult = await this.synthesizeAIResponseIfNeeded(
       enhancedResult,
       options,
@@ -1992,10 +1996,7 @@ export abstract class BaseProvider implements AIProvider {
   /**
    * Calculate actual cost - delegated to TelemetryHandler
    */
-  private async calculateActualCost(usage: {
-    inputTokens?: number | undefined;
-    outputTokens?: number | undefined;
-  }): Promise<number> {
+  private async calculateActualCost(usage: TokenUsage): Promise<number> {
     return this.telemetryHandler.calculateActualCost(usage);
   }
 

@@ -1889,6 +1889,12 @@ export type CollectedChunkResult = {
   cacheReadTokens?: number;
   /** Cache creation tokens (symmetry; Gemini does not emit this). */
   cacheCreationTokens?: number;
+  /**
+   * Gemini thinking tokens (usageMetadata.thoughtsTokenCount). Billed at the
+   * output rate but NOT included in candidatesTokenCount — Gemini reports
+   * totalTokenCount = prompt + candidates + thoughts.
+   */
+  reasoningTokens?: number;
 };
 
 /** Push-based text channel for incremental streaming. */

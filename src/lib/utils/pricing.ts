@@ -683,16 +683,30 @@ function findRates(
     return undefined;
   }
 
+  // Bedrock model IDs carry region/vendor prefixes ("us.anthropic.claude-…",
+  // "global.anthropic.claude-…", "anthropic.claude-…") or arrive as full
+  // inference-profile ARNs ("arn:aws:bedrock:…:inference-profile/us.anthropic.
+  // claude-…" — the form this repo's own setup guides recommend). None of
+  // those match the bare pricing keys ("claude-…"), so every Bedrock call
+  // priced to $0. Strip everything up to and including the vendor prefix; the
+  // trailing "-v1:0" version suffix is absorbed by the longest-prefix match
+  // below. Non-Anthropic Bedrock models (meta./amazon./mistral.) don't match
+  // and fall through unchanged, exactly as before.
+  const modelKey =
+    stripped === "bedrock" || stripped === "amazonbedrock"
+      ? model.replace(/^.*\banthropic\./, "")
+      : model;
+
   // Exact match
-  if (providerPricing[model]) {
-    return providerPricing[model];
+  if (providerPricing[modelKey]) {
+    return providerPricing[modelKey];
   }
 
   // Longest-prefix match (skip the synthetic "_default" sentinel below)
   const sortedKeys = Object.keys(providerPricing)
     .filter((k) => k !== "_default")
     .sort((a, b) => b.length - a.length);
-  const key = sortedKeys.find((k) => model.startsWith(k));
+  const key = sortedKeys.find((k) => modelKey.startsWith(k));
   if (key) {
     return providerPricing[key];
   }

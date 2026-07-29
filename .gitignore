@@ -179,3 +179,8 @@ memory-bank/native-runtime/
 
 # Consumer-supplied gap/spec docs we work from locally — not part of the repo
 NEUROLINK_SDK_GAPS.md
+
+# Yama v3 runtime output (config .yama/config.yaml stays tracked)
+.yama/state/
+.yama/analytics/
+.yama/reports/

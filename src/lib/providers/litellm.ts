@@ -379,12 +379,26 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
     };
     return {
       onUsage: (usage) => {
-        span.setAttribute("gen_ai.usage.input_tokens", usage.promptTokens);
+        // promptTokens is the uncached remainder — the attribute reports the
+        // full prompt (uncached + cache read/creation), and the cache fields
+        // let calculateCost price tiers.
+        span.setAttribute(
+          "gen_ai.usage.input_tokens",
+          usage.promptTokens +
+            (usage.cacheReadTokens ?? 0) +
+            (usage.cacheCreationTokens ?? 0),
+        );
         span.setAttribute("gen_ai.usage.output_tokens", usage.completionTokens);
-        const cost = calculateCost(this.providerName, this.modelName, {
+        const cost = calculateCost(this.providerName, modelId, {
           input: usage.promptTokens,
           output: usage.completionTokens,
           total: usage.totalTokens,
+          ...(usage.cacheReadTokens
+            ? { cacheReadTokens: usage.cacheReadTokens }
+            : {}),
+          ...(usage.cacheCreationTokens
+            ? { cacheCreationTokens: usage.cacheCreationTokens }
+            : {}),
         });
         if (cost && cost > 0) {
           span.setAttribute("neurolink.cost", cost);

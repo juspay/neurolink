@@ -355,10 +355,13 @@ export class HuggingFaceStreamParser extends BaseStreamingParser {
     }
 
     const tokens = details.tokens as Record<string, unknown>;
+    const promptTokens = Number(tokens.input) || 0;
+    const completionTokens = Number(tokens.generated) || 0;
     return {
-      promptTokens: Number(tokens.input) || 0,
-      completionTokens: Number(tokens.generated) || 0,
-      total: Number(tokens.total) || 0,
+      promptTokens,
+      completionTokens,
+      // Endpoints that omit the total must not report 0 next to real counts.
+      total: Number(tokens.total) || promptTokens + completionTokens,
     };
   }
 
@@ -561,10 +564,13 @@ export class LlamaStreamParser extends BaseStreamingParser {
   }
 
   private parseLlamaUsage(usage: Record<string, unknown>): SageMakerUsage {
+    const promptTokens = Number(usage.prompt_tokens) || 0;
+    const completionTokens = Number(usage.completion_tokens) || 0;
     return {
-      promptTokens: Number(usage.prompt_tokens) || 0,
-      completionTokens: Number(usage.completion_tokens) || 0,
-      total: Number(usage.total_tokens) || 0,
+      promptTokens,
+      completionTokens,
+      // Endpoints that omit total_tokens must not report 0 next to real counts.
+      total: Number(usage.total_tokens) || promptTokens + completionTokens,
     };
   }
 
@@ -714,11 +720,14 @@ export class CustomStreamParser extends BaseStreamingParser {
   ): SageMakerUsage | undefined {
     const usage = (data.usage || data.tokens || {}) as Record<string, unknown>;
 
+    const promptTokens = Number(usage.prompt_tokens || usage.input_tokens) || 0;
+    const completionTokens =
+      Number(usage.completion_tokens || usage.output_tokens) || 0;
     return {
-      promptTokens: Number(usage.prompt_tokens || usage.input_tokens) || 0,
-      completionTokens:
-        Number(usage.completion_tokens || usage.output_tokens) || 0,
-      total: Number(usage.total_tokens) || 0,
+      promptTokens,
+      completionTokens,
+      // Endpoints that omit total_tokens must not report 0 next to real counts.
+      total: Number(usage.total_tokens) || promptTokens + completionTokens,
     };
   }
 }

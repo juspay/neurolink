@@ -29,6 +29,7 @@ import type {
   OpenAICompatStreamChunk,
   OpenAICompatToolCallWire,
   OpenAICompatToolChoiceWire,
+  OpenAICompatUsage,
   OpenAICompatV3CallToolChoice,
   OpenAICompatV3CallTools,
   DeferredUsage,
@@ -812,36 +813,40 @@ export const createChunkQueue = () => {
 };
 
 export const mergeUsage = (
-  a:
-    | {
-        prompt_tokens?: number;
-        completion_tokens?: number;
-        total_tokens?: number;
-      }
-    | undefined,
-  b:
-    | {
-        prompt_tokens?: number;
-        completion_tokens?: number;
-        total_tokens?: number;
-      }
-    | undefined,
-):
-  | {
-      prompt_tokens?: number;
-      completion_tokens?: number;
-      total_tokens?: number;
-    }
-  | undefined => {
+  a: OpenAICompatUsage | undefined,
+  b: OpenAICompatUsage | undefined,
+): OpenAICompatUsage | undefined => {
   if (!a) {
     return b;
   }
   if (!b) {
     return a;
   }
+  // Sum the nested details too — narrowing to the three flat scalars here
+  // silently dropped cached_tokens / reasoning_tokens the first time two
+  // steps were merged (single-step streams passed the object through
+  // untouched, so the loss only showed up in multi-step tool loops).
+  const cachedTokens =
+    (a.prompt_tokens_details?.cached_tokens ?? 0) +
+    (b.prompt_tokens_details?.cached_tokens ?? 0);
+  const reasoningTokens =
+    (a.completion_tokens_details?.reasoning_tokens ?? 0) +
+    (b.completion_tokens_details?.reasoning_tokens ?? 0);
+  // A step that omits total_tokens contributes its prompt+completion sum
+  // instead of 0 — otherwise one totals-reporting step next to one that
+  // omits it yields a nonzero-but-partial aggregate that downstream
+  // consumers trust over their own prompt+completion fallback.
+  const stepTotal = (u: OpenAICompatUsage): number =>
+    u.total_tokens || (u.prompt_tokens ?? 0) + (u.completion_tokens ?? 0);
   return {
     prompt_tokens: (a.prompt_tokens ?? 0) + (b.prompt_tokens ?? 0),
     completion_tokens: (a.completion_tokens ?? 0) + (b.completion_tokens ?? 0),
-    total_tokens: (a.total_tokens ?? 0) + (b.total_tokens ?? 0),
+    total_tokens: stepTotal(a) + stepTotal(b),
+    ...(cachedTokens > 0
+      ? { prompt_tokens_details: { cached_tokens: cachedTokens } }
+      : {}),
+    ...(reasoningTokens > 0
+      ? { completion_tokens_details: { reasoning_tokens: reasoningTokens } }
+      : {}),
   };
 };

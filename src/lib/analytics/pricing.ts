@@ -29,6 +29,7 @@ export function calculateAdvancedCost(
   inputTokens: number,
   outputTokens: number,
   provider?: string,
+  cacheTokens?: { cacheReadTokens?: number; cacheCreationTokens?: number },
 ): number {
   if (!model) {
     return 0;
@@ -39,9 +40,13 @@ export function calculateAdvancedCost(
   const resolvedProvider =
     provider && provider.length > 0 ? provider : "openrouter";
 
+  const cacheReadTokens = cacheTokens?.cacheReadTokens ?? 0;
+  const cacheCreationTokens = cacheTokens?.cacheCreationTokens ?? 0;
   return calculateCost(resolvedProvider, model, {
     input: inputTokens,
     output: outputTokens,
-    total: inputTokens + outputTokens,
+    total: inputTokens + cacheReadTokens + cacheCreationTokens + outputTokens,
+    ...(cacheReadTokens > 0 ? { cacheReadTokens } : {}),
+    ...(cacheCreationTokens > 0 ? { cacheCreationTokens } : {}),
   });
 }

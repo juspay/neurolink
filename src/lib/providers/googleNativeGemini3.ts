@@ -812,6 +812,7 @@ export async function collectStreamChunks(
   let inputTokens = 0;
   let outputTokens = 0;
   let cacheReadTokens = 0;
+  let reasoningTokens = 0;
 
   for await (const chunk of stream) {
     // Extract raw parts from candidates FIRST
@@ -838,6 +839,7 @@ export async function collectStreamChunks(
           promptTokenCount?: number;
           candidatesTokenCount?: number;
           cachedContentTokenCount?: number;
+          thoughtsTokenCount?: number;
         }
       | undefined;
     if (usage) {
@@ -849,6 +851,12 @@ export async function collectStreamChunks(
         cacheReadTokens,
         usage.cachedContentTokenCount || 0,
       );
+      // thoughtsTokenCount (thinking tokens, billed at the output rate) is
+      // NOT part of candidatesTokenCount — surface it separately.
+      reasoningTokens = Math.max(
+        reasoningTokens,
+        usage.thoughtsTokenCount || 0,
+      );
     }
   }
 
@@ -858,6 +866,7 @@ export async function collectStreamChunks(
     inputTokens,
     outputTokens,
     cacheReadTokens,
+    reasoningTokens,
   };
 }
 
@@ -963,6 +972,7 @@ export async function collectStreamChunksIncremental(
   let inputTokens = 0;
   let outputTokens = 0;
   let cacheReadTokens = 0;
+  let reasoningTokens = 0;
 
   for await (const chunk of stream) {
     const chunkRecord = chunk as Record<string, unknown>;
@@ -991,6 +1001,7 @@ export async function collectStreamChunksIncremental(
           promptTokenCount?: number;
           candidatesTokenCount?: number;
           cachedContentTokenCount?: number;
+          thoughtsTokenCount?: number;
         }
       | undefined;
     if (usage) {
@@ -1002,6 +1013,12 @@ export async function collectStreamChunksIncremental(
         cacheReadTokens,
         usage.cachedContentTokenCount || 0,
       );
+      // thoughtsTokenCount (thinking tokens, billed at the output rate) is
+      // NOT part of candidatesTokenCount — surface it separately.
+      reasoningTokens = Math.max(
+        reasoningTokens,
+        usage.thoughtsTokenCount || 0,
+      );
     }
   }
 
@@ -1011,6 +1028,7 @@ export async function collectStreamChunksIncremental(
     inputTokens,
     outputTokens,
     cacheReadTokens,
+    reasoningTokens,
   };
 }
 

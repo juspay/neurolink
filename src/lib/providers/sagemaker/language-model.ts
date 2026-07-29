@@ -9,7 +9,11 @@ import { randomUUID } from "crypto";
 
 import { SageMakerRuntimeClient } from "./client.js";
 import { handleSageMakerError } from "./errors.js";
-import { estimateTokenUsage, createSageMakerStream } from "./streaming.js";
+import {
+  estimateTokenUsage,
+  createSageMakerStream,
+  parseUsageFromResponseBody,
+} from "./streaming.js";
 import type {
   ConnectivityResult,
   OpenAICompatV3CallToolChoice,
@@ -228,8 +232,11 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
       // Extract tool calls if present (Phase 4 enhancement)
       const toolCalls = this.extractToolCallsFromResponse(responseBody);
 
-      // Calculate token usage
-      const usage = estimateTokenUsage(promptText, generatedText);
+      // Prefer the endpoint's REAL token counts; only fall back to the
+      // char-heuristic estimate when the response reports none.
+      const usage =
+        parseUsageFromResponseBody(responseBody) ??
+        estimateTokenUsage(promptText, generatedText);
 
       // Determine finish reason based on response content
       let finishReason:
