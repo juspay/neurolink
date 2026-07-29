@@ -929,6 +929,7 @@ export type ProxyStatusArgs = {
 export type ProxyAnalyzeArgs = {
   logsDir?: string;
   since?: string;
+  until?: string;
   format?: "text" | "json";
   quiet?: boolean;
 };

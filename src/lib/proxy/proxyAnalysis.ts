@@ -271,6 +271,23 @@ function parseSince(value: string, nowMs: number): number {
   return parsed;
 }
 
+function parseUntil(value: string, nowMs: number): number {
+  let parsed: number;
+  try {
+    parsed = parseSince(value, nowMs);
+  } catch {
+    throw new Error(
+      `Invalid --until value "${value}". Use an ISO timestamp or a duration such as 6h, 1d, or 1w.`,
+    );
+  }
+  if (parsed > nowMs) {
+    throw new Error(
+      `Invalid --until value "${value}". It must not be later than the analysis start time.`,
+    );
+  }
+  return parsed;
+}
+
 async function readJsonLines(
   filePath: string,
   onRecord: (record: Record<string, unknown>) => void,
@@ -530,6 +547,12 @@ export async function analyzeProxyLogs(
 ): Promise<ProxyAnalysisReport> {
   const nowMs = options?.nowMs ?? Date.now();
   const sinceMs = parseSince(options?.since ?? "24h", nowMs);
+  const untilMs = options?.until ? parseUntil(options.until, nowMs) : nowMs;
+  if (untilMs < sinceMs) {
+    throw new Error(
+      `Invalid analysis window: --until must not be earlier than --since.`,
+    );
+  }
   const logsDir = resolve(
     options?.logsDir ?? join(homedir(), ".neurolink", "logs"),
   );
@@ -580,7 +603,7 @@ export async function analyzeProxyLogs(
       filePath,
       (record) => {
         const timestamp = observeTimestamp("lifecycle", record);
-        if (timestamp === null || timestamp < sinceMs) {
+        if (timestamp === null || timestamp < sinceMs || timestamp > untilMs) {
           return;
         }
         const event = stringValue(record.event);
@@ -670,7 +693,7 @@ export async function analyzeProxyLogs(
       filePath,
       (record) => {
         const timestamp = observeTimestamp("attempts", record);
-        if (timestamp === null || timestamp < sinceMs) {
+        if (timestamp === null || timestamp < sinceMs || timestamp > untilMs) {
           return;
         }
         const requestId = stringValue(record.requestId);
@@ -741,7 +764,7 @@ export async function analyzeProxyLogs(
       filePath,
       (record) => {
         const timestamp = observeTimestamp("requests", record);
-        if (timestamp === null || timestamp < sinceMs) {
+        if (timestamp === null || timestamp < sinceMs || timestamp > untilMs) {
           return;
         }
         const requestId = stringValue(record.requestId);
@@ -801,7 +824,7 @@ export async function analyzeProxyLogs(
       filePath,
       (record) => {
         const timestamp = observeTimestamp("debug", record);
-        if (timestamp === null || timestamp < sinceMs) {
+        if (timestamp === null || timestamp < sinceMs || timestamp > untilMs) {
           return;
         }
         if (record.type !== "body_capture") {
@@ -876,6 +899,7 @@ export async function analyzeProxyLogs(
   return {
     generatedAt: new Date(nowMs).toISOString(),
     since: new Date(sinceMs).toISOString(),
+    until: new Date(untilMs).toISOString(),
     logsDir,
     files: {
       lifecycle: lifecycleFiles.length,

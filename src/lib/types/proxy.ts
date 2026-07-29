@@ -1501,6 +1501,7 @@ export type ProxyAnalysisStreamName =
 export type ProxyAnalysisReport = {
   generatedAt: string;
   since: string;
+  until: string;
   logsDir: string;
   files: {
     lifecycle: number;
@@ -1610,6 +1611,7 @@ export type ProxyAnalysisReport = {
 export type ProxyAnalysisOptions = {
   logsDir?: string;
   since?: string;
+  until?: string;
   nowMs?: number;
 };
 
