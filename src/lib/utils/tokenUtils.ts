@@ -57,10 +57,13 @@ export function extractTotalTokens(
   input: number,
   output: number,
 ): number {
-  if (typeof usage.total === "number") {
+  // A literal 0 alongside non-zero components means the provider omitted the
+  // figure (several gateways/parsers emit total: 0) — fall through to the
+  // computed sum instead of letting the zero win.
+  if (typeof usage.total === "number" && usage.total > 0) {
     return usage.total;
   }
-  if (typeof usage.totalTokens === "number") {
+  if (typeof usage.totalTokens === "number" && usage.totalTokens > 0) {
     return usage.totalTokens;
   }
   return input + output;
@@ -241,7 +244,6 @@ export function extractTokenUsage(
   // Extract base token counts
   let input = extractInputTokens(usage);
   const output = extractOutputTokens(usage);
-  const total = extractTotalTokens(usage, input, output);
 
   // Extract optional token fields
   const reasoning = extractReasoningTokens(usage);
@@ -262,6 +264,49 @@ export function extractTokenUsage(
       input = Math.max(0, input - overlappingCached);
     }
   }
+
+  // ai@6-shape rebase: when the cache values came ONLY from the ai@6
+  // normalized shape (cachedInputTokens / inputTokenDetails.*), the flat
+  // input is cache-INCLUSIVE — asLanguageModelUsage reports
+  // inputTokens.total = noCache + cacheRead + cacheWrite — so `input` must
+  // be rebased onto the uncached portion or calculateCost bills the cached
+  // tokens twice (full input rate + cacheRead/cacheCreation rate). The
+  // native fields excluded below (cacheReadInputTokens / cacheReadTokens /
+  // cacheCreationInputTokens / cacheCreationTokens) follow the
+  // non-overlapping convention where input is already the uncached
+  // remainder, and the overlapping snake_case shape was already rebased
+  // above — neither must be rebased again.
+  if (
+    (cacheReadTokens !== undefined || cacheCreationTokens !== undefined) &&
+    usage.cacheReadInputTokens === undefined &&
+    usage.cacheReadTokens === undefined &&
+    usage.cacheCreationInputTokens === undefined &&
+    usage.cacheCreationTokens === undefined &&
+    usage.prompt_tokens_details?.cached_tokens === undefined &&
+    (usage.cachedInputTokens !== undefined ||
+      usage.inputTokenDetails !== undefined)
+  ) {
+    const noCacheTokens = usage.inputTokenDetails?.noCacheTokens;
+    if (typeof noCacheTokens === "number") {
+      input = noCacheTokens;
+    } else {
+      input = Math.max(
+        0,
+        input -
+          (cacheReadTokens ?? 0) -
+          (usage.inputTokenDetails?.cacheWriteTokens ?? 0),
+      );
+    }
+  }
+
+  // Total: prefer the provider-reported figure; the fallback conserves every
+  // billed component — cache tokens are additive on top of the (post-rebase)
+  // uncached input. Reasoning is already inside `output`, so it is NOT added.
+  const total = extractTotalTokens(
+    usage,
+    input + (cacheReadTokens ?? 0) + (cacheCreationTokens ?? 0),
+    output,
+  );
 
   // Calculate cache savings if enabled
   const cacheSavingsPercent = calculateCacheSavings

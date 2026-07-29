@@ -23,8 +23,11 @@ import type {
   AnalyticsData,
   EnhancedGenerateResult,
   EvaluationData,
+  RawUsageObject,
   TextGenerationOptions,
+  TokenUsage,
 } from "../../types/index.js";
+import { extractTokenUsage } from "../../utils/tokenUtils.js";
 import { logger } from "../../utils/logger.js";
 import { recordProviderPerformanceFromMetrics } from "../evaluationProviders.js";
 import { modelConfig } from "../modelConfiguration.js";
@@ -99,17 +102,16 @@ export class TelemetryHandler {
    * Record performance metrics for a generation
    */
   async recordPerformanceMetrics(
-    usage:
-      | { inputTokens: number | undefined; outputTokens: number | undefined }
-      | undefined,
+    usage: RawUsageObject | undefined,
     responseTime: number,
   ): Promise<void> {
     try {
-      const totalTokens =
-        (usage?.inputTokens || 0) + (usage?.outputTokens || 0);
-      const actualCost = await this.calculateActualCost(
-        usage || { inputTokens: 0, outputTokens: 0 },
-      );
+      // Normalize first: rebases cache-inclusive ai@6 input onto the uncached
+      // remainder and surfaces cache tiers so the cost is priced per tier
+      // instead of billing cache reads at the full input rate.
+      const tokenUsage = extractTokenUsage(usage);
+      const totalTokens = tokenUsage.total;
+      const actualCost = await this.calculateActualCost(tokenUsage);
 
       recordProviderPerformanceFromMetrics(this.providerName, {
         responseTime,
@@ -149,22 +151,12 @@ export class TelemetryHandler {
    * causing a ~1,780x under-estimate when the actual model was Claude Sonnet
    * on Vertex AI ($0.000060 vs $0.106895 for the same request).
    */
-  async calculateActualCost(usage: {
-    inputTokens?: number | undefined;
-    outputTokens?: number | undefined;
-  }): Promise<number> {
+  async calculateActualCost(usage: TokenUsage): Promise<number> {
     try {
-      const promptTokens = usage?.inputTokens || 0;
-      const completionTokens = usage?.outputTokens || 0;
-
       // Try the per-model pricing table first (includes correct rates for
       // Claude on Vertex, cache token rates, etc.)
       if (hasPricing(this.providerName, this.modelName)) {
-        return calculateCost(this.providerName, this.modelName, {
-          input: promptTokens,
-          output: completionTokens,
-          total: promptTokens + completionTokens,
-        });
+        return calculateCost(this.providerName, this.modelName, usage);
       }
 
       // Fall back to provider-level default cost from configuration system
@@ -176,9 +168,16 @@ export class TelemetryHandler {
         return 0; // No cost info available
       }
 
-      // Calculate cost per 1K tokens
-      const inputCost = (promptTokens / 1000) * costInfo.input;
-      const outputCost = (completionTokens / 1000) * costInfo.output;
+      // Calculate cost per 1K tokens. costInfo has no cache tiers, so cache
+      // tokens are billed at the input rate — the same total a provider
+      // without cache-aware splitting would have reported, never $0.
+      const inputCost =
+        ((usage.input +
+          (usage.cacheReadTokens ?? 0) +
+          (usage.cacheCreationTokens ?? 0)) /
+          1000) *
+        costInfo.input;
+      const outputCost = (usage.output / 1000) * costInfo.output;
 
       return inputCost + outputCost;
     } catch (error) {

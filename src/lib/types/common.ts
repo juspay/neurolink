@@ -363,6 +363,7 @@ export type RawUsageObject = {
   // direct-Anthropic V3 model reports cache tokens ONLY through this shape.
   cachedInputTokens?: number;
   inputTokenDetails?: {
+    noCacheTokens?: number;
     cacheReadTokens?: number;
     cacheWriteTokens?: number;
   };
@@ -392,6 +393,8 @@ export type DeferredUsage = {
   totalTokens: number;
   cacheReadTokens?: number;
   cacheCreationTokens?: number;
+  /** Reasoning/thinking tokens — a SUBSET already included in completionTokens. */
+  reasoningTokens?: number;
 };
 
 /**

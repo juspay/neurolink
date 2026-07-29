@@ -373,13 +373,21 @@ export class AmazonBedrockProvider extends BaseProvider {
 
   private async conversationLoop(options: TextGenerationOptions): Promise<{
     text: string;
-    usage: { input: number; output: number; total: number };
+    usage: {
+      input: number;
+      output: number;
+      total: number;
+      cacheReadTokens?: number;
+      cacheCreationTokens?: number;
+    };
     finishReason?: string;
   }> {
     const maxIterations = 10; // Prevent infinite loops
     let iteration = 0;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalCacheReadTokens = 0;
+    let totalCacheWriteTokens = 0;
     let lastFinishReason: string | undefined;
 
     while (iteration < maxIterations) {
@@ -398,8 +406,12 @@ export class AmazonBedrockProvider extends BaseProvider {
 
         // Accumulate real token counts and capture the stop reason so
         // Pipeline B (Langfuse) gets correct usage and finishReason.
+        // Converse follows the Anthropic additive convention: inputTokens is
+        // the UNCACHED remainder; cache reads/writes are reported separately.
         totalInputTokens += response.usage?.inputTokens ?? 0;
         totalOutputTokens += response.usage?.outputTokens ?? 0;
+        totalCacheReadTokens += response.usage?.cacheReadInputTokens ?? 0;
+        totalCacheWriteTokens += response.usage?.cacheWriteInputTokens ?? 0;
         if (response.stopReason) {
           lastFinishReason = response.stopReason;
         }
@@ -423,7 +435,19 @@ export class AmazonBedrockProvider extends BaseProvider {
             usage: {
               input: totalInputTokens,
               output: totalOutputTokens,
-              total: totalInputTokens + totalOutputTokens,
+              // Cache reads/writes are billed tokens reported separately
+              // from inputTokens — the total must include them.
+              total:
+                totalInputTokens +
+                totalCacheReadTokens +
+                totalCacheWriteTokens +
+                totalOutputTokens,
+              ...(totalCacheReadTokens > 0 && {
+                cacheReadTokens: totalCacheReadTokens,
+              }),
+              ...(totalCacheWriteTokens > 0 && {
+                cacheCreationTokens: totalCacheWriteTokens,
+              }),
             },
             finishReason: lastFinishReason,
           };
@@ -585,9 +609,22 @@ export class AmazonBedrockProvider extends BaseProvider {
             "gen_ai.response.stop_reason",
             response.stopReason ?? "",
           );
+          const spanCacheRead = response.usage?.cacheReadInputTokens ?? 0;
+          const spanCacheWrite = response.usage?.cacheWriteInputTokens ?? 0;
+          // Converse's inputTokens is only the UNCACHED remainder — the span
+          // attribute reports the FULL prompt (uncached + cache read/write)
+          // so telemetry matches the cache-inclusive pricing inputs below.
           generateSpan.setAttribute(
             "gen_ai.usage.input_tokens",
-            response.usage?.inputTokens ?? 0,
+            (response.usage?.inputTokens ?? 0) + spanCacheRead + spanCacheWrite,
+          );
+          generateSpan.setAttribute(
+            "gen_ai.usage.cache_read_input_tokens",
+            spanCacheRead,
+          );
+          generateSpan.setAttribute(
+            "gen_ai.usage.cache_creation_input_tokens",
+            spanCacheWrite,
           );
           generateSpan.setAttribute(
             "gen_ai.usage.output_tokens",
@@ -598,7 +635,13 @@ export class AmazonBedrockProvider extends BaseProvider {
             output: response.usage?.outputTokens ?? 0,
             total:
               (response.usage?.inputTokens ?? 0) +
+              spanCacheRead +
+              spanCacheWrite +
               (response.usage?.outputTokens ?? 0),
+            ...(spanCacheRead > 0 && { cacheReadTokens: spanCacheRead }),
+            ...(spanCacheWrite > 0 && {
+              cacheCreationTokens: spanCacheWrite,
+            }),
           });
           if (cost && cost > 0) {
             generateSpan.setAttribute("neurolink.cost", cost);
@@ -1381,7 +1424,9 @@ export class AmazonBedrockProvider extends BaseProvider {
 
             return {
               stream: asyncIterable,
-              usage: { total: 0, input: 0, output: 0 },
+              // The generate() fallback already computed real usage — a
+              // hardcoded zero object here threw it away.
+              usage: generateResult.usage,
               model: this.modelName || this.getDefaultModel(),
               provider: this.getProviderName(),
               metadata: {
@@ -1420,6 +1465,8 @@ export class AmazonBedrockProvider extends BaseProvider {
     // so Pipeline B (Langfuse) gets real token counts from Bedrock streams.
     let streamTotalInputTokens = 0;
     let streamTotalOutputTokens = 0;
+    let streamTotalCacheReadTokens = 0;
+    let streamTotalCacheWriteTokens = 0;
     let streamLastStopReason: string | undefined;
 
     // The REAL issue: ReadableStream errors don't bubble up to the caller
@@ -1558,6 +1605,12 @@ export class AmazonBedrockProvider extends BaseProvider {
                     chunk.metadata.usage.inputTokens ?? 0;
                   streamTotalOutputTokens +=
                     chunk.metadata.usage.outputTokens ?? 0;
+                  // inputTokens excludes cache reads/writes (Converse follows
+                  // the Anthropic additive convention) — track them too.
+                  streamTotalCacheReadTokens +=
+                    chunk.metadata.usage.cacheReadInputTokens ?? 0;
+                  streamTotalCacheWriteTokens +=
+                    chunk.metadata.usage.cacheWriteInputTokens ?? 0;
                   // Stream is effectively complete after metadata chunk
                   break;
                 }
@@ -1624,6 +1677,8 @@ export class AmazonBedrockProvider extends BaseProvider {
               if (usage) {
                 streamTotalInputTokens += usage.input;
                 streamTotalOutputTokens += usage.output;
+                streamTotalCacheReadTokens += usage.cacheReadTokens ?? 0;
+                streamTotalCacheWriteTokens += usage.cacheCreationTokens ?? 0;
               }
               if (stopReason) {
                 streamLastStopReason = stopReason;
@@ -1718,7 +1773,19 @@ export class AmazonBedrockProvider extends BaseProvider {
             const aggregatedUsage = {
               input: streamTotalInputTokens,
               output: streamTotalOutputTokens,
-              total: streamTotalInputTokens + streamTotalOutputTokens,
+              // Cache reads/writes are billed tokens reported separately
+              // from inputTokens — the total must include them.
+              total:
+                streamTotalInputTokens +
+                streamTotalCacheReadTokens +
+                streamTotalCacheWriteTokens +
+                streamTotalOutputTokens,
+              ...(streamTotalCacheReadTokens > 0 && {
+                cacheReadTokens: streamTotalCacheReadTokens,
+              }),
+              ...(streamTotalCacheWriteTokens > 0 && {
+                cacheCreationTokens: streamTotalCacheWriteTokens,
+              }),
             };
 
             // Resolve analytics with accumulated token counts from Bedrock
@@ -1757,7 +1824,9 @@ export class AmazonBedrockProvider extends BaseProvider {
 
       return {
         stream: wrappedStreamIterable,
-        usage: { total: 0, input: 0, output: 0 },
+        // No usage key here on purpose: the real aggregate resolves through
+        // `analytics` after the stream drains. A literal zero object is
+        // truthy and would block every downstream usage fallback.
         model: this.modelName || this.getDefaultModel(),
         provider: this.getProviderName(),
         analytics: analyticsPromise,
@@ -1888,7 +1957,13 @@ export class AmazonBedrockProvider extends BaseProvider {
   ): Promise<{
     stopReason: string;
     assistantMessage: BedrockMessage;
-    usage?: { input: number; output: number; total: number };
+    usage?: {
+      input: number;
+      output: number;
+      total: number;
+      cacheReadTokens?: number;
+      cacheCreationTokens?: number;
+    };
   }> {
     const command = new ConverseStreamCommand(commandInput);
 
@@ -1925,7 +2000,13 @@ export class AmazonBedrockProvider extends BaseProvider {
     let stopReason = "";
     let currentText = "";
     let streamUsage:
-      | { input: number; output: number; total: number }
+      | {
+          input: number;
+          output: number;
+          total: number;
+          cacheReadTokens?: number;
+          cacheCreationTokens?: number;
+        }
       | undefined;
 
     // Process streaming chunks
@@ -2025,10 +2106,17 @@ export class AmazonBedrockProvider extends BaseProvider {
       if (chunk.metadata?.usage) {
         const input = chunk.metadata.usage.inputTokens ?? 0;
         const output = chunk.metadata.usage.outputTokens ?? 0;
+        const cacheRead = chunk.metadata.usage.cacheReadInputTokens ?? 0;
+        const cacheWrite = chunk.metadata.usage.cacheWriteInputTokens ?? 0;
         streamUsage = {
           input,
           output,
-          total: chunk.metadata.usage.totalTokens ?? input + output,
+          // Computed rather than trusting totalTokens: inputTokens excludes
+          // cache reads/writes (additive convention), and the total must
+          // count every billed component.
+          total: input + cacheRead + cacheWrite + output,
+          ...(cacheRead > 0 && { cacheReadTokens: cacheRead }),
+          ...(cacheWrite > 0 && { cacheCreationTokens: cacheWrite }),
         };
         // Stream is effectively complete after metadata chunk
         break;

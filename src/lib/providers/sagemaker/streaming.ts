@@ -97,6 +97,7 @@ async function createProtocolSpecificStream(
   parser: StreamingParser,
   capability: StreamingCapability,
   options: {
+    prompt?: string;
     abortSignal?: AbortSignal;
     onChunk?: (chunk: SageMakerStreamChunk) => void;
     onComplete?: (usage: SageMakerUsage) => void;
@@ -133,13 +134,16 @@ async function createProtocolSpecificStream(
           if (done) {
             // Stream ended - send final chunk if needed
             if (!finalUsage && accumulatedText) {
-              finalUsage = estimateTokenUsage("", accumulatedText);
+              finalUsage = estimateTokenUsage(
+                options.prompt ?? "",
+                accumulatedText,
+              );
             }
 
             const finalChunk = {
               type: "finish" as const,
               finishReason: "stop" as const,
-              usage: finalUsage,
+              usage: toLanguageModelV2Usage(finalUsage),
             };
 
             controller.enqueue(finalChunk);
@@ -251,12 +255,12 @@ async function createProtocolSpecificStream(
             if (parser.isComplete(chunk)) {
               finalUsage =
                 parser.extractUsage(chunk) ||
-                estimateTokenUsage("", accumulatedText);
+                estimateTokenUsage(options.prompt ?? "", accumulatedText);
 
               const finalChunk = {
                 type: "finish" as const,
                 finishReason: chunk.finishReason || "stop",
-                usage: finalUsage,
+                usage: toLanguageModelV2Usage(finalUsage),
               };
 
               controller.enqueue(finalChunk);
@@ -366,7 +370,7 @@ async function createSyntheticStreamFromResponse(
         const finalChunk = {
           type: "finish" as const,
           finishReason: "stop" as const,
-          usage,
+          usage: toLanguageModelV2Usage(usage),
         };
 
         controller.enqueue(finalChunk);
@@ -410,7 +414,7 @@ export async function createSyntheticStream(
       const finalChunk = {
         type: "finish" as const,
         finishReason: "stop" as const,
-        usage,
+        usage: toLanguageModelV2Usage(usage),
       };
 
       controller.enqueue(finalChunk);
@@ -418,6 +422,77 @@ export async function createSyntheticStream(
       controller.close();
     },
   });
+}
+
+/**
+ * Map the internal SageMakerUsage shape to AI SDK v2 usage keys. Stream
+ * finish parts previously carried promptTokens/completionTokens, but the
+ * SDK's v2→v3 bridge reads inputTokens/outputTokens/totalTokens — every
+ * streamed SageMaker turn resolved to undefined (zero) usage.
+ */
+function toLanguageModelV2Usage(usage: SageMakerUsage | undefined): {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+} {
+  const inputTokens = usage?.promptTokens ?? 0;
+  const outputTokens = usage?.completionTokens ?? 0;
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens: usage?.total || inputTokens + outputTokens,
+  };
+}
+
+/**
+ * Extract REAL token usage from a complete (non-streaming) SageMaker
+ * response body when the endpoint reports it. Covers the OpenAI-compatible
+ * shape (vLLM / TGI-OpenAI: usage.prompt_tokens/completion_tokens), the
+ * generic input_tokens/output_tokens shape, and the HuggingFace TGI shape
+ * (details.tokens.input/generated). Returns undefined when no real counts
+ * are present so callers can fall back to estimateTokenUsage.
+ */
+export function parseUsageFromResponseBody(
+  body: Record<string, unknown> | Array<Record<string, unknown>>,
+): SageMakerUsage | undefined {
+  // TGI-style endpoints wrap the response in an array
+  // ([{ generated_text, details: { tokens } }]) — normalize to the first
+  // item so those endpoints get real usage instead of the char estimate.
+  const responseBody = Array.isArray(body) ? body[0] : body;
+  if (!responseBody || typeof responseBody !== "object") {
+    return undefined;
+  }
+  const usageRecord = (responseBody.usage ?? responseBody.tokens) as
+    | Record<string, unknown>
+    | undefined;
+  if (usageRecord && typeof usageRecord === "object") {
+    const promptTokens =
+      Number(usageRecord.prompt_tokens ?? usageRecord.input_tokens) || 0;
+    const completionTokens =
+      Number(usageRecord.completion_tokens ?? usageRecord.output_tokens) || 0;
+    if (promptTokens > 0 || completionTokens > 0) {
+      return {
+        promptTokens,
+        completionTokens,
+        total:
+          Number(usageRecord.total_tokens) || promptTokens + completionTokens,
+      };
+    }
+  }
+  const details = responseBody.details as Record<string, unknown> | undefined;
+  const tokens = details?.tokens as Record<string, unknown> | undefined;
+  if (tokens && typeof tokens === "object") {
+    const promptTokens = Number(tokens.input) || 0;
+    const completionTokens = Number(tokens.generated) || 0;
+    if (promptTokens > 0 || completionTokens > 0) {
+      return {
+        promptTokens,
+        completionTokens,
+        total: Number(tokens.total) || promptTokens + completionTokens,
+      };
+    }
+  }
+  return undefined;
 }
 
 /**

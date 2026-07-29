@@ -3,12 +3,21 @@
 # Powered by the published @juspay/yama action (https://github.com/juspay/yama),
 # run "the same way" as Yama's own self-review: LiteLLM provider, review-only,
 # fork-safe. The review RULES come from THIS repo — Yama auto-loads CLAUDE.md and
-# CONTRIBUTING.md, and the focus areas / blocking criteria live in
-# ./yama.config.yaml.
+# CONTRIBUTING.md, and the focus areas / blocking criteria / MCP servers live in
+# ./.yama/config.yaml (the v3 config location; passed explicitly via
+# `config-path` so the reviewed checkout can never swap in a different config).
+#
+# v3 additions (mirroring Yama's own yama-self-review.yml and curator's setup):
+#   • code-review-graph MCP (uvx) for out-of-diff impact analysis — uv is
+#     installed and the graph pre-built below; both are non-fatal.
+#   • Cross-run review state persisted as a GitHub artifact per PR, so
+#     re-reviews are incremental (no duplicate comments, fixed findings get
+#     resolved).
+#   • Per-run review report uploaded as an artifact for debugging.
 #
 # This is a REQUIRED status check (context "Yama PR Review", wired in
 # .github/settings.yml). It FAILS — and blocks merge — only when Yama returns a
-# BLOCKED verdict (per yama.config.yaml `blockingCriteria`) or the review cannot
+# BLOCKED verdict (per .yama/config.yaml `blockingCriteria`) or the review cannot
 # complete. Ordinary review comments / CHANGES_REQUESTED do not fail the check.
 #
 # Required repository secrets (Settings → Secrets and variables → Actions):
@@ -48,6 +57,8 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      # Needed to download the previous run's review-state artifact.
+      actions: read
     steps:
       # Decide whether we can run. A required check must always report a
       # conclusion, so when it can't run (fork / missing secrets) we PASS
@@ -81,8 +92,53 @@ jobs:
           # Actions token in .git/config.
           persist-credentials: false
 
+      # The code-review-graph MCP server (declared in .yama/config.yaml)
+      # launches via `uvx`, so `uv` must be on PATH before the review runs.
+      # The composite action inherits the runner PATH.
+      - name: Set up uv (for the code-review-graph MCP server)
+        if: steps.gate.outputs.run == 'true'
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+
+      # Pre-build the tree-sitter code graph so the reviewer has out-of-diff
+      # context (blast radius, callers/dependents, flows) ready. Non-fatal:
+      # on any failure Yama reviews without graph tools (its registration is
+      # non-fatal too). Same version pin as .yama/config.yaml.
+      - name: Pre-build code-review-graph
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          uvx --from code-review-graph==2.3.7 code-review-graph build \
+            || echo "::warning::code-review-graph build failed (non-fatal, review runs without graph context)"
+
+      # Cross-run review state (github-artifact store): restore the newest
+      # state artifact for this PR so the review is incremental — previously
+      # posted findings are never duplicated, fixed ones get resolved.
+      - name: Restore review state
+        if: steps.gate.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        # Fully non-fatal: state is an optimization, and this is a REQUIRED
+        # check — an expired artifact, rate limit, or transient API error must
+        # start a fresh review, never fail the job before the review runs.
+        run: |
+          set -euo pipefail
+          NAME="yama-state-pr-${PR}"
+          ART_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=${NAME}&per_page=5" \
+            --jq '[.artifacts[] | select(.expired == false)][0].id // empty' 2>/dev/null || true)"
+          if [ -n "${ART_ID}" ] && [ "${ART_ID}" != "null" ]; then
+            mkdir -p .yama/state
+            if gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ART_ID}/zip" > /tmp/yama-state.zip \
+               && unzip -o /tmp/yama-state.zip -d .yama/state; then
+              echo "Restored ${NAME}"
+            else
+              echo "State artifact unavailable or unreadable — starting fresh"
+            fi
+          else
+            echo "No previous state artifact — first review of this PR"
+          fi
+
       # The Yama action pins pnpm 10.14.0 via pnpm/action-setup, but this repo's
-      # package.json declares "packageManager": "pnpm@10.15.1". pnpm/action-setup@v4
+      # package.json declares "packageManager": "pnpm@10.15.1". pnpm/action-setup
       # aborts when both are present and differ. Temporarily drop the field so the
       # action uses its own pinned pnpm; it builds in its own directory and reviews
       # the PR via the GitHub API (not the local tree), so this is invisible to the
@@ -102,15 +158,14 @@ jobs:
         # External consumer → published action, pinned to an immutable commit
         # SHA (a tag can be moved; the SHA cannot).
         #
-        # v2.7.2 is a floor, not a cosmetic bump: it bundles
-        # @juspay/neurolink ^10.1.2, whose DEFAULT_TIMEOUTS carries
-        # litellm: "5m" (#1216). v2.6.0 bundled ^9.42.0, where the litellm
-        # default was 30s — reviews of large diffs die with "litellm generate
-        # operation timed out after 30000" and report an infrastructure failure
-        # with no verdict, which re-running the job does NOT fix.
+        # v3.0.2: the v3 pipeline — config-driven MCP (mcpServers.servers in
+        # .yama/config.yaml; the legacy flat shape is REJECTED at startup),
+        # agentic review harness with the submit_review verification gate,
+        # cross-run state, structured verdicts, and no default review wall
+        # clock (bounded by loop.maxSteps instead).
         #
         # When bumping, keep the trailing tag comment in sync with the SHA.
-        uses: juspay/yama@b89b3aaaf5c9faa830d17d50611a7c2845de8159 # v2.7.2
+        uses: juspay/yama@087e7c67952008da7f5f2fd8fd669fed68220b11 # v3.0.2
         with:
           github-token: ${{ secrets.YAMA_GITHUB_TOKEN }}
           ai-provider: litellm
@@ -118,9 +173,13 @@ jobs:
           # (grid.breezehq.dev). The gateway exposes general / general-fast /
           # coder; the old private-large alias no longer exists there.
           ai-model: general-fast
+          # Explore/verification subagents run on the SAME model as the main
+          # review (this is also the action's default when omitted — set
+          # explicitly so the choice is visible).
+          explore-model: general-fast
           litellm-base-url: ${{ secrets.LITELLM_BASE_URL }}
           litellm-api-key: ${{ secrets.LITELLM_API_KEY }}
-          config-path: yama.config.yaml
+          config-path: .yama/config.yaml
           # Review only — post inline comments + a verdict; never rewrite the PR
           # description.
           skip-description-enhance: "true"
@@ -144,6 +203,28 @@ jobs:
             exit 1
           fi
           echo "✅ Yama review passed (decision=${DECISION:-APPROVED})."
+
+      # Persist review state for the next push on this PR (incremental review).
+      - name: Save review state
+        if: ${{ always() && steps.gate.outputs.run == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: yama-state-pr-${{ github.event.pull_request.number }}
+          path: .yama/state/
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 30
+
+      # Per-run review report (markdown + JSON) for debugging what the reviewer
+      # explored, which findings the gate accepted/rejected, and the verdict.
+      - name: Upload review report
+        if: ${{ always() && steps.gate.outputs.run == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: yama-report-pr-${{ github.event.pull_request.number }}-run-${{ github.run_attempt }}
+          path: .yama/reports/
+          if-no-files-found: ignore
+          retention-days: 14
 
       # Undo the temporary packageManager edit (no-op if it was never applied).
       - name: Restore package.json

@@ -22,6 +22,7 @@ import {
 } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../core/constants.js";
+import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import {
   getModelCapabilities,
   getRecommendedModelForTier,
@@ -1828,14 +1829,26 @@ export class AnthropicProvider extends BaseProvider {
     let capturedProviderError: unknown;
     const client = this.client;
     const toolsUsed: string[] = [];
+    const streamStartTime = Date.now();
+
+    // Hoisted out of runLoop so the error path can resolve the usage
+    // accumulated by steps that completed BEFORE the failure — those steps
+    // were billed and must not be reported as zero.
+    let totalInput = 0;
+    let totalOutput = 0;
+    let totalCacheRead = 0;
+    let totalCacheWrite = 0;
+    let lastStop: string | null = null;
+    const buildDeferredUsage = () => ({
+      promptTokens: totalInput,
+      completionTokens: totalOutput,
+      totalTokens: totalInput + totalCacheRead + totalCacheWrite + totalOutput,
+      ...(totalCacheRead > 0 ? { cacheReadTokens: totalCacheRead } : {}),
+      ...(totalCacheWrite > 0 ? { cacheCreationTokens: totalCacheWrite } : {}),
+    });
 
     const runLoop = async (): Promise<void> => {
       const conversation = payload.messages.slice();
-      let totalInput = 0;
-      let totalOutput = 0;
-      let totalCacheRead = 0;
-      let totalCacheWrite = 0;
-      let lastStop: string | null = null;
 
       for (let step = 0; step < maxSteps; step++) {
         // Mid-turn discovery sync: search_tools (tools.discovery) hydrates
@@ -1912,11 +1925,21 @@ export class AnthropicProvider extends BaseProvider {
           { id: string; name: string; inputJson: string }
         >();
         let stopReason: string | null = null;
+        // message_start carries a small output placeholder and message_delta
+        // reports the CUMULATIVE output for the message — latest wins within
+        // the step (adding both double-counted the placeholder every step).
+        // Write-through: each event folds only the DELTA over this step's
+        // previous value into totalOutput, so the total is correct at every
+        // point mid-drain — a step killed mid-stream (abort/timeout) still
+        // counts the billed output it already reported.
+        let stepOutputTokens = 0;
 
         for await (const event of events) {
           if (event.type === "message_start") {
             totalInput += event.message.usage.input_tokens ?? 0;
-            totalOutput += event.message.usage.output_tokens ?? 0;
+            const startOutputTokens = event.message.usage.output_tokens ?? 0;
+            totalOutput += startOutputTokens - stepOutputTokens;
+            stepOutputTokens = startOutputTokens;
             // Anthropic reports cache reads/writes SEPARATELY from
             // input_tokens on the same message_start event — without these
             // the streaming path silently drops all cache accounting.
@@ -1965,7 +1988,10 @@ export class AnthropicProvider extends BaseProvider {
             }
           } else if (event.type === "message_delta") {
             stopReason = event.delta.stop_reason ?? stopReason;
-            totalOutput += event.usage?.output_tokens ?? 0;
+            const cumulativeOutputTokens =
+              event.usage?.output_tokens ?? stepOutputTokens;
+            totalOutput += cumulativeOutputTokens - stepOutputTokens;
+            stepOutputTokens = cumulativeOutputTokens;
           }
         }
         lastStop = stopReason;
@@ -2124,16 +2150,7 @@ export class AnthropicProvider extends BaseProvider {
         conversation.push({ role: "user", content: resultBlocks });
       }
 
-      resolveUsage({
-        promptTokens: totalInput,
-        completionTokens: totalOutput,
-        totalTokens:
-          totalInput + totalCacheRead + totalCacheWrite + totalOutput,
-        ...(totalCacheRead > 0 ? { cacheReadTokens: totalCacheRead } : {}),
-        ...(totalCacheWrite > 0
-          ? { cacheCreationTokens: totalCacheWrite }
-          : {}),
-      });
+      resolveUsage(buildDeferredUsage());
       resolveFinish(lastStop ?? "stop");
     };
 
@@ -2145,6 +2162,9 @@ export class AnthropicProvider extends BaseProvider {
         logger.error("Anthropic: Stream error", {
           error: error instanceof Error ? error.message : String(error),
         });
+        // Report whatever the completed steps accumulated — they were billed
+        // — and unblock any consumer awaiting the usage promise.
+        resolveUsage(buildDeferredUsage());
         resolveFinish("error");
         throw this.formatProviderError(error);
       })
@@ -2218,6 +2238,30 @@ export class AnthropicProvider extends BaseProvider {
       model: this.modelName,
       toolCalls: [],
       toolResults: [],
+      // Wire the deferred usage/finish promises into the analytics collector
+      // (mirrors openaiChatCompletionsBase). Without this the loop computed a
+      // fully correct aggregate that was consumed only by the OTel span —
+      // stream consumers and session cost tracking saw no usage at all.
+      // Chained off finishPromise so requestDuration reflects the DRAINED
+      // stream, not the milliseconds it took to construct this result object.
+      analytics: finishPromise.then(() =>
+        streamAnalyticsCollector.createAnalytics(
+          this.providerName,
+          modelId,
+          {
+            textStream: (async function* () {})(),
+            usage: usagePromise,
+            finishReason: finishPromise,
+          } as never,
+          Date.now() - streamStartTime,
+          {
+            requestId:
+              (options as { requestId?: string }).requestId ??
+              `${this.providerName}-stream-${Date.now()}`,
+            streamingMode: true,
+          },
+        ),
+      ),
     };
   }
 

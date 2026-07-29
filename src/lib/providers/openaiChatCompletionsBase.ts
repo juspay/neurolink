@@ -35,6 +35,7 @@ import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
 import type { NeuroLink } from "../neurolink.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type {
+  DeferredUsage,
   LanguageModel,
   ModelsResponse,
   OpenAICompatBuildBodyArgs,
@@ -726,8 +727,29 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           usage: {
             inputTokens: {
               total: json.usage?.prompt_tokens,
-              noCache: json.usage?.prompt_tokens,
-              cacheRead: undefined,
+              // cached_tokens is OVERLAPPING (a subset of prompt_tokens), so
+              // noCache is the remainder and cacheRead is clamped to the
+              // prompt total — some gateways report inconsistent usage where
+              // cached_tokens exceeds prompt_tokens (mirrors the
+              // reasoning_tokens clamp on the output side below).
+              noCache:
+                json.usage?.prompt_tokens !== undefined &&
+                json.usage?.prompt_tokens_details?.cached_tokens !== undefined
+                  ? Math.max(
+                      0,
+                      json.usage.prompt_tokens -
+                        json.usage.prompt_tokens_details.cached_tokens,
+                    )
+                  : json.usage?.prompt_tokens,
+              cacheRead:
+                json.usage?.prompt_tokens !== undefined &&
+                json.usage?.prompt_tokens_details?.cached_tokens !== undefined
+                  ? Math.min(
+                      json.usage.prompt_tokens_details.cached_tokens,
+                      json.usage.prompt_tokens,
+                    )
+                  : json.usage?.prompt_tokens_details?.cached_tokens,
+              // OpenAI-style APIs do not report cache writes.
               cacheWrite: undefined,
             },
             outputTokens: {
@@ -1031,9 +1053,42 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       resolveFinish,
     } = args;
 
+    // Hoisted above the try so the catch can resolve the usage accumulated
+    // by steps that completed BEFORE the failure — those steps were billed.
+    let stepFinish: OpenAICompatChatChoice["finish_reason"] = null;
+    let stepUsage: OpenAICompatChatResponse["usage"] | undefined;
+    // Aggregated DeferredUsage from whatever accumulated in stepUsage.
+    // prompt_tokens is OVERLAPPING with cached_tokens (a subset), so the
+    // uncached remainder goes in promptTokens and the cached part in
+    // cacheReadTokens — the non-overlapping convention extractTokenUsage
+    // and calculateCost expect. reasoning_tokens stays a subset of
+    // completionTokens (informational).
+    const toDeferredUsage = (): DeferredUsage => {
+      const promptTokens = stepUsage?.prompt_tokens ?? 0;
+      const completionTokens = stepUsage?.completion_tokens ?? 0;
+      const cachedTokens = Math.min(
+        stepUsage?.prompt_tokens_details?.cached_tokens ?? 0,
+        promptTokens,
+      );
+      // Clamped like cached_tokens above: reasoning is a SUBSET of
+      // completion_tokens, but some gateways report inconsistent values.
+      const reasoningTokens = Math.min(
+        Math.max(
+          0,
+          stepUsage?.completion_tokens_details?.reasoning_tokens ?? 0,
+        ),
+        completionTokens,
+      );
+      return {
+        promptTokens: promptTokens - cachedTokens,
+        completionTokens,
+        // Gateways that omit total_tokens must not collapse to 0.
+        totalTokens: stepUsage?.total_tokens || promptTokens + completionTokens,
+        ...(cachedTokens > 0 ? { cacheReadTokens: cachedTokens } : {}),
+        ...(reasoningTokens > 0 ? { reasoningTokens } : {}),
+      };
+    };
     try {
-      let stepFinish: OpenAICompatChatChoice["finish_reason"] = null;
-      let stepUsage: OpenAICompatChatResponse["usage"] | undefined;
       // May grow mid-turn: hydrated tools with wire-unsafe names need
       // reverse-mapping even when the initial name set required none.
       let effectiveToolNameFromWire = toolNameFromWire;
@@ -1109,11 +1164,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         });
       }
 
-      resolveUsage({
-        promptTokens: stepUsage?.prompt_tokens ?? 0,
-        completionTokens: stepUsage?.completion_tokens ?? 0,
-        totalTokens: stepUsage?.total_tokens ?? 0,
-      });
+      resolveUsage(toDeferredUsage());
       resolveFinish(stepFinish ?? "stop");
       pushChunk({ done: true });
       return {
@@ -1124,7 +1175,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       logger.error(`${this.providerName}: Stream error`, {
         error: err instanceof Error ? err.message : String(err),
       });
-      resolveUsage({ promptTokens: 0, completionTokens: 0, totalTokens: 0 });
+      // Steps that completed before the failure were billed — report them
+      // instead of zeroing the whole turn.
+      resolveUsage(toDeferredUsage());
       resolveFinish("error");
       pushChunk({ done: true });
       throw err;

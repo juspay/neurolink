@@ -104,6 +104,7 @@
     "test:google-native": "npx tsx test/continuous-test-suite-google-native.ts",
     "test:gemini-abort": "npx tsx test/continuous-test-suite-gemini-abort.ts",
     "test:anthropic-cap": "npx tsx test/continuous-test-suite-anthropic-cap.ts",
+    "test:token-usage": "npx tsx test/continuous-test-suite-token-usage.ts",
     "test:tts": "npx tsx test/continuous-test-suite-tts.ts",
     "test:voice": "npx tsx test/continuous-test-suite-voice.ts",
     "test:voice-server": "npx tsx test/continuous-test-suite-voice-server.ts",

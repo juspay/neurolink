@@ -13,7 +13,7 @@
  * @module core/modules/GenerationHandler
  */
 
-import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import { SpanKind, SpanStatusCode, type Span } from "@opentelemetry/api";
 import { getModelId } from "../../providers/providerTypeUtils.js";
 import { resolveSamplingParams } from "../../models/modelRegistry.js";
 import { tracers } from "../../telemetry/tracers.js";
@@ -679,25 +679,7 @@ export class GenerationHandler {
           }
 
           // Set token usage and completion attributes on span
-          if (result.usage) {
-            span.setAttribute(
-              "gen_ai.usage.input_tokens",
-              result.usage.inputTokens || 0,
-            );
-            span.setAttribute(
-              "gen_ai.usage.output_tokens",
-              result.usage.outputTokens || 0,
-            );
-            // Cost on span so users can query "what did this trace cost?"
-            const cost = calculateCost(this.providerName, this.modelName, {
-              input: result.usage.inputTokens || 0,
-              output: result.usage.outputTokens || 0,
-              total:
-                (result.usage.inputTokens || 0) +
-                (result.usage.outputTokens || 0),
-            });
-            span.setAttribute("neurolink.cost", cost ?? 0);
-          }
+          this.setUsageSpanAttributes(span, result);
           if (result.finishReason) {
             span.setAttribute(
               "gen_ai.response.finish_reason",
@@ -796,28 +778,7 @@ export class GenerationHandler {
               },
             );
 
-            if (result.usage) {
-              span.setAttribute(
-                "gen_ai.usage.input_tokens",
-                result.usage.inputTokens || 0,
-              );
-              span.setAttribute(
-                "gen_ai.usage.output_tokens",
-                result.usage.outputTokens || 0,
-              );
-              const fallbackCost = calculateCost(
-                this.providerName,
-                this.modelName,
-                {
-                  input: result.usage.inputTokens || 0,
-                  output: result.usage.outputTokens || 0,
-                  total:
-                    (result.usage.inputTokens || 0) +
-                    (result.usage.outputTokens || 0),
-                },
-              );
-              span.setAttribute("neurolink.cost", fallbackCost ?? 0);
-            }
+            this.setUsageSpanAttributes(span, result);
             if (result.finishReason) {
               span.setAttribute(
                 "gen_ai.response.finish_reason",
@@ -876,28 +837,7 @@ export class GenerationHandler {
               "retry.strategy": "temperature_omitted",
             });
             span.setAttribute("retry.count", 1);
-            if (result.usage) {
-              span.setAttribute(
-                "gen_ai.usage.input_tokens",
-                result.usage.inputTokens || 0,
-              );
-              span.setAttribute(
-                "gen_ai.usage.output_tokens",
-                result.usage.outputTokens || 0,
-              );
-              const noTempCost = calculateCost(
-                this.providerName,
-                this.modelName,
-                {
-                  input: result.usage.inputTokens || 0,
-                  output: result.usage.outputTokens || 0,
-                  total:
-                    (result.usage.inputTokens || 0) +
-                    (result.usage.outputTokens || 0),
-                },
-              );
-              span.setAttribute("neurolink.cost", noTempCost ?? 0);
-            }
+            this.setUsageSpanAttributes(span, result);
             if (result.finishReason) {
               span.setAttribute(
                 "gen_ai.response.finish_reason",
@@ -926,6 +866,37 @@ export class GenerationHandler {
    * The AI SDK's LanguageModelUsage only has inputTokens/outputTokens.
    * Cache metrics are surfaced via providerMetadata by provider-specific SDK adapters.
    */
+  /**
+   * Set gen_ai usage attributes + cache-aware cost on the span from the
+   * CROSS-STEP aggregate (result.totalUsage). result.usage is the LAST step
+   * only — using it undercounted every multi-step tool loop, and pricing the
+   * raw cache-inclusive inputTokens without the cache fields billed cache
+   * reads at the full input rate.
+   */
+  private setUsageSpanAttributes(
+    span: Span,
+    result: Awaited<ReturnType<typeof generateText>>,
+  ): void {
+    const aggregate = result.totalUsage ?? result.usage;
+    if (!aggregate) {
+      return;
+    }
+    span.setAttribute("gen_ai.usage.input_tokens", aggregate.inputTokens || 0);
+    span.setAttribute(
+      "gen_ai.usage.output_tokens",
+      aggregate.outputTokens || 0,
+    );
+    // Cost on span so users can query "what did this trace cost?" —
+    // extractTokenUsage rebases input onto the uncached remainder and
+    // surfaces the cache fields so calculateCost prices each tier.
+    const cost = calculateCost(
+      this.providerName,
+      this.modelName,
+      extractTokenUsage(aggregate),
+    );
+    span.setAttribute("neurolink.cost", cost ?? 0);
+  }
+
   private extractCacheMetricsFromProviderMetadata(
     generateResult: Awaited<ReturnType<typeof generateText>>,
   ): {
@@ -1197,10 +1168,13 @@ export class GenerationHandler {
       );
     }
 
-    // Extract usage with support for different formats and reasoning tokens
-    // Note: The AI SDK bundles thinking tokens into promptTokens for Google models.
-    // Separate reasoningTokens tracking will work when/if the AI SDK adds support.
-    const usage = extractTokenUsage(generateResult.usage);
+    // Extract usage with support for different formats and reasoning tokens.
+    // totalUsage is the CROSS-STEP aggregate; generateResult.usage is the
+    // LAST step only, which silently dropped every prior step of a
+    // multi-step tool loop.
+    const usage = extractTokenUsage(
+      generateResult.totalUsage ?? generateResult.usage,
+    );
 
     // Merge cache metrics from providerMetadata if not already present in usage
     // The AI SDK's LanguageModelUsage doesn't include cache tokens; they come from

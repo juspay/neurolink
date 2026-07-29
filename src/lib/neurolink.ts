@@ -3733,7 +3733,15 @@ Current user's request: ${currentInput}`;
   private estimateCostFromUsage(
     provider: string,
     model: string,
-    usage: { input?: number; output?: number; total?: number } | undefined,
+    usage:
+      | {
+          input?: number;
+          output?: number;
+          total?: number;
+          cacheReadTokens?: number;
+          cacheCreationTokens?: number;
+        }
+      | undefined,
   ): number | undefined {
     if (!usage || model === "unknown") {
       return undefined;
@@ -3743,6 +3751,10 @@ Current user's request: ${currentInput}`;
       usage.input || 0,
       usage.output || 0,
       provider === "unknown" ? undefined : provider,
+      {
+        cacheReadTokens: usage.cacheReadTokens,
+        cacheCreationTokens: usage.cacheCreationTokens,
+      },
     );
     return totalCost > 0 ? totalCost : undefined;
   }
@@ -5549,6 +5561,20 @@ Current user's request: ${currentInput}`;
             input: textResult.usage.input || 0,
             output: textResult.usage.output || 0,
             total: textResult.usage.total || 0,
+            // Optional tiers must be forwarded or they silently vanish at
+            // this DTO boundary (cache-aware cost + savings need them).
+            ...(textResult.usage.cacheReadTokens !== undefined && {
+              cacheReadTokens: textResult.usage.cacheReadTokens,
+            }),
+            ...(textResult.usage.cacheCreationTokens !== undefined && {
+              cacheCreationTokens: textResult.usage.cacheCreationTokens,
+            }),
+            ...(textResult.usage.reasoning !== undefined && {
+              reasoning: textResult.usage.reasoning,
+            }),
+            ...(textResult.usage.cacheSavingsPercent !== undefined && {
+              cacheSavingsPercent: textResult.usage.cacheSavingsPercent,
+            }),
           }
         : undefined,
       responseTime: textResult.responseTime,

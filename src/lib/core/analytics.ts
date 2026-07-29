@@ -136,8 +136,15 @@ function estimateCost(
       return undefined;
     }
 
-    // Calculate cost using the configuration system (per-1K-token rates)
-    const inputCost = (tokens.input / 1000) * costInfo.input;
+    // Calculate cost using the configuration system (per-1K-token rates).
+    // costInfo has no cache tiers, so cache tokens are billed at the input
+    // rate — the pre-split total a cache-blind provider would report, never $0.
+    const inputCost =
+      ((tokens.input +
+        (tokens.cacheReadTokens ?? 0) +
+        (tokens.cacheCreationTokens ?? 0)) /
+        1000) *
+      costInfo.input;
     const outputCost = (tokens.output / 1000) * costInfo.output;
 
     return Math.round((inputCost + outputCost) * 1_000_000) / 1_000_000; // Round to 6 decimal places

@@ -1,4 +1,8 @@
-import type { NeuroLinkEvents, TypedEventEmitter } from "./common.js";
+import type {
+  DeferredUsage,
+  NeuroLinkEvents,
+  TypedEventEmitter,
+} from "./common.js";
 import type { JSONSchema7 } from "./middleware.js";
 import type {
   LanguageModelV3,
@@ -342,12 +346,13 @@ export type OpenAICompatBuildBodyArgs = {
  * the deferred analytics promises.
  */
 export type OpenAICompatStreamLifecycleListeners = {
-  /** Fired once the deferred usage promise resolves with the final aggregated token counts. */
-  onUsage?: (usage: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  }) => void;
+  /**
+   * Fired once the deferred usage promise resolves with the final aggregated
+   * token counts. promptTokens is the UNCACHED remainder; cacheReadTokens
+   * carries the cached portion (non-overlapping convention), and
+   * reasoningTokens is a subset of completionTokens.
+   */
+  onUsage?: (usage: DeferredUsage) => void;
   /**
    * Fired once the deferred finish promise resolves. `reason` is "stop",
    * "length", "tool-calls", "content-filter", or "error". When the loop

@@ -1,0 +1,483 @@
+# =============================================================================
+# Yama PR Review configuration for NeuroLink (Yama v3 schema)
+# =============================================================================
+# Consumed by the @juspay/yama GitHub Action (see
+# .github/workflows/yama-review.yml). `.yama/config.yaml` is the preferred
+# config location since Yama v3 (the legacy root yama.config.yaml still loads
+# but warns); the workflow also passes it explicitly via `config-path` so the
+# reviewed checkout can never swap in a different config.
+#
+# WHERE THE REVIEW RULES COME FROM
+#   Yama automatically loads, from this repo root:
+#     • CLAUDE.md       — the authoritative engineering rules for this repo
+#     • CONTRIBUTING.md — contribution + commit conventions
+#   and injects them into the reviewer as team conventions. This file does NOT
+#   restate those rules — it tunes WHAT the reviewer focuses on, WHAT blocks a
+#   merge, and points the reviewer back at CLAUDE.md as the source of truth.
+#
+# PROVIDER / MODEL / TEMPERATURE ARE INTENTIONALLY NOT SET HERE
+#   The AI provider, model and all credentials are controlled by the workflow
+#   inputs (ai-provider / ai-model / litellm-*), which the action exposes as
+#   AI_PROVIDER / AI_MODEL / AI_EXPLORE_* env vars. Yama merges this file OVER
+#   those env vars, so setting ai.provider/ai.model here would silently
+#   override the workflow. `temperature` stays unset too: since v3.0.1 an
+#   unset temperature is omitted from generate() calls (provider default
+#   applies) — newer Claude-family models reject explicit sampling params, and
+#   the gateway model behind the litellm alias may be one of them.
+# =============================================================================
+
+version: 2
+configType: "yama"
+
+display:
+  showBanner: false
+  streamingMode: false
+  verboseToolCalls: false
+  showAIThinking: false
+
+ai:
+  # provider/model/temperature OMITTED on purpose — see header note.
+  # Cap review-generation OUTPUT tokens. Yama's default ai.maxTokens is 128000;
+  # on a 262144-ctx gateway model that leaves only ~134K for INPUT, so
+  # medium/large PRs (diff + explored context + project rules) exceed the
+  # window and LiteLLM rejects the call with a 400. A review never emits
+  # anywhere near 128K output tokens, so cap it at 16000 — this raises the
+  # usable input ceiling to ~246K and lets large diffs be reviewed.
+  maxTokens: 16000
+  # Whole-turn budget for the agentic review loop (one generate() call runs
+  # all tool-call steps). The first v3 run on a large PR managed only 11
+  # steps in 15m on general-fast (~70s/step) and ended on `time-limit`, which
+  # downgrades to a partial-review CHANGES_REQUESTED — give the loop room to
+  # actually finish. Bounded by work regardless: performance.loop.maxSteps
+  # and the submit_review gate.
+  timeout: "30m"
+  retryAttempts: 3
+  enableAnalytics: true
+  enableEvaluation: false
+
+  conversationMemory:
+    enabled: true
+    store: "memory"
+    maxSessions: 50
+    maxTurnsPerSession: 300
+    enableSummarization: false
+
+  # The explore worker reads project rules (CLAUDE.md/CONTRIBUTING.md) and
+  # codebase context. MUST stay enabled so the reviewer sees this repo's rules.
+  # provider/model/temperature also OMITTED — set via AI_EXPLORE_* env.
+  explore:
+    enabled: true
+    timeout: "5m"
+    cacheResults: true
+
+# -----------------------------------------------------------------------------
+# MCP servers (v3 generic schema — every server is declared here; Yama
+# hardcodes none). ${VAR} placeholders resolve from the environment.
+# -----------------------------------------------------------------------------
+mcpServers:
+  servers:
+    # GitHub MCP (remote, HTTP) — reads the PR/diff and posts inline comments.
+    # Authenticates via YAMA_GITHUB_TOKEN, which the action forwards from its
+    # github-token input (a non-reserved env name; GITHUB_TOKEN can be
+    # clobbered inside composite actions). Destructive/repo-write tools are
+    # denylisted so the reviewer can only read + comment + set review status.
+    github:
+      enabled: true
+      transport: http
+      url: https://api.githubcopilot.com/mcp/
+      headers:
+        Authorization: "Bearer ${YAMA_GITHUB_TOKEN}"
+      roles: [review, explore]
+      modes: [pr]
+      # The hosted endpoint is slow to connect (TLS + lazy tool discovery); a
+      # generous timeout + retry/backoff prevents spurious "not connected"
+      # failures on the first GitHub tool call.
+      timeout: 30000
+      retryConfig:
+        maxAttempts: 3
+        initialDelay: 1000
+        maxDelay: 10000
+        backoffMultiplier: 2
+      blockedTools:
+        - push_files
+        - create_or_update_file
+        - create_branch
+        - delete_file
+        - merge_pull_request
+        # PR/issue STATE mutation is reviewer-out-of-scope. On the first v3
+        # run the model CLOSED the PR under review despite the prompt
+        # forbidding it — the prompt alone is not a guarantee, so these are
+        # blocked at the tool layer. update_pull_request/update_issue can set
+        # state:closed (a PR is an issue to the issues toolset); description
+        # enhancement is disabled here, so nothing legitimate needs them.
+        - create_pull_request
+        - update_pull_request
+        - update_issue
+        - create_issue
+
+    code-review-graph:
+      # Tree-sitter code graph (github.com/tirth8205/code-review-graph) for
+      # out-of-diff review context: blast radius of changed files, callers/
+      # callees/tests of changed functions, architecture hotspots. Same setup
+      # as the curator repo. Registration failure (no uvx / no graph) is
+      # non-fatal — Yama warns and reviews without it. The workflow installs
+      # uv and pre-builds the graph before the review step.
+      enabled: true
+      transport: stdio
+      command: uvx
+      args: ["--from", "code-review-graph==2.3.7", "code-review-graph", "serve"]
+      roles: [review, explore]
+      modes: [pr, local]
+      # First uvx run resolves the package into its cache; give the connect
+      # some headroom (the workflow warms the cache in the pre-build step).
+      timeout: 60000
+      # Fail-closed allowlist: read/analyze tools plus incremental graph
+      # refresh. Mutating/expensive tools (refactor, embeddings, wiki,
+      # cross-repo) stay hidden.
+      allowedTools:
+        - build_or_update_graph_tool
+        - get_minimal_context_tool
+        - get_impact_radius_tool
+        - get_review_context_tool
+        - query_graph_tool
+        - traverse_graph_tool
+        - semantic_search_nodes_tool
+        - list_graph_stats_tool
+        - get_docs_section_tool
+        - find_large_functions_tool
+        - list_flows_tool
+        - get_flow_tool
+        - get_affected_flows_tool
+        - list_communities_tool
+        - get_community_tool
+        - get_architecture_overview_tool
+        - detect_changes_tool
+        - get_hub_nodes_tool
+        - get_bridge_nodes_tool
+        - get_knowledge_gaps_tool
+        - get_surprising_connections_tool
+        - get_suggested_questions_tool
+
+# -----------------------------------------------------------------------------
+# Cross-run review state (v3): incremental re-review, no duplicate comments,
+# fixed findings auto-resolved. github-artifact = file store under .yama/state
+# (gitignored) whose artifact transport is handled by the workflow's
+# restore/upload steps.
+# -----------------------------------------------------------------------------
+state:
+  enabled: true
+  store: github-artifact
+  path: .yama/state
+
+# -----------------------------------------------------------------------------
+# Review behaviour
+# -----------------------------------------------------------------------------
+review:
+  enabled: true
+  # v3: submit_review gate — a tools-off critic pass rejects incoherent,
+  # inflated, or evidence-free findings before they are posted.
+  verification: "basic"
+
+  workflowInstructions: |
+    You are reviewing a pull request for NeuroLink (a unified AI SDK + CLI
+    wrapping 20+ providers). Treat the <project-rules> block (this repo's
+    CLAUDE.md and CONTRIBUTING.md) as the AUTHORITATIVE ruleset — when you flag
+    something that violates it, cite the specific CLAUDE.md rule (e.g. "Critical
+    Rule 1: dynamic imports only in registry").
+
+    Division of labour with existing CI — do NOT duplicate it:
+      • Formatting/lint/type errors and CLAUDE.md rules 2 & 7–14 are already
+        enforced by ESLint + Prettier + tsc in the CI workflow and by the custom
+        AST rules in eslint-rules/. Do not re-report those mechanical violations.
+      • Focus your effort on what static analysis CANNOT catch: logic/correctness
+        bugs, security issues, broken backward compatibility of the public SDK
+        API, architectural rule violations, missing error handling, missing
+        tests for new behaviour, and risky provider/MCP/streaming changes.
+
+    REVIEWER WRITE SCOPE — NEVER EXCEED IT:
+    - You review EXISTING pull requests. Never create, merge, CLOSE, or reopen
+      a pull request, and never push commits or create branches — those
+      actions are outside a reviewer's scope (and are blocked at the tool
+      layer as defense in depth).
+    - "Request changes" means submitting a pull-request REVIEW with the
+      request-changes status. It NEVER means closing the PR or changing its
+      state. Closing a PR destroys the author's workflow and is treated as a
+      critical reviewer malfunction, no matter how severe your findings are —
+      a BLOCKED verdict is the strongest action available to you.
+    - Your only writes are: inline review comments, the summary comment, and
+      the review status (approve / request changes).
+
+    EVIDENCE REQUIREMENT — SECURITY AND OTHER CRITICAL CLAIMS:
+    - Every CRITICAL finding (especially "hardcoded secret / API key") MUST be
+      anchored in verifiable evidence: the file must appear in the PR's
+      changed-files list, and you must QUOTE the exact ADDED line(s) from that
+      file's diff hunk in your comment.
+    - Before reporting a secret, re-fetch the specific file's diff and confirm
+      the quoted value is present. If you cannot re-locate the exact line and
+      quote it, the finding is unverified — DISCARD it. Reporting a fabricated
+      credential leak is worse than missing a real one: it destroys trust in
+      every future finding.
+    - Placeholder/example values (docs, tests, "sk-your-key-here",
+      ${ENV_VAR} references, redacted samples) are NOT leaked secrets.
+
+    DIFF FETCHING DISCIPLINE:
+    - NEVER fetch the entire PR diff in one call. Fetch the diff for exactly
+      one file or path at a time, or apply file-filter options when the diff
+      capability supports them.
+    - Always skip lockfiles, generated/minified assets, images, and maps (see
+      excludePatterns).
+
+    OUT-OF-DIFF IMPACT ANALYSIS (code knowledge graph) — REQUIRED WHEN AVAILABLE:
+    The diff alone does NOT show the damage a change does to the rest of the
+    codebase. A code knowledge graph of this repository may be available to you
+    (tools that report change impact, blast radius, callers/dependents,
+    execution flows, and structural queries). When it is, impact analysis is a
+    MANDATORY phase of the review, not an optional aid.
+
+    Phase A — BEFORE the file-by-file pass (once per review):
+      1. Get a compact structural orientation of the repository from the graph.
+      2. Compute the risk-scored change impact (blast radius) of the PR's
+         changed files: every part of the codebase reachable from the changes.
+      3. Identify which execution flows the change touches. Treat findings on
+         critical flows as one severity higher than the same finding on a
+         peripheral flow.
+      4. Use the blast radius to ORDER the file-by-file review: highest-risk,
+         most-depended-upon files first.
+
+    Phase B — DURING the file-by-file pass (per changed file):
+      5. For each changed exported/public function, type, or constant, look up
+         its callers/dependents in the graph. Then check: does the change alter
+         the signature, return shape, nullability, thrown errors, async
+         behavior, or side effects in a way any UNMODIFIED caller does not
+         handle? If yes, comment on it — name the exact out-of-diff call sites
+         (file and function) that break. For NeuroLink this doubly matters:
+         CLAUDE.md Critical Rule 5 makes public-SDK backward compatibility
+         non-negotiable.
+      6. Also look up the tests covering the changed logic; if behavior changed
+         but no covering test was updated in this PR, flag it.
+      7. Prefer targeted graph queries (search, neighbors, traversal) over
+         fetching whole files when exploring unfamiliar dependencies — graph
+         queries are token-cheap; whole-file reads are not.
+
+    Phase C — IN the final summary comment:
+      8. Include an "Impact on existing code" section: blast radius size
+         (files/modules affected), the execution flows touched, unmodified
+         dependents at risk (or "none found — change is self-contained"), and
+         whether the change touches architectural hotspots (highly-connected
+         or bridging modules) — those deserve extra reviewer attention.
+
+    Failure handling:
+    - If graph data comes back empty or stale, trigger one incremental graph
+      build/refresh, then retry the query once.
+    - If no graph capability is available at all, state in the summary that
+      impact analysis was skipped and proceed with the normal diff-based
+      review. NEVER fabricate impact claims without graph evidence.
+
+    STRICT FILE-BY-FILE REVIEW REQUIREMENT:
+    - Review each file individually; do not analyze the whole diff in one pass.
+    - Complete one file before moving to the next.
+    - Keep comments scoped to the current file under review.
+    - Fetch the diff separately for each file as you review it.
+
+    EXCLUDED FILES — ALWAYS IGNORE:
+    - Skip files matching excludePatterns (lockfiles, generated/minified
+      assets, images, maps, dist/build output).
+    - Do not read, analyze, or comment on excluded files.
+    - If a file matches an exclusion, move to the next file immediately.
+
+    FINAL ACTIONS — MANDATORY BEFORE RETURNING YOUR VERDICT (live mode):
+    A review that ends without these actions is INCOMPLETE, even if your
+    analysis was perfect. After the file-by-file pass and impact analysis,
+    and after the finding-verification gate has accepted your findings,
+    you MUST — in this order, before producing the final verdict:
+    1. Post an inline comment for EVERY gate-accepted finding, including
+       SUGGESTION severity. No accepted finding may exist only in the
+       final verdict.
+    2. Post exactly ONE overall review summary comment on the pull request
+       (a general PR comment, not inline) containing: the decision, the
+       findings with severities, the "Impact on existing code" section,
+       and the review scope. Never post a second summary comment — on a
+       re-review, update or reply instead of duplicating.
+    3. Record your review decision by SUBMITTING A PULL-REQUEST REVIEW:
+       approve when your decision is APPROVED; submit a request-changes
+       review when CHANGES_REQUESTED or BLOCKED. This is a review
+       submission ONLY — never close, reopen, merge, or otherwise change
+       the state of the pull request itself.
+    In dry-run mode, skip all writes.
+
+    Be specific and constructive: every comment should reference the exact
+    file+line, explain the concrete risk, and (where useful) suggest a fix.
+    Only request changes or block per <blocking-criteria>; otherwise leave the
+    issue as an inline comment and approve.
+
+  # Focus areas in priority order (comment-level guidance; see blockingCriteria
+  # for what actually fails the required check).
+  focusAreas:
+    - name: "Security"
+      priority: "CRITICAL"
+      description: |
+        - Hardcoded secrets, API keys, tokens or credentials in source
+        - Secrets leaking into logs — confirm transformParamsForLogging / secret
+          stripping is used before logging provider params
+        - Injection (command/SQL/template), unsafe eval / innerHTML / dynamic
+          require, SSRF, path traversal
+        - Unsafe handling of user/model input, missing validation/sanitization
+
+    - name: "Architecture & CLAUDE.md Critical Rules"
+      priority: "MAJOR"
+      description: |
+        Rules NOT enforced by ESLint — verify by reading the change:
+        - Rule 1: providers loaded via DYNAMIC imports inside providerRegistry
+          factory functions only (static imports cause circular deps)
+        - Rule 3: Gemini (Google AI Studio / Vertex) cannot use tools AND a
+          JSON-schema structuredOutput at the same time
+        - Rule 4: CLI-only concerns (manual MCP connections) must not leak into
+          the SDK path
+        - Rule 5: public SDK API stays backward compatible — no breaking changes
+          to existing callers without a documented migration
+        - Rule 6: formatProviderError must RETURN the error, never throw
+        - Streaming: provider executeStream must go through BaseProvider.stream()
+          tool-merge (options.tools || getAllTools()), not bypass it
+
+    - name: "Type Safety & Correctness"
+      priority: "MAJOR"
+      description: |
+        - No `any` / `as any` / `@ts-ignore` / non-null `!` papering over real
+          type problems; proper null/undefined handling
+        - Logic bugs, off-by-one, unhandled promise rejections, races
+        - Error handling via ErrorFactory typed errors; async wrapped in
+          withTimeout where external calls are made
+        - Expensive debug serialization guarded by logger.shouldLog("debug")
+
+    - name: "Out-of-Diff Impact"
+      priority: "MAJOR"
+      description: |
+        Changes whose damage lands OUTSIDE the diff. Use the code knowledge
+        graph (change impact, callers/dependents, affected execution flows,
+        covering tests) to check:
+        - Call sites of changed functions that were not updated
+        - Behavioral contract changes (return shape, error semantics,
+          nullability) that break downstream consumers — for the public SDK
+          surface this is CLAUDE.md Critical Rule 5 territory
+        - Changed shared utilities/types whose dependents were not touched
+        - Tests covering the changed code that were not updated
+
+    - name: "Performance"
+      priority: "MINOR"
+      description: |
+        - N+1 / redundant network or DB calls, blocking I/O in async paths
+        - Memory leaks, unbounded caches, avoidable O(n^2) work on hot paths
+
+    - name: "Testing & Documentation"
+      priority: "MINOR"
+      description: |
+        - New providers/processors/features have tests in the matching
+          test/continuous-test-suite-*.ts
+        - Public behaviour changes are reflected in docs / type docs
+
+  # Blocking criteria — ONLY these escalate the AI decision to BLOCKED, which
+  # makes the required "Yama PR Review" check fail and prevents merge. Everything
+  # else is posted as an advisory inline comment.
+  blockingCriteria:
+    - condition: "Any hardcoded secret, API key, token, password or credential committed in source (non-test, non-example)"
+      action: "BLOCK"
+      reason: "Security: secrets must never be committed"
+    - condition: "Any CRITICAL severity security vulnerability (injection, auth bypass, SSRF, unsafe eval/innerHTML, secret or PII exposure)"
+      action: "BLOCK"
+      reason: "Critical security risk"
+    - condition: "A change that breaks backward compatibility of the public SDK API without a documented migration path"
+      action: "BLOCK"
+      reason: "CLAUDE.md Critical Rule 5: public SDK API must not break existing callers"
+    - condition: "A violation of a non-negotiable CLAUDE.md Critical Rule that ESLint does NOT catch (e.g. static provider import outside the registry; Gemini tools + JSON schema used together; formatProviderError throwing instead of returning)"
+      action: "BLOCK"
+      reason: "Violates a documented non-negotiable architectural rule"
+    - condition: "3 or more MAJOR severity issues in the same pull request"
+      action: "BLOCK"
+      reason: "Too many significant issues to merge safely"
+
+  # Generated / vendored / binary files are skipped.
+  excludePatterns:
+    - "*.lock"
+    - "pnpm-lock.yaml"
+    - "package-lock.json"
+    - "yarn.lock"
+    - "*.min.js"
+    - "*.map"
+    - "*.svg"
+    - "*.png"
+    - "*.jpg"
+    - "*.jpeg"
+    - "*.webp"
+    - "*.gif"
+    - "*.pdf"
+    - "dist/**"
+    - "build/**"
+    - "coverage/**"
+    - "docs/.vitepress/cache/**"
+
+  contextLines: 3
+  maxFilesPerReview: 100
+  fileAnalysisTimeout: "2m"
+
+  toolPreferences:
+    lazyLoading: true
+    cacheToolResults: true
+    parallelToolCalls: false
+    maxToolCallsPerFile: 20
+    enableCodeSearch: true
+    enableDirectoryListing: true
+
+# -----------------------------------------------------------------------------
+# Review-only mode: never rewrite PR descriptions (also enforced by the action
+# input skip-description-enhance: "true").
+# -----------------------------------------------------------------------------
+descriptionEnhancement:
+  enabled: false
+
+# -----------------------------------------------------------------------------
+# Stateless beyond the cross-run review state above: no memory-bank dir, no
+# knowledge-base file, and no commits back to the repo (keeps the single-commit
+# policy intact and needs no write access beyond posting the review).
+# -----------------------------------------------------------------------------
+memoryBank:
+  enabled: false
+
+knowledgeBase:
+  enabled: false
+
+memory:
+  enabled: false
+  autoCommit: false
+
+# -----------------------------------------------------------------------------
+# Monitoring: per-run review report (v3.0.2) — one markdown + JSON artifact per
+# run recording explore investigations, gate batches with critic verdicts, and
+# the reconciled verdict. Written locally only (no PR side effect); the
+# workflow uploads it as an artifact for debugging. .yama/reports and
+# .yama/analytics are gitignored.
+# -----------------------------------------------------------------------------
+monitoring:
+  enabled: true
+  logTokenUsage: true
+  exportFormat: "json"
+  exportPath: ".yama/analytics/"
+  report:
+    enabled: true
+    path: .yama/reports
+
+# -----------------------------------------------------------------------------
+# Cost / runtime guardrails. `maxReviewDuration` is deliberately unset (Yama
+# v3.0.2 dropped its 15m default): it is a per-turn wall clock, and cutting an
+# agentic review mid-loop loses the comment posting and forces a
+# fabrication-prone verdict recovery. The review is bounded by WORK instead:
+# loop.maxSteps, the submit_review gate, and the per-step ai.timeout /
+# toolTimeoutMs hang guards.
+# -----------------------------------------------------------------------------
+performance:
+  loop:
+    # Headroom so the mandatory FINAL ACTIONS (summary comment + review
+    # status) are never starved out by the step cap on large PRs.
+    maxSteps: 140
+  tokenBudget:
+    maxTokensPerReview: 800000
+    warningThreshold: 600000
