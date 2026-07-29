@@ -438,6 +438,59 @@ describe("offline proxy log analysis", () => {
     await expect(
       analyzeProxyLogs({ logsDir: logDir, since: "recently", nowMs }),
     ).rejects.toThrow("Invalid --since value");
+    await expect(
+      analyzeProxyLogs({
+        logsDir: logDir,
+        since: "1h",
+        until: "later",
+        nowMs,
+      }),
+    ).rejects.toThrow("Invalid --until value");
+    await expect(
+      analyzeProxyLogs({
+        logsDir: logDir,
+        since: "1h",
+        until: "2h",
+        nowMs,
+      }),
+    ).rejects.toThrow("--until must not be earlier than --since");
+  });
+
+  it("uses a fixed end-of-snapshot cutoff while logs continue to append", async () => {
+    const logDir = await mkdtemp(join(tmpdir(), "neurolink-analysis-"));
+    tempDirs.push(logDir);
+    await writeJsonLines(logDir, "proxy-2026-07-18.jsonl", [
+      {
+        timestamp: "2026-07-18T11:00:00.000Z",
+        requestId: "included",
+        method: "POST",
+        account: "primary@example.com",
+        accountType: "oauth",
+        responseStatus: 200,
+      },
+      {
+        timestamp: "2026-07-18T11:31:00.000Z",
+        requestId: "appended-after-cutoff",
+        method: "POST",
+        account: "primary@example.com",
+        accountType: "oauth",
+        responseStatus: 502,
+      },
+    ]);
+
+    const report = await analyzeProxyLogs({
+      logsDir: logDir,
+      since: "2h",
+      until: "2026-07-18T11:30:00.000Z",
+      nowMs,
+    });
+
+    expect(report.until).toBe("2026-07-18T11:30:00.000Z");
+    expect(report.requests).toMatchObject({
+      completed: 1,
+      success: 1,
+      errors: 0,
+    });
   });
 
   it("does not mislabel legacy end-to-end timing as account-attempt latency", async () => {

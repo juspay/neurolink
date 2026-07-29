@@ -20,6 +20,7 @@ function printAnalysis(
   logger.always(chalk.bold.cyan("NeuroLink Proxy Analysis"));
   logger.always(chalk.gray("=".repeat(50)));
   logger.always(`  Since:       ${chalk.cyan(report.since)}`);
+  logger.always(`  Until:       ${chalk.cyan(report.until)}`);
   logger.always(`  Logs:        ${chalk.cyan(report.logsDir)}`);
   logger.always(
     `  Files:       ${report.files.requests} request, ${report.files.attempts} attempt, ${report.files.lifecycle} lifecycle, ${report.files.debug} debug`,
@@ -184,6 +185,11 @@ export const proxyAnalyzeCommand: CommandModule<object, ProxyAnalyzeArgs> = {
         default: "24h",
         description: "ISO timestamp or lookback such as 6h, 1d, or 1w",
       })
+      .option("until", {
+        type: "string",
+        description:
+          "ISO timestamp or lookback such as 6h, 1d, or 1w; defaults to analysis start time",
+      })
       .option("format", {
         type: "string",
         choices: ["text", "json"] as const,
@@ -205,6 +211,7 @@ export const proxyAnalyzeCommand: CommandModule<object, ProxyAnalyzeArgs> = {
       const report = await analyzeProxyLogs({
         logsDir: argv.logsDir,
         since: argv.since,
+        until: argv.until,
       });
       if (argv.format === "json") {
         logger.always(JSON.stringify(report, null, 2));
