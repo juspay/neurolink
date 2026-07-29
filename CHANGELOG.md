@@ -1,3 +1,9 @@
+## [10.6.3](https://github.com/juspay/neurolink/compare/v10.6.2...v10.6.3) (2026-07-29)
+
+### Bug Fixes
+
+- **(types):** make duplicate type names unique ([63134cd](https://github.com/juspay/neurolink/commit/63134cdabb760ca2f9ad3cfdd29cbe43c8f25b66))
+
 ## [10.6.2](https://github.com/juspay/neurolink/compare/v10.6.1...v10.6.2) (2026-07-28)
 
 ## [10.6.1](https://github.com/juspay/neurolink/compare/v10.6.0...v10.6.1) (2026-07-28)
