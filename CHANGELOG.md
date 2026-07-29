@@ -1,3 +1,9 @@
+## [10.6.4](https://github.com/juspay/neurolink/compare/v10.6.3...v10.6.4) (2026-07-29)
+
+### Bug Fixes
+
+- **(media):** resolve no-type-export-outside-types in media processor barrel ([#1168](https://github.com/juspay/neurolink/issues/1168)) ([85b8214](https://github.com/juspay/neurolink/commit/85b8214032b8637cd8cdd385fa7560f4c230943f))
+
 ## [10.6.3](https://github.com/juspay/neurolink/compare/v10.6.2...v10.6.3) (2026-07-29)
 
 ### Bug Fixes
