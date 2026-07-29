@@ -1,3 +1,9 @@
+## [10.7.1](https://github.com/juspay/neurolink/compare/v10.7.0...v10.7.1) (2026-07-29)
+
+### Bug Fixes
+
+- **(proxy):** make routing evidence non-fatal and bounded ([0347365](https://github.com/juspay/neurolink/commit/0347365963f502f2662eb0690fbeecef192f05de))
+
 ## [10.7.0](https://github.com/juspay/neurolink/compare/v10.6.5...v10.7.0) (2026-07-29)
 
 ### Features
