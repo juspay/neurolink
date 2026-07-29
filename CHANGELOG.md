@@ -1,3 +1,9 @@
+## [10.6.5](https://github.com/juspay/neurolink/compare/v10.6.4...v10.6.5) (2026-07-29)
+
+### Bug Fixes
+
+- **(providers):** accurate token usage accounting across providers; yama v3.0.2 ([65d799a](https://github.com/juspay/neurolink/commit/65d799ada467d5cc73e27745fb7faa81dcad9d3f))
+
 ## [10.6.4](https://github.com/juspay/neurolink/compare/v10.6.3...v10.6.4) (2026-07-29)
 
 ### Bug Fixes
