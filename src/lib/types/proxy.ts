@@ -1598,6 +1598,9 @@ export type ProxyAnalysisReport = {
     initialAccounts: Record<string, number>;
     finalAccountChanges: number;
     finalOutsideCandidateSet: number;
+    /** Number of routing decisions aggregated before sampling records. */
+    totalRecords: number;
+    /** Most recent bounded sample retained for offline inspection. */
     records: ProxyAnalysisRoutingRecord[];
   };
   accounts: ProxyAnalysisAccount[];

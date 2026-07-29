@@ -208,7 +208,7 @@ describe("offline proxy log analysis", () => {
         timestamp,
         requestId: "request-2",
         method: "POST",
-        account: "primary@example.com",
+        account: "outside@example.com",
         accountType: "oauth",
         responseStatus: 429,
         responseTimeMs: 35,
@@ -304,7 +304,8 @@ describe("offline proxy log analysis", () => {
       selectionReasons: { weekly_reset: 2 },
       initialAccounts: { "primary@example.com": 2 },
       finalAccountChanges: 1,
-      finalOutsideCandidateSet: 0,
+      finalOutsideCandidateSet: 1,
+      totalRecords: 2,
     });
     expect(report.routing.records).toHaveLength(2);
     expect(report.routing.records[0]).toMatchObject({
@@ -336,6 +337,98 @@ describe("offline proxy log analysis", () => {
         }),
       ]),
     );
+  });
+
+  it("bounds retained routing records while preserving aggregate counts", async () => {
+    const logDir = await mkdtemp(join(tmpdir(), "neurolink-routing-analysis-"));
+    tempDirs.push(logDir);
+    const timestamp = "2026-07-18T11:00:00.000Z";
+    const routingDecision = {
+      schemaVersion: 1,
+      evaluatedAt: timestamp,
+      strategy: "fill-first",
+      mode: "primary",
+      selectionReason: "configured_primary",
+      quotaRoutingEnabled: false,
+      quotaInputsUsed: false,
+      sessionSoftLimit: 0.97,
+      sessionResetToleranceMs: 900_000,
+      configuredPrimaryAccount: "anthropic:primary@example.com",
+      configuredPrimaryMatched: true,
+      rotationOffset: 0,
+      initialAccount: "primary@example.com",
+      candidates: [
+        {
+          account: "primary@example.com",
+          accountType: "oauth",
+          sourceIndex: 0,
+          rank: 0,
+          configuredPrimary: true,
+          usable: true,
+          saturated: false,
+          quotaObserved: false,
+          quotaLastUpdated: null,
+          quotaAgeMs: null,
+          coolingActive: false,
+          coolingReason: null,
+          coolingUntil: null,
+          unifiedStatus: null,
+          overageStatus: null,
+          sessionStatus: null,
+          sessionUsed: null,
+          sessionResetAt: null,
+          sessionResetBucket: null,
+          weeklyStatus: null,
+          weeklyUsed: null,
+          weeklyResetAt: null,
+        },
+      ],
+    };
+    await writeJsonLines(logDir, "proxy-2026-07-18.jsonl", [
+      ...Array.from({ length: 205 }, (_, index) => ({
+        timestamp: new Date(
+          Date.parse(timestamp) + index * 1_000,
+        ).toISOString(),
+        requestId: `request-${index + 1}`,
+        method: "POST",
+        account: "primary@example.com",
+        accountType: "oauth",
+        responseStatus: 200,
+        responseTimeMs: 1,
+        routingDecision,
+      })),
+      {
+        timestamp: "2026-07-18T11:10:00.000Z",
+        requestId: "request-1",
+        method: "POST",
+        account: "primary@example.com",
+        accountType: "oauth",
+        responseStatus: 200,
+        responseTimeMs: 1,
+        routingDecision,
+      },
+    ]);
+
+    const report = await analyzeProxyLogs({
+      logsDir: logDir,
+      since: "2h",
+      nowMs,
+    });
+
+    expect(report.dataQuality.routingDecisions).toEqual({
+      valid: 206,
+      invalid: 0,
+      absent: 0,
+    });
+    expect(report.routing).toMatchObject({
+      totalRecords: 205,
+      initialAccounts: { "primary@example.com": 205 },
+      finalAccountChanges: 0,
+      finalOutsideCandidateSet: 0,
+    });
+    expect(report.routing.records).toHaveLength(200);
+    expect(report.routing.records[0]?.requestId).toBe("request-7");
+    expect(report.routing.records.at(-1)?.requestId).toBe("request-1");
   });
 
   it("rejects ambiguous time windows instead of silently using all data", async () => {
