@@ -15,14 +15,25 @@
  */
 
 import { type Span } from "@opentelemetry/api";
+import { NeuroLinkError } from "./errorHandling.js";
 import { logger } from "./logger.js";
 import { APICallError } from "./generationErrors.js";
+import { parseRetryAfterMs } from "./retryAfter.js";
 
 /** Maximum number of retry attempts after the initial call (total = 1 + MAX_PROVIDER_RETRIES). */
 export const MAX_PROVIDER_RETRIES = 2;
 
 /** Base delay in ms for exponential backoff between retries. */
 export const BASE_RETRY_DELAY_MS = 1000;
+
+/** Minimum delay in ms when a retryable response provides no retry timing. */
+export const NO_HINT_FLOOR_MS = 10_000;
+
+/** Maximum server-requested retry delay honored by provider retries. */
+export const MAX_RETRY_AFTER_MS = 120_000;
+
+const sleepWithTimeout = (delayMs: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, delayMs));
 
 /**
  * Check whether an error thrown by the AI SDK is retryable.
@@ -35,6 +46,10 @@ export function isRetryableProviderError(error: unknown): boolean {
   // Preferred path: use the AI SDK's own branded type check + isRetryable flag
   if (APICallError.isInstance(error)) {
     return error.isRetryable;
+  }
+
+  if (error instanceof NeuroLinkError) {
+    return error.retriable;
   }
 
   // Fallback: duck-type for status codes on errors that aren't APICallError
@@ -59,6 +74,21 @@ export function getErrorStatusCode(error: unknown): number | undefined {
   return undefined;
 }
 
+function getRetryAfterMs(error: unknown): number | undefined {
+  if (APICallError.isInstance(error) && error.responseHeaders) {
+    const parsedDelay = parseRetryAfterMs(error.responseHeaders);
+    if (parsedDelay !== undefined) {
+      return parsedDelay;
+    }
+  }
+
+  if (error instanceof NeuroLinkError && error.retryAfterMs !== undefined) {
+    return error.retryAfterMs;
+  }
+
+  return undefined;
+}
+
 /**
  * Execute a provider call with instrumented retry logic.
  *
@@ -69,15 +99,16 @@ export function getErrorStatusCode(error: unknown): number | undefined {
  */
 export async function withProviderRetry<T>(
   operation: () => Promise<T>,
-  span: Span,
+  span: Span | undefined,
   label: string,
+  sleep: (delayMs: number) => Promise<void> = sleepWithTimeout,
 ): Promise<T> {
   for (let attempt = 0; attempt <= MAX_PROVIDER_RETRIES; attempt++) {
     try {
       const result = await operation();
 
       // Record how many attempts it took on the span
-      span.setAttribute("gen_ai.provider.total_attempts", attempt + 1);
+      span?.setAttribute("gen_ai.provider.total_attempts", attempt + 1);
 
       if (attempt > 0) {
         logger.info(
@@ -94,9 +125,9 @@ export async function withProviderRetry<T>(
 
       if (!retryable || attempt === MAX_PROVIDER_RETRIES) {
         // Record failure details before re-throwing
-        span.setAttribute("gen_ai.provider.total_attempts", attempt + 1);
+        span?.setAttribute("gen_ai.provider.total_attempts", attempt + 1);
         if (attempt > 0) {
-          span.setAttribute("gen_ai.provider.retries_exhausted", true);
+          span?.setAttribute("gen_ai.provider.retries_exhausted", true);
         }
 
         logger.warn(
@@ -112,11 +143,17 @@ export async function withProviderRetry<T>(
         throw error;
       }
 
-      // Calculate exponential backoff delay
-      const delay = BASE_RETRY_DELAY_MS * Math.pow(2, attempt);
+      const retryAfterMs = getRetryAfterMs(error);
+      const boundedRetryAfterMs =
+        retryAfterMs === undefined
+          ? undefined
+          : Math.min(MAX_RETRY_AFTER_MS, Math.max(0, retryAfterMs));
+      const delay =
+        boundedRetryAfterMs ??
+        Math.max(BASE_RETRY_DELAY_MS * Math.pow(2, attempt), NO_HINT_FLOOR_MS);
 
       // Record retry event on the OTel span
-      span.addEvent("gen_ai.provider.retry", {
+      span?.addEvent("gen_ai.provider.retry", {
         "retry.attempt": attempt + 1,
         "retry.delay_ms": delay,
         ...(statusCode !== undefined && { "retry.status_code": statusCode }),
@@ -134,7 +171,7 @@ export async function withProviderRetry<T>(
         },
       );
 
-      await new Promise((r) => setTimeout(r, delay));
+      await sleep(delay);
     }
   }
 

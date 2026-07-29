@@ -18,6 +18,8 @@ import { ErrorCategory, ErrorSeverity } from "../../constants/enums.js";
 import { logger } from "../../utils/logger.js";
 import { NeuroLinkError, ERROR_CODES } from "../../utils/errorHandling.js";
 import { sanitizeForLog } from "../../utils/logSanitize.js";
+import { withProviderRetry } from "../../utils/providerRetry.js";
+import { parseRetryAfterMs } from "../../utils/retryAfter.js";
 import { safeDownload } from "../../utils/safeFetch.js";
 import { MAX_VIDEO_BYTES } from "../../utils/sizeGuard.js";
 import type {
@@ -43,6 +45,7 @@ const DEFAULT_TOTAL_TIMEOUT_MS = 5 * 60_000;
 export async function createPrediction(
   auth: ReplicateAuth,
   input: ReplicateCreatePredictionInput,
+  sleep?: (delayMs: number) => Promise<void>,
 ): Promise<ReplicatePrediction> {
   const baseUrl = auth.baseUrl ?? "https://api.replicate.com";
   const [modelPath, version] = input.model.split(":", 2);
@@ -62,52 +65,62 @@ export async function createPrediction(
     body.webhook_events_filter = input.webhookEventsFilter;
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  return withProviderRetry(
+    async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        REQUEST_TIMEOUT_MS,
+      );
 
-  let response: Response;
-  try {
-    response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${auth.apiToken}`,
-        "Content-Type": "application/json",
-        Prefer: "wait=60",
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-  } catch (err: unknown) {
-    if (err instanceof NeuroLinkError) {
-      throw err;
-    }
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new NeuroLinkError({
-        code: ERROR_CODES.OPERATION_ABORTED,
-        message: `Replicate predictions submit timed out after ${REQUEST_TIMEOUT_MS / 1000}s`,
-        category: ErrorCategory.TIMEOUT,
-        severity: ErrorSeverity.HIGH,
-        retriable: true,
-        originalError: err,
-      });
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            Authorization: `Token ${auth.apiToken}`,
+            "Content-Type": "application/json",
+            Prefer: "wait=60",
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
 
-  if (!response.ok) {
-    const raw = await response.text();
-    throw new NeuroLinkError({
-      code: ERROR_CODES.PROVIDER_NOT_AVAILABLE,
-      message: `Replicate predictions submit failed: ${response.status} — ${sanitizeForLog(raw, 500)}`,
-      category: ErrorCategory.NETWORK,
-      severity: ErrorSeverity.HIGH,
-      retriable: response.status >= 500,
-    });
-  }
+        if (!response.ok) {
+          const raw = await response.text();
+          throw new NeuroLinkError({
+            code: ERROR_CODES.PROVIDER_NOT_AVAILABLE,
+            message: `Replicate predictions submit failed: ${response.status} — ${sanitizeForLog(raw, 500)}`,
+            category: ErrorCategory.NETWORK,
+            severity: ErrorSeverity.HIGH,
+            retriable: response.status >= 500 || response.status === 429,
+            retryAfterMs: parseRetryAfterMs(response.headers),
+          });
+        }
 
-  return (await response.json()) as ReplicatePrediction;
+        return (await response.json()) as ReplicatePrediction;
+      } catch (error: unknown) {
+        if (error instanceof NeuroLinkError) {
+          throw error;
+        }
+        if (error instanceof Error && error.name === "AbortError") {
+          throw new NeuroLinkError({
+            code: ERROR_CODES.OPERATION_ABORTED,
+            message: `Replicate predictions submit timed out after ${REQUEST_TIMEOUT_MS / 1000}s`,
+            category: ErrorCategory.TIMEOUT,
+            severity: ErrorSeverity.HIGH,
+            retriable: true,
+            originalError: error,
+          });
+        }
+        throw error;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    },
+    undefined,
+    "Replicate prediction submission",
+    sleep,
+  );
 }
 
 /**
@@ -188,7 +201,8 @@ export async function pollPrediction(
         message: `Replicate poll failed: ${response.status} — ${sanitizeForLog(raw, 500)}`,
         category: ErrorCategory.NETWORK,
         severity: ErrorSeverity.HIGH,
-        retriable: response.status >= 500,
+        retriable: response.status >= 500 || response.status === 429,
+        retryAfterMs: parseRetryAfterMs(response.headers),
       });
     }
 

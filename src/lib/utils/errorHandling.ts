@@ -103,6 +103,7 @@ export class NeuroLinkError extends Error {
   public readonly category: ErrorCategory;
   public readonly severity: ErrorSeverity;
   public readonly retriable: boolean;
+  public readonly retryAfterMs?: number;
   public readonly context: Record<string, unknown>;
   public readonly timestamp: Date;
   public readonly toolName?: string;
@@ -114,6 +115,7 @@ export class NeuroLinkError extends Error {
     category: ErrorCategory;
     severity: ErrorSeverity;
     retriable: boolean;
+    retryAfterMs?: number;
     context?: Record<string, unknown>;
     originalError?: Error;
     toolName?: string;
@@ -125,6 +127,7 @@ export class NeuroLinkError extends Error {
     this.category = options.category;
     this.severity = options.severity;
     this.retriable = options.retriable;
+    this.retryAfterMs = options.retryAfterMs;
     this.context = options.context || {};
     this.timestamp = new Date();
     this.toolName = options.toolName;
