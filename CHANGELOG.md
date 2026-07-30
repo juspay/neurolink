@@ -1,3 +1,9 @@
+## [10.8.1](https://github.com/juspay/neurolink/compare/v10.8.0...v10.8.1) (2026-07-30)
+
+### Bug Fixes
+
+- **(proxy):** snapshot live log analysis ([1c975bd](https://github.com/juspay/neurolink/commit/1c975bd9fcf53230e593ffafc485ec15ef26eb5e))
+
 ## [10.8.0](https://github.com/juspay/neurolink/compare/v10.7.1...v10.8.0) (2026-07-30)
 
 ### Features
