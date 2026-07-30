@@ -1,3 +1,14 @@
+## [10.8.0](https://github.com/juspay/neurolink/compare/v10.7.1...v10.8.0) (2026-07-30)
+
+### Features
+
+- **(tts):** expose synthesis failure metadata and telemetry ([2ee39c2](https://github.com/juspay/neurolink/commit/2ee39c2b174356eef1c610578d9c511d3566d62c))
+
+### Bug Fixes
+
+- **(core):** honor Retry-After hints and add a no-hint retry floor ([f12984c](https://github.com/juspay/neurolink/commit/f12984c48f29da11bfb72b33ec99366ae45f43df))
+- **(sdk):** correct litellm PDF supportsNative config ([#1009](https://github.com/juspay/neurolink/issues/1009)) ([8ab56d4](https://github.com/juspay/neurolink/commit/8ab56d44684a69abc591f1c4ab3c9e0e03927a6b))
+
 ## [10.7.1](https://github.com/juspay/neurolink/compare/v10.7.0...v10.7.1) (2026-07-29)
 
 ### Bug Fixes
