@@ -1,15 +1,15 @@
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import type { AIProviderName } from "../constants/enums.js";
+import type { AIProviderName } from "../../constants/enums.js";
 import {
   registerRuntimeContextWindow,
   registerRuntimeOutputCeiling,
-} from "../constants/contextWindows.js";
-import { createProxyFetch } from "../proxy/proxyFetch.js";
+} from "../../constants/contextWindows.js";
+import { createProxyFetch } from "../../proxy/proxyFetch.js";
 import type {
   OpenAICompatBuildBodyArgs,
   OpenAICompatStreamLifecycleListeners,
   UnknownRecord,
-} from "../types/index.js";
+} from "../../types/index.js";
 import {
   AuthenticationError,
   InvalidModelError,
@@ -19,16 +19,16 @@ import {
   RateLimitError,
   isModelAccessDeniedMessage,
   parseAllowedModels,
-} from "../types/index.js";
-import { isAbortError } from "../utils/errorHandling.js";
-import { logger } from "../utils/logger.js";
-import { redactUrlCredentials } from "../utils/logSanitize.js";
-import { isGemini25Model as isCanonicalGemini25Model } from "../utils/modelDetection.js";
-import { calculateCost } from "../utils/pricing.js";
-import { getProviderModel } from "../utils/providerConfig.js";
-import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
-import { stripTrailingSlash } from "./openaiChatCompletionsClient.js";
-import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
+} from "../../types/index.js";
+import { isAbortError } from "../../utils/errorHandling.js";
+import { logger } from "../../utils/logger.js";
+import { redactUrlCredentials } from "../../utils/logSanitize.js";
+import { isGemini25Model as isCanonicalGemini25Model } from "../../utils/modelDetection.js";
+import { calculateCost } from "../../utils/pricing.js";
+import { getProviderModel } from "../../utils/providerConfig.js";
+import { createTimeoutController, TimeoutError } from "../../utils/timeout.js";
+import { stripTrailingSlash } from "../openaiChatCompletionsClient.js";
+import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
 
 const streamTracer = trace.getTracer("neurolink.provider.litellm");
 

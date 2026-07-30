@@ -3,21 +3,21 @@ import {
   ErrorCategory,
   ErrorSeverity,
   GoogleAIModels,
-} from "../constants/enums.js";
-import { BaseProvider } from "../core/baseProvider.js";
+} from "../../constants/enums.js";
+import { BaseProvider } from "../../core/baseProvider.js";
 import {
   IMAGE_GENERATION_MODELS,
   TOOL_STORAGE_TIMEOUT_MS,
-} from "../core/constants.js";
-import { processUnifiedFilesArray } from "../utils/messageBuilder.js";
-import type { NeuroLink } from "../neurolink.js";
+} from "../../core/constants.js";
+import { processUnifiedFilesArray } from "../../utils/messageBuilder.js";
+import type { NeuroLink } from "../../neurolink.js";
 import {
   ATTR,
   tracers,
   withClientSpan,
   withClientStreamSpan,
   withSpan,
-} from "../telemetry/index.js";
+} from "../../telemetry/index.js";
 import type {
   AnalyticsData,
   UnknownRecord,
@@ -33,7 +33,7 @@ import type {
   NativeToolsConfig,
   StreamOptions,
   StreamResult,
-} from "../types/index.js";
+} from "../../types/index.js";
 
 import {
   AuthenticationError,
@@ -41,18 +41,18 @@ import {
   NetworkError,
   ProviderError,
   RateLimitError,
-} from "../types/index.js";
-import { ERROR_CODES, NeuroLinkError } from "../utils/errorHandling.js";
-import { logger } from "../utils/logger.js";
+} from "../../types/index.js";
+import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
+import { logger } from "../../utils/logger.js";
 import {
   composeAbortSignals,
   createTimeoutController,
   TimeoutError,
-} from "../utils/timeout.js";
-import { withTimeout } from "../utils/async/index.js";
-import { estimateTokens } from "../utils/tokenEstimation.js";
-import { transformToolExecutions } from "../utils/transformationUtils.js";
-import { resolveToolExecutionRecords } from "../core/toolExecutionRecorder.js";
+} from "../../utils/timeout.js";
+import { withTimeout } from "../../utils/async/index.js";
+import { estimateTokens } from "../../utils/tokenEstimation.js";
+import { transformToolExecutions } from "../../utils/transformationUtils.js";
+import { resolveToolExecutionRecords } from "../../core/toolExecutionRecorder.js";
 import {
   buildGeminiResponseSchema,
   buildNativeConfig,
@@ -70,9 +70,9 @@ import {
   pushModelResponseToHistory,
   refreshNativeToolDeclarations,
   DedupExecuteMap,
-} from "./googleNativeGemini3.js";
-import { createProxyFetch } from "../proxy/proxyFetch.js";
-import type { LanguageModel, Schema, Tool } from "../types/index.js";
+} from "../googleNativeGemini3/index.js";
+import { createProxyFetch } from "../../proxy/proxyFetch.js";
+import type { LanguageModel, Schema, Tool } from "../../types/index.js";
 
 // Google AI Live API types now imported from ../types/providerSpecific.js
 

@@ -1,6 +1,3 @@
-async function loadBedrockControl() {
-  return await import(/* @vite-ignore */ "@aws-sdk/client-bedrock");
-}
 import type {
   Tool as BedrockTool,
   ContentBlock,
@@ -19,11 +16,11 @@ import {
 } from "@aws-sdk/client-bedrock-runtime";
 import type { DocumentType } from "@smithy/types";
 import path from "path";
-import type { AIProviderName } from "../constants/enums.js";
-import { createAnalytics } from "../core/analytics.js";
-import { BaseProvider } from "../core/baseProvider.js";
-import { DEFAULT_MAX_STEPS } from "../core/constants.js";
-import type { NeuroLink } from "../neurolink.js";
+import type { AIProviderName } from "../../constants/enums.js";
+import { createAnalytics } from "../../core/analytics.js";
+import { BaseProvider } from "../../core/baseProvider.js";
+import { DEFAULT_MAX_STEPS } from "../../core/constants.js";
+import type { NeuroLink } from "../../neurolink.js";
 import type {
   JsonValue,
   StreamOptions,
@@ -40,26 +37,24 @@ import type {
   TextGenerationOptions,
   BedrockContentBlock,
   BedrockMessage,
-} from "../types/index.js";
+} from "../../types/index.js";
 import {
   AuthenticationError,
   ProviderError,
   RateLimitError,
-} from "../types/index.js";
-import { isAbortError, withTimeout } from "../utils/errorHandling.js";
-import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
-import { logger } from "../utils/logger.js";
-import { resolveSamplingParams } from "../models/modelRegistry.js";
-import { calculateCost } from "../utils/pricing.js";
-import { buildMultimodalMessagesArray } from "../utils/messageBuilder.js";
-import { buildMultimodalOptions } from "../utils/multimodalOptionsBuilder.js";
-import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
+} from "../../types/index.js";
+import { isAbortError, withTimeout } from "../../utils/errorHandling.js";
+import { emitToolEndFromStepFinish } from "../../utils/toolEndEmitter.js";
+import { logger } from "../../utils/logger.js";
+import { resolveSamplingParams } from "../../models/modelRegistry.js";
+import { calculateCost } from "../../utils/pricing.js";
+import { buildMultimodalMessagesArray } from "../../utils/messageBuilder.js";
+import { buildMultimodalOptions } from "../../utils/multimodalOptionsBuilder.js";
+import { convertZodToJsonSchema } from "../../utils/schemaConversion.js";
 import { type Span, SpanKind, SpanStatusCode } from "@opentelemetry/api";
-import { tracers } from "../telemetry/index.js";
 
-const bedrockTracer = tracers.provider;
-
-// Bedrock-specific types now imported from ../types/providerSpecific.js
+import { bedrockTracer } from "./constants.js";
+import { loadBedrockControl } from "./utils.js";
 
 export class AmazonBedrockProvider extends BaseProvider {
   private bedrockClient: BedrockRuntimeClient;
@@ -2352,7 +2347,8 @@ export class AmazonBedrockProvider extends BaseProvider {
 
       const models = response.modelSummaries || [];
       const activeModels = models.filter(
-        (model) => model.modelLifecycle?.status === "ACTIVE",
+        (model: { modelLifecycle?: { status?: string } }) =>
+          model.modelLifecycle?.status === "ACTIVE",
       );
 
       logger.debug(

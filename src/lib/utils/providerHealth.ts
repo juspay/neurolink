@@ -18,6 +18,7 @@ import type {
   ProviderHealthCheckOptions,
   ProviderHealthStatusOptions,
 } from "../types/index.js";
+import { DEFAULT_OLLAMA_MODEL } from "../providers/ollama/constants.js";
 
 export class ProviderHealthChecker {
   private static healthCache = new Map<
@@ -950,7 +951,7 @@ export class ProviderHealthChecker {
   }
 
   private static getConfiguredOllamaModel(): string {
-    return process.env.OLLAMA_MODEL || "llama3.1:8b";
+    return process.env.OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL;
   }
 
   private static async fetchJsonWithTimeout(

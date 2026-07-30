@@ -1,34 +1,34 @@
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import type { AIProviderName } from "../constants/enums.js";
-import { AIProviderName as AIProviderNameEnum } from "../constants/enums.js";
-import { createProxyFetch } from "../proxy/proxyFetch.js";
+import type { AIProviderName } from "../../constants/enums.js";
+import { AIProviderName as AIProviderNameEnum } from "../../constants/enums.js";
+import { createProxyFetch } from "../../proxy/proxyFetch.js";
 import type {
   EnhancedGenerateResult,
   NeurolinkCredentials,
   OpenAICompatStreamLifecycleListeners,
   TextGenerationOptions,
   UnknownRecord,
-} from "../types/index.js";
+} from "../../types/index.js";
 import {
   AuthenticationError,
   InvalidModelError,
   NetworkError,
   ProviderError,
   RateLimitError,
-} from "../types/index.js";
-import { logger } from "../utils/logger.js";
-import { redactUrlCredentials } from "../utils/logSanitize.js";
-import { calculateCost } from "../utils/pricing.js";
+} from "../../types/index.js";
+import { logger } from "../../utils/logger.js";
+import { redactUrlCredentials } from "../../utils/logSanitize.js";
+import { calculateCost } from "../../utils/pricing.js";
 import {
   createOpenAIConfig,
   getProviderModel,
   validateApiKey,
-} from "../utils/providerConfig.js";
-import { MAX_IMAGE_BYTES, readBoundedBuffer } from "../utils/sizeGuard.js";
-import { assertSafeUrl } from "../utils/ssrfGuard.js";
-import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
-import { stripTrailingSlash } from "./openaiChatCompletionsClient.js";
-import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
+} from "../../utils/providerConfig.js";
+import { MAX_IMAGE_BYTES, readBoundedBuffer } from "../../utils/sizeGuard.js";
+import { assertSafeUrl } from "../../utils/ssrfGuard.js";
+import { createTimeoutController, TimeoutError } from "../../utils/timeout.js";
+import { stripTrailingSlash } from "../openaiChatCompletionsClient.js";
+import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
 
 const OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1";
 

@@ -119,16 +119,16 @@ import { processLooksLikeProxySupervisor } from "../src/cli/commands/proxy.js";
 import {
   GoogleVertexProvider,
   resolveVertexLocation,
-} from "../src/lib/providers/googleVertex.js";
+} from "../src/lib/providers/googleVertex/index.js";
 
 import {
   appendStepText,
   mapGeminiFinishReason,
-} from "../src/lib/providers/googleNativeGemini3.js";
+} from "../src/lib/providers/googleNativeGemini3/index.js";
 
-import { OpenAICompatibleProvider } from "../src/lib/providers/openaiCompatible.js";
-import { OpenAIProvider } from "../src/lib/providers/openAI.js";
-import { LiteLLMProvider } from "../src/lib/providers/litellm.js";
+import { OpenAICompatibleProvider } from "../src/lib/providers/openaiCompatible/index.js";
+import { OpenAIProvider } from "../src/lib/providers/openAI/index.js";
+import { LiteLLMProvider } from "../src/lib/providers/litellm/index.js";
 import { ModelAccessDeniedError } from "../src/lib/types/index.js";
 
 import {

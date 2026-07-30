@@ -14,23 +14,23 @@ import {
   CLAUDE_CLI_USER_AGENT,
   CLAUDE_CODE_CLIENT_ID,
   CLAUDE_CODE_OAUTH_BETAS,
-} from "../auth/anthropicOAuth.js";
+} from "../../auth/anthropicOAuth.js";
 import {
   type AIProviderName,
   AnthropicModels,
   TOKEN_EXPIRY_BUFFER_MS,
-} from "../constants/enums.js";
-import { BaseProvider } from "../core/baseProvider.js";
-import { DEFAULT_MAX_STEPS } from "../core/constants.js";
-import { streamAnalyticsCollector } from "../core/streamAnalytics.js";
+} from "../../constants/enums.js";
+import { BaseProvider } from "../../core/baseProvider.js";
+import { DEFAULT_MAX_STEPS } from "../../core/constants.js";
+import { streamAnalyticsCollector } from "../../core/streamAnalytics.js";
 import {
   getModelCapabilities,
   getRecommendedModelForTier,
   isModelAvailableForTier,
-} from "../models/anthropicModels.js";
-import type { NeuroLink } from "../neurolink.js";
-import { createOAuthFetch } from "../proxy/oauthFetch.js";
-import { createProxyFetch } from "../proxy/proxyFetch.js";
+} from "../../models/anthropicModels.js";
+import type { NeuroLink } from "../../neurolink.js";
+import { createOAuthFetch } from "../../proxy/oauthFetch.js";
+import { createProxyFetch } from "../../proxy/proxyFetch.js";
 import type {
   UnknownRecord,
   AnthropicProviderConfig,
@@ -45,75 +45,59 @@ import type {
   ClaudeSubscriptionTier,
   ClaudeUsageInfo,
   OAuthToken,
-} from "../types/index.js";
+} from "../../types/index.js";
 import {
   AuthenticationError,
   NetworkError,
   ProviderError,
   RateLimitError,
-} from "../types/index.js";
-import { logger } from "../utils/logger.js";
-import { redactUrlCredentials } from "../utils/logSanitize.js";
+} from "../../types/index.js";
+import { logger } from "../../utils/logger.js";
+import { redactUrlCredentials } from "../../utils/logSanitize.js";
 import {
   ANTHROPIC_MAX_CACHE_BREAKPOINTS,
   applyAnthropicHistoryCacheBreakpoints,
   countAnthropicCacheMarkers,
-} from "../utils/anthropicCacheBreakpoints.js";
+} from "../../utils/anthropicCacheBreakpoints.js";
 import type {
   SageMakerAsLanguageModel,
   VertexAnthropicMessage,
-} from "../types/index.js";
-import { calculateCost } from "../utils/pricing.js";
-import { resolveDeferredTool } from "../tools/toolDiscovery.js";
+} from "../../types/index.js";
+import { calculateCost } from "../../utils/pricing.js";
+import { resolveDeferredTool } from "../../tools/toolDiscovery.js";
 import {
   createAnthropicConfig,
   getProviderModel,
   validateApiKey,
-} from "../utils/providerConfig.js";
+} from "../../utils/providerConfig.js";
 import {
   composeAbortSignals,
   createTimeoutController,
   mergeAbortSignals,
   TimeoutError,
-} from "../utils/timeout.js";
-import { resolveToolChoice } from "../utils/toolChoice.js";
-import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
-import type { LanguageModel, Tool } from "../types/index.js";
-import { NoOutputGeneratedError } from "../utils/generationErrors.js";
+} from "../../utils/timeout.js";
+import { resolveToolChoice } from "../../utils/toolChoice.js";
+import { emitToolEndFromStepFinish } from "../../utils/toolEndEmitter.js";
+import type { LanguageModel, Tool } from "../../types/index.js";
+import { NoOutputGeneratedError } from "../../utils/generationErrors.js";
 import {
   buildNoOutputSentinel,
   stampNoOutputSpan,
-} from "../utils/noOutputSentinel.js";
-import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
-import { resolveClaudeMaxTokens } from "../utils/tokenLimits.js";
+} from "../../utils/noOutputSentinel.js";
+import { convertZodToJsonSchema } from "../../utils/schemaConversion.js";
+import { resolveClaudeMaxTokens } from "../../utils/tokenLimits.js";
 import {
   toAnthropicImageBlock,
   fileToAnthropicBlock,
-} from "./anthropicImageBlocks.js";
-import { resolveSamplingParams } from "../models/modelRegistry.js";
+} from "../anthropicImageBlocks.js";
+import { resolveSamplingParams } from "../../models/modelRegistry.js";
 import {
   createChunkQueue,
   createDeferredAnalytics,
   stringifyToolInput,
-} from "./openaiChatCompletionsClient.js";
+} from "../openaiChatCompletionsClient.js";
 
-/**
- * Beta headers for Claude Code integration.
- * These enable experimental features:
- * - claude-code-20250219: Claude Code specific features
- * - fine-grained-tool-streaming-2025-05-14: Fine-grained tool streaming
- *
- * Note: interleaved-thinking-2025-05-14 was removed — it was claude-3-7-sonnet
- * specific and causes invalid_request_error (HTTP 400) on claude-4 models
- * (claude-opus-4-6, claude-sonnet-4-6) which handle thinking via the
- * `thinking` request body parameter instead.
- */
-const ANTHROPIC_BETA_HEADERS = {
-  "anthropic-beta": [
-    "claude-code-20250219",
-    "fine-grained-tool-streaming-2025-05-14",
-  ].join(","),
-};
+import { ANTHROPIC_BETA_HEADERS } from "./constants.js";
 
 // AnthropicProviderConfig is imported from types/providers.ts
 // Re-export for backward compatibility
@@ -2307,7 +2291,4 @@ export {
   getRecommendedModelForTier,
   isModelAvailableForTier,
   ModelAccessError,
-} from "../models/anthropicModels.js";
-
-// Export beta headers constant for external use
-export { ANTHROPIC_BETA_HEADERS };
+} from "../../models/anthropicModels.js";
