@@ -17,7 +17,7 @@ import {
   DEFAULT_MAX_STEPS,
   DEFAULT_TOOL_MAX_RETRIES,
   DEFAULT_WRAPUP_TIME_LEAD_MS,
-} from "../core/constants.js";
+} from "../../core/constants.js";
 import type {
   GenerateStopReason,
   ZodUnknownSchema,
@@ -36,24 +36,24 @@ import type {
   VertexSegment,
   VertexToolStep,
   GeminiMultimodalInput,
-} from "../types/index.js";
-import { logger } from "../utils/logger.js";
-import { resolveSamplingParams } from "../models/modelRegistry.js";
+} from "../../types/index.js";
+import { logger } from "../../utils/logger.js";
+import { resolveSamplingParams } from "../../models/modelRegistry.js";
 import {
   convertZodToJsonSchema,
   ensureNestedSchemaTypes,
   inlineJsonSchema,
   isZodSchema,
   normalizeJsonSchemaObject,
-} from "../utils/schemaConversion.js";
+} from "../../utils/schemaConversion.js";
 
-import { createNativeThinkingConfig } from "../utils/thinkingConfig.js";
-import { resolveLiveTool } from "../tools/toolDiscovery.js";
-import type { ToolExecuteFunction, Tool } from "../types/index.js";
+import { createNativeThinkingConfig } from "../../utils/thinkingConfig.js";
+import { resolveLiveTool } from "../../tools/toolDiscovery.js";
+import type { ToolExecuteFunction, Tool } from "../../types/index.js";
 import {
   jsonSchema as aiJsonSchema,
   tool as createAISDKTool,
-} from "../utils/tool.js";
+} from "../../utils/tool.js";
 
 // ── Functions ──
 

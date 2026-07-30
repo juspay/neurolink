@@ -1,25 +1,25 @@
-import { AIProviderName } from "../constants/enums.js";
+import { AIProviderName } from "../../constants/enums.js";
 import {
   AuthenticationError,
   InvalidModelError,
   NetworkError,
   ProviderError,
   RateLimitError,
-} from "../types/index.js";
+} from "../../types/index.js";
 import type {
   NeurolinkCredentials,
   OpenRouterModelInfo,
   OpenRouterModelsResponse,
   UnknownRecord,
-} from "../types/index.js";
-import { createProxyFetch } from "../proxy/proxyFetch.js";
-import { isAbortError } from "../utils/errorHandling.js";
-import { logger } from "../utils/logger.js";
-import { redactUrlCredentials } from "../utils/logSanitize.js";
-import { getProviderModel } from "../utils/providerConfig.js";
-import { TimeoutError } from "../utils/timeout.js";
-import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
-import { stripTrailingSlash } from "./openaiChatCompletionsClient.js";
+} from "../../types/index.js";
+import { createProxyFetch } from "../../proxy/proxyFetch.js";
+import { isAbortError } from "../../utils/errorHandling.js";
+import { logger } from "../../utils/logger.js";
+import { redactUrlCredentials } from "../../utils/logSanitize.js";
+import { TimeoutError } from "../../utils/timeout.js";
+import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
+import { stripTrailingSlash } from "../openaiChatCompletionsClient.js";
+import { getDefaultOpenRouterModel } from "./utils.js";
 
 // OpenRouter's OpenAI-compatible gateway. `${baseURL}/chat/completions` and
 // `${baseURL}/models` both resolve correctly off this root.
@@ -35,24 +35,6 @@ const getOpenRouterApiKey = (): string => {
     );
   }
   return apiKey;
-};
-
-/**
- * Returns the default model name for OpenRouter.
- *
- * OpenRouter uses a 'provider/model' format for model names (e.g.
- * 'anthropic/claude-sonnet-4.5', 'openai/gpt-4o', 'google/gemini-2.5-flash').
- *
- * The previous default `anthropic/claude-3-5-sonnet` was retired by OpenRouter
- * in late 2025 and now returns "No endpoints found for model" for every
- * caller. Default bumped to the current Anthropic mainline (Claude Sonnet
- * 4.5) so callers without an `OPENROUTER_MODEL` env var don't hit a dead
- * model. Must stay aligned with the registry default in
- * `src/lib/factories/providerRegistry.ts` and `PROVIDER_DEFAULTS` in
- * `src/lib/utils/modelChoices.ts`.
- */
-const getDefaultOpenRouterModel = (): string => {
-  return getProviderModel("OPENROUTER_MODEL", "anthropic/claude-sonnet-4.5");
 };
 
 /**
@@ -382,8 +364,8 @@ export class OpenRouterProvider extends OpenAIChatCompletionsProvider {
     }
 
     // Fallback to hardcoded list if API fetch fails. Aligned with
-    // `getDefaultOpenRouterModel()` — `anthropic/claude-3-5-sonnet` was
-    // retired by OpenRouter late 2025 and would return a dead model here.
+    // `getDefaultOpenRouterModel()` — `anthropic/claude-sonnet-4.5` is the
+    // current default and avoids the retired model.
     const fallbackModels = [
       // Anthropic Claude models
       "anthropic/claude-3.7-sonnet",

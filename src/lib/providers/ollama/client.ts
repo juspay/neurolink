@@ -1,28 +1,28 @@
-import type { AIProviderName } from "../constants/enums.js";
-import { OllamaModels } from "../constants/enums.js";
-import { modelConfig } from "../core/modelConfiguration.js";
-import { createProxyFetch } from "../proxy/proxyFetch.js";
+import type { AIProviderName } from "../../constants/enums.js";
+import { modelConfig } from "../../core/modelConfiguration.js";
+import { createProxyFetch } from "../../proxy/proxyFetch.js";
 import type {
   ModelsResponse,
   NeurolinkCredentials,
   StreamOptions,
   TextGenerationOptions,
   UnknownRecord,
-} from "../types/index.js";
+} from "../../types/index.js";
 import {
   InvalidModelError,
   NetworkError,
   ProviderError,
-} from "../types/index.js";
-import { logger } from "../utils/logger.js";
-import { redactUrlCredentials } from "../utils/logSanitize.js";
+} from "../../types/index.js";
+import { logger } from "../../utils/logger.js";
+import { redactUrlCredentials } from "../../utils/logSanitize.js";
 import {
   createTimeoutController,
   parseTimeout,
   TimeoutError,
-} from "../utils/timeout.js";
-import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
-import { stripTrailingSlash } from "./openaiChatCompletionsClient.js";
+} from "../../utils/timeout.js";
+import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
+import { stripTrailingSlash } from "../openaiChatCompletionsClient.js";
+import { DEFAULT_OLLAMA_MODEL } from "./constants.js";
 
 // Ollama serves its OpenAI-compatible surface under `/v1` (/v1/chat/completions,
 // /v1/models, /v1/embeddings). The base client appends `/chat/completions` to
@@ -32,10 +32,6 @@ const OLLAMA_DEFAULT_BASE_URL = "http://localhost:11434/v1";
 // requires a non-empty apiKey. A real key (OLLAMA_API_KEY) is only needed for
 // Ollama Cloud / an auth-proxying reverse proxy.
 const OLLAMA_PLACEHOLDER_KEY = "ollama";
-// Default model must match the registry default (providerRegistry.ts advertises
-// `OllamaModels.LLAMA3_2_LATEST`) so getConfiguration()/resolveModelName() agree
-// with what the registry reports.
-const DEFAULT_OLLAMA_MODEL = OllamaModels.LLAMA3_2_LATEST;
 const FALLBACK_OLLAMA_MODEL = "llama3.1:8b";
 const DEFAULT_EMBEDDING_MODEL = "nomic-embed-text";
 const EMBEDDINGS_TIMEOUT_MS = 30_000;

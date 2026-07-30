@@ -1,43 +1,22 @@
-import type { AIProviderName } from "../constants/enums.js";
+import type { AIProviderName } from "../../constants/enums.js";
 import {
   AuthenticationError,
   InvalidModelError,
   NetworkError,
   ProviderError,
   RateLimitError,
-} from "../types/index.js";
-import type { UnknownRecord } from "../types/index.js";
-import { logger } from "../utils/logger.js";
-import { redactUrlCredentials } from "../utils/logSanitize.js";
-import { TimeoutError } from "../utils/timeout.js";
-import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
+} from "../../types/index.js";
+import type { UnknownRecord } from "../../types/index.js";
+import { logger } from "../../utils/logger.js";
+import { redactUrlCredentials } from "../../utils/logSanitize.js";
+import { TimeoutError } from "../../utils/timeout.js";
+import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
 
-const FALLBACK_OPENAI_COMPATIBLE_MODEL = "gpt-3.5-turbo";
-
-const getOpenAICompatibleConfig = () => {
-  const baseURL = process.env.OPENAI_COMPATIBLE_BASE_URL;
-  const apiKey = process.env.OPENAI_COMPATIBLE_API_KEY;
-
-  if (!baseURL) {
-    throw new Error(
-      "OPENAI_COMPATIBLE_BASE_URL environment variable is required. " +
-        "Please set it to your OpenAI-compatible endpoint (e.g., https://api.openrouter.ai/api/v1)",
-    );
-  }
-
-  if (!apiKey) {
-    throw new Error(
-      "OPENAI_COMPATIBLE_API_KEY environment variable is required. " +
-        "Please set it to your API key for the OpenAI-compatible service.",
-    );
-  }
-
-  return { baseURL, apiKey };
-};
-
-const getDefaultOpenAICompatibleModel = (): string | undefined => {
-  return process.env.OPENAI_COMPATIBLE_MODEL || undefined;
-};
+import { FALLBACK_OPENAI_COMPATIBLE_MODEL } from "./constants.js";
+import {
+  getDefaultOpenAICompatibleModel,
+  getOpenAICompatibleConfig,
+} from "./utils.js";
 
 /**
  * OpenAI Compatible Provider — direct HTTP, no AI SDK.

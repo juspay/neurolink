@@ -115,7 +115,7 @@ export class ProviderRegistry {
           const googleAiCreds =
             credentials as NeurolinkCredentials["googleAiStudio"];
           const { GoogleAIStudioProvider } =
-            await import("../providers/googleAiStudio.js");
+            await import("../providers/googleAiStudio/index.js");
           return new GoogleAIStudioProvider(modelName, sdk, googleAiCreds);
         },
         GoogleAIModels.GEMINI_2_5_FLASH,
@@ -133,7 +133,8 @@ export class ProviderRegistry {
           credentials?: UnknownRecord,
         ) => {
           const openaiCreds = credentials as NeurolinkCredentials["openai"];
-          const { OpenAIProvider } = await import("../providers/openAI.js");
+          const { OpenAIProvider } =
+            await import("../providers/openAI/index.js");
           return new OpenAIProvider(modelName, sdk, undefined, openaiCreds);
         },
         OpenAIModels.GPT_4O_MINI,
@@ -153,7 +154,7 @@ export class ProviderRegistry {
           const anthropicCreds =
             credentials as NeurolinkCredentials["anthropic"];
           const { AnthropicProvider } =
-            await import("../providers/anthropic.js");
+            await import("../providers/anthropic/index.js");
           return new AnthropicProvider(
             modelName,
             sdk,
@@ -177,7 +178,7 @@ export class ProviderRegistry {
         ) => {
           const bedrockCreds = credentials as NeurolinkCredentials["bedrock"];
           const { AmazonBedrockProvider } =
-            await import("../providers/amazonBedrock.js");
+            await import("../providers/amazonBedrock/index.js");
           return new AmazonBedrockProvider(
             modelName,
             sdk,
@@ -224,7 +225,7 @@ export class ProviderRegistry {
         ) => {
           const vertexCreds = credentials as NeurolinkCredentials["vertex"];
           const { GoogleVertexProvider } =
-            await import("../providers/googleVertex.js");
+            await import("../providers/googleVertex/index.js");
           return new GoogleVertexProvider(
             modelName,
             providerName,
@@ -249,7 +250,7 @@ export class ProviderRegistry {
         ) => {
           const hfCreds = credentials as NeurolinkCredentials["huggingFace"];
           const { HuggingFaceProvider } =
-            await import("../providers/huggingFace.js");
+            await import("../providers/huggingFace/index.js");
           return new HuggingFaceProvider(modelName, undefined, hfCreds);
         },
         process.env.HUGGINGFACE_MODEL ||
@@ -286,7 +287,8 @@ export class ProviderRegistry {
           credentials?: UnknownRecord,
         ) => {
           const ollamaCreds = credentials as NeurolinkCredentials["ollama"];
-          const { OllamaProvider } = await import("../providers/ollama.js");
+          const { OllamaProvider } =
+            await import("../providers/ollama/index.js");
           return new OllamaProvider(modelName, sdk, undefined, ollamaCreds);
         },
         process.env.OLLAMA_MODEL || OllamaModels.LLAMA3_2_LATEST,
@@ -304,7 +306,8 @@ export class ProviderRegistry {
           credentials?: UnknownRecord,
         ) => {
           const litellmCreds = credentials as NeurolinkCredentials["litellm"];
-          const { LiteLLMProvider } = await import("../providers/litellm.js");
+          const { LiteLLMProvider } =
+            await import("../providers/litellm/index.js");
           return new LiteLLMProvider(modelName, sdk, undefined, litellmCreds);
         },
         process.env.LITELLM_MODEL || LiteLLMModels.OPENAI_GPT_4O_MINI,
@@ -324,7 +327,7 @@ export class ProviderRegistry {
           const openaiCompatCreds =
             credentials as NeurolinkCredentials["openaiCompatible"];
           const { OpenAICompatibleProvider } =
-            await import("../providers/openaiCompatible.js");
+            await import("../providers/openaiCompatible/index.js");
           return new OpenAICompatibleProvider(
             modelName,
             sdk,
@@ -349,7 +352,7 @@ export class ProviderRegistry {
           const openrouterCreds =
             credentials as NeurolinkCredentials["openrouter"];
           const { OpenRouterProvider } =
-            await import("../providers/openRouter.js");
+            await import("../providers/openRouter/index.js");
           return new OpenRouterProvider(
             modelName,
             sdk,
@@ -422,7 +425,7 @@ export class ProviderRegistry {
         ) => {
           const nimCreds = credentials as NeurolinkCredentials["nvidiaNim"];
           const { NvidiaNimProvider } =
-            await import("../providers/nvidiaNim.js");
+            await import("../providers/nvidiaNim/index.js");
           return new NvidiaNimProvider(modelName, sdk, undefined, nimCreds);
         },
         process.env.NVIDIA_NIM_MODEL || NvidiaNimModels.LLAMA_3_3_70B_INSTRUCT,

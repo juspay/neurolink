@@ -21,6 +21,12 @@ export class ProviderError extends BaseError {
   }
 }
 
+export type OllamaHttpError = ProviderError & {
+  statusCode?: number;
+  statusText?: string;
+  responseBody?: string;
+};
+
 /**
  * Thrown for authentication-related errors, such as invalid or missing API keys.
  */

@@ -9,8 +9,8 @@ import {
   AIProviderName,
   ErrorCategory,
   ErrorSeverity,
-} from "../constants/enums.js";
-import { BaseProvider } from "../core/baseProvider.js";
+} from "../../constants/enums.js";
+import { BaseProvider } from "../../core/baseProvider.js";
 import {
   DEFAULT_GEMINI_STREAM_TIMEOUT_MS,
   DEFAULT_MAX_STEPS,
@@ -19,12 +19,12 @@ import {
   GLOBAL_LOCATION_MODELS,
   IMAGE_GENERATION_MODELS,
   TOOL_STORAGE_TIMEOUT_MS,
-} from "../core/constants.js";
-import { ModelConfigurationManager } from "../core/modelConfiguration.js";
-import { isSchemaComplexityError } from "../core/modules/structuredOutputPolicy.js";
-import { stringifyContentSafe } from "../utils/logSanitize.js";
-import type { NeuroLink } from "../neurolink.js";
-import { createProxyFetch } from "../proxy/proxyFetch.js";
+} from "../../core/constants.js";
+import { ModelConfigurationManager } from "../../core/modelConfiguration.js";
+import { isSchemaComplexityError } from "../../core/modules/structuredOutputPolicy.js";
+import { stringifyContentSafe } from "../../utils/logSanitize.js";
+import type { NeuroLink } from "../../neurolink.js";
+import { createProxyFetch } from "../../proxy/proxyFetch.js";
 import type {
   UnknownRecord,
   ZodUnknownSchema,
@@ -49,43 +49,43 @@ import type {
   VertexSegment,
   ChatMessage,
   MinimalChatMessage,
-} from "../types/index.js";
+} from "../../types/index.js";
 import {
   AuthenticationError,
   InvalidModelError,
   NetworkError,
   ProviderError,
   RateLimitError,
-} from "../types/index.js";
-import { ERROR_CODES, NeuroLinkError } from "../utils/errorHandling.js";
-import { applyVertexAnthropicCacheBreakpoints } from "../utils/anthropicCacheBreakpoints.js";
-import { FileDetector } from "../utils/fileDetector.js";
-import { processUnifiedFilesArray } from "../utils/messageBuilder.js";
-import { logger } from "../utils/logger.js";
+} from "../../types/index.js";
+import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
+import { applyVertexAnthropicCacheBreakpoints } from "../../utils/anthropicCacheBreakpoints.js";
+import { FileDetector } from "../../utils/fileDetector.js";
+import { processUnifiedFilesArray } from "../../utils/messageBuilder.js";
+import { logger } from "../../utils/logger.js";
 import {
   hasRestrictedOutputLimit,
   RESTRICTED_OUTPUT_TOKEN_LIMIT,
   toVertexAnthropicModelId,
-} from "../utils/modelDetection.js";
-import { detectImageMimeType } from "../utils/imageDetection.js";
-import { resolveClaudeMaxTokens } from "../utils/tokenLimits.js";
+} from "../../utils/modelDetection.js";
+import { detectImageMimeType } from "../../utils/imageDetection.js";
+import { resolveClaudeMaxTokens } from "../../utils/tokenLimits.js";
 import {
   validateApiKey,
   createVertexProjectConfig,
   createGoogleAuthConfig,
-} from "../utils/providerConfig.js";
+} from "../../utils/providerConfig.js";
 import {
   convertZodToJsonSchema,
   inlineJsonSchema,
   ensureNestedSchemaTypes,
-} from "../utils/schemaConversion.js";
-import { createNativeThinkingConfig } from "../utils/thinkingConfig.js";
+} from "../../utils/schemaConversion.js";
+import { createNativeThinkingConfig } from "../../utils/thinkingConfig.js";
 import {
   TimeoutError,
   raceWithAbort,
   withTimeout,
-} from "../utils/async/index.js";
-import { parseTimeout } from "../utils/timeout.js";
+} from "../../utils/async/index.js";
+import { parseTimeout } from "../../utils/timeout.js";
 import {
   appendStepText,
   buildAbortedTurnMessage,
@@ -103,9 +103,9 @@ import {
   prependConversationMessages,
   resolveTurnStopReason,
   DedupExecuteMap,
-} from "./googleNativeGemini3.js";
-import { getContextWindowSize } from "../constants/contextWindows.js";
-import { resolveLiveTool } from "../tools/toolDiscovery.js";
+} from "../googleNativeGemini3/index.js";
+import { getContextWindowSize } from "../../constants/contextWindows.js";
+import { resolveLiveTool } from "../../tools/toolDiscovery.js";
 import {
   ATTR,
   LANGFUSE_ATTR,
@@ -114,23 +114,23 @@ import {
   withClientSpan,
   withClientStreamSpan,
   withSpan,
-} from "../telemetry/index.js";
+} from "../../telemetry/index.js";
 import {
   SpanKind,
   SpanStatusCode,
   context as otelContext,
   trace as otelTrace,
 } from "@opentelemetry/api";
-import { calculateCost } from "../utils/pricing.js";
-import { transformToolExecutions } from "../utils/transformationUtils.js";
-import { resolveToolExecutionRecords } from "../core/toolExecutionRecorder.js";
-import { resolveSamplingParams } from "../models/modelRegistry.js";
-import { sanitizeAnthropicMessagesForTrace } from "../utils/anthropicTraceSanitizer.js";
+import { calculateCost } from "../../utils/pricing.js";
+import { transformToolExecutions } from "../../utils/transformationUtils.js";
+import { resolveToolExecutionRecords } from "../../core/toolExecutionRecorder.js";
+import { resolveSamplingParams } from "../../models/modelRegistry.js";
+import { sanitizeAnthropicMessagesForTrace } from "../../utils/anthropicTraceSanitizer.js";
 import {
   extractMcpToolErrorMessage,
   extractToolFailureText,
-} from "../utils/mcpErrorText.js";
-import type { Schema, LanguageModel } from "../types/index.js";
+} from "../../utils/mcpErrorText.js";
+import type { Schema, LanguageModel } from "../../types/index.js";
 
 // Import proper types for multimodal message handling
 

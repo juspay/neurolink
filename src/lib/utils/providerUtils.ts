@@ -16,6 +16,7 @@ import {
   API_KEY_LENGTHS,
   PROJECT_ID_FORMAT,
 } from "./providerConfig.js";
+import { DEFAULT_OLLAMA_MODEL } from "../providers/ollama/constants.js";
 
 /**
  * Get the best available provider based on real-time availability checks
@@ -162,7 +163,7 @@ async function isProviderAvailable(providerName: string): Promise<boolean> {
     const availability =
       await ProviderHealthChecker.checkFallbackProviderAvailability(
         AIProviderName.OLLAMA,
-        process.env.OLLAMA_MODEL || "llama3.1:8b",
+        process.env.OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL,
       );
     return availability.available;
   }

@@ -3,20 +3,20 @@
  * This file centralizes all AI provider classes for easy import and usage
  */
 
-export { GoogleVertexProvider as GoogleVertexAI } from "./googleVertex.js";
-export { AmazonBedrockProvider as AmazonBedrock } from "./amazonBedrock.js";
+export { GoogleVertexProvider as GoogleVertexAI } from "./googleVertex/index.js";
+export { AmazonBedrockProvider as AmazonBedrock } from "./amazonBedrock/index.js";
 export { AmazonSageMakerProvider as AmazonSageMaker } from "./amazonSagemaker.js";
-export { OpenAIProvider as OpenAI } from "./openAI.js";
-export { OpenAICompatibleProvider as OpenAICompatible } from "./openaiCompatible.js";
-export { AnthropicProvider as AnthropicProvider } from "./anthropic.js";
+export { OpenAIProvider as OpenAI } from "./openAI/index.js";
+export { OpenAICompatibleProvider as OpenAICompatible } from "./openaiCompatible/index.js";
+export { AnthropicProvider as AnthropicProvider } from "./anthropic/index.js";
 export { AzureOpenAIProvider } from "./azureOpenai.js";
-export { GoogleAIStudioProvider as GoogleAIStudio } from "./googleAiStudio.js";
-export { HuggingFaceProvider as HuggingFace } from "./huggingFace.js";
-export { OllamaProvider as Ollama } from "./ollama.js";
+export { GoogleAIStudioProvider as GoogleAIStudio } from "./googleAiStudio/index.js";
+export { HuggingFaceProvider as HuggingFace } from "./huggingFace/index.js";
+export { OllamaProvider as Ollama } from "./ollama/index.js";
 export { MistralProvider as MistralAI } from "./mistral.js";
-export { LiteLLMProvider as LiteLLM } from "./litellm.js";
+export { LiteLLMProvider as LiteLLM } from "./litellm/index.js";
 export { DeepSeekProvider as DeepSeek } from "./deepseek.js";
-export { NvidiaNimProvider as NvidiaNim } from "./nvidiaNim.js";
+export { NvidiaNimProvider as NvidiaNim } from "./nvidiaNim/index.js";
 export { LMStudioProvider as LMStudio } from "./lmStudio.js";
 export { LlamaCppProvider as LlamaCpp } from "./llamaCpp.js";
 export { XaiProvider as Xai } from "./xai.js";

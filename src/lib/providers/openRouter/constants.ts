@@ -1,0 +1,1 @@
+export const MODELS_DISCOVERY_TIMEOUT_MS = 5000;

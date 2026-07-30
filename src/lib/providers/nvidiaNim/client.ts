@@ -1,28 +1,28 @@
-import type { AIProviderName } from "../constants/enums.js";
-import { NvidiaNimModels } from "../constants/enums.js";
+import type { AIProviderName } from "../../constants/enums.js";
+import { NvidiaNimModels } from "../../constants/enums.js";
 import type {
   NeurolinkCredentials,
   NvidiaNimExtraBody,
   OpenAICompatBuildBodyArgs,
   OpenAICompatChatRequest,
   UnknownRecord,
-} from "../types/index.js";
+} from "../../types/index.js";
 import {
   AuthenticationError,
   InvalidModelError,
   NetworkError,
   ProviderError,
   RateLimitError,
-} from "../types/index.js";
-import { logger } from "../utils/logger.js";
-import { redactUrlCredentials } from "../utils/logSanitize.js";
+} from "../../types/index.js";
+import { logger } from "../../utils/logger.js";
+import { redactUrlCredentials } from "../../utils/logSanitize.js";
 import {
   createNvidiaNimConfig,
   getProviderModel,
   validateApiKey,
-} from "../utils/providerConfig.js";
-import { TimeoutError } from "../utils/timeout.js";
-import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
+} from "../../utils/providerConfig.js";
+import { TimeoutError } from "../../utils/timeout.js";
+import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
 
 /**
  * Decide whether a NIM 400 response body is a rejection of the named
