@@ -1,0 +1,155 @@
+{
+  "vercel": {
+    "platform": "vercel",
+    "entry": "./src/index.ts",
+    "outDir": ".neurolink/output",
+    "platformConfig": {
+      "platform": "vercel",
+      "maxDuration": 60,
+      "memory": 1024,
+      "regions": ["iad1", "sfo1"],
+      "edge": false
+    },
+    "env": {
+      "OPENAI_API_KEY": "sk-test-key",
+      "NODE_ENV": "production"
+    }
+  },
+  "cloudflare": {
+    "platform": "cloudflare",
+    "entry": "./src/index.ts",
+    "outDir": ".neurolink/output",
+    "platformConfig": {
+      "platform": "cloudflare",
+      "workerName": "neurolink-api",
+      "accountId": "test-account-id",
+      "compatibility_date": "2024-01-01",
+      "routes": [
+        {
+          "pattern": "api.example.com/*",
+          "zone_name": "example.com"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "CACHE",
+          "id": "kv-namespace-id"
+        }
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "neurolink-db",
+          "database_id": "d1-database-id"
+        }
+      ]
+    },
+    "env": {
+      "OPENAI_API_KEY": "sk-test-key",
+      "CLOUDFLARE_API_TOKEN": "cf-api-token"
+    }
+  },
+  "netlify": {
+    "platform": "netlify",
+    "entry": "./src/index.ts",
+    "outDir": ".neurolink/output",
+    "platformConfig": {
+      "platform": "netlify",
+      "siteId": "test-site-id",
+      "functionsDir": "netlify/functions",
+      "nodeBundler": "esbuild",
+      "edge": false,
+      "includedFiles": ["./data/**/*.json"]
+    },
+    "env": {
+      "OPENAI_API_KEY": "sk-test-key",
+      "NETLIFY_AUTH_TOKEN": "netlify-token"
+    }
+  },
+  "lambda": {
+    "platform": "lambda",
+    "entry": "./src/index.ts",
+    "outDir": ".neurolink/output",
+    "platformConfig": {
+      "platform": "lambda",
+      "functionName": "neurolink-api",
+      "region": "us-east-1",
+      "runtime": "nodejs20.x",
+      "memorySize": 1024,
+      "timeout": 30,
+      "functionUrl": true,
+      "vpc": {
+        "subnetIds": ["subnet-123", "subnet-456"],
+        "securityGroupIds": ["sg-789"]
+      },
+      "environment": {
+        "LOG_LEVEL": "info"
+      }
+    },
+    "env": {
+      "OPENAI_API_KEY": "sk-test-key",
+      "AWS_ACCESS_KEY_ID": "aws-key-id",
+      "AWS_SECRET_ACCESS_KEY": "aws-secret-key",
+      "AWS_REGION": "us-east-1"
+    }
+  },
+  "docker": {
+    "platform": "docker",
+    "entry": "./src/index.ts",
+    "outDir": ".neurolink/output",
+    "platformConfig": {
+      "platform": "docker",
+      "imageName": "neurolink-api",
+      "registry": "docker.io/myorg",
+      "dockerfile": "Dockerfile",
+      "baseImage": "node:20-alpine",
+      "port": 8080,
+      "healthCheck": {
+        "path": "/health",
+        "interval": 30,
+        "timeout": 5
+      },
+      "labels": {
+        "maintainer": "team@example.com",
+        "version": "1.0.0"
+      }
+    },
+    "env": {
+      "OPENAI_API_KEY": "sk-test-key",
+      "PORT": "8080"
+    }
+  },
+  "flyio": {
+    "platform": "flyio",
+    "entry": "./src/index.ts",
+    "outDir": ".neurolink/output",
+    "platformConfig": {
+      "platform": "flyio",
+      "appName": "neurolink-api",
+      "primaryRegion": "sea",
+      "regions": ["sea", "sjc", "iad"],
+      "autoscaling": {
+        "min": 1,
+        "max": 10
+      },
+      "volumes": [
+        {
+          "name": "data",
+          "mountPath": "/data",
+          "size": 10
+        }
+      ],
+      "secrets": ["OPENAI_API_KEY"],
+      "httpService": {
+        "internalPort": 8080,
+        "forceHttps": true,
+        "autoStopMachines": true,
+        "autoStartMachines": true
+      }
+    },
+    "env": {
+      "OPENAI_API_KEY": "sk-test-key",
+      "FLY_ACCESS_TOKEN": "fly-token"
+    }
+  }
+}

@@ -11,12 +11,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { logger } from "../utils/logger.js";
-import { EnvironmentError, ConfigurationError } from "./DeploymentErrors.js";
-import type {
-  EnvironmentVariable,
-  EnvironmentConfig,
-  DeploymentPlatform,
-} from "./types/deploymentTypes.js";
+import { ConfigurationError, EnvironmentError } from "./DeploymentErrors.js";
+import type { DeploymentPlatform, EnvironmentConfig, EnvironmentVariable } from "./types/deploymentTypes.js";
 
 /**
  * Environment variable validation rule
@@ -37,10 +33,7 @@ export interface ValidationRule {
 /**
  * Platform-specific environment requirements
  */
-export const PLATFORM_ENV_REQUIREMENTS: Record<
-  DeploymentPlatform,
-  Record<string, ValidationRule>
-> = {
+export const PLATFORM_ENV_REQUIREMENTS: Record<DeploymentPlatform, Record<string, ValidationRule>> = {
   vercel: {
     VERCEL_TOKEN: {
       required: false,
@@ -216,10 +209,7 @@ export class EnvironmentManager {
         let value = match[2].trim();
 
         // Remove quotes
-        if (
-          (value.startsWith('"') && value.endsWith('"')) ||
-          (value.startsWith("'") && value.endsWith("'"))
-        ) {
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
           value = value.slice(1, -1);
         }
 
@@ -298,20 +288,12 @@ export class EnvironmentManager {
   /**
    * Get all variables as a Record
    */
-  toRecord(options?: {
-    includeSecrets?: boolean;
-    scope?: "build" | "runtime" | "all";
-  }): Record<string, string> {
+  toRecord(options?: { includeSecrets?: boolean; scope?: "build" | "runtime" | "all" }): Record<string, string> {
     const result: Record<string, string> = {};
 
     for (const variable of this.variables.values()) {
       // Filter by scope
-      if (
-        options?.scope &&
-        options.scope !== "all" &&
-        variable.scope !== "all" &&
-        variable.scope !== options.scope
-      ) {
+      if (options?.scope && options.scope !== "all" && variable.scope !== "all" && variable.scope !== options.scope) {
         continue;
       }
 
@@ -393,10 +375,7 @@ export class EnvironmentManager {
   /**
    * Get deployment environment for a platform
    */
-  getDeploymentEnv(
-    platform: DeploymentPlatform,
-    additionalEnv?: Record<string, string>,
-  ): Record<string, string> {
+  getDeploymentEnv(platform: DeploymentPlatform, additionalEnv?: Record<string, string>): Record<string, string> {
     // Start with all runtime variables (excluding secrets by default)
     const env = this.toRecord({ scope: "runtime", includeSecrets: true });
 
@@ -513,18 +492,25 @@ export class EnvironmentManager {
   }
 
   /**
+   * Check if a variable is marked as secret (public API)
+   *
+   * Returns true if the variable exists and is marked as a secret,
+   * or if the variable name matches secret patterns.
+   */
+  isSecret(name: string): boolean {
+    const variable = this.variables.get(name);
+    if (variable) {
+      return variable.secret === true;
+    }
+    // If variable not found, check by name pattern
+    return this.isSecretVariable(name);
+  }
+
+  /**
    * Check if a variable name indicates it's a secret
    */
   private isSecretVariable(name: string): boolean {
-    const secretPatterns = [
-      /key$/i,
-      /secret$/i,
-      /password$/i,
-      /token$/i,
-      /auth$/i,
-      /credential/i,
-      /private/i,
-    ];
+    const secretPatterns = [/key$/i, /secret$/i, /password$/i, /token$/i, /auth$/i, /credential/i, /private/i];
 
     return secretPatterns.some((pattern) => pattern.test(name));
   }
@@ -548,9 +534,7 @@ export class EnvironmentManager {
   getSummary(): string {
     const total = this.variables.size;
     const secrets = Array.from(this.variables.values()).filter((v) => v.secret).length;
-    const build = Array.from(this.variables.values()).filter(
-      (v) => v.scope === "build" || v.scope === "all",
-    ).length;
+    const build = Array.from(this.variables.values()).filter((v) => v.scope === "build" || v.scope === "all").length;
     const runtime = Array.from(this.variables.values()).filter(
       (v) => v.scope === "runtime" || v.scope === "all",
     ).length;

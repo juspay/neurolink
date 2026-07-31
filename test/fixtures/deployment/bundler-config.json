@@ -1,0 +1,111 @@
+{
+  "esbuild": {
+    "type": "esbuild",
+    "entry": "./src/index.ts",
+    "outDir": "./dist",
+    "config": {
+      "bundle": true,
+      "minify": true,
+      "sourcemap": true,
+      "target": "node20",
+      "format": "esm",
+      "platform": "node",
+      "treeShaking": true,
+      "splitting": false,
+      "external": ["@aws-sdk/*", "canvas", "sharp"],
+      "define": {
+        "process.env.NODE_ENV": "\"production\""
+      },
+      "banner": {
+        "js": "// Built with NeuroLink Deployment System"
+      }
+    },
+    "targets": {
+      "node": {
+        "target": "node20",
+        "platform": "node",
+        "format": "esm"
+      },
+      "browser": {
+        "target": "es2022",
+        "platform": "browser",
+        "format": "esm"
+      },
+      "worker": {
+        "target": "es2022",
+        "platform": "browser",
+        "format": "esm",
+        "conditions": ["worker"]
+      }
+    }
+  },
+  "vite": {
+    "type": "vite",
+    "entry": "./src/index.ts",
+    "outDir": "./dist",
+    "config": {
+      "build": {
+        "lib": {
+          "entry": "./src/index.ts",
+          "formats": ["es", "cjs"],
+          "fileName": "index"
+        },
+        "minify": "esbuild",
+        "sourcemap": true,
+        "rollupOptions": {
+          "external": ["@aws-sdk/*", "canvas", "sharp"],
+          "output": {
+            "globals": {}
+          }
+        },
+        "target": "esnext"
+      },
+      "define": {
+        "process.env.NODE_ENV": "JSON.stringify('production')"
+      },
+      "optimizeDeps": {
+        "include": ["hono", "zod"]
+      }
+    },
+    "targets": {
+      "node": {
+        "build": {
+          "ssr": true,
+          "target": "node20"
+        }
+      },
+      "browser": {
+        "build": {
+          "target": "es2022"
+        }
+      },
+      "cloudflare": {
+        "build": {
+          "target": "es2022",
+          "rollupOptions": {
+            "output": {
+              "format": "es"
+            }
+          }
+        }
+      }
+    }
+  },
+  "common": {
+    "comments": "Common configuration options applied to all bundlers",
+    "external": {
+      "alwaysExternal": ["@aws-sdk/*", "aws-sdk", "canvas", "sharp", "pdf-lib", "pdfjs-dist"],
+      "neverExternal": ["hono", "zod"]
+    },
+    "optimization": {
+      "treeshake": true,
+      "minify": true,
+      "sourcemap": true
+    },
+    "environment": {
+      "define": {
+        "NEUROLINK_VERSION": "8.0.0"
+      }
+    }
+  }
+}

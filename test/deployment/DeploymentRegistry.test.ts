@@ -5,136 +5,124 @@
  * registration, lookup, metadata, and lazy loading.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
-  DeployerRegistry,
   BundlerRegistry,
-  deployerRegistry,
   bundlerRegistry,
+  DeployerRegistry,
+  deployerRegistry,
 } from "../../src/lib/deployment/DeploymentRegistry.js";
 
 describe("DeployerRegistry", () => {
+  beforeAll(async () => {
+    // Ensure registry is initialized before tests
+    await deployerRegistry.ensureInitialized();
+  });
+
   describe("registration", () => {
     it("should list all registered deployers", () => {
-      const deployers = DeployerRegistry.listRegistered();
+      const deployers = deployerRegistry.list();
       expect(deployers).toBeInstanceOf(Array);
       expect(deployers.length).toBeGreaterThanOrEqual(6);
     });
 
     it("should include all expected platforms", () => {
-      const deployers = DeployerRegistry.listRegistered();
-      const expectedPlatforms = [
-        "vercel",
-        "cloudflare",
-        "netlify",
-        "lambda",
-        "docker",
-        "flyio",
-      ];
+      const deployers = deployerRegistry.list();
+      const platformIds = deployers.map((d) => d.id);
+      const expectedPlatforms = ["vercel", "cloudflare", "netlify", "lambda", "docker", "flyio"];
 
       for (const platform of expectedPlatforms) {
-        expect(deployers).toContain(platform);
+        expect(platformIds).toContain(platform);
       }
     });
 
     it("should check if platform is registered", () => {
-      expect(DeployerRegistry.isRegistered("vercel")).toBe(true);
-      expect(DeployerRegistry.isRegistered("cloudflare")).toBe(true);
-      expect(DeployerRegistry.isRegistered("netlify")).toBe(true);
-      expect(DeployerRegistry.isRegistered("lambda")).toBe(true);
-      expect(DeployerRegistry.isRegistered("docker")).toBe(true);
-      expect(DeployerRegistry.isRegistered("flyio")).toBe(true);
+      expect(deployerRegistry.has("vercel")).toBe(true);
+      expect(deployerRegistry.has("cloudflare")).toBe(true);
+      expect(deployerRegistry.has("netlify")).toBe(true);
+      expect(deployerRegistry.has("lambda")).toBe(true);
+      expect(deployerRegistry.has("docker")).toBe(true);
+      expect(deployerRegistry.has("flyio")).toBe(true);
     });
 
     it("should return false for unregistered platforms", () => {
-      expect(DeployerRegistry.isRegistered("unknown")).toBe(false);
-      expect(DeployerRegistry.isRegistered("azure")).toBe(false);
-      expect(DeployerRegistry.isRegistered("gcp")).toBe(false);
+      expect(deployerRegistry.has("unknown")).toBe(false);
+      expect(deployerRegistry.has("azure")).toBe(false);
+      expect(deployerRegistry.has("gcp")).toBe(false);
     });
   });
 
   describe("metadata", () => {
     it("should return metadata for registered deployers", () => {
-      const vercelMeta = DeployerRegistry.getMetadata("vercel");
-      expect(vercelMeta).toBeDefined();
-      expect(vercelMeta?.displayName).toBe("Vercel");
-      expect(vercelMeta?.description).toBeDefined();
-      expect(vercelMeta?.features).toBeInstanceOf(Array);
+      const deployers = deployerRegistry.list();
+      const vercelEntry = deployers.find((d) => d.id === "vercel");
+      expect(vercelEntry).toBeDefined();
+      expect(vercelEntry?.metadata.displayName).toBe("Vercel");
+      expect(vercelEntry?.metadata.description).toBeDefined();
+      expect(vercelEntry?.metadata.features).toBeInstanceOf(Array);
     });
 
     it("should have proper metadata structure", () => {
-      const platforms = DeployerRegistry.listRegistered();
+      const deployers = deployerRegistry.list();
 
-      for (const platform of platforms) {
-        const metadata = DeployerRegistry.getMetadata(platform);
-        expect(metadata).toBeDefined();
-        expect(metadata?.displayName).toBeDefined();
-        expect(metadata?.description).toBeDefined();
-        expect(metadata?.features).toBeInstanceOf(Array);
-        expect(metadata?.requiredConfig).toBeInstanceOf(Array);
+      for (const entry of deployers) {
+        expect(entry.metadata).toBeDefined();
+        expect(entry.metadata.displayName).toBeDefined();
+        expect(entry.metadata.description).toBeDefined();
+        expect(entry.metadata.features).toBeInstanceOf(Array);
+        expect(entry.metadata.requiredConfig).toBeInstanceOf(Array);
       }
     });
 
-    it("should return undefined for unregistered platform metadata", () => {
-      const metadata = DeployerRegistry.getMetadata("unknown");
-      expect(metadata).toBeUndefined();
-    });
-
     it("should have correct Vercel features", () => {
-      const metadata = DeployerRegistry.getMetadata("vercel");
-      expect(metadata?.features).toContain("Serverless Functions");
-      expect(metadata?.features).toContain("Edge Functions");
+      const deployers = deployerRegistry.list();
+      const vercelEntry = deployers.find((d) => d.id === "vercel");
+      expect(vercelEntry?.metadata.features).toContain("serverless");
+      expect(vercelEntry?.metadata.features).toContain("edge");
     });
 
     it("should have correct Cloudflare features", () => {
-      const metadata = DeployerRegistry.getMetadata("cloudflare");
-      expect(metadata?.features).toContain("Workers");
-      expect(metadata?.features).toContain("KV Storage");
+      const deployers = deployerRegistry.list();
+      const cfEntry = deployers.find((d) => d.id === "cloudflare");
+      expect(cfEntry?.metadata.features).toContain("edge");
+      expect(cfEntry?.metadata.features).toContain("kv-storage");
     });
 
     it("should have correct Lambda features", () => {
-      const metadata = DeployerRegistry.getMetadata("lambda");
-      expect(metadata?.features).toContain("Lambda Functions");
-      expect(metadata?.features).toContain("API Gateway");
+      const deployers = deployerRegistry.list();
+      const lambdaEntry = deployers.find((d) => d.id === "lambda");
+      expect(lambdaEntry?.metadata.features).toContain("serverless");
+      expect(lambdaEntry?.metadata.features).toContain("api-gateway");
     });
   });
 
   describe("factory creation", () => {
-    it("should get factory function for registered deployer", async () => {
-      const factory = DeployerRegistry.get("vercel");
-      expect(factory).toBeDefined();
-      expect(typeof factory).toBe("function");
+    it("should get deployer instance for registered platform", async () => {
+      const deployer = await deployerRegistry.get("vercel");
+      expect(deployer).toBeDefined();
     });
 
-    it("should return undefined for unregistered deployer", () => {
-      const factory = DeployerRegistry.get("unknown");
-      expect(factory).toBeUndefined();
+    it("should return undefined for unregistered deployer", async () => {
+      const deployer = await deployerRegistry.get("unknown");
+      expect(deployer).toBeUndefined();
     });
 
-    it("should create deployer instance via factory", async () => {
-      const factory = DeployerRegistry.get("vercel");
-      expect(factory).toBeDefined();
-
-      if (factory) {
-        const deployer = await factory();
-        expect(deployer).toBeDefined();
-        expect(deployer.name).toBe("vercel");
-      }
+    it("should create deployer instance", async () => {
+      const deployer = await deployerRegistry.get("vercel");
+      expect(deployer).toBeDefined();
     });
 
-    it("should create different deployer instances each time", async () => {
-      const factory = DeployerRegistry.get("vercel");
-      if (factory) {
-        const deployer1 = await factory();
-        const deployer2 = await factory();
-        expect(deployer1).not.toBe(deployer2);
-      }
+    it("should cache deployer instance (same instance returned)", async () => {
+      const deployer1 = await deployerRegistry.get("vercel");
+      const deployer2 = await deployerRegistry.get("vercel");
+      // BaseRegistry caches instances
+      expect(deployer1).toBe(deployer2);
     });
   });
 
-  describe("getAllMetadata", () => {
+  describe("getSupportedPlatforms", () => {
     it("should return metadata for all registered deployers", () => {
-      const allMetadata = DeployerRegistry.getAllMetadata();
+      const allMetadata = deployerRegistry.getSupportedPlatforms();
       expect(allMetadata).toBeInstanceOf(Array);
       expect(allMetadata.length).toBeGreaterThanOrEqual(6);
 
@@ -149,110 +137,135 @@ describe("DeployerRegistry", () => {
     it("should export singleton instance", () => {
       expect(deployerRegistry).toBeDefined();
     });
+
+    it("should be same instance from getInstance", () => {
+      expect(DeployerRegistry.getInstance()).toBe(deployerRegistry);
+    });
+  });
+
+  describe("isSupported helper", () => {
+    it("should return true for supported platforms", () => {
+      expect(deployerRegistry.isSupported("vercel")).toBe(true);
+      expect(deployerRegistry.isSupported("cloudflare")).toBe(true);
+    });
+
+    it("should return false for unsupported platforms", () => {
+      expect(deployerRegistry.isSupported("unknown")).toBe(false);
+    });
+  });
+
+  describe("getDeployer helper", () => {
+    it("should return deployer for valid platform", async () => {
+      const deployer = await deployerRegistry.getDeployer("vercel");
+      expect(deployer).toBeDefined();
+    });
+
+    it("should throw for invalid platform", async () => {
+      await expect(deployerRegistry.getDeployer("unknown" as any)).rejects.toThrow(/Unknown deployment platform/);
+    });
   });
 });
 
 describe("BundlerRegistry", () => {
+  beforeAll(async () => {
+    // Ensure registry is initialized before tests
+    await bundlerRegistry.ensureInitialized();
+  });
+
   describe("registration", () => {
     it("should list all registered bundlers", () => {
-      const bundlers = BundlerRegistry.listRegistered();
+      const bundlers = bundlerRegistry.list();
       expect(bundlers).toBeInstanceOf(Array);
       expect(bundlers.length).toBeGreaterThanOrEqual(2);
     });
 
     it("should include all expected bundlers", () => {
-      const bundlers = BundlerRegistry.listRegistered();
-      expect(bundlers).toContain("esbuild");
-      expect(bundlers).toContain("vite");
+      const bundlers = bundlerRegistry.list();
+      const bundlerIds = bundlers.map((b) => b.id);
+      expect(bundlerIds).toContain("esbuild");
+      expect(bundlerIds).toContain("vite");
     });
 
     it("should check if bundler is registered", () => {
-      expect(BundlerRegistry.isRegistered("esbuild")).toBe(true);
-      expect(BundlerRegistry.isRegistered("vite")).toBe(true);
+      expect(bundlerRegistry.has("esbuild")).toBe(true);
+      expect(bundlerRegistry.has("vite")).toBe(true);
     });
 
     it("should return false for unregistered bundlers", () => {
-      expect(BundlerRegistry.isRegistered("webpack")).toBe(false);
-      expect(BundlerRegistry.isRegistered("rollup")).toBe(false);
-      expect(BundlerRegistry.isRegistered("parcel")).toBe(false);
+      expect(bundlerRegistry.has("webpack")).toBe(false);
+      expect(bundlerRegistry.has("rollup")).toBe(false);
+      expect(bundlerRegistry.has("parcel")).toBe(false);
     });
   });
 
   describe("metadata", () => {
     it("should return metadata for registered bundlers", () => {
-      const esbuildMeta = BundlerRegistry.getMetadata("esbuild");
-      expect(esbuildMeta).toBeDefined();
-      expect(esbuildMeta?.displayName).toBe("ESBuild");
-      expect(esbuildMeta?.description).toBeDefined();
-      expect(esbuildMeta?.supportedTargets).toBeInstanceOf(Array);
+      const bundlers = bundlerRegistry.list();
+      const esbuildEntry = bundlers.find((b) => b.id === "esbuild");
+      expect(esbuildEntry).toBeDefined();
+      expect(esbuildEntry?.metadata.displayName).toBe("ESBuild");
+      expect(esbuildEntry?.metadata.description).toBeDefined();
+      expect(esbuildEntry?.metadata.supportedTargets).toBeInstanceOf(Array);
     });
 
     it("should have proper metadata structure", () => {
-      const bundlers = BundlerRegistry.listRegistered();
+      const bundlers = bundlerRegistry.list();
 
-      for (const bundler of bundlers) {
-        const metadata = BundlerRegistry.getMetadata(bundler);
-        expect(metadata).toBeDefined();
-        expect(metadata?.displayName).toBeDefined();
-        expect(metadata?.description).toBeDefined();
-        expect(metadata?.supportedTargets).toBeInstanceOf(Array);
+      for (const entry of bundlers) {
+        expect(entry.metadata).toBeDefined();
+        expect(entry.metadata.displayName).toBeDefined();
+        expect(entry.metadata.description).toBeDefined();
+        expect(entry.metadata.supportedTargets).toBeInstanceOf(Array);
       }
     });
 
-    it("should return undefined for unregistered bundler metadata", () => {
-      const metadata = BundlerRegistry.getMetadata("webpack");
-      expect(metadata).toBeUndefined();
-    });
-
     it("should have correct ESBuild targets", () => {
-      const metadata = BundlerRegistry.getMetadata("esbuild");
-      expect(metadata?.supportedTargets).toContain("node");
-      expect(metadata?.supportedTargets).toContain("browser");
+      const bundlers = bundlerRegistry.list();
+      const esbuildEntry = bundlers.find((b) => b.id === "esbuild");
+      expect(esbuildEntry?.metadata.supportedTargets).toContain("node");
+      expect(esbuildEntry?.metadata.supportedTargets).toContain("browser");
     });
 
     it("should have correct Vite targets", () => {
-      const metadata = BundlerRegistry.getMetadata("vite");
-      expect(metadata?.supportedTargets).toContain("node");
-      expect(metadata?.supportedTargets).toContain("browser");
+      const bundlers = bundlerRegistry.list();
+      const viteEntry = bundlers.find((b) => b.id === "vite");
+      expect(viteEntry?.metadata.supportedTargets).toContain("node");
+      expect(viteEntry?.metadata.supportedTargets).toContain("browser");
     });
   });
 
   describe("factory creation", () => {
-    it("should get factory function for registered bundler", async () => {
-      const factory = BundlerRegistry.get("esbuild");
-      expect(factory).toBeDefined();
-      expect(typeof factory).toBe("function");
+    it("should get bundler instance for registered type", async () => {
+      const bundler = await bundlerRegistry.get("esbuild");
+      expect(bundler).toBeDefined();
     });
 
-    it("should return undefined for unregistered bundler", () => {
-      const factory = BundlerRegistry.get("webpack");
-      expect(factory).toBeUndefined();
+    it("should return undefined for unregistered bundler", async () => {
+      const bundler = await bundlerRegistry.get("webpack");
+      expect(bundler).toBeUndefined();
     });
 
-    it("should create bundler instance via factory", async () => {
-      const factory = BundlerRegistry.get("esbuild");
-      expect(factory).toBeDefined();
-
-      if (factory) {
-        const bundler = await factory();
-        expect(bundler).toBeDefined();
-        expect(bundler.name).toBe("esbuild");
-      }
+    it("should create bundler instance", async () => {
+      const bundler = await bundlerRegistry.get("esbuild");
+      expect(bundler).toBeDefined();
     });
 
     it("should create Vite bundler instance", async () => {
-      const factory = BundlerRegistry.get("vite");
-      if (factory) {
-        const bundler = await factory();
-        expect(bundler).toBeDefined();
-        expect(bundler.name).toBe("vite");
-      }
+      const bundler = await bundlerRegistry.get("vite");
+      expect(bundler).toBeDefined();
+    });
+
+    it("should cache bundler instance (same instance returned)", async () => {
+      const bundler1 = await bundlerRegistry.get("esbuild");
+      const bundler2 = await bundlerRegistry.get("esbuild");
+      // BaseRegistry caches instances
+      expect(bundler1).toBe(bundler2);
     });
   });
 
-  describe("getAllMetadata", () => {
+  describe("getSupportedBundlers", () => {
     it("should return metadata for all registered bundlers", () => {
-      const allMetadata = BundlerRegistry.getAllMetadata();
+      const allMetadata = bundlerRegistry.getSupportedBundlers();
       expect(allMetadata).toBeInstanceOf(Array);
       expect(allMetadata.length).toBeGreaterThanOrEqual(2);
 
@@ -266,54 +279,91 @@ describe("BundlerRegistry", () => {
     it("should export singleton instance", () => {
       expect(bundlerRegistry).toBeDefined();
     });
+
+    it("should be same instance from getInstance", () => {
+      expect(BundlerRegistry.getInstance()).toBe(bundlerRegistry);
+    });
+  });
+
+  describe("isSupported helper", () => {
+    it("should return true for supported bundlers", () => {
+      expect(bundlerRegistry.isSupported("esbuild")).toBe(true);
+      expect(bundlerRegistry.isSupported("vite")).toBe(true);
+    });
+
+    it("should return false for unsupported bundlers", () => {
+      expect(bundlerRegistry.isSupported("webpack")).toBe(false);
+    });
+  });
+
+  describe("getBundler helper", () => {
+    it("should return bundler for valid type", async () => {
+      const bundler = await bundlerRegistry.getBundler("esbuild");
+      expect(bundler).toBeDefined();
+    });
+
+    it("should throw for invalid bundler type", async () => {
+      await expect(bundlerRegistry.getBundler("webpack" as any)).rejects.toThrow(/Unknown bundler type/);
+    });
   });
 });
 
 describe("Registry Edge Cases", () => {
   describe("concurrent access", () => {
-    it("should handle concurrent deployer creation", async () => {
+    it("should handle concurrent deployer retrieval", async () => {
       const promises = [
-        DeployerRegistry.get("vercel")?.(),
-        DeployerRegistry.get("cloudflare")?.(),
-        DeployerRegistry.get("netlify")?.(),
-        DeployerRegistry.get("lambda")?.(),
-        DeployerRegistry.get("docker")?.(),
-        DeployerRegistry.get("flyio")?.(),
+        deployerRegistry.get("vercel"),
+        deployerRegistry.get("cloudflare"),
+        deployerRegistry.get("netlify"),
+        deployerRegistry.get("lambda"),
+        deployerRegistry.get("docker"),
+        deployerRegistry.get("flyio"),
       ];
 
-      const deployers = await Promise.all(promises.filter(Boolean));
-      expect(deployers.length).toBe(6);
+      const deployers = await Promise.all(promises);
+      expect(deployers.filter(Boolean).length).toBe(6);
     });
 
-    it("should handle concurrent bundler creation", async () => {
-      const promises = [
-        BundlerRegistry.get("esbuild")?.(),
-        BundlerRegistry.get("vite")?.(),
-      ];
+    it("should handle concurrent bundler retrieval", async () => {
+      const promises = [bundlerRegistry.get("esbuild"), bundlerRegistry.get("vite")];
 
-      const bundlers = await Promise.all(promises.filter(Boolean));
-      expect(bundlers.length).toBe(2);
+      const bundlers = await Promise.all(promises);
+      expect(bundlers.filter(Boolean).length).toBe(2);
     });
   });
 
   describe("type safety", () => {
     it("should only accept valid platform names", () => {
       // These should work
-      expect(DeployerRegistry.isRegistered("vercel")).toBe(true);
+      expect(deployerRegistry.has("vercel")).toBe(true);
 
-      // These should not match
-      expect(DeployerRegistry.isRegistered("VERCEL")).toBe(false);
-      expect(DeployerRegistry.isRegistered("Vercel")).toBe(false);
-      expect(DeployerRegistry.isRegistered(" vercel")).toBe(false);
+      // These should not match (case-sensitive)
+      expect(deployerRegistry.has("VERCEL")).toBe(false);
+      expect(deployerRegistry.has("Vercel")).toBe(false);
+      expect(deployerRegistry.has(" vercel")).toBe(false);
     });
 
     it("should only accept valid bundler names", () => {
       // These should work
-      expect(BundlerRegistry.isRegistered("esbuild")).toBe(true);
+      expect(bundlerRegistry.has("esbuild")).toBe(true);
 
-      // These should not match
-      expect(BundlerRegistry.isRegistered("ESBUILD")).toBe(false);
-      expect(BundlerRegistry.isRegistered("EsBuild")).toBe(false);
+      // These should not match (case-sensitive)
+      expect(bundlerRegistry.has("ESBUILD")).toBe(false);
+      expect(bundlerRegistry.has("EsBuild")).toBe(false);
+    });
+  });
+
+  describe("initialization", () => {
+    it("should be initialized after ensureInitialized", async () => {
+      await deployerRegistry.ensureInitialized();
+      expect(deployerRegistry.isInitialized()).toBe(true);
+    });
+
+    it("should handle multiple ensureInitialized calls", async () => {
+      await deployerRegistry.ensureInitialized();
+      await deployerRegistry.ensureInitialized();
+      await deployerRegistry.ensureInitialized();
+      expect(deployerRegistry.isInitialized()).toBe(true);
     });
   });
 });

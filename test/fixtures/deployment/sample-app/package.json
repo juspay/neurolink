@@ -1,0 +1,24 @@
+{
+  "name": "neurolink-sample-app",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Sample NeuroLink application for deployment testing",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "hono": "^4.0.0",
+    "@juspay/neurolink": "^8.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "tsx": "^4.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

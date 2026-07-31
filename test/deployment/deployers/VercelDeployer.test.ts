@@ -5,34 +5,40 @@
  * Build Output API generation, CLI integration, and configuration.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import fs from "node:fs";
-import path from "node:path";
-import { execSync } from "node:child_process";
-import { VercelDeployer } from "../../../src/lib/deployment/deployers/VercelDeployer.js";
-import type {
-  DeployConfig,
-  VercelDeployerConfig,
-} from "../../../src/lib/deployment/types/deploymentTypes.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { DeployConfig, VercelDeployerConfig } from "../../../src/lib/deployment/types/deploymentTypes.js";
 
-// Mock child_process
+// Mock modules before imports - use inline factory functions
 vi.mock("node:child_process", () => ({
   execSync: vi.fn(),
 }));
 
-// Mock fs
 vi.mock("node:fs", async () => {
-  const actual = await vi.importActual("node:fs");
+  const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
   return {
     ...actual,
-    existsSync: vi.fn(),
-    readFileSync: vi.fn(),
+    default: {
+      ...actual,
+      existsSync: vi.fn(() => true),
+      readFileSync: vi.fn(() => "{}"),
+      writeFileSync: vi.fn(),
+      mkdirSync: vi.fn(),
+      readdirSync: vi.fn(() => []),
+      statSync: vi.fn(() => ({ isDirectory: () => false })),
+    },
+    existsSync: vi.fn(() => true),
+    readFileSync: vi.fn(() => "{}"),
     writeFileSync: vi.fn(),
     mkdirSync: vi.fn(),
-    readdirSync: vi.fn().mockReturnValue([]),
-    statSync: vi.fn().mockReturnValue({ isDirectory: () => false }),
+    readdirSync: vi.fn(() => []),
+    statSync: vi.fn(() => ({ isDirectory: () => false })),
   };
 });
+
+import { execSync } from "node:child_process";
+import fs from "node:fs";
+// Import after mocks are set up
+import { VercelDeployer } from "../../../src/lib/deployment/deployers/VercelDeployer.js";
 
 describe("VercelDeployer", () => {
   let deployer: VercelDeployer;
@@ -71,7 +77,7 @@ describe("VercelDeployer", () => {
 
   describe("validatePlatformConfig", () => {
     it("should validate Vercel CLI is installed", async () => {
-      vi.mocked(execSync).mockImplementation((cmd) => {
+      vi.mocked(execSync).mockImplementation((cmd: unknown) => {
         if (cmd === "vercel --version") {
           throw new Error("Command not found");
         }
@@ -90,7 +96,7 @@ describe("VercelDeployer", () => {
     });
 
     it("should validate Vercel authentication", async () => {
-      vi.mocked(execSync).mockImplementation((cmd) => {
+      vi.mocked(execSync).mockImplementation((cmd: unknown) => {
         if (cmd === "vercel whoami") {
           throw new Error("Not authenticated");
         }
@@ -105,9 +111,7 @@ describe("VercelDeployer", () => {
 
       const result = await deployer.validate(config);
 
-      expect(result.errors.some((e) => e.code === "VERCEL_NOT_AUTHENTICATED")).toBe(
-        true,
-      );
+      expect(result.errors.some((e) => e.code === "VERCEL_NOT_AUTHENTICATED")).toBe(true);
     });
 
     it("should pass validation when CLI is installed and authenticated", async () => {
@@ -129,7 +133,7 @@ describe("VercelDeployer", () => {
   });
 
   describe("deploy", () => {
-    it("should deploy to Vercel", async () => {
+    it("should attempt deployment to Vercel and handle missing files gracefully", async () => {
       vi.mocked(execSync)
         .mockReturnValueOnce(Buffer.from("Vercel CLI")) // version check
         .mockReturnValueOnce(Buffer.from("user@example.com")) // whoami
@@ -149,9 +153,10 @@ describe("VercelDeployer", () => {
         outDir: ".neurolink/output",
       };
 
-      // This will fail because we haven't mocked all file operations
-      // but it tests the deploy path
-      await expect(deployer.deploy(config)).rejects.toThrow();
+      // Deploy will return a failure result due to missing files (not mocked fully)
+      const result = await deployer.deploy(config);
+      expect(result.success).toBe(false);
+      expect(result.status).toBe("failed");
     });
 
     it("should include environment variables in deployment", async () => {
@@ -242,10 +247,7 @@ describe("VercelDeployer", () => {
 
       await deployer.cancel("dpl_123");
 
-      expect(execSync).toHaveBeenCalledWith(
-        expect.stringContaining("vercel rollback"),
-        expect.any(Object),
-      );
+      expect(execSync).toHaveBeenCalledWith(expect.stringContaining("vercel rollback"), expect.any(Object));
     });
   });
 
@@ -255,18 +257,13 @@ describe("VercelDeployer", () => {
 
       await deployer.rollback("dpl_123");
 
-      expect(execSync).toHaveBeenCalledWith(
-        expect.stringContaining("vercel rollback"),
-        expect.any(Object),
-      );
+      expect(execSync).toHaveBeenCalledWith(expect.stringContaining("vercel rollback"), expect.any(Object));
     });
   });
 
   describe("getLogs", () => {
     it("should get deployment logs", async () => {
-      vi.mocked(execSync).mockReturnValue(
-        Buffer.from("Log line 1\nLog line 2\nLog line 3"),
-      );
+      vi.mocked(execSync).mockReturnValue(Buffer.from("Log line 1\nLog line 2\nLog line 3"));
 
       const logs = await deployer.getLogs("dpl_123");
 
