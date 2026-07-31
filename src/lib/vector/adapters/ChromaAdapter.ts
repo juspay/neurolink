@@ -13,18 +13,18 @@ import type { UnknownRecord } from "../../types/common.js";
 import { logger } from "../../utils/logger.js";
 import { BaseVectorStore } from "../BaseVectorStore.js";
 import type {
-  VectorStoreName,
-  VectorStoreConfig,
-  VectorRecord,
-  VectorQueryResult,
+  FieldFilter,
+  MetadataFilter,
+  SimilarityMetric,
+  VectorDeleteOptions,
   VectorIndexConfig,
   VectorQueryOptions,
-  VectorUpsertOptions,
-  VectorDeleteOptions,
+  VectorQueryResult,
+  VectorRecord,
+  VectorStoreConfig,
+  VectorStoreName,
   VectorStoreStats,
-  MetadataFilter,
-  FieldFilter,
-  SimilarityMetric,
+  VectorUpsertOptions,
 } from "../types.js";
 
 /**
@@ -113,10 +113,7 @@ interface ChromaClient {
     metadata?: Record<string, unknown>;
     embeddingFunction?: unknown;
   }): Promise<ChromaCollection>;
-  getCollection(params: {
-    name: string;
-    embeddingFunction?: unknown;
-  }): Promise<ChromaCollection>;
+  getCollection(params: { name: string; embeddingFunction?: unknown }): Promise<ChromaCollection>;
   getOrCreateCollection(params: {
     name: string;
     metadata?: Record<string, unknown>;
@@ -377,9 +374,7 @@ export class ChromaAdapter extends BaseVectorStore<ChromaConfig> {
     try {
       const collections = await this.client!.listCollections();
       // Filter out metadata collection
-      return collections
-        .filter((col) => col.name !== ChromaAdapter.METADATA_COLLECTION_NAME)
-        .map((col) => col.name);
+      return collections.filter((col) => col.name !== ChromaAdapter.METADATA_COLLECTION_NAME).map((col) => col.name);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to list indexes: ${message}`);
@@ -466,15 +461,7 @@ export class ChromaAdapter extends BaseVectorStore<ChromaConfig> {
   ): Promise<VectorQueryResult<TMetadata>[]> {
     this.ensureInitialized();
 
-    const {
-      vector,
-      topK,
-      minScore,
-      filter,
-      includeVectors = false,
-      includeMetadata = true,
-      namespace,
-    } = options;
+    const { vector, topK, minScore, filter, includeVectors = false, includeMetadata = true, namespace } = options;
 
     try {
       const collection = await this.client!.getCollection({ name: indexName });
@@ -560,7 +547,7 @@ export class ChromaAdapter extends BaseVectorStore<ChromaConfig> {
               result.metadata = restMeta as TMetadata;
             }
             if (documents[i]) {
-              result.content = documents[i];
+              result.content = documents[i] ?? undefined;
             }
           }
 
@@ -578,10 +565,7 @@ export class ChromaAdapter extends BaseVectorStore<ChromaConfig> {
   /**
    * Delete vectors from the collection
    */
-  async delete(
-    indexName: string,
-    options: VectorDeleteOptions,
-  ): Promise<{ deletedCount: number }> {
+  async delete(indexName: string, options: VectorDeleteOptions): Promise<{ deletedCount: number }> {
     this.ensureInitialized();
 
     const { ids, filter, namespace, deleteAll } = options;
@@ -678,20 +662,14 @@ export class ChromaAdapter extends BaseVectorStore<ChromaConfig> {
   /**
    * Translate abstract filter to Chroma where clause
    */
-  protected translateFilter<TMetadata extends UnknownRecord>(
-    filter: MetadataFilter<TMetadata>,
-  ): ChromaWhereClause {
+  protected translateFilter<TMetadata extends UnknownRecord>(filter: MetadataFilter<TMetadata>): ChromaWhereClause {
     const result: ChromaWhereClause = {};
 
     for (const [key, value] of Object.entries(filter)) {
       if (key === "$and" && Array.isArray(value)) {
-        result.$and = value.map((f) =>
-          this.translateFilter(f as MetadataFilter),
-        );
+        result.$and = value.map((f) => this.translateFilter(f as MetadataFilter));
       } else if (key === "$or" && Array.isArray(value)) {
-        result.$or = value.map((f) =>
-          this.translateFilter(f as MetadataFilter),
-        );
+        result.$or = value.map((f) => this.translateFilter(f as MetadataFilter));
       } else if (key === "$not" && typeof value === "object" && value !== null) {
         // Chroma doesn't have native $not, simulate with $nin for equality
         const subFilter = this.translateFilter(value as MetadataFilter);
@@ -726,10 +704,7 @@ export class ChromaAdapter extends BaseVectorStore<ChromaConfig> {
    * Translate document filter to Chroma where_document clause
    * This is a public method for advanced users who want document-level filtering
    */
-  translateDocumentFilter(filter: {
-    contains?: string;
-    notContains?: string;
-  }): ChromaWhereDocumentClause {
+  translateDocumentFilter(filter: { contains?: string; notContains?: string }): ChromaWhereDocumentClause {
     const result: ChromaWhereDocumentClause = {};
 
     if (filter.contains) {
@@ -835,7 +810,7 @@ export class ChromaAdapter extends BaseVectorStore<ChromaConfig> {
             result.metadata = restMeta as TMetadata;
           }
           if (getResult.documents?.[i]) {
-            result.content = getResult.documents[i];
+            result.content = getResult.documents[i] ?? undefined;
           }
         }
 
@@ -864,9 +839,7 @@ export class ChromaAdapter extends BaseVectorStore<ChromaConfig> {
       const module = await import(/* @vite-ignore */ modulePath);
       return module;
     } catch {
-      throw new Error(
-        "Chroma driver not found. Install chromadb: npm install chromadb",
-      );
+      throw new Error("Chroma driver not found. Install chromadb: npm install chromadb");
     }
   }
 

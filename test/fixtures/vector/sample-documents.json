@@ -1,0 +1,156 @@
+{
+  "description": "Sample documents with vectors and metadata for vector store integration testing",
+  "version": "1.0.0",
+  "documents": [
+    {
+      "id": "doc-001",
+      "content": "Machine learning is a subset of artificial intelligence that enables systems to learn from data.",
+      "vector": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8],
+      "metadata": {
+        "category": "technology",
+        "topic": "machine-learning",
+        "author": "John Doe",
+        "year": 2023,
+        "rating": 4.5,
+        "tags": ["AI", "ML", "data-science"],
+        "published": true
+      }
+    },
+    {
+      "id": "doc-002",
+      "content": "Neural networks are computing systems inspired by biological neural networks in animal brains.",
+      "vector": [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+      "metadata": {
+        "category": "technology",
+        "topic": "neural-networks",
+        "author": "Jane Smith",
+        "year": 2022,
+        "rating": 4.8,
+        "tags": ["AI", "deep-learning", "neural"],
+        "published": true
+      }
+    },
+    {
+      "id": "doc-003",
+      "content": "Natural language processing enables computers to understand and generate human language.",
+      "vector": [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+      "metadata": {
+        "category": "technology",
+        "topic": "nlp",
+        "author": "Bob Wilson",
+        "year": 2024,
+        "rating": 4.2,
+        "tags": ["NLP", "linguistics", "AI"],
+        "published": false
+      }
+    },
+    {
+      "id": "doc-004",
+      "content": "Computer vision allows machines to interpret and make decisions based on visual data.",
+      "vector": [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1],
+      "metadata": {
+        "category": "technology",
+        "topic": "computer-vision",
+        "author": "Alice Brown",
+        "year": 2023,
+        "rating": 3.9,
+        "tags": ["CV", "image-processing", "AI"],
+        "published": true
+      }
+    },
+    {
+      "id": "doc-005",
+      "content": "Reinforcement learning is an area of machine learning where agents learn by interacting with environments.",
+      "vector": [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2],
+      "metadata": {
+        "category": "technology",
+        "topic": "reinforcement-learning",
+        "author": "Charlie Green",
+        "year": 2021,
+        "rating": 4.7,
+        "tags": ["RL", "agents", "AI"],
+        "published": true
+      }
+    },
+    {
+      "id": "doc-006",
+      "content": "Vector databases are specialized databases optimized for storing and querying high-dimensional vectors.",
+      "vector": [0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3],
+      "metadata": {
+        "category": "database",
+        "topic": "vector-stores",
+        "author": "Diana White",
+        "year": 2024,
+        "rating": 4.6,
+        "tags": ["databases", "vectors", "similarity-search"],
+        "published": true
+      }
+    },
+    {
+      "id": "doc-007",
+      "content": "Embeddings are dense vector representations of data that capture semantic meaning.",
+      "vector": [0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4],
+      "metadata": {
+        "category": "technology",
+        "topic": "embeddings",
+        "author": "Eve Black",
+        "year": 2023,
+        "rating": 4.3,
+        "tags": ["embeddings", "vectors", "semantics"],
+        "published": true
+      }
+    },
+    {
+      "id": "doc-008",
+      "content": "Similarity search finds items most similar to a given query based on distance metrics.",
+      "vector": [0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5],
+      "metadata": {
+        "category": "algorithm",
+        "topic": "similarity-search",
+        "author": "Frank Gray",
+        "year": 2022,
+        "rating": 4.1,
+        "tags": ["search", "similarity", "algorithms"],
+        "published": true
+      }
+    },
+    {
+      "id": "doc-009",
+      "content": "Approximate nearest neighbor algorithms trade accuracy for speed in high-dimensional spaces.",
+      "vector": [0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+      "metadata": {
+        "category": "algorithm",
+        "topic": "ann",
+        "author": "Grace Blue",
+        "year": 2023,
+        "rating": 4.4,
+        "tags": ["ANN", "search", "performance"],
+        "published": false
+      }
+    },
+    {
+      "id": "doc-010",
+      "content": "Hybrid search combines vector similarity with keyword matching for better retrieval results.",
+      "vector": [1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7],
+      "metadata": {
+        "category": "search",
+        "topic": "hybrid-search",
+        "author": "Henry Red",
+        "year": 2024,
+        "rating": 4.9,
+        "tags": ["hybrid", "search", "retrieval"],
+        "published": true
+      }
+    }
+  ],
+  "queryVectors": {
+    "machineLearningSimilar": [0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85],
+    "databaseSimilar": [0.55, 0.65, 0.75, 0.85, 0.95, 0.15, 0.25, 0.35],
+    "algorithmSimilar": [0.85, 0.95, 0.55, 0.15, 0.25, 0.35, 0.45, 0.55]
+  },
+  "expectedResults": {
+    "machineLearningSimilar": ["doc-001", "doc-002"],
+    "databaseSimilar": ["doc-006", "doc-007"],
+    "algorithmSimilar": ["doc-008", "doc-009"]
+  }
+}

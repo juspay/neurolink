@@ -11,10 +11,7 @@ import type { VectorStoreConfig, VectorStoreName } from "./types.js";
  * Factory for creating vector store instances
  * Follows NeuroLink's BaseFactory pattern with dynamic imports
  */
-class VectorStoreFactoryImpl extends BaseFactory<
-  BaseVectorStore,
-  VectorStoreConfig
-> {
+class VectorStoreFactoryImpl extends BaseFactory<BaseVectorStore, VectorStoreConfig> {
   private static instance: VectorStoreFactoryImpl | null = null;
 
   private constructor() {
@@ -37,9 +34,7 @@ class VectorStoreFactoryImpl extends BaseFactory<
     this.register(
       "sqlite-vss",
       async (config) => {
-        const { SQLiteVSSAdapter } = await import(
-          "./adapters/SQLiteVSSAdapter.js"
-        );
+        const { SQLiteVSSAdapter } = await import("./adapters/SQLiteVSSAdapter.js");
         // Ensure required SQLiteVSSConfig properties
         const sqliteConfig = {
           databasePath: ":memory:",
@@ -62,19 +57,14 @@ class VectorStoreFactoryImpl extends BaseFactory<
         const { LibSQLAdapter } = await import("./adapters/LibSQLAdapter.js");
         // Ensure required LibSQLConfig properties
         if (!config?.mode) {
-          throw new Error(
-            "LibSQL requires 'mode' in configuration (local, remote, or replica)",
-          );
+          throw new Error("LibSQL requires 'mode' in configuration (local, remote, or replica)");
         }
-        return new LibSQLAdapter(
-          config as import("./adapters/LibSQLAdapter.js").LibSQLConfig,
-        );
+        return new LibSQLAdapter(config as import("./adapters/LibSQLAdapter.js").LibSQLConfig);
       },
       ["libsql", "turso", "turso-db", "libsql-turso"],
       {
         category: "embedded",
-        description:
-          "LibSQL/Turso for embedded vector search with optional cloud sync",
+        description: "LibSQL/Turso for embedded vector search with optional cloud sync",
       },
     );
 
@@ -82,9 +72,7 @@ class VectorStoreFactoryImpl extends BaseFactory<
     this.register(
       "duckdb",
       async (config) => {
-        const { DuckDBAdapter } = await import(
-          "./adapters/DuckDBAdapter.js"
-        );
+        const { DuckDBAdapter } = await import("./adapters/DuckDBAdapter.js");
         // Ensure required DuckDBConfig properties
         const duckdbConfig = {
           databasePath: ":memory:",
@@ -104,14 +92,12 @@ class VectorStoreFactoryImpl extends BaseFactory<
     this.register(
       "cloudflare",
       async (config) => {
-        const { CloudflareVectorizeAdapter } = await import(
-          "./adapters/CloudflareVectorizeAdapter.js"
-        );
+        const { CloudflareVectorizeAdapter } = await import("./adapters/CloudflareVectorizeAdapter.js");
         // Ensure required CloudflareVectorizeConfig properties
-        const cloudflareConfig = {
-          accountId: config?.accountId || "",
-          apiToken: config?.apiToken || "",
+        const cloudflareConfig: import("./adapters/CloudflareVectorizeAdapter.js").CloudflareVectorizeConfig = {
           ...config,
+          accountId: (config?.accountId as string) || "",
+          apiToken: (config?.apiToken as string) || "",
         };
         return new CloudflareVectorizeAdapter(cloudflareConfig);
       },
@@ -126,14 +112,12 @@ class VectorStoreFactoryImpl extends BaseFactory<
     this.register(
       "mongodb",
       async (config) => {
-        const { MongoDBAtlasAdapter } = await import(
-          "./adapters/MongoDBAtlasAdapter.js"
-        );
+        const { MongoDBAtlasAdapter } = await import("./adapters/MongoDBAtlasAdapter.js");
         // Ensure required MongoDBAtlasConfig properties
-        const mongoConfig = {
-          connectionUri: config?.connectionUri || "",
-          databaseName: config?.databaseName || "vectors",
+        const mongoConfig: import("./adapters/MongoDBAtlasAdapter.js").MongoDBAtlasConfig = {
           ...config,
+          connectionUri: (config?.connectionUri as string) || "",
+          databaseName: (config?.databaseName as string) || "vectors",
         };
         return new MongoDBAtlasAdapter(mongoConfig);
       },
@@ -148,13 +132,11 @@ class VectorStoreFactoryImpl extends BaseFactory<
     this.register(
       "opensearch",
       async (config) => {
-        const { OpenSearchAdapter } = await import(
-          "./adapters/OpenSearchAdapter.js"
-        );
+        const { OpenSearchAdapter } = await import("./adapters/OpenSearchAdapter.js");
         // Ensure required OpenSearchConfig properties
-        const opensearchConfig = {
-          node: config?.node || "https://localhost:9200",
+        const opensearchConfig: import("./adapters/OpenSearchAdapter.js").OpenSearchConfig = {
           ...config,
+          node: (config?.node as string) || "https://localhost:9200",
         };
         return new OpenSearchAdapter(opensearchConfig);
       },
@@ -169,14 +151,10 @@ class VectorStoreFactoryImpl extends BaseFactory<
     this.register(
       "azure-ai-search",
       async (config) => {
-        const { AzureAISearchAdapter } = await import(
-          "./adapters/AzureAISearchAdapter.js"
-        );
+        const { AzureAISearchAdapter } = await import("./adapters/AzureAISearchAdapter.js");
         // Ensure required AzureAISearchConfig properties
         if (!config?.endpoint || !config?.apiKey) {
-          throw new Error(
-            "Azure AI Search requires 'endpoint' and 'apiKey' in configuration",
-          );
+          throw new Error("Azure AI Search requires 'endpoint' and 'apiKey' in configuration");
         }
         return new AzureAISearchAdapter(config as import("./adapters/AzureAISearchAdapter.js").AzureAISearchConfig);
       },
@@ -193,17 +171,16 @@ class VectorStoreFactoryImpl extends BaseFactory<
       async (config) => {
         const { MilvusAdapter } = await import("./adapters/MilvusAdapter.js");
         // Ensure required MilvusConfig properties
-        const milvusConfig = {
-          address: config?.address || "localhost:19530",
+        const milvusConfig: import("./adapters/MilvusAdapter.js").MilvusConfig = {
           ...config,
+          address: (config?.address as string) || "localhost:19530",
         };
         return new MilvusAdapter(milvusConfig);
       },
       ["milvus", "milvus-local"],
       {
         category: "cloud-native",
-        description:
-          "Milvus for high-performance self-hosted vector similarity search",
+        description: "Milvus for high-performance self-hosted vector similarity search",
       },
     );
 
@@ -214,19 +191,14 @@ class VectorStoreFactoryImpl extends BaseFactory<
         const { ZillizAdapter } = await import("./adapters/ZillizAdapter.js");
         // Ensure required ZillizConfig properties
         if (!config?.uri || !config?.token) {
-          throw new Error(
-            "Zilliz Cloud requires 'uri' and 'token' in configuration",
-          );
+          throw new Error("Zilliz Cloud requires 'uri' and 'token' in configuration");
         }
-        return new ZillizAdapter(
-          config as import("./adapters/ZillizAdapter.js").ZillizConfig,
-        );
+        return new ZillizAdapter(config as import("./adapters/ZillizAdapter.js").ZillizConfig);
       },
       ["zilliz", "zilliz-cloud", "zilliz-serverless"],
       {
         category: "cloud-native",
-        description:
-          "Zilliz Cloud - fully managed Milvus with serverless and dedicated clusters",
+        description: "Zilliz Cloud - fully managed Milvus with serverless and dedicated clusters",
       },
     );
 
@@ -234,14 +206,10 @@ class VectorStoreFactoryImpl extends BaseFactory<
     this.register(
       "vertex-vector",
       async (config) => {
-        const { VertexVectorSearchAdapter } = await import(
-          "./adapters/VertexVectorSearchAdapter.js"
-        );
+        const { VertexVectorSearchAdapter } = await import("./adapters/VertexVectorSearchAdapter.js");
         // Ensure required VertexVectorSearchConfig properties
         if (!config?.projectId || !config?.location) {
-          throw new Error(
-            "Vertex AI Vector Search requires 'projectId' and 'location' in configuration",
-          );
+          throw new Error("Vertex AI Vector Search requires 'projectId' and 'location' in configuration");
         }
         return new VertexVectorSearchAdapter(
           config as import("./adapters/VertexVectorSearchAdapter.js").VertexVectorSearchConfig,
@@ -250,8 +218,7 @@ class VectorStoreFactoryImpl extends BaseFactory<
       ["vertex-vector", "vertex-ai-vector", "vertex-vector-search", "matching-engine", "vertex"],
       {
         category: "enterprise",
-        description:
-          "Google Vertex AI Vector Search (Matching Engine) for enterprise-scale vector search",
+        description: "Google Vertex AI Vector Search (Matching Engine) for enterprise-scale vector search",
       },
     );
 
@@ -259,13 +226,11 @@ class VectorStoreFactoryImpl extends BaseFactory<
     this.register(
       "elasticsearch",
       async (config) => {
-        const { ElasticsearchAdapter } = await import(
-          "./adapters/ElasticsearchAdapter.js"
-        );
+        const { ElasticsearchAdapter } = await import("./adapters/ElasticsearchAdapter.js");
         // Ensure required ElasticsearchConfig properties
-        const esConfig = {
-          node: config?.node || "http://localhost:9200",
+        const esConfig: import("./adapters/ElasticsearchAdapter.js").ElasticsearchConfig = {
           ...config,
+          node: (config?.node as string) || "http://localhost:9200",
         };
         return new ElasticsearchAdapter(esConfig);
       },
@@ -280,24 +245,17 @@ class VectorStoreFactoryImpl extends BaseFactory<
     this.register(
       "upstash",
       async (config) => {
-        const { UpstashVectorAdapter } = await import(
-          "./adapters/UpstashVectorAdapter.js"
-        );
+        const { UpstashVectorAdapter } = await import("./adapters/UpstashVectorAdapter.js");
         // Ensure required UpstashVectorConfig properties
         if (!config?.url || !config?.token) {
-          throw new Error(
-            "Upstash Vector requires 'url' and 'token' in configuration",
-          );
+          throw new Error("Upstash Vector requires 'url' and 'token' in configuration");
         }
-        return new UpstashVectorAdapter(
-          config as import("./adapters/UpstashVectorAdapter.js").UpstashVectorConfig,
-        );
+        return new UpstashVectorAdapter(config as import("./adapters/UpstashVectorAdapter.js").UpstashVectorConfig);
       },
       ["upstash", "upstash-vector", "upstash-serverless"],
       {
         category: "cloud-native",
-        description:
-          "Upstash Vector - REST-based serverless vector database with namespace support",
+        description: "Upstash Vector - REST-based serverless vector database with namespace support",
       },
     );
 
@@ -305,21 +263,18 @@ class VectorStoreFactoryImpl extends BaseFactory<
     this.register(
       "lance",
       async (config) => {
-        const { LanceDBAdapter } = await import(
-          "./adapters/LanceDBAdapter.js"
-        );
+        const { LanceDBAdapter } = await import("./adapters/LanceDBAdapter.js");
         // Ensure required LanceDBConfig properties
-        const lanceConfig = {
-          uri: config?.uri || "./data/lancedb",
+        const lanceConfig: import("./types.js").LanceDBConfig = {
           ...config,
+          uri: (config?.uri as string) || "./data/lancedb",
         };
         return new LanceDBAdapter(lanceConfig);
       },
       ["lance", "lancedb", "lance-db", "lancedb-embedded"],
       {
         category: "embedded",
-        description:
-          "LanceDB - embedded vector database with Arrow columnar format and S3/Azure/GCS support",
+        description: "LanceDB - embedded vector database with Arrow columnar format and S3/Azure/GCS support",
       },
     );
 
@@ -330,19 +285,14 @@ class VectorStoreFactoryImpl extends BaseFactory<
         const { AstraDBAdapter } = await import("./adapters/AstraDBAdapter.js");
         // Ensure required AstraDBConfig properties
         if (!config?.token || !config?.endpoint) {
-          throw new Error(
-            "Astra DB requires 'token' and 'endpoint' in configuration",
-          );
+          throw new Error("Astra DB requires 'token' and 'endpoint' in configuration");
         }
-        return new AstraDBAdapter(
-          config as import("./adapters/AstraDBAdapter.js").AstraDBConfig,
-        );
+        return new AstraDBAdapter(config as import("./adapters/AstraDBAdapter.js").AstraDBConfig);
       },
       ["astra", "astra-db", "astradb", "datastax", "datastax-astra"],
       {
         category: "cloud-native",
-        description:
-          "DataStax Astra DB - serverless Cassandra with vector search",
+        description: "DataStax Astra DB - serverless Cassandra with vector search",
       },
     );
 
@@ -350,9 +300,7 @@ class VectorStoreFactoryImpl extends BaseFactory<
     this.register(
       "weaviate",
       async (config) => {
-        const { WeaviateAdapter } = await import(
-          "./adapters/WeaviateAdapter.js"
-        );
+        const { WeaviateAdapter } = await import("./adapters/WeaviateAdapter.js");
         // Ensure required WeaviateConfig properties
         const weaviateConfig: import("./adapters/WeaviateAdapter.js").WeaviateConfig = {
           host: (config?.host as string) || "http://localhost:8080",
@@ -363,34 +311,27 @@ class VectorStoreFactoryImpl extends BaseFactory<
       ["weaviate", "weaviate-cloud", "wcs"],
       {
         category: "cloud-native",
-        description:
-          "Weaviate open-source vector database with hybrid search and GraphQL API",
+        description: "Weaviate open-source vector database with hybrid search and GraphQL API",
       },
     );
-
 
     // Couchbase (Enterprise Database)
     this.register(
       "couchbase",
       async (config) => {
-        const { CouchbaseAdapter } = await import(
-          "./adapters/CouchbaseAdapter.js"
-        );
+        const { CouchbaseAdapter } = await import("./adapters/CouchbaseAdapter.js");
         // Ensure required CouchbaseConfig properties
         if (!config?.connectionString || !config?.username || !config?.password || !config?.bucketName) {
           throw new Error(
             "Couchbase requires 'connectionString', 'username', 'password', and 'bucketName' in configuration",
           );
         }
-        return new CouchbaseAdapter(
-          config as import("./adapters/CouchbaseAdapter.js").CouchbaseConfig,
-        );
+        return new CouchbaseAdapter(config as import("./adapters/CouchbaseAdapter.js").CouchbaseConfig);
       },
       ["couchbase", "couchbase-vector", "couchbase-fts", "cb"],
       {
         category: "enterprise",
-        description:
-          "Couchbase Vector Search via FTS service for hybrid search with JSON documents",
+        description: "Couchbase Vector Search via FTS service for hybrid search with JSON documents",
       },
     );
 
@@ -398,14 +339,12 @@ class VectorStoreFactoryImpl extends BaseFactory<
     this.register(
       "redis",
       async (config) => {
-        const { RedisVectorAdapter } = await import(
-          "./adapters/RedisVectorAdapter.js"
-        );
+        const { RedisVectorAdapter } = await import("./adapters/RedisVectorAdapter.js");
         // Ensure required RedisVectorConfig properties
-        const redisConfig = {
-          host: config?.host || "localhost",
-          port: config?.port || 6379,
+        const redisConfig: import("./types.js").RedisVectorConfig = {
           ...config,
+          host: (config?.host as string) || "localhost",
+          port: (config?.port as number) || 6379,
         };
         return new RedisVectorAdapter(redisConfig);
       },
@@ -416,16 +355,15 @@ class VectorStoreFactoryImpl extends BaseFactory<
       },
     );
 
-
     // Chroma (Embedded)
     this.register(
       "chroma",
       async (config) => {
         const { ChromaAdapter } = await import("./adapters/ChromaAdapter.js");
-        const chromaConfig = {
-          path: config?.path || "./chroma-data",
-          ephemeral: config?.ephemeral ?? (!config?.path && !config?.url),
+        const chromaConfig: import("./adapters/ChromaAdapter.js").ChromaConfig = {
           ...config,
+          path: (config?.path as string) || "./chroma-data",
+          ephemeral: (config?.ephemeral as boolean) ?? (!config?.path && !config?.url),
         };
         return new ChromaAdapter(chromaConfig);
       },
@@ -440,9 +378,7 @@ class VectorStoreFactoryImpl extends BaseFactory<
     this.register(
       "pgvector",
       async (config) => {
-        const { PgvectorAdapter } = await import(
-          "./adapters/PgvectorAdapter.js"
-        );
+        const { PgvectorAdapter } = await import("./adapters/PgvectorAdapter.js");
         // Ensure required PgvectorConfig properties with defaults
         const pgConfig: import("./adapters/PgvectorAdapter.js").PgvectorConfig = {
           host: (config?.host as string) || "localhost",
@@ -457,8 +393,7 @@ class VectorStoreFactoryImpl extends BaseFactory<
       ["pgvector", "postgres", "postgresql", "pg"],
       {
         category: "database",
-        description:
-          "PostgreSQL with pgvector extension for vector similarity search with IVFFlat and HNSW indexes",
+        description: "PostgreSQL with pgvector extension for vector similarity search with IVFFlat and HNSW indexes",
       },
     );
 
@@ -468,17 +403,16 @@ class VectorStoreFactoryImpl extends BaseFactory<
       async (config) => {
         const { QdrantAdapter } = await import("./adapters/QdrantAdapter.js");
         // Ensure required QdrantConfig properties
-        const qdrantConfig = {
-          url: config?.url || "http://localhost:6333",
+        const qdrantConfig: import("./adapters/QdrantAdapter.js").QdrantConfig = {
           ...config,
+          url: (config?.url as string) || "http://localhost:6333",
         };
         return new QdrantAdapter(qdrantConfig);
       },
       ["qdrant", "qdrant-cloud", "qdrant-local"],
       {
         category: "cloud-native",
-        description:
-          "Qdrant cloud-native vector database with rich filtering and quantization support",
+        description: "Qdrant cloud-native vector database with rich filtering and quantization support",
       },
     );
 
@@ -499,8 +433,7 @@ class VectorStoreFactoryImpl extends BaseFactory<
       ["faiss", "faiss-local", "faiss-cpu", "facebook-faiss"],
       {
         category: "embedded",
-        description:
-          "Facebook AI Similarity Search for high-performance local vector search",
+        description: "Facebook AI Similarity Search for high-performance local vector search",
       },
     );
 
@@ -511,13 +444,9 @@ class VectorStoreFactoryImpl extends BaseFactory<
         const { PineconeAdapter } = await import("./adapters/PineconeAdapter.js");
         // Ensure required PineconeConfig properties
         if (!config?.apiKey) {
-          throw new Error(
-            "Pinecone requires 'apiKey' in configuration",
-          );
+          throw new Error("Pinecone requires 'apiKey' in configuration");
         }
-        return new PineconeAdapter(
-          config as import("./adapters/PineconeAdapter.js").PineconeConfig,
-        );
+        return new PineconeAdapter(config as import("./adapters/PineconeAdapter.js").PineconeConfig);
       },
       ["pinecone", "pinecone-cloud", "pinecone-serverless"],
       {
@@ -530,10 +459,7 @@ class VectorStoreFactoryImpl extends BaseFactory<
   /**
    * Create a vector store instance by name
    */
-  async createStore(
-    name: VectorStoreName | string,
-    config: VectorStoreConfig,
-  ): Promise<BaseVectorStore> {
+  async createStore(name: VectorStoreName | string, config: VectorStoreConfig): Promise<BaseVectorStore> {
     return this.create(name, config);
   }
 

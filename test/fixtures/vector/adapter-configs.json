@@ -1,0 +1,334 @@
+{
+  "description": "Configuration templates for all 22 NeuroLink vector store adapters",
+  "version": "1.0.0",
+  "adapters": {
+    "pinecone": {
+      "name": "Pinecone",
+      "category": "cloud-native",
+      "envVars": ["PINECONE_API_KEY", "PINECONE_ENVIRONMENT"],
+      "config": {
+        "apiKey": "${PINECONE_API_KEY}",
+        "environment": "${PINECONE_ENVIRONMENT}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "metric": "cosine",
+        "spec": {
+          "serverless": {
+            "cloud": "aws",
+            "region": "us-east-1"
+          }
+        }
+      },
+      "features": ["serverless", "metadata-filtering", "namespaces", "hybrid-search"]
+    },
+    "qdrant": {
+      "name": "Qdrant",
+      "category": "cloud-native",
+      "envVars": ["QDRANT_URL", "QDRANT_API_KEY"],
+      "config": {
+        "url": "${QDRANT_URL}",
+        "apiKey": "${QDRANT_API_KEY}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "metric": "Cosine",
+        "onDisk": false
+      },
+      "features": ["on-premise", "filtering", "sparse-vectors", "quantization"]
+    },
+    "weaviate": {
+      "name": "Weaviate",
+      "category": "cloud-native",
+      "envVars": ["WEAVIATE_URL", "WEAVIATE_API_KEY"],
+      "config": {
+        "url": "${WEAVIATE_URL}",
+        "apiKey": "${WEAVIATE_API_KEY}"
+      },
+      "indexConfig": {
+        "class": "Document",
+        "vectorizer": "none"
+      },
+      "features": ["graphql", "modules", "multi-tenancy", "hybrid-search"]
+    },
+    "milvus": {
+      "name": "Milvus",
+      "category": "cloud-native",
+      "envVars": ["MILVUS_HOST", "MILVUS_PORT", "MILVUS_TOKEN"],
+      "config": {
+        "address": "${MILVUS_HOST}:${MILVUS_PORT}",
+        "token": "${MILVUS_TOKEN}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "metricType": "COSINE",
+        "indexType": "IVF_FLAT"
+      },
+      "features": ["gpu-acceleration", "distributed", "dynamic-schema", "partition"]
+    },
+    "zilliz": {
+      "name": "Zilliz Cloud",
+      "category": "cloud-native",
+      "envVars": ["ZILLIZ_CLOUD_URI", "ZILLIZ_CLOUD_TOKEN"],
+      "config": {
+        "uri": "${ZILLIZ_CLOUD_URI}",
+        "token": "${ZILLIZ_CLOUD_TOKEN}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "metricType": "COSINE"
+      },
+      "features": ["managed-milvus", "serverless", "auto-scaling"]
+    },
+    "astradb": {
+      "name": "DataStax Astra DB",
+      "category": "cloud-native",
+      "envVars": ["ASTRA_DB_APPLICATION_TOKEN", "ASTRA_DB_API_ENDPOINT"],
+      "config": {
+        "token": "${ASTRA_DB_APPLICATION_TOKEN}",
+        "endpoint": "${ASTRA_DB_API_ENDPOINT}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "metric": "cosine"
+      },
+      "features": ["cassandra-based", "serverless", "multi-region"]
+    },
+    "upstash": {
+      "name": "Upstash Vector",
+      "category": "cloud-native",
+      "envVars": ["UPSTASH_VECTOR_URL", "UPSTASH_VECTOR_TOKEN"],
+      "config": {
+        "url": "${UPSTASH_VECTOR_URL}",
+        "token": "${UPSTASH_VECTOR_TOKEN}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "metric": "COSINE"
+      },
+      "features": ["serverless", "rest-api", "edge-optimized"]
+    },
+    "cloudflare-vectorize": {
+      "name": "Cloudflare Vectorize",
+      "category": "cloud-native",
+      "envVars": ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"],
+      "config": {
+        "accountId": "${CLOUDFLARE_ACCOUNT_ID}",
+        "apiToken": "${CLOUDFLARE_API_TOKEN}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "metric": "cosine"
+      },
+      "features": ["edge-native", "workers-integration", "global-deployment"]
+    },
+    "pgvector": {
+      "name": "pgvector (PostgreSQL)",
+      "category": "database",
+      "envVars": ["POSTGRES_CONNECTION_STRING"],
+      "config": {
+        "connectionString": "${POSTGRES_CONNECTION_STRING}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "indexType": "ivfflat",
+        "lists": 100
+      },
+      "features": ["sql-native", "transactions", "joins", "full-text-search"]
+    },
+    "mongodb-atlas": {
+      "name": "MongoDB Atlas Vector Search",
+      "category": "database",
+      "envVars": ["MONGODB_ATLAS_URI", "MONGODB_ATLAS_DATABASE"],
+      "config": {
+        "uri": "${MONGODB_ATLAS_URI}",
+        "database": "${MONGODB_ATLAS_DATABASE}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "similarity": "cosine",
+        "type": "vectorSearch"
+      },
+      "features": ["document-store", "aggregation-pipeline", "atlas-search"]
+    },
+    "elasticsearch": {
+      "name": "Elasticsearch",
+      "category": "database",
+      "envVars": ["ELASTICSEARCH_URL", "ELASTICSEARCH_API_KEY"],
+      "config": {
+        "node": "${ELASTICSEARCH_URL}",
+        "auth": {
+          "apiKey": "${ELASTICSEARCH_API_KEY}"
+        }
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "similarity": "cosine"
+      },
+      "features": ["full-text-search", "aggregations", "distributed", "lucene-based"]
+    },
+    "opensearch": {
+      "name": "OpenSearch",
+      "category": "database",
+      "envVars": ["OPENSEARCH_URL", "OPENSEARCH_USERNAME", "OPENSEARCH_PASSWORD"],
+      "config": {
+        "node": "${OPENSEARCH_URL}",
+        "auth": {
+          "username": "${OPENSEARCH_USERNAME}",
+          "password": "${OPENSEARCH_PASSWORD}"
+        }
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "method": {
+          "name": "hnsw",
+          "spaceType": "cosinesimil"
+        }
+      },
+      "features": ["elasticsearch-compatible", "open-source", "aws-managed"]
+    },
+    "redis": {
+      "name": "Redis Vector Search",
+      "category": "database",
+      "envVars": ["REDIS_URL"],
+      "config": {
+        "url": "${REDIS_URL}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "distanceMetric": "COSINE",
+        "algorithm": "HNSW"
+      },
+      "features": ["in-memory", "low-latency", "redis-stack", "json-support"]
+    },
+    "couchbase": {
+      "name": "Couchbase Vector Search",
+      "category": "database",
+      "envVars": ["COUCHBASE_CONNECTION_STRING", "COUCHBASE_USERNAME", "COUCHBASE_PASSWORD"],
+      "config": {
+        "connectionString": "${COUCHBASE_CONNECTION_STRING}",
+        "username": "${COUCHBASE_USERNAME}",
+        "password": "${COUCHBASE_PASSWORD}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "similarity": "DOT_PRODUCT"
+      },
+      "features": ["document-store", "n1ql", "mobile-sync", "multi-model"]
+    },
+    "azure-ai-search": {
+      "name": "Azure AI Search",
+      "category": "enterprise",
+      "envVars": ["AZURE_SEARCH_ENDPOINT", "AZURE_SEARCH_API_KEY"],
+      "config": {
+        "endpoint": "${AZURE_SEARCH_ENDPOINT}",
+        "apiKey": "${AZURE_SEARCH_API_KEY}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "vectorSearchProfile": "default-vector-profile",
+        "algorithm": "hnsw"
+      },
+      "features": ["cognitive-search", "semantic-ranking", "azure-integration"]
+    },
+    "vertex-ai-vector-search": {
+      "name": "Vertex AI Vector Search",
+      "category": "enterprise",
+      "envVars": ["GOOGLE_CLOUD_PROJECT", "VERTEX_AI_LOCATION", "VERTEX_AI_INDEX_ENDPOINT"],
+      "config": {
+        "project": "${GOOGLE_CLOUD_PROJECT}",
+        "location": "${VERTEX_AI_LOCATION}",
+        "indexEndpoint": "${VERTEX_AI_INDEX_ENDPOINT}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "distanceMeasureType": "DOT_PRODUCT_DISTANCE"
+      },
+      "features": ["google-cloud", "managed", "scalable", "ml-integration"]
+    },
+    "chroma": {
+      "name": "Chroma",
+      "category": "embedded",
+      "envVars": ["CHROMA_HOST", "CHROMA_PORT"],
+      "config": {
+        "host": "${CHROMA_HOST:-localhost}",
+        "port": "${CHROMA_PORT:-8000}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "metric": "cosine"
+      },
+      "features": ["open-source", "embedding-functions", "persistent", "client-server"]
+    },
+    "lancedb": {
+      "name": "LanceDB",
+      "category": "embedded",
+      "envVars": ["LANCEDB_PATH"],
+      "config": {
+        "path": "${LANCEDB_PATH:-./lancedb}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "metric": "L2"
+      },
+      "features": ["serverless", "columnar", "lance-format", "versioning"]
+    },
+    "duckdb": {
+      "name": "DuckDB Vector",
+      "category": "embedded",
+      "envVars": ["DUCKDB_PATH"],
+      "config": {
+        "path": "${DUCKDB_PATH:-:memory:}"
+      },
+      "indexConfig": {
+        "dimension": 1536
+      },
+      "features": ["analytical", "sql", "embedded", "columnar"]
+    },
+    "libsql": {
+      "name": "LibSQL Vector",
+      "category": "embedded",
+      "envVars": ["LIBSQL_URL", "LIBSQL_AUTH_TOKEN"],
+      "config": {
+        "url": "${LIBSQL_URL:-file:local.db}",
+        "authToken": "${LIBSQL_AUTH_TOKEN}"
+      },
+      "indexConfig": {
+        "dimension": 1536
+      },
+      "features": ["sqlite-compatible", "turso", "edge-replication"]
+    },
+    "sqlite-vss": {
+      "name": "SQLite-VSS",
+      "category": "embedded",
+      "envVars": ["SQLITE_VSS_PATH"],
+      "config": {
+        "path": "${SQLITE_VSS_PATH:-./sqlite-vss.db}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "metric": "L2"
+      },
+      "features": ["sqlite-extension", "faiss-based", "portable"]
+    },
+    "faiss": {
+      "name": "FAISS",
+      "category": "embedded",
+      "envVars": ["FAISS_INDEX_PATH"],
+      "config": {
+        "indexPath": "${FAISS_INDEX_PATH:-./faiss.index}"
+      },
+      "indexConfig": {
+        "dimension": 1536,
+        "indexType": "IndexFlatL2"
+      },
+      "features": ["meta-research", "gpu-support", "billion-scale", "quantization"]
+    }
+  },
+  "testEnvironment": {
+    "defaultDimension": 8,
+    "defaultMetric": "cosine",
+    "testIndexPrefix": "neurolink-test-",
+    "cleanupAfterTests": true
+  }
+}

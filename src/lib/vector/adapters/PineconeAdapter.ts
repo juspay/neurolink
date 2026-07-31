@@ -17,19 +17,19 @@ import type { UnknownRecord } from "../../types/common.js";
 import { logger } from "../../utils/logger.js";
 import { BaseVectorStore } from "../BaseVectorStore.js";
 import type {
-  VectorStoreName,
-  VectorRecord,
-  VectorQueryResult,
+  FieldFilter,
+  MetadataFilter,
+  SimilarityMetric,
+  VectorDeleteOptions,
   VectorIndexConfig,
   VectorQueryOptions,
-  VectorUpsertOptions,
-  VectorDeleteOptions,
-  VectorStoreStats,
-  VectorStoreHealth,
+  VectorQueryResult,
+  VectorRecord,
   VectorStoreConfig,
-  MetadataFilter,
-  FieldFilter,
-  SimilarityMetric,
+  VectorStoreHealth,
+  VectorStoreName,
+  VectorStoreStats,
+  VectorUpsertOptions,
 } from "../types.js";
 
 /**
@@ -231,28 +231,30 @@ interface NamespaceStats {
 }
 
 /**
- * Pinecone filter format
+ * Pinecone filter value types
  * Supports $eq, $ne, $gt, $gte, $lt, $lte, $in, $nin operators
  */
+type PineconeFilterValue =
+  | string
+  | number
+  | boolean
+  | string[]
+  | number[]
+  | { $eq?: unknown }
+  | { $ne?: unknown }
+  | { $gt?: number }
+  | { $gte?: number }
+  | { $lt?: number }
+  | { $lte?: number }
+  | { $in?: unknown[] }
+  | { $nin?: unknown[] }
+  | { $exists?: boolean };
+
+/**
+ * Pinecone filter format with logical operators
+ */
 type PineconeFilter = {
-  [key: string]:
-    | string
-    | number
-    | boolean
-    | string[]
-    | number[]
-    | { $eq?: unknown }
-    | { $ne?: unknown }
-    | { $gt?: number }
-    | { $gte?: number }
-    | { $lt?: number }
-    | { $lte?: number }
-    | { $in?: unknown[] }
-    | { $nin?: unknown[] }
-    | { $exists?: boolean }
-    | PineconeFilter;
-  $and?: PineconeFilter[];
-  $or?: PineconeFilter[];
+  [key: string]: PineconeFilterValue | PineconeFilter | PineconeFilter[] | undefined;
 };
 
 /**
@@ -390,7 +392,10 @@ export class PineconeAdapter extends BaseVectorStore<PineconeConfig> {
         deletionProtection: indexOptions?.deletionProtection,
       });
 
-      logger.debug(`Created Pinecone index ${name}`, { dimension, metric: pineconeMetric });
+      logger.debug(`Created Pinecone index ${name}`, {
+        dimension,
+        metric: pineconeMetric,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to create index ${name}: ${message}`);
@@ -506,10 +511,7 @@ export class PineconeAdapter extends BaseVectorStore<PineconeConfig> {
         const result = await ns.upsert(vectors);
         totalUpserted += result.upsertedCount || vectors.length;
 
-        logger.debug(
-          `Batch upsert progress: ${totalUpserted}/${records.length}`,
-          { index: indexName, namespace },
-        );
+        logger.debug(`Batch upsert progress: ${totalUpserted}/${records.length}`, { index: indexName, namespace });
       }
 
       logger.debug(`Upserted ${totalUpserted} records to ${indexName}`);
@@ -529,15 +531,7 @@ export class PineconeAdapter extends BaseVectorStore<PineconeConfig> {
   ): Promise<VectorQueryResult<TMetadata>[]> {
     this.ensureInitialized();
 
-    const {
-      vector,
-      topK,
-      minScore,
-      filter,
-      includeVectors = false,
-      includeMetadata = true,
-      namespace,
-    } = options;
+    const { vector, topK, minScore, filter, includeVectors = false, includeMetadata = true, namespace } = options;
 
     const ns = namespace || this.config.namespace || PineconeAdapter.DEFAULT_NAMESPACE;
 
@@ -581,7 +575,9 @@ export class PineconeAdapter extends BaseVectorStore<PineconeConfig> {
 
         if (includeMetadata && match.metadata) {
           // Extract content from metadata if present
-          const { _content, ...rest } = match.metadata as TMetadata & { _content?: string };
+          const { _content, ...rest } = match.metadata as TMetadata & {
+            _content?: string;
+          };
           result.metadata = rest as TMetadata;
           if (_content) {
             result.content = _content;
@@ -601,10 +597,7 @@ export class PineconeAdapter extends BaseVectorStore<PineconeConfig> {
   /**
    * Delete vectors from the index
    */
-  async delete(
-    indexName: string,
-    options: VectorDeleteOptions,
-  ): Promise<{ deletedCount: number }> {
+  async delete(indexName: string, options: VectorDeleteOptions): Promise<{ deletedCount: number }> {
     this.ensureInitialized();
 
     const { ids, filter, namespace, deleteAll } = options;
@@ -674,9 +667,7 @@ export class PineconeAdapter extends BaseVectorStore<PineconeConfig> {
       const description = await this.getIndexDescription(indexName);
 
       // Count namespaces
-      const namespaceCount = stats.namespaces
-        ? Object.keys(stats.namespaces).length
-        : 0;
+      const namespaceCount = stats.namespaces ? Object.keys(stats.namespaces).length : 0;
 
       return {
         vectorCount: stats.totalRecordCount || 0,
@@ -738,9 +729,7 @@ export class PineconeAdapter extends BaseVectorStore<PineconeConfig> {
   /**
    * Translate abstract filter to Pinecone filter format
    */
-  protected translateFilter<TMetadata extends UnknownRecord>(
-    filter: MetadataFilter<TMetadata>,
-  ): PineconeFilter | null {
+  protected translateFilter<TMetadata extends UnknownRecord>(filter: MetadataFilter<TMetadata>): PineconeFilter | null {
     const result: PineconeFilter = {};
 
     for (const [key, value] of Object.entries(filter)) {
@@ -816,9 +805,7 @@ export class PineconeAdapter extends BaseVectorStore<PineconeConfig> {
   private async validateIndexDimension(indexName: string, vectorDimension: number): Promise<void> {
     const indexDimension = await this.getIndexDimension(indexName);
     if (vectorDimension !== indexDimension) {
-      throw new Error(
-        `Vector dimension (${vectorDimension}) does not match index dimension (${indexDimension})`,
-      );
+      throw new Error(`Vector dimension (${vectorDimension}) does not match index dimension (${indexDimension})`);
     }
   }
 
@@ -850,9 +837,7 @@ export class PineconeAdapter extends BaseVectorStore<PineconeConfig> {
   /**
    * Translate a field filter to Pinecone format
    */
-  private translateFieldFilter(
-    filter: FieldFilter,
-  ): Record<string, unknown> {
+  private translateFieldFilter(filter: FieldFilter): Record<string, unknown> {
     const result: Record<string, unknown> = {};
 
     for (const [op, val] of Object.entries(filter)) {
@@ -903,11 +888,7 @@ export class PineconeAdapter extends BaseVectorStore<PineconeConfig> {
   /**
    * Wait for index to be ready (useful after creation)
    */
-  async waitForIndexReady(
-    indexName: string,
-    timeout: number = 120000,
-    pollInterval: number = 5000,
-  ): Promise<void> {
+  async waitForIndexReady(indexName: string, timeout: number = 120000, pollInterval: number = 5000): Promise<void> {
     this.ensureInitialized();
 
     const startTime = Date.now();
@@ -963,7 +944,9 @@ export class PineconeAdapter extends BaseVectorStore<PineconeConfig> {
         };
 
         if (vector.metadata) {
-          const { _content, ...rest } = vector.metadata as TMetadata & { _content?: string };
+          const { _content, ...rest } = vector.metadata as TMetadata & {
+            _content?: string;
+          };
           record.metadata = rest as TMetadata;
           if (_content) {
             record.content = _content;
@@ -1111,7 +1094,9 @@ export class PineconeAdapter extends BaseVectorStore<PineconeConfig> {
         }
 
         if (includeMetadata && match.metadata) {
-          const { _content, ...rest } = match.metadata as TMetadata & { _content?: string };
+          const { _content, ...rest } = match.metadata as TMetadata & {
+            _content?: string;
+          };
           result.metadata = rest as TMetadata;
           if (_content) {
             result.content = _content;
@@ -1131,9 +1116,7 @@ export class PineconeAdapter extends BaseVectorStore<PineconeConfig> {
   /**
    * Get namespace statistics
    */
-  async getNamespaceStats(
-    indexName: string,
-  ): Promise<Record<string, { recordCount: number }>> {
+  async getNamespaceStats(indexName: string): Promise<Record<string, { recordCount: number }>> {
     this.ensureInitialized();
 
     try {

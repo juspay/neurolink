@@ -18,25 +18,25 @@
  * @see https://github.com/facebookresearch/faiss
  */
 
+import { promises as fs } from "fs";
+import { join } from "path";
 import type { UnknownRecord } from "../../types/common.js";
 import { logger } from "../../utils/logger.js";
 import { BaseVectorStore } from "../BaseVectorStore.js";
 import type {
-  VectorStoreName,
-  VectorRecord,
-  VectorQueryResult,
+  FieldFilter,
+  MetadataFilter,
+  SimilarityMetric,
+  VectorDeleteOptions,
   VectorIndexConfig,
   VectorQueryOptions,
-  VectorUpsertOptions,
-  VectorDeleteOptions,
-  VectorStoreStats,
-  MetadataFilter,
-  FieldFilter,
-  SimilarityMetric,
+  VectorQueryResult,
+  VectorRecord,
   VectorStoreConfig,
+  VectorStoreName,
+  VectorStoreStats,
+  VectorUpsertOptions,
 } from "../types.js";
-import { promises as fs } from "fs";
-import { join } from "path";
 
 /**
  * Faiss-specific configuration
@@ -331,7 +331,10 @@ export class FaissAdapter extends BaseVectorStore<FaissConfig> {
     }
 
     // Validate dimensions
-    this.validateDimensions(records.map((r) => r.vector), entry.config.dimension);
+    this.validateDimensions(
+      records.map((r) => r.vector),
+      entry.config.dimension,
+    );
 
     try {
       const namespace = options?.namespace || undefined;
@@ -409,15 +412,7 @@ export class FaissAdapter extends BaseVectorStore<FaissConfig> {
       throw new Error(`Index ${indexName} not found`);
     }
 
-    const {
-      vector,
-      topK,
-      minScore,
-      filter,
-      includeVectors = false,
-      includeMetadata = true,
-      namespace,
-    } = options;
+    const { vector, topK, minScore, filter, includeVectors = false, includeMetadata = true, namespace } = options;
 
     // Validate query vector dimension
     if (vector.length !== entry.config.dimension) {
@@ -529,10 +524,7 @@ export class FaissAdapter extends BaseVectorStore<FaissConfig> {
    * Delete vectors from the index
    * Note: Uses lazy deletion (marks as deleted) since Faiss remove is expensive
    */
-  async delete(
-    indexName: string,
-    options: VectorDeleteOptions,
-  ): Promise<{ deletedCount: number }> {
+  async delete(indexName: string, options: VectorDeleteOptions): Promise<{ deletedCount: number }> {
     this.ensureInitialized();
 
     const entry = this.indexes.get(indexName);
@@ -670,12 +662,11 @@ export class FaissAdapter extends BaseVectorStore<FaissConfig> {
 
       logger.warn(
         `Index compaction not fully implemented for Faiss adapter. ` +
-        `Consider recreating the index with active data for optimal performance.`,
+          `Consider recreating the index with active data for optimal performance.`,
       );
 
       // Clear deleted IDs without actual compaction
       entry.deletedIds.clear();
-
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to compact index ${indexName}: ${message}`);
@@ -751,9 +742,7 @@ export class FaissAdapter extends BaseVectorStore<FaissConfig> {
       const module = await import(/* @vite-ignore */ modulePath);
       return module.default || module;
     } catch {
-      throw new Error(
-        "Faiss driver not found. Install faiss-node: npm install faiss-node",
-      );
+      throw new Error("Faiss driver not found. Install faiss-node: npm install faiss-node");
     }
   }
 
@@ -813,12 +802,8 @@ export class FaissAdapter extends BaseVectorStore<FaissConfig> {
       // Save metadata (convert Maps to objects for JSON serialization)
       const meta = {
         config: entry.config,
-        idMap: Object.fromEntries(
-          Array.from(entry.idMap.entries()).map(([k, v]) => [k, v.toString()]),
-        ),
-        reverseIdMap: Object.fromEntries(
-          Array.from(entry.reverseIdMap.entries()).map(([k, v]) => [k.toString(), v]),
-        ),
+        idMap: Object.fromEntries(Array.from(entry.idMap.entries()).map(([k, v]) => [k, v.toString()])),
+        reverseIdMap: Object.fromEntries(Array.from(entry.reverseIdMap.entries()).map(([k, v]) => [k.toString(), v])),
         metadataStore: Object.fromEntries(entry.metadataStore.entries()),
         nextId: entry.nextId.toString(),
         deletedIds: Array.from(entry.deletedIds),
@@ -845,9 +830,10 @@ export class FaissAdapter extends BaseVectorStore<FaissConfig> {
     switch (indexType) {
       case "flat": {
         // Exact search - use L2 or IP based on metric
-        const baseIndex = metricType === this.faiss.MetricType.METRIC_INNER_PRODUCT
-          ? new this.faiss.IndexFlatIP(dimension)
-          : new this.faiss.IndexFlatL2(dimension);
+        const baseIndex =
+          metricType === this.faiss.MetricType.METRIC_INNER_PRODUCT
+            ? new this.faiss.IndexFlatIP(dimension)
+            : new this.faiss.IndexFlatL2(dimension);
         // Wrap with IDMap for custom ID support
         return new this.faiss.IndexIDMap(baseIndex);
       }
@@ -855,9 +841,10 @@ export class FaissAdapter extends BaseVectorStore<FaissConfig> {
       case "ivf": {
         // IVF index for approximate search
         const nlist = this.config.nlist || 100;
-        const quantizer = metricType === this.faiss.MetricType.METRIC_INNER_PRODUCT
-          ? new this.faiss.IndexFlatIP(dimension)
-          : new this.faiss.IndexFlatL2(dimension);
+        const quantizer =
+          metricType === this.faiss.MetricType.METRIC_INNER_PRODUCT
+            ? new this.faiss.IndexFlatIP(dimension)
+            : new this.faiss.IndexFlatL2(dimension);
         const ivfIndex = new this.faiss.IndexIVFFlat(quantizer, dimension, nlist, metricType);
         return new this.faiss.IndexIDMap(ivfIndex);
       }
@@ -994,10 +981,10 @@ export class FaissAdapter extends BaseVectorStore<FaissConfig> {
           if (typeof value !== "number" || value > (filterValue as number)) return false;
           break;
         case "$in":
-          if (!Array.isArray(filterValue) || !filterValue.includes(value)) return false;
+          if (!Array.isArray(filterValue) || !(filterValue as unknown[]).includes(value)) return false;
           break;
         case "$nin":
-          if (Array.isArray(filterValue) && filterValue.includes(value)) return false;
+          if (Array.isArray(filterValue) && (filterValue as unknown[]).includes(value)) return false;
           break;
         case "$exists":
           if (filterValue && value === undefined) return false;

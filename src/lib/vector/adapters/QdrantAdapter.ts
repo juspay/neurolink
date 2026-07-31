@@ -19,19 +19,19 @@ import type { UnknownRecord } from "../../types/common.js";
 import { logger } from "../../utils/logger.js";
 import { BaseVectorStore } from "../BaseVectorStore.js";
 import type {
-  VectorStoreName,
-  VectorRecord,
-  VectorQueryResult,
+  FieldFilter,
+  MetadataFilter,
+  SimilarityMetric,
+  VectorDeleteOptions,
   VectorIndexConfig,
   VectorQueryOptions,
-  VectorUpsertOptions,
-  VectorDeleteOptions,
-  VectorStoreStats,
-  VectorStoreHealth,
-  MetadataFilter,
-  FieldFilter,
-  SimilarityMetric,
+  VectorQueryResult,
+  VectorRecord,
   VectorStoreConfig,
+  VectorStoreHealth,
+  VectorStoreName,
+  VectorStoreStats,
+  VectorUpsertOptions,
 } from "../types.js";
 
 /**
@@ -188,10 +188,12 @@ interface CollectionInfo {
   segments_count?: number;
   config?: {
     params?: {
-      vectors?: {
-        size?: number;
-        distance?: string;
-      } | Record<string, { size?: number; distance?: string }>;
+      vectors?:
+        | {
+            size?: number;
+            distance?: string;
+          }
+        | Record<string, { size?: number; distance?: string }>;
       shard_number?: number;
       replication_factor?: number;
       write_consistency_factor?: number;
@@ -436,9 +438,7 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
       const module = await import(/* @vite-ignore */ modulePath);
       return module.default || module;
     } catch {
-      throw new Error(
-        "Qdrant client not found. Install @qdrant/js-client-rest: npm install @qdrant/js-client-rest",
-      );
+      throw new Error("Qdrant client not found. Install @qdrant/js-client-rest: npm install @qdrant/js-client-rest");
     }
   };
 
@@ -554,9 +554,7 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
 
       // Add quantization if provided
       if (indexOptions?.quantization) {
-        vectorsConfig.quantization_config = this.buildQuantizationConfig(
-          indexOptions.quantization,
-        );
+        vectorsConfig.quantization_config = this.buildQuantizationConfig(indexOptions.quantization);
       }
 
       // Build collection parameters
@@ -730,15 +728,7 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
     this.ensureInitialized();
 
     const collectionName = this.sanitizeCollectionName(indexName);
-    const {
-      vector,
-      topK,
-      minScore,
-      filter,
-      includeVectors = false,
-      includeMetadata = true,
-      namespace,
-    } = options;
+    const { vector, topK, minScore, filter, includeVectors = false, includeMetadata = true, namespace } = options;
 
     try {
       // Build search parameters
@@ -777,15 +767,16 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
 
         if (includeVectors && result.vector) {
           // Handle both single vector and named vectors
-          queryResult.vector = Array.isArray(result.vector)
-            ? result.vector
-            : Object.values(result.vector)[0];
+          queryResult.vector = Array.isArray(result.vector) ? result.vector : Object.values(result.vector)[0];
         }
 
         if (includeMetadata && result.payload) {
           // Extract content and metadata
-          const { [QdrantAdapter.CONTENT_FIELD]: content, [QdrantAdapter.NAMESPACE_FIELD]: _, ...metadata } =
-            result.payload;
+          const {
+            [QdrantAdapter.CONTENT_FIELD]: content,
+            [QdrantAdapter.NAMESPACE_FIELD]: _,
+            ...metadata
+          } = result.payload;
           queryResult.content = content as string | undefined;
           queryResult.metadata = metadata as TMetadata;
         }
@@ -801,10 +792,7 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
   /**
    * Delete vectors from the collection
    */
-  async delete(
-    indexName: string,
-    options: VectorDeleteOptions,
-  ): Promise<{ deletedCount: number }> {
+  async delete(indexName: string, options: VectorDeleteOptions): Promise<{ deletedCount: number }> {
     this.ensureInitialized();
 
     const collectionName = this.sanitizeCollectionName(indexName);
@@ -827,7 +815,14 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
         // Get count before deletion
         const countResult = await this.client!.count(collectionName, {
           filter: namespace
-            ? { must: [{ key: QdrantAdapter.NAMESPACE_FIELD, match: { value: namespace } }] }
+            ? {
+                must: [
+                  {
+                    key: QdrantAdapter.NAMESPACE_FIELD,
+                    match: { value: namespace },
+                  },
+                ],
+              }
             : undefined,
         });
         deletedCount = countResult.count;
@@ -835,7 +830,12 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
         // Delete by filter (all or by namespace)
         if (namespace) {
           deleteParams.filter = {
-            must: [{ key: QdrantAdapter.NAMESPACE_FIELD, match: { value: namespace } }],
+            must: [
+              {
+                key: QdrantAdapter.NAMESPACE_FIELD,
+                match: { value: namespace },
+              },
+            ],
           };
         } else {
           // Delete all - use a filter that matches everything
@@ -861,10 +861,7 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
         // Get count before deletion
         const qdrantFilter = this.translateFilter(filter);
         if (qdrantFilter) {
-          const filterWithNamespace = this.combineFilters(
-            qdrantFilter as QdrantFilter,
-            namespace,
-          );
+          const filterWithNamespace = this.combineFilters(qdrantFilter as QdrantFilter, namespace);
           const countResult = await this.client!.count(collectionName, {
             filter: filterWithNamespace,
             exact: true,
@@ -906,12 +903,14 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
       let dimension: number | undefined;
       if (info.config?.params?.vectors) {
         const vectorsConfig = info.config.params.vectors;
-        if ("size" in vectorsConfig) {
+        if (typeof vectorsConfig === "number") {
+          dimension = vectorsConfig;
+        } else if ("size" in vectorsConfig && typeof vectorsConfig.size === "number") {
           dimension = vectorsConfig.size;
-        } else {
+        } else if (typeof vectorsConfig === "object") {
           // Named vectors - get the first one
           const firstVector = Object.values(vectorsConfig)[0];
-          dimension = firstVector?.size;
+          dimension = typeof firstVector === "object" ? firstVector?.size : undefined;
         }
       }
 
@@ -921,13 +920,11 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
       try {
         const scrollResult = await this.client!.scroll(collectionName, {
           limit: 1000,
-          with_payload: [QdrantAdapter.NAMESPACE_FIELD],
+          with_payload: true,
           with_vector: false,
         });
         const namespaces = new Set(
-          scrollResult.points
-            .map((p) => p.payload?.[QdrantAdapter.NAMESPACE_FIELD])
-            .filter(Boolean),
+          scrollResult.points.map((p) => p.payload?.[QdrantAdapter.NAMESPACE_FIELD]).filter(Boolean),
         );
         namespaceCount = namespaces.size;
       } catch {
@@ -996,9 +993,7 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
   /**
    * Translate abstract filter to Qdrant filter format
    */
-  protected translateFilter<TMetadata extends UnknownRecord>(
-    filter: MetadataFilter<TMetadata>,
-  ): QdrantFilter | null {
+  protected translateFilter<TMetadata extends UnknownRecord>(filter: MetadataFilter<TMetadata>): QdrantFilter | null {
     const must: QdrantCondition[] = [];
     const should: QdrantCondition[] = [];
     const mustNot: QdrantCondition[] = [];
@@ -1201,15 +1196,7 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
     this.ensureInitialized();
 
     const collectionName = this.sanitizeCollectionName(indexName);
-    const {
-      vector,
-      topK,
-      minScore,
-      filter,
-      includeVectors = false,
-      includeMetadata = true,
-      namespace,
-    } = options;
+    const { vector, topK, minScore, filter, includeVectors = false, includeMetadata = true, namespace } = options;
 
     try {
       const searchParams: SearchParams = {
@@ -1246,8 +1233,11 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
         }
 
         if (includeMetadata && result.payload) {
-          const { [QdrantAdapter.CONTENT_FIELD]: content, [QdrantAdapter.NAMESPACE_FIELD]: _, ...metadata } =
-            result.payload;
+          const {
+            [QdrantAdapter.CONTENT_FIELD]: content,
+            [QdrantAdapter.NAMESPACE_FIELD]: _,
+            ...metadata
+          } = result.payload;
           queryResult.content = content as string | undefined;
           queryResult.metadata = metadata as TMetadata;
         }
@@ -1310,14 +1300,15 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
         };
 
         if (options?.includeVectors && point.vector) {
-          queryResult.vector = Array.isArray(point.vector)
-            ? point.vector
-            : Object.values(point.vector)[0];
+          queryResult.vector = Array.isArray(point.vector) ? point.vector : Object.values(point.vector)[0];
         }
 
         if (options?.includeMetadata !== false && point.payload) {
-          const { [QdrantAdapter.CONTENT_FIELD]: content, [QdrantAdapter.NAMESPACE_FIELD]: _, ...metadata } =
-            point.payload;
+          const {
+            [QdrantAdapter.CONTENT_FIELD]: content,
+            [QdrantAdapter.NAMESPACE_FIELD]: _,
+            ...metadata
+          } = point.payload;
           queryResult.content = content as string | undefined;
           queryResult.metadata = metadata as TMetadata;
         }
@@ -1534,9 +1525,7 @@ export class QdrantAdapter extends BaseVectorStore<QdrantConfig> {
   /**
    * Build quantization configuration
    */
-  private buildQuantizationConfig(
-    quantization: QdrantQuantization,
-  ): QuantizationConfig {
+  private buildQuantizationConfig(quantization: QdrantQuantization): QuantizationConfig {
     const config: QuantizationConfig = {};
 
     switch (quantization.type) {

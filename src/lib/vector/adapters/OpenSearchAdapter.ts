@@ -12,18 +12,18 @@ import type { UnknownRecord } from "../../types/common.js";
 import { logger } from "../../utils/logger.js";
 import { BaseVectorStore } from "../BaseVectorStore.js";
 import type {
-  VectorStoreConfig,
-  VectorStoreName,
-  VectorRecord,
-  VectorQueryResult,
+  FieldFilter,
+  MetadataFilter,
+  SimilarityMetric,
+  VectorDeleteOptions,
   VectorIndexConfig,
   VectorQueryOptions,
-  VectorUpsertOptions,
-  VectorDeleteOptions,
+  VectorQueryResult,
+  VectorRecord,
+  VectorStoreConfig,
+  VectorStoreName,
   VectorStoreStats,
-  MetadataFilter,
-  FieldFilter,
-  SimilarityMetric,
+  VectorUpsertOptions,
 } from "../types.js";
 
 /**
@@ -119,11 +119,7 @@ export interface OpenSearchClient {
   cat: {
     indices: (params: { format: string }) => Promise<Array<{ index: string }>>;
   };
-  bulk: (params: {
-    index: string;
-    body: unknown[];
-    refresh?: boolean | "true" | "false" | "wait_for";
-  }) => Promise<{
+  bulk: (params: { index: string; body: unknown[]; refresh?: boolean | "true" | "false" | "wait_for" }) => Promise<{
     took: number;
     errors: boolean;
     items: Array<{
@@ -243,7 +239,7 @@ export class OpenSearchAdapter extends BaseVectorStore<OpenSearchConfig> {
         if (this.config.caPath) {
           // CA path would be loaded by the client
           clientConfig.ssl = {
-            ...clientConfig.ssl as object,
+            ...(clientConfig.ssl as object),
             ca: this.config.caPath,
           };
         }
@@ -323,7 +319,7 @@ export class OpenSearchAdapter extends BaseVectorStore<OpenSearchConfig> {
             number_of_shards: this.config.numberOfShards || 1,
             number_of_replicas: this.config.numberOfReplicas || 1,
             refresh_interval: this.config.refreshInterval || "1s",
-            ...(indexConfig as Record<string, unknown> || {}),
+            ...((indexConfig as Record<string, unknown>) || {}),
           },
           mappings: {
             properties: {
@@ -344,7 +340,11 @@ export class OpenSearchAdapter extends BaseVectorStore<OpenSearchConfig> {
       });
 
       this.indexDimensionCache.set(indexName, dimension);
-      logger.debug(`Created index ${indexName}`, { dimension, metric, knnEngine });
+      logger.debug(`Created index ${indexName}`, {
+        dimension,
+        metric,
+        knnEngine,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to create index ${name}: ${message}`);
@@ -360,7 +360,9 @@ export class OpenSearchAdapter extends BaseVectorStore<OpenSearchConfig> {
     const normalizedName = this.normalizeIndexName(indexName);
 
     try {
-      const exists = await this.client!.indices.exists({ index: normalizedName });
+      const exists = await this.client!.indices.exists({
+        index: normalizedName,
+      });
       if (!exists) {
         logger.debug(`Index ${normalizedName} does not exist`);
         return;
@@ -384,9 +386,7 @@ export class OpenSearchAdapter extends BaseVectorStore<OpenSearchConfig> {
     try {
       const response = await this.client!.cat.indices({ format: "json" });
       // Filter out system indexes (those starting with ".")
-      return response
-        .filter((idx) => !idx.index.startsWith("."))
-        .map((idx) => idx.index);
+      return response.filter((idx) => !idx.index.startsWith(".")).map((idx) => idx.index);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to list indexes: ${message}`);
@@ -401,7 +401,9 @@ export class OpenSearchAdapter extends BaseVectorStore<OpenSearchConfig> {
 
     try {
       const normalizedName = this.normalizeIndexName(indexName);
-      const response = await this.client!.indices.exists({ index: normalizedName });
+      const response = await this.client!.indices.exists({
+        index: normalizedName,
+      });
       return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -469,9 +471,7 @@ export class OpenSearchAdapter extends BaseVectorStore<OpenSearchConfig> {
         ).length;
 
         // Log first error for debugging
-        const firstError = response.items.find(
-          (item) => item.index?.error,
-        );
+        const firstError = response.items.find((item) => item.index?.error);
         if (firstError?.index?.error) {
           logger.warn(`Bulk upsert had errors: ${firstError.index.error.reason}`);
         }
@@ -497,15 +497,7 @@ export class OpenSearchAdapter extends BaseVectorStore<OpenSearchConfig> {
     this.ensureInitialized();
 
     const normalizedName = this.normalizeIndexName(indexName);
-    const {
-      vector,
-      topK,
-      minScore,
-      filter,
-      includeVectors = false,
-      includeMetadata = true,
-      namespace,
-    } = options;
+    const { vector, topK, minScore, filter, includeVectors = false, includeMetadata = true, namespace } = options;
 
     try {
       // Build k-NN query
@@ -594,10 +586,7 @@ export class OpenSearchAdapter extends BaseVectorStore<OpenSearchConfig> {
   /**
    * Delete vectors from the index
    */
-  async delete(
-    indexName: string,
-    options: VectorDeleteOptions,
-  ): Promise<{ deletedCount: number }> {
+  async delete(indexName: string, options: VectorDeleteOptions): Promise<{ deletedCount: number }> {
     this.ensureInitialized();
 
     const normalizedName = this.normalizeIndexName(indexName);
@@ -652,14 +641,18 @@ export class OpenSearchAdapter extends BaseVectorStore<OpenSearchConfig> {
 
     try {
       // Get index stats
-      const statsResponse = await this.client!.indices.stats({ index: normalizedName });
+      const statsResponse = await this.client!.indices.stats({
+        index: normalizedName,
+      });
       const indexStats = statsResponse._all.primaries;
 
       // Get dimension from mapping
       let dimension: number | undefined = this.indexDimensionCache.get(normalizedName);
 
       if (!dimension) {
-        const mappingResponse = await this.client!.indices.getMapping({ index: normalizedName });
+        const mappingResponse = await this.client!.indices.getMapping({
+          index: normalizedName,
+        });
         const mapping = Object.values(mappingResponse)[0];
         const vectorMapping = mapping?.mappings?.properties?.vector;
         dimension = vectorMapping?.dimension;
@@ -677,7 +670,7 @@ export class OpenSearchAdapter extends BaseVectorStore<OpenSearchConfig> {
           body: {
             size: 0,
             query: { match_all: {} },
-            _source: false,
+            _source: [] as string[],
           },
         });
         namespaceCount = namespaceAgg.hits.total.value > 0 ? 1 : 0;
@@ -710,16 +703,12 @@ export class OpenSearchAdapter extends BaseVectorStore<OpenSearchConfig> {
 
     for (const [key, value] of Object.entries(filter)) {
       if (key === "$and" && Array.isArray(value)) {
-        const subConditions = value.map((f) =>
-          this.translateFilter(f as MetadataFilter),
-        );
+        const subConditions = value.map((f) => this.translateFilter(f as MetadataFilter));
         conditions.push({
           bool: { must: subConditions },
         });
       } else if (key === "$or" && Array.isArray(value)) {
-        const subConditions = value.map((f) =>
-          this.translateFilter(f as MetadataFilter),
-        );
+        const subConditions = value.map((f) => this.translateFilter(f as MetadataFilter));
         conditions.push({
           bool: { should: subConditions, minimum_should_match: 1 },
         });
@@ -729,10 +718,7 @@ export class OpenSearchAdapter extends BaseVectorStore<OpenSearchConfig> {
           bool: { must_not: [subCondition] },
         });
       } else if (this.isFieldFilter(value)) {
-        const fieldCondition = this.translateFieldFilter(
-          `metadata.${key}`,
-          value as FieldFilter,
-        );
+        const fieldCondition = this.translateFieldFilter(`metadata.${key}`, value as FieldFilter);
         conditions.push(fieldCondition);
       } else {
         // Simple equality
@@ -887,10 +873,7 @@ export class OpenSearchAdapter extends BaseVectorStore<OpenSearchConfig> {
   /**
    * Translate a field filter to OpenSearch query
    */
-  private translateFieldFilter(
-    field: string,
-    filter: FieldFilter,
-  ): Record<string, unknown> {
+  private translateFieldFilter(field: string, filter: FieldFilter): Record<string, unknown> {
     const conditions: Record<string, unknown>[] = [];
 
     for (const [op, val] of Object.entries(filter)) {

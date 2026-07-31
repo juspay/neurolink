@@ -36,29 +36,25 @@
 import { AIProviderFactory } from "./core/factory.js";
 export { AIProviderFactory };
 
-// Export ALL types from the centralized type barrel
-export * from "./types/index.js";
-
-// Tool Registration utility
-export { validateTool } from "./sdk/toolRegistration.js";
-
 export {
   AIProviderName,
   BedrockModels,
   OpenAIModels,
   VertexModels,
 } from "./constants/enums.js";
-
-// Utility exports
-export {
-  getBestProvider,
-  getAvailableProviders,
-  isValidProvider,
-} from "./utils/providerUtils.js";
-
 // Dynamic Models exports
 export { dynamicModelProvider } from "./core/dynamicModels.js";
+// Tool Registration utility
+export { validateTool } from "./sdk/toolRegistration.js";
+// Export ALL types from the centralized type barrel
+export * from "./types/index.js";
 export type { DynamicModelConfig, ModelRegistry } from "./types/modelTypes.js";
+// Utility exports
+export {
+  getAvailableProviders,
+  getBestProvider,
+  isValidProvider,
+} from "./utils/providerUtils.js";
 
 // Main NeuroLink wrapper class and diagnostic types
 import { NeuroLink } from "./neurolink.js";
@@ -67,24 +63,21 @@ export type { MCPServerInfo } from "./types/mcpTypes.js";
 
 // Observability configuration types
 export type {
-  ObservabilityConfig,
   LangfuseConfig,
+  ObservabilityConfig,
   OpenTelemetryConfig,
 } from "./types/observability.js";
 
 export { buildObservabilityConfigFromEnv } from "./utils/observabilityHelpers.js";
 
 import {
-  initializeOpenTelemetry,
-  shutdownOpenTelemetry,
   flushOpenTelemetry,
   getLangfuseHealthStatus,
+  initializeOpenTelemetry,
   setLangfuseContext,
+  shutdownOpenTelemetry,
 } from "./services/server/ai/observability/instrumentation.js";
-import {
-  initializeTelemetry as init,
-  getTelemetryStatus as getStatus,
-} from "./telemetry/index.js";
+import { getTelemetryStatus as getStatus, initializeTelemetry as init } from "./telemetry/index.js";
 
 export {
   initializeOpenTelemetry,
@@ -94,15 +87,15 @@ export {
   setLangfuseContext,
 };
 
+export { MiddlewareFactory } from "./middleware/factory.js";
 // Middleware exports
 export type {
-  NeuroLinkMiddleware,
+  MiddlewareConfig,
   MiddlewareContext,
   MiddlewareFactoryOptions,
   MiddlewarePreset,
-  MiddlewareConfig,
+  NeuroLinkMiddleware,
 } from "./types/middlewareTypes.js";
-export { MiddlewareFactory } from "./middleware/factory.js";
 
 // Version
 export const VERSION = "1.0.0";
@@ -138,14 +131,8 @@ export const VERSION = "1.0.0";
  * @see {@link NeuroLink} for the main SDK class
  * @since 1.0.0
  */
-export async function createAIProvider(
-  providerName?: string,
-  modelName?: string,
-) {
-  return await AIProviderFactory.createProvider(
-    providerName || "bedrock",
-    modelName,
-  );
+export async function createAIProvider(providerName?: string, modelName?: string) {
+  return await AIProviderFactory.createProvider(providerName || "bedrock", modelName);
 }
 
 /**
@@ -240,14 +227,8 @@ export async function createAIProviderWithFallback(
  * @see {@link getBestProvider} for provider detection utility
  * @since 1.0.0
  */
-export async function createBestAIProvider(
-  requestedProvider?: string,
-  modelName?: string,
-) {
-  return await AIProviderFactory.createBestProvider(
-    requestedProvider,
-    modelName,
-  );
+export async function createBestAIProvider(requestedProvider?: string, modelName?: string) {
+  return await AIProviderFactory.createBestProvider(requestedProvider, modelName);
 }
 
 // ============================================================================
@@ -273,106 +254,106 @@ export async function createBestAIProvider(
  * ```
  */
 export {
-  // Core classes
-  BaseVectorStore,
-  VectorStoreFactory,
-  VectorStoreRegistry,
-  // Cloud store implementations
-  PineconeStore,
-  type PineconeConfig,
-  QdrantStore,
-  type QdrantConfig,
-  WeaviateStore,
-  type WeaviateConfig,
-  UpstashStore,
-  type UpstashConfig,
-  CloudflareVectorizeStore,
-  type CloudflareVectorizeConfig,
-  AstraStore,
   type AstraConfig,
-  // Database store implementations
-  ElasticsearchStore,
-  type ElasticsearchConfig,
-  MongoDBStore,
-  type MongoDBConfig,
-  OpenSearchStore,
-  type OpenSearchConfig,
-  PgvectorStore,
-  type PgvectorConfig,
-  // Embedded store implementations
-  ChromaStore,
-  type ChromaConfig,
-  DuckDBStore,
-  type DuckDBConfig,
-  LanceStore,
-  type LanceConfig,
-  LibSQLStore,
-  type LibSQLConfig,
+  AstraStore,
+  type AwsOpensearchConfig,
+  AwsOpensearchStore,
+  type AzureAiSearchConfig,
   // Enterprise store implementations
   AzureAiSearchStore,
-  type AzureAiSearchConfig,
-  VertexVectorSearchStore,
-  type VertexVectorSearchConfig,
-  AwsOpensearchStore,
-  type AwsOpensearchConfig,
-  CouchbaseStore,
+  // Core classes
+  BaseVectorStore,
+  binaryQuantize,
+  type ChromaConfig,
+  // Embedded store implementations
+  ChromaStore,
+  type CloudflareVectorizeConfig,
+  CloudflareVectorizeStore,
   type CouchbaseConfig,
-  VespaStore,
-  type VespaConfig,
-  MarqoStore,
+  CouchbaseStore,
+  cosineSimilarity,
+  type DuckDBConfig,
+  type DuckDBFilterResult,
+  DuckDBStore,
+  dotProduct,
+  type ElasticsearchConfig,
+  // Database store implementations
+  ElasticsearchStore,
+  euclideanDistance,
+  type HybridSearchOptions,
+  hammingDistance,
+  type LanceConfig,
+  LanceStore,
+  type LibSQLConfig,
+  type LibSQLFilterResult,
+  LibSQLStore,
+  linearCombination,
   type MarqoConfig,
-  MilvusStore,
+  MarqoStore,
   type MilvusConfig,
-  ZillizStore,
-  type ZillizConfig,
+  MilvusStore,
+  type MongoDBConfig,
+  MongoDBStore,
+  maximalMarginalRelevance,
+  normalizeScores,
+  type OpenSearchConfig,
+  OpenSearchStore,
+  type PgvectorConfig,
+  type PgvectorFilterResult,
+  PgvectorStore,
+  type PineconeConfig,
+  // Cloud store implementations
+  PineconeStore,
+  processBatches,
+  type QdrantConfig,
+  QdrantStore,
+  type RankedResult,
+  type RRFOptions,
+  // Search optimization
+  reciprocalRankFusion,
+  rescoreResults,
+  type SparseSearchResult,
+  scalarQuantize,
+  sparseToRankingMap,
+  splitIntoBatches,
+  toRankingMap,
+  translateToAstra,
+  translateToAwsOpensearch,
+  translateToAzureAiSearch,
   // Filter translation utilities
   translateToChroma,
+  translateToCloudflare,
+  translateToCouchbase,
   translateToDuckDB,
   translateToElasticsearch,
   translateToLance,
   translateToLibSQL,
+  translateToMarqo,
   translateToMilvus,
   translateToMongoDB,
   translateToOpenSearch,
   translateToPgvector,
   translateToPinecone,
   translateToQdrant,
-  translateToWeaviate,
-  translateToAzureAiSearch,
-  translateToVertexVectorSearch,
-  translateToAwsOpensearch,
-  translateToCouchbase,
-  translateToVespa,
-  translateToMarqo,
   translateToUpstash,
-  translateToCloudflare,
-  translateToAstra,
-  type DuckDBFilterResult,
-  type LibSQLFilterResult,
-  type PgvectorFilterResult,
-  // Search optimization
-  reciprocalRankFusion,
-  linearCombination,
-  cosineSimilarity,
-  euclideanDistance,
-  dotProduct,
-  rescoreResults,
-  maximalMarginalRelevance,
-  normalizeScores,
-  zScoreNormalize,
-  scalarQuantize,
-  binaryQuantize,
-  hammingDistance,
-  splitIntoBatches,
-  processBatches,
-  toRankingMap,
-  sparseToRankingMap,
+  translateToVertexVectorSearch,
+  translateToVespa,
+  translateToWeaviate,
+  type UpstashConfig,
+  UpstashStore,
   // Types re-exported for convenience
   type VectorStoreConfig,
-  type RRFOptions,
-  type RankedResult,
-  type SparseSearchResult,
-  type HybridSearchOptions,
+  VectorStoreFactory,
+  VectorStoreRegistry,
+  type VertexVectorSearchConfig,
+  VertexVectorSearchStore,
+  type VespaConfig,
+  VespaStore,
+  type WeaviateConfig,
+  WeaviateStore,
+  type ZillizConfig,
+  ZillizStore,
+  zScoreNormalize,
 } from "./stores/index.js";
 
 // ============================================================================
@@ -406,92 +387,94 @@ export {
  * ```
  */
 export {
+  AstraDBAdapter,
+  type AstraDBConfig,
+  // Enterprise adapters
+  AzureAISearchAdapter,
+  type AzureAISearchConfig as AzureSearchAdapterConfig,
   // Core classes (aliased to avoid conflicts with stores/ exports)
   BaseVectorStore as VectorBaseStore,
-  VectorStoreFactory as VectorAdapterFactory,
-  VectorStoreFactoryImpl,
-  VectorStoreRegistry as VectorAdapterRegistry,
-  VectorStoreRegistryImpl,
+  // Embedded/Local adapters
+  ChromaAdapter,
+  type ChromaConfig as ChromaAdapterConfig,
+  CloudflareVectorizeAdapter,
+  type CloudflareVectorizeConfig as CloudflareAdapterConfig,
+  CouchbaseAdapter,
+  type CouchbaseConfig as CouchbaseAdapterConfig,
+  DuckDBAdapter,
+  ElasticsearchAdapter,
+  type ElasticsearchConfig as ElasticsearchAdapterConfig,
+  FaissAdapter,
+  type FaissConfig as FaissAdapterConfig,
+  LanceDBAdapter,
+  LibSQLAdapter,
+  type LibSQLConfig as LibSQLAdapterConfig,
+  MilvusAdapter,
+  type MilvusConfig as MilvusAdapterConfig,
+  type MilvusIndexParams,
+  type MilvusIndexType,
+  type MilvusSearchParams,
+  MongoDBAtlasAdapter,
+  type MongoDBAtlasConfig,
+  OpenSearchAdapter,
+  type OpenSearchClient,
+  type OpenSearchConfig as OpenSearchAdapterConfig,
+  // Database adapters
+  PgvectorAdapter,
+  type PgvectorConfig as PgvectorAdapterConfig,
+  type PgvectorIndexOptions,
+  type PgvectorIndexType,
+  type PgvectorSSLConfig,
   // Cloud adapters
   PineconeAdapter,
-  type PineconeConfig as PineconeAdapterConfig,
-  type PineconeServerlessSpec,
-  type PineconePodsSpec,
-  type PineconeIndexSpec,
-  type PineconeIndexOptions,
-  type SparseVector,
   type PineconeClientFactory,
+  type PineconeConfig as PineconeAdapterConfig,
+  type PineconeIndexOptions,
+  type PineconeIndexSpec,
+  type PineconePodsSpec,
+  type PineconeServerlessSpec,
   QdrantAdapter,
+  type QdrantClientFactory,
   type QdrantConfig as QdrantAdapterConfig,
   type QdrantDistance,
   type QdrantIndexOptions,
   type QdrantQuantization,
   type QdrantSearchParams,
-  type QdrantClientFactory,
-  WeaviateAdapter,
-  type WeaviateConfig as WeaviateAdapterConfig,
-  type WeaviateClientFactory,
-  AstraDBAdapter,
-  type AstraDBConfig,
-  UpstashVectorAdapter,
-  type UpstashVectorConfig,
-  CloudflareVectorizeAdapter,
-  type CloudflareVectorizeConfig as CloudflareAdapterConfig,
-  // Database adapters
-  PgvectorAdapter,
-  type PgvectorConfig as PgvectorAdapterConfig,
-  type PgvectorSSLConfig,
-  type PgvectorIndexType,
-  type PgvectorIndexOptions,
-  ElasticsearchAdapter,
-  type ElasticsearchConfig as ElasticsearchAdapterConfig,
-  OpenSearchAdapter,
-  type OpenSearchConfig as OpenSearchAdapterConfig,
-  type OpenSearchClient,
-  MongoDBAtlasAdapter,
-  type MongoDBAtlasConfig,
-  RedisVectorAdapter,
-  type RedisVectorConfig,
   type RedisIndexAlgorithm,
   type RedisIndexOptions,
-  // Embedded/Local adapters
-  ChromaAdapter,
-  type ChromaConfig as ChromaAdapterConfig,
-  FaissAdapter,
-  type FaissConfig as FaissAdapterConfig,
+  RedisVectorAdapter,
+  type RedisVectorConfig,
+  type SparseVector,
   SQLiteVSSAdapter,
-  LibSQLAdapter,
-  type LibSQLConfig as LibSQLAdapterConfig,
-  DuckDBAdapter,
-  LanceDBAdapter,
-  // Enterprise adapters
-  AzureAISearchAdapter,
-  type AzureAISearchConfig as AzureSearchAdapterConfig,
+  UpstashVectorAdapter,
+  type UpstashVectorConfig,
+  VectorStoreFactory as VectorAdapterFactory,
+  VectorStoreFactoryImpl,
+  VectorStoreRegistry as VectorAdapterRegistry,
+  VectorStoreRegistryImpl,
   VertexVectorSearchAdapter,
   type VertexVectorSearchConfig as VertexSearchAdapterConfig,
-  MilvusAdapter,
-  type MilvusConfig as MilvusAdapterConfig,
-  type MilvusIndexType,
-  type MilvusIndexParams,
-  type MilvusSearchParams,
-  CouchbaseAdapter,
-  type CouchbaseConfig as CouchbaseAdapterConfig,
+  WeaviateAdapter,
+  type WeaviateClientFactory,
+  type WeaviateConfig as WeaviateAdapterConfig,
   ZillizAdapter,
   type ZillizConfig as ZillizAdapterConfig,
 } from "./vector/index.js";
 
 // Re-export vector types
 export type {
-  VectorStoreType,
-  VectorMetadata,
-  VectorSearchResult,
+  MetadataFilter,
+  SimilarityMetric,
+  VectorDeleteOptions,
+  VectorIndexConfig,
+  VectorQueryOptions,
+  VectorQueryResult,
+  VectorRecord,
   VectorStoreConfig as VectorAdapterStoreConfig,
-  CreateIndexOptions,
-  SearchOptions,
-  VectorEntry,
-  IndexInfo,
-  IndexStats,
-  BatchOperationResult,
+  VectorStoreHealth,
+  VectorStoreName,
+  VectorStoreStats,
+  VectorUpsertOptions,
 } from "./vector/types.js";
 
 // ============================================================================
@@ -519,21 +502,21 @@ export type {
 export {
   // Core classes
   BaseEmbeddingProvider,
-  EmbeddingProviderFactory,
-  EmbeddingProviderRegistry,
-  // Provider implementations
-  OpenAIEmbeddingProvider,
   CohereEmbeddingProvider,
-  VoyageEmbeddingProvider,
   // Convenience functions
   createEmbeddingProvider,
-  embedText,
-  embedTexts,
   // Constants
   EMBEDDING_MODELS,
   EMBEDDING_PRESETS,
+  EmbeddingProviderFactory,
+  EmbeddingProviderRegistry,
+  embedText,
+  embedTexts,
   getEmbeddingModelInfo,
   getModelsForProvider,
+  // Provider implementations
+  OpenAIEmbeddingProvider,
+  VoyageEmbeddingProvider,
 } from "./embeddings/index.js";
 
 // ============================================================================
@@ -562,53 +545,53 @@ export {
  * ```
  */
 export {
+  CircuitBreakerManager,
+  calculateExpiresAt,
+  createOAuthProviderFromConfig,
+  DEFAULT_HTTP_RETRY_CONFIG,
+  DEFAULT_RATE_LIMIT_CONFIG,
+  executeMCP,
+  FileTokenStorage,
+  getMCPStats,
+  globalCircuitBreakerManager,
+  globalRateLimiterManager,
+  // HTTP Transport utilities
+  HTTPRateLimiter,
+  // OAuth Authentication
+  InMemoryTokenStorage,
   // Core MCP ecosystem
   // Simplified MCP exports
   initializeMCPEcosystem,
-  listMCPs,
-  executeMCP,
-  getMCPStats,
-  mcpLogger,
-  // HTTP Transport utilities
-  HTTPRateLimiter,
-  RateLimiterManager,
-  globalRateLimiterManager,
-  DEFAULT_RATE_LIMIT_CONFIG,
-  DEFAULT_HTTP_RETRY_CONFIG,
-  isRetryableStatusCode,
   isRetryableHTTPError,
-  withHTTPRetry,
-  // OAuth Authentication
-  InMemoryTokenStorage,
-  FileTokenStorage,
+  isRetryableStatusCode,
   isTokenExpired,
-  calculateExpiresAt,
-  NeuroLinkOAuthProvider,
-  createOAuthProviderFromConfig,
+  listMCPs,
   // Circuit Breaker
   MCPCircuitBreaker,
-  CircuitBreakerManager,
-  globalCircuitBreakerManager,
+  mcpLogger,
+  NeuroLinkOAuthProvider,
+  RateLimiterManager,
+  withHTTPRetry,
 } from "./mcp/index.js";
 
 export type {
-  McpMetadata,
+  AuthorizationUrlResult,
   DiscoveredMcp,
+  HTTPRetryConfig,
+  MCPOAuthConfig,
+  McpMetadata,
+  OAuthClientInformation,
+  OAuthTokens,
   // HTTP Transport types
   RateLimitConfig,
-  HTTPRetryConfig,
-  OAuthTokens,
-  TokenStorage,
-  MCPOAuthConfig,
-  OAuthClientInformation,
-  AuthorizationUrlResult,
   TokenExchangeRequest,
+  TokenStorage,
 } from "./types/mcpTypes.js";
 
 export type {
   ExecutionContext,
-  ToolInfo,
   ToolExecutionResult,
+  ToolInfo,
 } from "./types/tools.js";
 
 export type { LogLevel } from "./types/utilities.js";
@@ -647,10 +630,10 @@ export async function getTelemetryStatus(): Promise<{
 
 // Export legacy types for backward compatibility
 export type {
-  TextGenerationOptions,
-  TextGenerationResult,
   AnalyticsData,
   EvaluationData,
+  TextGenerationOptions,
+  TextGenerationResult,
 } from "./types/index.js";
 
 /**

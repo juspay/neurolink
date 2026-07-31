@@ -1,0 +1,224 @@
+{
+  "description": "Metadata filter test cases covering all operators supported by NeuroLink vector stores",
+  "version": "1.0.0",
+  "operators": {
+    "$eq": {
+      "description": "Equality comparison",
+      "testCases": [
+        {
+          "name": "string equality",
+          "filter": { "category": { "$eq": "technology" } },
+          "expectedIds": ["doc-001", "doc-002", "doc-003", "doc-004", "doc-005", "doc-007"]
+        },
+        {
+          "name": "number equality",
+          "filter": { "year": { "$eq": 2023 } },
+          "expectedIds": ["doc-001", "doc-004", "doc-007", "doc-009"]
+        },
+        {
+          "name": "boolean equality",
+          "filter": { "published": { "$eq": true } },
+          "expectedIds": ["doc-001", "doc-002", "doc-004", "doc-005", "doc-006", "doc-007", "doc-008", "doc-010"]
+        }
+      ]
+    },
+    "$ne": {
+      "description": "Not equal comparison",
+      "testCases": [
+        {
+          "name": "string not equal",
+          "filter": { "category": { "$ne": "technology" } },
+          "expectedIds": ["doc-006", "doc-008", "doc-009", "doc-010"]
+        },
+        {
+          "name": "boolean not equal",
+          "filter": { "published": { "$ne": false } },
+          "expectedIds": ["doc-001", "doc-002", "doc-004", "doc-005", "doc-006", "doc-007", "doc-008", "doc-010"]
+        }
+      ]
+    },
+    "$gt": {
+      "description": "Greater than comparison",
+      "testCases": [
+        {
+          "name": "number greater than",
+          "filter": { "year": { "$gt": 2022 } },
+          "expectedIds": ["doc-001", "doc-003", "doc-004", "doc-006", "doc-007", "doc-009", "doc-010"]
+        },
+        {
+          "name": "rating greater than",
+          "filter": { "rating": { "$gt": 4.5 } },
+          "expectedIds": ["doc-002", "doc-005", "doc-006", "doc-010"]
+        }
+      ]
+    },
+    "$gte": {
+      "description": "Greater than or equal comparison",
+      "testCases": [
+        {
+          "name": "year greater than or equal",
+          "filter": { "year": { "$gte": 2023 } },
+          "expectedIds": ["doc-001", "doc-003", "doc-004", "doc-006", "doc-007", "doc-009", "doc-010"]
+        },
+        {
+          "name": "rating greater than or equal",
+          "filter": { "rating": { "$gte": 4.5 } },
+          "expectedIds": ["doc-001", "doc-002", "doc-005", "doc-006", "doc-010"]
+        }
+      ]
+    },
+    "$lt": {
+      "description": "Less than comparison",
+      "testCases": [
+        {
+          "name": "year less than",
+          "filter": { "year": { "$lt": 2023 } },
+          "expectedIds": ["doc-002", "doc-005", "doc-008"]
+        },
+        {
+          "name": "rating less than",
+          "filter": { "rating": { "$lt": 4.2 } },
+          "expectedIds": ["doc-004", "doc-008"]
+        }
+      ]
+    },
+    "$lte": {
+      "description": "Less than or equal comparison",
+      "testCases": [
+        {
+          "name": "year less than or equal",
+          "filter": { "year": { "$lte": 2022 } },
+          "expectedIds": ["doc-002", "doc-005", "doc-008"]
+        },
+        {
+          "name": "rating less than or equal",
+          "filter": { "rating": { "$lte": 4.2 } },
+          "expectedIds": ["doc-003", "doc-004", "doc-008"]
+        }
+      ]
+    },
+    "$in": {
+      "description": "Value in array comparison",
+      "testCases": [
+        {
+          "name": "category in list",
+          "filter": { "category": { "$in": ["technology", "database"] } },
+          "expectedIds": ["doc-001", "doc-002", "doc-003", "doc-004", "doc-005", "doc-006", "doc-007"]
+        },
+        {
+          "name": "year in list",
+          "filter": { "year": { "$in": [2021, 2024] } },
+          "expectedIds": ["doc-003", "doc-005", "doc-006", "doc-010"]
+        }
+      ]
+    },
+    "$nin": {
+      "description": "Value not in array comparison",
+      "testCases": [
+        {
+          "name": "category not in list",
+          "filter": { "category": { "$nin": ["technology", "database"] } },
+          "expectedIds": ["doc-008", "doc-009", "doc-010"]
+        },
+        {
+          "name": "year not in list",
+          "filter": { "year": { "$nin": [2023, 2024] } },
+          "expectedIds": ["doc-002", "doc-005", "doc-008"]
+        }
+      ]
+    },
+    "$and": {
+      "description": "Logical AND combination",
+      "testCases": [
+        {
+          "name": "category AND year",
+          "filter": {
+            "$and": [{ "category": { "$eq": "technology" } }, { "year": { "$gte": 2023 } }]
+          },
+          "expectedIds": ["doc-001", "doc-003", "doc-004", "doc-007"]
+        },
+        {
+          "name": "published AND high rating",
+          "filter": {
+            "$and": [{ "published": { "$eq": true } }, { "rating": { "$gte": 4.5 } }]
+          },
+          "expectedIds": ["doc-001", "doc-002", "doc-005", "doc-006", "doc-010"]
+        }
+      ]
+    },
+    "$or": {
+      "description": "Logical OR combination",
+      "testCases": [
+        {
+          "name": "database OR algorithm category",
+          "filter": {
+            "$or": [{ "category": { "$eq": "database" } }, { "category": { "$eq": "algorithm" } }]
+          },
+          "expectedIds": ["doc-006", "doc-008", "doc-009"]
+        },
+        {
+          "name": "year 2021 OR 2024",
+          "filter": {
+            "$or": [{ "year": { "$eq": 2021 } }, { "year": { "$eq": 2024 } }]
+          },
+          "expectedIds": ["doc-003", "doc-005", "doc-006", "doc-010"]
+        }
+      ]
+    },
+    "$not": {
+      "description": "Logical NOT negation",
+      "testCases": [
+        {
+          "name": "not technology category",
+          "filter": {
+            "$not": { "category": { "$eq": "technology" } }
+          },
+          "expectedIds": ["doc-006", "doc-008", "doc-009", "doc-010"]
+        },
+        {
+          "name": "not published",
+          "filter": {
+            "$not": { "published": { "$eq": true } }
+          },
+          "expectedIds": ["doc-003", "doc-009"]
+        }
+      ]
+    }
+  },
+  "complexFilters": [
+    {
+      "name": "nested AND with OR",
+      "description": "Technology category AND (year >= 2023 OR high rating)",
+      "filter": {
+        "$and": [
+          { "category": { "$eq": "technology" } },
+          {
+            "$or": [{ "year": { "$gte": 2023 } }, { "rating": { "$gte": 4.7 } }]
+          }
+        ]
+      },
+      "expectedIds": ["doc-001", "doc-002", "doc-003", "doc-004", "doc-005", "doc-007"]
+    },
+    {
+      "name": "multi-field range query",
+      "description": "Year between 2022-2023 AND rating between 4.0-4.6",
+      "filter": {
+        "$and": [
+          { "year": { "$gte": 2022 } },
+          { "year": { "$lte": 2023 } },
+          { "rating": { "$gte": 4.0 } },
+          { "rating": { "$lte": 4.6 } }
+        ]
+      },
+      "expectedIds": ["doc-001", "doc-004", "doc-007", "doc-008", "doc-009"]
+    },
+    {
+      "name": "exclusion filter",
+      "description": "Published documents NOT in algorithm category",
+      "filter": {
+        "$and": [{ "published": { "$eq": true } }, { "$not": { "category": { "$eq": "algorithm" } } }]
+      },
+      "expectedIds": ["doc-001", "doc-002", "doc-004", "doc-005", "doc-006", "doc-007", "doc-010"]
+    }
+  ]
+}
