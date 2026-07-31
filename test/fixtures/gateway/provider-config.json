@@ -1,0 +1,64 @@
+{
+  "providers": {
+    "openai": {
+      "name": "OpenAI",
+      "envVar": "OPENAI_API_KEY",
+      "directRouting": true,
+      "models": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"]
+    },
+    "anthropic": {
+      "name": "Anthropic",
+      "envVar": "ANTHROPIC_API_KEY",
+      "directRouting": true,
+      "models": ["claude-3-5-sonnet", "claude-3-opus", "claude-3-haiku"]
+    },
+    "google": {
+      "name": "Google AI Studio",
+      "envVar": "GOOGLE_AI_STUDIO_API_KEY",
+      "directRouting": true,
+      "models": ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash"]
+    },
+    "vertex": {
+      "name": "Google Vertex AI",
+      "envVar": "GOOGLE_CLOUD_PROJECT",
+      "directRouting": true,
+      "models": ["gemini-1.5-pro", "gemini-1.5-flash"]
+    },
+    "mistral": {
+      "name": "Mistral AI",
+      "envVar": "MISTRAL_API_KEY",
+      "directRouting": true,
+      "models": ["mistral-large", "mistral-medium", "mistral-small"]
+    },
+    "groq": {
+      "name": "Groq",
+      "envVar": "GROQ_API_KEY",
+      "directRouting": false,
+      "gatewayOnly": true,
+      "models": ["llama-3.1-70b", "mixtral-8x7b"]
+    },
+    "cohere": {
+      "name": "Cohere",
+      "envVar": "COHERE_API_KEY",
+      "directRouting": false,
+      "gatewayOnly": true,
+      "models": ["command-r-plus", "command-r"]
+    }
+  },
+  "gateways": {
+    "openrouter": {
+      "name": "OpenRouter",
+      "envVar": "OPENROUTER_API_KEY",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "supportsAll": true
+    },
+    "litellm": {
+      "name": "LiteLLM",
+      "envVar": "LITELLM_API_KEY",
+      "baseUrl": "http://localhost:4000",
+      "selfHosted": true
+    }
+  },
+  "defaultProvider": "vertex",
+  "defaultGateway": "openrouter"
+}

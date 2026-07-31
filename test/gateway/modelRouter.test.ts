@@ -25,18 +25,28 @@ import {
 } from "../../src/lib/gateway/providerMapper.js";
 import { resetGlobalCache } from "../../src/lib/gateway/registryCache.js";
 import { resetGlobalFetcher } from "../../src/lib/gateway/registryFetcher.js";
-import { ConfigurationError, MissingApiKeyError } from "../../src/lib/gateway/errors.js";
+import {
+  ConfigurationError,
+  MissingApiKeyError,
+} from "../../src/lib/gateway/errors.js";
 import type { LanguageModelV1 } from "ai";
 
 // Mock dependencies
 vi.mock("../../src/lib/gateway/registryFetcher.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/lib/gateway/registryFetcher.js")>();
+  const actual =
+    await importOriginal<
+      typeof import("../../src/lib/gateway/registryFetcher.js")
+    >();
   return {
     ...actual,
     getGlobalFetcher: vi.fn(() => ({
       getModels: vi.fn().mockResolvedValue([
         { id: "openai/gpt-4o", provider: "openai", modelName: "gpt-4o" },
-        { id: "anthropic/claude-3", provider: "anthropic", modelName: "claude-3" },
+        {
+          id: "anthropic/claude-3",
+          provider: "anthropic",
+          modelName: "claude-3",
+        },
       ]),
       searchModels: vi.fn().mockResolvedValue([]),
       getModel: vi.fn().mockResolvedValue({
@@ -50,10 +60,12 @@ vi.mock("../../src/lib/gateway/registryFetcher.js", async (importOriginal) => {
 });
 
 vi.mock("@ai-sdk/openai", () => ({
-  createOpenAI: vi.fn(() => vi.fn().mockReturnValue({
-    modelId: "test-model",
-    provider: "test-provider",
-  } as unknown as LanguageModelV1)),
+  createOpenAI: vi.fn(() =>
+    vi.fn().mockReturnValue({
+      modelId: "test-model",
+      provider: "test-provider",
+    } as unknown as LanguageModelV1),
+  ),
 }));
 
 describe("ModelRouter", () => {
@@ -307,9 +319,9 @@ describe("ModelRouter", () => {
       delete process.env.OPENROUTER_API_KEY;
 
       try {
-        expect(() => router.createOpenRouterModel("anthropic/claude-3")).toThrow(
-          MissingApiKeyError
-        );
+        expect(() =>
+          router.createOpenRouterModel("anthropic/claude-3"),
+        ).toThrow(MissingApiKeyError);
       } finally {
         if (originalEnv) {
           process.env.OPENROUTER_API_KEY = originalEnv;
@@ -333,7 +345,7 @@ describe("ModelRouter", () => {
               "HTTP-Referer": expect.any(String),
               "X-Title": expect.any(String),
             }),
-          })
+          }),
         );
       } finally {
         if (originalEnv) {
@@ -365,7 +377,7 @@ describe("ModelRouter", () => {
         expect(createOpenAI).toHaveBeenCalledWith(
           expect.objectContaining({
             baseURL: expect.stringContaining("localhost:4000"),
-          })
+          }),
         );
       } finally {
         if (originalEnv) {
@@ -384,7 +396,10 @@ describe("ModelRouter", () => {
     });
 
     it("should check model capabilities", async () => {
-      const supportsChat = await router.supportsCapability("openai/gpt-4o", "chat");
+      const supportsChat = await router.supportsCapability(
+        "openai/gpt-4o",
+        "chat",
+      );
 
       expect(supportsChat).toBe(true);
     });

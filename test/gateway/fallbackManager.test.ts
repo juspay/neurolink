@@ -18,7 +18,10 @@ import type { LanguageModelV1 } from "ai";
 
 // Mock the modelRouter module
 vi.mock("../../src/lib/gateway/modelRouter.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/lib/gateway/modelRouter.js")>();
+  const actual =
+    await importOriginal<
+      typeof import("../../src/lib/gateway/modelRouter.js")
+    >();
   return {
     ...actual,
     getGlobalRouter: vi.fn(() => ({
@@ -51,7 +54,7 @@ describe("FallbackManager", () => {
       const result = await manager.executeWithFallback(
         "openai/gpt-4o",
         operation,
-        { models: [], retries: 0, retryDelayMs: 0 }
+        { models: [], retries: 0, retryDelayMs: 0 },
       );
 
       expect(result.result).toBe("success");
@@ -70,7 +73,7 @@ describe("FallbackManager", () => {
       const result = await manager.executeWithFallback(
         "openai/gpt-4o",
         operation,
-        { models: ["anthropic/claude-3"], retries: 0, retryDelayMs: 0 }
+        { models: ["anthropic/claude-3"], retries: 0, retryDelayMs: 0 },
       );
 
       expect(result.result).toBe("fallback success");
@@ -89,7 +92,7 @@ describe("FallbackManager", () => {
       const result = await manager.executeWithFallback(
         "openai/gpt-4o",
         operation,
-        { models: [], retries: 1, retryDelayMs: 10 }
+        { models: [], retries: 1, retryDelayMs: 10 },
       );
 
       expect(result.result).toBe("retry success");
@@ -108,7 +111,7 @@ describe("FallbackManager", () => {
           models: [],
           retries: 2,
           retryDelayMs: 10,
-        })
+        }),
       ).rejects.toThrow(FallbackExhaustedError);
 
       // Should only have one attempt since 401 is non-retriable
@@ -143,7 +146,11 @@ describe("FallbackManager", () => {
       const result = await manager.executeWithFallback(
         "openai/gpt-4o",
         operation,
-        { models: ["anthropic/claude-3", "google/gemini"], retries: 0, retryDelayMs: 0 }
+        {
+          models: ["anthropic/claude-3", "google/gemini"],
+          retries: 0,
+          retryDelayMs: 0,
+        },
       );
 
       expect(result.attempts.length).toBe(3);
@@ -164,7 +171,7 @@ describe("FallbackManager", () => {
       const result = await manager.executeWithFallback(
         "openai/gpt-4o",
         operation,
-        { models: ["anthropic/claude-3"], retries: 0, retryDelayMs: 0 }
+        { models: ["anthropic/claude-3"], retries: 0, retryDelayMs: 0 },
       );
 
       expect(result.modelUsed).toBe("anthropic/claude-3");
@@ -180,14 +187,17 @@ describe("FallbackManager", () => {
           models: ["anthropic/claude-3"],
           retries: 0,
           retryDelayMs: 0,
-        })
+        }),
       ).rejects.toThrow(FallbackExhaustedError);
     });
 
     it("should respect timeout configuration", async () => {
-      const slowOperation = vi.fn().mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve("slow"), 200))
-      );
+      const slowOperation = vi
+        .fn()
+        .mockImplementation(
+          () =>
+            new Promise((resolve) => setTimeout(() => resolve("slow"), 200)),
+        );
 
       await expect(
         manager.executeWithFallback("openai/gpt-4o", slowOperation, {
@@ -195,7 +205,7 @@ describe("FallbackManager", () => {
           retries: 0,
           retryDelayMs: 0,
           timeout: 50,
-        })
+        }),
       ).rejects.toThrow(/timed out/i);
     });
   });
@@ -205,11 +215,15 @@ describe("FallbackManager", () => {
       const model = await manager.createModelWithFallback("openai/gpt-4o", []);
 
       expect(model).toBeDefined();
-      expect((model as unknown as { modelId: string }).modelId).toBe("test-model");
+      expect((model as unknown as { modelId: string }).modelId).toBe(
+        "test-model",
+      );
     });
 
     it("should try fallback models on creation failure", async () => {
-      const { getGlobalRouter } = await import("../../src/lib/gateway/modelRouter.js");
+      const { getGlobalRouter } = await import(
+        "../../src/lib/gateway/modelRouter.js"
+      );
       const mockRouter = {
         createModel: vi
           .fn()
@@ -217,46 +231,66 @@ describe("FallbackManager", () => {
           .mockResolvedValueOnce({ modelId: "fallback-model" }),
         reset: vi.fn(),
       };
-      vi.mocked(getGlobalRouter).mockReturnValue(mockRouter as unknown as ReturnType<typeof getGlobalRouter>);
+      vi.mocked(getGlobalRouter).mockReturnValue(
+        mockRouter as unknown as ReturnType<typeof getGlobalRouter>,
+      );
 
       const model = await manager.createModelWithFallback("openai/gpt-4o", [
         "anthropic/claude-3",
       ]);
 
       expect(model).toBeDefined();
-      expect((model as unknown as { modelId: string }).modelId).toBe("fallback-model");
+      expect((model as unknown as { modelId: string }).modelId).toBe(
+        "fallback-model",
+      );
       expect(mockRouter.createModel).toHaveBeenCalledTimes(2);
     });
 
     it("should throw error when all models fail to create", async () => {
-      const { getGlobalRouter } = await import("../../src/lib/gateway/modelRouter.js");
+      const { getGlobalRouter } = await import(
+        "../../src/lib/gateway/modelRouter.js"
+      );
       const mockRouter = {
         createModel: vi.fn().mockRejectedValue(new Error("Creation failed")),
         reset: vi.fn(),
       };
-      vi.mocked(getGlobalRouter).mockReturnValue(mockRouter as unknown as ReturnType<typeof getGlobalRouter>);
+      vi.mocked(getGlobalRouter).mockReturnValue(
+        mockRouter as unknown as ReturnType<typeof getGlobalRouter>,
+      );
 
       await expect(
-        manager.createModelWithFallback("openai/gpt-4o", ["anthropic/claude-3"])
+        manager.createModelWithFallback("openai/gpt-4o", [
+          "anthropic/claude-3",
+        ]),
       ).rejects.toThrow(FallbackExhaustedError);
     });
   });
 
   describe("isRetriableError", () => {
     it("should identify rate limit errors as retriable", () => {
-      expect(manager.isRetriableError(new Error("rate limit exceeded"))).toBe(true);
-      expect(manager.isRetriableError(new Error("429 Too Many Requests"))).toBe(true);
+      expect(manager.isRetriableError(new Error("rate limit exceeded"))).toBe(
+        true,
+      );
+      expect(manager.isRetriableError(new Error("429 Too Many Requests"))).toBe(
+        true,
+      );
     });
 
     it("should identify timeout errors as retriable", () => {
       expect(manager.isRetriableError(new Error("timeout"))).toBe(true);
-      expect(manager.isRetriableError(new Error("Request timed out"))).toBe(true);
+      expect(manager.isRetriableError(new Error("Request timed out"))).toBe(
+        true,
+      );
       expect(manager.isRetriableError(new Error("ETIMEDOUT"))).toBe(true);
     });
 
     it("should identify 503 errors as retriable", () => {
-      expect(manager.isRetriableError(new Error("503 Service Unavailable"))).toBe(true);
-      expect(manager.isRetriableError(new Error("service unavailable"))).toBe(true);
+      expect(
+        manager.isRetriableError(new Error("503 Service Unavailable")),
+      ).toBe(true);
+      expect(manager.isRetriableError(new Error("service unavailable"))).toBe(
+        true,
+      );
     });
 
     it("should identify 502 errors as retriable", () => {
@@ -264,43 +298,64 @@ describe("FallbackManager", () => {
     });
 
     it("should identify overloaded errors as retriable", () => {
-      expect(manager.isRetriableError(new Error("server overloaded"))).toBe(true);
-      expect(manager.isRetriableError(new Error("temporarily unavailable"))).toBe(true);
+      expect(manager.isRetriableError(new Error("server overloaded"))).toBe(
+        true,
+      );
+      expect(
+        manager.isRetriableError(new Error("temporarily unavailable")),
+      ).toBe(true);
     });
 
     it("should not retry invalid API key errors", () => {
-      expect(manager.isRetriableError(new Error("invalid api key"))).toBe(false);
+      expect(manager.isRetriableError(new Error("invalid api key"))).toBe(
+        false,
+      );
     });
 
     it("should not retry unauthorized errors", () => {
       expect(manager.isRetriableError(new Error("unauthorized"))).toBe(false);
-      expect(manager.isRetriableError(new Error("401 Unauthorized"))).toBe(false);
-      expect(manager.isRetriableError(new Error("authentication failed"))).toBe(false);
+      expect(manager.isRetriableError(new Error("401 Unauthorized"))).toBe(
+        false,
+      );
+      expect(manager.isRetriableError(new Error("authentication failed"))).toBe(
+        false,
+      );
     });
 
     it("should not retry model not found errors", () => {
-      expect(manager.isRetriableError(new Error("model not found"))).toBe(false);
+      expect(manager.isRetriableError(new Error("model not found"))).toBe(
+        false,
+      );
       expect(manager.isRetriableError(new Error("invalid model"))).toBe(false);
       expect(manager.isRetriableError(new Error("404 Not Found"))).toBe(false);
     });
 
     it("should not retry 400 bad request errors", () => {
       expect(manager.isRetriableError(new Error("bad request"))).toBe(false);
-      expect(manager.isRetriableError(new Error("400 Bad Request"))).toBe(false);
-      expect(manager.isRetriableError(new Error("invalid request"))).toBe(false);
+      expect(manager.isRetriableError(new Error("400 Bad Request"))).toBe(
+        false,
+      );
+      expect(manager.isRetriableError(new Error("invalid request"))).toBe(
+        false,
+      );
     });
 
     it("should default to retriable for unknown errors", () => {
-      expect(manager.isRetriableError(new Error("Something unexpected happened"))).toBe(true);
+      expect(
+        manager.isRetriableError(new Error("Something unexpected happened")),
+      ).toBe(true);
       expect(manager.isRetriableError(new Error("Unknown error"))).toBe(true);
     });
   });
 
   describe("timeout handling", () => {
     it("should timeout operations that exceed limit", async () => {
-      const slowOperation = vi.fn().mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve("slow"), 500))
-      );
+      const slowOperation = vi
+        .fn()
+        .mockImplementation(
+          () =>
+            new Promise((resolve) => setTimeout(() => resolve("slow"), 500)),
+        );
 
       await expect(
         manager.executeWithFallback("openai/gpt-4o", slowOperation, {
@@ -308,7 +363,7 @@ describe("FallbackManager", () => {
           retries: 0,
           retryDelayMs: 0,
           timeout: 50,
-        })
+        }),
       ).rejects.toThrow(/timed out after 50ms/i);
     });
 
@@ -318,7 +373,7 @@ describe("FallbackManager", () => {
       const result = await manager.executeWithFallback(
         "openai/gpt-4o",
         normalOperation,
-        { models: [], retries: 0, retryDelayMs: 0, timeout: undefined }
+        { models: [], retries: 0, retryDelayMs: 0, timeout: undefined },
       );
 
       expect(result.result).toBe("success");

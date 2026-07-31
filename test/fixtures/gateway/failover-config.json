@@ -1,0 +1,80 @@
+{
+  "testScenarios": {
+    "singleFallback": {
+      "primary": "openai/gpt-4o",
+      "fallbacks": ["anthropic/claude-3-5-sonnet"],
+      "retries": 2,
+      "retryDelayMs": 1000,
+      "description": "Single fallback model with 2 retries"
+    },
+    "chainedFallback": {
+      "primary": "openai/gpt-4o",
+      "fallbacks": ["anthropic/claude-3-5-sonnet", "google/gemini-1.5-pro", "mistral/mistral-large"],
+      "retries": 1,
+      "retryDelayMs": 500,
+      "description": "Chained fallback through 4 models"
+    },
+    "sameFamilyFallback": {
+      "primary": "openai/gpt-4o",
+      "fallbacks": ["openai/gpt-4o-mini", "openai/gpt-4-turbo"],
+      "retries": 2,
+      "retryDelayMs": 1000,
+      "description": "Fallback within same provider family"
+    },
+    "crossProviderFallback": {
+      "primary": "groq/llama-3.1-70b",
+      "fallbacks": ["anthropic/claude-3-haiku", "google/gemini-1.5-flash"],
+      "retries": 1,
+      "retryDelayMs": 500,
+      "description": "Cross-provider fallback for rate limit handling"
+    },
+    "noFallback": {
+      "primary": "openai/gpt-4o",
+      "fallbacks": [],
+      "retries": 3,
+      "retryDelayMs": 2000,
+      "description": "Retry only, no fallback models"
+    }
+  },
+  "errorSimulation": {
+    "rateLimitError": {
+      "statusCode": 429,
+      "message": "Rate limit exceeded",
+      "isRetriable": true,
+      "shouldTriggerFallback": false
+    },
+    "serverError": {
+      "statusCode": 500,
+      "message": "Internal server error",
+      "isRetriable": true,
+      "shouldTriggerFallback": true
+    },
+    "modelNotFoundError": {
+      "statusCode": 404,
+      "message": "Model not found",
+      "isRetriable": false,
+      "shouldTriggerFallback": true
+    },
+    "authenticationError": {
+      "statusCode": 401,
+      "message": "Invalid API key",
+      "isRetriable": false,
+      "shouldTriggerFallback": true
+    },
+    "timeoutError": {
+      "statusCode": 408,
+      "message": "Request timeout",
+      "isRetriable": true,
+      "shouldTriggerFallback": false
+    }
+  },
+  "retryStrategy": {
+    "exponentialBackoff": {
+      "baseDelay": 1000,
+      "maxDelay": 30000,
+      "factor": 2
+    },
+    "maxAttempts": 3,
+    "jitter": true
+  }
+}

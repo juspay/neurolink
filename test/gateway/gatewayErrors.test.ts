@@ -181,10 +181,7 @@ describe("Gateway Errors", () => {
         new Error("Error 2"),
         new Error("Error 3"),
       ];
-      const error = new FallbackExhaustedError(
-        ["m1", "m2", "m3"],
-        errors,
-      );
+      const error = new FallbackExhaustedError(["m1", "m2", "m3"], errors);
       expect(error.errors).toEqual(errors);
       expect(error.context?.errorCount).toBe(3);
     });

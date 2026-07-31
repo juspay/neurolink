@@ -8,7 +8,10 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { GatewayProvider } from "../../src/lib/gateway/gatewayProvider.js";
-import { GatewayError, GatewayDisabledError } from "../../src/lib/gateway/errors.js";
+import {
+  GatewayError,
+  GatewayDisabledError,
+} from "../../src/lib/gateway/errors.js";
 import { resetGlobalRouter } from "../../src/lib/gateway/modelRouter.js";
 import { resetGlobalFallbackManager } from "../../src/lib/gateway/fallbackManager.js";
 import { parseModelString } from "../../src/lib/gateway/modelStringParser.js";
@@ -17,7 +20,10 @@ import type { ModelSelectorContext } from "../../src/lib/gateway/types.js";
 
 // Mock the gateway modules
 vi.mock("../../src/lib/gateway/modelRouter.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/lib/gateway/modelRouter.js")>();
+  const actual =
+    await importOriginal<
+      typeof import("../../src/lib/gateway/modelRouter.js")
+    >();
   return {
     ...actual,
     getGlobalRouter: vi.fn(() => ({
@@ -36,14 +42,16 @@ vi.mock("../../src/lib/gateway/modelRouter.js", async (importOriginal) => {
           functionCalling: true,
         },
       }),
-      getAvailableModels: vi.fn().mockResolvedValue([
-        "openai/gpt-4o",
-        "anthropic/claude-3",
-        "google/gemini-1.5-pro",
-      ]),
-      searchModels: vi.fn().mockResolvedValue([
-        { id: "openai/gpt-4o", provider: "openai" },
-      ]),
+      getAvailableModels: vi
+        .fn()
+        .mockResolvedValue([
+          "openai/gpt-4o",
+          "anthropic/claude-3",
+          "google/gemini-1.5-pro",
+        ]),
+      searchModels: vi
+        .fn()
+        .mockResolvedValue([{ id: "openai/gpt-4o", provider: "openai" }]),
       supportsCapability: vi.fn().mockResolvedValue(true),
       reset: vi.fn(),
     })),
@@ -52,15 +60,20 @@ vi.mock("../../src/lib/gateway/modelRouter.js", async (importOriginal) => {
 });
 
 vi.mock("../../src/lib/gateway/fallbackManager.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/lib/gateway/fallbackManager.js")>();
+  const actual =
+    await importOriginal<
+      typeof import("../../src/lib/gateway/fallbackManager.js")
+    >();
   return {
     ...actual,
     getGlobalFallbackManager: vi.fn(() => ({
-      executeWithFallback: vi.fn().mockImplementation(async (_model, operation) => ({
-        result: await operation({} as LanguageModelV1),
-        modelUsed: _model,
-        attempts: [{ model: _model, attempt: 1, duration: 100 }],
-      })),
+      executeWithFallback: vi
+        .fn()
+        .mockImplementation(async (_model, operation) => ({
+          result: await operation({} as LanguageModelV1),
+          modelUsed: _model,
+          attempts: [{ model: _model, attempt: 1, duration: 100 }],
+        })),
       createModelWithFallback: vi.fn().mockResolvedValue({
         modelId: "test-model",
       } as unknown as LanguageModelV1),
@@ -71,7 +84,8 @@ vi.mock("../../src/lib/gateway/fallbackManager.js", async (importOriginal) => {
 });
 
 vi.mock("../../src/lib/gateway/constants.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/lib/gateway/constants.js")>();
+  const actual =
+    await importOriginal<typeof import("../../src/lib/gateway/constants.js")>();
   return {
     ...actual,
     GATEWAY_ENABLED: true,
@@ -356,8 +370,12 @@ describe("GatewayProvider", () => {
       expect(parseModelString("openai/gpt-4o").provider).toBe("openai");
       expect(parseModelString("anthropic/claude-3").provider).toBe("anthropic");
       expect(parseModelString("google/gemini-1.5-pro").provider).toBe("google");
-      expect(parseModelString("mistral/mistral-large").provider).toBe("mistral");
-      expect(parseModelString("meta-llama/llama-3").provider).toBe("meta-llama");
+      expect(parseModelString("mistral/mistral-large").provider).toBe(
+        "mistral",
+      );
+      expect(parseModelString("meta-llama/llama-3").provider).toBe(
+        "meta-llama",
+      );
     });
 
     it("should handle models without explicit provider", () => {

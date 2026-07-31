@@ -48,7 +48,7 @@ describe("RegistryFetcher", () => {
     resetGlobalCache();
     resetGlobalFetcher();
     fetcher = new RegistryFetcher({ cacheEnabled: false });
-    
+
     // Mock global fetch
     global.fetch = vi.fn((url: string | URL) => {
       const urlStr = url.toString();

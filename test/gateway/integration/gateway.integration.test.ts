@@ -17,7 +17,10 @@ import type { LanguageModelV1 } from "ai";
 
 // Mock the gateway modules for unit testing
 vi.mock("../../../src/lib/gateway/modelRouter.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../src/lib/gateway/modelRouter.js")>();
+  const actual =
+    await importOriginal<
+      typeof import("../../../src/lib/gateway/modelRouter.js")
+    >();
   return {
     ...actual,
     getGlobalRouter: vi.fn(() => ({
@@ -33,7 +36,9 @@ vi.mock("../../../src/lib/gateway/modelRouter.js", async (importOriginal) => {
         displayName: "GPT-4o",
         capabilities: { chat: true, streaming: true },
       }),
-      getAvailableModels: vi.fn().mockResolvedValue(["openai/gpt-4o", "anthropic/claude-3"]),
+      getAvailableModels: vi
+        .fn()
+        .mockResolvedValue(["openai/gpt-4o", "anthropic/claude-3"]),
       searchModels: vi.fn().mockResolvedValue([]),
       supportsCapability: vi.fn().mockResolvedValue(true),
       reset: vi.fn(),
@@ -42,47 +47,68 @@ vi.mock("../../../src/lib/gateway/modelRouter.js", async (importOriginal) => {
   };
 });
 
-vi.mock("../../../src/lib/gateway/fallbackManager.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../src/lib/gateway/fallbackManager.js")>();
-  return {
-    ...actual,
-    getGlobalFallbackManager: vi.fn(() => ({
-      executeWithFallback: vi.fn().mockImplementation(async (_model, operation) => ({
-        result: await operation({} as LanguageModelV1),
-        modelUsed: _model,
-        attempts: [{ model: _model, attempt: 1, duration: 100 }],
+vi.mock(
+  "../../../src/lib/gateway/fallbackManager.js",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("../../../src/lib/gateway/fallbackManager.js")
+      >();
+    return {
+      ...actual,
+      getGlobalFallbackManager: vi.fn(() => ({
+        executeWithFallback: vi
+          .fn()
+          .mockImplementation(async (_model, operation) => ({
+            result: await operation({} as LanguageModelV1),
+            modelUsed: _model,
+            attempts: [{ model: _model, attempt: 1, duration: 100 }],
+          })),
+        createModelWithFallback: vi.fn().mockResolvedValue({
+          modelId: "test-model",
+        } as unknown as LanguageModelV1),
+        isRetriableError: vi.fn().mockReturnValue(true),
       })),
-      createModelWithFallback: vi.fn().mockResolvedValue({
-        modelId: "test-model",
-      } as unknown as LanguageModelV1),
-      isRetriableError: vi.fn().mockReturnValue(true),
-    })),
-    resetGlobalFallbackManager: vi.fn(),
-  };
-});
+      resetGlobalFallbackManager: vi.fn(),
+    };
+  },
+);
 
-vi.mock("../../../src/lib/gateway/registryFetcher.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../src/lib/gateway/registryFetcher.js")>();
-  return {
-    ...actual,
-    getGlobalFetcher: vi.fn(() => ({
-      getModels: vi.fn().mockResolvedValue([
-        { id: "openai/gpt-4o", provider: "openai", modelName: "gpt-4o" },
-        { id: "anthropic/claude-3", provider: "anthropic", modelName: "claude-3" },
-      ]),
-      searchModels: vi.fn().mockResolvedValue([]),
-      getModel: vi.fn().mockResolvedValue({
-        id: "openai/gpt-4o",
-        provider: "openai",
-        capabilities: { chat: true },
-      }),
-    })),
-    resetGlobalFetcher: vi.fn(),
-  };
-});
+vi.mock(
+  "../../../src/lib/gateway/registryFetcher.js",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("../../../src/lib/gateway/registryFetcher.js")
+      >();
+    return {
+      ...actual,
+      getGlobalFetcher: vi.fn(() => ({
+        getModels: vi.fn().mockResolvedValue([
+          { id: "openai/gpt-4o", provider: "openai", modelName: "gpt-4o" },
+          {
+            id: "anthropic/claude-3",
+            provider: "anthropic",
+            modelName: "claude-3",
+          },
+        ]),
+        searchModels: vi.fn().mockResolvedValue([]),
+        getModel: vi.fn().mockResolvedValue({
+          id: "openai/gpt-4o",
+          provider: "openai",
+          capabilities: { chat: true },
+        }),
+      })),
+      resetGlobalFetcher: vi.fn(),
+    };
+  },
+);
 
 vi.mock("../../../src/lib/gateway/constants.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../src/lib/gateway/constants.js")>();
+  const actual =
+    await importOriginal<
+      typeof import("../../../src/lib/gateway/constants.js")
+    >();
   return {
     ...actual,
     GATEWAY_ENABLED: true,

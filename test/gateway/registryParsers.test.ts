@@ -184,7 +184,9 @@ describe("Registry Parsers", () => {
   describe("parseCustomRegistry", () => {
     it("should parse custom format with schema", () => {
       const data = {
-        models: [{ model_id: "test", provider_name: "openai", model_name: "GPT" }],
+        models: [
+          { model_id: "test", provider_name: "openai", model_name: "GPT" },
+        ],
       };
       const schema: CustomRegistrySchema = {
         modelsPath: "models",
@@ -265,10 +267,22 @@ describe("Registry Parsers", () => {
   describe("mergeModelSources", () => {
     it("should merge models from multiple sources", () => {
       const source1: GatewayModelInfo[] = [
-        { id: "m1", provider: "p1", modelName: "Model 1", displayName: "Model 1", capabilities: {} },
+        {
+          id: "m1",
+          provider: "p1",
+          modelName: "Model 1",
+          displayName: "Model 1",
+          capabilities: {},
+        },
       ];
       const source2: GatewayModelInfo[] = [
-        { id: "m2", provider: "p2", modelName: "Model 2", displayName: "Model 2", capabilities: {} },
+        {
+          id: "m2",
+          provider: "p2",
+          modelName: "Model 2",
+          displayName: "Model 2",
+          capabilities: {},
+        },
       ];
       const result = mergeModelSources([source1, source2]);
       expect(result).toHaveLength(2);
@@ -276,10 +290,22 @@ describe("Registry Parsers", () => {
 
     it("should deduplicate by model ID", () => {
       const source1: GatewayModelInfo[] = [
-        { id: "m1", provider: "p1", modelName: "Model 1", displayName: "V1", capabilities: {} },
+        {
+          id: "m1",
+          provider: "p1",
+          modelName: "Model 1",
+          displayName: "V1",
+          capabilities: {},
+        },
       ];
       const source2: GatewayModelInfo[] = [
-        { id: "m1", provider: "p1", modelName: "Model 1", displayName: "V2", capabilities: {} },
+        {
+          id: "m1",
+          provider: "p1",
+          modelName: "Model 1",
+          displayName: "V2",
+          capabilities: {},
+        },
       ];
       const result = mergeModelSources([source1, source2]);
       expect(result).toHaveLength(1);
@@ -288,10 +314,22 @@ describe("Registry Parsers", () => {
 
     it("should respect priority order", () => {
       const high: GatewayModelInfo[] = [
-        { id: "m1", provider: "p1", modelName: "High", displayName: "High", capabilities: {} },
+        {
+          id: "m1",
+          provider: "p1",
+          modelName: "High",
+          displayName: "High",
+          capabilities: {},
+        },
       ];
       const low: GatewayModelInfo[] = [
-        { id: "m1", provider: "p1", modelName: "Low", displayName: "Low", capabilities: {} },
+        {
+          id: "m1",
+          provider: "p1",
+          modelName: "Low",
+          displayName: "Low",
+          capabilities: {},
+        },
       ];
       const result = mergeModelSources([high, low], ["high", "low"]);
       expect(result[0].displayName).toBe("High");

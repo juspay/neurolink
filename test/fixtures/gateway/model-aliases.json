@@ -1,0 +1,64 @@
+{
+  "aliases": {
+    "gpt-4": "openai/gpt-4-turbo",
+    "gpt-4o": "openai/gpt-4o",
+    "gpt-4o-mini": "openai/gpt-4o-mini",
+    "claude": "anthropic/claude-3-5-sonnet",
+    "claude-sonnet": "anthropic/claude-3-5-sonnet",
+    "claude-opus": "anthropic/claude-3-opus",
+    "claude-haiku": "anthropic/claude-3-haiku",
+    "gemini": "google/gemini-1.5-pro",
+    "gemini-pro": "google/gemini-1.5-pro",
+    "gemini-flash": "google/gemini-1.5-flash",
+    "gemini-2": "google/gemini-2.0-flash",
+    "mistral": "mistral/mistral-large",
+    "mistral-large": "mistral/mistral-large",
+    "mixtral": "groq/mixtral-8x7b",
+    "llama": "groq/llama-3.1-70b",
+    "llama-70b": "groq/llama-3.1-70b",
+    "command": "cohere/command-r-plus",
+    "command-r": "cohere/command-r-plus"
+  },
+  "providerPrefixes": {
+    "openai": ["gpt-", "o1-", "text-"],
+    "anthropic": ["claude-"],
+    "google": ["gemini-", "palm-"],
+    "mistral": ["mistral-", "mixtral-", "codestral-"],
+    "meta": ["llama-"],
+    "cohere": ["command-", "embed-"]
+  },
+  "inferenceRules": [
+    {
+      "pattern": "^gpt-",
+      "provider": "openai"
+    },
+    {
+      "pattern": "^o1-",
+      "provider": "openai"
+    },
+    {
+      "pattern": "^claude-",
+      "provider": "anthropic"
+    },
+    {
+      "pattern": "^gemini-",
+      "provider": "google"
+    },
+    {
+      "pattern": "^mistral-",
+      "provider": "mistral"
+    },
+    {
+      "pattern": "^mixtral-",
+      "provider": "mistral"
+    },
+    {
+      "pattern": "^llama-",
+      "provider": "meta"
+    },
+    {
+      "pattern": "^command-",
+      "provider": "cohere"
+    }
+  ]
+}
