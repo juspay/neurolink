@@ -4383,7 +4383,7 @@ Current user's request: ${currentInput}`;
    * Curator P2-3: wraps a generate/stream call with the fallback
    * orchestration (`providerFallback` callback + `modelChain` walker).
    *
-   * On a model-access-denied error from the inner call:
+   * On a qualifying error from the inner call:
    *  1. Resolve the effective callback (per-call > instance > synthesised
    *     from modelChain) and the effective chain (per-call > instance).
    *  2. Walk attempts: invoke callback (or pop next chain entry) → emit
@@ -4391,6 +4391,12 @@ Current user's request: ${currentInput}`;
    *     model}.
    *  3. Stop on first success, on a callback returning null, or after
    *     exhausting the chain (throw the most recent error).
+   *
+   * What qualifies depends on how fallback was configured: an EXPLICIT
+   * `providerFallback` callback is consulted for any error except client
+   * aborts (the callback owns the decision — it receives the error
+   * unmodified and can return null to bubble), while modelChain-only
+   * configs keep the narrow model-access-denied gate.
    */
   private async runWithFallbackOrchestration<T>(
     optionsOrPrompt: GenerateOptions | DynamicOptions | string,
@@ -4402,11 +4408,9 @@ Current user's request: ${currentInput}`;
       return initialAttempt.ok;
     }
     let lastError = initialAttempt.error;
-    if (!looksLikeModelAccessDenied(lastError)) {
-      throw lastError;
-    }
 
-    // Build the chain orchestration.
+    // Resolve the fallback configuration BEFORE gating so the gate can
+    // distinguish an explicit callback from a modelChain-only setup.
     const requestedProvider = (
       typeof optionsOrPrompt === "object"
         ? (optionsOrPrompt as { provider?: string }).provider
@@ -4433,6 +4437,17 @@ Current user's request: ${currentInput}`;
     const effectiveCallback =
       perCallCallback ?? this.fallbackConfig.providerFallback;
     const effectiveChain = perCallChain ?? this.fallbackConfig.modelChain;
+
+    // Explicit callback (per-call or instance providerFallback): the callback
+    // owns the decision for any error except client aborts — it can return
+    // null to bubble. modelChain-only keeps the narrow model-access-denied
+    // gate so chain walkers don't retry errors the chain can't fix.
+    const shouldOrchestrateFallback = (err: unknown): boolean =>
+      effectiveCallback ? !isAbortError(err) : looksLikeModelAccessDenied(err);
+
+    if (!shouldOrchestrateFallback(lastError)) {
+      throw lastError;
+    }
 
     if (!effectiveCallback && !effectiveChain) {
       throw lastError;
@@ -4515,7 +4530,7 @@ Current user's request: ${currentInput}`;
       }
       lastError = retryAttempt.error;
       attemptedRequestedModel = next.model ?? attemptedRequestedModel;
-      if (!looksLikeModelAccessDenied(lastError)) {
+      if (!shouldOrchestrateFallback(lastError)) {
         throw lastError;
       }
     }

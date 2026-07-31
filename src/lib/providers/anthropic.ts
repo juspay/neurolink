@@ -948,6 +948,13 @@ export class AnthropicProvider extends BaseProvider {
       }
     }
 
+    if (usingProxy) {
+      // WAFs in front of ANTHROPIC_BASE_URL proxies commonly block the bare
+      // SDK UA ("Anthropic/JS x.y.z"); send the claude-cli UA the OAuth path
+      // already uses. Direct-to-Anthropic traffic keeps the honest SDK UA.
+      headers["User-Agent"] = CLAUDE_CLI_USER_AGENT;
+    }
+
     // Add subscription-specific headers if applicable
     if (this.subscriptionTier !== "api") {
       headers["x-subscription-tier"] = this.subscriptionTier;
