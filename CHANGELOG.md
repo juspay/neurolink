@@ -1,3 +1,9 @@
+## [10.8.2](https://github.com/juspay/neurolink/compare/v10.8.1...v10.8.2) (2026-07-31)
+
+### Bug Fixes
+
+- **(sdk):** anthropic proxy User-Agent spoof and non-abort providerFallback widening ([8fdc9bd](https://github.com/juspay/neurolink/commit/8fdc9bd98f8fe487898f9a4534dc2e354d3539bc))
+
 ## [10.8.1](https://github.com/juspay/neurolink/compare/v10.8.0...v10.8.1) (2026-07-30)
 
 ### Bug Fixes
