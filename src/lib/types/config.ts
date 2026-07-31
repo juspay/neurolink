@@ -45,10 +45,14 @@ export type NeuroLinkConfig = {
 };
 
 /**
- * Curator P2-3: callback signature for centralized fallback policy. Invoked
- * when a generate/stream call fails with what looks like a model-access-denied
- * error. Return `{ provider, model }` (either / both optional) to drive a
- * retry; return `null` to bubble the original error untouched.
+ * Curator P2-3: callback signature for centralized fallback policy. When an
+ * explicit callback is configured (per-call or instance), it is invoked for
+ * ANY error thrown by a generate/stream call except client aborts — network
+ * errors, 5xx, timeouts, auth failures included. The callback receives the
+ * error unmodified so hosts can classify it themselves (status codes,
+ * `isNonRetryableProviderError`, …). Return `{ provider, model }` (either /
+ * both optional) to drive a retry; return `null` to bubble the original
+ * error untouched.
  */
 export type ProviderFallbackCallback = (error: unknown) => Promise<{
   provider?: string;
@@ -84,16 +88,21 @@ export type NeurolinkConstructorConfig = {
    */
   credentials?: NeurolinkCredentials;
   /**
-   * Curator P2-3: callback invoked on model-access-denied. Lets a host (e.g.
-   * Curator) centrally drive fallback policy. The callback receives the
-   * original error and returns the next `{ provider, model }` to try, or
-   * `null` to bubble the error.
+   * Curator P2-3: callback invoked when a generate/stream call fails with
+   * any error except a client abort (network errors, 5xx, timeouts, auth
+   * failures, model-access-denied, …). Lets a host (e.g. Curator) centrally
+   * drive fallback policy — "provider A primary, provider B on failure".
+   * The callback receives the original error unmodified and returns the
+   * next `{ provider, model }` to try, or `null` to bubble the error.
    */
   providerFallback?: ProviderFallbackCallback;
   /**
-   * Curator P2-3: ordered list of model names to try in sequence on
-   * model-access-denied. Sugar over `providerFallback`. The current
-   * provider is preserved across the chain; only the model name changes.
+   * Curator P2-3: ordered list of model names to try in sequence. Sugar
+   * over `providerFallback`, but with a narrower trigger: without an
+   * explicit callback the chain only advances on model-access-denied
+   * errors — other failures (network, 5xx, timeouts) bubble immediately.
+   * The current provider is preserved across the chain; only the model
+   * name changes.
    */
   modelChain?: string[];
   /**

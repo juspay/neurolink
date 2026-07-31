@@ -648,6 +648,9 @@ export type GenerateOptions = {
   /**
    * Curator P2-3: per-call fallback callback. Overrides any
    * instance-level `providerFallback` set on `new NeuroLink({...})`.
+   * Invoked for any error except client aborts (network errors, 5xx,
+   * timeouts, auth failures, model-access-denied, …); receives the error
+   * unmodified. Return `{ provider, model }` to retry, `null` to bubble.
    */
   providerFallback?: (
     error: unknown,
@@ -655,7 +658,9 @@ export type GenerateOptions = {
 
   /**
    * Curator P2-3: per-call ordered model chain. Overrides any
-   * instance-level `modelChain`. Tried in order on model-access-denied.
+   * instance-level `modelChain`. Without an explicit `providerFallback`
+   * callback the chain only advances on model-access-denied errors —
+   * other failures (network, 5xx, timeouts) bubble immediately.
    */
   modelChain?: string[];
 
