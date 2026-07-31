@@ -1,3 +1,9 @@
+## [10.8.3](https://github.com/juspay/neurolink/compare/v10.8.2...v10.8.3) (2026-07-31)
+
+### Bug Fixes
+
+- **(sdk):** fast-fail provider errors to fallback orchestration ([2156f16](https://github.com/juspay/neurolink/commit/2156f166d275f5e62cfd1523b7ec1384b6f000df))
+
 ## [10.8.2](https://github.com/juspay/neurolink/compare/v10.8.1...v10.8.2) (2026-07-31)
 
 ### Bug Fixes
