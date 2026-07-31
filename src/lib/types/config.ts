@@ -47,12 +47,15 @@ export type NeuroLinkConfig = {
 /**
  * Curator P2-3: callback signature for centralized fallback policy. When an
  * explicit callback is configured (per-call or instance), it is invoked for
- * ANY error thrown by a generate/stream call except client aborts — network
- * errors, 5xx, timeouts, auth failures included. The callback receives the
- * error unmodified so hosts can classify it themselves (status codes,
- * `isNonRetryableProviderError`, …). Return `{ provider, model }` (either /
- * both optional) to drive a retry; return `null` to bubble the original
- * error untouched.
+ * ANY error thrown by a generate/stream call except genuine caller cancels —
+ * network errors, 5xx, timeouts, auth failures included. A caller cancel is
+ * identified by the caller-supplied `abortSignal` having fired, not by error
+ * shape: abort-shaped errors from NeuroLink's own turn/stall watchdogs and
+ * per-step timeouts DO invoke the callback, so provider hangs can fall back.
+ * The callback receives the error unmodified so hosts can classify it
+ * themselves (status codes, `isNonRetryableProviderError`, …). Return
+ * `{ provider, model }` (either / both optional) to drive a retry; return
+ * `null` to bubble the original error untouched.
  */
 export type ProviderFallbackCallback = (error: unknown) => Promise<{
   provider?: string;
@@ -89,11 +92,13 @@ export type NeurolinkConstructorConfig = {
   credentials?: NeurolinkCredentials;
   /**
    * Curator P2-3: callback invoked when a generate/stream call fails with
-   * any error except a client abort (network errors, 5xx, timeouts, auth
-   * failures, model-access-denied, …). Lets a host (e.g. Curator) centrally
-   * drive fallback policy — "provider A primary, provider B on failure".
-   * The callback receives the original error unmodified and returns the
-   * next `{ provider, model }` to try, or `null` to bubble the error.
+   * any error except a genuine caller cancel — i.e. the caller-supplied
+   * `abortSignal` fired (network errors, 5xx, timeouts, auth failures,
+   * model-access-denied, and internal watchdog aborts all invoke it). Lets
+   * a host (e.g. Curator) centrally drive fallback policy — "provider A
+   * primary, provider B on failure". The callback receives the original
+   * error unmodified and returns the next `{ provider, model }` to try, or
+   * `null` to bubble the error.
    */
   providerFallback?: ProviderFallbackCallback;
   /**

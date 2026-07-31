@@ -28,6 +28,10 @@ import type {
 } from "../types/index.js";
 import { isAbortError, NeuroLinkError } from "../utils/errorHandling.js";
 import {
+  duckTypedStatusCode,
+  extractRetryAfterMsFromError,
+} from "../utils/providerRetry.js";
+import {
   hasLifecycleErrorFired,
   markLifecycleErrorFired,
 } from "../utils/lifecycleCallbacks.js";
@@ -2112,6 +2116,37 @@ export abstract class BaseProvider implements AIProvider {
         : new DOMException("The operation was aborted", "AbortError");
     }
     const formatted = this.formatProviderError(error);
+
+    // Preserve transport retry metadata across formatting. Provider
+    // formatters return fresh Error instances (RateLimitError, NetworkError,
+    // …) that would otherwise destroy the classification upper layers need:
+    // performMCPGenerationRetries' isRetryable/status checks and
+    // providerRetry's Retry-After extraction. Copied generically so every
+    // provider's 429/5xx keeps its status and server-requested delay.
+    if (error && typeof error === "object" && formatted !== error) {
+      const src = error as { isRetryable?: unknown };
+      const dst = formatted as Error & {
+        statusCode?: number;
+        isRetryable?: boolean;
+        retryAfterMs?: number;
+      };
+      const statusCode = duckTypedStatusCode(error);
+      if (statusCode !== undefined && dst.statusCode === undefined) {
+        dst.statusCode = statusCode;
+      }
+      if (
+        typeof src.isRetryable === "boolean" &&
+        dst.isRetryable === undefined
+      ) {
+        dst.isRetryable = src.isRetryable;
+      }
+      if (dst.retryAfterMs === undefined) {
+        const retryAfterMs = extractRetryAfterMsFromError(error);
+        if (retryAfterMs !== undefined) {
+          dst.retryAfterMs = retryAfterMs;
+        }
+      }
+    }
 
     // Preserve the lifecycle-fired mark across formatting:
     // fireLifecycleErrorCallback() marks the ORIGINAL error in the shared

@@ -13,11 +13,15 @@
  *    keeps the honest SDK UA.
  *
  * 2. Fallback orchestration trigger widening — an EXPLICIT providerFallback
- *    callback (per-call or instance) is consulted for any error except client
- *    aborts; the callback owns the decision and can return null to bubble.
- *    modelChain-only configs keep the original narrow model-access-denied
- *    gate. Without the widening, a dead primary provider (network error, 5xx,
- *    timeout, auth failure) throws without ever consulting the callback.
+ *    callback (per-call or instance) is consulted for any error except a
+ *    genuine caller cancel (the caller-supplied abortSignal fired); the
+ *    callback owns the decision and can return null to bubble. Abort-shaped
+ *    errors WITHOUT a fired caller signal are internally initiated (turn/
+ *    stall watchdog, per-step timeout, SDK-normalized aborts) and DO consult
+ *    the callback. modelChain-only configs keep the original narrow
+ *    model-access-denied gate. Without the widening, a dead primary provider
+ *    (network error, 5xx, timeout, auth failure) throws without ever
+ *    consulting the callback.
  *
  * Run: npx tsx test/continuous-test-suite-provider-fallback.ts
  */
@@ -198,16 +202,19 @@ await test("callback returning null bubbles the original error", async () => {
   assertEqual(seenOpts.length, 1, "no retry after the callback declines");
 });
 
-await test("abort error does NOT invoke the callback", async () => {
+await test("caller abort (abortSignal fired) does NOT invoke the callback", async () => {
   const run = makeOrchestrator();
   const abortErr = abortError();
   const { inner, seenOpts } = makeInner([abortErr]);
+  const controller = new AbortController();
+  controller.abort();
   let callbackInvoked = false;
   let thrown: unknown;
   try {
     await run(
       {
         input: { text: "hi" },
+        abortSignal: controller.signal,
         providerFallback: async (): Promise<FallbackNext> => {
           callbackInvoked = true;
           return { model: "should-not-happen" };
@@ -219,9 +226,67 @@ await test("abort error does NOT invoke the callback", async () => {
   } catch (err) {
     thrown = err;
   }
-  assertEqual(callbackInvoked, false, "client aborts must bypass the callback");
+  assertEqual(
+    callbackInvoked,
+    false,
+    "genuine caller cancels must bypass the callback",
+  );
   assert(thrown === abortErr, "the abort error must be rethrown");
-  assertEqual(seenOpts.length, 1, "no retry on abort");
+  assertEqual(seenOpts.length, 1, "no retry on caller abort");
+});
+
+await test("abort-shaped error WITHOUT a fired caller signal invokes the callback (internal watchdog)", async () => {
+  const run = makeOrchestrator();
+  const abortErr = abortError();
+  const { inner, seenOpts } = makeInner([abortErr]);
+  const controller = new AbortController(); // NOT aborted — the caller did not cancel
+  const callbackErrors: unknown[] = [];
+  const result = (await run(
+    {
+      input: { text: "hi" },
+      abortSignal: controller.signal,
+      providerFallback: async (err: unknown): Promise<FallbackNext> => {
+        callbackErrors.push(err);
+        return { provider: "openai", model: "fallback-model" };
+      },
+    },
+    "generate",
+    inner,
+  )) as { text: string };
+
+  assertEqual(
+    callbackErrors.length,
+    1,
+    "internal watchdog aborts must consult the callback (provider hang fallback)",
+  );
+  assert(callbackErrors[0] === abortErr, "callback sees the original error");
+  assertEqual(seenOpts[1].provider, "openai", "retry uses returned provider");
+  assertEqual(result.text, "ok", "fallback succeeds after a watchdog abort");
+});
+
+await test("abort-shaped error with NO abortSignal in options invokes the callback", async () => {
+  const run = makeOrchestrator();
+  const { inner, seenOpts } = makeInner([abortError()]);
+  let callbackInvoked = false;
+  const result = (await run(
+    {
+      input: { text: "hi" },
+      providerFallback: async (): Promise<FallbackNext> => {
+        callbackInvoked = true;
+        return { model: "fallback-model" };
+      },
+    },
+    "generate",
+    inner,
+  )) as { text: string };
+
+  assertEqual(
+    callbackInvoked,
+    true,
+    "without a caller signal an abort shape cannot be a caller cancel",
+  );
+  assertEqual(seenOpts.length, 2, "one failed attempt + one retry");
+  assertEqual(result.text, "ok", "fallback succeeds");
 });
 
 await test("modelChain-only keeps the narrow gate: network error bubbles", async () => {

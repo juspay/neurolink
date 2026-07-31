@@ -729,6 +729,10 @@ const createVertexAnthropicSettings = async (
     projectId: project,
     region: location,
     ...(timeoutMs !== undefined && { timeout: timeoutMs }),
+    // The SDK's built-in retry honors Retry-After hints without any upper
+    // bound (a 429 with retry-after: 8549 sleeps 2.4h per retry, invisible
+    // to fallback orchestration). Retries are the orchestrator's job.
+    maxRetries: 0,
   };
 };
 

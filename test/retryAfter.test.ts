@@ -104,10 +104,10 @@ describe("provider retry timing", () => {
     expect(recordedDelays).toEqual([10_000]);
   });
 
-  it("caps a Retry-After delay at two minutes", async () => {
+  it("honors a Retry-After hint at the cap boundary exactly", async () => {
     const operation = vi
       .fn<() => Promise<string>>()
-      .mockRejectedValueOnce(createRetryableError({ "Retry-After": "300" }))
+      .mockRejectedValueOnce(createRetryableError({ "Retry-After": "59" }))
       .mockResolvedValue("success");
     const recordedDelays: number[] = [];
 
@@ -120,7 +120,113 @@ describe("provider retry timing", () => {
       },
     );
 
-    expect(recordedDelays).toEqual([MAX_RETRY_AFTER_MS]);
+    expect(recordedDelays).toEqual([59_000]);
+  });
+
+  it("surfaces immediately (no sleep, no retry) when Retry-After exceeds the cap", async () => {
+    const err = createRetryableError({ "Retry-After": "8549" });
+    const operation = vi.fn<() => Promise<string>>().mockRejectedValue(err);
+    const recordedDelays: number[] = [];
+
+    await expect(
+      withProviderRetry(
+        operation,
+        undefined,
+        "test provider call",
+        async (ms) => {
+          recordedDelays.push(ms);
+        },
+      ),
+    ).rejects.toBe(err);
+
+    expect(operation).toHaveBeenCalledTimes(1);
+    expect(recordedDelays).toEqual([]);
+    // The surfaced error is stamped so upper retry layers also stand down.
+    expect(
+      (err as unknown as { isRetryable?: boolean; retryAfterMs?: number })
+        .isRetryable,
+    ).toBe(false);
+    expect((err as unknown as { retryAfterMs?: number }).retryAfterMs).toBe(
+      8_549_000,
+    );
+    expect(8_549_000).toBeGreaterThan(MAX_RETRY_AFTER_MS);
+  });
+
+  it("classifies official-SDK errors via .status and reads their .headers hint", async () => {
+    // Shape of @anthropic-ai/sdk's APIError: `.status` + `.headers`,
+    // no `.statusCode`, not an AI SDK APICallError.
+    const sdkShaped = Object.assign(new Error("429 rate_limit_error"), {
+      status: 429,
+      headers: new Headers({ "retry-after": "2" }),
+    });
+    const operation = vi
+      .fn<() => Promise<string>>()
+      .mockRejectedValueOnce(sdkShaped)
+      .mockResolvedValue("success");
+    const recordedDelays: number[] = [];
+
+    await expect(
+      withProviderRetry(
+        operation,
+        undefined,
+        "test provider call",
+        async (ms) => {
+          recordedDelays.push(ms);
+        },
+      ),
+    ).resolves.toBe("success");
+
+    expect(recordedDelays).toEqual([2_000]);
+  });
+
+  it("uses the no-hint delay when a stamped retryAfterMs is NaN", async () => {
+    const sdkShaped = Object.assign(new Error("429 rate_limit_error"), {
+      status: 429,
+      retryAfterMs: Number.NaN,
+    });
+    const operation = vi
+      .fn<() => Promise<string>>()
+      .mockRejectedValueOnce(sdkShaped)
+      .mockResolvedValue("success");
+    const recordedDelays: number[] = [];
+
+    await expect(
+      withProviderRetry(
+        operation,
+        undefined,
+        "test provider call",
+        async (ms) => {
+          recordedDelays.push(ms);
+        },
+      ),
+    ).resolves.toBe("success");
+
+    // NaN must not reach sleep() (it would fire immediately); the invalid
+    // hint is discarded and the 10s no-hint floor applies.
+    expect(recordedDelays).toEqual([10_000]);
+  });
+
+  it("surfaces an official-SDK 429 with an over-cap .headers hint immediately", async () => {
+    const sdkShaped = Object.assign(new Error("429 rate_limit_error"), {
+      status: 429,
+      headers: new Headers({ "retry-after": "8549" }),
+    });
+    const operation = vi
+      .fn<() => Promise<string>>()
+      .mockRejectedValue(sdkShaped);
+
+    await expect(
+      withProviderRetry(
+        operation,
+        undefined,
+        "test provider call",
+        async () => {
+          throw new Error("must not sleep");
+        },
+      ),
+    ).rejects.toBe(sdkShaped);
+
+    expect(operation).toHaveBeenCalledTimes(1);
   });
 });
 

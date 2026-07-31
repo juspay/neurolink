@@ -753,9 +753,21 @@ export const buildAPIError = async (
     statusCode?: number;
     requestBody?: unknown;
     responseBody?: string;
+    responseHeaders?: Record<string, string>;
     url?: string;
   };
   err.statusCode = res.status;
+  // Response headers carry rate-limit hints (Retry-After, X-RateLimit-*)
+  // that withProviderRetry needs to honor short waits and surface long ones.
+  // Allowlisted to just those — attaching every header would let unrelated
+  // (potentially sensitive) values like set-cookie or internal routing
+  // headers ride along when the error is logged.
+  err.responseHeaders = Object.fromEntries(
+    [...res.headers.entries()].filter(([key]) => {
+      const lower = key.toLowerCase();
+      return lower === "retry-after" || lower.startsWith("x-ratelimit-");
+    }),
+  );
   err.url = url;
   // Redacted summary only — never attach raw prompts, tool definitions, or
   // tool arguments to the thrown error. Anything serialized by upstream

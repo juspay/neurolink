@@ -1102,6 +1102,8 @@ export type AnthropicVertexSettings = {
   region: string;
   /** SDK request timeout in milliseconds */
   timeout?: number;
+  /** SDK-internal retry budget (transport retries are the orchestrator's job) */
+  maxRetries?: number;
 };
 
 // ============================================================================
