@@ -29,8 +29,16 @@ export const BASE_RETRY_DELAY_MS = 1000;
 /** Minimum delay in ms when a retryable response provides no retry timing. */
 export const NO_HINT_FLOOR_MS = 10_000;
 
-/** Maximum server-requested retry delay honored by provider retries. */
-export const MAX_RETRY_AFTER_MS = 120_000;
+/**
+ * Maximum server-requested retry delay honored by provider retries.
+ *
+ * A hint above this cap is not clamped-and-slept: the server declared an
+ * unavailability window we are not willing to wait out, so the error is
+ * surfaced immediately instead — fallback orchestration (providerFallback /
+ * modelChain) can route to another provider, and callers without fallback
+ * get a prompt rate-limit error rather than a silent multi-minute stall.
+ */
+export const MAX_RETRY_AFTER_MS = 60_000;
 
 const sleepWithTimeout = (delayMs: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -42,6 +50,66 @@ const sleepWithTimeout = (delayMs: number): Promise<void> =>
  * uses a branded symbol marker, so `instanceof` doesn't work across package
  * boundaries). Falls back to duck-typing for non-APICallError cases.
  */
+/**
+ * Duck-typed HTTP status extraction for errors of unknown provenance.
+ * NeuroLink's hand-rolled clients stamp `.statusCode`; official SDK errors
+ * (e.g. @anthropic-ai/sdk APIError) expose `.status`. Shared with
+ * baseProvider's handleProviderError metadata preservation.
+ */
+export function duckTypedStatusCode(error: unknown): number | undefined {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+  const err = error as { statusCode?: unknown; status?: unknown };
+  if (typeof err.statusCode === "number") {
+    return err.statusCode;
+  }
+  if (typeof err.status === "number") {
+    return err.status;
+  }
+  return undefined;
+}
+
+/**
+ * Duck-typed Retry-After extraction for errors of unknown provenance.
+ * Reads a pre-parsed `.retryAfterMs` (stamped by metadata-preserving
+ * wrappers like handleProviderError), then `.headers` (Headers instance or
+ * record — e.g. @anthropic-ai/sdk APIError), then `.responseHeaders` (the
+ * hand-rolled OpenAI-compatible client's record). Shared with baseProvider.
+ */
+export function extractRetryAfterMsFromError(
+  error: unknown,
+): number | undefined {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+  const err = error as {
+    retryAfterMs?: unknown;
+    headers?: unknown;
+    responseHeaders?: unknown;
+  };
+  // Number.isFinite rejects NaN/Infinity: typeof NaN === "number", and a NaN
+  // hint would survive Math.max() into sleep(NaN) — an immediate retry
+  // instead of the no-hint floor.
+  if (
+    typeof err.retryAfterMs === "number" &&
+    Number.isFinite(err.retryAfterMs)
+  ) {
+    return err.retryAfterMs;
+  }
+  for (const candidate of [err.headers, err.responseHeaders]) {
+    if (candidate && typeof candidate === "object") {
+      const parsed = parseRetryAfterMs(
+        candidate as Pick<Headers, "get"> | Readonly<Record<string, string>>,
+      );
+      if (parsed !== undefined) {
+        return parsed;
+      }
+    }
+  }
+  return undefined;
+}
+
 export function isRetryableProviderError(error: unknown): boolean {
   // Preferred path: use the AI SDK's own branded type check + isRetryable flag
   if (APICallError.isInstance(error)) {
@@ -53,8 +121,8 @@ export function isRetryableProviderError(error: unknown): boolean {
   }
 
   // Fallback: duck-type for status codes on errors that aren't APICallError
-  if (error && typeof error === "object" && "statusCode" in error) {
-    const statusCode = (error as { statusCode: number }).statusCode;
+  const statusCode = duckTypedStatusCode(error);
+  if (statusCode !== undefined) {
     return statusCode === 429 || statusCode >= 500;
   }
 
@@ -68,10 +136,7 @@ export function getErrorStatusCode(error: unknown): number | undefined {
   if (APICallError.isInstance(error)) {
     return error.statusCode;
   }
-  if (error && typeof error === "object" && "statusCode" in error) {
-    return (error as { statusCode: number }).statusCode;
-  }
-  return undefined;
+  return duckTypedStatusCode(error);
 }
 
 function getRetryAfterMs(error: unknown): number | undefined {
@@ -82,11 +147,15 @@ function getRetryAfterMs(error: unknown): number | undefined {
     }
   }
 
-  if (error instanceof NeuroLinkError && error.retryAfterMs !== undefined) {
+  if (
+    error instanceof NeuroLinkError &&
+    error.retryAfterMs !== undefined &&
+    Number.isFinite(error.retryAfterMs)
+  ) {
     return error.retryAfterMs;
   }
 
-  return undefined;
+  return extractRetryAfterMsFromError(error);
 }
 
 /**
@@ -144,12 +213,32 @@ export async function withProviderRetry<T>(
       }
 
       const retryAfterMs = getRetryAfterMs(error);
-      const boundedRetryAfterMs =
-        retryAfterMs === undefined
-          ? undefined
-          : Math.min(MAX_RETRY_AFTER_MS, Math.max(0, retryAfterMs));
+      if (retryAfterMs !== undefined && retryAfterMs > MAX_RETRY_AFTER_MS) {
+        span?.setAttribute("gen_ai.provider.total_attempts", attempt + 1);
+        span?.addEvent("gen_ai.provider.retry_suppressed", {
+          "retry.after_ms": retryAfterMs,
+          ...(statusCode !== undefined && { "retry.status_code": statusCode }),
+        });
+        // Best-effort stamp so upper retry layers (the MCP generation loop's
+        // isRetryable check) also surface instead of re-running a
+        // rate-limited provider.
+        try {
+          Object.assign(error as object, {
+            isRetryable: false,
+            retryAfterMs,
+          });
+        } catch {
+          /* frozen error — the throw below still surfaces it */
+        }
+        logger.warn(
+          `[providerRetry] ${label} not retrying — server requested a ` +
+            `${Math.round(retryAfterMs / 1000)}s wait (cap ${MAX_RETRY_AFTER_MS / 1000}s); surfacing for fallback`,
+          { attempt: attempt + 1, retryAfterMs, statusCode },
+        );
+        throw error;
+      }
       const delay =
-        boundedRetryAfterMs ??
+        (retryAfterMs === undefined ? undefined : Math.max(0, retryAfterMs)) ??
         Math.max(BASE_RETRY_DELAY_MS * Math.pow(2, attempt), NO_HINT_FLOOR_MS);
 
       // Record retry event on the OTel span

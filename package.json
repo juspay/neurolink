@@ -95,6 +95,7 @@
     "test:mcp:infra": "npx tsx test/continuous-test-suite-mcp-infra.ts",
     "test:providers-mocked": "npx tsx test/continuous-test-suite-providers-mocked.ts",
     "test:provider-fallback": "npx tsx test/continuous-test-suite-provider-fallback.ts",
+    "test:provider-fallback-latency": "npx tsx test/continuous-test-suite-provider-fallback-latency.ts",
     "test:rag": "npx tsx test/continuous-test-suite-rag.ts",
     "test:vector-pinecone": "npx tsx test/continuous-test-suite-vector-pinecone.ts",
     "test:vector-pgvector": "npx tsx test/continuous-test-suite-vector-pgvector.ts",

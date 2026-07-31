@@ -593,11 +593,12 @@ export type StreamOptions = {
   /**
    * Curator P2-3: per-call fallback callback. Overrides any
    * instance-level `providerFallback` set on `new NeuroLink({...})`.
-   * Invoked for any error thrown while establishing the stream, except
-   * client aborts (network errors, 5xx, timeouts, auth failures,
-   * model-access-denied, …); receives the error unmodified. There is no
-   * mid-stream resume once chunks are flowing. Return `{ provider,
-   * model }` to retry, `null` to bubble.
+   * Invoked for any error thrown while establishing the stream, except a
+   * genuine caller cancel — i.e. this call's `abortSignal` fired (network
+   * errors, 5xx, timeouts, auth failures, model-access-denied, and
+   * internal watchdog aborts all invoke it); receives the error
+   * unmodified. There is no mid-stream resume once chunks are flowing.
+   * Return `{ provider, model }` to retry, `null` to bubble.
    */
   providerFallback?: (
     error: unknown,

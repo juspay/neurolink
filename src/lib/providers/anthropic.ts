@@ -816,6 +816,12 @@ export class AnthropicProvider extends BaseProvider {
         // Note: No headers passed - fetch wrapper sets oauth-2025-04-20 beta header
         fetch: oauthFetch,
         timeout: ANTHROPIC_CLIENT_TIMEOUT_MS,
+        // The SDK's built-in retry honors Retry-After hints without any
+        // upper bound (a 429 with retry-after: 8549 sleeps 2.4h per retry,
+        // invisible to fallback orchestration). Retries are the
+        // orchestrator's job; transient network blips are still retried by
+        // the fetch wrapper.
+        maxRetries: 0,
       });
       logger.debug(
         "[AnthropicProvider] Anthropic SDK client created with OAuth fetch wrapper",
@@ -870,6 +876,9 @@ export class AnthropicProvider extends BaseProvider {
         ...(normalizedBaseURL && { baseURL: normalizedBaseURL }),
         fetch: createProxyFetch(),
         timeout: ANTHROPIC_CLIENT_TIMEOUT_MS,
+        // See the OAuth-path client above: unbounded Retry-After sleeps in
+        // the SDK's retry loop must never stall fallback orchestration.
+        maxRetries: 0,
       });
 
       logger.debug("Anthropic Provider initialized with API key", {

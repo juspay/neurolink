@@ -52,6 +52,31 @@ const IMAGE_LIMITS = {
 const PROXY_PROVIDERS = new Set(["litellm", "openrouter"]);
 
 /**
+ * Family-level vision rules, checked ONLY after a model id misses the exact
+ * VISION_CAPABILITIES allowlist for its provider. Kept as patterns (mirroring
+ * SAMPLING_PARAM_REJECTING_FAMILIES in modelRegistry.ts) because gateway ids
+ * carry arbitrary prefixes/suffixes (`vertex_ai/claude-sonnet-5@20260203`,
+ * `claude-opus-4-7-20260115`) that exact entries can't cover.
+ *
+ * Matches name-first Claude ids (claude-{opus,sonnet,haiku}-N…) with major
+ * version ≥ 4 — e.g. `claude-sonnet-5`, `claude-opus-5`, `claude-opus-4-7`,
+ * `claude-haiku-4-5` — all of which are vision-capable, plus the
+ * Fable/Mythos-class models (`claude-fable-5`, `claude-mythos-5`).
+ *
+ * Legacy number-first 3.x ids (`claude-3-5-haiku`, `claude-3-haiku`, …)
+ * deliberately do NOT match: the family word follows the version there, and
+ * claude-3-5-haiku — the last non-vision Claude — must stay rejected.
+ */
+const CLAUDE_MODERN_VISION_FAMILIES: RegExp[] = [
+  /claude-(?:opus|sonnet|haiku)-(?:[4-9]|\d{2,})/i,
+  /claude-(?:fable|mythos)-\d/i,
+];
+const VISION_FAMILY_RULES: Partial<Record<string, RegExp[]>> = {
+  anthropic: CLAUDE_MODERN_VISION_FAMILIES,
+  vertex: CLAUDE_MODERN_VISION_FAMILIES,
+};
+
+/**
  * Normalize provider name/alias to its canonical form for vision checks.
  */
 function normalizeVisionProvider(provider: string): string {
@@ -633,6 +658,17 @@ export class ProviderImageAdapter {
   static supportsVision(provider: string, model?: string): boolean {
     try {
       const normalizedProvider = normalizeVisionProvider(provider);
+
+      // Anthropic behind a proxy (ANTHROPIC_BASE_URL set) routes to whatever
+      // the proxy exposes — capability gating is the upstream's job. Mirrors
+      // the validateModelAccess tier-check bypass in providers/anthropic.ts.
+      if (
+        normalizedProvider === "anthropic" &&
+        process.env.ANTHROPIC_BASE_URL
+      ) {
+        return true;
+      }
+
       const supportedModels =
         VISION_CAPABILITIES[
           normalizedProvider as keyof typeof VISION_CAPABILITIES
@@ -657,6 +693,15 @@ export class ProviderImageAdapter {
       const modelMatched = supportedModels.some((supportedModel) =>
         model.toLowerCase().includes(supportedModel.toLowerCase()),
       );
+
+      if (
+        !modelMatched &&
+        VISION_FAMILY_RULES[normalizedProvider]?.some((rule) =>
+          rule.test(model),
+        )
+      ) {
+        return true;
+      }
 
       // Proxy providers route to arbitrary underlying models — pass through if
       // the model isn't in the known allowlist.

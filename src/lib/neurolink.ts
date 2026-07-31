@@ -316,6 +316,7 @@ import {
   looksLikeModelAccessDenied as sharedLooksLikeModelAccessDenied,
   isNonRetryableProviderError as sharedIsNonRetryableProviderError,
 } from "./utils/providerErrorClassification.js";
+import { getErrorStatusCode } from "./utils/providerRetry.js";
 import { detectAndRedactPII } from "./utils/piiDetector.js";
 import { validateResponse } from "./utils/responseValidator.js";
 
@@ -4439,11 +4440,28 @@ Current user's request: ${currentInput}`;
     const effectiveChain = perCallChain ?? this.fallbackConfig.modelChain;
 
     // Explicit callback (per-call or instance providerFallback): the callback
-    // owns the decision for any error except client aborts — it can return
-    // null to bubble. modelChain-only keeps the narrow model-access-denied
-    // gate so chain walkers don't retry errors the chain can't fix.
+    // owns the decision for any error except genuine caller cancels — it can
+    // return null to bubble. modelChain-only keeps the narrow
+    // model-access-denied gate so chain walkers don't retry errors the chain
+    // can't fix.
+    //
+    // Error shape alone cannot identify a caller cancel: NeuroLink's own
+    // watchdog/timeout controllers abort the same composed signal, and SDKs
+    // normalize that into the identical AbortError shapes a user cancel
+    // produces (e.g. Anthropic's APIUserAbortError). Ground truth is the
+    // caller-supplied abortSignal itself — only when IT has fired is an
+    // abort-shaped error a real cancel; otherwise the abort was internally
+    // initiated (turn/stall watchdog, per-step timeout) and the callback
+    // must still be consulted so provider hangs can fall back. Read live
+    // (not captured) so the post-retry re-gate sees a cancel that arrives
+    // mid-fallback; cloneOptionsForCallIsolation keeps abortSignal
+    // by-reference, so the retried options observe the same signal.
+    const callerAborted = (): boolean =>
+      (callOpts.abortSignal as AbortSignal | undefined)?.aborted === true;
     const shouldOrchestrateFallback = (err: unknown): boolean =>
-      effectiveCallback ? !isAbortError(err) : looksLikeModelAccessDenied(err);
+      effectiveCallback
+        ? !(isAbortError(err) && callerAborted())
+        : looksLikeModelAccessDenied(err);
 
     if (!shouldOrchestrateFallback(lastError)) {
       throw lastError;
@@ -7136,7 +7154,12 @@ Current user's request: ${currentInput}`;
             (error as Error & { isRetryable?: boolean }).isRetryable ===
               false) ||
           (error instanceof Error &&
-            (error as Error & { statusCode?: number }).statusCode === 400);
+            (error as Error & { statusCode?: number }).statusCode === 400) ||
+          // A 429 already went through the provider layer's bounded,
+          // Retry-After-aware retry (withProviderRetry) — re-running the
+          // whole MCP generation against a rate-limited key is redundant
+          // and only delays fallback orchestration.
+          getErrorStatusCode(error) === 429;
 
         if (isNonRetryable) {
           logger.debug(
