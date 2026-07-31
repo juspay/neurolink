@@ -1,0 +1,86 @@
+{
+  "id": "branching-workflow",
+  "name": "Branching Test Workflow",
+  "description": "Workflow with conditional branching based on amount threshold",
+  "version": "1.0.0",
+  "tags": ["test", "branching"],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "amount": { "type": "number" }
+    },
+    "required": ["amount"]
+  },
+  "graph": {
+    "entryPoint": "evaluate",
+    "edges": [
+      {
+        "from": "evaluate",
+        "to": "large-handler",
+        "condition": {
+          "type": "expression",
+          "expression": "stepOutputs.evaluate.isLarge === true"
+        }
+      },
+      {
+        "from": "evaluate",
+        "to": "small-handler",
+        "condition": { "type": "always" }
+      }
+    ],
+    "branches": [
+      {
+        "id": "amount-branch",
+        "fromStep": "evaluate",
+        "branches": [
+          {
+            "condition": {
+              "type": "expression",
+              "expression": "stepOutputs.evaluate.isLarge === true"
+            },
+            "targetStep": "large-handler",
+            "label": "Large Amount"
+          }
+        ],
+        "defaultTarget": "small-handler"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "evaluate",
+      "name": "Evaluate Amount",
+      "description": "Determines if amount is large (>100) or small",
+      "type": "transform",
+      "config": {
+        "outputMapping": {
+          "amount": "input.amount",
+          "isLarge": "input.amount > 100"
+        }
+      }
+    },
+    {
+      "id": "large-handler",
+      "name": "Large Amount Handler",
+      "description": "Processes large amounts",
+      "type": "transform",
+      "config": {
+        "message": "Large amount processed"
+      }
+    },
+    {
+      "id": "small-handler",
+      "name": "Small Amount Handler",
+      "description": "Processes small amounts",
+      "type": "transform",
+      "config": {
+        "message": "Small amount processed"
+      }
+    }
+  ],
+  "metadata": {
+    "author": "test-suite",
+    "created": "2026-01-31",
+    "category": "testing"
+  }
+}

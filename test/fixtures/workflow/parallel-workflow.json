@@ -1,0 +1,79 @@
+{
+  "id": "parallel-workflow",
+  "name": "Parallel Test Workflow",
+  "description": "Workflow demonstrating parallel step execution",
+  "version": "1.0.0",
+  "tags": ["test", "parallel"],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "data": { "type": "string" }
+    },
+    "required": ["data"]
+  },
+  "graph": {
+    "entryPoint": "prepare",
+    "edges": [{ "from": "prepare", "to": "parallel-group" }, { "from": "parallel-group", "to": "aggregate" }],
+    "parallelGroups": [
+      {
+        "id": "parallel-group",
+        "steps": ["task-a", "task-b", "task-c"],
+        "waitFor": "all",
+        "continueOnError": false
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "prepare",
+      "name": "Prepare Data",
+      "description": "Prepares the input data for parallel processing",
+      "type": "transform",
+      "config": {
+        "operation": "uppercase"
+      }
+    },
+    {
+      "id": "task-a",
+      "name": "Task A",
+      "description": "First parallel task",
+      "type": "transform",
+      "config": {
+        "output": "Task A complete"
+      }
+    },
+    {
+      "id": "task-b",
+      "name": "Task B",
+      "description": "Second parallel task",
+      "type": "transform",
+      "config": {
+        "output": "Task B complete"
+      }
+    },
+    {
+      "id": "task-c",
+      "name": "Task C",
+      "description": "Third parallel task",
+      "type": "transform",
+      "config": {
+        "output": "Task C complete"
+      }
+    },
+    {
+      "id": "aggregate",
+      "name": "Aggregate Results",
+      "description": "Combines results from all parallel tasks",
+      "type": "transform",
+      "config": {
+        "operation": "combine",
+        "sources": ["task-a", "task-b", "task-c"]
+      }
+    }
+  ],
+  "metadata": {
+    "author": "test-suite",
+    "created": "2026-01-31",
+    "category": "testing"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "id": "hitl-workflow",
+  "name": "HITL Test Workflow",
+  "description": "Workflow with Human-in-the-Loop (HITL) approval step",
+  "version": "1.0.0",
+  "tags": ["test", "hitl", "approval"],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": { "type": "string" }
+    },
+    "required": ["action"]
+  },
+  "graph": {
+    "entryPoint": "analyze",
+    "edges": [{ "from": "analyze", "to": "approve" }, { "from": "approve", "to": "execute-action" }]
+  },
+  "steps": [
+    {
+      "id": "analyze",
+      "name": "Analyze Action",
+      "description": "Analyzes the requested action and determines if approval is needed",
+      "type": "transform",
+      "config": {
+        "outputMapping": {
+          "analysis": "'Analyzed action: ' + input.action",
+          "requiresApproval": "input.action.includes('dangerous')"
+        }
+      }
+    },
+    {
+      "id": "approve",
+      "name": "Human Approval",
+      "description": "Suspends workflow for human approval",
+      "type": "human",
+      "suspendable": true,
+      "config": {
+        "reason": "Human approval required for this action",
+        "suspendType": "hitl",
+        "expiresIn": 86400000,
+        "suspendDataMapping": {
+          "analysis": "stepOutputs.analyze"
+        }
+      }
+    },
+    {
+      "id": "execute-action",
+      "name": "Execute Action",
+      "description": "Executes the approved action",
+      "type": "transform",
+      "config": {
+        "output": { "executed": true }
+      }
+    }
+  ],
+  "suspension": {
+    "enabled": true,
+    "checkpointBeforeSuspend": true,
+    "notifyOnSuspend": true,
+    "maxSuspensionTime": 86400000
+  },
+  "metadata": {
+    "author": "test-suite",
+    "created": "2026-01-31",
+    "category": "testing",
+    "requiresHumanInteraction": true
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "id": "simple-workflow",
+  "name": "Simple Test Workflow",
+  "description": "A simple linear workflow for testing",
+  "version": "1.0.0",
+  "tags": ["test", "simple"],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "value": { "type": "number" }
+    },
+    "required": ["value"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "result": { "type": "number" }
+    },
+    "required": ["result"]
+  },
+  "graph": {
+    "entryPoint": "double",
+    "edges": [{ "from": "double", "to": "add-ten" }]
+  },
+  "steps": [
+    {
+      "id": "double",
+      "name": "Double Value",
+      "description": "Multiplies the input value by 2",
+      "type": "transform",
+      "config": {
+        "operation": "multiply",
+        "factor": 2
+      }
+    },
+    {
+      "id": "add-ten",
+      "name": "Add Ten",
+      "description": "Adds 10 to the doubled value",
+      "type": "transform",
+      "config": {
+        "operation": "add",
+        "value": 10
+      }
+    }
+  ],
+  "metadata": {
+    "author": "test-suite",
+    "created": "2026-01-31",
+    "category": "testing"
+  }
+}

@@ -41,11 +41,7 @@ import type {
 import { logger as globalLogger } from "../utils/logger.js";
 import { Step } from "./step.js";
 import { WorkflowRegistry } from "./workflowRegistry.js";
-import {
-  type CheckpointStorage,
-  InMemoryCheckpointStorage,
-  WorkflowStateManager,
-} from "./workflowStateManager.js";
+import { type CheckpointStorage, InMemoryCheckpointStorage, WorkflowStateManager } from "./workflowStateManager.js";
 
 /**
  * Error thrown when a workflow requests suspension
@@ -75,9 +71,7 @@ export class WorkflowCancelledError extends Error {
  */
 export class WorkflowTimeoutError extends Error {
   constructor(workflowId: string, runId: string, timeoutMs: number) {
-    super(
-      `Workflow ${workflowId} (run: ${runId}) timed out after ${timeoutMs}ms`,
-    );
+    super(`Workflow ${workflowId} (run: ${runId}) timed out after ${timeoutMs}ms`);
     this.name = "WorkflowTimeoutError";
   }
 }
@@ -132,11 +126,8 @@ export class WorkflowExecutor extends EventEmitter {
   ) {
     super();
     this.neurolink = neurolink;
-    this.stateManager = new WorkflowStateManager(
-      options.storage ?? new InMemoryCheckpointStorage(),
-    );
-    this.parallelConcurrency =
-      options.parallelConcurrency ?? DEFAULT_PARALLEL_CONCURRENCY;
+    this.stateManager = new WorkflowStateManager(options.storage ?? new InMemoryCheckpointStorage());
+    this.parallelConcurrency = options.parallelConcurrency ?? DEFAULT_PARALLEL_CONCURRENCY;
   }
 
   /**
@@ -152,14 +143,11 @@ export class WorkflowExecutor extends EventEmitter {
     this.runningWorkflows.set(runId, abortController);
 
     const startTime = Date.now();
-    const timeoutMs =
-      options.timeout ?? workflow.timeout ?? DEFAULT_WORKFLOW_TIMEOUT_MS;
+    const timeoutMs = options.timeout ?? workflow.timeout ?? DEFAULT_WORKFLOW_TIMEOUT_MS;
 
     // Set up timeout
     const timeoutHandle = setTimeout(() => {
-      abortController.abort(
-        new WorkflowTimeoutError(workflow.id, runId, timeoutMs),
-      );
+      abortController.abort(new WorkflowTimeoutError(workflow.id, runId, timeoutMs));
     }, timeoutMs);
 
     try {
@@ -183,14 +171,7 @@ export class WorkflowExecutor extends EventEmitter {
       };
 
       // Create workflow context
-      const context = this.createContext<TState>(
-        workflow.id,
-        workflow.name,
-        runId,
-        state,
-        stepOutputs,
-        metadata,
-      );
+      const context = this.createContext<TState>(workflow.id, workflow.name, runId, state, stepOutputs, metadata);
 
       // Validate input if schema provided
       if (workflow.inputSchema) {
@@ -219,13 +200,7 @@ export class WorkflowExecutor extends EventEmitter {
 
       // Restore from checkpoint if provided
       if (options.checkpoint) {
-        this.restoreFromCheckpoint(
-          options.checkpoint,
-          state as UnknownRecord,
-          stepOutputs,
-          stepRecords,
-          metadata,
-        );
+        this.restoreFromCheckpoint(options.checkpoint, state as UnknownRecord, stepOutputs, stepRecords, metadata);
         this.emitEvent({
           type: "checkpoint:restored",
           workflowId: workflow.id,
@@ -327,11 +302,7 @@ export class WorkflowExecutor extends EventEmitter {
         cause: error instanceof Error ? error : undefined,
       };
 
-      return this.createFailedResult<TOutput>(
-        workflowError,
-        startTime,
-        new Map(),
-      );
+      return this.createFailedResult<TOutput>(workflowError, startTime, new Map());
     } finally {
       clearTimeout(timeoutHandle);
       this.runningWorkflows.delete(runId);
@@ -341,11 +312,7 @@ export class WorkflowExecutor extends EventEmitter {
   /**
    * Execute workflow with event streaming
    */
-  async *executeWithEvents<
-    TInput,
-    TOutput,
-    TState extends UnknownRecord = UnknownRecord,
-  >(
+  async *executeWithEvents<TInput, TOutput, TState extends UnknownRecord = UnknownRecord>(
     workflow: WorkflowDefinition<TInput, TOutput, TState>,
     input: TInput,
     options: WorkflowExecutionOptions = {},
@@ -520,12 +487,7 @@ export class WorkflowExecutor extends EventEmitter {
       }
 
       // Get next batch of steps to execute
-      const readySteps = this.getReadySteps(
-        pendingSteps,
-        completedSteps,
-        graph.edges,
-        workflow,
-      );
+      const readySteps = this.getReadySteps(pendingSteps, completedSteps, graph.edges, workflow);
 
       if (readySteps.length === 0) {
         // No steps ready but pending exist - likely a cycle or missing dependency
@@ -534,21 +496,11 @@ export class WorkflowExecutor extends EventEmitter {
       }
 
       // Check if any ready steps are part of a parallel group
-      const parallelGroup = this.findParallelGroup(
-        readySteps,
-        graph.parallelGroups,
-      );
+      const parallelGroup = this.findParallelGroup(readySteps, graph.parallelGroups);
 
-      if (
-        parallelGroup &&
-        parallelGroup.steps.every(
-          (s) => readySteps.includes(s) || completedSteps.has(s),
-        )
-      ) {
+      if (parallelGroup && parallelGroup.steps.every((s) => readySteps.includes(s) || completedSteps.has(s))) {
         // Execute parallel group
-        const groupSteps = parallelGroup.steps.filter(
-          (s) => !completedSteps.has(s),
-        );
+        const groupSteps = parallelGroup.steps.filter((s) => !completedSteps.has(s));
         await this.executeParallelSteps(
           groupSteps,
           workflow,
@@ -576,15 +528,7 @@ export class WorkflowExecutor extends EventEmitter {
         // Check for loops
         const loop = this.findLoopForStep(stepId, graph.loops);
         if (loop) {
-          await this.executeLoop(
-            loop,
-            workflow,
-            input,
-            context,
-            stepOutputs,
-            stepRecords,
-            signal,
-          );
+          await this.executeLoop(loop, workflow, input, context, stepOutputs, stepRecords, signal);
           for (const loopStepId of loop.steps) {
             completedSteps.add(loopStepId);
             pendingSteps.delete(loopStepId);
@@ -603,12 +547,7 @@ export class WorkflowExecutor extends EventEmitter {
           }
 
           // Determine input for this step: use previous step's output if available
-          const stepInput = this.getStepInput(
-            stepId,
-            input,
-            stepOutputs,
-            graph.edges,
-          );
+          const stepInput = this.getStepInput(stepId, input, stepOutputs, graph.edges);
 
           // Execute single step
           await this.executeStep(
@@ -628,11 +567,7 @@ export class WorkflowExecutor extends EventEmitter {
 
       // Add next steps to pending
       const completedArray = Array.from(completedSteps);
-      const nextSteps = this.getNextSteps(
-        completedArray,
-        graph.edges,
-        completedSteps,
-      );
+      const nextSteps = this.getNextSteps(completedArray, graph.edges, completedSteps);
       for (const nextStep of nextSteps) {
         if (!completedSteps.has(nextStep) && !pendingSteps.has(nextStep)) {
           pendingSteps.add(nextStep);
@@ -642,9 +577,7 @@ export class WorkflowExecutor extends EventEmitter {
 
     // Determine final output
     const lastStepId = this.findLastStep(completedSteps, graph.edges);
-    const output = lastStepId
-      ? (stepOutputs.get(lastStepId) as TOutput)
-      : undefined;
+    const output = lastStepId ? (stepOutputs.get(lastStepId) as TOutput) : undefined;
 
     // Validate output if schema provided
     if (workflow.outputSchema && output !== undefined) {
@@ -709,10 +642,7 @@ export class WorkflowExecutor extends EventEmitter {
       // Create step instance and execute
       const step = new Step(stepDef);
       // Cast context to the expected type for Step execution
-      const result = await step.execute(
-        workflowInput as unknown,
-        context as WorkflowContext,
-      );
+      const result = await step.execute(workflowInput as unknown, context as WorkflowContext);
 
       const endTime = Date.now();
       const duration = endTime - startTime;
@@ -811,11 +741,7 @@ export class WorkflowExecutor extends EventEmitter {
    * Execute steps in parallel
    */
   // eslint-disable-next-line max-params
-  private async executeParallelSteps<
-    TInput,
-    TOutput,
-    TState extends UnknownRecord,
-  >(
+  private async executeParallelSteps<TInput, TOutput, TState extends UnknownRecord>(
     stepIds: string[],
     workflow: WorkflowDefinition<TInput, TOutput, TState>,
     workflowInput: TInput,
@@ -843,16 +769,7 @@ export class WorkflowExecutor extends EventEmitter {
 
       return limit(async () => {
         try {
-          await this.executeStep(
-            stepId,
-            stepDef,
-            workflow,
-            workflowInput,
-            context,
-            stepOutputs,
-            stepRecords,
-            signal,
-          );
+          await this.executeStep(stepId, stepDef, workflow, workflowInput, context, stepOutputs, stepRecords, signal);
           return { stepId, success: true };
         } catch (error) {
           if (!group.continueOnError) {
@@ -903,21 +820,15 @@ export class WorkflowExecutor extends EventEmitter {
           items = loop.items;
         } else if (loop.itemsExpression) {
           // Evaluate expression to get items from context
-          const evaluated = this.evaluateExpression(
-            loop.itemsExpression,
-            context,
-          );
+          const evaluated = this.evaluateExpression(loop.itemsExpression, context);
           if (Array.isArray(evaluated)) {
             items = evaluated;
           } else {
-            globalLogger.warn(
-              `[WorkflowExecutor] forEach itemsExpression did not evaluate to array`,
-              {
-                loopId: loop.id,
-                expression: loop.itemsExpression,
-                evaluatedType: typeof evaluated,
-              },
-            );
+            globalLogger.warn(`[WorkflowExecutor] forEach itemsExpression did not evaluate to array`, {
+              loopId: loop.id,
+              expression: loop.itemsExpression,
+              evaluatedType: typeof evaluated,
+            });
           }
         }
         for (const item of items) {
@@ -996,9 +907,7 @@ export class WorkflowExecutor extends EventEmitter {
           iteration++;
 
           // Evaluate condition - cast context for condition evaluation
-          shouldContinue = loop.condition?.evaluate
-            ? await loop.condition.evaluate(context as WorkflowContext)
-            : false;
+          shouldContinue = loop.condition?.evaluate ? await loop.condition.evaluate(context as WorkflowContext) : false;
         }
         break;
       }
@@ -1041,9 +950,7 @@ export class WorkflowExecutor extends EventEmitter {
           iteration++;
 
           // Evaluate condition (stop when true) - cast context for condition evaluation
-          shouldStop = loop.condition?.evaluate
-            ? await loop.condition.evaluate(context as WorkflowContext)
-            : true;
+          shouldStop = loop.condition?.evaluate ? await loop.condition.evaluate(context as WorkflowContext) : true;
         }
         break;
       }
@@ -1109,9 +1016,7 @@ export class WorkflowExecutor extends EventEmitter {
 
       if (branchOption.condition.evaluate) {
         // Cast context for condition evaluation
-        const result = await branchOption.condition.evaluate(
-          context as WorkflowContext,
-        );
+        const result = await branchOption.condition.evaluate(context as WorkflowContext);
         if (result) {
           this.emitEvent({
             type: "branch:evaluated",
@@ -1164,14 +1069,10 @@ export class WorkflowExecutor extends EventEmitter {
     metadata: WorkflowMetadata,
   ): WorkflowContext<TState> {
     const logger: WorkflowLogger = {
-      debug: (message, meta) =>
-        globalLogger.debug(`[${workflowId}:${runId}] ${message}`, meta),
-      info: (message, meta) =>
-        globalLogger.info(`[${workflowId}:${runId}] ${message}`, meta),
-      warn: (message, meta) =>
-        globalLogger.warn(`[${workflowId}:${runId}] ${message}`, meta),
-      error: (message, meta) =>
-        globalLogger.error(`[${workflowId}:${runId}] ${message}`, meta),
+      debug: (message, meta) => globalLogger.debug(`[${workflowId}:${runId}] ${message}`, meta),
+      info: (message, meta) => globalLogger.info(`[${workflowId}:${runId}] ${message}`, meta),
+      warn: (message, meta) => globalLogger.warn(`[${workflowId}:${runId}] ${message}`, meta),
+      error: (message, meta) => globalLogger.error(`[${workflowId}:${runId}] ${message}`, meta),
     };
 
     return {
@@ -1180,8 +1081,7 @@ export class WorkflowExecutor extends EventEmitter {
       runId,
       state,
       stepOutputs,
-      getStepOutput: <T>(stepId: string) =>
-        stepOutputs.get(stepId) as T | undefined,
+      getStepOutput: <T>(stepId: string) => stepOutputs.get(stepId) as T | undefined,
       updateState: (updates: Partial<TState>) => {
         Object.assign(state as object, updates);
       },
@@ -1208,15 +1108,10 @@ export class WorkflowExecutor extends EventEmitter {
 
     for (const stepId of pendingArray) {
       // Check if all dependencies are satisfied
-      const dependencies = edges
-        .filter((e) => e.to === stepId)
-        .map((e) => e.from);
+      const dependencies = edges.filter((e) => e.to === stepId).map((e) => e.from);
 
       // If no dependencies or all dependencies are complete
-      if (
-        dependencies.length === 0 ||
-        dependencies.every((d) => completed.has(d))
-      ) {
+      if (dependencies.length === 0 || dependencies.every((d) => completed.has(d))) {
         ready.push(stepId);
       }
     }
@@ -1262,9 +1157,7 @@ export class WorkflowExecutor extends EventEmitter {
     }
 
     // Return merged outputs if any, otherwise workflow input
-    return Object.keys(mergedOutputs).length > 0
-      ? mergedOutputs
-      : workflowInput;
+    return Object.keys(mergedOutputs).length > 0 ? mergedOutputs : workflowInput;
   }
 
   /**
@@ -1292,10 +1185,7 @@ export class WorkflowExecutor extends EventEmitter {
   /**
    * Find parallel group containing steps
    */
-  private findParallelGroup(
-    stepIds: string[],
-    groups?: ParallelGroup[],
-  ): ParallelGroup | undefined {
+  private findParallelGroup(stepIds: string[], groups?: ParallelGroup[]): ParallelGroup | undefined {
     if (!groups) {
       return undefined;
     }
@@ -1312,10 +1202,7 @@ export class WorkflowExecutor extends EventEmitter {
   /**
    * Find loop containing step
    */
-  private findLoopForStep(
-    stepId: string,
-    loops?: LoopDefinition[],
-  ): LoopDefinition | undefined {
+  private findLoopForStep(stepId: string, loops?: LoopDefinition[]): LoopDefinition | undefined {
     if (!loops) {
       return undefined;
     }
@@ -1332,46 +1219,53 @@ export class WorkflowExecutor extends EventEmitter {
   /**
    * Find branch from step
    */
-  private findBranchFromStep(
-    stepId: string,
-    branches?: ConditionalBranch[],
-  ): ConditionalBranch | undefined {
+  private findBranchFromStep(stepId: string, branches?: ConditionalBranch[]): ConditionalBranch | undefined {
     if (!branches) {
       return undefined;
     }
 
-    return branches.find(
-      (b) =>
-        b.fromStep === stepId ||
-        b.branches.some((opt) => opt.targetStep === stepId),
-    );
+    return branches.find((b) => b.fromStep === stepId || b.branches.some((opt) => opt.targetStep === stepId));
   }
 
   /**
    * Find the last step in completed set
+   *
+   * Priority:
+   * 1. Steps with no outgoing edges (true terminal steps)
+   * 2. Steps that only lead to incomplete steps
    */
-  private findLastStep(
-    completed: Set<string>,
-    edges: { from: string; to: string }[],
-  ): string | undefined {
+  private findLastStep(completed: Set<string>, edges: { from: string; to: string }[]): string | undefined {
     const completedArray = Array.from(completed);
 
-    // Find step with no outgoing edges that lead to non-completed steps
+    // Priority 1: Find true terminal steps (no outgoing edges at all)
+    // These are the actual end of the workflow
     for (const stepId of completedArray) {
+      // Skip merge and end helper steps
+      if (stepId.startsWith("merge-") || stepId.startsWith("end-")) {
+        continue;
+      }
       const outgoing = edges.filter((e) => e.from === stepId);
-      if (
-        outgoing.length === 0 ||
-        outgoing.every((e) => !completed.has(e.to) || e.to.startsWith("merge-"))
-      ) {
-        // This is a terminal step (or only leads to merge points)
-        if (!stepId.startsWith("merge-") && !stepId.startsWith("end-")) {
-          return stepId;
-        }
+      if (outgoing.length === 0) {
+        return stepId;
       }
     }
 
-    // Fallback: return any non-merge/end step
+    // Priority 2: Find steps whose outgoing edges all lead to non-completed steps
+    // (excluding merge/end helper steps from being returned)
     for (const stepId of completedArray) {
+      // Skip merge and end helper steps
+      if (stepId.startsWith("merge-") || stepId.startsWith("end-")) {
+        continue;
+      }
+      const outgoing = edges.filter((e) => e.from === stepId);
+      if (outgoing.every((e) => !completed.has(e.to))) {
+        return stepId;
+      }
+    }
+
+    // Fallback: return any non-merge/end step (last one in the array)
+    for (let i = completedArray.length - 1; i >= 0; i--) {
+      const stepId = completedArray[i];
       if (!stepId.startsWith("merge-") && !stepId.startsWith("end-")) {
         return stepId;
       }
@@ -1457,10 +1351,7 @@ export class WorkflowExecutor extends EventEmitter {
   /**
    * Create workflow stats
    */
-  private createStats(
-    startTime: number,
-    stepRecords: Map<string, StepExecutionRecord>,
-  ): WorkflowStats {
+  private createStats(startTime: number, stepRecords: Map<string, StepExecutionRecord>): WorkflowStats {
     const endTime = Date.now();
     let completedSteps = 0;
     let failedSteps = 0;
@@ -1549,10 +1440,7 @@ export class WorkflowExecutor extends EventEmitter {
           value = value.get(part);
         }
         // If part === "get", skip it and continue to next part
-      } else if (
-        typeof value === "object" &&
-        part in (value as Record<string, unknown>)
-      ) {
+      } else if (typeof value === "object" && part in (value as Record<string, unknown>)) {
         value = (value as Record<string, unknown>)[part];
       } else {
         return undefined;
