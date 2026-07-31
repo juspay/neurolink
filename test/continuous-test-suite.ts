@@ -60,6 +60,7 @@ import type {
   TerminateEmployeesParams,
 } from "./types/mcp.js";
 import { testComplexZodSchemaMultiProvider } from "./zod-schema-test-function.js";
+import { testProviderBaseClassInheritance } from "./continuous-test-suite-providers.js";
 
 // Provider-specific token limits
 const PROVIDER_MAX_TOKENS: Record<string, number> = {
@@ -4776,6 +4777,11 @@ async function runAllTests(): Promise<void> {
       name: "ProxyConfig Runtime",
       fn: testProxyConfigRuntime,
       category: "proxy-components",
+    },
+    {
+      name: "Provider Base Class Inheritance",
+      fn: testProviderBaseClassInheritance,
+      category: "provider-rules",
     },
   ];
 

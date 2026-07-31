@@ -103,6 +103,7 @@ export default [
       "neurolink/no-local-type-alias": "error", // Rule 2 (strict)
       "neurolink/no-inline-secret-regex": "error", // Review H04 — secret-redaction must go through logSanitize
       "neurolink/provider-typed-errors": "error", // Review M08 — formatProviderError must return typed errors
+      "neurolink/provider-base-class": "error", // Issue #1177 — all providers must extend BaseProvider or OpenAIChatCompletionsProvider
 
       // Import discipline: route all "ai" / "@ai-sdk/provider" usage through the
       // seam files in src/lib/utils/{generation,generationErrors,tool}.ts and

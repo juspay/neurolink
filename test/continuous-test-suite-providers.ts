@@ -24,6 +24,7 @@ import "dotenv/config";
 
 import * as fs from "fs";
 import * as path from "path";
+import { ESLint } from "eslint";
 import { NeuroLink } from "../dist/index.js";
 import { ProviderImageAdapter } from "../dist/adapters/providerImageAdapter.js";
 import { resolveModel } from "../dist/utils/modelAliasResolver.js";
@@ -2359,6 +2360,46 @@ async function testProviderRegistrationCompleteness(): Promise<boolean | null> {
   }
 }
 
+// --- Test #20c: Provider Base Class Inheritance (Issue #1177 / Pattern Analysis provider-base-class) ---
+export async function testProviderBaseClassInheritance(): Promise<
+  boolean | null
+> {
+  logTest("Provider Base Class Inheritance", "TESTING");
+  try {
+    const eslint = new ESLint();
+    const results = await eslint.lintFiles(["src/lib/providers/**/*.ts"]);
+
+    const failures: string[] = [];
+    let checkedFilesCount = 0;
+
+    for (const result of results) {
+      checkedFilesCount++;
+      for (const msg of result.messages) {
+        if (msg.ruleId === "neurolink/provider-base-class") {
+          const relPath = path.relative(process.cwd(), result.filePath);
+          failures.push(`${relPath}:${msg.line}: ${msg.message}`);
+        }
+      }
+    }
+
+    if (failures.length > 0) {
+      logTest("Provider Base Class Inheritance", "FAIL", failures.join("; "));
+      return false;
+    }
+
+    logTest(
+      "Provider Base Class Inheritance",
+      "PASS",
+      `Verified provider classes across ${checkedFilesCount} provider files extend BaseProvider or a recognized provider base class (ESLint rule neurolink/provider-base-class)`,
+    );
+    return true;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logTest("Provider Base Class Inheritance", "FAIL", msg);
+    return false;
+  }
+}
+
 // --- Test #21: Network Retry (Smoke) ---
 // NOTE: This test cannot truly verify retry/backoff behavior without mocking
 // the network layer or injecting transient failures. It only confirms that a
@@ -3722,6 +3763,11 @@ async function runAllTests(): Promise<void> {
     {
       name: "Provider Registration Completeness",
       fn: () => testProviderRegistrationCompleteness(),
+    },
+    // Provider Base Class (Issue #1177 / Pattern Analysis provider-base-class)
+    {
+      name: "Provider Base Class Inheritance",
+      fn: () => testProviderBaseClassInheritance(),
     },
 
     // Network Retry & Manual Provider Loop (Tests #21-#22)
