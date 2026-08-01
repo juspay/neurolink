@@ -1,3 +1,9 @@
+## [10.8.4](https://github.com/juspay/neurolink/compare/v10.8.3...v10.8.4) (2026-08-01)
+
+### Bug Fixes
+
+- **(providers):** add provider-base-class AST lint rule and continuous test suite validation ([#1177](https://github.com/juspay/neurolink/issues/1177)) ([caadc40](https://github.com/juspay/neurolink/commit/caadc40828fee2d395e13872e9cd55c7d2efe47d))
+
 ## [10.8.3](https://github.com/juspay/neurolink/compare/v10.8.2...v10.8.3) (2026-07-31)
 
 ### Bug Fixes
