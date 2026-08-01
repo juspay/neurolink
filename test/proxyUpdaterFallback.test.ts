@@ -985,6 +985,33 @@ describe("request and attempt accounting", () => {
 });
 
 describe("fallback transport handling", () => {
+  it("redacts provider credentials before fallback errors are recorded", () => {
+    const message = __testHooks.redactProviderErrorMessage(
+      "upstream rejected api_key=sk-abcdefghijklmnop and authorization: Bearer token-value",
+    );
+
+    expect(message).toContain("***");
+    expect(message).not.toContain("sk-abcdefghijklmnop");
+    expect(message).not.toContain("token-value");
+  });
+
+  it("bounds redacted provider diagnostics", () => {
+    expect(
+      __testHooks.redactProviderErrorMessage("x".repeat(800)),
+    ).toHaveLength(500);
+  });
+
+  it("classifies HTTP 529 and SSE overloaded errors consistently", () => {
+    const overloadedBody = JSON.stringify({
+      type: "error",
+      error: { type: "overloaded_error", message: "Overloaded" },
+    });
+
+    expect(__testHooks.isUpstreamOverload(529, "gateway overload")).toBe(true);
+    expect(__testHooks.isUpstreamOverload(200, overloadedBody)).toBe(true);
+    expect(__testHooks.isUpstreamOverload(503, "temporary outage")).toBe(false);
+  });
+
   it("retries a fallback fetch failure before succeeding", async () => {
     vi.useFakeTimers();
     const stream = vi

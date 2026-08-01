@@ -450,6 +450,7 @@ export function createOpenAIProxyRoutes(
             body.model,
             // The classifier only reads fields present on both types.
             adapted as Parameters<typeof buildProxyTranslationPlan>[3],
+            requestModelRouter?.isAutoFallbackEnabled?.() ?? false,
           );
           const attempts = plan.attempts;
 

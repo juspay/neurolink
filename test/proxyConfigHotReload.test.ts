@@ -60,27 +60,48 @@ afterEach(async () => {
 });
 
 describe("proxy runtime configuration", () => {
-  it("parses kebab-case quota routing controls", async () => {
+  it("parses kebab-case routing controls", async () => {
     const parsed = await parseProxyConfigString(
       `
 routing:
   strategy: fill-first
   model-mappings: []
   fallback-chain: []
+  auto-fallback: \${AUTO_FALLBACK}
+  max-inflight-per-account: 3
   quota-routing: \${QUOTA_ROUTING}
   session-soft-limit: 0.91
   session-reset-tolerance-ms: 45000
 `,
       {
-        env: { QUOTA_ROUTING: "false" },
+        env: { QUOTA_ROUTING: "false", AUTO_FALLBACK: "true" },
       },
     );
 
     expect(parsed.routing).toMatchObject({
+      autoFallback: true,
+      maxInflightPerAccount: 3,
       quotaRouting: false,
       sessionSoftLimit: 0.91,
       sessionResetToleranceMs: 45_000,
     });
+  });
+
+  it("rejects non-numeric account admission limits", async () => {
+    await expect(
+      parseProxyConfigString(
+        JSON.stringify({
+          routing: {
+            strategy: "fill-first",
+            modelMappings: [],
+            fallbackChain: [],
+            maxInflightPerAccount: true,
+          },
+        }),
+      ),
+    ).rejects.toThrow(
+      "routing.max-inflight-per-account must be an integer between 1 and 20",
+    );
   });
 
   it("atomically publishes a new immutable routing generation", async () => {
@@ -94,6 +115,8 @@ routing:
           quotaRouting: false,
           sessionSoftLimit: 0.82,
           sessionResetToleranceMs: 1_500,
+          autoFallback: true,
+          maxInflightPerAccount: 3,
           primaryAccount: "Primary@Example.com",
           accountAllowlist: ["Primary@Example.com", "Secondary@Example.com"],
         },
@@ -126,6 +149,8 @@ routing:
       provider: "vertex",
       model: "old-primary",
     });
+    expect(first.modelRouter?.isAutoFallbackEnabled()).toBe(true);
+    expect(first.modelRouter?.getMaxInflightPerAccount()).toBe(3);
 
     await writeFile(
       configPath,
@@ -146,6 +171,8 @@ routing:
       provider: "vertex",
       model: "new-primary",
     });
+    expect(second.modelRouter?.isAutoFallbackEnabled()).toBe(false);
+    expect(second.modelRouter?.getMaxInflightPerAccount()).toBe(2);
     expect(second.accountAllowlist).toBeUndefined();
     expect(first.modelRouter?.resolve("hot-model")).toEqual({
       provider: "vertex",

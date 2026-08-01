@@ -13,6 +13,10 @@
 
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
+import {
+  MAX_MAX_INFLIGHT_PER_ACCOUNT,
+  MIN_MAX_INFLIGHT_PER_ACCOUNT,
+} from "./modelRouter.js";
 import { logger } from "../utils/logger.js";
 import type {
   CloakingConfig,
@@ -304,6 +308,34 @@ export function validateProxyConfig(config: unknown): string[] {
       errors.push("routing.quota-routing must be a boolean");
     }
 
+    const rawAutoFallback = routing["auto-fallback"] ?? routing.autoFallback;
+    const normalizedAutoFallback =
+      typeof rawAutoFallback === "string"
+        ? rawAutoFallback.trim().toLowerCase()
+        : undefined;
+    if (
+      rawAutoFallback !== undefined &&
+      typeof rawAutoFallback !== "boolean" &&
+      normalizedAutoFallback !== "true" &&
+      normalizedAutoFallback !== "false"
+    ) {
+      errors.push("routing.auto-fallback must be a boolean");
+    }
+
+    const rawMaxInflight =
+      routing["max-inflight-per-account"] ?? routing.maxInflightPerAccount;
+    if (
+      rawMaxInflight !== undefined &&
+      (typeof rawMaxInflight !== "number" ||
+        !Number.isInteger(rawMaxInflight) ||
+        rawMaxInflight < MIN_MAX_INFLIGHT_PER_ACCOUNT ||
+        rawMaxInflight > MAX_MAX_INFLIGHT_PER_ACCOUNT)
+    ) {
+      errors.push(
+        "routing.max-inflight-per-account must be an integer between 1 and 20",
+      );
+    }
+
     const rawSessionSoftLimit =
       routing["session-soft-limit"] ?? routing.sessionSoftLimit;
     if (rawSessionSoftLimit !== undefined) {
@@ -419,6 +451,8 @@ function warnPlaintextApiKeys(
  * - `strategy` ("round-robin" | "fill-first")
  * - `model-mappings` / `modelMappings` — array of {from, to, provider}
  * - `fallback-chain` / `fallbackChain` — array of {provider, model}
+ * - `auto-fallback` / `autoFallback` — opt in to an unspecified provider
+ * - `max-inflight-per-account` / `maxInflightPerAccount` — concurrency cap
  * - `passthroughModels` / `passthrough-models` — array of model IDs
  * - `quota-routing` / `quotaRouting` — quota-aware fill-first ordering
  * - `session-soft-limit` / `sessionSoftLimit` — proactive handoff threshold
@@ -515,6 +549,39 @@ function parseRoutingConfig(
     } else {
       logger.warn(
         `[proxy-config] Ignoring routing.quotaRouting: expected boolean, got ${typeof rawQuotaRouting}`,
+      );
+    }
+  }
+
+  const rawAutoFallback = raw["auto-fallback"] ?? raw.autoFallback;
+  if (rawAutoFallback !== undefined) {
+    if (typeof rawAutoFallback === "boolean") {
+      result.autoFallback = rawAutoFallback;
+    } else if (
+      typeof rawAutoFallback === "string" &&
+      ["true", "false"].includes(rawAutoFallback.trim().toLowerCase())
+    ) {
+      result.autoFallback = rawAutoFallback.trim().toLowerCase() === "true";
+    } else {
+      logger.warn(
+        `[proxy-config] Ignoring routing.autoFallback: expected boolean, got ${typeof rawAutoFallback}`,
+      );
+    }
+  }
+
+  const rawMaxInflight =
+    raw["max-inflight-per-account"] ?? raw.maxInflightPerAccount;
+  if (rawMaxInflight !== undefined) {
+    if (
+      typeof rawMaxInflight === "number" &&
+      Number.isInteger(rawMaxInflight) &&
+      rawMaxInflight >= MIN_MAX_INFLIGHT_PER_ACCOUNT &&
+      rawMaxInflight <= MAX_MAX_INFLIGHT_PER_ACCOUNT
+    ) {
+      result.maxInflightPerAccount = rawMaxInflight;
+    } else {
+      logger.warn(
+        `[proxy-config] Ignoring routing.maxInflightPerAccount: expected integer between 1 and 20, got ${String(rawMaxInflight)}`,
       );
     }
   }
