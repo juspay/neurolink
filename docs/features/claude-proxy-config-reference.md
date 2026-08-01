@@ -339,7 +339,7 @@ The running proxy watches the resolved config path and proxy env path. Changes a
 The following values reload without restarting:
 
 - `routing.strategy`, unless `--strategy` supplied a fixed CLI override
-- model mappings, fallback chain, and passthrough models
+- model mappings, fallback chain, auto fallback, per-account admission, and passthrough models
 - primary account and account allowlist
 - quota routing, session soft limit, and reset tolerance
 - env interpolation used by those routing fields
@@ -426,6 +426,11 @@ routing:
   session-soft-limit: 0.97
   session-reset-tolerance-ms: 900000
 
+  # Bound concurrent upstream requests per OAuth account. A request first tries
+  # another eligible account at capacity, then queues only if all are full.
+  # The default is 2; valid range is 1 through 20.
+  max-inflight-per-account: 2
+
   # Primary (home) account: under fill-first without quota routing this account
   # is tried first. With quota routing enabled it is only the final tie-break;
   # session headroom and weekly expiry determine order first. Under round-robin
@@ -465,6 +470,12 @@ routing:
       model: "gemini-2.5-pro"
     - provider: "openai"
       model: "gpt-4o"
+
+  # Disabled by default. Set true only when it is acceptable for a request to
+  # use an unspecified provider selected by the translation layer after the
+  # configured fallback chain is exhausted. It is skipped when any account
+  # returned a rate limit; that case still returns 429.
+  auto-fallback: false
 
   # Passthrough models: model IDs that skip routing and go directly to Anthropic
   # Accepts: passthrough-models (kebab) or passthroughModels (camel)
@@ -546,6 +557,8 @@ cloaking:
 | `account-allowlist` / `accountAllowlist`                 | `string[]`                      | _(none)_ | No       | Allowed Anthropic account labels/keys. When present, unlisted TokenStore, legacy, and environment credentials are excluded before loading or refresh. Empty denies all; absent is unrestricted. Special fallback labels are `legacy-default` and `env`.                                                                                                                                  |
 | `model-mappings` / `modelMappings`                       | `ModelMapping[]`                | `[]`     | No       | Array of model-to-model remapping rules.                                                                                                                                                                                                                                                                                                                                                 |
 | `fallback-chain` / `fallbackChain`                       | `FallbackEntry[]`               | `[]`     | No       | Ordered list of alternative providers to try when primary accounts are exhausted.                                                                                                                                                                                                                                                                                                        |
+| `auto-fallback` / `autoFallback`                         | `boolean`                       | `false`  | No       | Allows a translation-layer-selected fallback provider after configured fallbacks fail. Keep disabled to restrict requests to explicit accounts and fallback entries.                                                                                                                                                                                                                     |
+| `max-inflight-per-account` / `maxInflightPerAccount`     | `integer`                       | `2`      | No       | Maximum concurrent upstream requests per OAuth account, from 1 through 20. Requests prefer an available ordered account before queueing.                                                                                                                                                                                                                                                 |
 | `passthrough-models` / `passthroughModels`               | `string[]`                      | `[]`     | No       | Model IDs that bypass routing and go directly to Anthropic.                                                                                                                                                                                                                                                                                                                              |
 | `quota-routing` / `quotaRouting`                         | `boolean`                       | `true`   | No       | Enables weekly-expiry-first quota ordering for fill-first with multiple accounts. Accounts at the session soft limit are temporarily demoted until their 5h window resets. The environment override takes precedence.                                                                                                                                                                    |
 | `session-soft-limit` / `sessionSoftLimit`                | `number`                        | `0.97`   | No       | Session utilization in `(0, 1]` at which quota routing proactively demotes an account.                                                                                                                                                                                                                                                                                                   |
@@ -588,6 +601,8 @@ The config loader validates the following:
 - If `version` is present, it must be a number.
 - `routing.account-allowlist` must be an array of non-empty strings when present.
 - `routing.quota-routing` must be a boolean when present.
+- `routing.auto-fallback` must be a boolean when present.
+- `routing.max-inflight-per-account` must be an integer from 1 through 20 when present.
 - `routing.session-soft-limit` must be a number in `(0, 1]` when present.
 - `routing.session-reset-tolerance-ms` must be a positive integer when present.
 - Plaintext API keys (not using `${ENV_VAR}` references) trigger a warning.

@@ -1116,6 +1116,10 @@ export type ProxyRoutingConfig = {
   strategy: "round-robin" | "fill-first";
   modelMappings: ModelMapping[];
   fallbackChain: FallbackEntry[];
+  /** Permit a last-resort provider chosen by the translation layer. Disabled by default. */
+  autoFallback?: boolean;
+  /** Maximum in-flight upstream requests per OAuth account. Defaults to two. */
+  maxInflightPerAccount?: number;
   passthroughModels?: string[];
   /** Enable quota-aware fill-first account ordering. Defaults to true. */
   quotaRouting?: boolean;

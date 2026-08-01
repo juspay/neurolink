@@ -42,6 +42,8 @@ export type ModelRouterInterface = {
   resolve(requestedModel: string): RouteResult;
   isClaudeTarget(requestedModel: string): boolean;
   getFallbackChain(): FallbackEntry[];
+  isAutoFallbackEnabled?(): boolean;
+  getMaxInflightPerAccount?(): number;
   getModelMappings?: () => ModelMapping[];
   getPassthroughModels?: () => string[];
 };
@@ -759,7 +761,29 @@ export type AnthropicSuccessResult =
       retryNextAccount: true;
       failure?: { message: string; rateLimit: boolean };
     }
-  | { response: Response | unknown };
+  | { response: Response | unknown; holdsAccountAdmission?: boolean };
+
+/** A release handle for one in-flight request admitted to an OAuth account. */
+export type AccountAdmissionLease = { release(): void };
+
+/** A cancellable queued request for per-account admission capacity. */
+export type QueuedAccountAdmission = {
+  accountKey: string;
+  promise: Promise<AccountAdmissionLease>;
+  cancel(): void;
+};
+
+/** One queued request waiting for per-account admission capacity. */
+export type AccountAdmissionWaiter = {
+  capacity: number;
+  resolve: (lease: AccountAdmissionLease) => void;
+};
+
+/** In-process request admission state for an OAuth account. */
+export type AccountAdmissionState = {
+  active: number;
+  waiters: AccountAdmissionWaiter[];
+};
 
 /** Result of buffering only enough upstream SSE to make a retry-safe decision. */
 export type AnthropicStreamPreflightResult =
@@ -784,6 +808,7 @@ export type ParsedSSEBuffer = {
 
 export type AnthropicAuthRetryResult = {
   response?: Response | unknown;
+  holdsAccountAdmission?: boolean;
   continueLoop: boolean;
   lastError: unknown;
   authFailureMessage: string | null;

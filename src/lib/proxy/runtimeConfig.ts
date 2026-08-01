@@ -327,6 +327,8 @@ async function buildCandidate(
         strategy,
         modelMappings: routing.modelMappings ?? [],
         fallbackChain: routing.fallbackChain ?? [],
+        autoFallback: routing.autoFallback,
+        maxInflightPerAccount: routing.maxInflightPerAccount,
         passthroughModels: routing.passthroughModels,
         quotaRouting: routing.quotaRouting,
         sessionSoftLimit: routing.sessionSoftLimit,

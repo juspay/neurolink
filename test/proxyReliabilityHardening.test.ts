@@ -62,7 +62,7 @@ import {
 
 const tempDirs: string[] = [];
 
-function createRecordingErrorFinalRequestLogger() {
+function createRecordingErrorFinalRequestLogger(onFinalized?: () => void) {
   return vi.fn(
     (
       status: number,
@@ -71,6 +71,7 @@ function createRecordingErrorFinalRequestLogger() {
       errorType?: string,
       errorMessage?: string,
     ) => {
+      onFinalized?.();
       recordFinalError(status, accountLabel, accountType, {
         errorType,
         terminalOutcome:
@@ -1281,6 +1282,47 @@ describe("upstream attempt classification and retry amplification", () => {
     );
   });
 
+  it("rotates immediately after an HTTP 529 overload", async () => {
+    const account = {
+      key: "anthropic:primary@example.com",
+      label: "primary@example.com",
+      token: "test-token",
+      type: "oauth" as const,
+    };
+    const result = await __testHooks.handleAnthropicNonOkResponse({
+      response: new Response(
+        JSON.stringify({
+          type: "error",
+          error: { type: "overloaded_error", message: "Overloaded" },
+        }),
+        { status: 529, headers: { "content-type": "application/json" } },
+      ),
+      account,
+      accountState: {
+        consecutiveRefreshFailures: 0,
+        permanentlyDisabled: false,
+      },
+      enabledAccounts: [account],
+      orderedAccounts: [account],
+      requestStartTime: Date.now(),
+      fetchStartMs: Date.now(),
+      attemptNumber: 1,
+      logAttempt: vi.fn(),
+      logProxyBody: vi.fn(),
+      logFinalRequest: vi.fn(),
+      lastError: undefined,
+      authFailureMessage: null,
+      sawTransientFailure: false,
+      invalidRequestFailure: null,
+    });
+
+    expect(result).toMatchObject({
+      continueLoop: true,
+      retrySameAccount: false,
+      sawTransientFailure: true,
+    });
+  });
+
   it("shares two transient retries across an entire concurrent account window", () => {
     const now = 1_800_000_000_000;
     const coolingUntil = now + 60_000;
@@ -1367,6 +1409,109 @@ describe("upstream attempt classification and retry amplification", () => {
     await expect(firstAdmission).resolves.toEqual([account]);
     await vi.advanceTimersByTimeAsync(250);
     await expect(secondAdmission).resolves.toEqual([account]);
+  });
+
+  it("holds an account admission lease until the prior request releases it", async () => {
+    const accountKey = "anthropic:primary@example.com";
+    const first = await __testHooks.acquireAccountAdmission(accountKey, 1);
+    const second = __testHooks.acquireAccountAdmission(accountKey, 1);
+
+    expect(__testHooks.getAccountAdmissionSnapshot(accountKey)).toEqual({
+      active: 1,
+      waiting: 1,
+    });
+
+    first.release();
+    const secondLease = await second;
+    expect(__testHooks.getAccountAdmissionSnapshot(accountKey)).toEqual({
+      active: 1,
+      waiting: 0,
+    });
+
+    secondLease.release();
+    expect(__testHooks.getAccountAdmissionSnapshot(accountKey)).toEqual({
+      active: 0,
+      waiting: 0,
+    });
+  });
+
+  it("removes timed-out and aborted account admission waiters", async () => {
+    vi.useFakeTimers();
+    const accountKey = "anthropic:primary@example.com";
+    const first = await __testHooks.acquireAccountAdmission(accountKey, 1);
+    const timedOut = __testHooks.acquireAccountAdmission(
+      accountKey,
+      1,
+      undefined,
+      100,
+    );
+
+    await vi.advanceTimersByTimeAsync(100);
+    await expect(timedOut).resolves.toBeUndefined();
+    expect(__testHooks.getAccountAdmissionSnapshot(accountKey)).toEqual({
+      active: 1,
+      waiting: 0,
+    });
+
+    const abortController = new AbortController();
+    const aborted = __testHooks.acquireAccountAdmission(
+      accountKey,
+      1,
+      abortController.signal,
+      1_000,
+    );
+    abortController.abort();
+    await expect(aborted).rejects.toMatchObject({ name: "AbortError" });
+    expect(__testHooks.getAccountAdmissionSnapshot(accountKey)).toEqual({
+      active: 1,
+      waiting: 0,
+    });
+
+    first.release();
+  });
+
+  it("uses whichever fully busy account frees first", async () => {
+    const primary = "anthropic:primary@example.com";
+    const secondary = "anthropic:secondary@example.com";
+    const primaryLease = await __testHooks.acquireAccountAdmission(primary, 1);
+    const secondaryLease = await __testHooks.acquireAccountAdmission(
+      secondary,
+      1,
+    );
+    const next = __testHooks.acquireFirstAvailableAccountAdmission(
+      [primary, secondary],
+      1,
+      undefined,
+      1_000,
+    );
+
+    secondaryLease.release();
+    await expect(next).resolves.toMatchObject({ accountKey: secondary });
+    const winner = await next;
+    winner?.lease.release();
+    primaryLease.release();
+
+    expect(__testHooks.getAccountAdmissionSnapshot(primary)).toEqual({
+      active: 0,
+      waiting: 0,
+    });
+    expect(__testHooks.getAccountAdmissionSnapshot(secondary)).toEqual({
+      active: 0,
+      waiting: 0,
+    });
+  });
+
+  it("allows a later account to serve while the first account is at capacity", async () => {
+    const primary = "anthropic:primary@example.com";
+    const secondary = "anthropic:secondary@example.com";
+    const primaryLease = await __testHooks.acquireAccountAdmission(primary, 1);
+
+    expect(__testHooks.tryAcquireAccountAdmission(primary, 1)).toBeUndefined();
+    const secondaryLease = __testHooks.tryAcquireAccountAdmission(secondary, 1);
+    expect(secondaryLease).toBeDefined();
+
+    primaryLease.release();
+    secondaryLease?.release();
   });
 
   it("never queues through a hard quota cooldown", async () => {
@@ -2524,7 +2669,13 @@ describe("stream terminal outcomes", () => {
       token: "test-token",
       type: "oauth" as const,
     };
-    const logFinalRequest = createRecordingErrorFinalRequestLogger();
+    const callbackSequence: string[] = [];
+    const logFinalRequest = createRecordingErrorFinalRequestLogger(() => {
+      callbackSequence.push("logFinalRequest");
+    });
+    const onStreamTerminal = vi.fn(() => {
+      callbackSequence.push("onStreamTerminal");
+    });
     recordAttempt(account.label, account.type);
 
     const result = await __testHooks.handleAnthropicStreamingSuccessResponse({
@@ -2547,6 +2698,7 @@ describe("stream terminal outcomes", () => {
       logAttempt: vi.fn(),
       logProxyBody: vi.fn(),
       logFinalRequest,
+      onStreamTerminal,
     });
 
     const reader = (result.response as Response).body!.getReader();
@@ -2554,6 +2706,8 @@ describe("stream terminal outcomes", () => {
     await reader.cancel("client disconnected");
     expect(cancelUpstream).toHaveBeenCalledOnce();
     await vi.waitFor(() => expect(logFinalRequest).toHaveBeenCalledTimes(1));
+    expect(onStreamTerminal).toHaveBeenCalledOnce();
+    expect(callbackSequence).toEqual(["logFinalRequest", "onStreamTerminal"]);
 
     expect(logFinalRequest).toHaveBeenCalledWith(
       499,

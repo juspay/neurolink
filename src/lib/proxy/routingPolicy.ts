@@ -26,13 +26,16 @@ export function inferClaudeProxyModelTier(
  * Build a translation plan for a Claude-compatible proxy request.
  * The plan lists the primary provider followed by eligible fallback targets.
  * All configured fallback entries are always eligible — no contract-based gating.
- * When no fallback chain is configured, an "auto-provider" entry is appended.
+ * An "auto-provider" entry is appended only when explicitly enabled by the
+ * caller. This keeps an empty fallback chain from silently escaping to an
+ * unrelated provider.
  */
 export function buildProxyTranslationPlan(
   primary: { provider: string; model?: string },
   fallbackChain: FallbackEntry[],
   requestedModel: string,
   _parsed: ParsedClaudeRequest,
+  allowAutoFallback = false,
 ): ProxyTranslationPlan {
   const attempts: ProxyTranslationAttempt[] = [
     {
@@ -57,9 +60,12 @@ export function buildProxyTranslationPlan(
     });
   }
 
-  // Append auto-provider when no configured fallback chain exists,
-  // or when all configured entries were deduped (same as primary).
-  if (fallbackChain.length === 0 || attempts.length === 1) {
+  // A provider chosen by the translation layer is an explicit opt-in. It is
+  // intentionally not a default when configured entries are absent or deduped.
+  if (
+    allowAutoFallback &&
+    (fallbackChain.length === 0 || attempts.length === 1)
+  ) {
     attempts.push({ label: "auto-provider" });
   }
 

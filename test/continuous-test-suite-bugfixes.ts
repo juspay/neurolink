@@ -15,6 +15,7 @@ import {
   buildProxyTranslationPlan,
   parseRetryAfterMs,
 } from "../src/lib/proxy/routingPolicy.js";
+import { __testHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
 
 import {
   convertToModelMessages,
@@ -2249,19 +2250,28 @@ const tests: TestFunction[] = [
     },
   },
   {
-    name: "buildProxyTranslationPlan: auto-provider added when no fallback chain",
+    name: "buildProxyTranslationPlan: auto-provider requires explicit opt-in",
     category: "routing-policy",
     fn: async () => {
       const parsed = makeParsedRequest();
-      const plan = buildProxyTranslationPlan(
+      const defaultPlan = buildProxyTranslationPlan(
         { provider: "anthropic", model: "claude-sonnet-4-20250514" },
         [],
         "claude-sonnet-4-20250514",
         parsed,
       );
+      const optInPlan = buildProxyTranslationPlan(
+        { provider: "anthropic", model: "claude-sonnet-4-20250514" },
+        [],
+        "claude-sonnet-4-20250514",
+        parsed,
+        true,
+      );
 
       return (
-        plan.attempts.length === 2 && plan.attempts[1].label === "auto-provider"
+        defaultPlan.attempts.length === 1 &&
+        optInPlan.attempts.length === 2 &&
+        optInPlan.attempts[1].label === "auto-provider"
       );
     },
   },
@@ -2332,6 +2342,143 @@ const tests: TestFunction[] = [
         !("modelTierCooldowns" in state) &&
         !("requestClassBackoffLevels" in state) &&
         !("modelTierBackoffLevels" in state)
+      );
+    },
+  },
+  {
+    name: "proxy routing: HTTP 529 overload rotates without same-account retry",
+    category: "routing-policy",
+    fn: async () => {
+      const account = {
+        key: "anthropic:primary@example.com",
+        label: "primary@example.com",
+        token: "test-token",
+        type: "oauth" as const,
+      };
+      const result = await __testHooks.handleAnthropicNonOkResponse({
+        response: new Response(
+          JSON.stringify({
+            type: "error",
+            error: { type: "overloaded_error", message: "Overloaded" },
+          }),
+          { status: 529, headers: { "content-type": "application/json" } },
+        ),
+        account,
+        accountState: {
+          consecutiveRefreshFailures: 0,
+          permanentlyDisabled: false,
+        },
+        enabledAccounts: [account],
+        orderedAccounts: [account],
+        requestStartTime: Date.now(),
+        fetchStartMs: Date.now(),
+        attemptNumber: 1,
+        logAttempt: () => undefined,
+        logProxyBody: () => undefined,
+        logFinalRequest: () => undefined,
+        lastError: undefined,
+        authFailureMessage: null,
+        sawTransientFailure: false,
+        invalidRequestFailure: null,
+      });
+      return (
+        result.continueLoop === true &&
+        result.retrySameAccount === false &&
+        result.sawTransientFailure === true
+      );
+    },
+  },
+  {
+    name: "proxy routing: account admission holds leases and releases waiters",
+    category: "routing-policy",
+    fn: async () => {
+      const accountKey = "anthropic:primary@example.com";
+      const first = await __testHooks.acquireAccountAdmission(accountKey, 1);
+      const second = __testHooks.acquireAccountAdmission(accountKey, 1);
+      const queued = __testHooks.getAccountAdmissionSnapshot(accountKey);
+      first?.release();
+      const secondLease = await second;
+      const admitted = __testHooks.getAccountAdmissionSnapshot(accountKey);
+      secondLease?.release();
+      const released = __testHooks.getAccountAdmissionSnapshot(accountKey);
+      return (
+        queued.active === 1 &&
+        queued.waiting === 1 &&
+        admitted.active === 1 &&
+        admitted.waiting === 0 &&
+        released.active === 0 &&
+        released.waiting === 0
+      );
+    },
+  },
+  {
+    name: "proxy routing: stream finalization logs before releasing admission",
+    category: "routing-policy",
+    fn: async () => {
+      let resolvePull: (() => void) | undefined;
+      let cancelled = false;
+      const encoder = new TextEncoder();
+      const upstreamStream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(
+            encoder.encode(
+              'event: message_start\ndata: {"type":"message_start","message":{"usage":{"input_tokens":1,"output_tokens":0}}}\n\n',
+            ),
+          );
+        },
+        pull() {
+          return new Promise<void>((resolve) => {
+            resolvePull = resolve;
+          });
+        },
+        cancel() {
+          cancelled = true;
+          resolvePull?.();
+        },
+      });
+      const account = {
+        key: "anthropic:primary@example.com",
+        label: "primary@example.com",
+        token: "test-token",
+        type: "oauth" as const,
+      };
+      const sequence: string[] = [];
+      const result = await __testHooks.handleAnthropicStreamingSuccessResponse({
+        ctx: {} as never,
+        body: { model: "claude-opus-4-8", messages: [], stream: true },
+        account,
+        accountState: {
+          consecutiveRefreshFailures: 0,
+          permanentlyDisabled: false,
+        },
+        response: new Response(upstreamStream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }),
+        responseHeaders: { "content-type": "text/event-stream" },
+        requestStartTime: Date.now(),
+        fetchStartMs: Date.now(),
+        attemptNumber: 1,
+        finalBodyStr: "{}",
+        logAttempt: () => undefined,
+        logProxyBody: () => undefined,
+        logFinalRequest: () => sequence.push("logFinalRequest"),
+        onStreamTerminal: () => sequence.push("onStreamTerminal"),
+      });
+      const reader = (result.response as Response).body?.getReader();
+      if (!reader) {
+        return false;
+      }
+      await reader.read();
+      await reader.cancel("client disconnected");
+      for (let attempt = 0; attempt < 10 && sequence.length < 2; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      return (
+        cancelled &&
+        sequence.length === 2 &&
+        sequence[0] === "logFinalRequest" &&
+        sequence[1] === "onStreamTerminal"
       );
     },
   },
