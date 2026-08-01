@@ -60,7 +60,7 @@ import type {
   TerminateEmployeesParams,
 } from "./types/mcp.js";
 import { testComplexZodSchemaMultiProvider } from "./zod-schema-test-function.js";
-import { testProviderBaseClassInheritance } from "./continuous-test-suite-providers.js";
+import { checkProviderBaseClasses } from "./helpers/providerBaseClass.js";
 
 // Provider-specific token limits
 const PROVIDER_MAX_TOKENS: Record<string, number> = {
@@ -4522,6 +4522,45 @@ async function testCloakingRuntime(): Promise<boolean | null> {
     return true;
   } catch (error: unknown) {
     logTest("Cloaking Runtime", "FAIL", getErrorMessage(error));
+    return false;
+  }
+}
+
+/**
+ * Provider base-class conformance (Issue #1177).
+ *
+ * The check itself lives in `./helpers/providerBaseClass.js`. It must not be
+ * imported from `continuous-test-suite-providers.ts`: that module ends in a
+ * top-level `await runSuite(...)`, which calls `process.exit()` — importing it
+ * would run the providers suite and terminate this one before it starts.
+ */
+async function testProviderBaseClassInheritance(): Promise<boolean | null> {
+  logTest("Provider Base Class Inheritance", "TESTING");
+  try {
+    const { ok, checkedFiles, failures } = await checkProviderBaseClasses();
+
+    if (failures.length > 0) {
+      logTest("Provider Base Class Inheritance", "FAIL", failures.join("; "));
+      return false;
+    }
+    if (!ok) {
+      logTest(
+        "Provider Base Class Inheritance",
+        "FAIL",
+        "provider glob matched no files — the check verified nothing",
+      );
+      return false;
+    }
+
+    logTest(
+      "Provider Base Class Inheritance",
+      "PASS",
+      `Verified provider classes across ${checkedFiles} provider files (ESLint rule neurolink/provider-base-class)`,
+    );
+    return true;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logTest("Provider Base Class Inheritance", "FAIL", msg);
     return false;
   }
 }
