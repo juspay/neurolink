@@ -26,6 +26,7 @@ import {
   getRetryDelay,
 } from "./errors.js";
 import { logger } from "../../utils/logger.js";
+import { tryImport } from "../../utils/tryImport.js";
 
 /**
  * Lazily load `@aws-sdk/client-sagemaker-runtime`.
@@ -39,21 +40,10 @@ import { logger } from "../../utils/logger.js";
 async function loadSageMakerRuntime(): Promise<
   typeof import("@aws-sdk/client-sagemaker-runtime")
 > {
-  try {
-    return await import(/* @vite-ignore */ "@aws-sdk/client-sagemaker-runtime");
-  } catch (err) {
-    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
-    if (
-      e?.code === "ERR_MODULE_NOT_FOUND" &&
-      e.message.includes("client-sagemaker-runtime")
-    ) {
-      throw new Error(
-        'SageMaker inference requires "@aws-sdk/client-sagemaker-runtime". Install it with:\n  pnpm add @aws-sdk/client-sagemaker-runtime',
-        { cause: err },
-      );
-    }
-    throw err;
-  }
+  return tryImport<typeof import("@aws-sdk/client-sagemaker-runtime")>(
+    "@aws-sdk/client-sagemaker-runtime",
+    "SageMaker inference",
+  );
 }
 
 /**

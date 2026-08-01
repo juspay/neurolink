@@ -65,26 +65,51 @@ import { SIZE_LIMITS_MB } from "../config/index.js";
 import { FileErrorCode } from "../errors/index.js";
 import { tracers, ATTR, withSpan } from "../../telemetry/index.js";
 import { logger } from "../../utils/logger.js";
+import { tryImport } from "../../utils/tryImport.js";
+
+/**
+ * Narrow a loaded `fluent-ffmpeg` export to the shape this file actually uses:
+ * a callable carrying the `ffprobe` and `setFfmpegPath` statics.
+ *
+ * `tryImport` proves only that the package RESOLVES. Callers invoke the export
+ * and reach straight for its statics, so a package whose shape changed (ESM
+ * rewrite, major bump, a shim in node_modules) would otherwise surface as
+ * "Cannot read properties of undefined (reading 'ffprobe')" from inside
+ * probeVideo — blaming the call site instead of the package that is wrong.
+ */
+export function assertFluentFfmpegShape(
+  mod: unknown,
+): asserts mod is typeof import("fluent-ffmpeg") {
+  // Not `Partial<typeof import("fluent-ffmpeg")>`: Partial maps over properties
+  // and drops the call signature, so `typeof x === "function"` would narrow the
+  // result to `never`. Probe the statics structurally instead.
+  const statics = mod as { ffprobe?: unknown; setFfmpegPath?: unknown };
+  if (
+    typeof mod !== "function" ||
+    typeof statics.ffprobe !== "function" ||
+    typeof statics.setFfmpegPath !== "function"
+  ) {
+    throw new Error(
+      `The installed "fluent-ffmpeg" package does not export a callable with ` +
+        `ffprobe and setFfmpegPath statics (got ${typeof mod}). ` +
+        `Reinstall a compatible version:\n  pnpm add fluent-ffmpeg`,
+    );
+  }
+}
 
 // fluent-ffmpeg's default export is callable + has static methods — avoid caching
 // the module type (it confuses TS); Node's module cache handles dedup.
 async function loadFluentFfmpeg() {
-  try {
-    const mod = await import(/* @vite-ignore */ "fluent-ffmpeg");
-    return mod.default;
-  } catch (err) {
-    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
-    if (
-      e?.code === "ERR_MODULE_NOT_FOUND" &&
-      e.message.includes("fluent-ffmpeg")
-    ) {
-      throw new Error(
-        'Video processing requires the "fluent-ffmpeg" package. Install it with:\n  pnpm add fluent-ffmpeg',
-        { cause: err },
-      );
-    }
-    throw err;
-  }
+  // fluent-ffmpeg is CJS (`export =`), so `typeof import(...)` describes the
+  // callable itself and carries no `default`. Under Node ESM the namespace
+  // still wraps it, so ask for that shape explicitly.
+  const mod = await tryImport<{ default: typeof import("fluent-ffmpeg") }>(
+    "fluent-ffmpeg",
+    "Video processing",
+  );
+  const ffmpeg = mod.default;
+  assertFluentFfmpegShape(ffmpeg);
+  return ffmpeg;
 }
 
 let _mediabunny: typeof import("mediabunny") | null = null;
@@ -92,22 +117,11 @@ async function loadMediaBunny() {
   if (_mediabunny) {
     return _mediabunny;
   }
-  try {
-    _mediabunny = await import(/* @vite-ignore */ "mediabunny");
-    return _mediabunny;
-  } catch (err) {
-    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
-    if (
-      e?.code === "ERR_MODULE_NOT_FOUND" &&
-      e.message.includes("mediabunny")
-    ) {
-      throw new Error(
-        'Video processing requires the "mediabunny" package. Install it with:\n  pnpm add mediabunny',
-        { cause: err },
-      );
-    }
-    throw err;
-  }
+  _mediabunny = await tryImport<typeof import("mediabunny")>(
+    "mediabunny",
+    "Video processing",
+  );
+  return _mediabunny;
 }
 
 // =============================================================================

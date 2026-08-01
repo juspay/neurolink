@@ -45,6 +45,7 @@ import type {
 } from "../../../../types/index.js";
 import { extractMcpErrorText } from "../../../../utils/mcpErrorText.js";
 import { logger } from "../../../../utils/logger.js";
+import { tryImport } from "../../../../utils/tryImport.js";
 import { LANGFUSE_ATTR } from "../../../../telemetry/attributes.js";
 
 const LOG_PREFIX = "[OpenTelemetry]";
@@ -728,19 +729,10 @@ class ContextEnricher implements SpanProcessor {
 async function createLangfuseProcessor(
   config: LangfuseConfig,
 ): Promise<LangfuseSpanProcessorType> {
-  let mod: typeof import("@langfuse/otel");
-  try {
-    mod = await import(/* @vite-ignore */ "@langfuse/otel");
-  } catch (err) {
-    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
-    if (e?.code === "ERR_MODULE_NOT_FOUND" && e.message.includes("langfuse")) {
-      throw new Error(
-        'Langfuse observability requires "@langfuse/otel". Install it with:\n  pnpm add @langfuse/otel',
-        { cause: err },
-      );
-    }
-    throw err;
-  }
+  const mod = await tryImport<typeof import("@langfuse/otel")>(
+    "@langfuse/otel",
+    "Langfuse observability",
+  );
   return new mod.LangfuseSpanProcessor({
     publicKey: config.publicKey,
     secretKey: config.secretKey,

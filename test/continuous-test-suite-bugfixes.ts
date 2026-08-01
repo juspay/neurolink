@@ -57,8 +57,13 @@ import fs, {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join as pathJoin, resolve as resolvePath } from "node:path";
-import { pathToFileURL } from "node:url";
+import {
+  basename,
+  dirname,
+  join as pathJoin,
+  resolve as resolvePath,
+} from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawn as spawnProcess } from "node:child_process";
 import { MockAgent, setGlobalDispatcher, getGlobalDispatcher } from "undici";
 import http from "node:http";
@@ -185,9 +190,14 @@ type TestFunction = {
 // Helpers (delegated to shared harness where possible)
 // ============================================================================
 
+import { tryImport } from "../src/lib/utils/tryImport.js";
+import { assertFluentFfmpegShape } from "../src/lib/processors/media/VideoProcessor.js";
 import { defineSuite, log, logSection } from "./helpers/harness.js";
 
 const { recordTest, runSuite } = defineSuite("Production Bugfix Verification");
+
+/** A package name that will never resolve, for the missing-dependency cases. */
+const ABSENT_PKG = "neurolink-definitely-not-installed-abc123";
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -9286,6 +9296,242 @@ exit 127
         }
       }
       return !claudeProxyTestHooks.hasAccountAdmissionState(accountKey);
+    },
+  },
+
+  // ---------- tryImport: optional-dependency loading ----------
+  {
+    name: "tryImport returns the module namespace when the package resolves",
+    category: "optional-deps",
+    fn: async () => {
+      const mod = await tryImport<typeof import("node:path")>(
+        "node:path",
+        "Path handling",
+      );
+      return typeof mod.join === "function";
+    },
+  },
+  {
+    name: "tryImport converts a missing package into an actionable install hint",
+    category: "optional-deps",
+    fn: async () => {
+      const err = await tryImport(ABSENT_PKG, "Widget rendering").catch(
+        (e: unknown) => e,
+      );
+      return (
+        err instanceof Error &&
+        err.message.includes(
+          `Widget rendering requires the "${ABSENT_PKG}" package.`,
+        ) &&
+        err.message.includes(`pnpm add ${ABSENT_PKG}`)
+      );
+    },
+  },
+  {
+    name: "tryImport preserves the original resolution error as `cause`",
+    category: "optional-deps",
+    fn: async () => {
+      const err = await tryImport(ABSENT_PKG, "Widget rendering").catch(
+        (e: unknown) => e,
+      );
+      const cause = (err as Error)?.cause as NodeJS.ErrnoException | undefined;
+      return err instanceof Error && cause?.code === "ERR_MODULE_NOT_FOUND";
+    },
+  },
+  {
+    // The fixture module itself exists — only something it imports is absent.
+    // Rewriting this into "install the fixture" would send the caller after a
+    // package they already have, which is why the match is quoted-name-exact
+    // rather than a bare substring.
+    name: "tryImport rethrows unchanged when a TRANSITIVE dependency is missing",
+    category: "optional-deps",
+    fn: async () => {
+      const fixture = pathToFileURL(
+        pathJoin(
+          dirname(fileURLToPath(import.meta.url)),
+          "fixtures",
+          "tryImport",
+          "importsMissingDep.mjs",
+        ),
+      ).href;
+      const err = await tryImport(fixture, "Fixture feature").catch(
+        (e: unknown) => e,
+      );
+      return (
+        err instanceof Error &&
+        !err.message.includes("Install it with") &&
+        err.message.includes("neurolink-fixture-absent-transitive-dep")
+      );
+    },
+  },
+  {
+    // `pnpm add /tmp/….mjs` is not a command anyone can run. A path that fails
+    // to resolve is a broken path, not an absent dependency.
+    //
+    // Absolute rather than relative deliberately: Node reports the *resolved*
+    // path in its message, so a relative specifier never matches the quoted
+    // name and was already rejected by accident. An absolute path matches
+    // itself exactly, which is what made this reachable.
+    name: "tryImport offers no install hint for a missing ABSOLUTE path",
+    category: "optional-deps",
+    fn: async () => {
+      const err = await tryImport(
+        "/tmp/neurolink-definitely-missing-abc123.mjs",
+        "Fixture feature",
+      ).catch((e: unknown) => e);
+      return (
+        err instanceof Error &&
+        !err.message.includes("Install it with") &&
+        !err.message.includes("pnpm add")
+      );
+    },
+  },
+  {
+    // The reachable case: this suite already calls tryImport() with a file URL,
+    // so a typoed fixture path would otherwise be reported as a missing package.
+    name: "tryImport offers no install hint for a missing file: URL",
+    category: "optional-deps",
+    fn: async () => {
+      const missing = pathToFileURL(
+        pathJoin(
+          dirname(fileURLToPath(import.meta.url)),
+          "fixtures",
+          "tryImport",
+          "no-such-fixture.mjs",
+        ),
+      ).href;
+      const err = await tryImport(missing, "Fixture feature").catch(
+        (e: unknown) => e,
+      );
+      return (
+        err instanceof Error &&
+        !err.message.includes("Install it with") &&
+        !err.message.includes("pnpm add")
+      );
+    },
+  },
+  {
+    // The bare-specifier gate must not exclude legitimate package shapes —
+    // scoped names contain a "/" and must still be treated as installable.
+    name: "tryImport still offers an install hint for a scoped package name",
+    category: "optional-deps",
+    fn: async () => {
+      const scoped = "@neurolink/definitely-not-installed-abc123";
+      const err = await tryImport(scoped, "Widget rendering").catch(
+        (e: unknown) => e,
+      );
+      return err instanceof Error && err.message.includes(`pnpm add ${scoped}`);
+    },
+  },
+  {
+    // A URL that resolves but throws while evaluating is a real failure, not a
+    // missing dependency — the caller needs the original error.
+    name: "tryImport rethrows non-module errors unchanged",
+    category: "optional-deps",
+    fn: async () => {
+      const err = await tryImport(
+        "data:text/javascript,throw new Error('boom')",
+        "Evaluation feature",
+      ).catch((e: unknown) => e);
+      return err instanceof Error && err.message === "boom";
+    },
+  },
+
+  // ---------- fluent-ffmpeg export-shape guard ----------
+  {
+    // Positive control against the real package, not a stand-in: if a future
+    // bump changes the export shape, this fails here rather than as a TypeError
+    // deep inside probeVideo. fluent-ffmpeg is an optionalDependency, so an
+    // install that skipped it skips this case rather than failing it.
+    name: "assertFluentFfmpegShape accepts the installed fluent-ffmpeg export",
+    category: "optional-deps",
+    fn: async () => {
+      // Loaded through tryImport, the helper this PR adds, precisely because it
+      // separates "the package is absent" from "the package is present but
+      // broken". A bare `.catch(() => null)` would swallow the second case and
+      // silently skip — turning the positive control into a no-op exactly when
+      // a broken install is what it should be catching.
+      let mod: { default: unknown };
+      try {
+        mod = await tryImport<{ default: unknown }>(
+          "fluent-ffmpeg",
+          "Video processing",
+        );
+      } catch (error) {
+        // tryImport only rewrites a genuinely-absent bare package into an
+        // install hint; anything else is rethrown untouched and must fail here.
+        if (
+          error instanceof Error &&
+          error.message.includes("pnpm add fluent-ffmpeg")
+        ) {
+          return null as unknown as boolean; // optional dep not installed — skip
+        }
+        throw error;
+      }
+      assertFluentFfmpegShape(mod.default);
+      return true;
+    },
+  },
+  {
+    // The shape an ESM-rewritten fluent-ffmpeg would produce: named exports
+    // only, so `mod.default` is undefined and every call site breaks.
+    name: "assertFluentFfmpegShape rejects a namespace with no callable default",
+    category: "optional-deps",
+    fn: async () => {
+      const rejects = (value: unknown) => {
+        try {
+          assertFluentFfmpegShape(value);
+          return false;
+        } catch (e) {
+          return (
+            e instanceof Error &&
+            e.message.includes(
+              '"fluent-ffmpeg" package does not export a callable',
+            )
+          );
+        }
+      };
+      return rejects(undefined) && rejects({ ffprobe: () => {} });
+    },
+  },
+  {
+    // Callable but stripped — a shim or a partial mock in node_modules.
+    name: "assertFluentFfmpegShape rejects a callable missing the statics",
+    category: "optional-deps",
+    fn: async () => {
+      const rejects = (value: unknown) => {
+        try {
+          assertFluentFfmpegShape(value);
+          return false;
+        } catch (e) {
+          return (
+            e instanceof Error &&
+            e.message.includes("ffprobe and setFfmpegPath statics")
+          );
+        }
+      };
+      return (
+        rejects(() => {}) &&
+        rejects(Object.assign(() => {}, { ffprobe: () => {} }))
+      );
+    },
+  },
+  {
+    // The whole point of the guard: the message has to point at the dependency,
+    // not at whatever line happened to dereference it.
+    name: "assertFluentFfmpegShape names the package and the install command",
+    category: "optional-deps",
+    fn: async () => {
+      try {
+        assertFluentFfmpegShape({});
+        return false;
+      } catch (e) {
+        return (
+          e instanceof Error &&
+          e.message.includes("pnpm add fluent-ffmpeg") &&
+          !e.message.includes("Cannot read properties")
+        );
+      }
     },
   },
 ];
