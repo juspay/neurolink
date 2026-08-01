@@ -6,6 +6,7 @@ import { timingSafeEqualString } from "./tokenCompare.js";
 import { CartesiaStream } from "../../adapters/tts/cartesiaHandler.js";
 import { NeuroLink } from "../../neurolink.js";
 import { logger } from "../../utils/logger.js";
+import { tryImport } from "../../utils/tryImport.js";
 import { withTimeout } from "../../utils/async/withTimeout.js";
 import type {
   ClientControlMessage,
@@ -17,24 +18,11 @@ import type {
 } from "../../types/index.js";
 
 async function loadCobra(accessKey: string): Promise<CobraInstance> {
-  try {
-    const mod = (await import(/* @vite-ignore */ "@picovoice/cobra-node")) as {
-      Cobra: new (key: string) => CobraInstance;
-    };
-    return new mod.Cobra(accessKey);
-  } catch (err) {
-    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
-    if (
-      e?.code === "ERR_MODULE_NOT_FOUND" &&
-      e.message.includes("cobra-node")
-    ) {
-      throw new Error(
-        'Voice activity detection requires "@picovoice/cobra-node". Install it with:\n  pnpm add @picovoice/cobra-node',
-        { cause: err },
-      );
-    }
-    throw err;
-  }
+  const mod = await tryImport<{ Cobra: new (key: string) => CobraInstance }>(
+    "@picovoice/cobra-node",
+    "Voice activity detection",
+  );
+  return new mod.Cobra(accessKey);
 }
 
 const SONIOX_URL =

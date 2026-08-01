@@ -5,21 +5,10 @@ import inquirer from "inquirer";
 import type { EndpointSummary } from "@aws-sdk/client-sagemaker";
 
 async function loadSageMakerControl() {
-  try {
-    return await import(/* @vite-ignore */ "@aws-sdk/client-sagemaker");
-  } catch (err) {
-    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
-    if (
-      e?.code === "ERR_MODULE_NOT_FOUND" &&
-      e.message.includes("client-sagemaker")
-    ) {
-      throw new Error(
-        'SageMaker setup requires "@aws-sdk/client-sagemaker". Install it with:\n  pnpm add @aws-sdk/client-sagemaker',
-        { cause: err },
-      );
-    }
-    throw err;
-  }
+  return tryImport<typeof import("@aws-sdk/client-sagemaker")>(
+    "@aws-sdk/client-sagemaker",
+    "SageMaker setup",
+  );
 }
 import type {
   UnknownRecord,
@@ -27,6 +16,7 @@ import type {
   SecureConfiguration,
 } from "../../lib/types/index.js";
 import { logger } from "../../lib/utils/logger.js";
+import { tryImport } from "../../lib/utils/tryImport.js";
 import {
   checkSageMakerConfiguration,
   getSageMakerConfig,

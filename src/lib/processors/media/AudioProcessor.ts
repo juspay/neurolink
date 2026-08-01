@@ -48,28 +48,18 @@ import { SIZE_LIMITS_MB } from "../config/index.js";
 import { FileErrorCode } from "../errors/index.js";
 import { withTimeout } from "../../utils/timeout.js";
 import { formatMediaDuration } from "../../utils/mediaDuration.js";
+import { tryImport } from "../../utils/tryImport.js";
 
 let _musicMetadata: typeof import("music-metadata") | null = null;
 async function loadMusicMetadata() {
   if (_musicMetadata) {
     return _musicMetadata;
   }
-  try {
-    _musicMetadata = await import(/* @vite-ignore */ "music-metadata");
-    return _musicMetadata;
-  } catch (err) {
-    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
-    if (
-      e?.code === "ERR_MODULE_NOT_FOUND" &&
-      e.message.includes("music-metadata")
-    ) {
-      throw new Error(
-        'Audio processing requires the "music-metadata" package. Install it with:\n  pnpm add music-metadata',
-        { cause: err },
-      );
-    }
-    throw err;
-  }
+  _musicMetadata = await tryImport<typeof import("music-metadata")>(
+    "music-metadata",
+    "Audio processing",
+  );
+  return _musicMetadata;
 }
 
 // =============================================================================

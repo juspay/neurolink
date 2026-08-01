@@ -40,29 +40,22 @@ export async function loadPptxGenJS(): Promise<new () => PptxPresentation> {
   if (_pptxGenJS) {
     return _pptxGenJS;
   }
-  try {
-    const mod = await import(/* @vite-ignore */ "pptxgenjs");
-    // ESM/CJS interop: pptxgenjs v4 may double-wrap the default export.
-    // The runtime shape is genuinely dynamic, so probe it as `unknown`.
-    const rawDefault: unknown = mod.default;
-    const Ctor =
-      typeof rawDefault === "function"
-        ? rawDefault
-        : (rawDefault as { default: new () => PptxPresentation }).default;
-    _pptxGenJS = Ctor as new () => PptxPresentation;
-    return _pptxGenJS;
-  } catch (err) {
-    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
-    if (e?.code === "ERR_MODULE_NOT_FOUND" && e.message.includes("pptxgenjs")) {
-      throw new Error(
-        'PPT generation requires the "pptxgenjs" package. Install it with:\n  pnpm add pptxgenjs',
-        { cause: err },
-      );
-    }
-    throw err;
-  }
+  const mod = await tryImport<typeof import("pptxgenjs")>(
+    "pptxgenjs",
+    "PPT generation",
+  );
+  // ESM/CJS interop: pptxgenjs v4 may double-wrap the default export.
+  // The runtime shape is genuinely dynamic, so probe it as `unknown`.
+  const rawDefault: unknown = mod.default;
+  const Ctor =
+    typeof rawDefault === "function"
+      ? rawDefault
+      : (rawDefault as { default: new () => PptxPresentation }).default;
+  _pptxGenJS = Ctor as new () => PptxPresentation;
+  return _pptxGenJS;
 }
 import { logger } from "../../utils/logger.js";
+import { tryImport } from "../../utils/tryImport.js";
 import {
   withTimeout,
   ErrorFactory,

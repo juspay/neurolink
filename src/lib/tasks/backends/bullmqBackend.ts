@@ -9,6 +9,7 @@
 
 import type { Queue, Worker, Job } from "bullmq";
 import { logger } from "../../utils/logger.js";
+import { tryImport } from "../../utils/tryImport.js";
 import { TaskError } from "../errors.js";
 import {
   type Task,
@@ -19,18 +20,7 @@ import {
 } from "../../types/index.js";
 
 async function loadBullMQ() {
-  try {
-    return await import(/* @vite-ignore */ "bullmq");
-  } catch (err) {
-    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
-    if (e?.code === "ERR_MODULE_NOT_FOUND" && e.message.includes("bullmq")) {
-      throw new Error(
-        'BullMQ task backend requires the "bullmq" package. Install it with:\n  pnpm add bullmq',
-        { cause: err },
-      );
-    }
-    throw err;
-  }
+  return tryImport<typeof import("bullmq")>("bullmq", "BullMQ task backend");
 }
 
 const QUEUE_NAME = "neurolink-tasks";

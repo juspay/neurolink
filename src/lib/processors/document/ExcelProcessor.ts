@@ -51,35 +51,25 @@ import type {
 } from "../../types/index.js";
 import { SIZE_LIMITS } from "../config/index.js";
 import { FileErrorCode } from "../errors/index.js";
+import { tryImport } from "../../utils/tryImport.js";
 
 let _exceljs: typeof import("exceljs") | null = null;
 async function loadExcelJS() {
   if (_exceljs) {
     return _exceljs;
   }
-  try {
-    const mod: unknown = await import(/* @vite-ignore */ "exceljs");
-    // exceljs is a CommonJS module. Under Node ESM (and some bundlers) the
-    // `Workbook` constructor is exposed at runtime on the namespace's `default`
-    // export rather than on the namespace itself — so a bare
-    // `new ExcelJS.Workbook()` throws "ExcelJS.Workbook is not a constructor"
-    // (TS still types it as present via esModuleInterop, masking the bug).
-    // Normalise here so the constructor is reachable regardless of interop style.
-    const ns = mod as { Workbook?: unknown; default?: unknown };
-    _exceljs = (
-      ns.Workbook ? ns : (ns.default ?? ns)
-    ) as typeof import("exceljs");
-    return _exceljs;
-  } catch (err) {
-    const e = err instanceof Error ? (err as NodeJS.ErrnoException) : null;
-    if (e?.code === "ERR_MODULE_NOT_FOUND" && e.message.includes("exceljs")) {
-      throw new Error(
-        'Excel file processing requires the "exceljs" package. Install it with:\n  pnpm add exceljs',
-        { cause: err },
-      );
-    }
-    throw err;
-  }
+  const mod = await tryImport("exceljs", "Excel file processing");
+  // exceljs is a CommonJS module. Under Node ESM (and some bundlers) the
+  // `Workbook` constructor is exposed at runtime on the namespace's `default`
+  // export rather than on the namespace itself — so a bare
+  // `new ExcelJS.Workbook()` throws "ExcelJS.Workbook is not a constructor"
+  // (TS still types it as present via esModuleInterop, masking the bug).
+  // Normalise here so the constructor is reachable regardless of interop style.
+  const ns = mod as { Workbook?: unknown; default?: unknown };
+  _exceljs = (
+    ns.Workbook ? ns : (ns.default ?? ns)
+  ) as typeof import("exceljs");
+  return _exceljs;
 }
 
 // Re-export for consumers who import from this module
