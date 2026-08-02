@@ -553,4 +553,13 @@ export type BuildRealtimeMcpToolsParams = {
   publishEvent: RealtimeEventPublisher;
   /** Opens a HITL confirmation for destructive tools and awaits the decision. */
   requestConfirmation: RealtimeConfirmationRequester;
+  /**
+   * Hard cap per MCP tool call, in milliseconds (default 30000).
+   *
+   * Without one, a stalled MCP server holds the realtime turn open forever:
+   * Gemini waits on the function result, so the user gets silence rather than
+   * an error. Bounding the call turns that into a normal tool failure the
+   * model can talk about.
+   */
+  toolTimeoutMs?: number;
 };

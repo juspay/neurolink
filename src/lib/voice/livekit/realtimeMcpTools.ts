@@ -21,6 +21,15 @@ import { findSchemaIssue, sanitizeToolParameters } from "./schemaSanitizer.js";
 import type { BuildRealtimeMcpToolsParams } from "../../types/index.js";
 
 /**
+ * Default hard cap per MCP tool call.
+ *
+ * Chosen to sit well inside a conversational turn: a realtime voice user is
+ * waiting in silence while a tool runs, so a call that has not returned in
+ * 30s has already failed as far as the conversation is concerned.
+ */
+const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
+
+/**
  * The fields of an MCP tool result we render: text content parts and the error
  * flag. The result crosses a network boundary from an external MCP server, so it
  * is decoded with a schema (other content kinds — image, resource — are dropped).
@@ -109,8 +118,14 @@ export async function buildRealtimeMcpTools(
   tools: llmNs.ToolContext;
   client: { close: () => Promise<void> };
 }> {
-  const { mcpUrl, authToken, xContext, publishEvent, requestConfirmation } =
-    params;
+  const {
+    mcpUrl,
+    authToken,
+    xContext,
+    publishEvent,
+    requestConfirmation,
+    toolTimeoutMs = DEFAULT_TOOL_TIMEOUT_MS,
+  } = params;
 
   const { llm } = await import("@livekit/agents");
   const { Client: McpClient } =
@@ -180,10 +195,18 @@ export async function buildRealtimeMcpTools(
           publishEvent("tool-start", { name: mcpTool.name });
           const startedAt = Date.now();
           try {
-            const result = await client.callTool({
-              name: mcpTool.name,
-              arguments: args ?? {},
-            });
+            // Third argument is RequestOptions; the SDK aborts the in-flight
+            // request when `timeout` elapses. Without it a stalled server holds
+            // the turn open indefinitely — Gemini blocks on the function
+            // result, so the user hears nothing at all rather than an error.
+            const result = await client.callTool(
+              {
+                name: mcpTool.name,
+                arguments: args ?? {},
+              },
+              undefined,
+              { timeout: toolTimeoutMs },
+            );
             const text = mcpResultToText(result);
             logger.info("realtime.tool.result", {
               tool: mcpTool.name,
