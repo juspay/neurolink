@@ -318,8 +318,12 @@ export abstract class BaseProvider implements AIProvider {
     });
 
     // ===== EARLY MULTIMODAL DETECTION =====
+    // #1259: audioFiles was missing here while videoFiles was present, so an
+    // audio-only stream skipped this branch entirely.
     const hasFileInput =
-      !!options.input?.files?.length || !!options.input?.videoFiles?.length;
+      !!options.input?.files?.length ||
+      !!options.input?.videoFiles?.length ||
+      !!options.input?.audioFiles?.length;
     if (hasFileInput) {
       // ===== VIDEO ANALYSIS DETECTION =====
       // Check if video frames are present and handle with fake streaming
