@@ -218,7 +218,13 @@
     "pre-push": "pnpm run validate:commit && pnpm run validate:env && pnpm run validate && pnpm run test:ci",
     "check:all": "pnpm run lint && pnpm run format --check && pnpm run validate && pnpm run validate:commit",
     "test:litellm-context:vitest": "pnpm exec vitest run test/litellmContextWindows.test.ts",
-    "test:step-budget-guard:vitest": "pnpm exec vitest run test/stepBudgetGuard.test.ts"
+    "test:step-budget-guard:vitest": "pnpm exec vitest run test/stepBudgetGuard.test.ts",
+    "test:audio": "npx tsx test/continuous-test-suite-audio.ts",
+    "test:office": "npx tsx test/continuous-test-suite-office.ts",
+    "test:tts:unit": "npx tsx test/continuous-test-suite-tts-unit.ts",
+    "test:video": "npx tsx test/continuous-test-suite-video.ts",
+    "test:multimodal": "pnpm run test:audio && pnpm run test:video && pnpm run test:office && pnpm run test:tts:unit && pnpm run test:multimodal:sdk",
+    "test:multimodal:sdk": "npx tsx test/continuous-test-suite-multimodal-sdk.ts"
   },
   "files": [
     "dist",
