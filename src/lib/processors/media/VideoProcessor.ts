@@ -52,6 +52,7 @@ import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 
 import { BaseFileProcessor } from "../base/BaseFileProcessor.js";
+import { formatMediaDuration } from "../../utils/mediaDuration.js";
 import type {
   FfprobeData,
   FfprobeStream,
@@ -307,7 +308,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
       keyframes: [],
       metadata: {
         duration: 0,
-        durationFormatted: "0s",
+        durationFormatted: formatMediaDuration(0),
         width: 0,
         height: 0,
         codec: "unknown",
@@ -1112,30 +1113,16 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
   /**
    * Format a duration in seconds to a human-readable string.
    *
+   * Delegates to the shared formatter so audio and video agree — see
+   * `formatMediaDuration`. Rounding replaces the previous truncation, so a
+   * 2.6s clip now reads "3s" rather than "2s" and matches what the audio
+   * side reports for the same stream.
+   *
    * @param seconds - Duration in seconds
    * @returns Formatted string (e.g., "1h 23m 45s")
    */
   private formatDuration(seconds: number): string {
-    if (seconds <= 0) {
-      return "0s";
-    }
-
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-
-    const parts: string[] = [];
-    if (hours > 0) {
-      parts.push(`${hours}h`);
-    }
-    if (minutes > 0) {
-      parts.push(`${minutes}m`);
-    }
-    if (secs > 0 || parts.length === 0) {
-      parts.push(`${secs}s`);
-    }
-
-    return parts.join(" ");
+    return formatMediaDuration(seconds);
   }
 
   /**

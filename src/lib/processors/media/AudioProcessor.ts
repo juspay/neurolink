@@ -47,6 +47,7 @@ import type {
 import { SIZE_LIMITS_MB } from "../config/index.js";
 import { FileErrorCode } from "../errors/index.js";
 import { withTimeout } from "../../utils/timeout.js";
+import { formatMediaDuration } from "../../utils/mediaDuration.js";
 
 let _musicMetadata: typeof import("music-metadata") | null = null;
 async function loadMusicMetadata() {
@@ -479,7 +480,7 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
       textContent: "",
       metadata: {
         duration: 0,
-        durationFormatted: "0:00",
+        durationFormatted: formatMediaDuration(0),
         codec: "unknown",
         lossless: false,
         fileSize: buffer.length,
@@ -737,28 +738,15 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
   /**
    * Format a duration in seconds to a human-readable string.
    *
-   * @param seconds - Duration in seconds
-   * @returns Formatted string: "M:SS" for < 1 hour, "H:MM:SS" for >= 1 hour
+   * Delegates to the shared formatter so audio and video describe the same
+   * file the same way — this used to render "0:02" where VideoProcessor
+   * rendered "2s".
    *
-   * @example
-   * formatDuration(225)   // "3:45"
-   * formatDuration(3750)  // "1:02:30"
-   * formatDuration(0)     // "0:00"
+   * @param seconds - Duration in seconds
+   * @returns Formatted string: "45s", "3m 45s", "1h 2m 30s"
    */
   private formatDuration(seconds: number): string {
-    if (!seconds || seconds <= 0) {
-      return "0:00";
-    }
-
-    const totalSeconds = Math.round(seconds);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-
-    if (hours > 0) {
-      return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-    }
-    return `${minutes}:${String(secs).padStart(2, "0")}`;
+    return formatMediaDuration(seconds);
   }
 
   /**

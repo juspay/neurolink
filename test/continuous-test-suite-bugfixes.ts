@@ -31,6 +31,7 @@ import {
   dedupeColumnNames,
 } from "../src/lib/utils/csvProcessor.js";
 import { NeuroLinkError } from "../src/lib/utils/errorHandling.js";
+import { formatMediaDuration } from "../src/lib/utils/mediaDuration.js";
 import { ErrorCategory } from "../src/lib/constants/enums.js";
 import { decodeBuffer } from "../src/lib/utils/textEncoding.js";
 import { CSVLoader } from "../src/lib/rag/document/loaders.js";
@@ -7453,6 +7454,44 @@ exit 127
         built.input.audioFiles?.[0] === audio &&
         built.input.videoFiles?.[0] === video
       );
+    },
+  },
+  {
+    name: "formatMediaDuration: audio and video render the same duration identically",
+    category: "message-builder",
+    fn: async () => {
+      // The two media processors used to disagree — a 2s file read "0:02"
+      // from audio and "2s" from video, and both strings reach the model,
+      // sometimes in one request. Pin the shared format and the edge cases.
+      const cases: Array<[number, string]> = [
+        [0, "0s"],
+        [-5, "0s"],
+        [Number.NaN, "0s"],
+        [Number.POSITIVE_INFINITY, "0s"],
+        [2, "2s"],
+        [45, "45s"],
+        [60, "1m"],
+        [90, "1m 30s"],
+        [3600, "1h"],
+        [3750, "1h 2m 30s"],
+        // Rounds rather than truncates, so audio and video agree on the same
+        // fractional stream duration.
+        [2.6, "3s"],
+      ];
+      const wrong = cases.filter(
+        ([input, expected]) => formatMediaDuration(input) !== expected,
+      );
+      if (wrong.length > 0) {
+        throw new Error(
+          `unexpected duration formatting: ${wrong
+            .map(
+              ([input, expected]) =>
+                `${input} → "${formatMediaDuration(input)}" (expected "${expected}")`,
+            )
+            .join(", ")}`,
+        );
+      }
+      return true;
     },
   },
   {
