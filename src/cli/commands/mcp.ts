@@ -143,6 +143,70 @@ const POPULAR_MCP_SERVERS: Record<
 
 const MCP_STATUS_TIMEOUT_MS = 30_000;
 
+/** Where `externalServerManager` looks for manually configured servers. */
+const MCP_CONFIG_FILENAME = ".mcp-config.json";
+
+/**
+ * Explain an empty server list in terms of what the user's directory actually
+ * looks like.
+ *
+ * "Found 0 MCP servers" plus two generic tips reads as an error with no cause:
+ * the common case is simply that this project has no `.mcp-config.json`, and
+ * saying so turns a dead end into a next step. When the file *is* present, the
+ * cause is different — it parsed but declared nothing usable — so the advice
+ * has to be different too, otherwise we'd send the user to create a file they
+ * already have.
+ */
+function explainEmptyServerList(): string {
+  const configPath = path.join(process.cwd(), MCP_CONFIG_FILENAME);
+  const configExists = fs.existsSync(configPath);
+  const lines: string[] = [];
+
+  if (configExists) {
+    lines.push(
+      chalk.blue(
+        `📄 Found ${MCP_CONFIG_FILENAME}, but it declares no usable servers.`,
+      ),
+      chalk.blue(
+        `   Check the "mcpServers" object in ${configPath} — each entry needs a "command" (stdio) or "url" (http/sse/websocket).`,
+      ),
+    );
+  } else {
+    lines.push(
+      chalk.blue(
+        `📄 No ${MCP_CONFIG_FILENAME} in this directory (${process.cwd()}).`,
+      ),
+      chalk.blue(
+        "   That file is where NeuroLink reads manually configured servers from.",
+      ),
+    );
+  }
+
+  // Neither `install` nor `add` persists anything: both route through
+  // NeuroLink.addInMemoryMCPServer(), which registers into the in-process tool
+  // registry and is gone when the process exits. Nothing in the CLI writes
+  // MCP_CONFIG_FILENAME. Saying otherwise sends the user looking for a file
+  // that was never created — so the persistent path is spelled out as the
+  // manual edit it actually is.
+  lines.push(
+    "",
+    chalk.blue("Next steps:"),
+    chalk.blue(
+      configExists
+        ? `  • Add an entry to the "mcpServers" object in ${MCP_CONFIG_FILENAME} — editing that file is the only way to configure a server permanently.`
+        : `  • Create ${MCP_CONFIG_FILENAME} here with an "mcpServers" object — each entry needs a "command" (stdio) or "url" (http/sse/websocket). Writing that file is the only way to configure a server permanently.`,
+    ),
+    chalk.blue(
+      "  • neurolink mcp install <server>   register a popular server for the current run only",
+    ),
+    chalk.blue(
+      "  • neurolink mcp discover           discover tools from servers already reachable",
+    ),
+    chalk.blue("  • neurolink mcp --help             all MCP subcommands"),
+  );
+  return lines.join("\n");
+}
+
 /**
  * MCP CLI command factory
  */
@@ -283,15 +347,15 @@ export class MCPCommandFactory {
             description: "Suppress non-essential output",
           })
           .example(
-            "neurolink discover",
+            "neurolink mcp discover",
             "Discover MCP servers from all sources",
           )
           .example(
-            "neurolink discover --source claude-desktop",
+            "neurolink mcp discover --source claude-desktop",
             "Discover from Claude Desktop only",
           )
           .example(
-            "neurolink discover --auto-install",
+            "neurolink mcp discover --auto-install",
             "Discover and auto-install servers",
           );
       },
@@ -488,14 +552,7 @@ export class MCPCommandFactory {
 
       if (allServers.length === 0) {
         logger.always(chalk.yellow("No MCP servers configured."));
-        logger.always(
-          chalk.blue(
-            "💡 Use 'neurolink mcp install <server>' to install popular servers",
-          ),
-        );
-        logger.always(
-          chalk.blue("💡 Use 'neurolink discover' to find existing servers"),
-        );
+        logger.always(explainEmptyServerList());
         return;
       }
 
