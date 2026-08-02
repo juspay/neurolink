@@ -376,20 +376,19 @@ export class RollingWorkerSupervisor {
           generation,
           version: expectedVersion,
           dispose,
+          pendingTransfers: 0,
+          drainRequested: false,
         };
         this.active = activated;
         this.candidate = null;
         this.flushQueuedSockets();
         if (previous) {
           this.draining.set(previous.generation, previous);
-          try {
-            previous.handle.sendControl({
-              type: "proxy-worker:drain",
-              generation: previous.generation,
-            });
-          } catch {
-            previous.handle.terminate("SIGTERM");
-          }
+          // A worker can still own socket transfers accepted before this
+          // activation. Draining it before their IPC commits makes those
+          // clients fail even though the replacement is healthy.
+          previous.drainRequested = true;
+          this.maybeDrainWorker(previous);
         }
         this.options.log?.(
           `[proxy-supervisor] activated generation=${generation} pid=${handle.pid} version=${expectedVersion}`,
@@ -446,6 +445,8 @@ export class RollingWorkerSupervisor {
         handle,
         generation,
         version: expectedVersion,
+        pendingTransfers: 0,
+        drainRequested: false,
         expectedVersion,
         activationRequested: false,
         dispose,
@@ -473,14 +474,42 @@ export class RollingWorkerSupervisor {
     worker: RollingManagedWorker,
     socket: TransferableProxySocket,
   ): void {
+    worker.pendingTransfers += 1;
+    let settled = false;
+    const complete = (error?: Error | null): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      worker.pendingTransfers = Math.max(0, worker.pendingTransfers - 1);
+      if (error) {
+        this.handleTransferFailure(worker, socket, error);
+      }
+      this.maybeDrainWorker(worker);
+    };
     try {
-      worker.handle.sendSocket(worker.generation, socket, (error) => {
-        if (error) {
-          this.handleTransferFailure(worker, socket, error);
-        }
-      });
+      worker.handle.sendSocket(worker.generation, socket, complete);
     } catch (error) {
-      this.handleTransferFailure(worker, socket, error);
+      complete(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  private maybeDrainWorker(worker: RollingManagedWorker): void {
+    if (
+      !worker.drainRequested ||
+      worker.pendingTransfers > 0 ||
+      !this.draining.has(worker.generation)
+    ) {
+      return;
+    }
+    worker.drainRequested = false;
+    try {
+      worker.handle.sendControl({
+        type: "proxy-worker:drain",
+        generation: worker.generation,
+      });
+    } catch {
+      worker.handle.terminate("SIGTERM");
     }
   }
 

@@ -1,4 +1,4 @@
-/* global process, Buffer, setInterval, clearInterval, setTimeout */
+/* global process, Buffer, setInterval, clearInterval, setTimeout, setImmediate */
 
 const http = require("node:http");
 
@@ -11,6 +11,7 @@ const socketAcceptDelayMs = Number(
   process.env.NEUROLINK_PROXY_WORKER_SOCKET_ACCEPT_DELAY_MS ?? 0,
 );
 let draining = false;
+let gracefulDrain = false;
 
 // When the rolling handoff benchmark asks for it, flush this worker's exit-time
 // CPU and heap so the parent can aggregate the true rolling cost across all
@@ -18,6 +19,16 @@ let draining = false;
 const benchMetricsFile = process.env.NEUROLINK_PROXY_BENCH_METRICS_FILE;
 if (benchMetricsFile) {
   const fs = require("node:fs");
+  const countOpenDescriptors = () => {
+    for (const path of ["/proc/self/fd", "/dev/fd"]) {
+      try {
+        return fs.readdirSync(path).length;
+      } catch {
+        // Try the next platform-specific descriptor directory.
+      }
+    }
+    return null;
+  };
   process.on("exit", () => {
     try {
       const cpu = process.cpuUsage();
@@ -27,6 +38,7 @@ if (benchMetricsFile) {
           pid: process.pid,
           cpuMicros: cpu.user + cpu.system,
           heapUsed: process.memoryUsage().heapUsed,
+          openDescriptors: countOpenDescriptors(),
         })}\n`,
       );
     } catch {
@@ -45,6 +57,28 @@ function reportDrained() {
     pid: process.pid,
   });
   process.exit(0);
+}
+
+function startDrain() {
+  if (draining) {
+    return;
+  }
+  draining = true;
+  for (const openSocket of sockets) {
+    if (!activeBySocket.has(openSocket)) {
+      openSocket.end();
+    }
+  }
+  reportDrained();
+}
+
+function drainWhenPendingSettled() {
+  if (!gracefulDrain || pendingSockets.size > 0) {
+    return;
+  }
+  // Match the production worker: a just-committed socket can already contain
+  // its request in the kernel buffer, so yield once before ending idle sockets.
+  setImmediate(startDrain);
 }
 
 const server = http.createServer((request, response) => {
@@ -107,7 +141,7 @@ process.on("message", (message, socket) => {
     return;
   }
   if (message.type === "proxy-worker:socket" && socket) {
-    if (draining) {
+    if (draining || gracefulDrain) {
       socket.destroy();
       return;
     }
@@ -119,14 +153,14 @@ process.on("message", (message, socket) => {
       }
       pendingSockets.delete(message.socketId);
       socket.destroy();
-      reportDrained();
+      drainWhenPendingSettled();
     });
     socket.once("close", () => {
       if (pendingSockets.get(message.socketId) !== socket) {
         return;
       }
       pendingSockets.delete(message.socketId);
-      reportDrained();
+      drainWhenPendingSettled();
     });
     const acknowledge = () => {
       process.send?.(
@@ -140,6 +174,7 @@ process.on("message", (message, socket) => {
           if (error) {
             pendingSockets.delete(message.socketId);
             socket.destroy();
+            drainWhenPendingSettled();
           }
         },
       );
@@ -166,6 +201,7 @@ process.on("message", (message, socket) => {
     } else {
       pending.destroy();
     }
+    drainWhenPendingSettled();
     return;
   }
   if (message.type === "proxy-worker:activate") {
@@ -180,17 +216,16 @@ process.on("message", (message, socket) => {
     message.type === "proxy-worker:drain" ||
     message.type === "proxy-worker:shutdown"
   ) {
-    draining = true;
-    for (const pending of pendingSockets.values()) {
-      pending.destroy();
-    }
-    pendingSockets.clear();
-    for (const openSocket of sockets) {
-      if (!activeBySocket.has(openSocket)) {
-        openSocket.end();
+    if (message.type === "proxy-worker:shutdown") {
+      for (const pending of pendingSockets.values()) {
+        pending.destroy();
       }
+      pendingSockets.clear();
+      startDrain();
+      return;
     }
-    reportDrained();
+    gracefulDrain = true;
+    drainWhenPendingSettled();
   }
 });
 

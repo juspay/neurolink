@@ -2289,6 +2289,8 @@ export type RollingManagedWorker = {
   generation: number;
   version: string;
   dispose: () => void;
+  pendingTransfers: number;
+  drainRequested: boolean;
 };
 
 export type RollingCandidateWorker = RollingManagedWorker & {

@@ -151,6 +151,12 @@ class FakeWorker implements RollingWorkerHandle {
       callback(new Error(message));
     }
   }
+
+  completePendingSockets(): void {
+    for (const callback of this.pendingSocketCallbacks.splice(0)) {
+      callback();
+    }
+  }
 }
 
 // Cleanup registry: real worker/server tests must tear down child processes and
@@ -308,6 +314,38 @@ describe("rolling proxy worker supervisor", () => {
     expect(workers[1].sockets).toContain(afterSwitch);
     expect(workers[0].sockets).not.toContain(afterSwitch);
     supervisor.close();
+  });
+
+  it("waits for pre-activation socket transfers before draining the old worker", async () => {
+    const workers: FakeWorker[] = [];
+    const supervisor = createTrackedSupervisor({
+      spawnWorker: () => {
+        const worker = new FakeWorker(225 + workers.length);
+        workers.push(worker);
+        return worker;
+      },
+    });
+    const initial = supervisor.start("9.93.1");
+    workers[0].deferSocketCallbacks = true;
+    workers[0].ready(1, "9.93.1");
+    await initial;
+
+    supervisor.acceptSocket(new FakeSocket());
+    expect(workers[0].pendingSocketCallbacks).toHaveLength(1);
+
+    const replacement = supervisor.replace("9.94.0");
+    workers[1].ready(2, "9.94.0");
+    await replacement;
+    expect(workers[0].controls).not.toContainEqual({
+      type: "proxy-worker:drain",
+      generation: 1,
+    });
+
+    workers[0].completePendingSockets();
+    expect(workers[0].controls).toContainEqual({
+      type: "proxy-worker:drain",
+      generation: 1,
+    });
   });
 
   it("does not commit a ready candidate before activation is acknowledged", async () => {
