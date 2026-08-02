@@ -19,7 +19,9 @@ import {
 import {
   convertToModelMessages,
   buildMultimodalMessagesArray,
+  mergeMediaFileAliases,
 } from "../src/lib/utils/messageBuilder.js";
+import { buildMultimodalOptions } from "../src/lib/utils/multimodalOptionsBuilder.js";
 import {
   CSVProcessor,
   isValidCsvRow,
@@ -7246,6 +7248,64 @@ exit 127
       const audioHasMarker =
         JSON.stringify(audioMessages).includes("## Audio File:");
       return videoHasMarker && audioHasMarker;
+    },
+  },
+  {
+    name: "mergeMediaFileAliases #1259: folds audio/video aliases into files, idempotently",
+    category: "message-builder",
+    fn: async () => {
+      const a = Buffer.from("audio");
+      const v = Buffer.from("video");
+      const f = Buffer.from("file");
+      const input: {
+        files?: Array<Buffer | string>;
+        audioFiles?: Array<Buffer | string>;
+        videoFiles?: Array<Buffer | string>;
+      } = { files: [f], audioFiles: [a], videoFiles: [v] };
+
+      mergeMediaFileAliases(input);
+      const foldedAll = input.files?.length === 3;
+      const aliasesCleared = !input.audioFiles && !input.videoFiles;
+
+      // Idempotence is the point: a provider override and the shared builder
+      // can both call this on one options object, and a non-idempotent fold
+      // would attach every file twice.
+      mergeMediaFileAliases(input);
+      const stillThree = input.files?.length === 3;
+
+      // A no-alias input must not be touched at all (not even to [] ).
+      const untouched: { files?: Array<Buffer | string> } = {};
+      mergeMediaFileAliases(untouched);
+
+      return (
+        foldedAll &&
+        aliasesCleared &&
+        stillThree &&
+        untouched.files === undefined
+      );
+    },
+  },
+  {
+    name: "buildMultimodalOptions #1259: forwards audioFiles/videoFiles",
+    category: "message-builder",
+    fn: async () => {
+      // This builder is a field whitelist, so an omitted field is dropped
+      // silently and the model answers as though nothing were attached.
+      // audioFiles/videoFiles were missing, which is what made Bedrock ignore
+      // both. Assert every media field survives the round trip.
+      const audio = Buffer.from("audio-bytes");
+      const video = Buffer.from("video-bytes");
+      const built = buildMultimodalOptions(
+        {
+          input: { text: "describe", audioFiles: [audio], videoFiles: [video] },
+        } as Parameters<typeof buildMultimodalOptions>[0],
+        "bedrock",
+        "anthropic.claude-3-5-sonnet-20241022-v2:0",
+      );
+      return (
+        built.input.audioFiles?.[0] === audio &&
+        built.input.videoFiles?.[0] === video
+      );
     },
   },
   {

@@ -60,7 +60,10 @@ import {
 import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
 import { applyVertexAnthropicCacheBreakpoints } from "../../utils/anthropicCacheBreakpoints.js";
 import { FileDetector } from "../../utils/fileDetector.js";
-import { processUnifiedFilesArray } from "../../utils/messageBuilder.js";
+import {
+  mergeMediaFileAliases,
+  processUnifiedFilesArray,
+} from "../../utils/messageBuilder.js";
 import { logger } from "../../utils/logger.js";
 import {
   hasRestrictedOutputLimit,
@@ -1205,6 +1208,48 @@ export class GoogleVertexProvider extends BaseProvider {
     this.validateStreamOptions(options);
   }
 
+  /**
+   * Preprocess file input before routing to the native SDKs.
+   *
+   * BaseProvider runs this via `buildMultimodalMessagesArray`, but Vertex
+   * overrides both `generate()` and `executeStream()` to reach the native
+   * @google/genai / @anthropic-ai/vertex-sdk clients directly, so neither
+   * inherits it. Without this the file content never reaches the model and
+   * the reply is an entirely plausible "no document is attached" — a silent
+   * wrong answer rather than an error.
+   *
+   * #1258: only `generate()` used to call this, so the same document that
+   * `generate()` read back correctly came back as "no documents attached"
+   * through `stream()`. Sharing one method is what keeps the two paths from
+   * drifting apart again.
+   *
+   * #1259: the alias fold has to happen *before* the `files` check, or
+   * requests carrying only `audioFiles`/`videoFiles` look empty here and skip
+   * preprocessing entirely.
+   */
+  private async preprocessNativeFileInput(
+    options: TextGenerationOptions | StreamOptions,
+  ): Promise<void> {
+    if (options.input) {
+      mergeMediaFileAliases(options.input);
+    }
+    if (!options.input?.files?.length) {
+      return;
+    }
+    try {
+      // Mutates options.input.text / .images / .pdfFiles in place.
+      await processUnifiedFilesArray(
+        options as Parameters<typeof processUnifiedFilesArray>[0],
+        100 * 1024 * 1024,
+        this.providerName,
+      );
+    } catch (fileError) {
+      logger.warn(
+        `[GoogleVertex] processUnifiedFilesArray threw, continuing without file content: ${fileError instanceof Error ? fileError.message : String(fileError)}`,
+      );
+    }
+  }
+
   protected async executeStream(
     options: StreamOptions,
     _analysisSchema?: ZodType<unknown> | Schema<unknown>,
@@ -1234,6 +1279,10 @@ export class GoogleVertexProvider extends BaseProvider {
         // Tool filter (a0269210): trust options.tools — caller (BaseProvider.stream)
         // already merged MCP/built-in tools and applied any enabledToolNames filter.
         const optionTools = options.tools || {};
+
+        // #1258: stream() must run the same file preprocessing generate()
+        // does, or attached files are dropped on this path alone.
+        await this.preprocessNativeFileInput(options);
 
         // Emit a `neurolink.message.build` span for the native stream path
         // so observability tooling sees the same hierarchy it sees on
@@ -7491,25 +7540,7 @@ export class GoogleVertexProvider extends BaseProvider {
           ? await this.getToolsForStream(options)
           : {};
 
-        // Process the unified `input.files` array before routing to the
-        // native SDK. BaseProvider.generate() runs this preprocessing via
-        // buildMultimodalMessagesArray, but Vertex's override skips it,
-        // which would otherwise drop text-file content (and the
-        // mimetype-hint contract) on the floor. Mutates options.input.text /
-        // options.input.images / options.input.pdfFiles in place.
-        if (options.input?.files && options.input.files.length > 0) {
-          try {
-            await processUnifiedFilesArray(
-              options as Parameters<typeof processUnifiedFilesArray>[0],
-              100 * 1024 * 1024,
-              this.providerName,
-            );
-          } catch (fileError) {
-            logger.warn(
-              `[GoogleVertex] processUnifiedFilesArray threw, continuing without file content: ${fileError instanceof Error ? fileError.message : String(fileError)}`,
-            );
-          }
-        }
+        await this.preprocessNativeFileInput(options);
 
         // Emit a `neurolink.message.build` span so observability tooling
         // sees the message-construction phase even on the native (Pipeline B)

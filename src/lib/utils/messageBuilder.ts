@@ -973,6 +973,46 @@ function appendDetectedFileResult(
 }
 
 /**
+ * Fold the `audioFiles` / `videoFiles` aliases into the unified `files` array.
+ *
+ * #284 gave audio and video their own input fields, but neither has a
+ * dedicated processor — both are meant to travel through the same
+ * auto-detecting `files` pipeline that already understands "audio"/"video"
+ * FileDetector results (see `appendDetectedFileResult`). The fold used to live
+ * inline in `buildMultimodalMessagesArray`, which meant any path that bypassed
+ * that builder never performed it and dropped the files silently: the model
+ * received the prompt alone and answered as though nothing were attached
+ * (#1259). GoogleVertex's native SDK path and `buildMultimodalOptions`
+ * (Bedrock) are both such paths, so the fold has to be callable from them.
+ *
+ * The aliases are cleared once merged, which makes the call idempotent: a
+ * provider override and the shared builder can both call this on the same
+ * options object without attaching every file twice.
+ *
+ * Mutates in place, matching `processUnifiedFilesArray` below — downstream
+ * stages all read `options.input.files`.
+ */
+export function mergeMediaFileAliases<TFile>(input: {
+  // Generic in the `files` element type: callers' arrays also admit
+  // FileWithMetadata, and narrowing to Buffer | string here would force an
+  // assertion at every call site rather than fixing the type.
+  files?: Array<TFile | Buffer | string>;
+  audioFiles?: Array<Buffer | string>;
+  videoFiles?: Array<Buffer | string>;
+}): void {
+  if (!input.audioFiles?.length && !input.videoFiles?.length) {
+    return;
+  }
+  input.files = [
+    ...(input.files ?? []),
+    ...(input.audioFiles ?? []),
+    ...(input.videoFiles ?? []),
+  ];
+  input.audioFiles = undefined;
+  input.videoFiles = undefined;
+}
+
+/**
  * Process the unified files array with auto-detection.
  * Handles lazy file registration, full processing, and preview injection.
  *
@@ -1440,18 +1480,7 @@ export async function buildMultimodalMessagesArray(
   // rest of this function, avoiding 60+ "possibly undefined" errors.
   const inp = options.input;
 
-  // #284: audioFiles/videoFiles have no dedicated processor — route them
-  // through the same auto-detecting `files` pipeline that already
-  // understands "audio"/"video" FileDetector results (see
-  // appendDetectedFileResult), instead of silently dropping them once
-  // detectMultimodal() routes an audio/video-only request here.
-  if (inp.audioFiles?.length || inp.videoFiles?.length) {
-    inp.files = [
-      ...(inp.files || []),
-      ...(inp.audioFiles || []),
-      ...(inp.videoFiles || []),
-    ];
-  }
+  mergeMediaFileAliases(inp);
 
   // Compute provider-specific max PDF size once for consistent validation
   const pdfConfig = PDFProcessor.getProviderConfig(provider);
