@@ -1,3 +1,9 @@
+## [10.8.6](https://github.com/juspay/neurolink/compare/v10.8.5...v10.8.6) (2026-08-02)
+
+### Bug Fixes
+
+- **(proxy):** bound account admission and fallback routing ([33bdd14](https://github.com/juspay/neurolink/commit/33bdd141769582bec64f91f6002d1b7a8b0576b1))
+
 ## [10.8.5](https://github.com/juspay/neurolink/compare/v10.8.4...v10.8.5) (2026-08-02)
 
 ## [10.8.4](https://github.com/juspay/neurolink/compare/v10.8.3...v10.8.4) (2026-08-01)
