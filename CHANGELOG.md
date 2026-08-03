@@ -1,3 +1,9 @@
+## [10.8.8](https://github.com/juspay/neurolink/compare/v10.8.7...v10.8.8) (2026-08-03)
+
+### Bug Fixes
+
+- **(processors):** render audio and video durations in one shared format ([4c37f6d](https://github.com/juspay/neurolink/commit/4c37f6d1f06e22d707a9f8860cdc1448bf9a4ccf))
+
 ## [10.8.7](https://github.com/juspay/neurolink/compare/v10.8.6...v10.8.7) (2026-08-03)
 
 ### Bug Fixes
