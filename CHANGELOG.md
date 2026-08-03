@@ -1,3 +1,9 @@
+## [10.8.7](https://github.com/juspay/neurolink/compare/v10.8.6...v10.8.7) (2026-08-03)
+
+### Bug Fixes
+
+- **(multimodal):** deliver attached files on the Vertex stream path and via audioFiles/videoFiles ([de304c9](https://github.com/juspay/neurolink/commit/de304c9b7af200e284402a37c81de7e834dc2253)), closes [#1258](https://github.com/juspay/neurolink/issues/1258) [#1259](https://github.com/juspay/neurolink/issues/1259) [#1258](https://github.com/juspay/neurolink/issues/1258) [#1259](https://github.com/juspay/neurolink/issues/1259)
+
 ## [10.8.6](https://github.com/juspay/neurolink/compare/v10.8.5...v10.8.6) (2026-08-02)
 
 ### Bug Fixes
