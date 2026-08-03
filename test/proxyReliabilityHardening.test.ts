@@ -1082,7 +1082,7 @@ describe("upstream attempt classification and retry amplification", () => {
     );
   });
 
-  it("classifies terminal OAuth retry transport failures as non-retryable", async () => {
+  it("returns a terminal error for an ambiguous OAuth retry transport failure", async () => {
     const retryError = Object.assign(new TypeError("invalid URL"), {
       cause: { code: "ERR_INVALID_URL" },
     });
@@ -1106,6 +1106,7 @@ describe("upstream attempt classification and retry amplification", () => {
       type: "oauth" as const,
     };
     const logAttempt = vi.fn();
+    const logFinalRequest = createRecordingErrorFinalRequestLogger();
 
     const result = await __testHooks.handleAnthropicAuthRetry({
       ctx: {} as never,
@@ -1123,7 +1124,7 @@ describe("upstream attempt classification and retry amplification", () => {
       allocateAttemptNumber: () => 2,
       logAttempt,
       logProxyBody: vi.fn(),
-      logFinalRequest: vi.fn(),
+      logFinalRequest,
       lastError: undefined,
       authFailureMessage: null,
       sawRateLimit: false,
@@ -1132,9 +1133,13 @@ describe("upstream attempt classification and retry amplification", () => {
     });
 
     expect(result).toMatchObject({
-      continueLoop: true,
+      continueLoop: false,
       sawNetworkError: true,
       lastError: "network error on retry 1: invalid URL",
+      response: {
+        type: "error",
+        error: { type: "api_error", message: "invalid URL" },
+      },
     });
     expect(logAttempt).toHaveBeenNthCalledWith(
       2,
@@ -1147,6 +1152,13 @@ describe("upstream attempt classification and retry amplification", () => {
         attempt: 2,
         attemptDurationMs: expect.any(Number),
       },
+    );
+    expect(logFinalRequest).toHaveBeenCalledWith(
+      502,
+      account.label,
+      account.type,
+      "network_error",
+      "invalid URL",
     );
   });
 
@@ -1609,6 +1621,45 @@ describe("upstream attempt classification and retry amplification", () => {
       errorType: "invalid_request_error",
     });
     expect(getStats()).toMatchObject({ totalRequests: 1, totalErrors: 1 });
+  });
+
+  it("retries only failures that cannot have dispatched an Anthropic POST", () => {
+    const fetchError = (code: string): Error => {
+      const error = new TypeError("fetch failed") as TypeError & {
+        cause?: { code: string };
+      };
+      error.cause = { code };
+      return error;
+    };
+
+    for (const code of [
+      "EADDRNOTAVAIL",
+      "ENOTFOUND",
+      "ECONNREFUSED",
+      "EHOSTUNREACH",
+      "UND_ERR_CONNECT_TIMEOUT",
+      "UND_ERR_CONNECT",
+    ]) {
+      expect(__testHooks.isRetryableNetworkError(fetchError(code))).toBe(true);
+    }
+    for (const code of [
+      "ECONNRESET",
+      "EPIPE",
+      "ETIMEDOUT",
+      "UND_ERR_SOCKET",
+      "UND_ERR_HEADERS_TIMEOUT",
+      "UND_ERR_BODY_TIMEOUT",
+    ]) {
+      expect(__testHooks.isRetryableNetworkError(fetchError(code))).toBe(false);
+    }
+    expect(
+      __testHooks.isRetryableNetworkError(new TypeError("fetch failed")),
+    ).toBe(false);
+    expect(
+      __testHooks.isRetryableNetworkError(
+        new Error("fetch failed: ECONNREFUSED"),
+      ),
+    ).toBe(false);
   });
 });
 
@@ -2747,6 +2798,73 @@ describe("stream terminal outcomes", () => {
       account.label,
       "stream_rate_limit_before_commit",
     );
+  });
+
+  it("does not replay a stream whose upstream transport fails before client commit", async () => {
+    const transportError = Object.assign(new TypeError("socket reset"), {
+      cause: { code: "ECONNRESET" },
+    });
+    const upstreamStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(transportError);
+      },
+    });
+    const account = {
+      key: "anthropic:primary@example.com",
+      label: "primary@example.com",
+      token: "test-token",
+      type: "oauth" as const,
+    };
+    const logAttempt = vi.fn();
+    const logFinalRequest = createRecordingErrorFinalRequestLogger();
+    const logProxyBody = vi.fn();
+    const upstreamSpan = { end: vi.fn() };
+    recordAttempt(account.label, account.type);
+
+    const result = await __testHooks.handleAnthropicStreamingSuccessResponse({
+      ctx: {} as never,
+      body: { model: "claude-opus-4-8", messages: [], stream: true },
+      account,
+      accountState: {
+        consecutiveRefreshFailures: 0,
+        permanentlyDisabled: false,
+      },
+      response: new Response(upstreamStream, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      }),
+      responseHeaders: { "content-type": "text/event-stream" },
+      requestStartTime: Date.now(),
+      fetchStartMs: Date.now(),
+      attemptNumber: 1,
+      finalBodyStr: "{}",
+      upstreamSpan: upstreamSpan as never,
+      logAttempt,
+      logProxyBody,
+      logFinalRequest,
+    });
+
+    expect(result).toMatchObject({
+      response: {
+        type: "error",
+        error: { type: "api_error", message: "socket reset (ECONNRESET)" },
+      },
+    });
+    expect(result).not.toHaveProperty("retryNextAccount");
+    expect(logAttempt).toHaveBeenCalledWith(
+      502,
+      "stream_error",
+      "socket reset (ECONNRESET)",
+      { retryable: false },
+    );
+    expect(logFinalRequest).toHaveBeenCalledWith(
+      502,
+      account.label,
+      account.type,
+      "stream_error",
+      "socket reset (ECONNRESET)",
+    );
+    expect(upstreamSpan.end).toHaveBeenCalledOnce();
   });
 
   it("settles failed-stream telemetry exactly once", async () => {

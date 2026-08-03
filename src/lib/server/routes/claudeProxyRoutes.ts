@@ -13,6 +13,7 @@
 import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { Agent } from "undici";
 import {
   buildStableClaudeCodeBillingHeader,
   CLAUDE_CLI_USER_AGENT,
@@ -202,6 +203,26 @@ const AUTH_REFRESH_MAX_COOLDOWN_MS = 5 * 60 * 1000;
  *  to cover the full lifecycle of streaming responses, including extended
  *  thinking from Opus models (which can exceed 5 minutes for large contexts). */
 const UPSTREAM_FETCH_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+
+let anthropicUpstreamDispatcher: Agent | undefined;
+
+function fetchAnthropicUpstream(
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
+  // Node's global fetch applies Undici's 300s default headers timeout before
+  // the route's 15-minute abort signal. Keep both transport deadlines aligned
+  // with the proxy contract and instantiate lazily so importing routes has no
+  // open transport handles.
+  anthropicUpstreamDispatcher ??= new Agent({
+    headersTimeout: UPSTREAM_FETCH_TIMEOUT_MS,
+    bodyTimeout: UPSTREAM_FETCH_TIMEOUT_MS,
+  });
+  return fetch(url, {
+    ...init,
+    dispatcher: anthropicUpstreamDispatcher,
+  } as RequestInit);
+}
 
 const accountRuntimeState = new Map<string, RuntimeAccountState>();
 
@@ -2008,12 +2029,15 @@ async function handleClaudePassthroughRequest(args: {
 
   let response: Response;
   try {
-    response = await fetch("https://api.anthropic.com/v1/messages?beta=true", {
-      method: "POST",
-      headers: upstreamHeaders,
-      body: bodyStr,
-      signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
-    });
+    response = await fetchAnthropicUpstream(
+      "https://api.anthropic.com/v1/messages?beta=true",
+      {
+        method: "POST",
+        headers: upstreamHeaders,
+        body: bodyStr,
+        signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
+      },
+    );
   } catch (fetchErr) {
     const errMsg =
       fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
@@ -3717,12 +3741,13 @@ async function handleAnthropicStreamingSuccessResponse(args: {
     const partialBody = Buffer.concat(
       preflight.chunks.map((chunk) => Buffer.from(chunk)),
     ).toString("utf8");
+    // The POST has already returned a response. The upstream may have started
+    // processing it, so replaying it on another account could duplicate work.
     logger.always(
-      `[proxy] stream failed before first chunk account=${account.label}: ${message}; trying next account`,
+      `[proxy] stream failed before first chunk account=${account.label}: ${message}; returning terminal error to avoid replaying an ambiguous request`,
     );
     recordAttemptError(account.label, account.type, 502);
-    logAttempt(502, "stream_error", message, { retryable: true });
-    tracer?.recordRetry(account.label, "stream_before_first_chunk");
+    logAttempt(502, "stream_error", message, { retryable: false });
     upstreamSpan?.end();
     logProxyBody({
       phase: "upstream_response",
@@ -3738,8 +3763,16 @@ async function handleAnthropicStreamingSuccessResponse(args: {
       metadata: { logicalStatus: 502, transportError: message },
     });
     return {
-      retryNextAccount: true,
-      failure: { message, rateLimit: false },
+      response: finalizeAnthropicTerminalTransportError({
+        account,
+        tracer,
+        requestStartTime,
+        attemptNumber,
+        logProxyBody,
+        logFinalRequest,
+        errorType: "stream_error",
+        message,
+      }),
     };
   }
   if (preflight.kind === "empty") {
@@ -4744,7 +4777,7 @@ async function handleAnthropicAuthRetry(args: {
     });
 
     try {
-      const retryResp = await fetch(url, {
+      const retryResp = await fetchAnthropicUpstream(url, {
         method: "POST",
         headers,
         body: retryBodyStr,
@@ -5017,11 +5050,37 @@ async function handleAnthropicAuthRetry(args: {
           : String(retryFetchErr);
       authRetryError = `network error on retry ${authRetry + 1}: ${message}`;
       currentLastError = authRetryError;
+      const retryable = isRetryableNetworkError(retryFetchErr);
       retryLogAttempt(502, "network_error", message, {
-        retryable: isRetryableNetworkError(retryFetchErr),
+        retryable,
         errorCode: getErrorCode(retryFetchErr) ?? "unknown",
       });
       logger.debug(`[proxy] ${authRetryError}`);
+      if (!retryable) {
+        // Once a POST has left this process, a reset/timeout or unknown fetch
+        // failure is ambiguous: retrying it on another account can duplicate
+        // the request. Only connection-establishment failures are replay-safe.
+        currentUpstreamSpan?.end();
+        return {
+          response: finalizeAnthropicTerminalTransportError({
+            account,
+            tracer,
+            requestStartTime,
+            attemptNumber: retryAttemptNumber,
+            logProxyBody,
+            logFinalRequest,
+            errorType: "network_error",
+            message,
+          }),
+          continueLoop: false,
+          lastError: currentLastError,
+          authFailureMessage: currentAuthFailureMessage,
+          sawRateLimit: currentSawRateLimit,
+          sawTransientFailure: currentSawTransientFailure,
+          sawNetworkError: currentSawNetworkError,
+          upstreamSpan: undefined,
+        };
+      }
       break;
     }
   }
@@ -5168,6 +5227,46 @@ function finalizeAnthropicTerminalFetchError(args: {
     logFinalRequest,
     errorType: terminalError.errorType,
   });
+}
+
+function finalizeAnthropicTerminalTransportError(args: {
+  account: ProxyPassthroughAccount;
+  tracer?: ProxyTracer;
+  requestStartTime: number;
+  attemptNumber: number;
+  logProxyBody: ProxyBodyCaptureLogger;
+  logFinalRequest: ClaudeFinalRequestLogger;
+  errorType: "network_error" | "stream_error";
+  message: string;
+}): Response | unknown {
+  const {
+    account,
+    tracer,
+    requestStartTime,
+    attemptNumber,
+    logProxyBody,
+    logFinalRequest,
+    errorType,
+    message,
+  } = args;
+  tracer?.setError(errorType, message);
+  tracer?.end(502, Date.now() - requestStartTime);
+  logFinalRequest(502, account.label, account.type, errorType, message);
+  const clientError = buildClaudeError(502, message);
+  const clientErrorBody = JSON.stringify(clientError);
+  logProxyBody({
+    phase: "client_response",
+    headers: { "content-type": "application/json" },
+    body: clientErrorBody,
+    bodySize: Buffer.byteLength(clientErrorBody, "utf8"),
+    contentType: "application/json",
+    account: account.label,
+    accountType: account.type,
+    attempt: attemptNumber,
+    responseStatus: 502,
+    durationMs: Date.now() - requestStartTime,
+  });
+  return clientError;
 }
 
 async function handleAnthropicNonOkResponse(args: {
@@ -6024,7 +6123,7 @@ async function fetchAnthropicAccountResponse(args: {
   let response: Response;
 
   try {
-    response = await fetch(url, {
+    response = await fetchAnthropicUpstream(url, {
       method: "POST",
       headers,
       body: finalBodyStr,
@@ -7264,43 +7363,25 @@ function describeTransportError(error: unknown): string {
 }
 
 /**
- * Determine whether a thrown fetch error is a transient connectivity issue.
+ * Determine whether a POST can be retried without risking duplicate provider
+ * work. Only failures that prove connection establishment did not complete are
+ * safe; a reset, socket error, or response timeout can happen after dispatch.
  */
 function isRetryableNetworkError(error: unknown): boolean {
   const code = getErrorCode(error);
 
-  if (
-    code &&
+  return (
+    code !== undefined &&
     [
       "ECONNREFUSED",
-      "ECONNRESET",
+      "EADDRNOTAVAIL",
       // The Anthropic host is fixed, so ENOTFOUND can be a transient resolver
       // outage. Keep it inside the existing bounded same-account retry budget.
       "ENOTFOUND",
-      "ETIMEDOUT",
       "EHOSTUNREACH",
       "UND_ERR_CONNECT_TIMEOUT",
       "UND_ERR_CONNECT",
-      "UND_ERR_SOCKET",
-      "UND_ERR_HEADERS_TIMEOUT",
     ].includes(code)
-  ) {
-    return true;
-  }
-
-  const message = error instanceof Error ? error.message : String(error);
-  const normalized = message.toLowerCase();
-
-  return (
-    normalized.includes("econnrefused") ||
-    normalized.includes("econnreset") ||
-    normalized.includes("enotfound") ||
-    normalized.includes("etimedout") ||
-    normalized.includes("timed out") ||
-    normalized.includes("connection error") ||
-    normalized.includes("connect error") ||
-    normalized.includes("fetch failed") ||
-    normalized.includes("socket hang up")
   );
 }
 
@@ -7473,6 +7554,7 @@ export const __testHooks = {
   maybeResetPrimaryToHome,
   planCooldownFor429,
   reconcileCooldownFromQuota,
+  isRetryableNetworkError,
   isPermanentRefreshFailure,
   getStreamFailureDetails,
   trackUpstreamReadableStream,
