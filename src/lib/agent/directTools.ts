@@ -13,6 +13,8 @@ import type {
   UtilityToolsMap,
 } from "../types/index.js";
 import { tool } from "../utils/tool.js";
+import { withTimeout } from "../utils/async/withTimeout.js";
+import { TIMEOUTS } from "../constants/timeouts.js";
 
 const MAX_OUTPUT_BYTES = 102400; // 100KB
 
@@ -50,17 +52,107 @@ function resolveWithinCwd(
   return { path: resolvedPath };
 }
 
-// Runtime Google Search tool creation - bypasses TypeScript strict typing
-function createGoogleSearchTools() {
-  const searchTool = {};
-  // Dynamically assign google_search property at runtime
-  Object.defineProperty(searchTool, "google_search", {
-    value: {},
-    enumerable: true,
-    configurable: true,
-  });
-  return [searchTool];
+/**
+ * Vertex location for the websearchGrounding tool:
+ * NEUROLINK_WEBSEARCH_LOCATION, else `global`.
+ *
+ * Deliberately does NOT inherit GOOGLE_VERTEX_LOCATION. The search models are
+ * served only from the `global`, `us` and `eu` endpoints — never from a single
+ * region — so inheriting a regional value produces a 404 for the model rather
+ * than a working search. That is not hypothetical: a deployment pinned to
+ * us-east5 for Claude-on-Vertex sent web search to us-east5 too and every
+ * query failed with NOT_FOUND.
+ *
+ * Set NEUROLINK_WEBSEARCH_LOCATION to `us` or `eu` where the multi-region
+ * endpoints are required, e.g. for data residency.
+ */
+export function resolveWebsearchLocation(): string {
+  return process.env.NEUROLINK_WEBSEARCH_LOCATION?.trim() || "global";
 }
+
+/** Model for websearchGrounding — NEUROLINK_WEBSEARCH_MODEL, else the default. */
+export function resolveWebsearchModel(): string {
+  return (
+    process.env.NEUROLINK_WEBSEARCH_MODEL?.trim() || "gemini-3.1-flash-lite"
+  );
+}
+
+/**
+ * The generateContent request for a web search. Google Search grounding is
+ * requested natively through `config.tools`.
+ */
+export function buildWebsearchRequest(
+  model: string,
+  query: string,
+  maxWords: number,
+) {
+  return {
+    model,
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text: `Search for: "${query}". Provide a concise summary in no more than ${maxWords} words.`,
+          },
+        ],
+      },
+    ],
+    config: { tools: [{ googleSearch: {} }] },
+  };
+}
+
+/**
+ * Display domain for one grounding chunk.
+ *
+ * Blank `domain` values count as absent, and the uri fallback is guarded by
+ * `URL.canParse` — an unparseable provider uri would otherwise throw and take
+ * the entire search down with it.
+ */
+export function resolveGroundingDomain(web: {
+  uri?: string;
+  domain?: string;
+}): string {
+  return (
+    web.domain?.trim() ||
+    (web.uri && URL.canParse(web.uri) ? new URL(web.uri).hostname : "unknown")
+  );
+}
+
+/**
+ * Map grounding chunks onto search results, capped at `limitedResults`.
+ * Returns an empty array when there is no usable grounding metadata, which the
+ * caller replaces with a single synthesised result.
+ */
+export function buildWebsearchResults(
+  groundingMetadata:
+    | {
+        groundingChunks?: {
+          web?: { uri?: string; title?: string; domain?: string };
+        }[];
+      }
+    | undefined,
+  searchContent: string,
+  limitedResults: number,
+) {
+  const searchResults = [];
+  for (const chunk of groundingMetadata?.groundingChunks?.slice(
+    0,
+    limitedResults,
+  ) ?? []) {
+    if (chunk.web) {
+      searchResults.push({
+        title: chunk.web.title || "No title",
+        url: chunk.web.uri || "",
+        // Full content — maxWords already bounds the length.
+        snippet: searchContent,
+        domain: resolveGroundingDomain(chunk.web),
+      });
+    }
+  }
+  return searchResults;
+}
+
 /**
  * Direct tool definitions that work immediately with Gemini/AI SDK
  * These bypass MCP complexity and provide reliable agent functionality
@@ -728,8 +820,7 @@ export const directAgentTools = {
       try {
         const hasCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS;
         const hasProjectId = process.env.GOOGLE_VERTEX_PROJECT;
-        const projectLocation =
-          process.env.GOOGLE_VERTEX_LOCATION || "us-central1";
+        const projectLocation = resolveWebsearchLocation();
 
         if (!hasCredentials || !hasProjectId) {
           return {
@@ -744,38 +835,29 @@ export const directAgentTools = {
         }
 
         const limitedResults = Math.min(Math.max(maxResults, 1), 5);
-        const { VertexAI } = await import("@google-cloud/vertexai");
-        const vertex_ai = new VertexAI({
+        const { GoogleGenAI } = await import("@google/genai");
+        const vertex_ai = new GoogleGenAI({
+          vertexai: true,
           project: hasProjectId,
           location: projectLocation,
         });
 
-        const websearchModel =
-          process.env.NEUROLINK_WEBSEARCH_MODEL?.trim() ||
-          "gemini-2.5-flash-lite";
-
-        const model = vertex_ai.getGenerativeModel({
-          model: websearchModel,
-          tools: createGoogleSearchTools(),
-        });
-
-        // Search query with word limit constraint
-        const searchPrompt = `Search for: "${query}". Provide a concise summary in no more than ${maxWords} words.`;
+        const websearchModel = resolveWebsearchModel();
 
         const startTime = Date.now();
-        const response = await model.generateContent({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: searchPrompt }],
-            },
-          ],
-        });
+        // A stalled Vertex call would otherwise leave the tool pending
+        // indefinitely; the outer catch turns a timeout into the failure shape.
+        const result = await withTimeout(
+          vertex_ai.models.generateContent(
+            buildWebsearchRequest(websearchModel, query, maxWords),
+          ),
+          TIMEOUTS.TOOL.EXECUTION_DEFAULT_MS,
+          "[websearchGrounding] Vertex AI web search request timed out",
+        );
 
         const responseTime = Date.now() - startTime;
 
         // Extract grounding metadata and search results
-        const result = response.response;
         const candidates = result.candidates;
 
         if (!candidates || candidates.length === 0) {
@@ -786,8 +868,10 @@ export const directAgentTools = {
           };
         }
 
-        const content = candidates[0].content;
-        if (!content || !content.parts || content.parts.length === 0) {
+        // Extract raw search content. The aggregated `text` getter joins every
+        // text part, so it survives responses that lead with a non-text part.
+        const searchContent = result.text?.trim() || "";
+        if (!searchContent) {
           return {
             success: false,
             error: "No search content found",
@@ -795,30 +879,12 @@ export const directAgentTools = {
           };
         }
 
-        // Extract raw search content
-        const searchContent = content.parts[0].text || "";
-
         // Extract grounding sources if available
-        const groundingMetadata = candidates[0]?.groundingMetadata;
-        const searchResults = [];
-
-        if (groundingMetadata?.groundingChunks) {
-          for (const chunk of groundingMetadata.groundingChunks.slice(
-            0,
-            limitedResults,
-          )) {
-            if (chunk.web) {
-              searchResults.push({
-                title: chunk.web.title || "No title",
-                url: chunk.web.uri || "",
-                snippet: searchContent, // Use full content since maxWords already limits length
-                domain: chunk.web.uri
-                  ? new URL(chunk.web.uri).hostname
-                  : "unknown",
-              });
-            }
-          }
-        }
+        const searchResults = buildWebsearchResults(
+          candidates[0]?.groundingMetadata,
+          searchContent,
+          limitedResults,
+        );
 
         // If no grounding metadata, create basic result structure
         if (searchResults.length === 0) {
