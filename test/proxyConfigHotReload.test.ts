@@ -172,7 +172,9 @@ routing:
       model: "new-primary",
     });
     expect(second.modelRouter?.isAutoFallbackEnabled()).toBe(false);
-    expect(second.modelRouter?.getMaxInflightPerAccount()).toBe(2);
+    // Admission is opt-in: this config sets no cap, so the router must report
+    // no bound rather than the old implicit default of 2.
+    expect(second.modelRouter?.getMaxInflightPerAccount()).toBeUndefined();
     expect(second.accountAllowlist).toBeUndefined();
     expect(first.modelRouter?.resolve("hot-model")).toEqual({
       provider: "vertex",

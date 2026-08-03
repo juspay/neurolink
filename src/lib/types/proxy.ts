@@ -43,7 +43,7 @@ export type ModelRouterInterface = {
   isClaudeTarget(requestedModel: string): boolean;
   getFallbackChain(): FallbackEntry[];
   isAutoFallbackEnabled?(): boolean;
-  getMaxInflightPerAccount?(): number;
+  getMaxInflightPerAccount?(): number | undefined;
   getModelMappings?: () => ModelMapping[];
   getPassthroughModels?: () => string[];
 };
