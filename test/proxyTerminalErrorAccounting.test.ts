@@ -264,6 +264,12 @@ describe("translated terminal accounting", () => {
     const modelRouter = {
       resolve: () => ({ provider: "openai", model: "translated-model" }),
       getFallbackChain: () => [],
+      // Auto-fallback became opt-in in "fix(proxy): bound account admission and
+      // fallback routing" (33bdd141). This test is about the SECOND attempt not
+      // finalizing the terminal error a second time, so it has to opt in — a
+      // router without this reports one attempt and never reaches the path
+      // under test. Default-off behaviour is pinned by the test below.
+      isAutoFallbackEnabled: () => true,
     };
     const messagesRoute = createClaudeProxyRoutes(
       modelRouter as never,
@@ -278,6 +284,7 @@ describe("translated terminal accounting", () => {
       type: "error",
     });
 
+    // Two attempts, but the terminal error is finalized once.
     expect(getStats()).toMatchObject({
       totalAttempts: 2,
       totalAttemptErrors: 2,
@@ -295,6 +302,51 @@ describe("translated terminal accounting", () => {
     expect(records[0]).toMatchObject({
       responseStatus: 502,
       errorType: "generation_error",
+    });
+  });
+
+  it("makes no second attempt when auto-fallback is left disabled", async () => {
+    // The default since 33bdd141: without an explicit opt-in, the translation
+    // layer must not pick a fallback provider on its own. This is the behaviour
+    // that silently changed the test above from passing to failing while the
+    // file was orphaned, so it gets pinned rather than left implicit.
+    await startRequestLogCapture();
+    const ctx = createContext("translated-route-no-autofallback", async () => ({
+      stream: (async function* () {
+        yield* [];
+      })(),
+      toolCalls: [],
+      usage: {},
+      model: "translated-model",
+    })) as ServerContext & { body: Record<string, unknown> };
+    ctx.body = {
+      model: "claude-routed-model",
+      messages: [{ role: "user", content: "hello" }],
+    };
+    const modelRouter = {
+      resolve: () => ({ provider: "openai", model: "translated-model" }),
+      getFallbackChain: () => [],
+      isAutoFallbackEnabled: () => false,
+    };
+    const messagesRoute = createClaudeProxyRoutes(
+      modelRouter as never,
+    ).routes.find(
+      (route) => route.method === "POST" && route.path === "/v1/messages",
+    );
+    if (!messagesRoute) {
+      throw new Error("messages route not found");
+    }
+
+    await expect(messagesRoute.handler(ctx)).resolves.toMatchObject({
+      type: "error",
+    });
+
+    // One attempt, not two — and still exactly one finalized terminal error.
+    expect(getStats()).toMatchObject({
+      totalAttempts: 1,
+      totalAttemptErrors: 1,
+      totalRequests: 1,
+      totalErrors: 1,
     });
   });
 

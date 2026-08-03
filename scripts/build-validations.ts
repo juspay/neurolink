@@ -505,6 +505,51 @@ class NeuroLinkBuildValidator {
     this.log("Project structure validation completed");
   }
 
+  // Every test/*.test.ts must be reachable from a package.json script.
+  //
+  // A Vitest file that no script names is never executed by anything: not
+  // `pnpm test`, not `test:unit`, not a developer following the docs. It looks
+  // like coverage in review and silently rots — twelve files had drifted into
+  // that state, one of them holding a genuine failing assertion nobody had seen.
+  checkOrphanedTestFiles(): void {
+    this.log("Validating that every test file is reachable from a script...");
+
+    const testDir = path.join(this.rootDir, "test");
+    if (!fs.existsSync(testDir)) {
+      this.warnings.push("No test/ directory found; skipping orphan check");
+      return;
+    }
+
+    const packageJson = this.readFileWithCache(
+      path.join(this.rootDir, "package.json"),
+    );
+    if (!packageJson) {
+      this.errors.push("Could not read package.json to check test wiring");
+      return;
+    }
+    // Match against the scripts block alone: a filename appearing in some other
+    // field would otherwise count as "wired" without running anything.
+    const scripts = JSON.stringify(
+      (JSON.parse(packageJson) as { scripts?: Record<string, string> })
+        .scripts ?? {},
+    );
+
+    const orphans = fs
+      .readdirSync(testDir)
+      .filter((name) => name.endsWith(".test.ts"))
+      .filter((name) => !scripts.includes(name));
+
+    if (orphans.length > 0) {
+      this.errors.push(
+        `${orphans.length} test file(s) are not referenced by any package.json script, ` +
+          `so nothing runs them: ${orphans.join(", ")}. ` +
+          `Add each to a "test:<name>:vitest" script and chain it into "test:unit".`,
+      );
+    }
+
+    this.log(`Test wiring check completed (${orphans.length} orphaned)`);
+  }
+
   // Main validation runner
   run(): void {
     console.log("Running NeuroLink Build Validations...\n");
@@ -520,6 +565,7 @@ class NeuroLinkBuildValidator {
     this.checkErrorHandling();
     this.checkTodoReferences();
     this.checkEnvironmentConfig();
+    this.checkOrphanedTestFiles();
 
     const endTime = Date.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2);
