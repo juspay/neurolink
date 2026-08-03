@@ -1,3 +1,9 @@
+## [10.8.9](https://github.com/juspay/neurolink/compare/v10.8.8...v10.8.9) (2026-08-03)
+
+### Bug Fixes
+
+- **(test):** stop the root suite exiting before it runs ([fdaa366](https://github.com/juspay/neurolink/commit/fdaa3664289a17284f967b5071c5e707fc68eb1b)), closes [#1245](https://github.com/juspay/neurolink/issues/1245)
+
 ## [10.8.8](https://github.com/juspay/neurolink/compare/v10.8.7...v10.8.8) (2026-08-03)
 
 ### Bug Fixes
