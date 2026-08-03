@@ -106,6 +106,7 @@ export function getDefaultUpdateState(): UpdateState {
     lastCheckAt: new Date(0).toISOString(),
     lastCheckVersion: "",
     suppressedVersions: {},
+    installedVersion: null,
     lastUpdateAt: null,
     lastUpdateVersion: null,
     pendingRestartVersion: null,
@@ -146,6 +147,21 @@ export function loadUpdateState(stateFilePath?: string): UpdateState | null {
       ...getDefaultUpdateState(),
       ...candidate,
       suppressedVersions: candidate.suppressedVersions ?? {},
+      // Backfill order matters for state files written before `installedVersion`
+      // existed. Back then `recordUpdateInstalled()` set ONLY
+      // `pendingRestartVersion`, leaving `lastUpdateVersion` on the previously
+      // activated build — so a validated-but-not-yet-running update lives in
+      // `pendingRestartVersion` and is the newer of the two. Reading
+      // `lastUpdateVersion` first would report the superseded version as
+      // installed and re-offer an update that is already on disk.
+      installedVersion:
+        typeof candidate.installedVersion === "string"
+          ? candidate.installedVersion
+          : typeof candidate.pendingRestartVersion === "string"
+            ? candidate.pendingRestartVersion
+            : typeof candidate.lastUpdateVersion === "string"
+              ? candidate.lastUpdateVersion
+              : null,
       pendingRestartVersion:
         typeof candidate.pendingRestartVersion === "string"
           ? candidate.pendingRestartVersion
@@ -245,6 +261,7 @@ export function recordSuccessfulUpdate(
   const state = loadUpdateState(stateFilePath) ?? getDefaultUpdateState();
   state.lastUpdateAt = new Date().toISOString();
   state.lastUpdateVersion = version;
+  state.installedVersion = version;
   state.pendingRestartVersion = null;
   state.deferredUpdate = null;
   state.lastFailure = null;
@@ -252,12 +269,13 @@ export function recordSuccessfulUpdate(
   saveUpdateState(state, stateFilePath);
 }
 
-/** Record that package installation completed but the live restart is pending. */
+/** Record that the package was validated but live activation is still pending. */
 export function recordUpdateInstalled(
   version: string,
   stateFilePath?: string,
 ): void {
   const state = loadUpdateState(stateFilePath) ?? getDefaultUpdateState();
+  state.installedVersion = version;
   state.pendingRestartVersion = version;
   state.lastFailure = null;
   saveUpdateState(state, stateFilePath);

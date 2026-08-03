@@ -2014,6 +2014,15 @@ export type UpdateState = {
   lastCheckAt: string;
   lastCheckVersion: string;
   suppressedVersions: Record<string, SuppressedVersion>;
+  /**
+   * Last package version whose stable trampoline was successfully validated.
+   *
+   * Optional because `UpdateState` is part of the published type surface and a
+   * required addition would break every downstream object literal — and because
+   * state files written before this field existed legitimately omit it.
+   * `loadUpdateState()` always materializes it, so runtime readers see a value.
+   */
+  installedVersion?: string | null;
   lastUpdateAt: string | null;
   lastUpdateVersion: string | null;
   /** Installed by the updater but not yet confirmed as the running version. */

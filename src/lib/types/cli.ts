@@ -999,6 +999,8 @@ export type ProxySupervisorState = {
   host: string;
   port: number;
   startTime: string;
+  /** Version loaded by the long-lived supervisor process. */
+  version?: string;
   updaterPid?: number;
   rolling: ProxyRollingState;
 };

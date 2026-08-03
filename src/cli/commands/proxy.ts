@@ -188,8 +188,50 @@ function saveProxySupervisorState(state: ProxySupervisorState): void {
   proxySupervisorStateManager.save(state);
 }
 
+/**
+ * Drop a supervisor `version` that is not a string.
+ *
+ * `StateFileManager.load()` is a bare `JSON.parse(content) as T` — it validates
+ * nothing. A state file written by a different build, or half-written during a
+ * crash, can carry any JSON type here, and every status renderer interpolates
+ * the field straight into `v${...}`. Coercing at the single load boundary keeps
+ * a non-string from reaching the output as "v[object Object]".
+ */
+export function normalizeSupervisorState(
+  state: ProxySupervisorState | null,
+): ProxySupervisorState | null {
+  if (!state) {
+    return null;
+  }
+  return typeof state.version === "string" || state.version === undefined
+    ? state
+    : { ...state, version: undefined };
+}
+
+/**
+ * Whether a rolling handoff can actually occur.
+ *
+ * A live supervisor PID alone is not enough: a supervisor from a build
+ * predating rolling state leaves `rolling` absent, and calling that a handoff
+ * makes both `/status` clients and the CLI wait for an activation that will
+ * never come. Gate on the capability, not on the process.
+ */
+export function isRollingHandoffCapable(
+  state: ProxySupervisorState | null,
+  isRunning: (pid: number) => boolean = isProcessRunning,
+): boolean {
+  if (!state) {
+    return false;
+  }
+  // Structural, not just non-null: the same unvalidated `as T` load that lets
+  // `version` be an object lets `rolling` be a string.
+  const hasRollingState =
+    typeof state.rolling === "object" && state.rolling !== null;
+  return isRunning(state.pid) && hasRollingState;
+}
+
 function loadProxySupervisorState(): ProxySupervisorState | null {
-  return proxySupervisorStateManager.load();
+  return normalizeSupervisorState(proxySupervisorStateManager.load());
 }
 
 function clearProxySupervisorState(): void {
@@ -1999,6 +2041,7 @@ export async function createProxyStartApp(params: {
       : undefined;
     const runtimeState = loadProxyState();
     const supervisorState = loadProxySupervisorState();
+    const rollingSupervisorRunning = isRollingHandoffCapable(supervisorState);
     const updateState = loadUpdateState();
     const cooldowns = await loadAccountCooldowns();
     const storedAccountKeys = new Set<string>();
@@ -2267,6 +2310,7 @@ export async function createProxyStartApp(params: {
       autoUpdate: {
         enabled: isProxyAutoUpdateEnabled(),
         supervisorPid: supervisorState?.pid ?? null,
+        supervisorVersion: supervisorState?.version ?? null,
         rolling: supervisorState?.rolling ?? null,
         updaterPid: activeUpdaterPid ?? null,
         updaterRunning: activeUpdaterPid
@@ -2274,7 +2318,17 @@ export async function createProxyStartApp(params: {
           : false,
         liveVersion: PROXY_VERSION,
         latestVersion: updateState?.lastCheckVersion || null,
+        lastDetectedVersion: updateState?.lastCheckVersion || null,
+        installedVersion:
+          updateState?.installedVersion ??
+          updateState?.lastUpdateVersion ??
+          null,
+        activatedVersion: PROXY_VERSION,
+        pendingActivationVersion: updateState?.pendingRestartVersion ?? null,
         pendingRestartVersion: updateState?.pendingRestartVersion ?? null,
+        activationMode: rollingSupervisorRunning
+          ? "rolling-handoff"
+          : "restart",
         deferredUpdate: updateState?.deferredUpdate ?? null,
         lastCheckAt: updateState?.lastCheckAt ?? null,
         lastUpdateAt: updateState?.lastUpdateAt ?? null,
@@ -3096,6 +3150,7 @@ async function runLaunchdProxySupervisor(
         host,
         port,
         startTime: supervisorStartedAt,
+        version: PROXY_VERSION,
         updaterPid: currentUpdaterPid,
         rolling: snapshot,
       });
@@ -3636,11 +3691,19 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         autoUpdateEnabled: isProxyAutoUpdateEnabled(),
         workerVersion: null as string | null,
         supervisorPid: null as number | null,
+        supervisorVersion: supervisorState?.version ?? null,
         supervisorRunning: false,
         rolling: null as ProxySupervisorState["rolling"] | null,
         updaterPid: null as number | null,
         updaterRunning: false,
         latestVersion: updateState?.lastCheckVersion || null,
+        lastDetectedVersion: updateState?.lastCheckVersion || null,
+        installedVersion:
+          updateState?.installedVersion ??
+          updateState?.lastUpdateVersion ??
+          null,
+        activatedVersion: supervisorState?.rolling.active?.version ?? null,
+        pendingActivationVersion: updateState?.pendingRestartVersion ?? null,
         pendingRestartVersion: updateState?.pendingRestartVersion ?? null,
         deferredUpdate: updateState?.deferredUpdate ?? null,
         lastUpdateFailure: updateState?.lastFailure ?? null,
@@ -3692,6 +3755,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
           servingState?.lastConfigReloadError ?? null;
         status.supervisorPid = supervisorPid ?? null;
         status.supervisorRunning = supervisorRunning;
+        status.supervisorVersion = supervisorState?.version ?? null;
         status.rolling = supervisorState?.rolling ?? null;
         status.updaterPid =
           supervisorState?.updaterPid ?? servingState?.updaterPid ?? null;
@@ -3719,6 +3783,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
               typeof statusData.version === "string"
                 ? statusData.version
                 : null;
+            status.activatedVersion = status.workerVersion;
             if (typeof liveConfig?.generation === "number") {
               status.configGeneration = liveConfig.generation;
             }
@@ -3765,6 +3830,11 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
             `  ${chalk.bold("Supervisor:")} ${status.supervisorRunning ? chalk.cyan(status.supervisorPid) : chalk.red(`${status.supervisorPid} (not running)`)}`,
           );
         }
+        if (status.supervisorVersion) {
+          logger.always(
+            `  ${chalk.bold("Supervisor version:")} ${chalk.cyan(`v${status.supervisorVersion}`)}`,
+          );
+        }
         if (status.workerVersion) {
           logger.always(
             `  ${chalk.bold("Version:")}    ${chalk.cyan(`v${status.workerVersion}`)}`,
@@ -3801,9 +3871,16 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         logger.always(
           `  ${chalk.bold("Auto-update:")} ${status.autoUpdateEnabled ? chalk.green(status.updaterRunning ? `enabled (PID ${status.updaterPid})` : "enabled (worker unavailable)") : chalk.yellow("disabled")}`,
         );
-        if (status.pendingRestartVersion) {
+        if (status.pendingActivationVersion) {
+          // A live supervisor PID alone does NOT mean rolling handoff is
+          // available: a supervisor from a build predating rolling state leaves
+          // `rolling` absent, and calling that a handoff tells the operator to
+          // wait for an activation that will never come. Gate on the capability,
+          // not on the process.
+          const rollingCapable =
+            status.supervisorRunning && status.rolling !== null;
           logger.always(
-            `  ${chalk.bold("Pending:")}    ${chalk.yellow(`v${status.pendingRestartVersion} installed; restart pending`)}`,
+            `  ${chalk.bold(rollingCapable ? "Pending handoff:" : "Pending restart:")} ${chalk.yellow(`v${status.pendingActivationVersion} installed; ${rollingCapable ? "rolling activation pending" : "restart pending"}`)}`,
           );
         }
         if (status.rolling?.candidate) {
@@ -3827,6 +3904,16 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         if (status.latestVersion) {
           logger.always(
             `  ${chalk.bold("Latest:")}     ${chalk.cyan(`v${status.latestVersion}`)}`,
+          );
+        }
+        if (status.installedVersion) {
+          logger.always(
+            `  ${chalk.bold("Installed:")}  ${chalk.cyan(`v${status.installedVersion}`)}`,
+          );
+        }
+        if (status.activatedVersion) {
+          logger.always(
+            `  ${chalk.bold("Activated:")}  ${chalk.cyan(`v${status.activatedVersion}`)}`,
           );
         }
         if (status.lastUpdateFailure) {
