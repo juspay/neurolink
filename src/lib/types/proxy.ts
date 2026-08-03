@@ -533,6 +533,9 @@ export type ProxyAccountRoutingCandidate = {
   coolingReason: AccountCoolingReason | null;
   coolingUntil: number | null;
   unifiedStatus: string | null;
+  fallbackStatus?: string | null;
+  upgradePaths?: string | null;
+  overageEligible?: boolean;
   overageStatus: string | null;
   sessionStatus: string | null;
   sessionUsed: number | null;
@@ -570,6 +573,9 @@ export type ProxyAccountSortMetrics = {
   coolingReason: AccountCoolingReason | null;
   coolingUntil: number;
   unifiedStatus: string | null;
+  fallbackStatus?: string | null;
+  upgradePaths?: string | null;
+  overageEligible?: boolean;
   overageStatus: string | null;
   sessionStatus: string | null;
   sessionUsed: number | null;
@@ -858,6 +864,15 @@ export type AccountCooldownPlan = {
   rotateImmediately: boolean;
 };
 
+export type ProxyQuotaCooldownUpdate =
+  | {
+      kind: "cooled";
+      coolingUntil: number;
+      coolingReason: AccountCoolingReason;
+    }
+  | { kind: "cleared"; coolingUntil: number }
+  | null;
+
 export type TransientRateLimitRetryBudget = {
   coolingUntil: number;
   retriesClaimed: number;
@@ -1081,6 +1096,10 @@ export type AccountQuota = {
   weeklyResetAt: number;
   /** 0.0-1.0  (from fallback-percentage) */
   fallbackPercentage: number;
+  /** Provider fallback availability, for example "available". */
+  fallbackStatus?: string;
+  /** Comma-separated provider upgrade paths, for example "overage". */
+  upgradePaths?: string;
   /** "allowed" | "rejected" */
   overageStatus: string;
   /** Epoch ms when we last captured this data */
