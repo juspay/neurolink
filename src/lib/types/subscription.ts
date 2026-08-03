@@ -1118,7 +1118,13 @@ export type ProxyRoutingConfig = {
   fallbackChain: FallbackEntry[];
   /** Permit a last-resort provider chosen by the translation layer. Disabled by default. */
   autoFallback?: boolean;
-  /** Maximum in-flight upstream requests per OAuth account. Defaults to two. */
+  /**
+   * Optional in-flight upstream request cap per OAuth account.
+   *
+   * Unlimited admission is the result of omitting it AND of any value outside
+   * the accepted range — a non-integer, or anything below 1 or above 20 — since
+   * `normalizeMaxInflightPerAccount()` discards those rather than clamping.
+   */
   maxInflightPerAccount?: number;
   passthroughModels?: string[];
   /** Enable quota-aware fill-first account ordering. Defaults to true. */

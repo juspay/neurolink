@@ -5,25 +5,46 @@ import type {
   RouteResult,
 } from "../types/index.js";
 
-/** Default and accepted range for concurrent upstream requests per OAuth account. */
+/** Accepted range for an explicitly configured OAuth account admission cap. */
 export const MIN_MAX_INFLIGHT_PER_ACCOUNT = 1;
 export const MAX_MAX_INFLIGHT_PER_ACCOUNT = 20;
-export const DEFAULT_MAX_INFLIGHT_PER_ACCOUNT = 2;
+
+/**
+ * The single definition of "a usable admission cap": an integer inside the
+ * accepted range. Anything else — `0`, `1.5`, `21`, `NaN` — means unlimited.
+ *
+ * `parseProxyConfig()` already drops invalid YAML values, but `ProxyRoutingConfig`
+ * is an exported type, so a programmatic caller can hand `ModelRouter` a value
+ * that never passed through it. Without this, `getMaxInflightPerAccount()` would
+ * report a bound (`0`, `21`) that the admission path ignores as unlimited, and
+ * the two would disagree about whether the account is capped.
+ */
+export function normalizeMaxInflightPerAccount(
+  capacity: number | undefined,
+): number | undefined {
+  return typeof capacity === "number" &&
+    Number.isInteger(capacity) &&
+    capacity >= MIN_MAX_INFLIGHT_PER_ACCOUNT &&
+    capacity <= MAX_MAX_INFLIGHT_PER_ACCOUNT
+    ? capacity
+    : undefined;
+}
 
 export class ModelRouter {
   private readonly mappings: Map<string, ModelMapping>;
   private readonly passthrough: Set<string>;
   private readonly fallback: FallbackEntry[];
   private readonly autoFallback: boolean;
-  private readonly maxInflightPerAccount: number;
+  private readonly maxInflightPerAccount: number | undefined;
 
   constructor(config: ProxyRoutingConfig) {
     this.mappings = new Map(config.modelMappings.map((m) => [m.from, m]));
     this.passthrough = new Set(config.passthroughModels ?? []);
     this.fallback = config.fallbackChain;
     this.autoFallback = config.autoFallback === true;
-    this.maxInflightPerAccount =
-      config.maxInflightPerAccount ?? DEFAULT_MAX_INFLIGHT_PER_ACCOUNT;
+    this.maxInflightPerAccount = normalizeMaxInflightPerAccount(
+      config.maxInflightPerAccount,
+    );
   }
 
   resolve(requestedModel: string): RouteResult {
@@ -56,8 +77,8 @@ export class ModelRouter {
     return this.autoFallback;
   }
 
-  /** Maximum concurrent upstream requests admitted for each OAuth account. */
-  getMaxInflightPerAccount(): number {
+  /** Explicit per-account admission cap, or undefined when admission is unlimited. */
+  getMaxInflightPerAccount(): number | undefined {
     return this.maxInflightPerAccount;
   }
 

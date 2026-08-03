@@ -84,11 +84,7 @@ import {
   buildProxyTranslationPlan,
   parseRetryAfterMs,
 } from "../../proxy/routingPolicy.js";
-import {
-  DEFAULT_MAX_INFLIGHT_PER_ACCOUNT,
-  MAX_MAX_INFLIGHT_PER_ACCOUNT,
-  MIN_MAX_INFLIGHT_PER_ACCOUNT,
-} from "../../proxy/modelRouter.js";
+import { normalizeMaxInflightPerAccount } from "../../proxy/modelRouter.js";
 import type { ProxyTranslationPlan } from "../../types/index.js";
 import { writeJsonSnapshotAtomically } from "../../proxy/snapshotPersistence.js";
 import {
@@ -248,6 +244,9 @@ const transientCooldownAdmissionSchedules = new Map<
  * make room for another stream on the same account.
  */
 const accountAdmissionStates = new Map<string, AccountAdmissionState>();
+const unlimitedAccountAdmissionLease: AccountAdmissionLease = {
+  release: () => undefined,
+};
 
 function getAccountAdmissionState(accountKey: string): AccountAdmissionState {
   let state = accountAdmissionStates.get(accountKey);
@@ -256,14 +255,6 @@ function getAccountAdmissionState(accountKey: string): AccountAdmissionState {
     accountAdmissionStates.set(accountKey, state);
   }
   return state;
-}
-
-function normalizeAccountAdmissionCapacity(capacity: number): number {
-  return Number.isInteger(capacity) &&
-    capacity >= MIN_MAX_INFLIGHT_PER_ACCOUNT &&
-    capacity <= MAX_MAX_INFLIGHT_PER_ACCOUNT
-    ? capacity
-    : DEFAULT_MAX_INFLIGHT_PER_ACCOUNT;
 }
 
 function drainAccountAdmissionWaiters(
@@ -309,10 +300,13 @@ function discardAccountAdmissionState(
 
 function tryAcquireAccountAdmission(
   accountKey: string,
-  capacity: number,
+  capacity: number | undefined,
 ): AccountAdmissionLease | undefined {
+  const normalizedCapacity = normalizeMaxInflightPerAccount(capacity);
+  if (normalizedCapacity === undefined) {
+    return unlimitedAccountAdmissionLease;
+  }
   const state = getAccountAdmissionState(accountKey);
-  const normalizedCapacity = normalizeAccountAdmissionCapacity(capacity);
   if (state.waiters.length > 0 || state.active >= normalizedCapacity) {
     return undefined;
   }
@@ -322,10 +316,13 @@ function tryAcquireAccountAdmission(
 
 function isAccountAdmissionAvailable(
   accountKey: string,
-  capacity: number,
+  capacity: number | undefined,
 ): boolean {
+  const normalizedCapacity = normalizeMaxInflightPerAccount(capacity);
+  if (normalizedCapacity === undefined) {
+    return true;
+  }
   const state = accountAdmissionStates.get(accountKey);
-  const normalizedCapacity = normalizeAccountAdmissionCapacity(capacity);
   return (
     !state || (state.waiters.length === 0 && state.active < normalizedCapacity)
   );
@@ -335,8 +332,15 @@ function enqueueAccountAdmission(
   accountKey: string,
   capacity: number,
 ): QueuedAccountAdmission {
+  // Validate BEFORE getAccountAdmissionState(), which inserts into the map as a
+  // side effect. Throwing after it would strand an empty entry for an account
+  // that never got admitted — and the throw path never calls
+  // discardAccountAdmissionState() to reap it.
+  const normalizedCapacity = normalizeMaxInflightPerAccount(capacity);
+  if (normalizedCapacity === undefined) {
+    throw new Error("Account admission queue requires an explicit capacity");
+  }
   const state = getAccountAdmissionState(accountKey);
-  const normalizedCapacity = normalizeAccountAdmissionCapacity(capacity);
   let queued = true;
   let grantedLease: AccountAdmissionLease | undefined;
   let resolveAdmission: (lease: AccountAdmissionLease) => void;
@@ -6393,15 +6397,14 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     }
   }
 
-  const accountAdmissionCapacity =
-    modelRouter?.getMaxInflightPerAccount?.() ??
-    DEFAULT_MAX_INFLIGHT_PER_ACCOUNT;
+  const accountAdmissionCapacity = modelRouter?.getMaxInflightPerAccount?.();
   // When every eligible account is busy, reserve the first account that frees
   // instead of arbitrarily waiting behind the last configured account.
   let queuedAccountAdmission:
     | { accountKey: string; lease: AccountAdmissionLease }
     | undefined;
   if (
+    accountAdmissionCapacity !== undefined &&
     effectiveAccounts.length > 0 &&
     effectiveAccounts.every(
       (account) =>
@@ -7638,12 +7641,17 @@ export const __testHooks = {
   acquireAccountAdmission,
   acquireFirstAvailableAccountAdmission,
   tryAcquireAccountAdmission,
+  enqueueAccountAdmission,
   getAccountAdmissionSnapshot: (accountKey: string) => {
     const state = accountAdmissionStates.get(accountKey);
     return state
       ? { active: state.active, waiting: state.waiters.length }
       : { active: 0, waiting: 0 };
   },
+  // The snapshot above reports {active:0, waiting:0} both for "no entry" and
+  // for "empty entry", so it cannot see a stranded allocation. This can.
+  hasAccountAdmissionState: (accountKey: string): boolean =>
+    accountAdmissionStates.has(accountKey),
   describeTransportError,
   redactProviderErrorMessage,
   isUpstreamOverload,

@@ -127,6 +127,8 @@ import {
   loadUpdateState,
   recordUpdateInstalled,
 } from "../src/lib/proxy/updateState.js";
+import { ModelRouter } from "../src/lib/proxy/modelRouter.js";
+import { __testHooks as claudeProxyTestHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
 import type { ProxySupervisorState } from "../src/lib/types/index.js";
 
 import {
@@ -9183,6 +9185,107 @@ exit 127
           "9.88.9" &&
         normalizeSupervisorState(null) === null
       );
+    },
+  },
+
+  // ---------- #1265: account admission is opt-in ----------
+  {
+    // Omitting the cap means unlimited admission, not the old implicit 2.
+    name: "proxy admission: an omitted cap reports no bound",
+    category: "proxy",
+    fn: async () => {
+      const router = new ModelRouter({
+        strategy: "fill-first",
+        modelMappings: [],
+        fallbackChain: [],
+      });
+      return router.getMaxInflightPerAccount() === undefined;
+    },
+  },
+  {
+    // ProxyRoutingConfig is an exported type, so a programmatic caller can hand
+    // ModelRouter a value that never passed through parseProxyConfig(). Echoing
+    // it back would have the router claim a bound the admission path ignores as
+    // unlimited — the two would disagree about whether the account is capped.
+    name: "proxy admission: out-of-range and non-integer caps report no bound",
+    category: "proxy",
+    fn: async () => {
+      const reportsUnlimited = (maxInflightPerAccount: number) =>
+        new ModelRouter({
+          strategy: "fill-first",
+          modelMappings: [],
+          fallbackChain: [],
+          maxInflightPerAccount,
+        }).getMaxInflightPerAccount() === undefined;
+      return (
+        reportsUnlimited(0) &&
+        reportsUnlimited(21) &&
+        reportsUnlimited(1.5) &&
+        reportsUnlimited(Number.NaN)
+      );
+    },
+  },
+  {
+    name: "proxy admission: a cap inside the accepted range is kept",
+    category: "proxy",
+    fn: async () => {
+      const router = new ModelRouter({
+        strategy: "fill-first",
+        modelMappings: [],
+        fallbackChain: [],
+        maxInflightPerAccount: 3,
+      });
+      return router.getMaxInflightPerAccount() === 3;
+    },
+  },
+  {
+    // With no cap configured, admission must not allocate queue state at all —
+    // every request is granted a lease immediately.
+    name: "proxy admission: no queue state is created when no cap is configured",
+    category: "proxy",
+    fn: async () => {
+      const accountKey = "anthropic:unlimited@example.com";
+      const leases = [
+        claudeProxyTestHooks.tryAcquireAccountAdmission(accountKey, undefined),
+        claudeProxyTestHooks.tryAcquireAccountAdmission(accountKey, undefined),
+        claudeProxyTestHooks.tryAcquireAccountAdmission(accountKey, undefined),
+      ];
+      try {
+        const snapshot =
+          claudeProxyTestHooks.getAccountAdmissionSnapshot(accountKey);
+        return (
+          leases.every((lease) => lease !== undefined) &&
+          snapshot.active === 0 &&
+          snapshot.waiting === 0
+        );
+      } finally {
+        leases.forEach((lease) => lease?.release());
+      }
+    },
+  },
+  {
+    // getAccountAdmissionState() inserts into the map as a side effect, and the
+    // throw path never reaches discardAccountAdmissionState() to reap it — so
+    // validation has to happen first or an invalid capacity strands an entry.
+    name: "proxy admission: a rejected enqueue strands no admission state",
+    category: "proxy",
+    fn: async () => {
+      const accountKey = "anthropic:invalid-capacity@example.com";
+      if (claudeProxyTestHooks.hasAccountAdmissionState(accountKey)) {
+        return false;
+      }
+      try {
+        claudeProxyTestHooks.enqueueAccountAdmission(accountKey, 0);
+        return false; // 0 normalizes to unlimited, which must be rejected
+      } catch (error) {
+        if (
+          !(error instanceof Error) ||
+          !/requires an explicit capacity/.test(error.message)
+        ) {
+          return false;
+        }
+      }
+      return !claudeProxyTestHooks.hasAccountAdmissionState(accountKey);
     },
   },
 ];
