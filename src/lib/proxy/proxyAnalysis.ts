@@ -120,6 +120,7 @@ function routingCandidateValue(
     "sessionStatus",
     "weeklyStatus",
   ];
+  const optionalNullableStringFields = ["fallbackStatus", "upgradePaths"];
   if (
     !stringValue(candidate.account) ||
     typeof candidate.accountType !== "string" ||
@@ -137,6 +138,15 @@ function routingCandidateValue(
     requiredNullableStringFields.some(
       (field) => !isNullableString(candidate[field]),
     ) ||
+    optionalNullableStringFields.some(
+      (field) =>
+        field in candidate &&
+        candidate[field] !== undefined &&
+        !isNullableString(candidate[field]),
+    ) ||
+    ("overageEligible" in candidate &&
+      candidate.overageEligible !== undefined &&
+      typeof candidate.overageEligible !== "boolean") ||
     !(
       candidate.coolingReason === null ||
       (typeof candidate.coolingReason === "string" &&
@@ -162,6 +172,9 @@ function routingCandidateValue(
       candidate.coolingReason as ProxyAccountRoutingCandidate["coolingReason"],
     coolingUntil: candidate.coolingUntil as number | null,
     unifiedStatus: candidate.unifiedStatus as string | null,
+    fallbackStatus: candidate.fallbackStatus as string | null | undefined,
+    upgradePaths: candidate.upgradePaths as string | null | undefined,
+    overageEligible: candidate.overageEligible as boolean | undefined,
     overageStatus: candidate.overageStatus as string | null,
     sessionStatus: candidate.sessionStatus as string | null,
     sessionUsed: candidate.sessionUsed as number | null,

@@ -51,6 +51,39 @@ export function getUnifiedRateLimitStatus(
 }
 
 /**
+ * Whether Anthropic explicitly permits a request to use overage after a
+ * subscription window is exhausted. Fresh responses require all three
+ * provider signals. Older persisted snapshots predate the raw fallback and
+ * upgrade-path fields, but retain a positive fallback percentage together with
+ * an allowed overage status, which is the equivalent provider state.
+ */
+export function isQuotaOverageAvailable(
+  quota:
+    | Pick<
+        AccountQuota,
+        | "fallbackPercentage"
+        | "fallbackStatus"
+        | "overageStatus"
+        | "upgradePaths"
+      >
+    | null
+    | undefined,
+): boolean {
+  if (quota?.overageStatus?.trim().toLowerCase() !== "allowed") {
+    return false;
+  }
+  const explicitFallback = quota.fallbackStatus?.trim().toLowerCase();
+  const hasExplicitOveragePath = (quota.upgradePaths ?? "")
+    .split(",")
+    .map((path) => path.trim().toLowerCase())
+    .includes("overage");
+  if (explicitFallback === "available" && hasExplicitOveragePath) {
+    return true;
+  }
+  return explicitFallback === undefined && (quota.fallbackPercentage ?? 0) > 0;
+}
+
+/**
  * Parse Anthropic rate-limit / quota headers into an `AccountQuota`.
  * Returns `null` when key headers are absent.
  * Pure computation — no I/O, no blocking.
@@ -87,6 +120,8 @@ export function parseQuotaHeaders(
     weeklyStatus: getHeader(headers, `${P}unified-7d-status`) ?? "unknown",
     weeklyResetAt: weeklyResetRaw ? parseInt(weeklyResetRaw, 10) || 0 : 0,
     fallbackPercentage: fallbackRaw ? parseFloat(fallbackRaw) || 0 : 0,
+    fallbackStatus: getHeader(headers, `${P}unified-fallback`) ?? "unknown",
+    upgradePaths: getHeader(headers, `${P}unified-upgrade-paths`),
     overageStatus:
       getHeader(headers, `${P}unified-overage-status`) ?? "unknown",
     lastUpdated: Date.now(),

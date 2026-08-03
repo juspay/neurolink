@@ -34,6 +34,7 @@ import {
 } from "../../proxy/accountSelection.js";
 import {
   getUnifiedRateLimitStatus,
+  isQuotaOverageAvailable,
   loadAccountQuotas,
   parseQuotaHeaders,
   saveAccountQuota,
@@ -125,6 +126,7 @@ import type {
   ProxyAccountRoutingReason,
   ProxyAccountSortMetrics,
   ProxyBodyCaptureLogger,
+  ProxyQuotaCooldownUpdate,
   ProxyPassthroughAccount,
   QueuedAccountAdmission,
   ResponseInfoContext,
@@ -651,9 +653,9 @@ function clampCooldownUntil(untilMs: number, now: number): number {
  * The unified subscription limits expose per-window status + reset:
  *   - weekly (7d) "rejected"  → hard cap for the week; cool until the 7d reset.
  *   - session (5h) "rejected" → paced out for this session; cool until the 5h reset.
- * Both mean "retrying this account is futile until its window resets" → rotate
- * immediately (no same-account retries) and park the account until the ACTUAL
- * reset — never the legacy 60s hardcap that let us re-hammer a spent account.
+ * Both mean "retrying this account is futile until its window resets" unless
+ * the provider explicitly enables overage. In that case, the subscription
+ * window is exhausted but the account remains usable for paid fallback.
  *
  * Anything else (window still "allowed" but momentarily 429'd — a per-minute
  * burst / acceleration limit) is transient: honor retry-after as a floor,
@@ -676,7 +678,8 @@ function planCooldownFor429(
       rotateImmediately: true,
     };
   }
-  if (quota && quota.sessionStatus === "rejected") {
+  const overageAvailable = isQuotaOverageAvailable(quota);
+  if (quota && quota.sessionStatus === "rejected" && !overageAvailable) {
     const reset =
       resetEpochToMs(quota.sessionResetAt, now) ??
       (retryAfterMs > 0 ? now + retryAfterMs : now + DEFAULT_COOLING_PERIOD_MS);
@@ -689,7 +692,7 @@ function planCooldownFor429(
   // Anthropic may reject the authoritative top-level unified limit while both
   // 5h and 7d sub-window statuses still say "allowed". Treating this as a
   // transient burst retries a known-exhausted account and delays failover.
-  if (unifiedStatus?.trim().toLowerCase() === "rejected") {
+  if (unifiedStatus?.trim().toLowerCase() === "rejected" && !overageAvailable) {
     const reset =
       retryAfterMs > 0 ? now + retryAfterMs : now + DEFAULT_HARD_COOLDOWN_MS;
     return {
@@ -721,27 +724,51 @@ function minutesUntil(untilMs: number, now: number): number {
  * flipped to "rejected" (the boundary request that spends the last of the quota
  * still returns 200 but reports rejected/next-reset). Parks the account until
  * its reset so the next request skips it instead of discovering the limit via a
- * 429. Never shortens an existing, longer cooldown.
+ * 429, except when the provider explicitly enables paid overage.
  */
-function maybeCoolFromQuota(
+function reconcileCooldownFromQuota(
   state: RuntimeAccountState,
   quota: AccountQuota,
   now: number,
-): boolean {
+): ProxyQuotaCooldownUpdate {
+  const overageAvailable = isQuotaOverageAvailable(quota);
   let until: number | undefined;
   let reason: RuntimeAccountState["coolingReason"];
   if (quota.weeklyStatus === "rejected") {
     until = resetEpochToMs(quota.weeklyResetAt, now);
     reason = "weekly";
-  } else if (quota.sessionStatus === "rejected") {
+  }
+  if (
+    until === undefined &&
+    overageAvailable &&
+    state.coolingUntil &&
+    (state.coolingReason === "session" || state.coolingReason === "unified")
+  ) {
+    const previousCoolingUntil = state.coolingUntil;
+    state.coolingUntil = undefined;
+    state.coolingReason = undefined;
+    logger.always(
+      "[proxy] clearing subscription cooldown because Anthropic explicitly permits overage",
+    );
+    return { kind: "cleared", coolingUntil: previousCoolingUntil };
+  }
+  if (
+    until === undefined &&
+    quota.sessionStatus === "rejected" &&
+    !overageAvailable
+  ) {
     until = resetEpochToMs(quota.sessionResetAt, now);
     reason = "session";
-  } else if (quota.unifiedStatus === "rejected") {
+  } else if (
+    until === undefined &&
+    quota.unifiedStatus === "rejected" &&
+    !overageAvailable
+  ) {
     until = now + DEFAULT_HARD_COOLDOWN_MS;
     reason = "unified";
   }
   if (until === undefined) {
-    return false;
+    return null;
   }
   const clamped = clampCooldownUntil(until, now);
   if (!state.coolingUntil || clamped > state.coolingUntil) {
@@ -750,9 +777,13 @@ function maybeCoolFromQuota(
     logger.always(
       `[proxy] proactively cooling account (${reason}) ~${minutesUntil(clamped, now)}m from success-response quota (status rejected)`,
     );
-    return true;
+    return {
+      kind: "cooled",
+      coolingUntil: clamped,
+      coolingReason: reason ?? "unified",
+    };
   }
-  return false;
+  return null;
 }
 
 /**
@@ -787,6 +818,22 @@ async function seedRuntimeQuotasFromDisk(
       ) {
         state.coolingUntil = persistedCooldown.coolingUntil;
         state.coolingReason = persistedCooldown.reason;
+      }
+      if (state.quota) {
+        const cooldownUpdate = reconcileCooldownFromQuota(
+          state,
+          state.quota,
+          now,
+        );
+        if (cooldownUpdate?.kind === "cooled") {
+          await saveAccountCooldown(
+            account.key,
+            cooldownUpdate.coolingUntil,
+            cooldownUpdate.coolingReason,
+          );
+        } else if (cooldownUpdate?.kind === "cleared") {
+          await clearAccountCooldown(account.key, cooldownUpdate.coolingUntil);
+        }
       }
     }
   } catch {
@@ -864,6 +911,7 @@ function accountSortMetrics(
       ? (q.weeklyStatus ?? "unknown")
       : "allowed"
     : null;
+  const overageEligible = isQuotaOverageAvailable(q);
   const saturated =
     sessionStatus === "throttled" ||
     (sessionTicking && (sessionUsed ?? 0) >= sessionSoftLimit);
@@ -873,7 +921,9 @@ function accountSortMetrics(
     usable:
       !coolingActive &&
       weeklyStatus !== "rejected" &&
-      sessionStatus !== "rejected",
+      (sessionStatus !== "rejected" || overageEligible) &&
+      (q?.unifiedStatus?.trim().toLowerCase() !== "rejected" ||
+        overageEligible),
     saturated,
     hasQuota: !!q,
     quotaLastUpdated,
@@ -883,6 +933,9 @@ function accountSortMetrics(
     coolingReason: st?.coolingReason ?? null,
     coolingUntil: st?.coolingUntil ?? 0,
     unifiedStatus: q?.unifiedStatus ?? null,
+    fallbackStatus: q?.fallbackStatus ?? null,
+    upgradePaths: q?.upgradePaths ?? null,
+    overageEligible,
     overageStatus: q?.overageStatus ?? null,
     sessionStatus,
     sessionUsed,
@@ -1077,6 +1130,9 @@ function buildRoutingDecision(args: {
           ? metrics.coolingUntil
           : null,
       unifiedStatus: metrics.unifiedStatus,
+      fallbackStatus: metrics.fallbackStatus,
+      upgradePaths: metrics.upgradePaths,
+      overageEligible: metrics.overageEligible,
       overageStatus: metrics.overageStatus,
       sessionStatus: metrics.sessionStatus,
       sessionUsed: metrics.sessionUsed,
@@ -3508,17 +3564,27 @@ async function handleAnthropicSuccessfulResponse(args: {
   if (quota) {
     // Stash the latest quota on runtime state so the next request can pick the
     // account whose window resets soonest (max-utilization) and proactively
-    // skip any whose window is already rejected — without eating a 429 first.
+    // skip rejected windows unless Anthropic explicitly permits overage.
     accountState.quota = quota;
-    if (maybeCoolFromQuota(accountState, quota, Date.now())) {
-      const { coolingUntil, coolingReason } = accountState;
-      if (coolingUntil !== undefined && coolingReason !== undefined) {
-        saveAccountCooldown(account.key, coolingUntil, coolingReason).catch(
-          () => {
-            // Non-fatal: cooldown is already active in memory.
-          },
-        );
-      }
+    const cooldownUpdate = reconcileCooldownFromQuota(
+      accountState,
+      quota,
+      Date.now(),
+    );
+    if (cooldownUpdate?.kind === "cooled") {
+      saveAccountCooldown(
+        account.key,
+        cooldownUpdate.coolingUntil,
+        cooldownUpdate.coolingReason,
+      ).catch(() => {
+        // Non-fatal: cooldown is already active in memory.
+      });
+    } else if (cooldownUpdate?.kind === "cleared") {
+      clearAccountCooldown(account.key, cooldownUpdate.coolingUntil).catch(
+        () => {
+          // Non-fatal: the next successful response will reconcile again.
+        },
+      );
     }
     saveAccountQuota(account.label, quota).catch(() => {
       // Non-fatal: quota persistence is best-effort
@@ -4434,18 +4500,27 @@ async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
   const retryQuota = parseQuotaHeaders(retryResp.headers);
   if (retryQuota) {
     // Keep the auth-retry success path in parity with the main success path:
-    // stash quota for proactive selection and proactively cool if this
-    // response reveals the window flipped to "rejected".
+    // stash quota for proactive selection and reconcile a rejected window.
     accountState.quota = retryQuota;
-    if (maybeCoolFromQuota(accountState, retryQuota, Date.now())) {
-      const { coolingUntil, coolingReason } = accountState;
-      if (coolingUntil !== undefined && coolingReason !== undefined) {
-        saveAccountCooldown(account.key, coolingUntil, coolingReason).catch(
-          () => {
-            // Non-fatal: cooldown is already active in memory.
-          },
-        );
-      }
+    const cooldownUpdate = reconcileCooldownFromQuota(
+      accountState,
+      retryQuota,
+      Date.now(),
+    );
+    if (cooldownUpdate?.kind === "cooled") {
+      saveAccountCooldown(
+        account.key,
+        cooldownUpdate.coolingUntil,
+        cooldownUpdate.coolingReason,
+      ).catch(() => {
+        // Non-fatal: cooldown is already active in memory.
+      });
+    } else if (cooldownUpdate?.kind === "cleared") {
+      clearAccountCooldown(account.key, cooldownUpdate.coolingUntil).catch(
+        () => {
+          // Non-fatal: the next successful response will reconcile again.
+        },
+      );
     }
     saveAccountQuota(account.label, retryQuota).catch((error) => {
       logger.debug("[proxy] Failed to persist account quota after auth retry", {
@@ -6550,8 +6625,8 @@ async function handleAnthropicRoutedClaudeRequest(args: {
         // Clear cooling on success — but only if the stored cooldown has already
         // expired, so an older in-flight success can't wipe an active exhaustion
         // cooldown just set by a concurrent 429. The success handler re-applies a
-        // cooldown via maybeCoolFromQuota if the fresh quota headers report the
-        // window flipped to "rejected" on this very request.
+        // cooldown via reconcileCooldownFromQuota when fresh quota headers
+        // report a rejected window without explicit overage availability.
         if (
           accountState.coolingUntil &&
           Date.now() >= accountState.coolingUntil
@@ -7397,6 +7472,7 @@ export const __testHooks = {
   resolveHomeIndex,
   maybeResetPrimaryToHome,
   planCooldownFor429,
+  reconcileCooldownFromQuota,
   isPermanentRefreshFailure,
   getStreamFailureDetails,
   trackUpstreamReadableStream,
