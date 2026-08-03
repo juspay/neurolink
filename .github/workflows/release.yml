@@ -52,6 +52,9 @@ jobs:
 
   release:
     runs-on: ubuntu-latest
+    concurrency:
+      group: neurolink-release-publish
+      cancel-in-progress: false
     permissions:
       contents: write
       packages: write
@@ -120,9 +123,20 @@ jobs:
       - name: Publish to GitHub Packages
         run: |
           if [ -f "package.json" ]; then
-            echo "📦 Publishing to GitHub Packages..."
-            pnpm publish --access public --no-git-checks --registry https://npm.pkg.github.com
-            echo "✅ Published to GitHub Packages successfully!"
+            package_name="$(node -p "require('./package.json').name")"
+            package_version="$(node -p "require('./package.json').version")"
+
+            if lookup_output="$(npm view "${package_name}@${package_version}" version --registry https://npm.pkg.github.com 2>&1)"; then
+              echo "GitHub Packages already contains ${package_name}@${package_version}; skipping publish."
+            elif printf '%s\n' "$lookup_output" | grep -qxE 'npm (ERR!|error) code E404'; then
+              echo "Publishing ${package_name}@${package_version} to GitHub Packages..."
+              pnpm publish --access public --no-git-checks --registry https://npm.pkg.github.com
+              echo "Published ${package_name}@${package_version} to GitHub Packages."
+            else
+              printf '%s\n' "$lookup_output" >&2
+              echo "Unable to determine whether ${package_name}@${package_version} exists in GitHub Packages; refusing to publish." >&2
+              exit 1
+            fi
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
