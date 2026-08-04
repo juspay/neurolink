@@ -1,3 +1,9 @@
+## [10.8.18](https://github.com/juspay/neurolink/compare/v10.8.17...v10.8.18) (2026-08-04)
+
+### Bug Fixes
+
+- **(proxy):** let a ModelPool fail over when one member's model is missing ([8ae086b](https://github.com/juspay/neurolink/commit/8ae086b13b4c53cd9242fc15bf93f25b01aa10c1)), closes [member#2](https://github.com/juspay/member/issues/2)
+
 ## [10.8.17](https://github.com/juspay/neurolink/compare/v10.8.16...v10.8.17) (2026-08-04)
 
 ### Bug Fixes
