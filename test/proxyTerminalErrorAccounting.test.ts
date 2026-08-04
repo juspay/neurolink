@@ -264,6 +264,11 @@ describe("translated terminal accounting", () => {
     const modelRouter = {
       resolve: () => ({ provider: "openai", model: "translated-model" }),
       getFallbackChain: () => [],
+      // Auto-fallback became opt-in in 33bdd141, so a router without this makes
+      // one attempt and never reaches the double-finalization path under test.
+      // Behaviour is covered for real in continuous-test-suite-bugfixes.ts;
+      // this keeps the assertion here from stating something untrue.
+      isAutoFallbackEnabled: () => true,
     };
     const messagesRoute = createClaudeProxyRoutes(
       modelRouter as never,

@@ -133,8 +133,16 @@ import {
   recordUpdateInstalled,
 } from "../src/lib/proxy/updateState.js";
 import { ModelRouter } from "../src/lib/proxy/modelRouter.js";
-import { __testHooks as claudeProxyTestHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
-import type { ProxySupervisorState } from "../src/lib/types/index.js";
+import {
+  __testHooks as claudeProxyTestHooks,
+  createClaudeProxyRoutes,
+} from "../src/lib/server/routes/claudeProxyRoutes.js";
+import {
+  getStats,
+  getTerminalErrors,
+  resetUsageStatsForTests,
+} from "../src/lib/proxy/usageStats.js";
+import type { ProxySupervisorState, ServerContext } from "../src/lib/types/index.js";
 
 import {
   GoogleVertexProvider,
@@ -9531,6 +9539,107 @@ exit 127
           e.message.includes("pnpm add fluent-ffmpeg") &&
           !e.message.includes("Cannot read properties")
         );
+      }
+    },
+  },
+
+  // ---------- auto-fallback became opt-in (regression from 33bdd141) ----------
+  {
+    // "fix(proxy): bound account admission and fallback routing" (33bdd141)
+    // made translation-layer auto-fallback opt-in, which silently changed how
+    // many upstream attempts an exhausted translated request makes. It went
+    // unnoticed because the only coverage lived in a test file no script runs.
+    //
+    // Both directions are asserted in one test so the global usage stats can be
+    // reset between them without depending on suite ordering.
+    name: "proxy routing: auto-fallback opt-in decides whether a second attempt happens",
+    category: "proxy",
+    fn: async () => {
+      const runExhaustedRequest = async (
+        requestId: string,
+        autoFallback: boolean,
+      ) => {
+        await resetUsageStatsForTests();
+        const ctx = {
+          requestId,
+          method: "POST",
+          path: "/v1/messages",
+          headers: {},
+          query: {},
+          params: {},
+          timestamp: Date.now(),
+          metadata: {},
+          // Yields nothing, so every attempt fails with "no content".
+          neurolink: {
+            stream: async () => ({
+              stream: (async function* () {
+                yield* [];
+              })(),
+              toolCalls: [],
+              usage: {},
+              model: "translated-model",
+            }),
+          },
+          toolRegistry: {},
+          body: {
+            model: "claude-routed-model",
+            messages: [{ role: "user", content: "hello" }],
+          },
+        } as unknown as ServerContext;
+
+        const modelRouter = {
+          resolve: () => ({ provider: "openai", model: "translated-model" }),
+          getFallbackChain: () => [],
+          isAutoFallbackEnabled: () => autoFallback,
+        };
+        const messagesRoute = createClaudeProxyRoutes(
+          modelRouter as never,
+        ).routes.find(
+          (route) => route.method === "POST" && route.path === "/v1/messages",
+        );
+        if (!messagesRoute) {
+          throw new Error("messages route not found");
+        }
+        const result = (await messagesRoute.handler(ctx)) as {
+          type?: string;
+        };
+        return {
+          result,
+          stats: getStats(),
+          terminal: getTerminalErrors(),
+        };
+      };
+
+      try {
+        // Opted in: a second attempt is made, and the terminal error is still
+        // finalized exactly once rather than twice.
+        const enabled = await runExhaustedRequest("autofallback-on", true);
+        const enabledOk =
+          enabled.result?.type === "error" &&
+          enabled.stats.totalAttempts === 2 &&
+          enabled.stats.totalAttemptErrors === 2 &&
+          enabled.stats.totalRequests === 1 &&
+          enabled.stats.totalErrors === 1 &&
+          // The journal, not just the counter: two attempts must still produce
+          // exactly ONE finalized terminal error, which is what "does not
+          // finalize twice" actually means.
+          enabled.terminal.totalErrors === 1 &&
+          enabled.terminal.recent.length === 1;
+
+        // Default: no second attempt, still one finalized terminal error.
+        const disabled = await runExhaustedRequest("autofallback-off", false);
+        const disabledOk =
+          disabled.result?.type === "error" &&
+          disabled.stats.totalAttempts === 1 &&
+          disabled.stats.totalAttemptErrors === 1 &&
+          disabled.stats.totalRequests === 1 &&
+          disabled.stats.totalErrors === 1 &&
+          disabled.terminal.totalErrors === 1 &&
+          disabled.terminal.recent.length === 1;
+
+        return enabledOk && disabledOk;
+      } finally {
+        await resetUsageStatsForTests();
       }
     },
   },
