@@ -1,3 +1,12 @@
+## [10.8.13](https://github.com/juspay/neurolink/compare/v10.8.12...v10.8.13) (2026-08-04)
+
+### Bug Fixes
+
+- **(ci):** skip duplicate GitHub Package publishes ([b7d35b9](https://github.com/juspay/neurolink/commit/b7d35b99df2bac86894f3e8fbfd289bf69f0c9ef))
+- **(cli):** explain an empty MCP server list instead of just reporting it ([a81b3b4](https://github.com/juspay/neurolink/commit/a81b3b4078745cadb2e24847e0008118b6eff75b)), closes [#230](https://github.com/juspay/neurolink/issues/230)
+- **(proxy):** make account admission opt-in ([bfac340](https://github.com/juspay/neurolink/commit/bfac340652486a7a3dcfb984c14f9268be73691a))
+- **(voice):** bound MCP tool calls in the realtime agent ([b3d28c4](https://github.com/juspay/neurolink/commit/b3d28c485a602caf0d94597440ab2d5171bd9b26)), closes [#1102](https://github.com/juspay/neurolink/issues/1102)
+
 ## [10.8.12](https://github.com/juspay/neurolink/compare/v10.8.11...v10.8.12) (2026-08-04)
 
 ### Bug Fixes
