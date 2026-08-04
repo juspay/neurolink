@@ -144,8 +144,8 @@
     "test:tool-dedup": "pnpm run test:tool-dedup:vitest && npx tsx test/continuous-test-suite-tool-dedup.ts",
     "test:model-pool:vitest": "pnpm exec vitest run test/modelPool.test.ts",
     "test:model-pool": "pnpm run test:model-pool:vitest && npx tsx test/continuous-test-suite-model-pool.ts",
-    "test:model-capabilities:vitest": "pnpm exec vitest run test/modelCapabilities.test.ts",
-    "test:agent-runtime:vitest": "pnpm exec vitest run test/agentRuntime.test.ts test/agentDelegation.test.ts test/agentPlumbing.test.ts test/toolExecutionRecorder.test.ts test/samplingParams.test.ts test/structuredRecovery.test.ts",
+    "test:model-capabilities": "npx tsx test/continuous-test-suite-model-capabilities.ts",
+    "test:agent-runtime:vitest": "pnpm exec vitest run test/agentRuntime.test.ts test/agentDelegation.test.ts test/agentPlumbing.test.ts test/toolExecutionRecorder.test.ts",
     "test:retry-after:vitest": "pnpm exec vitest run test/retryAfter.test.ts",
     "test:ci": "pnpm run test && pnpm run test:client && pnpm run test:hitl",
     "// CI tier — fast, no live AI calls, safe for every commit": "",
@@ -155,7 +155,7 @@
     "test:system-messages:vitest": "pnpm exec vitest run test/systemMessages.test.ts",
     "test:tool-routing-semantic:vitest": "pnpm exec vitest run test/toolRoutingSemantic.test.ts",
     "test:tool-routing-semantic": "pnpm run test:tool-routing-semantic:vitest && npx tsx test/continuous-test-suite-tool-routing-semantic.ts",
-    "test:unit": "pnpm run test:envguard && pnpm run test:bugfixes && pnpm run test:file-detector-extension && pnpm run test:file-detector-magic-bytes && pnpm run test:mcp:infra && pnpm run test:mcp:bash && pnpm run test:mcp:limits && pnpm run test:mcp:spans && pnpm run test:autoresearch:redis && pnpm run test:unit:vitest && pnpm run test:tool-routing-cli:vitest && pnpm run test:tool-dedup:vitest && pnpm run test:model-pool:vitest && pnpm run test:litellm-context:vitest && pnpm run test:step-budget-guard:vitest && pnpm run test:system-messages:vitest && pnpm run test:tool-routing-semantic:vitest && pnpm run test:anthropic-tools-policy && pnpm run test:sagemaker-tools && pnpm run test:anthropic-multimodal && pnpm run test:excel-interop && pnpm run test:model-capabilities:vitest && pnpm run test:agent-runtime:vitest && pnpm run test:retry-after:vitest",
+    "test:unit": "pnpm run test:envguard && pnpm run test:bugfixes && pnpm run test:file-detector-extension && pnpm run test:file-detector-magic-bytes && pnpm run test:mcp:infra && pnpm run test:mcp:bash && pnpm run test:mcp:limits && pnpm run test:mcp:spans && pnpm run test:autoresearch:redis && pnpm run test:unit:vitest && pnpm run test:tool-routing-cli:vitest && pnpm run test:tool-dedup:vitest && pnpm run test:model-pool:vitest && pnpm run test:litellm-context:vitest && pnpm run test:step-budget-guard:vitest && pnpm run test:system-messages:vitest && pnpm run test:tool-routing-semantic:vitest && pnpm run test:anthropic-tools-policy && pnpm run test:sagemaker-tools && pnpm run test:anthropic-multimodal && pnpm run test:excel-interop && pnpm run test:model-capabilities && pnpm run test:agent-runtime:vitest && pnpm run test:retry-after:vitest && pnpm run test:sampling-params && pnpm run test:structured-recovery && pnpm run test:prompt-redaction && pnpm run test:mcp-result-cache",
     "// CI tier — live providers, runs only when API keys are present (test:credentials and test:dynamic make real provider calls when keys are set, so they live here, not in test:unit)": "",
     "test:live": "pnpm run test:providers && pnpm run test:mcp:http && pnpm run test:mcp:sdk && pnpm run test:mcp:cli && pnpm run test:observability && pnpm run test:context && pnpm run test:memory && pnpm run test:tool-reliability && pnpm run test:evaluation && pnpm run test:autoresearch && pnpm run test:credentials && pnpm run test:dynamic",
     "// CI tier — product output (image/video/TTS/PPT) — costs $$ per run": "",
@@ -224,7 +224,11 @@
     "test:tts:unit": "npx tsx test/continuous-test-suite-tts-unit.ts",
     "test:video": "npx tsx test/continuous-test-suite-video.ts",
     "test:multimodal": "pnpm run test:audio && pnpm run test:video && pnpm run test:office && pnpm run test:tts:unit && pnpm run test:multimodal:sdk",
-    "test:multimodal:sdk": "npx tsx test/continuous-test-suite-multimodal-sdk.ts"
+    "test:multimodal:sdk": "npx tsx test/continuous-test-suite-multimodal-sdk.ts",
+    "test:sampling-params": "npx tsx test/continuous-test-suite-sampling-params.ts",
+    "test:structured-recovery": "npx tsx test/continuous-test-suite-structured-recovery.ts",
+    "test:prompt-redaction": "npx tsx test/continuous-test-suite-prompt-redaction.ts",
+    "test:mcp-result-cache": "npx tsx test/continuous-test-suite-mcp-result-cache.ts"
   },
   "files": [
     "dist",
