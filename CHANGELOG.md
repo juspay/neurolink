@@ -1,3 +1,9 @@
+## [10.8.11](https://github.com/juspay/neurolink/compare/v10.8.10...v10.8.11) (2026-08-04)
+
+### Bug Fixes
+
+- **(proxy):** avoid replay after ambiguous transport errors ([b32ad77](https://github.com/juspay/neurolink/commit/b32ad77b327e6a47e680ab8525b1eba401cedd93))
+
 ## [10.8.10](https://github.com/juspay/neurolink/compare/v10.8.9...v10.8.10) (2026-08-04)
 
 ### Bug Fixes
