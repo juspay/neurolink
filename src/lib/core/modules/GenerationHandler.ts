@@ -241,9 +241,24 @@ export class GenerationHandler {
       options: TextGenerationOptions,
       timestamp: Date,
     ) => Promise<void>,
-    private readonly getEmitterFn?: () =>
-      | TypedEventEmitter<NeuroLinkEvents>
-      | undefined,
+    /**
+     * The remaining, optional dependencies.
+     *
+     * Grouped rather than added as further positional parameters: the
+     * constructor is already at the six-parameter cap, and both of these are
+     * optional injection seams rather than required collaborators.
+     *
+     * `generateTextFn` exists because every other dependency of this class
+     * arrives through the constructor while `generateText` was reached by
+     * static import. `utils/generation.ts` is a bare re-export of `ai`, and an
+     * ESM re-export cannot be substituted from a test, so asserting on the
+     * arguments this class builds — the entire contract of the system-message
+     * hoisting below — had no seam to work through. Production passes neither.
+     */
+    private readonly deps: {
+      getEmitterFn?: () => TypedEventEmitter<NeuroLinkEvents> | undefined;
+      generateTextFn?: typeof generateText;
+    } = {},
   ) {}
 
   /**
@@ -396,7 +411,7 @@ export class GenerationHandler {
       "aiSdk.generateText",
     );
 
-    const result = await generateText({
+    const result = await (this.deps.generateTextFn ?? generateText)({
       model,
       ...(system && { system }),
       messages: nonSystemMessages,
@@ -510,7 +525,7 @@ export class GenerationHandler {
         // so that tool spans are created even when the SDK runs tools
         // internally (gaps G5 / S2).
         emitToolEndFromStepFinish(
-          this.getEmitterFn?.(),
+          this.deps.getEmitterFn?.(),
           toolResults as Array<{
             toolName: string;
             output?: unknown;

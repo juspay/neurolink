@@ -21,12 +21,18 @@ import { isExpectedProviderError } from "./helpers/envGuard.js";
 
 import { ModelPool, classifyProviderError } from "../src/lib/routing/index.js";
 import { createDefaultRequestRouter } from "../src/lib/routing/requestRouter.js";
+import { AIProviderFactory } from "../src/lib/core/factory.js";
+import { NeuroLink } from "../src/lib/neurolink.js";
+import type { AIProviderName } from "../src/lib/constants/enums.js";
 import type {
+  AIProvider,
   ModelPoolMember,
   ModelPoolConfig,
   ProviderErrorClass,
+  RequestRouter,
   RouterInputContext,
 } from "../src/lib/types/index.js";
+import { spy, stub, withStubs } from "./helpers/stubs.js";
 
 const { test, runSuite } = defineSuite("ModelPool + RequestRouter");
 
@@ -737,7 +743,459 @@ await test("createDefaultRequestRouter works with no config (built-in defaults)"
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Section E — Live-gated integration: real pool fallback via NeuroLink
+// Section E — NeuroLink integration (deterministic; createProvider stubbed)
+//
+// Sections A–D exercise ModelPool and the router in isolation. These drive the
+// same machinery through NeuroLink.generate()/stream(), which is where the
+// wiring actually lives: the pool loop, the non-retryable short-circuit, and
+// the router's fail-open behaviour are all properties of that path, not of the
+// pool object. AIProviderFactory.createProvider is stubbed, so no credentials
+// and no network are involved.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Build a minimal AIProvider stub whose generate()/stream() resolve at once. */
+function makeProviderStub(providerName: string, content: string) {
+  const generate = spy(async () => ({
+    content,
+    provider: providerName,
+    model: "stub-model",
+    usage: { inputTokens: 1, outputTokens: 1 },
+    finishReason: "stop" as const,
+    toolsUsed: [],
+    toolExecutions: [],
+  }));
+  const streamFn = spy(() => ({
+    stream: (async function* () {
+      yield { type: "content" as const, content };
+    })(),
+    metadata: Promise.resolve({
+      content,
+      provider: providerName,
+      model: "stub-model",
+      finishReason: "stop" as const,
+      toolsUsed: [],
+      toolExecutions: [],
+    }),
+  }));
+  const provider = {
+    generate: generate.fn,
+    stream: streamFn.fn,
+    setTraceContext: () => {},
+    setupToolExecutor: () => {},
+    getAllTools: async () => [],
+    getCustomTools: () => ({}),
+    setSystemPrompt: () => {},
+    clearHistory: () => {},
+    registerTool: () => {},
+    getTools: () => [],
+  } as unknown as AIProvider;
+  return { provider, generate, stream: streamFn };
+}
+
+/** Minimal NeuroLink config that disables persistence/telemetry side-effects. */
+const BASE_CONFIG = {
+  conversationMemory: { enabled: false },
+  disableTools: true,
+} as const;
+
+/** Stub createProvider for the duration of `body`, always restoring it. */
+function withCreateProvider<T>(
+  impl: (providerName: string, model?: string | null) => Promise<AIProvider>,
+  body: (calls: string[]) => Promise<T>,
+): Promise<T> {
+  const calls: string[] = [];
+  const s = stub(
+    AIProviderFactory,
+    "createProvider",
+    async (providerName: string, model?: string | null) => {
+      calls.push(providerName);
+      return impl(providerName, model);
+    },
+  );
+  return withStubs([s], () => body(calls));
+}
+
+const POOL_M1: ModelPoolMember = { provider: "openai", model: "gpt-4o" };
+const POOL_M2: ModelPoolMember = {
+  provider: "anthropic",
+  model: "claude-haiku-3-5",
+};
+
+/** Reads the private modelPool field NeuroLink builds from config. */
+const poolOf = (nl: NeuroLink): ModelPool | null =>
+  (nl as unknown as { modelPool: ModelPool | null }).modelPool;
+
+await test("generate: falls back to member#2 when member#1 hits a rate limit", async () => {
+  const m2 = makeProviderStub("anthropic", "hello-from-m2");
+  const nl = new NeuroLink({
+    ...BASE_CONFIG,
+    modelPool: {
+      members: [POOL_M1, POOL_M2],
+      strategy: "priority",
+      cooldownMs: 0,
+    },
+  });
+
+  const result = await withCreateProvider(
+    async (providerName) => {
+      if (providerName === "openai") {
+        // A plain Error: no status and no typed class, so it is retryable —
+        // classifyProviderError still reads it as rate_limit.
+        throw new Error("rate limit exceeded, please retry after 60s");
+      }
+      return m2.provider;
+    },
+    () => nl.generate({ input: { text: "ping" }, disableTools: true }),
+  );
+
+  assertEqual(result.content, "hello-from-m2", "member#2 must serve the call");
+  assertEqual(result.provider, "anthropic", "the result must name member#2");
+  assert(m2.generate.callCount > 0, "member#2's provider must have been used");
+});
+
+await test("generate: a rate-limited member is cooled and its sibling stays available", async () => {
+  const m2 = makeProviderStub("anthropic", "m2-ok");
+  const nl = new NeuroLink({
+    ...BASE_CONFIG,
+    modelPool: {
+      members: [POOL_M1, POOL_M2],
+      strategy: "priority",
+      cooldownMs: 30_000,
+    },
+  });
+
+  await withCreateProvider(
+    async (providerName) => {
+      if (providerName === "openai") {
+        throw new Error("too many requests");
+      }
+      return m2.provider;
+    },
+    () => nl.generate({ input: { text: "ping" }, disableTools: true }),
+  );
+
+  const available = poolOf(nl)!.availableMembers();
+  assert(
+    !available.some((m) => m.provider === "openai"),
+    "the rate-limited member must be cooled for the configured 30s",
+  );
+  assert(
+    available.some((m) => m.provider === "anthropic"),
+    "the member that succeeded must stay available",
+  );
+});
+
+await test("generate: a plain auth error is retryable, so member#2 is still tried", async () => {
+  // "unauthorized" classifies as auth, but isNonRetryableProviderError only
+  // short-circuits on typed classes and HTTP status objects — so a bare
+  // message must NOT stop the pool. The 401 test below is the other side.
+  const m2 = makeProviderStub("anthropic", "auth-fallback-ok");
+  const nl = new NeuroLink({
+    ...BASE_CONFIG,
+    modelPool: {
+      members: [POOL_M1, POOL_M2],
+      strategy: "priority",
+      cooldownMs: 0,
+    },
+  });
+
+  const result = await withCreateProvider(
+    async (providerName) => {
+      if (providerName === "openai") {
+        throw new Error("unauthorized: invalid api key provided");
+      }
+      return m2.provider;
+    },
+    () => nl.generate({ input: { text: "ping" }, disableTools: true }),
+  );
+
+  assertEqual(result.content, "auth-fallback-ok", "member#2 must serve it");
+  assert(m2.generate.callCount > 0, "member#2's provider must have been used");
+});
+
+await test("generate: an auth failure cools the member permanently, past cooldownMs", async () => {
+  const m2 = makeProviderStub("anthropic", "ok");
+  const nl = new NeuroLink({
+    ...BASE_CONFIG,
+    modelPool: {
+      members: [POOL_M1, POOL_M2],
+      strategy: "priority",
+      cooldownMs: 1_000,
+    },
+  });
+
+  await withCreateProvider(
+    async (providerName) => {
+      if (providerName === "openai") {
+        throw new Error("unauthorized access — please check your api key");
+      }
+      return m2.provider;
+    },
+    () => nl.generate({ input: { text: "ping" }, disableTools: true }),
+  );
+
+  assert(
+    !poolOf(nl)!
+      .availableMembers()
+      .some((m) => m.provider === "openai"),
+    "an auth failure must outlive the 1s cooldown configured on the pool",
+  );
+});
+
+await test("stream: falls back to member#2 when member#1's provider creation fails", async () => {
+  // member#1 is a non-default provider so the getBestProvider() call that runs
+  // before the pool loop can never be the failing one, whatever the env
+  // defaults happen to be.
+  const m1: ModelPoolMember = { provider: "mistral", model: "mistral-large" };
+  const m2 = makeProviderStub("anthropic", "hello-from-m2-stream");
+  const initStub = makeProviderStub("openai", "init-stub");
+
+  const nl = new NeuroLink({
+    ...BASE_CONFIG,
+    modelPool: { members: [m1, POOL_M2], strategy: "priority", cooldownMs: 0 },
+  });
+
+  const { result, chunks, calls } = await withCreateProvider(
+    async (providerName) => {
+      if (providerName === "mistral") {
+        throw new Error("rate limit exceeded, please retry after 60s");
+      }
+      return providerName === "anthropic" ? m2.provider : initStub.provider;
+    },
+    async (calls) => {
+      const result = await nl.stream({
+        input: { text: "ping" },
+        disableTools: true,
+      });
+      // Consume the stream so the wrapping generator records success.
+      const chunks: unknown[] = [];
+      for await (const chunk of result.stream) {
+        chunks.push(chunk);
+      }
+      return { result, chunks, calls };
+    },
+  );
+
+  assertEqual(result.provider, "anthropic", "the stream must come from m2");
+  assert(m2.stream.callCount > 0, "member#2's stream must have been used");
+  assert(calls.includes("mistral"), "member#1 must have been attempted");
+  assert(calls.includes("anthropic"), "member#2 must have been attempted");
+  assert(
+    JSON.stringify(chunks).includes("hello-from-m2-stream"),
+    "the consumed chunks must carry member#2's content",
+  );
+});
+
+await test("generate: an HTTP 401 short-circuits the pool — member#2 is never attempted", async () => {
+  const m2 = makeProviderStub("anthropic", "should-never-be-used");
+  const nl = new NeuroLink({
+    ...BASE_CONFIG,
+    modelPool: {
+      members: [POOL_M1, POOL_M2],
+      strategy: "priority",
+      cooldownMs: 0,
+    },
+  });
+
+  const { caught, calls } = await withCreateProvider(
+    async (providerName) => {
+      if (providerName === "openai") {
+        // A real status code → isNonRetryableProviderError → stop the pool.
+        throw Object.assign(new Error("Unauthorized"), { status: 401 });
+      }
+      return m2.provider;
+    },
+    async (calls) => {
+      let caught: unknown;
+      try {
+        await nl.generate({ input: { text: "ping" }, disableTools: true });
+      } catch (error) {
+        caught = error;
+      }
+      return { caught, calls };
+    },
+  );
+
+  assert(caught !== undefined, "a non-retryable error must reject the call");
+  assert(calls.includes("openai"), "member#1 must have been attempted");
+  assert(
+    !calls.includes("anthropic"),
+    "member#2 must NOT be attempted after a non-retryable failure",
+  );
+  assertEqual(m2.generate.callCount, 0, "member#2 must never have generated");
+});
+
+await test("generate: exhausting every member rejects and leaves none available", async () => {
+  const nl = new NeuroLink({
+    ...BASE_CONFIG,
+    modelPool: {
+      members: [POOL_M1, POOL_M2],
+      strategy: "priority",
+      cooldownMs: 30_000,
+    },
+  });
+
+  const caught = await withCreateProvider(
+    async () => {
+      throw new Error("too many requests");
+    },
+    async () => {
+      let caught: unknown;
+      try {
+        await nl.generate({ input: { text: "ping" }, disableTools: true });
+      } catch (error) {
+        caught = error;
+      }
+      return caught;
+    },
+  );
+
+  assert(
+    caught instanceof Error && /ModelPool/.test(caught.message),
+    `exhaustion must reject with a ModelPool error, got: ${String(caught)}`,
+  );
+  assertEqual(
+    poolOf(nl)!.availableMembers().length,
+    0,
+    "every member must be cooled after a full sweep of failures",
+  );
+});
+
+await test("router: applies when the caller set neither provider nor model", async () => {
+  const target = makeProviderStub("anthropic", "routed-response");
+  const nl = new NeuroLink({
+    ...BASE_CONFIG,
+    requestRouter: createDefaultRequestRouter({
+      smallTier: { provider: "anthropic", model: "claude-haiku-3-5" },
+      largeTier: { provider: "anthropic", model: "claude-sonnet-4-5" },
+    }),
+  });
+
+  const calls = await withCreateProvider(
+    async () => target.provider,
+    async (calls) => {
+      await nl.generate({ input: { text: "hello" }, disableTools: true });
+      return calls;
+    },
+  );
+
+  assert(calls.length > 0, "a provider must have been created");
+  assertEqual(calls[0], "anthropic", "the router's tier must be honoured");
+});
+
+await test("router: does NOT override a provider the caller set explicitly", async () => {
+  const target = makeProviderStub("openai", "explicit-provider-response");
+  const nl = new NeuroLink({
+    ...BASE_CONFIG,
+    // The router wants everything on vertex; the explicit option must win.
+    requestRouter: createDefaultRequestRouter({
+      smallTier: { provider: "vertex", model: "gemini-2.5-flash" },
+      largeTier: { provider: "vertex", model: "gemini-2.5-pro" },
+    }),
+  });
+
+  const calls = await withCreateProvider(
+    async () => target.provider,
+    async (calls) => {
+      await nl.generate({
+        provider: "openai" as AIProviderName,
+        model: "gpt-4o",
+        input: { text: "hello" },
+        disableTools: true,
+      });
+      return calls;
+    },
+  );
+
+  assert(calls.includes("openai"), "the explicit provider must be used");
+  assert(
+    !calls.includes("vertex"),
+    "the router must not override an explicit provider",
+  );
+});
+
+await test("router: a throwing router fails open — the call still completes", async () => {
+  const target = makeProviderStub("openai", "fail-open-ok");
+  const throwingRouter: RequestRouter = () => {
+    throw new Error("router exploded");
+  };
+  const nl = new NeuroLink({ ...BASE_CONFIG, requestRouter: throwingRouter });
+
+  // No explicit provider/model, so the router really is invoked (and throws).
+  const result = await withCreateProvider(
+    async () => target.provider,
+    () => nl.generate({ input: { text: "hello" }, disableTools: true }),
+  );
+
+  assertEqual(
+    result.content,
+    "fail-open-ok",
+    "a broken router must not abort the request",
+  );
+});
+
+await test("no pool and no router: the plain generate path is unchanged", async () => {
+  const target = makeProviderStub("openai", "plain-response");
+  const nl = new NeuroLink({ ...BASE_CONFIG });
+
+  const result = await withCreateProvider(
+    async () => target.provider,
+    () =>
+      nl.generate({
+        provider: "openai" as AIProviderName,
+        model: "gpt-4o",
+        input: { text: "hello" },
+        disableTools: true,
+      }),
+  );
+
+  assertEqual(
+    result.content,
+    "plain-response",
+    "the plain path must still work",
+  );
+});
+
+await test("modelPool and requestRouter are null when not configured", () => {
+  const nl = new NeuroLink({ ...BASE_CONFIG });
+  assertEqual(poolOf(nl), null, "modelPool must be null without config");
+  assertEqual(
+    (nl as unknown as { requestRouter: unknown }).requestRouter,
+    null,
+    "requestRouter must be null without config",
+  );
+});
+
+await test("a configured modelPool is constructed with its members and attempt cap", () => {
+  const nl = new NeuroLink({
+    ...BASE_CONFIG,
+    modelPool: {
+      members: [POOL_M1, POOL_M2],
+      strategy: "round-robin",
+      cooldownMs: 5_000,
+    },
+  });
+
+  const pool = poolOf(nl);
+  assert(pool !== null, "a configured pool must be constructed");
+  assertEqual(pool!.availableMembers().length, 2, "both members must be live");
+  assertEqual(pool!.maxAttempts, 2, "maxAttempts defaults to the member count");
+});
+
+await test("a provided requestRouter instance is stored as-is", () => {
+  const router = createDefaultRequestRouter({
+    smallTier: { provider: "anthropic", model: "claude-haiku-3-5" },
+  });
+  const nl = new NeuroLink({ ...BASE_CONFIG, requestRouter: router });
+  assertEqual(
+    (nl as unknown as { requestRouter: unknown }).requestRouter,
+    router,
+    "the exact router instance must be retained",
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Section F — Live-gated integration: real pool fallback via NeuroLink
 // ─────────────────────────────────────────────────────────────────────────────
 
 await test("[LIVE] pool falls back from bogus model to real provider", async () => {

@@ -363,6 +363,67 @@ await test("dedupeTools: threshold 0.01 — any overlap triggers collapse", () =
   );
 });
 
+await test("dedupeTools: a negative threshold clamps to 0, not to the default", () => {
+  // Asserted against BOTH neighbours, because "did it clamp?" is only
+  // answerable by comparison: at the clamped value of 0 every pair collapses,
+  // whereas the 0.5 default keeps these two distinct tools apart. The migrated
+  // Vitest version asserted only `length >= 1`, which holds either way and so
+  // measured nothing.
+  const tools: Record<string, Tool> = {
+    search_docs: mkTool("Search for documents in the knowledge base", {
+      query: "string",
+    }),
+    send_email: mkTool("Send an email to a recipient", {
+      to: "string",
+      subject: "string",
+      body: "string",
+    }),
+  };
+
+  const clamped = dedupeTools(tools, { enabled: true, threshold: -1 });
+  assertEqual(
+    Object.keys(clamped.tools).length,
+    1,
+    "a negative threshold must behave as 0 and collapse the pair",
+  );
+  assertEqual(clamped.removed.length, 1, "one tool must be reported removed");
+
+  const atDefault = dedupeTools(tools, { enabled: true, threshold: 0.5 });
+  assertEqual(
+    Object.keys(atDefault.tools).length,
+    2,
+    "the same tools must NOT collapse at 0.5 — proving -1 was clamped, not ignored",
+  );
+});
+
+await test("dedupeTools: a threshold above 1 clamps to 1", () => {
+  // At the clamped value of 1 only identical signatures collapse, so two tools
+  // differing in any token must both survive.
+  const tools: Record<string, Tool> = {
+    search_docs: mkTool("Search for documents", { query: "string" }),
+    find_documents: mkTool("Find documents in the system", {
+      query: "string",
+      limit: "number",
+    }),
+  };
+  const result = dedupeTools(tools, { enabled: true, threshold: 2 });
+  assertEqual(
+    Object.keys(result.tools).length,
+    2,
+    "differing tools must be kept when the threshold clamps to 1",
+  );
+  assertEqual(result.removed.length, 0, "nothing should be removed");
+});
+
+await test("NeuroLink.getToolDedupConfig(): returns a disabled config, not undefined", () => {
+  // Distinguishes "configured off" from "not configured" — both suppress
+  // dedup, but only the former should round-trip a config object.
+  const instance = new NeuroLink({ toolDedup: { enabled: false } });
+  const cfg = instance.getToolDedupConfig();
+  assert(cfg !== undefined, "an explicit disabled config must be returned");
+  assertEqual(cfg?.enabled, false, "enabled must be false");
+});
+
 await test("dedupeTools: three identical tools — first is representative", () => {
   const tools: Record<string, Tool> = {
     alpha: mkTool("Do the thing", { x: "string" }),

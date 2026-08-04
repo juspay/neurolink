@@ -29,6 +29,10 @@ import {
   selectRelevantToolNames,
   resolveToolRoutingExclusions,
   NeuroLink,
+  // Taken from dist, not src: NeuroLink itself is the dist build, and stubbing
+  // the src copy of the factory would leave the dist one untouched — the stub
+  // would silently never apply.
+  AIProviderFactory,
 } from "../dist/index.js";
 import type {
   ToolRetrievalItem,
@@ -45,10 +49,25 @@ import {
 } from "./helpers/harness.js";
 import { skipUnlessProviderAvailable } from "./helpers/skipIf.js";
 import { isExpectedProviderError } from "./helpers/envGuard.js";
+import { spy, stub, withStubs } from "./helpers/stubs.js";
 
 const { test, runSuite } = defineSuite(
   "L2 Embedding Fast-Path & Tool-Granularity",
 );
+
+/** Vitest's toBeCloseTo(expected, digits): |actual - expected| < 10^-digits / 2. */
+function assertCloseTo(
+  actual: number,
+  expected: number,
+  digits: number,
+  msg: string,
+): void {
+  const tolerance = Math.pow(10, -digits) / 2;
+  assert(
+    Math.abs(actual - expected) < tolerance,
+    `${msg} (expected ~${expected} ±${tolerance}, got ${actual})`,
+  );
+}
 
 // ============================================================================
 // Fake embedFn factory
@@ -489,16 +508,21 @@ await test("granularity:tool + embedding: total tools = excluded + kept", async 
     granularity: "tool",
   } as ToolRoutingResolutionParams);
 
-  // Excluded + kept = total
-  const kept = totalTools - excluded.length;
-  assert(
-    kept + excluded.length === totalTools,
-    `kept(${kept}) + excluded(${excluded.length}) must equal total(${totalTools})`,
+  // NB: the obvious "kept + excluded === total" phrasing is a tautology when
+  // `kept` is itself derived as `total - excluded.length` — it holds for any
+  // value the router returns. Assert the exact count instead: topK=10 keeps
+  // ten tools, so precisely the other twelve must be excluded.
+  assertEqual(
+    excluded.length,
+    totalTools - 10,
+    `topK=10 must keep exactly 10 of ${totalTools} tools, leaving ${totalTools - 10} excluded`,
   );
-  // topK=10 → at most 10 kept, so at least 12 excluded
-  assert(
-    excluded.length >= totalTools - 10,
-    `with topK=10 there must be at least ${totalTools - 10} excluded, got ${excluded.length}`,
+  // No tool may be reported twice — a duplicate would inflate the count above
+  // without excluding anything extra.
+  assertEqual(
+    new Set(excluded).size,
+    excluded.length,
+    "the exclusion list must not contain duplicates",
   );
 });
 
@@ -708,7 +732,524 @@ await test("fail open: embedFn throws → result matches routing-without-embeddi
 });
 
 // ============================================================================
-// Part 7 — LIVE-gated: real embedding provider over >20-tool catalog
+// Part 7 — cosineSimilarity edge cases beyond the four guards above
+// ============================================================================
+
+await test("cosineSimilarity: anti-parallel vectors return -1", () => {
+  // Real embeddings are non-negative, so this never arises in practice — but
+  // the sign has to survive, otherwise a "most similar" ranking could silently
+  // become a "most opposite" one.
+  assertCloseTo(
+    cosineSimilarity([1, 0, 0], [-1, 0, 0]),
+    -1,
+    10,
+    "exact sign flip must give -1",
+  );
+});
+
+await test("cosineSimilarity: empty vectors return 0 (guard)", () => {
+  assertEqual(cosineSimilarity([], []), 0, "both empty");
+  assertEqual(cosineSimilarity([], [1]), 0, "left empty");
+  assertEqual(cosineSimilarity([1], []), 0, "right empty");
+});
+
+await test("cosineSimilarity: 2-D case matches the analytic result", () => {
+  // [1,1] · [1,0] = 1; |[1,1]| = √2; |[1,0]| = 1 → cos = 1/√2 ≈ 0.7071.
+  // The guards above only prove it returns 0 or 1; this pins an intermediate
+  // value, so a normalisation bug can't hide between them.
+  assertCloseTo(
+    cosineSimilarity([1, 1], [1, 0]),
+    1 / Math.SQRT2,
+    6,
+    "45° between vectors",
+  );
+});
+
+await test("hybrid ranking: an empty catalog ranks nothing", async () => {
+  const index = new ToolEmbeddingIndex([], makeFakeEmbedFn());
+  const results = await index.rank("any query", { topK: 5 });
+  assertEqual(results.length, 0, "an empty catalog must yield no results");
+});
+
+await test("granularity:tool reports the decision and keeps exactly the top-K tools", async () => {
+  // The count-only test above proves the arithmetic; this one pins WHICH tools
+  // survive and what the emitted decision claims — an exclusion list of the
+  // right length made of the wrong tools would satisfy the other test.
+  const catalog = buildLargeCatalog();
+  const totalTools = catalog.reduce((s, c) => s + c.toolNames.length, 0);
+  let decision: ToolRoutingDecision | undefined;
+
+  const excluded = await resolveToolRoutingExclusions({
+    catalog,
+    alwaysIncludeServerIds: [],
+    userQuery: "show me yesterday's sales",
+    routerModel: {},
+    timeoutMs: 5000,
+    generateFn: (async () => {
+      throw new Error("LLM router must not be called");
+    }) as ToolRoutingResolutionParams["generateFn"],
+    embedFn: makeFakeEmbedFn(),
+    embeddingConfig: { enabled: true, topK: 6, minToolsToActivate: 20 },
+    granularity: "tool",
+    emitDecision: (d) => {
+      decision = d;
+    },
+  });
+
+  assertEqual(decision?.embeddingActivated, true, "embedding must activate");
+  assertEqual(decision?.granularity, "tool", "granularity must be reported");
+  assertEqual(decision?.outcome, "applied", "the decision must be applied");
+
+  // The six analytics tools are the six closest to a "sales" query, so with
+  // topK=6 every one of them must survive and nothing else may.
+  for (const toolName of catalog.find((c) => c.id === "analytics")!.toolNames) {
+    assert(
+      !excluded.includes(toolName),
+      `${toolName} is in the top-6 and must not be excluded`,
+    );
+  }
+  assert(
+    excluded.filter((t) => !t.startsWith("analytics_")).length > 0,
+    "tools far from the query vector must be excluded",
+  );
+  assertEqual(
+    excluded.length,
+    totalTools - 6,
+    `topK=6 must leave exactly ${totalTools - 6} tools excluded`,
+  );
+});
+
+// ============================================================================
+// Part 8 — selectRelevantToolNames (the convenience wrapper)
+// ============================================================================
+
+await test("selectRelevantToolNames: returns the top-K names, best match first", async () => {
+  const items: ToolRetrievalItem[] = [
+    {
+      name: "analytics_getSales",
+      text: "Sales and payment analytics — analytics_getSales",
+    },
+    {
+      name: "analytics_getRevenue",
+      text: "Sales and payment analytics — analytics_getRevenue",
+    },
+    {
+      name: "shipping_track",
+      text: "Shipment tracking and courier management — shipping_track",
+    },
+  ];
+  const result = await selectRelevantToolNames(
+    "show me yesterday's sales",
+    items,
+    { topK: 2, embedFn: makeFakeEmbedFn() },
+  );
+  assertEqual(result.length, 2, "topK must cap the name list");
+  assertEqual(result[0], "analytics_getSales", "best match must come first");
+});
+
+await test("selectRelevantToolNames: propagates embedFn errors instead of swallowing them", async () => {
+  // Deliberately unlike resolveToolRoutingExclusions, which fails open. This
+  // wrapper is a direct query: silently returning nothing would look like "no
+  // relevant tools" rather than "the embedding backend is down".
+  const throwingEmbedFn = async (): Promise<number[][]> => {
+    throw new Error("embed service down");
+  };
+  let caught: unknown;
+  try {
+    await selectRelevantToolNames("query", [{ name: "t", text: "text" }], {
+      topK: 1,
+      embedFn: throwingEmbedFn,
+    });
+  } catch (error) {
+    caught = error;
+  }
+  assert(
+    caught instanceof Error && caught.message.includes("embed service down"),
+    "the embedFn failure must reach the caller",
+  );
+});
+
+// ============================================================================
+// Part 9 — threshold and granularity-default guards
+// ============================================================================
+
+await test("embedding falls open when the catalog is below minToolsToActivate", async () => {
+  // 5 tools against a threshold of 20 — the fast-path must not engage, and
+  // must not claim it did.
+  const smallCatalog: ToolRoutingCatalogEntry[] = [
+    {
+      id: "analytics",
+      description: "Sales and payment analytics",
+      toolNames: ["analytics_getSales", "analytics_getPayments"],
+    },
+    {
+      id: "shipping",
+      description: "Shipment tracking and courier management",
+      toolNames: ["shipping_track", "shipping_listCouriers"],
+    },
+    {
+      id: "calendar",
+      description: "Calendar scheduling tools",
+      toolNames: ["calendar_createEvent"],
+    },
+  ];
+
+  let llmRouterCalled = false;
+  let decision: ToolRoutingDecision | undefined;
+
+  await resolveToolRoutingExclusions({
+    catalog: smallCatalog,
+    alwaysIncludeServerIds: [],
+    userQuery: "show me yesterday's sales",
+    routerModel: { provider: "openai", model: "gpt-4o-mini" },
+    timeoutMs: 5000,
+    generateFn: (async () => {
+      llmRouterCalled = true;
+      return {
+        content: '{"servers":["analytics"]}',
+      } as unknown as import("../src/lib/types/index.js").GenerateResult;
+    }) as ToolRoutingResolutionParams["generateFn"],
+    embedFn: makeFakeEmbedFn(),
+    embeddingConfig: { enabled: true, topK: 3, minToolsToActivate: 20 },
+    granularity: "tool",
+    emitDecision: (d) => {
+      decision = d;
+    },
+  });
+
+  assert(
+    llmRouterCalled,
+    "a below-threshold catalog must be routed by the LLM",
+  );
+  assertEqual(
+    decision?.embeddingActivated,
+    undefined,
+    "embeddingActivated must not be claimed below the threshold",
+  );
+});
+
+await test("granularity:'server' stated explicitly matches the default", async () => {
+  const smallCatalog: ToolRoutingCatalogEntry[] = [
+    {
+      id: "analytics",
+      description: "Sales and payment analytics queries",
+      toolNames: ["analytics_getSales", "analytics_getPayments"],
+    },
+    {
+      id: "shipping",
+      description: "Shipment tracking and courier management",
+      toolNames: ["shipping_track", "shipping_listCouriers"],
+    },
+    {
+      id: "utility",
+      description: "Always-on utility helpers",
+      toolNames: ["utility_echo"],
+    },
+  ];
+  const generateFn = (async () =>
+    ({
+      content: '{"servers":["analytics"]}',
+    }) as unknown as import("../src/lib/types/index.js").GenerateResult) as ToolRoutingResolutionParams["generateFn"];
+
+  const withDefault = await resolveToolRoutingExclusions({
+    catalog: smallCatalog,
+    alwaysIncludeServerIds: ["utility"],
+    userQuery: "show me yesterday's sales",
+    routerModel: {},
+    timeoutMs: 15000,
+    generateFn,
+  });
+
+  const withExplicitServer = await resolveToolRoutingExclusions({
+    catalog: smallCatalog,
+    alwaysIncludeServerIds: ["utility"],
+    userQuery: "show me yesterday's sales",
+    routerModel: {},
+    timeoutMs: 15000,
+    generateFn,
+    granularity: "server",
+  });
+
+  assertEqual(
+    JSON.stringify([...withDefault].sort()),
+    JSON.stringify([...withExplicitServer].sort()),
+    "stating the default explicitly must not change behaviour",
+  );
+  // Pin the actual content too, so the pair could not both be empty and still
+  // satisfy the equality above.
+  assert(
+    withDefault.includes("shipping_track"),
+    "the unpicked shipping server must be excluded",
+  );
+  assert(
+    !withDefault.includes("utility_echo"),
+    "the always-include server must survive",
+  );
+});
+
+// ============================================================================
+// Part 10 — NeuroLink provider wiring (deterministic, no API keys)
+// ============================================================================
+
+/**
+ * Registers `count` tools per server on a NeuroLink instance so the catalog
+ * clears minToolsToActivate.
+ */
+function registerServerTools(
+  instance: NeuroLink,
+  servers: { id: string; desc: string; count: number }[],
+): void {
+  const noopExecute = async (): Promise<{ ok: boolean }> => ({ ok: true });
+  const toolEntries: Record<string, unknown> = {};
+  for (const srv of servers) {
+    for (let i = 0; i < srv.count; i++) {
+      const name = `${srv.id}_tool${i}`;
+      toolEntries[name] = {
+        name,
+        description: `${srv.desc} tool ${i}`,
+        execute: noopExecute,
+      };
+    }
+  }
+  (
+    instance as unknown as {
+      registerTools(entries: Record<string, unknown>): void;
+    }
+  ).registerTools(toolEntries);
+  instance.setToolRoutingServers(
+    servers.map((s) => ({ id: s.id, description: s.desc })),
+  );
+}
+
+/** Reaches the private hook that stream()/generate() call internally. */
+const applyExclusions = (
+  instance: NeuroLink,
+  options: import("../src/lib/types/index.js").StreamOptions,
+  userQuery: string,
+): Promise<void> =>
+  (
+    instance as unknown as {
+      applyToolRoutingExclusions(
+        opts: import("../src/lib/types/index.js").StreamOptions,
+        userQuery: string,
+      ): Promise<void>;
+    }
+  ).applyToolRoutingExclusions(options, userQuery);
+
+const FOUR_SERVERS = [
+  { id: "analytics", desc: "Sales and payment analytics", count: 6 },
+  {
+    id: "shipping",
+    desc: "Shipment tracking and courier management",
+    count: 6,
+  },
+  { id: "calendar", desc: "Calendar scheduling tools", count: 6 },
+  { id: "db", desc: "Database administration tools", count: 4 },
+];
+
+await test("applyToolRoutingExclusions falls back to the LLM router when embedding is disabled", async () => {
+  const instance = new NeuroLink({
+    toolRouting: {
+      enabled: true,
+      alwaysIncludeServerIds: [],
+      embedding: { enabled: false },
+      granularity: "tool",
+    },
+  });
+  registerServerTools(instance, FOUR_SERVERS);
+
+  const generateStub = stub(
+    instance,
+    "generate",
+    async () =>
+      ({
+        content: '{"servers":["analytics"]}',
+      }) as unknown as import("../src/lib/types/index.js").GenerateResult,
+  );
+
+  const options = {
+    input: { text: "show me sales" },
+    excludeTools: [] as string[],
+  } as import("../src/lib/types/index.js").StreamOptions;
+
+  await withStubs([generateStub], () =>
+    applyExclusions(instance, options, "show me sales"),
+  );
+
+  assertEqual(
+    generateStub.callCount,
+    1,
+    "with embedding off the LLM router must run exactly once",
+  );
+  const excluded = options.excludeTools as string[];
+  assert(Array.isArray(excluded), "excludeTools must be an array");
+  assert(
+    excluded.some((t) => t.startsWith("shipping_")),
+    "the unpicked shipping server must be excluded",
+  );
+});
+
+await test("embedMany from the configured provider is wired into applyToolRoutingExclusions", async () => {
+  // The suite's other embedding tests inject embedFn directly, which skips the
+  // provider lookup entirely. This one stubs the factory instead, so the
+  // NeuroLink → AIProviderFactory → embedMany path is what actually runs.
+  const fixedEmbedMany = spy(async (texts: string[]) =>
+    texts.map((t) => {
+      if (t.includes("analytics") || t.includes("sales")) {
+        return [1, 0, 0, 0];
+      }
+      if (t.includes("shipping")) {
+        return [0, 1, 0, 0];
+      }
+      if (t.includes("calendar")) {
+        return [0, 0, 1, 0];
+      }
+      if (t.includes("db") || t.includes("database")) {
+        return [0, 0, 0, 1];
+      }
+      return [0.25, 0.25, 0.25, 0.25];
+    }),
+  );
+
+  const createProviderStub = stub(
+    AIProviderFactory,
+    "createProvider",
+    async () =>
+      ({ embedMany: fixedEmbedMany.fn }) as unknown as Awaited<
+        ReturnType<typeof AIProviderFactory.createProvider>
+      >,
+  );
+
+  const instance = new NeuroLink({
+    toolRouting: {
+      enabled: true,
+      alwaysIncludeServerIds: [],
+      embedding: {
+        enabled: true,
+        provider: "openai",
+        model: "text-embedding-3-small",
+        topK: 6,
+        minToolsToActivate: 20,
+      },
+      granularity: "tool",
+    },
+  });
+  registerServerTools(instance, FOUR_SERVERS);
+
+  const generateStub = stub(instance, "generate", async () => {
+    throw new Error("LLM router must not be called");
+  });
+
+  const options = {
+    input: { text: "show me yesterday's sales" },
+    excludeTools: [] as string[],
+    provider: "openai",
+  } as import("../src/lib/types/index.js").StreamOptions;
+
+  await withStubs([createProviderStub, generateStub], () =>
+    applyExclusions(instance, options, "show me yesterday's sales"),
+  );
+
+  // The factory must have been asked for the CONFIGURED provider and model.
+  // Without this the test would still pass if embedFn came from somewhere else.
+  const callArgs = createProviderStub.calls[0];
+  assert(callArgs !== undefined, "createProvider must have been called");
+  assertEqual(callArgs?.[0], "openai", "the configured provider must be used");
+  assertEqual(
+    callArgs?.[1],
+    "text-embedding-3-small",
+    "the configured model must be used",
+  );
+
+  assert(fixedEmbedMany.callCount > 0, "embedMany must have run");
+  assertEqual(
+    generateStub.callCount,
+    0,
+    "embedding handled the routing — the LLM router must not run",
+  );
+
+  const excludedTools = options.excludeTools as string[];
+  assertEqual(
+    excludedTools.filter((t) => t.startsWith("analytics_")).length,
+    0,
+    "analytics tools match the query and must be kept",
+  );
+  assert(
+    excludedTools.filter((t) => !t.startsWith("analytics_")).length > 0,
+    "unrelated tools must be excluded",
+  );
+});
+
+await test("the vector cache persists across turns — turn 2 re-embeds no catalog text", async () => {
+  let embedCallsForCatalogTexts = 0;
+  const trackingEmbedMany = spy(async (texts: string[]) => {
+    // Count only batches carrying catalog text ("<server desc> — <tool>"),
+    // never the bare user query.
+    if (texts.some((t) => t.includes(" — ") && !t.includes("show me"))) {
+      embedCallsForCatalogTexts += 1;
+    }
+    return texts.map(() => [1, 0, 0, 0]);
+  });
+
+  const createProviderStub = stub(
+    AIProviderFactory,
+    "createProvider",
+    async () =>
+      ({ embedMany: trackingEmbedMany.fn }) as unknown as Awaited<
+        ReturnType<typeof AIProviderFactory.createProvider>
+      >,
+  );
+
+  const instance = new NeuroLink({
+    toolRouting: {
+      enabled: true,
+      alwaysIncludeServerIds: [],
+      embedding: {
+        enabled: true,
+        provider: "openai",
+        model: "text-embedding-3-small",
+        topK: 6,
+        minToolsToActivate: 20,
+      },
+      granularity: "server",
+    },
+  });
+  registerServerTools(instance, [
+    { id: "analytics", desc: "Sales analytics", count: 6 },
+    { id: "shipping", desc: "Shipment tracking", count: 6 },
+    { id: "calendar", desc: "Calendar scheduling", count: 6 },
+    { id: "db", desc: "Database tools", count: 4 },
+  ]);
+
+  const generateStub = stub(instance, "generate", async () => {
+    throw new Error("LLM router must not be called");
+  });
+
+  const makeOptions = () =>
+    ({
+      input: { text: "show me sales" },
+      excludeTools: [] as string[],
+      provider: "openai",
+    }) as import("../src/lib/types/index.js").StreamOptions;
+
+  await withStubs([createProviderStub, generateStub], async () => {
+    // Turn 1: nothing cached, so the catalog gets embedded.
+    await applyExclusions(instance, makeOptions(), "show me sales");
+    const afterTurn1 = embedCallsForCatalogTexts;
+    assert(afterTurn1 > 0, "turn 1 must embed the catalog");
+
+    // Turn 2: the shared vector cache should already cover every catalog text.
+    await applyExclusions(instance, makeOptions(), "show me sales");
+    assertEqual(
+      embedCallsForCatalogTexts,
+      afterTurn1,
+      "turn 2 must not re-embed any catalog text",
+    );
+  });
+});
+
+// ============================================================================
+// Part 11 — LIVE-gated: real embedding provider over >20-tool catalog
 // ============================================================================
 
 await test("LIVE — real embedding provider narrows tool set for >20-tool catalog (skips without keys)", async () => {

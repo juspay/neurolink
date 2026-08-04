@@ -39,8 +39,11 @@ export function stub<
   key: TKey,
   impl: (...args: TArgs) => TReturn,
 ): Stub<TArgs, TReturn> {
-  const original = obj[key];
-  const hadOwn = Object.prototype.hasOwnProperty.call(obj, key);
+  // Work through the descriptor, not `obj[key]`. Reading the property directly
+  // would invoke a getter — the very side effect a test is usually stubbing to
+  // avoid — and assigning over an own accessor would call its SETTER rather
+  // than replace it, leaving the stub uninstalled and the restore a no-op.
+  const ownDescriptor = Object.getOwnPropertyDescriptor(obj, key);
   const calls: TArgs[] = [];
   let restored = false;
 
@@ -49,7 +52,12 @@ export function stub<
     return impl(...args);
   };
 
-  (obj as Record<PropertyKey, unknown>)[key as PropertyKey] = fn;
+  Object.defineProperty(obj, key, {
+    value: fn,
+    writable: true,
+    enumerable: ownDescriptor?.enumerable ?? true,
+    configurable: true,
+  });
 
   return {
     calls,
@@ -62,11 +70,13 @@ export function stub<
         return;
       }
       restored = true;
-      // Deleting matters for inherited members: assigning the prototype's value
-      // back would leave a own-property shadow that outlives the test.
-      if (hadOwn) {
-        (obj as Record<PropertyKey, unknown>)[key as PropertyKey] = original;
+      if (ownDescriptor) {
+        // Restore the exact descriptor: a getter/setter pair, a non-writable
+        // value, and its original enumerability all survive the round trip.
+        Object.defineProperty(obj, key, ownDescriptor);
       } else {
+        // Inherited member — deleting exposes the prototype's version again.
+        // Assigning it back would leave an own-property shadow outliving the test.
         delete (obj as Record<PropertyKey, unknown>)[key as PropertyKey];
       }
     },
@@ -86,13 +96,18 @@ export function observe<TObj extends object, TKey extends keyof TObj>(
   obj: TObj,
   key: TKey,
 ): Stub<unknown[], unknown> {
-  const original = obj[key];
+  // Prefer the descriptor's own value so a data property is read without going
+  // through any inherited getter. An accessor has to be invoked to obtain the
+  // function to wrap — unavoidable here, since call-through needs the real one.
+  const ownDescriptor = Object.getOwnPropertyDescriptor(obj, key);
+  const original =
+    ownDescriptor && "value" in ownDescriptor ? ownDescriptor.value : obj[key];
   if (typeof original !== "function") {
     throw new TypeError(
       `Cannot observe non-function property "${String(key)}"`,
     );
   }
-  const realFn = original as unknown as (...args: unknown[]) => unknown;
+  const realFn = original as (...args: unknown[]) => unknown;
   return stub(obj, key, (...args: unknown[]) => realFn.apply(obj, args));
 }
 
