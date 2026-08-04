@@ -186,7 +186,7 @@ export abstract class BaseProvider implements AIProvider {
           options,
           timestamp,
         ),
-      () => this.neurolink?.getEventEmitter(),
+      { getEmitterFn: () => this.neurolink?.getEventEmitter() },
     );
     this.utilities = new Utilities(
       this.providerName,
@@ -244,7 +244,7 @@ export abstract class BaseProvider implements AIProvider {
           options,
           timestamp,
         ),
-      () => this.neurolink?.getEventEmitter(),
+      { getEmitterFn: () => this.neurolink?.getEventEmitter() },
     );
     this.utilities = new Utilities(
       this.providerName,

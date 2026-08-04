@@ -34,6 +34,7 @@ import {
   assertNotNull,
 } from "./helpers/harness.js";
 import { Skip } from "./helpers/harness.js";
+import { stub, withStubs } from "./helpers/stubs.js";
 import { skipUnlessProviderAvailable } from "./helpers/skipIf.js";
 import { isExpectedProviderError } from "./helpers/envGuard.js";
 
@@ -687,6 +688,306 @@ await test("NeuroLink generate() routing narrows tools (live — skips without A
       }
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// Migrated from test/toolRouting.test.ts — cases the suite above did not cover.
+// ---------------------------------------------------------------------------
+
+await test("buildToolRoutingCatalog drops servers with zero registered tools", () => {
+  // A declared server with nothing registered would otherwise be offered to the
+  // router, which could then "pick" it and exclude everything else for nothing.
+  const catalog = buildToolRoutingCatalog(
+    [{ id: "ghost", description: "No tools registered" }],
+    ["analytics_getSales"],
+  );
+  assertEqual(catalog.length, 0, "a server with no tools must not be offered");
+});
+
+await test("drops hallucinated server ids but keeps the valid picks alongside them", () => {
+  // Distinct from the fully-hallucinated case: a partially valid pick must be
+  // honoured for the real id rather than failing open and routing nothing.
+  return resolveToolRoutingExclusions(
+    baseParams({
+      generateFn: fakeGenerate(
+        '{"servers":["analytics","made-up-server"]}',
+      ) as ToolRoutingResolutionParams["generateFn"],
+    }),
+  ).then((excluded) => {
+    assertEqual(
+      JSON.stringify([...excluded].sort()),
+      JSON.stringify(["shipping_listCouriers", "shipping_track"]),
+      "only the unpicked real server's tools should be excluded",
+    );
+  });
+});
+
+await test("buildRoutingQueryFromHistory returns the bare query with no prior history", () => {
+  assertEqual(buildRoutingQueryFromHistory([], "yes please"), "yes please");
+});
+
+await test("buildRoutingQueryFromHistory returns the bare query when history has no usable content", () => {
+  assertEqual(
+    buildRoutingQueryFromHistory(
+      [
+        { role: "assistant", content: "   " },
+        { role: "user", content: "" },
+        { role: "assistant", content: null },
+      ],
+      "yes please",
+    ),
+    "yes please",
+  );
+});
+
+await test("buildRoutingQueryFromHistory keeps only the last maxMessages prior turns", () => {
+  const history = Array.from({ length: 10 }, (_, index) => ({
+    role: index % 2 === 0 ? "user" : "assistant",
+    content: `message ${index}`,
+  }));
+  const lines = buildRoutingQueryFromHistory(history, "final", 4000, 3).split(
+    "\n",
+  );
+  assertEqual(lines.length, 4, "3 prior turns plus the current query");
+  assertEqual(lines[0], "assistant: message 7", "oldest kept turn");
+  assertEqual(lines[3], "user: final", "current query at the tail");
+});
+
+await test("buildRoutingQueryFromHistory drops roleless turns", () => {
+  assertEqual(
+    buildRoutingQueryFromHistory([{ content: "no role here" }], "now"),
+    "now",
+    "a roleless turn is not usable history",
+  );
+});
+
+await test("buildRoutingQueryFromHistory drops tool_call/tool_result turns", () => {
+  assertEqual(
+    buildRoutingQueryFromHistory(
+      [
+        { role: "user", content: "fetch surcharge" },
+        { role: "tool_call", content: "GetSurchargeRules({})" },
+        { role: "tool_result", content: '{"rules":[{"id":"abc"}]}' },
+        { role: "assistant", content: "You have 1 surcharge rule." },
+      ],
+      "update it",
+    ),
+    "user: fetch surcharge\n" +
+      "assistant: You have 1 surcharge rule.\n" +
+      "user: update it",
+  );
+});
+
+await test("buildRoutingQueryFromHistory truncates a long transcript, keeping the tail", () => {
+  const result = buildRoutingQueryFromHistory(
+    [{ role: "assistant", content: "x".repeat(5000) }],
+    "current query at the very end",
+    200,
+  );
+  assertEqual(result.length, 200, "transcript must respect the char budget");
+  assert(
+    result.endsWith("current query at the very end"),
+    "the current query is the highest-signal part and must survive at the tail",
+  );
+});
+
+await test("buildRoutingQueryFromHistory renders each prior message in full", () => {
+  // No per-message cap: only the overall transcript budget truncates.
+  const longContent = "y".repeat(1000);
+  assertEqual(
+    buildRoutingQueryFromHistory(
+      [{ role: "assistant", content: longContent }],
+      "go",
+    ),
+    `assistant: ${longContent}\nuser: go`,
+  );
+});
+
+await test("ToolRoutingCache stickyTurns=1: the next turn sees the recorded ids", () => {
+  const cache = new ToolRoutingCache({ stickyTurns: 1 });
+  cache.recordSelection("session-sticky-1", ["analytics"]);
+
+  // turnsRemaining was set to 1, so this call returns the ids and retires them.
+  assert(
+    cache.getStickyServerIds("session-sticky-1").includes("analytics"),
+    "the next turn must see the recorded selection",
+  );
+  assertEqual(
+    cache.getStickyServerIds("session-sticky-1").length,
+    0,
+    "stickiness must be exhausted afterwards",
+  );
+});
+
+await test("ToolRoutingCache stickyTurns=1: a same-turn read does not double-consume", () => {
+  // Mirrors what neurolink.ts does per turn: read prior stickiness first, then
+  // record the new selection. The prior entry must be consumed once, and the
+  // new recordSelection must open a fresh window rather than being swallowed.
+  const cache = new ToolRoutingCache({ stickyTurns: 1 });
+  cache.recordSelection("session-sticky-2", ["shipping"]);
+
+  assert(
+    cache.getStickyServerIds("session-sticky-2").includes("shipping"),
+    "the prior selection must still be visible on this turn",
+  );
+  cache.recordSelection("session-sticky-2", ["analytics"]);
+
+  assert(
+    cache.getStickyServerIds("session-sticky-2").includes("analytics"),
+    "the new selection must be available on the following turn",
+  );
+  assertEqual(
+    cache.getStickyServerIds("session-sticky-2").length,
+    0,
+    "the window must then be exhausted",
+  );
+});
+
+/**
+ * Drive NeuroLink's private per-request routing hook with `generate` stubbed,
+ * returning how many times the router was asked and what got excluded.
+ */
+async function applyRoutingWithStubbedRouter(
+  instance: InstanceType<typeof NeuroLink>,
+  options: Record<string, unknown>,
+  userQuery: string,
+): Promise<number> {
+  const generate = stub(
+    instance as unknown as Record<string, unknown>,
+    "generate",
+    async () => ({ content: '{"servers":["analytics"]}' }),
+  );
+  await withStubs([generate], async () => {
+    await (
+      instance as unknown as {
+        applyToolRoutingExclusions: (
+          opts: Record<string, unknown>,
+          query: string,
+        ) => Promise<void>;
+      }
+    ).applyToolRoutingExclusions(options, userQuery);
+  });
+  return generate.callCount;
+}
+
+await test("routing disabled: excludeTools is untouched and the router is never called", async () => {
+  const instance = new NeuroLink({ toolRouting: { enabled: false } });
+  const options: Record<string, unknown> = {
+    input: { text: "show me yesterday's sales" },
+    excludeTools: ["preexisting_exclusion"],
+  };
+  const calls = await applyRoutingWithStubbedRouter(
+    instance,
+    options,
+    "show me yesterday's sales",
+  );
+  assertEqual(
+    JSON.stringify(options.excludeTools),
+    JSON.stringify(["preexisting_exclusion"]),
+    "a pre-existing exclusion must survive untouched",
+  );
+  assertEqual(calls, 0, "the router must not be called when routing is off");
+});
+
+await test("disableTools wins over enabled routing: no exclusion, no router call", async () => {
+  const instance = new NeuroLink({
+    toolRouting: { enabled: true, alwaysIncludeServerIds: ["utility"] },
+  });
+  instance.registerTools({
+    analytics_getSales: {
+      name: "analytics_getSales",
+      description: "Get sales",
+      execute: async () => ({ ok: true }),
+    },
+  });
+  instance.setToolRoutingServers([
+    { id: "analytics", description: "Sales analytics" },
+  ]);
+
+  const options: Record<string, unknown> = {
+    input: { text: "show me yesterday's sales" },
+    excludeTools: ["preexisting_exclusion"],
+    disableTools: true,
+  };
+  const calls = await applyRoutingWithStubbedRouter(
+    instance,
+    options,
+    "show me yesterday's sales",
+  );
+  assertEqual(
+    JSON.stringify(options.excludeTools),
+    JSON.stringify(["preexisting_exclusion"]),
+    "routing must not narrow tools when tools are disabled outright",
+  );
+  assertEqual(calls, 0, "the router must not be called when tools are off");
+});
+
+await test("no sessionId: the router runs every call rather than sharing a cache entry", async () => {
+  // Anonymous calls must never collide in the cache — otherwise one caller's
+  // routing decision would silently narrow another caller's tools.
+  const instance = new NeuroLink({
+    toolRouting: {
+      enabled: true,
+      alwaysIncludeServerIds: ["utility"],
+      cache: { enabled: true, ttlMs: 60_000 },
+    },
+  });
+  const noop = async () => ({ ok: true });
+  instance.registerTools({
+    analytics_getSales: {
+      name: "analytics_getSales",
+      description: "Get sales",
+      execute: noop,
+    },
+    shipping_track: {
+      name: "shipping_track",
+      description: "Track shipment",
+      execute: noop,
+    },
+    utility_echo: { name: "utility_echo", description: "Echo", execute: noop },
+  });
+  instance.setToolRoutingServers([
+    { id: "analytics", description: "Sales analytics" },
+    { id: "shipping", description: "Shipment tracking" },
+    { id: "utility", description: "Always-on utilities" },
+  ]);
+
+  const query = "show me yesterday's sales";
+  const generate = stub(
+    instance as unknown as Record<string, unknown>,
+    "generate",
+    async () => ({ content: '{"servers":["analytics"]}' }),
+  );
+  await withStubs([generate], async () => {
+    const apply = (
+      instance as unknown as {
+        applyToolRoutingExclusions: (
+          opts: Record<string, unknown>,
+          query: string,
+        ) => Promise<void>;
+      }
+    ).applyToolRoutingExclusions.bind(instance);
+
+    const first: Record<string, unknown> = { input: { text: query } };
+    await apply(first, query);
+    assertEqual(generate.callCount, 1, "first call must reach the router");
+    assert(
+      (first.excludeTools as string[]).includes("shipping_track"),
+      "the unpicked server's tools must be excluded",
+    );
+
+    const second: Record<string, unknown> = { input: { text: query } };
+    await apply(second, query);
+    assertEqual(
+      generate.callCount,
+      2,
+      "an anonymous second call must re-run the router, not reuse a cache entry",
+    );
+    assert(
+      (second.excludeTools as string[]).includes("shipping_track"),
+      "the second call must still be narrowed",
+    );
+  });
 });
 
 await runSuite();
