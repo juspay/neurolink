@@ -1,3 +1,9 @@
+## [10.8.12](https://github.com/juspay/neurolink/compare/v10.8.11...v10.8.12) (2026-08-04)
+
+### Bug Fixes
+
+- **(proxy):** report updater activation state truthfully ([d9ea21b](https://github.com/juspay/neurolink/commit/d9ea21b817d292f4354ef653480f06d38917229e))
+
 ## [10.8.11](https://github.com/juspay/neurolink/compare/v10.8.10...v10.8.11) (2026-08-04)
 
 ### Bug Fixes
