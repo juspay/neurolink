@@ -315,6 +315,7 @@ import { ClassifierRouter } from "./routing/classifierRouter.js";
 import {
   looksLikeModelAccessDenied as sharedLooksLikeModelAccessDenied,
   isNonRetryableProviderError as sharedIsNonRetryableProviderError,
+  isNonRetryableForPool as sharedIsNonRetryableForPool,
 } from "./utils/providerErrorClassification.js";
 import { getErrorStatusCode } from "./utils/providerRetry.js";
 import { detectAndRedactPII } from "./utils/piiDetector.js";
@@ -412,6 +413,12 @@ function mcpCategoryToErrorCategory(
  */
 const looksLikeModelAccessDenied = sharedLooksLikeModelAccessDenied;
 const isNonRetryableProviderError = sharedIsNonRetryableProviderError;
+/**
+ * Pool-scoped variant: model-not-found is a fact about one member's model, not
+ * about the request, so it must not stop the whole pool. Used only at the two
+ * ModelPool catch sites; every other path keeps the general contract.
+ */
+const isNonRetryableForPool = sharedIsNonRetryableForPool;
 
 /**
  * NeuroLink - Universal AI Development Platform
@@ -7985,7 +7992,7 @@ Current user's request: ${currentInput}`;
           if (isAbortError(poolError)) {
             throw poolError;
           }
-          if (isNonRetryableProviderError(poolError)) {
+          if (isNonRetryableForPool(poolError)) {
             const poolErrMsg =
               poolError instanceof Error
                 ? poolError.message
@@ -11389,7 +11396,7 @@ Current user's request: ${currentInput}`;
           if (isAbortError(poolStreamError)) {
             throw poolStreamError;
           }
-          if (isNonRetryableProviderError(poolStreamError)) {
+          if (isNonRetryableForPool(poolStreamError)) {
             const poolStreamErrMsg =
               poolStreamError instanceof Error
                 ? poolStreamError.message
