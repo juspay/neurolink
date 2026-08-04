@@ -1,3 +1,9 @@
+## [10.8.17](https://github.com/juspay/neurolink/compare/v10.8.16...v10.8.17) (2026-08-04)
+
+### Bug Fixes
+
+- **(test):** revive two suites that had been dead since the provider split ([8d676b7](https://github.com/juspay/neurolink/commit/8d676b72e0c6f14de882449df66da407a78bb43e))
+
 ## [10.8.16](https://github.com/juspay/neurolink/compare/v10.8.15...v10.8.16) (2026-08-04)
 
 ## [10.8.15](https://github.com/juspay/neurolink/compare/v10.8.14...v10.8.15) (2026-08-04)
