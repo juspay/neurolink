@@ -10,13 +10,16 @@ import type {
   ConversationMemoryConfig,
   SessionMemory,
 } from "../types/index.js";
-import { TokenUtils } from "../constants/tokens.js";
 import {
   buildContextFromPointer,
   generateSummary,
 } from "../utils/conversationMemory.js";
 import { RECENT_MESSAGES_RATIO } from "../config/conversationMemory.js";
 import { snapSplitToBatchBoundary } from "./toolPairRepair.js";
+import {
+  estimateMessageTokens,
+  estimateMessagesTokens,
+} from "../utils/tokenEstimation.js";
 import { withSpan } from "../telemetry/withSpan.js";
 import { tracers } from "../telemetry/tracers.js";
 import { logger } from "../utils/logger.js";
@@ -179,9 +182,11 @@ export class SummarizationEngine {
    * @returns Estimated token count
    */
   estimateTokens(messages: ChatMessage[]): number {
-    return messages.reduce((total, msg) => {
-      return total + TokenUtils.estimateTokenCount(msg.content);
-    }, 0);
+    // Delegates to the shared estimator so this threshold agrees with the
+    // budget checker and the compactor. The previous content-only sum scored
+    // tool calls (whose payload lives in `args`) at zero, so a Write/Edit-heavy
+    // session never reached the summarization threshold at all.
+    return estimateMessagesTokens(messages);
   }
 
   /**
@@ -199,7 +204,7 @@ export class SummarizationEngine {
     let splitIndex = messages.length;
 
     for (let i = messages.length - 1; i >= 0; i--) {
-      const msgTokens = TokenUtils.estimateTokenCount(messages[i].content);
+      const msgTokens = estimateMessageTokens(messages[i]);
       if (recentTokens + msgTokens > targetRecentTokens) {
         splitIndex = i + 1;
         break;

@@ -47,7 +47,10 @@ import {
   RETRY_DELAYS,
   TOOL_TIMEOUTS,
 } from "./constants/index.js";
-import { checkContextBudget } from "./context/budgetChecker.js";
+import {
+  checkContextBudget,
+  resolveHistoryBudget,
+} from "./context/budgetChecker.js";
 import { ContextCompactor } from "./context/contextCompactor.js";
 import {
   InvalidToolInputError,
@@ -6659,7 +6662,18 @@ Current user's request: ${currentInput}`;
         actualOverflow?.actualTokens ?? recoveryBudget.estimatedInputTokens;
       const budgetTokens =
         actualOverflow?.budgetTokens ?? recoveryBudget.availableInputTokens;
-      const compactionTarget = Math.floor(budgetTokens * 0.7);
+      // Target the HISTORY's share, not the whole budget: the compactor's stage
+      // gates measure messages only, so handing them the full figure lets an
+      // over-budget request through untouched. The 0.7 factor stays on top as
+      // recovery headroom — this path runs only after the provider has already
+      // rejected the request once, so aiming well under is deliberate.
+      const recoveryOverhead =
+        (recoveryBudget.breakdown?.systemPrompt ?? 0) +
+        (recoveryBudget.breakdown?.currentPrompt ?? 0);
+      const compactionTarget = Math.max(
+        0,
+        Math.floor((budgetTokens - recoveryOverhead) * 0.7),
+      );
       const requiredReduction =
         actualTokens > 0
           ? (actualTokens - compactionTarget) / actualTokens
@@ -7544,6 +7558,7 @@ Current user's request: ${currentInput}`;
       availableTools,
       conversationMessages,
       availableInputTokens: budgetResult.availableInputTokens,
+      historyBudget: resolveHistoryBudget(budgetResult),
       usageRatio: budgetResult.usageRatio,
       estimatedInputTokens: budgetResult.estimatedInputTokens,
       compactionSessionId,
@@ -7558,6 +7573,8 @@ Current user's request: ${currentInput}`;
     availableTools: ToolInfo[];
     conversationMessages: ChatMessage[];
     availableInputTokens: number;
+    /** Tokens history may occupy — availableInput minus system/prompt/tools/files. */
+    historyBudget: number;
     usageRatio: number;
     estimatedInputTokens: number;
     compactionSessionId: string;
@@ -7570,6 +7587,7 @@ Current user's request: ${currentInput}`;
       availableTools,
       conversationMessages,
       availableInputTokens,
+      historyBudget,
       usageRatio,
       estimatedInputTokens,
       compactionSessionId,
@@ -7592,9 +7610,27 @@ Current user's request: ${currentInput}`;
         this.conversationMemoryConfig?.conversationMemory?.summarizationModel,
     });
 
+    // Fixed overhead (system + prompt + tools + files) already exceeds the
+    // window — no amount of history compaction can fit this request, and
+    // compacting to an empty history would only hide the real cause.
+    if (historyBudget <= 0) {
+      throw new ContextBudgetExceededError(
+        `Context exceeds model budget before any history is included. ` +
+          `System prompt, current prompt and tool definitions alone require ` +
+          `more than the ${availableInputTokens}-token input budget. ` +
+          `Reduce the tool set or the prompt size.`,
+        {
+          estimatedTokens: estimatedInputTokens,
+          availableTokens: availableInputTokens,
+          stagesUsed: [],
+          breakdown: {},
+        },
+      );
+    }
+
     const compactionResult = await compactor.compact(
       conversationMessages,
-      availableInputTokens,
+      historyBudget,
       this.conversationMemoryConfig?.conversationMemory,
       requestId,
     );
@@ -8163,7 +8199,7 @@ Current user's request: ${currentInput}`;
           });
           const compactionResult = await compactor.compact(
             conversationMessages as import("./types/index.js").ChatMessage[],
-            budgetCheck.availableInputTokens,
+            resolveHistoryBudget(budgetCheck),
             this.conversationMemoryConfig?.conversationMemory,
             (options.context as Record<string, unknown>)?.requestId as
               | string
@@ -11166,7 +11202,7 @@ Current user's request: ${currentInput}`;
       });
       const compactionResult = await compactor.compact(
         conversationMessages as import("./types/index.js").ChatMessage[],
-        streamBudget.availableInputTokens,
+        resolveHistoryBudget(streamBudget),
         this.conversationMemoryConfig?.conversationMemory,
         (options.context as Record<string, unknown> | undefined)?.requestId as
           | string

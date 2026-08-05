@@ -24,8 +24,51 @@ import { getActiveTraceContext } from "../telemetry/traceContext.js";
 /** Default compaction threshold (80% of available input) */
 const DEFAULT_COMPACTION_THRESHOLD = 0.8;
 
+/**
+ * Fraction of the derived history budget actually handed to the compactor.
+ * Estimation is char-based and approximate, so the compactor aims slightly
+ * under the true ceiling rather than exactly at it.
+ */
+const HISTORY_BUDGET_SAFETY_FACTOR = 0.95;
+
 /** Estimated tokens per tool definition */
 const TOKENS_PER_TOOL_DEFINITION = 200;
+
+/**
+ * Tokens the CONVERSATION HISTORY may occupy, i.e. the model's available input
+ * space minus everything that rides alongside it (system prompt, current
+ * prompt, tool definitions, file attachments).
+ *
+ * This is the number the compactor must target. Passing it the undeducted
+ * `availableInputTokens` made every stage gate compare history-only tokens
+ * against the WHOLE budget, so compaction only engaged once history alone
+ * exceeded the entire window — with a large MCP tool set a request could sit
+ * far over budget while the compactor reported "nothing to do" and fell through
+ * to emergency truncation.
+ *
+ * Returns 0 when the fixed overhead already exceeds the window; callers must
+ * treat that as unrecoverable rather than compacting to an empty history.
+ */
+export function resolveHistoryBudget(result: BudgetCheckResult): number {
+  const { availableInputTokens, breakdown } = result;
+  if (!breakdown) {
+    return Math.max(
+      0,
+      Math.floor(availableInputTokens * HISTORY_BUDGET_SAFETY_FACTOR),
+    );
+  }
+  const overhead =
+    breakdown.systemPrompt +
+    breakdown.currentPrompt +
+    breakdown.toolDefinitions +
+    breakdown.fileAttachments;
+  return Math.max(
+    0,
+    Math.floor(
+      (availableInputTokens - overhead) * HISTORY_BUDGET_SAFETY_FACTOR,
+    ),
+  );
+}
 
 /**
  * Check whether a request fits within the model's context budget.

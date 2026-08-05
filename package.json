@@ -83,6 +83,7 @@
     "test:litellm-parity": "npx tsx test/continuous-test-suite-litellm-parity.ts",
     "test:memory": "npx tsx test/continuous-test-suite-memory.ts",
     "test:tool-pairing": "npx tsx test/continuous-test-suite-tool-pairing.ts",
+    "test:token-accounting": "npx tsx test/continuous-test-suite-token-accounting.ts",
     "test:middleware": "npx tsx test/continuous-test-suite-middleware.ts",
     "test:observability": "npx tsx test/continuous-test-suite-observability.ts",
     "test:ppt": "npx tsx test/continuous-test-suite-ppt.ts",
