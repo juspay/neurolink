@@ -638,6 +638,37 @@ const tests: TestFunction[] = [
     },
   },
   {
+    name: "CSVProcessor #373: preserve blanks keeps schema for a,b / blank / 1,2 (CodeRabbit case)",
+    category: "csv-processor",
+    fn: async () => {
+      const csv = "a,b\n\n1,2";
+      const md = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "markdown",
+        skipEmptyLines: false,
+      });
+      const json = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "json",
+        skipEmptyLines: false,
+        sanitizeColumnNames: true,
+      });
+      const rawSkip = await CSVProcessor.process(
+        Buffer.from("a,b\n,,\n1,2\n"),
+        { formatStyle: "raw" },
+      );
+      const parsed = JSON.parse(json.content) as Array<Record<string, string>>;
+      return (
+        /^\| a \| b \|/m.test(md.content) &&
+        md.content.includes("| 1 | 2 |") &&
+        parsed.length === 2 &&
+        Object.keys(parsed[0] ?? {}).join(",") === "a,b" &&
+        parsed[1]?.a === "1" &&
+        parsed[1]?.b === "2" &&
+        rawSkip.content === "a,b\n1,2" &&
+        rawSkip.metadata.rowCount === 1
+      );
+    },
+  },
+  {
     name: "CSVProcessor #373: structured maxRows counts non-empty rows only (leading blanks)",
     category: "csv-processor",
     fn: async () => {
