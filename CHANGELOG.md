@@ -1,3 +1,9 @@
+## [10.8.19](https://github.com/juspay/neurolink/compare/v10.8.18...v10.8.19) (2026-08-05)
+
+### Bug Fixes
+
+- **(ci):** restore prettier formatting on the bugfixes suite ([5928556](https://github.com/juspay/neurolink/commit/59285562985b1e882f943f7524a4d777d6a1da78))
+
 ## [10.8.18](https://github.com/juspay/neurolink/compare/v10.8.17...v10.8.18) (2026-08-04)
 
 ### Bug Fixes
