@@ -1974,6 +1974,10 @@ User message: "${userMessage}"`;
           role: "tool_call",
           content: "", // Can be empty for tool calls
           tool: toolName,
+          // Persisted so repairToolPairs can pair by ID rather than adjacency —
+          // a parallel batch writes all calls before any result, so position
+          // carries no pairing information.
+          ...(toolCallId ? { toolCallId } : {}),
           args: (toolCall.args ||
             toolCall.arguments ||
             toolCall.parameters ||
@@ -2075,6 +2079,10 @@ User message: "${userMessage}"`;
           role: "tool_result",
           content: serializedResult, // Full output (was "")
           tool: toolName,
+          // Only a REAL id is persisted: the "unknown" sentinel above would
+          // otherwise collide across every unidentifiable result and pair them
+          // to each other. Absent id falls back to legacy positional pairing.
+          ...(toolCallId && toolCallId !== "unknown" ? { toolCallId } : {}),
           result,
           metadata,
         };

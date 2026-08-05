@@ -351,6 +351,18 @@ export type ChatMessage = {
   /** Tool name (optional) - for tool_call/tool_result messages */
   tool?: string;
 
+  /**
+   * Provider tool-call correlation ID, carried on BOTH the `tool_call` and its
+   * matching `tool_result`. This is the only reliable way to pair the two:
+   * a step with parallel tool calls is persisted as every `tool_call` followed
+   * by every `tool_result` (see flushPendingToolData), so adjacency does
+   * NOT imply pairing and position-based matching corrupts the batch.
+   *
+   * Optional for backward compatibility — sessions written before this field
+   * existed pair positionally within a batch (see repairToolPairs legacy mode).
+   */
+  toolCallId?: string;
+
   /** Tool arguments (optional) - for tool_call messages */
   args?: Record<string, unknown>;
 

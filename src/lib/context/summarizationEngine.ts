@@ -16,6 +16,7 @@ import {
   generateSummary,
 } from "../utils/conversationMemory.js";
 import { RECENT_MESSAGES_RATIO } from "../config/conversationMemory.js";
+import { snapSplitToBatchBoundary } from "./toolPairRepair.js";
 import { withSpan } from "../telemetry/withSpan.js";
 import { tracers } from "../telemetry/tracers.js";
 import { logger } from "../utils/logger.js";
@@ -206,7 +207,17 @@ export class SummarizationEngine {
       recentTokens += msgTokens;
     }
 
-    // Ensure at least one message is summarized
-    return Math.max(1, splitIndex);
+    // Ensure at least one message is summarized, then snap off any tool batch
+    // the boundary would otherwise cut in half (which would leave the recent
+    // window opening on an orphaned tool_result).
+    const snapped = snapSplitToBatchBoundary(messages, Math.max(1, splitIndex));
+
+    // A forward snap can consume the ENTIRE array when the batch starts at
+    // index 0. Summarizing everything would leave no recent window at all and
+    // move the pointer to the last message, so the next read returns a summary
+    // and nothing else. Decline instead — `summarizeSession` skips a round on
+    // an empty slice. `structuredSummarizer` already guards this case; this is
+    // the same guard for the pointer-based path.
+    return snapped >= messages.length ? 0 : snapped;
   }
 }

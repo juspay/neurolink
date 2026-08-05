@@ -860,6 +860,19 @@ export type RepairResult = {
   orphanedResultsFixed: number;
 };
 
+/**
+ * One contiguous tool batch: the run of `tool_call` messages emitted by a
+ * single agent step, plus the run of `tool_result` messages that follows it.
+ * A step with parallel tool calls writes every call before any result, so the
+ * batch — not adjacency — is the unit that pairing and truncation operate on.
+ * `endIndex` is exclusive.
+ */
+export type RepairToolBatch = {
+  calls: ChatMessage[];
+  results: ChatMessage[];
+  endIndex: number;
+};
+
 /** Options for summarization prompt building. */
 export type SummarizationPromptOptions = {
   /**

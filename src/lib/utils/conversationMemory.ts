@@ -14,6 +14,7 @@ import {
 } from "../config/conversationMemory.js";
 import { getAvailableInputTokens } from "../constants/contextWindows.js";
 import { buildSummarizationPrompt } from "../context/prompts/summarizationPrompt.js";
+import { repairToolPairs } from "../context/toolPairRepair.js";
 import type { ConversationMemoryManager } from "../core/conversationMemoryManager.js";
 import type { RedisConversationMemoryManager } from "../core/redisConversationMemoryManager.js";
 import type { NeuroLink } from "../neurolink.js";
@@ -218,10 +219,33 @@ export async function getConversationMessages(
         // against any future "fabricate-on-error" regression. Telemetry
         // attributes record how many turns were dropped so polluted sessions
         // are visible in Langfuse traces.
-        const messages = rawMessages.filter(
+        const filtered = rawMessages.filter(
           (msg) => !isPollutedAssistantTurn(msg),
         );
-        const droppedCount = rawMessages.length - messages.length;
+
+        // Pair repair on READ, not just after compaction. buildContextFromPointer
+        // slices the history at the summary pointer, and a session interrupted
+        // mid-tool-batch is stored with calls whose results never arrived —
+        // either way the provider receives an orphan and hard-rejects the turn.
+        // No-ops (single linear scan) when the slice holds no tool messages.
+        const repair = repairToolPairs(filtered);
+        const messages = repair.messages;
+        if (repair.repaired) {
+          span.setAttribute(
+            "neurolink.memory.tool_pairs_repaired",
+            repair.orphanedCallsFixed + repair.orphanedResultsFixed,
+          );
+          logger.debug(
+            "[conversationMemoryUtils] Repaired orphaned tool pairs on read",
+            {
+              sessionId,
+              orphanedCallsFixed: repair.orphanedCallsFixed,
+              orphanedResultsFixed: repair.orphanedResultsFixed,
+            },
+          );
+        }
+
+        const droppedCount = rawMessages.length - filtered.length;
         if (droppedCount > 0) {
           // Span attribute is always set so polluted sessions stay visible in
           // Langfuse traces on every read — that's the persistent debugging
