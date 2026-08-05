@@ -1438,6 +1438,11 @@ export function getStats(): ProxyStats {
   return defaultStore.getStats();
 }
 
+/** Return the process-local coherent snapshot without filesystem reconciliation. */
+export function getUsageSnapshot(): ProxyUsageStatsSnapshot {
+  return defaultStore.getUsageSnapshot();
+}
+
 export async function getReconciledStats(): Promise<ProxyStats> {
   return defaultStore.reconcile();
 }

@@ -134,6 +134,8 @@ const PROXY_TELEMETRY_SCRIPT_PATH = fileURLToPath(
 const PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS = 5_000;
 const LEGACY_STATUS_ACCOUNT_CACHE_TTL_MS = 5_000;
 const PROXY_STATUS_TOKEN_READ_TIMEOUT_MS = 2_000;
+const PROXY_STATUS_RECONCILE_TIMEOUT_MS = 750;
+const PROXY_STATUS_ACCOUNT_INVENTORY_TIMEOUT_MS = 750;
 let legacyStatusAccountCache:
   | { credentialsPath: string; expiresAt: number; label: string | null }
   | undefined;
@@ -2045,11 +2047,32 @@ export async function createProxyStartApp(params: {
     const activeAccountAllowlist = runtimeConfig
       ? runtimeConfig.accountAllowlist
       : params.accountAllowlist;
-    const { getReconciledUsageSnapshot, getUsageStatsPersistenceStatus } =
-      await import("../../lib/proxy/usageStats.js");
+    const {
+      getReconciledUsageSnapshot,
+      getUsageSnapshot,
+      getUsageStatsPersistenceStatus,
+    } = await import("../../lib/proxy/usageStats.js");
     const { loadAccountCooldowns } =
       await import("../../lib/proxy/accountCooldown.js");
-    const usageSnapshot = await getReconciledUsageSnapshot();
+    let usageSnapshot = getUsageSnapshot();
+    let snapshotSource: "reconciled" | "memory" = "memory";
+    try {
+      usageSnapshot = await withTimeout(
+        getReconciledUsageSnapshot(),
+        PROXY_STATUS_RECONCILE_TIMEOUT_MS,
+        "[proxy] /status usage reconciliation timed out",
+      );
+      snapshotSource = "reconciled";
+    } catch (error) {
+      // Status must not become an outage amplifier when a cross-process lock or
+      // a slow filesystem stalls reconciliation. The process-local snapshot is
+      // coherent and its source is explicit to callers.
+      logger.debug(
+        `[proxy] /status using memory stats snapshot: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
     const { stats, terminalErrors } = usageSnapshot;
     const terminalErrorDetailsComparable =
       usageSnapshot.statsVersion === usageSnapshot.terminalErrorsVersion;
@@ -2064,43 +2087,74 @@ export async function createProxyStartApp(params: {
     const supervisorState = loadProxySupervisorState();
     const rollingSupervisorRunning = isRollingHandoffCapable(supervisorState);
     const updateState = loadUpdateState();
-    const cooldowns = await loadAccountCooldowns();
+    const cooldowns = await withTimeout(
+      loadAccountCooldowns(),
+      PROXY_STATUS_ACCOUNT_INVENTORY_TIMEOUT_MS,
+      "[proxy] /status cooldown inspection timed out",
+    ).catch((error) => {
+      logger.debug(
+        `[proxy] /status using empty cooldown snapshot: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return {};
+    });
     const storedAccountKeys = new Set<string>();
     const storedAccountExpirations = new Map<string, number>();
     const disabledAccountKeys = new Set<string>();
     let accountInventoryLoaded = false;
     try {
       const { tokenStore } = await import("../../lib/auth/tokenStore.js");
-      const storedKeys = await tokenStore.listByPrefix("anthropic:");
-      for (const key of storedKeys) {
-        const normalizedKey = normalizeAnthropicAccountKey(key);
-        storedAccountKeys.add(normalizedKey);
-      }
-      await Promise.all(
-        storedKeys.map(async (key) => {
-          const normalizedKey = normalizeAnthropicAccountKey(key);
-          try {
-            const tokens = await withTimeout(
-              tokenStore.peekTokens(key),
-              PROXY_STATUS_TOKEN_READ_TIMEOUT_MS,
-              "[proxy] /status token inspection timed out",
-            );
-            if (tokens) {
-              storedAccountExpirations.set(normalizedKey, tokens.expiresAt);
-            }
-          } catch (err) {
-            logger.debug(
-              `[proxy] /status: failed to inspect token metadata for ${normalizedKey}: ${
-                err instanceof Error ? err.message : String(err)
-              }`,
-            );
-          }
-        }),
+      const storedKeys = await withTimeout(
+        tokenStore.listByPrefix("anthropic:"),
+        PROXY_STATUS_ACCOUNT_INVENTORY_TIMEOUT_MS,
+        "[proxy] /status account enumeration timed out",
       );
-      for (const key of await tokenStore.listDisabled()) {
+      for (const key of storedKeys) {
+        storedAccountKeys.add(normalizeAnthropicAccountKey(key));
+      }
+      // Once account names are known, preserve them even when optional token
+      // metadata is slow. That keeps the status table useful and avoids
+      // incorrectly presenting known accounts as removed.
+      accountInventoryLoaded = true;
+      const inventory = await withTimeout(
+        (async () => {
+          const tokenExpirations = await Promise.all(
+            storedKeys.map(async (key) => {
+              try {
+                const tokens = await withTimeout(
+                  tokenStore.peekTokens(key),
+                  PROXY_STATUS_TOKEN_READ_TIMEOUT_MS,
+                  "[proxy] /status token inspection timed out",
+                );
+                return tokens ? ([key, tokens.expiresAt] as const) : undefined;
+              } catch (error) {
+                logger.debug(
+                  `[proxy] /status: failed to inspect token metadata for ${normalizeAnthropicAccountKey(key)}: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                );
+                return undefined;
+              }
+            }),
+          );
+          const disabledKeys = await tokenStore.listDisabled();
+          return { tokenExpirations, disabledKeys };
+        })(),
+        PROXY_STATUS_ACCOUNT_INVENTORY_TIMEOUT_MS,
+        "[proxy] /status account metadata timed out",
+      );
+      for (const expiration of inventory.tokenExpirations) {
+        if (expiration) {
+          storedAccountExpirations.set(
+            normalizeAnthropicAccountKey(expiration[0]),
+            expiration[1],
+          );
+        }
+      }
+      for (const key of inventory.disabledKeys) {
         disabledAccountKeys.add(normalizeAnthropicAccountKey(key));
       }
-      accountInventoryLoaded = true;
     } catch (err) {
       logger.debug(
         `[proxy] /status: failed to resolve account cooldown labels: ${
@@ -2109,7 +2163,11 @@ export async function createProxyStartApp(params: {
       );
     }
     const legacyAccountLabel = accountInventoryLoaded
-      ? await resolveLegacyStatusAccountLabel(storedAccountKeys.size)
+      ? await withTimeout(
+          resolveLegacyStatusAccountLabel(storedAccountKeys.size),
+          PROXY_STATUS_ACCOUNT_INVENTORY_TIMEOUT_MS,
+          "[proxy] /status legacy account inspection timed out",
+        ).catch(() => null)
       : null;
     const now = Date.now();
     const health = buildProxyHealthResponse(readiness, {
@@ -2117,7 +2175,16 @@ export async function createProxyStartApp(params: {
       passthrough: activePassthrough,
       version: PROXY_VERSION,
     });
-    const primaryAccount = await resolveStatusPrimaryAccount(activeProxyConfig);
+    const primaryAccount = await withTimeout(
+      resolveStatusPrimaryAccount(activeProxyConfig),
+      PROXY_STATUS_ACCOUNT_INVENTORY_TIMEOUT_MS,
+      "[proxy] /status primary account inspection timed out",
+    ).catch(() => ({
+      configured: activeProxyConfig?.routing?.primaryAccount?.trim() || null,
+      key: null,
+      label: null,
+      source: "fallback" as const,
+    }));
     const activeUpdaterPid =
       supervisorState?.updaterPid ?? runtimeState?.updaterPid;
     const accountRows: NonNullable<StatusStats["accounts"]> = Object.values(
@@ -2314,6 +2381,7 @@ export async function createProxyStartApp(params: {
         terminalErrorDetailsComparable,
         terminalErrorDetailsMissing,
         terminalErrorDetailsExcess,
+        snapshotSource,
         accounts: accountRows,
         primaryAccount,
         persistence: getUsageStatsPersistenceStatus(),
