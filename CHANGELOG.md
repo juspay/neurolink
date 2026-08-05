@@ -1,3 +1,9 @@
+## [10.9.1](https://github.com/juspay/neurolink/compare/v10.9.0...v10.9.1) (2026-08-05)
+
+### Bug Fixes
+
+- **(proxy):** harden status and lifecycle telemetry ([03399a8](https://github.com/juspay/neurolink/commit/03399a8ac36861c96774fee8ae2465c2eed39026))
+
 ## [10.9.0](https://github.com/juspay/neurolink/compare/v10.8.22...v10.9.0) (2026-08-05)
 
 ### Features
