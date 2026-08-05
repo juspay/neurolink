@@ -2246,6 +2246,13 @@ export type SpawnProxySocketWorkerOptions = {
   socketAckTimeoutMs?: number;
 };
 
+export type RollingWorkerFailureDetails = {
+  workerPid?: number;
+  workerExitCode?: number | null;
+  workerExitSignal?: string | null;
+  supervisorAction?: "none" | "sigkill_after_transfer_failure";
+};
+
 export type RollingWorkerSupervisorSnapshot = {
   generation: number;
   active: { pid: number; version: string; generation: number } | null;
@@ -2258,13 +2265,15 @@ export type RollingWorkerSupervisorSnapshot = {
   queuedSockets: number;
   rejectedSockets: number;
   failedTransfers: number;
-  lastFailure: {
-    at: string;
-    generation: number;
-    version: string;
-    phase: "startup" | "activation" | "runtime" | "transfer";
-    message: string;
-  } | null;
+  lastFailure:
+    | ({
+        at: string;
+        generation: number;
+        version: string;
+        phase: "startup" | "activation" | "runtime" | "transfer";
+        message: string;
+      } & RollingWorkerFailureDetails)
+    | null;
 };
 
 export type RollingWorkerSupervisorOptions = {

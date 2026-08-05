@@ -185,6 +185,43 @@ export function getGlobalInstallArgs(
     : ["install", "--global", "--no-audit", "--no-fund", packageSpec];
 }
 
+const TRANSIENT_INSTALL_FAILURE_CODES = new Set([
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "EAI_AGAIN",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ENOTFOUND",
+  "EPIPE",
+  "ETIMEDOUT",
+]);
+
+/**
+ * Return whether a global package-manager failure is likely environmental and
+ * worth retrying. Configuration and permission failures deliberately return
+ * false so the updater does not repeatedly mutate a broken installation.
+ */
+export function isTransientInstallFailure(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current; depth++) {
+    if (typeof current !== "object") {
+      return false;
+    }
+    const candidate = current as {
+      code?: unknown;
+      cause?: unknown;
+    };
+    if (
+      typeof candidate.code === "string" &&
+      TRANSIENT_INSTALL_FAILURE_CODES.has(candidate.code)
+    ) {
+      return true;
+    }
+    current = candidate.cause;
+  }
+  return false;
+}
+
 /**
  * Validate a freshly installed CLI with retries. Global package replacement
  * can leave executable shims briefly unavailable while filesystem metadata and

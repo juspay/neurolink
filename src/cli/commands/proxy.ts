@@ -87,6 +87,7 @@ import {
 import {
   describeInstallFailure,
   getGlobalInstallArgs,
+  isTransientInstallFailure,
   resolveGlobalInstaller,
   validateInstalledVersion,
 } from "../../lib/proxy/globalInstaller.js";
@@ -900,6 +901,10 @@ async function getRollingActivationFailure(
             version?: string;
             phase?: string;
             message?: string;
+            workerPid?: number;
+            workerExitCode?: number | null;
+            workerExitSignal?: string | null;
+            supervisorAction?: string;
           } | null;
         } | null;
       };
@@ -912,7 +917,22 @@ async function getRollingActivationFailure(
     ) {
       return null;
     }
-    return `${failure.phase}: ${failure.message}`;
+    const workerDetail = [
+      typeof failure.workerPid === "number" ? `pid=${failure.workerPid}` : null,
+      typeof failure.workerExitCode === "number" ||
+      failure.workerExitCode === null
+        ? `exitCode=${failure.workerExitCode ?? "none"}`
+        : null,
+      typeof failure.workerExitSignal === "string"
+        ? `exitSignal=${failure.workerExitSignal}`
+        : null,
+      typeof failure.supervisorAction === "string"
+        ? `supervisorAction=${failure.supervisorAction}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return `${failure.phase}: ${failure.message}${workerDetail ? ` (${workerDetail})` : ""}`;
   } catch {
     return null;
   }
@@ -4153,6 +4173,8 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
     const NATURAL_WINDOW_WAIT_MS = 10 * 60 * 1000; // prefer no admission pause
     const UPDATE_DRAIN_TIMEOUT_MS = 30 * 60 * 1000; // preserve long streams
     const UPDATE_RETRY_DELAY_MS = 5 * 60 * 1000;
+    const UPDATE_RETRY_MAX_DELAY_MS = 30 * 60 * 1000;
+    const UPDATE_RETRY_MAX_ATTEMPTS = 4;
     const UPDATE_ACTIVITY_POLL_MS = 10 * 1000;
     const UPDATE_TIMEOUT_MS = 30 * 1000; // 30 seconds to come healthy
 
@@ -4180,6 +4202,8 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
     let updateCheckTimeout: NodeJS.Timeout | undefined;
     let updateCheckInterval: NodeJS.Timeout | undefined;
     let updateRetryTimeout: NodeJS.Timeout | undefined;
+    let updateRetryAttempts = 0;
+    let updateRetryVersion: string | null = null;
     const stopUpdateChecks = (): void => {
       guardStopping = true;
       if (updateCheckTimeout) {
@@ -4230,6 +4254,8 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         );
 
         if (!result.updateAvailable) {
+          updateRetryAttempts = 0;
+          updateRetryVersion = null;
           persistUpdaterState("clear update deferral", () =>
             clearUpdateDeferral(),
           );
@@ -4311,7 +4337,10 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
                 ),
               );
             }
-            scheduleUpdateRetry();
+            scheduleUpdateRetry(
+              "update window unavailable",
+              result.latestVersion,
+            );
             return;
           }
 
@@ -4320,7 +4349,10 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           if (!drainActive) {
             updateWindow = await waitForWindow(0);
             if (!updateWindow.ready) {
-              scheduleUpdateRetry();
+              scheduleUpdateRetry(
+                "update drain unavailable",
+                result.latestVersion,
+              );
               return;
             }
           }
@@ -4420,6 +4452,12 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
             persistUpdaterState("record update failure", () =>
               recordUpdateFailure(result.latestVersion, "install", detail),
             );
+            if (isTransientInstallFailure(installErr)) {
+              scheduleUpdateRetry(
+                "transient install failure",
+                result.latestVersion,
+              );
+            }
             return;
           }
         } else {
@@ -4452,6 +4490,8 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           persistUpdaterState("record installed update", () =>
             recordUpdateInstalled(result.latestVersion),
           );
+          updateRetryAttempts = 0;
+          updateRetryVersion = null;
           logger.always(
             `[updater] trampoline validated at v${validation.version} after ${validation.attempts} attempt(s)`,
           );
@@ -4668,14 +4708,32 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
       }
     };
 
-    const scheduleUpdateRetry = (): void => {
+    const scheduleUpdateRetry = (reason: string, version: string): void => {
       if (guardStopping || updateRetryTimeout) {
         return;
       }
+      if (updateRetryVersion !== version) {
+        updateRetryVersion = version;
+        updateRetryAttempts = 0;
+      }
+      if (updateRetryAttempts >= UPDATE_RETRY_MAX_ATTEMPTS) {
+        logger.always(
+          `[updater] retry budget exhausted after ${updateRetryAttempts} attempt(s); waiting for the periodic check`,
+        );
+        return;
+      }
+      updateRetryAttempts += 1;
+      const delay = Math.min(
+        UPDATE_RETRY_MAX_DELAY_MS,
+        UPDATE_RETRY_DELAY_MS * 2 ** (updateRetryAttempts - 1),
+      );
+      logger.always(
+        `[updater] retry scheduled reason=${reason} attempt=${updateRetryAttempts}/${UPDATE_RETRY_MAX_ATTEMPTS} delayMs=${delay}`,
+      );
       updateRetryTimeout = setTimeout(() => {
         updateRetryTimeout = undefined;
         void runUpdateCheck();
-      }, UPDATE_RETRY_DELAY_MS);
+      }, delay);
       updateRetryTimeout.unref?.();
     };
 

@@ -3027,12 +3027,16 @@ const tests: TestFunction[] = [
         pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
         "utf-8",
       );
+      const installFailureIndex = src.indexOf("global install failed");
       const section = src.slice(
-        src.indexOf("global install failed"),
-        src.indexOf("global install failed") + 400,
+        installFailureIndex,
+        src.indexOf("} else {", installFailureIndex),
       );
       return (
-        section.includes("return;") && !section.includes("suppressVersion")
+        section.includes("scheduleUpdateRetry(") &&
+        section.includes('"transient install failure"') &&
+        section.includes("return;") &&
+        !section.includes("suppressVersion")
       );
     },
   },
