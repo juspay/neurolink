@@ -2,6 +2,7 @@ import type {
   RollingCandidateWorker,
   RollingManagedWorker,
   RollingQueuedSocket,
+  RollingWorkerFailureDetails,
   RollingWorkerHandle,
   RollingWorkerSupervisorOptions,
   RollingWorkerSupervisorSnapshot,
@@ -264,6 +265,7 @@ export class RollingWorkerSupervisor {
       const finish = (
         error?: Error,
         phase: "startup" | "activation" = "startup",
+        details?: RollingWorkerFailureDetails,
       ): void => {
         if (settled) {
           return;
@@ -277,6 +279,7 @@ export class RollingWorkerSupervisor {
               expectedVersion,
               phase,
               error.message,
+              details,
             );
           }
           if (this.candidate?.generation === generation) {
@@ -402,6 +405,12 @@ export class RollingWorkerSupervisor {
             new Error(
               `worker ${handle.pid} exited before readiness (code=${code ?? "none"}, signal=${signal ?? "none"})`,
             ),
+            "startup",
+            {
+              workerPid: handle.pid,
+              workerExitCode: code,
+              workerExitSignal: signal,
+            },
           );
           return;
         }
@@ -414,6 +423,11 @@ export class RollingWorkerSupervisor {
               expectedVersion,
               "runtime",
               `worker exited (code=${code ?? "none"}, signal=${signal ?? "none"})`,
+              {
+                workerPid: handle.pid,
+                workerExitCode: code,
+                workerExitSignal: signal,
+              },
             );
           }
           this.options.log?.(
@@ -520,11 +534,24 @@ export class RollingWorkerSupervisor {
   ): void {
     this.failedTransfers += 1;
     const detail = this.describeTransferError(error);
+    const lifecycle = this.extractLifecycleFailureDetails(
+      error,
+      worker.handle.pid,
+    );
     this.recordFailure(
       worker.generation,
       worker.version,
       "transfer",
       `worker ${worker.handle.pid} failed to accept a transferred socket: ${detail}`,
+      {
+        ...lifecycle.details,
+        // If the error already records an exit, the supervisor did not cause
+        // that exit. Otherwise this captures the deliberate cleanup following
+        // the failed transfer, not a claimed root cause for the failure.
+        supervisorAction: lifecycle.observedExit
+          ? "none"
+          : "sigkill_after_transfer_failure",
+      },
     );
     this.options.log?.(
       `[proxy-supervisor] socket transfer failed generation=${worker.generation} pid=${worker.handle.pid}: ${detail}`,
@@ -555,11 +582,44 @@ export class RollingWorkerSupervisor {
     return code ? `${code}: ${error.message}` : error.message;
   }
 
+  private extractLifecycleFailureDetails(
+    error: unknown,
+    fallbackPid: number,
+  ): { details: RollingWorkerFailureDetails; observedExit: boolean } {
+    const context =
+      error &&
+      typeof error === "object" &&
+      "context" in error &&
+      (error as { context?: unknown }).context &&
+      typeof (error as { context?: unknown }).context === "object"
+        ? ((error as { context: Record<string, unknown> }).context ?? {})
+        : {};
+    const workerPid =
+      typeof context.workerPid === "number" ? context.workerPid : fallbackPid;
+    const hasExitCode =
+      typeof context.exitCode === "number" || context.exitCode === null;
+    const hasExitSignal =
+      typeof context.signal === "string" || context.signal === null;
+    return {
+      details: {
+        workerPid,
+        ...(hasExitCode
+          ? { workerExitCode: context.exitCode as number | null }
+          : {}),
+        ...(hasExitSignal
+          ? { workerExitSignal: context.signal as string | null }
+          : {}),
+      },
+      observedExit: hasExitCode || hasExitSignal,
+    };
+  }
+
   private recordFailure(
     generation: number,
     version: string,
     phase: NonNullable<RollingWorkerSupervisorSnapshot["lastFailure"]>["phase"],
     message: string,
+    details: RollingWorkerFailureDetails = {},
   ): void {
     this.lastFailure = {
       at: new Date().toISOString(),
@@ -567,6 +627,7 @@ export class RollingWorkerSupervisor {
       version,
       phase,
       message: message.slice(0, 1_000),
+      ...details,
     };
   }
 

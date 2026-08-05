@@ -991,6 +991,10 @@ export type ProxyRollingState = {
     version: string;
     phase: "startup" | "activation" | "runtime" | "transfer";
     message: string;
+    workerPid?: number;
+    workerExitCode?: number | null;
+    workerExitSignal?: string | null;
+    supervisorAction?: "none" | "sigkill_after_transfer_failure";
   } | null;
 };
 

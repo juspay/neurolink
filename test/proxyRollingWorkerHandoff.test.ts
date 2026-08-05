@@ -146,9 +146,9 @@ class FakeWorker implements RollingWorkerHandle {
     }
   }
 
-  failPendingSockets(message: string): void {
+  failPendingSockets(error: string | Error): void {
     for (const callback of this.pendingSocketCallbacks.splice(0)) {
-      callback(new Error(message));
+      callback(typeof error === "string" ? new Error(error) : error);
     }
   }
 
@@ -574,6 +574,8 @@ describe("rolling proxy worker supervisor", () => {
       lastFailure: {
         phase: "transfer",
         message: expect.stringContaining("worker IPC failed"),
+        workerPid: 475,
+        supervisorAction: "sigkill_after_transfer_failure",
       },
     });
     expect(workers[0].terminated).toContain("SIGKILL");
@@ -592,6 +594,37 @@ describe("rolling proxy worker supervisor", () => {
         phase: "transfer",
         message: expect.stringContaining("worker IPC failed"),
       },
+    });
+    void supervisor.close();
+  });
+
+  it("records an already-observed worker exit separately from cleanup", async () => {
+    const worker = new FakeWorker(480);
+    const supervisor = new RollingWorkerSupervisor({
+      spawnWorker: () => worker,
+    });
+    const initial = supervisor.start("9.93.1");
+    worker.ready(1, "9.93.1");
+    await initial;
+    worker.deferSocketCallbacks = true;
+    supervisor.acceptSocket(new FakeSocket());
+
+    worker.failPendingSockets(
+      Object.assign(new Error("worker exited before transfer commit"), {
+        context: {
+          workerPid: 480,
+          exitCode: null,
+          signal: "SIGKILL",
+        },
+      }),
+    );
+
+    expect(supervisor.snapshot().lastFailure).toMatchObject({
+      phase: "transfer",
+      workerPid: 480,
+      workerExitCode: null,
+      workerExitSignal: "SIGKILL",
+      supervisorAction: "none",
     });
     void supervisor.close();
   });

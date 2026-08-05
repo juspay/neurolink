@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   describeInstallFailure,
   getGlobalInstallArgs,
+  isTransientInstallFailure,
   resolveGlobalInstaller,
   validateInstalledVersion,
 } from "../src/lib/proxy/globalInstaller.js";
@@ -743,6 +744,28 @@ describe("global installer resolution", () => {
     expect(describeInstallFailure(error)).toContain("stderr: secondary detail");
   });
 
+  it("retries transient installer failures but not permission failures", () => {
+    expect(
+      isTransientInstallFailure(
+        Object.assign(new Error("npm timed out"), { code: "ETIMEDOUT" }),
+      ),
+    ).toBe(true);
+    expect(
+      isTransientInstallFailure(
+        new TypeError("fetch failed", {
+          cause: Object.assign(new Error("DNS unavailable"), {
+            code: "EAI_AGAIN",
+          }),
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isTransientInstallFailure(
+        Object.assign(new Error("permission denied"), { code: "EACCES" }),
+      ),
+    ).toBe(false);
+  });
+
   it("retries transient post-install trampoline failures", async () => {
     const execFileSync = vi
       .fn()
@@ -1085,7 +1108,7 @@ describe("fallback transport handling", () => {
     );
   });
 
-  it("times out and retries a fallback stream that never yields", async () => {
+  it("does not replay an ambiguous fallback stream that never yields", async () => {
     vi.useFakeTimers();
     const cancel = vi.fn().mockResolvedValue(undefined);
     const abortSignals: AbortSignal[] = [];
@@ -1121,9 +1144,9 @@ describe("fallback transport handling", () => {
 
     await vi.runAllTimersAsync();
     await rejection;
-    expect(stream).toHaveBeenCalledTimes(2);
-    expect(cancel).toHaveBeenCalledTimes(2);
-    expect(abortSignals).toHaveLength(2);
+    expect(stream).toHaveBeenCalledOnce();
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(abortSignals).toHaveLength(1);
     expect(abortSignals.every((signal) => signal.aborted)).toBe(true);
   });
 });
