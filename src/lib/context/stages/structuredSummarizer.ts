@@ -15,6 +15,7 @@ import type {
 import { generateSummary } from "../../utils/conversationMemory.js";
 import { estimateTokens } from "../../utils/tokenEstimation.js";
 import { logger } from "../../utils/logger.js";
+import { snapSplitToBatchBoundary } from "../toolPairRepair.js";
 
 /**
  * Find the split index using token counting — walk backward from the end,
@@ -52,8 +53,10 @@ function findSplitIndexByTokens(
     recentTokens += msgTokens;
   }
 
-  // Ensure at least one message is summarized
-  return Math.max(1, splitIndex);
+  // Ensure at least one message is summarized, then snap off any tool batch
+  // the boundary would otherwise cut in half — a summary that starts the
+  // recent window on an orphaned tool_result is rejected by the provider.
+  return snapSplitToBatchBoundary(messages, Math.max(1, splitIndex));
 }
 
 export async function summarizeMessages(
@@ -92,7 +95,19 @@ export async function summarizeMessages(
   // Clamp so at least the last message is always preserved (never summarize everything)
   splitIndex = Math.min(splitIndex, messages.length - 1);
 
-  if (splitIndex <= 0) {
+  // Re-snap AFTER the clamp: the clamp can pull the boundary back into a tool
+  // batch that findSplitIndexByTokens had already cleared, and it is also the
+  // only guard covering the legacy message-count branch above.
+  splitIndex = snapSplitToBatchBoundary(messages, splitIndex);
+
+  // A boundary that still cuts a batch means no legal split exists (e.g. the
+  // whole array is one tool batch). Summarizing anyway would hand the provider
+  // an orphaned tool_result, so decline and let a later stage reclaim instead.
+  if (
+    splitIndex <= 0 ||
+    splitIndex >= messages.length ||
+    splitIndex !== snapSplitToBatchBoundary(messages, splitIndex)
+  ) {
     return { summarized: false, messages };
   }
 
