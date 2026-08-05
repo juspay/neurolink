@@ -853,14 +853,24 @@ function isMetadataLine(lines: string[]): boolean {
   }
 
   if (secondCommaCount > 0 && firstCommaCount !== secondCommaCount) {
-    // A delimiter-only / all-empty second line (e.g. `,,`) is a blank data
-    // row, not a metadata preamble. Treating it as metadata drops the real
-    // header and promotes the blank line to header — which then bypasses
-    // raw skipEmptyLines filtering (#373 review).
-    if (isDelimiterOnlyOrBlankLine(secondLine)) {
-      return false;
-    }
+  if (firstLine.match(/^sep=/i)) {
     return true;
+  }
+
+  if (isDelimiterOnlyOrBlankLine(secondLine)) {
+    return false;
+  }
+
+  const firstCommaCount = countUnquotedCommas(firstLine);
+  const secondCommaCount = countUnquotedCommas(secondLine);
+
+  if (firstCommaCount === 0 && secondCommaCount > 0) {
+    return true;
+  }
+
+  if (secondCommaCount > 0 && firstCommaCount !== secondCommaCount) {
+    return true;
+  }
   }
 
   return false;
