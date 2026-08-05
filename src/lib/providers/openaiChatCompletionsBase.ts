@@ -20,10 +20,12 @@
 
 import type { AIProviderName } from "../constants/enums.js";
 import {
+  getAvailableInputTokens,
   getRuntimeContextWindow,
   getRuntimeOutputCeiling,
   registerRuntimeContextWindow,
 } from "../constants/contextWindows.js";
+import { guardOpenAICompatConversation } from "../context/openaiCompatLoopGuard.js";
 import {
   isContextOverflowError,
   parseProviderOverflowDetails,
@@ -1092,6 +1094,12 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       // May grow mid-turn: hydrated tools with wire-unsafe names need
       // reverse-mapping even when the initial name set required none.
       let effectiveToolNameFromWire = toolNameFromWire;
+      // The provider's REAL prompt-token count for the previous step, used to
+      // calibrate the guard's char-based estimate for free, paired with the
+      // guard's own estimate for that same request — a ratio between counts of
+      // two different payloads would be meaningless.
+      let lastObservedPromptTokens: number | undefined;
+      let lastSentEstimate: number | undefined;
 
       for (let step = 0; step < maxSteps; step++) {
         // Mid-turn discovery sync: search_tools (tools.discovery) hydrates
@@ -1132,6 +1140,44 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             );
           }
         }
+        // In-turn context guard. This loop appends an assistant tool-call
+        // message plus one tool message per result on every step — growth the
+        // pre-dispatch budget check never sees. Without this, a long agentic
+        // run walks into a provider "context length exceeded" and loses every
+        // completed step. Shares its reclaim policy with the other provider
+        // loops via loopGuardCore; returns undefined (leaving `conversation`
+        // byte-identical) whenever the request still fits, so a loop that fits
+        // never pays a prompt-cache invalidation.
+        const guarded = guardOpenAICompatConversation({
+          conversation,
+          availableInputTokens: getAvailableInputTokens(
+            this.providerName,
+            modelId,
+            options.maxTokens ?? undefined,
+          ),
+          // Tool definitions ride outside the message array. Passing an empty
+          // message list yields the tools-only overhead, and reuses the same
+          // estimator the wire path already trusts.
+          fixedOverheadTokens: estimateWireTokens(
+            [],
+            openAITools,
+            this.providerName,
+          ),
+          provider: this.providerName,
+          observedPromptTokens: lastObservedPromptTokens,
+          // Both halves of the calibration ratio must describe the same
+          // request: the tokens the provider reported, and this guard's own
+          // estimate for what was sent to earn them.
+          previousSentEstimate: lastSentEstimate,
+          onSentEstimate: (tokens) => {
+            lastSentEstimate = tokens;
+          },
+        });
+        if (guarded) {
+          conversation.length = 0;
+          conversation.push(...guarded);
+        }
+
         const stepResult = await this.streamOneStep({
           modelId,
           url,
@@ -1143,6 +1189,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           openAIToolChoice,
           pushChunk,
         });
+        lastObservedPromptTokens = stepResult.usage?.prompt_tokens;
         stepFinish = stepResult.finishReason;
         if (stepResult.usage) {
           stepUsage = mergeUsage(stepUsage, stepResult.usage);
