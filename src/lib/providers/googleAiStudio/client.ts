@@ -45,6 +45,12 @@ import {
 import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
 import {
+  GEMINI_ELISION_NOTE,
+  planGeminiLoopReclaim,
+  previewGeminiToolResponseText,
+} from "../../context/geminiLoopGuard.js";
+import { getAvailableInputTokens } from "../../constants/contextWindows.js";
+import {
   composeAbortSignals,
   createTimeoutController,
   TimeoutError,
@@ -133,6 +139,86 @@ async function createGoogleGenAIClient(apiKey: string): Promise<GenAIClient> {
  * @note "Too many states for serving" errors can occur with complex schemas + tools.
  *       Solution: Simplify schema or use disableTools: true
  */
+
+/**
+ * Reclaim context from an AI Studio loop history IN PLACE.
+ *
+ * This loop had NO in-turn guard at all — it appended a model turn plus a tool
+ * turn every step with nothing bounding growth, so a long agentic run walked
+ * into a provider "context length exceeded" and lost every completed step.
+ * Shares its reclaim policy with the other provider loops via loopGuardCore.
+ *
+ * Returns true when something was reclaimed.
+ */
+function reclaimAiStudioContext(
+  contents: Array<{ role: string; parts: unknown[] }>,
+  modelName: string,
+): boolean {
+  const plan = planGeminiLoopReclaim({
+    contents,
+    availableInputTokens: getAvailableInputTokens("googleAiStudio", modelName),
+    provider: "googleAiStudio",
+  });
+  if (!plan) {
+    return false;
+  }
+  const dropSet = new Set(plan.drop);
+  const truncateSet = new Set(plan.truncate);
+  const rebuilt: Array<{ role: string; parts: unknown[] }> = [];
+  for (let i = 0; i < contents.length; i++) {
+    if (dropSet.has(i)) {
+      continue;
+    }
+    const content = contents[i];
+    if (truncateSet.has(i) && Array.isArray(content.parts)) {
+      rebuilt.push({
+        ...content,
+        parts: content.parts.map((part) => {
+          const record = part as {
+            functionResponse?: { name?: string; response?: unknown };
+          };
+          if (!record.functionResponse) {
+            return part;
+          }
+          const text = JSON.stringify(record.functionResponse.response) ?? "";
+          if (text.length <= 2048) {
+            return part;
+          }
+          return {
+            functionResponse: {
+              name: record.functionResponse.name,
+              response: { result: previewGeminiToolResponseText(text) },
+            },
+          };
+        }),
+      });
+      continue;
+    }
+    rebuilt.push(content);
+  }
+  if (dropSet.size > 0) {
+    let noteIndex = rebuilt.findIndex(
+      (c) =>
+        Array.isArray(c.parts) &&
+        c.parts.some(
+          (part) =>
+            !!(part as { functionCall?: unknown }).functionCall ||
+            !!(part as { functionResponse?: unknown }).functionResponse,
+        ),
+    );
+    if (noteIndex < 0) {
+      noteIndex = Math.min(1, rebuilt.length);
+    }
+    rebuilt.splice(noteIndex, 0, {
+      role: "user",
+      parts: [{ text: GEMINI_ELISION_NOTE }],
+    });
+  }
+  contents.length = 0;
+  contents.push(...rebuilt);
+  return true;
+}
+
 export class GoogleAIStudioProvider extends BaseProvider {
   private credentials?: { apiKey?: string };
 
@@ -846,6 +932,11 @@ export class GoogleAIStudioProvider extends BaseProvider {
             try {
               // Agentic loop for tool calling
               while (step < maxSteps) {
+                // In-turn context guard: this loop appends a model turn plus a
+                // tool turn every step with nothing bounding growth. No-op
+                // while the request still fits, so a loop that fits never pays
+                // a cache invalidation.
+                reclaimAiStudioContext(currentContents, modelName);
                 if (composedSignal?.aborted) {
                   throw composedSignal.reason instanceof Error
                     ? composedSignal.reason
@@ -1255,6 +1346,8 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
           // Agentic loop for tool calling
           while (step < maxSteps) {
+            // In-turn context guard — see the stream twin.
+            reclaimAiStudioContext(currentContents, modelName);
             if (composedSignal?.aborted) {
               throw composedSignal.reason instanceof Error
                 ? composedSignal.reason

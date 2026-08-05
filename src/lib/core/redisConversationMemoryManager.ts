@@ -952,6 +952,23 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
   }
 
   /**
+   * True only for keys holding a conversation BLOB — the sole key type these
+   * scan-then-GET paths may read.
+   *
+   * `${keyPrefix}*` also matches the companion message LISTs and, when a
+   * custom key prefix does not end in `conversation:`, the user-index SETs
+   * (whose derived prefix then collapses onto `keyPrefix`). `GET` against
+   * either raises WRONGTYPE, and counting them would inflate session totals.
+   */
+  private isConversationBlobKey(key: string): boolean {
+    return (
+      !isSessionMessagesKey(key) &&
+      !key.endsWith(":sessions") &&
+      !key.startsWith(this.redisConfig.userSessionsKeyPrefix)
+    );
+  }
+
+  /**
    * Hydrate a deserialized blob's messages from the companion LIST when the
    * session uses split storage. Legacy blobs (messages inline) pass through
    * untouched — that is what makes the migration backward compatible.
@@ -1717,7 +1734,7 @@ User message: "${userMessage}"`;
     // returns them too. GET on a LIST raises WRONGTYPE, and counting them as
     // sessions would double `totalSessions` — filter them out exactly as the
     // session listing already skips `:sessions` index keys.
-    const sessionKeys = keys.filter((key) => !isSessionMessagesKey(key));
+    const sessionKeys = keys.filter((key) => this.isConversationBlobKey(key));
 
     // Count messages in each session
     let totalTurns = 0;
@@ -2005,7 +2022,7 @@ User message: "${userMessage}"`;
       for (const key of keys) {
         // Skip user session index keys (they end with :sessions) and the
         // companion message LISTs — GET on a LIST raises WRONGTYPE.
-        if (key.endsWith(":sessions") || isSessionMessagesKey(key)) {
+        if (!this.isConversationBlobKey(key)) {
           continue;
         }
         const raw = await this.redisClient.get(key);
