@@ -46,6 +46,7 @@ import {
   recordFinalSuccess,
   resetUsageStatsForTests,
 } from "../src/lib/proxy/usageStats.js";
+import * as usageStats from "../src/lib/proxy/usageStats.js";
 
 const tempDirs: string[] = [];
 
@@ -393,6 +394,35 @@ describe("proxy runtime error finalization", () => {
         }),
       ]),
     );
+  });
+
+  it("returns a marked memory snapshot when shared stats reconciliation hangs", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(usageStats, "getReconciledUsageSnapshot").mockReturnValue(
+      new Promise(() => undefined),
+    );
+    vi.mocked(tokenStore.listByPrefix).mockResolvedValue([]);
+    vi.mocked(tokenStore.listDisabled).mockResolvedValue([]);
+
+    const { app } = await createProxyStartApp({
+      neurolink: { getToolRegistry: () => ({}) } as never,
+      modelRouter: undefined,
+      strategy: "fill-first",
+      passthrough: false,
+      port: 55123,
+      host: "127.0.0.1",
+      proxyConfig: null,
+      primaryAccountKey: undefined,
+      accountAllowlist: undefined,
+    });
+    const responsePromise = app.request("/status");
+
+    await vi.advanceTimersByTimeAsync(750);
+    const response = await responsePromise;
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.stats.snapshotSource).toBe("memory");
   });
 
   it("sanitizes terminal error messages before printing status", () => {

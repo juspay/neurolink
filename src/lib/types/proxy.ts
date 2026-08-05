@@ -1492,6 +1492,8 @@ export type ProxyLifecycleLoggerSnapshot = {
   invalidDrops: number;
   writeDrops: number;
   writeFailures: number;
+  /** Events requeued after a transient lifecycle metadata write failure. */
+  writeRetries: number;
   pending: number;
   inFlight: number;
   flushing: boolean;
@@ -1504,6 +1506,8 @@ export type ProxyLifecycleLoggerOptions = {
   queueCapacity?: number;
   batchSize?: number;
   flushIntervalMs?: number;
+  /** Bounded retries for a metadata batch that cannot be appended immediately. */
+  maxWriteRetries?: number;
 };
 
 /** Serialized lifecycle line awaiting a bounded batch write. */
@@ -1511,6 +1515,7 @@ export type QueuedProxyLifecycleEvent = {
   logDir: string;
   date: string;
   record: Record<string, unknown>;
+  writeRetries: number;
 };
 
 /** Percentile summary used by offline proxy log analysis. */
@@ -2559,6 +2564,8 @@ export type StatusStats = {
   terminalErrorDetailsComparable?: boolean;
   terminalErrorDetailsMissing?: number;
   terminalErrorDetailsExcess?: number;
+  /** Whether this status response reconciled shared state or used local memory. */
+  snapshotSource?: "reconciled" | "memory";
   accounts?: {
     label: string;
     type: string;

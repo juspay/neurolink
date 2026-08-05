@@ -213,6 +213,7 @@ try {
           invalidDrops: afterFlush.invalidDrops,
           writeDrops: afterFlush.writeDrops,
           writeFailures: afterFlush.writeFailures,
+          writeRetries: afterFlush.writeRetries,
           pending: afterFlush.pending,
           inFlight: afterFlush.inFlight,
         },

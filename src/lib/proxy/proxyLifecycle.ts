@@ -16,6 +16,8 @@ const SCHEMA_VERSION = 1;
 const DEFAULT_QUEUE_CAPACITY = 10_000;
 const DEFAULT_BATCH_SIZE = 256;
 const DEFAULT_FLUSH_INTERVAL_MS = 25;
+const DEFAULT_MAX_WRITE_RETRIES = 3;
+const MAX_WRITE_RETRY_DELAY_MS = 1_000;
 const LIFECYCLE_APPEND_TIMEOUT_MS = 2_000;
 const MAX_SHORT_FIELD_LENGTH = 256;
 const SESSION_KEY_FILE = ".proxy-lifecycle-session-key";
@@ -25,6 +27,7 @@ let lifecycleLogDir: string | undefined;
 let queueCapacity = DEFAULT_QUEUE_CAPACITY;
 let batchSize = DEFAULT_BATCH_SIZE;
 let flushIntervalMs = DEFAULT_FLUSH_INTERVAL_MS;
+let maxWriteRetries = DEFAULT_MAX_WRITE_RETRIES;
 let processInstanceId = randomUUID();
 let sessionHashKey: Buffer = randomBytes(32);
 let nextSequence = 1;
@@ -36,10 +39,13 @@ let queueDrops = 0;
 let invalidDrops = 0;
 let writeDrops = 0;
 let writeFailures = 0;
+let writeRetries = 0;
 let inFlight = 0;
 let queue: QueuedProxyLifecycleEvent[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
 let flushInFlight: Promise<void> | undefined;
+let nextFlushDelayMs: number | undefined;
+let appendLifecycleFile: typeof appendFile = appendFile;
 
 function positiveInteger(value: number | undefined, fallback: number): number {
   return Number.isInteger(value) && (value ?? 0) > 0
@@ -144,7 +150,7 @@ function clearScheduledFlush(): void {
   }
 }
 
-function scheduleFlush(): void {
+function scheduleFlush(delayMs: number = flushIntervalMs): void {
   if (flushTimer || flushInFlight || queue.length === 0) {
     return;
   }
@@ -152,7 +158,7 @@ function scheduleFlush(): void {
   flushTimer = setTimeout(() => {
     flushTimer = undefined;
     void startFlush();
-  }, flushIntervalMs);
+  }, delayMs);
   flushTimer.unref?.();
 }
 
@@ -164,33 +170,70 @@ async function flushBatch(): Promise<void> {
   const batch = queue.splice(0, batchSize);
   inFlight += batch.length;
   try {
-    const byPath = new Map<string, string[]>();
+    const byPath = new Map<string, QueuedProxyLifecycleEvent[]>();
     for (const item of batch) {
       const path = join(item.logDir, `proxy-lifecycle-${item.date}.jsonl`);
-      const lines = byPath.get(path) ?? [];
-      lines.push(`${JSON.stringify(item.record)}\n`);
-      byPath.set(path, lines);
+      const items = byPath.get(path) ?? [];
+      items.push(item);
+      byPath.set(path, items);
     }
 
-    for (const [path, lines] of byPath) {
+    const retries: QueuedProxyLifecycleEvent[] = [];
+    let retryDelayMs = 0;
+    for (const [path, items] of byPath) {
+      const lines = items.map((item) => `${JSON.stringify(item.record)}\n`);
       try {
         // This best-effort telemetry sink intentionally avoids fsync so request
         // throughput is not coupled to storage latency. Loss is surfaced by
         // writeDrops/writeFailures rather than delaying proxy responses.
         await withTimeout(
-          appendFile(path, lines.join(""), { mode: 0o600 }),
+          appendLifecycleFile(path, lines.join(""), { mode: 0o600 }),
           LIFECYCLE_APPEND_TIMEOUT_MS,
           "Timed out writing proxy lifecycle metadata",
         );
         written += lines.length;
       } catch (error) {
-        dropped += lines.length;
-        writeDrops += lines.length;
         writeFailures += 1;
+        const retryable = items.filter(
+          (item) => item.writeRetries < maxWriteRetries,
+        );
+        const exhausted = items.length - retryable.length;
+        if (retryable.length > 0) {
+          const nextRetries = retryable.map((item) => ({
+            ...item,
+            writeRetries: item.writeRetries + 1,
+          }));
+          retries.push(...nextRetries);
+          writeRetries += nextRetries.length;
+          retryDelayMs = Math.max(
+            retryDelayMs,
+            Math.min(
+              MAX_WRITE_RETRY_DELAY_MS,
+              flushIntervalMs *
+                2 ** Math.max(...nextRetries.map((item) => item.writeRetries)),
+            ),
+          );
+        }
+        if (exhausted > 0) {
+          dropped += exhausted;
+          writeDrops += exhausted;
+        }
         logger.warn("[proxy] lifecycle metadata write failed", {
+          path,
+          retrying: retryable.length,
+          dropped: exhausted,
           error: error instanceof Error ? error.message : String(error),
         });
       }
+    }
+    if (retries.length > 0) {
+      // Keep retried records ahead of newly admitted records. This preserves
+      // per-file sequence order while continuing to keep request paths async.
+      queue.unshift(...retries);
+      nextFlushDelayMs = Math.max(
+        nextFlushDelayMs ?? 0,
+        retryDelayMs || flushIntervalMs,
+      );
     }
   } finally {
     inFlight = Math.max(0, inFlight - batch.length);
@@ -209,13 +252,17 @@ function startFlush(): Promise<void> {
       if (flushInFlight === currentFlush) {
         flushInFlight = undefined;
       }
-      scheduleFlush();
+      const delayMs = nextFlushDelayMs;
+      nextFlushDelayMs = undefined;
+      scheduleFlush(delayMs);
     },
     () => {
       if (flushInFlight === currentFlush) {
         flushInFlight = undefined;
       }
-      scheduleFlush();
+      const delayMs = nextFlushDelayMs;
+      nextFlushDelayMs = undefined;
+      scheduleFlush(delayMs);
     },
   );
   return currentFlush;
@@ -225,6 +272,7 @@ export function configureProxyLifecycleLogger(
   options: ProxyLifecycleLoggerOptions,
 ): void {
   clearScheduledFlush();
+  nextFlushDelayMs = undefined;
   loggerEnabled = false;
   lifecycleLogDir = undefined;
   queueCapacity = positiveInteger(
@@ -232,6 +280,10 @@ export function configureProxyLifecycleLogger(
     DEFAULT_QUEUE_CAPACITY,
   );
   batchSize = positiveInteger(options.batchSize, DEFAULT_BATCH_SIZE);
+  maxWriteRetries = positiveInteger(
+    options.maxWriteRetries,
+    DEFAULT_MAX_WRITE_RETRIES,
+  );
   flushIntervalMs = positiveInteger(
     options.flushIntervalMs,
     DEFAULT_FLUSH_INTERVAL_MS,
@@ -315,6 +367,7 @@ export function logProxyLifecycleEvent(input: ProxyLifecycleEventInput): void {
       logDir: lifecycleLogDir,
       date: String(record.timestamp).slice(0, 10),
       record,
+      writeRetries: 0,
     });
     enqueued += 1;
     scheduleFlush();
@@ -350,6 +403,7 @@ export function getProxyLifecycleLoggerSnapshot(): ProxyLifecycleLoggerSnapshot 
     invalidDrops,
     writeDrops,
     writeFailures,
+    writeRetries,
     pending: queue.length,
     inFlight,
     flushing: flushInFlight !== undefined,
@@ -363,6 +417,7 @@ export function resetProxyLifecycleLoggerForTests(): void {
   queueCapacity = DEFAULT_QUEUE_CAPACITY;
   batchSize = DEFAULT_BATCH_SIZE;
   flushIntervalMs = DEFAULT_FLUSH_INTERVAL_MS;
+  maxWriteRetries = DEFAULT_MAX_WRITE_RETRIES;
   processInstanceId = randomUUID();
   sessionHashKey = randomBytes(32);
   nextSequence = 1;
@@ -374,7 +429,17 @@ export function resetProxyLifecycleLoggerForTests(): void {
   invalidDrops = 0;
   writeDrops = 0;
   writeFailures = 0;
+  writeRetries = 0;
   inFlight = 0;
   queue = [];
   flushInFlight = undefined;
+  nextFlushDelayMs = undefined;
+  appendLifecycleFile = appendFile;
 }
+
+/** Isolated failure injection for lifecycle durability tests. */
+export const __proxyLifecycleTestHooks = {
+  setAppendFileForTests(append: typeof appendFile): void {
+    appendLifecycleFile = append;
+  },
+};

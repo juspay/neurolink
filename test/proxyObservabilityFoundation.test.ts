@@ -1,4 +1,5 @@
 import {
+  appendFile,
   mkdir,
   mkdtemp,
   readFile,
@@ -21,6 +22,7 @@ import {
 } from "../src/lib/proxy/proxyActivity.js";
 import {
   configureProxyLifecycleLogger,
+  __proxyLifecycleTestHooks,
   flushProxyLifecycleEvents,
   getProxyLifecycleLoggerSnapshot,
   hashProxyLifecycleSessionId,
@@ -537,6 +539,7 @@ describe("bounded proxy lifecycle metadata", () => {
       enabled: true,
       logDir,
       flushIntervalMs: 60_000,
+      maxWriteRetries: 1,
     });
     await rm(logDir, { recursive: true, force: true });
     logProxyLifecycleEvent({
@@ -558,7 +561,8 @@ describe("bounded proxy lifecycle metadata", () => {
       queueDrops: 0,
       invalidDrops: 0,
       writeDrops: 1,
-      writeFailures: 1,
+      writeFailures: 2,
+      writeRetries: 1,
       pending: 0,
       inFlight: 0,
     });
@@ -568,6 +572,55 @@ describe("bounded proxy lifecycle metadata", () => {
         snapshot.pending +
         snapshot.inFlight,
     );
+  });
+
+  it("recovers lifecycle metadata after one transient append failure", async () => {
+    const logDir = await makeTempDir();
+    let appendCalls = 0;
+    __proxyLifecycleTestHooks.setAppendFileForTests(
+      async (path, data, options) => {
+        appendCalls += 1;
+        if (appendCalls === 1) {
+          throw new Error("transient lifecycle storage failure");
+        }
+        await appendFile(path, data, options);
+      },
+    );
+    configureProxyLifecycleLogger({
+      enabled: true,
+      logDir,
+      flushIntervalMs: 60_000,
+      maxWriteRetries: 2,
+    });
+    logProxyLifecycleEvent({
+      event: "request_terminal",
+      requestId: "retry-after-transient-failure",
+      method: "POST",
+      path: "/v1/messages",
+      responseStatus: 200,
+      terminalOutcome: "completed",
+      timestampMs: Date.parse("2026-07-17T03:30:00.000Z"),
+    });
+
+    await flushProxyLifecycleEvents();
+
+    expect(appendCalls).toBe(2);
+    await expect(
+      readJsonLines(join(logDir, "proxy-lifecycle-2026-07-17.jsonl")),
+    ).resolves.toMatchObject([
+      { requestId: "retry-after-transient-failure", sequence: 1 },
+    ]);
+    expect(getProxyLifecycleLoggerSnapshot()).toMatchObject({
+      attempted: 1,
+      enqueued: 1,
+      written: 1,
+      dropped: 0,
+      writeDrops: 0,
+      writeFailures: 1,
+      writeRetries: 1,
+      pending: 0,
+      inFlight: 0,
+    });
   });
 
   it("disables lifecycle logging when its directory cannot be created", async () => {
