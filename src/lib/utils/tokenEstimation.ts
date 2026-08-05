@@ -44,6 +44,13 @@ export const TOKENS_PER_CONVERSATION = 24;
 export const IMAGE_TOKEN_ESTIMATE = 1_024;
 
 /**
+ * Chars charged for a value that cannot be serialized for estimation (V8 max
+ * string length). Deliberately large: such a value is enormous by definition,
+ * and under-charging it would defeat the budget check it feeds.
+ */
+const OVERSIZED_VALUE_FALLBACK_CHARS = 200_000;
+
+/**
  * Per-provider token multipliers.
  * Applied on top of the base GPT-style character estimate.
  */
@@ -101,8 +108,38 @@ export function estimateTokens(
 }
 
 /**
+ * Serialize an arbitrary value for estimation. Never throws: `JSON.stringify`
+ * raises RangeError once a value exceeds V8's max string length, and a tool
+ * argument blob is exactly the shape that gets there. A payload that large is
+ * charged at the fallback size rather than aborting the estimate (and with it
+ * the whole turn).
+ */
+function serializeForEstimate(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  try {
+    return JSON.stringify(value) ?? "";
+  } catch {
+    return "x".repeat(OVERSIZED_VALUE_FALLBACK_CHARS);
+  }
+}
+
+/**
  * Estimate token count for a single ChatMessage.
  * Includes message framing overhead.
+ *
+ * Counts `content` AND `args`. A `tool_call` is persisted with an EMPTY
+ * `content` and its entire payload in `args` (see flushPendingToolExecutions),
+ * so a content-only estimate scored a 39 KB Write call at ~28 tokens against a
+ * real cost near 9,750 — the budget checker, the compaction trigger and the
+ * summarization threshold were all blind to the single largest source of
+ * context growth in an agentic session.
+ *
+ * `result` is deliberately NOT counted: `result.result` is re-hydrated FROM
+ * `content` at read time (redisConversationMemoryManager), so counting both
+ * double-bills the same bytes. Only `result.error`, which has no counterpart in
+ * `content`, is included.
  */
 export function estimateMessageTokens(
   message: ChatMessage | { role: string; content: unknown },
@@ -121,8 +158,19 @@ export function estimateMessageTokens(
       }
     }
   }
-  const contentTokens = estimateTokens(contentStr, provider);
-  return contentTokens + TOKENS_PER_MESSAGE;
+  let total = estimateTokens(contentStr, provider) + TOKENS_PER_MESSAGE;
+
+  const args = (message as ChatMessage).args;
+  if (args) {
+    total += estimateTokens(serializeForEstimate(args), provider);
+  }
+
+  const resultError = (message as ChatMessage).result?.error;
+  if (resultError) {
+    total += estimateTokens(serializeForEstimate(resultError), provider);
+  }
+
+  return total;
 }
 
 /**
