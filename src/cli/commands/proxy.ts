@@ -923,8 +923,9 @@ async function getRollingActivationFailure(
       failure.workerExitCode === null
         ? `exitCode=${failure.workerExitCode ?? "none"}`
         : null,
-      typeof failure.workerExitSignal === "string"
-        ? `exitSignal=${failure.workerExitSignal}`
+      typeof failure.workerExitSignal === "string" ||
+      failure.workerExitSignal === null
+        ? `exitSignal=${failure.workerExitSignal ?? "none"}`
         : null,
       typeof failure.supervisorAction === "string"
         ? `supervisorAction=${failure.supervisorAction}`

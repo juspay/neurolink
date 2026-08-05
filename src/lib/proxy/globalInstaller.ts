@@ -195,18 +195,30 @@ const TRANSIENT_INSTALL_FAILURE_CODES = new Set([
   "EPIPE",
   "ETIMEDOUT",
 ]);
+const MAX_INSTALL_FAILURE_CAUSE_DEPTH = 10;
 
 /**
  * Return whether a global package-manager failure is likely environmental and
  * worth retrying. Configuration and permission failures deliberately return
  * false so the updater does not repeatedly mutate a broken installation.
+ *
+ * @param error - The package-manager error, including any nested `cause` chain.
  */
 export function isTransientInstallFailure(error: unknown): boolean {
   let current: unknown = error;
-  for (let depth = 0; depth < 5 && current; depth++) {
+  const seen = new Set<object>();
+  for (
+    let depth = 0;
+    depth < MAX_INSTALL_FAILURE_CAUSE_DEPTH && current;
+    depth++
+  ) {
     if (typeof current !== "object") {
       return false;
     }
+    if (seen.has(current)) {
+      return false;
+    }
+    seen.add(current);
     const candidate = current as {
       code?: unknown;
       cause?: unknown;

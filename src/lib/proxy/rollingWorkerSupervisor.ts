@@ -559,10 +559,12 @@ export class RollingWorkerSupervisor {
     if (this.active?.generation === worker.generation && !this.closed) {
       this.active = null;
       this.draining.set(worker.generation, worker);
-      // The child may own a duplicate of an incompletely transferred socket.
-      // SIGKILL closes its descriptor without worker-side shutdown(2), after
-      // which the parent rejects its copy rather than attempting unsafe replay.
-      worker.handle.terminate("SIGKILL");
+      if (!lifecycle.observedExit) {
+        // The child may own a duplicate of an incompletely transferred socket.
+        // SIGKILL closes its descriptor without worker-side shutdown(2), after
+        // which the parent rejects its copy rather than attempting unsafe replay.
+        worker.handle.terminate("SIGKILL");
+      }
       this.publishState();
     }
     this.rejectSocket(socket);

@@ -15,6 +15,7 @@ import {
   buildProxyTranslationPlan,
   parseRetryAfterMs,
 } from "../src/lib/proxy/routingPolicy.js";
+import { isTransientInstallFailure } from "../src/lib/proxy/globalInstaller.js";
 import { __testHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
 
 import {
@@ -3028,15 +3029,61 @@ const tests: TestFunction[] = [
         "utf-8",
       );
       const installFailureIndex = src.indexOf("global install failed");
-      const section = src.slice(
-        installFailureIndex,
-        src.indexOf("} else {", installFailureIndex),
-      );
+      const installFailureEnd = src.indexOf("} else {", installFailureIndex);
+      if (installFailureIndex < 0 || installFailureEnd < 0) {
+        return false;
+      }
+      const section = src.slice(installFailureIndex, installFailureEnd);
       return (
         section.includes("scheduleUpdateRetry(") &&
         section.includes('"transient install failure"') &&
         section.includes("return;") &&
         !section.includes("suppressVersion")
+      );
+    },
+  },
+  {
+    name: "updater: transient install classification retries network errors only",
+    category: "launchd-regression",
+    fn: () =>
+      isTransientInstallFailure(
+        Object.assign(new Error("npm timed out"), { code: "ETIMEDOUT" }),
+      ) &&
+      isTransientInstallFailure(
+        new TypeError("fetch failed", {
+          cause: Object.assign(new Error("DNS unavailable"), {
+            code: "EAI_AGAIN",
+          }),
+        }),
+      ) &&
+      !isTransientInstallFailure(
+        Object.assign(new Error("permission denied"), { code: "EACCES" }),
+      ),
+  },
+  {
+    name: "updater: transient install retry budget remains bounded",
+    category: "launchd-regression",
+    fn: async () => {
+      const { readFileSync } = await import("fs");
+      const { join: pathJoin } = await import("path");
+      const src = readFileSync(
+        pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
+        "utf-8",
+      );
+      const retryStart = src.indexOf("const scheduleUpdateRetry");
+      const retryEnd = src.indexOf(
+        "// Run first check after a short delay",
+        retryStart,
+      );
+      if (retryStart < 0 || retryEnd < 0) {
+        return false;
+      }
+      const section = src.slice(retryStart, retryEnd);
+      return (
+        src.includes("UPDATE_RETRY_MAX_ATTEMPTS = 4") &&
+        section.includes("updateRetryAttempts >= UPDATE_RETRY_MAX_ATTEMPTS") &&
+        section.includes("retry budget exhausted") &&
+        section.includes("updateRetryAttempts += 1")
       );
     },
   },
@@ -9551,6 +9598,67 @@ exit 127
   },
 
   // ---------- auto-fallback became opt-in (regression from 33bdd141) ----------
+  {
+    name: "proxy fallback: an idle stream is aborted without ambiguous replay",
+    category: "proxy",
+    fn: async () => {
+      const originalSetTimeout = globalThis.setTimeout;
+      let cancelled = false;
+      const cancel = async (): Promise<void> => {
+        cancelled = true;
+      };
+      const abortSignals: AbortSignal[] = [];
+      let streamCalls = 0;
+      globalThis.setTimeout = ((callback, _delay, ...args) =>
+        originalSetTimeout(callback, 0, ...args)) as typeof setTimeout;
+      try {
+        await claudeProxyTestHooks.executeClaudeFallbackWithRetry({
+          ctx: {
+            neurolink: {
+              stream: async (options: { abortSignal?: AbortSignal }) => {
+                streamCalls += 1;
+                if (options.abortSignal) {
+                  abortSignals.push(options.abortSignal);
+                }
+                return {
+                  stream: {
+                    [Symbol.asyncIterator]: () => ({
+                      next: () => new Promise(() => undefined),
+                      return: cancel,
+                    }),
+                  },
+                  toolCalls: [],
+                  model: "fallback-model",
+                };
+              },
+            },
+          } as unknown as ServerContext,
+          body: {
+            model: "claude-sonnet-5",
+            messages: [],
+            stream: false,
+          },
+          requestStartTime: Date.now(),
+          logProxyBody: () => undefined,
+          logFinalRequest: () => undefined,
+          options: {} as never,
+          providerLabel: "auto-provider",
+        });
+        return false;
+      } catch (error) {
+        return (
+          error instanceof Error &&
+          error.message.includes("Fallback auto-provider stream timed out") &&
+          streamCalls === 1 &&
+          cancelled &&
+          abortSignals.length === 1 &&
+          abortSignals[0]?.aborted === true
+        );
+      } finally {
+        globalThis.setTimeout = originalSetTimeout;
+      }
+    },
+  },
   {
     // "fix(proxy): bound account admission and fallback routing" (33bdd141)
     // made translation-layer auto-fallback opt-in, which silently changed how

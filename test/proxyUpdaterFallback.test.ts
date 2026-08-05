@@ -764,6 +764,14 @@ describe("global installer resolution", () => {
         Object.assign(new Error("permission denied"), { code: "EACCES" }),
       ),
     ).toBe(false);
+    const cyclic = Object.assign(
+      new Error("cyclic cause"),
+      {} as {
+        cause?: unknown;
+      },
+    );
+    cyclic.cause = cyclic;
+    expect(isTransientInstallFailure(cyclic)).toBe(false);
   });
 
   it("retries transient post-install trampoline failures", async () => {
