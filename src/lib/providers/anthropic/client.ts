@@ -64,6 +64,13 @@ import {
   RateLimitError,
 } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
+import {
+  ANTHROPIC_ELISION_NOTE,
+  planAnthropicLoopReclaim,
+  previewAnthropicToolResultText,
+} from "../../context/anthropicLoopGuard.js";
+import { getAvailableInputTokens } from "../../constants/contextWindows.js";
+import { estimateTokens } from "../../utils/tokenEstimation.js";
 import { redactUrlCredentials } from "../../utils/logSanitize.js";
 import {
   ANTHROPIC_MAX_CACHE_BREAKPOINTS,
@@ -1959,8 +1966,32 @@ export class AnthropicProvider extends BaseProvider {
     let bufferedText = "";
     let finalResultText: string | undefined;
 
+    /** System prompt + tool definitions: they ride outside `messages`. */
+    const estimateAnthropicFixedOverhead = (
+      system: unknown,
+      tools: unknown,
+    ): number => {
+      const text = (value: unknown): string => {
+        if (typeof value === "string") {
+          return value;
+        }
+        try {
+          return JSON.stringify(value) ?? "";
+        } catch {
+          return "";
+        }
+      };
+      return (
+        estimateTokens(text(system), "anthropic") +
+        estimateTokens(text(tools), "anthropic")
+      );
+    };
+
     const runLoop = async (): Promise<void> => {
       const conversation = payload.messages.slice();
+      // The provider's REAL prompt-token count for the previous step,
+      // calibrating the guard's char-based estimate for free.
+      let lastObservedPromptTokens: number | undefined;
 
       for (let step = 0; step < maxSteps; step++) {
         // Mid-turn discovery sync: search_tools (tools.discovery) hydrates
@@ -1979,6 +2010,81 @@ export class AnthropicProvider extends BaseProvider {
             );
           }
         }
+        // In-turn context guard. This loop appends an assistant tool_use
+        // message plus a user tool_result message every step — growth the
+        // pre-dispatch budget check never sees. Without it a long agentic run
+        // overflows the window mid-loop and loses every completed step.
+        // Returns undefined while the request still fits, leaving the history
+        // byte-identical so the rolling cache prefix below stays valid.
+        const reclaim = planAnthropicLoopReclaim({
+          conversation,
+          availableInputTokens: getAvailableInputTokens(
+            "anthropic",
+            modelId,
+            options.maxTokens ?? undefined,
+          ),
+          fixedOverheadTokens: estimateAnthropicFixedOverhead(
+            payload.system,
+            anthropicTools,
+          ),
+          provider: "anthropic",
+          observedPromptTokens: lastObservedPromptTokens,
+        });
+        if (reclaim) {
+          // Applied HERE, in the loop's own concrete types: the guard decides,
+          // the caller mutates. Dropping an assistant tool_use message together
+          // with its user tool_result message is what keeps blocks paired.
+          const dropSet = new Set(reclaim.drop);
+          const truncateSet = new Set(reclaim.truncate);
+          const rebuilt: Anthropic.Messages.MessageParam[] = [];
+          for (let i = 0; i < conversation.length; i++) {
+            if (dropSet.has(i)) {
+              continue;
+            }
+            const message = conversation[i];
+            if (truncateSet.has(i) && Array.isArray(message.content)) {
+              rebuilt.push({
+                ...message,
+                content: message.content.map((block) =>
+                  block.type === "tool_result"
+                    ? {
+                        ...block,
+                        content: previewAnthropicToolResultText(
+                          typeof block.content === "string"
+                            ? block.content
+                            : (JSON.stringify(block.content) ?? ""),
+                        ),
+                      }
+                    : block,
+                ),
+              });
+              continue;
+            }
+            rebuilt.push(message);
+          }
+          if (dropSet.size > 0) {
+            // Anthropic requires user/assistant alternation around tool blocks;
+            // the note is a user turn placed immediately before the first
+            // surviving assistant tool_use turn, which preserves it.
+            let noteIndex = rebuilt.findIndex(
+              (m) =>
+                Array.isArray(m.content) &&
+                m.content.some(
+                  (b) => b.type === "tool_use" || b.type === "tool_result",
+                ),
+            );
+            if (noteIndex < 0) {
+              noteIndex = Math.min(1, rebuilt.length);
+            }
+            rebuilt.splice(noteIndex, 0, {
+              role: "user",
+              content: [{ type: "text", text: ANTHROPIC_ELISION_NOTE }],
+            });
+          }
+          conversation.length = 0;
+          conversation.push(...rebuilt);
+        }
+
         // Prompt-cache parity with the native Vertex+Claude path — rolling
         // history breakpoints, re-applied per step so the stable prefix
         // stays byte-identical while the breakpoint follows the growing
@@ -2058,6 +2164,14 @@ export class AnthropicProvider extends BaseProvider {
             totalCacheRead += event.message.usage.cache_read_input_tokens ?? 0;
             totalCacheWrite +=
               event.message.usage.cache_creation_input_tokens ?? 0;
+            // Calibration signal for the in-turn guard: the FULL prompt size,
+            // which on this path means uncached input plus both cache tiers.
+            // Using input_tokens alone would read a cache-hit step as tiny and
+            // let the guard drift far under the real cost.
+            lastObservedPromptTokens =
+              (event.message.usage.input_tokens ?? 0) +
+              (event.message.usage.cache_read_input_tokens ?? 0) +
+              (event.message.usage.cache_creation_input_tokens ?? 0);
           } else if (event.type === "content_block_start") {
             blockTypes.set(event.index, event.content_block.type);
             if (event.content_block.type === "tool_use") {
