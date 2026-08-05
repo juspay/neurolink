@@ -1,3 +1,9 @@
+## [10.8.20](https://github.com/juspay/neurolink/compare/v10.8.19...v10.8.20) (2026-08-05)
+
+### Bug Fixes
+
+- **(proxy):** retry transient updater installs and expose worker exits ([756d04e](https://github.com/juspay/neurolink/commit/756d04ed2b39005c9b49917abdad6df78a4e251b))
+
 ## [10.8.19](https://github.com/juspay/neurolink/compare/v10.8.18...v10.8.19) (2026-08-05)
 
 ### Bug Fixes
