@@ -1,3 +1,9 @@
+## [10.8.22](https://github.com/juspay/neurolink/compare/v10.8.21...v10.8.22) (2026-08-05)
+
+### Bug Fixes
+
+- **(proxy):** close updater and worker review gaps ([2631e23](https://github.com/juspay/neurolink/commit/2631e23dee43b0352e0fff85a462dcb252c013ec))
+
 ## [10.8.21](https://github.com/juspay/neurolink/compare/v10.8.20...v10.8.21) (2026-08-05)
 
 ## [10.8.20](https://github.com/juspay/neurolink/compare/v10.8.19...v10.8.20) (2026-08-05)
