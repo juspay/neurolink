@@ -4,6 +4,7 @@
  */
 
 import type { JsonValue, UnknownRecord } from "./common.js";
+import type { ClaudeLimitSnapshot } from "./subscription.js";
 
 /**
  * Token usage information (consolidated from multiple sources)
@@ -51,6 +52,13 @@ export type AnalyticsData = {
   elapsedMs?: number;
   /** Verbatim provider finish/stop reason for the terminal model call. */
   rawFinishReason?: string;
+  /**
+   * Account limit state observed on this request — subscription window
+   * headroom, reset times, and (via the NeuroLink Claude proxy) which account
+   * served it and how much the pool has left. Present for Anthropic traffic
+   * whose response carried rate-limit headers.
+   */
+  limits?: ClaudeLimitSnapshot;
 };
 
 /**

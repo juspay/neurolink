@@ -127,6 +127,88 @@ export type AnthropicRateLimitInfo = {
    * Retry-After header value in seconds (present on 429 responses)
    */
   retryAfter?: number;
+
+  /**
+   * Subscription (OAuth) window utilization, 0.0-1.0 of capacity USED, from
+   * `anthropic-ratelimit-unified-5h-utilization`.
+   *
+   * Anthropic publishes utilization for subscription windows, never an
+   * absolute remaining count — there is no message or token figure to report.
+   * `sessionLeftPct` below is the derived "how much is left".
+   */
+  sessionUtilization?: number;
+  /** "allowed" | "throttled" | "rejected" for the 5h window. */
+  sessionStatus?: string;
+  /** Unix epoch seconds at which the 5h window resets. */
+  sessionResetAt?: number;
+  /** Whole-percent capacity remaining in the 5h window (100 - utilization). */
+  sessionLeftPct?: number;
+
+  /** 7d window utilization, 0.0-1.0 of capacity USED. */
+  weeklyUtilization?: number;
+  weeklyStatus?: string;
+  weeklyResetAt?: number;
+  weeklyLeftPct?: number;
+
+  /** Authoritative top-level unified status; can be "rejected" even while both
+   *  sub-windows still report "allowed". */
+  unifiedStatus?: string;
+  /** Whether overage is permitted once a window is exhausted. */
+  overageStatus?: string;
+};
+
+/**
+ * Per-request limit snapshot as observed by the Anthropic provider.
+ *
+ * Assembled from response headers on every request — whether the provider is
+ * talking directly to Anthropic (both auth methods) or through the NeuroLink
+ * Claude proxy. The `account`/`pool`/`servedBy` fields are populated only by
+ * the proxy, which is the only party that knows them.
+ */
+export type ClaudeLimitSnapshot = {
+  /** Rate-limit figures parsed from `anthropic-ratelimit-*` headers. */
+  rateLimit: AnthropicRateLimitInfo;
+  /**
+   * Provenance of the quota numbers. "snapshot" means the proxy reported a
+   * previously captured reading rather than one from this response; "none"
+   * means no Anthropic account served the request (e.g. a fallback provider).
+   * Absent when talking directly to Anthropic, where any figures are live.
+   */
+  quotaSource?: "live" | "snapshot" | "none";
+  /** Proxy account label that served the request. */
+  account?: string;
+  /** "oauth" | "api_key" | "passthrough". */
+  accountType?: string;
+  /** Upstream that produced the response — "anthropic" or a fallback provider. */
+  servedBy?: string;
+  /** Epoch ms until which the serving account is cooling. */
+  accountCoolingUntil?: number;
+  accountCoolingReason?: string;
+  /** Proxy account-pool headroom at response time. */
+  pool?: {
+    available?: number;
+    cooling?: number;
+    bestSessionLeftPct?: number;
+  };
+  /** Anthropic request id, for correlating with provider-side logs. */
+  requestId?: string;
+  /** HTTP status of the response the snapshot came from. */
+  status?: number;
+  /** Epoch ms when this snapshot was captured. */
+  capturedAt: number;
+};
+
+/**
+ * Per-request capture slot the Anthropic fetch wrapper writes into.
+ *
+ * Held in AsyncLocalStorage for the duration of a generate/stream call, so
+ * concurrent calls on one provider instance cannot see each other's limits.
+ * `headers` keeps the raw response header bag so the AI-SDK model adapter can
+ * report real response headers.
+ */
+export type ClaudeLimitCaptureSlot = {
+  snapshot?: ClaudeLimitSnapshot;
+  headers?: Record<string, string>;
 };
 
 /**

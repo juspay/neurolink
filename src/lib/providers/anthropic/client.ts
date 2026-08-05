@@ -31,6 +31,15 @@ import {
 import type { NeuroLink } from "../../neurolink.js";
 import { createOAuthFetch } from "../../proxy/oauthFetch.js";
 import { createProxyFetch } from "../../proxy/proxyFetch.js";
+import {
+  getCapturedLimitSnapshot,
+  getCapturedResponseHeaders,
+  logClaudeLimitSnapshot,
+  runInLimitCaptureScope,
+  setLimitSpanAttributes,
+  withLimitCapture,
+  wrapFetchWithLimitCapture,
+} from "./rateLimitCapture.js";
 import type {
   UnknownRecord,
   AnthropicProviderConfig,
@@ -42,6 +51,7 @@ import type {
   AnthropicAuthMethod,
   AnthropicRateLimitInfo,
   AnthropicResponseMetadata,
+  ClaudeLimitSnapshot,
   ClaudeSubscriptionTier,
   ClaudeUsageInfo,
   OAuthToken,
@@ -271,43 +281,10 @@ const detectAuthMethod = (
   return method;
 };
 
-/**
- * Parse rate limit information from Anthropic API response headers.
- * @param headers - Response headers from Anthropic API
- * @returns Parsed rate limit information
- */
-const parseRateLimitHeaders = (
-  headers: Headers | Record<string, string>,
-): AnthropicRateLimitInfo => {
-  const getHeader = (name: string): string | null => {
-    if (headers instanceof Headers) {
-      return headers.get(name);
-    }
-    return headers[name] || headers[name.toLowerCase()] || null;
-  };
-
-  const parseNumber = (value: string | null): number | undefined => {
-    if (!value) {
-      return undefined;
-    }
-    const num = parseInt(value, 10);
-    return isNaN(num) ? undefined : num;
-  };
-
-  return {
-    requestsLimit: parseNumber(getHeader("anthropic-ratelimit-requests-limit")),
-    requestsRemaining: parseNumber(
-      getHeader("anthropic-ratelimit-requests-remaining"),
-    ),
-    requestsReset: getHeader("anthropic-ratelimit-requests-reset") || undefined,
-    tokensLimit: parseNumber(getHeader("anthropic-ratelimit-tokens-limit")),
-    tokensRemaining: parseNumber(
-      getHeader("anthropic-ratelimit-tokens-remaining"),
-    ),
-    tokensReset: getHeader("anthropic-ratelimit-tokens-reset") || undefined,
-    retryAfter: parseNumber(getHeader("retry-after")),
-  };
-};
+// Rate-limit header parsing lives in `rateLimitCapture.ts`, which sees the raw
+// fetch Response and understands both header families (unified subscription
+// windows and the legacy per-tier counters). The module-private copy that used
+// to sit here parsed only the legacy family and had no callers.
 
 // ───────────────────────────────────────────────────────────────────────────
 // Native Messages-API conversion helpers (NeuroLink/V3 shapes → Anthropic)
@@ -798,7 +775,10 @@ export class AnthropicProvider extends BaseProvider {
       client = new Anthropic({
         apiKey: "oauth-authenticated", // Placeholder, actual auth is in fetch wrapper
         // Note: No headers passed - fetch wrapper sets oauth-2025-04-20 beta header
-        fetch: oauthFetch,
+        // Limit capture wraps the OAuth fetch so subscription quota headers
+        // (anthropic-ratelimit-unified-*) are recorded on every request —
+        // streaming and non-streaming alike.
+        fetch: wrapFetchWithLimitCapture(oauthFetch),
         timeout: ANTHROPIC_CLIENT_TIMEOUT_MS,
         // The SDK's built-in retry honors Retry-After hints without any
         // upper bound (a 429 with retry-after: 8549 sleeps 2.4h per retry,
@@ -858,7 +838,10 @@ export class AnthropicProvider extends BaseProvider {
         apiKey: apiKeyToUse,
         defaultHeaders: headers,
         ...(normalizedBaseURL && { baseURL: normalizedBaseURL }),
-        fetch: createProxyFetch(),
+        // Same capture as the OAuth branch: works for direct API-key traffic
+        // (legacy requests/tokens counters) and for the NeuroLink Claude proxy
+        // (verbatim unified quota plus x-neurolink-* account/pool state).
+        fetch: wrapFetchWithLimitCapture(createProxyFetch()),
         timeout: ANTHROPIC_CLIENT_TIMEOUT_MS,
         // See the OAuth-path client above: unbounded Retry-After sleeps in
         // the SDK's retry loop must never stall fallback orchestration.
@@ -1246,31 +1229,26 @@ export class AnthropicProvider extends BaseProvider {
   }
 
   /**
-   * Update response metadata from API response headers.
-   * This should be called after each API request to track rate limits.
-   * @param headers - Response headers from the API
-   * @param requestId - Optional request ID
+   * Update response metadata from a captured limit snapshot.
+   *
+   * Takes already-parsed rate-limit info rather than raw headers: parsing now
+   * lives in `rateLimitCapture`, which is the only layer that sees the raw
+   * response and understands both header families (unified subscription
+   * windows and legacy per-tier counters).
+   *
+   * @param rateLimit - Parsed rate-limit figures
+   * @param requestId - Optional Anthropic request ID
+   * @param usageUpdate - Optional token counts to fold into usage tracking
    */
   protected updateResponseMetadata(
-    headers: Headers | Record<string, string>,
+    rateLimit: AnthropicRateLimitInfo,
     requestId?: string,
     usageUpdate?: { inputTokens?: number; outputTokens?: number },
   ): void {
     this.lastResponseMetadata = {
-      rateLimit: parseRateLimitHeaders(headers),
-      requestId:
-        requestId ||
-        (headers instanceof Headers
-          ? headers.get("x-request-id") || undefined
-          : headers["x-request-id"]),
-      serverTiming:
-        headers instanceof Headers
-          ? headers.get("server-timing") || undefined
-          : headers["server-timing"],
+      rateLimit,
+      ...(requestId ? { requestId } : {}),
     };
-
-    // Update usage tracking
-    const rateLimit = this.lastResponseMetadata.rateLimit;
     if (this.usageInfo) {
       this.usageInfo.requestCount++;
       this.usageInfo.messagesUsed++;
@@ -1603,7 +1581,10 @@ export class AnthropicProvider extends BaseProvider {
           response: {
             id: response.id,
             modelId: response.model,
-            headers: {},
+            // Real response headers, captured by the fetch wrapper. This used
+            // to be a hardcoded `{}`, which silently discarded every
+            // rate-limit and quota header Anthropic returns.
+            headers: getCapturedResponseHeaders() ?? {},
             body: response,
           },
         };
@@ -1689,10 +1670,51 @@ export class AnthropicProvider extends BaseProvider {
     analysisSchema?: ValidationSchema,
   ): Promise<EnhancedGenerateResult | null> {
     await this.refreshAuthIfNeeded();
-    return super.generate(optionsOrPrompt, analysisSchema);
+    // Open a per-request capture scope around the whole turn. Scoping here
+    // rather than on the instance is what makes it concurrency-safe: several
+    // generate() calls can be in flight on one provider instance, and an
+    // instance field would attribute one call's limits to another.
+    const { result, snapshot } = await withLimitCapture(() =>
+      super.generate(optionsOrPrompt, analysisSchema),
+    );
+    if (result && snapshot) {
+      this.recordLimitSnapshot(snapshot);
+      result.limits = snapshot;
+      if (result.analytics) {
+        result.analytics.limits = snapshot;
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Fold a captured snapshot into the provider's usage bookkeeping and log it.
+   *
+   * `updateResponseMetadata` had no callers before this — the metadata it
+   * maintains, and the public `getLastResponseMetadata()` / `getUsageInfo()`
+   * that read it, were never populated by anything.
+   */
+  private recordLimitSnapshot(snapshot: ClaudeLimitSnapshot): void {
+    this.updateResponseMetadata(snapshot.rateLimit, snapshot.requestId);
+    setLimitSpanAttributes(snapshot);
+    logClaudeLimitSnapshot(snapshot, this.modelName);
   }
 
   protected async executeStream(
+    options: StreamOptions,
+    analysisSchema?: ValidationSchema,
+  ): Promise<StreamResult> {
+    // The capture scope must outlive this call: the SSE loop keeps running in
+    // the background after executeStream returns, and its per-step HTTP
+    // requests are what carry the limit headers. AsyncLocalStorage.run
+    // propagates into every continuation started inside, so the whole stream
+    // lifetime shares one slot.
+    return runInLimitCaptureScope(() =>
+      this.executeStreamInCaptureScope(options, analysisSchema),
+    );
+  }
+
+  private async executeStreamInCaptureScope(
     options: StreamOptions,
     _analysisSchema?: ValidationSchema,
   ): Promise<StreamResult> {
@@ -2244,8 +2266,8 @@ export class AnthropicProvider extends BaseProvider {
       // stream consumers and session cost tracking saw no usage at all.
       // Chained off finishPromise so requestDuration reflects the DRAINED
       // stream, not the milliseconds it took to construct this result object.
-      analytics: finishPromise.then(() =>
-        streamAnalyticsCollector.createAnalytics(
+      analytics: finishPromise.then(async () => {
+        const analytics = await streamAnalyticsCollector.createAnalytics(
           this.providerName,
           modelId,
           {
@@ -2260,8 +2282,16 @@ export class AnthropicProvider extends BaseProvider {
               `${this.providerName}-stream-${Date.now()}`,
             streamingMode: true,
           },
-        ),
-      ),
+        );
+        // Still inside the capture scope opened by executeStream, so this sees
+        // the limits reported by the last upstream step of the stream.
+        const snapshot = getCapturedLimitSnapshot();
+        if (snapshot && analytics) {
+          this.recordLimitSnapshot(snapshot);
+          analytics.limits = snapshot;
+        }
+        return analytics;
+      }),
     };
   }
 

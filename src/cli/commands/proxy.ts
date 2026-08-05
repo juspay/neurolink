@@ -1931,10 +1931,35 @@ export async function createProxyStartApp(params: {
         toolRegistry: params.neurolink.getToolRegistry(),
         timestamp: Date.now(),
         metadata: {},
+        // Route handlers publish limit/quota headers here. Only the streaming
+        // paths build their own Response (and set headers directly); every
+        // JSON and error path returns a plain object, so without this the
+        // headers had nowhere to go. Applied to each c.json() return below.
+        responseHeaders: {} as Record<string, string>,
+      };
+
+      /** Copy handler-published headers onto the outgoing response. */
+      const applyResponseHeaders = (): void => {
+        for (const [key, value] of Object.entries(ctx.responseHeaders)) {
+          c.header(key, value);
+        }
       };
 
       const result = await route.handler(ctx);
       if (result instanceof Response) {
+        // Streaming responses own their headers; merge in anything the
+        // handler published on the context that the Response lacks. A Response
+        // obtained from fetch() carries immutable headers, so this is
+        // best-effort — the body must still reach the client either way.
+        try {
+          for (const [key, value] of Object.entries(ctx.responseHeaders)) {
+            if (!result.headers.has(key)) {
+              result.headers.set(key, value);
+            }
+          }
+        } catch {
+          // Immutable header guard — skip enrichment, keep the response.
+        }
         return result;
       }
 
@@ -1983,6 +2008,7 @@ export async function createProxyStartApp(params: {
         });
         return new Response(responseStream, {
           headers: {
+            ...ctx.responseHeaders,
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
             Connection: "keep-alive",
@@ -1998,6 +2024,7 @@ export async function createProxyStartApp(params: {
         const httpResult = result as Record<string, unknown>;
         const status = (httpResult.httpStatus as number) ?? 200;
         delete httpResult.httpStatus;
+        applyResponseHeaders();
         return c.json(result, status as 400);
       }
 
@@ -2012,9 +2039,11 @@ export async function createProxyStartApp(params: {
           error?: { type?: string };
         };
         const status = mapClaudeErrorTypeToStatus(errorResult.error?.type);
+        applyResponseHeaders();
         return c.json(result, status as 400);
       }
 
+      applyResponseHeaders();
       return c.json(result ?? {});
     });
   }
