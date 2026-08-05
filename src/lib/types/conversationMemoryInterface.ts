@@ -67,6 +67,35 @@ export type IConversationMemoryManager = {
     userId?: string,
   ): Promise<void>;
 
+  /**
+   * Persist a step's tool calls and results as `tool_call` / `tool_result`
+   * messages on the session.
+   *
+   * Declared on the interface so every backend can implement it. Previously
+   * only the Redis manager had it, and the caller reached it by casting — so
+   * on in-memory storage tool activity never became messages at all, and the
+   * compaction, pruning and pair-repair paths saw a different history shape
+   * depending on `STORAGE_TYPE`.
+   */
+  storeToolExecution?(
+    sessionId: string,
+    userId: string | undefined,
+    toolCalls: Array<{
+      toolCallId?: string;
+      toolName?: string;
+      args?: Record<string, unknown>;
+      [key: string]: unknown;
+    }>,
+    toolResults: Array<{
+      toolCallId?: string;
+      output?: unknown;
+      result?: unknown;
+      error?: string;
+      [key: string]: unknown;
+    }>,
+    currentTime?: Date,
+  ): Promise<void>;
+
   /** Close/shutdown the memory manager and release resources (e.g., Redis connections) */
   close?(): Promise<void>;
 };
