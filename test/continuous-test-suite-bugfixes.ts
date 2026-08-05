@@ -142,7 +142,10 @@ import {
   getTerminalErrors,
   resetUsageStatsForTests,
 } from "../src/lib/proxy/usageStats.js";
-import type { ProxySupervisorState, ServerContext } from "../src/lib/types/index.js";
+import type {
+  ProxySupervisorState,
+  ServerContext,
+} from "../src/lib/types/index.js";
 
 import {
   GoogleVertexProvider,
