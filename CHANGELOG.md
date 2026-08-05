@@ -1,3 +1,9 @@
+## [10.9.0](https://github.com/juspay/neurolink/compare/v10.8.22...v10.9.0) (2026-08-05)
+
+### Features
+
+- **(agent):** migrate websearchGrounding to @google/genai ([b5f9e15](https://github.com/juspay/neurolink/commit/b5f9e15ed32392757ac9a9d9ec101b6c143f107d))
+
 ## [10.8.22](https://github.com/juspay/neurolink/compare/v10.8.21...v10.8.22) (2026-08-05)
 
 ### Bug Fixes
