@@ -499,3 +499,91 @@ export function getNormalizedConfig(
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Split message storage
+// ---------------------------------------------------------------------------
+
+/**
+ * Suffix of the companion LIST key holding a session's messages.
+ *
+ * Every `storeConversationTurn` used to re-serialize and SET the ENTIRE
+ * conversation, so per-turn write cost grew with history size. Measured
+ * against local Redis: 200 turns of 2KB messages stayed flat at 2ms, but 400
+ * turns of 20KB messages (~16MB blob) went 2ms -> 61ms, a 30x degradation on
+ * exactly the agentic tool-output profile. Splitting messages into an
+ * append-only LIST makes the per-turn write O(1) in conversation size.
+ */
+export const MESSAGES_KEY_SUFFIX = ":msgs";
+
+/**
+ * Marker on a stored blob meaning "messages live in the companion LIST".
+ * A blob WITHOUT it is a legacy record whose inline `messages` array is
+ * authoritative — it is read as-is and converted on its next write, which is
+ * what makes this migration backward compatible.
+ */
+export const MESSAGES_IN_LIST_MARKER = "__nlMessagesInList";
+
+/** Redis key holding a session's messages as an append-only LIST. */
+export function getSessionMessagesKey(
+  config: Required<RedisStorageConfig>,
+  sessionId: string,
+  userId?: string,
+): string {
+  return `${getSessionKey(config, sessionId, userId)}${MESSAGES_KEY_SUFFIX}`;
+}
+
+/**
+ * True for a companion messages LIST key.
+ *
+ * Scan-then-GET paths (`getStats`, session listing) match `${keyPrefix}*`, so
+ * they now also see these LIST keys — and `GET` on a LIST raises WRONGTYPE.
+ * They must filter with this, exactly as they already skip `:sessions` index
+ * keys.
+ */
+export function isSessionMessagesKey(key: string): boolean {
+  return key.endsWith(MESSAGES_KEY_SUFFIX);
+}
+
+/** Serialize the conversation WITHOUT its messages, flagged for split reads. */
+export function serializeConversationMetadata(
+  conversation: RedisConversationObject,
+): string {
+  return JSON.stringify({
+    ...conversation,
+    messages: [],
+    [MESSAGES_IN_LIST_MARKER]: true,
+  });
+}
+
+/** True when a deserialized blob's messages live in the companion LIST. */
+export function usesSplitMessageStorage(
+  conversation: RedisConversationObject | null | undefined,
+): boolean {
+  if (!conversation) {
+    return false;
+  }
+  const record: Record<string, unknown> = conversation;
+  return record[MESSAGES_IN_LIST_MARKER] === true;
+}
+
+/** Parse LRANGE entries, skipping any single entry that fails to parse. */
+export function parseStoredMessages(entries: string[]): ChatMessage[] {
+  const messages: ChatMessage[] = [];
+  for (const entry of entries) {
+    try {
+      messages.push(JSON.parse(entry) as ChatMessage);
+    } catch (error) {
+      // One corrupt entry must not destroy a whole session's history.
+      logger.warn("[redisUtils] Skipping unparseable stored message", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  return messages;
+}
+
+/** Encode messages for RPUSH. */
+export function encodeStoredMessages(messages: ChatMessage[]): string[] {
+  return messages.map((message) => JSON.stringify(message));
+}
