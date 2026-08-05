@@ -242,6 +242,21 @@ export function assertValidCsvRow(
   }
 }
 
+/**
+ * True when a parsed CSV row is blank: no keys, or every value is empty /
+ * whitespace-only (#373). Shared by the structured post-filter and by
+ * `streamParse` so blank rows do not consume `maxRows`.
+ */
+export function isBlankCsvDataRow(row: CSVRow): boolean {
+  const keys = Object.keys(row);
+  if (keys.length === 0) {
+    return true;
+  }
+  return Object.values(row).every(
+    (val) => val === "" || (typeof val === "string" && val.trim() === ""),
+  );
+}
+
 // ============================================================================
 // Parse Error Context (#375)
 // ============================================================================
@@ -1120,7 +1135,16 @@ export class CSVProcessor {
     const { rows, timedOut: structuredTimedOut } = await this.streamParse(
       Readable.from([dataLines.join("\n")]),
       undefined,
-      { maxRows, skipLines: 0, timeoutMs: parseTimeoutMs, delimiter },
+      {
+        maxRows,
+        skipLines: 0,
+        timeoutMs: parseTimeoutMs,
+        delimiter,
+        // Count only non-blank rows toward maxRows when skipping empties
+        // (#373), so maxRows: 2 still yields two real data rows if blanks
+        // appear first.
+        skipEmptyRows: skipEmptyLines,
+      },
     );
 
     // Filter out empty rows (empty objects or rows with only whitespace values
@@ -1130,17 +1154,10 @@ export class CSVProcessor {
       if (!row || typeof row !== "object") {
         return false;
       }
-      const keys = Object.keys(row);
-      if (keys.length === 0) {
-        return false;
-      }
       if (!skipEmptyLines) {
         return true;
       }
-      // Check if all values are empty or whitespace-only
-      return !Object.values(row).every(
-        (val) => val === "" || (typeof val === "string" && val.trim() === ""),
-      );
+      return !isBlankCsvDataRow(row);
     });
 
     // #378: opt-in — remap each row's keys from original → sanitized identifiers.
@@ -1598,6 +1615,11 @@ export class CSVProcessor {
       timeoutMs: number;
       location?: string;
       delimiter?: string;
+      /**
+       * When true, blank/whitespace-only rows are dropped and do not count
+       * toward `maxRows` (#373 structured path).
+       */
+      skipEmptyRows?: boolean;
     },
   ): Promise<{ rows: CSVRow[]; timedOut: boolean }> {
     return new Promise((resolve, reject) => {
@@ -1683,6 +1705,10 @@ export class CSVProcessor {
               abort();
               reject(err as Error);
             });
+            return;
+          }
+          // #373: blank rows must not consume maxRows when skipping empties.
+          if (opts.skipEmptyRows && isBlankCsvDataRow(row)) {
             return;
           }
           lastRowColumnCount = Object.keys(row).length;

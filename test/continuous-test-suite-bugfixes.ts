@@ -593,6 +593,25 @@ const tests: TestFunction[] = [
     },
   },
   {
+    name: "CSVProcessor #373: structured maxRows counts non-empty rows only (leading blanks)",
+    category: "csv-processor",
+    fn: async () => {
+      // Leading blank rows must not consume maxRows: 2 → Alice + Bob.
+      const csv = "name,age\n\n\nAlice,30\nBob,25\nCara,41\n";
+      const result = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "json",
+        maxRows: 2,
+      });
+      const parsed = JSON.parse(result.content) as Array<{ name: string }>;
+      return (
+        result.metadata.rowCount === 2 &&
+        parsed.length === 2 &&
+        parsed[0]?.name === "Alice" &&
+        parsed[1]?.name === "Bob"
+      );
+    },
+  },
+  {
     name: "CSVProcessor #378: opt-in column-name sanitization yields valid identifiers and preserves originals",
     category: "csv-processor",
     fn: async () => {
