@@ -861,6 +861,84 @@ export type RepairResult = {
 };
 
 /**
+ * Provider-neutral view of ONE message in an agent loop's history.
+ *
+ * Every native provider loop keeps its history in a different shape (AI-SDK
+ * `ModelMessage`, OpenAI-compatible `{role,tool_calls}`, Gemini `contents`
+ * parts, Anthropic content blocks). The reclaim POLICY is identical across all
+ * of them, so adapters map their own shape onto this view, ask the core what to
+ * do, and apply the answer themselves.
+ */
+export type LoopGuardEntry = {
+  /** `toolCall` and `toolResult` form the batches the policy keeps intact. */
+  kind: "other" | "toolCall" | "toolResult";
+  /** Estimated tokens this entry currently costs. */
+  tokens: number;
+  /**
+   * Tokens this entry would cost with its payload replaced by a head/tail
+   * preview. Omitted when the entry cannot usefully shrink — which is exactly
+   * the case that forces the policy to drop batches instead.
+   */
+  previewTokens?: number;
+};
+
+/** What the caller should do to reclaim budget. Indices refer to the input array. */
+export type LoopGuardPlan = {
+  /** False when the loop is under threshold and nothing should change. */
+  fire: boolean;
+  /** Entries whose payload should be replaced by a preview. */
+  truncate: number[];
+  /** Entries to remove entirely — always whole batches, never a partial pair. */
+  drop: number[];
+  /** Estimated total after applying the plan, including fixed overhead. */
+  projectedTokens: number;
+};
+
+/**
+ * Structural view of one Anthropic content block, loose enough to accept the
+ * official SDK's `ContentBlockParam` union and NeuroLink's own
+ * `VertexAnthropicMessage` blocks without a cast at either call site.
+ */
+export type AnthropicGuardBlock = {
+  type: string;
+  /** Payload of a `tool_result` block. Other block kinds carry other fields. */
+  content?: unknown;
+  /** Text of a `text` block. */
+  text?: string;
+};
+
+/**
+ * Structural view of one Anthropic-shaped message, as used by both the direct
+ * Anthropic loop and the native Vertex+Claude path. Tool calls ride as
+ * `tool_use` blocks on an assistant message; their answers ride as
+ * `tool_result` blocks on the following user message.
+ */
+export type AnthropicGuardMessage = {
+  /**
+   * `system` is included because the installed `@anthropic-ai/sdk` widens
+   * `MessageParam["role"]` to accept it; narrowing here would make the SDK's
+   * own array unassignable at the call site.
+   */
+  role: "user" | "assistant" | "system";
+  content: string | AnthropicGuardBlock[];
+};
+
+/** Tuning for {@link planLoopGuardReclaim}. */
+export type LoopGuardPolicy = {
+  availableInputTokens: number;
+  /** System prompt + tool definitions — rides outside the message array. */
+  fixedOverheadTokens: number;
+  /** Fraction of the window at which the guard fires. */
+  thresholdRatio?: number;
+  /** Fraction of the window the guard reclaims down to once it fires. */
+  lowWaterRatio?: number;
+  /** Newest entries the guard must never modify. */
+  protectedTailCount?: number;
+  /** Observed/estimated token ratio, used to tighten both marks. */
+  calibration?: number;
+};
+
+/**
  * One contiguous tool batch: the run of `tool_call` messages emitted by a
  * single agent step, plus the run of `tool_result` messages that follows it.
  * A step with parallel tool calls writes every call before any result, so the

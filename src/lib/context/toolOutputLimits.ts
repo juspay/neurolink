@@ -25,6 +25,28 @@ export const RETRIEVE_CONTEXT_TOOL_NAME = "retrieve_context";
 export const DEFAULT_TAIL_RATIO = 0.75;
 
 /**
+ * True when `generateToolOutputPreview` would actually shrink this output.
+ *
+ * Callers gate on this before paying for a preview. It exists so the gate and
+ * the generator can never disagree: the budget is expressed in BYTES, and
+ * testing it against `String.length` (UTF-16 code units) under-reports every
+ * multibyte payload — CJK or emoji tool output would be judged small enough to
+ * leave alone while the generator would have truncated it. Line count matters
+ * for the same reason: a short-but-tall output exceeds `maxLines` alone.
+ */
+export function exceedsToolOutputPreviewBudget(
+  output: string,
+  options?: ToolOutputPreviewOptions,
+): boolean {
+  const maxBytes = options?.maxBytes ?? DEFAULT_MAX_PREVIEW_BYTES;
+  const maxLines = options?.maxLines ?? DEFAULT_MAX_PREVIEW_LINES;
+  return (
+    Buffer.byteLength(output, "utf-8") > maxBytes ||
+    output.split("\n").length > maxLines
+  );
+}
+
+/**
  * Generate a head/tail preview of a tool output string.
  * If the output is within limits, returns it unchanged with truncated: false.
  * If over limits, keeps the first 25% and last 75% with an omission notice.
