@@ -596,19 +596,26 @@ const tests: TestFunction[] = [
     name: "CSVProcessor #373: raw skips delimiter-only rows; preserve keeps schema for leading blanks",
     category: "csv-processor",
     fn: async () => {
-      // Put a real row before delimiter-only blanks so `isMetadataLine` does
-      // not mis-classify the header (comma-count mismatch with `,,`).
-      const delimCsv = "name,age\nAlice,30\n,,\n  ,  \nBob,25\n";
-      const rawSkipped = await CSVProcessor.process(Buffer.from(delimCsv), {
+      // Leading `,,` must stay a data row (not promote to header via
+      // isMetadataLine comma-count mismatch) and then be skipped.
+      const leadingDelimBlank = "name,age\n,,\nAlice,30\n  ,  \nBob,25\n";
+      const rawLeading = await CSVProcessor.process(
+        Buffer.from(leadingDelimBlank),
+        { formatStyle: "raw" },
+      );
+      const leadingOk =
+        rawLeading.metadata.rowCount === 2 &&
+        rawLeading.metadata.columnCount === 2 &&
+        rawLeading.content === "name,age\nAlice,30\nBob,25";
+
+      // Mid-file delimiter-only blanks are skipped the same way.
+      const midDelimCsv = "name,age\nAlice,30\n,,\n  ,  \nBob,25\n";
+      const rawMid = await CSVProcessor.process(Buffer.from(midDelimCsv), {
         formatStyle: "raw",
       });
-      const dataLines = rawSkipped.content.split("\n").slice(1);
-      const rawOk =
-        rawSkipped.metadata.rowCount === 2 &&
-        rawSkipped.content.startsWith("name,age") &&
-        dataLines.includes("Alice,30") &&
-        dataLines.includes("Bob,25") &&
-        !dataLines.some((l) => l === ",," || /^\s*,\s*$/.test(l));
+      const midOk =
+        rawMid.metadata.rowCount === 2 &&
+        rawMid.content === "name,age\nAlice,30\nBob,25";
 
       // Preserved leading blanks must not poison Markdown/JSON headers.
       const leadBlank = "name,age\n\nAlice,30\nBob,25\n";
@@ -627,7 +634,7 @@ const tests: TestFunction[] = [
         Object.keys(parsed[0] ?? {}).includes("name") &&
         parsed.some((r) => r.name === "Alice");
 
-      return rawOk && mdHeaderOk && jsonOk;
+      return leadingOk && midOk && mdHeaderOk && jsonOk;
     },
   },
   {

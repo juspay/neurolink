@@ -853,10 +853,31 @@ function isMetadataLine(lines: string[]): boolean {
   }
 
   if (secondCommaCount > 0 && firstCommaCount !== secondCommaCount) {
+    // A delimiter-only / all-empty second line (e.g. `,,`) is a blank data
+    // row, not a metadata preamble. Treating it as metadata drops the real
+    // header and promotes the blank line to header — which then bypasses
+    // raw skipEmptyLines filtering (#373 review).
+    if (isDelimiterOnlyOrBlankLine(secondLine)) {
+      return false;
+    }
     return true;
   }
 
   return false;
+}
+
+/**
+ * True when `line` is empty/whitespace or contains only common CSV
+ * delimiters (comma / tab / semicolon / pipe) and whitespace — i.e. a
+ * delimiter-only blank row like `,,` or `  ;  ;  `. Used before the
+ * delimiter is known (metadata detection).
+ */
+function isDelimiterOnlyOrBlankLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (trimmed === "") {
+    return true;
+  }
+  return /^[\s,;\t|]+$/.test(trimmed) && /[,;\t|]/.test(trimmed);
 }
 
 /**
@@ -1183,14 +1204,16 @@ export class CSVProcessor {
       return !isBlankCsvDataRow(row);
     });
 
-    // Schema must come from a non-blank data row (or parser headers), never
-    // from a preserved leading blank row (#373 review).
+    // Schema must come from parser headers or the first non-blank data row,
+    // never from a preserved leading blank row (#373 review).
     const schemaRow = filteredRows.find(
       (row) => row && typeof row === "object" && !isBlankCsvDataRow(row),
     );
     const schemaHeaders: string[] =
+      (parsedHeaders && parsedHeaders.length > 0
+        ? [...parsedHeaders]
+        : undefined) ??
       (schemaRow ? Object.keys(schemaRow) : undefined) ??
-      (parsedHeaders && parsedHeaders.length > 0 ? parsedHeaders : undefined) ??
       (filteredRows[0] ? Object.keys(filteredRows[0]) : []) ??
       [];
 
