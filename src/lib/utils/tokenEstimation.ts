@@ -130,7 +130,7 @@ function serializeForEstimate(value: unknown): string {
  * Includes message framing overhead.
  *
  * Counts `content` AND `args`. A `tool_call` is persisted with an EMPTY
- * `content` and its entire payload in `args` (see flushPendingToolExecutions),
+ * `content` and its entire payload in `args` (see flushPendingToolData),
  * so a content-only estimate scored a 39 KB Write call at ~28 tokens against a
  * real cost near 9,750 — the budget checker, the compaction trigger and the
  * summarization threshold were all blind to the single largest source of
