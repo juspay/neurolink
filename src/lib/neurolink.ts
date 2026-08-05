@@ -15289,12 +15289,19 @@ Current user's request: ${currentInput}`;
       return;
     }
 
-    // Type guard to ensure it's Redis conversation memory manager
-    const redisMemory = this
-      .conversationMemory as RedisConversationMemoryManager;
+    // Any backend that implements storeToolExecution — no longer a Redis cast.
+    // The in-memory manager implements it too, so tool activity becomes
+    // tool_call/tool_result messages regardless of STORAGE_TYPE.
+    const memory = this.conversationMemory;
+    if (!memory?.storeToolExecution) {
+      logger.debug(
+        "Tool execution storage not supported by this memory backend",
+      );
+      return;
+    }
 
     try {
-      await redisMemory.storeToolExecution(
+      await memory.storeToolExecution(
         sessionId,
         userId,
         toolCalls,
@@ -15312,17 +15319,17 @@ Current user's request: ${currentInput}`;
   }
 
   /**
-   * Check if tool execution storage is available
-   * @returns boolean indicating if Redis storage is configured and available
+   * Check if tool execution storage is available.
+   *
+   * Now capability-based rather than Redis-specific: any configured memory
+   * backend implementing `storeToolExecution` qualifies. The old check
+   * required `STORAGE_TYPE === "redis"` AND a Redis manager by class name, so
+   * in-memory sessions reported false and silently skipped tool persistence.
+   *
+   * @returns whether the active memory backend can persist tool executions
    */
   isToolExecutionStorageAvailable(): boolean {
-    const isRedisStorage = process.env.STORAGE_TYPE === "redis";
-    const hasRedisConversationMemory =
-      this.conversationMemory &&
-      this.conversationMemory.constructor.name ===
-        "RedisConversationMemoryManager";
-
-    return !!(isRedisStorage && hasRedisConversationMemory);
+    return typeof this.conversationMemory?.storeToolExecution === "function";
   }
 
   /**

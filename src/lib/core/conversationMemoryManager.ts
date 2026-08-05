@@ -545,6 +545,102 @@ export class ConversationMemoryManager implements IConversationMemoryManager {
     session.lastActivity = Date.now();
   }
 
+  /**
+   * Persist a step's tool calls and results as `tool_call` / `tool_result`
+   * messages, mirroring the Redis manager.
+   *
+   * Parity fix: this used to exist only on the Redis backend, so an in-memory
+   * session never turned tool activity into messages and every downstream path
+   * that reasons about tool batches (compaction, pruning, pair repair) saw a
+   * different history shape depending on `STORAGE_TYPE`.
+   *
+   * Calls are written before results — the same order the Redis flush uses —
+   * and `toolCallId` is carried on BOTH sides so `repairToolPairs` can match by
+   * id rather than adjacency (a parallel batch has no positional pairing).
+   */
+  async storeToolExecution(
+    sessionId: string,
+    userId: string | undefined,
+    toolCalls: Array<{
+      toolCallId?: string;
+      toolName?: string;
+      args?: Record<string, unknown>;
+      [key: string]: unknown;
+    }>,
+    toolResults: Array<{
+      toolCallId?: string;
+      output?: unknown;
+      result?: unknown;
+      error?: string;
+      [key: string]: unknown;
+    }>,
+    currentTime?: Date,
+  ): Promise<void> {
+    await this.ensureInitialized();
+
+    let session = this.sessions.get(sessionId);
+    if (!session) {
+      session = this.createNewSession(sessionId, userId);
+      this.sessions.set(sessionId, session);
+      this.enforceSessionLimit();
+    }
+
+    const timestamp = (currentTime ?? new Date()).toISOString();
+    const toolNameById = new Map<string, string>();
+
+    for (const toolCall of toolCalls ?? []) {
+      const toolCallId = toolCall.toolCallId ?? "";
+      const toolName = toolCall.toolName ?? "unknown";
+      if (toolCallId) {
+        toolNameById.set(toolCallId, toolName);
+      }
+      session.messages.push({
+        id: randomUUID(),
+        role: "tool_call",
+        content: "", // Tool calls carry their payload in `args`, not content.
+        tool: toolName,
+        ...(toolCallId ? { toolCallId } : {}),
+        args: (toolCall.args ?? {}) as Record<string, unknown>,
+        timestamp,
+      });
+    }
+
+    for (const toolResult of toolResults ?? []) {
+      const toolCallId = toolResult.toolCallId ?? "";
+      const toolName =
+        (toolCallId ? toolNameById.get(toolCallId) : undefined) ??
+        String(toolResult.toolName ?? "unknown");
+      const rawOutput =
+        "output" in toolResult ? toolResult.output : toolResult.result;
+      let content: string;
+      if (typeof rawOutput === "string") {
+        content = rawOutput;
+      } else {
+        try {
+          content = JSON.stringify(rawOutput ?? null) ?? "null";
+        } catch (error) {
+          content = `[Serialization failed: ${
+            error instanceof Error ? error.message : String(error)
+          }]`;
+        }
+      }
+      session.messages.push({
+        id: randomUUID(),
+        role: "tool_result",
+        content,
+        tool: toolName,
+        ...(toolCallId ? { toolCallId } : {}),
+        result: {
+          success: !toolResult.error,
+          ...(toolResult.error ? { error: String(toolResult.error) } : {}),
+        },
+        timestamp,
+      });
+    }
+
+    session.lastActivity = Date.now();
+  }
+
   /** Close/shutdown — no-op for in-memory manager (no external connections to release) */
   async close(): Promise<void> {
     // In-memory manager has nothing to close
