@@ -1106,6 +1106,52 @@ export type AccountQuota = {
   lastUpdated: number;
 };
 
+/**
+ * Provenance of the quota numbers attached to a single proxy response.
+ *  - "live"     : parsed from THIS upstream response's headers.
+ *  - "snapshot" : the last known snapshot for the serving account; the upstream
+ *                 response carried no quota headers.
+ *  - "none"     : no Anthropic account served this request (fallback provider,
+ *                 or a failure before any account was reached).
+ *
+ * Consumers must not treat "snapshot" as current. Without this distinction a
+ * stale reading is indistinguishable from a fresh one.
+ */
+export type ProxyQuotaSource = "live" | "snapshot" | "none";
+
+/** Aggregate account-pool headroom at the moment a response was produced. */
+export type ProxyPoolHeadroom = {
+  /** Accounts eligible to serve a request right now (not cooling/disabled). */
+  available: number;
+  /** Accounts currently in a cooldown window. */
+  cooling: number;
+  /** Best session headroom across available accounts, as a percentage 0-100.
+   *  Undefined when no available account has a quota snapshot. */
+  bestSessionLeftPct?: number;
+};
+
+/**
+ * Everything the proxy knows about limits and routing for one response.
+ * Consumed by `buildQuotaResponseHeaders` — kept as data (not headers) so the
+ * assembly stays pure and testable.
+ */
+export type ProxyQuotaHeaderContext = {
+  quota: AccountQuota | null;
+  source: ProxyQuotaSource;
+  /** Account label that served the request; omitted for fallback/no-account. */
+  accountLabel?: string;
+  accountType?: string;
+  /** Which upstream actually produced the response ("anthropic" or a fallback
+   *  provider name). Lets a consumer avoid attributing quota to the wrong one. */
+  servedBy?: string;
+  /** 1-based attempt index within the routing loop. */
+  attempt?: number;
+  /** Epoch ms until which the serving account is cooling, when applicable. */
+  coolingUntil?: number;
+  coolingReason?: AccountCoolingReason;
+  pool?: ProxyPoolHeadroom;
+};
+
 // =============================================================================
 // CLAUDE PROXY ROUTE TYPES (from claudeProxyRoutes.ts)
 // =============================================================================

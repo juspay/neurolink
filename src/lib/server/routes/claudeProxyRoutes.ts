@@ -41,6 +41,10 @@ import {
   saveAccountQuota,
 } from "../../proxy/accountQuota.js";
 import {
+  buildProxyLimitHeaders,
+  summarizePoolHeadroom,
+} from "../../proxy/quotaHeaders.js";
+import {
   buildClaudeError,
   ClaudeStreamSerializer,
   generateToolUseId,
@@ -125,6 +129,7 @@ import type {
   ProxyBodyCaptureLogger,
   ProxyQuotaCooldownUpdate,
   ProxyPassthroughAccount,
+  ProxyQuotaSource,
   QueuedAccountAdmission,
   ResponseInfoContext,
   RouteGroup,
@@ -662,6 +667,79 @@ function resetEpochToMs(
   // Heuristic: a value beyond ~year 2100 in seconds (4102444800) is already ms.
   const ms = resetEpoch > 4_102_444_800 ? resetEpoch : resetEpoch * 1000;
   return ms > now ? ms : undefined;
+}
+
+/**
+ * Publish limit/quota headers for this response onto the request context.
+ *
+ * Every response path funnels through here so the header contract is defined
+ * once. The proxy runtime copies `ctx.responseHeaders` onto JSON and error
+ * responses, and merges them into streaming Responses for keys those don't
+ * already set — so a single call covers both shapes.
+ */
+function publishLimitHeaders(
+  ctx: ServerContext,
+  args: {
+    upstreamHeaders?: Headers | Record<string, string>;
+    quota?: AccountQuota | null;
+    source: ProxyQuotaSource;
+    account?: ProxyPassthroughAccount;
+    accountState?: RuntimeAccountState;
+    /** Overrides the account's own type — used by passthrough, which has no
+     *  pooled account but is still a distinct serving mode. */
+    accountType?: string;
+    servedBy?: string;
+    attempt?: number;
+    poolAccounts?: ReadonlyArray<ProxyPassthroughAccount>;
+  },
+): void {
+  try {
+    const pool = args.poolAccounts
+      ? summarizePoolHeadroom(
+          args.poolAccounts.map((account) => {
+            const state = accountRuntimeState.get(account.key);
+            return {
+              ...(state?.coolingUntil !== undefined
+                ? { coolingUntil: state.coolingUntil }
+                : {}),
+              ...(state?.quota ? { quota: state.quota } : {}),
+            };
+          }),
+        )
+      : undefined;
+
+    const headers = buildProxyLimitHeaders({
+      ...(args.upstreamHeaders
+        ? { upstreamHeaders: args.upstreamHeaders }
+        : {}),
+      context: {
+        quota: args.quota ?? null,
+        source: args.source,
+        ...(args.account ? { accountLabel: args.account.label } : {}),
+        ...((args.accountType ?? args.account?.type)
+          ? { accountType: args.accountType ?? args.account?.type }
+          : {}),
+        ...(args.servedBy ? { servedBy: args.servedBy } : {}),
+        ...(args.attempt !== undefined ? { attempt: args.attempt } : {}),
+        ...(args.accountState?.coolingUntil !== undefined
+          ? { coolingUntil: args.accountState.coolingUntil }
+          : {}),
+        ...(args.accountState?.coolingReason
+          ? { coolingReason: args.accountState.coolingReason }
+          : {}),
+        ...(pool ? { pool } : {}),
+      },
+    });
+
+    ctx.responseHeaders = { ...(ctx.responseHeaders ?? {}), ...headers };
+  } catch (error) {
+    // Diagnostics must never break a response that is otherwise fine.
+    logger.debug(
+      `[proxy] failed to publish limit headers: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 }
 
 /** Clamp a cooldown target epoch-ms into [now+MIN, now+MAX]. */
@@ -2076,6 +2154,21 @@ async function handleClaudePassthroughRequest(args: {
   });
   tracer?.logUpstreamResponseHeaders(upstreamResponseHeaders);
 
+  // Passthrough uses the caller's own credentials, so there is no account pool
+  // to report — but the upstream quota headers are still the caller's real
+  // limits. Published before the ok/non-ok split so a 429 carries them too.
+  {
+    const passthroughQuota = parseQuotaHeaders(response.headers);
+    publishLimitHeaders(ctx, {
+      upstreamHeaders: response.headers,
+      quota: passthroughQuota,
+      source: passthroughQuota ? "live" : "none",
+      accountType: "passthrough",
+      servedBy: "anthropic",
+      attempt: 1,
+    });
+  }
+
   if (!response.ok) {
     const errorText = await response.text();
     recordAttemptError(
@@ -2213,6 +2306,7 @@ async function handleClaudePassthroughStreamResponse(args: {
   logFinalRequest: ClaudeFinalRequestLogger;
 }): Promise<Response> {
   const {
+    ctx,
     bodyStr,
     response,
     tracer,
@@ -2470,7 +2564,13 @@ async function handleClaudePassthroughStreamResponse(args: {
   const clientStream = streamSource.pipeThrough(clientCaptureStream);
   return new Response(clientStream, {
     status: response.status,
-    headers: responseHeaders,
+    // Upstream headers first, then the proxy's own — passthrough already
+    // forwarded everything Anthropic sent, so this only adds the x-neurolink-*
+    // fields the client cannot derive on its own.
+    headers: {
+      ...responseHeaders,
+      ...((ctx.responseHeaders ?? {}) as Record<string, string>),
+    },
   });
 }
 
@@ -3211,6 +3311,14 @@ async function tryConfiguredClaudeFallbackChain(args: {
         attemptCount: fallbackPlan.attempts.slice(1).length,
         reason: "fallback_success",
       });
+      // A different provider produced this response — say so, and report no
+      // quota. Emitting the last Anthropic snapshot here would attribute one
+      // provider's capacity to another's output.
+      publishLimitHeaders(ctx, {
+        quota: null,
+        source: "none",
+        servedBy: fallback.provider,
+      });
       return { response };
     } catch (fallbackErr) {
       const errMsg = redactProviderErrorMessage(
@@ -3325,6 +3433,13 @@ async function tryAutoClaudeFallback(args: {
       model: body.model,
       attemptCount: 1,
       reason: "fallback_success",
+    });
+    // See the configured-chain path: never attribute Anthropic quota to a
+    // response another provider produced.
+    publishLimitHeaders(ctx, {
+      quota: null,
+      source: "none",
+      servedBy: "auto-provider",
     });
     return { response };
   } catch (fallbackErr) {
@@ -3554,6 +3669,8 @@ async function handleAnthropicSuccessfulResponse(args: {
   logAttempt: AnthropicAttemptLogger;
   logProxyBody: ProxyBodyCaptureLogger;
   onStreamTerminal?: () => void;
+  /** Accounts eligible for this request, used to report pool headroom. */
+  poolAccounts?: ReadonlyArray<ProxyPassthroughAccount>;
   logFinalRequest: (
     status: number,
     accountLabel: string,
@@ -3583,6 +3700,7 @@ async function handleAnthropicSuccessfulResponse(args: {
     logAttempt,
     logProxyBody,
     onStreamTerminal,
+    poolAccounts,
     logFinalRequest,
   } = args;
   accountState.consecutiveRefreshFailures = 0;
@@ -3624,6 +3742,21 @@ async function handleAnthropicSuccessfulResponse(args: {
     responseHeaders[key] = value;
   });
   tracer?.logUpstreamResponseHeaders(responseHeaders);
+
+  // Surface limits to the client. `quota` is non-null only when this upstream
+  // response actually carried the unified headers; otherwise fall back to the
+  // account's last snapshot and label it as such, so a consumer never mistakes
+  // a carried-over reading for a fresh one.
+  publishLimitHeaders(ctx, {
+    upstreamHeaders: response.headers,
+    quota: quota ?? accountState.quota ?? null,
+    source: quota ? "live" : accountState.quota ? "snapshot" : "none",
+    account,
+    accountState,
+    servedBy: "anthropic",
+    attempt: attemptNumber,
+    ...(poolAccounts ? { poolAccounts } : {}),
+  });
 
   if (body.stream) {
     return handleAnthropicStreamingSuccessResponse({
@@ -3693,6 +3826,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
   ) => void;
 }): Promise<AnthropicSuccessResult> {
   const {
+    ctx,
     account,
     accountState,
     response,
@@ -3939,6 +4073,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
 
   const { response: result, telemetryDone } =
     attachAnthropicSuccessStreamTelemetry({
+      ctx,
       account,
       response,
       responseHeaders,
@@ -3989,6 +4124,7 @@ function recordCommittedAnthropicStreamAttemptFailure(
 }
 
 function attachAnthropicSuccessStreamTelemetry(args: {
+  ctx: ServerContext;
   account: ProxyPassthroughAccount;
   response: Response;
   responseHeaders: Record<string, string>;
@@ -4015,6 +4151,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
   ) => void;
 }): { response: Response; telemetryDone: Promise<void> } {
   const {
+    ctx,
     account,
     response,
     responseHeaders,
@@ -4315,23 +4452,18 @@ function attachAnthropicSuccessStreamTelemetry(args: {
   }
 
   const clientStream = streamSource.pipeThrough(clientCaptureStream);
+  // Limit headers published on the context are applied here rather than left
+  // to the runtime wrapper: this Response goes straight to the client on every
+  // mount (proxy runtime and the generic server adapters alike), so the
+  // streaming path has to carry them itself. The previous five-name allowlist
+  // forwarded only the legacy counters and dropped the unified subscription
+  // windows entirely.
   const clientResponseHeaders: Record<string, string> = {
+    ...((ctx.responseHeaders ?? {}) as Record<string, string>),
     "content-type": "text/event-stream",
     "cache-control": "no-cache",
     connection: "keep-alive",
   };
-  for (const headerName of [
-    "retry-after",
-    "anthropic-ratelimit-requests-remaining",
-    "anthropic-ratelimit-requests-limit",
-    "anthropic-ratelimit-tokens-remaining",
-    "anthropic-ratelimit-tokens-limit",
-  ]) {
-    const value = response.headers.get(headerName);
-    if (value) {
-      clientResponseHeaders[headerName] = value;
-    }
-  }
 
   return {
     response: new Response(clientStream, {
@@ -6757,6 +6889,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           logProxyBody,
           logFinalRequest,
           onStreamTerminal: admissionLease.release,
+          poolAccounts: enabledAccounts,
         });
         if ("retryNextAccount" in successResult) {
           if (successResult.failure) {
@@ -6822,6 +6955,25 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     }
 
     loopState.fallbackFailureMessage = fallbackFailureMessage;
+  }
+
+  // Terminal failure — usually "every account is rate-limited". This is the
+  // response a caller most needs limit data on, and historically the one that
+  // carried none. No single account served it, so report the account we would
+  // have tried first plus pool headroom, explicitly marked as a snapshot.
+  {
+    const primary = orderedAccounts[0];
+    const primaryState = primary
+      ? accountRuntimeState.get(primary.key)
+      : undefined;
+    publishLimitHeaders(ctx, {
+      quota: primaryState?.quota ?? null,
+      source: primaryState?.quota ? "snapshot" : "none",
+      ...(primary ? { account: primary } : {}),
+      ...(primaryState ? { accountState: primaryState } : {}),
+      attempt: loopState.attemptNumber,
+      poolAccounts: enabledAccounts,
+    });
   }
 
   return buildClaudeAnthropicFailureResponse({

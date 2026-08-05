@@ -222,6 +222,8 @@
     "test:agent-plumbing": "npx tsx test/continuous-test-suite-agent-plumbing.ts",
     "test:tool-execution-recorder": "npx tsx test/continuous-test-suite-tool-execution-recorder.ts",
     "test:proxy-terminal-errors": "npx tsx test/continuous-test-suite-proxy-terminal-errors.ts",
+    "test:proxy-limit-headers": "npx tsx test/continuous-test-suite-proxy-limit-headers.ts",
+    "test:anthropic-limit-capture": "npx tsx test/continuous-test-suite-anthropic-limit-capture.ts",
     "test:audio": "npx tsx test/continuous-test-suite-audio.ts",
     "test:office": "npx tsx test/continuous-test-suite-office.ts",
     "test:tts:unit": "npx tsx test/continuous-test-suite-tts-unit.ts",

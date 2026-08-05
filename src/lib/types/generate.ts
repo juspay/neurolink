@@ -6,6 +6,7 @@ import type {
 } from "./knowledge.js";
 import type { SkillsCallOptions } from "./skills.js";
 import type { AnalyticsData, TokenUsage } from "./analytics.js";
+import type { ClaudeLimitSnapshot } from "./subscription.js";
 import type { JsonValue } from "./common.js";
 import type { Content, ImageWithAltText } from "./content.js";
 import type { ChatMessage, ConversationMemoryConfig } from "./conversation.js";
@@ -1080,6 +1081,18 @@ export type GenerateResult = {
     count: number;
     errors: Array<{ code: string; message: string }>;
   };
+
+  /**
+   * Account limit state for this request, parsed from Anthropic's
+   * `anthropic-ratelimit-*` response headers (plus the NeuroLink Claude
+   * proxy's `x-neurolink-*` additions when routed through it).
+   *
+   * Subscription windows report utilization, so headroom is a percentage
+   * (`sessionLeftPct`) rather than an absolute count — Anthropic publishes no
+   * remaining message or token figure for them. API-key accounts do carry
+   * absolute `requestsRemaining` / `tokensRemaining`.
+   */
+  limits?: ClaudeLimitSnapshot;
 };
 
 /**

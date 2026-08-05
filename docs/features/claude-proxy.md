@@ -573,7 +573,47 @@ When the target provider is `anthropic` (the default for any `claude-*` model), 
 6. Forward client headers as-is, preserving Claude Code's own request shape, then merge in required OAuth betas and trace headers when absent. The proxy extracts incoming `traceparent` and `x-neurolink-*` headers and injects outbound trace context plus `x-claude-code-session-id` when needed.
 7. For streaming: verify the first chunk (bootstrap retry), then forward the stream. For non-streaming: return JSON.
 
-This mode preserves the exact request format that Claude Code expects, including thinking blocks, cache control headers, and multi-turn tool use conversations. Rate-limit headers from Anthropic (`retry-after`, `anthropic-ratelimit-requests-remaining`, `anthropic-ratelimit-requests-limit`, `anthropic-ratelimit-tokens-remaining`, `anthropic-ratelimit-tokens-limit`) are passed through to the client.
+This mode preserves the exact request format that Claude Code expects, including thinking blocks, cache control headers, and multi-turn tool use conversations. Rate-limit headers from Anthropic are passed through to the client — see [Limit response headers](#limit-response-headers) below.
+
+### Limit response headers
+
+Every proxy response — streaming, non-streaming, and errors including 429 — carries the account's limit state. There are two layers.
+
+**Verbatim passthrough.** Anthropic's own `anthropic-ratelimit-*` headers and `retry-after` are forwarded unchanged. This is deliberate: a proxied response looks identical to a direct one, so a client needs only a single parser for both. Which family is present depends on the serving account:
+
+| Account type         | Headers                                                                                            | Semantics                                                                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| OAuth / subscription | `anthropic-ratelimit-unified-5h-*`, `-7d-*`, `-status`, `-overage-status`                          | **Utilization** (0.0-1.0 of capacity _used_) plus a reset epoch. Anthropic publishes no absolute remaining count for subscription windows. |
+| API key              | `anthropic-ratelimit-requests-remaining`/`-limit`, `anthropic-ratelimit-tokens-remaining`/`-limit` | Absolute remaining counts.                                                                                                                 |
+
+**NeuroLink additions** (`x-neurolink-*`) carry what only the proxy knows:
+
+| Header                                                                     | Meaning                                                                                                                                          |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `x-neurolink-quota-source`                                                 | `live` (parsed from this response), `snapshot` (last known reading for the account), or `none` (no Anthropic account served it). Always present. |
+| `x-neurolink-account` / `-account-type`                                    | Which account served the request, and whether it is `oauth` or `api_key`.                                                                        |
+| `x-neurolink-served-by`                                                    | `anthropic`, or the fallback provider name when routing fell through.                                                                            |
+| `x-neurolink-quota-session-left-pct` / `-weekly-left-pct`                  | Derived headroom, `(1 - utilization) × 100`. Omitted when `quota-source` is `none`.                                                              |
+| `x-neurolink-quota-session-resets-in` / `-weekly-resets-in`                | Seconds until the window resets.                                                                                                                 |
+| `x-neurolink-quota-session-status` / `-weekly-status` / `-unified-status`  | `allowed`, `throttled`, or `rejected`.                                                                                                           |
+| `x-neurolink-account-cooling-until` / `-cooling-reason`                    | Set when the serving account is in a cooldown window.                                                                                            |
+| `x-neurolink-pool-available` / `-pool-cooling` / `-pool-best-session-left` | Account-pool headroom — how many accounts are usable and the best remaining capacity among them.                                                 |
+
+> **`quota-source` matters.** When a fallback provider serves the request, or Anthropic returns no quota headers, the proxy reports `none` and omits the headroom figures rather than echoing a stale snapshot. Treat `snapshot` as "last known", not "current".
+
+Account labels are frequently email addresses and are emitted as-is; the proxy binds to `127.0.0.1` by default. If you expose it beyond localhost, terminate and authenticate it in front — the proxy performs no inbound authentication of its own.
+
+**Consuming from the SDK.** The Anthropic provider parses these headers on every request in both auth modes and surfaces them on `result.limits` and `result.analytics.limits`, logs one line per request (escalating to WARN below 15% session headroom or on a `throttled`/`rejected` status), and sets `neurolink.claude.quota.*` span attributes alongside `gen_ai.usage.*`. This works without the proxy too — direct subscription traffic returns the same unified headers.
+
+```typescript
+const result = await neurolink.generate({
+  prompt: "...",
+  provider: "anthropic",
+});
+console.log(result.limits?.rateLimit.sessionLeftPct); // e.g. 58
+console.log(result.limits?.quotaSource); // "live"
+console.log(result.limits?.account); // set only when routed through the proxy
+```
 
 ### Translation mode (Claude to other provider)
 
