@@ -942,6 +942,7 @@ export class CSVProcessor {
       sanitizeColumnNames = false,
       columnNameCase = "snake_case",
       parseTimeoutMs = DEFAULT_CSV_STRING_PARSE_TIMEOUT_MS,
+      skipEmptyLines = true,
     } = options || {};
 
     const maxRows = Math.max(1, Math.min(10000, rawMaxRows));
@@ -951,6 +952,7 @@ export class CSVProcessor {
       formatStyle,
       maxRows,
       includeHeaders,
+      skipEmptyLines,
     });
 
     // #362: detect the encoding (BOM → chardet → UTF-8 fallback) or honor the
@@ -983,8 +985,18 @@ export class CSVProcessor {
 
       // dataLines already has the metadata line (if any) stripped.
       const csvLines = dataLines;
+      const headerLine = csvLines[0] ?? "";
+      const rawDataLines = csvLines.slice(1);
 
-      const limitedLines = csvLines.slice(0, 1 + maxRows); // header + data rows
+      // #373: optionally drop blank/whitespace-only data lines so raw
+      // `content` matches rowCount (previously only the count filtered them).
+      const effectiveDataLines = skipEmptyLines
+        ? rawDataLines.filter((line) => line.trim() !== "")
+        : rawDataLines;
+
+      const limitedDataLines = effectiveDataLines.slice(0, maxRows);
+      const limitedLines =
+        csvLines.length === 0 ? [] : [headerLine, ...limitedDataLines];
 
       // #378: opt-in — rewrite the literal header line with sanitized,
       // deduped identifiers so the raw CSV text shown to the LLM has clean
@@ -1009,12 +1021,10 @@ export class CSVProcessor {
       // sanitizeColumnNames branch above and #1192's detected delimiter).
       const headerFields = splitCSVFields(limitedLines[0] || "", delimiter);
 
-      const rowCount = limitedLines
-        .slice(1)
-        .filter((line) => line.trim() !== "").length;
-      const originalRowCount = csvLines
-        .slice(1)
-        .filter((line) => line.trim() !== "").length;
+      // When preserving empties, blank lines count as rows; when skipping,
+      // only non-empty data lines do.
+      const rowCount = limitedDataLines.length;
+      const originalRowCount = effectiveDataLines.length;
       const wasTruncated = rowCount < originalRowCount;
 
       if (wasTruncated) {
@@ -1113,7 +1123,9 @@ export class CSVProcessor {
       { maxRows, skipLines: 0, timeoutMs: parseTimeoutMs, delimiter },
     );
 
-    // Filter out empty rows (empty objects or rows with only whitespace values from blank lines)
+    // Filter out empty rows (empty objects or rows with only whitespace values
+    // from blank lines). #373: `skipEmptyLines` (default true) controls this;
+    // set false to preserve blank-line rows in structured output.
     const filteredRows = rows.filter((row) => {
       if (!row || typeof row !== "object") {
         return false;
@@ -1121,6 +1133,9 @@ export class CSVProcessor {
       const keys = Object.keys(row);
       if (keys.length === 0) {
         return false;
+      }
+      if (!skipEmptyLines) {
+        return true;
       }
       // Check if all values are empty or whitespace-only
       return !Object.values(row).every(

@@ -274,6 +274,12 @@ export class CLICommandFactory {
       description:
         "Wall-clock cap (ms) for CSV parsing; returns partial rows on timeout (#379).",
     },
+    "csv-skip-empty-lines": {
+      type: "boolean" as const,
+      default: true,
+      description:
+        "Skip blank/whitespace-only CSV data rows in content and rowCount (default true). Use --no-csv-skip-empty-lines to preserve them (#373).",
+    },
     model: {
       type: "string" as const,
       description:
@@ -3366,6 +3372,7 @@ export class CLICommandFactory {
         | "camelCase"
         | undefined,
       parseTimeoutMs: argv.csvParseTimeoutMs as number | undefined,
+      skipEmptyLines: argv.csvSkipEmptyLines as boolean | undefined,
     };
   }
 

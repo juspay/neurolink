@@ -550,6 +550,49 @@ const tests: TestFunction[] = [
     },
   },
   {
+    name: "CSVProcessor #373: skipEmptyLines filters blank lines from raw content; preserve keeps them",
+    category: "csv-processor",
+    fn: async () => {
+      const csv = "name,age\nAlice,30\n\nBob,25\n   \nCara,41\n";
+
+      // Default (skipEmptyLines=true): raw content has no blank lines, rowCount=3.
+      const skipped = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "raw",
+      });
+      const skippedLines = skipped.content.split("\n");
+      const skippedOk =
+        skipped.metadata.rowCount === 3 &&
+        skippedLines.length === 4 &&
+        skippedLines.every((line, i) => i === 0 || line.trim() !== "");
+
+      // Explicit preserve: blank lines stay in raw content and count as rows
+      // (including a trailing empty line from a final newline).
+      const preserved = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "raw",
+        skipEmptyLines: false,
+      });
+      const preservedLines = preserved.content.split("\n");
+      const preservedOk =
+        preserved.metadata.rowCount >= 5 &&
+        preservedLines.length >= 6 &&
+        preservedLines.some((line) => line.trim() === "");
+
+      // Structured json also respects the option.
+      const jsonSkipped = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "json",
+      });
+      const jsonPreserved = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "json",
+        skipEmptyLines: false,
+      });
+      const jsonOk =
+        JSON.parse(jsonSkipped.content).length === 3 &&
+        jsonPreserved.metadata.rowCount > jsonSkipped.metadata.rowCount;
+
+      return skippedOk && preservedOk && jsonOk;
+    },
+  },
+  {
     name: "CSVProcessor #378: opt-in column-name sanitization yields valid identifiers and preserves originals",
     category: "csv-processor",
     fn: async () => {
@@ -8279,10 +8322,10 @@ exit 127
   {
     // (c) batch used to build a hand-rolled `csvOptions` inline (only
     // maxRows/formatStyle), silently dropping encoding/sanitizeColumnNames/
-    // columnNameCase/parseTimeoutMs that generate/stream already supported.
-    // Verify both that batch now delegates to the shared helper, and that
-    // the shared helper itself carries every field through.
-    name: "CLI batch (review): executeBatch's csvOptions is built via the shared buildCsvOptionsFromArgv helper, and that helper carries encoding/sanitizeColumnNames/columnNameCase/parseTimeoutMs",
+    // columnNameCase/parseTimeoutMs/skipEmptyLines that generate/stream
+    // already supported. Verify both that batch now delegates to the shared
+    // helper, and that the shared helper itself carries every field through.
+    name: "CLI batch (review): executeBatch's csvOptions is built via the shared buildCsvOptionsFromArgv helper, and that helper carries encoding/sanitizeColumnNames/columnNameCase/parseTimeoutMs/skipEmptyLines",
     category: "cli",
     fn: async () => {
       const src = readFileSync(
@@ -8315,6 +8358,7 @@ exit 127
             sanitizeColumnNames?: boolean;
             columnNameCase?: string;
             parseTimeoutMs?: number;
+            skipEmptyLines?: boolean;
           };
         }
       ).buildCsvOptionsFromArgv;
@@ -8326,6 +8370,7 @@ exit 127
         csvSanitizeNames: true,
         csvNameCase: "camelCase",
         csvParseTimeoutMs: 45000,
+        csvSkipEmptyLines: false,
       });
 
       return (
@@ -8334,7 +8379,8 @@ exit 127
         opts.encoding === "windows-1252" &&
         opts.sanitizeColumnNames === true &&
         opts.columnNameCase === "camelCase" &&
-        opts.parseTimeoutMs === 45000
+        opts.parseTimeoutMs === 45000 &&
+        opts.skipEmptyLines === false
       );
     },
   },
