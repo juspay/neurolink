@@ -230,6 +230,32 @@ pnpm run build:cli && pnpm run cli <command>
 
 **Workflow:** edit → `pnpm run check` → `pnpm run lint` → `pnpm test` → `pnpm run build`
 
+### ⚠️ Keep payloads out of assertion messages
+
+`defineSuite`'s `test()` classifies a thrown error as **SKIP** — not FAIL — when
+it is a `Skip`, when the message starts with `SKIP:`, **or when the message
+matches `isExpectedProviderError()`**. That last clause reads the message text,
+so an assertion message that merely _quotes_ provider-ish content is downgraded
+to a skip and the run still exits 0.
+
+```ts
+// DON'T — dumping the actual value into the message. If the payload contains
+// something like "stream_error", "502" or "ECONNREFUSED", a genuine failure is
+// reported as ⊘ skipped and CI stays green.
+assert(ok, `terminal journal wrong — got ${JSON.stringify(actual)}`);
+
+// DO — describe the discrepancy without quoting the payload.
+assert(ok, `terminal journal wrong — mismatch at ${keyPath}`);
+```
+
+This bit during the Vitest migration: three real failures in
+`continuous-test-suite-proxy-terminal-errors.ts` reported as `Passed: 2,
+Skipped: 3` with exit 0. An audit of the 26 no-API suites found no _existing_
+suite affected — the hazard is for new assertions.
+
+When adding a suite, sanity-check it by breaking one assertion on purpose and
+confirming it reports `✗` and exits non-zero rather than `⊘`.
+
 ---
 
 ## How-To Guides
