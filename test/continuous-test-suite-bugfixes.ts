@@ -593,6 +593,44 @@ const tests: TestFunction[] = [
     },
   },
   {
+    name: "CSVProcessor #373: raw skips delimiter-only rows; preserve keeps schema for leading blanks",
+    category: "csv-processor",
+    fn: async () => {
+      // Put a real row before delimiter-only blanks so `isMetadataLine` does
+      // not mis-classify the header (comma-count mismatch with `,,`).
+      const delimCsv = "name,age\nAlice,30\n,,\n  ,  \nBob,25\n";
+      const rawSkipped = await CSVProcessor.process(Buffer.from(delimCsv), {
+        formatStyle: "raw",
+      });
+      const dataLines = rawSkipped.content.split("\n").slice(1);
+      const rawOk =
+        rawSkipped.metadata.rowCount === 2 &&
+        rawSkipped.content.startsWith("name,age") &&
+        dataLines.includes("Alice,30") &&
+        dataLines.includes("Bob,25") &&
+        !dataLines.some((l) => l === ",," || /^\s*,\s*$/.test(l));
+
+      // Preserved leading blanks must not poison Markdown/JSON headers.
+      const leadBlank = "name,age\n\nAlice,30\nBob,25\n";
+      const md = await CSVProcessor.process(Buffer.from(leadBlank), {
+        formatStyle: "markdown",
+        skipEmptyLines: false,
+      });
+      const json = await CSVProcessor.process(Buffer.from(leadBlank), {
+        formatStyle: "json",
+        skipEmptyLines: false,
+      });
+      const parsed = JSON.parse(json.content) as Array<Record<string, string>>;
+      const mdHeaderOk = /^\| name \| age \|/m.test(md.content);
+      const jsonOk =
+        parsed.length >= 2 &&
+        Object.keys(parsed[0] ?? {}).includes("name") &&
+        parsed.some((r) => r.name === "Alice");
+
+      return rawOk && mdHeaderOk && jsonOk;
+    },
+  },
+  {
     name: "CSVProcessor #373: structured maxRows counts non-empty rows only (leading blanks)",
     category: "csv-processor",
     fn: async () => {
