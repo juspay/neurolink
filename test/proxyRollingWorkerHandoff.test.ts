@@ -626,6 +626,7 @@ describe("rolling proxy worker supervisor", () => {
       workerExitSignal: "SIGKILL",
       supervisorAction: "none",
     });
+    expect(worker.terminated).not.toContain("SIGKILL");
     void supervisor.close();
   });
 });
