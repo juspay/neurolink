@@ -55,6 +55,23 @@ const MAX_CALIBRATION_RATIO = 3;
 /** Messages at the end of the conversation the guard never modifies. */
 const PROTECTED_TAIL_MESSAGES = 4;
 
+/**
+ * Fraction of the context window the guard reclaims DOWN TO once it fires.
+ *
+ * The high-water mark (`thresholdRatio`) decides *when* to act; this low-water
+ * mark decides *how far*. Reclaiming only back to the threshold meant the very
+ * next step — which appends an assistant turn plus its tool results — crossed
+ * it again, so the guard mutated the message prefix on every single step of a
+ * long agentic run. Each of those mutations invalidates the Anthropic
+ * `cache_control` prefix from the edit point onward (see
+ * anthropicCacheBreakpoints), turning a ~0.1x cached read into full-price
+ * input every step.
+ *
+ * One deeper reclaim every N steps saves the same tokens and leaves the prefix
+ * stable in between, which is what makes the cache worth having.
+ */
+const CONTEXT_GUARD_LOW_WATER_RATIO = 0.6;
+
 /** Stage-1 preview budget for an old tool output (bytes). */
 const OLD_TOOL_OUTPUT_PREVIEW_BYTES = 2_048;
 
@@ -370,18 +387,29 @@ export function createStepBudgetGuard(config: StepBudgetGuardConfig) {
       return undefined;
     }
 
+    // Reclaim down to the LOW-WATER mark, not merely back under the threshold.
+    // See CONTEXT_GUARD_LOW_WATER_RATIO: stopping at the threshold guaranteed
+    // the next step crossed it again, mutating the cached prefix every step.
+    const lowWaterTokens = Math.floor(
+      (availableInput * CONTEXT_GUARD_LOW_WATER_RATIO) / calibration,
+    );
+
     // Stage 1: shrink old tool outputs to previews.
     const stage1 = truncateOldToolOutputs([...messages]);
     let compacted = stage1.messages;
     let newEstimate =
       overheadTokens + estimateStepMessagesTokens(compacted, provider);
 
-    // Stage 2: drop oldest complete tool exchanges if still over.
+    // Stage 2: drop oldest complete tool exchanges until under the low-water
+    // mark. Stage order is deliberately unchanged — truncating first preserves
+    // a preview of each output, and since BOTH stages edit the oldest messages
+    // the cache prefix is invalidated at roughly the same point either way.
+    // Frequency, not stage order, is what governs cache retention here.
     let droppedExchanges = 0;
-    if (newEstimate > effectiveThreshold) {
+    if (newEstimate > lowWaterTokens) {
       const stage2 = dropOldestToolExchanges(
         compacted,
-        effectiveThreshold,
+        lowWaterTokens,
         overheadTokens,
         provider,
       );
@@ -401,8 +429,13 @@ export function createStepBudgetGuard(config: StepBudgetGuardConfig) {
       model,
       estimatedTokens: rawEstimate,
       thresholdTokens: effectiveThreshold,
+      lowWaterTokens,
       calibration,
       afterTokens: newEstimate,
+      // Headroom reclaimed below the firing threshold. Roughly how many further
+      // steps can run before the guard mutates the prefix again — a value near
+      // zero means the cache is being invalidated every step.
+      headroomTokens: effectiveThreshold - newEstimate,
       toolOutputsTruncated: stage1.truncated,
       exchangesDropped: droppedExchanges,
     });
