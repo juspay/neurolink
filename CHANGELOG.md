@@ -1,3 +1,9 @@
+## [10.10.0](https://github.com/juspay/neurolink/compare/v10.9.1...v10.10.0) (2026-08-05)
+
+### Features
+
+- **(proxy):** emit account limit headers and surface them on results ([dfc24f8](https://github.com/juspay/neurolink/commit/dfc24f8caafbcd68aaca633a0d25ee327942d6ad))
+
 ## [10.9.1](https://github.com/juspay/neurolink/compare/v10.9.0...v10.9.1) (2026-08-05)
 
 ### Bug Fixes
