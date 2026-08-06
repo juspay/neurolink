@@ -1,3 +1,9 @@
+## [10.10.3](https://github.com/juspay/neurolink/compare/v10.10.2...v10.10.3) (2026-08-06)
+
+### Bug Fixes
+
+- **(context):** count tool args and target history budget when compacting ([613709b](https://github.com/juspay/neurolink/commit/613709b3473b38f897d61393a53abf416e07c46f))
+
 ## [10.10.2](https://github.com/juspay/neurolink/compare/v10.10.1...v10.10.2) (2026-08-06)
 
 ### Bug Fixes
