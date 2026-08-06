@@ -58,11 +58,13 @@ import {
   isToolsSchemaExclusionInForce,
 } from "./structuredOutputPolicy.js";
 import { coerceJsonToSchema } from "../../utils/json/coerce.js";
+import { convertZodToJsonSchema } from "../../utils/schemaConversion.js";
 import type {
   LanguageModel,
   ModelMessage,
   PrepareStepFunction,
   Tool,
+  ZodUnknownSchema,
 } from "../../types/index.js";
 import { NoObjectGeneratedError } from "../../utils/generationErrors.js";
 import { Output, stepCountIs } from "../../utils/tool.js";
@@ -165,10 +167,14 @@ function buildProviderOptions(
   options: TextGenerationOptions,
   isGoogleProvider: boolean,
   callerTimeoutMs: number | undefined,
+  finalResultSchema: Record<string, unknown> | undefined,
 ): Parameters<typeof generateText>[0]["providerOptions"] {
   const providerOptions: Record<string, Record<string, unknown>> = {};
   if (callerTimeoutMs !== undefined) {
     providerOptions.neurolink = { timeoutMs: callerTimeoutMs };
+  }
+  if (finalResultSchema) {
+    providerOptions.anthropic = { finalResultSchema };
   }
   if (options.thinkingConfig?.enabled && isGoogleProvider) {
     // Gemini 3 uses thinkingLevel; Gemini 2.5 uses thinkingBudget.
@@ -349,10 +355,30 @@ export class GenerationHandler {
     const { callerTimeoutMs, turnBudgetMs, wrapupLeadMs, turnDeadline } =
       resolveTurnBudget(options, turnStartMs);
     let wrapupForced = false;
+    // The native Anthropic Messages surface cannot combine AI-SDK structured
+    // output with tools (see structuredOutputPolicy — experimental_output
+    // replaces the tools array), so `useStructuredOutput` is false above and
+    // the schema would simply be dropped for every agent/MCP turn. Hand the
+    // JSON Schema to the provider instead: it appends an additive
+    // `final_result` tool and returns the answer as that tool's arguments,
+    // keeping the real tools callable. Bedrock is deliberately excluded — it
+    // runs on the third-party @ai-sdk/amazon-bedrock model, which has no such
+    // handling.
+    const finalResultSchema =
+      this.providerName === "anthropic" &&
+      !!options.schema &&
+      shouldUseTools &&
+      Object.keys(tools).length > 0
+        ? (convertZodToJsonSchema(options.schema as ZodUnknownSchema) as Record<
+            string,
+            unknown
+          >)
+        : undefined;
     const providerOptions = buildProviderOptions(
       options,
       isGoogleProvider,
       callerTimeoutMs,
+      finalResultSchema,
     );
 
     // Hoist system-role messages into generateText's top-level `system` option

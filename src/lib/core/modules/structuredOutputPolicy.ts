@@ -38,6 +38,14 @@ export function isGeminiProvider(
  * experimental_output + tools silently drops tool_use blocks on this surface, so
  * structured output must be disabled when tools are active. Vertex+Claude is NOT
  * matched here (different transport, no conflict).
+ *
+ * Being excluded here no longer means the schema is LOST for provider
+ * "anthropic": GenerationHandler forwards the JSON Schema to the provider via
+ * `providerOptions.anthropic.finalResultSchema`, and the provider appends an
+ * additive `final_result` tool (see providers/anthropic/structuredOutput.ts) —
+ * schema enforcement without giving up tool calling. "bedrock" has no such
+ * handling (it runs on the third-party @ai-sdk/amazon-bedrock model) and still
+ * falls back to text-mode coercion.
  */
 export function isNativeAnthropicProvider(providerName: string): boolean {
   return providerName === "anthropic" || providerName === "bedrock";
