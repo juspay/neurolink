@@ -11,15 +11,18 @@
  *
  * The fix appends a `final_result` tool instead, leaving `tool_choice` on
  * auto. Covered here:
- *   - the pure helpers (tool shape, append guards, system instruction,
- *     payload stringification)
+ *   - the pure helpers (tool shape, non-object root nesting, append guards,
+ *     hydration ordering, providerOptions narrowing, system instruction,
+ *     payload stringification and unwrapping)
  *   - doGenerate: schema + tools (final_result appended LAST, real tools
  *     intact, tool_choice still auto), the final_result response unwrap
- *     (single text part, zero tool calls, finishReason "stop"), real tool
- *     calls still passing through, schema WITHOUT tools (the pre-existing
- *     forced-json path, unchanged), and no schema at all
+ *     (single text part, zero tool calls, finishReason "stop"), a non-object
+ *     root schema round-tripping unwrapped, real tool calls still passing
+ *     through, schema WITHOUT tools (the pre-existing forced-json path,
+ *     unchanged), and no schema at all
  *   - executeStream: the same three cases, plus the single-chunk delivery
- *     contract and the prose fallback when the model ignores final_result
+ *     contract, the prose fallback when the model ignores final_result, and
+ *     mid-turn discovery hydration keeping final_result last
  *   - GenerationHandler: the providerOptions channel that carries the JSON
  *     Schema to the provider, and the providers it must NOT fire for
  *
@@ -41,6 +44,8 @@ import {
   buildFinalResultTool,
   FINAL_RESULT_INSTRUCTION,
   FINAL_RESULT_TOOL_NAME,
+  insertBeforeFinalResult,
+  readFinalResultSchema,
   stringifyFinalResultInput,
 } from "../src/lib/providers/anthropic/structuredOutput.js";
 import { AnthropicProvider } from "../src/lib/providers/anthropic/client.js";
@@ -212,13 +217,14 @@ function generateOptions(
 // ---------------------------------------------------------------------------
 
 await test("buildFinalResultTool produces an object-rooted input_schema", () => {
-  const tool = buildFinalResultTool(ENVELOPE_JSON_SCHEMA);
-  assertEqual(tool.name, FINAL_RESULT_TOOL_NAME, "tool name");
+  const built = buildFinalResultTool(ENVELOPE_JSON_SCHEMA);
+  assertEqual(built.wrapped, false, "an object root needs no wrapper");
+  assertEqual(built.tool.name, FINAL_RESULT_TOOL_NAME, "tool name");
   assert(
-    (tool.description ?? "").includes("final structured result"),
+    (built.tool.description ?? "").includes("final structured result"),
     "description states the contract",
   );
-  const schema = tool.input_schema as unknown as {
+  const schema = built.tool.input_schema as unknown as {
     type: string;
     properties: Record<string, unknown>;
     required: string[];
@@ -235,6 +241,110 @@ await test("buildFinalResultTool produces an object-rooted input_schema", () => 
     "required list is carried through (optional field excluded)",
   );
   assert(!("$schema" in schema), "the $schema keyword is dropped");
+});
+
+await test("buildFinalResultTool nests non-object roots instead of splatting them", () => {
+  // Anthropic's input_schema must be object-rooted. Lifting a non-object root
+  // straight into `properties` invents properties out of the schema's own
+  // keywords — `{type:"array",items:…}` becomes a property named "type" whose
+  // value is the string "array", which is not a schema at all.
+  const roots: Array<[string, z.ZodTypeAny]> = [
+    ["array root", z.array(z.string())],
+    ["scalar root", z.string()],
+    // A top-level union converts to a bare `anyOf` with no `type` — the shape
+    // most likely to appear in a real caller's envelope schema.
+    [
+      "union root",
+      z.union([z.object({ a: z.string() }), z.object({ b: z.number() })]),
+    ],
+  ];
+  for (const [label, zodSchema] of roots) {
+    const json = convertZodToJsonSchema(zodSchema as never) as Record<
+      string,
+      unknown
+    >;
+    const built = buildFinalResultTool(json);
+    assertEqual(built.wrapped, true, `${label}: reported as wrapped`);
+    const schema = built.tool.input_schema as unknown as {
+      type: string;
+      properties: Record<string, unknown>;
+      required: string[];
+    };
+    assertEqual(schema.type, "object", `${label}: still object-rooted`);
+    assertEqual(
+      Object.keys(schema.properties).join(","),
+      "value",
+      `${label}: nested under exactly one synthetic property`,
+    );
+    assertEqual(
+      schema.required.join(","),
+      "value",
+      `${label}: the synthetic property is required`,
+    );
+    assertEqual(
+      JSON.stringify(schema.properties.value),
+      JSON.stringify(json),
+      `${label}: the caller's schema is carried through intact`,
+    );
+  }
+});
+
+await test("insertBeforeFinalResult keeps final_result last on mid-turn hydration", () => {
+  const declared = [
+    { name: "a", input_schema: { type: "object" as const } },
+    { name: FINAL_RESULT_TOOL_NAME, input_schema: { type: "object" as const } },
+  ];
+  const hydrated = [{ name: "b", input_schema: { type: "object" as const } }];
+  assertEqual(
+    insertBeforeFinalResult(declared, hydrated)
+      .map((t) => t.name)
+      .join(","),
+    `a,b,${FINAL_RESULT_TOOL_NAME}`,
+    "hydrated tools are spliced in ahead of final_result",
+  );
+  assertEqual(declared.length, 2, "the declared list is not mutated");
+  // Without the additive pattern in play there is nothing to keep last.
+  assertEqual(
+    insertBeforeFinalResult([declared[0]], hydrated)
+      .map((t) => t.name)
+      .join(","),
+    "a,b",
+    "plain append when final_result is absent",
+  );
+  assertEqual(
+    insertBeforeFinalResult(declared, []).length,
+    2,
+    "nothing hydrated → unchanged",
+  );
+});
+
+await test("readFinalResultSchema narrows instead of trusting providerOptions", () => {
+  assertEqual(
+    readFinalResultSchema({
+      anthropic: { finalResultSchema: ENVELOPE_JSON_SCHEMA },
+    }),
+    ENVELOPE_JSON_SCHEMA,
+    "a real schema is read through",
+  );
+  assertEqual(
+    readFinalResultSchema(undefined),
+    undefined,
+    "no providerOptions",
+  );
+  assertEqual(
+    readFinalResultSchema({ openai: { finalResultSchema: {} } }),
+    undefined,
+    "another provider's namespace is ignored",
+  );
+  // providerOptions is an untyped passthrough bag — a non-object value must be
+  // dropped rather than asserted into a schema and sent to the API.
+  for (const bad of ["a string", 42, null, ["x"]]) {
+    assertEqual(
+      readFinalResultSchema({ anthropic: { finalResultSchema: bad } }),
+      undefined,
+      "a malformed value is rejected",
+    );
+  }
 });
 
 await test("appendFinalResultTool appends LAST and leaves the input untouched", () => {
@@ -321,6 +431,42 @@ await test("stringifyFinalResultInput canonicalizes, and keeps truncated JSON", 
     stringifyFinalResultInput('{"summary":"tru'),
     '{"summary":"tru',
     "truncated input is returned verbatim",
+  );
+  // The non-streaming path hands over already-parsed arguments.
+  assertEqual(
+    stringifyFinalResultInput(ENVELOPE_PAYLOAD),
+    JSON.stringify(ENVELOPE_PAYLOAD),
+    "an object input is serialized",
+  );
+});
+
+await test("stringifyFinalResultInput unwraps a nested non-object root", () => {
+  assertEqual(
+    stringifyFinalResultInput('{"value":["a","b"]}', true),
+    '["a","b"]',
+    "the synthetic wrapper is stripped from a streamed payload",
+  );
+  assertEqual(
+    stringifyFinalResultInput({ value: "plain" }, true),
+    '"plain"',
+    "…and from parsed arguments",
+  );
+  assertEqual(
+    stringifyFinalResultInput('{"value":["a","b"]}', false),
+    '{"value":["a","b"]}',
+    "an object-rooted schema is never unwrapped",
+  );
+  assertEqual(
+    stringifyFinalResultInput('{"summary":"x"}', true),
+    '{"summary":"x"}',
+    "a model that skipped the wrapper is passed through as-is",
+  );
+  // Truncation must not resurrect the wrapper: the repair layer has to see the
+  // caller's own shape, not `{"value": …`.
+  assertEqual(
+    stringifyFinalResultInput('{"value":["a","b', true),
+    '["a","b',
+    "the wrapper is stripped textually when the payload is truncated",
   );
 });
 
@@ -431,6 +577,56 @@ await test("doGenerate: final_result is unwrapped to text and never surfaced as 
     result.finishReason.raw,
     "tool_use",
     "raw stop_reason stays verbatim",
+  );
+});
+
+await test("doGenerate: a non-object root schema round-trips unwrapped", async () => {
+  const arrayJsonSchema = convertZodToJsonSchema(
+    z.array(z.string()) as never,
+  ) as Record<string, unknown>;
+  const { client, requests } = mockClient([
+    messagesResponse(
+      [
+        {
+          type: "tool_use",
+          id: "tu_1",
+          name: FINAL_RESULT_TOOL_NAME,
+          // The model answers against the nested schema it was shown.
+          input: { value: ["alpha", "beta"] },
+        },
+      ],
+      "tool_use",
+    ),
+  ]);
+  const model = providerWith(client).getAISDKModel();
+  const result = (await (
+    model as unknown as { doGenerate: (o: unknown) => Promise<unknown> }
+  ).doGenerate(
+    generateOptions({
+      tools: [SEARCH_TOOL],
+      providerOptions: {
+        anthropic: { finalResultSchema: arrayJsonSchema },
+      },
+    }),
+  )) as { content: Array<{ type: string; text?: string }> };
+
+  const sentSchema = (requests[0].tools ?? []).find(
+    (t) => t.name === FINAL_RESULT_TOOL_NAME,
+  )?.input_schema as { type: string; properties: Record<string, unknown> };
+  assertEqual(
+    sentSchema.type,
+    "object",
+    "the declared schema is object-rooted",
+  );
+  assertEqual(
+    Object.keys(sentSchema.properties).join(","),
+    "value",
+    "the array root is nested, not splatted into invented properties",
+  );
+  assertEqual(
+    result.content.filter((p) => p.type === "text")[0]?.text,
+    '["alpha","beta"]',
+    "the caller gets their own array shape back, wrapper removed",
   );
 });
 
@@ -599,6 +795,95 @@ await test("executeStream: schema + tools appends final_result and yields the pa
     chunks[0],
     JSON.stringify(ENVELOPE_PAYLOAD),
     "the chunk is exactly the structured payload",
+  );
+});
+
+await test("executeStream: mid-turn tool hydration keeps final_result last", async () => {
+  // tools.discovery hydrates new tools into the live tool record between
+  // steps. Appending them past final_result would strand it mid-array for the
+  // rest of the turn; simulate that by growing the record from the transport.
+  const requests: MessagesCreateParams[] = [];
+  // The record executeStream actually reads — captured at the same point
+  // discovery hands it over, so mutating it mirrors search_tools hydration.
+  let liveTools: Record<string, unknown> = {};
+  const steps = [
+    // A real tool call keeps the loop going into a second step, which is the
+    // only place mid-turn hydration can be observed.
+    streamEvents(
+      [
+        {
+          kind: "tool",
+          id: "tu_0",
+          name: "search_docs",
+          input: JSON.stringify({ q: "deploys" }),
+        },
+      ],
+      "tool_use",
+    ),
+    streamEvents(
+      [
+        {
+          kind: "tool",
+          id: "tu_1",
+          name: FINAL_RESULT_TOOL_NAME,
+          input: JSON.stringify(ENVELOPE_PAYLOAD),
+        },
+      ],
+      "tool_use",
+    ),
+  ];
+  let step = 0;
+  const client = {
+    messages: {
+      create: async (params: unknown) => {
+        requests.push(params as MessagesCreateParams);
+        if (step === 0) {
+          liveTools.hydrated_tool = {
+            description: "Discovered mid-turn",
+            inputSchema: {},
+          };
+        }
+        return steps[Math.min(step++, steps.length - 1)];
+      },
+    },
+  };
+  const provider = providerWith(client);
+  (
+    provider as unknown as {
+      applyToolDiscovery: (
+        t: Record<string, unknown>,
+      ) => Promise<Record<string, unknown>>;
+    }
+  ).applyToolDiscovery = async (t) => {
+    liveTools = t;
+    return t;
+  };
+  const result = await provider.stream({
+    input: { text: "summarize" },
+    schema: ENVELOPE_SCHEMA,
+    tools: {
+      search_docs: {
+        description: "Search",
+        inputSchema: z.object({ q: z.string() }),
+        execute: async () => ({ found: true }),
+      },
+    },
+    disableTools: false,
+  } as never);
+  await drain(result.stream);
+
+  assert(requests.length >= 2, "the loop issued a second step");
+  const names = (requests[1].tools ?? []).map((t) => t.name);
+  assert(names.includes("hydrated_tool"), "the hydrated tool was declared");
+  assertEqual(
+    names[names.length - 1],
+    FINAL_RESULT_TOOL_NAME,
+    "final_result is still last after hydration",
+  );
+  assertEqual(
+    names.filter((n) => n === FINAL_RESULT_TOOL_NAME).length,
+    1,
+    "final_result is not duplicated",
   );
 });
 

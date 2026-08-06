@@ -309,10 +309,13 @@ export type GenerateOptions = {
    *   model: "claude-sonnet-4-6",
    * });
    *
-   * // ✅ Direct Anthropic + tools: schema honored via the final_result tool
+   * // ✅ Direct Anthropic + tools: schema honored via the final_result tool.
+   * // The additive path only engages when tools are actually active; a
+   * // schema-only call keeps using the forced-json path instead.
    * const result = await neurolink.generate({
    *   schema: MySchema,
    *   provider: "anthropic",
+   *   tools: { search_docs: mySearchTool },
    * });
    *
    * // ✅ Gemini + tools: SDK auto-falls back to coerced text-mode JSON

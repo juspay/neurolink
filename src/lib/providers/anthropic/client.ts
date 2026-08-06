@@ -113,6 +113,8 @@ import {
   appendFinalResultInstruction,
   appendFinalResultTool,
   FINAL_RESULT_TOOL_NAME,
+  insertBeforeFinalResult,
+  readFinalResultSchema,
   stringifyFinalResultInput,
 } from "./structuredOutput.js";
 
@@ -1452,13 +1454,19 @@ export class AnthropicProvider extends BaseProvider {
         // the JSON Schema down here instead, and we APPEND a `final_result`
         // tool — tool_choice stays auto, so every real tool keeps working and
         // the model self-selects final_result when it is ready to answer.
-        const finalResultSchema = options.providerOptions?.anthropic
-          ?.finalResultSchema as Record<string, unknown> | undefined;
+        const finalResultSchema = readFinalResultSchema(
+          options.providerOptions,
+        );
         let finalResultActive = false;
+        // Set when the caller's schema was not object-rooted and had to be
+        // nested to satisfy Anthropic's input_schema; the extraction below
+        // unwraps it back to the shape the caller asked for.
+        let finalResultWrapped = false;
         if (!jsonTool && finalResultSchema) {
           const appended = appendFinalResultTool(tools, finalResultSchema);
           tools = appended.tools;
           finalResultActive = appended.applied;
+          finalResultWrapped = appended.wrapped;
           if (appended.applied) {
             system = appendFinalResultInstruction(system);
           }
@@ -1581,7 +1589,10 @@ export class AnthropicProvider extends BaseProvider {
             ) {
               // Internal pattern: never surfaced as a tool call. Its arguments
               // ARE the structured answer.
-              finalResultText = stringifyToolInput(block.input);
+              finalResultText = stringifyFinalResultInput(
+                block.input,
+                finalResultWrapped,
+              );
             } else {
               content.push({
                 type: "tool-call",
@@ -1808,6 +1819,9 @@ export class AnthropicProvider extends BaseProvider {
     // True once the additive `final_result` tool is in the request — the
     // streaming twin of the doGenerate path above.
     let finalResultActive = false;
+    // See the doGenerate twin: set when a non-object-rooted schema was nested
+    // under a synthetic property and must be unwrapped on extraction.
+    let finalResultWrapped = false;
     try {
       // options.tools is pre-merged by BaseProvider.stream() with base tools
       // (MCP/built-in) + user-provided tools (RAG, etc.)
@@ -1838,6 +1852,7 @@ export class AnthropicProvider extends BaseProvider {
         );
         anthropicTools = appended.tools;
         finalResultActive = appended.applied;
+        finalResultWrapped = appended.wrapped;
         if (appended.applied) {
           payload.system = appendFinalResultInstruction(payload.system);
         }
@@ -1973,7 +1988,13 @@ export class AnthropicProvider extends BaseProvider {
             Object.entries(toolsRecord).filter(([name]) => !declared.has(name)),
           );
           if (Object.keys(hydrated).length > 0) {
-            anthropicTools.push(...(toolsToAnthropic(hydrated) ?? []));
+            // Spliced in ahead of final_result, which must stay last (see
+            // structuredOutput.ts) — a plain append would strand it mid-array
+            // for the rest of the turn.
+            anthropicTools = insertBeforeFinalResult(
+              anthropicTools,
+              toolsToAnthropic(hydrated) ?? [],
+            );
             logger.info(
               `[Anthropic] ${Object.keys(hydrated).length} tool(s) hydrated mid-turn via discovery: ${Object.keys(hydrated).join(", ")}`,
             );
@@ -2122,7 +2143,10 @@ export class AnthropicProvider extends BaseProvider {
             (acc) => acc.name === FINAL_RESULT_TOOL_NAME,
           );
           if (finalCall) {
-            finalResultText = stringifyFinalResultInput(finalCall.inputJson);
+            finalResultText = stringifyFinalResultInput(
+              finalCall.inputJson,
+              finalResultWrapped,
+            );
             lastStop = "end_turn";
             logger.debug(
               "[Anthropic] Extracted structured output from final_result tool (stream)",

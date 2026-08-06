@@ -30,30 +30,72 @@ export const FINAL_RESULT_INSTRUCTION =
   "\n\nIMPORTANT: You MUST call the 'final_result' tool to return your response in the required structured format. Do not respond with plain text - always use the final_result tool.";
 
 /**
+ * Synthetic property a non-object root schema is carried under.
+ *
+ * Anthropic's `input_schema` must be object-rooted, but a caller's schema is
+ * free not to be (`z.array(...)`, `z.string()`, a top-level `z.union(...)`
+ * that converts to a bare `anyOf`). Those roots are nested under this key and
+ * unwrapped again on the way out, so the caller still receives exactly the
+ * shape their schema describes.
+ */
+const WRAPPED_ROOT_PROPERTY = "value";
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * True when a JSON Schema describes an object at its root — the only shape
+ * whose keys can be lifted straight into `input_schema.properties`.
+ *
+ * A composite root (`anyOf` / `oneOf` / `allOf`, which is what a top-level Zod
+ * union converts to) is deliberately NOT object-rooted: splatting it would
+ * produce an object with a property literally named "anyOf".
+ */
+function isObjectRootSchema(schema: Record<string, unknown>): boolean {
+  if (typeof schema.type === "string") {
+    return schema.type === "object";
+  }
+  return isPlainObject(schema.properties);
+}
+
+/**
  * Build the `final_result` tool definition from a JSON Schema.
  *
  * `$ref`s are inlined and `$schema` dropped — Anthropic's `input_schema` must
- * be a self-contained object schema. Schemas that are not object-rooted (a
- * bare array/string schema) are wrapped so `input_schema.type` is always
- * "object", which the Messages API requires.
+ * be a self-contained object schema. An object-rooted schema has its
+ * properties lifted directly; anything else is nested under
+ * `WRAPPED_ROOT_PROPERTY`, reported back via `wrapped` so the extraction side
+ * can unwrap it.
  */
-export function buildFinalResultTool(
-  jsonSchema: Record<string, unknown>,
-): Anthropic.Messages.Tool {
+export function buildFinalResultTool(jsonSchema: Record<string, unknown>): {
+  tool: Anthropic.Messages.Tool;
+  wrapped: boolean;
+} {
   const inlined = inlineJsonSchema({ ...jsonSchema });
   delete inlined.$schema;
 
-  const properties = inlined.properties as Record<string, unknown> | undefined;
-  const input_schema = {
-    type: "object",
-    properties: properties ?? inlined,
-    required: Array.isArray(inlined.required) ? inlined.required : [],
-  } as Anthropic.Messages.Tool.InputSchema;
+  const wrapped = !isObjectRootSchema(inlined);
+  const input_schema = (
+    wrapped
+      ? {
+          type: "object",
+          properties: { [WRAPPED_ROOT_PROPERTY]: inlined },
+          required: [WRAPPED_ROOT_PROPERTY],
+        }
+      : {
+          type: "object",
+          properties: inlined.properties ?? {},
+          required: Array.isArray(inlined.required) ? inlined.required : [],
+        }
+  ) as Anthropic.Messages.Tool.InputSchema;
 
   return {
-    name: FINAL_RESULT_TOOL_NAME,
-    description: FINAL_RESULT_TOOL_DESCRIPTION,
-    input_schema,
+    tool: {
+      name: FINAL_RESULT_TOOL_NAME,
+      description: FINAL_RESULT_TOOL_DESCRIPTION,
+      input_schema,
+    },
+    wrapped,
   };
 }
 
@@ -68,19 +110,68 @@ export function buildFinalResultTool(
 export function appendFinalResultTool(
   tools: Anthropic.Messages.Tool[] | undefined,
   jsonSchema: Record<string, unknown>,
-): { tools: Anthropic.Messages.Tool[] | undefined; applied: boolean } {
+): {
+  tools: Anthropic.Messages.Tool[] | undefined;
+  applied: boolean;
+  wrapped: boolean;
+} {
   if (!tools || tools.length === 0) {
-    return { tools, applied: false };
+    return { tools, applied: false, wrapped: false };
   }
   if (tools.some((tool) => tool.name === FINAL_RESULT_TOOL_NAME)) {
     logger.warn(
       "[Anthropic] A caller tool is already named 'final_result'; skipping the additive structured-output tool",
     );
-    return { tools, applied: false };
+    return { tools, applied: false, wrapped: false };
   }
   // Appended LAST so any cache_control breakpoint an upstream layer placed on
   // the previously-last tool keeps marking the same prefix boundary.
-  return { tools: [...tools, buildFinalResultTool(jsonSchema)], applied: true };
+  const built = buildFinalResultTool(jsonSchema);
+  return {
+    tools: [...tools, built.tool],
+    applied: true,
+    wrapped: built.wrapped,
+  };
+}
+
+/**
+ * Splice tools in ahead of `final_result`, keeping it last.
+ *
+ * Mid-turn `tools.discovery` hydration appends to the live declaration list on
+ * every step; appending past `final_result` would leave it stranded mid-array
+ * and quietly break the ordering invariant the rest of this module relies on.
+ * Falls back to a plain append when the tool is not present.
+ */
+export function insertBeforeFinalResult(
+  tools: Anthropic.Messages.Tool[],
+  extra: Anthropic.Messages.Tool[],
+): Anthropic.Messages.Tool[] {
+  if (extra.length === 0) {
+    return tools;
+  }
+  const finalIndex = tools.findIndex(
+    (tool) => tool.name === FINAL_RESULT_TOOL_NAME,
+  );
+  if (finalIndex === -1) {
+    return [...tools, ...extra];
+  }
+  return [...tools.slice(0, finalIndex), ...extra, ...tools.slice(finalIndex)];
+}
+
+/**
+ * Read the JSON Schema `GenerationHandler` forwards on
+ * `providerOptions.anthropic.finalResultSchema`.
+ *
+ * `providerOptions` is an untyped passthrough bag, so this narrows at runtime
+ * rather than asserting: a malformed value is ignored (the turn simply runs
+ * without the additive pattern) instead of being trusted as a schema and
+ * producing a request Anthropic would reject.
+ */
+export function readFinalResultSchema(
+  providerOptions: Record<string, Record<string, unknown>> | undefined,
+): Record<string, unknown> | undefined {
+  const value = providerOptions?.anthropic?.finalResultSchema;
+  return isPlainObject(value) ? value : undefined;
 }
 
 /**
@@ -103,16 +194,52 @@ export function appendFinalResultInstruction(
 }
 
 /**
+ * Matches the opening of a wrapper object this module built, so a truncated
+ * payload can be unwrapped textually when it is too damaged to parse.
+ */
+const WRAPPED_ROOT_PREFIX = new RegExp(
+  `^\\s*\\{\\s*"${WRAPPED_ROOT_PROPERTY}"\\s*:\\s*`,
+);
+
+/**
  * Canonical JSON text for a `final_result` payload.
  *
- * Accepts the raw accumulated `input_json` from a stream so a payload
- * truncated by the token cap is still returned verbatim — the caller's
- * coercion layer can repair it, whereas dropping it loses the whole answer.
+ * `input` is the tool's arguments: an already-parsed object on the
+ * non-streaming path, or the raw accumulated `input_json` on the streaming
+ * one. A payload truncated by the token cap is returned verbatim rather than
+ * dropped — the caller's coercion layer can repair it, whereas discarding it
+ * loses the entire answer.
+ *
+ * `wrapped` unwraps the synthetic root added by `buildFinalResultTool` for
+ * non-object schemas, including textually when the payload was cut off before
+ * it could be parsed.
  */
-export function stringifyFinalResultInput(inputJson: string): string {
+export function stringifyFinalResultInput(
+  input: unknown,
+  wrapped = false,
+): string {
+  let parsed: unknown;
+  if (typeof input === "string") {
+    try {
+      parsed = JSON.parse(input || "{}");
+    } catch {
+      // Truncated. Strip the wrapper this module added so the repair layer
+      // sees the caller's own shape; the prefix is ours, not model output,
+      // so matching it is deterministic.
+      return wrapped ? input.replace(WRAPPED_ROOT_PREFIX, "") : input;
+    }
+  } else {
+    parsed = input ?? {};
+  }
+
+  const value =
+    wrapped && isPlainObject(parsed) && WRAPPED_ROOT_PROPERTY in parsed
+      ? parsed[WRAPPED_ROOT_PROPERTY]
+      : parsed;
+
   try {
-    return JSON.stringify(JSON.parse(inputJson || "{}"));
+    return JSON.stringify(value ?? {});
   } catch {
-    return inputJson;
+    return "{}";
   }
 }
