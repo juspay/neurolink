@@ -89,6 +89,8 @@
     "test:openai-compat-guard": "npx tsx test/continuous-test-suite-openai-compat-guard.ts",
     "test:anthropic-guard": "npx tsx test/continuous-test-suite-anthropic-guard.ts",
     "test:tool-storage-parity": "npx tsx test/continuous-test-suite-tool-storage-parity.ts",
+    "test:redis-append-only": "npx tsx test/continuous-test-suite-redis-append-only.ts",
+    "test:gemini-guard": "npx tsx test/continuous-test-suite-gemini-guard.ts",
     "test:middleware": "npx tsx test/continuous-test-suite-middleware.ts",
     "test:observability": "npx tsx test/continuous-test-suite-observability.ts",
     "test:ppt": "npx tsx test/continuous-test-suite-ppt.ts",

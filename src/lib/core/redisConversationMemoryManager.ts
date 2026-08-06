@@ -39,6 +39,13 @@ import { logger } from "../utils/logger.js";
 import {
   createRedisClient,
   deserializeConversation,
+  encodeStoredMessages,
+  getSessionMessagesKey,
+  MESSAGES_KEY_SUFFIX,
+  isSessionMessagesKey,
+  parseStoredMessages,
+  serializeConversationMetadata,
+  usesSplitMessageStorage,
   getNormalizedConfig,
   getPooledRedisClient,
   getSessionKey,
@@ -229,8 +236,9 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
             redisClient.get(redisKey),
             REDIS_TIMEOUT_MS,
           );
-          const conversation = deserializeConversation(
-            conversationData || null,
+          const conversation = await this.hydrateMessages(
+            deserializeConversation(conversationData || null),
+            redisKey,
           );
           if (!conversation) {
             span.setAttribute("session.found", false);
@@ -329,7 +337,10 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
       }
       const redisKey = getSessionKey(this.redisConfig, sessionId, userId);
       const conversationData = await this.redisClient.get(redisKey);
-      return deserializeConversation(conversationData || null);
+      return this.hydrateMessages(
+        deserializeConversation(conversationData || null),
+        redisKey,
+      );
     } catch (error) {
       logger.error(
         "[RedisConversationMemoryManager] Failed to get raw session",
@@ -576,7 +587,16 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
             options.userId,
           );
           const conversationData = await this.redisClient.get(redisKey);
-          let conversation = deserializeConversation(conversationData);
+          let conversation = await this.hydrateMessages(
+            deserializeConversation(conversationData),
+            redisKey,
+          );
+          // Split-storage bookkeeping: whether this session already keeps its
+          // messages in the companion LIST, and how many it held before this
+          // turn — so only the new ones are appended rather than rewriting the
+          // whole conversation on every turn.
+          const wasSplitStorage = usesSplitMessageStorage(conversation);
+          const messageCountBeforeTurn = conversation?.messages.length ?? 0;
 
           const currentTime = new Date().toISOString();
           const normalizedUserId = options.userId || "randomUser";
@@ -759,11 +779,21 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
             }
           }
 
-          const serializedData = serializeConversation(conversation);
-          await this.redisClient.set(redisKey, serializedData);
+          // Append-only: push just this turn's messages and persist a SMALL
+          // metadata blob. A session not yet using split storage (new, or a
+          // legacy blob) is converted once here, then every later turn appends.
+          await this.persistConversation(
+            conversation,
+            options.sessionId,
+            options.userId,
+            wasSplitStorage ? messageCountBeforeTurn : undefined,
+          );
 
           // Log turn storage metadata for observability
-          const blobSizeBytes = Buffer.byteLength(serializedData, "utf8");
+          const blobSizeBytes = Buffer.byteLength(
+            serializeConversationMetadata(conversation),
+            "utf8",
+          );
           logger.info("[ConversationMemory] Turn stored", {
             requestId: options.requestId,
             sessionId: options.sessionId,
@@ -893,7 +923,16 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
                 conversation.summarizedMessage;
               latestConversation.lastTokenCount = conversation.lastTokenCount;
               latestConversation.lastCountedAt = conversation.lastCountedAt;
-              const freshSerialized = serializeConversation(latestConversation);
+              // Only summarization metadata changed, so the companion LIST is
+              // left alone. Critical: this re-read was NOT hydrated, so for a
+              // split session `messages` is empty — writing it with
+              // serializeConversation would drop the marker and make the record
+              // look like a legacy blob with zero messages (silent data loss).
+              const freshSerialized = usesSplitMessageStorage(
+                latestConversation,
+              )
+                ? serializeConversationMetadata(latestConversation)
+                : serializeConversation(latestConversation);
               await this.redisClient.set(redisKey, freshSerialized);
               if (this.redisConfig.ttl > 0) {
                 await this.redisClient.expire(redisKey, this.redisConfig.ttl);
@@ -909,6 +948,131 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
       });
     } finally {
       this.summarizationInProgress.delete(summarizationKey);
+    }
+  }
+
+  /**
+   * True only for keys holding a conversation BLOB — the sole key type these
+   * scan-then-GET paths may read.
+   *
+   * `${keyPrefix}*` also matches the companion message LISTs and, when a
+   * custom key prefix does not end in `conversation:`, the user-index SETs
+   * (whose derived prefix then collapses onto `keyPrefix`). `GET` against
+   * either raises WRONGTYPE, and counting them would inflate session totals.
+   */
+  private isConversationBlobKey(key: string): boolean {
+    return (
+      !isSessionMessagesKey(key) &&
+      !key.endsWith(":sessions") &&
+      !key.startsWith(this.redisConfig.userSessionsKeyPrefix)
+    );
+  }
+
+  /**
+   * Hydrate a deserialized blob's messages from the companion LIST when the
+   * session uses split storage. Legacy blobs (messages inline) pass through
+   * untouched — that is what makes the migration backward compatible.
+   */
+  private async hydrateMessages(
+    conversation: RedisConversationObject | null,
+    redisKey: string,
+  ): Promise<RedisConversationObject | null> {
+    if (!conversation || !usesSplitMessageStorage(conversation)) {
+      return conversation;
+    }
+    if (!this.redisClient) {
+      return conversation;
+    }
+    const entries = await this.redisClient.lRange(
+      `${redisKey}${MESSAGES_KEY_SUFFIX}`,
+      0,
+      -1,
+    );
+    // `lRange` is typed `(string | Buffer)[]` — the client returns Buffers when
+    // a connection is opened in binary mode. Normalize rather than assert, so
+    // a binary-mode client reads its history instead of throwing on parse.
+    conversation.messages = parseStoredMessages(
+      entries.map((entry) => entry.toString()),
+    );
+    return conversation;
+  }
+
+  /** Message count without materializing them — LLEN for split sessions. */
+  private async countMessages(
+    conversation: RedisConversationObject,
+    redisKey: string,
+  ): Promise<number> {
+    if (!usesSplitMessageStorage(conversation) || !this.redisClient) {
+      return conversation.messages.length;
+    }
+    // `lLen` is typed `number | \`${number}\`` (RESP3 can deliver it as a
+    // string), and callers add it to numbers — coerce so the count never
+    // concatenates instead of summing.
+    return Number(
+      await this.redisClient.lLen(`${redisKey}${MESSAGES_KEY_SUFFIX}`),
+    );
+  }
+
+  /** Load a session, messages included, regardless of storage format. */
+  private async loadConversation(
+    sessionId: string,
+    userId?: string,
+  ): Promise<RedisConversationObject | null> {
+    if (!this.redisClient) {
+      return null;
+    }
+    const redisKey = getSessionKey(this.redisConfig, sessionId, userId);
+    return this.hydrateMessages(
+      deserializeConversation(await this.redisClient.get(redisKey)),
+      redisKey,
+    );
+  }
+
+  /**
+   * Persist a conversation, splitting messages into the companion LIST.
+   * `appendFrom` appends only messages from that index onward (the per-turn
+   * fast path); omit it to rewrite the LIST wholesale, which is also how a
+   * legacy blob gets converted.
+   */
+  private async persistConversation(
+    conversation: RedisConversationObject,
+    sessionId: string,
+    userId: string | undefined,
+    appendFrom?: number,
+  ): Promise<void> {
+    if (!this.redisClient) {
+      return;
+    }
+    const redisKey = getSessionKey(this.redisConfig, sessionId, userId);
+    const messagesKey = getSessionMessagesKey(
+      this.redisConfig,
+      sessionId,
+      userId,
+    );
+    if (appendFrom === undefined) {
+      await this.redisClient.del(messagesKey);
+      if (conversation.messages.length > 0) {
+        await this.redisClient.rPush(
+          messagesKey,
+          encodeStoredMessages(conversation.messages),
+        );
+      }
+    } else {
+      const appended = conversation.messages.slice(appendFrom);
+      if (appended.length > 0) {
+        await this.redisClient.rPush(
+          messagesKey,
+          encodeStoredMessages(appended),
+        );
+      }
+    }
+    await this.redisClient.set(
+      redisKey,
+      serializeConversationMetadata(conversation),
+    );
+    if (this.redisConfig.ttl > 0) {
+      await this.redisClient.expire(redisKey, this.redisConfig.ttl);
+      await this.redisClient.expire(messagesKey, this.redisConfig.ttl);
     }
   }
 
@@ -963,8 +1127,9 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
             redisClient.get(redisKey),
             REDIS_TIMEOUT_MS,
           );
-          const conversation = deserializeConversation(
-            conversationData || null,
+          const conversation = await this.hydrateMessages(
+            deserializeConversation(conversationData || null),
+            redisKey,
           );
 
           logger.debug(
@@ -1284,7 +1449,10 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
       }
 
       // Deserialize the complete conversation object
-      const conversation = deserializeConversation(conversationData);
+      const conversation = await this.hydrateMessages(
+        deserializeConversation(conversationData),
+        sessionKey,
+      );
       if (!conversation) {
         logger.debug(
           "[RedisConversationMemoryManager] Failed to deserialize conversation data",
@@ -1444,7 +1612,10 @@ User message: "${userMessage}"`;
     try {
       const redisKey = getSessionKey(this.redisConfig, sessionId, userId);
       const conversationData = await this.redisClient.get(redisKey);
-      const conversation = deserializeConversation(conversationData || null);
+      const conversation = await this.hydrateMessages(
+        deserializeConversation(conversationData || null),
+        redisKey,
+      );
       return conversation?.messages ?? [];
     } catch (error) {
       logger.error(
@@ -1499,12 +1670,8 @@ User message: "${userMessage}"`;
       conversation.lastTokenCount = undefined;
       conversation.lastCountedAt = undefined;
 
-      const serializedData = serializeConversation(conversation);
-      await this.redisClient.set(redisKey, serializedData);
-
-      if (this.redisConfig.ttl > 0) {
-        await this.redisClient.expire(redisKey, this.redisConfig.ttl);
-      }
+      // Wholesale replacement: rewrite the LIST rather than appending.
+      await this.persistConversation(conversation, sessionId, userId);
 
       logger.debug(
         "[RedisConversationMemoryManager] Session messages replaced",
@@ -1563,12 +1730,21 @@ User message: "${userMessage}"`;
       },
     );
 
+    // Companion message LISTs share the session key prefix, so the SCAN above
+    // returns them too. GET on a LIST raises WRONGTYPE, and counting them as
+    // sessions would double `totalSessions` — filter them out exactly as the
+    // session listing already skips `:sessions` index keys.
+    const sessionKeys = keys.filter((key) => this.isConversationBlobKey(key));
+
     // Count messages in each session
     let totalTurns = 0;
 
-    for (const key of keys) {
+    for (const key of sessionKeys) {
       const conversationData = await this.redisClient.get(key);
-      const conversation = deserializeConversation(conversationData);
+      const conversation = await this.hydrateMessages(
+        deserializeConversation(conversationData),
+        key,
+      );
       if (conversation?.messages) {
         // Pinned skill messages are extra rows inside a turn — exclude them
         // so a skill-activating turn still counts as one turn.
@@ -1580,7 +1756,7 @@ User message: "${userMessage}"`;
     }
 
     return {
-      totalSessions: keys.length,
+      totalSessions: sessionKeys.length,
       totalTurns,
     };
   }
@@ -1612,8 +1788,10 @@ User message: "${userMessage}"`;
       async (span) => {
         try {
           const redisKey = getSessionKey(this.redisConfig, sessionId, userId);
+          // Delete the companion message LIST as well: leaving it behind would
+          // leak the messages and let a re-created session inherit them.
           const result = await withTimeout(
-            redisClient.del(redisKey),
+            redisClient.del([redisKey, `${redisKey}${MESSAGES_KEY_SUFFIX}`]),
             REDIS_TIMEOUT_MS,
           );
 
@@ -1842,8 +2020,9 @@ User message: "${userMessage}"`;
         `${this.redisConfig.keyPrefix}*`,
       );
       for (const key of keys) {
-        // Skip user session index keys (they end with :sessions)
-        if (key.endsWith(":sessions")) {
+        // Skip user session index keys (they end with :sessions) and the
+        // companion message LISTs — GET on a LIST raises WRONGTYPE.
+        if (!this.isConversationBlobKey(key)) {
           continue;
         }
         const raw = await this.redisClient.get(key);
@@ -1860,7 +2039,9 @@ User message: "${userMessage}"`;
           createdAt: session.createdAt,
           updatedAt: session.updatedAt,
           userId: session.userId,
-          messageCount: session.messages.length,
+          // LLEN for split sessions: the blob's inline array is empty here
+          // because this branch reads the raw key without hydrating.
+          messageCount: await this.countMessages(session, key),
           lastActive: this.formatTimeAgo(
             now - new Date(session.updatedAt).getTime(),
           ),
@@ -2200,8 +2381,12 @@ User message: "${userMessage}"`;
 
       conversation.updatedAt = new Date().toISOString();
 
-      // Write back to Redis
-      const serializedData = serializeConversation(conversation);
+      // Write back to Redis. Metadata-only change, so the companion LIST is
+      // untouched — but the split marker must survive (see the summarization
+      // writeback above for why dropping it loses messages).
+      const serializedData = usesSplitMessageStorage(conversation)
+        ? serializeConversationMetadata(conversation)
+        : serializeConversation(conversation);
       await withTimeout(this.redisClient.set(redisKey, serializedData), 5000);
 
       if (this.redisConfig.ttl > 0) {

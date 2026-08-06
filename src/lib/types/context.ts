@@ -923,6 +923,16 @@ export type AnthropicGuardMessage = {
   content: string | AnthropicGuardBlock[];
 };
 
+/**
+ * Structural view of one Gemini history entry, loose enough to accept both the
+ * native Vertex loop's `{ role, parts }` array and `@google/genai` contents
+ * without a cast at either call site.
+ */
+export type GeminiGuardContent = {
+  role: string;
+  parts: unknown[];
+};
+
 /** Tuning for {@link planLoopGuardReclaim}. */
 export type LoopGuardPolicy = {
   availableInputTokens: number;

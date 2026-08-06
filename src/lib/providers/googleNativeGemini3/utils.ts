@@ -1632,6 +1632,18 @@ export function createContextGuard(
         projectedGrowthTokens += Math.ceil(chars / 4);
       }
     },
+    /**
+     * Clear the projection after the caller has reclaimed context.
+     *
+     * The observed prompt size reflects the pre-reclaim conversation, so
+     * leaving it in place would keep `shouldStop()` true forever and defeat
+     * the reclaim. Resetting to the fail-open state means the guard stays
+     * quiet until the next real usage report re-establishes the truth.
+     */
+    resetAfterReclaim(): void {
+      observedPromptTokens = 0;
+      projectedGrowthTokens = 0;
+    },
     /** True when issuing another model call risks crossing the threshold. */
     shouldStop(): boolean {
       return (
