@@ -282,6 +282,26 @@ export class ContextCompactor {
             durationMs: Date.now() - spanStartTime,
           });
 
+          // A compaction that was ASKED to reclaim and reclaimed nothing is the
+          // signature of a mis-aimed target: the caller decided the request was
+          // over budget, but every stage gate compared against a number that
+          // said otherwise, so the pipeline no-opped and the request went out
+          // oversized anyway. That is exactly how the history-budget defect hid
+          // in production — silently, because "Complete" looked healthy. Warn
+          // loudly and stamp the span so it is greppable and alertable.
+          const reclaimedNothing = stagesUsed.length === 0;
+          if (reclaimedNothing) {
+            logger.warn("[Compaction] No-op — invoked but reclaimed nothing", {
+              requestId,
+              tokensBefore,
+              targetTokens,
+              messageCount: currentMessages.length,
+            });
+          }
+          span = SpanSerializer.updateAttributes(span, {
+            "context.noop": reclaimedNothing,
+          });
+
           const result: CompactionResult = {
             compacted: stagesUsed.length > 0,
             stagesUsed,

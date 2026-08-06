@@ -66,6 +66,16 @@ import {
 } from "../../utils/messageBuilder.js";
 import { logger } from "../../utils/logger.js";
 import {
+  GEMINI_ELISION_NOTE,
+  planGeminiLoopReclaim,
+  previewGeminiToolResponseText,
+} from "../../context/geminiLoopGuard.js";
+import {
+  ANTHROPIC_ELISION_NOTE,
+  planAnthropicLoopReclaim,
+  previewAnthropicToolResultText,
+} from "../../context/anthropicLoopGuard.js";
+import {
   hasRestrictedOutputLimit,
   RESTRICTED_OUTPUT_TOKEN_LIMIT,
   toVertexAnthropicModelId,
@@ -789,6 +799,163 @@ const isAnthropicModel = (modelName: string): boolean => {
  *       Solution: Simplify schema or reduce number of tools if this occurs.
  * @see https://cloud.google.com/vertex-ai/docs/generative-ai/learn/models
  */
+
+/** Byte budget above which an old tool response is previewed, not kept whole. */
+const TOOL_RESPONSE_PREVIEW_BYTES = 2048;
+
+/**
+ * Reclaim context from a Gemini-shaped loop history IN PLACE.
+ *
+ * Returns true when something was actually reclaimed, which tells the caller
+ * it is safe to continue the loop instead of stopping. Mutates `contents` so
+ * the caller's array identity (captured by the request builder) stays valid.
+ */
+function reclaimVertexLoopContext(
+  contents: Array<{ role: string; parts: VertexNativeLoopPart[] }>,
+  modelName: string,
+  observedPromptTokens: number,
+): boolean {
+  const plan = planGeminiLoopReclaim({
+    contents,
+    availableInputTokens: getContextWindowSize("vertex", modelName),
+    provider: "vertex",
+    observedPromptTokens,
+  });
+  if (!plan) {
+    return false;
+  }
+
+  const dropSet = new Set(plan.drop);
+  const truncateSet = new Set(plan.truncate);
+  const rebuilt: Array<{ role: string; parts: VertexNativeLoopPart[] }> = [];
+  for (let i = 0; i < contents.length; i++) {
+    if (dropSet.has(i)) {
+      continue;
+    }
+    const content = contents[i];
+    if (truncateSet.has(i) && Array.isArray(content.parts)) {
+      rebuilt.push({
+        ...content,
+        parts: content.parts.map((part): VertexNativeLoopPart => {
+          if (!("functionResponse" in part)) {
+            return part;
+          }
+          const fn = part.functionResponse;
+          const text = JSON.stringify(fn.response) ?? "";
+          if (text.length <= TOOL_RESPONSE_PREVIEW_BYTES) {
+            return part;
+          }
+          // Rebuilt rather than cast: `functionResponse` requires `name`, and
+          // Critical Rule 14 forbids casting through `unknown` to paper over it.
+          return {
+            functionResponse: {
+              name: fn.name,
+              response: { result: previewGeminiToolResponseText(text) },
+            },
+          };
+        }),
+      });
+      continue;
+    }
+    rebuilt.push(content);
+  }
+
+  if (dropSet.size > 0) {
+    // Gemini requires the history to start with a user turn; the note is
+    // inserted before the first surviving tool turn, never at the end where a
+    // "history was removed" cue would follow the content it refers to.
+    let noteIndex = rebuilt.findIndex(
+      (c) =>
+        Array.isArray(c.parts) &&
+        c.parts.some(
+          (part) =>
+            !!(part as { functionCall?: unknown }).functionCall ||
+            !!(part as { functionResponse?: unknown }).functionResponse,
+        ),
+    );
+    if (noteIndex < 0) {
+      noteIndex = Math.min(1, rebuilt.length);
+    }
+    rebuilt.splice(noteIndex, 0, {
+      role: "user",
+      parts: [{ text: GEMINI_ELISION_NOTE } as VertexNativeLoopPart],
+    });
+  }
+
+  contents.length = 0;
+  contents.push(...rebuilt);
+  return true;
+}
+
+/**
+ * Reclaim context from a Vertex+Claude loop history IN PLACE.
+ *
+ * Same parity upgrade as the Gemini path, but this loop carries Anthropic
+ * content blocks, so it reuses the Anthropic adapter. Returns true when
+ * something was reclaimed and the loop may continue.
+ */
+function reclaimVertexAnthropicContext(
+  messages: VertexAnthropicMessage[],
+  modelName: string,
+  observedPromptTokens: number,
+): boolean {
+  const plan = planAnthropicLoopReclaim({
+    conversation: messages,
+    availableInputTokens: getContextWindowSize("vertex", modelName),
+    fixedOverheadTokens: 0,
+    provider: "vertex",
+    observedPromptTokens,
+  });
+  if (!plan) {
+    return false;
+  }
+  const dropSet = new Set(plan.drop);
+  const truncateSet = new Set(plan.truncate);
+  const rebuilt: VertexAnthropicMessage[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    if (dropSet.has(i)) {
+      continue;
+    }
+    const message = messages[i];
+    if (truncateSet.has(i) && Array.isArray(message.content)) {
+      rebuilt.push({
+        ...message,
+        content: message.content.map((block) => {
+          if (block.type !== "tool_result") {
+            return block;
+          }
+          const text =
+            typeof block.content === "string"
+              ? block.content
+              : (JSON.stringify(block.content) ?? "");
+          return { ...block, content: previewAnthropicToolResultText(text) };
+        }),
+      });
+      continue;
+    }
+    rebuilt.push(message);
+  }
+  if (dropSet.size > 0) {
+    let noteIndex = rebuilt.findIndex(
+      (m) =>
+        Array.isArray(m.content) &&
+        m.content.some(
+          (b) => b.type === "tool_use" || b.type === "tool_result",
+        ),
+    );
+    if (noteIndex < 0) {
+      noteIndex = Math.min(1, rebuilt.length);
+    }
+    rebuilt.splice(noteIndex, 0, {
+      role: "user",
+      content: [{ type: "text", text: ANTHROPIC_ELISION_NOTE }],
+    });
+  }
+  messages.length = 0;
+  messages.push(...rebuilt);
+  return true;
+}
+
 export class GoogleVertexProvider extends BaseProvider {
   private projectId: string;
   private location: string;
@@ -2131,13 +2298,27 @@ export class GoogleVertexProvider extends BaseProvider {
         // conversation crosses the window threshold — synthesize from what
         // we have instead of stepping into a provider rejection.
         if (contextGuard.shouldStop()) {
-          hitContextLimit = true;
-          logger.warn(
-            `[GoogleVertex] Gemini turn stopped by the context guard: ` +
-              `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
-              `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
+          // Parity upgrade: try to RECLAIM budget and keep going before
+          // falling back to the historic stop-only behaviour. Ending the turn
+          // early is safe but throws away work the model was mid-way through;
+          // dropping the oldest complete tool exchanges usually buys enough
+          // room to finish. Only when reclaiming changes nothing do we stop.
+          const reclaimed = reclaimVertexLoopContext(
+            currentContents,
+            modelName,
+            contextGuard.projectedNextPromptTokens,
           );
-          break;
+          if (reclaimed) {
+            contextGuard.resetAfterReclaim();
+          } else {
+            hitContextLimit = true;
+            logger.warn(
+              `[GoogleVertex] Gemini turn stopped by the context guard: ` +
+                `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
+                `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
+            );
+            break;
+          }
         }
         step++;
         turnClock.noteProgress();
@@ -3381,13 +3562,27 @@ export class GoogleVertexProvider extends BaseProvider {
         // conversation crosses the window threshold — synthesize from what
         // we have instead of stepping into a provider rejection.
         if (contextGuard.shouldStop()) {
-          hitContextLimit = true;
-          logger.warn(
-            `[GoogleVertex] Gemini turn stopped by the context guard: ` +
-              `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
-              `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
+          // Parity upgrade: try to RECLAIM budget and keep going before
+          // falling back to the historic stop-only behaviour. Ending the turn
+          // early is safe but throws away work the model was mid-way through;
+          // dropping the oldest complete tool exchanges usually buys enough
+          // room to finish. Only when reclaiming changes nothing do we stop.
+          const reclaimed = reclaimVertexLoopContext(
+            currentContents,
+            modelName,
+            contextGuard.projectedNextPromptTokens,
           );
-          break;
+          if (reclaimed) {
+            contextGuard.resetAfterReclaim();
+          } else {
+            hitContextLimit = true;
+            logger.warn(
+              `[GoogleVertex] Gemini turn stopped by the context guard: ` +
+                `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
+                `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
+            );
+            break;
+          }
         }
         step++;
         turnClock.noteProgress();
@@ -4837,13 +5032,24 @@ export class GoogleVertexProvider extends BaseProvider {
           // Context guard: stop the tool loop before the accumulated
           // conversation crosses the window threshold (see generate twin).
           if (contextGuard.shouldStop()) {
-            hitContextLimit = true;
-            logger.warn(
-              `[GoogleVertex] Anthropic stream turn stopped by the context guard: ` +
-                `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
-                `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
+            // Parity upgrade: reclaim and continue where possible; the
+            // historic stop-only behaviour remains the fallback.
+            const reclaimed = reclaimVertexAnthropicContext(
+              currentMessages,
+              modelName,
+              contextGuard.projectedNextPromptTokens,
             );
-            break;
+            if (reclaimed) {
+              contextGuard.resetAfterReclaim();
+            } else {
+              hitContextLimit = true;
+              logger.warn(
+                `[GoogleVertex] Anthropic stream turn stopped by the context guard: ` +
+                  `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
+                  `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
+              );
+              break;
+            }
           }
           step++;
           turnClock.noteProgress();
@@ -6417,13 +6623,22 @@ export class GoogleVertexProvider extends BaseProvider {
       // this step's appended tool results/output) would cross the window
       // threshold — stop the tool loop and synthesize from what we have.
       if (contextGuard.shouldStop()) {
-        hitContextLimit = true;
-        logger.warn(
-          `[GoogleVertex] Anthropic generate turn stopped by the context guard: ` +
-            `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
-            `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
+        const reclaimed = reclaimVertexAnthropicContext(
+          currentMessages,
+          modelName,
+          contextGuard.projectedNextPromptTokens,
         );
-        break;
+        if (reclaimed) {
+          contextGuard.resetAfterReclaim();
+        } else {
+          hitContextLimit = true;
+          logger.warn(
+            `[GoogleVertex] Anthropic generate turn stopped by the context guard: ` +
+              `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
+              `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
+          );
+          break;
+        }
       }
       step++;
       turnClock.noteProgress();
