@@ -1,3 +1,9 @@
+## [10.10.1](https://github.com/juspay/neurolink/compare/v10.10.0...v10.10.1) (2026-08-06)
+
+### Bug Fixes
+
+- **(anthropic):** honor schema alongside tools via final_result tool ([3281ec9](https://github.com/juspay/neurolink/commit/3281ec90690502654874a1357723a7a7b6c80419))
+
 ## [10.10.0](https://github.com/juspay/neurolink/compare/v10.9.1...v10.10.0) (2026-08-05)
 
 ### Features
