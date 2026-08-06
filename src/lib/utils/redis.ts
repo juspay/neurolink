@@ -3,6 +3,7 @@
  * Helper functions for Redis storage operations
  */
 
+import { randomUUID } from "crypto";
 import { createClient, type RedisClientOptions } from "redis";
 import type {
   ChatMessage,
@@ -258,6 +259,75 @@ export function serializeConversation(
   }
 }
 
+/** The exact role set `ChatMessage` allows. */
+const STORED_MESSAGE_ROLES: ReadonlySet<string> = new Set([
+  "user",
+  "assistant",
+  "system",
+  "tool_call",
+  "tool_result",
+]);
+
+function isStoredMessageRole(role: unknown): role is ChatMessage["role"] {
+  return typeof role === "string" && STORED_MESSAGE_ROLES.has(role);
+}
+
+/**
+ * True for a complete `ChatMessage` — `id` included, because callers keying
+ * summary pointers and condensation groups off it are entitled to find one.
+ */
+export function isStoredChatMessage(value: unknown): value is ChatMessage {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate: Partial<ChatMessage> = value;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.content === "string" &&
+    isStoredMessageRole(candidate.role)
+  );
+}
+
+/**
+ * Coerce a stored entry into a complete `ChatMessage`, or `undefined` when its
+ * shape is unusable.
+ *
+ * Shared by BOTH read paths on purpose. Inline blobs have always been
+ * validated; once messages moved into the companion LIST the split read
+ * bypassed that check, so `null`, a number or a bare string survived
+ * `JSON.parse` and reached callers that dereference `.role`, `.content` and
+ * `.metadata`. The two storage formats must offer the same read guarantee.
+ *
+ * `id` is a separate matter: it is required on `ChatMessage`, but no read path
+ * has ever enforced it, so history written before it existed carries none.
+ * Rejecting those records would empty otherwise-healthy sessions, so a missing
+ * id is backfilled rather than fatal — prefixed, so a synthesized id is never
+ * mistaken for one an existing pointer could reference.
+ */
+export function normalizeStoredMessage(
+  value: unknown,
+): ChatMessage | undefined {
+  if (isStoredChatMessage(value)) {
+    return value;
+  }
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
+  const candidate: Partial<ChatMessage> = value;
+  if (
+    typeof candidate.content !== "string" ||
+    !isStoredMessageRole(candidate.role)
+  ) {
+    return undefined;
+  }
+  return {
+    ...candidate,
+    id: `legacy-${randomUUID()}`,
+    role: candidate.role,
+    content: candidate.content,
+  };
+}
+
 /**
  * Deserializes conversation object from Redis storage
  */
@@ -308,22 +378,11 @@ export function deserializeConversation(
     }
 
     // Validate each message in the messages array
-    const isValidHistory = conversation.messages.every(
-      (m): m is ChatMessage =>
-        typeof m === "object" &&
-        m !== null &&
-        "role" in m &&
-        "content" in m &&
-        typeof m.role === "string" &&
-        typeof m.content === "string" &&
-        (m.role === "user" ||
-          m.role === "assistant" ||
-          m.role === "system" ||
-          m.role === "tool_call" ||
-          m.role === "tool_result"),
+    const normalizedMessages = conversation.messages.map(
+      normalizeStoredMessage,
     );
 
-    if (!isValidHistory) {
+    if (normalizedMessages.some((message) => message === undefined)) {
       logger.warn("[redisUtils] Invalid messages structure", {
         messageCount: conversation.messages.length,
         firstMessage:
@@ -333,6 +392,10 @@ export function deserializeConversation(
       });
       return null;
     }
+
+    conversation.messages = normalizedMessages.filter(
+      (message): message is ChatMessage => message !== undefined,
+    );
 
     logger.debug("[redisUtils] Conversation deserialized successfully", {
       sessionId: conversation.sessionId,
@@ -567,12 +630,20 @@ export function usesSplitMessageStorage(
   return record[MESSAGES_IN_LIST_MARKER] === true;
 }
 
-/** Parse LRANGE entries, skipping any single entry that fails to parse. */
+/** Parse LRANGE entries, skipping any single entry that is not usable. */
 export function parseStoredMessages(entries: string[]): ChatMessage[] {
   const messages: ChatMessage[] = [];
   for (const entry of entries) {
     try {
-      messages.push(JSON.parse(entry) as ChatMessage);
+      // `JSON.parse` succeeds for `null`, numbers and bare strings, so the
+      // catch below cannot filter them — the shape has to be checked.
+      const parsed: unknown = JSON.parse(entry);
+      const message = normalizeStoredMessage(parsed);
+      if (!message) {
+        logger.warn("[redisUtils] Skipping stored message with invalid shape");
+        continue;
+      }
+      messages.push(message);
     } catch (error) {
       // One corrupt entry must not destroy a whole session's history.
       logger.warn("[redisUtils] Skipping unparseable stored message", {

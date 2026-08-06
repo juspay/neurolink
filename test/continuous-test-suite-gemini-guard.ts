@@ -225,18 +225,39 @@ await runSuite(async () => {
     );
   });
 
-  await test("a higher observed count makes the guard no less eager", async () => {
+  await test("a real count above the estimate fires a guard the estimate alone would not", async () => {
     const contents: GeminiGuardContent[] = [
       { role: "user", parts: [{ text: "start" }] },
     ];
     for (let i = 0; i < 20; i++) {
       contents.push(...step(i, 12_000));
     }
-    const plain = plan(contents);
-    const calibrated = plan(contents, 300_000);
+
+    // Premise of the whole test: uncalibrated this history is under the line.
+    // Asserting it keeps the case honest — a fixture that already fires would
+    // let the rest pass while calibration did nothing at all.
     assert(
-      plain === undefined || calibrated !== undefined,
-      "calibration made the guard less eager than the raw estimate",
+      plan(contents) === undefined,
+      "fixture fires uncalibrated, so it cannot demonstrate the correction",
+    );
+
+    // The provider counts ~1.2x this module's char estimate, which is enough
+    // to pull the threshold below the very same history.
+    const calibrated = plan(contents, 90_000);
+    assert(
+      calibrated !== undefined,
+      "a real count above the estimate did not tighten the threshold",
+    );
+    assert(
+      calibrated!.truncate.length > 0 || calibrated!.drop.length > 0,
+      "the calibrated plan reclaims nothing",
+    );
+
+    // Monotone in the ratio: a bigger under-count must reclaim more.
+    const stronger = plan(contents, 300_000)!;
+    assert(
+      stronger.projectedTokens < calibrated!.projectedTokens,
+      "a larger under-count did not reclaim more",
     );
   });
 });

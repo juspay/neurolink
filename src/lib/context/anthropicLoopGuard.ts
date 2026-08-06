@@ -166,6 +166,7 @@ export function planAnthropicLoopReclaim(args: {
   observedPromptTokens?: number;
   previousSentEstimate?: number;
   onSentEstimate?: (tokens: number) => void;
+  observedDescribesCurrentPayload?: boolean;
 }): LoopGuardPlan | undefined {
   const {
     conversation,
@@ -175,33 +176,49 @@ export function planAnthropicLoopReclaim(args: {
     observedPromptTokens,
     previousSentEstimate,
     onSentEstimate,
+    observedDescribesCurrentPayload = false,
   } = args;
 
   const entries = toEntries(conversation, provider);
   const rawEstimate =
     fixedOverheadTokens + entries.reduce((sum, e) => sum + e.tokens, 0);
 
-  // Calibration compares a real prompt-token count against THIS guard's
-  // estimate for the very request that produced it. Dividing by the estimate
-  // for the CURRENT conversation would be a category error: the loop has since
-  // appended an assistant tool_use message plus its tool_result, so the
-  // denominator is always larger than the numerator's request. The ratio then
-  // reads below 1 and the `Math.max(1, …)` floor pins calibration at 1 — the
-  // correction silently never applies, which is exactly when a dense-code run
-  // overflows the window.
+  // Calibration divides a real prompt-token count by THIS guard's estimate for
+  // the payload that count describes. Both halves must describe the SAME
+  // payload, and there are two legitimate pairings:
+  //
+  //  - A caller that plans on EVERY step passes the provider's count for the
+  //    previous request together with `previousSentEstimate`, the estimate
+  //    recorded for that same request. Dividing that count by the estimate for
+  //    the CURRENT conversation would be a category error — the loop has since
+  //    appended an assistant tool_use message plus its tool_result, so the
+  //    denominator is always the larger of the two, the ratio reads below 1 and
+  //    the `Math.max(1, …)` floor pins calibration at 1. The correction then
+  //    silently never applies, which is exactly when a dense-code run overflows.
+  //
+  //  - A caller that plans only when a real-token guard trips has no estimate
+  //    for an earlier request, but its trigger (`projectedNextPromptTokens`) is
+  //    already a projection of the payload ABOUT TO BE SENT. It sets
+  //    `observedDescribesCurrentPayload`, and the denominator is this module's
+  //    estimate of the current history — the same payload again.
+  //
+  // Without the flag such a caller gets calibration 1, which makes its reclaim
+  // inert: the guard trips on real tokens at the same ratio this planner tests
+  // its (smaller) char estimate against, so the plan never fires and the loop
+  // falls back to stopping the turn.
+  const sentEstimate = observedDescribesCurrentPayload
+    ? rawEstimate
+    : previousSentEstimate;
   let calibration = 1;
   if (
     observedPromptTokens &&
     observedPromptTokens > 0 &&
-    previousSentEstimate &&
-    previousSentEstimate > 0
+    sentEstimate &&
+    sentEstimate > 0
   ) {
     // Clamped: real tokenizers run up to ~1.3x the char estimate on dense
     // code, and an unbounded ratio would compact the loop into uselessness.
-    calibration = Math.min(
-      3,
-      Math.max(1, observedPromptTokens / previousSentEstimate),
-    );
+    calibration = Math.min(3, Math.max(1, observedPromptTokens / sentEstimate));
   }
 
   const plan = planLoopGuardReclaim(entries, {

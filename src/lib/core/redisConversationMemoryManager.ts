@@ -739,6 +739,22 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
               ? options.enableSummarization
               : this.config.enableSummarization;
 
+          // Append-only: push just this turn's messages and persist a SMALL
+          // metadata blob. A session not yet using split storage (new, or a
+          // legacy blob) is converted once here, then every later turn appends.
+          await this.persistConversation(
+            conversation,
+            options.sessionId,
+            options.userId,
+            wasSplitStorage ? messageCountBeforeTurn : undefined,
+          );
+
+          // Scheduled AFTER the write, never before it. On the single turn that
+          // converts a legacy session, `checkAndSummarize` re-reads the blob and
+          // writes it back; observing the pre-conversion blob would make it
+          // re-serialize the record WITHOUT the split marker, so a later SET
+          // would strip the marker while the companion LIST already held the
+          // messages — the next read would then serve the stale inline copy.
           if (shouldSummarize) {
             const normalizedUserId = options.userId || "randomUser";
             const summarizationKey = `${options.sessionId}:${normalizedUserId}`;
@@ -778,16 +794,6 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
               );
             }
           }
-
-          // Append-only: push just this turn's messages and persist a SMALL
-          // metadata blob. A session not yet using split storage (new, or a
-          // legacy blob) is converted once here, then every later turn appends.
-          await this.persistConversation(
-            conversation,
-            options.sessionId,
-            options.userId,
-            wasSplitStorage ? messageCountBeforeTurn : undefined,
-          );
 
           // Log turn storage metadata for observability
           const blobSizeBytes = Buffer.byteLength(
@@ -983,10 +989,12 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
     if (!this.redisClient) {
       return conversation;
     }
-    const entries = await this.redisClient.lRange(
-      `${redisKey}${MESSAGES_KEY_SUFFIX}`,
-      0,
-      -1,
+    // `getSession` and `buildContextMessages` guard their own GET with
+    // `withTimeout`; both now also depend on this read, so leaving it unguarded
+    // would let a hung LIST read block the request thread anyway.
+    const entries = await withTimeout(
+      this.redisClient.lRange(`${redisKey}${MESSAGES_KEY_SUFFIX}`, 0, -1),
+      REDIS_TIMEOUT_MS,
     );
     // `lRange` is typed `(string | Buffer)[]` — the client returns Buffers when
     // a connection is opened in binary mode. Normalize rather than assert, so
@@ -1009,7 +1017,10 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
     // string), and callers add it to numbers — coerce so the count never
     // concatenates instead of summing.
     return Number(
-      await this.redisClient.lLen(`${redisKey}${MESSAGES_KEY_SUFFIX}`),
+      await withTimeout(
+        this.redisClient.lLen(`${redisKey}${MESSAGES_KEY_SUFFIX}`),
+        REDIS_TIMEOUT_MS,
+      ),
     );
   }
 
@@ -1049,31 +1060,29 @@ export class RedisConversationMemoryManager implements IConversationMemoryManage
       sessionId,
       userId,
     );
+    // One MULTI, not four to six independent commands. The replace path is a
+    // DEL followed by an RPUSH, and on the legacy-conversion path the inline
+    // blob is the only copy of the history until the SET lands — so a failure
+    // between any two of them leaves the session either empty or unrecoverable.
+    // Grouping them also collapses the round trips, which is the point of the
+    // append-only layout.
+    const tx = this.redisClient.multi();
     if (appendFrom === undefined) {
-      await this.redisClient.del(messagesKey);
-      if (conversation.messages.length > 0) {
-        await this.redisClient.rPush(
-          messagesKey,
-          encodeStoredMessages(conversation.messages),
-        );
-      }
-    } else {
-      const appended = conversation.messages.slice(appendFrom);
-      if (appended.length > 0) {
-        await this.redisClient.rPush(
-          messagesKey,
-          encodeStoredMessages(appended),
-        );
-      }
+      tx.del(messagesKey);
     }
-    await this.redisClient.set(
-      redisKey,
-      serializeConversationMetadata(conversation),
-    );
+    const toPush =
+      appendFrom === undefined
+        ? conversation.messages
+        : conversation.messages.slice(appendFrom);
+    if (toPush.length > 0) {
+      tx.rPush(messagesKey, encodeStoredMessages(toPush));
+    }
+    tx.set(redisKey, serializeConversationMetadata(conversation));
     if (this.redisConfig.ttl > 0) {
-      await this.redisClient.expire(redisKey, this.redisConfig.ttl);
-      await this.redisClient.expire(messagesKey, this.redisConfig.ttl);
+      tx.expire(redisKey, this.redisConfig.ttl);
+      tx.expire(messagesKey, this.redisConfig.ttl);
     }
+    await withTimeout(tx.exec(), REDIS_TIMEOUT_MS);
   }
 
   /**

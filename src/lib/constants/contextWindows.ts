@@ -382,7 +382,16 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
  * `lm-studio` -> `lmstudio`, `nvidia-nim` -> `nvidianim`, `llama.cpp` -> `llamacpp`.
  */
 const PROVIDER_ALIAS_MAP: Record<string, string> = {
-  googleaistudio: "google-ai-studio",
+  // Both spellings resolve to `google-ai`, the ONLY key this table holds for
+  // AI Studio. `google-ai-studio` was never a key, so every realistic spelling
+  // ("googleAiStudio" from the native client, "google-ai-studio", "googleai")
+  // missed the table and fell back to DEFAULT_CONTEXT_WINDOW — reporting
+  // 128K for a 1,048,576-token Gemini. That understated the loop-guard budget
+  // by ~8x, so AI Studio agent loops reclaimed tool history that still fitted
+  // comfortably. `google-ai` itself only resolved via the raw-provider
+  // fallback below, which the normalized lookup now covers directly.
+  googleaistudio: "google-ai",
+  googleai: "google-ai",
   lmstudio: "lm-studio",
   llamacpp: "llamacpp",
   nvidianim: "nvidia-nim",

@@ -117,7 +117,10 @@ import {
   resolveTurnStopReason,
   DedupExecuteMap,
 } from "../googleNativeGemini3/index.js";
-import { getContextWindowSize } from "../../constants/contextWindows.js";
+import {
+  getAvailableInputTokens,
+  getContextWindowSize,
+} from "../../constants/contextWindows.js";
 import { resolveLiveTool } from "../../tools/toolDiscovery.js";
 import {
   ATTR,
@@ -817,7 +820,10 @@ function reclaimVertexLoopContext(
 ): boolean {
   const plan = planGeminiLoopReclaim({
     contents,
-    availableInputTokens: getContextWindowSize("vertex", modelName),
+    // The usable INPUT budget, not the whole window: the window has to hold the
+    // model's output too, and the AI Studio twin already reclaims against this
+    // same definition.
+    availableInputTokens: getAvailableInputTokens("vertex", modelName),
     provider: "vertex",
     observedPromptTokens,
   });
@@ -901,10 +907,19 @@ function reclaimVertexAnthropicContext(
 ): boolean {
   const plan = planAnthropicLoopReclaim({
     conversation: messages,
-    availableInputTokens: getContextWindowSize("vertex", modelName),
+    // Usable input budget, matching the Gemini twin above.
+    availableInputTokens: getAvailableInputTokens("vertex", modelName),
     fixedOverheadTokens: 0,
     provider: "vertex",
     observedPromptTokens,
+    // This loop plans only when its context guard trips, so the count it hands
+    // over is the guard's projection for the request about to be sent, not a
+    // previous request's total. Without saying so the planner has no
+    // denominator, calibration stays pinned at 1, and the reclaim is inert:
+    // the guard fires on real tokens at the same ratio the planner tests its
+    // smaller char estimate against, so the plan never fires and the turn stops
+    // instead of continuing.
+    observedDescribesCurrentPayload: true,
   });
   if (!plan) {
     return false;

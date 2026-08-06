@@ -123,6 +123,18 @@ function toEntries(
  * Returns `undefined` when the history still fits, in which case the caller
  * must leave it byte-identical — any rewrite invalidates the provider's cached
  * prefix, so "no change" has to mean no change.
+ *
+ * `observedPromptTokens` must be a count for the payload ABOUT TO BE SENT —
+ * every Gemini-shaped loop plans only when its `createContextGuard` trips, and
+ * that guard's `projectedNextPromptTokens` is exactly that: the provider's real
+ * count for the last request plus the growth measured since. Dividing it by
+ * this module's estimate of the current history therefore compares two views of
+ * one payload, which is what makes the correction meaningful. A count for an
+ * EARLIER request must not be passed here: the loop has appended a model turn
+ * and its tool turn since, so the denominator would always be the larger of the
+ * two, the ratio would read below 1 and the `Math.max(1, …)` floor would pin
+ * calibration at 1 — silently disabling the correction. `planAnthropicLoopReclaim`
+ * carries `previousSentEstimate` for callers in that other position.
  */
 export function planGeminiLoopReclaim(args: {
   contents: readonly GeminiGuardContent[];

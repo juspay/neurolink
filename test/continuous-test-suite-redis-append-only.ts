@@ -24,6 +24,10 @@ import "dotenv/config";
 
 import { createClient } from "redis";
 import { RedisConversationMemoryManager } from "../src/lib/core/redisConversationMemoryManager.js";
+import {
+  deserializeConversation,
+  parseStoredMessages,
+} from "../src/lib/utils/redis.js";
 import { defineSuite } from "./helpers/harness.js";
 
 const { test, runSuite, section } = defineSuite("Redis append-only storage");
@@ -45,6 +49,11 @@ const PREFIX = `nltest:${Date.now()}:conversation:`;
 const USER = "u1";
 
 const raw = createClient({ socket: { host: HOST, port: PORT } });
+// node-redis emits `error` on an unreachable server, and an EventEmitter with
+// no `error` listener throws globally — which would crash the process on the
+// no-Redis machines this suite is written to skip on, before the catch below
+// ever runs.
+raw.on("error", () => {});
 let redisUp = false;
 try {
   await raw.connect();
@@ -87,6 +96,68 @@ const sessionKey = (sessionId: string): string =>
   `${PREFIX}${USER}:${sessionId}`;
 
 await runSuite(async () => {
+  // These need no server: they pin the read-path contract both storage formats
+  // must honour, so they run even on a machine without Redis.
+  section("Both read paths validate what they return");
+
+  await test("a stored message with no id is repaired, not discarded", async () => {
+    // `id` is required on ChatMessage but no read path ever enforced it, so
+    // history written before it existed carries none. Dropping those records
+    // would empty healthy sessions.
+    const [message] = parseStoredMessages([
+      JSON.stringify({ role: "user", content: "hello" }),
+    ]);
+    assert(message !== undefined, "an id-less message was discarded");
+    assert(
+      typeof message.id === "string" && message.id.length > 0,
+      "the repaired message carries no id",
+    );
+    assert(
+      message.role === "user" && message.content === "hello",
+      "repair altered the message body",
+    );
+  });
+
+  await test("values JSON.parse accepts but callers cannot use are skipped", async () => {
+    // `null`, numbers and bare strings all survive JSON.parse, so the catch
+    // around it cannot filter them — the shape has to be checked.
+    const messages = parseStoredMessages([
+      "null",
+      "42",
+      '"bare string"',
+      "{not json",
+      JSON.stringify({ role: "assistant", content: "kept", id: "m1" }),
+    ]);
+    assert(messages.length === 1, "an unusable entry reached the caller");
+    assert(messages[0].id === "m1", "the valid entry was not the survivor");
+  });
+
+  await test("the inline blob path repairs and rejects identically", async () => {
+    const blob = (messages: unknown[]): string =>
+      JSON.stringify({
+        title: "t",
+        sessionId: "s",
+        userId: "u",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        messages,
+      });
+
+    const repaired = deserializeConversation(
+      blob([{ role: "user", content: "hello" }]),
+    );
+    assert(repaired !== null, "an id-less inline blob was thrown away");
+    assert(
+      typeof repaired.messages[0]?.id === "string",
+      "the inline path returned a message with no id",
+    );
+
+    assert(
+      deserializeConversation(blob([{ role: "user" }])) === null,
+      "the inline path accepted a message with no content",
+    );
+  });
+
   if (!redisUp) {
     await test("redis reachable", async () => {
       throw new Error("SKIP: no local Redis on 6379");
