@@ -1,3 +1,9 @@
+## [10.10.2](https://github.com/juspay/neurolink/compare/v10.10.1...v10.10.2) (2026-08-06)
+
+### Bug Fixes
+
+- **(context):** pair tool calls by id instead of adjacency ([a0f49e4](https://github.com/juspay/neurolink/commit/a0f49e4073e9f2ad02d39dbe0647eb4bf04b4b16))
+
 ## [10.10.1](https://github.com/juspay/neurolink/compare/v10.10.0...v10.10.1) (2026-08-06)
 
 ### Bug Fixes
