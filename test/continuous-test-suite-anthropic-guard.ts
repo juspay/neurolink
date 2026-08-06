@@ -220,18 +220,62 @@ await runSuite(async () => {
     );
   });
 
-  await test("a higher observed count makes the guard no less eager", async () => {
+  await test("a count for the current payload fires a guard the estimate alone would not", async () => {
+    // The other legitimate pairing: a caller that plans only when a real-token
+    // guard trips has no estimate for an earlier request, but its trigger is
+    // already a projection of the payload about to be sent. It says so with
+    // `observedDescribesCurrentPayload`, and the denominator becomes this
+    // module's estimate of the current history — the same payload twice.
     const conversation: AnthropicGuardMessage[] = [
       { role: "user", content: "start" },
     ];
     for (let i = 0; i < 20; i++) {
       conversation.push(...step(i, 12_000));
     }
-    const plain = plan(conversation);
-    const calibrated = plan(conversation, 300_000);
+
+    // Premise: uncalibrated this history is under the line, so anything that
+    // fires below can only be the correction.
     assert(
-      plain === undefined || calibrated !== undefined,
-      "calibration made the guard less eager than the raw estimate",
+      plan(conversation) === undefined,
+      "fixture fires uncalibrated, so it cannot demonstrate the correction",
+    );
+
+    // A count with NEITHER pairing must change nothing — there is no estimate
+    // to divide it by, and guessing one is what pins calibration at 1.
+    assert(
+      plan(conversation, 300_000) === undefined,
+      "an unpaired observed count perturbed the decision",
+    );
+
+    const calibrated = planAnthropicLoopReclaim({
+      conversation,
+      availableInputTokens: 100_000,
+      fixedOverheadTokens: 0,
+      provider: "anthropic",
+      observedPromptTokens: 90_000,
+      observedDescribesCurrentPayload: true,
+    });
+    assert(
+      calibrated !== undefined,
+      "a real count for the current payload did not tighten the threshold",
+    );
+    assert(
+      calibrated!.truncate.length > 0 || calibrated!.drop.length > 0,
+      "the calibrated plan reclaims nothing",
+    );
+
+    // Monotone in the ratio: a bigger under-count must reclaim more.
+    const stronger = planAnthropicLoopReclaim({
+      conversation,
+      availableInputTokens: 100_000,
+      fixedOverheadTokens: 0,
+      provider: "anthropic",
+      observedPromptTokens: 300_000,
+      observedDescribesCurrentPayload: true,
+    })!;
+    assert(
+      stronger.projectedTokens < calibrated!.projectedTokens,
+      "a larger under-count did not reclaim more",
     );
   });
 

@@ -110,6 +110,39 @@ await test("falls back to the static litellm _default when nothing is registered
   );
 });
 
+// The alias map pointed at `google-ai-studio`, which this table has never held,
+// so all of these fell through to DEFAULT_CONTEXT_WINDOW — an ~8x understatement
+// that made the AI Studio loop guard reclaim tool history that still fitted.
+// `google-ai` resolved only by raw-provider fallback.
+//
+// One test per spelling: the failing alias belongs in the test NAME, not in an
+// assertion message, where `isExpectedProviderError()` could downgrade it to ⊘.
+for (const spelling of [
+  "googleAiStudio",
+  "google-ai-studio",
+  "google-ai",
+  "googleai",
+]) {
+  await test(`AI Studio spelling "${spelling}" resolves to the real Gemini window`, () => {
+    clearRuntimeContextWindows();
+    assertEqual(
+      getContextWindowSize(spelling, "gemini-2.5-pro"),
+      1_048_576,
+      "the provider alias did not reach the google-ai table",
+    );
+  });
+}
+
+await test("a per-model AI Studio window survives alias normalization", () => {
+  clearRuntimeContextWindows();
+  // Not merely "bigger than the default": a real per-model entry must win.
+  assertEqual(
+    getContextWindowSize("googleAiStudio", "gemini-2.5-flash-image"),
+    32_768,
+    "a small per-model window must survive alias normalization",
+  );
+});
+
 await test("prefers a runtime-registered window over the static default", () => {
   clearRuntimeContextWindows();
   registerRuntimeContextWindow("litellm", "glm-private", 262_144);
