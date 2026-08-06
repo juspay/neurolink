@@ -72,6 +72,22 @@ const PROTECTED_TAIL_MESSAGES = 4;
  */
 const CONTEXT_GUARD_LOW_WATER_RATIO = 0.6;
 
+/**
+ * Ceiling on the low-water mark, expressed against the FIRING THRESHOLD.
+ *
+ * `CONTEXT_GUARD_LOW_WATER_RATIO` is a fraction of the window, but the mark is
+ * only meaningful while it sits below the line the guard just crossed.
+ * `thresholdRatio` is caller-supplied, and any value at or below the low-water
+ * ratio would put the target at or above that line: stage 2 would find nothing
+ * to drop while stage 1 still rewrote the oldest messages, so the guard would
+ * mutate the cached prefix on every step — exactly the pathology it exists to
+ * remove. Clamping keeps a real reclaim gap at any threshold.
+ *
+ * At the default 0.85 threshold the window-relative mark (0.6) is already the
+ * lower of the two, so this changes nothing for the tuned default.
+ */
+const LOW_WATER_THRESHOLD_CEILING = 0.8;
+
 /** Stage-1 preview budget for an old tool output (bytes). */
 const OLD_TOOL_OUTPUT_PREVIEW_BYTES = 2_048;
 
@@ -390,8 +406,11 @@ export function createStepBudgetGuard(config: StepBudgetGuardConfig) {
     // Reclaim down to the LOW-WATER mark, not merely back under the threshold.
     // See CONTEXT_GUARD_LOW_WATER_RATIO: stopping at the threshold guaranteed
     // the next step crossed it again, mutating the cached prefix every step.
-    const lowWaterTokens = Math.floor(
-      (availableInput * CONTEXT_GUARD_LOW_WATER_RATIO) / calibration,
+    const lowWaterTokens = Math.min(
+      Math.floor(
+        (availableInput * CONTEXT_GUARD_LOW_WATER_RATIO) / calibration,
+      ),
+      Math.floor(effectiveThreshold * LOW_WATER_THRESHOLD_CEILING),
     );
 
     // Stage 1: shrink old tool outputs to previews.

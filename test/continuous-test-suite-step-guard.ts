@@ -119,6 +119,68 @@ await runSuite(async () => {
     );
   });
 
+  await test("a low threshold still leaves a reclaim gap", async () => {
+    // `thresholdRatio` is caller-supplied. At or below the low-water ratio, a
+    // purely window-relative target lands ON or ABOVE the line the guard just
+    // crossed: stage 2 finds nothing to drop while stage 1 keeps rewriting the
+    // oldest messages, so the guard fires every step — the pathology it exists
+    // to remove. Must be exercised in the stage-2-dominant regime; with large
+    // outputs stage 1 alone overshoots the line and hides the defect.
+    const smallExchange = (i: number): ModelMessage[] =>
+      [
+        {
+          role: "assistant",
+          content: [
+            {
+              type: "tool-call",
+              toolCallId: `l${i}`,
+              toolName: "grep",
+              input: { q: `q${i}` },
+            },
+          ],
+        },
+        {
+          role: "tool",
+          content: [
+            {
+              type: "tool-result",
+              toolCallId: `l${i}`,
+              toolName: "grep",
+              output: { type: "text", value: "z".repeat(1800) },
+            },
+          ],
+        },
+      ] as unknown as ModelMessage[];
+
+    const config = {
+      provider: PROVIDER,
+      model: MODEL,
+      thresholdRatio: 0.5, // below CONTEXT_GUARD_LOW_WATER_RATIO
+    };
+    const guard = createStepBudgetGuard(config);
+    let messages: ModelMessage[] = [
+      { role: "user", content: "start" } as ModelMessage,
+    ];
+    for (let i = 0; i < 260; i++) {
+      messages.push(...smallExchange(i));
+    }
+
+    let firings = 0;
+    const STEPS = 20;
+    for (let step = 0; step < STEPS; step++) {
+      messages.push(...smallExchange(1000 + step));
+      const out = guard(messages);
+      if (out !== undefined) {
+        firings++;
+        messages = out as ModelMessage[];
+      }
+    }
+    assert(
+      firings <= STEPS / 4,
+      `guard mutated the prefix on ${firings} of ${STEPS} steps at a 0.5 threshold`,
+    );
+  });
+
   section("Hysteresis: firings must be rare across a long run");
 
   await test("guard fires on a small minority of steps", async () => {

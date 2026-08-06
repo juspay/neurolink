@@ -231,4 +231,67 @@ await runSuite(async () => {
       "history budget exceeded the space actually left for history",
     );
   });
+
+  section("overhead accounting feeding the compaction guards");
+
+  await test("omitting tool definitions zeroes their share of the overhead", async () => {
+    const base = {
+      provider: "openai" as const,
+      model: "gpt-4o",
+      systemPrompt: "S".repeat(2000),
+      currentPrompt: "P".repeat(2000),
+      conversationMessages: [{ role: "user", content: "hi" }],
+    };
+    const withTools = checkContextBudget({
+      ...base,
+      toolDefinitions: Array.from({ length: 60 }, (_, i) => ({
+        name: `tool_${i}`,
+        description: "D".repeat(300),
+      })),
+    });
+    const withoutTools = checkContextBudget(base);
+
+    assert(
+      withoutTools.breakdown.toolDefinitions === 0,
+      "a budget check with no tool definitions still charged for them",
+    );
+    assert(
+      withTools.breakdown.toolDefinitions > 0,
+      "tool definitions were not charged to the budget",
+    );
+    // The overflow-recovery path derives its compaction target by subtracting
+    // this overhead. Leaving tool definitions out of the budget call makes the
+    // target too generous by the whole tool set, so the retry overflows again.
+    assert(
+      resolveHistoryBudget(withTools) < resolveHistoryBudget(withoutTools),
+      "tool definitions did not reduce the space left for history",
+    );
+  });
+
+  await test("a zero history budget still carries a populated breakdown", async () => {
+    const budget = checkContextBudget({
+      provider: "openai",
+      model: "gpt-4o",
+      maxTokens: 100,
+      systemPrompt: "S".repeat(4_000_000),
+      currentPrompt: "P",
+      conversationMessages: [{ role: "user", content: "hi" }],
+      toolDefinitions: [{ name: "t", description: "d" }],
+    });
+    assert(
+      resolveHistoryBudget(budget) === 0,
+      "expected the fixed overhead to exhaust the window",
+    );
+    // The pre-compaction guard forwards this breakdown into
+    // ContextBudgetExceededError. Handing it an empty object strips the only
+    // signal that says WHICH category consumed the window.
+    assert(
+      budget.breakdown.systemPrompt > 0,
+      "breakdown lost the system prompt cost at a zero history budget",
+    );
+    assert(
+      Object.keys(budget.breakdown).length === 5,
+      "breakdown is missing categories",
+    );
+  });
 });

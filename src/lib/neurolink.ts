@@ -57,6 +57,7 @@ import {
   NoSuchToolError,
 } from "./utils/generationErrors.js";
 import type {
+  BudgetCheckResult,
   CompactionConfig,
   CompactionResult,
   ArtifactStore,
@@ -6657,6 +6658,9 @@ Current user's request: ${currentInput}`;
         maxTokens: options.maxTokens,
         currentPrompt: options.prompt,
         systemPrompt: options.systemPrompt,
+        toolDefinitions: options.tools
+          ? Object.values(options.tools)
+          : undefined,
       });
       const actualTokens =
         actualOverflow?.actualTokens ?? recoveryBudget.estimatedInputTokens;
@@ -6667,9 +6671,16 @@ Current user's request: ${currentInput}`;
       // over-budget request through untouched. The 0.7 factor stays on top as
       // recovery headroom — this path runs only after the provider has already
       // rejected the request once, so aiming well under is deliberate.
+      //
+      // Every non-history category counts, matching `resolveHistoryBudget`.
+      // Tool definitions are the reason this path exists on agentic requests:
+      // omitting them leaves the target too generous by the whole tool set and
+      // the retry overflows again.
       const recoveryOverhead =
         (recoveryBudget.breakdown?.systemPrompt ?? 0) +
-        (recoveryBudget.breakdown?.currentPrompt ?? 0);
+        (recoveryBudget.breakdown?.currentPrompt ?? 0) +
+        (recoveryBudget.breakdown?.toolDefinitions ?? 0) +
+        (recoveryBudget.breakdown?.fileAttachments ?? 0);
       const compactionTarget = Math.max(
         0,
         Math.floor((budgetTokens - recoveryOverhead) * 0.7),
@@ -6731,6 +6742,12 @@ Current user's request: ${currentInput}`;
             role: string;
             content: string;
           }>,
+          // The verification must price the SAME request the retry will send.
+          // Without the tool definitions this check can report `withinBudget`
+          // for a payload that still overflows once they are re-attached.
+          toolDefinitions: options.tools
+            ? Object.values(options.tools)
+            : undefined,
         });
         if (verifyBudget.withinBudget) {
           compactedMessages = repairedResult.messages;
@@ -7561,8 +7578,44 @@ Current user's request: ${currentInput}`;
       historyBudget: resolveHistoryBudget(budgetResult),
       usageRatio: budgetResult.usageRatio,
       estimatedInputTokens: budgetResult.estimatedInputTokens,
+      breakdown: budgetResult.breakdown,
       compactionSessionId,
     });
+  }
+
+  /**
+   * Guard shared by every compaction entry point.
+   *
+   * A history budget of zero means the fixed overhead (system prompt + current
+   * prompt + tool definitions + attachments) already fills the window, so no
+   * amount of history compaction can make the request fit. Compacting against a
+   * zero target would still run every stage — including an LLM summarization
+   * call — and then hand the provider an over-budget request anyway, so fail
+   * with the real cause instead of a downstream provider 400.
+   */
+  private assertHistoryBudgetUsable(guard: {
+    historyBudget: number;
+    availableInputTokens: number;
+    estimatedInputTokens: number;
+    breakdown: BudgetCheckResult["breakdown"];
+  }): void {
+    if (guard.historyBudget > 0) {
+      return;
+    }
+    throw new ContextBudgetExceededError(
+      `Context exceeds model budget before any history is included. ` +
+        `System prompt, current prompt and tool definitions alone require ` +
+        `more than the ${guard.availableInputTokens}-token input budget. ` +
+        `Reduce the tool set or the prompt size.`,
+      {
+        estimatedTokens: guard.estimatedInputTokens,
+        availableTokens: guard.availableInputTokens,
+        stagesUsed: [],
+        // Carry the real composition through: this error's whole value is
+        // telling the caller WHICH category ate the window.
+        breakdown: { ...guard.breakdown },
+      },
+    );
   }
 
   private async compactMCPConversationForBudget(context: {
@@ -7577,6 +7630,7 @@ Current user's request: ${currentInput}`;
     historyBudget: number;
     usageRatio: number;
     estimatedInputTokens: number;
+    breakdown: BudgetCheckResult["breakdown"];
     compactionSessionId: string;
   }): Promise<ChatMessage[]> {
     const {
@@ -7590,6 +7644,7 @@ Current user's request: ${currentInput}`;
       historyBudget,
       usageRatio,
       estimatedInputTokens,
+      breakdown,
       compactionSessionId,
     } = context;
     logger.info(
@@ -7610,23 +7665,12 @@ Current user's request: ${currentInput}`;
         this.conversationMemoryConfig?.conversationMemory?.summarizationModel,
     });
 
-    // Fixed overhead (system + prompt + tools + files) already exceeds the
-    // window — no amount of history compaction can fit this request, and
-    // compacting to an empty history would only hide the real cause.
-    if (historyBudget <= 0) {
-      throw new ContextBudgetExceededError(
-        `Context exceeds model budget before any history is included. ` +
-          `System prompt, current prompt and tool definitions alone require ` +
-          `more than the ${availableInputTokens}-token input budget. ` +
-          `Reduce the tool set or the prompt size.`,
-        {
-          estimatedTokens: estimatedInputTokens,
-          availableTokens: availableInputTokens,
-          stagesUsed: [],
-          breakdown: {},
-        },
-      );
-    }
+    this.assertHistoryBudgetUsable({
+      historyBudget,
+      availableInputTokens,
+      estimatedInputTokens,
+      breakdown,
+    });
 
     const compactionResult = await compactor.compact(
       conversationMessages,
@@ -8197,9 +8241,16 @@ Current user's request: ${currentInput}`;
               this.conversationMemoryConfig?.conversationMemory
                 ?.summarizationModel,
           });
+          const dpgHistoryBudget = resolveHistoryBudget(budgetCheck);
+          this.assertHistoryBudgetUsable({
+            historyBudget: dpgHistoryBudget,
+            availableInputTokens: budgetCheck.availableInputTokens,
+            estimatedInputTokens: budgetCheck.estimatedInputTokens,
+            breakdown: budgetCheck.breakdown,
+          });
           const compactionResult = await compactor.compact(
             conversationMessages as import("./types/index.js").ChatMessage[],
-            resolveHistoryBudget(budgetCheck),
+            dpgHistoryBudget,
             this.conversationMemoryConfig?.conversationMemory,
             (options.context as Record<string, unknown>)?.requestId as
               | string
@@ -11200,9 +11251,16 @@ Current user's request: ${currentInput}`;
         summarizationModel:
           this.conversationMemoryConfig?.conversationMemory?.summarizationModel,
       });
+      const streamHistoryBudget = resolveHistoryBudget(streamBudget);
+      this.assertHistoryBudgetUsable({
+        historyBudget: streamHistoryBudget,
+        availableInputTokens: streamBudget.availableInputTokens,
+        estimatedInputTokens: streamBudget.estimatedInputTokens,
+        breakdown: streamBudget.breakdown,
+      });
       const compactionResult = await compactor.compact(
         conversationMessages as import("./types/index.js").ChatMessage[],
-        resolveHistoryBudget(streamBudget),
+        streamHistoryBudget,
         this.conversationMemoryConfig?.conversationMemory,
         (options.context as Record<string, unknown> | undefined)?.requestId as
           | string
