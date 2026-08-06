@@ -295,6 +295,11 @@ export type GenerateOptions = {
    * (see `coerceJsonToSchema`), and `disableTools: true` remains available as
    * an explicit override.
    *
+   * On the native Anthropic Messages surface (provider "anthropic", including
+   * via a proxy) tools + schema are honored through an internal `final_result`
+   * tool the model calls with the structured answer — invisible to callers: it
+   * never appears in `toolCalls` / `toolExecutions`.
+   *
    * @example
    * ```typescript
    * // ✅ Vertex + Claude: tools AND schema together are fully supported
@@ -302,6 +307,12 @@ export type GenerateOptions = {
    *   schema: MySchema,
    *   provider: "vertex",
    *   model: "claude-sonnet-4-6",
+   * });
+   *
+   * // ✅ Direct Anthropic + tools: schema honored via the final_result tool
+   * const result = await neurolink.generate({
+   *   schema: MySchema,
+   *   provider: "anthropic",
    * });
    *
    * // ✅ Gemini + tools: SDK auto-falls back to coerced text-mode JSON

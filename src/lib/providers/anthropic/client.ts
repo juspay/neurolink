@@ -55,6 +55,7 @@ import type {
   ClaudeSubscriptionTier,
   ClaudeUsageInfo,
   OAuthToken,
+  ZodUnknownSchema,
 } from "../../types/index.js";
 import {
   AuthenticationError,
@@ -108,6 +109,12 @@ import {
 } from "../openaiChatCompletionsClient.js";
 
 import { ANTHROPIC_BETA_HEADERS } from "./constants.js";
+import {
+  appendFinalResultInstruction,
+  appendFinalResultTool,
+  FINAL_RESULT_TOOL_NAME,
+  stringifyFinalResultInput,
+} from "./structuredOutput.js";
 
 // AnthropicProviderConfig is imported from types/providers.ts
 // Re-export for backward compatibility
@@ -1382,9 +1389,13 @@ export class AnthropicProvider extends BaseProvider {
         } & Record<string, unknown>,
       ) => {
         await refreshAuth();
-        const { system, messages } = messagesToAnthropic(
+        const built = messagesToAnthropic(
           options.prompt as Array<{ role: string; content: unknown }>,
         );
+        const messages = built.messages;
+        // `let`: the additive structured-output path below appends the
+        // final_result instruction to the system prompt.
+        let system = built.system;
 
         let tools: Anthropic.Messages.Tool[] | undefined = (options.tools ?? [])
           .filter((t) => t.type === "function")
@@ -1432,6 +1443,25 @@ export class AnthropicProvider extends BaseProvider {
             },
           ];
           toolChoice = { type: "tool", name: jsonTool };
+        }
+
+        // Additive structured output: when the caller wants a schema AND real
+        // tools, the forced-json path above cannot be used (it replaces the
+        // tools array), and the AI-SDK experimental_output path is excluded
+        // for this surface by structuredOutputPolicy. GenerationHandler hands
+        // the JSON Schema down here instead, and we APPEND a `final_result`
+        // tool — tool_choice stays auto, so every real tool keeps working and
+        // the model self-selects final_result when it is ready to answer.
+        const finalResultSchema = options.providerOptions?.anthropic
+          ?.finalResultSchema as Record<string, unknown> | undefined;
+        let finalResultActive = false;
+        if (!jsonTool && finalResultSchema) {
+          const appended = appendFinalResultTool(tools, finalResultSchema);
+          tools = appended.tools;
+          finalResultActive = appended.applied;
+          if (appended.applied) {
+            system = appendFinalResultInstruction(system);
+          }
         }
 
         // Extended thinking passthrough (providerOptions.anthropic.thinking).
@@ -1528,6 +1558,7 @@ export class AnthropicProvider extends BaseProvider {
         }
 
         const content: Array<{ type: string } & Record<string, unknown>> = [];
+        let finalResultText: string | undefined;
         for (const block of response.content) {
           if (block.type === "thinking") {
             content.push({ type: "reasoning", text: block.thinking });
@@ -1544,6 +1575,13 @@ export class AnthropicProvider extends BaseProvider {
                 type: "text",
                 text: stringifyToolInput(block.input),
               });
+            } else if (
+              finalResultActive &&
+              block.name === FINAL_RESULT_TOOL_NAME
+            ) {
+              // Internal pattern: never surfaced as a tool call. Its arguments
+              // ARE the structured answer.
+              finalResultText = stringifyToolInput(block.input);
             } else {
               content.push({
                 type: "tool-call",
@@ -1555,12 +1593,34 @@ export class AnthropicProvider extends BaseProvider {
           }
         }
 
+        // final_result is terminal — parity with the native Claude-on-Vertex
+        // and Gemini loops, which break out of the tool loop the moment it
+        // arrives. Reasoning blocks are kept; any prose preamble and any tool
+        // calls issued alongside it are dropped so `text` is exactly the
+        // structured payload and the AI-SDK loop stops here.
+        if (finalResultText !== undefined) {
+          const reasoning = content.filter((part) => part.type === "reasoning");
+          content.length = 0;
+          content.push(...reasoning, { type: "text", text: finalResultText });
+          logger.debug(
+            "[Anthropic] Extracted structured output from final_result tool (generate)",
+            { chars: finalResultText.length },
+          );
+        }
+
         const cacheRead = response.usage.cache_read_input_tokens ?? 0;
         const cacheWrite = response.usage.cache_creation_input_tokens ?? 0;
         return {
           content,
           finishReason: {
-            unified: mapAnthropicStopReason(response.stop_reason),
+            // A final_result call ends the turn: the provider reports
+            // stop_reason "tool_use", but no tool call is surfaced, so
+            // reporting "tool-calls" would misread as a step-capped turn.
+            // `raw` still carries the provider's verbatim stop_reason.
+            unified:
+              finalResultText !== undefined
+                ? ("stop" as const)
+                : mapAnthropicStopReason(response.stop_reason),
             raw: response.stop_reason ?? "stop",
           },
           usage: {
@@ -1745,6 +1805,9 @@ export class AnthropicProvider extends BaseProvider {
       messages: Anthropic.Messages.MessageParam[];
     };
     let shouldUseTools: boolean;
+    // True once the additive `final_result` tool is in the request — the
+    // streaming twin of the doGenerate path above.
+    let finalResultActive = false;
     try {
       // options.tools is pre-merged by BaseProvider.stream() with base tools
       // (MCP/built-in) + user-provided tools (RAG, etc.)
@@ -1761,6 +1824,24 @@ export class AnthropicProvider extends BaseProvider {
       payload = messagesToAnthropic(
         built as Array<{ role: string; content: unknown }>,
       );
+      // Schema + tools: append final_result rather than pinning tool_choice to
+      // a json tool, so the real tools stay callable for the whole turn.
+      // Unlike generate, no plumbing is needed — this is a native loop, so the
+      // caller's Zod/JSON schema is right here on the options.
+      if (options.schema && anthropicTools && anthropicTools.length > 0) {
+        const appended = appendFinalResultTool(
+          anthropicTools,
+          convertZodToJsonSchema(options.schema as ZodUnknownSchema) as Record<
+            string,
+            unknown
+          >,
+        );
+        anthropicTools = appended.tools;
+        finalResultActive = appended.applied;
+        if (appended.applied) {
+          payload.system = appendFinalResultInstruction(payload.system);
+        }
+      }
     } catch (setupErr) {
       timeoutController?.cleanup();
       throw this.handleProviderError(setupErr);
@@ -1868,6 +1949,15 @@ export class AnthropicProvider extends BaseProvider {
       ...(totalCacheRead > 0 ? { cacheReadTokens: totalCacheRead } : {}),
       ...(totalCacheWrite > 0 ? { cacheCreationTokens: totalCacheWrite } : {}),
     });
+
+    // Structured-output turns are delivered as ONE chunk, not incrementally:
+    // a caller that passed a schema needs parseable JSON, and text deltas
+    // emitted before the model calls final_result would prefix the payload
+    // with prose and break every JSON.parse on the consumer side. Same
+    // contract as the native Vertex loops. Non-schema streams are untouched
+    // and stay fully incremental.
+    let bufferedText = "";
+    let finalResultText: string | undefined;
 
     const runLoop = async (): Promise<void> => {
       const conversation = payload.messages.slice();
@@ -1984,7 +2074,11 @@ export class AnthropicProvider extends BaseProvider {
                 event.index,
                 (textAcc.get(event.index) ?? "") + delta.text,
               );
-              pushChunk({ content: delta.text });
+              if (finalResultActive) {
+                bufferedText += delta.text;
+              } else {
+                pushChunk({ content: delta.text });
+              }
             } else if (delta.type === "thinking_delta") {
               const acc = thinkingAcc.get(event.index) ?? {
                 text: "",
@@ -2017,6 +2111,26 @@ export class AnthropicProvider extends BaseProvider {
           }
         }
         lastStop = stopReason;
+
+        // final_result is terminal: its arguments ARE the answer, so the turn
+        // ends here and any tool calls issued alongside it are not executed
+        // (parity with the native Vertex loops). It is never executed as a
+        // tool, never recorded in toolsUsed, and never stored as a tool
+        // execution — the pattern stays invisible to callers.
+        if (finalResultActive) {
+          const finalCall = [...toolAcc.values()].find(
+            (acc) => acc.name === FINAL_RESULT_TOOL_NAME,
+          );
+          if (finalCall) {
+            finalResultText = stringifyFinalResultInput(finalCall.inputJson);
+            lastStop = "end_turn";
+            logger.debug(
+              "[Anthropic] Extracted structured output from final_result tool (stream)",
+              { chars: finalResultText.length },
+            );
+            break;
+          }
+        }
 
         if (stopReason !== "tool_use" || toolAcc.size === 0) {
           break;
@@ -2191,6 +2305,19 @@ export class AnthropicProvider extends BaseProvider {
         throw this.formatProviderError(error);
       })
       .finally(() => {
+        // Deliver the buffered structured-output turn: `finalResultText` when
+        // the model called final_result, otherwise the prose it produced
+        // instead — never nothing, so a model that ignores the instruction
+        // degrades to today's plain-text behaviour rather than an empty
+        // stream. In `finally` so a turn that dies mid-loop still surfaces
+        // the text it had already buffered, exactly as the unbuffered path
+        // surfaces its partial deltas.
+        if (finalResultActive) {
+          const output = finalResultText ?? bufferedText;
+          if (output.length > 0) {
+            pushChunk({ content: output });
+          }
+        }
         timeoutController?.cleanup();
         pushChunk({ done: true });
       });
