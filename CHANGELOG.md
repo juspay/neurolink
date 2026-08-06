@@ -1,3 +1,9 @@
+## [10.10.5](https://github.com/juspay/neurolink/compare/v10.10.4...v10.10.5) (2026-08-06)
+
+### Bug Fixes
+
+- **(providers):** guard native agent loops against mid-turn overflow ([56088a1](https://github.com/juspay/neurolink/commit/56088a1f9d745561c3776957bdcf50c7408f4bc9))
+
 ## [10.10.4](https://github.com/juspay/neurolink/compare/v10.10.3...v10.10.4) (2026-08-06)
 
 ### Bug Fixes
