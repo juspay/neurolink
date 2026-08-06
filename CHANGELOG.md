@@ -1,3 +1,9 @@
+## [10.10.6](https://github.com/juspay/neurolink/compare/v10.10.5...v10.10.6) (2026-08-06)
+
+### Bug Fixes
+
+- **(memory):** persist tool executions on every memory backend ([d4cbd8f](https://github.com/juspay/neurolink/commit/d4cbd8f0e5ce05594867293944061ffa2e48efea))
+
 ## [10.10.5](https://github.com/juspay/neurolink/compare/v10.10.4...v10.10.5) (2026-08-06)
 
 ### Bug Fixes
