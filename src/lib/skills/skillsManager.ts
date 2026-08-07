@@ -114,11 +114,18 @@ export class SkillsManager {
     // name-find would resolve non-deterministically to the stale deprecated one
     // across store backends. Fall back to any match only when no active skill
     // carries the name.
+    //
+    // Matched case-insensitively to agree with assertNameAvailable, which
+    // enforces uniqueness that way: names differing only in case cannot
+    // coexist, so a case-sensitive lookup could only fail to find a skill that
+    // is definitively there (`get("DEPLOY")` returned null for "deploy").
+    const wanted = idOrName.toLowerCase();
     const entry =
       index.find(
         (item) =>
-          item.name === idOrName && (item.status ?? "active") === "active",
-      ) ?? index.find((item) => item.name === idOrName);
+          item.name.toLowerCase() === wanted &&
+          (item.status ?? "active") === "active",
+      ) ?? index.find((item) => item.name.toLowerCase() === wanted);
     return entry ? this.store.get(entry.id) : null;
   }
 
@@ -310,14 +317,27 @@ export class SkillsManager {
     excludeId?: string,
   ): Promise<void> {
     const index = await this.getIndex(true);
+    // Deliberately NOT filtered to active (#1139). Soft-delete only flips
+    // status to "deprecated" — the entry stays in the index, so allowing a new
+    // skill to take the name left two entries sharing it. Every name-based
+    // lookup (CLI `skills show/delete <name>`, the skill_update/skill_delete
+    // tools, the `:id`-or-name REST routes) then had to guess which one the
+    // caller meant, and iteration order differs across store backends.
+    //
+    // A deprecated skill's name therefore stays reserved. Reusing it requires
+    // hard-deleting the old skill first, which is the explicit choice the
+    // ambiguity demands.
     const clash = index.find(
       (item) =>
-        item.id !== excludeId &&
-        item.name.toLowerCase() === name.toLowerCase() &&
-        (item.status ?? "active") === "active",
+        item.id !== excludeId && item.name.toLowerCase() === name.toLowerCase(),
     );
     if (clash) {
-      throw new Error(`A skill named "${name}" already exists`);
+      const suffix =
+        (clash.status ?? "active") === "active"
+          ? ""
+          : ` (that name belongs to a deprecated skill, id ${clash.id}; ` +
+            `remove it before reusing the name)`;
+      throw new Error(`A skill named "${name}" already exists${suffix}`);
     }
   }
 }
