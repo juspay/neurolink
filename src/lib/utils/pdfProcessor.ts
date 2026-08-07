@@ -454,6 +454,7 @@ export class PDFProcessor {
       format,
       scale,
       maxCanvasPixels,
+      maxPages,
     });
 
     logger.debug("[PDF→Image] ✅ PDF validation passed", {
@@ -639,7 +640,12 @@ export class PDFProcessor {
    */
   private static validateImageConversionInput(
     pdfBuffer: Buffer,
-    opts: { format: string; scale: number; maxCanvasPixels: number },
+    opts: {
+      format: string;
+      scale: number;
+      maxCanvasPixels: number;
+      maxPages?: number;
+    },
   ): number {
     if (opts.format !== "png") {
       throw new Error(
@@ -658,6 +664,18 @@ export class PDFProcessor {
     if (!Number.isFinite(opts.maxCanvasPixels) || opts.maxCanvasPixels <= 0) {
       throw new Error(
         `Invalid maxCanvasPixels: ${opts.maxCanvasPixels}. Must be a finite number greater than 0.`,
+      );
+    }
+    // #297: maxPages became caller-controlled, and an unvalidated 0/-1/NaN
+    // silently converts nothing, surfacing later as a misleading
+    // "PDF has 0 pages" from deep inside the renderer. Reject it here where
+    // the message can still name the offending option.
+    if (
+      opts.maxPages !== undefined &&
+      (!Number.isInteger(opts.maxPages) || opts.maxPages < 1)
+    ) {
+      throw new Error(
+        `Invalid maxPages: ${opts.maxPages}. Must be a whole number of at least 1.`,
       );
     }
     if (!pdfBuffer || pdfBuffer.length < 5) {
@@ -713,6 +731,7 @@ export class PDFProcessor {
       format,
       scale,
       maxCanvasPixels,
+      maxPages,
     });
 
     const pdfToImgModule = await import("pdf-to-img");

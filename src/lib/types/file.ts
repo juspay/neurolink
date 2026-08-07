@@ -535,6 +535,10 @@ export type MultimodalPdfEntry = {
   password?: string;
   /** Per-page pixel ceiling for the image fallback (#260). */
   maxCanvasPixels?: number;
+  /** Render scale for the image fallback (#297). */
+  scale?: number;
+  /** Max pages converted by the image fallback (#297). */
+  maxPages?: number;
 };
 
 /** Result of PDF to image conversion. */
