@@ -1935,6 +1935,85 @@ const tests: TestFunction[] = [
     },
   },
   {
+    name: "MessageBuilder #309: input.content PDFs hit the same aggregate page limit as input.pdfFiles",
+    category: "pdf-processor",
+    fn: async () => {
+      const synth = (pages: number): Buffer =>
+        Buffer.concat([
+          Buffer.from("%PDF-1.4\n"),
+          Buffer.from("/Type /Page \n".repeat(pages)),
+          Buffer.alloc(20),
+        ]);
+      // The advanced `input.content` surface — the path that previously built
+      // its own pdfFiles array and reached the provider with no aggregate check.
+      const build = (pdfs: Buffer[], pages?: number) =>
+        buildMultimodalMessagesArray(
+          {
+            input: {
+              content: [
+                { type: "text", text: "x" },
+                ...pdfs.map((data, i) => ({
+                  type: "pdf",
+                  data,
+                  metadata:
+                    pages === undefined
+                      ? { filename: `d${i}.pdf` }
+                      : { filename: `d${i}.pdf`, pages },
+                })),
+              ],
+            },
+          } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+          "openai", // native PDF provider, maxPages 100
+          "gpt-4o",
+        );
+
+      const rejectsWith = async (
+        pdfs: Buffer[],
+        pattern: RegExp,
+        pages?: number,
+      ) => {
+        try {
+          await build(pdfs, pages);
+          return false;
+        } catch (e) {
+          return e instanceof Error && pattern.test(e.message);
+        }
+      };
+      const over = [synth(40), synth(40), synth(40)]; // 120 pages
+
+      // Rejected whether or not the caller supplied metadata.pages — an
+      // omitted count must be resolved from the buffer, not summed as zero.
+      if (!(await rejectsWith(over, /Combined page count/, 40))) {
+        return false;
+      }
+      if (!(await rejectsWith(over, /Combined page count/))) {
+        return false;
+      }
+      // metadata.pages is caller input, so it must not be believed: declaring
+      // 1 page each for three 40-page PDFs previously passed the ceiling.
+      if (!(await rejectsWith(over, /Combined page count/, 1))) {
+        return false;
+      }
+      // A single over-limit PDF must be caught too. input.content never passes
+      // through FileDetector, so nothing else validates it — an early return
+      // at "fewer than two files" let one 200-page document straight through.
+      if (!(await rejectsWith([synth(200)], /Combined page count/))) {
+        return false;
+      }
+      // Aggregate byte ceiling (openai: 32MB), enforced before any parsing.
+      const fat = Buffer.concat([synth(1), Buffer.alloc(17 * 1024 * 1024)]);
+      if (!(await rejectsWith([fat, fat], /Combined size/))) {
+        return false;
+      }
+
+      // Under the limit still resolves — the guard must not be rejecting every
+      // content-path PDF request.
+      await build([synth(20), synth(20), synth(20)]); // 60 total
+      await build([synth(20)]); // single legitimate PDF
+      return true;
+    },
+  },
+  {
     name: "FileDetector #317: pre-flight HEAD rejects an oversized URL before the GET",
     category: "pdf-processor",
     fn: async () => {

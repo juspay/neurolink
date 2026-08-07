@@ -255,6 +255,24 @@ export class PDFProcessor {
     return PDF_PROVIDER_CONFIGS[provider] || null;
   }
 
+  /**
+   * Best-effort page count for a PDF whose count the caller did not supply
+   * (#309). Mirrors what `process()` derives for the `input.pdfFiles` path:
+   * the accurate pdfjs count when the document parses, otherwise the header
+   * regex estimate. Returns null when neither can determine a count.
+   *
+   * Exists so the aggregate page-limit guard can enforce against PDFs handed
+   * in via `input.content`, where `metadata.pages` is optional and routinely
+   * omitted — without it, an absent count silently sums as zero.
+   */
+  static async resolvePageCount(buffer: Buffer): Promise<number | null> {
+    const accurate = await PDFProcessor.getAccuratePageCount(buffer);
+    if (accurate !== null) {
+      return accurate;
+    }
+    return PDFProcessor.extractBasicMetadata(buffer).estimatedPages;
+  }
+
   private static isValidPDF(buffer: Buffer): boolean {
     if (buffer.length < 5) {
       return false;

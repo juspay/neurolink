@@ -498,6 +498,28 @@ export type PDFImagePage = {
   error?: string;
 };
 
+/**
+ * A single PDF queued for multimodal message building, normalised from either
+ * submission surface — `input.pdfFiles` or `input.content` with `type: "pdf"`
+ * — so both can share the aggregate page/size guard (#309).
+ */
+export type MultimodalPdfEntry = {
+  /** Raw PDF bytes. */
+  buffer: Buffer;
+  /** Display name; may be a full path, so log only its basename. */
+  filename: string;
+  /**
+   * Page count when known. Null/undefined on the `input.content` path whenever
+   * the caller omitted `metadata.pages`; the aggregate guard resolves those
+   * from `buffer` rather than treating them as zero.
+   */
+  pageCount?: number | null;
+  /** Password for an encrypted PDF (#258). */
+  password?: string;
+  /** Per-page pixel ceiling for the image fallback (#260). */
+  maxCanvasPixels?: number;
+};
+
 /** Result of PDF to image conversion. */
 export type PDFImageConversionResult = {
   /** Array of base64-encoded PNG images (one per successfully converted page) */
