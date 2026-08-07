@@ -244,6 +244,12 @@ export type CSVProcessorOptions = {
    * rather than hanging forever. Defaults: 30s for strings, 5min for files.
    */
   parseTimeoutMs?: number;
+  /**
+   * Skip blank / whitespace-only data rows (#373). Default `true`: blank lines
+   * are excluded from the returned content (including raw CSV text) and from
+   * `metadata.rowCount`. Set to `false` to preserve empty lines literally.
+   */
+  skipEmptyLines?: boolean;
 };
 
 /**

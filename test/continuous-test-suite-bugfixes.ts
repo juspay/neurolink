@@ -551,6 +551,172 @@ const tests: TestFunction[] = [
     },
   },
   {
+    name: "CSVProcessor #373: skipEmptyLines filters blank lines from raw content; preserve keeps them",
+    category: "csv-processor",
+    fn: async () => {
+      const csv = "name,age\nAlice,30\n\nBob,25\n   \nCara,41\n";
+
+      // Default (skipEmptyLines=true): raw content has no blank lines, rowCount=3.
+      const skipped = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "raw",
+      });
+      const skippedLines = skipped.content.split("\n");
+      const skippedOk =
+        skipped.metadata.rowCount === 3 &&
+        skippedLines.length === 4 &&
+        skippedLines.every((line, i) => i === 0 || line.trim() !== "");
+
+      // Explicit preserve: blank lines stay in raw content and count as rows
+      // (including a trailing empty line from a final newline).
+      const preserved = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "raw",
+        skipEmptyLines: false,
+      });
+      const preservedLines = preserved.content.split("\n");
+      const preservedOk =
+        preserved.metadata.rowCount >= 5 &&
+        preservedLines.length >= 6 &&
+        preservedLines.some((line) => line.trim() === "");
+
+      // Structured json also respects the option.
+      const jsonSkipped = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "json",
+      });
+      const jsonPreserved = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "json",
+        skipEmptyLines: false,
+      });
+      const jsonOk =
+        JSON.parse(jsonSkipped.content).length === 3 &&
+        jsonPreserved.metadata.rowCount > jsonSkipped.metadata.rowCount;
+
+      return skippedOk && preservedOk && jsonOk;
+    },
+  },
+  {
+    name: "CSVProcessor #373: raw skips delimiter-only rows; preserve keeps schema for leading blanks",
+    category: "csv-processor",
+    fn: async () => {
+      // Leading `,,` must stay a data row (not promote to header via
+      // isMetadataLine comma-count mismatch) and then be skipped.
+      const leadingDelimBlank = "name,age\n,,\nAlice,30\n  ,  \nBob,25\n";
+      const rawLeading = await CSVProcessor.process(
+        Buffer.from(leadingDelimBlank),
+        { formatStyle: "raw" },
+      );
+      const leadingOk =
+        rawLeading.metadata.rowCount === 2 &&
+        rawLeading.metadata.columnCount === 2 &&
+        rawLeading.content === "name,age\nAlice,30\nBob,25";
+
+      // Mid-file delimiter-only blanks are skipped the same way.
+      const midDelimCsv = "name,age\nAlice,30\n,,\n  ,  \nBob,25\n";
+      const rawMid = await CSVProcessor.process(Buffer.from(midDelimCsv), {
+        formatStyle: "raw",
+      });
+      const midOk =
+        rawMid.metadata.rowCount === 2 &&
+        rawMid.content === "name,age\nAlice,30\nBob,25";
+
+      // Preserved leading blanks must not poison Markdown/JSON headers.
+      const leadBlank = "name,age\n\nAlice,30\nBob,25\n";
+      const md = await CSVProcessor.process(Buffer.from(leadBlank), {
+        formatStyle: "markdown",
+        skipEmptyLines: false,
+      });
+      const json = await CSVProcessor.process(Buffer.from(leadBlank), {
+        formatStyle: "json",
+        skipEmptyLines: false,
+      });
+      const parsed = JSON.parse(json.content) as Array<Record<string, string>>;
+      const mdHeaderOk = /^\| name \| age \|/m.test(md.content);
+      const jsonOk =
+        parsed.length >= 2 &&
+        Object.keys(parsed[0] ?? {}).includes("name") &&
+        parsed.some((r) => r.name === "Alice");
+
+      return leadingOk && midOk && mdHeaderOk && jsonOk;
+    },
+  },
+  {
+    name: "CSVProcessor #373: preserve blanks keeps schema for a,b / blank / 1,2 (CodeRabbit case)",
+    category: "csv-processor",
+    fn: async () => {
+      const csv = "a,b\n\n1,2";
+      const md = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "markdown",
+        skipEmptyLines: false,
+      });
+      const json = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "json",
+        skipEmptyLines: false,
+        sanitizeColumnNames: true,
+      });
+      const rawSkip = await CSVProcessor.process(
+        Buffer.from("a,b\n,,\n1,2\n"),
+        { formatStyle: "raw" },
+      );
+      const parsed = JSON.parse(json.content) as Array<Record<string, string>>;
+      return (
+        /^\| a \| b \|/m.test(md.content) &&
+        md.content.includes("| 1 | 2 |") &&
+        parsed.length === 2 &&
+        Object.keys(parsed[0] ?? {}).join(",") === "a,b" &&
+        parsed[1]?.a === "1" &&
+        parsed[1]?.b === "2" &&
+        rawSkip.content === "a,b\n1,2" &&
+        rawSkip.metadata.rowCount === 1
+      );
+    },
+  },
+  {
+    name: "CSVProcessor #373: a single-column header followed by a delimiter-only row survives",
+    category: "csv-processor",
+    fn: async () => {
+      // The metadata heuristic read "line 2 has more commas than line 1" as
+      // "line 1 was a preamble" — but `,,` is a blank DATA row whose commas are
+      // structure, not fields. The real header was stripped, leaving unnamed
+      // columns. The delimiter-only check must run before the comma counts.
+      const result = (await CSVProcessor.process(
+        Buffer.from("name\n,,\nalice\nbob\n"),
+        { extension: "csv" } as never,
+      )) as { metadata: { columnMetadata?: Array<{ name: string }> } };
+      const columns = (result.metadata.columnMetadata ?? []).map((c) => c.name);
+      if (columns.length !== 1 || columns[0] !== "name") {
+        return false;
+      }
+      // A genuine preamble must still be stripped — the fix must not disable
+      // metadata detection wholesale.
+      const withPreamble = (await CSVProcessor.process(
+        Buffer.from("Report Title\na,b,c\n1,2,3\n"),
+        { extension: "csv" } as never,
+      )) as { metadata: { columnMetadata?: Array<{ name: string }> } };
+      const preambleCols = (withPreamble.metadata.columnMetadata ?? []).map(
+        (c) => c.name,
+      );
+      return preambleCols.join(",") === "a,b,c";
+    },
+  },
+  {
+    name: "CSVProcessor #373: structured maxRows counts non-empty rows only (leading blanks)",
+    category: "csv-processor",
+    fn: async () => {
+      // Leading blank rows must not consume maxRows: 2 → Alice + Bob.
+      const csv = "name,age\n\n\nAlice,30\nBob,25\nCara,41\n";
+      const result = await CSVProcessor.process(Buffer.from(csv), {
+        formatStyle: "json",
+        maxRows: 2,
+      });
+      const parsed = JSON.parse(result.content) as Array<{ name: string }>;
+      return (
+        result.metadata.rowCount === 2 &&
+        parsed.length === 2 &&
+        parsed[0]?.name === "Alice" &&
+        parsed[1]?.name === "Bob"
+      );
+    },
+  },
+  {
     name: "CSVProcessor #378: opt-in column-name sanitization yields valid identifiers and preserves originals",
     category: "csv-processor",
     fn: async () => {
@@ -8409,10 +8575,10 @@ exit 127
   {
     // (c) batch used to build a hand-rolled `csvOptions` inline (only
     // maxRows/formatStyle), silently dropping encoding/sanitizeColumnNames/
-    // columnNameCase/parseTimeoutMs that generate/stream already supported.
-    // Verify both that batch now delegates to the shared helper, and that
-    // the shared helper itself carries every field through.
-    name: "CLI batch (review): executeBatch's csvOptions is built via the shared buildCsvOptionsFromArgv helper, and that helper carries encoding/sanitizeColumnNames/columnNameCase/parseTimeoutMs",
+    // columnNameCase/parseTimeoutMs/skipEmptyLines that generate/stream
+    // already supported. Verify both that batch now delegates to the shared
+    // helper, and that the shared helper itself carries every field through.
+    name: "CLI batch (review): executeBatch's csvOptions is built via the shared buildCsvOptionsFromArgv helper, and that helper carries encoding/sanitizeColumnNames/columnNameCase/parseTimeoutMs/skipEmptyLines",
     category: "cli",
     fn: async () => {
       const src = readFileSync(
@@ -8445,6 +8611,7 @@ exit 127
             sanitizeColumnNames?: boolean;
             columnNameCase?: string;
             parseTimeoutMs?: number;
+            skipEmptyLines?: boolean;
           };
         }
       ).buildCsvOptionsFromArgv;
@@ -8456,6 +8623,7 @@ exit 127
         csvSanitizeNames: true,
         csvNameCase: "camelCase",
         csvParseTimeoutMs: 45000,
+        csvSkipEmptyLines: false,
       });
 
       return (
@@ -8464,7 +8632,8 @@ exit 127
         opts.encoding === "windows-1252" &&
         opts.sanitizeColumnNames === true &&
         opts.columnNameCase === "camelCase" &&
-        opts.parseTimeoutMs === 45000
+        opts.parseTimeoutMs === 45000 &&
+        opts.skipEmptyLines === false
       );
     },
   },
