@@ -1,3 +1,10 @@
+## [10.10.9](https://github.com/juspay/neurolink/compare/v10.10.8...v10.10.9) (2026-08-07)
+
+### Bug Fixes
+
+- **(pdf):** make the render scale and page ceiling reachable from generate() ([a5c9e4b](https://github.com/juspay/neurolink/commit/a5c9e4b0edc12fa701dae2b2567a03e8f3f07da4)), closes [#297](https://github.com/juspay/neurolink/issues/297) [#309](https://github.com/juspay/neurolink/issues/309) [#302](https://github.com/juspay/neurolink/issues/302) [#297](https://github.com/juspay/neurolink/issues/297)
+- **(skills):** reserve a deprecated skill's name and match names case-insensitively ([85bb407](https://github.com/juspay/neurolink/commit/85bb4074b4d0296b6ffcf7e5a311d4bea124dc73)), closes [#1139](https://github.com/juspay/neurolink/issues/1139) [#1139](https://github.com/juspay/neurolink/issues/1139)
+
 ## [10.10.8](https://github.com/juspay/neurolink/compare/v10.10.7...v10.10.8) (2026-08-07)
 
 ### Bug Fixes
