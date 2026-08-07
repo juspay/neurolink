@@ -209,15 +209,20 @@ export class CLICommandFactory {
       description:
         "Add video file for analysis (can be used multiple times) (MP4, WebM, MOV, AVI, MKV)",
     },
+    // No yargs `default:` on these two. They used to declare 8 / 85 while the
+    // processor actually picks a duration-based frame count (up to 100) and
+    // encodes at quality 80 — harmless only because the values were never read
+    // (#478). Now that they reach the encoder, a default here would silently
+    // re-cap every existing CLI video at 8 frames. Unset means "let the
+    // processor choose", which is what callers have always effectively had.
     "video-frames": {
       type: "number" as const,
-      default: 8,
-      description: "Number of frames to extract (default: 8)",
+      description:
+        "Number of frames to extract (default: chosen from video duration, max 100)",
     },
     "video-quality": {
       type: "number" as const,
-      default: 85,
-      description: "Frame quality 0-100 (default: 85)",
+      description: "Frame quality 1-100 (default: 80)",
     },
     "video-format": {
       type: "string" as const,

@@ -136,8 +136,8 @@ neurolink batch prompts.txt --provider openai
 **Video options:**
 
 ```
---video-frames      Frames to extract (default: 8)
---video-quality     Quality 0-100 (default: 85)
+--video-frames      Frames to extract (default: from duration, max 100)
+--video-quality     Quality 1-100 (default: 80)
 --video-format      jpeg or png (default: jpeg)
 --transcribe-audio  Transcribe audio
 ```

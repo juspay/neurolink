@@ -285,10 +285,14 @@ export type StreamOptions = {
 
   // Video processing options
   videoOptions?: {
-    frames?: number; // Number of frames to extract (default: 8)
-    quality?: number; // Frame quality 0-100 (default: 85)
-    format?: "jpeg" | "png"; // Frame format (default: jpeg)
-    transcribeAudio?: boolean; // Extract and transcribe audio (default: false)
+    /** Frames to extract. Unset lets VideoProcessor pick from the clip's duration; clamped to 100. */
+    frames?: number;
+    /** Frame encoder quality, clamped to 1-100. Default 80. */
+    quality?: number;
+    /** Frame encoding. Default jpeg. */
+    format?: "jpeg" | "png";
+    /** Not implemented yet (#433) — warns rather than silently doing nothing. */
+    transcribeAudio?: boolean;
   };
 
   /**

@@ -89,8 +89,8 @@ Large local `--image`/`--csv`/`--pdf`/`--video` files emit a soft-limit size war
 **Video Input (Analysis):**
 
 - `--video` – attach video file for analysis (MP4, WebM, MOV, AVI, MKV).
-- `--video-frames` – number of frames to extract (default `8`).
-- `--video-quality` – frame quality 0–100 (default `85`).
+- `--video-frames` – number of frames to extract (default: chosen from the video's duration, capped at 100).
+- `--video-quality` – frame quality 1–100 (default `80`).
 - `--video-format` – frame format: `jpeg` (default) or `png`.
 - `--transcribe-audio` – extract and transcribe audio from video (default `false`).
 

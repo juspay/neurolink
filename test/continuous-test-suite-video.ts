@@ -184,6 +184,148 @@ await test("extracts keyframes for frame-based providers", async () => {
   }
 });
 
+// --- VIDEO-022 (#478): the CLI's frame knobs must reach the encoder ---------
+
+await test("#478: videoOptions.frames caps the number of extracted keyframes", async () => {
+  await ensureFixtures();
+  const unbounded = await videoProcessor.processFile(
+    info("clip.mp4", "video/mp4"),
+  );
+  // 1, not 2: the 2s fixture yields 2 frames by default, so asking for 2 would
+  // pass even if the option were still being ignored.
+  const capped = await videoProcessor.processFile(
+    info("clip.mp4", "video/mp4"),
+    { frames: 1 },
+  );
+  assert(unbounded.success && capped.success, "both runs process successfully");
+  if (!unbounded.success || !capped.success) {
+    return;
+  }
+  // The flag was accepted and discarded before this fix, so both runs returned
+  // an identical frame count regardless of what the caller asked for.
+  assertEqual(
+    capped.data.keyframes.length,
+    1,
+    "exactly the requested number of frames is returned",
+  );
+  assert(
+    unbounded.data.keyframes.length > capped.data.keyframes.length,
+    "the default run extracts more frames than the capped run, proving the cap is applied rather than coincidental",
+  );
+});
+
+await test("#478: an explicit frames request at MAX_FRAMES is not silently ignored", async () => {
+  await ensureFixtures();
+  const tiered = await videoProcessor.processFile(
+    info("clip.mp4", "video/mp4"),
+  );
+  // 100 is exactly VIDEO_CONFIG.MAX_FRAMES. Keying the override on
+  // "budget < MAX_FRAMES" made this fall back to the duration-tier schedule,
+  // so asking for the maximum quietly produced the tier count instead.
+  const maxed = await videoProcessor.processFile(
+    info("clip.mp4", "video/mp4"),
+    { frames: 100 },
+  );
+  assert(tiered.success && maxed.success, "both runs process successfully");
+  if (!tiered.success || !maxed.success) {
+    return;
+  }
+  assert(
+    maxed.data.keyframes.length > tiered.data.keyframes.length,
+    "requesting the maximum yields more frames than the tier schedule, proving the request was honored",
+  );
+  assert(
+    maxed.data.keyframes.length <= 100,
+    "the MAX_FRAMES ceiling still applies",
+  );
+});
+
+await test("#478: an over-ceiling frames request is clamped, not rejected", async () => {
+  await ensureFixtures();
+  const over = await videoProcessor.processFile(info("clip.mp4", "video/mp4"), {
+    frames: 150,
+  });
+  assert(over.success, "an over-ceiling request still processes");
+  if (!over.success) {
+    return;
+  }
+  assert(
+    over.data.keyframes.length > 0 && over.data.keyframes.length <= 100,
+    "frame count is clamped to the MAX_FRAMES ceiling",
+  );
+});
+
+await test("#478: an omitted format still defaults to JPEG", async () => {
+  await ensureFixtures();
+  const result = await videoProcessor.processFile(
+    info("clip.mp4", "video/mp4"),
+    { frames: 1 },
+  );
+  assert(result.success, "processing succeeds");
+  if (!result.success) {
+    return;
+  }
+  assert(
+    result.data.keyframes[0]
+      ?.subarray(0, 3)
+      .equals(Buffer.from([0xff, 0xd8, 0xff])) === true,
+    "frames are JPEG when no format is requested",
+  );
+});
+
+await test("#478: videoOptions.format switches the frame encoding to PNG", async () => {
+  await ensureFixtures();
+  const jpeg = await videoProcessor.processFile(info("clip.mp4", "video/mp4"), {
+    frames: 1,
+    format: "jpeg",
+  });
+  const png = await videoProcessor.processFile(info("clip.mp4", "video/mp4"), {
+    frames: 1,
+    format: "png",
+  });
+  assert(jpeg.success && png.success, "both encodings process successfully");
+  if (!jpeg.success || !png.success) {
+    return;
+  }
+  const jpegMagic = jpeg.data.keyframes[0]?.subarray(0, 3);
+  const pngMagic = png.data.keyframes[0]?.subarray(0, 8);
+  assert(
+    jpegMagic?.equals(Buffer.from([0xff, 0xd8, 0xff])) === true,
+    "default frames carry the JPEG magic bytes",
+  );
+  assert(
+    pngMagic?.equals(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    ) === true,
+    "requesting png yields frames carrying the PNG magic bytes",
+  );
+});
+
+await test("#478: videoOptions.quality changes the encoded frame payload", async () => {
+  await ensureFixtures();
+  const low = await videoProcessor.processFile(info("clip.mp4", "video/mp4"), {
+    frames: 1,
+    quality: 5,
+  });
+  const high = await videoProcessor.processFile(info("clip.mp4", "video/mp4"), {
+    frames: 1,
+    quality: 95,
+  });
+  assert(low.success && high.success, "both quality settings process");
+  if (!low.success || !high.success) {
+    return;
+  }
+  const lowSize = low.data.keyframes[0]?.length ?? 0;
+  const highSize = high.data.keyframes[0]?.length ?? 0;
+  assert(lowSize > 0 && highSize > 0, "both runs produce a frame");
+  // Size is the observable proof the quality value reached the encoder; before
+  // the fix both runs encoded at the hard-coded default and matched byte for byte.
+  assert(
+    highSize > lowSize,
+    "a higher quality setting produces a larger encoded frame",
+  );
+});
+
 await test("textContent describes the clip for the model", async () => {
   await ensureFixtures();
   const result = await videoProcessor.processFile(

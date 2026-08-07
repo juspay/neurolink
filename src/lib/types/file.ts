@@ -353,6 +353,22 @@ export type AudioProcessorOptions = {
 };
 
 /**
+ * Keyframe-extraction knobs for an attached video (#478).
+ *
+ * These back the `--video-frames` / `--video-quality` / `--video-format` CLI
+ * flags and `GenerateOptions.videoOptions`. Each is clamped to the processor's
+ * own ceiling — a caller cannot raise `frames` above VIDEO_CONFIG.MAX_FRAMES.
+ */
+export type VideoProcessorOptions = {
+  /** Max keyframes to extract. Clamped to the processor's MAX_FRAMES ceiling. */
+  frames?: number;
+  /** Encoder quality 1-100 for the extracted frames. */
+  quality?: number;
+  /** Frame encoding. Defaults to jpeg. */
+  format?: "jpeg" | "png";
+};
+
+/**
  * Office processor options for Word, PowerPoint, and Excel documents
  *
  * @example Word document processing (docx)
@@ -417,6 +433,7 @@ export type FileDetectorOptions = {
   audioOptions?: AudioProcessorOptions;
   csvOptions?: CSVProcessorOptions;
   officeOptions?: OfficeProcessorOptions;
+  videoOptions?: VideoProcessorOptions;
   confidenceThreshold?: number;
   provider?: string;
   /** Maximum number of retry attempts for network requests (default: 3) */
