@@ -31,6 +31,11 @@ import {
 } from "./helpers/harness.js";
 import { PROVIDERS, hasProviderEnv } from "./helpers/providerMatrix.js";
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 const { test, runSuite, opts } = defineSuite("Provider Capability Matrix");
 
 // ============================================================

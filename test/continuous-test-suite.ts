@@ -3785,6 +3785,11 @@ async function testJsonFormatWithMultipleImagesSDK(): Promise<boolean | null> {
 import { NeuroLink } from '${process.cwd()}/dist/index.js';
 import { readFileSync } from 'fs';
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 async function run() {
   const sdk = new NeuroLink();
   const img = readFileSync('${process.cwd()}/${screenshotPath}');

@@ -29,6 +29,11 @@ import "dotenv/config";
 import { NeuroLink } from "../dist/index.js";
 import { Skip } from "./helpers/harness.js";
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 // ============================================================
 // LOGGING / RUNNER INFRASTRUCTURE
 // (Mirrors the convention used across continuous-test-suite-*.ts)

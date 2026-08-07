@@ -51,6 +51,11 @@ import { skipUnlessProviderAvailable } from "./helpers/skipIf.js";
 import { isExpectedProviderError } from "./helpers/envGuard.js";
 import { spy, stub, withStubs } from "./helpers/stubs.js";
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 const { test, runSuite } = defineSuite(
   "L2 Embedding Fast-Path & Tool-Granularity",
 );

@@ -38,6 +38,11 @@ import type {
 import { ProviderFactory } from "../dist/lib/factories/providerFactory.js";
 import { ProviderRegistry } from "../dist/lib/factories/providerRegistry.js";
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 // =============================================================================
 // CONFIG
 // =============================================================================

@@ -35,6 +35,11 @@ import { ConversationMemoryManager } from "../dist/lib/core/conversationMemoryMa
 import { buildContextFromPointer } from "../dist/lib/utils/conversationMemory.js";
 import { truncateWithSlidingWindow } from "../dist/lib/context/stages/slidingWindowTruncator.js";
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",

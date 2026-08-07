@@ -58,6 +58,11 @@ import {
   skipUnlessTools,
 } from "./helpers/skipIf.js";
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 const { test, runSuite } = defineSuite("Tool Signature Deduplication", {
   defaultProvider: "anthropic",
 });

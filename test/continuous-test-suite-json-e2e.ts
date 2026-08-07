@@ -35,6 +35,11 @@ import { tool } from "ai";
 import { NeuroLink } from "../dist/index.js";
 import { defineSuite, assert, Skip } from "./helpers/harness.js";
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 const { test, runSuite } = defineSuite("JSON Validity E2E (live)");
 const nl = new NeuroLink();
 
