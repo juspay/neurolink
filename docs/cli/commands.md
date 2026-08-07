@@ -61,7 +61,7 @@ Key flags:
 - `--image`, `-i` – attach one or more image files/URLs for multimodal prompts.
 - `--pdf` – attach one or more PDF files for document analysis.
 - `--csv`, `-c` – attach one or more CSV files for data analysis.
-- `--file` – attach any supported file type (auto-detected: Excel, Word, RTF, JSON, YAML, XML, HTML, SVG, Markdown, code files, and more).
+- `--file` – attach any supported file type, auto-detected. Covers Office documents (Word `.docx`, Excel `.xlsx`/`.xls`, PowerPoint `.pptx`, RTF, OpenDocument), **audio** (`.mp3`, `.wav`, `.m4a`, … — transcribed automatically), **video** (`.mp4`, `.webm`, `.mov`, `.mkv` — keyframes plus metadata and any embedded subtitles), archives, JSON, YAML, XML, HTML, SVG, Markdown, and 50+ code languages. Repeatable. Not available on `batch`, where it would collide with the prompts-file positional — use `generate` or `stream`.
 - `--temperature`, `-t` – creativity (default `0.7`).
 - `--maxTokens`, `--max` – response limit (default `1000`).
 - `--system`, `-s` – system prompt.

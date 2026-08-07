@@ -118,27 +118,26 @@ for await (const chunk of stream) {
 
 ```bash
 # Attach Office files to your prompt
-neurolink generate "Summarize this document" --office report.docx --provider bedrock
+neurolink generate "Summarize this document" --file report.docx --provider bedrock
 
 # Multiple Office files
-neurolink generate "Compare these reports" --office q1.docx --office q2.docx --provider bedrock
+neurolink generate "Compare these reports" --file q1.docx --file q2.docx --provider bedrock
 
 # Excel spreadsheet analysis
-neurolink generate "Analyze sales trends" --office sales.xlsx --provider bedrock
+neurolink generate "Analyze sales trends" --file sales.xlsx --provider bedrock
 
 # PowerPoint presentation
-neurolink generate "Extract key points from slides" --office presentation.pptx --provider bedrock
+neurolink generate "Extract key points from slides" --file presentation.pptx --provider bedrock
 
 # Auto-detect file types
 neurolink generate "Analyze all documents" --file report.docx --file data.xlsx --provider bedrock
 
 # Stream mode with Office documents
-neurolink stream "Explain this document in detail" --office document.docx --provider bedrock
+neurolink stream "Explain this document in detail" --file document.docx --provider bedrock
 
-# Batch processing with Office documents
-echo "Summarize the key points" > prompts.txt
-echo "Extract action items" >> prompts.txt
-neurolink batch prompts.txt --office meeting-notes.docx --provider bedrock
+# Note: `batch` does NOT accept --file. The flag is deliberately unregistered
+# there because it would collide with the prompts-file positional, so Office
+# attachments are only available on `generate` and `stream`.
 ```
 
 ## API Reference
@@ -669,7 +668,7 @@ await neurolink.generate({
 
 ```bash
 # Change provider to supported one
-neurolink generate "Analyze document" --office doc.docx --provider bedrock
+neurolink generate "Analyze document" --file doc.docx --provider bedrock
 
 # Or use auto-detection with correct provider
 neurolink generate "Analyze document" --file doc.docx --provider vertex
@@ -935,11 +934,11 @@ const result = await neurolink.generate({
 
 ### Implementation Files
 
-- **`src/lib/utils/officeProcessor.ts`** - Office document validation and processing
+- **`src/lib/processors/document/`** - Office document validation and processing: `WordProcessor`, `ExcelProcessor`, `PptxProcessor`, `RtfProcessor`, `OpenDocumentProcessor`
 - **`src/lib/utils/fileDetector.ts`** - File type detection (includes Office formats)
 - **`src/lib/utils/messageBuilder.ts`** - Multimodal message construction
-- **`src/lib/types/fileTypes.ts`** - Office type definitions
-- **`src/cli/factories/commandFactory.ts`** - CLI `--office` flag handling
+- **`src/lib/types/file.ts`** - Office type definitions
+- **`src/cli/factories/commandFactory.ts`** - CLI `--file` flag handling
 
 ## Performance Considerations
 

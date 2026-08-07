@@ -429,8 +429,22 @@ pnpm run cli -- generate "Describe this image" \
   --image ./photo.jpg
 ```
 
-:::warning[PDF Support]
-PDF inputs are not supported by the Ollama provider. Use a provider with native PDF support (OpenAI, Anthropic, Google Vertex AI, Google AI Studio) for PDF processing.
+:::note[PDF Support]
+Ollama has no native PDF input, so NeuroLink renders each page to an image and
+sends those instead. This means PDFs work, but only with a **vision model** such
+as `llava:7b` — a text-only model receives nothing usable.
+
+```bash
+pnpm run cli -- generate "Summarize this document" \
+  --provider ollama \
+  --model "llava:7b" \
+  --pdf ./report.pdf
+```
+
+The image fallback converts **at most the first 20 pages** (a token-overflow
+guard in the message builder) and costs one image per converted page. Anything
+past page 20 is not sent at all, so for longer documents use a provider with
+native PDF support — OpenAI, Anthropic, Google Vertex AI or Google AI Studio.
 :::
 
 ---
