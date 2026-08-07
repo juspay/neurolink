@@ -40,6 +40,11 @@ import {
 } from "./helpers/harness.js";
 import { NeuroLink } from "../dist/index.js";
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 const { recordTest, runSuite } = defineSuite("MCP CLI Integration");
 
 /**

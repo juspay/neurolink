@@ -19,6 +19,11 @@ process.env.NEUROLINK_SKIP_MCP = "true";
 
 import { NeuroLink } from "../dist/index.js";
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 // ============================================================
 // CONFIGURATION
 // ============================================================

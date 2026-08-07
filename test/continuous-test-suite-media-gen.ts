@@ -1509,6 +1509,11 @@ async function testVideoGenerationVertexAI(): Promise<boolean | null> {
 
 import { NeuroLink } from '${process.cwd()}/dist/index.js';
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 async function testVideoGenerationVertexAI() {
   console.log('Testing video generation via Vertex AI generate()...');
 

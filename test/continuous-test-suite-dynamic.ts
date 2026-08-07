@@ -38,6 +38,11 @@ import {
   isExpectedProviderError as harnessIsExpectedError,
 } from "./helpers/harness.js";
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 const {
   recordTest,
   runSuite,

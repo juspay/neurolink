@@ -30,6 +30,11 @@ import { calculateCost } from "../dist/lib/utils/pricing.js";
 import { mergeUsage } from "../dist/lib/providers/openaiChatCompletionsClient.js";
 import { parseUsageFromResponseBody } from "../dist/lib/providers/sagemaker/streaming.js";
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 const { test, runSuite } = defineSuite("Token Usage Accounting");
 
 // ============================================================

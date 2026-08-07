@@ -50,6 +50,11 @@ import {
   NEUROLINK_ARTIFACT_ID_KEY,
 } from "../dist/lib/mcp/mcpOutputNormalizer.js";
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 function makeOutputLimitsPayload(sizeBytes: number): string {
   return "x".repeat(sizeBytes);
 }

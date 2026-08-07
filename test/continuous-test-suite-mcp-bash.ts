@@ -24,6 +24,11 @@ import { bashTool } from "../dist/lib/agent/directTools.js";
 import type { BashToolResult } from "../dist/index.js";
 import { defineSuite, logSection, Skip } from "./helpers/harness.js";
 
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
+assertDistFresh();
+
 const { recordTest, runSuite } = defineSuite("MCP bashTool");
 
 async function testExecuteBashCommand(): Promise<void> {
