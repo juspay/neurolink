@@ -1,3 +1,10 @@
+## [10.10.10](https://github.com/juspay/neurolink/compare/v10.10.9...v10.10.10) (2026-08-07)
+
+### Bug Fixes
+
+- **(audio):** explain why a transcript is missing instead of returning nothing ([c5ef0bf](https://github.com/juspay/neurolink/commit/c5ef0bf3afba4e040819ed975341723c9f29ea12)), closes [#416](https://github.com/juspay/neurolink/issues/416)
+- **(csv):** skip blank lines in raw content via skipEmptyLines ([919afc3](https://github.com/juspay/neurolink/commit/919afc307fd91de80bf064e98f9018eeb4f4ab95)), closes [#1284](https://github.com/juspay/neurolink/issues/1284) [#373](https://github.com/juspay/neurolink/issues/373)
+
 ## [10.10.9](https://github.com/juspay/neurolink/compare/v10.10.8...v10.10.9) (2026-08-07)
 
 ### Bug Fixes
