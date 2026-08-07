@@ -36,6 +36,7 @@ import type {
   FileProcessingResult,
   FileSource,
   FileType,
+  VideoProcessorOptions,
 } from "../types/index.js";
 import { tracers, ATTR, withSpan } from "../telemetry/index.js";
 import { CSVProcessor } from "./csvProcessor.js";
@@ -449,6 +450,7 @@ export class FileDetector {
             detection,
             csvOptions,
             options?.provider,
+            options?.videoOptions,
           );
           FileDetector.setFileResultSpanAttributes(
             span,
@@ -470,6 +472,7 @@ export class FileDetector {
           detection,
           csvOptions,
           options?.provider,
+          options?.videoOptions,
         );
         FileDetector.setFileResultSpanAttributes(
           span,
@@ -1267,6 +1270,7 @@ export class FileDetector {
     detection: FileDetectionResult,
     options?: CSVProcessorOptions,
     provider?: string,
+    videoOptions?: VideoProcessorOptions,
   ): Promise<FileProcessingResult> {
     switch (detection.type) {
       case "csv":
@@ -1285,7 +1289,11 @@ export class FileDetector {
         // AI providers don't support SVG as image format, so we extract text content
         return await FileDetector.processSvgAsText(content, detection);
       case "video":
-        return await FileDetector.processVideoFile(content, detection);
+        return await FileDetector.processVideoFile(
+          content,
+          detection,
+          videoOptions,
+        );
       case "audio":
         return await FileDetector.processAudioFile(content, detection);
       case "archive":
@@ -1343,18 +1351,24 @@ export class FileDetector {
   private static async processVideoFile(
     content: Buffer,
     detection: FileDetectionResult,
+    videoOptions?: VideoProcessorOptions,
   ): Promise<FileProcessingResult> {
     const videoFilename = detection.metadata.filename || "video";
     try {
       const videoResult = await (
         await getVideoProcessor()
-      ).processFile({
-        id: videoFilename,
-        name: videoFilename,
-        mimetype: detection.mimeType || "video/mp4",
-        size: content.length,
-        buffer: content,
-      });
+      ).processFile(
+        {
+          id: videoFilename,
+          name: videoFilename,
+          mimetype: detection.mimeType || "video/mp4",
+          size: content.length,
+          buffer: content,
+        },
+        // #478: carry the caller's keyframe budget/quality/format through to
+        // the processor; previously these stopped at the CLI layer.
+        videoOptions,
+      );
       if (videoResult.success && videoResult.data) {
         return {
           type: "video",

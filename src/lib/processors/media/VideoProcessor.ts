@@ -60,6 +60,7 @@ import type {
   ProcessedVideo,
   ProcessorFileProcessingResult,
   ProcessOptions,
+  VideoProcessorOptions,
 } from "../../types/index.js";
 import { SIZE_LIMITS_MB } from "../config/index.js";
 import { FileErrorCode } from "../errors/index.js";
@@ -359,7 +360,9 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
    */
   override async processFile(
     fileInfo: FileInfo,
-    options?: ProcessOptions,
+    // #478: widened with the keyframe knobs so `--video-frames`/`-quality`/
+    // `-format` can reach the encoder instead of being silently discarded.
+    options?: ProcessOptions & VideoProcessorOptions,
   ): Promise<ProcessorFileProcessingResult<ProcessedVideo>> {
     const filename = this.getFilename(fileInfo);
     const sizeBytes = fileInfo.size || fileInfo.buffer?.length || 0;
@@ -522,6 +525,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
               tempVideoPath,
               tempDir,
               metadata.duration,
+              options,
             );
           } catch {
             // Non-fatal: continue without keyframes if extraction fails
@@ -773,6 +777,17 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
   // ===========================================================================
 
   /**
+   * Clamp a caller-supplied frame quality into sharp's valid 1-100 range,
+   * falling back to the default when absent or non-numeric (#478).
+   */
+  private static resolveFrameQuality(quality?: number): number {
+    if (typeof quality !== "number" || !Number.isFinite(quality)) {
+      return VIDEO_CONFIG.FRAME_JPEG_QUALITY;
+    }
+    return Math.min(100, Math.max(1, Math.round(quality)));
+  }
+
+  /**
    * Extract keyframes from a video at calculated intervals.
    *
    * The interval between frames is determined by the video duration:
@@ -788,28 +803,56 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
    * The interval is adaptive: if the tier interval would exceed MAX_FRAMES,
    * the interval widens to duration/MAX_FRAMES for full-video coverage.
    *
+   * A caller-supplied `options.frames` overrides the tier schedule entirely:
+   * that many frames are spread evenly across the clip, still capped at
+   * MAX_FRAMES. `options.quality` and `options.format` reach the encoder (#478).
+   *
    * @param videoPath - Path to the video file
    * @param tempDir - Temp directory for frame output
    * @param durationSec - Video duration in seconds
-   * @returns Array of JPEG frame buffers
+   * @param options - Caller frame budget / encoder settings
+   * @returns Array of encoded frame buffers (JPEG unless png was requested)
    */
   private async extractKeyframes(
     videoPath: string,
     tempDir: string,
     durationSec: number,
+    options?: VideoProcessorOptions,
   ): Promise<Buffer[]> {
     if (durationSec <= 0) {
       return [];
     }
 
-    // Determine extraction interval based on duration
-    const intervalSec = this.getFrameInterval(durationSec);
+    // #478: honor the caller's frame budget, still bounded by MAX_FRAMES so a
+    // CLI flag can lower the cost but never raise it past the processor's own
+    // ceiling. A non-positive/non-finite request falls back to the default.
+    const requestedFrames = options?.frames;
+    const hasExplicitBudget =
+      typeof requestedFrames === "number" &&
+      Number.isFinite(requestedFrames) &&
+      requestedFrames > 0;
+    const frameBudget = hasExplicitBudget
+      ? Math.min(Math.floor(requestedFrames), VIDEO_CONFIG.MAX_FRAMES)
+      : VIDEO_CONFIG.MAX_FRAMES;
+
+    // Determine extraction interval based on duration. When the caller asked
+    // for a specific frame count, spread that many evenly across the whole
+    // video instead of using the duration tier — otherwise a short interval
+    // would hit the budget early and only cover the opening seconds.
+    //
+    // Keyed on whether a budget was REQUESTED, not on whether it happens to be
+    // below MAX_FRAMES: asking for exactly MAX_FRAMES is still an explicit
+    // request and must produce that many frames, not silently fall back to the
+    // tier schedule (which yields far fewer on a short clip).
+    const intervalSec = hasExplicitBudget
+      ? Math.max(durationSec / frameBudget, Number.EPSILON)
+      : this.getFrameInterval(durationSec);
 
     // Calculate timestamps to extract
     const timestamps: number[] = [];
     for (
       let t = 0;
-      t < durationSec && timestamps.length < VIDEO_CONFIG.MAX_FRAMES;
+      t < durationSec && timestamps.length < frameBudget;
       t += intervalSec
     ) {
       timestamps.push(t);
@@ -844,17 +887,23 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
 
         // Resize to fit within max dimension while preserving aspect ratio
         const sharp = (await import("sharp")).default;
-        const resized = await sharp(rawFrame)
-          .resize(
-            VIDEO_CONFIG.FRAME_MAX_DIMENSION,
-            VIDEO_CONFIG.FRAME_MAX_DIMENSION,
-            {
-              fit: "inside",
-              withoutEnlargement: true,
-            },
-          )
-          .jpeg({ quality: VIDEO_CONFIG.FRAME_JPEG_QUALITY })
-          .toBuffer();
+        const pipeline = sharp(rawFrame).resize(
+          VIDEO_CONFIG.FRAME_MAX_DIMENSION,
+          VIDEO_CONFIG.FRAME_MAX_DIMENSION,
+          {
+            fit: "inside",
+            withoutEnlargement: true,
+          },
+        );
+
+        // #478: `--video-quality` / `--video-format` were accepted by the CLI
+        // and then dropped on the floor; both now reach the encoder.
+        const quality = VideoProcessor.resolveFrameQuality(options?.quality);
+        const resized = await (
+          options?.format === "png"
+            ? pipeline.png({ quality })
+            : pipeline.jpeg({ quality })
+        ).toBuffer();
 
         keyframes.push(resized);
       } catch {

@@ -1013,6 +1013,25 @@ export function mergeMediaFileAliases<TFile>(input: {
 }
 
 /**
+ * #478: `transcribeAudio` (CLI `--transcribe-audio`) is accepted by the options
+ * surface but no video-audio transcription exists yet — VideoProcessor extracts
+ * keyframes and embedded subtitle tracks only, and the transcription step is
+ * still open as #433. Say so once per request rather than letting the caller
+ * believe a transcript was produced and silently omitted.
+ */
+function warnIfVideoTranscriptionRequested(
+  videoOptions: GenerateOptions["videoOptions"],
+): void {
+  if (videoOptions?.transcribeAudio) {
+    logger.warn(
+      "[NEUROLINK] Video audio transcription was requested but is not implemented yet " +
+        "(tracked as #433). Keyframes and any embedded subtitle tracks are still extracted; " +
+        "spoken audio will not be transcribed.",
+    );
+  }
+}
+
+/**
  * Process the unified files array with auto-detection.
  * Handles lazy file registration, full processing, and preview injection.
  *
@@ -1033,6 +1052,8 @@ export async function processUnifiedFilesArray(
 
   const totalFiles = options.input.files.length;
   const files = options.input.files;
+
+  warnIfVideoTranscriptionRequested(options.videoOptions);
 
   return withSpan(
     {
@@ -1108,6 +1129,15 @@ export async function processUnifiedFilesArray(
               "unknown",
             ],
             csvOptions: options.csvOptions,
+            // #478: videos arrive through this unified `files` path, so this is
+            // where the CLI's frame/quality/format request has to be handed on.
+            videoOptions: options.videoOptions
+              ? {
+                  frames: options.videoOptions.frames,
+                  quality: options.videoOptions.quality,
+                  format: options.videoOptions.format,
+                }
+              : undefined,
             provider: provider,
             mimetypeHint: fileMimetypeHint,
           });
