@@ -1,6 +1,5 @@
 import { existsSync, readFileSync, statSync } from "fs";
 import { readFile as readFileAsync, stat as statAsync } from "fs/promises";
-import { basename } from "path";
 import { getGlobalDispatcher, interceptors, request } from "undici";
 import {
   MultimodalLogger,
@@ -47,6 +46,7 @@ import type {
   FilePart,
   ImagePart,
   TextPart,
+  MultimodalPdfEntry,
 } from "../types/index.js";
 
 // ---------------------------------------------------------------------------
@@ -1297,29 +1297,127 @@ function enforcePostProcessingBudget(
 }
 
 /**
+ * #309: enforce the provider's page/size ceilings across ALL PDFs in a request,
+ * not just per-file. N files each just under the single-file limit can still
+ * blow past it in aggregate (e.g. three 40-page PDFs → 120 pages for a
+ * 100-page API).
+ *
+ * Shared by both PDF submission surfaces: `input.pdfFiles` (via
+ * `processExplicitPdfFiles`) and `input.content` with `type: "pdf"` (via
+ * `convertContentToProviderFormat`). The latter previously built its own
+ * `pdfFiles` array and reached the provider without ever calling this guard,
+ * so the limit was bypassable by moving the same payload to `input.content`.
+ */
+/**
+ * Basename that strips BOTH separators regardless of host platform.
+ *
+ * `path.basename` only understands the host's separator, so on a POSIX server
+ * a Windows-style filename (`C:\Users\alice\q3-merger.pdf`) comes back
+ * completely unchanged — defeating the point of trimming it before it reaches
+ * a log line, since caller-controlled paths can carry usernames and internal
+ * directory structure.
+ */
+function safeBasename(filename: string): string {
+  const lastSeparator = Math.max(
+    filename.lastIndexOf("/"),
+    filename.lastIndexOf("\\"),
+  );
+  const trimmed =
+    lastSeparator === -1 ? filename : filename.slice(lastSeparator + 1);
+  return trimmed || "<unnamed file>";
+}
+
+async function enforceAggregatePdfLimits(
+  pdfFiles: MultimodalPdfEntry[],
+  provider: string,
+  { trustSuppliedPageCounts }: { trustSuppliedPageCounts: boolean },
+): Promise<void> {
+  const aggregateConfig = PDFProcessor.getProviderConfig(provider);
+  // Only an empty set is exempt. A single PDF must still be checked: on the
+  // `input.content` path nothing else validates it (that path never goes
+  // through FileDetector.detectAndProcess / PDFProcessor.process), so bailing
+  // at length <= 1 let one 200-page document through untouched.
+  if (!aggregateConfig || pdfFiles.length === 0) {
+    return;
+  }
+
+  // Byte total is free to compute — enforce it BEFORE parsing anything, so an
+  // oversized request is rejected without first spending parser CPU/memory on
+  // every document in it.
+  const totalMB =
+    pdfFiles.reduce((sum, f) => sum + f.buffer.length, 0) / (1024 * 1024);
+  if (totalMB > aggregateConfig.maxSizeMB) {
+    throw ErrorFactory.pdfAggregateSizeLimitExceeded(
+      pdfFiles.length,
+      totalMB,
+      aggregateConfig.maxSizeMB,
+      provider,
+    );
+  }
+
+  // `trustSuppliedPageCounts` is the difference between the two surfaces.
+  // On `input.pdfFiles` the count comes from FileDetector's own detection, so
+  // it is authoritative. On `input.content` it is `metadata.pages` — plain
+  // caller input — and trusting it lets a request declare `pages: 1` for each
+  // of three 40-page PDFs and sail past the ceiling. There, the count is
+  // always re-derived from the bytes and the supplied value is ignored.
+  const pageCounts = await Promise.all(
+    pdfFiles.map(async (f) =>
+      trustSuppliedPageCounts && typeof f.pageCount === "number"
+        ? f.pageCount
+        : await PDFProcessor.resolvePageCount(f.buffer),
+    ),
+  );
+
+  // Filenames are caller-controlled and may be full paths carrying
+  // PII/internal directory segments — surface only the basename, stripping
+  // both separators so a Windows path is trimmed on a POSIX host too.
+  const unknownFileNames = pdfFiles
+    .filter((_, i) => typeof pageCounts[i] !== "number")
+    .map((f) => (f.filename ? safeBasename(f.filename) : "<unnamed file>"));
+  const totalPages = pageCounts.reduce<number>(
+    (sum, p) => sum + (typeof p === "number" ? p : 0),
+    0,
+  );
+
+  if (unknownFileNames.length > 0) {
+    if (!trustSuppliedPageCounts) {
+      // Untrusted surface: an unreadable count is indistinguishable from an
+      // evasion attempt, and counting it as zero is precisely the hole. Fail
+      // closed rather than admit an unverifiable document.
+      throw ErrorFactory.pdfPageCountUnverifiable(unknownFileNames, provider);
+    }
+    // Trusted surface: detection already vetted these, so one unreadable
+    // count must not fail an otherwise valid request — but it must not be
+    // silent either, since the known sum may undercount the true total.
+    logger.warn(
+      `[PDF] Aggregate page-limit check across ${pdfFiles.length} PDFs could only be ` +
+        `partially verified: ${unknownFileNames.length} file(s) have an unknown ` +
+        `page count (${unknownFileNames.join(", ")}), so the known total (${totalPages}) may ` +
+        `undercount the true combined page count.`,
+    );
+  }
+
+  if (totalPages > aggregateConfig.maxPages) {
+    throw ErrorFactory.pdfAggregatePageLimitExceeded(
+      pdfFiles.length,
+      totalPages,
+      aggregateConfig.maxPages,
+      provider,
+    );
+  }
+}
+
+/**
  * Process explicit PDF files and return structured PDF entries for multimodal processing.
  */
 async function processExplicitPdfFiles(
   options: GenerateOptions,
   maxSize: number,
   provider: string,
-): Promise<
-  Array<{
-    buffer: Buffer;
-    filename: string;
-    pageCount?: number | null;
-    password?: string;
-    maxCanvasPixels?: number;
-  }>
-> {
+): Promise<MultimodalPdfEntry[]> {
   options.input ??= {};
-  const pdfFiles: Array<{
-    buffer: Buffer;
-    filename: string;
-    pageCount?: number | null;
-    password?: string;
-    maxCanvasPixels?: number;
-  }> = [];
+  const pdfFiles: MultimodalPdfEntry[] = [];
 
   if (!options.input.pdfFiles || options.input.pdfFiles.length === 0) {
     return pdfFiles;
@@ -1362,50 +1460,10 @@ async function processExplicitPdfFiles(
     }
   }
 
-  // #309: enforce the provider's page/size ceilings across ALL PDFs, not just
-  // per-file. N files each just under the single-file limit can still blow past
-  // it in aggregate (e.g. three 40-page PDFs → 120 pages for a 100-page API).
-  const aggregateConfig = PDFProcessor.getProviderConfig(provider);
-  if (aggregateConfig && pdfFiles.length > 1) {
-    // A null pageCount (accurate count unavailable — see
-    // PDFProcessor.getAccuratePageCount) is treated as 0 in the sum below,
-    // which can undercount the aggregate and let a combined request over
-    // the provider's page limit slip through silently. Enforcement still
-    // runs against the known sum — a PDF with an unknown count must not
-    // fail the request outright — but the gap itself must not be silent.
-    const unknownPageCountFiles = pdfFiles.filter(
-      (f) => f.pageCount === null || f.pageCount === undefined,
-    );
-    const totalPages = pdfFiles.reduce((sum, f) => sum + (f.pageCount ?? 0), 0);
-    const totalMB =
-      pdfFiles.reduce((sum, f) => sum + f.buffer.length, 0) / (1024 * 1024);
-    if (unknownPageCountFiles.length > 0) {
-      // Filenames are caller-controlled and may be full paths carrying
-      // PII/internal directory segments — log only the basename.
-      const unknownFileNames = unknownPageCountFiles
-        .map((f) => (f.filename ? basename(f.filename) : "<unnamed file>"))
-        .join(", ");
-      logger.warn(
-        `[PDF] Aggregate page-limit check across ${pdfFiles.length} PDFs could only be ` +
-          `partially verified: ${unknownPageCountFiles.length} file(s) have an unknown ` +
-          `page count (${unknownFileNames}), so the known total (${totalPages}) may ` +
-          `undercount the true combined page count.`,
-      );
-    }
-    if (totalPages > aggregateConfig.maxPages) {
-      throw new Error(
-        `[PDF] Combined page count across ${pdfFiles.length} PDFs (${totalPages}) exceeds the ` +
-          `${aggregateConfig.maxPages}-page limit for ${provider}. ` +
-          `Split the request or reduce the number of PDFs.`,
-      );
-    }
-    if (totalMB > aggregateConfig.maxSizeMB) {
-      throw new Error(
-        `[PDF] Combined size across ${pdfFiles.length} PDFs (${totalMB.toFixed(2)}MB) exceeds the ` +
-          `${aggregateConfig.maxSizeMB}MB limit for ${provider}.`,
-      );
-    }
-  }
+  // Counts here come from FileDetector's detection, so they are authoritative.
+  await enforceAggregatePdfLimits(pdfFiles, provider, {
+    trustSuppliedPageCounts: true,
+  });
 
   return pdfFiles;
 }
@@ -1783,7 +1841,7 @@ async function convertContentToProviderFormat(
   const images = imageContent.map((img) => img.data);
 
   // Extract PDFs in the expected format
-  const pdfFiles = pdfContent.map((pdf) => ({
+  const pdfFiles: MultimodalPdfEntry[] = pdfContent.map((pdf) => ({
     buffer:
       typeof pdf.data === "string" ? Buffer.from(pdf.data, "base64") : pdf.data,
     filename: pdf.metadata?.filename || "document.pdf",
@@ -1794,6 +1852,13 @@ async function convertContentToProviderFormat(
     password: pdfOptions?.password,
     maxCanvasPixels: pdfOptions?.maxCanvasPixels,
   }));
+
+  // #309: same aggregate ceiling as `input.pdfFiles`. Without this, moving an
+  // over-limit payload from `input.pdfFiles` to `input.content` skipped the
+  // check entirely and the request went straight to the provider.
+  await enforceAggregatePdfLimits(pdfFiles, provider, {
+    trustSuppliedPageCounts: false,
+  });
 
   return await convertMultimodalToProviderFormat(
     text,

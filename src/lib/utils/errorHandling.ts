@@ -63,6 +63,9 @@ export const ERROR_CODES = {
 
   // PDF validation errors
   PDF_PAGE_LIMIT_EXCEEDED: "PDF_PAGE_LIMIT_EXCEEDED",
+  PDF_AGGREGATE_PAGE_LIMIT_EXCEEDED: "PDF_AGGREGATE_PAGE_LIMIT_EXCEEDED",
+  PDF_AGGREGATE_SIZE_LIMIT_EXCEEDED: "PDF_AGGREGATE_SIZE_LIMIT_EXCEEDED",
+  PDF_PAGE_COUNT_UNVERIFIABLE: "PDF_PAGE_COUNT_UNVERIFIABLE",
   PDF_PASSWORD_REQUIRED: "PDF_PASSWORD_REQUIRED",
   PDF_INCORRECT_PASSWORD: "PDF_INCORRECT_PASSWORD",
 
@@ -657,6 +660,75 @@ export class ErrorFactory {
         provider,
         alternatives,
       },
+    });
+  }
+
+  /**
+   * The combined page count across every PDF in one request exceeds what the
+   * provider accepts (#309). Distinct from `pdfPageLimitExceeded`, which is
+   * per-file — here each document can be individually legal.
+   */
+  static pdfAggregatePageLimitExceeded(
+    fileCount: number,
+    totalPages: number,
+    maxPages: number,
+    provider: string,
+  ): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.PDF_AGGREGATE_PAGE_LIMIT_EXCEEDED,
+      message:
+        `[PDF] Combined page count across ${fileCount} PDF(s) (${totalPages}) exceeds the ` +
+        `${maxPages}-page limit for ${provider}. ` +
+        `Split the request or reduce the number of PDFs.`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: { fileCount, totalPages, maxPages, provider },
+    });
+  }
+
+  /**
+   * The combined byte size across every PDF in one request exceeds what the
+   * provider accepts (#309).
+   */
+  static pdfAggregateSizeLimitExceeded(
+    fileCount: number,
+    totalMB: number,
+    maxSizeMB: number,
+    provider: string,
+  ): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.PDF_AGGREGATE_SIZE_LIMIT_EXCEEDED,
+      message:
+        `[PDF] Combined size across ${fileCount} PDF(s) (${totalMB.toFixed(2)}MB) exceeds the ` +
+        `${maxSizeMB}MB limit for ${provider}.`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: { fileCount, totalMB, maxSizeMB, provider },
+    });
+  }
+
+  /**
+   * A PDF supplied through the untrusted `input.content` surface could not be
+   * parsed for a page count (#309). Caller-supplied `metadata.pages` is not
+   * authoritative there, so an unreadable document is rejected rather than
+   * admitted with an assumed count of zero.
+   */
+  static pdfPageCountUnverifiable(
+    filenames: string[],
+    provider: string,
+  ): NeuroLinkError {
+    return new NeuroLinkError({
+      code: ERROR_CODES.PDF_PAGE_COUNT_UNVERIFIABLE,
+      message:
+        `[PDF] Cannot verify the page count for ${filenames.length} PDF(s) supplied via ` +
+        `input.content (${filenames.join(", ")}). Provide readable PDFs, or submit them ` +
+        `via input.pdfFiles where page counts are derived during detection.`,
+      category: ErrorCategory.VALIDATION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: { filenames, provider },
     });
   }
 
