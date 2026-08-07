@@ -242,6 +242,41 @@ export function assertValidCsvRow(
   }
 }
 
+/**
+ * True when a parsed CSV row is blank: no keys, or every value is empty /
+ * whitespace-only (#373). Shared by the structured post-filter and by
+ * `streamParse` so blank rows do not consume `maxRows`.
+ */
+export function isBlankCsvDataRow(row: CSVRow): boolean {
+  const keys = Object.keys(row);
+  if (keys.length === 0) {
+    return true;
+  }
+  return Object.values(row).every(
+    (val) => val === "" || (typeof val === "string" && val.trim() === ""),
+  );
+}
+
+/**
+ * Raw-line counterpart of {@link isBlankCsvDataRow} (#373): a fully blank /
+ * whitespace line, or a delimiter-only line such as `,,` / `  ,  ` whose
+ * fields are all empty after a CSV-aware split.
+ */
+export function isBlankCsvRawLine(line: string, delimiter: string): boolean {
+  if (line.trim() === "") {
+    return true;
+  }
+  const fields = splitCSVFields(line, delimiter);
+  if (fields.length === 0) {
+    return true;
+  }
+  const row: CSVRow = Object.create(null);
+  for (let i = 0; i < fields.length; i++) {
+    row[`c${i}`] = fields[i];
+  }
+  return isBlankCsvDataRow(row);
+}
+
 // ============================================================================
 // Parse Error Context (#375)
 // ============================================================================
@@ -806,22 +841,46 @@ function isMetadataLine(lines: string[]): boolean {
   const firstLine = lines[0].trim();
   const secondLine = lines[1].trim();
 
+  // Excel's explicit-delimiter preamble is metadata regardless of what follows.
   if (firstLine.match(/^sep=/i)) {
     return true;
+  }
+
+  // #373: this check has to come BEFORE the comma-count heuristics, not after.
+  // Both of them read a higher comma count on line 2 as "line 1 was a preamble"
+  // — but a delimiter-only row (`,,`) is a blank DATA row, and its commas are
+  // structure, not fields. Ordered the other way, a legitimate single-column
+  // header followed by a blank row (`name` / `,,`) tripped the zero-vs-nonzero
+  // rule and stripMetadataLine() deleted the real header, leaving unnamed
+  // columns. Verified against `name\n,,\nalice\nbob`.
+  if (isDelimiterOnlyOrBlankLine(secondLine)) {
+    return false;
   }
 
   const firstCommaCount = countUnquotedCommas(firstLine);
   const secondCommaCount = countUnquotedCommas(secondLine);
 
+  // A title/preamble line carries no delimiters while the header below it does.
   if (firstCommaCount === 0 && secondCommaCount > 0) {
     return true;
   }
 
-  if (secondCommaCount > 0 && firstCommaCount !== secondCommaCount) {
+  // Differing field counts mean line 1 is not part of the same table as line 2.
+  return secondCommaCount > 0 && firstCommaCount !== secondCommaCount;
+}
+
+/**
+ * True when `line` is empty/whitespace or contains only common CSV
+ * delimiters (comma / tab / semicolon / pipe) and whitespace — i.e. a
+ * delimiter-only blank row like `,,` or `  ;  ;  `. Used before the
+ * delimiter is known (metadata detection).
+ */
+function isDelimiterOnlyOrBlankLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (trimmed === "") {
     return true;
   }
-
-  return false;
+  return /^[\s,;\t|]+$/.test(trimmed) && /[,;\t|]/.test(trimmed);
 }
 
 /**
@@ -942,6 +1001,7 @@ export class CSVProcessor {
       sanitizeColumnNames = false,
       columnNameCase = "snake_case",
       parseTimeoutMs = DEFAULT_CSV_STRING_PARSE_TIMEOUT_MS,
+      skipEmptyLines = true,
     } = options || {};
 
     const maxRows = Math.max(1, Math.min(10000, rawMaxRows));
@@ -951,6 +1011,7 @@ export class CSVProcessor {
       formatStyle,
       maxRows,
       includeHeaders,
+      skipEmptyLines,
     });
 
     // #362: detect the encoding (BOM → chardet → UTF-8 fallback) or honor the
@@ -983,8 +1044,18 @@ export class CSVProcessor {
 
       // dataLines already has the metadata line (if any) stripped.
       const csvLines = dataLines;
+      const headerLine = csvLines[0] ?? "";
+      const rawDataLines = csvLines.slice(1);
 
-      const limitedLines = csvLines.slice(0, 1 + maxRows); // header + data rows
+      // #373: drop blank AND delimiter-only data lines (e.g. `,,`) so raw
+      // content matches structured `isBlankCsvDataRow` semantics.
+      const effectiveDataLines = skipEmptyLines
+        ? rawDataLines.filter((line) => !isBlankCsvRawLine(line, delimiter))
+        : rawDataLines;
+
+      const limitedDataLines = effectiveDataLines.slice(0, maxRows);
+      const limitedLines =
+        csvLines.length === 0 ? [] : [headerLine, ...limitedDataLines];
 
       // #378: opt-in — rewrite the literal header line with sanitized,
       // deduped identifiers so the raw CSV text shown to the LLM has clean
@@ -1009,12 +1080,10 @@ export class CSVProcessor {
       // sanitizeColumnNames branch above and #1192's detected delimiter).
       const headerFields = splitCSVFields(limitedLines[0] || "", delimiter);
 
-      const rowCount = limitedLines
-        .slice(1)
-        .filter((line) => line.trim() !== "").length;
-      const originalRowCount = csvLines
-        .slice(1)
-        .filter((line) => line.trim() !== "").length;
+      // When preserving empties, blank lines count as rows; when skipping,
+      // only non-empty data lines do.
+      const rowCount = limitedDataLines.length;
+      const originalRowCount = effectiveDataLines.length;
       const wasTruncated = rowCount < originalRowCount;
 
       if (wasTruncated) {
@@ -1040,21 +1109,20 @@ export class CSVProcessor {
       });
 
       // Parse a sample for enhanced metadata analysis (raw format still
-      // benefits from column analysis). Reuse the already-split, already
-      // metadata-stripped `dataLines` and the already-detected `delimiter`
-      // via the shared streamParse() core instead of routing `limitedCSV`
-      // back through parseCSVStringWithMeta(), which would re-split/re-join
-      // it and re-run a redundant BOM/metadata/delimiter-detection pass.
+      // benefits from column analysis). Feed the already-filtered limited
+      // lines and honor skipEmptyRows so blank/delimiter-only rows do not
+      // consume the sample limit (#373).
       const sampleRows = Math.min(rowCount, 500);
       const { rows: sampleForAnalysis, timedOut: rawTimedOut } =
         await this.streamParse(
-          Readable.from([dataLines.slice(0, 1 + sampleRows).join("\n")]),
+          Readable.from([limitedLines.join("\n")]),
           undefined,
           {
             maxRows: sampleRows,
             skipLines: 0,
             timeoutMs: parseTimeoutMs,
             delimiter,
+            skipEmptyRows: skipEmptyLines,
           },
         );
       const { columnMetadata, dataQualityWarnings, dataQualityScore } =
@@ -1107,35 +1175,71 @@ export class CSVProcessor {
     // `delimiter`) — reuse both via the shared streamParse() core instead of
     // routing csvString back through parseCSVStringWithMeta(), which would
     // re-split it and re-run metadata/delimiter detection a second time.
-    const { rows, timedOut: structuredTimedOut } = await this.streamParse(
+    const {
+      rows,
+      timedOut: structuredTimedOut,
+      headers: parsedHeaders,
+    } = await this.streamParse(
       Readable.from([dataLines.join("\n")]),
       undefined,
-      { maxRows, skipLines: 0, timeoutMs: parseTimeoutMs, delimiter },
+      {
+        maxRows,
+        skipLines: 0,
+        timeoutMs: parseTimeoutMs,
+        delimiter,
+        // Count only non-blank rows toward maxRows when skipping empties
+        // (#373), so maxRows: 2 still yields two real data rows if blanks
+        // appear first.
+        skipEmptyRows: skipEmptyLines,
+      },
     );
 
-    // Filter out empty rows (empty objects or rows with only whitespace values from blank lines)
+    // Filter out empty rows (empty objects or rows with only whitespace values
+    // from blank lines). #373: `skipEmptyLines` (default true) controls this;
+    // set false to preserve blank-line rows in structured output.
     const filteredRows = rows.filter((row) => {
       if (!row || typeof row !== "object") {
         return false;
       }
-      const keys = Object.keys(row);
-      if (keys.length === 0) {
-        return false;
+      if (!skipEmptyLines) {
+        return true;
       }
-      // Check if all values are empty or whitespace-only
-      return !Object.values(row).every(
-        (val) => val === "" || (typeof val === "string" && val.trim() === ""),
-      );
+      return !isBlankCsvDataRow(row);
     });
 
+    // Schema must come from parser headers or the first non-blank data row,
+    // never from a preserved leading blank row (#373 review).
+    const schemaRow = filteredRows.find(
+      (row) => row && typeof row === "object" && !isBlankCsvDataRow(row),
+    );
+    const schemaHeaders: string[] =
+      (parsedHeaders && parsedHeaders.length > 0
+        ? [...parsedHeaders]
+        : undefined) ??
+      (schemaRow ? Object.keys(schemaRow) : undefined) ??
+      (filteredRows[0] ? Object.keys(filteredRows[0]) : []) ??
+      [];
+
     // #378: opt-in — remap each row's keys from original → sanitized identifiers.
+    // Always project onto schemaHeaders first so preserved blank rows still
+    // carry the real column keys for Markdown/JSON (#373 review).
     let structuredColumnNameMapping:
       | Array<{ original: string; sanitized: string }>
       | undefined;
     const sanitizedToOriginal = new Map<string, string>();
-    let nonEmptyRows: CSVRow[] = filteredRows;
-    if (sanitizeColumnNames && filteredRows.length > 0) {
-      const origHeaders = Object.keys(filteredRows[0]);
+    let columnNames = schemaHeaders;
+    let nonEmptyRows: CSVRow[] =
+      schemaHeaders.length === 0
+        ? filteredRows
+        : filteredRows.map((row) => {
+            const out: CSVRow = Object.create(null);
+            for (const h of schemaHeaders) {
+              out[h] = typeof row[h] === "string" ? row[h] : "";
+            }
+            return out;
+          });
+    if (sanitizeColumnNames && schemaHeaders.length > 0) {
+      const origHeaders = schemaHeaders;
       const { sanitized, mapping } = buildColumnNameMapping(
         origHeaders,
         columnNameCase,
@@ -1145,33 +1249,40 @@ export class CSVProcessor {
           sanitizedToOriginal.set(sanitized[i], original);
         }
       });
-      nonEmptyRows = filteredRows.map((row) => {
+      nonEmptyRows = nonEmptyRows.map((row) => {
         // Defense-in-depth: a null-prototype target means an attacker-chosen
         // header literally named "__proto__"/"constructor"/"prototype" can
         // only ever create a harmless own property, never touch
         // Object.prototype (#1199).
         const out: CSVRow = Object.create(null);
         origHeaders.forEach((h, i) => {
-          out[sanitized[i]] = row[h];
+          out[sanitized[i]] = row[h] ?? "";
         });
         return out;
       });
       structuredColumnNameMapping = mapping.length > 0 ? mapping : undefined;
+      columnNames = sanitized;
     }
 
     // Extract metadata from parsed results
     const rowCount = nonEmptyRows.length;
-    const columnNames =
-      nonEmptyRows.length > 0 ? Object.keys(nonEmptyRows[0]) : [];
     const columnCount = columnNames.length;
     const hasEmptyColumns = columnNames.some(
       (col) => !col || col.trim() === "",
     );
-    const sampleRows = nonEmptyRows.slice(0, 3);
+    // Sample / analysis should prefer non-blank rows so a preserved leading
+    // blank does not poison type detection or formatSampleData.
+    const rowsForAnalysis = nonEmptyRows.filter(
+      (row) => !isBlankCsvDataRow(row),
+    );
+    const sampleRows = (
+      rowsForAnalysis.length > 0 ? rowsForAnalysis : nonEmptyRows
+    ).slice(0, 3);
     const sampleData = this.formatSampleData(
       sampleRows,
       sampleDataFormat,
       includeHeaders,
+      columnNames,
     );
 
     if (hasEmptyColumns) {
@@ -1184,9 +1295,12 @@ export class CSVProcessor {
       logger.warn("[CSVProcessor] CSV file contains no data rows");
     }
 
-    // Perform enhanced column analysis
+    // Perform enhanced column analysis on non-blank rows so preserved
+    // leading blanks do not yield an empty schema (#373 review).
     const { columnMetadata, dataQualityWarnings, dataQualityScore } =
-      analyzeColumns(nonEmptyRows);
+      analyzeColumns(
+        rowsForAnalysis.length > 0 ? rowsForAnalysis : nonEmptyRows,
+      );
 
     // #378: carry the pre-sanitization header on each renamed column.
     if (sanitizedToOriginal.size > 0) {
@@ -1214,6 +1328,7 @@ export class CSVProcessor {
       nonEmptyRows,
       formatStyle,
       includeHeaders,
+      columnNames,
     );
 
     logger.info("[CSVProcessor] ✅ Processed CSV file", {
@@ -1241,7 +1356,10 @@ export class CSVProcessor {
         columnMetadata,
         dataQualityWarnings,
         dataQualityScore,
-        hasHeaders: detectHasHeaders(columnNames, nonEmptyRows),
+        hasHeaders: detectHasHeaders(
+          columnNames,
+          rowsForAnalysis.length > 0 ? rowsForAnalysis : nonEmptyRows,
+        ),
         detectedDelimiter: delimiter,
         detectedEncoding,
         encodingConfidence,
@@ -1583,8 +1701,13 @@ export class CSVProcessor {
       timeoutMs: number;
       location?: string;
       delimiter?: string;
+      /**
+       * When true, blank/whitespace-only rows are dropped and do not count
+       * toward `maxRows` (#373 structured path).
+       */
+      skipEmptyRows?: boolean;
     },
-  ): Promise<{ rows: CSVRow[]; timedOut: boolean }> {
+  ): Promise<{ rows: CSVRow[]; timedOut: boolean; headers?: string[] }> {
     return new Promise((resolve, reject) => {
       const rows: CSVRow[] = [];
       let count = 0;
@@ -1625,7 +1748,7 @@ export class CSVProcessor {
             `[CSVProcessor] Parse timed out after ${Date.now() - startTime}ms with ${rows.length} partial row(s)`,
           );
           abort();
-          resolve({ rows, timedOut: true });
+          resolve({ rows, timedOut: true, headers: capturedHeaders });
         });
       }, opts.timeoutMs);
       if (typeof timer.unref === "function") {
@@ -1670,6 +1793,10 @@ export class CSVProcessor {
             });
             return;
           }
+          // #373: blank rows must not consume maxRows when skipping empties.
+          if (opts.skipEmptyRows && isBlankCsvDataRow(row)) {
+            return;
+          }
           lastRowColumnCount = Object.keys(row).length;
           rows.push(row);
           count++;
@@ -1680,7 +1807,7 @@ export class CSVProcessor {
             );
             finish(() => {
               abort();
-              resolve({ rows, timedOut: false });
+              resolve({ rows, timedOut: false, headers: capturedHeaders });
             });
           }
         })
@@ -1689,7 +1816,7 @@ export class CSVProcessor {
             logger.debug(
               `[CSVProcessor] Parsing complete: ${rows.length} rows parsed`,
             );
-            resolve({ rows, timedOut: false });
+            resolve({ rows, timedOut: false, headers: capturedHeaders });
           });
         })
         .on("error", (error: Error) => {
@@ -1720,11 +1847,15 @@ export class CSVProcessor {
   /**
    * Format parsed CSV data for LLM consumption
    * Only used for JSON and Markdown formats (raw format handled separately)
+   *
+   * @param columnNames - Optional schema headers (#373). When preserved blank
+   *   rows lead `rows`, Markdown must still use the real column names.
    */
   private static formatForLLM(
     rows: CSVRow[],
     formatStyle: "raw" | "markdown" | "json",
     includeHeaders: boolean,
+    columnNames?: string[],
   ): string {
     if (rows.length === 0) {
       return "CSV file is empty or contains no data.";
@@ -1734,22 +1865,32 @@ export class CSVProcessor {
       return JSON.stringify(rows, null, 2);
     }
 
-    return this.toMarkdownTable(rows, includeHeaders);
+    return this.toMarkdownTable(rows, includeHeaders, columnNames);
   }
 
   /**
    * Format as markdown table
    * Best for small datasets (<100 rows)
+   *
+   * @param columnNames - Optional explicit headers (#373). Falls back to
+   *   `Object.keys(rows[0])` when omitted.
    */
   private static toMarkdownTable(
     rows: CSVRow[],
     includeHeaders: boolean,
+    columnNames?: string[],
   ): string {
     if (rows.length === 0) {
       return "CSV file is empty or contains no data.";
     }
 
-    const headers = Object.keys(rows[0]);
+    const headers =
+      columnNames && columnNames.length > 0
+        ? columnNames
+        : Object.keys(rows[0] ?? {});
+    if (headers.length === 0) {
+      return "CSV file is empty or contains no data.";
+    }
 
     // Escape backslashes, pipes, and sanitize newlines to keep rows intact
     const escapePipe = (str: string) =>
@@ -1781,12 +1922,14 @@ export class CSVProcessor {
    * @param sampleRows - Array of sample row objects
    * @param format - Output format for sample data
    * @param includeHeaders - Whether to include headers in CSV/markdown formats
+   * @param columnNames - Optional schema headers for csv/markdown (#373)
    * @returns Formatted sample data as string or array
    */
   private static formatSampleData(
     sampleRows: CSVRow[],
     format: SampleDataFormat,
     includeHeaders: boolean,
+    columnNames?: string[],
   ): string | unknown[] {
     if (sampleRows.length === 0) {
       return format === "object" ? [] : "No data rows";
@@ -1798,9 +1941,9 @@ export class CSVProcessor {
       case "json":
         return JSON.stringify(sampleRows, null, 2);
       case "csv":
-        return this.toCSVString(sampleRows, includeHeaders);
+        return this.toCSVString(sampleRows, includeHeaders, columnNames);
       case "markdown":
-        return this.toMarkdownTable(sampleRows, includeHeaders);
+        return this.toMarkdownTable(sampleRows, includeHeaders, columnNames);
       default:
         return sampleRows;
     }
@@ -1811,14 +1954,25 @@ export class CSVProcessor {
    *
    * @param rows - Array of row objects
    * @param includeHeaders - Whether to include header row
+   * @param columnNames - Optional explicit headers (#373)
    * @returns CSV formatted string
    */
-  private static toCSVString(rows: CSVRow[], includeHeaders: boolean): string {
+  private static toCSVString(
+    rows: CSVRow[],
+    includeHeaders: boolean,
+    columnNames?: string[],
+  ): string {
     if (rows.length === 0) {
       return "";
     }
 
-    const headers = Object.keys(rows[0]);
+    const headers =
+      columnNames && columnNames.length > 0
+        ? columnNames
+        : Object.keys(rows[0] ?? {});
+    if (headers.length === 0) {
+      return "";
+    }
 
     // Escape CSV values (wrap in quotes if contains comma, quote, or newline)
     const escapeCSV = (value: string): string => {
