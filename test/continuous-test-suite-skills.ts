@@ -1260,30 +1260,81 @@ async function testMutations(): Promise<void> {
   );
 
   await runTest(
-    "22c. get() by name resolves the active skill after soft-delete + same-name recreate (integrity)",
+    "22c. reusing a soft-deleted skill's name is rejected (integrity)",
     async () => {
       const nl = makeSkillsInstance({ allowMutations: true });
       const del = getToolExecute(nl, "skill_delete");
       const create = getToolExecute(nl, "skill_create");
-      // Soft-delete skill-refund (name "REFUND_dispute_escalation"), then create
-      // a new active skill reusing that exact name — allowed, since the clash
-      // check only guards active skills. Both entries now share the name.
+      // Soft-delete skill-refund, then try to reuse its name. #1139 closed this
+      // off: a deprecated skill keeps its name reserved, because allowing the
+      // reuse left two index entries sharing one name and every name-based
+      // lookup then had to guess which was meant.
       await del({ skillId: "skill-refund" });
       const created = (await create({
         name: "REFUND_dispute_escalation",
         description: "Fresh active version of the refund SOP.",
         instructions: "NEW refund handling instructions.",
-      })) as { success: boolean };
-      assert(created.success, "recreate with the reused name should succeed");
-      // Name resolution must be deterministic: the ACTIVE skill, never the stale
-      // deprecated one (which a bare index.find would non-deterministically hit).
-      const resolved = await nl
-        .getSkillsManager()
-        ?.get("REFUND_dispute_escalation");
+      })) as { success: boolean; error?: string };
       assert(
-        resolved?.status === "active" &&
-          resolved?.instructions === "NEW refund handling instructions.",
-        `get(name) must resolve the active skill, got status=${resolved?.status}`,
+        !created.success,
+        "reusing a soft-deleted skill's name must be rejected",
+      );
+      assert(
+        (created.error ?? "").includes("deprecated"),
+        "the error should explain that the name belongs to a deprecated skill",
+      );
+    },
+  );
+
+  await runTest(
+    "22d. get() prefers the active entry when a legacy duplicate-name pair exists",
+    async () => {
+      // The collision can no longer be created through the API, but stores
+      // written before #1139 can still hold the pair, so get()'s active-first
+      // resolution remains load-bearing. Seeded directly to represent that
+      // legacy data rather than through the (now-blocking) mutation path.
+      const nl = makeSkillsInstance({
+        storage: {
+          type: "memory",
+          skills: [
+            {
+              id: "legacy-stale",
+              name: "duplicated_name",
+              description: "Stale deprecated entry.",
+              instructions: "OLD instructions.",
+              status: "deprecated",
+            },
+            {
+              id: "legacy-active",
+              name: "duplicated_name",
+              description: "Active entry sharing the name.",
+              instructions: "NEW instructions.",
+              status: "active",
+            },
+          ],
+        },
+      });
+      const resolved = await nl.getSkillsManager()?.get("duplicated_name");
+      assert(
+        resolved?.id === "legacy-active" &&
+          resolved?.instructions === "NEW instructions.",
+        `get(name) must resolve the active entry, got id=${resolved?.id}`,
+      );
+    },
+  );
+
+  await runTest(
+    "22e. get() by name is case-insensitive, matching the uniqueness rule",
+    async () => {
+      // assertNameAvailable compares lowercased, so "REFUND_dispute_escalation"
+      // and "refund_dispute_escalation" cannot coexist. A case-sensitive
+      // lookup could therefore only ever fail to find a skill that is present.
+      const manager = makeSkillsInstance().getSkillsManager();
+      assert(manager, "manager missing");
+      const upper = await manager.get("REFUND_DISPUTE_ESCALATION");
+      assert(
+        upper?.id === "skill-refund",
+        `differently-cased name must resolve, got id=${upper?.id}`,
       );
     },
   );

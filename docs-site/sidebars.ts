@@ -142,6 +142,7 @@ const sidebars: SidebarsConfig = {
             "features/credential-validation",
             "features/regional-streaming",
             "features/mcp-tools-showcase",
+            "features/skills",
             "features/embeddings",
             "features/rag",
             "features/observability",
