@@ -48,6 +48,7 @@ import { SIZE_LIMITS_MB } from "../config/index.js";
 import { FileErrorCode } from "../errors/index.js";
 import { withTimeout } from "../../utils/timeout.js";
 import { formatMediaDuration } from "../../utils/mediaDuration.js";
+import { logger } from "../../utils/logger.js";
 import { tryImport } from "../../utils/tryImport.js";
 
 let _musicMetadata: typeof import("music-metadata") | null = null;
@@ -307,6 +308,12 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
           transcript: transcriptionResult.transcript,
           hasTranscript: transcriptionResult.hasTranscript,
           transcriptionProvider: transcriptionResult.transcriptionProvider,
+          ...(transcriptionResult.transcriptionSkippedReason
+            ? {
+                transcriptionSkippedReason:
+                  transcriptionResult.transcriptionSkippedReason,
+              }
+            : {}),
           coverArt: coverArt ?? undefined,
           buffer,
           mimetype: fileInfo.mimetype || "audio/mpeg",
@@ -374,23 +381,41 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
     transcript: string | undefined;
     hasTranscript: boolean;
     transcriptionProvider: string | undefined;
+    /**
+     * Why no transcript was produced (#416). Every exit below used to return an
+     * indistinguishable empty result, so "no OPENAI_API_KEY", "file too large",
+     * "format Whisper can't read" and "the API call failed" were impossible to
+     * tell apart — from the outside it just looked like the audio had no speech.
+     */
+    transcriptionSkippedReason: string | undefined;
   }> {
-    const emptyResult = {
-      transcript: undefined,
-      hasTranscript: false,
-      transcriptionProvider: undefined,
+    const skipped = (reason: string) => {
+      logger.warn(
+        `[AudioProcessor] No transcript for ${filename}: ${reason}. ` +
+          `The model will receive metadata only.`,
+      );
+      return {
+        transcript: undefined,
+        hasTranscript: false,
+        transcriptionProvider: undefined,
+        transcriptionSkippedReason: reason,
+      };
     };
 
     // Check if OPENAI_API_KEY is available
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return emptyResult;
+      return skipped(
+        "OPENAI_API_KEY is not set, and Whisper is the only transcription backend wired up",
+      );
     }
 
     // Check file size (Whisper limit is 25MB)
     const fileSizeMB = buffer.length / (1024 * 1024);
     if (fileSizeMB > AUDIO_CONFIG.WHISPER_MAX_SIZE_MB) {
-      return emptyResult;
+      return skipped(
+        `file is ${fileSizeMB.toFixed(1)}MB, over Whisper's ${AUDIO_CONFIG.WHISPER_MAX_SIZE_MB}MB limit — split or compress it`,
+      );
     }
 
     // Check if file format is supported by Whisper
@@ -408,7 +433,9 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
         mimetype.startsWith("audio/x-m4a"));
 
     if (!isFormatSupported && !isMimeSupported) {
-      return emptyResult;
+      return skipped(
+        `format is not one Whisper accepts (extension "${ext ?? "none"}", mimetype "${mimetype ?? "none"}"); supported: ${AUDIO_CONFIG.WHISPER_SUPPORTED_FORMATS.join(", ")}`,
+      );
     }
 
     try {
@@ -421,9 +448,9 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
       const model = openai.transcription("whisper-1");
 
       // Wrap in withTimeout — large audio files can take a while, but a
-      // stalled request shouldn't block the processor forever. The outer
-      // catch swallows any error (transcription is best-effort), so a
-      // TimeoutError ends up in the same fallback path as other failures.
+      // stalled request shouldn't block the processor forever. A TimeoutError
+      // lands in the same handler as other failures below, which reports it as
+      // the reason rather than discarding it.
       const result = await withTimeout(
         experimental_transcribe({
           model,
@@ -435,18 +462,27 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
       );
 
       if (result.text && result.text.trim().length > 0) {
+        logger.debug(
+          `[AudioProcessor] Transcribed ${filename} via openai-whisper (${result.text.trim().length} chars)`,
+        );
         return {
           transcript: result.text.trim(),
           hasTranscript: true,
           transcriptionProvider: "openai-whisper",
+          transcriptionSkippedReason: undefined,
         };
       }
 
-      return emptyResult;
-    } catch {
-      // Transcription is best-effort — never fail the entire processing pipeline
-      // Common failures: rate limiting, network issues, unsupported audio encoding
-      return emptyResult;
+      // A successful call that returned nothing is a legitimate outcome
+      // (silence, music, no speech) — distinct from a failure.
+      return skipped("Whisper returned an empty transcript for this audio");
+    } catch (error) {
+      // Transcription stays best-effort — a failure must never kill the whole
+      // processing pipeline. But discarding the error outright, as this block
+      // used to, made a bad API key, a rate limit and a network blip all look
+      // identical to "this file has no speech in it".
+      const message = error instanceof Error ? error.message : String(error);
+      return skipped(`transcription request failed — ${message}`);
     }
   }
 

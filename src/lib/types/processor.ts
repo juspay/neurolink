@@ -837,6 +837,12 @@ export type ProcessedAudio = ProcessedFileBase & {
   transcript?: string;
   hasTranscript: boolean;
   transcriptionProvider?: string;
+  /**
+   * Why transcription produced nothing, when it did (#416). Absent on success.
+   * Lets a caller distinguish "this audio has no speech" from "the transcription
+   * backend was never reachable", which previously looked identical.
+   */
+  transcriptionSkippedReason?: string;
   coverArt?: Buffer;
 };
 
