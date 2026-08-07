@@ -493,7 +493,7 @@ const hasServiceAccountEnvAuth = () => !!(process.env.GOOGLE_AUTH_CLIENT_EMAIL &
 // Always use full inference profile ARN for Anthropic models
 const getBedrockModelId = (): string => {
   return process.env.BEDROCK_MODEL ||
-         'arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0';
+         'arn:aws:bedrock:us-east-2:123456789012:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0';
 };
 ```
 

@@ -2400,7 +2400,7 @@ neurolink/
 ### **Technical Fix**
 
 - **❌ WRONG**: `anthropic.claude-3-sonnet-20240229-v1:0` (causes authorization errors)
-- **✅ CORRECT**: `arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0`
+- **✅ CORRECT**: `arn:aws:bedrock:us-east-2:123456789012:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0`
 
 ### **Verification Results**
 
@@ -2409,7 +2409,7 @@ neurolink/
   "success": true,
   "content": "# Hello there!\n\nHope you're having a wonderful day!",
   "provider": "bedrock",
-  "model": "arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+  "model": "arn:aws:bedrock:us-east-2:123456789012:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
   "responseTime": 4823,
   "usage": { "promptTokens": 18, "completionTokens": 44, "totalTokens": 62 }
 }

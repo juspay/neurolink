@@ -623,7 +623,7 @@ console.log(`[AIProviderFactory.createProvider] Provider creation ${success ? 's
 ### Anthropic Model ARN Format (CRITICAL)
 - **LESSON**: Anthropic models in AWS Bedrock require full inference profile ARN, NOT simple model names
 - **WRONG**: `anthropic.claude-3-sonnet-20240229-v1:0`
-- **CORRECT**: `arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0`
+- **CORRECT**: `arn:aws:bedrock:us-east-2:123456789012:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0`
 - **PATTERN**: `arn:aws:bedrock:{region}:{account}:inference-profile/{provider}.{model-name}`
 - **IMPACT**: Using simple model names causes "not authorized to invoke this API" errors
 
@@ -639,7 +639,7 @@ console.log(`[AIProviderFactory.createProvider] Provider creation ${success ? 's
 const getBedrockModelId = (): string => {
   return process.env.BEDROCK_MODEL ||
          process.env.BEDROCK_MODEL_ID ||
-         'arn:aws:bedrock:us-east-2:225681119357:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0';
+         'arn:aws:bedrock:us-east-2:123456789012:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0';
 };
 ```
 
