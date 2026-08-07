@@ -1,3 +1,11 @@
+## [10.10.7](https://github.com/juspay/neurolink/compare/v10.10.6...v10.10.7) (2026-08-07)
+
+### Bug Fixes
+
+- **(context):** harden redis writes and calibrate native loop reclaims ([ae2e111](https://github.com/juspay/neurolink/commit/ae2e11129a66b51bd18dcafd51064f2219f4100a))
+- **(core):** append-only redis sessions and gemini loop guard coverage ([0b1abf1](https://github.com/juspay/neurolink/commit/0b1abf1d2806e7694667fb038a960b8a9f8a77cd))
+- **(security):** redact the real AWS account ID from docs and memory-bank ([1f11bf7](https://github.com/juspay/neurolink/commit/1f11bf7e2a772c853159bdcebed4af8b3af485d9)), closes [#1012](https://github.com/juspay/neurolink/issues/1012)
+
 ## [10.10.6](https://github.com/juspay/neurolink/compare/v10.10.5...v10.10.6) (2026-08-06)
 
 ### Bug Fixes
