@@ -10,6 +10,7 @@ import {
   STRUCTURED_OUTPUT_INSTRUCTIONS,
 } from "../config/conversationMemory.js";
 import { getAvailableInputTokens } from "../constants/contextWindows.js";
+import { PDF_LIMITS } from "../core/constants.js";
 import {
   enforceAggregateFileBudget,
   FILE_READ_BUDGET_PERCENT,
@@ -1479,6 +1480,10 @@ async function processExplicitPdfFiles(
           // #260: carry the per-page canvas-pixel ceiling so the caller can
           // raise (or lower) the memory guard for the image-fallback render.
           maxCanvasPixels: options.pdfOptions?.maxCanvasPixels,
+          // #297: render scale / page ceiling, so the lowered default is
+          // actually reachable and callers can trade sharpness for memory.
+          scale: options.pdfOptions?.scale,
+          maxPages: options.pdfOptions?.maxPages,
         });
         logger.info(
           `[PDF] ✅ Queued for multimodal: ${filename} (${result.metadata?.estimatedPages ?? "unknown"} pages)`,
@@ -1881,6 +1886,8 @@ async function convertContentToProviderFormat(
     // guard as the `input.pdfFiles` path (see `processExplicitPdfFiles`).
     password: pdfOptions?.password,
     maxCanvasPixels: pdfOptions?.maxCanvasPixels,
+    scale: pdfOptions?.scale,
+    maxPages: pdfOptions?.maxPages,
   }));
 
   // #309: same aggregate ceiling as `input.pdfFiles`. Without this, moving an
@@ -2318,13 +2325,9 @@ async function convertSimpleImagesToProviderFormat(
 async function convertMultimodalToProviderFormat(
   text: string,
   images: Array<Buffer | string | ImageWithAltText>,
-  pdfFiles: Array<{
-    buffer: Buffer;
-    filename: string;
-    pageCount?: number | null;
-    password?: string;
-    maxCanvasPixels?: number;
-  }>,
+  // The canonical entry shape (#309) rather than a fourth copy of it inline —
+  // which is what let the render knobs stop short of this function.
+  pdfFiles: MultimodalPdfEntry[],
   provider: string,
   model: string,
 ): Promise<Array<TextPart | ImagePart | FilePart>> {
@@ -2375,17 +2378,49 @@ async function convertMultimodalToProviderFormat(
 
     for (const pdf of pdfFiles) {
       try {
+        const effectiveMaxPages = pdf.maxPages ?? PDF_LIMITS.DEFAULT_MAX_PAGES;
         const conversionResult = await PDFImageConverter.convertToImages(
           pdf.buffer,
           {
-            scale: 2.0, // High quality for OCR/analysis
-            maxPages: 20, // Limit pages to prevent token overflow
+            // #297: this is the only PDF→image call the product actually makes,
+            // and it used to hardcode scale 2.0 — silently overriding the
+            // lowered PDF_LIMITS.DEFAULT_SCALE and keeping the memory cost the
+            // issue reports (a 100-page render at 2.0 is ~776MB; 1.5 is ~44%
+            // fewer pixels per page). Callers can raise it back per request.
+            scale: pdf.scale ?? PDF_LIMITS.DEFAULT_SCALE,
+            // Page ceiling guards token overflow; also now caller-adjustable
+            // rather than a constant nothing could reach.
+            maxPages: effectiveMaxPages,
             ...(pdf.password ? { password: pdf.password } : {}), // #258
             ...(pdf.maxCanvasPixels
               ? { maxCanvasPixels: pdf.maxCanvasPixels }
               : {}), // #260
           },
         );
+
+        // The renderer stops at maxPages, so a longer document is silently
+        // truncated — say so rather than letting the model answer from a
+        // partial document as though it had the whole thing.
+        //
+        // Keyed on the cap being reached, not on pdf.pageCount: that field is
+        // null whenever `input.content` omits `metadata.pages`, which is the
+        // common case, so a page-count comparison would simply never fire
+        // there. Reaching the cap is also unambiguous — a short count caused by
+        // per-page render failures (#294 isolates those into `errors`) would
+        // otherwise be misreported as a maxPages truncation.
+        if (conversionResult.pageCount >= effectiveMaxPages) {
+          logger.warn(
+            `[PDF→Image] ${safeBasename(pdf.filename)} hit the ${effectiveMaxPages}-page ` +
+              `conversion limit. Any pages beyond that were not sent — the model may be ` +
+              `answering from a partial document. Raise pdfOptions.maxPages or split the file.`,
+          );
+        }
+        if (conversionResult.errors && conversionResult.errors.length > 0) {
+          logger.warn(
+            `[PDF→Image] ${safeBasename(pdf.filename)}: ${conversionResult.errors.length} page(s) ` +
+              `failed to render and were omitted (page ${conversionResult.errors.map((e) => e.page).join(", ")}).`,
+          );
+        }
 
         logger.info(
           `[PDF→Image] ✅ Converted ${pdf.filename}: ${conversionResult.pageCount} page(s) → images`,

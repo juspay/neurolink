@@ -1828,6 +1828,77 @@ const tests: TestFunction[] = [
     },
   },
   {
+    name: "MessageBuilder #297: the real conversion path honors the default scale and caller overrides",
+    category: "pdf-processor",
+    fn: async () => {
+      // The lowered PDF_LIMITS.DEFAULT_SCALE was unreachable in production:
+      // buildMultimodalMessagesArray hardcoded `scale: 2.0`, and pdfOptions
+      // exposed neither scale nor maxPages, so no caller could reach it.
+      const { PDFImageConverter } =
+        await import("../src/lib/utils/pdfProcessor.js");
+      const pdf = readFileSync("test/fixtures/multi-page.pdf");
+      const seen: Array<{ scale?: number; maxPages?: number }> = [];
+      // Keep the ORIGINAL unbound function for restoration: putting a bound
+      // copy back would leave the class carrying a different function identity
+      // for every later test in the suite.
+      const original = PDFImageConverter.convertToImages;
+      const callOriginal = original.bind(PDFImageConverter);
+      (
+        PDFImageConverter as unknown as Record<string, unknown>
+      ).convertToImages = async (
+        buffer: Buffer,
+        opts: { scale?: number; maxPages?: number },
+      ) => {
+        seen.push({ scale: opts?.scale, maxPages: opts?.maxPages });
+        return callOriginal(buffer, opts);
+      };
+      try {
+        const build = async (pdfOptions?: Record<string, number>) => {
+          seen.length = 0;
+          await buildMultimodalMessagesArray(
+            {
+              input: { text: "x", pdfFiles: [pdf] },
+              ...(pdfOptions ? { pdfOptions } : {}),
+            } as unknown as Parameters<typeof buildMultimodalMessagesArray>[0],
+            "azure", // no native PDF support -> takes the image-conversion path
+            "gpt-4o",
+          );
+          return seen[0];
+        };
+        const byDefault = await build();
+        if (byDefault?.scale !== 1.5 || byDefault?.maxPages !== 20) {
+          return false;
+        }
+        const scaled = await build({ scale: 0.8 });
+        if (scaled?.scale !== 0.8) {
+          return false;
+        }
+        const capped = await build({ maxPages: 3 });
+        if (capped?.maxPages !== 3 || capped?.scale !== 1.5) {
+          return false;
+        }
+        // A caller-supplied maxPages of 0/-1/2.5 used to reach the renderer and
+        // surface later as a misleading "PDF has 0 pages".
+        for (const bad of [0, -1, 2.5]) {
+          let rejected = false;
+          try {
+            await build({ maxPages: bad });
+          } catch (e) {
+            rejected = e instanceof Error && /Invalid maxPages/.test(e.message);
+          }
+          if (!rejected) {
+            return false;
+          }
+        }
+        return true;
+      } finally {
+        (
+          PDFImageConverter as unknown as Record<string, unknown>
+        ).convertToImages = original;
+      }
+    },
+  },
+  {
     name: "PDFProcessor #297: defaults to scale 1.5 and logs a memory estimate before conversion",
     category: "pdf-processor",
     fn: async () => {

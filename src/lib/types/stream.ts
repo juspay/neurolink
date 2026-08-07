@@ -281,6 +281,17 @@ export type StreamOptions = {
     password?: string;
     /** Max rendered-canvas pixels per page (#260 memory guard); oversized pages auto-downscale. */
     maxCanvasPixels?: number;
+    /**
+     * Render scale for the image fallback used by providers without native PDF
+     * support (#297). Higher is sharper but costs roughly the square in memory
+     * and tokens. Range 0.1-10; defaults to PDF_LIMITS.DEFAULT_SCALE (1.5).
+     */
+    scale?: number;
+    /**
+     * Max pages converted by the image fallback (#297). Pages beyond this are
+     * not sent to the model at all. Defaults to PDF_LIMITS.DEFAULT_MAX_PAGES (20).
+     */
+    maxPages?: number;
   };
 
   // Video processing options
