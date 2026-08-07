@@ -1,3 +1,10 @@
+## [10.10.8](https://github.com/juspay/neurolink/compare/v10.10.7...v10.10.8) (2026-08-07)
+
+### Bug Fixes
+
+- **(multimodal):** enforce the aggregate PDF limit on the input.content path ([d484fde](https://github.com/juspay/neurolink/commit/d484fded727c90922baa0852d6da00bf8d7496ed)), closes [#309](https://github.com/juspay/neurolink/issues/309)
+- **(video):** honor the CLI frame, quality and format options ([c23ac77](https://github.com/juspay/neurolink/commit/c23ac77b5b3cf4195a1324aa1f5d5557a6ad7076)), closes [#433](https://github.com/juspay/neurolink/issues/433) [#478](https://github.com/juspay/neurolink/issues/478)
+
 ## [10.10.7](https://github.com/juspay/neurolink/compare/v10.10.6...v10.10.7) (2026-08-07)
 
 ### Bug Fixes
