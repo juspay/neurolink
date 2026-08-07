@@ -121,12 +121,81 @@ await test("processes a real mp3 and reports duration, codec and size", async ()
   );
   assert(metadata.codec.length > 0, "codec is reported");
   assert(metadata.fileSize > 0, "file size is reported");
-  assertIncludes(
-    metadata.durationFormatted,
-    ":",
-    "duration is formatted for humans (m:ss)",
+  // #1262 unified audio and video on the explicit-unit form ("2s", "1m 30s")
+  // and deliberately dropped the ambiguous "m:ss" clock form — this assertion
+  // was left behind still demanding a colon, so it has been failing on release
+  // ever since. Assert the format the shared formatter actually produces.
+  assert(
+    /^(\d+h\s)?(\d+m\s)?\d+s$/.test(metadata.durationFormatted),
+    "duration uses the shared explicit-unit format",
   );
   assert(textContent.length > 0, "LLM-facing text content is produced");
+});
+
+// --- AUDIO-009 (#416): a missing transcript must say why ---------------------
+
+await test("#416: no-API-key is reported as a reason, not an empty transcript", async () => {
+  await ensureFixtures();
+  const previousKey = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  try {
+    const result = await audioProcessor.processFile(
+      fileInfo("tone.mp3", "audio/mpeg"),
+    );
+    assert(result.success, "processing still succeeds without transcription");
+    if (!result.success) {
+      return;
+    }
+    assertEqual(result.data.hasTranscript, false, "no transcript is produced");
+    // Previously every failure path returned the same empty result, so a
+    // missing key looked exactly like audio containing no speech.
+    assert(
+      typeof result.data.transcriptionSkippedReason === "string" &&
+        result.data.transcriptionSkippedReason.includes("OPENAI_API_KEY"),
+      "the missing-key reason is reported rather than left blank",
+    );
+  } finally {
+    if (previousKey !== undefined) {
+      process.env.OPENAI_API_KEY = previousKey;
+    }
+  }
+});
+
+await test("#416: an unsupported audio format names the format and the accepted list", async () => {
+  await ensureFixtures();
+  const previousKey = process.env.OPENAI_API_KEY;
+  // A NON-EMPTY key must be present or the no-key branch short-circuits first
+  // and this test silently passes for the wrong reason — the processor tests
+  // `if (!apiKey)`, so "" counts as missing.
+  process.env.OPENAI_API_KEY = previousKey?.trim()
+    ? previousKey
+    : "sk-not-used-no-request-is-made";
+  try {
+    // AAC is a format the processor itself handles but Whisper does not accept,
+    // so this exercises the format branch rather than the file-validation one.
+    // Real wav bytes, since music-metadata reads content, not the extension.
+    const result = await audioProcessor.processFile({
+      ...fileInfo("tone.wav", "audio/mpeg"),
+      name: "tone.aac",
+      mimetype: "audio/aac",
+    });
+    assert(result.success, "processing still succeeds");
+    if (!result.success) {
+      return;
+    }
+    assertEqual(result.data.hasTranscript, false, "no transcript is produced");
+    const reason = result.data.transcriptionSkippedReason ?? "";
+    assert(
+      reason.includes("Whisper accepts") || reason.includes("supported:"),
+      "the reason explains the format was rejected and lists what is accepted",
+    );
+  } finally {
+    if (previousKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = previousKey;
+    }
+  }
 });
 
 await test("lossless flag distinguishes flac from mp3", async () => {
