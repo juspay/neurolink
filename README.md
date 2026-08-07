@@ -596,14 +596,16 @@ const batcher = new RequestBatcher({ maxBatchSize: 10, maxWaitMs: 50 });
 
 **17+ file categories supported** (50+ total file types including code languages) with intelligent content extraction and provider-agnostic processing:
 
-| Category      | Supported Types                                            | Processing                          |
-| ------------- | ---------------------------------------------------------- | ----------------------------------- |
-| **Documents** | Excel (`.xlsx`, `.xls`), Word (`.docx`), RTF, OpenDocument | Sheet extraction, text extraction   |
-| **Data**      | JSON, YAML, XML                                            | Validation, syntax highlighting     |
-| **Markup**    | HTML, SVG, Markdown, Text                                  | OWASP-compliant sanitization        |
-| **Code**      | 50+ languages (TypeScript, Python, Java, Go, etc.)         | Language detection, syntax metadata |
-| **Config**    | `.env`, `.ini`, `.toml`, `.cfg`                            | Secure parsing                      |
-| **Media**     | Images (PNG, JPEG, WebP, GIF), PDFs, CSV                   | Provider-specific formatting        |
+| Category      | Supported Types                                                                  | Processing                                                          |
+| ------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **Documents** | Excel (`.xlsx`, `.xls`), Word (`.docx`), PowerPoint (`.pptx`), RTF, OpenDocument | Sheet extraction, text extraction, slide + speaker-notes extraction |
+| **Data**      | JSON, YAML, XML                                                                  | Validation, syntax highlighting                                     |
+| **Markup**    | HTML, SVG, Markdown, Text                                                        | OWASP-compliant sanitization                                        |
+| **Code**      | 50+ languages (TypeScript, Python, Java, Go, etc.)                               | Language detection, syntax metadata                                 |
+| **Config**    | `.env`, `.ini`, `.toml`, `.cfg`                                                  | Secure parsing                                                      |
+| **Media**     | Images (PNG, JPEG, WebP, GIF), PDFs, CSV                                         | Provider-specific formatting                                        |
+| **Audio**     | `.mp3`, `.wav`, `.m4a`, `.ogg`, `.flac`, `.webm`                                 | Automatic transcription + duration metadata                         |
+| **Video**     | `.mp4`, `.webm`, `.mov`, `.mkv`, `.avi`                                          | Keyframe extraction, metadata, embedded subtitles                   |
 
 ```typescript
 // Process any supported file type
@@ -622,6 +624,33 @@ const result = await neurolink.generate({
 // CLI: Use --file for any supported type
 // neurolink generate "Analyze this" --file ./report.xlsx --file ./config.json
 ```
+
+Audio and video attach the same way. Audio is transcribed automatically before
+the model sees it; video is reduced to keyframes plus metadata and any embedded
+subtitle track:
+
+```typescript
+const result = await neurolink.generate({
+  input: {
+    text: "What was decided in this meeting, and who owns each action item?",
+    files: [
+      "./standup.mp3", // transcribed, then folded into the prompt
+      "./demo.mp4", // keyframes + duration/codec metadata + subtitles
+      "./deck.pptx", // slides and speaker notes
+    ],
+  },
+});
+```
+
+```bash
+# Same thing from the CLI
+neurolink generate "Summarize this recording" --file ./standup.mp3
+neurolink generate "Describe what happens" --file ./demo.mp4
+```
+
+> Audio transcription needs a provider with a speech model configured (OpenAI
+> Whisper by default). Video keyframe extraction requires `ffmpeg` — install it
+> separately or rely on the bundled `ffmpeg-static`.
 
 **Key Features:**
 
