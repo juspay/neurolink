@@ -247,8 +247,14 @@ export class OpenAITTS implements TTSHandler {
 
   /**
    * Map TTSAudioFormat to OpenAI response_format.
-   * OpenAI TTS supports: mp3, wav, opus (ogg maps to opus).
-   * Unsupported formats are coerced to mp3 with a warning.
+   *
+   * OpenAI's /audio/speech accepts mp3, opus, aac, flac, wav and pcm. This map
+   * previously stopped at mp3/wav/ogg/opus/pcm16, so `flac` — a valid
+   * TTSAudioFormat *and* a real OpenAI response_format — was treated as
+   * unsupported and silently downgraded to mp3 (#479). A caller who asked for
+   * lossless got lossy, and the only signal was a warn-level log.
+   *
+   * Formats OpenAI genuinely cannot produce still coerce to mp3 with a warning.
    */
   private mapFormat(format: TTSAudioFormat): string {
     const formats: Partial<Record<TTSAudioFormat, string>> = {
@@ -256,6 +262,12 @@ export class OpenAITTS implements TTSHandler {
       wav: "wav",
       ogg: "opus", // OpenAI uses opus for ogg
       opus: "opus",
+      // #479: flac is the entry this fix added. It is a first-class OpenAI
+      // response_format and was the only TTSAudioFormat member missing from
+      // this map, so it fell through to the mp3 coercion below. The issue also
+      // mentions aac, but aac is not a member of TTSAudioFormat and therefore
+      // cannot be requested — no mapping is needed or possible for it.
+      flac: "flac",
       // OpenAI's "pcm" is raw 16-bit signed LE @ 24kHz (no header) — maps to
       // canonical pcm16 in TTSResult.format. See effectiveFormat() below.
       pcm16: "pcm",
@@ -263,7 +275,7 @@ export class OpenAITTS implements TTSHandler {
     const mapped = formats[format];
     if (mapped === undefined) {
       logger.warn(
-        `[OpenAITTSHandler] Unsupported format "${format}" — falling back to "mp3". Supported formats: mp3, wav, ogg, opus, pcm16.`,
+        `[OpenAITTSHandler] Unsupported format "${format}" — falling back to "mp3". Supported formats: mp3, wav, ogg, opus, flac, pcm16.`,
       );
       return "mp3";
     }
@@ -298,6 +310,8 @@ export class OpenAITTS implements TTSHandler {
         return "wav";
       case "opus":
         return "opus";
+      case "flac":
+        return "flac";
       // Raw PCM (16-bit signed LE @ 24kHz, no header) — keep semantics in
       // TTSResult.format so consumers don't write raw bytes to a .wav file.
       case "pcm":
