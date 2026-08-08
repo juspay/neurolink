@@ -1,3 +1,9 @@
+## [10.10.11](https://github.com/juspay/neurolink/compare/v10.10.10...v10.10.11) (2026-08-08)
+
+### Bug Fixes
+
+- **(tts):** stop downgrading OpenAI flac requests to mp3 ([65aba26](https://github.com/juspay/neurolink/commit/65aba267d4997614925978f02f817e50eed5abc7)), closes [#479](https://github.com/juspay/neurolink/issues/479)
+
 ## [10.10.10](https://github.com/juspay/neurolink/compare/v10.10.9...v10.10.10) (2026-08-07)
 
 ### Bug Fixes
