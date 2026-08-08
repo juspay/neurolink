@@ -287,4 +287,49 @@ await test("getVoices reaches the handler", async () => {
   assert(Array.isArray(voices) && voices.length > 0, "voices are returned");
 });
 
+// --- TTS-008 (#479): OpenAI format mapping -----------------------------------
+
+await test("#479: flac is a real OpenAI response_format and must not downgrade to mp3", async () => {
+  const { OpenAITTS } = await import("../src/lib/voice/providers/OpenAITTS.js");
+  // Exercised off the prototype so no API key / constructor side effects are
+  // needed — mapFormat and effectiveFormat are pure.
+  const proto = OpenAITTS.prototype as unknown as {
+    mapFormat: (f: string) => string;
+    effectiveFormat: (f: string) => string;
+  };
+  const roundTrip = (f: string) => {
+    const wire = proto.mapFormat.call({}, f);
+    return { wire, back: proto.effectiveFormat.call({}, wire) };
+  };
+
+  // flac is BOTH a valid TTSAudioFormat and a documented OpenAI
+  // response_format, yet it used to fall through to the mp3 coercion branch —
+  // a caller asking for lossless silently received lossy.
+  assertEqual(roundTrip("flac").wire, "flac", "flac reaches the API as flac");
+  assertEqual(
+    roundTrip("flac").back,
+    "flac",
+    "TTSResult.format reports flac, not mp3",
+  );
+
+  // Unchanged mappings.
+  assertEqual(roundTrip("mp3").wire, "mp3", "mp3 unchanged");
+  assertEqual(roundTrip("wav").wire, "wav", "wav unchanged");
+  assertEqual(roundTrip("ogg").wire, "opus", "ogg still maps to opus");
+  assertEqual(roundTrip("pcm16").wire, "pcm", "pcm16 still maps to pcm");
+  assertEqual(
+    roundTrip("pcm16").back,
+    "pcm16",
+    "pcm round-trips back to pcm16 so callers do not mislabel raw bytes",
+  );
+
+  // m4a is in TTSAudioFormat (it is an STT input format) but OpenAI TTS cannot
+  // produce it — coercing to mp3 with a warning stays correct.
+  assertEqual(
+    roundTrip("m4a").wire,
+    "mp3",
+    "a format OpenAI genuinely cannot produce still coerces to mp3",
+  );
+});
+
 await runSuite();
