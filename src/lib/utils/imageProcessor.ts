@@ -573,6 +573,42 @@ export class ImageProcessor {
           return isoBmffMimeType;
         }
 
+        // JPEG 2000, in both shapes it ships in. The JP2 container opens with
+        // the 12-byte signature box `00 00 00 0C 6A 50 20 20 0D 0A 87 0A`; a
+        // bare codestream (.j2k/.j2c) opens with the SOC+SIZ markers FF 4F FF
+        // 51. Checked BEFORE ICO because the container's first three bytes are
+        // 00 00 00, which is one byte away from ICO's 00 00 01 00 and shares
+        // its leading zeros — an ordering mistake here would classify every
+        // JPEG 2000 as an icon rather than merely failing to recognise it.
+        // All twelve bytes are checked, not just the length and brand: the
+        // trailing 0D 0A 87 0A is the signature's whole point. It is a
+        // line-ending probe — CR LF, a high byte, LF — that a transfer which
+        // mangles newlines or strips the eighth bit will visibly corrupt, so
+        // skipping it accepts exactly the damaged files it exists to reject.
+        if (
+          input.length >= 12 &&
+          input[0] === 0x00 &&
+          input[1] === 0x00 &&
+          input[2] === 0x00 &&
+          input[3] === 0x0c &&
+          input.subarray(4, 8).toString("latin1") === "jP  " &&
+          input[8] === 0x0d &&
+          input[9] === 0x0a &&
+          input[10] === 0x87 &&
+          input[11] === 0x0a
+        ) {
+          return "image/jp2";
+        }
+        if (
+          input.length >= 4 &&
+          input[0] === 0xff &&
+          input[1] === 0x4f &&
+          input[2] === 0xff &&
+          input[3] === 0x51
+        ) {
+          return "image/jp2";
+        }
+
         // ICO: 00 00 01 00 (icon type=1)
         if (
           input[0] === 0x00 &&

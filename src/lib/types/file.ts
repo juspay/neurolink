@@ -39,6 +39,38 @@ export type VisionImageConversion = {
 };
 
 /**
+ * Outcome of an audio-compatibility pass over one file.
+ *
+ * See `adapters/audioFormatSupport.ts`. As with images, `converted` is false
+ * both when the container was already acceptable and when nothing could
+ * re-encode it, so it is not a success flag — the caller decides what to do
+ * from the resulting `mimeType`.
+ */
+export type AudioConversionResult = {
+  readonly buffer: Buffer;
+  readonly mimeType: string;
+  /** True when the bytes were re-encoded; false when they were left alone. */
+  readonly converted: boolean;
+};
+
+/**
+ * One audio file destined for native delivery to a provider.
+ *
+ * Carries the bytes rather than a path because the decision to send audio is
+ * made per provider, after detection has already read the file — re-reading it
+ * from disk at dispatch time would be a second read of something already in
+ * memory.
+ */
+export type MultimodalAudioEntry = {
+  /** Raw audio bytes, as detected. */
+  buffer: Buffer;
+  /** Display name; may be a full path, so log only its basename. */
+  filename: string;
+  /** Detected MIME type of `buffer`. */
+  mimeType: string;
+};
+
+/**
  * Broad category a file format belongs to, as a human would name it.
  *
  * Distinct from {@link FileType}, which is the *routing* type the detector
@@ -506,6 +538,17 @@ export type FileDetectorOptions = {
    * hint (the lazy FileReferenceRegistry path has its own hint-handling).
    */
   mimetypeHint?: string;
+  /**
+   * Caller-provided filename hint, the companion to {@link mimetypeHint}.
+   *
+   * The unified file path unwraps a `FileWithMetadata` to its `buffer` before
+   * detection runs, so the object's `filename` is gone by the time extension
+   * resolution looks for one — and TAR in particular cannot be identified any
+   * other way, because its "ustar" marker sits at byte 257 rather than at
+   * offset 0. Passing the name alongside the bytes keeps `.odp`, `.rtf` and
+   * `.tar` routed to the processors that can actually read them.
+   */
+  filenameHint?: string;
 };
 
 /**

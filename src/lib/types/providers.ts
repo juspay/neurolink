@@ -26,6 +26,7 @@ import type {
   GenerateResult,
   TextGenerationOptions,
 } from "./generate.js";
+import type { MultimodalAudioEntry } from "./file.js";
 import type { StreamOptions, StreamResult } from "./stream.js";
 import type { ExternalMCPToolInfo } from "./externalMcp.js";
 
@@ -2124,6 +2125,12 @@ export type GeminiMultimodalInput = {
   text?: string;
   pdfFiles?: Array<Buffer | string>;
   images?: Array<Buffer | string | { data: Buffer | string; altText?: string }>;
+  /**
+   * Audio collected during file detection, carried through to the native
+   * request as `inlineData`. Distinct from the user-facing `audioFiles`: these
+   * are already-materialised bytes with a resolved mime type.
+   */
+  nativeAudioFiles?: MultimodalAudioEntry[];
 };
 
 /**

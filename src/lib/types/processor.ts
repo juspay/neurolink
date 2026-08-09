@@ -883,8 +883,26 @@ export type ArchiveFormat =
   | "tar.gz"
   | "tar.bz2"
   | "gz"
+  | "bz2"
+  | "xz"
+  | "zst"
   | "rar"
   | "7z";
+
+/**
+ * Outcome of decompressing a single-stream archive (.bz2, .xz, .zst).
+ *
+ * A plain `Buffer | null` collapsed two very different failures into one: a
+ * machine that has no `xz` installed and a `.xz` file that is corrupt both
+ * returned null, and the caller reported both as "the command is unavailable on
+ * this machine" — actively misleading for the second. The reason is carried so
+ * the message can match the fact.
+ */
+export type ArchiveDecompressionResult =
+  | { readonly status: "ok"; readonly buffer: Buffer }
+  | { readonly status: "tool-unavailable" }
+  | { readonly status: "too-large" }
+  | { readonly status: "failed" };
 
 /**
  * Metadata about an individual entry within an archive.
