@@ -349,11 +349,19 @@ for (const { ext, modality } of FIXTURE_FORMATS) {
     }
     requireLive();
 
+    // Kept, but no longer about which path the file takes: this change routes
+    // every recognised non-text type eagerly whatever its size, so the tier
+    // threshold no longer decides anything for these formats. What the floor
+    // still buys is that each fixture is a realistic file rather than a toy
+    // one — the size class that was actually broken, and the class a fixture
+    // would silently drift out of if a generator started emitting stubs.
     const size = fs.statSync(file).size;
+    if (size <= SIZE_TIER_THRESHOLDS.TINY_MAX) {
+      console.error(`      ↳ ${ext} fixture size: ${size} bytes`);
+    }
     assert(
       size > SIZE_TIER_THRESHOLDS.TINY_MAX,
-      `the ${ext} fixture is ${size} bytes, under the tier threshold — it ` +
-        `would exercise the eager path and prove nothing about the lazy one`,
+      `the ${ext} fixture is below the realistic-size floor`,
     );
 
     const nl = new NeuroLink();
@@ -419,6 +427,91 @@ for (const ext of [".png", ".pdf"]) {
     );
   });
 }
+
+// --- Classification from a declaration rather than a name ------------------
+
+await test("a mislabelled filename loses to the declared mimetype", async () => {
+  // The two declarations on a `FileWithMetadata` were read as a `??` chain, so
+  // the first *recognised* one won outright: a name ending `.txt` beat a
+  // `mimetype` of `audio/mpeg`, the file stayed on the lazy path, and the bytes
+  // that native audio delivery exists to send were never collected. Naming is
+  // the least trustworthy field on that shape, which is why it cannot veto.
+  const file = fixtures.get(".mp3");
+  if (!file) {
+    throw new Skip("mp3 cannot be encoded in this environment");
+  }
+  requireLive();
+
+  const buffer = fs.readFileSync(file);
+  assert(
+    buffer.length > SIZE_TIER_THRESHOLDS.TINY_MAX,
+    "the mp3 fixture is under the tier threshold — it would exercise the " +
+      "eager path and prove nothing about the lazy one",
+  );
+
+  const nl = new NeuroLink();
+  const content = await generateNonEmpty(nl, {
+    input: {
+      text: PROMPTS.audio,
+      files: [{ buffer, filename: "recording.txt", mimetype: "audio/mpeg" }],
+    },
+    provider: PROVIDER,
+    maxTokens: 256,
+  });
+
+  assertReply(
+    !content.includes("NOTHING_RECEIVED"),
+    "the mislabelled audio never reached the model",
+    content,
+  );
+  assertReply(
+    normalizeDigits(content).includes(TOKEN),
+    "the model did not report the mislabelled audio's spoken code",
+    content,
+  );
+});
+
+await test("a bytes-plus-name upload keeps the name detection routes on", async () => {
+  // A `.tar` is the sharpest case: it has no magic bytes at offset 0 — its
+  // "ustar" marker sits at byte 257 — so its name is the only thing that
+  // identifies it. The unified path unwraps a `FileWithMetadata` to its buffer
+  // before detection runs, which threw the name away and left the archive
+  // unidentifiable ("Could not extract content") even though the same bytes
+  // extract perfectly when the name travels with them.
+  const file = fixtures.get(".tar");
+  if (!file) {
+    throw new Skip("tar cannot be built in this environment");
+  }
+  requireLive();
+
+  const buffer = fs.readFileSync(file);
+  assert(
+    buffer.length > SIZE_TIER_THRESHOLDS.TINY_MAX,
+    "the tar fixture is under the tier threshold — it would exercise the " +
+      "eager path and prove nothing about the lazy one",
+  );
+
+  const nl = new NeuroLink();
+  const content = await generateNonEmpty(nl, {
+    input: {
+      text: PROMPTS.archive,
+      files: [{ buffer, filename: "bundle.tar" }],
+    },
+    provider: PROVIDER,
+    maxTokens: 256,
+  });
+
+  assertReply(
+    !content.includes("NOTHING_RECEIVED"),
+    "the bytes-plus-name archive never reached the model",
+    content,
+  );
+  assertReply(
+    normalizeDigits(content).includes(TOKEN),
+    "the model did not report the bytes-plus-name archive's hidden code",
+    content,
+  );
+});
 
 // Cleanup must precede runSuite(): it prints the summary and then calls
 // process.exit, so anything after it never runs.

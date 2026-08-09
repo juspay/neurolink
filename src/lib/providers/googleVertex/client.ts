@@ -12,6 +12,7 @@ import {
 } from "../../constants/enums.js";
 import { BaseProvider } from "../../core/baseProvider.js";
 import { unwrapImagePayload } from "../../adapters/imageFormatSupport.js";
+import { appendNativeAudioParts } from "../googleNativeGemini3/utils.js";
 import { getMimeTypeForExtension } from "../../processors/config/mimeConstants.js";
 import {
   DEFAULT_GEMINI_STREAM_TIMEOUT_MS,
@@ -54,6 +55,7 @@ import type {
   VertexSegment,
   ChatMessage,
   MinimalChatMessage,
+  MultimodalAudioEntry,
 } from "../../types/index.js";
 import {
   AuthenticationError,
@@ -1885,6 +1887,7 @@ export class GoogleVertexProvider extends BaseProvider {
       text: string;
       pdfFiles?: Array<Buffer | string>;
       images?: Array<Buffer | string | ImageWithAltText>;
+      nativeAudioFiles?: MultimodalAudioEntry[];
     };
 
     if (multimodalInput?.pdfFiles && multimodalInput.pdfFiles.length > 0) {
@@ -1917,6 +1920,12 @@ export class GoogleVertexProvider extends BaseProvider {
         });
       }
     }
+
+    await appendNativeAudioParts(
+      userParts,
+      multimodalInput?.nativeAudioFiles,
+      "[GoogleVertex]",
+    );
 
     // Add images as inlineData parts if present
     if (multimodalInput?.images && multimodalInput.images.length > 0) {
@@ -3170,6 +3179,7 @@ export class GoogleVertexProvider extends BaseProvider {
           text?: string;
           pdfFiles?: Array<Buffer | string>;
           images?: Array<Buffer | string | ImageWithAltText>;
+          nativeAudioFiles?: MultimodalAudioEntry[];
         }
       | undefined;
 
@@ -3203,6 +3213,12 @@ export class GoogleVertexProvider extends BaseProvider {
         });
       }
     }
+
+    await appendNativeAudioParts(
+      userParts,
+      multimodalInput?.nativeAudioFiles,
+      "[GoogleVertex]",
+    );
 
     // Add images as inlineData parts if present
     if (multimodalInput?.images && multimodalInput.images.length > 0) {

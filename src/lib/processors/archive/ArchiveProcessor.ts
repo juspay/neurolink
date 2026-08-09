@@ -40,6 +40,7 @@ import * as path from "path";
 
 import { BaseFileProcessor } from "../base/BaseFileProcessor.js";
 import type {
+  ArchiveDecompressionResult,
   ArchiveEntry,
   ArchiveFormat,
   FileInfo,
@@ -161,11 +162,29 @@ const SUPPORTED_ARCHIVE_MIME_TYPES = [
   "application/x-gzip",
   "application/x-compressed-tar",
   "application/x-bzip2",
+  // XZ and Zstandard, added alongside the extensions above: a caller that
+  // uploads bytes with a declared mimetype and no filename was rejected at the
+  // type gate for the two formats this change teaches the processor to read.
+  "application/x-xz",
+  "application/zstd",
   "application/java-archive",
 ] as const;
 
+/**
+ * External decompressor per single-stream format.
+ *
+ * One map rather than a ternary repeated at each use: the decompressor and the
+ * error message that names it were derived separately, so they could disagree
+ * about which binary the user is being told to install.
+ */
+const SINGLE_STREAM_TOOLS: Record<"bz2" | "xz" | "zst", string> = {
+  bz2: "bzip2",
+  xz: "xz",
+  zst: "zstd",
+};
+
 /** File extensions recognized as archive formats */
-const SUPPORTED_ARCHIVE_EXTENSIONS = [".zip", ".tar", ".gz", ".tgz", ".bz2", ".tbz2", ".jar"] as const;
+const SUPPORTED_ARCHIVE_EXTENSIONS = [".zip", ".tar", ".gz", ".tgz", ".bz2", ".tbz2", ".jar", ".xz", ".txz", ".zst", ".tzst"] as const;
 
 // =============================================================================
 // MAGIC BYTE SIGNATURES
@@ -184,8 +203,20 @@ const MAGIC_BYTES = {
   ZIP_SPANNED: [0x50, 0x4b, 0x07, 0x08],
   /** GZIP: \x1f\x8b */
   GZIP: [0x1f, 0x8b],
-  /** BZIP2: BZ */
-  BZIP2: [0x42, 0x5a],
+  /**
+   * BZIP2: `BZh` — all three bytes, not just `BZ`.
+   *
+   * Two bytes was harmless while every BZIP2 match was rejected outright as an
+   * unsupported format. Now that a match actually spawns `bzip2`, any buffer
+   * beginning with the ASCII letters "BZ" is handed to the decompressor and
+   * comes back reported as a corrupt BZ2 stream — a confident wrong answer
+   * about a file that was never bzip2 at all.
+   */
+  BZIP2: [0x42, 0x5a, 0x68],
+  /** XZ: \xfd7zXZ\x00 */
+  XZ: [0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00],
+  /** Zstandard frame: \x28\xb5\x2f\xfd */
+  ZSTD: [0x28, 0xb5, 0x2f, 0xfd],
   /** RAR: Rar!\x1a\x07 */
   RAR: [0x52, 0x61, 0x72, 0x21, 0x1a, 0x07],
   /** 7-Zip: 7z\xbc\xaf\x27\x1c */
@@ -349,7 +380,7 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
           error: this.createError(FileErrorCode.UNSUPPORTED_TYPE, {
             format,
             reason: `${format.toUpperCase()} archives are not yet supported. Please convert to ZIP or TAR format.`,
-            supportedFormats: "ZIP, TAR, TAR.GZ, GZ",
+            supportedFormats: "ZIP, TAR, TAR.GZ, TAR.BZ2, GZ, BZ2, XZ, ZST, JAR",
           }),
         };
       }
@@ -397,7 +428,10 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
       // Step 9: Extract content from text-based entries (Phase 2 sub-processing)
       // For ZIP archives, extract and include content from small text-based files.
       // Skips nested archives and binary files for safety.
-      let extractedContents: Map<string, string> = new Map();
+      // ZIP re-parses to pull member text; every other format collects it while
+      // decompressing, because their bytes stream past exactly once.
+      let extractedContents: Map<string, string> =
+        extractionResult.contents ?? new Map();
       if (format === "zip") {
         extractedContents = await this.extractEntryContents(buffer, entries);
       }
@@ -472,6 +506,18 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
         // Could still be a tar.gz without the extension - we'll detect during extraction
         return "gz";
       }
+      // Bzip2 wraps a tar just as often, and now that a BZIP2 magic match
+      // resolves to a real format rather than being rejected outright, the
+      // same filename check has to run here too. Without it every genuine
+      // `.tar.bz2` reported its format as "BZ2" to the model — extraction was
+      // right, the label was not — and the `.tar.bz2` extension mapping below
+      // became unreachable for any well-formed file.
+      if (magicFormat === "bz2") {
+        const ext = filename.toLowerCase();
+        return ext.endsWith(".tar.bz2") || ext.endsWith(".tbz2")
+          ? "tar.bz2"
+          : "bz2";
+      }
       return magicFormat;
     }
 
@@ -515,9 +561,21 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
       return "gz";
     }
 
-    // Check for BZIP2 (2 bytes)
+    // Check for BZIP2 (3 bytes: "BZh"). A bare .bz2 is a single compressed
+    // file; the caller decides whether the decompressed bytes turn out to be a
+    // tar.
     if (this.matchesMagic(buffer, MAGIC_BYTES.BZIP2)) {
-      return "tar.bz2";
+      return "bz2";
+    }
+
+    // Check for XZ (6 bytes)
+    if (buffer.length >= 6 && this.matchesMagic(buffer, MAGIC_BYTES.XZ)) {
+      return "xz";
+    }
+
+    // Check for Zstandard (4 bytes)
+    if (buffer.length >= 4 && this.matchesMagic(buffer, MAGIC_BYTES.ZSTD)) {
+      return "zst";
     }
 
     return null;
@@ -545,7 +603,21 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
       return "gz";
     }
     if (lowerFilename.endsWith(".bz2")) {
-      return "tar.bz2";
+      // A bare `.bz2` is a single compressed file, not a tarball. Reporting it
+      // as "tar.bz2" sent it down a branch that refused the format outright.
+      return "bz2";
+    }
+    if (lowerFilename.endsWith(".tar.xz") || lowerFilename.endsWith(".txz")) {
+      return "xz";
+    }
+    if (lowerFilename.endsWith(".xz")) {
+      return "xz";
+    }
+    if (lowerFilename.endsWith(".tar.zst") || lowerFilename.endsWith(".tzst")) {
+      return "zst";
+    }
+    if (lowerFilename.endsWith(".zst")) {
+      return "zst";
     }
     if (lowerFilename.endsWith(".zip") || lowerFilename.endsWith(".jar")) {
       return "zip";
@@ -595,6 +667,7 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
     success: boolean;
     entries: ArchiveEntry[];
     securityWarnings: string[];
+    contents?: Map<string, string>;
     error?: FileProcessingError;
   }> {
     switch (format) {
@@ -605,16 +678,12 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
       case "tar.gz":
         return this.extractTarGzEntries(buffer);
       case "tar.bz2":
-        return {
-          success: false,
-          entries: [],
-          securityWarnings: [],
-          error: this.createError(FileErrorCode.UNSUPPORTED_TYPE, {
-            format: "tar.bz2",
-            reason: "TAR.BZ2 archives are not yet supported. Please convert to ZIP or TAR.GZ format.",
-            supportedFormats: "ZIP, TAR, TAR.GZ, GZ",
-          }),
-        };
+      case "bz2":
+        return this.extractSingleStreamEntries(buffer, "bz2");
+      case "xz":
+        return this.extractSingleStreamEntries(buffer, "xz");
+      case "zst":
+        return this.extractSingleStreamEntries(buffer, "zst");
       case "gz":
         return this.extractGzEntries(buffer);
       default:
@@ -625,7 +694,7 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
           error: this.createError(FileErrorCode.UNSUPPORTED_TYPE, {
             format,
             reason: `${format} archives are not supported`,
-            supportedFormats: "ZIP, TAR, TAR.GZ, GZ",
+            supportedFormats: "ZIP, TAR, TAR.GZ, TAR.BZ2, GZ, BZ2, XZ, ZST, JAR",
           }),
         };
     }
@@ -646,6 +715,7 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
     success: boolean;
     entries: ArchiveEntry[];
     securityWarnings: string[];
+    contents?: Map<string, string>;
     error?: FileProcessingError;
   }> {
     const entries: ArchiveEntry[] = [];
@@ -783,6 +853,7 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
     success: boolean;
     entries: ArchiveEntry[];
     securityWarnings: string[];
+    contents?: Map<string, string>;
     error?: FileProcessingError;
   }> {
     try {
@@ -815,6 +886,7 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
     success: boolean;
     entries: ArchiveEntry[];
     securityWarnings: string[];
+    contents?: Map<string, string>;
     error?: FileProcessingError;
   }> {
     try {
@@ -908,13 +980,16 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
     success: boolean;
     entries: ArchiveEntry[];
     securityWarnings: string[];
+    contents?: Map<string, string>;
     error?: FileProcessingError;
   }> {
     return new Promise((resolve) => {
       const entries: ArchiveEntry[] = [];
       const securityWarnings: string[] = [];
+      const contents = new Map<string, string>();
       let entryCount = 0;
       let cumulativeSize = 0;
+      let extractedBytes = 0;
       let earlyError: FileProcessingError | null = null;
 
       const extract = tarStream.extract();
@@ -989,6 +1064,36 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
           isDirectory,
         });
 
+        // Capture the text of eligible members as they go past.
+        //
+        // A listing alone is not an answer. Asked what a .tar contains, the
+        // model could previously only recite filenames and sizes — the same
+        // archive as a .zip returned its text, because only the ZIP path
+        // extracted anything. A tar entry's bytes are available exactly once,
+        // here, while the stream is open; re-reading later would mean parsing
+        // the whole archive a second time.
+        if (
+          !isDirectory &&
+          this.isExtractableEntryName(entryName) &&
+          entrySize > 0 &&
+          entrySize <= ARCHIVE_CONFIG.MAX_EXTRACT_ENTRY_SIZE &&
+          contents.size < ARCHIVE_CONFIG.MAX_EXTRACT_ENTRIES &&
+          extractedBytes + entrySize <= ARCHIVE_CONFIG.MAX_TOTAL_EXTRACT_SIZE
+        ) {
+          const chunks: Buffer[] = [];
+          stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+          stream.on("end", () => {
+            const text = this.decodeEntryText(Buffer.concat(chunks));
+            if (text !== null) {
+              contents.set(entryName, text);
+              extractedBytes += entrySize;
+            }
+            next();
+          });
+          stream.on("error", () => next());
+          return;
+        }
+
         // Consume the stream without buffering (we only need metadata)
         stream.resume();
         next();
@@ -1003,7 +1108,7 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
             error: earlyError,
           });
         } else {
-          resolve({ success: true, entries, securityWarnings });
+          resolve({ success: true, entries, securityWarnings, contents });
         }
       });
 
@@ -1052,6 +1157,7 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
     success: boolean;
     entries: ArchiveEntry[];
     securityWarnings: string[];
+    contents?: Map<string, string>;
     error?: FileProcessingError;
   }> {
     try {
@@ -1110,7 +1216,18 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
         },
       ];
 
-      return { success: true, entries, securityWarnings };
+      // The decompressed bytes ARE the content here; a listing that says
+      // "decompressed-content (1.02 MB)" answers nothing about the file.
+      const contents = new Map<string, string>();
+      const gzText = this.decodeEntryText(decompressed);
+      if (gzText !== null) {
+        contents.set(
+          innerFilename,
+          gzText.slice(0, ARCHIVE_CONFIG.MAX_EXTRACT_ENTRY_SIZE),
+        );
+      }
+
+      return { success: true, entries, securityWarnings, contents };
     } catch (error) {
       return {
         success: false,
@@ -1192,6 +1309,278 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
    * @param entries - Previously extracted entry metadata
    * @returns Map of entry name to extracted text content
    */
+  /**
+   * Whether an entry name looks like something worth inlining as text.
+   *
+   * Shared by the ZIP and TAR paths so the two cannot drift into disagreeing
+   * about which members are worth reading — they did, because only ZIP had the
+   * rule at all.
+   */
+  private isExtractableEntryName(name: string): boolean {
+    const ext = path.extname(name).toLowerCase();
+    if (ARCHIVE_CONFIG.EXTRACTABLE_EXTENSIONS.has(ext)) {
+      return true;
+    }
+    const base = path.basename(name).toLowerCase();
+    return (
+      base === "readme" ||
+      base === "license" ||
+      base === "makefile" ||
+      base === "dockerfile"
+    );
+  }
+
+  /**
+   * Decode bytes to text, or null when they are not text.
+   *
+   * A NUL byte in the first 512 bytes, or a high proportion of replacement
+   * characters after decoding, means binary — inlining that would spend the
+   * extraction budget on mojibake.
+   */
+  private decodeEntryText(data: Buffer): string | null {
+    if (!data || data.length === 0) {
+      return null;
+    }
+    if (data.subarray(0, Math.min(512, data.length)).includes(0)) {
+      return null;
+    }
+    const text = data.toString("utf-8");
+    const replacements = (text.match(/\ufffd/g) || []).length;
+    return replacements > text.length * 0.05 ? null : text;
+  }
+
+  /**
+   * Decompress a single-stream archive (.bz2, .xz, .zst).
+   *
+   * Node ships zstd from v22.15/23, so that one needs no help. bzip2 and xz
+   * have no Node binding, and adding a native module for them would make an
+   * optional format a build-time dependency for every consumer — so the system
+   * tools are used when present, the same soft-dependency arrangement this
+   * codebase already has with ffmpeg. Absent tooling returns null and the
+   * caller reports the format as unsupported *on this machine* rather than
+   * unsupported in principle.
+   */
+  private async decompressSingleStream(
+    buffer: Buffer,
+    format: "bz2" | "xz" | "zst",
+  ): Promise<ArchiveDecompressionResult> {
+    if (format === "zst") {
+      // Node gained zstd in v22.15/23. Older runtimes simply lack the export,
+      // so it is probed at runtime rather than assumed from the typings —
+      // which is also why this is a property check on an `unknown` module
+      // instead of a cast asserting it exists.
+      const zlibModule: unknown = await import("zlib");
+      const candidate =
+        typeof zlibModule === "object" && zlibModule !== null
+          ? (zlibModule as Record<string, unknown>).zstdDecompress
+          : undefined;
+      if (typeof candidate === "function") {
+        const zstdDecompress = candidate as (
+          buf: Buffer,
+          opts: { maxOutputLength: number },
+          cb: (err: Error | null, res: Buffer) => void,
+        ) => void;
+        return await new Promise<ArchiveDecompressionResult>((resolve) => {
+          // Bounded at the decoder rather than after the fact. The size guard
+          // downstream only runs once the whole buffer exists, which is too
+          // late for a zip-bomb: a few KB of zstd expands to gigabytes and the
+          // allocation is what hurts. `maxOutputLength` makes it fail fast.
+          zstdDecompress(
+            buffer,
+            { maxOutputLength: ARCHIVE_SECURITY.MAX_DECOMPRESSED_SIZE },
+            (err, res) =>
+              resolve(
+                err
+                  ? {
+                      status:
+                        (err as NodeJS.ErrnoException).code ===
+                        "ERR_BUFFER_TOO_LARGE"
+                          ? "too-large"
+                          : "failed",
+                    }
+                  : { status: "ok", buffer: res },
+              ),
+          );
+        });
+      }
+    }
+
+    const tool = SINGLE_STREAM_TOOLS[format];
+    try {
+      const { execFile } = await import("node:child_process");
+      return await new Promise<ArchiveDecompressionResult>((resolve) => {
+        // ENOENT means the binary is absent; anything else means it ran and
+        // could not do the job. Only the former justifies telling the caller to
+        // install something.
+        //
+        // Read off the error itself rather than a flag set by the `error`
+        // listener below, because execFile invokes this callback BEFORE that
+        // listener runs — measured, not assumed:
+        //   callback(missing=false, code=ENOENT) → errorListener(code=ENOENT)
+        // The promise is already settled by the time the listener could set the
+        // flag, so a missing decompressor reported itself as a corrupt stream
+        // and told the user to re-upload a perfectly good file.
+        const isMissingTool = (error: unknown): boolean =>
+          (error as NodeJS.ErrnoException | null)?.code === "ENOENT";
+        // Hitting `maxBuffer` is the zip-bomb guard firing, not a corrupt
+        // stream: it will fail identically on every retry, so it must not be
+        // reported as retryable the way a truncated upload is.
+        const isTooLarge = (error: unknown): boolean =>
+          (error as NodeJS.ErrnoException | null)?.code ===
+          "ERR_CHILD_PROCESS_STDIO_MAXBUFFER";
+        const child = execFile(
+          tool,
+          ["-dc"],
+          {
+            encoding: "buffer",
+            maxBuffer: ARCHIVE_SECURITY.MAX_DECOMPRESSED_SIZE,
+            // Without this a crafted or truncated stream that makes the tool
+            // block forever never fires the callback, so the promise never
+            // settles and the request that awaits it hangs indefinitely.
+            timeout: ARCHIVE_CONFIG.TIMEOUT_MS,
+          },
+          (error, stdout) => {
+            // Only a non-zero exit means failure. Empty output does not:
+            // compressing an empty file is legal and round-trips — a 32-byte
+            // `empty.txt.xz` decompresses to nothing with exit 0 — so treating
+            // zero length as an error reported a valid archive as corrupt. The
+            // in-process zstd path above already keyed on the error alone, so
+            // the two backends disagreed about the same input.
+            if (error || !stdout) {
+              resolve({
+                status: isMissingTool(error)
+                  ? "tool-unavailable"
+                  : isTooLarge(error)
+                    ? "too-large"
+                    : "failed",
+              });
+              return;
+            }
+            resolve({ status: "ok", buffer: Buffer.from(stdout) });
+          },
+        );
+        // Kept as a backstop for spawn failures that never reach the
+        // callback. Whichever settles first wins; both now classify the same
+        // way, so the outcome no longer depends on the order.
+        child.on("error", (error: NodeJS.ErrnoException) => {
+          resolve({
+            status: isMissingTool(error) ? "tool-unavailable" : "failed",
+          });
+        });
+        // Swallowed, deliberately not resolved from. A stdin write fails with
+        // EPIPE precisely because the child already died — including when Node
+        // killed it for exceeding `maxBuffer`, which is the zip-bomb guard.
+        // Resolving here raced the exec callback and, when it won, downgraded a
+        // "too-large" verdict to a retryable "failed", telling the caller to
+        // retry a bomb. The callback is the authoritative signal: it always
+        // fires once the process exits or fails to spawn, and the `timeout`
+        // above bounds the wait. This listener exists only so an unhandled
+        // 'error' event cannot take the process down.
+        child.stdin?.on("error", () => undefined);
+        child.stdin?.end(buffer);
+      });
+    } catch {
+      return { status: "tool-unavailable" };
+    }
+  }
+
+  /**
+   * Extract a single-stream archive: decompress, then treat the result as a
+   * TAR when it is one and as a lone file otherwise.
+   *
+   * The tar check matters because `.tar.xz` and `.tar.zst` are how these
+   * formats are usually met — reporting one opaque "decompressed-content" blob
+   * for an archive of forty files would be technically true and useless.
+   */
+  private async extractSingleStreamEntries(
+    buffer: Buffer,
+    format: "bz2" | "xz" | "zst",
+  ): Promise<{
+    success: boolean;
+    entries: ArchiveEntry[];
+    securityWarnings: string[];
+    contents?: Map<string, string>;
+    error?: FileProcessingError;
+  }> {
+    const result = await this.decompressSingleStream(buffer, format);
+    if (result.status !== "ok") {
+      const tool = SINGLE_STREAM_TOOLS[format];
+      // Three distinct outcomes, and the codes carry contracts a caller acts
+      // on. UNSUPPORTED_TYPE is `retryable: false` and advises converting the
+      // file; DECOMPRESSION_FAILED is `retryable: true` and advises
+      // re-uploading; SECURITY_VALIDATION_FAILED is how the GZIP and TAR.GZ
+      // paths in this file already report a decompression bomb. `retryable` is
+      // read downstream by `isRetryableErrorCode`, so a stream that tripped the
+      // decoder's size cap must not be advertised as worth retrying — it will
+      // fail identically every time — and a merely truncated upload must not be
+      // reported as an unsupported format.
+      const code =
+        result.status === "tool-unavailable"
+          ? FileErrorCode.UNSUPPORTED_TYPE
+          : result.status === "too-large"
+            ? FileErrorCode.SECURITY_VALIDATION_FAILED
+            : FileErrorCode.DECOMPRESSION_FAILED;
+      return {
+        success: false,
+        entries: [],
+        securityWarnings: [],
+        error: this.createError(code, {
+          format,
+          reason:
+            result.status === "tool-unavailable"
+              ? `${format.toUpperCase()} could not be decompressed. Node has no built-in ` +
+                `decoder for it and the "${tool}" command is unavailable on this machine.`
+              : result.status === "too-large"
+                ? `${format.toUpperCase()} expands beyond the ` +
+                  `${this.formatSizeMB(ARCHIVE_SECURITY.MAX_DECOMPRESSED_SIZE)} MB ` +
+                  `decompression limit and was refused before it could be read.`
+                : `${format.toUpperCase()} could not be decompressed. The stream is ` +
+                  `corrupt or truncated.`,
+          supportedFormats: "ZIP, TAR, TAR.GZ, TAR.BZ2, GZ, BZ2, XZ, ZST, JAR",
+        }),
+      };
+    }
+    const decompressed = result.buffer;
+
+    if (decompressed.length > ARCHIVE_SECURITY.MAX_DECOMPRESSED_SIZE) {
+      return {
+        success: false,
+        entries: [],
+        securityWarnings: [],
+        error: this.createError(FileErrorCode.SECURITY_VALIDATION_FAILED, {
+          reason: `Decompressed size (${this.formatSizeMB(decompressed.length)} MB) exceeds limit (${this.formatSizeMB(ARCHIVE_SECURITY.MAX_DECOMPRESSED_SIZE)} MB)`,
+        }),
+      };
+    }
+
+    if (this.looksLikeTar(decompressed)) {
+      const tarStream = await import("tar-stream");
+      return await this.parseTarStream(tarStream, decompressed);
+    }
+
+    const contents = new Map<string, string>();
+    const text = this.decodeEntryText(decompressed);
+    if (text !== null) {
+      contents.set(
+        "decompressed-content",
+        text.slice(0, ARCHIVE_CONFIG.MAX_EXTRACT_ENTRY_SIZE),
+      );
+    }
+    return {
+      success: true,
+      entries: [
+        {
+          name: "decompressed-content",
+          uncompressedSize: decompressed.length,
+          compressedSize: buffer.length,
+          isDirectory: false,
+        },
+      ],
+      securityWarnings: [],
+      contents,
+    };
+  }
+
   private async extractEntryContents(buffer: Buffer, entries: ArchiveEntry[]): Promise<Map<string, string>> {
     const contents = new Map<string, string>();
 
@@ -1212,18 +1601,7 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
             return false;
           }
 
-          const ext = path.extname(e.name).toLowerCase();
-          // Check by extension
-          if (ARCHIVE_CONFIG.EXTRACTABLE_EXTENSIONS.has(ext)) {
-            return true;
-          }
-          // Check for common extensionless config files
-          const basename = path.basename(e.name).toLowerCase();
-          if (basename === "readme" || basename === "license" || basename === "makefile" || basename === "dockerfile") {
-            return true;
-          }
-
-          return false;
+          return this.isExtractableEntryName(e.name);
         })
         // Sort: smaller files first (more likely to fit), then by name
         .sort((a, b) => a.uncompressedSize - b.uncompressedSize);

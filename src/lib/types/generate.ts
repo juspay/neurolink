@@ -33,7 +33,11 @@ import type {
   ZodUnknownSchema,
 } from "./aliases.js";
 import type { NeurolinkCredentials } from "./providers.js";
-import type { CSVProcessorOptions, FileWithMetadata } from "./file.js";
+import type {
+  CSVProcessorOptions,
+  FileWithMetadata,
+  MultimodalAudioEntry,
+} from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
 import type { Schema, Tool, ToolChoice } from "./tools.js";
 import type { StepResult, LanguageModel } from "./providers.js";
@@ -73,6 +77,17 @@ export type GenerateOptions = {
     csvFiles?: Array<Buffer | string>; // Explicit CSV files
     pdfFiles?: Array<Buffer | string>; // Explicit PDF files
     audioFiles?: Array<Buffer | string>; // Explicit audio files (metadata/transcript extraction)
+    /**
+     * Audio whose bytes should be delivered to the provider, populated during
+     * detection rather than by callers.
+     *
+     * Separate from `audioFiles` above, which is the caller-facing input that
+     * yields a metadata summary. This one carries the decoded bytes forward so
+     * a provider that can actually listen receives the audio instead of a
+     * description of it; providers that cannot fall back to the summary and
+     * this is ignored.
+     */
+    nativeAudioFiles?: MultimodalAudioEntry[];
     videoFiles?: Array<Buffer | string>; // Explicit video files
     files?: Array<Buffer | string | FileWithMetadata>; // Auto-detect file types
     content?: Content[]; // Advanced multimodal content

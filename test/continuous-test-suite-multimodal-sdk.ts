@@ -43,9 +43,13 @@ import {
 import { hasPackage, makeDocx, makeXlsx } from "./helpers/officeFixtures.js";
 import { FileDetector } from "../src/lib/utils/fileDetector.js";
 import { redactUrlsInText } from "../src/lib/utils/logSanitize.js";
-import { buildMultimodalMessagesArray } from "../src/lib/utils/messageBuilder.js";
+import {
+  buildMultimodalMessagesArray,
+  normalizeVisionImageFormats,
+} from "../src/lib/utils/messageBuilder.js";
 import { NeuroLink } from "../src/lib/neurolink.js";
 import { SIZE_TIER_THRESHOLDS } from "../src/lib/types/index.js";
+import { SIZE_LIMITS_BYTES } from "../src/lib/processors/config/sizeLimits.js";
 
 const { test, runSuite } = defineSuite("Multimodal through the SDK");
 
@@ -327,6 +331,115 @@ await test("buildMultimodalMessagesArray carries audio into message content", as
     serialised.toLowerCase(),
     "tone.mp3",
     "the audio file is named in the message handed to the model",
+  );
+});
+
+await test("audio survives alongside structured input.content", async () => {
+  // A caller supplying `content` took a different branch that never received
+  // the detected audio, and that branch returns early as a plain string when
+  // there is no image or PDF — so an attached recording was silently reduced
+  // to its metadata summary. No API involved: the assertion is on the message
+  // shape, which is where the bytes were being lost.
+  await ensureMedia();
+  const messages = await buildMultimodalMessagesArray(
+    {
+      input: {
+        text: "Describe this audio.",
+        content: [{ type: "text", text: "What is said in the recording?" }],
+        files: [path.join(dir, "tone.mp3")],
+      },
+    } as Parameters<typeof buildMultimodalMessagesArray>[0],
+    "vertex",
+    "gemini-2.5-flash",
+  );
+  const user = messages.find((message) => message.role === "user");
+  const parts = user?.content;
+  assert(
+    Array.isArray(parts),
+    "the content branch produces parts rather than collapsing to a string",
+  );
+  // The payload is asserted, not just the part's existence. A `file` part
+  // carrying no bytes is exactly the metadata-only delivery this whole change
+  // exists to eliminate, and it would satisfy a type-only check — the same
+  // shape of false pass this suite's header warns about.
+  const audioPart = (
+    parts as Array<{ type?: string; mediaType?: string; data?: unknown }>
+  ).find(
+    (part) => part.type === "file" && part.mediaType?.startsWith("audio/"),
+  );
+  assert(
+    audioPart !== undefined,
+    "the recording is attached as an audio file part, not merely described",
+  );
+  assertEqual(
+    audioPart?.mediaType,
+    "audio/mpeg",
+    "the part declares the mp3 media type the fixture was encoded as",
+  );
+  const payload = audioPart?.data;
+  const payloadBytes =
+    typeof payload === "string"
+      ? Buffer.from(payload, "base64").length
+      : Buffer.isBuffer(payload)
+        ? payload.length
+        : 0;
+  assert(
+    payloadBytes > 1024,
+    "the part carries the actual audio bytes rather than an empty placeholder",
+  );
+});
+
+await test("structured content carrying only audio is a complete request", async () => {
+  // `hasMultimodal` counted images and PDFs but not audio, so a `content` array
+  // with no text plus an attached recording was rejected as empty — the request
+  // threw before delivery could even be considered. Audio the provider can read
+  // is content.
+  await ensureMedia();
+  const messages = await buildMultimodalMessagesArray(
+    {
+      input: {
+        text: "",
+        content: [{ type: "text", text: "" }],
+        files: [path.join(dir, "tone.mp3")],
+      },
+    } as Parameters<typeof buildMultimodalMessagesArray>[0],
+    "vertex",
+    "gemini-2.5-flash",
+  );
+  const user = messages.find((message) => message.role === "user");
+  const parts = user?.content;
+  assert(
+    Array.isArray(parts),
+    "an audio-only content array produces parts rather than throwing",
+  );
+  assert(
+    (parts as Array<{ type?: string; mediaType?: string }>).some(
+      (part) => part.type === "file" && part.mediaType?.startsWith("audio/"),
+    ),
+    "the recording is delivered rather than rejected as empty content",
+  );
+});
+
+await test("a provider without native audio keeps the plain-text shape", async () => {
+  // The counterpart guard: making audio multimodal must not push every other
+  // provider onto the array shape carrying a part it cannot read.
+  await ensureMedia();
+  const messages = await buildMultimodalMessagesArray(
+    {
+      input: {
+        text: "Describe this audio.",
+        content: [{ type: "text", text: "What is said in the recording?" }],
+        files: [path.join(dir, "tone.mp3")],
+      },
+    } as Parameters<typeof buildMultimodalMessagesArray>[0],
+    "openai",
+    "gpt-4o",
+  );
+  const user = messages.find((message) => message.role === "user");
+  assertEqual(
+    typeof user?.content,
+    "string",
+    "a provider that cannot listen still receives plain text",
   );
 });
 
@@ -837,6 +950,38 @@ await test("a mislabelled filename loses to the declared mimetype", async () => 
     "the model read the number off the mislabelled image",
     content,
   );
+});
+
+await test("an oversized image data URI is refused before it is decoded", async () => {
+  // The size guard was added on the wrong side of the allocation it exists to
+  // prevent: `Buffer.from(base64)` ran first and the decoded length was checked
+  // second, so a 24MB payload was fully materialised before a 10MB limit turned
+  // it away. Same verdict either way — the cost is what changed.
+  const imageMax = SIZE_LIMITS_BYTES.IMAGE_MAX;
+  const oversized: number[] = [];
+  const realFrom = Buffer.from.bind(Buffer);
+  const spy = (...args: Parameters<typeof realFrom>) => {
+    const out = realFrom(...args);
+    if (Buffer.isBuffer(out) && out.length > imageMax) {
+      oversized.push(out.length);
+    }
+    return out;
+  };
+  Buffer.from = spy as unknown as typeof Buffer.from;
+
+  try {
+    // heic needs transcoding, so the entry reaches the conversion path rather
+    // than being passed straight through as an already-universal format.
+    const base64 = "A".repeat(Math.ceil((imageMax * 2) / 3) * 4);
+    const input = { images: [`data:image/heic;base64,${base64}`] };
+    await normalizeVisionImageFormats(input);
+    assert(
+      oversized.length === 0,
+      "an oversized data URI was decoded in full before the size limit rejected it",
+    );
+  } finally {
+    Buffer.from = realFrom as unknown as typeof Buffer.from;
+  }
 });
 
 // HEIC, HEIF, ICO and JPEG 2000 are deliberately NOT asserted end-to-end here.

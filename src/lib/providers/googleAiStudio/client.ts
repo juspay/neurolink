@@ -10,6 +10,7 @@ import {
   TOOL_STORAGE_TIMEOUT_MS,
 } from "../../core/constants.js";
 import {
+  mergeMediaFileAliases,
   normalizeVisionImageFormats,
   processUnifiedFilesArray,
 } from "../../utils/messageBuilder.js";
@@ -707,6 +708,55 @@ export class GoogleAIStudioProvider extends BaseProvider {
   }
 
   // executeGenerate removed - BaseProvider handles all generation with tools
+  /**
+   * Run the file preprocessing this provider's native paths depend on.
+   *
+   * AI Studio overrides both `generate()` and `executeStream()` and routes
+   * straight to the native SDK, so neither reaches
+   * `buildMultimodalMessagesArray` — the place that turns `input.files` into
+   * text, images, PDFs and `nativeAudioFiles`. `BaseProvider.stream()` does
+   * build messages, but onto a throwaway clone whose result is discarded, so
+   * the real `options.input` came through untouched.
+   *
+   * The consequence was asymmetric and easy to miss: `generate()` did this
+   * inline and worked, while `stream()` silently dropped every attached file —
+   * not just audio, but the metadata summary too. Vertex hit the identical bug
+   * (#1258) and solved it with exactly this shape, called from both entry
+   * points.
+   */
+  private async preprocessNativeFileInput(
+    options: TextGenerationOptions | StreamOptions,
+  ): Promise<void> {
+    // The user-facing aliases (`input.audioFiles`, `input.videoFiles`) are
+    // folded into `input.files` here, exactly as the Vertex client does. Only
+    // `files` is processed below, so without this a caller who used the
+    // documented `audioFiles` field had it silently ignored on both of this
+    // provider's paths.
+    if (options.input) {
+      mergeMediaFileAliases(options.input);
+    }
+    if (options.input?.files && options.input.files.length > 0) {
+      try {
+        // Mutates options.input.text / .images / .pdfFiles / .nativeAudioFiles
+        // in place.
+        await processUnifiedFilesArray(
+          options as Parameters<typeof processUnifiedFilesArray>[0],
+          100 * 1024 * 1024,
+          this.providerName,
+        );
+      } catch (fileError) {
+        logger.warn(
+          `[GoogleAIStudio] processUnifiedFilesArray threw, continuing without file content: ${fileError instanceof Error ? fileError.message : String(fileError)}`,
+        );
+      }
+    }
+
+    // Runs even without input.files: a caller can populate input.images
+    // directly, and this native path never reaches the shared multimodal
+    // builder that would otherwise normalize the formats.
+    await normalizeVisionImageFormats(options.input);
+  }
+
   protected async executeStream(
     options: StreamOptions,
     analysisSchema?: ZodUnknownSchema | Schema<unknown>,
@@ -717,6 +767,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
     if (options.input?.audio) {
       return await this.executeAudioStreamViaGeminiLive(options);
     }
+
+    // #1258, for this provider: stream() must run the same file preprocessing
+    // generate() does, or attached files are dropped on this path alone.
+    await this.preprocessNativeFileInput(options);
 
     // Structured output (analysisSchema, JSON format, or schema) is incompatible with tools on Gemini.
     const wantsStructuredOutput =
@@ -1675,30 +1729,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
       return this.handleDirectTTSSynthesis(options, Date.now());
     }
 
-    // Process the unified `input.files` array before routing to the
-    // native SDK. BaseProvider.generate() runs this preprocessing via
-    // buildMultimodalMessagesArray, but AI Studio's override skips it,
-    // which would otherwise drop text-file content (and the
-    // mimetype-hint contract) on the floor. Mutates options.input.text /
-    // options.input.images / options.input.pdfFiles in place.
-    if (options.input?.files && options.input.files.length > 0) {
-      try {
-        await processUnifiedFilesArray(
-          options as Parameters<typeof processUnifiedFilesArray>[0],
-          100 * 1024 * 1024,
-          this.providerName,
-        );
-      } catch (fileError) {
-        logger.warn(
-          `[GoogleAIStudio] processUnifiedFilesArray threw, continuing without file content: ${fileError instanceof Error ? fileError.message : String(fileError)}`,
-        );
-      }
-    }
-
-    // Runs even without input.files: a caller can populate input.images
-    // directly, and this native path never reaches the shared multimodal
-    // builder that would otherwise normalize the formats.
-    await normalizeVisionImageFormats(options.input);
+    await this.preprocessNativeFileInput(options);
 
     // Merge registered (built-in / MCP) tools with caller-supplied tools.
     // AI Studio's generate() bypasses BaseProvider.generate(), so the

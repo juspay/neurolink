@@ -363,6 +363,13 @@ export class FileDetector {
   public static readonly DEFAULT_NETWORK_TIMEOUT = 30000; // 30 seconds
   public static readonly DEFAULT_HEAD_TIMEOUT = 5000; // 5 seconds
   /**
+   * Ceiling on an in-process document parse (unzip + XML walk). Generous
+   * relative to the work, because the cost of firing early on a large but
+   * legitimate file is a lost extraction, while the cost of never firing is a
+   * held request.
+   */
+  public static readonly DEFAULT_DOCUMENT_TIMEOUT = 30000; // 30 seconds
+  /**
    * Auto-detect file type and process in one call
    *
    * Runs detection strategies in priority order:
@@ -551,7 +558,14 @@ export class FileDetector {
     if (Buffer.isBuffer(input)) {
       return "buffer";
     }
-    return "unknown-input";
+    // Everything left is a `FileWithMetadata`, which states its own name, and
+    // `withResolvedExtension` reads this to recover an extension when a
+    // content-based strategy reported none. Falling straight through to
+    // "unknown-input" threw that name away, so an `.odp`, `.rtf` or `.tar`
+    // supplied as bytes-plus-name lost the extension its processor routes on.
+    // Still defensive about the value: the type says required, callers are
+    // untyped JavaScript often enough.
+    return input?.filename || "unknown-input";
   }
 
   /**
@@ -880,7 +894,8 @@ export class FileDetector {
           source: FileDetector.deriveInputSource(input),
           metadata: {
             confidence: 95,
-            filename: FileDetector.deriveInputFilename(input),
+            filename:
+              options?.filenameHint || FileDetector.deriveInputFilename(input),
             size: FileDetector.deriveInputSize(input),
           },
         };
@@ -909,7 +924,7 @@ export class FileDetector {
         logger.info(
           `[FileDetector] Type: ${result.type} (${result.metadata.confidence}%)`,
         );
-        return result;
+        return FileDetector.withResolvedExtension(result, input, options);
       }
     }
 
@@ -918,7 +933,76 @@ export class FileDetector {
     logger.debug(
       `[FileDetector] Best-effort type below threshold: ${best?.type ?? "unknown"} (${best?.metadata.confidence ?? 0}%, threshold ${confidenceThreshold}%)`,
     );
-    return best as FileDetectionResult;
+    return FileDetector.withResolvedExtension(
+      best as FileDetectionResult,
+      input,
+      options,
+    );
+  }
+
+  /**
+   * Fill in `extension` from the input's name when detection did not set it.
+   *
+   * Content-based strategies identify a type from magic bytes and legitimately
+   * have no extension to report, so they return null. That is fine for the type
+   * itself but not for routing: several processors are chosen by extension
+   * *after* detection has settled the type, because one routing type covers
+   * several formats — `docx` covers .docx, .odt and .rtf.
+   *
+   * With a null extension those branches were unreachable. An .rtf scored high
+   * on its `{\\rtf1` signature, arrived as type "docx" with no extension, and
+   * fell through to the Word processor, which cannot read RTF — so a file whose
+   * dedicated processor extracts it perfectly reported "Could not extract
+   * content". The extension was known the whole time; it was simply dropped on
+   * the way through.
+   *
+   * Only fills a gap — a strategy that did determine an extension keeps it, so
+   * content still wins over a lying filename.
+   */
+  private static withResolvedExtension(
+    result: FileDetectionResult,
+    input: FileInput,
+    options?: FileDetectorOptions,
+  ): FileDetectionResult {
+    if (!result) {
+      return result;
+    }
+    // The caller's hint outranks a name derived from the input, because on the
+    // unified path the input has already been unwrapped to a bare Buffer and
+    // derives to the literal "buffer" — carrying no extension at all.
+    const filename =
+      options?.filenameHint ||
+      result.metadata?.filename ||
+      FileDetector.deriveInputFilename(input);
+    if (!filename) {
+      return result;
+    }
+    // Split on both separators so a Windows-style path on a POSIX host still
+    // yields its basename, then take the final suffix.
+    const base = filename.split(/[\\/]/).pop() ?? filename;
+    const dot = base.lastIndexOf(".");
+    const extension =
+      result.extension ??
+      (dot > 0 && dot < base.length - 1
+        ? base.slice(dot + 1).toLowerCase()
+        : null);
+
+    // The name is carried alongside the extension for the same reason. A
+    // content strategy reports no filename, so every processor keyed on one
+    // received the literal fallback "archive" — and archive format detection
+    // reads the name, because TAR has no magic bytes at offset 0 (its "ustar"
+    // marker sits at byte 257). A .tar therefore arrived as an unidentifiable
+    // archive and reported "Could not extract content", while the same bytes
+    // handed to the processor WITH their name extract perfectly.
+    const metadata =
+      result.metadata && !result.metadata.filename
+        ? { ...result.metadata, filename: base }
+        : result.metadata;
+
+    if (extension === result.extension && metadata === result.metadata) {
+      return result;
+    }
+    return { ...result, extension, metadata };
   }
 
   /**
@@ -1813,6 +1897,51 @@ export class FileDetector {
   ): Promise<FileProcessingResult> {
     const pptxFilename = detection.metadata.filename || "presentation";
     try {
+      // ODP is an OpenDocument package, not OOXML — the PPTX reader finds no
+      // ppt/slides parts in it and returns nothing. It reaches this branch at
+      // all because one routing type ("pptx") covers every presentation
+      // format, the same way "docx" covers .odt.
+      if (detection.extension?.toLowerCase() === "odp") {
+        const { openDocumentProcessor } =
+          await import("../processors/document/OpenDocumentProcessor.js");
+        // Bounded per the project's async-timeout guideline: this unzips and
+        // parses attacker-supplied bytes, and a stalled parse would otherwise
+        // hold the request open with no ceiling. On timeout the throw lands in
+        // this block's existing catch, which degrades to the placeholder.
+        const odpResult = await withTimeout(
+          openDocumentProcessor.processFile({
+            id: pptxFilename,
+            name: pptxFilename,
+            mimetype:
+              detection.mimeType ||
+              "application/vnd.oasis.opendocument.presentation",
+            size: content.length,
+            buffer: content,
+          }),
+          FileDetector.DEFAULT_DOCUMENT_TIMEOUT,
+        );
+        // Gated on success rather than on text, because a presentation of
+        // nothing but images is a legitimate ODP that extracts to an empty
+        // string. Requiring text sent that file on to the PPTX reader, which
+        // cannot read OpenDocument at all — so a successful extraction was
+        // discarded in favour of a guaranteed failure. Matches how the ODT and
+        // ODS branches degrade.
+        if (odpResult.success && odpResult.data) {
+          return {
+            type: "pptx",
+            content:
+              odpResult.data.textContent ||
+              FileDetector.formatInformativePlaceholder(
+                "Presentation",
+                pptxFilename,
+                content,
+                detection,
+              ),
+            mimeType: detection.mimeType,
+            metadata: detection.metadata,
+          };
+        }
+      }
       const { PptxProcessor } =
         await import("../processors/document/PptxProcessor.js");
       const pptxResult = await PptxProcessor.extractText(content);
@@ -2586,14 +2715,36 @@ class MagicBytesStrategy implements DetectionStrategy {
     if (input.length >= 6 && input.toString("latin1", 0, 5) === "#!AMR") {
       return this.result("audio", "audio/amr", 95);
     }
-    // JPEG 2000: 12-byte signature box.
+    // JPEG 2000: the full 12-byte signature box, trailing 0D 0A 87 0A
+    // included. Those four bytes are a deliberate line-ending probe — CR LF, a
+    // high byte, LF — that any transfer which mangles newlines or strips the
+    // eighth bit will visibly corrupt, so checking only the length and brand
+    // accepts exactly the damaged files the signature exists to reject.
     if (
-      input.length >= 8 &&
+      input.length >= 12 &&
       input[0] === 0x00 &&
       input[1] === 0x00 &&
       input[2] === 0x00 &&
       input[3] === 0x0c &&
-      input.toString("latin1", 4, 8) === "jP  "
+      input.toString("latin1", 4, 8) === "jP  " &&
+      input[8] === 0x0d &&
+      input[9] === 0x0a &&
+      input[10] === 0x87 &&
+      input[11] === 0x0a
+    ) {
+      return this.result("image", "image/jp2", 95);
+    }
+    // The other shape JPEG 2000 ships in: a bare codestream (.j2k/.j2c) opening
+    // with the SOC + SIZ markers. `ImageProcessor.detectImageType` learned both
+    // shapes; this strategy knew only the container, so a codestream uploaded
+    // as bytes-plus-filename was typed "unknown" and delivered as a binary
+    // blob — the codestream branch over there was unreachable from this path.
+    if (
+      input.length >= 4 &&
+      input[0] === 0xff &&
+      input[1] === 0x4f &&
+      input[2] === 0xff &&
+      input[3] === 0x51
     ) {
       return this.result("image", "image/jp2", 95);
     }

@@ -34,6 +34,12 @@ import {
   isAudioFile,
 } from "../src/lib/processors/media/AudioProcessor.js";
 import { FileDetector } from "../src/lib/utils/fileDetector.js";
+import { buildUserPartsWithMultimodal } from "../src/lib/providers/googleNativeGemini3/utils.js";
+import {
+  needsAudioTranscode,
+  supportsNativeAudio,
+  toProviderCompatibleAudio,
+} from "../src/lib/adapters/audioFormatSupport.js";
 
 const { test, runSuite } = defineSuite("Audio file support");
 
@@ -299,6 +305,319 @@ await test("textContent names the file so the model has context", async () => {
     "tone.mp3",
     "the filename appears in the text handed to the model",
   );
+});
+
+// --- Native audio delivery: capability map and conversion contract ---------
+//
+// The live format suite proves audio *arrives*, but it can only do so for the
+// containers this machine can encode and only when credentials are present.
+// These run offline and pin the decision logic itself — which provider is
+// offered raw bytes, which container is re-encoded first, and the promise the
+// converter makes to its caller when it cannot do the job.
+
+await test("file preprocessing is idempotent for a reused input object", async () => {
+  // Everything this produces is appended — the summary onto `text`, the bytes
+  // onto `nativeAudioFiles` — and `files` is never consumed, so a second pass
+  // over the same input attaches the same recording twice and doubles the
+  // injected text. That is reachable: a provider preprocessing in both
+  // generate() and executeStream() shares one input reference with
+  // BaseProvider's real-stream → fake-stream fallback, so a retried stream
+  // runs it again over the same object.
+  await ensureFixtures();
+  const { processUnifiedFilesArray } =
+    await import("../src/lib/utils/messageBuilder.js");
+  const options = {
+    input: {
+      text: "Describe this audio.",
+      files: [path.join(dir, "tone.mp3")],
+    },
+  };
+  const run = async () =>
+    processUnifiedFilesArray(
+      options as unknown as Parameters<typeof processUnifiedFilesArray>[0],
+      100 * 1024 * 1024,
+      "google-ai-studio",
+    );
+
+  await run();
+  const input = options.input as {
+    text?: string;
+    nativeAudioFiles?: unknown[];
+  };
+  const audioAfterFirst = input.nativeAudioFiles?.length ?? 0;
+  assert(audioAfterFirst === 1, "the first pass collects the recording once");
+
+  await run();
+  assertEqual(
+    input.nativeAudioFiles?.length ?? 0,
+    audioAfterFirst,
+    "a second pass does not attach the same recording again",
+  );
+  assertEqual(
+    (input.text ?? "").split("## Audio File").length - 1,
+    1,
+    "a second pass does not duplicate the injected metadata summary",
+  );
+});
+
+await test("a failed file still fails loud on retry, and good files are not re-added", async () => {
+  // The dedup guard must not swallow a retry. The loop throws on the first
+  // file it cannot process (#273, fail loud) and the SDK's own retry path
+  // re-invokes with the same input, so marking the whole run as done on entry
+  // would turn attempt two into a silent success with the bad file simply
+  // missing — the failure class this PR exists to remove. Marking on exit
+  // instead would re-add the files that already succeeded. Per entry is the
+  // only version that is right both ways, and this pins both directions.
+  await ensureFixtures();
+  const { processUnifiedFilesArray } =
+    await import("../src/lib/utils/messageBuilder.js");
+  const good = path.join(dir, "good-marker.txt");
+  fs.writeFileSync(good, "GOODMARKER line\n".repeat(60));
+  const options = {
+    input: {
+      text: "Read these.",
+      files: [good, path.join(dir, "definitely-absent.pdf")],
+    },
+  };
+  const run = () =>
+    processUnifiedFilesArray(
+      options as unknown as Parameters<typeof processUnifiedFilesArray>[0],
+      100 * 1024 * 1024,
+      "google-ai-studio",
+    );
+
+  let firstThrew = false;
+  try {
+    await run();
+  } catch {
+    firstThrew = true;
+  }
+  assert(firstThrew, "the first attempt fails loud on the unreadable file");
+  const input = options.input as { text?: string };
+  const occurrencesAfterFirst =
+    (input.text ?? "").split("GOODMARKER").length - 1;
+
+  let secondThrew = false;
+  try {
+    await run();
+  } catch {
+    secondThrew = true;
+  }
+  assert(
+    secondThrew,
+    "the retry fails loud too rather than silently skipping the bad file",
+  );
+  assertEqual(
+    (input.text ?? "").split("GOODMARKER").length - 1,
+    occurrencesAfterFirst,
+    "the file that already succeeded is not added a second time",
+  );
+});
+
+await test("AI Studio's stream path preprocesses files like its generate path", async () => {
+  // AI Studio overrides both entry points and goes straight to the native SDK,
+  // so neither reaches the shared message builder. generate() ran the file
+  // preprocessing inline and stream() did not, which dropped every attached
+  // file on the streaming path — the audio bytes AND the metadata summary.
+  // Asserted offline: preprocessing mutates options.input in place before any
+  // network call, so the credential failure that follows is irrelevant here.
+  await ensureFixtures();
+  const previousKey = process.env.GOOGLE_AI_API_KEY;
+  process.env.GOOGLE_AI_API_KEY =
+    previousKey?.trim() || "not-a-real-key-no-request-succeeds";
+  try {
+    const { GoogleAIStudioProvider } =
+      await import("../src/lib/providers/googleAiStudio/client.js");
+    const provider = new GoogleAIStudioProvider();
+    const options = {
+      input: {
+        text: "Describe this audio.",
+        files: [path.join(dir, "tone.mp3")],
+      },
+      disableTools: true,
+    };
+    try {
+      await provider.stream(
+        options as unknown as Parameters<typeof provider.stream>[0],
+      );
+    } catch {
+      // Expected: the request itself cannot succeed here. Preprocessing has
+      // already run by then, which is the whole point.
+    }
+    const input = options.input as {
+      text?: string;
+      nativeAudioFiles?: unknown[];
+    };
+    assert(
+      (input.nativeAudioFiles?.length ?? 0) > 0,
+      "the streaming path collected the audio bytes rather than dropping them",
+    );
+    assertIncludes(
+      input.text ?? "",
+      "## Audio File",
+      "the streaming path also injected the metadata summary",
+    );
+  } finally {
+    if (previousKey === undefined) {
+      delete process.env.GOOGLE_AI_API_KEY;
+    } else {
+      process.env.GOOGLE_AI_API_KEY = previousKey;
+    }
+  }
+});
+
+await test("the AI Studio request builder attaches audio, not just Vertex", async () => {
+  // The capability map claims Gemini on BOTH front ends, but AI Studio
+  // overrides generate()/stream() and assembles its request through
+  // buildUserPartsWithMultimodal rather than the shared message builder — so
+  // wiring audio into the Vertex client alone left this path advertising
+  // support and then dropping the bytes. Asserting on the parts the provider
+  // would actually send is the only way to catch that; a supportsNativeAudio()
+  // check passes either way, which is exactly why it went unnoticed.
+  const parts = await buildUserPartsWithMultimodal(
+    {
+      text: "Please transcribe this.",
+      nativeAudioFiles: [
+        {
+          buffer: Buffer.from("pretend mp3 bytes, enough of them to measure"),
+          filename: "memo.mp3",
+          mimeType: "audio/mpeg",
+        },
+      ],
+    },
+    "Please transcribe this.",
+    "[audio-suite]",
+  );
+  const audioPart = parts.find(
+    (part) =>
+      "inlineData" in part &&
+      part.inlineData &&
+      (part.inlineData as { mimeType: string }).mimeType.startsWith("audio/"),
+  );
+  assert(
+    audioPart !== undefined,
+    "the AI Studio part builder attaches the recording as inlineData",
+  );
+  const payload =
+    audioPart && "inlineData" in audioPart
+      ? ((audioPart.inlineData as { data: string }).data ?? "")
+      : "";
+  assert(
+    Buffer.from(payload, "base64").length > 0,
+    "the inlineData part carries the audio bytes rather than an empty payload",
+  );
+});
+
+await test("provider capability is matched on normalised names", () => {
+  // Every spelling the registry and CLI accept for the same provider, because
+  // this gates whether audio bytes are sent at all: a missed alias silently
+  // downgrades the turn to a metadata summary.
+  for (const provider of [
+    "vertex",
+    "google-vertex",
+    "GoogleVertex",
+    "  gemini  ",
+    "google-ai-studio",
+  ]) {
+    assert(
+      supportsNativeAudio(provider),
+      `a Gemini-family provider spelling is recognised as accepting audio`,
+    );
+  }
+  for (const provider of ["openai", "anthropic", "bedrock", "mistral", ""]) {
+    assert(
+      !supportsNativeAudio(provider),
+      `a provider with no inline-audio support is not offered raw bytes`,
+    );
+  }
+});
+
+await test("transcode is required exactly outside Gemini's accepted set", () => {
+  // Gemini's documented set passes through untouched...
+  for (const mime of [
+    "audio/wav",
+    "audio/mpeg",
+    "audio/aiff",
+    "audio/aac",
+    "audio/ogg",
+    "audio/flac",
+    "AUDIO/MPEG",
+    "audio/wav; codecs=1",
+  ]) {
+    assert(
+      !needsAudioTranscode(mime),
+      `an accepted container is passed through without re-encoding`,
+    );
+  }
+  // ...and everything else is converted rather than rejected, which is the
+  // whole point: the container a voice memo happens to use says nothing about
+  // whether the audio inside is worth hearing.
+  for (const mime of [
+    "audio/x-caf",
+    "audio/x-ms-wma",
+    "audio/x-wavpack",
+    "audio/basic",
+    "audio/amr",
+  ]) {
+    assert(
+      needsAudioTranscode(mime),
+      `an unsupported container is routed through conversion`,
+    );
+  }
+});
+
+await test("an already-native container is returned untouched", async () => {
+  // No ffmpeg involved on this path, so it holds on any machine.
+  const bytes = Buffer.from("not really audio, and deliberately so");
+  const result = await toProviderCompatibleAudio(bytes, "audio/mpeg", ".mp3");
+  assert(!result.converted, "an accepted container reports no conversion");
+  assertEqual(result.mimeType, "audio/mpeg", "the MIME type is preserved");
+  assert(result.buffer === bytes, "the original buffer is passed through");
+});
+
+await test("a mimetype parameter does not defeat the native check", async () => {
+  const bytes = Buffer.from("still not audio");
+  const result = await toProviderCompatibleAudio(
+    bytes,
+    "audio/mpeg; codecs=mp3",
+    ".mp3",
+  );
+  assert(!result.converted, "the parameter is stripped before the lookup");
+  assertEqual(result.mimeType, "audio/mpeg", "the normalised type comes back");
+});
+
+await test("an unconvertible input degrades instead of throwing", async () => {
+  // The contract the caller depends on: this never throws for audio reasons.
+  // Bytes that are not audio in a container that would need conversion is the
+  // worst case — ffmpeg fails, or is absent entirely — and both must surface
+  // as `converted: false` so the caller falls back to the metadata summary
+  // rather than failing the generation.
+  const garbage = Buffer.from("00000000 definitely not a WMA stream");
+  const result = await toProviderCompatibleAudio(
+    garbage,
+    "audio/x-ms-wma",
+    ".wma",
+  );
+  assert(!result.converted, "a failed conversion reports converted: false");
+  assert(result.buffer === garbage, "the original bytes are handed back");
+  assertEqual(
+    result.mimeType,
+    "audio/x-ms-wma",
+    "the original MIME type is preserved so the caller can still skip delivery",
+  );
+});
+
+await test("an empty buffer is handled on the same degrading path", async () => {
+  // Raised in review as a case worth pre-checking. It needs no special guard:
+  // an empty stream either fails in ffmpeg or produces empty output, and both
+  // are already funnelled into the same fallback.
+  const result = await toProviderCompatibleAudio(
+    Buffer.alloc(0),
+    "audio/x-ms-wma",
+    ".wma",
+  );
+  assert(!result.converted, "an empty input cannot be converted");
+  assertEqual(result.buffer.length, 0, "the empty buffer is returned as-is");
 });
 
 // Best-effort cleanup; the OS reclaims the temp dir regardless.

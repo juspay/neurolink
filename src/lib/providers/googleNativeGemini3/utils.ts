@@ -36,7 +36,12 @@ import type {
   VertexSegment,
   VertexToolStep,
   GeminiMultimodalInput,
+  MultimodalAudioEntry,
 } from "../../types/index.js";
+import {
+  needsAudioTranscode,
+  toProviderCompatibleAudio,
+} from "../../adapters/audioFormatSupport.js";
 import { logger } from "../../utils/logger.js";
 import { resolveSamplingParams } from "../../models/modelRegistry.js";
 import {
@@ -1865,6 +1870,66 @@ export function prependConversationMessages(
  * is skipped rather than aborting the entire request, matching prior
  * Vertex behaviour.
  */
+/**
+ * Append audio to a Gemini request as `inlineData` parts.
+ *
+ * Shared by both Gemini front ends. Vertex assembles its request here and AI
+ * Studio assembles it in `buildUserPartsWithMultimodal`; when this lived only in
+ * the Vertex client, AI Studio advertised audio support through
+ * `NATIVE_AUDIO_PROVIDERS` and then silently dropped the bytes.
+ *
+ * Gemini's native request shape is assembled directly rather than taken from the
+ * AI SDK's `file` parts, so audio has to be added explicitly the same way PDFs
+ * and images are — a `{ type: "file" }` part built upstream simply never
+ * reaches this request body. That asymmetry is why attaching a recording
+ * produced only the metadata summary even after the message builder learned to
+ * carry the bytes.
+ *
+ * A container Gemini does not accept is converted first; one that cannot be
+ * converted is skipped rather than sent, because an unsupported inlineData
+ * mimeType fails the whole request, and the caller still has the metadata
+ * summary in the text part.
+ */
+export async function appendNativeAudioParts(
+  userParts: VertexNativePart[],
+  audioFiles: MultimodalAudioEntry[] | undefined,
+  logPrefix: string = "[GeminiNative]",
+): Promise<void> {
+  if (!audioFiles || audioFiles.length === 0) {
+    return;
+  }
+  for (const audio of audioFiles) {
+    // Split on both separators: a Windows-style name reaching a POSIX host
+    // would otherwise keep its whole path, and the extension lookup below
+    // needs the bare filename.
+    const base = audio.filename.split(/[\\/]/).pop() ?? audio.filename;
+    const dot = base.lastIndexOf(".");
+    const extension = dot > 0 ? base.slice(dot) : ".bin";
+    const compatible = await toProviderCompatibleAudio(
+      audio.buffer,
+      audio.mimeType,
+      extension,
+    );
+    if (needsAudioTranscode(compatible.mimeType)) {
+      logger.warn(
+        `${logPrefix} Skipping native audio for ${base}: ${compatible.mimeType} ` +
+          `is not accepted and could not be converted. The metadata summary was ` +
+          `still included.`,
+      );
+      continue;
+    }
+    userParts.push({
+      inlineData: {
+        mimeType: compatible.mimeType,
+        data: compatible.buffer.toString("base64"),
+      },
+    });
+    logger.debug(
+      `${logPrefix} Added native audio part for ${base} (${compatible.mimeType})`,
+    );
+  }
+}
+
 export async function buildUserPartsWithMultimodal(
   input: GeminiMultimodalInput | undefined,
   textOverride?: string,
@@ -1976,6 +2041,13 @@ export async function buildUserPartsWithMultimodal(
       });
     }
   }
+
+  // Audio last, and through the same helper the Vertex client uses. AI Studio
+  // never touches `buildMultimodalMessagesArray` — it overrides generate() and
+  // stream() and assembles its request here — so wiring audio only into the
+  // Vertex client left this front end advertising native audio via
+  // NATIVE_AUDIO_PROVIDERS and then dropping the bytes on the floor.
+  await appendNativeAudioParts(parts, input?.nativeAudioFiles, logPrefix);
 
   return parts;
 }
