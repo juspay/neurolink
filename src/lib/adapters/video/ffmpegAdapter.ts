@@ -195,10 +195,19 @@ export async function getFfmpegPath(): Promise<string> {
  */
 export async function runFfmpeg(
   args: string[],
-  options: { timeoutMs?: number; maxBuffer?: number } = {},
+  options: {
+    timeoutMs?: number;
+    maxBuffer?: number;
+    /**
+     * Override the resolved binary. Used to retry against the system `ffmpeg`
+     * when the `ffmpeg-static` build lacks a codec — its LGPL build ships
+     * without HEVC, so it cannot decode HEIC even though a system build can.
+     */
+    binaryPath?: string;
+  } = {},
 ): Promise<{ stdout: string; stderr: string }> {
   const { execFile } = await import("node:child_process");
-  const ffmpegPath = await getFfmpegPath();
+  const ffmpegPath = options.binaryPath ?? (await getFfmpegPath());
   const timeoutMs = options.timeoutMs ?? FFMPEG_FRAME_TIMEOUT_MS;
   const maxBuffer = options.maxBuffer ?? FFMPEG_FRAME_MAX_BUFFER;
 

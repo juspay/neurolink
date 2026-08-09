@@ -45,9 +45,27 @@ export {
   // Combined MIME types
   MIME_TYPES,
   SOURCE_CODE_MIME_TYPES,
+  TEXT_EXTENSION_MIME_MAP,
   TEXT_MIME_TYPES,
   VIDEO_MIME_TYPES,
 } from "./mimeConstants.js";
+
+// =============================================================================
+// CANONICAL FILE-TYPE REGISTRY
+// =============================================================================
+
+export {
+  extensionForMimeType,
+  extensionsForModality,
+  FILE_TYPE_REGISTRY,
+  fileTypeForExtension,
+  isModalityExtension,
+  lookupByExtension,
+  lookupByMimeType,
+  mimeTypeForExtension,
+  mimeTypesForModality,
+  normalizeExtension,
+} from "./fileTypeRegistry.js";
 
 // =============================================================================
 // FILE EXTENSIONS

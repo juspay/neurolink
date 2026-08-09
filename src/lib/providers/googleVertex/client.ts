@@ -11,6 +11,8 @@ import {
   ErrorSeverity,
 } from "../../constants/enums.js";
 import { BaseProvider } from "../../core/baseProvider.js";
+import { unwrapImagePayload } from "../../adapters/imageFormatSupport.js";
+import { getMimeTypeForExtension } from "../../processors/config/mimeConstants.js";
 import {
   DEFAULT_GEMINI_STREAM_TIMEOUT_MS,
   DEFAULT_MAX_STEPS,
@@ -22,7 +24,10 @@ import {
 } from "../../core/constants.js";
 import { ModelConfigurationManager } from "../../core/modelConfiguration.js";
 import { isSchemaComplexityError } from "../../core/modules/structuredOutputPolicy.js";
-import { stringifyContentSafe } from "../../utils/logSanitize.js";
+import {
+  redactUrlForError,
+  stringifyContentSafe,
+} from "../../utils/logSanitize.js";
 import type { NeuroLink } from "../../neurolink.js";
 import { createProxyFetch } from "../../proxy/proxyFetch.js";
 import type {
@@ -62,6 +67,7 @@ import { applyVertexAnthropicCacheBreakpoints } from "../../utils/anthropicCache
 import { FileDetector } from "../../utils/fileDetector.js";
 import {
   mergeMediaFileAliases,
+  normalizeVisionImageFormats,
   processUnifiedFilesArray,
 } from "../../utils/messageBuilder.js";
 import { logger } from "../../utils/logger.js";
@@ -146,7 +152,11 @@ import {
   extractMcpToolErrorMessage,
   extractToolFailureText,
 } from "../../utils/mcpErrorText.js";
-import type { Schema, LanguageModel } from "../../types/index.js";
+import type {
+  Schema,
+  LanguageModel,
+  ImageWithAltText,
+} from "../../types/index.js";
 
 // Import proper types for multimodal message handling
 
@@ -1415,21 +1425,24 @@ export class GoogleVertexProvider extends BaseProvider {
     if (options.input) {
       mergeMediaFileAliases(options.input);
     }
-    if (!options.input?.files?.length) {
-      return;
+    if (options.input?.files?.length) {
+      try {
+        // Mutates options.input.text / .images / .pdfFiles in place.
+        await processUnifiedFilesArray(
+          options as Parameters<typeof processUnifiedFilesArray>[0],
+          100 * 1024 * 1024,
+          this.providerName,
+        );
+      } catch (fileError) {
+        logger.warn(
+          `[GoogleVertex] processUnifiedFilesArray threw, continuing without file content: ${fileError instanceof Error ? fileError.message : String(fileError)}`,
+        );
+      }
     }
-    try {
-      // Mutates options.input.text / .images / .pdfFiles in place.
-      await processUnifiedFilesArray(
-        options as Parameters<typeof processUnifiedFilesArray>[0],
-        100 * 1024 * 1024,
-        this.providerName,
-      );
-    } catch (fileError) {
-      logger.warn(
-        `[GoogleVertex] processUnifiedFilesArray threw, continuing without file content: ${fileError instanceof Error ? fileError.message : String(fileError)}`,
-      );
-    }
+    // Runs even without input.files: a caller can populate input.images
+    // directly, and this native path never reaches the shared multimodal
+    // builder that would otherwise normalize the formats.
+    await normalizeVisionImageFormats(options.input);
   }
 
   protected async executeStream(
@@ -1871,7 +1884,7 @@ export class GoogleVertexProvider extends BaseProvider {
     const multimodalInput = options.input as {
       text: string;
       pdfFiles?: Array<Buffer | string>;
-      images?: Array<Buffer | string>;
+      images?: Array<Buffer | string | ImageWithAltText>;
     };
 
     if (multimodalInput?.pdfFiles && multimodalInput.pdfFiles.length > 0) {
@@ -1911,7 +1924,13 @@ export class GoogleVertexProvider extends BaseProvider {
         `[GoogleVertex] Processing ${multimodalInput.images.length} image(s) for native stream`,
       );
 
-      for (const image of multimodalInput.images) {
+      for (const rawImage of multimodalInput.images) {
+        // `input.images` accepts `{ data, altText }` as a documented public
+        // shape, but this loop only ever handled Buffer | string — a wrapper
+        // fell through to the "assume raw bytes" branch and base64-encoded the
+        // OBJECT, sending the literal "[object Object]" to Vertex. Unwrap once,
+        // here, so every branch below sees the payload it expects.
+        const image = unwrapImagePayload(rawImage);
         let imageBuffer: Buffer;
         let mimeType = "image/jpeg"; // Default
 
@@ -1919,14 +1938,18 @@ export class GoogleVertexProvider extends BaseProvider {
           if (fs.existsSync(image)) {
             imageBuffer = fs.readFileSync(image);
             // Detect mime type from extension
-            const ext = path.extname(image).toLowerCase();
-            if (ext === ".png") {
-              mimeType = "image/png";
-            } else if (ext === ".gif") {
-              mimeType = "image/gif";
-            } else if (ext === ".webp") {
-              mimeType = "image/webp";
-            }
+            // Registry lookup rather than a png/gif/webp switch defaulting to
+            // JPEG: that default labelled a .heic/.bmp/.tiff/.avif reference
+            // image as image/jpeg, which is simply untrue and is what Vertex
+            // then rejected. The registry answers "application/octet-stream"
+            // for a missing or unregistered extension though, and Vertex
+            // rejects a non-image media type just as firmly — so fall back to
+            // the bytes, which are already in hand, rather than sending either
+            // a guess or a non-image type.
+            const byExtension = getMimeTypeForExtension(image);
+            mimeType = byExtension.startsWith("image/")
+              ? byExtension
+              : this.detectImageType(imageBuffer);
           } else if (image.startsWith("data:")) {
             // Handle data URL
             const matches = image.match(/^data:([^;]+);base64,(.+)$/);
@@ -1946,9 +1969,11 @@ export class GoogleVertexProvider extends BaseProvider {
             try {
               const response = await fetch(image);
               if (!response.ok) {
+                // The URL may be presigned or carry credentials in its query
+                // string, and wrapper URLs now reach this branch too.
                 logger.warn(
                   `[GoogleVertex] Image fetch failed: ${response.status} ${response.statusText}, skipping`,
-                  { url: image },
+                  { url: redactUrlForError(image) },
                 );
                 continue;
               }
@@ -1961,7 +1986,7 @@ export class GoogleVertexProvider extends BaseProvider {
             } catch (fetchError) {
               logger.warn(
                 `[GoogleVertex] Image URL fetch threw, skipping: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
-                { url: image },
+                { url: redactUrlForError(image) },
               );
               continue;
             }
@@ -3144,7 +3169,7 @@ export class GoogleVertexProvider extends BaseProvider {
       | {
           text?: string;
           pdfFiles?: Array<Buffer | string>;
-          images?: Array<Buffer | string>;
+          images?: Array<Buffer | string | ImageWithAltText>;
         }
       | undefined;
 
@@ -3185,7 +3210,13 @@ export class GoogleVertexProvider extends BaseProvider {
         `[GoogleVertex] Processing ${multimodalInput.images.length} image(s) for native generate`,
       );
 
-      for (const image of multimodalInput.images) {
+      for (const rawImage of multimodalInput.images) {
+        // `input.images` accepts `{ data, altText }` as a documented public
+        // shape, but this loop only ever handled Buffer | string — a wrapper
+        // fell through to the "assume raw bytes" branch and base64-encoded the
+        // OBJECT, sending the literal "[object Object]" to Vertex. Unwrap once,
+        // here, so every branch below sees the payload it expects.
+        const image = unwrapImagePayload(rawImage);
         let imageBuffer: Buffer;
         let mimeType = "image/jpeg"; // Default
 
@@ -3193,14 +3224,18 @@ export class GoogleVertexProvider extends BaseProvider {
           if (fs.existsSync(image)) {
             imageBuffer = fs.readFileSync(image);
             // Detect mime type from extension
-            const ext = path.extname(image).toLowerCase();
-            if (ext === ".png") {
-              mimeType = "image/png";
-            } else if (ext === ".gif") {
-              mimeType = "image/gif";
-            } else if (ext === ".webp") {
-              mimeType = "image/webp";
-            }
+            // Registry lookup rather than a png/gif/webp switch defaulting to
+            // JPEG: that default labelled a .heic/.bmp/.tiff/.avif reference
+            // image as image/jpeg, which is simply untrue and is what Vertex
+            // then rejected. The registry answers "application/octet-stream"
+            // for a missing or unregistered extension though, and Vertex
+            // rejects a non-image media type just as firmly — so fall back to
+            // the bytes, which are already in hand, rather than sending either
+            // a guess or a non-image type.
+            const byExtension = getMimeTypeForExtension(image);
+            mimeType = byExtension.startsWith("image/")
+              ? byExtension
+              : this.detectImageType(imageBuffer);
           } else if (image.startsWith("data:")) {
             // Handle data URL
             const matches = image.match(/^data:([^;]+);base64,(.+)$/);
@@ -3220,9 +3255,11 @@ export class GoogleVertexProvider extends BaseProvider {
             try {
               const response = await fetch(image);
               if (!response.ok) {
+                // The URL may be presigned or carry credentials in its query
+                // string, and wrapper URLs now reach this branch too.
                 logger.warn(
                   `[GoogleVertex] Image fetch failed: ${response.status} ${response.statusText}, skipping`,
-                  { url: image },
+                  { url: redactUrlForError(image) },
                 );
                 continue;
               }
@@ -3235,7 +3272,7 @@ export class GoogleVertexProvider extends BaseProvider {
             } catch (fetchError) {
               logger.warn(
                 `[GoogleVertex] Image URL fetch threw, skipping: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
-                { url: image },
+                { url: redactUrlForError(image) },
               );
               continue;
             }
@@ -4566,7 +4603,7 @@ export class GoogleVertexProvider extends BaseProvider {
     const multimodalInput = options.input as {
       text: string;
       pdfFiles?: Array<Buffer | string>;
-      images?: Array<Buffer | string>;
+      images?: Array<Buffer | string | ImageWithAltText>;
     };
 
     // Build content parts for the user message
@@ -4622,7 +4659,13 @@ export class GoogleVertexProvider extends BaseProvider {
         `[GoogleVertex] Processing ${multimodalInput.images.length} image(s) for native Anthropic stream`,
       );
 
-      for (const image of multimodalInput.images) {
+      for (const rawImage of multimodalInput.images) {
+        // `input.images` accepts `{ data, altText }` as a documented public
+        // shape, but this loop only ever handled Buffer | string — a wrapper
+        // fell through to the "assume raw bytes" branch and base64-encoded the
+        // OBJECT, sending the literal "[object Object]" to Vertex. Unwrap once,
+        // here, so every branch below sees the payload it expects.
+        const image = unwrapImagePayload(rawImage);
         let imageBuffer: Buffer;
         let mimeType = "image/jpeg"; // Default
 
@@ -4630,14 +4673,18 @@ export class GoogleVertexProvider extends BaseProvider {
           if (fs.existsSync(image)) {
             imageBuffer = fs.readFileSync(image);
             // Detect mime type from extension
-            const ext = path.extname(image).toLowerCase();
-            if (ext === ".png") {
-              mimeType = "image/png";
-            } else if (ext === ".gif") {
-              mimeType = "image/gif";
-            } else if (ext === ".webp") {
-              mimeType = "image/webp";
-            }
+            // Registry lookup rather than a png/gif/webp switch defaulting to
+            // JPEG: that default labelled a .heic/.bmp/.tiff/.avif reference
+            // image as image/jpeg, which is simply untrue and is what Vertex
+            // then rejected. The registry answers "application/octet-stream"
+            // for a missing or unregistered extension though, and Vertex
+            // rejects a non-image media type just as firmly — so fall back to
+            // the bytes, which are already in hand, rather than sending either
+            // a guess or a non-image type.
+            const byExtension = getMimeTypeForExtension(image);
+            mimeType = byExtension.startsWith("image/")
+              ? byExtension
+              : this.detectImageType(imageBuffer);
           } else if (image.startsWith("data:")) {
             // Handle data URL
             const matches = image.match(/^data:([^;]+);base64,(.+)$/);
@@ -4657,9 +4704,11 @@ export class GoogleVertexProvider extends BaseProvider {
             try {
               const response = await fetch(image);
               if (!response.ok) {
+                // The URL may be presigned or carry credentials in its query
+                // string, and wrapper URLs now reach this branch too.
                 logger.warn(
                   `[GoogleVertex] Image fetch failed: ${response.status} ${response.statusText}, skipping`,
-                  { url: image },
+                  { url: redactUrlForError(image) },
                 );
                 continue;
               }
@@ -4672,7 +4721,7 @@ export class GoogleVertexProvider extends BaseProvider {
             } catch (fetchError) {
               logger.warn(
                 `[GoogleVertex] Image URL fetch threw, skipping: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
-                { url: image },
+                { url: redactUrlForError(image) },
               );
               continue;
             }
@@ -6260,7 +6309,7 @@ export class GoogleVertexProvider extends BaseProvider {
       | {
           text: string;
           pdfFiles?: Array<Buffer | string>;
-          images?: Array<Buffer | string>;
+          images?: Array<Buffer | string | ImageWithAltText>;
         }
       | undefined;
 
@@ -6317,7 +6366,13 @@ export class GoogleVertexProvider extends BaseProvider {
         `[GoogleVertex] Processing ${multimodalInput.images.length} image(s) for native Anthropic generate`,
       );
 
-      for (const image of multimodalInput.images) {
+      for (const rawImage of multimodalInput.images) {
+        // `input.images` accepts `{ data, altText }` as a documented public
+        // shape, but this loop only ever handled Buffer | string — a wrapper
+        // fell through to the "assume raw bytes" branch and base64-encoded the
+        // OBJECT, sending the literal "[object Object]" to Vertex. Unwrap once,
+        // here, so every branch below sees the payload it expects.
+        const image = unwrapImagePayload(rawImage);
         let imageBuffer: Buffer;
         let mimeType = "image/jpeg"; // Default
 
@@ -6325,14 +6380,18 @@ export class GoogleVertexProvider extends BaseProvider {
           if (fs.existsSync(image)) {
             imageBuffer = fs.readFileSync(image);
             // Detect mime type from extension
-            const ext = path.extname(image).toLowerCase();
-            if (ext === ".png") {
-              mimeType = "image/png";
-            } else if (ext === ".gif") {
-              mimeType = "image/gif";
-            } else if (ext === ".webp") {
-              mimeType = "image/webp";
-            }
+            // Registry lookup rather than a png/gif/webp switch defaulting to
+            // JPEG: that default labelled a .heic/.bmp/.tiff/.avif reference
+            // image as image/jpeg, which is simply untrue and is what Vertex
+            // then rejected. The registry answers "application/octet-stream"
+            // for a missing or unregistered extension though, and Vertex
+            // rejects a non-image media type just as firmly — so fall back to
+            // the bytes, which are already in hand, rather than sending either
+            // a guess or a non-image type.
+            const byExtension = getMimeTypeForExtension(image);
+            mimeType = byExtension.startsWith("image/")
+              ? byExtension
+              : this.detectImageType(imageBuffer);
           } else if (image.startsWith("data:")) {
             // Handle data URL
             const matches = image.match(/^data:([^;]+);base64,(.+)$/);
@@ -6352,9 +6411,11 @@ export class GoogleVertexProvider extends BaseProvider {
             try {
               const response = await fetch(image);
               if (!response.ok) {
+                // The URL may be presigned or carry credentials in its query
+                // string, and wrapper URLs now reach this branch too.
                 logger.warn(
                   `[GoogleVertex] Image fetch failed: ${response.status} ${response.statusText}, skipping`,
-                  { url: image },
+                  { url: redactUrlForError(image) },
                 );
                 continue;
               }
@@ -6367,7 +6428,7 @@ export class GoogleVertexProvider extends BaseProvider {
             } catch (fetchError) {
               logger.warn(
                 `[GoogleVertex] Image URL fetch threw, skipping: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
-                { url: image },
+                { url: redactUrlForError(image) },
               );
               continue;
             }
@@ -9265,6 +9326,15 @@ export class GoogleVertexProvider extends BaseProvider {
   protected async executeImageGeneration(
     options: TextGenerationOptions,
   ): Promise<EnhancedGenerateResult> {
+    // Image-to-image generation takes reference images through the same
+    // `input.images` array, and both generate() and stream() route here BEFORE
+    // reaching preprocessNativeFileInput's normalization — so a reference photo
+    // in HEIC/BMP/AVIF would arrive at the API untranscoded. Normalizing at the
+    // top of this method covers every route in, rather than relying on each of
+    // the several call sites to remember. Idempotent, so an already-normalized
+    // request pays nothing.
+    await normalizeVisionImageFormats(options.input);
+
     const prompt = options.prompt || options.input?.text || "";
     const pdfFiles = options.input?.pdfFiles || [];
     const inputImages = options.input?.images || [];
@@ -9420,7 +9490,11 @@ export class GoogleVertexProvider extends BaseProvider {
       // This handles the case where PDFs are converted to images for models that don't support native PDF
       if (hasImageInput) {
         for (let i = 0; i < inputImages.length; i++) {
-          const image = inputImages[i];
+          // A fifth image loop that predates the four above and has the same
+          // blind spot: an ImageWithAltText wrapper matches neither the Buffer
+          // nor the string branch, so a wrapped reference image was silently
+          // skipped — including one this method had just transcoded.
+          const image = unwrapImagePayload(inputImages[i]);
           let imageBase64: string;
           let mimeType: string;
 
@@ -9474,7 +9548,7 @@ export class GoogleVertexProvider extends BaseProvider {
                 if (!response.ok) {
                   logger.warn(
                     `Image fetch failed: ${response.status} ${response.statusText}, skipping`,
-                    { url: image, index: i },
+                    { url: redactUrlForError(image), index: i },
                   );
                   continue;
                 }
@@ -9489,7 +9563,7 @@ export class GoogleVertexProvider extends BaseProvider {
               } catch (fetchError) {
                 logger.warn(
                   `Image URL fetch threw, skipping: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
-                  { url: image, index: i },
+                  { url: redactUrlForError(image), index: i },
                 );
                 continue;
               }

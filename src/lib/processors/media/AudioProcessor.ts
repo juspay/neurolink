@@ -45,6 +45,10 @@ import type {
   ProcessOptions,
 } from "../../types/index.js";
 import { SIZE_LIMITS_MB } from "../config/index.js";
+import {
+  extensionsForModality,
+  mimeTypesForModality,
+} from "../config/fileTypeRegistry.js";
 import { FileErrorCode } from "../errors/index.js";
 import { withTimeout } from "../../utils/timeout.js";
 import { formatMediaDuration } from "../../utils/mediaDuration.js";
@@ -99,52 +103,30 @@ const AUDIO_CONFIG = {
 
 /**
  * Supported MIME types for audio files.
- * Covers all major audio formats including common variants and aliases.
+ *
+ * Derived from the canonical registry so this processor cannot claim a format
+ * the detector standing in front of it does not recognise. It previously did:
+ * .aiff, .amr, .ape, .wv and .oga were all declared here and all resolved to
+ * "unknown" during detection, so a file in one of those formats never reached
+ * this processor at all.
+ *
+ * `audio/webm` is appended because WebM is registered as a video container and
+ * an audio-only .webm is legitimate input. Only the MIME type is accepted, not
+ * the extension: `isFileSupported` matches on extension OR mimetype, so
+ * claiming `.webm` here made `isAudioFile("video/webm", "clip.webm")` accept a
+ * video-only WebM as audio on its filename alone.
  */
-const SUPPORTED_AUDIO_MIME_TYPES = [
-  "audio/mpeg",
-  "audio/mp3",
-  "audio/wav",
-  "audio/x-wav",
-  "audio/wave",
-  "audio/ogg",
-  "audio/vorbis",
-  "audio/opus",
-  "audio/flac",
-  "audio/x-flac",
-  "audio/mp4",
-  "audio/x-m4a",
-  "audio/aac",
-  "audio/x-ms-wma",
+const SUPPORTED_AUDIO_MIME_TYPES: readonly string[] = [
+  ...mimeTypesForModality("audio"),
   "audio/webm",
-  "audio/aiff",
-  "audio/x-aiff",
-  "audio/amr",
-  "audio/3gpp",
-] as const;
+];
 
 /**
  * Supported file extensions for audio files.
- * Includes common audio container formats and lossless variants.
+ * Derived from the canonical registry — see the note above.
  */
-const SUPPORTED_AUDIO_EXTENSIONS = [
-  ".mp3",
-  ".wav",
-  ".ogg",
-  ".oga",
-  ".opus",
-  ".flac",
-  ".m4a",
-  ".aac",
-  ".wma",
-  ".webm",
-  ".aiff",
-  ".aif",
-  ".amr",
-  ".3gp",
-  ".ape",
-  ".wv",
-] as const;
+const SUPPORTED_AUDIO_EXTENSIONS: readonly string[] =
+  extensionsForModality("audio");
 
 // =============================================================================
 // AUDIO PROCESSOR CLASS

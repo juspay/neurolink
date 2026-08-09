@@ -4,6 +4,7 @@
  */
 
 import { basename } from "path";
+import { SUPPORTED_INPUT_IMAGE_MIME_TYPES } from "../adapters/imageFormatSupport.js";
 import { logger } from "./logger.js";
 import {
   redactPathFromMessage,
@@ -698,23 +699,19 @@ export class ImageProcessor {
    * Validate image format
    */
   static validateImageFormat(mediaType: string): boolean {
-    const supportedFormats = [
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-      "image/bmp",
-      "image/tiff",
-      "image/svg+xml",
-      "image/avif",
-      // Deliberately excludes "application/octet-stream": that's
-      // detectImageType()'s honest sentinel for bytes matching no known
-      // image signature (#261), not a real image format. Vision providers
-      // (OpenAI/Anthropic/Google) reject it outright with an HTTP 400, so
-      // process() must fail loud instead of packaging it as a valid image
-      // (see the octet-stream guard in process() below).
-    ];
-    return supportedFormats.includes(mediaType.toLowerCase());
+    // Derived from the canonical input set rather than hand-listed. The old
+    // literal omitted HEIC, HEIF, ICO and JPEG 2000, so an iPhone photo
+    // attached by path was rejected here — "Invalid MIME type: image/heic is
+    // not in allowed list" — before the transcode that exists to accept it
+    // could run. Intake has to allow every format we can convert, not just the
+    // ones providers take unchanged.
+    //
+    // Still excludes "application/octet-stream": that is detectImageType()'s
+    // honest sentinel for bytes matching no known image signature (#261), not
+    // a real format. Vision providers reject it with an HTTP 400, so process()
+    // must fail loud rather than package it as a valid image (see the
+    // octet-stream guard in process() below).
+    return SUPPORTED_INPUT_IMAGE_MIME_TYPES.has(mediaType.toLowerCase());
   }
 
   /**
