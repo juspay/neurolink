@@ -34,14 +34,18 @@ import {
   Skip,
 } from "./helpers/harness.js";
 import {
+  findImageMagick,
   hasFfmpeg,
   makeAudioFile,
+  makeNumberImage,
   makeVideoFile,
 } from "./helpers/mediaFixtures.js";
 import { hasPackage, makeDocx, makeXlsx } from "./helpers/officeFixtures.js";
 import { FileDetector } from "../src/lib/utils/fileDetector.js";
+import { redactUrlsInText } from "../src/lib/utils/logSanitize.js";
 import { buildMultimodalMessagesArray } from "../src/lib/utils/messageBuilder.js";
 import { NeuroLink } from "../src/lib/neurolink.js";
+import { SIZE_TIER_THRESHOLDS } from "../src/lib/types/index.js";
 
 const { test, runSuite } = defineSuite("Multimodal through the SDK");
 
@@ -192,6 +196,46 @@ async function generateNonEmpty(
   return last;
 }
 
+/**
+ * Assert on a live reply without putting the reply in the failure message.
+ *
+ * `defineSuite`'s `test()` classifies a thrown error as SKIP — not FAIL — when
+ * its message matches `isExpectedProviderError()`, and that check reads the
+ * message text. An assertion that quotes model output can therefore be
+ * downgraded to a green skip the moment the model happens to say "timeout",
+ * "not found" or any other provider-ish phrase, which is precisely the
+ * false-green this suite exists to prevent.
+ *
+ * The reply is still printed — diagnosing a multimodal failure without seeing
+ * what came back is miserable — just to stderr rather than into the message
+ * the harness inspects.
+ */
+function formatReply(reply: string): string {
+  // Redacted because the reply is provider output: a model asked to describe an
+  // attachment can echo a signed URL back, and this goes to a CI log.
+  return redactUrlsInText(reply.slice(0, 300).replace(/\s+/g, " "));
+}
+
+function assertReply(condition: boolean, summary: string, reply: string): void {
+  if (!condition) {
+    console.error(`      ↳ model reply: ${formatReply(reply)}`);
+  }
+  assert(condition, summary);
+}
+
+/** `assertIncludes` counterpart to {@link assertReply}, for the same reason. */
+function assertIncludesReply(
+  haystack: string,
+  needle: string,
+  summary: string,
+  reply: string,
+): void {
+  if (!haystack.includes(needle)) {
+    console.error(`      ↳ model reply: ${formatReply(reply)}`);
+  }
+  assertIncludes(haystack, needle, summary);
+}
+
 // --- VIDEO-026 (#498) / AUDIO-030 (#483): FileDetector on real bytes ---------
 //
 // The detector is the first thing every multimodal call hits. These assert it
@@ -308,15 +352,17 @@ await test("audio reaches the model via input.files", async () => {
     provider: PROVIDER,
     maxTokens: 512,
   });
-  assert(
+  assertReply(
     !content.includes("NOTHING_RECEIVED"),
-    `the model reported receiving nothing; got: ${content.slice(0, 200)}`,
+    `the model reported receiving nothing`,
+    content,
   );
   // Only obtainable by reading the container header.
-  assertIncludes(
+  assertIncludesReply(
     content.toLowerCase(),
     "tone.mp3",
-    `the model described the actual file; got: ${content.slice(0, 200)}`,
+    `the model described the actual file`,
+    content,
   );
 });
 
@@ -339,14 +385,16 @@ await test("audio reaches the model as a Buffer via input.files", async () => {
     provider: PROVIDER,
     maxTokens: 512,
   });
-  assert(
+  assertReply(
     !content.includes("NOTHING_RECEIVED"),
-    `buffer input reached the model; got: ${content.slice(0, 200)}`,
+    `buffer input reached the model`,
+    content,
   );
   // Word-bounded so a stray "7" inside a larger number cannot satisfy it.
-  assert(
+  assertReply(
     new RegExp(`\\b${ODD_SECONDS}\\b`).test(content),
-    `the model read the real duration (${ODD_SECONDS}s) from the buffer; got: ${content.slice(0, 200)}`,
+    `the model read the real duration (${ODD_SECONDS}s) from the buffer`,
+    content,
   );
 });
 
@@ -367,13 +415,15 @@ await test("input.audioFiles delivers audio (regression for #1259)", async () =>
     provider: PROVIDER,
     maxTokens: 512,
   });
-  assert(
+  assertReply(
     !content.includes("NOTHING_RECEIVED"),
-    `audioFiles reached the model; got: ${content.slice(0, 200)}`,
+    `audioFiles reached the model`,
+    content,
   );
-  assert(
+  assertReply(
     new RegExp(`\\b${ODD_SECONDS}\\b`).test(content),
-    `the model read the real duration (${ODD_SECONDS}s) via audioFiles; got: ${content.slice(0, 200)}`,
+    `the model read the real duration (${ODD_SECONDS}s) via audioFiles`,
+    content,
   );
 });
 
@@ -401,10 +451,11 @@ await test("generate() reads content out of a .docx", async () => {
   });
   // Asserting on content the model could only know by reading the file is the
   // difference between "the call succeeded" and "the document arrived".
-  assertIncludes(
+  assertIncludesReply(
     result.content.toUpperCase(),
     "FALCON",
-    `docx content reached the model; got: ${result.content.slice(0, 160)}`,
+    `docx content reached the model`,
+    result.content,
   );
 });
 
@@ -433,10 +484,11 @@ await test("generate() reads cell values out of an .xlsx", async () => {
     maxTokens: 512,
     timeout: LIVE_TIMEOUT_MS,
   });
-  assertIncludes(
+  assertIncludesReply(
     result.content,
     "4242",
-    `xlsx cell reached the model; got: ${result.content.slice(0, 160)}`,
+    `xlsx cell reached the model`,
+    result.content,
   );
 });
 
@@ -454,18 +506,20 @@ await test("video reaches the model via input.files", async () => {
     provider: PROVIDER,
     maxTokens: 512,
   });
-  assert(
+  assertReply(
     !content.includes("NOTHING_RECEIVED"),
-    `the model reported seeing nothing; got: ${content.slice(0, 200)}`,
+    `the model reported seeing nothing`,
+    content,
   );
   // Asking for a specific fact rather than a free-form description: the model's
   // prose varies run to run (an earlier version asserted on whichever details it
   // happened to mention, and flaked). 320x240 is the fixture's real resolution,
   // obtainable only from the probed stream, and no refusal contains it.
-  assertIncludes(
+  assertIncludesReply(
     content,
     "320x240",
-    `the model read the real resolution; got: ${content.slice(0, 200)}`,
+    `the model read the real resolution`,
+    content,
   );
 });
 
@@ -481,14 +535,16 @@ await test("input.videoFiles delivers video (regression for #1259)", async () =>
     provider: PROVIDER,
     maxTokens: 512,
   });
-  assert(
+  assertReply(
     !content.includes("NOTHING_RECEIVED"),
-    `videoFiles reached the model; got: ${content.slice(0, 200)}`,
+    `videoFiles reached the model`,
+    content,
   );
-  assertIncludes(
+  assertIncludesReply(
     content,
     "320x240",
-    `the model read the real resolution via videoFiles; got: ${content.slice(0, 200)}`,
+    `the model read the real resolution via videoFiles`,
+    content,
   );
 });
 
@@ -526,10 +582,11 @@ await test("stream() carries a document through the same path as generate()", as
   }
   // generate() and stream() share MessageBuilder but not the whole path, so a
   // document that works in one can still be dropped in the other.
-  assertIncludes(
+  assertIncludesReply(
     text.toUpperCase(),
     "ORCHID",
-    `docx content reached the model via stream(); got: ${text.slice(0, 160)}`,
+    `docx content reached the model via stream()`,
+    text,
   );
 });
 
@@ -552,20 +609,12 @@ await test("mixed multimodal input keeps every part", async () => {
     timeout: LIVE_TIMEOUT_MS,
   });
   const upper = content.toUpperCase();
-  assertIncludes(
-    upper,
-    "PELICAN",
-    `spreadsheet part survived; got: ${content.slice(0, 200)}`,
-  );
+  assertIncludesReply(upper, "PELICAN", `spreadsheet part survived`, content);
   // The filename, not the word "AUDIO": a refusal such as "no audio file is
   // attached" contains "AUDIO" too, so that assertion passed whether or not
   // the audio ever arrived. Same false-pass shape this file's header warns
   // about — it survived one round of fixing those and was caught in review.
-  assertIncludes(
-    upper,
-    "TONE.MP3",
-    `audio part survived; got: ${content.slice(0, 200)}`,
-  );
+  assertIncludesReply(upper, "TONE.MP3", `audio part survived`, content);
 });
 
 await test("stream() file parity on the configured provider (regression for #1258)", async () => {
@@ -594,12 +643,209 @@ await test("stream() file parity on the configured provider (regression for #125
   for await (const chunk of result.stream) {
     text += typeof chunk === "string" ? chunk : (chunk.content ?? "");
   }
-  assertIncludes(
+  assertIncludesReply(
     text.toUpperCase(),
     "MERIDIAN",
-    `docx content reached the model via stream() on ${PROVIDER}; got: ${text.slice(0, 160)}`,
+    `docx content reached the model via stream() on ${PROVIDER}`,
+    text,
   );
 });
+
+// --- Images above the lazy-reference threshold ------------------------------
+//
+// `SIZE_TIER_THRESHOLDS.TINY_MAX` (10 KB) decides between eager processing and
+// lazy reference registration. For text that trade is sound; for an image it
+// was fatal — the file was previewed into ~98 characters and never attached,
+// so the model answered about a file it had never seen. Every image fixture in
+// the suites happened to sit under 10 KB, which is why this shipped.
+//
+// The number rendered into each image is the assertion: it has no prior, so a
+// correct answer cannot be produced without the pixels.
+
+const IMAGE_TOKEN_SMALL = "5182";
+const IMAGE_TOKEN_LARGE = "7391";
+
+function requireImageMagick(): void {
+  if (!findImageMagick()) {
+    throw new Skip("ImageMagick unavailable — cannot render image fixtures");
+  }
+}
+
+const READ_THE_NUMBER =
+  "What number is written in this image? Answer with the digits only. " +
+  "If no image reached you, reply exactly: NOTHING_RECEIVED";
+
+await test("an image under the lazy threshold reaches the model", async () => {
+  requireImageMagick();
+  requireLive();
+  const file = await makeNumberImage(dir, "tiny.png", IMAGE_TOKEN_SMALL);
+  assert(
+    fs.statSync(file).size < SIZE_TIER_THRESHOLDS.TINY_MAX,
+    "fixture is below the tier threshold, where images were never dropped",
+  );
+  const nl = new NeuroLink();
+  const content = await generateNonEmpty(nl, {
+    input: { text: READ_THE_NUMBER, files: [file] },
+    provider: PROVIDER,
+    maxTokens: 256,
+  });
+  assertReply(
+    new RegExp(`\\b${IMAGE_TOKEN_SMALL}\\b`).test(content),
+    `the model read the number off the image`,
+    content,
+  );
+});
+
+await test("an image ABOVE the lazy threshold still reaches the model", async () => {
+  // The regression this suite exists to catch. On release an 11 KB PNG and a
+  // 19 KB JPEG both came back NOTHING_RECEIVED.
+  requireImageMagick();
+  requireLive();
+  const file = await makeNumberImage(dir, "big.png", IMAGE_TOKEN_LARGE, true);
+  assert(
+    fs.statSync(file).size > SIZE_TIER_THRESHOLDS.TINY_MAX,
+    "fixture is above the tier threshold, the size that used to be routed lazily and lose its pixels",
+  );
+  const nl = new NeuroLink();
+  const content = await generateNonEmpty(nl, {
+    input: { text: READ_THE_NUMBER, files: [file] },
+    provider: PROVIDER,
+    maxTokens: 256,
+  });
+  assertReply(
+    !content.includes("NOTHING_RECEIVED"),
+    `the image reached the model rather than being previewed away`,
+    content,
+  );
+  assertReply(
+    new RegExp(`\\b${IMAGE_TOKEN_LARGE}\\b`).test(content),
+    `the model read the number off the large image`,
+    content,
+  );
+});
+
+await test("a large JPEG reaches the model too", async () => {
+  // PNG and JPEG take different processing branches; the release failure hit
+  // both, so both are pinned.
+  requireImageMagick();
+  requireLive();
+  const source = await makeNumberImage(
+    dir,
+    "big-src.png",
+    IMAGE_TOKEN_LARGE,
+    true,
+  );
+  const jpeg = path.join(dir, "big.jpg");
+  const magick = findImageMagick();
+  if (!magick) {
+    throw new Skip("ImageMagick unavailable");
+  }
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  await promisify(execFile)(magick, [source, "-quality", "92", jpeg]);
+  assert(
+    fs.statSync(jpeg).size > SIZE_TIER_THRESHOLDS.TINY_MAX,
+    "the jpeg fixture is above the tier threshold",
+  );
+  const nl = new NeuroLink();
+  const content = await generateNonEmpty(nl, {
+    input: { text: READ_THE_NUMBER, files: [jpeg] },
+    provider: PROVIDER,
+    maxTokens: 256,
+  });
+  assertReply(
+    new RegExp(`\\b${IMAGE_TOKEN_LARGE}\\b`).test(content),
+    `the model read the number off the large jpeg`,
+    content,
+  );
+});
+
+await test("an extension-less upload is classified from its mimetype", async () => {
+  // The eager/lazy decision read `filename` alone, so a `FileWithMetadata`
+  // whose name carries no extension — the entire reason that shape exists, for
+  // Slack/Curator-style uploads that arrive as bytes plus a declared mimetype
+  // — was classified as unknown and sent down the lazy path, losing its pixels.
+  // Caught in review rather than by a test, which is why this one exists.
+  requireImageMagick();
+  requireLive();
+  const source = await makeNumberImage(
+    dir,
+    "no-ext-src.png",
+    IMAGE_TOKEN_LARGE,
+    true,
+  );
+  const buffer = fs.readFileSync(source);
+  assert(
+    buffer.length > SIZE_TIER_THRESHOLDS.TINY_MAX,
+    "the fixture is above the tier threshold, the size that used to be routed lazily and lose its pixels",
+  );
+  const nl = new NeuroLink();
+  const content = await generateNonEmpty(nl, {
+    input: {
+      text: READ_THE_NUMBER,
+      files: [{ buffer, filename: "screenshot", mimetype: "image/png" }],
+    },
+    provider: PROVIDER,
+    maxTokens: 256,
+  });
+  assertReply(
+    !content.includes("NOTHING_RECEIVED"),
+    "the extension-less image reached the model",
+    content,
+  );
+  assertReply(
+    new RegExp(`\\b${IMAGE_TOKEN_LARGE}\\b`).test(content),
+    "the model read the number off the extension-less image",
+    content,
+  );
+});
+
+await test("a mislabelled filename loses to the declared mimetype", async () => {
+  // The two declarations on a `FileWithMetadata` were read as a `??` chain, so
+  // the first *recognised* one won outright: a name ending `.pdf` beat a
+  // `mimetype` of `image/png` and the pixels went down the lazy path. Naming is
+  // the least trustworthy field on that shape, which is why it cannot veto.
+  requireImageMagick();
+  requireLive();
+  const source = await makeNumberImage(
+    dir,
+    "mislabelled-src.png",
+    IMAGE_TOKEN_LARGE,
+    true,
+  );
+  const buffer = fs.readFileSync(source);
+  assert(
+    buffer.length > SIZE_TIER_THRESHOLDS.TINY_MAX,
+    "the fixture is above the tier threshold, the size that used to be routed lazily and lose its pixels",
+  );
+  const nl = new NeuroLink();
+  const content = await generateNonEmpty(nl, {
+    input: {
+      text: READ_THE_NUMBER,
+      files: [{ buffer, filename: "upload.pdf", mimetype: "image/png" }],
+    },
+    provider: PROVIDER,
+    maxTokens: 256,
+  });
+  assertReply(
+    !content.includes("NOTHING_RECEIVED"),
+    "the mislabelled image reached the model",
+    content,
+  );
+  assertReply(
+    new RegExp(`\\b${IMAGE_TOKEN_LARGE}\\b`).test(content),
+    "the model read the number off the mislabelled image",
+    content,
+  );
+});
+
+// HEIC, HEIF, ICO and JPEG 2000 are deliberately NOT asserted end-to-end here.
+// The extension→type entries this change adds for them are necessary but not
+// sufficient: `ImageProcessor.validateImageFormat` rejects those MIME types at
+// intake ("Invalid MIME type: image/heic is not in allowed list") before the
+// eager path is ever reached. Fixing that allowlist is a separate change, and
+// asserting the end-to-end result here would pin a failure this commit cannot
+// cause or cure. Their coverage lives with that fix.
 
 try {
   fs.rmSync(dir, { recursive: true, force: true });

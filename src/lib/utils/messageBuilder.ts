@@ -80,13 +80,32 @@ const EXTENSION_TYPE_MAP: Record<string, string> = {
   // Image
   jpg: "image",
   jpeg: "image",
+  jpe: "image",
+  jfif: "image",
   png: "image",
+  apng: "image",
   gif: "image",
   webp: "image",
   bmp: "image",
   tiff: "image",
   tif: "image",
   avif: "image",
+  // Below this line the entries exist because this map now decides whether an
+  // image is processed eagerly (see isEagerMultimodalFile), not merely how its
+  // tokens are estimated. An extension missing here classifies as `undefined`
+  // and takes the lazy path, which drops the pixels — so a gap is a dropped
+  // photo, not a slightly-off estimate. HEIC is the one that matters most:
+  // it is what an iPhone writes by default.
+  heic: "image",
+  heif: "image",
+  ico: "image",
+  jp2: "image",
+  jpx: "image",
+  // NB: `svg` is deliberately absent here — it is mapped to its own "svg"
+  // routing type further down, and listing it twice is a duplicate key whose
+  // second entry silently wins. `isEagerMultimodalFile` accepts both types
+  // instead, so SVG takes the eager path without this map having to lie about
+  // which processor handles it.
   // Archive
   zip: "archive",
   tar: "archive",
@@ -137,6 +156,20 @@ function inferFileTypeFromExtension(filePath: string): string | undefined {
 function inferFileTypeFromBuffer(buf: Buffer): string | undefined {
   if (buf.length < 4) {
     return undefined;
+  }
+
+  // SVG is markup and has no magic number, so every signature check below
+  // misses it and a raw SVG Buffer classified as `undefined` — which meant the
+  // lazy path, which previews markup away. Checked first because the sniff is
+  // a cheap look at the head and cannot collide with a binary signature.
+  //
+  // Deliberately a substring scan over the head rather than a prolog-stripping
+  // regex: the obvious pattern for skipping comments and a DOCTYPE is two
+  // nested quantifiers, which is a ReDoS waiting to happen inside what is
+  // supposed to be a cheap type check. Over-matching is harmless here — the
+  // only consequence of a false positive is that a file is processed eagerly.
+  if (buf.subarray(0, 1024).toString("latin1").includes("<svg")) {
+    return "svg";
   }
 
   // PNG
@@ -1088,7 +1121,11 @@ export async function processUnifiedFilesArray(
         try {
           // ─── Lazy file registration path ──────────────────────────────
           const fileSize = fileRegistry ? getFileSize(file) : 0;
-          if (fileRegistry && fileSize > SIZE_TIER_THRESHOLDS.TINY_MAX) {
+          if (
+            fileRegistry &&
+            fileSize > SIZE_TIER_THRESHOLDS.TINY_MAX &&
+            !isEagerMultimodalFile(file)
+          ) {
             const registered = await tryRegisterFileReference(
               file,
               fileSize,
@@ -2583,6 +2620,110 @@ function getFileSource(file: FileInput): "buffer" | "path" | "url" | "datauri" {
     }
   }
   return "buffer";
+}
+
+/**
+ * Whether a file must be processed eagerly rather than lazily referenced.
+ *
+ * The lazy path registers a file and injects a short textual *preview* in place
+ * of the file itself. Whether that is an acceptable trade depends entirely on
+ * whether a description of the file can answer questions about it:
+ *
+ *   pdf    lazy -> preview carries the extracted text   ✔ content survives
+ *   image  lazy -> preview carries ~98 chars of prose   ✘ the pixels are gone
+ *
+ * An image is the case where the bytes ARE the content: no prose summary
+ * substitutes for them, so the model receives a description of a file instead
+ * of the file. Measured end-to-end on `release`, asking "what number is
+ * written in this image?":
+ *
+ *   tiny.png  1.6 KB -> "7391"              (under TINY_MAX, eager, correct)
+ *   big.png    11 KB -> NOTHING_RECEIVED    (lazy, image never arrived)
+ *   big.jpg    19 KB -> NOTHING_RECEIVED
+ *
+ * 10 KB is far below any real photo, so this affected essentially every image
+ * attached by path — an ordinary JPEG, not just unusual formats.
+ *
+ * Scoped to images deliberately, and audio deserves spelling out because the
+ * reason is not the one it appears to be. An audio file's message contains only
+ * a metadata block — duration, codec, sample rate — on BOTH paths; no audio
+ * bytes are handed to the provider either way. Moving audio to the eager path
+ * would therefore change nothing about what the model receives. That audio
+ * content never reaches the model at all is a separate and pre-existing gap,
+ * not something this threshold decision can repair, and it is easy to mistake
+ * for working code because the metadata block answers exactly the questions
+ * ("how long is it?", "what sample rate?") a test is most tempted to ask.
+ * Video is left alone for the opposite reason: its frames are measurably
+ * present in the message and a model reads them correctly.
+ *
+ * Note this costs no extra memory: `tryRegisterFileReference` already calls
+ * `getFileBuffer()` and reads the whole file to register it. The lazy path was
+ * never lazy about reading — only about processing — so the difference here is
+ * simply whether the bytes survive.
+ */
+function isEagerMultimodalFile(file: FileInput): boolean {
+  if (typeof file === "string") {
+    return isImageLikeType(inferFileTypeFromExtension(file));
+  }
+  if (Buffer.isBuffer(file)) {
+    return isImageLikeType(inferFileTypeFromBuffer(file));
+  }
+
+  // A `FileWithMetadata` carries two independent declarations, and either one
+  // alone is enough: the shape exists for Slack/Curator-style uploads that
+  // arrive as bytes plus a mimetype, so its `filename` may be extensionless or
+  // simply wrong. Reading them as a `??` chain meant the first *recognised*
+  // name won outright — `upload.pdf` with `mimetype: "image/png"` classified as
+  // a PDF and lost its pixels down the lazy path. Any declaration of an image
+  // is therefore decisive.
+  const declared = [
+    inferFileTypeFromExtension(file.filename),
+    inferFileTypeFromMimetype(file.mimetype),
+  ];
+  if (declared.some(isImageLikeType)) {
+    return true;
+  }
+
+  // The buffer sniff is the last resort rather than a third vote, because it is
+  // a substring scan: an HTML page with an inline `<svg>` icon in its head
+  // would otherwise be pulled onto the eager path and sent in full, which is
+  // the opposite of what the size tiers are for. It only speaks when nothing
+  // else did.
+  return declared.every((type) => type === undefined)
+    ? isImageLikeType(inferFileTypeFromBuffer(file.buffer))
+    : false;
+}
+
+/**
+ * Whether a routing type should have its bytes preserved rather than previewed.
+ *
+ * "svg" is a separate routing type rather than a sub-case of "image" (it goes
+ * to the sanitizer, not to a vision encoder), but it is still an image as far
+ * as this decision is concerned: its markup IS its content, and previewing it
+ * away leaves the model with nothing. Accepting both keeps this correct
+ * whichever of the two type vocabularies the caller's map uses.
+ */
+function isImageLikeType(type: string | undefined): boolean {
+  return type === "image" || type === "svg";
+}
+
+/**
+ * Infer a routing type from a caller-declared mimetype.
+ *
+ * Only images matter here — this exists so the eager/lazy decision can read a
+ * mimetype hint — and "application/octet-stream" is deliberately ignored,
+ * because it is the opaque sentinel a caller sends when it knows nothing, not
+ * a claim about content.
+ */
+function inferFileTypeFromMimetype(mimetype?: string): string | undefined {
+  if (!mimetype) {
+    return undefined;
+  }
+  const normalized = mimetype.split(";")[0].trim().toLowerCase();
+  if (normalized === "image/svg+xml") {
+    return "svg";
+  }
+  return normalized.startsWith("image/") ? "image" : undefined;
 }
 
 /**
