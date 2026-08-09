@@ -2,34 +2,37 @@
  * File Extension Constants
  * Centralized file extension definitions organized by category for file processing
  *
+ * The media/document/data/archive categories are derived from
+ * {@link FILE_TYPE_REGISTRY} rather than typed out here — they used to be a
+ * second hand-maintained list that drifted from both the registry-equivalent
+ * MIME map and the detector, so formats appeared "supported" in one place and
+ * were invisible in another. Source-code and text categories, which carry no
+ * modality, are still enumerated below.
+ *
  * @module processors/config/fileTypes
  */
+
+import { extensionsForModality } from "./fileTypeRegistry.js";
 
 // =============================================================================
 // IMAGE FILE EXTENSIONS
 // =============================================================================
 
 /**
- * Image file extensions supported by the platform
+ * Image file extensions supported by the platform.
+ * Includes `.svg`, which is processed as sanitized markup rather than raster.
  */
-export const IMAGE_EXTENSIONS = [
-  ".jpg",
-  ".jpeg",
-  ".png",
-  ".gif",
-  ".webp",
-  ".svg",
-  ".bmp",
-  ".tiff",
-  ".tif",
-  ".avif",
-  ".heic",
-  ".heif",
-  ".ico",
-] as const;
+export const IMAGE_EXTENSIONS: readonly string[] =
+  extensionsForModality("image");
 
 /**
- * AI vision-supported image extensions (subset that works with AI models)
+ * Image extensions every vision-capable provider accepts as-is.
+ *
+ * Deliberately NOT derived from the registry: this is the intersection of what
+ * OpenAI, Anthropic, Google and Bedrock all accept, not the set NeuroLink can
+ * identify. Anything else the registry knows about (BMP, TIFF, AVIF, ICO,
+ * HEIC/HEIF) is transcoded to PNG before dispatch — see
+ * `adapters/imageFormatSupport.ts`.
  */
 export const AI_VISION_EXTENSIONS = [
   ".jpg",
@@ -46,19 +49,8 @@ export const AI_VISION_EXTENSIONS = [
 /**
  * Document file extensions for office documents and PDFs
  */
-export const DOCUMENT_EXTENSIONS = [
-  ".pdf",
-  ".docx",
-  ".doc",
-  ".xlsx",
-  ".xls",
-  ".pptx",
-  ".ppt",
-  ".odt",
-  ".ods",
-  ".odp",
-  ".rtf",
-] as const;
+export const DOCUMENT_EXTENSIONS: readonly string[] =
+  extensionsForModality("document");
 
 /**
  * PDF document extensions
@@ -115,15 +107,18 @@ export const CSV_EXTENSIONS = [".csv"] as const;
 export const YAML_EXTENSIONS = [".yaml", ".yml"] as const;
 
 /**
- * All data format extensions combined
+ * All data format extensions combined.
+ *
+ * The tabular formats (.csv/.tsv) come from the registry; .json/.xml/.yaml are
+ * text formats with no modality of their own and stay listed here.
  */
-export const DATA_EXTENSIONS = [
+export const DATA_EXTENSIONS: readonly string[] = [
   ".json",
   ".xml",
-  ".csv",
   ".yaml",
   ".yml",
-] as const;
+  ...extensionsForModality("data"),
+];
 
 // =============================================================================
 // TEXT FILE EXTENSIONS
@@ -386,18 +381,8 @@ export const CONFIG_EXTENSIONS = [
 /**
  * Archive and compressed file extensions
  */
-export const ARCHIVE_EXTENSIONS = [
-  ".zip",
-  ".tar",
-  ".gz",
-  ".tgz",
-  ".tar.gz",
-  ".tar.bz2",
-  ".bz2",
-  ".rar",
-  ".7z",
-  ".xz",
-] as const;
+export const ARCHIVE_EXTENSIONS: readonly string[] =
+  extensionsForModality("archive");
 
 // =============================================================================
 // MULTIMEDIA FILE EXTENSIONS
@@ -406,32 +391,14 @@ export const ARCHIVE_EXTENSIONS = [
 /**
  * Video file extensions
  */
-export const VIDEO_EXTENSIONS = [
-  ".mp4",
-  ".avi",
-  ".mov",
-  ".mkv",
-  ".webm",
-  ".flv",
-  ".wmv",
-  ".m4v",
-  ".mpg",
-  ".mpeg",
-] as const;
+export const VIDEO_EXTENSIONS: readonly string[] =
+  extensionsForModality("video");
 
 /**
  * Audio file extensions
  */
-export const AUDIO_EXTENSIONS = [
-  ".mp3",
-  ".wav",
-  ".aac",
-  ".flac",
-  ".ogg",
-  ".m4a",
-  ".wma",
-  ".opus",
-] as const;
+export const AUDIO_EXTENSIONS: readonly string[] =
+  extensionsForModality("audio");
 
 // =============================================================================
 // DESIGN FILE EXTENSIONS

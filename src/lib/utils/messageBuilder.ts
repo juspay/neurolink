@@ -31,11 +31,22 @@ import type {
   TextGenerationOptions,
 } from "../types/index.js";
 import { tracers, ATTR, withSpan } from "../telemetry/index.js";
+import {
+  needsVisionTranscode,
+  toVisionCompatibleImage,
+} from "../adapters/imageFormatSupport.js";
+import {
+  FILE_TYPE_REGISTRY,
+  lookupByExtension,
+} from "../processors/config/fileTypeRegistry.js";
 import { ErrorFactory, NeuroLinkError, withTimeout } from "./errorHandling.js";
 import { FileDetector } from "./fileDetector.js";
+import { detectIsoBmffImageMimeType } from "./isoBmff.js";
 import { getImageCache } from "./imageCache.js";
 import { ImageProcessor, imageUtils } from "./imageProcessor.js";
 import { logger } from "./logger.js";
+import { looksLikeSvgMarkup } from "./markupSniff.js";
+import { redactUrlForError } from "./logSanitize.js";
 import { PDFImageConverter, PDFProcessor } from "./pdfProcessor.js";
 import { urlDownloadRateLimiter } from "./rateLimiter.js";
 import { estimateTokens } from "./tokenEstimation.js";
@@ -57,82 +68,20 @@ import type {
 // estimatePostProcessingTokens() can use type-aware estimates.
 // ---------------------------------------------------------------------------
 
-/** Extension → file type mapping for budget estimation */
-const EXTENSION_TYPE_MAP: Record<string, string> = {
-  // Video
-  mp4: "video",
-  mkv: "video",
-  mov: "video",
-  avi: "video",
-  webm: "video",
-  wmv: "video",
-  flv: "video",
-  m4v: "video",
-  // Audio
-  mp3: "audio",
-  wav: "audio",
-  ogg: "audio",
-  flac: "audio",
-  m4a: "audio",
-  aac: "audio",
-  wma: "audio",
-  opus: "audio",
-  // Image
-  jpg: "image",
-  jpeg: "image",
-  jpe: "image",
-  jfif: "image",
-  png: "image",
-  apng: "image",
-  gif: "image",
-  webp: "image",
-  bmp: "image",
-  tiff: "image",
-  tif: "image",
-  avif: "image",
-  // Below this line the entries exist because this map now decides whether an
-  // image is processed eagerly (see isEagerMultimodalFile), not merely how its
-  // tokens are estimated. An extension missing here classifies as `undefined`
-  // and takes the lazy path, which drops the pixels — so a gap is a dropped
-  // photo, not a slightly-off estimate. HEIC is the one that matters most:
-  // it is what an iPhone writes by default.
-  heic: "image",
-  heif: "image",
-  ico: "image",
-  jp2: "image",
-  jpx: "image",
-  // NB: `svg` is deliberately absent here — it is mapped to its own "svg"
-  // routing type further down, and listing it twice is a duplicate key whose
-  // second entry silently wins. `isEagerMultimodalFile` accepts both types
-  // instead, so SVG takes the eager path without this map having to lie about
-  // which processor handles it.
-  // Archive
-  zip: "archive",
-  tar: "archive",
-  gz: "archive",
-  tgz: "archive",
-  rar: "archive",
-  "7z": "archive",
-  jar: "archive",
-  // Documents
-  xlsx: "xlsx",
-  xls: "xlsx",
-  ods: "xlsx",
-  docx: "docx",
-  doc: "docx",
-  odt: "docx",
-  rtf: "docx",
-  pptx: "pptx",
-  ppt: "pptx",
-  odp: "pptx",
-  // PDF
-  pdf: "pdf",
-  // SVG
-  svg: "svg",
-  // CSV
-  csv: "csv",
-  tsv: "csv",
-};
+/**
+ * Extension → file type for budget estimation.
+ *
+ * Derived from the canonical registry rather than hand-listed: this was a
+ * fourth copy of the same knowledge, and it disagreed with the detector it is
+ * supposed to predict — it had no entry for .mpg/.mpeg/.3gp/.aiff and so on, so
+ * estimatePostProcessingTokens() silently fell back to a generic estimate for
+ * exactly the large media files whose estimate matters most.
+ */
+const EXTENSION_TYPE_MAP: Record<string, string> = Object.fromEntries(
+  FILE_TYPE_REGISTRY.flatMap((entry) =>
+    entry.extensions.map((ext) => [ext.slice(1), entry.fileType] as const),
+  ),
+);
 
 /**
  * Infer file type from extension in a file path or URL.
@@ -1624,6 +1573,10 @@ export async function buildMultimodalMessagesArray(
   // Process unified files array (auto-detect)
   await processUnifiedFilesArray(options, maxSize, provider);
 
+  // Detection can append images (PDF page renders, video keyframes, a HEIC
+  // photo), so compatibility conversion has to run after it, not before.
+  await normalizeVisionImageFormats(inp);
+
   // Process explicit CSV files array
   await processExplicitCsvFiles(options);
 
@@ -2033,25 +1986,24 @@ async function downloadImageFromUrl(url: string): Promise<string> {
 }
 
 /**
- * Get MIME type from file extension
+ * Get MIME type from an image file extension.
+ *
+ * Delegates to the canonical registry instead of the six-case switch this used
+ * to be. That switch covered png/gif/webp/bmp/tiff and defaulted *everything
+ * else* to image/jpeg, so a .heic, .avif, .ico or .jp2 path was labelled JPEG
+ * — which meant `needsVisionTranscode()` never fired for it and the raw bytes
+ * went to the provider under a MIME type that was simply untrue. Exactly the
+ * kind of hand-maintained table this registry exists to delete.
+ *
+ * The image/jpeg fallback is kept only for genuinely unknown extensions, since
+ * callers here have already established they are handling an image.
  */
 function getMimeTypeFromExtension(filePath: string): string {
-  const ext = filePath.toLowerCase().split(".").pop();
-  switch (ext) {
-    case "png":
-      return "image/png";
-    case "gif":
-      return "image/gif";
-    case "webp":
-      return "image/webp";
-    case "bmp":
-      return "image/bmp";
-    case "tiff":
-    case "tif":
-      return "image/tiff";
-    default:
-      return "image/jpeg";
+  const entry = lookupByExtension(filePath);
+  if (entry?.modality === "image") {
+    return entry.mimeTypes[0];
   }
+  return "image/jpeg";
 }
 
 /**
@@ -2130,6 +2082,54 @@ function detectMimeTypeFromBuffer(buffer: Buffer): string | undefined {
         buffer[3] === 0x2a))
   ) {
     return "image/tiff";
+  }
+
+  // The formats above are the ones a provider accepts (or that sharp handles
+  // trivially). Everything below is a format NO vision provider accepts, and
+  // recognising it here is what lets `needsVisionTranscode()` fire — a Buffer
+  // whose format was unrecognised fell through to the image/jpeg default and
+  // was shipped to the provider unconverted under a MIME type that was false.
+  // Raw Buffers are the most direct way a backend attaches an image, so this
+  // was the single biggest hole in the vision-compatibility path.
+
+  // HEIC / HEIF / AVIF: ISO-BMFF `ftyp` box, distinguished by major brand.
+  // Shared with the FileDetector so the two cannot drift on brand tables.
+  const isoBmffImage = detectIsoBmffImageMimeType(buffer);
+  if (isoBmffImage) {
+    return isoBmffImage;
+  }
+
+  // ICO: 00 00 01 00. Checked after the ftyp probe because an ISO-BMFF file
+  // also starts with a zero byte.
+  if (
+    buffer.length >= 4 &&
+    buffer[0] === 0x00 &&
+    buffer[1] === 0x00 &&
+    buffer[2] === 0x01 &&
+    buffer[3] === 0x00
+  ) {
+    return "image/x-icon";
+  }
+
+  // SVG is markup, so it has no byte signature — and without this probe a raw
+  // SVG buffer matched nothing, kept processImageToBase64's "image/jpeg"
+  // default, and was shipped to the provider as XML labelled as a JPEG.
+  // Shared forward scan rather than a local regex: the regex form of this
+  // check is a CodeQL js/redos finding (see markupSniff).
+  if (looksLikeSvgMarkup(buffer)) {
+    return "image/svg+xml";
+  }
+
+  // JPEG 2000: 12-byte signature box "....jP  ".
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x00 &&
+    buffer[1] === 0x00 &&
+    buffer[2] === 0x00 &&
+    buffer[3] === 0x0c &&
+    buffer.toString("latin1", 4, 8) === "jP  "
+  ) {
+    return "image/jp2";
   }
 
   return undefined;
@@ -2251,7 +2251,129 @@ async function processImageToBase64(
     imageData = image.toString("base64");
   }
 
+  // Last line of defence for vision-format compatibility. `normalizeVisionImageFormats`
+  // handles `input.images` eagerly so the providers that read that array
+  // directly (Google AI Studio, Bedrock) see converted bytes, but images that
+  // arrive as URLs are downloaded further downstream and only become bytes
+  // here. A no-op for the universal formats, so the common path is unaffected.
+  if (needsVisionTranscode(mimeType)) {
+    const compatible = await toVisionCompatibleImage(
+      Buffer.from(imageData, "base64"),
+      mimeType,
+    );
+    if (compatible.converted) {
+      imageData = compatible.buffer.toString("base64");
+      mimeType = compatible.mimeType;
+    }
+  }
+
   return { imageData, mimeType };
+}
+
+/**
+ * Transcode any image in `input.images` that no vision provider accepts,
+ * rewriting the entry in place as a PNG data URI.
+ *
+ * Mutates in place and is idempotent, matching `processUnifiedFilesArray` and
+ * `foldMediaAliasesIntoFiles`: the shared multimodal builder and the providers
+ * that bypass it (Google AI Studio's and Vertex's native SDK paths, Bedrock's
+ * Converse path) can all call it on the same options object without converting
+ * anything twice.
+ *
+ * Entries that are `http(s)` URLs are left alone — they have no bytes yet, and
+ * `processImageToBase64` converts them once they are downloaded.
+ */
+export async function normalizeVisionImageFormats(
+  input: GenerateOptions["input"],
+): Promise<void> {
+  const images = input?.images;
+  if (!images || images.length === 0) {
+    return;
+  }
+
+  for (let index = 0; index < images.length; index++) {
+    const entry = images[index];
+    // ImageWithAltText wraps the payload in `.data`; convert that and keep the
+    // alt text attached rather than dropping the wrapper.
+    const isWrapped =
+      typeof entry === "object" && entry !== null && !Buffer.isBuffer(entry);
+    const payload = isWrapped
+      ? (entry as ImageWithAltText).data
+      : (entry as Buffer | string);
+
+    const source = await readImageSourceForConversion(payload);
+    if (!source || !needsVisionTranscode(source.mimeType)) {
+      continue;
+    }
+
+    const compatible = await toVisionCompatibleImage(
+      source.buffer,
+      source.mimeType,
+    );
+    if (!compatible.converted) {
+      continue;
+    }
+
+    const dataUri = `data:${compatible.mimeType};base64,${compatible.buffer.toString("base64")}`;
+    images[index] = isWrapped
+      ? { ...(entry as ImageWithAltText), data: dataUri }
+      : dataUri;
+  }
+}
+
+/**
+ * Resolve one `input.images` entry to bytes plus a MIME type, or undefined when
+ * it cannot be resolved without a network call.
+ *
+ * File paths are only read when their extension says the format would need
+ * conversion. Reading every attached .png off disk just to confirm it is
+ * already compatible would double the I/O of the common case for no benefit.
+ */
+async function readImageSourceForConversion(
+  payload: Buffer | string,
+): Promise<{ buffer: Buffer; mimeType: string } | undefined> {
+  if (Buffer.isBuffer(payload)) {
+    const mimeType = detectMimeTypeFromBuffer(payload);
+    return mimeType ? { buffer: payload, mimeType } : undefined;
+  }
+  if (typeof payload !== "string") {
+    return undefined;
+  }
+  if (payload.startsWith("data:")) {
+    const match = payload.match(/^data:([^;]+);base64,(.+)$/);
+    return match
+      ? { buffer: Buffer.from(match[2], "base64"), mimeType: match[1] }
+      : undefined;
+  }
+  if (isInternetUrl(payload)) {
+    return undefined;
+  }
+  const mimeType = getMimeTypeFromExtension(payload);
+  if (!needsVisionTranscode(mimeType)) {
+    return undefined;
+  }
+  try {
+    // Preflight the size before reading. Conversion replaces the entry with a
+    // data URI, which bypasses processImageToBase64's buffer-size guard — so
+    // without this a large local HEIC/TIFF/BMP was read fully into memory and
+    // then re-encoded, with no limit applied at either step.
+    const { size } = await statAsync(payload);
+    ImageProcessor.validateSize(size, `image at ${safeBasename(payload)}`);
+    const buffer = await readFileAsync(payload);
+    ImageProcessor.validateBufferSize(
+      buffer,
+      `image at ${safeBasename(payload)}`,
+    );
+    return { buffer, mimeType };
+  } catch (error) {
+    // The path may be a signed URL or carry credentials in query params, so it
+    // is redacted rather than interpolated verbatim (see logSanitize).
+    logger.warn(
+      `[messageBuilder] Could not read ${redactUrlForError(payload)} for image ` +
+        `format conversion: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return undefined;
+  }
 }
 
 /**

@@ -39,10 +39,22 @@ import type {
   VideoProcessorOptions,
 } from "../types/index.js";
 import { tracers, ATTR, withSpan } from "../telemetry/index.js";
+import { CONFIG_EXTENSIONS } from "../processors/config/fileExtensions.js";
+import {
+  fileTypeForExtension,
+  lookupByMimeType,
+  normalizeExtension,
+} from "../processors/config/fileTypeRegistry.js";
+import { LANGUAGE_MAP } from "../processors/config/languageMap.js";
+import {
+  getMimeTypeForExtension,
+  TEXT_EXTENSION_MIME_MAP,
+} from "../processors/config/mimeConstants.js";
 import { CSVProcessor } from "./csvProcessor.js";
 import { ImageProcessor } from "./imageProcessor.js";
 import { detectIsoBmffImageMimeType, hasFtypBoxSignature } from "./isoBmff.js";
 import { logger } from "./logger.js";
+import { looksLikeSvgMarkup } from "./markupSniff.js";
 import { withTimeout } from "./errorHandling.js";
 import {
   normalizeUrlForCache,
@@ -2176,15 +2188,185 @@ export class FileDetector {
 }
 
 /**
+ * Resolve an extension to a routing {@link FileType}.
+ *
+ * Consults, in order:
+ *   1. the canonical file-type registry — every image / audio / video /
+ *      document / data / archive format;
+ *   2. the text, markup and config MIME map;
+ *   3. `LANGUAGE_MAP`, which already enumerates ~200 source-code extensions.
+ *
+ * (3) is why this is a function rather than a table: source code was
+ * previously a third hand-written list inside the detector covering roughly a
+ * quarter of the languages the code processor already knew about, so a `.zig`
+ * or `.erl` file was "unknown" and fell through to content heuristics.
+ *
+ * Returns undefined when the extension is not recognised at all.
+ */
+function resolveFileTypeForExtension(ext: string): FileType | undefined {
+  const registryType = fileTypeForExtension(ext);
+  if (registryType) {
+    return registryType;
+  }
+  const normalized = normalizeExtension(ext);
+  if (
+    TEXT_EXTENSION_MIME_MAP[normalized] ||
+    LANGUAGE_MAP[normalized] ||
+    (CONFIG_EXTENSIONS as readonly string[]).includes(normalized)
+  ) {
+    return "text";
+  }
+  return undefined;
+}
+
+/**
+ * Bytes read from the head of a file when running magic-byte detection against
+ * a path.
+ *
+ * 4 KB rather than a few dozen: the largest consumers are the M2TS sync check
+ * (three 192-byte packets), the ASF stream-type GUID (which sits past the
+ * header object), and the OOXML sniff, which looks for `xl/`, `word/` or
+ * `ppt/` entry names inside a ZIP directory. Still a single small read, and
+ * far cheaper than the whole-file read the content heuristics would otherwise
+ * perform.
+ */
+const MAGIC_BYTES_HEADER_SIZE = 4096;
+
+/**
+ * ASF stream-type GUIDs, little-endian as stored in the file.
+ *
+ * `.wmv` and `.wma` share the same container signature, so the container alone
+ * cannot say which modality a file is. These GUIDs appear in the stream
+ * properties object and do.
+ */
+const ASF_VIDEO_MEDIA_GUID = Buffer.from(
+  "c0ef19bc4d5bcf11a8fd00805f5c442b",
+  "hex",
+);
+const ASF_AUDIO_MEDIA_GUID = Buffer.from(
+  "409e69f84d5bcf11a8fd00805f5c442b",
+  "hex",
+);
+
+/**
+ * Identify an OOXML or OpenDocument package inside a ZIP.
+ *
+ * Every Office format is a ZIP, so the ZIP signature alone routes .xlsx, .docx,
+ * .pptx and .odt to the archive processor whenever no filename is available —
+ * which is exactly the shape of a Slack or API upload that arrives as a bare
+ * Buffer. Reading the entry names recovers the real type.
+ *
+ * ODF is exact: the spec requires a `mimetype` entry stored first and
+ * uncompressed, so the media type is literally in the bytes. OOXML has no such
+ * guarantee, so its part prefixes (`xl/`, `word/`, `ppt/`) are matched instead,
+ * gated on `[Content_Types].xml` being present so a plain ZIP that happens to
+ * contain a folder called `word/` is not misread.
+ *
+ * Returns null when the ZIP is inconclusive, leaving the archive fallback and
+ * the extension to decide.
+ */
+function detectZipPackageType(
+  input: Buffer,
+): { type: FileType; mimeType: string } | null {
+  const head = input.toString("latin1", 0, Math.min(input.length, 4096));
+
+  // ODF: the mimetype string follows the stored "mimetype" entry name directly.
+  const odfMatch = head.match(
+    /mimetype(application\/vnd\.oasis\.opendocument\.[a-z-]+)/,
+  );
+  if (odfMatch) {
+    const mimeType = odfMatch[1];
+    const entry = lookupByMimeType(mimeType);
+    if (entry) {
+      return { type: entry.fileType, mimeType };
+    }
+  }
+
+  if (!head.includes("[Content_Types].xml")) {
+    return null;
+  }
+  for (const [prefix, mimeType] of [
+    [
+      "xl/",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ],
+    [
+      "word/",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ],
+    [
+      "ppt/",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ],
+  ] as const) {
+    if (head.includes(prefix)) {
+      const entry = lookupByMimeType(mimeType);
+      if (entry) {
+        return { type: entry.fileType, mimeType };
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Strategy 1: Magic Bytes Detection (95% confidence)
  * Detects file type from binary file headers
  */
 class MagicBytesStrategy implements DetectionStrategy {
   async detect(input: FileInput): Promise<FileDetectionResult> {
-    if (!Buffer.isBuffer(input)) {
+    const buffer = await MagicBytesStrategy.resolveBuffer(input);
+    if (!buffer) {
       return this.unknown();
     }
+    return this.detectFromBuffer(buffer);
+  }
 
+  /**
+   * Obtain the header bytes to inspect.
+   *
+   * Buffers are used directly. For a filesystem path we read only the first
+   * {@link MAGIC_BYTES_HEADER_SIZE} bytes — this strategy previously bailed out
+   * for anything that was not already a Buffer, which meant a path was
+   * classified by its extension alone and any file whose extension was missing,
+   * wrong or ambiguous fell through to the content heuristics. Those heuristics
+   * `readFile()` the *entire* file, so detecting a 500 MB video used to read
+   * 500 MB into memory to conclude nothing; now it reads
+   * {@link MAGIC_BYTES_HEADER_SIZE} bytes and returns.
+   *
+   * URLs and data URIs are left alone: a URL would need a network round-trip
+   * (the MIME strategy handles it), and a data URI already carries its type.
+   */
+  private static async resolveBuffer(
+    input: FileInput,
+  ): Promise<Buffer | undefined> {
+    if (Buffer.isBuffer(input)) {
+      return input;
+    }
+    if (
+      typeof input !== "string" ||
+      input.startsWith("data:") ||
+      input.startsWith("http://") ||
+      input.startsWith("https://")
+    ) {
+      return undefined;
+    }
+    let handle: Awaited<ReturnType<typeof open>> | undefined;
+    try {
+      handle = await open(input, "r");
+      const header = Buffer.alloc(MAGIC_BYTES_HEADER_SIZE);
+      const { bytesRead } = await handle.read(header, 0, header.length, 0);
+      return bytesRead > 0 ? header.subarray(0, bytesRead) : undefined;
+    } catch {
+      // Not a readable path (nonexistent, a directory, permission denied).
+      // Detection continues with the remaining strategies.
+      return undefined;
+    } finally {
+      await handle?.close().catch(() => undefined);
+    }
+  }
+
+  private detectFromBuffer(input: Buffer): FileDetectionResult {
     if (this.isPNG(input)) {
       return this.result("image", "image/png", 95);
     }
@@ -2248,6 +2430,18 @@ class MagicBytesStrategy implements DetectionStrategy {
       if (brand.startsWith("qt")) {
         return this.result("video", "video/quicktime", 95);
       }
+      // 3GPP / 3GPP2 share the ftyp box. Brands are "3gp4".."3gp9", "3gr6",
+      // "3gs7", "3ge6" … for 3GPP and "3g2a".."3g2c" for 3GPP2. A 3GPP file can
+      // hold audio only (phone voice memos) or audio+video, and the brand does
+      // not say which — so this reports video at a confidence *below* the
+      // detection threshold, letting a `.3gp`/`.3g2` extension confirm it and
+      // an explicit audio mimetype hint override it.
+      if (brand.startsWith("3g2")) {
+        return this.result("video", "video/3gpp2", 75);
+      }
+      if (brand.startsWith("3g")) {
+        return this.result("video", "video/3gpp", 75);
+      }
       return this.result("video", "video/mp4", 95);
     }
     // EBML container (MKV/WebM) — both share the 0x1A45DFA3 header; the DocType
@@ -2293,6 +2487,116 @@ class MagicBytesStrategy implements DetectionStrategy {
     ) {
       return this.result("audio", "audio/wav", 95);
     }
+    // AIFF / AIFF-C: "FORM" + "AIFF" or "AIFC" at offset 8. Same IFF container
+    // shape as RIFF above, big-endian.
+    if (
+      input.length >= 12 &&
+      input.toString("latin1", 0, 4) === "FORM" &&
+      (input.toString("latin1", 8, 12) === "AIFF" ||
+        input.toString("latin1", 8, 12) === "AIFC")
+    ) {
+      return this.result("audio", "audio/aiff", 95);
+    }
+    // ASF container — Windows Media. The header GUID is shared by .wmv (video)
+    // and .wma (audio), so the stream-type GUID inside decides. A .wma read
+    // from a bare Buffer was reported as video before this lookup existed.
+    if (
+      input.length >= 4 &&
+      input[0] === 0x30 &&
+      input[1] === 0x26 &&
+      input[2] === 0xb2 &&
+      input[3] === 0x75
+    ) {
+      if (input.includes(ASF_VIDEO_MEDIA_GUID)) {
+        return this.result("video", "video/x-ms-wmv", 92);
+      }
+      if (input.includes(ASF_AUDIO_MEDIA_GUID)) {
+        return this.result("audio", "audio/x-ms-wma", 92);
+      }
+      // Neither GUID within the header slice — report below the detection
+      // threshold so an extension, if there is one, still wins.
+      return this.result("video", "video/x-ms-asf", 75);
+    }
+    // FLV: "FLV" + version byte.
+    if (
+      input.length >= 4 &&
+      input.toString("latin1", 0, 3) === "FLV" &&
+      input[3] === 0x01
+    ) {
+      return this.result("video", "video/x-flv", 95);
+    }
+    // Rich Text Format: "{\rtf".
+    if (input.length >= 5 && input.toString("latin1", 0, 5) === "{\\rtf") {
+      return this.result("docx", "application/rtf", 92);
+    }
+    // Core Audio Format: "caff".
+    if (input.length >= 4 && input.toString("latin1", 0, 4) === "caff") {
+      return this.result("audio", "audio/x-caf", 95);
+    }
+    // Sun/NeXT audio: ".snd".
+    if (input.length >= 4 && input.toString("latin1", 0, 4) === ".snd") {
+      return this.result("audio", "audio/basic", 95);
+    }
+    // MPEG program stream (0x000001BA) and elementary video stream (0x000001B3)
+    // — .mpg/.mpeg/.vob. Without this, an MPEG-1 file reached the content
+    // heuristics, whose CSV check found consistent delimiter counts in the
+    // binary and classified real video as a spreadsheet.
+    if (
+      input.length >= 4 &&
+      input[0] === 0x00 &&
+      input[1] === 0x00 &&
+      input[2] === 0x01 &&
+      (input[3] === 0xba || input[3] === 0xb3)
+    ) {
+      return this.result("video", "video/mpeg", 95);
+    }
+    // MPEG-2 transport stream — .ts/.mts/.m2ts. There is no magic number, only
+    // a 0x47 sync byte at a fixed stride; requiring three in a row keeps a
+    // stray 0x47 from claiming an unrelated file. This is also what rescues
+    // `.ts`, whose extension resolves to TypeScript source.
+    //
+    // Two strides, because BDAV/M2TS prefixes each packet with a 4-byte arrival
+    // timestamp: plain TS is 188 bytes from offset 0, M2TS is 192 from offset 4.
+    // Checking only the former left every .m2ts undetected from a Buffer.
+    if (
+      (input.length >= 377 &&
+        input[0] === 0x47 &&
+        input[188] === 0x47 &&
+        input[376] === 0x47) ||
+      (input.length >= 389 &&
+        input[4] === 0x47 &&
+        input[196] === 0x47 &&
+        input[388] === 0x47)
+    ) {
+      return this.result("video", "video/mp2t", 92);
+    }
+    // MIDI: "MThd"
+    if (input.length >= 4 && input.toString("latin1", 0, 4) === "MThd") {
+      return this.result("audio", "audio/midi", 95);
+    }
+    // Monkey's Audio: "MAC " — the trailing space is part of the signature.
+    if (input.length >= 4 && input.toString("latin1", 0, 4) === "MAC ") {
+      return this.result("audio", "audio/x-ape", 95);
+    }
+    // WavPack: "wvpk"
+    if (input.length >= 4 && input.toString("latin1", 0, 4) === "wvpk") {
+      return this.result("audio", "audio/x-wavpack", 95);
+    }
+    // AMR narrowband ("#!AMR\n") and wideband ("#!AMR-WB\n").
+    if (input.length >= 6 && input.toString("latin1", 0, 5) === "#!AMR") {
+      return this.result("audio", "audio/amr", 95);
+    }
+    // JPEG 2000: 12-byte signature box.
+    if (
+      input.length >= 8 &&
+      input[0] === 0x00 &&
+      input[1] === 0x00 &&
+      input[2] === 0x00 &&
+      input[3] === 0x0c &&
+      input.toString("latin1", 4, 8) === "jP  "
+    ) {
+      return this.result("image", "image/jp2", 95);
+    }
     // MP3: ID3 tag
     if (
       input.length >= 3 &&
@@ -2330,14 +2634,30 @@ class MagicBytesStrategy implements DetectionStrategy {
       input[2] === 0x67 &&
       input[3] === 0x53
     ) {
+      // Ogg is a container, not a codec — .ogv (Theora/VP8 video) and .oga/.opus
+      // (Vorbis/Opus/FLAC audio) all start "OggS". The codec identifier lives in
+      // the first page's payload, so read it rather than assuming audio and
+      // routing every Ogg video to the audio processor.
+      const firstPage = input.toString(
+        "latin1",
+        0,
+        Math.min(input.length, 128),
+      );
+      if (firstPage.includes("theora") || firstPage.includes("VP80")) {
+        return this.result("video", "video/ogg", 92);
+      }
+      if (firstPage.includes("OpusHead")) {
+        return this.result("audio", "audio/opus", 92);
+      }
       return this.result("audio", "audio/ogg", 90);
     }
     // ZIP: "PK\x03\x04"
-    // NOTE: Many document formats (OOXML: .xlsx, .docx, .pptx; ODF: .odt, .ods)
-    // are internally ZIP archives and share these magic bytes. We return a lower
-    // confidence (70%) so the ExtensionStrategy (85%) can override with the correct
-    // document type when a file path with extension is available. For raw buffers
-    // without path info, this falls through to archive as a safe default.
+    // Many document formats (OOXML: .xlsx, .docx, .pptx; ODF: .odt, .ods) are
+    // internally ZIP archives and share these magic bytes. Read the entry names
+    // first — that identifies the real format even for a bare Buffer with no
+    // filename, which previously routed every Office document to the archive
+    // processor. An inconclusive ZIP still reports archive at a lower
+    // confidence (70%) so the ExtensionStrategy (85%) can override it.
     if (
       input.length >= 4 &&
       input[0] === 0x50 &&
@@ -2345,11 +2665,49 @@ class MagicBytesStrategy implements DetectionStrategy {
       input[2] === 0x03 &&
       input[3] === 0x04
     ) {
+      const packaged = detectZipPackageType(input);
+      if (packaged) {
+        return this.result(packaged.type, packaged.mimeType, 92);
+      }
       return this.result("archive", "application/zip", 70);
     }
     // GZIP: 1F 8B
     if (input.length >= 2 && input[0] === 0x1f && input[1] === 0x8b) {
       return this.result("archive", "application/gzip", 90);
+    }
+    // BZIP2: "BZh" + a compression-level digit.
+    if (
+      input.length >= 4 &&
+      input.toString("latin1", 0, 3) === "BZh" &&
+      input[3] >= 0x31 &&
+      input[3] <= 0x39
+    ) {
+      return this.result("archive", "application/x-bzip2", 95);
+    }
+    // XZ: FD "7zXZ" 00
+    if (
+      input.length >= 6 &&
+      input[0] === 0xfd &&
+      input.toString("latin1", 1, 5) === "7zXZ" &&
+      input[5] === 0x00
+    ) {
+      return this.result("archive", "application/x-xz", 95);
+    }
+    // Zstandard frame magic: 28 B5 2F FD
+    if (
+      input.length >= 4 &&
+      input[0] === 0x28 &&
+      input[1] === 0xb5 &&
+      input[2] === 0x2f &&
+      input[3] === 0xfd
+    ) {
+      return this.result("archive", "application/zstd", 95);
+    }
+    // TAR: "ustar" at offset 257, inside the first header block. Checked late
+    // because it is a weak, deep signature — anything with its own leading
+    // magic number should have matched already.
+    if (input.length >= 262 && input.toString("latin1", 257, 262) === "ustar") {
+      return this.result("archive", "application/x-tar", 90);
     }
     // 7z: 37 7A BC AF 27 1C
     if (
@@ -2372,6 +2730,14 @@ class MagicBytesStrategy implements DetectionStrategy {
       input[3] === 0x21
     ) {
       return this.result("archive", "application/x-rar-compressed", 95);
+    }
+    // SVG is text, so it has no byte signature — but it does have an
+    // unambiguous root element. Without this an SVG supplied as a Buffer was
+    // classified as generic XML and inlined as raw markup instead of going
+    // through the SVG sanitizer, which is the whole reason SVG has its own
+    // FileType. Checked last so no binary format can be beaten to it.
+    if (looksLikeSvgMarkup(input)) {
+      return this.result("svg", "image/svg+xml", 90);
     }
 
     return this.unknown();
@@ -2629,133 +2995,10 @@ class ExtensionStrategy implements DetectionStrategy {
       return this.unknown();
     }
 
-    const typeMap: Record<string, FileType> = {
-      csv: "csv",
-      tsv: "csv",
-      jpg: "image",
-      jpeg: "image",
-      png: "image",
-      gif: "image",
-      webp: "image",
-      bmp: "image",
-      tiff: "image",
-      tif: "image",
-      // SVG is handled as text/markup, NOT as image
-      // AI providers don't support SVG format, so we process it as sanitized text
-      svg: "svg",
-      avif: "image",
-      heic: "image",
-      heif: "image",
-      pdf: "pdf",
-      // Video formats
-      mp4: "video",
-      mkv: "video",
-      mov: "video",
-      avi: "video",
-      webm: "video",
-      wmv: "video",
-      flv: "video",
-      // Audio formats
-      mp3: "audio",
-      wav: "audio",
-      ogg: "audio",
-      flac: "audio",
-      m4a: "audio",
-      aac: "audio",
-      wma: "audio",
-      opus: "audio",
-      // Archive formats
-      zip: "archive",
-      tar: "archive",
-      gz: "archive",
-      tgz: "archive",
-      rar: "archive",
-      "7z": "archive",
-      jar: "archive",
-      // Document formats (ZIP-based internally)
-      xlsx: "xlsx",
-      xls: "xlsx",
-      docx: "docx",
-      doc: "docx",
-      pptx: "pptx",
-      ppt: "pptx",
-      odt: "docx", // OpenDocument text → processed like docx
-      ods: "xlsx", // OpenDocument spreadsheet → processed like xlsx
-      odp: "pptx", // OpenDocument presentation → processed like pptx
-      rtf: "docx", // RTF → processed like docx (text extraction)
-      // Text/markup formats
-      txt: "text",
-      md: "text",
-      markdown: "text",
-      json: "text",
-      xml: "text",
-      yaml: "text",
-      yml: "text",
-      html: "text",
-      htm: "text",
-      css: "text",
-      log: "text",
-      conf: "text",
-      cfg: "text",
-      ini: "text",
-      env: "text",
-      toml: "text",
-      properties: "text",
-      gitignore: "text",
-      dockerignore: "text",
-      editorconfig: "text",
-      prettierrc: "text",
-      eslintrc: "text",
-      babelrc: "text",
-      // Source code formats
-      js: "text",
-      mjs: "text",
-      cjs: "text",
-      jsx: "text",
-      ts: "text",
-      tsx: "text",
-      py: "text",
-      java: "text",
-      go: "text",
-      rs: "text",
-      rb: "text",
-      php: "text",
-      c: "text",
-      cpp: "text",
-      cc: "text",
-      h: "text",
-      hpp: "text",
-      cs: "text",
-      swift: "text",
-      kt: "text",
-      kts: "text",
-      scala: "text",
-      sh: "text",
-      bash: "text",
-      zsh: "text",
-      ps1: "text",
-      sql: "text",
-      r: "text",
-      lua: "text",
-      pl: "text",
-      perl: "text",
-      dart: "text",
-      ex: "text",
-      exs: "text",
-      erl: "text",
-      hs: "text",
-      clj: "text",
-      lisp: "text",
-      vim: "text",
-      // Additional video/image
-      m4v: "video",
-      ico: "image",
-    };
-
-    const type = typeMap[ext.toLowerCase()];
+    const type = resolveFileTypeForExtension(ext);
 
     return {
-      type: type || "unknown",
+      type: type ?? "unknown",
       mimeType: this.getMimeType(ext),
       extension: ext,
       source: this.detectSource(input),
@@ -2814,127 +3057,7 @@ class ExtensionStrategy implements DetectionStrategy {
   }
 
   private getMimeType(ext: string): string {
-    const mimeMap: Record<string, string> = {
-      csv: "text/csv",
-      tsv: "text/tab-separated-values",
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      png: "image/png",
-      gif: "image/gif",
-      webp: "image/webp",
-      bmp: "image/bmp",
-      tiff: "image/tiff",
-      tif: "image/tiff",
-      svg: "image/svg+xml",
-      avif: "image/avif",
-      heic: "image/heic",
-      heif: "image/heif",
-      pdf: "application/pdf",
-      // Video MIME types
-      mp4: "video/mp4",
-      mkv: "video/x-matroska",
-      mov: "video/quicktime",
-      avi: "video/x-msvideo",
-      webm: "video/webm",
-      wmv: "video/x-ms-wmv",
-      flv: "video/x-flv",
-      // Audio MIME types
-      mp3: "audio/mpeg",
-      wav: "audio/wav",
-      ogg: "audio/ogg",
-      flac: "audio/flac",
-      m4a: "audio/mp4",
-      aac: "audio/aac",
-      wma: "audio/x-ms-wma",
-      opus: "audio/opus",
-      // Archive MIME types
-      zip: "application/zip",
-      tar: "application/x-tar",
-      gz: "application/gzip",
-      tgz: "application/gzip",
-      rar: "application/x-rar-compressed",
-      "7z": "application/x-7z-compressed",
-      jar: "application/java-archive",
-      // Document MIME types
-      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      xls: "application/vnd.ms-excel",
-      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      doc: "application/msword",
-      pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      ppt: "application/vnd.ms-powerpoint",
-      odt: "application/vnd.oasis.opendocument.text",
-      ods: "application/vnd.oasis.opendocument.spreadsheet",
-      odp: "application/vnd.oasis.opendocument.presentation",
-      rtf: "application/rtf",
-      // Text/markup MIME types
-      txt: "text/plain",
-      md: "text/markdown",
-      markdown: "text/markdown",
-      json: "application/json",
-      xml: "application/xml",
-      yaml: "application/yaml",
-      yml: "application/yaml",
-      html: "text/html",
-      htm: "text/html",
-      css: "text/css",
-      log: "text/plain",
-      conf: "text/plain",
-      cfg: "text/plain",
-      ini: "text/plain",
-      env: "text/plain",
-      toml: "text/plain",
-      properties: "text/plain",
-      gitignore: "text/plain",
-      dockerignore: "text/plain",
-      editorconfig: "text/plain",
-      prettierrc: "application/json",
-      eslintrc: "application/json",
-      babelrc: "application/json",
-      // Source code MIME types
-      js: "text/javascript",
-      mjs: "text/javascript",
-      cjs: "text/javascript",
-      jsx: "text/javascript",
-      ts: "text/typescript",
-      tsx: "text/typescript",
-      py: "text/x-python",
-      java: "text/x-java-source",
-      go: "text/x-go",
-      rs: "text/x-rustsrc",
-      rb: "text/x-ruby",
-      php: "text/x-php",
-      c: "text/x-c",
-      cpp: "text/x-c++",
-      cc: "text/x-c++",
-      h: "text/x-c",
-      hpp: "text/x-c++",
-      cs: "text/x-csharp",
-      swift: "text/x-swift",
-      kt: "text/x-kotlin",
-      kts: "text/x-kotlin",
-      scala: "text/x-scala",
-      sh: "text/x-shellscript",
-      bash: "text/x-shellscript",
-      zsh: "text/x-shellscript",
-      ps1: "text/x-powershell",
-      sql: "text/x-sql",
-      r: "text/x-r",
-      lua: "text/x-lua",
-      pl: "text/x-perl",
-      perl: "text/x-perl",
-      dart: "text/x-dart",
-      ex: "text/x-elixir",
-      exs: "text/x-elixir",
-      erl: "text/x-erlang",
-      hs: "text/x-haskell",
-      clj: "text/x-clojure",
-      lisp: "text/x-lisp",
-      vim: "text/plain",
-      // Additional video/image
-      m4v: "video/mp4",
-      ico: "image/x-icon",
-    };
-    return mimeMap[ext.toLowerCase()] || "application/octet-stream";
+    return getMimeTypeForExtension(ext);
   }
 
   private unknown(): FileDetectionResult {
@@ -2982,6 +3105,16 @@ class ContentHeuristicStrategy implements DetectionStrategy {
       return this.unknown();
     }
 
+    // Every check below runs on a UTF-8 *decoding* of the bytes, which succeeds
+    // for any input — decoding a video yields a string full of replacement
+    // characters, and that string can still satisfy a text heuristic. It did:
+    // MPEG-1 video decoded to "lines" with a consistent delimiter count and was
+    // classified `csv`, then handed to the CSV parser. Reject binary up front so
+    // no text heuristic can ever see it.
+    if (ContentHeuristicStrategy.looksBinary(buffer)) {
+      return this.unknown();
+    }
+
     const sample = buffer.toString("utf-8", 0, Math.min(2000, buffer.length));
 
     // Check for JSON first (more specific than CSV)
@@ -3012,6 +3145,40 @@ class ContentHeuristicStrategy implements DetectionStrategy {
     }
 
     return this.unknown();
+  }
+
+  /**
+   * Whether a buffer holds binary rather than text.
+   *
+   * Two independent signals, both computed on the same leading sample that the
+   * heuristics themselves inspect:
+   *
+   *   - a NUL byte, which no text encoding this detector supports emits (UTF-16
+   *     would, but it is not among the formats handled here and would already
+   *     have been caught by its BOM);
+   *   - more than 10% control/undecodable bytes, which catches binaries that
+   *     happen not to contain a NUL in their first 2 KB.
+   *
+   * Tab, newline and carriage return are text and excluded from the control
+   * count.
+   */
+  private static looksBinary(buffer: Buffer): boolean {
+    const sampleLength = Math.min(2000, buffer.length);
+    if (sampleLength === 0) {
+      return false;
+    }
+    let controlBytes = 0;
+    for (let i = 0; i < sampleLength; i++) {
+      const byte = buffer[i];
+      if (byte === 0x00) {
+        return true;
+      }
+      const isTextWhitespace = byte === 0x09 || byte === 0x0a || byte === 0x0d;
+      if (!isTextWhitespace && (byte < 0x20 || byte === 0x7f)) {
+        controlBytes++;
+      }
+    }
+    return controlBytes / sampleLength > 0.1;
   }
 
   private looksLikeCSV(text: string): boolean {

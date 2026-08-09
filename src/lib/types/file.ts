@@ -25,6 +25,56 @@ export type FileType =
 export type OfficeDocumentType = "docx" | "pptx" | "xlsx";
 
 /**
+ * Outcome of a vision-compatibility pass over one image.
+ *
+ * See `adapters/imageFormatSupport.ts` — `converted` is false both when the
+ * source format was already universally accepted and when no decoder could
+ * read it, so callers must not treat it as a success flag.
+ */
+export type VisionImageConversion = {
+  readonly buffer: Buffer;
+  readonly mimeType: string;
+  /** True when the bytes were re-encoded; false when they were left alone. */
+  readonly converted: boolean;
+};
+
+/**
+ * Broad category a file format belongs to, as a human would name it.
+ *
+ * Distinct from {@link FileType}, which is the *routing* type the detector
+ * emits. The two deliberately differ where one processor handles several
+ * formats: an .odt has `modality: "document"` but `fileType: "docx"`, and a
+ * .svg has `modality: "image"` but `fileType: "svg"` because it is sanitised as
+ * markup rather than sent to a vision API.
+ */
+export type FileModality =
+  | "image"
+  | "audio"
+  | "video"
+  | "document"
+  | "data"
+  | "archive";
+
+/**
+ * One format in the canonical file-type registry.
+ *
+ * `extensions[0]` and `mimeTypes[0]` are canonical; the remaining entries are
+ * aliases accepted on input. See `processors/config/fileTypeRegistry.ts`.
+ */
+export type FileFormatEntry = {
+  /** Human-readable format name, used in registry-conflict errors. */
+  readonly label: string;
+  /** Extensions with leading dots, lowercase; first is canonical. */
+  readonly extensions: readonly string[];
+  /** MIME types, lowercase; first is canonical. */
+  readonly mimeTypes: readonly string[];
+  /** Routing type the detector emits for this format. */
+  readonly fileType: FileType;
+  /** Category a human would put this format in. */
+  readonly modality: FileModality;
+};
+
+/**
  * File with metadata — allows callers to pass filename alongside a Buffer.
  *
  * This is the recommended way for applications (e.g. Slack bots) to pass

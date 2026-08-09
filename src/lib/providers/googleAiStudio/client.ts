@@ -9,7 +9,10 @@ import {
   IMAGE_GENERATION_MODELS,
   TOOL_STORAGE_TIMEOUT_MS,
 } from "../../core/constants.js";
-import { processUnifiedFilesArray } from "../../utils/messageBuilder.js";
+import {
+  normalizeVisionImageFormats,
+  processUnifiedFilesArray,
+} from "../../utils/messageBuilder.js";
 import type { NeuroLink } from "../../neurolink.js";
 import {
   ATTR,
@@ -374,6 +377,14 @@ export class GoogleAIStudioProvider extends BaseProvider {
   protected async executeImageGeneration(
     options: TextGenerationOptions,
   ): Promise<EnhancedGenerateResult> {
+    // Image-to-image generation takes reference images through the same
+    // `input.images` array, and generate() routes here BEFORE reaching its own
+    // normalization call — so a reference photo in HEIC/BMP/AVIF would arrive
+    // at the API untranscoded. Normalizing at the top of this method covers
+    // every route in, rather than relying on each caller to remember.
+    // Idempotent, so a request that was already normalized pays nothing.
+    await normalizeVisionImageFormats(options.input);
+
     const prompt = options.prompt || options.input?.text || "";
     const imageModelName = options.model || this.modelName;
     const startTime = Date.now();
@@ -1683,6 +1694,11 @@ export class GoogleAIStudioProvider extends BaseProvider {
         );
       }
     }
+
+    // Runs even without input.files: a caller can populate input.images
+    // directly, and this native path never reaches the shared multimodal
+    // builder that would otherwise normalize the formats.
+    await normalizeVisionImageFormats(options.input);
 
     // Merge registered (built-in / MCP) tools with caller-supplied tools.
     // AI Studio's generate() bypasses BaseProvider.generate(), so the

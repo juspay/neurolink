@@ -5,6 +5,12 @@
  * @module processors/config/mimeTypes
  */
 
+import {
+  EXTENSION_MIME_OVERRIDES,
+  FILE_TYPE_REGISTRY,
+  normalizeExtension,
+} from "./fileTypeRegistry.js";
+
 // =============================================================================
 // IMAGE MIME TYPES
 // =============================================================================
@@ -263,57 +269,34 @@ export const MIME_TYPES = {
 // =============================================================================
 
 /**
- * Centralized mapping of file extensions (with leading dot) to MIME types.
+ * Extension → MIME for text, markup, source-code and config files.
  *
- * This is the single source of truth for extension-to-MIME lookups.
- * Derived from the category-specific MIME type constants above so that
- * consumers (e.g. CLI helpers, file detectors) do not need to maintain
- * their own duplicate mappings.
- *
- * If you add a new MIME type constant above, also add its extension mapping
- * here to keep everything in sync.
+ * These are the formats that carry no modality of their own — they are inlined
+ * into the prompt as text. Binary and structured formats (image, audio, video,
+ * document, data, archive) are NOT listed here; they come from
+ * {@link FILE_TYPE_REGISTRY}, which is the single source of truth for
+ * everything multimodal. See `fileTypeRegistry.ts` for why.
  */
-export const EXTENSION_MIME_MAP: Record<string, string> = {
-  // Documents
-  ".pdf": DOCUMENT_MIME_TYPES.PDF,
-  ".docx": DOCUMENT_MIME_TYPES.DOCX,
-  ".doc": DOCUMENT_MIME_TYPES.DOC,
-  ".xlsx": DOCUMENT_MIME_TYPES.XLSX,
-  ".xls": DOCUMENT_MIME_TYPES.XLS,
-  ".odt": DOCUMENT_MIME_TYPES.ODT,
-  ".ods": DOCUMENT_MIME_TYPES.ODS,
-  ".odp": DOCUMENT_MIME_TYPES.ODP,
-  ".rtf": DOCUMENT_MIME_TYPES.RTF,
-  ".pptx": DOCUMENT_MIME_TYPES.PPTX,
-  ".ppt": DOCUMENT_MIME_TYPES.PPT,
-
-  // Data formats
-  ".json": DATA_MIME_TYPES.JSON,
-  ".xml": DATA_MIME_TYPES.XML,
-  ".yaml": DATA_MIME_TYPES.YAML_APP,
-  ".yml": DATA_MIME_TYPES.YAML_APP,
-  ".csv": DATA_MIME_TYPES.CSV,
-  ".tsv": "text/tab-separated-values",
-
+export const TEXT_EXTENSION_MIME_MAP: Record<string, string> = {
   // Text and Markup
   ".txt": TEXT_MIME_TYPES.PLAIN,
   ".md": TEXT_MIME_TYPES.MARKDOWN,
   ".markdown": TEXT_MIME_TYPES.MARKDOWN,
   ".html": TEXT_MIME_TYPES.HTML,
   ".htm": TEXT_MIME_TYPES.HTML,
-  ".svg": IMAGE_MIME_TYPES.SVG,
+  ".xhtml": TEXT_MIME_TYPES.XHTML,
   ".log": TEXT_MIME_TYPES.PLAIN,
+  ".css": TEXT_MIME_TYPES.CSS,
 
-  // Images
-  ".png": IMAGE_MIME_TYPES.PNG,
-  ".jpg": IMAGE_MIME_TYPES.JPEG,
-  ".jpeg": IMAGE_MIME_TYPES.JPEG,
-  ".gif": IMAGE_MIME_TYPES.GIF,
-  ".webp": IMAGE_MIME_TYPES.WEBP,
-  ".bmp": IMAGE_MIME_TYPES.BMP,
-  ".ico": IMAGE_MIME_TYPES.ICO,
-  ".heic": IMAGE_MIME_TYPES.HEIC,
-  ".heif": IMAGE_MIME_TYPES.HEIF,
+  // Structured text.
+  // YAML uses the IANA-registered `application/yaml` (RFC 9512) rather than the
+  // legacy `application/x-yaml`. This is also what the content heuristic already
+  // reports for YAML bytes, so the extension path and the content path no longer
+  // disagree about the same file.
+  ".json": DATA_MIME_TYPES.JSON,
+  ".xml": DATA_MIME_TYPES.XML,
+  ".yaml": "application/yaml",
+  ".yml": "application/yaml",
 
   // Source code
   ".js": TEXT_MIME_TYPES.JAVASCRIPT,
@@ -346,34 +329,6 @@ export const EXTENSION_MIME_MAP: Record<string, string> = {
   ".perl": "text/x-perl",
   ".pl": "text/x-perl",
 
-  // Video
-  ".mp4": VIDEO_MIME_TYPES.MP4,
-  ".m4v": VIDEO_MIME_TYPES.MP4,
-  ".mkv": VIDEO_MIME_TYPES.MKV,
-  ".mov": VIDEO_MIME_TYPES.MOV,
-  ".avi": VIDEO_MIME_TYPES.AVI,
-  ".webm": VIDEO_MIME_TYPES.WEBM,
-  ".wmv": VIDEO_MIME_TYPES.WMV,
-  ".flv": VIDEO_MIME_TYPES.FLV,
-
-  // Audio
-  ".mp3": AUDIO_MIME_TYPES.MP3,
-  ".wav": AUDIO_MIME_TYPES.WAV,
-  ".ogg": AUDIO_MIME_TYPES.OGG,
-  ".flac": AUDIO_MIME_TYPES.FLAC,
-  ".m4a": AUDIO_MIME_TYPES.M4A,
-  ".aac": AUDIO_MIME_TYPES.AAC,
-  ".wma": AUDIO_MIME_TYPES.WMA,
-
-  // Archives
-  ".zip": ARCHIVE_MIME_TYPES.ZIP,
-  ".tar": ARCHIVE_MIME_TYPES.TAR,
-  ".gz": ARCHIVE_MIME_TYPES.GZIP,
-  ".tgz": ARCHIVE_MIME_TYPES.GZIP,
-  ".rar": ARCHIVE_MIME_TYPES.RAR,
-  ".7z": ARCHIVE_MIME_TYPES.SEVEN_ZIP,
-  ".jar": "application/java-archive",
-
   // Config files
   ".env": TEXT_MIME_TYPES.PLAIN,
   ".ini": TEXT_MIME_TYPES.PLAIN,
@@ -390,13 +345,44 @@ export const EXTENSION_MIME_MAP: Record<string, string> = {
 };
 
 /**
+ * Centralized mapping of file extensions (with leading dot) to MIME types.
+ *
+ * Assembled from two sources so there is exactly one place to edit per kind of
+ * format: every image / audio / video / document / data / archive entry is
+ * derived from {@link FILE_TYPE_REGISTRY}, and the text, markup, source-code
+ * and config entries come from {@link TEXT_EXTENSION_MIME_MAP}.
+ *
+ * Registry entries are spread last so that a format which appears in both wins
+ * from the registry — the registry is the authority for anything with a
+ * modality.
+ */
+export const EXTENSION_MIME_MAP: Record<string, string> = {
+  ...TEXT_EXTENSION_MIME_MAP,
+  ...Object.fromEntries(
+    FILE_TYPE_REGISTRY.flatMap((entry) =>
+      entry.extensions.map((ext) => [ext, entry.mimeTypes[0]] as const),
+    ),
+  ),
+  // Applied last: an ambiguous extension (.ts) must report the MIME type of the
+  // format its routing was overridden to, or this map and the registry's
+  // mimeTypeForExtension() describe the same file differently.
+  ...EXTENSION_MIME_OVERRIDES,
+};
+
+/**
  * Get MIME type from file extension using the centralized map.
  *
- * @param ext - File extension (with leading dot, e.g. ".pdf")
+ * Accepts a bare extension (`"pdf"`), a dotted extension (`".pdf"`), a filename
+ * or a full path — `normalizeExtension` handles all four, including compound
+ * suffixes like `.tar.gz`.
+ *
+ * @param ext - File extension, filename or path
  * @returns MIME type string, or "application/octet-stream" if unknown
  */
 export function getMimeTypeForExtension(ext: string): string {
-  return EXTENSION_MIME_MAP[ext.toLowerCase()] || "application/octet-stream";
+  return (
+    EXTENSION_MIME_MAP[normalizeExtension(ext)] || "application/octet-stream"
+  );
 }
 
 // =============================================================================

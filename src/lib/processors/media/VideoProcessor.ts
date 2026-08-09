@@ -63,6 +63,10 @@ import type {
   VideoProcessorOptions,
 } from "../../types/index.js";
 import { SIZE_LIMITS_MB } from "../config/index.js";
+import {
+  extensionsForModality,
+  mimeTypesForModality,
+} from "../config/fileTypeRegistry.js";
 import { FileErrorCode } from "../errors/index.js";
 import { tracers, ATTR, withSpan } from "../../telemetry/index.js";
 import { logger } from "../../utils/logger.js";
@@ -207,39 +211,19 @@ const VIDEO_CONFIG = {
   FFPROBE_TIMEOUT_MS: 10_000,
 } as const;
 
-/** Supported video MIME types */
-const SUPPORTED_VIDEO_MIME_TYPES = [
-  "video/mp4",
-  "video/x-matroska",
-  "video/quicktime",
-  "video/webm",
-  "video/x-msvideo",
-  "video/x-ms-wmv",
-  "video/x-flv",
-  "video/3gpp",
-  "video/3gpp2",
-  "video/MP2T",
-  "video/ogg",
-] as const;
+/**
+ * Supported video MIME types — derived from the canonical registry so this
+ * processor and the detector in front of it cannot disagree about what "video"
+ * means. Before the registry they did: .m2ts, .mts, .vob, .3g2 and .ogv were
+ * declared supported here and detected as "unknown", and .mpg/.mpeg were
+ * detected as CSV.
+ */
+const SUPPORTED_VIDEO_MIME_TYPES: readonly string[] =
+  mimeTypesForModality("video");
 
-/** Supported video file extensions */
-const SUPPORTED_VIDEO_EXTENSIONS = [
-  ".mp4",
-  ".m4v",
-  ".mkv",
-  ".mov",
-  ".avi",
-  ".wmv",
-  ".flv",
-  ".webm",
-  ".3gp",
-  ".3g2",
-  ".ts",
-  ".mts",
-  ".m2ts",
-  ".ogv",
-  ".vob",
-] as const;
+/** Supported video file extensions — derived from the canonical registry. */
+const SUPPORTED_VIDEO_EXTENSIONS: readonly string[] =
+  extensionsForModality("video");
 
 /**
  * Maximum video file size in MB.
