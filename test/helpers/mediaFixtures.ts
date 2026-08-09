@@ -140,3 +140,86 @@ export function makeCorruptFile(dir: string, name: string): string {
   fs.writeFileSync(out, Buffer.from("not really media, just ascii", "utf8"));
   return out;
 }
+
+/**
+ * Render a number into an image of a chosen byte size.
+ *
+ * Two properties matter and neither is incidental.
+ *
+ * The *content* is a number the model cannot guess. Asking "describe this
+ * image" is worthless — a model that received nothing still produces plausible
+ * prose — and asking about a property with a strong prior (dimensions, a
+ * common colour) is answerable without looking. A four-digit token has no
+ * prior, so a correct answer can only have come from the pixels.
+ *
+ * The *size* is chosen relative to `SIZE_TIER_THRESHOLDS.TINY_MAX` (10 KB).
+ * Files under it are processed eagerly; files over it take the lazy
+ * reference path. An image on the wrong side of that line silently became a
+ * ~98-character text preview and never reached the model at all — and the
+ * reason that shipped is that every image fixture in the suites happened to be
+ * a few kilobytes. `bigPixels` pushes the encode over the threshold so the
+ * lazy path is actually exercised.
+ *
+ * @param label - Digits rendered into the image; keep it un-guessable.
+ * @param bigPixels - When true, render large enough to exceed TINY_MAX.
+ */
+export async function makeNumberImage(
+  dir: string,
+  name: string,
+  label: string,
+  bigPixels = false,
+): Promise<string> {
+  const magick = findImageMagick();
+  if (!magick) {
+    throw new Error("ImageMagick unavailable");
+  }
+  const out = path.join(dir, name);
+  const size = bigPixels ? "1600x900" : "200x100";
+  const pointsize = bigPixels ? "220" : "48";
+  await execFileAsync(magick, [
+    "-size",
+    size,
+    "xc:white",
+    "-fill",
+    "black",
+    "-pointsize",
+    pointsize,
+    "-gravity",
+    "center",
+    "-annotate",
+    "0",
+    label,
+    out,
+  ]);
+  return out;
+}
+
+/**
+ * Locate ImageMagick: `IMAGEMAGICK_PATH` first, then the usual install roots.
+ *
+ * Mirrors `findFfmpeg`'s env-override-then-fixed-paths order, so an unusual
+ * install can be pointed at rather than making the caller skip. It stops short
+ * of `findFfmpeg`'s bare-name PATH fallback on purpose: that one is safe
+ * because `hasFfmpeg()` proves the binary runs before anything relies on it,
+ * and there is no equivalent probe here — returning "magick" on a machine
+ * without it would turn a clean skip into a spawn failure mid-fixture.
+ */
+export function findImageMagick(): string | null {
+  const explicit = process.env.IMAGEMAGICK_PATH;
+  if (explicit && fs.existsSync(explicit)) {
+    return explicit;
+  }
+
+  for (const candidate of [
+    "/opt/homebrew/bin/magick",
+    "/usr/local/bin/magick",
+    "/usr/bin/magick",
+    "/opt/homebrew/bin/convert",
+    "/usr/bin/convert",
+  ]) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
