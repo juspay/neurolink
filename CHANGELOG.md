@@ -1,3 +1,9 @@
+## [10.10.12](https://github.com/juspay/neurolink/compare/v10.10.11...v10.10.12) (2026-08-10)
+
+### Bug Fixes
+
+- **(multimodal):** stop dropping images above the lazy-reference threshold ([85de8f3](https://github.com/juspay/neurolink/commit/85de8f352b8a6f4fa4953042247a1eebaedf1640))
+
 ## [10.10.11](https://github.com/juspay/neurolink/compare/v10.10.10...v10.10.11) (2026-08-08)
 
 ### Bug Fixes
