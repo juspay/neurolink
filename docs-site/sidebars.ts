@@ -34,6 +34,7 @@ const sidebars: SidebarsConfig = {
             "getting-started/providers/litellm",
             "getting-started/providers/sagemaker",
             "getting-started/providers/openrouter",
+            "getting-started/providers/flatkey",
             "getting-started/providers/openai-compatible",
             "getting-started/providers/deepseek",
             "getting-started/providers/nvidia-nim",

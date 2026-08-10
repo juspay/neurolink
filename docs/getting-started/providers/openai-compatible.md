@@ -28,6 +28,7 @@ The OpenAI Compatible provider enables NeuroLink to work with any service that i
 | Service                   | Description                          | Best For               |
 | ------------------------- | ------------------------------------ | ---------------------- |
 | **OpenRouter**            | AI provider aggregator (100+ models) | Multi-provider access  |
+| **Flatkey**               | Unified gateway, one key & balance   | Multi-provider access  |
 | **vLLM**                  | High-performance inference server    | Self-hosted models     |
 | **LocalAI**               | Local OpenAI alternative             | Privacy, offline usage |
 | **Text Generation WebUI** | Community inference server           | Local LLMs             |
