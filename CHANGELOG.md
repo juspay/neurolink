@@ -1,3 +1,9 @@
+## [10.11.0](https://github.com/juspay/neurolink/compare/v10.10.12...v10.11.0) (2026-08-10)
+
+### Features
+
+- **(files):** support every multimodal format exhaustively via one registry ([a588cca](https://github.com/juspay/neurolink/commit/a588cca4ac89dbcdc2fb1aa0ec256794dbcee3f6))
+
 ## [10.10.12](https://github.com/juspay/neurolink/compare/v10.10.11...v10.10.12) (2026-08-10)
 
 ### Bug Fixes
