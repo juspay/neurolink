@@ -3816,7 +3816,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         updaterRunning: false,
         latestVersion: updateState?.lastCheckVersion || null,
         lastDetectedVersion: updateState?.lastCheckVersion || null,
-        lastUpdateCheckAt: updateState?.lastCheckAt ?? null,
+        lastCheckAt: updateState?.lastCheckAt ?? null,
         installedVersion:
           updateState?.installedVersion ??
           updateState?.lastUpdateVersion ??
@@ -4025,9 +4025,9 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
             `  ${chalk.bold("Latest:")}     ${chalk.cyan(`v${status.latestVersion}`)}`,
           );
         }
-        if (status.latestVersion && status.lastUpdateCheckAt) {
+        if (status.latestVersion && status.lastCheckAt) {
           logger.always(
-            `  ${chalk.bold("Last update check:")} ${chalk.cyan(status.lastUpdateCheckAt)}`,
+            `  ${chalk.bold("Last update check:")} ${chalk.cyan(status.lastCheckAt)}`,
           );
         }
         if (status.installedVersion) {
