@@ -1,5 +1,7 @@
 # NeuroLink
 
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fjuspay%2Fneurolink.svg)](https://mcptoplist.com/server/glama%2Fjuspay%2Fneurolink)
+
 [![npm version](https://img.shields.io/npm/v/@juspay/neurolink?label=npm&color=blue)](https://www.npmjs.com/package/@juspay/neurolink)
 [![npm downloads](https://img.shields.io/npm/dm/@juspay/neurolink?label=downloads)](https://www.npmjs.com/package/@juspay/neurolink)
 [![GitHub Stars](https://img.shields.io/github/stars/juspay/neurolink?style=flat)](https://github.com/juspay/neurolink/stargazers)
