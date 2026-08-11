@@ -1,3 +1,9 @@
+## [10.11.1](https://github.com/juspay/neurolink/compare/v10.11.0...v10.11.1) (2026-08-11)
+
+### Bug Fixes
+
+- **(proxy):** show update check timestamp in status ([9096b8f](https://github.com/juspay/neurolink/commit/9096b8ff1f0837f679a1444308dda5050b199761))
+
 ## [10.11.0](https://github.com/juspay/neurolink/compare/v10.10.12...v10.11.0) (2026-08-10)
 
 ### Features
