@@ -124,6 +124,7 @@ import packageJson from "../../../package.json" with { type: "json" };
 const _require = createRequire(import.meta.url);
 const PROXY_VERSION = packageJson.version;
 const PROXY_INTERNAL_ACCOUNT_LABEL = "proxy/internal";
+const PROXY_INTERNAL_ACCOUNT_TYPE = "internal";
 
 const PROXY_TELEMETRY_SCRIPT_PATH = fileURLToPath(
   new URL(
@@ -1706,13 +1707,18 @@ export async function createProxyStartApp(params: {
   ): Promise<void> => {
     const clientMessage = options?.clientMessage ?? errorMessage;
     const clientErrorType = options?.clientErrorType ?? errorType;
-    recordFinalError(status, undefined, undefined, {
-      requestId: metadata.requestId,
-      errorType,
-      errorCode: options?.errorCode,
-      terminalOutcome: "handler_error",
-      message: errorMessage,
-    });
+    recordFinalError(
+      status,
+      PROXY_INTERNAL_ACCOUNT_LABEL,
+      PROXY_INTERNAL_ACCOUNT_TYPE,
+      {
+        requestId: metadata.requestId,
+        errorType,
+        errorCode: options?.errorCode,
+        terminalOutcome: "handler_error",
+        message: errorMessage,
+      },
+    );
     await Promise.all([
       logRequest({
         timestamp: new Date().toISOString(),

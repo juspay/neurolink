@@ -40,6 +40,7 @@ import { openProxyWorkerLog } from "../src/lib/proxy/workerLog.js";
 import { __testHooks as openAIProxyTestHooks } from "../src/lib/server/routes/openaiProxyRoutes.js";
 import {
   getStats,
+  getTerminalErrors,
   recordAttempt,
   recordAttemptError,
   recordFinalError,
@@ -224,6 +225,11 @@ describe("proxy runtime error finalization", () => {
       error: { type: "api_error", message: "Proxy internal error" },
     });
     expect(getStats()).toMatchObject({ totalRequests: 1, totalErrors: 1 });
+    expect(getTerminalErrors().recent.at(-1)).toMatchObject({
+      account: "proxy/internal",
+      accountType: "internal",
+      errorType: "unhandled_proxy_error",
+    });
     expect(getProxyActivitySnapshot().activeRequests).toBe(0);
   });
 
