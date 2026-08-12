@@ -44,6 +44,7 @@ import type {
   ModelRouterInterface,
   PersistedAccountCooldown,
   ProxyGuardArgs,
+  ProxyHealthProbe,
   ProxyNeurolinkRuntime,
   ProxySpinner,
   ProxyStartApp,
@@ -839,19 +840,60 @@ async function clearOpenCodeProxySettings(
   return hadNeurolink;
 }
 
-async function isProxyHealthy(
+export async function probeProxyHealth(
   host: string,
   port: number,
   timeoutMs: number,
-): Promise<boolean> {
+): Promise<ProxyHealthProbe> {
+  const startedAt = Date.now();
   try {
     const response = await fetch(`http://${host}:${port}/health`, {
       signal: AbortSignal.timeout(timeoutMs),
     });
-    return response.ok;
-  } catch {
-    return false;
+    return {
+      healthy: response.ok,
+      durationMs: Date.now() - startedAt,
+      failure: response.ok ? null : "http_status",
+      statusCode: response.status,
+      errorCode: null,
+    };
+  } catch (error) {
+    const candidate = error as {
+      cause?: unknown;
+      code?: unknown;
+      name?: unknown;
+    };
+    const cause = candidate?.cause as { code?: unknown } | undefined;
+    const errorCode =
+      typeof candidate?.code === "string"
+        ? candidate.code
+        : typeof cause?.code === "string"
+          ? cause.code
+          : typeof candidate?.name === "string"
+            ? candidate.name
+            : null;
+    const isTimeout =
+      candidate?.name === "TimeoutError" || candidate?.name === "AbortError";
+    return {
+      healthy: false,
+      durationMs: Date.now() - startedAt,
+      failure: isTimeout ? "timeout" : "network",
+      statusCode: null,
+      errorCode,
+    };
   }
+}
+
+function formatProxyHealthProbe(probe: ProxyHealthProbe): string {
+  const details = [
+    `reason=${probe.failure ?? "none"}`,
+    `durationMs=${probe.durationMs}`,
+    probe.statusCode === null ? null : `status=${probe.statusCode}`,
+    probe.errorCode === null
+      ? null
+      : `errorCode=${sanitizeForLog(probe.errorCode)}`,
+  ].filter((detail): detail is string => detail !== null);
+  return details.join(" ");
 }
 
 async function getProxyRuntimeActivity(
@@ -4859,23 +4901,27 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
     const startedAt = Date.now();
     let parentStatus = getProcessStatus(parentPid);
     let consecutiveUnhealthy = 0;
+    let lastUnhealthyProbe: ProxyHealthProbe | null = null;
 
     // Keep monitoring for as long as the parent can affect Claude settings.
     while (true) {
-      const healthy = await isProxyHealthy(host, port, 1_500);
+      const healthProbe = await probeProxyHealth(host, port, 1_500);
+      const healthy = healthProbe.healthy;
 
       if (healthy) {
         if (updaterOnly && consecutiveUnhealthy >= failureThreshold) {
           logger.always(
-            `[updater] proxy health recovered after ${consecutiveUnhealthy} failed checks`,
+            `[updater] proxy health recovered after ${consecutiveUnhealthy} failed checks; ${formatProxyHealthProbe(lastUnhealthyProbe ?? healthProbe)}`,
           );
         }
         consecutiveUnhealthy = 0;
+        lastUnhealthyProbe = null;
       } else {
         consecutiveUnhealthy += 1;
+        lastUnhealthyProbe = healthProbe;
         if (updaterOnly && consecutiveUnhealthy === failureThreshold) {
           logger.always(
-            `[updater] proxy health unavailable after ${consecutiveUnhealthy} checks; worker remains active`,
+            `[updater] proxy health unavailable after ${consecutiveUnhealthy} checks; worker remains active; ${formatProxyHealthProbe(healthProbe)}`,
           );
         }
       }
