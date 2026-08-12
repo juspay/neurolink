@@ -1,3 +1,9 @@
+## [10.11.3](https://github.com/juspay/neurolink/compare/v10.11.2...v10.11.3) (2026-08-12)
+
+### Bug Fixes
+
+- **(multimodal):** deliver file content to the model instead of describing it ([6c2b2e6](https://github.com/juspay/neurolink/commit/6c2b2e6f96fcb0ab251256d905560e2761a7c8c0))
+
 ## [10.11.2](https://github.com/juspay/neurolink/compare/v10.11.1...v10.11.2) (2026-08-12)
 
 ### Bug Fixes
