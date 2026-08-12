@@ -32,6 +32,7 @@ import { markProxyReady } from "../src/lib/proxy/proxyHealth.js";
 import { __testHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
 import {
   createProxyStartApp,
+  probeProxyHealth,
   sanitizeProxyStatusTerminalErrorMessage,
 } from "../src/cli/commands/proxy.js";
 import { StateFileManager } from "../src/cli/utils/serverUtils.js";
@@ -112,6 +113,68 @@ describe("proxy runtime activity", () => {
 
     expect(upstreamReason).toBe(reason);
     expect(getProxyActivitySnapshot().activeRequests).toBe(0);
+  });
+});
+
+describe("proxy updater health probes", () => {
+  it("reports a healthy response with its status and duration", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 200 }),
+    );
+
+    const result = await probeProxyHealth("127.0.0.1", 55669, 1_500);
+
+    expect(result.healthy).toBe(true);
+    expect(result.failure).toBeNull();
+    expect(result.statusCode).toBe(200);
+    expect(result.errorCode).toBeNull();
+    expect(result.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("preserves non-OK HTTP status without treating it as a transport failure", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 503 }),
+    );
+
+    await expect(
+      probeProxyHealth("127.0.0.1", 55669, 1_500),
+    ).resolves.toMatchObject({
+      healthy: false,
+      failure: "http_status",
+      statusCode: 503,
+      errorCode: null,
+    });
+  });
+
+  it("preserves the low-level network code from a fetch cause", async () => {
+    const error = Object.assign(new TypeError("fetch failed"), {
+      cause: { code: "ENOTFOUND" },
+    });
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(error);
+
+    await expect(
+      probeProxyHealth("127.0.0.1", 55669, 1_500),
+    ).resolves.toMatchObject({
+      healthy: false,
+      failure: "network",
+      statusCode: null,
+      errorCode: "ENOTFOUND",
+    });
+  });
+
+  it("classifies an aborted health request as a timeout", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(
+      new DOMException("The operation timed out", "TimeoutError"),
+    );
+
+    await expect(
+      probeProxyHealth("127.0.0.1", 55669, 1_500),
+    ).resolves.toMatchObject({
+      healthy: false,
+      failure: "timeout",
+      statusCode: null,
+      errorCode: "TimeoutError",
+    });
   });
 });
 

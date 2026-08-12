@@ -2154,6 +2154,15 @@ export type UpdateCheckResult = {
   updateAvailable: boolean;
 };
 
+/** Result of one local proxy health probe by the updater or fail-open guard. */
+export type ProxyHealthProbe = {
+  healthy: boolean;
+  durationMs: number;
+  failure: "http_status" | "network" | "timeout" | null;
+  statusCode: number | null;
+  errorCode: string | null;
+};
+
 /** Parsed major.minor.patch components of a semver string. */
 export type SemVer = {
   major: number;
