@@ -1,3 +1,9 @@
+## [10.11.2](https://github.com/juspay/neurolink/compare/v10.11.1...v10.11.2) (2026-08-12)
+
+### Bug Fixes
+
+- **(proxy):** align update check status field ([1679891](https://github.com/juspay/neurolink/commit/1679891a91e1a20c82d868aa507ea699ad89a9bf))
+
 ## [10.11.1](https://github.com/juspay/neurolink/compare/v10.11.0...v10.11.1) (2026-08-11)
 
 ### Bug Fixes
