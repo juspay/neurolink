@@ -1728,6 +1728,25 @@ describe("authoritative unified rate-limit handling", () => {
     ).toBe(false);
   });
 
+  it("recognizes an active provider overage credit path without a fallback header", () => {
+    const quota = parseQuotaHeaders(
+      new Headers({
+        "anthropic-ratelimit-unified-5h-utilization": "1.0",
+        "anthropic-ratelimit-unified-7d-utilization": "0.4",
+        "anthropic-ratelimit-unified-fallback-percentage": "0.5",
+        "anthropic-ratelimit-unified-overage-status": "allowed",
+        "anthropic-ratelimit-unified-overage-in-use": "true",
+      }),
+    );
+
+    expect(quota).toMatchObject({
+      fallbackStatus: "unknown",
+      overageStatus: "allowed",
+      overageInUse: true,
+    });
+    expect(isQuotaOverageAvailable(quota)).toBe(true);
+  });
+
   it("keeps absent upgrade paths nullable for routing diagnostics", () => {
     const quota = parseQuotaHeaders(
       new Headers({
@@ -1888,7 +1907,7 @@ describe("cooldown persistence", () => {
     expect(await loadAccountCooldowns()).not.toHaveProperty("anthropic:a");
   });
 
-  it("clears a legacy session cooldown when persisted quota permits overage", async () => {
+  it("does not clear an existing cooldown from persisted quota alone", async () => {
     const dir = await mkdtemp(join(tmpdir(), "neurolink-overage-seed-"));
     tempDirs.push(dir);
     const cooldownPath = join(dir, "account-cooldowns.json");
@@ -1926,10 +1945,71 @@ describe("cooldown persistence", () => {
     ]);
 
     expect(__testHooks.getAccountRuntimeState("anthropic:a")).toMatchObject({
-      coolingUntil: undefined,
-      coolingReason: undefined,
+      coolingUntil,
+      coolingReason: "session",
     });
+    expect(await loadAccountCooldowns()).toHaveProperty("anthropic:a");
+  });
+
+  it("does not create a cooldown or reject routing from a stale quota snapshot", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "neurolink-stale-quota-"));
+    tempDirs.push(dir);
+    const cooldownPath = join(dir, "account-cooldowns.json");
+    const quotaPath = join(dir, "account-quotas.json");
+    const now = Date.now();
+
+    initAccountCooldown(cooldownPath);
+    initAccountQuota(quotaPath);
+    await saveAccountQuota("a", {
+      unifiedStatus: "rejected",
+      sessionUsed: 1,
+      sessionStatus: "rejected",
+      sessionResetAt: Math.floor((now + 60 * 60_000) / 1000),
+      weeklyUsed: 1,
+      weeklyStatus: "rejected",
+      weeklyResetAt: Math.floor((now + 24 * 60 * 60_000) / 1000),
+      fallbackPercentage: 0.5,
+      fallbackStatus: "unknown",
+      overageStatus: "allowed",
+      lastUpdated: now - 16 * 60_000,
+    });
+    await flushAccountQuotaStateForTests();
+
+    __testHooks.resetAllRuntimeState();
+    initAccountCooldown(cooldownPath);
+    initAccountQuota(quotaPath);
+    await __testHooks.seedRuntimeQuotasFromDisk([
+      {
+        key: "anthropic:a",
+        label: "a",
+        token: "test-token",
+        type: "oauth",
+      },
+    ]);
+
+    const runtimeState = __testHooks.getAccountRuntimeState("anthropic:a");
+    expect(runtimeState).not.toHaveProperty("coolingUntil");
+    expect(runtimeState).not.toHaveProperty("coolingReason");
     expect(await loadAccountCooldowns()).not.toHaveProperty("anthropic:a");
+    expect(
+      __testHooks.buildQuotaRoutingDecision(
+        [
+          {
+            key: "anthropic:a",
+            label: "a",
+            token: "test-token",
+            type: "oauth",
+          },
+        ],
+        now,
+        "anthropic:a",
+      )?.candidates[0],
+    ).toMatchObject({
+      usable: true,
+      quotaObserved: false,
+      quotaStale: true,
+      unifiedStatus: null,
+    });
   });
 
   it("preserves concurrent first writes while the persisted cache loads", async () => {

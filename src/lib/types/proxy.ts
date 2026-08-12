@@ -527,6 +527,7 @@ export type ProxyAccountRoutingCandidate = {
   usable: boolean;
   saturated: boolean;
   quotaObserved: boolean;
+  quotaStale: boolean;
   quotaLastUpdated: number | null;
   quotaAgeMs: number | null;
   coolingActive: boolean;
@@ -567,6 +568,7 @@ export type ProxyAccountSortMetrics = {
   usable: boolean;
   saturated: boolean;
   hasQuota: boolean;
+  quotaStale: boolean;
   quotaLastUpdated: number | null;
   quotaAgeMs: number | null;
   coolingActive: boolean;
@@ -1102,6 +1104,8 @@ export type AccountQuota = {
   upgradePaths?: string;
   /** "allowed" | "rejected" */
   overageStatus: string;
+  /** Whether Anthropic reports that paid overage is actively serving traffic. */
+  overageInUse?: boolean;
   /** Epoch ms when we last captured this data */
   lastUpdated: number;
   /** Dynamic per-plan limit buckets from the usage API `limits[]` array
