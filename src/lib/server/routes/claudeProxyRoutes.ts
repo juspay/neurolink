@@ -234,6 +234,10 @@ function fetchAnthropicUpstream(
 
 const accountRuntimeState = new Map<string, RuntimeAccountState>();
 
+/** Persisted quota is advisory after a restart. Older snapshots cannot reject
+ * an account or create a new cooldown because the provider may have reset it. */
+const QUOTA_SNAPSHOT_FRESHNESS_MS = 15 * 60 * 1000;
+
 /** Shared across requests so a concurrent burst gets at most two retries for
  *  the account/window, rather than every request starting its own retry chain. */
 const transientRateLimitRetryBudgets = new Map<
@@ -903,8 +907,9 @@ function reconcileCooldownFromQuota(
  * proxy restart: all accounts tie, selection falls back to token-store
  * enumeration order, and the first account served becomes self-reinforcing
  * (it alone has data) — starving the others regardless of their resets.
- * Never overwrites fresher in-memory quota; stale disk snapshots degrade
- * gracefully because past reset timestamps are ignored by resetEpochToMs.
+ * Never overwrites fresher in-memory quota. Persisted quota cannot create or
+ * clear a cooldown: only an existing cooldown or fresh upstream response
+ * headers can change admission state.
  */
 async function seedRuntimeQuotasFromDisk(
   accounts: ProxyPassthroughAccount[],
@@ -928,22 +933,6 @@ async function seedRuntimeQuotasFromDisk(
       ) {
         state.coolingUntil = persistedCooldown.coolingUntil;
         state.coolingReason = persistedCooldown.reason;
-      }
-      if (state.quota) {
-        const cooldownUpdate = reconcileCooldownFromQuota(
-          state,
-          state.quota,
-          now,
-        );
-        if (cooldownUpdate?.kind === "cooled") {
-          await saveAccountCooldown(
-            account.key,
-            cooldownUpdate.coolingUntil,
-            cooldownUpdate.coolingReason,
-          );
-        } else if (cooldownUpdate?.kind === "cleared") {
-          await clearAccountCooldown(account.key, cooldownUpdate.coolingUntil);
-        }
       }
     }
   } catch {
@@ -1179,51 +1168,64 @@ function accountSortMetrics(
 ): ProxyAccountSortMetrics {
   const st = accountRuntimeState.get(accountKey);
   const q = st?.quota;
+  const quotaLastUpdated =
+    q && Number.isFinite(q.lastUpdated) ? q.lastUpdated : null;
+  const quotaAgeMs =
+    quotaLastUpdated === null ? null : Math.max(0, now - quotaLastUpdated);
+  const quotaStale =
+    quotaAgeMs !== null && quotaAgeMs > QUOTA_SNAPSHOT_FRESHNESS_MS;
+  const routingQuota = quotaStale ? undefined : q;
   const coolingActive = !!st?.coolingUntil && now < st.coolingUntil;
   // resetEpochToMs returns undefined for absent OR passed resets, so a
   // ticking window is exactly "reset !== undefined".
-  const weeklyReset = resetEpochToMs(q?.weeklyResetAt, now);
-  const sessionReset = resetEpochToMs(q?.sessionResetAt, now);
+  const weeklyReset = resetEpochToMs(routingQuota?.weeklyResetAt, now);
+  const sessionReset = resetEpochToMs(routingQuota?.sessionResetAt, now);
   const sessionTicking = sessionReset !== undefined;
   const weeklyTicking = weeklyReset !== undefined;
-  const sessionUsed = q ? (sessionTicking ? (q.sessionUsed ?? 0) : 0) : null;
-  const weeklyUsed = q ? (weeklyTicking ? (q.weeklyUsed ?? null) : 0) : null;
-  const sessionStatus = q
+  const sessionUsed = routingQuota
     ? sessionTicking
-      ? (q.sessionStatus ?? "unknown")
-      : "allowed"
+      ? (routingQuota.sessionUsed ?? 0)
+      : 0
     : null;
-  const weeklyStatus = q
+  const weeklyUsed = routingQuota
     ? weeklyTicking
-      ? (q.weeklyStatus ?? "unknown")
+      ? (routingQuota.weeklyUsed ?? null)
+      : 0
+    : null;
+  const sessionStatus = routingQuota
+    ? sessionTicking
+      ? (routingQuota.sessionStatus ?? "unknown")
       : "allowed"
     : null;
-  const overageEligible = isQuotaOverageAvailable(q);
+  const weeklyStatus = routingQuota
+    ? weeklyTicking
+      ? (routingQuota.weeklyStatus ?? "unknown")
+      : "allowed"
+    : null;
+  const overageEligible = isQuotaOverageAvailable(routingQuota);
   const saturated =
     sessionStatus === "throttled" ||
     (sessionTicking && (sessionUsed ?? 0) >= sessionSoftLimit);
-  const quotaLastUpdated =
-    q && Number.isFinite(q.lastUpdated) ? q.lastUpdated : null;
   return {
     usable:
       !coolingActive &&
       weeklyStatus !== "rejected" &&
       (sessionStatus !== "rejected" || overageEligible) &&
-      (q?.unifiedStatus?.trim().toLowerCase() !== "rejected" ||
+      (routingQuota?.unifiedStatus?.trim().toLowerCase() !== "rejected" ||
         overageEligible),
-    saturated,
-    hasQuota: !!q,
+    saturated: !quotaStale && saturated,
+    hasQuota: !!routingQuota,
+    quotaStale,
     quotaLastUpdated,
-    quotaAgeMs:
-      quotaLastUpdated === null ? null : Math.max(0, now - quotaLastUpdated),
+    quotaAgeMs,
     coolingActive,
     coolingReason: st?.coolingReason ?? null,
     coolingUntil: st?.coolingUntil ?? 0,
-    unifiedStatus: q?.unifiedStatus ?? null,
-    fallbackStatus: q?.fallbackStatus ?? null,
-    upgradePaths: q?.upgradePaths ?? null,
+    unifiedStatus: routingQuota?.unifiedStatus ?? null,
+    fallbackStatus: routingQuota?.fallbackStatus ?? null,
+    upgradePaths: routingQuota?.upgradePaths ?? null,
     overageEligible,
-    overageStatus: q?.overageStatus ?? null,
+    overageStatus: routingQuota?.overageStatus ?? null,
     sessionStatus,
     sessionUsed,
     sessionResetBucket: sessionTicking
@@ -1408,6 +1410,7 @@ function buildRoutingDecision(args: {
       usable: metrics.usable,
       saturated: metrics.saturated,
       quotaObserved: metrics.hasQuota,
+      quotaStale: metrics.quotaStale,
       quotaLastUpdated: metrics.quotaLastUpdated,
       quotaAgeMs: metrics.quotaAgeMs,
       coolingActive: metrics.coolingActive,

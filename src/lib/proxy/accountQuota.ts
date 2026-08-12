@@ -52,10 +52,11 @@ export function getUnifiedRateLimitStatus(
 
 /**
  * Whether Anthropic explicitly permits a request to use overage after a
- * subscription window is exhausted. Fresh responses require all three
- * provider signals. Older persisted snapshots predate the raw fallback and
- * upgrade-path fields, but retain a positive fallback percentage together with
- * an allowed overage status, which is the equivalent provider state.
+ * subscription window is exhausted. An active overage signal is authoritative;
+ * otherwise fresh responses require explicit fallback and upgrade-path signals.
+ * Older persisted snapshots predate those raw fields, but retain a positive
+ * fallback percentage together with an allowed overage status, which is the
+ * equivalent provider state.
  */
 export function isQuotaOverageAvailable(
   quota:
@@ -64,6 +65,7 @@ export function isQuotaOverageAvailable(
         | "fallbackPercentage"
         | "fallbackStatus"
         | "overageStatus"
+        | "overageInUse"
         | "upgradePaths"
       >
     | null
@@ -71,6 +73,9 @@ export function isQuotaOverageAvailable(
 ): boolean {
   if (quota?.overageStatus?.trim().toLowerCase() !== "allowed") {
     return false;
+  }
+  if (quota.overageInUse === true) {
+    return true;
   }
   const explicitFallback = quota.fallbackStatus?.trim().toLowerCase();
   const hasExplicitOveragePath = (quota.upgradePaths ?? "")
@@ -124,6 +129,9 @@ export function parseQuotaHeaders(
     upgradePaths: getHeader(headers, `${P}unified-upgrade-paths`),
     overageStatus:
       getHeader(headers, `${P}unified-overage-status`) ?? "unknown",
+    overageInUse:
+      getHeader(headers, `${P}unified-overage-in-use`)?.trim().toLowerCase() ===
+      "true",
     lastUpdated: Date.now(),
     source: "headers",
   };

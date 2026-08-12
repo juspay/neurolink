@@ -144,6 +144,9 @@ function routingCandidateValue(
         candidate[field] !== undefined &&
         !isNullableString(candidate[field]),
     ) ||
+    ("quotaStale" in candidate &&
+      candidate.quotaStale !== undefined &&
+      typeof candidate.quotaStale !== "boolean") ||
     ("overageEligible" in candidate &&
       candidate.overageEligible !== undefined &&
       typeof candidate.overageEligible !== "boolean") ||
@@ -165,6 +168,7 @@ function routingCandidateValue(
     usable: candidate.usable as boolean,
     saturated: candidate.saturated as boolean,
     quotaObserved: candidate.quotaObserved as boolean,
+    quotaStale: candidate.quotaStale === true,
     quotaLastUpdated: candidate.quotaLastUpdated as number | null,
     quotaAgeMs: candidate.quotaAgeMs as number | null,
     coolingActive: candidate.coolingActive as boolean,
