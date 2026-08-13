@@ -183,6 +183,19 @@ const SINGLE_STREAM_TOOLS: Record<"bz2" | "xz" | "zst", string> = {
   zst: "zstd",
 };
 
+/**
+ * Whether a zlib rejection is the output bound firing rather than bad input.
+ *
+ * `maxOutputLength` aborts an inflate the moment its output would pass the cap,
+ * which is the whole point — but it surfaces as a plain `RangeError`, and a
+ * bomb reported as "failed to decompress" reads as a corrupt upload and invites
+ * the user to send it again. It will fail identically every time.
+ *
+ * Keyed on `code`, not the message: the message embeds a byte count.
+ */
+const isDecompressionBoundExceeded = (error: unknown): boolean =>
+  (error as NodeJS.ErrnoException | null)?.code === "ERR_BUFFER_TOO_LARGE";
+
 /** File extensions recognized as archive formats */
 const SUPPORTED_ARCHIVE_EXTENSIONS = [".zip", ".tar", ".gz", ".tgz", ".bz2", ".tbz2", ".jar", ".xz", ".txz", ".zst", ".tzst"] as const;
 
@@ -894,20 +907,16 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
       const { promisify } = await import("util");
       const gunzip = promisify(zlib.gunzip);
 
-      const decompressed = await gunzip(buffer);
+      // Bounded at the decoder, matching the zstd path. Checking the length
+      // afterwards only reports a bomb once it has already been paid for: 40KB
+      // of gzip inflates to 40MB, and the allocation is the damage, not the
+      // number. `maxOutputLength` abandons the inflate at the cap instead, so
+      // the ceiling on memory is the limit rather than whatever the attacker
+      // chose. The overflow is classified in the catch below.
+      const decompressed = await gunzip(buffer, {
+        maxOutputLength: ARCHIVE_SECURITY.MAX_DECOMPRESSED_SIZE,
+      });
       const tarBuffer = Buffer.from(decompressed);
-
-      // Security: check decompressed size
-      if (tarBuffer.length > ARCHIVE_SECURITY.MAX_DECOMPRESSED_SIZE) {
-        return {
-          success: false,
-          entries: [],
-          securityWarnings: [],
-          error: this.createError(FileErrorCode.SECURITY_VALIDATION_FAILED, {
-            reason: `Decompressed TAR size (${this.formatSizeMB(tarBuffer.length)} MB) exceeds limit (${this.formatSizeMB(ARCHIVE_SECURITY.MAX_DECOMPRESSED_SIZE)} MB)`,
-          }),
-        };
-      }
 
       // Security: check compression ratio
       if (buffer.length > 0) {
@@ -928,6 +937,16 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
       const tarStream = await import("tar-stream");
       return await this.parseTarStream(tarStream, tarBuffer);
     } catch (error) {
+      if (isDecompressionBoundExceeded(error)) {
+        return {
+          success: false,
+          entries: [],
+          securityWarnings: [],
+          error: this.createError(FileErrorCode.SECURITY_VALIDATION_FAILED, {
+            reason: `Decompressed TAR size exceeds limit (${this.formatSizeMB(ARCHIVE_SECURITY.MAX_DECOMPRESSED_SIZE)} MB)`,
+          }),
+        };
+      }
       // Check if the error is one we already created (security validation)
       if (
         error &&
@@ -1165,19 +1184,11 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
       const { promisify } = await import("util");
       const gunzip = promisify(zlib.gunzip);
 
-      const decompressed = await gunzip(buffer);
-
-      // Security: check decompressed size
-      if (decompressed.length > ARCHIVE_SECURITY.MAX_DECOMPRESSED_SIZE) {
-        return {
-          success: false,
-          entries: [],
-          securityWarnings: [],
-          error: this.createError(FileErrorCode.SECURITY_VALIDATION_FAILED, {
-            reason: `Decompressed size (${this.formatSizeMB(decompressed.length)} MB) exceeds limit (${this.formatSizeMB(ARCHIVE_SECURITY.MAX_DECOMPRESSED_SIZE)} MB)`,
-          }),
-        };
-      }
+      // Bounded at the decoder — see the matching call in extractTarGzEntries.
+      // The overflow is classified in the catch below.
+      const decompressed = await gunzip(buffer, {
+        maxOutputLength: ARCHIVE_SECURITY.MAX_DECOMPRESSED_SIZE,
+      });
 
       // Security: compression ratio
       if (buffer.length > 0) {
@@ -1229,6 +1240,16 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
 
       return { success: true, entries, securityWarnings, contents };
     } catch (error) {
+      if (isDecompressionBoundExceeded(error)) {
+        return {
+          success: false,
+          entries: [],
+          securityWarnings: [],
+          error: this.createError(FileErrorCode.SECURITY_VALIDATION_FAILED, {
+            reason: `Decompressed size exceeds limit (${this.formatSizeMB(ARCHIVE_SECURITY.MAX_DECOMPRESSED_SIZE)} MB)`,
+          }),
+        };
+      }
       return {
         success: false,
         entries: [],
