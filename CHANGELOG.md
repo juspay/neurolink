@@ -1,3 +1,9 @@
+## [10.12.1](https://github.com/juspay/neurolink/compare/v10.12.0...v10.12.1) (2026-08-13)
+
+### Bug Fixes
+
+- **(archive):** bound gzip decompression at the decoder ([4a2c77a](https://github.com/juspay/neurolink/commit/4a2c77a071abd147ca865581bd26af2477b3c7b9))
+
 ## [10.12.0](https://github.com/juspay/neurolink/compare/v10.11.3...v10.12.0) (2026-08-13)
 
 ### Features
