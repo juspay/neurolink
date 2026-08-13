@@ -125,6 +125,7 @@ export function parseQuotaHeaders(
     overageStatus:
       getHeader(headers, `${P}unified-overage-status`) ?? "unknown",
     lastUpdated: Date.now(),
+    source: "headers",
   };
 }
 
@@ -283,17 +284,34 @@ export async function saveAccountQuota(
 ): Promise<void> {
   await stateMutex.runExclusive(async () => {
     await ensureAccountQuotasLoaded();
-    memoryCache[accountKey] = { ...quota };
+    const next: AccountQuota = { ...quota };
+    // Header-sourced saves carry no dynamic windows; a passive capture right
+    // after a usage-API refresh must not erase the refreshed buckets.
+    const existing = memoryCache[accountKey];
+    if (next.windows === undefined && existing?.windows !== undefined) {
+      next.windows = existing.windows;
+      next.windowsUpdatedAt = existing.windowsUpdatedAt;
+    }
+    memoryCache[accountKey] = next;
     dirty = true;
     cacheVersion += 1;
   });
   scheduleFlush();
 }
 
-export async function flushAccountQuotaStateForTests(): Promise<void> {
+/**
+ * Cancel any pending debounced write and flush the cache to disk now.
+ * Short-lived processes (CLI refresh path) must call this before exit —
+ * the debounce timer is unref()'d and will not keep the process alive.
+ */
+export async function flushAccountQuotas(): Promise<void> {
   if (flushTimer) {
     clearTimeout(flushTimer);
     flushTimer = null;
   }
   await flushToDisk();
+}
+
+export async function flushAccountQuotaStateForTests(): Promise<void> {
+  await flushAccountQuotas();
 }

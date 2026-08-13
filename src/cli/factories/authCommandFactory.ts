@@ -363,8 +363,18 @@ export class AuthCommandFactory {
    */
   private static buildListOptions(yargs: Argv): Argv {
     return yargs
+      .option("refresh", {
+        type: "boolean",
+        default: false,
+        description:
+          "Fetch fresh limits from Anthropic for all OAuth accounts before listing (via the running proxy when available)",
+      })
       .example("$0 auth list", "List all authenticated accounts")
-      .example("$0 auth list --format json", "List accounts in JSON format");
+      .example("$0 auth list --format json", "List accounts in JSON format")
+      .example(
+        "$0 auth list --refresh",
+        "Fetch fresh session/weekly/model-scoped limits before listing",
+      );
   }
 
   /**

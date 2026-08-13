@@ -12,6 +12,7 @@ import type { PPTGenerationResult } from "./ppt.js";
 import type { AvatarResult } from "./avatar.js";
 import type { MusicResult } from "./music.js";
 import type { OAuthTokens } from "./auth.js";
+import type { AccountQuota } from "./proxy.js";
 import type { ClaudeSubscriptionTier } from "./subscription.js";
 import type { ServerFramework } from "./server.js";
 import type { AuthProviderType } from "./auth.js";
@@ -1088,12 +1089,24 @@ export type AuthCommandArgs = BaseCommandArgs & {
   label?: string;
   account?: string;
   force?: boolean;
+  /** `auth list --refresh`: fetch fresh limits from Anthropic before listing */
+  refresh?: boolean;
   /** Path to the proxy config YAML, used by set-/get-/clear-primary */
   config?: string;
   /** Email passed to `auth set-primary <email>` */
   email?: string;
   /** Yargs positional arguments */
   _?: (string | number)[];
+};
+
+/** Outcome of the `auth list --refresh` fresh-limit fetch. */
+export type AuthListRefreshOutcome = {
+  /** How the fresh limits were obtained ("none" when every path failed). */
+  via: "proxy" | "direct" | "none";
+  /** Freshly fetched quotas keyed by account label; null when none fetched. */
+  quotas: Record<string, AccountQuota> | null;
+  /** Per-account and transport errors, already formatted for display. */
+  errors: string[];
 };
 
 // ============================================================================

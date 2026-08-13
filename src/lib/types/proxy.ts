@@ -1104,6 +1104,109 @@ export type AccountQuota = {
   overageStatus: string;
   /** Epoch ms when we last captured this data */
   lastUpdated: number;
+  /** Dynamic per-plan limit buckets from the usage API `limits[]` array
+   *  (session / weekly_all / model-scoped weeklies such as Fable / future
+   *  kinds). Absent on purely header-sourced snapshots. */
+  windows?: AccountQuotaWindow[];
+  /** Epoch ms when `windows` was last refreshed from the usage API. */
+  windowsUpdatedAt?: number;
+  /** Provenance of this snapshot's numbers. */
+  source?: AccountQuotaSource;
+};
+
+/** Where an AccountQuota snapshot came from.
+ *  - "headers"   : passive capture of anthropic-ratelimit-unified-* response
+ *                  headers on a routed request (the automatic path).
+ *  - "usage-api" : an explicit refresh against Anthropic's OAuth usage
+ *                  endpoint (manual refetch path). */
+export type AccountQuotaSource = "headers" | "usage-api";
+
+/** One dynamic limit bucket from the usage API. Provider vocabulary (`kind`,
+ *  `group`, `severity`) is preserved verbatim so buckets Anthropic adds later
+ *  survive storage and display without a code change. */
+export type AccountQuotaWindow = {
+  /** Provider kind, verbatim ("session", "weekly_all", "weekly_scoped", ...). */
+  kind: string;
+  /** Provider group, verbatim ("session" | "weekly" | future values). */
+  group?: string;
+  /** 0.0-1.0 utilization (provider percent / 100). */
+  used: number;
+  /** Provider severity, verbatim ("normal", ...). */
+  severity?: string;
+  /** Derived "allowed" | "rejected" (see usageToQuota status mapping). */
+  status: string;
+  /** Unix timestamp (seconds) when this window resets; 0 when unparseable. */
+  resetsAt: number;
+  isActive?: boolean;
+  /** Model display name for model-scoped windows (e.g. "Fable"). */
+  scopeModel?: string;
+  /** Surface scope when the provider reports one. */
+  scopeSurface?: string;
+};
+
+/** One utilization window from the OAuth usage endpoint (wire shape, loose). */
+export type AnthropicUsageWindow = {
+  /** 0-100 percent (note: NOT the 0-1 fraction used by headers). */
+  utilization?: number | null;
+  /** ISO-8601 timestamp. */
+  resets_at?: string | null;
+};
+
+/** One entry of the usage endpoint's generic `limits[]` array (wire shape). */
+export type AnthropicUsageLimit = {
+  kind?: string;
+  group?: string;
+  /** 0-100 percent. */
+  percent?: number | null;
+  severity?: string | null;
+  resets_at?: string | null;
+  scope?: {
+    model?: { id?: string | null; display_name?: string | null } | null;
+    surface?: string | null;
+  } | null;
+  is_active?: boolean | null;
+};
+
+/** Response body of GET https://api.anthropic.com/api/oauth/usage (loose —
+ *  unknown keys are ignored, known keys may be absent or null). */
+export type AnthropicUsageResponse = {
+  five_hour?: AnthropicUsageWindow | null;
+  seven_day?: AnthropicUsageWindow | null;
+  limits?: AnthropicUsageLimit[] | null;
+  extra_usage?: { is_enabled?: boolean | null } | null;
+};
+
+/** Outcome of one account's usage-endpoint fetch. Return-not-throw. */
+export type AccountUsageFetchResult =
+  | { ok: true; usage: AnthropicUsageResponse }
+  | {
+      ok: false;
+      reason: "not_oauth" | "auth" | "http" | "network" | "parse";
+      error: string;
+      status?: number;
+    };
+
+/** Per-account result inside a GET /limits response. */
+export type ProxyLimitsAccountResult = {
+  /** Account label (quota-store key). */
+  account: string;
+  /** Token-store key ("anthropic:<label>"). */
+  key: string;
+  type: ProxyAccountType;
+  status: "refreshed" | "throttled" | "skipped_api_key" | "snapshot" | "error";
+  /** Fresh quota on "refreshed"; last known snapshot otherwise (may be null). */
+  quota: AccountQuota | null;
+  error?: string;
+  coolingUntil?: number;
+  coolingReason?: AccountCoolingReason;
+};
+
+/** Response body of the proxy's GET /limits endpoint. */
+export type ProxyLimitsRefreshResponse = {
+  fetchedAt: number;
+  /** True when served from stored state without contacting Anthropic. */
+  snapshot: boolean;
+  results: ProxyLimitsAccountResult[];
 };
 
 /**

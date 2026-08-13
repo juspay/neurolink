@@ -41,6 +41,11 @@ import {
   saveAccountQuota,
 } from "../../proxy/accountQuota.js";
 import {
+  fetchAccountUsage,
+  listAnthropicAccountsForUsage,
+  usageToQuota,
+} from "../../proxy/accountUsage.js";
+import {
   buildProxyLimitHeaders,
   summarizePoolHeadroom,
 } from "../../proxy/quotaHeaders.js";
@@ -127,6 +132,8 @@ import type {
   ProxyAccountRoutingReason,
   ProxyAccountSortMetrics,
   ProxyBodyCaptureLogger,
+  ProxyLimitsAccountResult,
+  ProxyLimitsRefreshResponse,
   ProxyQuotaCooldownUpdate,
   ProxyPassthroughAccount,
   ProxyQuotaSource,
@@ -942,6 +949,183 @@ async function seedRuntimeQuotasFromDisk(
   } catch {
     // Non-fatal: seeding is best-effort; ordering falls back to probe-first.
   }
+}
+
+// ---------------------------------------------------------------------------
+// Manual limits refresh (GET /limits)
+// ---------------------------------------------------------------------------
+
+/** Minimum spacing between usage-endpoint fetches for one account. Bounds
+ *  abuse of the ungated endpoint; inside the window the last reading is
+ *  returned as "throttled" (still fresher than any passive snapshot). */
+const MIN_USAGE_REFETCH_INTERVAL_MS = 15_000;
+
+const lastUsageFetchAt = new Map<string, number>();
+let limitsRefreshInFlight: Promise<ProxyLimitsRefreshResponse> | null = null;
+const USAGE_REFRESH_CONCURRENCY = 4;
+
+/**
+ * Fetch fresh limits from Anthropic's usage endpoint for every eligible OAuth
+ * account and write them through the exact same chain the passive header
+ * capture uses (runtime state → cooldown reconciliation → debounced disk
+ * snapshot), so routing and `auth list` see the refreshed windows and the
+ * automatic path keeps working unchanged on top of them.
+ */
+async function refreshAccountLimits(
+  options: {
+    accountAllowlist?: AccountAllowlist;
+    accountFilter?: string;
+    snapshotOnly?: boolean;
+  } = {},
+): Promise<ProxyLimitsRefreshResponse> {
+  const fetchedAt = Date.now();
+  const allAccounts = await listAnthropicAccountsForUsage(
+    options.accountAllowlist,
+  );
+  const accounts = options.accountFilter
+    ? allAccounts.filter(
+        (account) =>
+          account.label === options.accountFilter ||
+          account.key === options.accountFilter,
+      )
+    : allAccounts;
+  const persisted = await loadAccountQuotas().catch(
+    () => ({}) as Record<string, AccountQuota>,
+  );
+
+  const buildResult = (
+    account: ProxyPassthroughAccount,
+    status: ProxyLimitsAccountResult["status"],
+    quota: AccountQuota | null,
+    error?: string,
+  ): ProxyLimitsAccountResult => {
+    const state = accountRuntimeState.get(account.key);
+    const result: ProxyLimitsAccountResult = {
+      account: account.label,
+      key: account.key,
+      type: account.type,
+      status,
+      quota: quota ?? state?.quota ?? persisted[account.label] ?? null,
+    };
+    if (error !== undefined) {
+      result.error = error;
+    }
+    if (state?.coolingUntil && state.coolingUntil > Date.now()) {
+      result.coolingUntil = state.coolingUntil;
+      if (state.coolingReason) {
+        result.coolingReason = state.coolingReason;
+      }
+    }
+    return result;
+  };
+
+  if (options.snapshotOnly) {
+    return {
+      fetchedAt,
+      snapshot: true,
+      results: accounts.map((account) =>
+        buildResult(account, "snapshot", null),
+      ),
+    };
+  }
+
+  const results: ProxyLimitsAccountResult[] = new Array(accounts.length);
+  let nextIndex = 0;
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const index = nextIndex++;
+      if (index >= accounts.length) {
+        return;
+      }
+      const account = accounts[index];
+      if (account.type !== "oauth") {
+        results[index] = buildResult(account, "skipped_api_key", null);
+        continue;
+      }
+      const lastFetch = lastUsageFetchAt.get(account.key) ?? 0;
+      if (Date.now() - lastFetch < MIN_USAGE_REFETCH_INTERVAL_MS) {
+        results[index] = buildResult(account, "throttled", null);
+        continue;
+      }
+      lastUsageFetchAt.set(account.key, Date.now());
+      // Isolate failures per account: an unexpected rejection must not abort
+      // the Promise.all sweep and turn the whole /limits response into a 502.
+      try {
+        const fetchResult = await fetchAccountUsage(account);
+        // `=== false` (not `!ok`) — the react-hooks sub-build compiles this
+        // file without strictNullChecks, where negated boolean-discriminant
+        // narrowing does not apply.
+        if (fetchResult.ok === false) {
+          results[index] = buildResult(
+            account,
+            "error",
+            null,
+            fetchResult.error,
+          );
+          continue;
+        }
+        const state = getOrCreateRuntimeState(account.key);
+        const capturedAt = Date.now();
+        const quota = usageToQuota(fetchResult.usage, {
+          now: capturedAt,
+          prior: state.quota ?? persisted[account.label] ?? null,
+        });
+        if (!quota) {
+          results[index] = buildResult(
+            account,
+            "error",
+            null,
+            "usage payload had no recognizable limit windows",
+          );
+          continue;
+        }
+        // Guard against a passive header capture that landed mid-fetch: never
+        // replace a fresher runtime snapshot with an older reading.
+        if (quota.lastUpdated >= (state.quota?.lastUpdated ?? 0)) {
+          state.quota = quota;
+        }
+        const cooldownUpdate = reconcileCooldownFromQuota(
+          state,
+          quota,
+          capturedAt,
+        );
+        if (cooldownUpdate?.kind === "cooled") {
+          await saveAccountCooldown(
+            account.key,
+            cooldownUpdate.coolingUntil,
+            cooldownUpdate.coolingReason,
+          ).catch(() => {
+            // Non-fatal: cooldown is already active in memory.
+          });
+        } else if (cooldownUpdate?.kind === "cleared") {
+          await clearAccountCooldown(
+            account.key,
+            cooldownUpdate.coolingUntil,
+          ).catch(() => {
+            // Non-fatal: the next successful response will reconcile again.
+          });
+        }
+        await saveAccountQuota(account.label, quota).catch(() => {
+          // Non-fatal: quota persistence is best-effort
+        });
+        results[index] = buildResult(account, "refreshed", quota);
+      } catch (err) {
+        results[index] = buildResult(
+          account,
+          "error",
+          null,
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
+  };
+  await Promise.all(
+    Array.from(
+      { length: Math.min(USAGE_REFRESH_CONCURRENCY, accounts.length || 1) },
+      () => worker(),
+    ),
+  );
+  return { fetchedAt, snapshot: false, results };
 }
 
 /** Quota-aware selection is on by default; disable with
@@ -7306,6 +7490,51 @@ export function createClaudeProxyRoutes(
         description: "Count tokens for a messages request",
         tags: ["claude-proxy", "tokens"],
       },
+
+      // =====================================================================
+      // GET /limits -- Fresh account limits from Anthropic's usage endpoint
+      // =====================================================================
+      {
+        method: "GET",
+        path: `${basePath}/limits`,
+        handler: async (ctx: ServerContext) => {
+          const effectiveAllowlist = runtimeConfigProvider
+            ? runtimeConfigProvider().accountAllowlist
+            : accountAllowlist;
+          const snapshotOnly =
+            ctx.query?.snapshot === "true" || ctx.query?.snapshot === "1";
+          const accountFilter = ctx.query?.account;
+          return withSpan(
+            {
+              name: "neurolink.http.claudeProxy.limits",
+              tracer: tracers.http,
+              attributes: { "http.route": `${basePath}/limits` },
+            },
+            async () => {
+              // Single-flight: concurrent full refreshes share one sweep.
+              if (!snapshotOnly && !accountFilter) {
+                if (!limitsRefreshInFlight) {
+                  limitsRefreshInFlight = refreshAccountLimits({
+                    accountAllowlist: effectiveAllowlist,
+                  }).finally(() => {
+                    limitsRefreshInFlight = null;
+                  });
+                }
+                return limitsRefreshInFlight;
+              }
+              return refreshAccountLimits({
+                accountAllowlist: effectiveAllowlist,
+                accountFilter,
+                snapshotOnly,
+              });
+            },
+          );
+        },
+        description:
+          "Fetch fresh per-account limits from Anthropic (usage API). " +
+          "?account=<label> for one account, ?snapshot=true for stored state",
+        tags: ["claude-proxy", "limits"],
+      },
     ],
   };
 }
@@ -7709,6 +7938,11 @@ export const __testHooks = {
   maybeResetPrimaryToHome,
   planCooldownFor429,
   reconcileCooldownFromQuota,
+  refreshAccountLimits,
+  clearLimitsRefreshStateForTests: (): void => {
+    lastUsageFetchAt.clear();
+    limitsRefreshInFlight = null;
+  },
   isRetryableNetworkError,
   isPermanentRefreshFailure,
   getStreamFailureDetails,

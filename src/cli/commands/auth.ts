@@ -39,15 +39,26 @@ import {
 import type {
   AccountQuota,
   AuthCommandArgs,
+  AuthListRefreshOutcome,
   AuthStatusResult,
   CliProxyConfigDoc,
   OAuthTokens as OAuthTokensType,
+  ProxyLimitsRefreshResponse,
   ProxyState,
   StoredCredentials,
   SupportedProvider,
   YamlModule,
 } from "../../lib/types/index.js";
-import { loadAccountQuotas } from "../../lib/proxy/accountQuota.js";
+import {
+  flushAccountQuotas,
+  loadAccountQuotas,
+  saveAccountQuota,
+} from "../../lib/proxy/accountQuota.js";
+import {
+  fetchAccountUsage,
+  listAnthropicAccountsForUsage,
+  usageToQuota,
+} from "../../lib/proxy/accountUsage.js";
 
 // =============================================================================
 // CONSTANTS
@@ -214,6 +225,156 @@ function formatQuotaColumns(quota: AccountQuota): {
 }
 
 /**
+ * Format the dynamic per-plan limit windows (model-scoped weeklies such as
+ * Fable, plus any future kinds) as extra display lines. `session` and
+ * `weekly_all` are omitted — they already render as the SESSION / WEEKLY
+ * columns. Exported for the continuous test suite.
+ */
+export function formatQuotaWindowRows(quota: AccountQuota): string[] {
+  if (!quota.windows?.length) {
+    return [];
+  }
+  const colorize = (pct: number, text: string): string => {
+    if (pct <= 10) {
+      return chalk.red(text);
+    }
+    if (pct <= 30) {
+      return chalk.yellow(text);
+    }
+    return chalk.green(text);
+  };
+  const rows: string[] = [];
+  for (const window of quota.windows) {
+    if (window.kind === "session" || window.kind === "weekly_all") {
+      continue;
+    }
+    const remaining = Math.round((1 - window.used) * 100);
+    const label = window.scopeModel
+      ? `${window.group ?? window.kind} (${window.scopeModel})`
+      : window.kind;
+    const reset =
+      window.resetsAt > 0
+        ? chalk.gray(`  resets ${formatTimeUntil(window.resetsAt)}`)
+        : "";
+    rows.push(
+      `${chalk.gray(`${label}:`)} ${colorize(remaining, `${remaining}% left`)}${reset}`,
+    );
+  }
+  return rows;
+}
+
+/**
+ * Fetch fresh limits for `auth list --refresh`.
+ *
+ * Prefers the running proxy's GET /limits endpoint so the proxy's in-memory
+ * routing state is refreshed as a side effect; falls back to fetching the
+ * usage endpoint directly from this process (persisting through the same
+ * quota store) when no proxy is running or the call fails.
+ */
+async function refreshAccountLimitsForList(): Promise<AuthListRefreshOutcome> {
+  const errors: string[] = [];
+
+  const proxyState = detectRunningProxyState();
+  if (proxyState?.port) {
+    const host =
+      proxyState.host && proxyState.host !== "0.0.0.0"
+        ? proxyState.host
+        : "127.0.0.1";
+    try {
+      const response = await fetch(`http://${host}:${proxyState.port}/limits`, {
+        signal: AbortSignal.timeout(45_000),
+      });
+      if (response.ok) {
+        const payload = (await response.json()) as ProxyLimitsRefreshResponse;
+        const quotas: Record<string, AccountQuota> = {};
+        for (const result of payload.results) {
+          if (result.quota) {
+            quotas[result.account] = result.quota;
+          }
+          if (result.status === "error" && result.error) {
+            errors.push(`${result.account}: ${result.error}`);
+          }
+        }
+        return { via: "proxy", quotas, errors };
+      }
+      errors.push(
+        `running proxy /limits returned HTTP ${response.status}; fetching directly`,
+      );
+    } catch {
+      // Keep the message generic: a raw fetch error can echo the requested
+      // URL, and this string reaches the text and JSON CLI output.
+      errors.push("running proxy /limits unreachable; fetching directly");
+    }
+  }
+
+  try {
+    const accounts = await listAnthropicAccountsForUsage();
+    const prior = await loadAccountQuotas().catch(
+      () => ({}) as Record<string, AccountQuota>,
+    );
+    const quotas: Record<string, AccountQuota> = {};
+    const CONCURRENCY = 3;
+    let nextIndex = 0;
+    const worker = async (): Promise<void> => {
+      for (;;) {
+        const index = nextIndex++;
+        if (index >= accounts.length) {
+          return;
+        }
+        const account = accounts[index];
+        if (account.type !== "oauth") {
+          continue; // api_key accounts have no subscription windows
+        }
+        // Isolate failures per account: one rejection must not abort the
+        // Promise.all sweep or discard the other accounts' refreshed quotas.
+        try {
+          const result = await fetchAccountUsage(account);
+          if (!result.ok) {
+            errors.push(`${account.label}: ${result.error}`);
+            continue;
+          }
+          const quota = usageToQuota(result.usage, {
+            now: Date.now(),
+            prior: prior[account.label] ?? null,
+          });
+          if (!quota) {
+            errors.push(
+              `${account.label}: usage payload had no recognizable limit windows`,
+            );
+            continue;
+          }
+          await saveAccountQuota(account.label, quota);
+          quotas[account.label] = quota;
+        } catch (err) {
+          errors.push(
+            `${account.label}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+    };
+    try {
+      await Promise.all(
+        Array.from(
+          { length: Math.min(CONCURRENCY, accounts.length || 1) },
+          () => worker(),
+        ),
+      );
+    } finally {
+      // The quota store's debounced flush timer is unref()'d and this process
+      // is short-lived — flush now (even on a partial sweep) or the completed
+      // saves never reach disk.
+      await flushAccountQuotas().catch(() => undefined);
+    }
+    return { via: "direct", quotas, errors };
+  } catch (err) {
+    errors.push(
+      `direct limit fetch failed (${err instanceof Error ? err.message : String(err)})`,
+    );
+    return { via: "none", quotas: null, errors };
+  }
+}
+
+/**
  * Handle the list subcommand
  * `neurolink auth list`
  *
@@ -247,6 +408,7 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
         let email: string | undefined;
         let tokenStatus: "valid" | "expired" | "unknown" = "unknown";
         let expiresAt: number | undefined;
+        let tokenType: string | undefined;
 
         // Derive email from the compound key label when it looks like an email.
         // The credentials file is a shared singleton that gets overwritten on
@@ -285,6 +447,7 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
           const tokens = await defaultTokenStore.loadTokens(key);
           if (tokens) {
             expiresAt = tokens.expiresAt;
+            tokenType = tokens.tokenType;
             const isExpired = defaultTokenStore.isTokenExpired(tokens, 0);
             tokenStatus = isExpired ? "expired" : "valid";
             // Extract per-account metadata from scope (e.g. "tier:pro email:user@example.com")
@@ -307,16 +470,35 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
           // Token load failed — show as unknown
         }
 
-        return { key, provider, label, email, tier, tokenStatus, expiresAt };
+        return {
+          key,
+          provider,
+          label,
+          email,
+          tier,
+          tokenStatus,
+          expiresAt,
+          tokenType,
+        };
       }),
     );
 
-    // Load persisted quota data (captured from proxy responses).
+    // Optionally fetch FRESH limits from Anthropic before rendering.
+    let refreshOutcome: AuthListRefreshOutcome | undefined;
+    if (argv.refresh) {
+      refreshOutcome = await refreshAccountLimitsForList();
+    }
+
+    // Load persisted quota data (captured from proxy responses), then overlay
+    // anything just refreshed — freshly fetched values win over the snapshot.
     let quotas: Record<string, AccountQuota> = {};
     try {
       quotas = await loadAccountQuotas();
     } catch {
       // Non-fatal — quota display is best-effort
+    }
+    if (refreshOutcome?.quotas) {
+      quotas = { ...quotas, ...refreshOutcome.quotas };
     }
 
     if (argv.format === "json") {
@@ -326,8 +508,37 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
         const quota = quotas[quotaKey] ?? null;
         return { ...acct, quota };
       });
-      logger.always(JSON.stringify(withQuota, null, 2));
+      if (refreshOutcome) {
+        // --refresh envelopes the array so the fetch outcome travels with it.
+        logger.always(
+          JSON.stringify(
+            {
+              refresh: {
+                via: refreshOutcome.via,
+                errors: refreshOutcome.errors,
+              },
+              accounts: withQuota,
+            },
+            null,
+            2,
+          ),
+        );
+      } else {
+        logger.always(JSON.stringify(withQuota, null, 2));
+      }
     } else {
+      if (refreshOutcome) {
+        if (refreshOutcome.via !== "none") {
+          logger.always(
+            chalk.gray(
+              `\nFetched fresh limits from Anthropic (${refreshOutcome.via === "proxy" ? "via running proxy" : "direct"}).`,
+            ),
+          );
+        }
+        for (const refreshError of refreshOutcome.errors) {
+          logger.always(chalk.yellow(`⚠ ${refreshError}`));
+        }
+      }
       logger.always(chalk.bold("\nAuthenticated Accounts:\n"));
 
       // Check if any account has quota data to decide column layout
@@ -370,16 +581,24 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
           logger.always(
             `  ${chalk.cyan(displayLabel)} ${displayProvider} ${displayEmail} ${statusText} ${qc.sessionText.padEnd(10)} ${qc.weeklyText.padEnd(10)}`,
           );
+          const indent = " ".repeat(2 + 20 + 1 + 12 + 1 + 28 + 1 + 14 + 1);
           // Second line: reset times (indented under session/weekly columns)
           if (qc.sessionReset || qc.weeklyReset) {
-            const indent = " ".repeat(2 + 20 + 1 + 12 + 1 + 28 + 1 + 14 + 1);
             logger.always(
               `${indent}${(qc.sessionReset || "").padEnd(10)} ${qc.weeklyReset || ""}`,
             );
           }
+          // Dynamic per-plan windows (e.g. the Fable-only weekly limit)
+          for (const windowRow of formatQuotaWindowRows(quota)) {
+            logger.always(`${indent}${windowRow}`);
+          }
         } else {
+          const apiKeyNote =
+            refreshOutcome && acct.tokenType && acct.tokenType !== "Bearer"
+              ? chalk.gray("  (api key — not refreshed)")
+              : "";
           logger.always(
-            `  ${chalk.cyan(displayLabel)} ${displayProvider} ${displayEmail} ${statusText}${hasQuota ? "  -          -" : ""}`,
+            `  ${chalk.cyan(displayLabel)} ${displayProvider} ${displayEmail} ${statusText}${hasQuota ? "  -          -" : ""}${apiKeyNote}`,
           );
         }
       }
