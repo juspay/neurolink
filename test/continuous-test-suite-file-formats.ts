@@ -514,6 +514,81 @@ await test("a bytes-plus-name upload keeps the name detection routes on", async 
 });
 
 // Cleanup must precede runSuite(): it prints the summary and then calls
+await test("a gzip bomb is refused without being inflated first", async () => {
+  // The limit used to be applied to `decompressed.length`, which only exists
+  // once the whole thing has been inflated — so a 400KB upload claiming 400MB
+  // was rejected *after* allocating all 400MB. The verdict was always right;
+  // the cost was the bug. Now `maxOutputLength` abandons the inflate at the
+  // cap, so the ceiling is our limit rather than whatever the attacker picked.
+  const zlib = await import("node:zlib");
+  const { ArchiveProcessor } =
+    await import("../src/lib/processors/archive/ArchiveProcessor.js");
+  // `ARCHIVE_SECURITY` is module-private, so the limit is restated here. If it
+  // moves, this test still exercises the bound — it just stops being a 4x
+  // margin, and the assertion below says so rather than silently weakening.
+  const limit = 100 * 1024 * 1024;
+  const inflatedTarget = limit * 4;
+
+  // Streamed in chunks so building the fixture does not itself allocate the
+  // payload we are asserting never gets allocated.
+  const gz = zlib.createGzip();
+  const parts: Buffer[] = [];
+  gz.on("data", (c: Buffer) => parts.push(c));
+  const done = new Promise<void>((resolve) => gz.on("end", () => resolve()));
+  const chunk = Buffer.alloc(4 * 1024 * 1024, 0);
+  for (let written = 0; written < inflatedTarget; written += chunk.length) {
+    if (!gz.write(chunk)) {
+      await new Promise((r) => gz.once("drain", r));
+    }
+  }
+  gz.end();
+  gz.resume();
+  await done;
+  const bomb = Buffer.concat(parts);
+
+  global.gc?.();
+  const baseline = process.memoryUsage().rss;
+  let peak = baseline;
+  const sampler = setInterval(() => {
+    const rss = process.memoryUsage().rss;
+    if (rss > peak) {
+      peak = rss;
+    }
+  }, 5);
+
+  let result;
+  try {
+    result = (await new ArchiveProcessor().processFile({
+      id: "bomb",
+      name: "bomb.gz",
+      mimetype: "application/gzip",
+      size: bomb.length,
+      buffer: bomb,
+    } as never)) as { success?: boolean; error?: { code?: string } };
+  } finally {
+    clearInterval(sampler);
+  }
+
+  assert(
+    result.success !== true,
+    "the bomb was rejected rather than processed",
+  );
+  assert(
+    result.error?.code === "SECURITY_VALIDATION_FAILED",
+    "the rejection is classified as a security failure, not a corrupt-file error",
+  );
+
+  // The decisive check. Inflating to the cap costs the cap; inflating the whole
+  // payload costs four times it. A midpoint separates the two with wide margin
+  // in both directions (measured: 411MB unbounded vs 102MB bounded, cap 100MB).
+  const growthMb = (peak - baseline) / (1024 * 1024);
+  const ceilingMb = (inflatedTarget / (1024 * 1024)) * 0.5;
+  assert(
+    growthMb < ceilingMb,
+    "decompression stopped at the limit instead of materialising the whole payload",
+  );
+});
+
 // process.exit, so anything after it never runs.
 try {
   fs.rmSync(dir, { recursive: true, force: true });
