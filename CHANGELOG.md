@@ -1,3 +1,9 @@
+## [10.12.0](https://github.com/juspay/neurolink/compare/v10.11.3...v10.12.0) (2026-08-13)
+
+### Features
+
+- **(proxy):** manual limits refresh with dynamic quota windows ([e5c9fed](https://github.com/juspay/neurolink/commit/e5c9fed0c570a4583d8e83e04d09785e3e126d56))
+
 ## [10.11.3](https://github.com/juspay/neurolink/compare/v10.11.2...v10.11.3) (2026-08-12)
 
 ### Bug Fixes
