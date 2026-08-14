@@ -42,6 +42,7 @@ import { BaseFileProcessor } from "../base/BaseFileProcessor.js";
 import type {
   ArchiveDecompressionResult,
   ArchiveEntry,
+  ArchiveEntryReadResult,
   ArchiveFormat,
   FileInfo,
   FileProcessingError,
@@ -51,11 +52,6 @@ import type {
 } from "../../types/index.js";
 import { SIZE_LIMITS_MB } from "../config/index.js";
 import { FileErrorCode } from "../errors/index.js";
-
-// =============================================================================
-// TYPES
-// =============================================================================
-
 
 // =============================================================================
 // SECURITY CONFIGURATION
@@ -182,6 +178,72 @@ const SINGLE_STREAM_TOOLS: Record<"bz2" | "xz" | "zst", string> = {
   xz: "xz",
   zst: "zstd",
 };
+
+/**
+ * Read one ZIP entry's bytes without trusting the size it declares.
+ *
+ * `entry.getData()` cannot be used for this. It sizes its output buffer from
+ * the central-directory `size` field, which the archive author chooses, and
+ * adm-zip only arms its own guard when that field is positive:
+ *
+ *   const option = version >= 15 && expectedLength > 0
+ *     ? { maxOutputLength: expectedLength } : {};
+ *
+ * So an entry declaring 0 disables the bound and the caller's `size > maxSize`
+ * check in one move — `0 > 5MB` is false, and the inflate then runs uncapped.
+ * The declared size is the attack, so nothing here may depend on it: the cap
+ * comes from our own limit and is handed to the decoder.
+ *
+ * CRC is verified on both paths rather than dropped, so bypassing `getData()`
+ * does not also quietly lose its corruption check — a STORED entry is copied
+ * out rather than decoded, but it can be damaged just the same. It detects
+ * damage, not malice — the CRC field is attacker-controlled too.
+ */
+function readZipEntryWithinLimit(
+  entry: {
+    getCompressedData: () => Buffer;
+    header: { method: number; crc: number };
+  },
+  maxBytes: number,
+  zlibModule: typeof import("zlib"),
+): ArchiveEntryReadResult {
+  const compressed = entry.getCompressedData();
+  const matchesCrc = (data: Buffer): boolean =>
+    (zlibModule.crc32(data) >>> 0) === (entry.header.crc >>> 0);
+
+  // STORED: the bytes are already the payload, so its own length is the bound.
+  if (entry.header.method === ZIP_METHOD_STORED) {
+    if (compressed.length > maxBytes) {
+      return { status: "too-large" };
+    }
+    return matchesCrc(compressed)
+      ? { status: "ok", buffer: compressed }
+      : { status: "corrupt" };
+  }
+  if (entry.header.method !== ZIP_METHOD_DEFLATED) {
+    return { status: "unsupported-method" };
+  }
+
+  let inflated: Buffer;
+  try {
+    inflated = zlibModule.inflateRawSync(compressed, {
+      maxOutputLength: maxBytes,
+    });
+  } catch (error) {
+    if (isDecompressionBoundExceeded(error)) {
+      return { status: "too-large" };
+    }
+    return { status: "corrupt" };
+  }
+
+  return matchesCrc(inflated)
+    ? { status: "ok", buffer: inflated }
+    : { status: "corrupt" };
+}
+
+/** ZIP compression methods this reader handles (APPNOTE 4.4.5). */
+const ZIP_METHOD_STORED = 0;
+const ZIP_METHOD_DEFLATED = 8;
 
 /**
  * Whether a zlib rejection is the output bound firing rather than bad input.
@@ -1845,13 +1907,30 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
         return `"${entryPath}" is a directory, not a file.`;
       }
 
-      // Security: size check
+      // Security: size check.
+      //
+      // The declared size is a hint, not the bound — it is chosen by whoever
+      // built the archive, and an entry claiming 0 passes this comparison while
+      // switching off adm-zip's own cap (see readZipEntryWithinLimit). It is
+      // still worth checking, because an honestly-declared oversized entry is
+      // refused here without decompressing anything at all.
       const maxSize = 5 * 1024 * 1024; // 5 MB
       if (targetEntry.header.size > maxSize) {
         return `Entry "${entryPath}" is too large (${this.formatHumanReadableSize(targetEntry.header.size)}). Maximum extraction size is 5 MB.`;
       }
 
-      const data = targetEntry.getData();
+      const zlibModule = await import("zlib");
+      const read = readZipEntryWithinLimit(targetEntry, maxSize, zlibModule);
+      if (read.status === "too-large") {
+        return `Entry "${entryPath}" is too large. Maximum extraction size is 5 MB.`;
+      }
+      if (read.status === "unsupported-method") {
+        return `Entry "${entryPath}" uses an unsupported compression method.`;
+      }
+      if (read.status === "corrupt") {
+        return `Entry "${entryPath}" could not be read — the archive entry is corrupt.`;
+      }
+      const data = read.buffer;
       // Check if it looks like text
       const sampleSize = Math.min(data.length, 512);
       let printable = 0;

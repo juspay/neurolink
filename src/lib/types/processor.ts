@@ -905,6 +905,25 @@ export type ArchiveDecompressionResult =
   | { readonly status: "failed" };
 
 /**
+ * Outcome of reading one ZIP entry under an explicit output bound.
+ *
+ * Separate from {@link ArchiveDecompressionResult} because the failures differ:
+ * a single-stream archive can fail for want of an external tool, while a ZIP
+ * entry can instead use a compression method this reader does not implement.
+ * Collapsing them would force one caller to handle a state it can never see.
+ *
+ * `too-large` is a distinct outcome rather than a corrupt-file error because it
+ * is a verdict about our limit, not about the archive: the entry may be
+ * perfectly well-formed, and telling the user it is damaged would send them to
+ * re-create a file that was never broken.
+ */
+export type ArchiveEntryReadResult =
+  | { readonly status: "ok"; readonly buffer: Buffer }
+  | { readonly status: "too-large" }
+  | { readonly status: "unsupported-method" }
+  | { readonly status: "corrupt" };
+
+/**
  * Metadata about an individual entry within an archive.
  */
 export type ArchiveEntry = {
