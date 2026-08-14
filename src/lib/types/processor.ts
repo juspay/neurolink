@@ -917,6 +917,19 @@ export type ArchiveDecompressionResult =
  * perfectly well-formed, and telling the user it is damaged would send them to
  * re-create a file that was never broken.
  */
+/**
+ * The slice of an adm-zip entry the bounded reader depends on.
+ *
+ * Structural rather than adm-zip's own `IZipEntry` so the reader states what it
+ * actually needs — the compressed bytes and the header fields it refuses to
+ * trust — instead of importing a library type it would then have to satisfy in
+ * full when building a test double.
+ */
+export type BoundedZipEntry = {
+  getCompressedData: () => Buffer;
+  header: { method: number; crc: number };
+};
+
 export type ArchiveEntryReadResult =
   | { readonly status: "ok"; readonly buffer: Buffer }
   | { readonly status: "too-large" }

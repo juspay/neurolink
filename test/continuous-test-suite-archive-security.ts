@@ -36,6 +36,7 @@ import "dotenv/config";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFile } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { defineSuite, assert, tempDir, Skip } from "./helpers/harness.js";
 import {
@@ -104,7 +105,7 @@ type ProbeResult = {
 /** Run one scenario in a fresh process and read back its peak memory. */
 async function probe(scenario: string, fixture: string): Promise<ProbeResult> {
   const child = path.join(
-    path.dirname(new URL(import.meta.url).pathname),
+    path.dirname(fileURLToPath(import.meta.url)),
     "helpers",
     "boundedProbeChild.ts",
   );
