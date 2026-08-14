@@ -1,3 +1,9 @@
+## [10.12.4](https://github.com/juspay/neurolink/compare/v10.12.3...v10.12.4) (2026-08-14)
+
+### Bug Fixes
+
+- **(processors):** bound zip entry and download decompression ([2b551d3](https://github.com/juspay/neurolink/commit/2b551d3de56418a93e4b45fcfde9f50aa0b737cb))
+
 ## [10.12.3](https://github.com/juspay/neurolink/compare/v10.12.2...v10.12.3) (2026-08-14)
 
 ### Bug Fixes
