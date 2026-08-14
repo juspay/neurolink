@@ -1,3 +1,9 @@
+## [10.12.2](https://github.com/juspay/neurolink/compare/v10.12.1...v10.12.2) (2026-08-14)
+
+### Bug Fixes
+
+- **(proxy):** ignore stale quota cooldowns ([7a1d8a1](https://github.com/juspay/neurolink/commit/7a1d8a13c7e52b744a72aeb645fdc9df0b49603d))
+
 ## [10.12.1](https://github.com/juspay/neurolink/compare/v10.12.0...v10.12.1) (2026-08-13)
 
 ### Bug Fixes
