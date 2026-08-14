@@ -8,8 +8,10 @@
  */
 
 import { createRequire } from "node:module";
+import * as zlib from "node:zlib";
 
 import { BaseFileProcessor } from "../base/BaseFileProcessor.js";
+import { readZipEntryWithinLimit } from "../archive/zipEntryReader.js";
 import type {
   FileInfo,
   ProcessorFileProcessingResult,
@@ -88,7 +90,23 @@ export class OpenDocumentProcessor extends BaseFileProcessor<ProcessedOpenDocume
       // Try to get content.xml
       const contentEntry = zip.getEntry("content.xml");
       if (contentEntry) {
-        const xmlContent = contentEntry.getData().toString("utf-8");
+        // Bounded rather than `getData()`: an ODF file is a ZIP, so its
+        // content.xml can declare any uncompressed size it likes, and
+        // `maxSizeMB` only ever saw the compressed archive on the way in.
+        const read = readZipEntryWithinLimit(
+          contentEntry,
+          SIZE_LIMITS.DOCUMENT_MAX_MB * 1024 * 1024,
+          zlib,
+        );
+        if (read.status === "too-large") {
+          throw new Error(
+            `content.xml exceeds the ${SIZE_LIMITS.DOCUMENT_MAX_MB}MB limit for OpenDocument content`,
+          );
+        }
+        if (read.status !== "ok") {
+          throw new Error("content.xml could not be read from the archive");
+        }
+        const xmlContent = read.buffer.toString("utf-8");
         const extracted = this.extractTextFromXml(xmlContent);
         textContent = extracted.text;
         paragraphCount = extracted.paragraphCount;

@@ -39,10 +39,13 @@
 import * as path from "path";
 
 import { BaseFileProcessor } from "../base/BaseFileProcessor.js";
+import {
+  isDecompressionBoundExceeded,
+  readZipEntryWithinLimit,
+} from "./zipEntryReader.js";
 import type {
   ArchiveDecompressionResult,
   ArchiveEntry,
-  ArchiveEntryReadResult,
   ArchiveFormat,
   FileInfo,
   FileProcessingError,
@@ -178,85 +181,6 @@ const SINGLE_STREAM_TOOLS: Record<"bz2" | "xz" | "zst", string> = {
   xz: "xz",
   zst: "zstd",
 };
-
-/**
- * Read one ZIP entry's bytes without trusting the size it declares.
- *
- * `entry.getData()` cannot be used for this. It sizes its output buffer from
- * the central-directory `size` field, which the archive author chooses, and
- * adm-zip only arms its own guard when that field is positive:
- *
- *   const option = version >= 15 && expectedLength > 0
- *     ? { maxOutputLength: expectedLength } : {};
- *
- * So an entry declaring 0 disables the bound and the caller's `size > maxSize`
- * check in one move — `0 > 5MB` is false, and the inflate then runs uncapped.
- * The declared size is the attack, so nothing here may depend on it: the cap
- * comes from our own limit and is handed to the decoder.
- *
- * CRC is verified on both paths rather than dropped, so bypassing `getData()`
- * does not also quietly lose its corruption check — a STORED entry is copied
- * out rather than decoded, but it can be damaged just the same. It detects
- * damage, not malice — the CRC field is attacker-controlled too.
- */
-function readZipEntryWithinLimit(
-  entry: {
-    getCompressedData: () => Buffer;
-    header: { method: number; crc: number };
-  },
-  maxBytes: number,
-  zlibModule: typeof import("zlib"),
-): ArchiveEntryReadResult {
-  const compressed = entry.getCompressedData();
-  const matchesCrc = (data: Buffer): boolean =>
-    (zlibModule.crc32(data) >>> 0) === (entry.header.crc >>> 0);
-
-  // STORED: the bytes are already the payload, so its own length is the bound.
-  if (entry.header.method === ZIP_METHOD_STORED) {
-    if (compressed.length > maxBytes) {
-      return { status: "too-large" };
-    }
-    return matchesCrc(compressed)
-      ? { status: "ok", buffer: compressed }
-      : { status: "corrupt" };
-  }
-  if (entry.header.method !== ZIP_METHOD_DEFLATED) {
-    return { status: "unsupported-method" };
-  }
-
-  let inflated: Buffer;
-  try {
-    inflated = zlibModule.inflateRawSync(compressed, {
-      maxOutputLength: maxBytes,
-    });
-  } catch (error) {
-    if (isDecompressionBoundExceeded(error)) {
-      return { status: "too-large" };
-    }
-    return { status: "corrupt" };
-  }
-
-  return matchesCrc(inflated)
-    ? { status: "ok", buffer: inflated }
-    : { status: "corrupt" };
-}
-
-/** ZIP compression methods this reader handles (APPNOTE 4.4.5). */
-const ZIP_METHOD_STORED = 0;
-const ZIP_METHOD_DEFLATED = 8;
-
-/**
- * Whether a zlib rejection is the output bound firing rather than bad input.
- *
- * `maxOutputLength` aborts an inflate the moment its output would pass the cap,
- * which is the whole point — but it surfaces as a plain `RangeError`, and a
- * bomb reported as "failed to decompress" reads as a corrupt upload and invites
- * the user to send it again. It will fail identically every time.
- *
- * Keyed on `code`, not the message: the message embeds a byte count.
- */
-const isDecompressionBoundExceeded = (error: unknown): boolean =>
-  (error as NodeJS.ErrnoException | null)?.code === "ERR_BUFFER_TOO_LARGE";
 
 /** File extensions recognized as archive formats */
 const SUPPORTED_ARCHIVE_EXTENSIONS = [".zip", ".tar", ".gz", ".tgz", ".bz2", ".tbz2", ".jar", ".xz", ".txz", ".zst", ".tzst"] as const;
@@ -1691,6 +1615,7 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
 
       let totalExtracted = 0;
       let extractCount = 0;
+      const zlibModule = await import("zlib");
 
       for (const entry of candidates) {
         if (extractCount >= ARCHIVE_CONFIG.MAX_EXTRACT_ENTRIES) {
@@ -1706,8 +1631,24 @@ export class ArchiveProcessor extends BaseFileProcessor<ProcessedArchive> {
             continue;
           }
 
-          const data = zipEntry.getData();
-          if (!data || data.length === 0) {
+          // This path was already bounded, but only by coincidence: entries
+          // declaring 0 are dropped above, oversized declarations are dropped
+          // above, and adm-zip caps everything else at the size it declares.
+          // That leaves the ceiling resting on library internals we do not
+          // trust anywhere else in this file, so it is spelled out here.
+          const read = readZipEntryWithinLimit(
+            zipEntry,
+            Math.min(
+              ARCHIVE_CONFIG.MAX_EXTRACT_ENTRY_SIZE,
+              ARCHIVE_CONFIG.MAX_TOTAL_EXTRACT_SIZE - totalExtracted,
+            ),
+            zlibModule,
+          );
+          if (read.status !== "ok") {
+            continue;
+          }
+          const data = read.buffer;
+          if (data.length === 0) {
             continue;
           }
 

@@ -28,6 +28,56 @@
  */
 
 import AdmZip from "adm-zip";
+import * as zlib from "node:zlib";
+
+import { readZipEntryWithinLimit } from "../archive/zipEntryReader.js";
+import { SIZE_LIMITS } from "../config/index.js";
+
+/**
+ * Total budget for everything read out of one presentation.
+ *
+ * This class is a static utility with no `BaseFileProcessor` behind it, so
+ * there is no `maxSizeMB` to inherit and nothing else was bounding these
+ * reads at all — not even a late check. A .pptx is a ZIP, so any entry in it
+ * can declare whatever uncompressed size its author likes.
+ */
+const PPTX_MAX_TOTAL_BYTES = SIZE_LIMITS.DOCUMENT_MAX_MB * 1024 * 1024;
+
+/**
+ * Read entries out of one presentation, refusing once the total passes budget.
+ *
+ * The budget spans the call rather than each entry: a deck of two hundred
+ * slides that each sit just under a per-entry limit is the obvious way around
+ * one. Returns null for an absent or unreadable entry, which every call site
+ * already treats as "no content here".
+ */
+function createBoundedEntryReader(): (
+  entry: Parameters<typeof readZipEntryWithinLimit>[0] | null | undefined,
+) => string | null {
+  let spent = 0;
+  return (entry) => {
+    if (!entry) {
+      return null;
+    }
+    const remaining = PPTX_MAX_TOTAL_BYTES - spent;
+    if (remaining <= 0) {
+      throw new Error(
+        `PPTX content exceeds the ${SIZE_LIMITS.DOCUMENT_MAX_MB}MB limit`,
+      );
+    }
+    const read = readZipEntryWithinLimit(entry, remaining, zlib);
+    if (read.status === "too-large") {
+      throw new Error(
+        `PPTX content exceeds the ${SIZE_LIMITS.DOCUMENT_MAX_MB}MB limit`,
+      );
+    }
+    if (read.status !== "ok") {
+      return null;
+    }
+    spent += read.buffer.length;
+    return read.buffer.toString("utf-8");
+  };
+}
 
 /**
  * Regex to match text content within PowerPoint XML `<a:t>` elements.
@@ -69,6 +119,7 @@ export class PptxProcessor {
   static async extractText(content: Buffer): Promise<string | null> {
     const zip = new AdmZip(content);
     const entries = zip.getEntries();
+    const readEntry = createBoundedEntryReader();
 
     // Collect slide entries with their slide numbers for sorting
     const slides: Array<{ slideNumber: number; xml: string }> = [];
@@ -77,8 +128,10 @@ export class PptxProcessor {
       const match = entry.entryName.match(SLIDE_ENTRY_REGEX);
       if (match) {
         const slideNumber = parseInt(match[1], 10);
-        const xmlContent = entry.getData().toString("utf-8");
-        slides.push({ slideNumber, xml: xmlContent });
+        const xmlContent = readEntry(entry);
+        if (xmlContent !== null) {
+          slides.push({ slideNumber, xml: xmlContent });
+        }
       }
     }
 
@@ -94,7 +147,11 @@ export class PptxProcessor {
 
     for (const slide of slides) {
       const texts = PptxProcessor.extractTextFromXml(slide.xml);
-      const notes = PptxProcessor.extractNotesForSlide(zip, slide.slideNumber);
+      const notes = PptxProcessor.extractNotesForSlide(
+        zip,
+        slide.slideNumber,
+        readEntry,
+      );
       // Emit a slide section when it has either body text or speaker notes.
       if (texts.length > 0 || notes) {
         parts.push(`### Slide ${slide.slideNumber}`);
@@ -128,12 +185,12 @@ export class PptxProcessor {
   private static extractNotesForSlide(
     zip: AdmZip,
     slideNumber: number,
+    readEntry: ReturnType<typeof createBoundedEntryReader>,
   ): string | null {
-    const relsEntry = zip.getEntry(SLIDE_RELS_NAME(slideNumber));
-    if (!relsEntry) {
+    const relsXml = readEntry(zip.getEntry(SLIDE_RELS_NAME(slideNumber)));
+    if (relsXml === null) {
       return null;
     }
-    const relsXml = relsEntry.getData().toString("utf-8");
 
     let notesTarget: string | null = null;
     RELATIONSHIP_TAG_REGEX.lastIndex = 0;
@@ -157,13 +214,11 @@ export class PptxProcessor {
     const normalized = notesTarget
       .replace(/^\.\.\//, "ppt/")
       .replace(/^\/+/, "");
-    const notesEntry = zip.getEntry(normalized);
-    if (!notesEntry) {
+    const notesXml = readEntry(zip.getEntry(normalized));
+    if (notesXml === null) {
       return null;
     }
-    const notes = PptxProcessor.extractTextFromXml(
-      notesEntry.getData().toString("utf-8"),
-    ).join(" ");
+    const notes = PptxProcessor.extractTextFromXml(notesXml).join(" ");
     return notes.trim() || null;
   }
 
@@ -213,6 +268,7 @@ export class PptxProcessor {
   ): Promise<string> {
     const zip = new AdmZip(content);
     const entries = zip.getEntries();
+    const readEntry = createBoundedEntryReader();
 
     // Collect all slides
     const slides: Array<{ slideNumber: number; xml: string }> = [];
@@ -221,8 +277,10 @@ export class PptxProcessor {
       if (match) {
         const slideNumber = parseInt(match[1], 10);
         if (slideNumbers.includes(slideNumber)) {
-          const xmlContent = entry.getData().toString("utf-8");
-          slides.push({ slideNumber, xml: xmlContent });
+          const xmlContent = readEntry(entry);
+          if (xmlContent !== null) {
+            slides.push({ slideNumber, xml: xmlContent });
+          }
         }
       }
     }
