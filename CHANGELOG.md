@@ -1,3 +1,10 @@
+## [10.12.3](https://github.com/juspay/neurolink/compare/v10.12.2...v10.12.3) (2026-08-14)
+
+### Bug Fixes
+
+- **(proxy):** attribute runtime errors internally ([258ca34](https://github.com/juspay/neurolink/commit/258ca3435e4fe0d52abbb327c59a599444ffd302))
+- **(proxy):** diagnose updater health probe failures ([41e3c9e](https://github.com/juspay/neurolink/commit/41e3c9e94d84d89d8c4ad3ff9b020bdb9cb475e4))
+
 ## [10.12.2](https://github.com/juspay/neurolink/compare/v10.12.1...v10.12.2) (2026-08-14)
 
 ### Bug Fixes
