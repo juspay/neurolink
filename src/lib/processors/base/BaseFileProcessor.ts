@@ -77,6 +77,40 @@ import { DEFAULT_RETRY_CONFIG } from "../../types/index.js";
 const gunzipAsync = promisify(gunzip);
 
 /**
+ * Marker on the error raised when a download is refused for exceeding the
+ * processor's size limit.
+ *
+ * A code rather than a message match, for two reasons. `classifyDownloadError`
+ * can then report FILE_TOO_LARGE — the same verdict the post-download check
+ * gave, so refusing earlier does not quietly downgrade the error a caller
+ * sees to DOWNLOAD_FAILED. And `isRetryableError` decides from text; a bound
+ * that fires is not a transient fault, and re-fetching a file that will be
+ * exactly as oversized next time is the one thing worth not doing three times.
+ */
+const DOWNLOAD_TOO_LARGE_CODE = "DOWNLOAD_TOO_LARGE";
+
+function downloadTooLargeError(maxSizeMB: number, typeName: string): Error {
+  const error = new Error(
+    `Download exceeds the maximum size of ${maxSizeMB} MB for ${typeName}`,
+  ) as NodeJS.ErrnoException;
+  error.code = DOWNLOAD_TOO_LARGE_CODE;
+  return error;
+}
+
+function isDownloadTooLarge(error: unknown): boolean {
+  return (
+    (error as NodeJS.ErrnoException | null)?.code === DOWNLOAD_TOO_LARGE_CODE
+  );
+}
+
+/** Node's signal that a zlib output bound was reached. */
+function isBufferTooLargeError(error: unknown): boolean {
+  return (
+    (error as NodeJS.ErrnoException | null)?.code === "ERR_BUFFER_TOO_LARGE"
+  );
+}
+
+/**
  * Abstract base class for file processors.
  * Provides common download, validation, and error handling functionality.
  *
@@ -491,8 +525,8 @@ export abstract class BaseFileProcessor<T extends ProcessedFileBase> {
         );
       }
 
-      const arrayBuffer = await response.arrayBuffer();
-      let buffer = Buffer.from(arrayBuffer);
+      const maxBytes = this.config.maxSizeMB * 1024 * 1024;
+      let buffer = await this.readBodyWithinLimit(response, maxBytes);
 
       // Check for gzip encoding and decompress if needed
       // Only decompress if the data actually starts with gzip magic bytes (0x1f 0x8b)
@@ -505,8 +539,20 @@ export abstract class BaseFileProcessor<T extends ProcessedFileBase> {
         isActuallyGzipped
       ) {
         try {
-          buffer = Buffer.from(await gunzipAsync(buffer));
+          // Bounded at the decoder. The size check that runs after the download
+          // only ever sees what already fits in memory, so a few KB of gzip
+          // declaring gigabytes was inflated in full before anything objected —
+          // the response passed the "is it small" test on its way in.
+          buffer = Buffer.from(
+            await gunzipAsync(buffer, { maxOutputLength: maxBytes }),
+          );
         } catch (gzipError) {
+          if (isBufferTooLargeError(gzipError)) {
+            throw downloadTooLargeError(
+              this.config.maxSizeMB,
+              this.config.fileTypeName,
+            );
+          }
           throw new Error(
             `Failed to decompress gzip response: ${gzipError instanceof Error ? gzipError.message : String(gzipError)}`,
             { cause: gzipError },
@@ -517,7 +563,83 @@ export abstract class BaseFileProcessor<T extends ProcessedFileBase> {
       return buffer;
     } finally {
       clearTimeout(timeoutId);
+      // Release the connection on every early exit. Rejecting a response for
+      // its status or its Content-Type leaves the body unread, which keeps the
+      // socket out of the pool until the response is garbage-collected. After
+      // a successful read there is nothing left in flight, so this is a no-op.
+      controller.abort();
     }
+  }
+
+  /**
+   * Read a response body, refusing it the moment it passes `maxBytes`.
+   *
+   * `response.arrayBuffer()` buffers whatever the server sends before anyone
+   * can object, so the size check further up only ever ran against a body that
+   * had already been paid for in full. Metering the stream makes the ceiling
+   * the configured limit instead of the server's choice, and cancelling the
+   * reader stops the transfer rather than merely stopping our interest in it.
+   *
+   * Content-Length is deliberately not trusted as the bound — it is a hint that
+   * can be absent or a lie — but it is worth honouring when present, because it
+   * refuses the honest oversized case without reading a byte.
+   *
+   * @param response - Fetch response whose body should be read
+   * @param maxBytes - Ceiling for the body, in bytes
+   * @returns The body as a Buffer
+   * @throws When the body exceeds `maxBytes`
+   */
+  private async readBodyWithinLimit(
+    response: Response,
+    maxBytes: number,
+  ): Promise<Buffer> {
+    const declared = Number(response.headers.get("Content-Length"));
+    if (Number.isFinite(declared) && declared > maxBytes) {
+      // Release the socket. An unread body keeps the connection out of the
+      // pool until the response is collected, so a run of oversized downloads
+      // would hold one socket open each.
+      await response.body?.cancel();
+      throw downloadTooLargeError(
+        this.config.maxSizeMB,
+        this.config.fileTypeName,
+      );
+    }
+
+    // Some responses carry no readable stream (mocked fetch, polyfills). The
+    // buffered read is the fallback, still checked — just after the fact.
+    if (!response.body) {
+      const buffered = Buffer.from(await response.arrayBuffer());
+      if (buffered.length > maxBytes) {
+        throw downloadTooLargeError(
+          this.config.maxSizeMB,
+          this.config.fileTypeName,
+        );
+      }
+      return buffered;
+    }
+
+    const reader = response.body.getReader();
+    const chunks: Buffer[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (!value) {
+        continue;
+      }
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        throw downloadTooLargeError(
+          this.config.maxSizeMB,
+          this.config.fileTypeName,
+        );
+      }
+      chunks.push(Buffer.from(value));
+    }
+    return Buffer.concat(chunks, total);
   }
 
   /**
@@ -706,6 +828,20 @@ export abstract class BaseFileProcessor<T extends ProcessedFileBase> {
    * @returns Structured file processing error
    */
   protected classifyDownloadError(error: Error): FileProcessingError {
+    // Refusing an oversized body mid-stream is the same verdict the old
+    // post-download check gave, so it must carry the same code — otherwise
+    // bounding the read earlier would silently reclassify a familiar error.
+    if (isDownloadTooLarge(error)) {
+      return this.createError(
+        FileErrorCode.FILE_TOO_LARGE,
+        {
+          maxMB: this.config.maxSizeMB,
+          type: this.config.fileTypeName,
+        },
+        error,
+      );
+    }
+
     if (isAbortError(error)) {
       return this.createError(
         FileErrorCode.DOWNLOAD_TIMEOUT,
