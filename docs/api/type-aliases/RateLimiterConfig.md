@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RateLimiterConfig** = `object`
 
-Defined in: [types/config.ts:432](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L432)
+Defined in: [types/config.ts:558](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L558)
 
 Configuration options for the token bucket rate limiter.
 
@@ -18,7 +18,7 @@ Configuration options for the token bucket rate limiter.
 
 > **maxTokens**: `number`
 
-Defined in: [types/config.ts:434](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L434)
+Defined in: [types/config.ts:560](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L560)
 
 Maximum tokens (downloads) allowed per interval
 
@@ -28,7 +28,7 @@ Maximum tokens (downloads) allowed per interval
 
 > **refillIntervalMs**: `number`
 
-Defined in: [types/config.ts:436](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L436)
+Defined in: [types/config.ts:562](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L562)
 
 Refill interval in milliseconds
 
@@ -38,7 +38,7 @@ Refill interval in milliseconds
 
 > **tokensPerRefill**: `number`
 
-Defined in: [types/config.ts:438](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L438)
+Defined in: [types/config.ts:564](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L564)
 
 Number of tokens to add per refill interval
 
@@ -48,7 +48,7 @@ Number of tokens to add per refill interval
 
 > **maxQueueSize**: `number`
 
-Defined in: [types/config.ts:440](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L440)
+Defined in: [types/config.ts:566](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L566)
 
 Maximum queue size for pending requests
 
@@ -58,6 +58,6 @@ Maximum queue size for pending requests
 
 > **queueTimeoutMs**: `number`
 
-Defined in: [types/config.ts:442](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L442)
+Defined in: [types/config.ts:568](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L568)
 
 Timeout for queued requests in milliseconds

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VectorQueryResult** = `object`
 
-Defined in: [types/rag.ts:1149](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1149)
+Defined in: [types/rag.ts:1193](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1193)
 
 Vector store query result
 
@@ -18,7 +18,7 @@ Vector store query result
 
 > **id**: `string`
 
-Defined in: [types/rag.ts:1151](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1151)
+Defined in: [types/rag.ts:1195](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1195)
 
 Unique identifier
 
@@ -28,7 +28,7 @@ Unique identifier
 
 > `optional` **text?**: `string`
 
-Defined in: [types/rag.ts:1153](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1153)
+Defined in: [types/rag.ts:1197](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1197)
 
 Text content
 
@@ -38,7 +38,7 @@ Text content
 
 > `optional` **score?**: `number`
 
-Defined in: [types/rag.ts:1155](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1155)
+Defined in: [types/rag.ts:1199](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1199)
 
 Similarity/relevance score
 
@@ -48,7 +48,7 @@ Similarity/relevance score
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1157](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1157)
+Defined in: [types/rag.ts:1201](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1201)
 
 Associated metadata
 
@@ -58,6 +58,6 @@ Associated metadata
 
 > `optional` **vector?**: `number`[]
 
-Defined in: [types/rag.ts:1159](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1159)
+Defined in: [types/rag.ts:1203](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1203)
 
 Embedding vector (if requested)

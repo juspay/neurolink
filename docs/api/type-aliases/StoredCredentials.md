@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StoredCredentials** = `object`
 
-Defined in: [types/cli.ts:958](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L958)
+Defined in: [types/cli.ts:1056](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1056)
 
 Stored credentials for an authenticated provider.
 
@@ -18,7 +18,7 @@ Stored credentials for an authenticated provider.
 
 > **type**: `"api-key"` \| `"oauth"`
 
-Defined in: [types/cli.ts:959](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L959)
+Defined in: [types/cli.ts:1057](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1057)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:959](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/cli.ts:960](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L960)
+Defined in: [types/cli.ts:1058](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1058)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:960](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **oauth?**: [`OAuthTokens`](OAuthTokens.md)
 
-Defined in: [types/cli.ts:961](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L961)
+Defined in: [types/cli.ts:1059](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1059)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:961](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **provider**: `string`
 
-Defined in: [types/cli.ts:962](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L962)
+Defined in: [types/cli.ts:1060](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1060)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/cli.ts:962](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **subscriptionTier?**: [`ClaudeSubscriptionTier`](ClaudeSubscriptionTier.md)
 
-Defined in: [types/cli.ts:963](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L963)
+Defined in: [types/cli.ts:1061](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1061)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/cli.ts:963](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **email?**: `string`
 
-Defined in: [types/cli.ts:964](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L964)
+Defined in: [types/cli.ts:1062](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1062)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/cli.ts:964](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **createdAt**: `number`
 
-Defined in: [types/cli.ts:965](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L965)
+Defined in: [types/cli.ts:1063](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1063)
 
 ---
 
@@ -74,4 +74,4 @@ Defined in: [types/cli.ts:965](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **updatedAt**: `number`
 
-Defined in: [types/cli.ts:966](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L966)
+Defined in: [types/cli.ts:1064](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1064)

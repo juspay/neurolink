@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProxyReadinessState** = `object`
 
-Defined in: [types/proxy.ts:875](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L875)
+Defined in: [types/proxy.ts:1543](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1543)
 
 Mutable readiness state tracked by the proxy process.
 
@@ -18,7 +18,7 @@ Mutable readiness state tracked by the proxy process.
 
 > **startTimeMs**: `number`
 
-Defined in: [types/proxy.ts:876](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L876)
+Defined in: [types/proxy.ts:1544](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1544)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:876](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **acceptingConnections**: `boolean`
 
-Defined in: [types/proxy.ts:877](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L877)
+Defined in: [types/proxy.ts:1545](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1545)
 
 ---
 
@@ -34,7 +34,17 @@ Defined in: [types/proxy.ts:877](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **ready**: `boolean`
 
-Defined in: [types/proxy.ts:878](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L878)
+Defined in: [types/proxy.ts:1546](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1546)
+
+---
+
+### drainingForUpdate
+
+> **drainingForUpdate**: `boolean`
+
+Defined in: [types/proxy.ts:1548](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1548)
+
+True only while the updater is draining inference traffic.
 
 ---
 
@@ -42,4 +52,4 @@ Defined in: [types/proxy.ts:878](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **readyAtMs?**: `number`
 
-Defined in: [types/proxy.ts:879](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L879)
+Defined in: [types/proxy.ts:1549](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1549)

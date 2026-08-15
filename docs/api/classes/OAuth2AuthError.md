@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: OAuth2AuthError
 
-Defined in: [client/auth.ts:447](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/auth.ts#L447)
+Defined in: [client/auth.ts:444](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/auth.ts#L444)
 
 Error thrown when authentication fails
 
@@ -20,7 +20,7 @@ Error thrown when authentication fails
 
 > **new OAuth2AuthError**(`message`, `code?`, `status?`): `OAuth2AuthenticationError`
 
-Defined in: [client/auth.ts:451](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/auth.ts#L451)
+Defined in: [client/auth.ts:448](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/auth.ts#L448)
 
 #### Parameters
 
@@ -50,7 +50,7 @@ Defined in: [client/auth.ts:451](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `readonly` **code**: `string`
 
-Defined in: [client/auth.ts:448](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/auth.ts#L448)
+Defined in: [client/auth.ts:445](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/auth.ts#L445)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [client/auth.ts:448](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `readonly` **status**: `number`
 
-Defined in: [client/auth.ts:449](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/auth.ts#L449)
+Defined in: [client/auth.ts:446](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/auth.ts#L446)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,20 +8,18 @@
 
 > **OllamaHttpError** = [`ProviderError`](../classes/ProviderError.md) & `object`
 
-Defined in: [types/providers.ts:1844](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1844)
-
-ProviderError enriched with HTTP response fields from Ollama.
+Defined in: [types/errors.ts:24](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L24)
 
 ## Type Declaration
 
-### statusCode
+### statusCode?
 
-> **statusCode**: `number`
+> `optional` **statusCode?**: `number`
 
-### statusText
+### statusText?
 
-> **statusText**: `string`
+> `optional` **statusText?**: `string`
 
-### responseBody
+### responseBody?
 
-> **responseBody**: `string`
+> `optional` **responseBody?**: `string`

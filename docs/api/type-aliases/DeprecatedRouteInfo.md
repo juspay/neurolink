@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DeprecatedRouteInfo** = `object`
 
-Defined in: [types/proxy.ts:823](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L823)
+Defined in: [types/proxy.ts:1491](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1491)
 
 Information about a deprecated route.
 
@@ -18,7 +18,7 @@ Information about a deprecated route.
 
 > **method**: `string`
 
-Defined in: [types/proxy.ts:824](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L824)
+Defined in: [types/proxy.ts:1492](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1492)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:824](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **path**: `string`
 
-Defined in: [types/proxy.ts:825](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L825)
+Defined in: [types/proxy.ts:1493](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1493)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:825](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **deprecation**: [`RouteDeprecation`](RouteDeprecation.md)
 
-Defined in: [types/proxy.ts:826](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L826)
+Defined in: [types/proxy.ts:1494](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1494)

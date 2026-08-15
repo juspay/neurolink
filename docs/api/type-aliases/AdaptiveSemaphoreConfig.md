@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AdaptiveSemaphoreConfig** = `object`
 
-Defined in: [types/providers.ts:1032](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1032)
+Defined in: [types/providers.ts:1323](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1323)
 
 Adaptive semaphore configuration for concurrency management
 
@@ -18,7 +18,7 @@ Adaptive semaphore configuration for concurrency management
 
 > **initialConcurrency**: `number`
 
-Defined in: [types/providers.ts:1033](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1033)
+Defined in: [types/providers.ts:1324](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1324)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:1033](https://github.com/juspay/neurolink/blob/f
 
 > **maxConcurrency**: `number`
 
-Defined in: [types/providers.ts:1034](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1034)
+Defined in: [types/providers.ts:1325](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1325)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/providers.ts:1034](https://github.com/juspay/neurolink/blob/f
 
 > **minConcurrency**: `number`
 
-Defined in: [types/providers.ts:1035](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1035)
+Defined in: [types/providers.ts:1326](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1326)

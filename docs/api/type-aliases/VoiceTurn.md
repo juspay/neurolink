@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VoiceTurn** = `object`
 
-Defined in: [types/voice.ts:182](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L182)
+Defined in: [types/voice.ts:182](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/voice.ts#L182)
 
 Voice conversation turn
 
@@ -18,7 +18,7 @@ Voice conversation turn
 
 > **role**: `"user"` \| `"assistant"`
 
-Defined in: [types/voice.ts:183](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L183)
+Defined in: [types/voice.ts:183](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/voice.ts#L183)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/voice.ts:183](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **text**: `string`
 
-Defined in: [types/voice.ts:184](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L184)
+Defined in: [types/voice.ts:184](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/voice.ts#L184)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/voice.ts:184](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **audio?**: `Buffer`
 
-Defined in: [types/voice.ts:185](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L185)
+Defined in: [types/voice.ts:185](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/voice.ts#L185)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/voice.ts:185](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **timestamp**: `Date`
 
-Defined in: [types/voice.ts:186](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L186)
+Defined in: [types/voice.ts:186](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/voice.ts#L186)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/voice.ts:186](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/voice.ts:187](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L187)
+Defined in: [types/voice.ts:187](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/voice.ts#L187)
 
 #### Index Signature
 

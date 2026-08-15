@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelSearchResult** = `object`
 
-Defined in: [types/model.ts:204](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L204)
+Defined in: [types/model.ts:212](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/model.ts#L212)
 
 Model search result with ranking
 
@@ -18,7 +18,7 @@ Model search result with ranking
 
 > **model**: [`ModelInfo`](ModelInfo.md)
 
-Defined in: [types/model.ts:205](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L205)
+Defined in: [types/model.ts:213](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/model.ts#L213)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/model.ts:205](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **score**: `number`
 
-Defined in: [types/model.ts:206](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L206)
+Defined in: [types/model.ts:214](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/model.ts#L214)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/model.ts:206](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **matchReasons**: `string`[]
 
-Defined in: [types/model.ts:207](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L207)
+Defined in: [types/model.ts:215](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/model.ts#L215)

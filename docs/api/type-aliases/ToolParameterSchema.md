@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,6 +8,6 @@
 
 > **ToolParameterSchema** = [`ZodUnknownSchema`](ZodUnknownSchema.md) \| `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/tools.ts:36](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L36)
+Defined in: [types/tools.ts:53](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tools.ts#L53)
 
 Tool parameter schema types

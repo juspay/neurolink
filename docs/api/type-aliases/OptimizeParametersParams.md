@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OptimizeParametersParams** = `object`
 
-Defined in: [types/mcp.ts:2670](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2670)
+Defined in: [types/mcp.ts:2670](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2670)
 
 Parsed input for the optimize-prompt-parameters MCP tool.
 
@@ -18,7 +18,7 @@ Parsed input for the optimize-prompt-parameters MCP tool.
 
 > **prompt**: `string`
 
-Defined in: [types/mcp.ts:2671](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2671)
+Defined in: [types/mcp.ts:2671](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2671)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2671](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **provider?**: [`AiAnalysisProvider`](AiAnalysisProvider.md)
 
-Defined in: [types/mcp.ts:2672](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2672)
+Defined in: [types/mcp.ts:2672](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2672)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2672](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **targetLength?**: `number`
 
-Defined in: [types/mcp.ts:2673](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2673)
+Defined in: [types/mcp.ts:2673](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2673)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:2673](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **style**: `"creative"` \| `"balanced"` \| `"precise"` \| `"factual"`
 
-Defined in: [types/mcp.ts:2674](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2674)
+Defined in: [types/mcp.ts:2674](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2674)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/mcp.ts:2674](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **optimizeFor**: `"speed"` \| `"quality"` \| `"cost"` \| `"tokens"`
 
-Defined in: [types/mcp.ts:2675](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2675)
+Defined in: [types/mcp.ts:2675](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2675)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/mcp.ts:2675](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **iterations**: `number`
 
-Defined in: [types/mcp.ts:2676](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2676)
+Defined in: [types/mcp.ts:2676](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2676)

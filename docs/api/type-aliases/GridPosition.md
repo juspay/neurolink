@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GridPosition** = `object`
 
-Defined in: [types/ppt.ts:1312](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1312)
+Defined in: [types/ppt.ts:1312](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1312)
 
 Grid position for zones
 
@@ -18,7 +18,7 @@ Grid position for zones
 
 > **x**: `number`
 
-Defined in: [types/ppt.ts:1313](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1313)
+Defined in: [types/ppt.ts:1313](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1313)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/ppt.ts:1313](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **y**: `number`
 
-Defined in: [types/ppt.ts:1314](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1314)
+Defined in: [types/ppt.ts:1314](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1314)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/ppt.ts:1314](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **w**: `number`
 
-Defined in: [types/ppt.ts:1315](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1315)
+Defined in: [types/ppt.ts:1315](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1315)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/ppt.ts:1315](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **h**: `number`
 
-Defined in: [types/ppt.ts:1316](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1316)
+Defined in: [types/ppt.ts:1316](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1316)

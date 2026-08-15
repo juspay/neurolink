@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ElicitationResponseMessage** = `object`
 
-Defined in: [types/mcp.ts:1352](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1352)
+Defined in: [types/mcp.ts:1352](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1352)
 
 Elicitation response protocol message
 
@@ -18,7 +18,7 @@ Elicitation response protocol message
 
 > **jsonrpc**: `"2.0"`
 
-Defined in: [types/mcp.ts:1353](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1353)
+Defined in: [types/mcp.ts:1353](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1353)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:1353](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **id**: `string`
 
-Defined in: [types/mcp.ts:1354](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1354)
+Defined in: [types/mcp.ts:1354](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1354)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:1354](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **method**: `"elicitation/response"`
 
-Defined in: [types/mcp.ts:1355](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1355)
+Defined in: [types/mcp.ts:1355](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1355)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/mcp.ts:1355](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **params**: [`ElicitationResponseParams`](ElicitationResponseParams.md)
 
-Defined in: [types/mcp.ts:1356](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1356)
+Defined in: [types/mcp.ts:1356](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1356)

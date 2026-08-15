@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,6 +6,6 @@
 
 # Type Alias: AnthropicSuccessResult
 
-> **AnthropicSuccessResult** = \{ `retryNextAccount`: `true`; \} \| \{ `response`: `Response` \| `unknown`; \}
+> **AnthropicSuccessResult** = \{ `retryNextAccount`: `true`; `failure?`: \{ `message`: `string`; `rateLimit`: `boolean`; `retryDelayMs?`: `number`; \}; \} \| \{ `response`: `Response` \| `unknown`; `holdsAccountAdmission?`: `boolean`; \}
 
-Defined in: [types/proxy.ts:643](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L643)
+Defined in: [types/proxy.ts:852](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L852)

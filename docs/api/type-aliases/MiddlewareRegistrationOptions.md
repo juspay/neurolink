@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MiddlewareRegistrationOptions** = `object`
 
-Defined in: [types/middleware.ts:85](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L85)
+Defined in: [types/middleware.ts:115](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L115)
 
 Middleware registration options
 
@@ -18,7 +18,7 @@ Middleware registration options
 
 > `optional` **replace?**: `boolean`
 
-Defined in: [types/middleware.ts:87](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L87)
+Defined in: [types/middleware.ts:117](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L117)
 
 Whether to replace existing middleware with same ID
 
@@ -28,7 +28,7 @@ Whether to replace existing middleware with same ID
 
 > `optional` **defaultEnabled?**: `boolean`
 
-Defined in: [types/middleware.ts:89](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L89)
+Defined in: [types/middleware.ts:119](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L119)
 
 Whether to enable the middleware by default
 
@@ -38,6 +38,6 @@ Whether to enable the middleware by default
 
 > `optional` **globalConfig?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/middleware.ts:91](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L91)
+Defined in: [types/middleware.ts:121](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L121)
 
 Global configuration for the middleware

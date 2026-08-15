@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: TokenStoreError
 
-Defined in: [types/errors.ts:162](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L162)
+Defined in: [types/errors.ts:205](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L205)
 
 Token storage error for authentication-related failures
 
@@ -20,7 +20,7 @@ Token storage error for authentication-related failures
 
 > **new TokenStoreError**(`message`, `code?`): `TokenStoreError`
 
-Defined in: [types/errors.ts:163](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L163)
+Defined in: [types/errors.ts:206](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L206)
 
 #### Parameters
 
@@ -46,4 +46,4 @@ Defined in: [types/errors.ts:163](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` **code**: `"STORAGE_ERROR"` \| `"ENCRYPTION_ERROR"` \| `"VALIDATION_ERROR"` \| `"NOT_FOUND"` \| `"REFRESH_ERROR"` = `"STORAGE_ERROR"`
 
-Defined in: [types/errors.ts:165](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L165)
+Defined in: [types/errors.ts:208](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L208)

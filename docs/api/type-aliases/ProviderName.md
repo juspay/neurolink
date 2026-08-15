@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,6 +8,6 @@
 
 > **ProviderName** = _typeof_ [`AIProviderName`](../enumerations/AIProviderName.md)\[keyof _typeof_ [`AIProviderName`](../enumerations/AIProviderName.md)\]
 
-Defined in: [types/providers.ts:79](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L79)
+Defined in: [types/providers.ts:99](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L99)
 
 Extract provider names from enum

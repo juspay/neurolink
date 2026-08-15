@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VertexToolStep** = `object`
 
-Defined in: [types/providers.ts:1966](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1966)
+Defined in: [types/providers.ts:2340](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2340)
 
 Internal helpers used by the conversation-history builder in
 providers/googleVertex.ts to merge interleaved tool call / result turns.
@@ -19,7 +19,7 @@ providers/googleVertex.ts to merge interleaved tool call / result turns.
 
 > **type**: `"tool_step"`
 
-Defined in: [types/providers.ts:1967](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1967)
+Defined in: [types/providers.ts:2341](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2341)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/providers.ts:1967](https://github.com/juspay/neurolink/blob/f
 
 > **callParts**: `unknown`[]
 
-Defined in: [types/providers.ts:1968](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1968)
+Defined in: [types/providers.ts:2342](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2342)
 
 ---
 
@@ -35,4 +35,4 @@ Defined in: [types/providers.ts:1968](https://github.com/juspay/neurolink/blob/f
 
 > **resultParts**: `unknown`[]
 
-Defined in: [types/providers.ts:1969](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1969)
+Defined in: [types/providers.ts:2343](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2343)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AtomicConsumeResult** = `object`
 
-Defined in: [types/auth.ts:1369](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1369)
+Defined in: [types/auth.ts:1369](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L1369)
 
 Result of an atomic consume operation against a token bucket.
 
@@ -18,7 +18,7 @@ Result of an atomic consume operation against a token bucket.
 
 > **bucket**: [`TokenBucket`](TokenBucket.md)
 
-Defined in: [types/auth.ts:1370](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1370)
+Defined in: [types/auth.ts:1370](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L1370)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/auth.ts:1370](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **consumed**: `boolean`
 
-Defined in: [types/auth.ts:1371](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1371)
+Defined in: [types/auth.ts:1371](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L1371)

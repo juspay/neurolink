@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderPairResult**\<`T`\> = `object`
 
-Defined in: [types/aliases.ts:364](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L364)
+Defined in: [types/aliases.ts:378](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L378)
 
 Provider pair result for fallback configurations
 Used when creating primary/fallback provider setups
@@ -25,7 +25,7 @@ Used when creating primary/fallback provider setups
 
 > **primary**: `T`
 
-Defined in: [types/aliases.ts:365](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L365)
+Defined in: [types/aliases.ts:379](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L379)
 
 ---
 
@@ -33,4 +33,4 @@ Defined in: [types/aliases.ts:365](https://github.com/juspay/neurolink/blob/ff50
 
 > **fallback**: `T`
 
-Defined in: [types/aliases.ts:366](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L366)
+Defined in: [types/aliases.ts:380](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L380)

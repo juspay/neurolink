@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BatchConfig** = `object`
 
-Defined in: [types/mcp.ts:2278](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2278)
+Defined in: [types/mcp.ts:2278](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2278)
 
 Batch configuration options
 
@@ -18,7 +18,7 @@ Batch configuration options
 
 > **maxBatchSize**: `number`
 
-Defined in: [types/mcp.ts:2282](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2282)
+Defined in: [types/mcp.ts:2282](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2282)
 
 Maximum number of requests to batch together (default: 10)
 
@@ -28,7 +28,7 @@ Maximum number of requests to batch together (default: 10)
 
 > **maxWaitMs**: `number`
 
-Defined in: [types/mcp.ts:2287](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2287)
+Defined in: [types/mcp.ts:2287](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2287)
 
 Maximum time to wait for a full batch in milliseconds (default: 100ms)
 
@@ -38,7 +38,7 @@ Maximum time to wait for a full batch in milliseconds (default: 100ms)
 
 > `optional` **enableParallel?**: `boolean`
 
-Defined in: [types/mcp.ts:2293](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2293)
+Defined in: [types/mcp.ts:2293](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2293)
 
 Enable parallel execution of batched requests (default: true).
 Reserved for future parallel batch execution; currently stored but not read.
@@ -49,7 +49,7 @@ Reserved for future parallel batch execution; currently stored but not read.
 
 > `optional` **maxConcurrentBatches?**: `number`
 
-Defined in: [types/mcp.ts:2298](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2298)
+Defined in: [types/mcp.ts:2298](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2298)
 
 Maximum concurrent batches in flight (default: 5)
 
@@ -59,6 +59,6 @@ Maximum concurrent batches in flight (default: 5)
 
 > `optional` **groupByServer?**: `boolean`
 
-Defined in: [types/mcp.ts:2303](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2303)
+Defined in: [types/mcp.ts:2303](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2303)
 
 Group requests by server ID (default: true)

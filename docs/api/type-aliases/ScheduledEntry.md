@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ScheduledEntry** = `object`
 
-Defined in: [types/task.ts:309](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L309)
+Defined in: [types/task.ts:313](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L313)
 
 Internal scheduling entry used by NodeTimeoutBackend
 
@@ -18,7 +18,7 @@ Internal scheduling entry used by NodeTimeoutBackend
 
 > **taskId**: `string`
 
-Defined in: [types/task.ts:310](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L310)
+Defined in: [types/task.ts:314](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L314)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/task.ts:310](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **executor**: [`TaskExecutorFn`](TaskExecutorFn.md)
 
-Defined in: [types/task.ts:311](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L311)
+Defined in: [types/task.ts:315](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L315)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/task.ts:311](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **task**: [`Task`](Task.md)
 
-Defined in: [types/task.ts:312](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L312)
+Defined in: [types/task.ts:316](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L316)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/task.ts:312](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **cronJob?**: `Cron`
 
-Defined in: [types/task.ts:314](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L314)
+Defined in: [types/task.ts:318](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L318)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/task.ts:314](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **intervalId?**: `ReturnType`\<_typeof_ `setInterval`\>
 
-Defined in: [types/task.ts:315](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L315)
+Defined in: [types/task.ts:319](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L319)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/task.ts:315](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **timeoutId?**: `ReturnType`\<_typeof_ `setTimeout`\>
 
-Defined in: [types/task.ts:316](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L316)
+Defined in: [types/task.ts:320](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L320)

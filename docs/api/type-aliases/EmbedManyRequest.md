@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EmbedManyRequest** = `object`
 
-Defined in: [types/server.ts:662](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L662)
+Defined in: [types/server.ts:662](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L662)
 
 Embed many request (batch texts)
 
@@ -18,7 +18,7 @@ Embed many request (batch texts)
 
 > **texts**: `string`[]
 
-Defined in: [types/server.ts:664](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L664)
+Defined in: [types/server.ts:664](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L664)
 
 Texts to embed
 
@@ -28,7 +28,7 @@ Texts to embed
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/server.ts:667](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L667)
+Defined in: [types/server.ts:667](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L667)
 
 Provider to use (optional)
 
@@ -38,6 +38,6 @@ Provider to use (optional)
 
 > `optional` **model?**: `string`
 
-Defined in: [types/server.ts:670](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L670)
+Defined in: [types/server.ts:670](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L670)
 
 Embedding model to use (optional)

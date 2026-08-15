@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GraphRAGConfig** = `object`
 
-Defined in: [types/rag.ts:1361](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1361)
+Defined in: [types/rag.ts:1405](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1405)
 
 Graph RAG configuration
 
@@ -18,7 +18,7 @@ Graph RAG configuration
 
 > `optional` **dimension?**: `number`
 
-Defined in: [types/rag.ts:1363](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1363)
+Defined in: [types/rag.ts:1407](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1407)
 
 Embedding vector dimension (default: 1536)
 
@@ -28,6 +28,6 @@ Embedding vector dimension (default: 1536)
 
 > `optional` **threshold?**: `number`
 
-Defined in: [types/rag.ts:1365](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1365)
+Defined in: [types/rag.ts:1409](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1409)
 
 Similarity threshold for edge creation (default: 0.7)

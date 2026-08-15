@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OutlineSection** = `object`
 
-Defined in: [types/fileReference.ts:42](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L42)
+Defined in: [types/fileReference.ts:42](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/fileReference.ts#L42)
 
 A section in a file outline (used for code, PDFs, spreadsheets)
 
@@ -18,7 +18,7 @@ A section in a file outline (used for code, PDFs, spreadsheets)
 
 > **name**: `string`
 
-Defined in: [types/fileReference.ts:44](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L44)
+Defined in: [types/fileReference.ts:44](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/fileReference.ts#L44)
 
 Section heading/name (e.g., function name, class name, sheet name)
 
@@ -28,7 +28,7 @@ Section heading/name (e.g., function name, class name, sheet name)
 
 > **kind**: `string`
 
-Defined in: [types/fileReference.ts:46](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L46)
+Defined in: [types/fileReference.ts:46](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/fileReference.ts#L46)
 
 Type of section (function, class, import, sheet, page, heading)
 
@@ -38,7 +38,7 @@ Type of section (function, class, import, sheet, page, heading)
 
 > **startLine**: `number`
 
-Defined in: [types/fileReference.ts:48](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L48)
+Defined in: [types/fileReference.ts:48](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/fileReference.ts#L48)
 
 Starting line number (1-indexed)
 
@@ -48,7 +48,7 @@ Starting line number (1-indexed)
 
 > **endLine**: `number`
 
-Defined in: [types/fileReference.ts:50](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L50)
+Defined in: [types/fileReference.ts:50](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/fileReference.ts#L50)
 
 Ending line number (1-indexed)
 
@@ -58,7 +58,7 @@ Ending line number (1-indexed)
 
 > **depth**: `number`
 
-Defined in: [types/fileReference.ts:52](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L52)
+Defined in: [types/fileReference.ts:52](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/fileReference.ts#L52)
 
 Nesting depth (0 = top-level)
 
@@ -68,6 +68,6 @@ Nesting depth (0 = top-level)
 
 > `optional` **children?**: `OutlineSection`[]
 
-Defined in: [types/fileReference.ts:54](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L54)
+Defined in: [types/fileReference.ts:54](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/fileReference.ts#L54)
 
 Child sections (e.g., methods within a class)

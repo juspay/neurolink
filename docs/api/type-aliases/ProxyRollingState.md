@@ -1,0 +1,87 @@
+[**NeuroLink API Reference v11.2.3**](../README.md)
+
+---
+
+[NeuroLink API Reference](../README.md) / ProxyRollingState
+
+# Type Alias: ProxyRollingState
+
+> **ProxyRollingState** = `object`
+
+Defined in: [types/cli.ts:979](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L979)
+
+## Properties
+
+### generation
+
+> **generation**: `number`
+
+Defined in: [types/cli.ts:980](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L980)
+
+---
+
+### active
+
+> **active**: \{ `pid`: `number`; `version`: `string`; `generation`: `number`; \} \| `null`
+
+Defined in: [types/cli.ts:981](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L981)
+
+---
+
+### candidate
+
+> **candidate**: \{ `pid`: `number`; `expectedVersion`: `string`; `generation`: `number`; \} \| `null`
+
+Defined in: [types/cli.ts:982](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L982)
+
+---
+
+### draining
+
+> **draining**: `object`[]
+
+Defined in: [types/cli.ts:987](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L987)
+
+#### pid
+
+> **pid**: `number`
+
+#### version
+
+> **version**: `string`
+
+#### generation
+
+> **generation**: `number`
+
+---
+
+### queuedSockets
+
+> **queuedSockets**: `number`
+
+Defined in: [types/cli.ts:988](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L988)
+
+---
+
+### rejectedSockets
+
+> **rejectedSockets**: `number`
+
+Defined in: [types/cli.ts:989](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L989)
+
+---
+
+### failedTransfers
+
+> **failedTransfers**: `number`
+
+Defined in: [types/cli.ts:990](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L990)
+
+---
+
+### lastFailure
+
+> **lastFailure**: \{ `at`: `string`; `generation`: `number`; `version`: `string`; `phase`: `"startup"` \| `"activation"` \| `"runtime"` \| `"transfer"`; `message`: `string`; `workerPid?`: `number`; `workerExitCode?`: `number` \| `null`; `workerExitSignal?`: `string` \| `null`; `supervisorAction?`: `"none"` \| `"sigkill_after_transfer_failure"`; \} \| `null`
+
+Defined in: [types/cli.ts:991](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L991)

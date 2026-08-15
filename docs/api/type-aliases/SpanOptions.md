@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SpanOptions** = `object`
 
-Defined in: [types/observability.ts:479](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L479)
+Defined in: [types/observability.ts:479](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L479)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/observability.ts:479](https://github.com/juspay/neurolink/blo
 
 > **name**: `string`
 
-Defined in: [types/observability.ts:480](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L480)
+Defined in: [types/observability.ts:480](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L480)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/observability.ts:480](https://github.com/juspay/neurolink/blo
 
 > **tracer**: `Tracer`
 
-Defined in: [types/observability.ts:481](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L481)
+Defined in: [types/observability.ts:481](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L481)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/observability.ts:481](https://github.com/juspay/neurolink/blo
 
 > `optional` **kind?**: `SpanKind`
 
-Defined in: [types/observability.ts:482](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L482)
+Defined in: [types/observability.ts:482](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L482)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/observability.ts:482](https://github.com/juspay/neurolink/blo
 
 > `optional` **attributes?**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `undefined`\>
 
-Defined in: [types/observability.ts:483](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L483)
+Defined in: [types/observability.ts:483](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L483)

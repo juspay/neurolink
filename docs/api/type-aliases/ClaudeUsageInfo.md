@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClaudeUsageInfo** = `object`
 
-Defined in: [types/subscription.ts:329](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L329)
+Defined in: [types/subscription.ts:411](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L411)
 
 Claude usage information for tracking current consumption
 
@@ -23,7 +23,7 @@ tracking messages sent, tokens consumed, and remaining quotas.
 
 > **messagesUsed**: `number`
 
-Defined in: [types/subscription.ts:334](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L334)
+Defined in: [types/subscription.ts:416](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L416)
 
 Messages sent in current period
 
@@ -37,7 +37,7 @@ Count of messages sent since last quota reset
 
 > **messagesRemaining**: `number`
 
-Defined in: [types/subscription.ts:340](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L340)
+Defined in: [types/subscription.ts:422](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L422)
 
 Messages remaining in current period
 
@@ -51,7 +51,7 @@ Calculated as maxMessagesPerPeriod - messagesUsed
 
 > **tokensUsed**: `number`
 
-Defined in: [types/subscription.ts:346](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L346)
+Defined in: [types/subscription.ts:428](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L428)
 
 Tokens consumed in current period
 
@@ -65,7 +65,7 @@ Total tokens (input + output) used since last reset
 
 > **tokensRemaining**: `number`
 
-Defined in: [types/subscription.ts:352](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L352)
+Defined in: [types/subscription.ts:434](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L434)
 
 Tokens remaining in current period
 
@@ -79,7 +79,7 @@ Calculated as maxTokensPerPeriod - tokensUsed
 
 > **inputTokensUsed**: `number`
 
-Defined in: [types/subscription.ts:358](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L358)
+Defined in: [types/subscription.ts:440](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L440)
 
 Input tokens consumed in current period
 
@@ -93,7 +93,7 @@ Prompt/input tokens used since last reset
 
 > **outputTokensUsed**: `number`
 
-Defined in: [types/subscription.ts:364](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L364)
+Defined in: [types/subscription.ts:446](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L446)
 
 Output tokens consumed in current period
 
@@ -107,7 +107,7 @@ Response/output tokens used since last reset
 
 > **lastRequestTimestamp**: `number`
 
-Defined in: [types/subscription.ts:370](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L370)
+Defined in: [types/subscription.ts:452](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L452)
 
 Timestamp of last API request (Unix epoch in milliseconds)
 
@@ -121,7 +121,7 @@ When the last successful request was made
 
 > **isRateLimited**: `boolean`
 
-Defined in: [types/subscription.ts:376](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L376)
+Defined in: [types/subscription.ts:458](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L458)
 
 Current rate limit status
 
@@ -135,7 +135,7 @@ Whether the user is currently rate limited
 
 > `optional` **rateLimitExpiresAt?**: `number`
 
-Defined in: [types/subscription.ts:382](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L382)
+Defined in: [types/subscription.ts:464](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L464)
 
 Timestamp when rate limit expires (Unix epoch in milliseconds)
 
@@ -149,7 +149,7 @@ When rate limiting will be lifted, if applicable
 
 > **requestCount**: `number`
 
-Defined in: [types/subscription.ts:388](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L388)
+Defined in: [types/subscription.ts:470](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L470)
 
 Total requests made in current period
 
@@ -163,7 +163,7 @@ Count of all API requests since last reset
 
 > **messageQuotaPercent**: `number`
 
-Defined in: [types/subscription.ts:394](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L394)
+Defined in: [types/subscription.ts:476](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L476)
 
 Usage percentage of message quota
 
@@ -177,7 +177,7 @@ Percentage of message quota consumed (0-100)
 
 > **tokenQuotaPercent**: `number`
 
-Defined in: [types/subscription.ts:400](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L400)
+Defined in: [types/subscription.ts:482](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L482)
 
 Usage percentage of token quota
 

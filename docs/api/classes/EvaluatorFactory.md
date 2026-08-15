@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: EvaluatorFactory
 
-Defined in: [evaluation/EvaluatorFactory.ts:33](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluatorFactory.ts#L33)
+Defined in: [evaluation/EvaluatorFactory.ts:33](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluatorFactory.ts#L33)
 
 Factory for creating Evaluator instances with various configurations.
 Supports presets for common use cases and custom configurations.
@@ -40,7 +40,7 @@ const customEvaluator = await factory.create("default", {
 
 > `protected` **items**: `Map`\<`string`, [`FactoryRegistration`](../type-aliases/FactoryRegistration.md)\<[`Evaluator`](Evaluator.md), [`EvaluationConfig`](../type-aliases/EvaluationConfig.md)\>\>
 
-Defined in: [core/infrastructure/baseFactory.ts:8](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseFactory.ts#L8)
+Defined in: [core/infrastructure/baseFactory.ts:8](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseFactory.ts#L8)
 
 #### Inherited from
 
@@ -52,7 +52,7 @@ Defined in: [core/infrastructure/baseFactory.ts:8](https://github.com/juspay/neu
 
 > `protected` **aliasMap**: `Map`\<`string`, `string`\>
 
-Defined in: [core/infrastructure/baseFactory.ts:9](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseFactory.ts#L9)
+Defined in: [core/infrastructure/baseFactory.ts:9](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseFactory.ts#L9)
 
 #### Inherited from
 
@@ -64,7 +64,7 @@ Defined in: [core/infrastructure/baseFactory.ts:9](https://github.com/juspay/neu
 
 > `protected` **initialized**: `boolean` = `false`
 
-Defined in: [core/infrastructure/baseFactory.ts:10](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseFactory.ts#L10)
+Defined in: [core/infrastructure/baseFactory.ts:10](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseFactory.ts#L10)
 
 #### Inherited from
 
@@ -76,7 +76,7 @@ Defined in: [core/infrastructure/baseFactory.ts:10](https://github.com/juspay/ne
 
 > `protected` **initPromise**: `Promise`\<`void`\> \| `null` = `null`
 
-Defined in: [core/infrastructure/baseFactory.ts:11](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseFactory.ts#L11)
+Defined in: [core/infrastructure/baseFactory.ts:11](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseFactory.ts#L11)
 
 #### Inherited from
 
@@ -88,7 +88,7 @@ Defined in: [core/infrastructure/baseFactory.ts:11](https://github.com/juspay/ne
 
 > **ensureInitialized**(): `Promise`\<`void`\>
 
-Defined in: [core/infrastructure/baseFactory.ts:15](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseFactory.ts#L15)
+Defined in: [core/infrastructure/baseFactory.ts:15](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseFactory.ts#L15)
 
 #### Returns
 
@@ -104,7 +104,7 @@ Defined in: [core/infrastructure/baseFactory.ts:15](https://github.com/juspay/ne
 
 > **register**(`name`, `factory`, `aliases?`, `metadata?`): `void`
 
-Defined in: [core/infrastructure/baseFactory.ts:27](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseFactory.ts#L27)
+Defined in: [core/infrastructure/baseFactory.ts:27](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseFactory.ts#L27)
 
 #### Parameters
 
@@ -138,7 +138,7 @@ Defined in: [core/infrastructure/baseFactory.ts:27](https://github.com/juspay/ne
 
 > **create**(`nameOrAlias`, `config?`): `Promise`\<[`Evaluator`](Evaluator.md)\>
 
-Defined in: [core/infrastructure/baseFactory.ts:40](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseFactory.ts#L40)
+Defined in: [core/infrastructure/baseFactory.ts:40](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseFactory.ts#L40)
 
 #### Parameters
 
@@ -164,7 +164,7 @@ Defined in: [core/infrastructure/baseFactory.ts:40](https://github.com/juspay/ne
 
 > **resolveName**(`nameOrAlias`): `string`
 
-Defined in: [core/infrastructure/baseFactory.ts:50](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseFactory.ts#L50)
+Defined in: [core/infrastructure/baseFactory.ts:50](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseFactory.ts#L50)
 
 #### Parameters
 
@@ -186,7 +186,7 @@ Defined in: [core/infrastructure/baseFactory.ts:50](https://github.com/juspay/ne
 
 > **has**(`nameOrAlias`): `boolean`
 
-Defined in: [core/infrastructure/baseFactory.ts:55](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseFactory.ts#L55)
+Defined in: [core/infrastructure/baseFactory.ts:55](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseFactory.ts#L55)
 
 #### Parameters
 
@@ -208,7 +208,7 @@ Defined in: [core/infrastructure/baseFactory.ts:55](https://github.com/juspay/ne
 
 > **getAvailable**(): `string`[]
 
-Defined in: [core/infrastructure/baseFactory.ts:60](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseFactory.ts#L60)
+Defined in: [core/infrastructure/baseFactory.ts:60](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseFactory.ts#L60)
 
 #### Returns
 
@@ -224,7 +224,7 @@ Defined in: [core/infrastructure/baseFactory.ts:60](https://github.com/juspay/ne
 
 > **getAliases**(): `Map`\<`string`, `string`\>
 
-Defined in: [core/infrastructure/baseFactory.ts:64](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseFactory.ts#L64)
+Defined in: [core/infrastructure/baseFactory.ts:64](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseFactory.ts#L64)
 
 #### Returns
 
@@ -240,7 +240,7 @@ Defined in: [core/infrastructure/baseFactory.ts:64](https://github.com/juspay/ne
 
 > **clear**(): `void`
 
-Defined in: [core/infrastructure/baseFactory.ts:68](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseFactory.ts#L68)
+Defined in: [core/infrastructure/baseFactory.ts:68](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseFactory.ts#L68)
 
 #### Returns
 
@@ -256,7 +256,7 @@ Defined in: [core/infrastructure/baseFactory.ts:68](https://github.com/juspay/ne
 
 > `static` **getInstance**(): `EvaluatorFactory`
 
-Defined in: [evaluation/EvaluatorFactory.ts:43](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluatorFactory.ts#L43)
+Defined in: [evaluation/EvaluatorFactory.ts:43](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluatorFactory.ts#L43)
 
 Gets the singleton instance of the EvaluatorFactory.
 
@@ -270,7 +270,7 @@ Gets the singleton instance of the EvaluatorFactory.
 
 > `static` **resetInstance**(): `void`
 
-Defined in: [evaluation/EvaluatorFactory.ts:53](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluatorFactory.ts#L53)
+Defined in: [evaluation/EvaluatorFactory.ts:53](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluatorFactory.ts#L53)
 
 Resets the singleton instance (useful for testing).
 
@@ -284,7 +284,7 @@ Resets the singleton instance (useful for testing).
 
 > `protected` **registerAll**(): `Promise`\<`void`\>
 
-Defined in: [evaluation/EvaluatorFactory.ts:61](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluatorFactory.ts#L61)
+Defined in: [evaluation/EvaluatorFactory.ts:61](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluatorFactory.ts#L61)
 
 Registers all built-in evaluator configurations.
 This is called automatically on first access.
@@ -303,7 +303,7 @@ This is called automatically on first access.
 
 > **createEvaluator**(`presetOrName?`, `config?`): `Promise`\<[`Evaluator`](Evaluator.md)\>
 
-Defined in: [evaluation/EvaluatorFactory.ts:199](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluatorFactory.ts#L199)
+Defined in: [evaluation/EvaluatorFactory.ts:199](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluatorFactory.ts#L199)
 
 Creates an evaluator instance with the specified preset and optional config overrides.
 
@@ -333,7 +333,7 @@ A configured Evaluator instance
 
 > **createCustomEvaluator**(`config`): [`Evaluator`](Evaluator.md)
 
-Defined in: [evaluation/EvaluatorFactory.ts:212](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluatorFactory.ts#L212)
+Defined in: [evaluation/EvaluatorFactory.ts:212](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluatorFactory.ts#L212)
 
 Creates an evaluator with a fully custom configuration (not based on a preset).
 
@@ -357,7 +357,7 @@ A configured Evaluator instance
 
 > **getPresetInfo**(`presetOrName`): `Promise`\<[`EvaluatorPreset`](../type-aliases/EvaluatorPreset.md) \| `undefined`\>
 
-Defined in: [evaluation/EvaluatorFactory.ts:223](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluatorFactory.ts#L223)
+Defined in: [evaluation/EvaluatorFactory.ts:223](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluatorFactory.ts#L223)
 
 Gets information about a preset by name or alias.
 
@@ -381,7 +381,7 @@ The preset information or undefined if not found
 
 > **listPresets**(): `Promise`\<`object`[]\>
 
-Defined in: [evaluation/EvaluatorFactory.ts:240](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluatorFactory.ts#L240)
+Defined in: [evaluation/EvaluatorFactory.ts:240](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluatorFactory.ts#L240)
 
 Lists all available presets with their descriptions.
 
@@ -397,7 +397,7 @@ Array of preset information
 
 > **validateConfig**(`config`): `void`
 
-Defined in: [evaluation/EvaluatorFactory.ts:274](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluatorFactory.ts#L274)
+Defined in: [evaluation/EvaluatorFactory.ts:274](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluatorFactory.ts#L274)
 
 Validates an evaluation configuration.
 
@@ -423,7 +423,7 @@ If the configuration is invalid
 
 > **registerPreset**(`name`, `config`, `aliases?`, `description?`): `void`
 
-Defined in: [evaluation/EvaluatorFactory.ts:321](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluatorFactory.ts#L321)
+Defined in: [evaluation/EvaluatorFactory.ts:321](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluatorFactory.ts#L321)
 
 Registers a custom evaluator preset.
 
@@ -463,7 +463,7 @@ Human-readable description
 
 > **unregisterPreset**(`name`): `boolean`
 
-Defined in: [evaluation/EvaluatorFactory.ts:358](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluatorFactory.ts#L358)
+Defined in: [evaluation/EvaluatorFactory.ts:358](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluatorFactory.ts#L358)
 
 Unregisters a preset from the factory.
 

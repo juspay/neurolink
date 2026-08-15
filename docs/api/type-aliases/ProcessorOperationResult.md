@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProcessorOperationResult**\<`T`\> = `object`
 
-Defined in: [types/processor.ts:125](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L125)
+Defined in: [types/processor.ts:125](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L125)
 
 Generic result type for internal operations.
 Used for validation and download operations that don't return ProcessedFileBase.
@@ -25,7 +25,7 @@ Used for validation and download operations that don't return ProcessedFileBase.
 
 > **success**: `boolean`
 
-Defined in: [types/processor.ts:127](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L127)
+Defined in: [types/processor.ts:127](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L127)
 
 Whether the operation was successful
 
@@ -35,7 +35,7 @@ Whether the operation was successful
 
 > `optional` **data?**: `T`
 
-Defined in: [types/processor.ts:129](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L129)
+Defined in: [types/processor.ts:129](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L129)
 
 Operation result data (present when success is true)
 
@@ -45,6 +45,6 @@ Operation result data (present when success is true)
 
 > `optional` **error?**: [`FileProcessingError`](FileProcessingError.md)
 
-Defined in: [types/processor.ts:131](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L131)
+Defined in: [types/processor.ts:131](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L131)
 
 Error information (present when success is false)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ServerAdapterError
 
-Defined in: [server/errors.ts:20](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L20)
+Defined in: [server/errors.ts:20](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L20)
 
 Base error class for server adapter errors
 
@@ -17,22 +17,22 @@ Base error class for server adapter errors
 ## Extended by
 
 - [`AlreadyRunningError`](AlreadyRunningError.md)
-- [`AuthenticationError`](AuthenticationError.md)
-- [`AuthorizationError`](AuthorizationError.md)
 - [`ConfigurationError`](ConfigurationError.md)
 - [`HandlerError`](HandlerError.md)
 - [`InvalidAuthenticationError`](InvalidAuthenticationError.md)
 - [`MissingDependencyError`](MissingDependencyError.md)
 - [`NotRunningError`](NotRunningError.md)
-- [`RateLimitError`](RateLimitError.md)
 - [`RouteConflictError`](RouteConflictError.md)
 - [`RouteNotFoundError`](RouteNotFoundError.md)
+- [`ServerAuthenticationError`](ServerAuthenticationError.md)
+- [`ServerAuthorizationError`](ServerAuthorizationError.md)
+- [`ServerRateLimitError`](ServerRateLimitError.md)
 - [`ServerStartError`](ServerStartError.md)
 - [`ServerStopError`](ServerStopError.md)
+- [`ServerTimeoutError`](ServerTimeoutError.md)
 - [`ServerValidationError`](ServerValidationError.md)
 - [`StreamAbortedError`](StreamAbortedError.md)
 - [`StreamingError`](StreamingError.md)
-- [`TimeoutError`](TimeoutError.md)
 - [`WebSocketConnectionError`](WebSocketConnectionError.md)
 - [`WebSocketError`](WebSocketError.md)
 
@@ -42,7 +42,7 @@ Base error class for server adapter errors
 
 > **new ServerAdapterError**(`message`, `code`, `context?`): `ServerAdapterError`
 
-Defined in: [server/errors.ts:32](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L32)
+Defined in: [server/errors.ts:32](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L32)
 
 #### Parameters
 
@@ -72,7 +72,7 @@ Defined in: [server/errors.ts:32](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` **code**: [`ServerAdapterErrorCodeType`](../type-aliases/ServerAdapterErrorCodeType.md)
 
-Defined in: [server/errors.ts:21](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L21)
+Defined in: [server/errors.ts:21](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L21)
 
 ---
 
@@ -80,7 +80,7 @@ Defined in: [server/errors.ts:21](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` **category**: [`ErrorCategoryType`](../type-aliases/ErrorCategoryType.md)
 
-Defined in: [server/errors.ts:22](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L22)
+Defined in: [server/errors.ts:22](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L22)
 
 ---
 
@@ -88,7 +88,7 @@ Defined in: [server/errors.ts:22](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` **severity**: [`ErrorSeverityType`](../type-aliases/ErrorSeverityType.md)
 
-Defined in: [server/errors.ts:23](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L23)
+Defined in: [server/errors.ts:23](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L23)
 
 ---
 
@@ -96,7 +96,7 @@ Defined in: [server/errors.ts:23](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [server/errors.ts:24](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L24)
+Defined in: [server/errors.ts:24](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L24)
 
 ---
 
@@ -104,7 +104,7 @@ Defined in: [server/errors.ts:24](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` `optional` **retryAfterMs?**: `number`
 
-Defined in: [server/errors.ts:25](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L25)
+Defined in: [server/errors.ts:25](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L25)
 
 ---
 
@@ -112,7 +112,7 @@ Defined in: [server/errors.ts:25](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` `optional` **requestId?**: `string`
 
-Defined in: [server/errors.ts:26](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L26)
+Defined in: [server/errors.ts:26](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L26)
 
 ---
 
@@ -120,7 +120,7 @@ Defined in: [server/errors.ts:26](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` `optional` **path?**: `string`
 
-Defined in: [server/errors.ts:27](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L27)
+Defined in: [server/errors.ts:27](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L27)
 
 ---
 
@@ -128,7 +128,7 @@ Defined in: [server/errors.ts:27](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` `optional` **method?**: `string`
 
-Defined in: [server/errors.ts:28](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L28)
+Defined in: [server/errors.ts:28](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L28)
 
 ---
 
@@ -136,7 +136,7 @@ Defined in: [server/errors.ts:28](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` `optional` **details?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [server/errors.ts:29](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L29)
+Defined in: [server/errors.ts:29](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L29)
 
 ---
 
@@ -144,7 +144,7 @@ Defined in: [server/errors.ts:29](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` `optional` **cause?**: `Error`
 
-Defined in: [server/errors.ts:30](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L30)
+Defined in: [server/errors.ts:30](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L30)
 
 #### Overrides
 
@@ -156,7 +156,7 @@ Defined in: [server/errors.ts:30](https://github.com/juspay/neurolink/blob/ff50c
 
 > **toJSON**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [server/errors.ts:59](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L59)
+Defined in: [server/errors.ts:59](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L59)
 
 Convert to JSON for API responses
 
@@ -170,7 +170,7 @@ Convert to JSON for API responses
 
 > **getHttpStatus**(): `number`
 
-Defined in: [server/errors.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L77)
+Defined in: [server/errors.ts:77](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L77)
 
 Get HTTP status code for this error
 

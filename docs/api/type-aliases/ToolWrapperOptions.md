@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolWrapperOptions** = `object`
 
-Defined in: [types/mcp.ts:2241](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2241)
+Defined in: [types/mcp.ts:2241](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2241)
 
 Tool wrapper options
 
@@ -18,7 +18,7 @@ Tool wrapper options
 
 > `optional` **elicitationManager?**: [`ElicitationManager`](../classes/ElicitationManager.md)
 
-Defined in: [types/mcp.ts:2245](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2245)
+Defined in: [types/mcp.ts:2245](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2245)
 
 Elicitation manager to use
 
@@ -28,7 +28,7 @@ Elicitation manager to use
 
 > `optional` **autoConfirmDestructive?**: `boolean`
 
-Defined in: [types/mcp.ts:2250](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2250)
+Defined in: [types/mcp.ts:2250](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2250)
 
 Auto-confirm destructive operations
 
@@ -38,7 +38,7 @@ Auto-confirm destructive operations
 
 > `optional` **elicitationTimeout?**: `number`
 
-Defined in: [types/mcp.ts:2255](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2255)
+Defined in: [types/mcp.ts:2255](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2255)
 
 Default timeout for elicitations
 
@@ -48,6 +48,6 @@ Default timeout for elicitations
 
 > `optional` **enableLogging?**: `boolean`
 
-Defined in: [types/mcp.ts:2260](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2260)
+Defined in: [types/mcp.ts:2260](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2260)
 
 Enable logging

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TransportResult** = `object`
 
-Defined in: [types/aliases.ts:402](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L402)
+Defined in: [types/aliases.ts:416](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L416)
 
 Transport connection result for MCP operations
 Standard format for MCP transport establishment
@@ -20,7 +20,7 @@ Note: Using proper types instead of unknown to fix TypeScript compilation
 
 > **transport**: `unknown`
 
-Defined in: [types/aliases.ts:403](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L403)
+Defined in: [types/aliases.ts:417](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L417)
 
 ---
 
@@ -28,4 +28,4 @@ Defined in: [types/aliases.ts:403](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **process?**: `unknown`
 
-Defined in: [types/aliases.ts:404](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L404)
+Defined in: [types/aliases.ts:418](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L418)

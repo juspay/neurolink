@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: RAGRetryHandler
 
-Defined in: [rag/resilience/RetryHandler.ts:221](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/RetryHandler.ts#L221)
+Defined in: [rag/resilience/RetryHandler.ts:221](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/resilience/RetryHandler.ts#L221)
 
 RAG Retry Handler class for more complex retry scenarios
 
@@ -16,7 +16,7 @@ RAG Retry Handler class for more complex retry scenarios
 
 > **new RAGRetryHandler**(`config?`): `RAGRetryHandler`
 
-Defined in: [rag/resilience/RetryHandler.ts:224](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/RetryHandler.ts#L224)
+Defined in: [rag/resilience/RetryHandler.ts:224](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/resilience/RetryHandler.ts#L224)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [rag/resilience/RetryHandler.ts:224](https://github.com/juspay/neuro
 
 > **executeWithRetry**\<`T`\>(`operation`, `maxRetries?`): `Promise`\<`T`\>
 
-Defined in: [rag/resilience/RetryHandler.ts:231](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/RetryHandler.ts#L231)
+Defined in: [rag/resilience/RetryHandler.ts:231](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/resilience/RetryHandler.ts#L231)
 
 Execute an operation with retry logic
 
@@ -64,7 +64,7 @@ Execute an operation with retry logic
 
 > **executeBatch**\<`T`, `R`\>(`items`, `operation`, `options?`): `Promise`\<\{ `successful`: `object`[]; `failed`: `object`[]; `successRate`: `number`; \}\>
 
-Defined in: [rag/resilience/RetryHandler.ts:244](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/RetryHandler.ts#L244)
+Defined in: [rag/resilience/RetryHandler.ts:244](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/resilience/RetryHandler.ts#L244)
 
 Execute multiple operations with retry, collecting results
 Returns successful results and failed operations with their errors
@@ -109,7 +109,7 @@ Returns successful results and failed operations with their errors
 
 > **getConfig**(): [`RAGRetryConfig`](../type-aliases/RAGRetryConfig.md)
 
-Defined in: [rag/resilience/RetryHandler.ts:294](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/RetryHandler.ts#L294)
+Defined in: [rag/resilience/RetryHandler.ts:294](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/resilience/RetryHandler.ts#L294)
 
 Get current configuration
 
@@ -123,7 +123,7 @@ Get current configuration
 
 > **updateConfig**(`config`): `void`
 
-Defined in: [rag/resilience/RetryHandler.ts:301](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/RetryHandler.ts#L301)
+Defined in: [rag/resilience/RetryHandler.ts:301](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/resilience/RetryHandler.ts#L301)
 
 Update configuration
 

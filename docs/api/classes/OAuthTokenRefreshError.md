@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: OAuthTokenRefreshError
 
-Defined in: [types/errors.ts:112](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L112)
+Defined in: [types/errors.ts:155](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L155)
 
 Thrown when token refresh fails
 
@@ -20,7 +20,7 @@ Thrown when token refresh fails
 
 > **new OAuthTokenRefreshError**(`message`, `statusCode?`): `OAuthTokenRefreshError`
 
-Defined in: [types/errors.ts:113](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L113)
+Defined in: [types/errors.ts:156](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L156)
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [types/errors.ts:113](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **code?**: `string`
 
-Defined in: [types/errors.ts:79](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L79)
+Defined in: [types/errors.ts:122](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L122)
 
 #### Inherited from
 
@@ -58,4 +58,4 @@ Defined in: [types/errors.ts:79](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **statusCode?**: `number`
 
-Defined in: [types/errors.ts:115](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L115)
+Defined in: [types/errors.ts:158](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L158)

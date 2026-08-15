@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DeepgramAlternative** = `object`
 
-Defined in: [types/stt.ts:443](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L443)
+Defined in: [types/stt.ts:443](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L443)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:443](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **transcript**: `string`
 
-Defined in: [types/stt.ts:444](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L444)
+Defined in: [types/stt.ts:444](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L444)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/stt.ts:444](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **confidence**: `number`
 
-Defined in: [types/stt.ts:445](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L445)
+Defined in: [types/stt.ts:445](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L445)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/stt.ts:445](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **words**: [`DeepgramWord`](DeepgramWord.md)[]
 
-Defined in: [types/stt.ts:446](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L446)
+Defined in: [types/stt.ts:446](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L446)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/stt.ts:446](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **paragraphs?**: `object`
 
-Defined in: [types/stt.ts:447](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L447)
+Defined in: [types/stt.ts:447](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L447)
 
 #### transcript
 

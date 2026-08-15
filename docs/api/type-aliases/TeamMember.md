@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TeamMember** = `object`
 
-Defined in: [types/ppt.ts:386](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L386)
+Defined in: [types/ppt.ts:386](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L386)
 
 Team member for team slides
 Maps to: addImage (photo) + addText (details)
@@ -19,7 +19,7 @@ Maps to: addImage (photo) + addText (details)
 
 > **name**: `string`
 
-Defined in: [types/ppt.ts:387](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L387)
+Defined in: [types/ppt.ts:387](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L387)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/ppt.ts:387](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **role**: `string`
 
-Defined in: [types/ppt.ts:388](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L388)
+Defined in: [types/ppt.ts:388](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L388)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/ppt.ts:388](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **photoPrompt?**: `string`
 
-Defined in: [types/ppt.ts:390](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L390)
+Defined in: [types/ppt.ts:390](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L390)
 
 Photo prompt for AI generation
 
@@ -45,7 +45,7 @@ Photo prompt for AI generation
 
 > `optional` **photoData?**: `string`
 
-Defined in: [types/ppt.ts:392](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L392)
+Defined in: [types/ppt.ts:392](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L392)
 
 Pre-existing photo URL or base64
 
@@ -55,6 +55,6 @@ Pre-existing photo URL or base64
 
 > `optional` **link?**: `string`
 
-Defined in: [types/ppt.ts:394](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L394)
+Defined in: [types/ppt.ts:394](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L394)
 
 Optional social/contact link

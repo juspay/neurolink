@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RuleResult** = `object`
 
-Defined in: [types/scorer.ts:207](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L207)
+Defined in: [types/scorer.ts:207](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L207)
 
 Rule evaluation result
 
@@ -18,7 +18,7 @@ Rule evaluation result
 
 > **ruleId**: `string`
 
-Defined in: [types/scorer.ts:209](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L209)
+Defined in: [types/scorer.ts:209](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L209)
 
 Rule identifier
 
@@ -28,7 +28,7 @@ Rule identifier
 
 > **passed**: `boolean`
 
-Defined in: [types/scorer.ts:211](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L211)
+Defined in: [types/scorer.ts:211](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L211)
 
 Whether the rule passed
 
@@ -38,7 +38,7 @@ Whether the rule passed
 
 > **score**: `number`
 
-Defined in: [types/scorer.ts:213](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L213)
+Defined in: [types/scorer.ts:213](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L213)
 
 Score from this rule
 
@@ -48,6 +48,6 @@ Score from this rule
 
 > `optional` **reasoning?**: `string`
 
-Defined in: [types/scorer.ts:215](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L215)
+Defined in: [types/scorer.ts:215](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L215)
 
 Reasoning for the result

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RealtimeVoiceProvider** = `object`
 
-Defined in: [types/realtime.ts:213](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L213)
+Defined in: [types/realtime.ts:213](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L213)
 
 Realtime voice provider type (bidirectional audio)
 
@@ -18,7 +18,7 @@ Realtime voice provider type (bidirectional audio)
 
 > `readonly` **name**: `string`
 
-Defined in: [types/realtime.ts:215](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L215)
+Defined in: [types/realtime.ts:215](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L215)
 
 Provider name identifier
 
@@ -28,7 +28,7 @@ Provider name identifier
 
 > **getCapabilities**(): `RealtimeProviderCapability`[]
 
-Defined in: [types/realtime.ts:217](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L217)
+Defined in: [types/realtime.ts:217](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L217)
 
 Get supported capabilities
 
@@ -42,7 +42,7 @@ Get supported capabilities
 
 > **isConfigured**(): `boolean`
 
-Defined in: [types/realtime.ts:219](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L219)
+Defined in: [types/realtime.ts:219](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L219)
 
 Check if provider is properly configured
 
@@ -56,7 +56,7 @@ Check if provider is properly configured
 
 > **validateConfig**(): `Promise`\<\{ `valid`: `boolean`; `errors`: `string`[]; \}\>
 
-Defined in: [types/realtime.ts:221](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L221)
+Defined in: [types/realtime.ts:221](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L221)
 
 Validate provider configuration
 
@@ -70,7 +70,7 @@ Validate provider configuration
 
 > `optional` **getOptionsSchema**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [types/realtime.ts:223](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L223)
+Defined in: [types/realtime.ts:223](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L223)
 
 Get provider-specific options schema
 
@@ -84,7 +84,7 @@ Get provider-specific options schema
 
 > **connect**(`config`): `Promise`\<[`RealtimeSession`](RealtimeSession.md)\>
 
-Defined in: [types/realtime.ts:227](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L227)
+Defined in: [types/realtime.ts:227](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L227)
 
 Create a new realtime session
 
@@ -104,7 +104,7 @@ Create a new realtime session
 
 > **isConnected**(): `boolean`
 
-Defined in: [types/realtime.ts:232](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L232)
+Defined in: [types/realtime.ts:232](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L232)
 
 Check if connected
 
@@ -118,7 +118,7 @@ Check if connected
 
 > **disconnect**(): `Promise`\<`void`\>
 
-Defined in: [types/realtime.ts:237](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L237)
+Defined in: [types/realtime.ts:237](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L237)
 
 Disconnect from realtime session
 
@@ -132,7 +132,7 @@ Disconnect from realtime session
 
 > **getSessionConfig**(): [`RealtimeConfig`](RealtimeConfig.md) \| `null`
 
-Defined in: [types/realtime.ts:242](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L242)
+Defined in: [types/realtime.ts:242](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L242)
 
 Get current session configuration
 

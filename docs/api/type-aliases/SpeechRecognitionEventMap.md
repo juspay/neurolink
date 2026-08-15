@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SpeechRecognitionEventMap** = `object`
 
-Defined in: [types/client.ts:1132](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1132)
+Defined in: [types/client.ts:1132](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1132)
 
 Web Speech API event map for SpeechRecognition
 
@@ -18,7 +18,7 @@ Web Speech API event map for SpeechRecognition
 
 > **audioend**: `Event`
 
-Defined in: [types/client.ts:1133](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1133)
+Defined in: [types/client.ts:1133](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1133)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/client.ts:1133](https://github.com/juspay/neurolink/blob/ff50
 
 > **audiostart**: `Event`
 
-Defined in: [types/client.ts:1134](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1134)
+Defined in: [types/client.ts:1134](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1134)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/client.ts:1134](https://github.com/juspay/neurolink/blob/ff50
 
 > **end**: `Event`
 
-Defined in: [types/client.ts:1135](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1135)
+Defined in: [types/client.ts:1135](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1135)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/client.ts:1135](https://github.com/juspay/neurolink/blob/ff50
 
 > **error**: [`SpeechRecognitionErrorEventInternal`](SpeechRecognitionErrorEventInternal.md)
 
-Defined in: [types/client.ts:1136](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1136)
+Defined in: [types/client.ts:1136](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1136)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/client.ts:1136](https://github.com/juspay/neurolink/blob/ff50
 
 > **nomatch**: [`SpeechRecognitionEventInternal`](SpeechRecognitionEventInternal.md)
 
-Defined in: [types/client.ts:1137](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1137)
+Defined in: [types/client.ts:1137](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1137)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/client.ts:1137](https://github.com/juspay/neurolink/blob/ff50
 
 > **result**: [`SpeechRecognitionEventInternal`](SpeechRecognitionEventInternal.md)
 
-Defined in: [types/client.ts:1138](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1138)
+Defined in: [types/client.ts:1138](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1138)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/client.ts:1138](https://github.com/juspay/neurolink/blob/ff50
 
 > **soundend**: `Event`
 
-Defined in: [types/client.ts:1139](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1139)
+Defined in: [types/client.ts:1139](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1139)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/client.ts:1139](https://github.com/juspay/neurolink/blob/ff50
 
 > **soundstart**: `Event`
 
-Defined in: [types/client.ts:1140](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1140)
+Defined in: [types/client.ts:1140](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1140)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/client.ts:1140](https://github.com/juspay/neurolink/blob/ff50
 
 > **speechend**: `Event`
 
-Defined in: [types/client.ts:1141](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1141)
+Defined in: [types/client.ts:1141](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1141)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/client.ts:1141](https://github.com/juspay/neurolink/blob/ff50
 
 > **speechstart**: `Event`
 
-Defined in: [types/client.ts:1142](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1142)
+Defined in: [types/client.ts:1142](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1142)
 
 ---
 
@@ -98,4 +98,4 @@ Defined in: [types/client.ts:1142](https://github.com/juspay/neurolink/blob/ff50
 
 > **start**: `Event`
 
-Defined in: [types/client.ts:1143](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1143)
+Defined in: [types/client.ts:1143](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1143)

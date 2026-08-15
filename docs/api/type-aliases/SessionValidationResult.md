@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SessionValidationResult** = `object`
 
-Defined in: [types/auth.ts:276](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L276)
+Defined in: [types/auth.ts:276](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L276)
 
 Session validation result
 
@@ -18,7 +18,7 @@ Session validation result
 
 > **valid**: `boolean`
 
-Defined in: [types/auth.ts:278](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L278)
+Defined in: [types/auth.ts:278](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L278)
 
 Whether the session is valid
 
@@ -28,7 +28,7 @@ Whether the session is valid
 
 > `optional` **session?**: [`AuthSession`](AuthSession.md)
 
-Defined in: [types/auth.ts:280](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L280)
+Defined in: [types/auth.ts:280](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L280)
 
 Validated session if valid
 
@@ -38,7 +38,7 @@ Validated session if valid
 
 > `optional` **error?**: `string`
 
-Defined in: [types/auth.ts:282](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L282)
+Defined in: [types/auth.ts:282](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L282)
 
 Error message if validation failed
 
@@ -48,7 +48,7 @@ Error message if validation failed
 
 > `optional` **errorCode?**: [`AuthErrorCode`](AuthErrorCode.md)
 
-Defined in: [types/auth.ts:284](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L284)
+Defined in: [types/auth.ts:284](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L284)
 
 Error code for programmatic handling
 
@@ -58,6 +58,6 @@ Error code for programmatic handling
 
 > `optional` **refreshed?**: `boolean`
 
-Defined in: [types/auth.ts:286](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L286)
+Defined in: [types/auth.ts:286](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L286)
 
 Whether session was refreshed

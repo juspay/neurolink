@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ErrorResponse** = `object`
 
-Defined in: [types/server.ts:1182](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1182)
+Defined in: [types/server.ts:1182](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L1182)
 
 Standardized error response format
 
@@ -18,7 +18,7 @@ Standardized error response format
 
 > **error**: `object`
 
-Defined in: [types/server.ts:1183](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1183)
+Defined in: [types/server.ts:1183](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L1183)
 
 #### code
 
@@ -38,7 +38,7 @@ Defined in: [types/server.ts:1183](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/server.ts:1188](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1188)
+Defined in: [types/server.ts:1188](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L1188)
 
 #### timestamp
 
@@ -54,4 +54,4 @@ Defined in: [types/server.ts:1188](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **httpStatus?**: `number`
 
-Defined in: [types/server.ts:1192](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1192)
+Defined in: [types/server.ts:1192](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L1192)

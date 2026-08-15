@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: AuthProviderFactory
 
-Defined in: [auth/AuthProviderFactory.ts:40](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/AuthProviderFactory.ts#L40)
+Defined in: [auth/AuthProviderFactory.ts:40](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/AuthProviderFactory.ts#L40)
 
 AuthProviderFactory - Creates authentication provider instances
 
@@ -41,7 +41,7 @@ const provider = await AuthProviderFactory.createProvider("auth0", {
 
 > `static` **registerProvider**(`type`, `factory`, `aliases?`, `metadata?`): `void`
 
-Defined in: [auth/AuthProviderFactory.ts:50](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/AuthProviderFactory.ts#L50)
+Defined in: [auth/AuthProviderFactory.ts:50](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/AuthProviderFactory.ts#L50)
 
 Register a provider with the factory
 
@@ -73,7 +73,7 @@ Register a provider with the factory
 
 > `static` **createProvider**(`typeOrAlias`, `config`): `Promise`\<[`AuthProvider`](../type-aliases/AuthProvider.md)\>
 
-Defined in: [auth/AuthProviderFactory.ts:68](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/AuthProviderFactory.ts#L68)
+Defined in: [auth/AuthProviderFactory.ts:68](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/AuthProviderFactory.ts#L68)
 
 Create a provider instance
 
@@ -97,7 +97,7 @@ Create a provider instance
 
 > `static` **hasProvider**(`typeOrAlias`): `boolean`
 
-Defined in: [auth/AuthProviderFactory.ts:96](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/AuthProviderFactory.ts#L96)
+Defined in: [auth/AuthProviderFactory.ts:96](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/AuthProviderFactory.ts#L96)
 
 Check if a provider is registered
 
@@ -117,7 +117,7 @@ Check if a provider is registered
 
 > `static` **getAvailableProviders**(): `string`[]
 
-Defined in: [auth/AuthProviderFactory.ts:106](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/AuthProviderFactory.ts#L106)
+Defined in: [auth/AuthProviderFactory.ts:106](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/AuthProviderFactory.ts#L106)
 
 Get list of available provider types (excludes aliases)
 
@@ -131,7 +131,7 @@ Get list of available provider types (excludes aliases)
 
 > `static` **getProviderMetadata**(`typeOrAlias`): [`AuthProviderMetadata`](../type-aliases/AuthProviderMetadata.md) \| `undefined`
 
-Defined in: [auth/AuthProviderFactory.ts:113](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/AuthProviderFactory.ts#L113)
+Defined in: [auth/AuthProviderFactory.ts:113](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/AuthProviderFactory.ts#L113)
 
 Get provider metadata
 
@@ -151,7 +151,7 @@ Get provider metadata
 
 > `static` **getAllProviderInfo**(): `object`[]
 
-Defined in: [auth/AuthProviderFactory.ts:123](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/AuthProviderFactory.ts#L123)
+Defined in: [auth/AuthProviderFactory.ts:123](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/AuthProviderFactory.ts#L123)
 
 Get all registered providers with their metadata
 
@@ -165,7 +165,7 @@ Get all registered providers with their metadata
 
 > `static` **clearRegistrations**(): `void`
 
-Defined in: [auth/AuthProviderFactory.ts:140](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/AuthProviderFactory.ts#L140)
+Defined in: [auth/AuthProviderFactory.ts:140](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/AuthProviderFactory.ts#L140)
 
 Clear all registrations (for testing)
 

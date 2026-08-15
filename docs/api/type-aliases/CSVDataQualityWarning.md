@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CSVDataQualityWarning** = `object`
 
-Defined in: [types/file.ts:153](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L153)
+Defined in: [types/file.ts:245](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L245)
 
 Data quality warning for CSV columns
 
@@ -18,7 +18,7 @@ Data quality warning for CSV columns
 
 > **column**: `string`
 
-Defined in: [types/file.ts:154](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L154)
+Defined in: [types/file.ts:246](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L246)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:154](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **type**: `"empty_values"` \| `"invalid_name"` \| `"mixed_types"` \| `"high_null_rate"` \| `"duplicates"` \| `"inconsistent_format"`
 
-Defined in: [types/file.ts:155](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L155)
+Defined in: [types/file.ts:247](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L247)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/file.ts:155](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **message**: `string`
 
-Defined in: [types/file.ts:162](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L162)
+Defined in: [types/file.ts:254](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L254)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/file.ts:162](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **severity**: `"info"` \| `"warning"` \| `"error"`
 
-Defined in: [types/file.ts:163](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L163)
+Defined in: [types/file.ts:255](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L255)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/file.ts:163](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **affectedRows?**: `number`
 
-Defined in: [types/file.ts:164](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L164)
+Defined in: [types/file.ts:256](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L256)

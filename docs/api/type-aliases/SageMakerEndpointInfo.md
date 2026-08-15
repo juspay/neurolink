@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SageMakerEndpointInfo** = `object`
 
-Defined in: [types/providers.ts:1115](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1115)
+Defined in: [types/providers.ts:1406](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1406)
 
 SageMaker endpoint information and metadata
 
@@ -18,7 +18,7 @@ SageMaker endpoint information and metadata
 
 > **endpointName**: `string`
 
-Defined in: [types/providers.ts:1117](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1117)
+Defined in: [types/providers.ts:1408](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1408)
 
 Endpoint name
 
@@ -28,7 +28,7 @@ Endpoint name
 
 > **endpointArn**: `string`
 
-Defined in: [types/providers.ts:1119](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1119)
+Defined in: [types/providers.ts:1410](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1410)
 
 Endpoint ARN
 
@@ -38,7 +38,7 @@ Endpoint ARN
 
 > **modelName**: `string`
 
-Defined in: [types/providers.ts:1121](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1121)
+Defined in: [types/providers.ts:1412](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1412)
 
 Associated model name
 
@@ -48,7 +48,7 @@ Associated model name
 
 > **instanceType**: `string`
 
-Defined in: [types/providers.ts:1123](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1123)
+Defined in: [types/providers.ts:1414](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1414)
 
 EC2 instance type
 
@@ -58,7 +58,7 @@ EC2 instance type
 
 > **creationTime**: `string`
 
-Defined in: [types/providers.ts:1125](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1125)
+Defined in: [types/providers.ts:1416](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1416)
 
 Endpoint creation timestamp
 
@@ -68,7 +68,7 @@ Endpoint creation timestamp
 
 > **lastModifiedTime**: `string`
 
-Defined in: [types/providers.ts:1127](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1127)
+Defined in: [types/providers.ts:1418](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1418)
 
 Last modification timestamp
 
@@ -78,7 +78,7 @@ Last modification timestamp
 
 > **endpointStatus**: `"InService"` \| `"Creating"` \| `"Updating"` \| `"SystemUpdating"` \| `"RollingBack"` \| `"Deleting"` \| `"Failed"`
 
-Defined in: [types/providers.ts:1129](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1129)
+Defined in: [types/providers.ts:1420](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1420)
 
 Current endpoint status
 
@@ -88,7 +88,7 @@ Current endpoint status
 
 > `optional` **currentInstanceCount?**: `number`
 
-Defined in: [types/providers.ts:1138](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1138)
+Defined in: [types/providers.ts:1429](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1429)
 
 Current instance count
 
@@ -98,7 +98,7 @@ Current instance count
 
 > `optional` **productionVariants?**: `object`[]
 
-Defined in: [types/providers.ts:1140](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1140)
+Defined in: [types/providers.ts:1431](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1431)
 
 Variant weights for A/B testing
 

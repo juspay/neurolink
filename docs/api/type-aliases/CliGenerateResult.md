@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CliGenerateResult** = [`CommandResult`](CommandResult.md) & `object`
 
-Defined in: [types/cli.ts:410](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L410)
+Defined in: [types/cli.ts:424](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L424)
 
 Generate command result
 
@@ -77,6 +77,18 @@ TTS audio result when TTS is enabled
 > `optional` **video?**: [`VideoGenerationResult`](VideoGenerationResult.md)
 
 Video generation result when video mode is enabled
+
+### avatar?
+
+> `optional` **avatar?**: [`AvatarResult`](AvatarResult.md)
+
+Avatar (talking-head) generation result when avatar mode is enabled
+
+### music?
+
+> `optional` **music?**: [`MusicResult`](MusicResult.md)
+
+Music generation result when music mode is enabled
 
 ### ppt?
 

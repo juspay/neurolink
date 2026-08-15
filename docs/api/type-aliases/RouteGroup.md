@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RouteGroup** = `object`
 
-Defined in: [types/server.ts:443](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L443)
+Defined in: [types/server.ts:443](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L443)
 
 Route group for organizing related routes
 
@@ -18,7 +18,7 @@ Route group for organizing related routes
 
 > **prefix**: `string`
 
-Defined in: [types/server.ts:445](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L445)
+Defined in: [types/server.ts:445](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L445)
 
 Group prefix
 
@@ -28,7 +28,7 @@ Group prefix
 
 > **routes**: [`RouteDefinition`](RouteDefinition.md)[]
 
-Defined in: [types/server.ts:448](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L448)
+Defined in: [types/server.ts:448](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L448)
 
 Routes in this group
 
@@ -38,7 +38,7 @@ Routes in this group
 
 > `optional` **middleware?**: [`MiddlewareDefinition`](MiddlewareDefinition.md)[]
 
-Defined in: [types/server.ts:451](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L451)
+Defined in: [types/server.ts:451](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L451)
 
 Middleware specific to this group
 
@@ -48,7 +48,7 @@ Middleware specific to this group
 
 > `optional` **auth?**: `boolean`
 
-Defined in: [types/server.ts:454](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L454)
+Defined in: [types/server.ts:454](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L454)
 
 Group-level authentication
 
@@ -58,6 +58,6 @@ Group-level authentication
 
 > `optional` **roles?**: `string`[]
 
-Defined in: [types/server.ts:457](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L457)
+Defined in: [types/server.ts:457](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L457)
 
 Group-level roles

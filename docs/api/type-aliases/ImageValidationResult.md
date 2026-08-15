@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ImageValidationResult** = `object`
 
-Defined in: [types/ppt.ts:1250](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1250)
+Defined in: [types/ppt.ts:1250](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1250)
 
 Result of image buffer validation
 
@@ -18,7 +18,7 @@ Result of image buffer validation
 
 > **isValid**: `boolean`
 
-Defined in: [types/ppt.ts:1251](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1251)
+Defined in: [types/ppt.ts:1251](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1251)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/ppt.ts:1251](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **mimeType**: `string`
 
-Defined in: [types/ppt.ts:1252](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1252)
+Defined in: [types/ppt.ts:1252](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1252)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/ppt.ts:1252](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **format**: `string`
 
-Defined in: [types/ppt.ts:1253](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1253)
+Defined in: [types/ppt.ts:1253](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1253)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/ppt.ts:1253](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **error?**: `string`
 
-Defined in: [types/ppt.ts:1254](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1254)
+Defined in: [types/ppt.ts:1254](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1254)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GenAILiveMedia** = `object`
 
-Defined in: [types/providers.ts:788](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L788)
+Defined in: [types/providers.ts:1057](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1057)
 
 Google AI Live media configuration
 
@@ -18,7 +18,7 @@ Google AI Live media configuration
 
 > **data**: `string`
 
-Defined in: [types/providers.ts:789](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L789)
+Defined in: [types/providers.ts:1058](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1058)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/providers.ts:789](https://github.com/juspay/neurolink/blob/ff
 
 > **mimeType**: `string`
 
-Defined in: [types/providers.ts:790](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L790)
+Defined in: [types/providers.ts:1059](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1059)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileSummarizationPromptParams** = `object`
 
-Defined in: [types/context.ts:733](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L733)
+Defined in: [types/context.ts:756](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L756)
 
 Parameters for `buildFileSummarizationPrompt()`.
 
@@ -18,7 +18,7 @@ Parameters for `buildFileSummarizationPrompt()`.
 
 > **fileName**: `string`
 
-Defined in: [types/context.ts:735](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L735)
+Defined in: [types/context.ts:758](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L758)
 
 File display name
 
@@ -28,7 +28,7 @@ File display name
 
 > **fileType**: `string`
 
-Defined in: [types/context.ts:737](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L737)
+Defined in: [types/context.ts:760](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L760)
 
 File type label
 
@@ -38,7 +38,7 @@ File type label
 
 > **fileContent**: `string`
 
-Defined in: [types/context.ts:739](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L739)
+Defined in: [types/context.ts:762](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L762)
 
 Full extracted text of the file
 
@@ -48,7 +48,7 @@ Full extracted text of the file
 
 > **userPrompt**: `string`
 
-Defined in: [types/context.ts:741](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L741)
+Defined in: [types/context.ts:764](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L764)
 
 The user's original prompt / question
 
@@ -58,6 +58,6 @@ The user's original prompt / question
 
 > **targetTokens**: `number`
 
-Defined in: [types/context.ts:743](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L743)
+Defined in: [types/context.ts:766](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L766)
 
 Target output token count for the summary

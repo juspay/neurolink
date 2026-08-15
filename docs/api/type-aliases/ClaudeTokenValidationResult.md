@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClaudeTokenValidationResult** = `object`
 
-Defined in: [types/subscription.ts:904](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L904)
+Defined in: [types/subscription.ts:986](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L986)
 
 Token validation result
 
@@ -18,7 +18,7 @@ Token validation result
 
 > **isValid**: `boolean`
 
-Defined in: [types/subscription.ts:906](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L906)
+Defined in: [types/subscription.ts:988](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L988)
 
 Whether the token is valid
 
@@ -28,7 +28,7 @@ Whether the token is valid
 
 > `optional` **expiresIn?**: `number`
 
-Defined in: [types/subscription.ts:908](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L908)
+Defined in: [types/subscription.ts:990](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L990)
 
 Remaining time in seconds until expiration
 
@@ -38,7 +38,7 @@ Remaining time in seconds until expiration
 
 > `optional` **scopes?**: `string`[]
 
-Defined in: [types/subscription.ts:910](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L910)
+Defined in: [types/subscription.ts:992](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L992)
 
 Scopes associated with the token
 
@@ -48,7 +48,7 @@ Scopes associated with the token
 
 > `optional` **user?**: `object`
 
-Defined in: [types/subscription.ts:912](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L912)
+Defined in: [types/subscription.ts:994](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L994)
 
 User information if available
 
@@ -70,6 +70,6 @@ User information if available
 
 > `optional` **error?**: `string`
 
-Defined in: [types/subscription.ts:918](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L918)
+Defined in: [types/subscription.ts:1000](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1000)
 
 Error message if validation failed

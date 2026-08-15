@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VectorQueryToolConfig** = `object`
 
-Defined in: [types/rag.ts:1191](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1191)
+Defined in: [types/rag.ts:1235](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1235)
 
 Vector query tool configuration
 
@@ -18,7 +18,7 @@ Vector query tool configuration
 
 > `optional` **id?**: `string`
 
-Defined in: [types/rag.ts:1193](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1193)
+Defined in: [types/rag.ts:1237](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1237)
 
 Tool identifier
 
@@ -28,7 +28,7 @@ Tool identifier
 
 > `optional` **description?**: `string`
 
-Defined in: [types/rag.ts:1195](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1195)
+Defined in: [types/rag.ts:1239](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1239)
 
 Tool description for AI agents
 
@@ -38,7 +38,7 @@ Tool description for AI agents
 
 > **indexName**: `string`
 
-Defined in: [types/rag.ts:1197](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1197)
+Defined in: [types/rag.ts:1241](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1241)
 
 Index name within the vector store
 
@@ -48,7 +48,7 @@ Index name within the vector store
 
 > **embeddingModel**: `object`
 
-Defined in: [types/rag.ts:1199](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1199)
+Defined in: [types/rag.ts:1243](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1243)
 
 Embedding model specification
 
@@ -66,7 +66,7 @@ Embedding model specification
 
 > `optional` **enableFilter?**: `boolean`
 
-Defined in: [types/rag.ts:1204](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1204)
+Defined in: [types/rag.ts:1248](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1248)
 
 Enable metadata filtering
 
@@ -76,7 +76,7 @@ Enable metadata filtering
 
 > `optional` **includeVectors?**: `boolean`
 
-Defined in: [types/rag.ts:1206](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1206)
+Defined in: [types/rag.ts:1250](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1250)
 
 Include embedding vectors in results
 
@@ -86,7 +86,7 @@ Include embedding vectors in results
 
 > `optional` **includeSources?**: `boolean`
 
-Defined in: [types/rag.ts:1208](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1208)
+Defined in: [types/rag.ts:1252](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1252)
 
 Include full source objects in results
 
@@ -96,7 +96,7 @@ Include full source objects in results
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/rag.ts:1210](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1210)
+Defined in: [types/rag.ts:1254](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1254)
 
 Number of results to return
 
@@ -106,7 +106,7 @@ Number of results to return
 
 > `optional` **reranker?**: [`RerankerConfig`](RerankerConfig.md)
 
-Defined in: [types/rag.ts:1212](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1212)
+Defined in: [types/rag.ts:1256](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1256)
 
 Reranker configuration
 
@@ -116,6 +116,6 @@ Reranker configuration
 
 > `optional` **providerOptions?**: [`VectorProviderOptions`](VectorProviderOptions.md)
 
-Defined in: [types/rag.ts:1214](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1214)
+Defined in: [types/rag.ts:1258](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1258)
 
 Provider-specific options

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GcpAuthMethodStatus** = `object`
 
-Defined in: [types/cli.ts:1508](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1508)
+Defined in: [types/cli.ts:1628](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1628)
 
 Status of each GCP auth method tried by setup-gcp.
 
@@ -18,7 +18,7 @@ Status of each GCP auth method tried by setup-gcp.
 
 > **method1**: `object`
 
-Defined in: [types/cli.ts:1509](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1509)
+Defined in: [types/cli.ts:1629](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1629)
 
 #### complete
 
@@ -38,7 +38,7 @@ Defined in: [types/cli.ts:1509](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **method2**: `object`
 
-Defined in: [types/cli.ts:1514](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1514)
+Defined in: [types/cli.ts:1634](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1634)
 
 #### complete
 
@@ -58,7 +58,7 @@ Defined in: [types/cli.ts:1514](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **method3**: `object`
 
-Defined in: [types/cli.ts:1519](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1519)
+Defined in: [types/cli.ts:1639](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1639)
 
 #### complete
 
@@ -82,7 +82,7 @@ Defined in: [types/cli.ts:1519](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **common**: `object`
 
-Defined in: [types/cli.ts:1525](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1525)
+Defined in: [types/cli.ts:1645](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1645)
 
 #### hasProject
 

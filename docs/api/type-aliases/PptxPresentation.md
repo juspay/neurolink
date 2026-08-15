@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PptxPresentation** = `object`
 
-Defined in: [types/ppt.ts:1183](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1183)
+Defined in: [types/ppt.ts:1183](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1183)
 
 PptxGenJS Presentation interface
 Defines the methods we use from a pptxgenjs presentation instance
@@ -19,7 +19,7 @@ Defines the methods we use from a pptxgenjs presentation instance
 
 > **addSlide**: () => [`PptxSlide`](PptxSlide.md)
 
-Defined in: [types/ppt.ts:1185](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1185)
+Defined in: [types/ppt.ts:1185](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1185)
 
 Add a new slide to the presentation
 
@@ -33,7 +33,7 @@ Add a new slide to the presentation
 
 > **defineLayout**: (`layout`) => `void`
 
-Defined in: [types/ppt.ts:1187](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1187)
+Defined in: [types/ppt.ts:1187](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1187)
 
 Define a custom layout
 
@@ -63,7 +63,7 @@ Define a custom layout
 
 > **layout**: `string`
 
-Defined in: [types/ppt.ts:1193](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1193)
+Defined in: [types/ppt.ts:1193](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1193)
 
 Current layout name
 
@@ -73,7 +73,7 @@ Current layout name
 
 > `optional` **title?**: `string`
 
-Defined in: [types/ppt.ts:1195](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1195)
+Defined in: [types/ppt.ts:1195](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1195)
 
 Presentation title metadata
 
@@ -83,7 +83,7 @@ Presentation title metadata
 
 > `optional` **subject?**: `string`
 
-Defined in: [types/ppt.ts:1197](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1197)
+Defined in: [types/ppt.ts:1197](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1197)
 
 Presentation subject metadata
 
@@ -93,7 +93,7 @@ Presentation subject metadata
 
 > `optional` **author?**: `string`
 
-Defined in: [types/ppt.ts:1199](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1199)
+Defined in: [types/ppt.ts:1199](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1199)
 
 Presentation author metadata
 
@@ -103,7 +103,7 @@ Presentation author metadata
 
 > `optional` **company?**: `string`
 
-Defined in: [types/ppt.ts:1201](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1201)
+Defined in: [types/ppt.ts:1201](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1201)
 
 Presentation company metadata
 
@@ -113,7 +113,7 @@ Presentation company metadata
 
 > **writeFile**: (`options`) => `Promise`\<`string`\>
 
-Defined in: [types/ppt.ts:1203](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1203)
+Defined in: [types/ppt.ts:1203](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1203)
 
 Write presentation to file
 
@@ -135,7 +135,7 @@ Write presentation to file
 
 > **write**: (`options`) => `Promise`\<`unknown`\>
 
-Defined in: [types/ppt.ts:1205](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1205)
+Defined in: [types/ppt.ts:1205](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L1205)
 
 Write presentation to buffer/stream
 

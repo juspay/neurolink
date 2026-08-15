@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EvaluationEvents** = `object`
 
-Defined in: [types/evaluation.ts:664](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L664)
+Defined in: [types/evaluation.ts:659](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L659)
 
 Events emitted by the evaluation pipeline.
 
@@ -18,7 +18,7 @@ Events emitted by the evaluation pipeline.
 
 > **scorer:start**: `object`
 
-Defined in: [types/evaluation.ts:665](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L665)
+Defined in: [types/evaluation.ts:660](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L660)
 
 #### scorerId
 
@@ -42,7 +42,7 @@ Defined in: [types/evaluation.ts:665](https://github.com/juspay/neurolink/blob/f
 
 > **scorer:end**: `object`
 
-Defined in: [types/evaluation.ts:671](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L671)
+Defined in: [types/evaluation.ts:666](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L666)
 
 #### scorerId
 
@@ -74,7 +74,7 @@ Defined in: [types/evaluation.ts:671](https://github.com/juspay/neurolink/blob/f
 
 > **scorer:error**: `object`
 
-Defined in: [types/evaluation.ts:679](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L679)
+Defined in: [types/evaluation.ts:674](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L674)
 
 #### scorerId
 
@@ -102,7 +102,7 @@ Defined in: [types/evaluation.ts:679](https://github.com/juspay/neurolink/blob/f
 
 > **pipeline:start**: `object`
 
-Defined in: [types/evaluation.ts:686](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L686)
+Defined in: [types/evaluation.ts:681](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L681)
 
 #### pipelineName
 
@@ -130,7 +130,7 @@ Defined in: [types/evaluation.ts:686](https://github.com/juspay/neurolink/blob/f
 
 > **pipeline:end**: `object`
 
-Defined in: [types/evaluation.ts:693](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L693)
+Defined in: [types/evaluation.ts:688](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L688)
 
 #### pipelineName
 
@@ -158,7 +158,7 @@ Defined in: [types/evaluation.ts:693](https://github.com/juspay/neurolink/blob/f
 
 > **pipeline:error**: `object`
 
-Defined in: [types/evaluation.ts:700](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L700)
+Defined in: [types/evaluation.ts:695](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L695)
 
 #### pipelineName
 

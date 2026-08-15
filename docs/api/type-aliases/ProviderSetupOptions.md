@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderSetupOptions** = `object`
 
-Defined in: [types/cli.ts:1292](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1292)
+Defined in: [types/cli.ts:1412](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1412)
 
 Shared options for every provider-specific CLI setup command
 (anthropic, azure, bedrock, gcp, google-ai, openai).
@@ -19,7 +19,7 @@ Shared options for every provider-specific CLI setup command
 
 > `optional` **checkOnly?**: `boolean`
 
-Defined in: [types/cli.ts:1293](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1293)
+Defined in: [types/cli.ts:1413](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1413)
 
 ---
 
@@ -27,4 +27,4 @@ Defined in: [types/cli.ts:1293](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **interactive?**: `boolean`
 
-Defined in: [types/cli.ts:1294](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1294)
+Defined in: [types/cli.ts:1414](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1414)

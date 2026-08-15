@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ApiResponse**\<`TData`\> = `object`
 
-Defined in: [types/aliases.ts:176](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L176)
+Defined in: [types/aliases.ts:190](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L190)
 
 API response structure
 Standard response format across providers
@@ -25,7 +25,7 @@ Standard response format across providers
 
 > **success**: `boolean`
 
-Defined in: [types/aliases.ts:177](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L177)
+Defined in: [types/aliases.ts:191](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L191)
 
 ---
 
@@ -33,7 +33,7 @@ Defined in: [types/aliases.ts:177](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **data?**: `TData`
 
-Defined in: [types/aliases.ts:178](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L178)
+Defined in: [types/aliases.ts:192](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L192)
 
 ---
 
@@ -41,7 +41,7 @@ Defined in: [types/aliases.ts:178](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **error?**: `string`
 
-Defined in: [types/aliases.ts:179](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L179)
+Defined in: [types/aliases.ts:193](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L193)
 
 ---
 
@@ -49,4 +49,4 @@ Defined in: [types/aliases.ts:179](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **metadata?**: [`StandardRecord`](StandardRecord.md)
 
-Defined in: [types/aliases.ts:180](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L180)
+Defined in: [types/aliases.ts:194](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L194)

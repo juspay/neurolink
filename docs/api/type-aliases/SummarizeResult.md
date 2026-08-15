@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SummarizeResult** = `object`
 
-Defined in: [types/context.ts:911](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L911)
+Defined in: [types/context.ts:1035](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L1035)
 
 Result of structured LLM summarization (Stage 3).
 
@@ -18,7 +18,7 @@ Result of structured LLM summarization (Stage 3).
 
 > **summarized**: `boolean`
 
-Defined in: [types/context.ts:912](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L912)
+Defined in: [types/context.ts:1036](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L1036)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:912](https://github.com/juspay/neurolink/blob/ff50
 
 > **messages**: [`ChatMessage`](ChatMessage.md)[]
 
-Defined in: [types/context.ts:913](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L913)
+Defined in: [types/context.ts:1037](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L1037)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/context.ts:913](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **summaryText?**: `string`
 
-Defined in: [types/context.ts:914](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L914)
+Defined in: [types/context.ts:1038](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L1038)

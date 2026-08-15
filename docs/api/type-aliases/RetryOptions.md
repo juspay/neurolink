@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RetryOptions** = `object`
 
-Defined in: [types/utilities.ts:203](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L203)
+Defined in: [types/utilities.ts:203](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L203)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/utilities.ts:203](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **maxAttempts?**: `number`
 
-Defined in: [types/utilities.ts:204](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L204)
+Defined in: [types/utilities.ts:204](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L204)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/utilities.ts:204](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **initialDelay?**: `number`
 
-Defined in: [types/utilities.ts:205](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L205)
+Defined in: [types/utilities.ts:205](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L205)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/utilities.ts:205](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **maxDelay?**: `number`
 
-Defined in: [types/utilities.ts:206](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L206)
+Defined in: [types/utilities.ts:206](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L206)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/utilities.ts:206](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **backoffMultiplier?**: `number`
 
-Defined in: [types/utilities.ts:207](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L207)
+Defined in: [types/utilities.ts:207](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L207)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/utilities.ts:207](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **retryCondition?**: (`error`) => `boolean`
 
-Defined in: [types/utilities.ts:208](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L208)
+Defined in: [types/utilities.ts:208](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L208)
 
 #### Parameters
 
@@ -66,7 +66,7 @@ Defined in: [types/utilities.ts:208](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **onRetry?**: (`attempt`, `error`) => `void`
 
-Defined in: [types/utilities.ts:209](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L209)
+Defined in: [types/utilities.ts:209](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L209)
 
 #### Parameters
 

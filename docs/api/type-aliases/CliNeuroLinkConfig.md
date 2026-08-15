@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CliNeuroLinkConfig** = `object`
 
-Defined in: [types/cli.ts:1691](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1691)
+Defined in: [types/cli.ts:1811](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1811)
 
 Materialized shape of the CLI config parsed from `~/.neurolink/config.json`.
 Matches the output of `ConfigSchema.parse()` defined in
@@ -21,7 +21,7 @@ Matches the output of `ConfigSchema.parse()` defined in
 
 > **defaultProvider**: [`CliConfigProvider`](CliConfigProvider.md)
 
-Defined in: [types/cli.ts:1692](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1692)
+Defined in: [types/cli.ts:1812](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1812)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: [types/cli.ts:1692](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **providers**: `object`
 
-Defined in: [types/cli.ts:1693](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1693)
+Defined in: [types/cli.ts:1813](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1813)
 
 #### openai?
 
@@ -193,7 +193,7 @@ Defined in: [types/cli.ts:1693](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **profiles**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/cli.ts:1723](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1723)
+Defined in: [types/cli.ts:1843](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1843)
 
 ---
 
@@ -201,7 +201,7 @@ Defined in: [types/cli.ts:1723](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **preferences**: `object`
 
-Defined in: [types/cli.ts:1724](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1724)
+Defined in: [types/cli.ts:1844](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1844)
 
 #### outputFormat
 
@@ -245,7 +245,7 @@ Defined in: [types/cli.ts:1724](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **domains**: `object`
 
-Defined in: [types/cli.ts:1735](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1735)
+Defined in: [types/cli.ts:1855](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1855)
 
 #### healthcare
 

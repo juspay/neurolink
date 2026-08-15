@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AudioStreamChunk** = `object`
 
-Defined in: [types/voice.ts:124](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L124)
+Defined in: [types/voice.ts:124](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/voice.ts#L124)
 
 Audio stream chunk for streaming operations
 
@@ -18,7 +18,7 @@ Audio stream chunk for streaming operations
 
 > **data**: `Buffer`
 
-Defined in: [types/voice.ts:126](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L126)
+Defined in: [types/voice.ts:126](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/voice.ts#L126)
 
 Audio data
 
@@ -28,7 +28,7 @@ Audio data
 
 > **index**: `number`
 
-Defined in: [types/voice.ts:128](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L128)
+Defined in: [types/voice.ts:128](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/voice.ts#L128)
 
 Chunk index
 
@@ -38,7 +38,7 @@ Chunk index
 
 > **isFinal**: `boolean`
 
-Defined in: [types/voice.ts:130](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L130)
+Defined in: [types/voice.ts:130](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/voice.ts#L130)
 
 Whether this is the final chunk
 
@@ -48,7 +48,7 @@ Whether this is the final chunk
 
 > **format**: [`TTSAudioFormat`](TTSAudioFormat.md)
 
-Defined in: [types/voice.ts:132](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L132)
+Defined in: [types/voice.ts:132](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/voice.ts#L132)
 
 Audio format
 
@@ -58,7 +58,7 @@ Audio format
 
 > **sampleRate**: `number`
 
-Defined in: [types/voice.ts:134](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L134)
+Defined in: [types/voice.ts:134](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/voice.ts#L134)
 
 Sample rate
 
@@ -68,7 +68,7 @@ Sample rate
 
 > **timestampMs**: `number`
 
-Defined in: [types/voice.ts:136](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L136)
+Defined in: [types/voice.ts:136](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/voice.ts#L136)
 
 Timestamp offset in milliseconds
 
@@ -78,6 +78,6 @@ Timestamp offset in milliseconds
 
 > **durationMs**: `number`
 
-Defined in: [types/voice.ts:138](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L138)
+Defined in: [types/voice.ts:138](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/voice.ts#L138)
 
 Duration of this chunk in milliseconds

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TokenBucket** = `object`
 
-Defined in: [types/auth.ts:1343](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1343)
+Defined in: [types/auth.ts:1343](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L1343)
 
 Token bucket state for a single user.
 
@@ -18,7 +18,7 @@ Token bucket state for a single user.
 
 > **tokens**: `number`
 
-Defined in: [types/auth.ts:1344](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1344)
+Defined in: [types/auth.ts:1344](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L1344)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/auth.ts:1344](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **lastRefill**: `number`
 
-Defined in: [types/auth.ts:1345](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1345)
+Defined in: [types/auth.ts:1345](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L1345)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/auth.ts:1345](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **userId**: `string`
 
-Defined in: [types/auth.ts:1346](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1346)
+Defined in: [types/auth.ts:1346](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L1346)

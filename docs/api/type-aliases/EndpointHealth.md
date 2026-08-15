@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EndpointHealth** = `object`
 
-Defined in: [types/providers.ts:1863](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1863)
+Defined in: [types/providers.ts:2202](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2202)
 
 Endpoint health and metadata information.
 
@@ -18,7 +18,7 @@ Endpoint health and metadata information.
 
 > **status**: `"healthy"` \| `"unhealthy"` \| `"unknown"`
 
-Defined in: [types/providers.ts:1864](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1864)
+Defined in: [types/providers.ts:2203](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2203)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:1864](https://github.com/juspay/neurolink/blob/f
 
 > **responseTime**: `number`
 
-Defined in: [types/providers.ts:1865](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1865)
+Defined in: [types/providers.ts:2204](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2204)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:1865](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/providers.ts:1866](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1866)
+Defined in: [types/providers.ts:2205](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2205)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:1866](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **modelInfo?**: `object`
 
-Defined in: [types/providers.ts:1867](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1867)
+Defined in: [types/providers.ts:2206](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2206)
 
 #### name?
 

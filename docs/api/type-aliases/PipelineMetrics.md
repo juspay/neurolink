@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PipelineMetrics** = `object`
 
-Defined in: [types/evaluation.ts:742](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L742)
+Defined in: [types/evaluation.ts:737](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L737)
 
 Metrics captured per evaluation pipeline.
 
@@ -18,7 +18,7 @@ Metrics captured per evaluation pipeline.
 
 > **pipelineName**: `string`
 
-Defined in: [types/evaluation.ts:743](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L743)
+Defined in: [types/evaluation.ts:738](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L738)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluation.ts:743](https://github.com/juspay/neurolink/blob/f
 
 > **totalExecutions**: `number`
 
-Defined in: [types/evaluation.ts:744](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L744)
+Defined in: [types/evaluation.ts:739](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L739)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/evaluation.ts:744](https://github.com/juspay/neurolink/blob/f
 
 > **passedCount**: `number`
 
-Defined in: [types/evaluation.ts:745](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L745)
+Defined in: [types/evaluation.ts:740](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L740)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/evaluation.ts:745](https://github.com/juspay/neurolink/blob/f
 
 > **failedCount**: `number`
 
-Defined in: [types/evaluation.ts:746](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L746)
+Defined in: [types/evaluation.ts:741](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L741)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/evaluation.ts:746](https://github.com/juspay/neurolink/blob/f
 
 > **totalScore**: `number`
 
-Defined in: [types/evaluation.ts:747](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L747)
+Defined in: [types/evaluation.ts:742](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L742)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/evaluation.ts:747](https://github.com/juspay/neurolink/blob/f
 
 > **minScore**: `number`
 
-Defined in: [types/evaluation.ts:748](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L748)
+Defined in: [types/evaluation.ts:743](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L743)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/evaluation.ts:748](https://github.com/juspay/neurolink/blob/f
 
 > **maxScore**: `number`
 
-Defined in: [types/evaluation.ts:749](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L749)
+Defined in: [types/evaluation.ts:744](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L744)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/evaluation.ts:749](https://github.com/juspay/neurolink/blob/f
 
 > **totalDuration**: `number`
 
-Defined in: [types/evaluation.ts:750](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L750)
+Defined in: [types/evaluation.ts:745](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L745)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/evaluation.ts:750](https://github.com/juspay/neurolink/blob/f
 
 > **averageDuration**: `number`
 
-Defined in: [types/evaluation.ts:751](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L751)
+Defined in: [types/evaluation.ts:746](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L746)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/evaluation.ts:751](https://github.com/juspay/neurolink/blob/f
 
 > **averageScore**: `number`
 
-Defined in: [types/evaluation.ts:752](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L752)
+Defined in: [types/evaluation.ts:747](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L747)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/evaluation.ts:752](https://github.com/juspay/neurolink/blob/f
 
 > **passRate**: `number`
 
-Defined in: [types/evaluation.ts:753](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L753)
+Defined in: [types/evaluation.ts:748](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L748)
 
 ---
 
@@ -106,7 +106,7 @@ Defined in: [types/evaluation.ts:753](https://github.com/juspay/neurolink/blob/f
 
 > **lastExecutionTime**: `number`
 
-Defined in: [types/evaluation.ts:754](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L754)
+Defined in: [types/evaluation.ts:749](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L749)
 
 ---
 
@@ -114,4 +114,4 @@ Defined in: [types/evaluation.ts:754](https://github.com/juspay/neurolink/blob/f
 
 > **scorerMetrics**: `Map`\<`string`, [`ScorerMetrics`](ScorerMetrics.md)\>
 
-Defined in: [types/evaluation.ts:755](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L755)
+Defined in: [types/evaluation.ts:750](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L750)

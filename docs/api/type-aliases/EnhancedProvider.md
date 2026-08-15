@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EnhancedProvider** = `object`
 
-Defined in: [types/generate.ts:780](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/generate.ts#L780)
+Defined in: [types/generate.ts:1152](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/generate.ts#L1152)
 
 Enhanced provider type with generate method
 
@@ -18,7 +18,7 @@ Enhanced provider type with generate method
 
 > **generate**(`options`): `Promise`\<[`GenerateResult`](GenerateResult.md)\>
 
-Defined in: [types/generate.ts:781](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/generate.ts#L781)
+Defined in: [types/generate.ts:1153](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/generate.ts#L1153)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [types/generate.ts:781](https://github.com/juspay/neurolink/blob/ff5
 
 > **getName**(): `string`
 
-Defined in: [types/generate.ts:782](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/generate.ts#L782)
+Defined in: [types/generate.ts:1154](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/generate.ts#L1154)
 
 #### Returns
 
@@ -48,7 +48,7 @@ Defined in: [types/generate.ts:782](https://github.com/juspay/neurolink/blob/ff5
 
 > **isAvailable**(): `Promise`\<`boolean`\>
 
-Defined in: [types/generate.ts:783](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/generate.ts#L783)
+Defined in: [types/generate.ts:1155](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/generate.ts#L1155)
 
 #### Returns
 

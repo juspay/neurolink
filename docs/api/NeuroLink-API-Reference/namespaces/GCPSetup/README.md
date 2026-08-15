@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../../../README.md)
+[**NeuroLink API Reference v11.2.3**](../../../README.md)
 
 ---
 
@@ -10,6 +10,6 @@ GCP/Vertex AI setup configuration types
 
 ## Type Aliases
 
-- [SetupOptions](type-aliases/SetupOptions.md)
-- [SetupArgv](type-aliases/SetupArgv.md)
+- [GCPSetupOptions](type-aliases/GCPSetupOptions.md)
+- [GCPSetupArgv](type-aliases/GCPSetupArgv.md)
 - [AuthMethodStatus](type-aliases/AuthMethodStatus.md)

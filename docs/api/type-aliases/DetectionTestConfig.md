@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DetectionTestConfig** = `object`
 
-Defined in: [types/providers.ts:1876](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1876)
+Defined in: [types/providers.ts:2215](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2215)
 
 Configuration object for a detection test wrapper.
 
@@ -18,7 +18,7 @@ Configuration object for a detection test wrapper.
 
 > **test**: () => `Promise`\<`void`\>
 
-Defined in: [types/providers.ts:1877](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1877)
+Defined in: [types/providers.ts:2216](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2216)
 
 #### Returns
 
@@ -30,7 +30,7 @@ Defined in: [types/providers.ts:1877](https://github.com/juspay/neurolink/blob/f
 
 > **index**: `number`
 
-Defined in: [types/providers.ts:1878](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1878)
+Defined in: [types/providers.ts:2217](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2217)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/providers.ts:1878](https://github.com/juspay/neurolink/blob/f
 
 > **testName**: `string`
 
-Defined in: [types/providers.ts:1879](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1879)
+Defined in: [types/providers.ts:2218](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2218)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/providers.ts:1879](https://github.com/juspay/neurolink/blob/f
 
 > **endpointName**: `string`
 
-Defined in: [types/providers.ts:1880](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1880)
+Defined in: [types/providers.ts:2219](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2219)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/providers.ts:1880](https://github.com/juspay/neurolink/blob/f
 
 > **semaphore**: `object`
 
-Defined in: [types/providers.ts:1881](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1881)
+Defined in: [types/providers.ts:2220](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2220)
 
 #### acquire()
 
@@ -78,7 +78,7 @@ Defined in: [types/providers.ts:1881](https://github.com/juspay/neurolink/blob/f
 
 > **incrementRateLimit**: () => `void`
 
-Defined in: [types/providers.ts:1885](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1885)
+Defined in: [types/providers.ts:2224](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2224)
 
 #### Returns
 
@@ -90,7 +90,7 @@ Defined in: [types/providers.ts:1885](https://github.com/juspay/neurolink/blob/f
 
 > **maxRateLimitRetries**: `number`
 
-Defined in: [types/providers.ts:1886](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1886)
+Defined in: [types/providers.ts:2225](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2225)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/providers.ts:1886](https://github.com/juspay/neurolink/blob/f
 
 > **rateLimitState**: `object`
 
-Defined in: [types/providers.ts:1887](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1887)
+Defined in: [types/providers.ts:2226](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2226)
 
 #### count
 

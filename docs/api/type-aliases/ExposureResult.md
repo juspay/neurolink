@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ExposureResult** = `object`
 
-Defined in: [types/mcp.ts:1255](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1255)
+Defined in: [types/mcp.ts:1255](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1255)
 
 Exposure result
 
@@ -18,7 +18,7 @@ Exposure result
 
 > **tool**: [`MCPServerTool`](MCPServerTool.md)
 
-Defined in: [types/mcp.ts:1259](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1259)
+Defined in: [types/mcp.ts:1259](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1259)
 
 Generated MCP tool
 
@@ -28,7 +28,7 @@ Generated MCP tool
 
 > **sourceType**: `"agent"` \| `"workflow"`
 
-Defined in: [types/mcp.ts:1264](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1264)
+Defined in: [types/mcp.ts:1264](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1264)
 
 Original source type
 
@@ -38,7 +38,7 @@ Original source type
 
 > **sourceId**: `string`
 
-Defined in: [types/mcp.ts:1269](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1269)
+Defined in: [types/mcp.ts:1269](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1269)
 
 Original source ID
 
@@ -48,6 +48,6 @@ Original source ID
 
 > **toolName**: `string`
 
-Defined in: [types/mcp.ts:1274](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1274)
+Defined in: [types/mcp.ts:1274](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1274)
 
 Generated tool name

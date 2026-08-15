@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: TextLoader
 
-Defined in: [rag/document/loaders.ts:44](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/loaders.ts#L44)
+Defined in: [rag/document/loaders.ts:53](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/document/loaders.ts#L53)
 
 Text file loader
 
@@ -37,7 +37,7 @@ Text file loader
 
 > **load**(`source`, `options?`): `Promise`\<[`MDocument`](MDocument.md)\>
 
-Defined in: [rag/document/loaders.ts:45](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/loaders.ts#L45)
+Defined in: [rag/document/loaders.ts:54](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/document/loaders.ts#L54)
 
 Load document from source
 
@@ -71,7 +71,7 @@ Promise resolving to MDocument
 
 > **canHandle**(`source`): `boolean`
 
-Defined in: [rag/document/loaders.ts:53](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/loaders.ts#L53)
+Defined in: [rag/document/loaders.ts:62](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/document/loaders.ts#L62)
 
 Check if loader can handle the source
 
@@ -99,7 +99,7 @@ True if loader can handle the source
 
 > `protected` **loadContent**(`source`, `encoding?`): `Promise`\<`string`\>
 
-Defined in: [rag/document/loaders.ts:58](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/loaders.ts#L58)
+Defined in: [rag/document/loaders.ts:67](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/document/loaders.ts#L67)
 
 #### Parameters
 
@@ -121,7 +121,7 @@ Defined in: [rag/document/loaders.ts:58](https://github.com/juspay/neurolink/blo
 
 > `protected` **getSourceName**(`source`): `string`
 
-Defined in: [rag/document/loaders.ts:69](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/loaders.ts#L69)
+Defined in: [rag/document/loaders.ts:78](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/document/loaders.ts#L78)
 
 #### Parameters
 

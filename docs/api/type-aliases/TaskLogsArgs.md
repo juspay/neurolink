@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TaskLogsArgs** = `object`
 
-Defined in: [types/cli.ts:1580](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1580)
+Defined in: [types/cli.ts:1700](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1700)
 
 Arguments for `neurolink task logs`.
 
@@ -18,7 +18,7 @@ Arguments for `neurolink task logs`.
 
 > **taskId**: `string`
 
-Defined in: [types/cli.ts:1581](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1581)
+Defined in: [types/cli.ts:1701](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1701)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1581](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **limit**: `number`
 
-Defined in: [types/cli.ts:1582](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1582)
+Defined in: [types/cli.ts:1702](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1702)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1582](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **status?**: `string`
 
-Defined in: [types/cli.ts:1583](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1583)
+Defined in: [types/cli.ts:1703](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1703)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/cli.ts:1583](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **full?**: `boolean`
 
-Defined in: [types/cli.ts:1584](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1584)
+Defined in: [types/cli.ts:1704](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1704)

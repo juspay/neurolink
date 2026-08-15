@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Abstract Class: BaseRegistry\<TItem, TMetadata\>
 
-Defined in: [core/infrastructure/baseRegistry.ts:4](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseRegistry.ts#L4)
+Defined in: [core/infrastructure/baseRegistry.ts:4](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseRegistry.ts#L4)
 
 ## Type Parameters
 
@@ -34,7 +34,7 @@ Defined in: [core/infrastructure/baseRegistry.ts:4](https://github.com/juspay/ne
 
 > `protected` **items**: `Map`\<`string`, [`InfraRegistryEntry`](../type-aliases/InfraRegistryEntry.md)\<`TItem`, `TMetadata`\>\>
 
-Defined in: [core/infrastructure/baseRegistry.ts:5](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseRegistry.ts#L5)
+Defined in: [core/infrastructure/baseRegistry.ts:5](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseRegistry.ts#L5)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [core/infrastructure/baseRegistry.ts:5](https://github.com/juspay/ne
 
 > `protected` **initialized**: `boolean` = `false`
 
-Defined in: [core/infrastructure/baseRegistry.ts:6](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseRegistry.ts#L6)
+Defined in: [core/infrastructure/baseRegistry.ts:6](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseRegistry.ts#L6)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [core/infrastructure/baseRegistry.ts:6](https://github.com/juspay/ne
 
 > `protected` **initPromise**: `Promise`\<`void`\> \| `null` = `null`
 
-Defined in: [core/infrastructure/baseRegistry.ts:7](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseRegistry.ts#L7)
+Defined in: [core/infrastructure/baseRegistry.ts:7](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseRegistry.ts#L7)
 
 ## Methods
 
@@ -58,7 +58,7 @@ Defined in: [core/infrastructure/baseRegistry.ts:7](https://github.com/juspay/ne
 
 > `abstract` `protected` **registerAll**(): `Promise`\<`void`\>
 
-Defined in: [core/infrastructure/baseRegistry.ts:9](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseRegistry.ts#L9)
+Defined in: [core/infrastructure/baseRegistry.ts:9](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseRegistry.ts#L9)
 
 #### Returns
 
@@ -70,7 +70,7 @@ Defined in: [core/infrastructure/baseRegistry.ts:9](https://github.com/juspay/ne
 
 > **ensureInitialized**(): `Promise`\<`void`\>
 
-Defined in: [core/infrastructure/baseRegistry.ts:11](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseRegistry.ts#L11)
+Defined in: [core/infrastructure/baseRegistry.ts:11](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseRegistry.ts#L11)
 
 #### Returns
 
@@ -82,7 +82,7 @@ Defined in: [core/infrastructure/baseRegistry.ts:11](https://github.com/juspay/n
 
 > **register**(`id`, `factory`, `aliases?`, `options?`): `void`
 
-Defined in: [core/infrastructure/baseRegistry.ts:23](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseRegistry.ts#L23)
+Defined in: [core/infrastructure/baseRegistry.ts:23](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseRegistry.ts#L23)
 
 #### Parameters
 
@@ -114,7 +114,7 @@ Defined in: [core/infrastructure/baseRegistry.ts:23](https://github.com/juspay/n
 
 > **get**(`id`): `Promise`\<`TItem` \| `undefined`\>
 
-Defined in: [core/infrastructure/baseRegistry.ts:37](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseRegistry.ts#L37)
+Defined in: [core/infrastructure/baseRegistry.ts:37](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseRegistry.ts#L37)
 
 #### Parameters
 
@@ -132,7 +132,7 @@ Defined in: [core/infrastructure/baseRegistry.ts:37](https://github.com/juspay/n
 
 > **has**(`id`): `boolean`
 
-Defined in: [core/infrastructure/baseRegistry.ts:49](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseRegistry.ts#L49)
+Defined in: [core/infrastructure/baseRegistry.ts:49](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseRegistry.ts#L49)
 
 #### Parameters
 
@@ -150,7 +150,7 @@ Defined in: [core/infrastructure/baseRegistry.ts:49](https://github.com/juspay/n
 
 > **list**(): `object`[]
 
-Defined in: [core/infrastructure/baseRegistry.ts:53](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseRegistry.ts#L53)
+Defined in: [core/infrastructure/baseRegistry.ts:53](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseRegistry.ts#L53)
 
 #### Returns
 
@@ -162,7 +162,7 @@ Defined in: [core/infrastructure/baseRegistry.ts:53](https://github.com/juspay/n
 
 > **clear**(): `void`
 
-Defined in: [core/infrastructure/baseRegistry.ts:60](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseRegistry.ts#L60)
+Defined in: [core/infrastructure/baseRegistry.ts:60](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseRegistry.ts#L60)
 
 #### Returns
 
@@ -174,7 +174,7 @@ Defined in: [core/infrastructure/baseRegistry.ts:60](https://github.com/juspay/n
 
 > **isInitialized**(): `boolean`
 
-Defined in: [core/infrastructure/baseRegistry.ts:66](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/baseRegistry.ts#L66)
+Defined in: [core/infrastructure/baseRegistry.ts:66](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/core/infrastructure/baseRegistry.ts#L66)
 
 #### Returns
 

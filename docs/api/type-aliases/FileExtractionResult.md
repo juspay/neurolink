@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileExtractionResult** = `object`
 
-Defined in: [types/fileReference.ts:234](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L234)
+Defined in: [types/fileReference.ts:234](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/fileReference.ts#L234)
 
 Result of targeted content extraction.
 May contain text, images, or both depending on the extraction type.
@@ -19,7 +19,7 @@ May contain text, images, or both depending on the extraction type.
 
 > **success**: `boolean`
 
-Defined in: [types/fileReference.ts:236](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L236)
+Defined in: [types/fileReference.ts:236](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/fileReference.ts#L236)
 
 Whether the extraction succeeded
 
@@ -29,7 +29,7 @@ Whether the extraction succeeded
 
 > `optional` **text?**: `string`
 
-Defined in: [types/fileReference.ts:238](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L238)
+Defined in: [types/fileReference.ts:238](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/fileReference.ts#L238)
 
 Extracted text content
 
@@ -39,7 +39,7 @@ Extracted text content
 
 > `optional` **images?**: `Buffer`[]
 
-Defined in: [types/fileReference.ts:240](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L240)
+Defined in: [types/fileReference.ts:240](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/fileReference.ts#L240)
 
 Extracted images as JPEG buffers (e.g., video frames, slide renders)
 
@@ -49,7 +49,7 @@ Extracted images as JPEG buffers (e.g., video frames, slide renders)
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/fileReference.ts:242](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L242)
+Defined in: [types/fileReference.ts:242](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/fileReference.ts#L242)
 
 Metadata about the extraction
 
@@ -59,6 +59,6 @@ Metadata about the extraction
 
 > `optional` **error?**: `string`
 
-Defined in: [types/fileReference.ts:244](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L244)
+Defined in: [types/fileReference.ts:244](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/fileReference.ts#L244)
 
 Error message if extraction failed

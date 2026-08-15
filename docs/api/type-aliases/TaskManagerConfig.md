@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TaskManagerConfig** = `object`
 
-Defined in: [types/task.ts:340](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L340)
+Defined in: [types/task.ts:344](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L344)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/task.ts:340](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/task.ts:342](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L342)
+Defined in: [types/task.ts:346](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L346)
 
 Default: true
 
@@ -26,7 +26,7 @@ Default: true
 
 > `optional` **backend?**: [`TaskBackendName`](TaskBackendName.md)
 
-Defined in: [types/task.ts:344](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L344)
+Defined in: [types/task.ts:348](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L348)
 
 Default: "bullmq"
 
@@ -36,7 +36,7 @@ Default: "bullmq"
 
 > `optional` **redis?**: `object`
 
-Defined in: [types/task.ts:347](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L347)
+Defined in: [types/task.ts:351](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L351)
 
 #### host?
 
@@ -66,7 +66,7 @@ Alternative: full Redis URL
 
 > `optional` **storePath?**: `string`
 
-Defined in: [types/task.ts:358](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L358)
+Defined in: [types/task.ts:362](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L362)
 
 Default: ".neurolink/tasks/tasks.json"
 
@@ -76,7 +76,7 @@ Default: ".neurolink/tasks/tasks.json"
 
 > `optional` **logsPath?**: `string`
 
-Defined in: [types/task.ts:360](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L360)
+Defined in: [types/task.ts:364](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L364)
 
 Default: ".neurolink/tasks/runs/"
 
@@ -86,7 +86,7 @@ Default: ".neurolink/tasks/runs/"
 
 > `optional` **maxTasks?**: `number`
 
-Defined in: [types/task.ts:364](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L364)
+Defined in: [types/task.ts:368](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L368)
 
 Maximum number of tasks that can exist at once. Default: 100
 
@@ -96,7 +96,7 @@ Maximum number of tasks that can exist at once. Default: 100
 
 > `optional` **maxConcurrentRuns?**: `number`
 
-Defined in: [types/task.ts:366](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L366)
+Defined in: [types/task.ts:370](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L370)
 
 Default: 5
 
@@ -106,7 +106,7 @@ Default: 5
 
 > `optional` **maxRunLogs?**: `number`
 
-Defined in: [types/task.ts:368](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L368)
+Defined in: [types/task.ts:372](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L372)
 
 Max run log entries per task. Default: 2000
 
@@ -116,7 +116,7 @@ Max run log entries per task. Default: 2000
 
 > `optional` **maxHistoryEntries?**: `number`
 
-Defined in: [types/task.ts:370](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L370)
+Defined in: [types/task.ts:374](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L374)
 
 Max continuation history entries per task. Default: 200 (100 exchanges)
 
@@ -126,4 +126,4 @@ Max continuation history entries per task. Default: 200 (100 exchanges)
 
 > `optional` **taskRetention?**: [`TaskRetentionConfig`](TaskRetentionConfig.md)
 
-Defined in: [types/task.ts:373](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L373)
+Defined in: [types/task.ts:377](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L377)

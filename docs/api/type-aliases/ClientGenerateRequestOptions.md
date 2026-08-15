@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientGenerateRequestOptions** = `object`
 
-Defined in: [types/client.ts:230](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L230)
+Defined in: [types/client.ts:230](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L230)
 
 Generate request options (client-side version)
 
@@ -18,7 +18,7 @@ Generate request options (client-side version)
 
 > **input**: `object`
 
-Defined in: [types/client.ts:232](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L232)
+Defined in: [types/client.ts:232](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L232)
 
 Input for generation
 
@@ -40,7 +40,7 @@ Input for generation
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/client.ts:238](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L238)
+Defined in: [types/client.ts:238](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L238)
 
 Provider to use
 
@@ -50,7 +50,7 @@ Provider to use
 
 > `optional` **model?**: `string`
 
-Defined in: [types/client.ts:240](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L240)
+Defined in: [types/client.ts:240](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L240)
 
 Model to use
 
@@ -60,7 +60,7 @@ Model to use
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/client.ts:242](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L242)
+Defined in: [types/client.ts:242](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L242)
 
 Temperature for generation
 
@@ -70,7 +70,7 @@ Temperature for generation
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/client.ts:244](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L244)
+Defined in: [types/client.ts:244](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L244)
 
 Maximum tokens to generate
 
@@ -80,7 +80,7 @@ Maximum tokens to generate
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/client.ts:246](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L246)
+Defined in: [types/client.ts:246](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L246)
 
 System prompt
 
@@ -90,7 +90,7 @@ System prompt
 
 > `optional` **enableTools?**: `boolean`
 
-Defined in: [types/client.ts:248](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L248)
+Defined in: [types/client.ts:248](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L248)
 
 Enable tool usage
 
@@ -100,7 +100,7 @@ Enable tool usage
 
 > `optional` **tools?**: `string`[]
 
-Defined in: [types/client.ts:250](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L250)
+Defined in: [types/client.ts:250](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L250)
 
 Specific tools to enable
 
@@ -110,6 +110,6 @@ Specific tools to enable
 
 > `optional` **context?**: [`UnknownRecord`](UnknownRecord.md)
 
-Defined in: [types/client.ts:252](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L252)
+Defined in: [types/client.ts:252](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L252)
 
 Context data

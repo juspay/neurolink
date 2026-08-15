@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: GraphRAG
 
-Defined in: [rag/graphRag/graphRAG.ts:29](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/graphRag/graphRAG.ts#L29)
+Defined in: [rag/graphRag/graphRAG.ts:29](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/graphRag/graphRAG.ts#L29)
 
 Graph-based Retrieval Augmented Generation
 
@@ -20,7 +20,7 @@ embedding similarity.
 
 > **new GraphRAG**(`config?`): `GraphRAG`
 
-Defined in: [rag/graphRag/graphRAG.ts:35](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/graphRag/graphRAG.ts#L35)
+Defined in: [rag/graphRag/graphRAG.ts:35](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/graphRag/graphRAG.ts#L35)
 
 #### Parameters
 
@@ -38,7 +38,7 @@ Defined in: [rag/graphRag/graphRAG.ts:35](https://github.com/juspay/neurolink/bl
 
 > **createGraph**(`chunks`, `embeddings`): `void`
 
-Defined in: [rag/graphRag/graphRAG.ts:46](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/graphRag/graphRAG.ts#L46)
+Defined in: [rag/graphRag/graphRAG.ts:46](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/graphRag/graphRAG.ts#L46)
 
 Create a knowledge graph from document chunks and embeddings
 
@@ -66,7 +66,7 @@ Corresponding embedding vectors
 
 > **query**(`params`): [`RankedNode`](../type-aliases/RankedNode.md)[]
 
-Defined in: [rag/graphRag/graphRAG.ts:122](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/graphRag/graphRAG.ts#L122)
+Defined in: [rag/graphRag/graphRAG.ts:122](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/graphRag/graphRAG.ts#L122)
 
 Query the graph using random walk with restart
 
@@ -90,7 +90,7 @@ Ranked nodes by relevance
 
 > **addNode**(`chunk`, `embedding`): `string`
 
-Defined in: [rag/graphRag/graphRAG.ts:224](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/graphRag/graphRAG.ts#L224)
+Defined in: [rag/graphRag/graphRAG.ts:224](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/graphRag/graphRAG.ts#L224)
 
 Add a single node to the graph
 
@@ -120,7 +120,7 @@ Node ID
 
 > **removeNode**(`id`): `boolean`
 
-Defined in: [rag/graphRag/graphRAG.ts:280](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/graphRag/graphRAG.ts#L280)
+Defined in: [rag/graphRag/graphRAG.ts:280](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/graphRag/graphRAG.ts#L280)
 
 Remove a node and its edges from the graph
 
@@ -144,7 +144,7 @@ True if node was removed
 
 > **getStats**(): [`GraphStats`](../type-aliases/GraphStats.md)
 
-Defined in: [rag/graphRag/graphRAG.ts:303](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/graphRag/graphRAG.ts#L303)
+Defined in: [rag/graphRag/graphRAG.ts:303](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/graphRag/graphRAG.ts#L303)
 
 Get graph statistics
 
@@ -158,7 +158,7 @@ Get graph statistics
 
 > **getNode**(`id`): [`GraphNode`](../type-aliases/GraphNode.md) \| `undefined`
 
-Defined in: [rag/graphRag/graphRAG.ts:320](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/graphRag/graphRAG.ts#L320)
+Defined in: [rag/graphRag/graphRAG.ts:320](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/graphRag/graphRAG.ts#L320)
 
 Get a node by ID
 
@@ -178,7 +178,7 @@ Get a node by ID
 
 > **getAllNodes**(): [`GraphNode`](../type-aliases/GraphNode.md)[]
 
-Defined in: [rag/graphRag/graphRAG.ts:327](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/graphRag/graphRAG.ts#L327)
+Defined in: [rag/graphRag/graphRAG.ts:327](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/graphRag/graphRAG.ts#L327)
 
 Get all nodes
 
@@ -192,7 +192,7 @@ Get all nodes
 
 > **getEdges**(`nodeId`): [`GraphEdge`](../type-aliases/GraphEdge.md)[]
 
-Defined in: [rag/graphRag/graphRAG.ts:334](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/graphRag/graphRAG.ts#L334)
+Defined in: [rag/graphRag/graphRAG.ts:334](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/graphRag/graphRAG.ts#L334)
 
 Get edges for a node
 
@@ -212,7 +212,7 @@ Get edges for a node
 
 > **findConnectedComponents**(): `string`[][]
 
-Defined in: [rag/graphRag/graphRAG.ts:341](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/graphRag/graphRAG.ts#L341)
+Defined in: [rag/graphRag/graphRAG.ts:341](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/graphRag/graphRAG.ts#L341)
 
 Find connected components in the graph
 
@@ -226,7 +226,7 @@ Find connected components in the graph
 
 > **updateThreshold**(`threshold`): `void`
 
-Defined in: [rag/graphRag/graphRAG.ts:428](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/graphRag/graphRAG.ts#L428)
+Defined in: [rag/graphRag/graphRAG.ts:428](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/graphRag/graphRAG.ts#L428)
 
 Update similarity threshold and rebuild edges
 
@@ -246,7 +246,7 @@ Update similarity threshold and rebuild edges
 
 > **toJSON**(): `object`
 
-Defined in: [rag/graphRag/graphRAG.ts:476](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/graphRag/graphRAG.ts#L476)
+Defined in: [rag/graphRag/graphRAG.ts:476](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/graphRag/graphRAG.ts#L476)
 
 Serialize graph to JSON
 
@@ -280,7 +280,7 @@ Serialize graph to JSON
 
 > `static` **fromJSON**(`json`): `GraphRAG`
 
-Defined in: [rag/graphRag/graphRAG.ts:497](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/graphRag/graphRAG.ts#L497)
+Defined in: [rag/graphRag/graphRAG.ts:497](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/graphRag/graphRAG.ts#L497)
 
 Load graph from JSON
 

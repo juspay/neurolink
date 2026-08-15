@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelRoutingOptions** = `object`
 
-Defined in: [types/model.ts:253](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L253)
+Defined in: [types/model.ts:261](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/model.ts#L261)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/model.ts:253](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **forceTaskType?**: [`TaskType`](TaskType.md)
 
-Defined in: [types/model.ts:255](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L255)
+Defined in: [types/model.ts:263](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/model.ts#L263)
 
 Override the task classification
 
@@ -26,7 +26,7 @@ Override the task classification
 
 > `optional` **requireFast?**: `boolean`
 
-Defined in: [types/model.ts:257](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L257)
+Defined in: [types/model.ts:265](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/model.ts#L265)
 
 Require specific performance characteristics
 
@@ -36,7 +36,7 @@ Require specific performance characteristics
 
 > `optional` **requireCapability?**: `string`
 
-Defined in: [types/model.ts:259](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L259)
+Defined in: [types/model.ts:267](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/model.ts#L267)
 
 Require specific capability (reasoning, creativity, etc.)
 
@@ -46,6 +46,6 @@ Require specific capability (reasoning, creativity, etc.)
 
 > `optional` **fallbackStrategy?**: `"fast"` \| `"reasoning"` \| `"auto"`
 
-Defined in: [types/model.ts:261](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L261)
+Defined in: [types/model.ts:269](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/model.ts#L269)
 
 Fallback strategy if primary choice fails

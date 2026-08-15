@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientLanguageModelResponse** = `object`
 
-Defined in: [types/client.ts:877](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L877)
+Defined in: [types/client.ts:877](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L877)
 
 Language model response
 
@@ -18,7 +18,7 @@ Language model response
 
 > **text**: `string`
 
-Defined in: [types/client.ts:879](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L879)
+Defined in: [types/client.ts:879](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L879)
 
 Generated text
 
@@ -28,7 +28,7 @@ Generated text
 
 > **finishReason**: `"stop"` \| `"length"` \| `"tool-calls"` \| `"content-filter"` \| `"error"` \| `"other"`
 
-Defined in: [types/client.ts:881](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L881)
+Defined in: [types/client.ts:881](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L881)
 
 Finish reason
 
@@ -38,7 +38,7 @@ Finish reason
 
 > **usage**: `object`
 
-Defined in: [types/client.ts:889](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L889)
+Defined in: [types/client.ts:889](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L889)
 
 Usage information
 
@@ -56,6 +56,6 @@ Usage information
 
 > `optional` **rawResponse?**: `unknown`
 
-Defined in: [types/client.ts:894](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L894)
+Defined in: [types/client.ts:894](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L894)
 
 Raw response

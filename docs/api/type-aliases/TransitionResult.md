@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TransitionResult** = `object`
 
-Defined in: [types/multimodal.ts:645](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L645)
+Defined in: [types/multimodal.ts:748](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L748)
 
 Result of a single director-mode transition generation.
 
@@ -18,7 +18,7 @@ Result of a single director-mode transition generation.
 
 > **buffer**: `Buffer` \| `null`
 
-Defined in: [types/multimodal.ts:646](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L646)
+Defined in: [types/multimodal.ts:749](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L749)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/multimodal.ts:646](https://github.com/juspay/neurolink/blob/f
 
 > **fromSegment**: `number`
 
-Defined in: [types/multimodal.ts:647](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L647)
+Defined in: [types/multimodal.ts:750](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L750)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/multimodal.ts:647](https://github.com/juspay/neurolink/blob/f
 
 > **toSegment**: `number`
 
-Defined in: [types/multimodal.ts:648](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L648)
+Defined in: [types/multimodal.ts:751](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L751)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/multimodal.ts:648](https://github.com/juspay/neurolink/blob/f
 
 > **duration**: `number`
 
-Defined in: [types/multimodal.ts:649](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L649)
+Defined in: [types/multimodal.ts:752](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L752)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/multimodal.ts:649](https://github.com/juspay/neurolink/blob/f
 
 > **processingTime**: `number`
 
-Defined in: [types/multimodal.ts:650](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L650)
+Defined in: [types/multimodal.ts:753](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L753)

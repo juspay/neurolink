@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderAvailabilityStatus** = `object`
 
-Defined in: [types/evaluationProviders.ts:84](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L84)
+Defined in: [types/evaluationProviders.ts:84](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L84)
 
 Provider availability status
 
@@ -18,7 +18,7 @@ Provider availability status
 
 > **provider**: `string`
 
-Defined in: [types/evaluationProviders.ts:85](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L85)
+Defined in: [types/evaluationProviders.ts:85](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L85)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluationProviders.ts:85](https://github.com/juspay/neurolin
 
 > **available**: `boolean`
 
-Defined in: [types/evaluationProviders.ts:86](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L86)
+Defined in: [types/evaluationProviders.ts:86](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L86)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/evaluationProviders.ts:86](https://github.com/juspay/neurolin
 
 > `optional` **reason?**: `string`
 
-Defined in: [types/evaluationProviders.ts:87](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L87)
+Defined in: [types/evaluationProviders.ts:87](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L87)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/evaluationProviders.ts:87](https://github.com/juspay/neurolin
 
 > **lastChecked**: `Date`
 
-Defined in: [types/evaluationProviders.ts:88](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L88)
+Defined in: [types/evaluationProviders.ts:88](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L88)

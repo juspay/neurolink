@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ShadowProps** = `object`
 
-Defined in: [types/ppt.ts:815](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L815)
+Defined in: [types/ppt.ts:815](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L815)
 
 Shadow properties for elements
 Maps to: pptxgenjs ShadowProps
@@ -19,7 +19,7 @@ Maps to: pptxgenjs ShadowProps
 
 > **type**: `"outer"` \| `"inner"` \| `"none"`
 
-Defined in: [types/ppt.ts:817](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L817)
+Defined in: [types/ppt.ts:817](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L817)
 
 Shadow type
 
@@ -29,7 +29,7 @@ Shadow type
 
 > `optional` **angle?**: `number`
 
-Defined in: [types/ppt.ts:819](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L819)
+Defined in: [types/ppt.ts:819](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L819)
 
 Shadow angle in degrees (0-359)
 
@@ -39,7 +39,7 @@ Shadow angle in degrees (0-359)
 
 > `optional` **blur?**: `number`
 
-Defined in: [types/ppt.ts:821](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L821)
+Defined in: [types/ppt.ts:821](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L821)
 
 Blur amount in points (0-100)
 
@@ -49,7 +49,7 @@ Blur amount in points (0-100)
 
 > `optional` **color?**: `string`
 
-Defined in: [types/ppt.ts:823](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L823)
+Defined in: [types/ppt.ts:823](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L823)
 
 Shadow color (hex without #)
 
@@ -59,7 +59,7 @@ Shadow color (hex without #)
 
 > `optional` **offset?**: `number`
 
-Defined in: [types/ppt.ts:825](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L825)
+Defined in: [types/ppt.ts:825](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L825)
 
 Shadow offset in points (0-200)
 
@@ -69,6 +69,6 @@ Shadow offset in points (0-200)
 
 > `optional` **opacity?**: `number`
 
-Defined in: [types/ppt.ts:827](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L827)
+Defined in: [types/ppt.ts:827](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L827)
 
 Shadow opacity (0.0-1.0)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TrendAnalysis** = `object`
 
-Defined in: [types/evaluation.ts:501](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L501)
+Defined in: [types/evaluation.ts:496](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L496)
 
 Trend analysis results.
 
@@ -18,7 +18,7 @@ Trend analysis results.
 
 > **direction**: `"improving"` \| `"declining"` \| `"stable"`
 
-Defined in: [types/evaluation.ts:502](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L502)
+Defined in: [types/evaluation.ts:497](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L497)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluation.ts:502](https://github.com/juspay/neurolink/blob/f
 
 > **slope**: `number`
 
-Defined in: [types/evaluation.ts:503](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L503)
+Defined in: [types/evaluation.ts:498](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L498)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/evaluation.ts:503](https://github.com/juspay/neurolink/blob/f
 
 > **rSquared**: `number`
 
-Defined in: [types/evaluation.ts:504](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L504)
+Defined in: [types/evaluation.ts:499](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L499)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/evaluation.ts:504](https://github.com/juspay/neurolink/blob/f
 
 > **percentChange**: `number`
 
-Defined in: [types/evaluation.ts:505](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L505)
+Defined in: [types/evaluation.ts:500](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L500)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/evaluation.ts:505](https://github.com/juspay/neurolink/blob/f
 
 > **movingAverage**: `number`
 
-Defined in: [types/evaluation.ts:506](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L506)
+Defined in: [types/evaluation.ts:501](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L501)

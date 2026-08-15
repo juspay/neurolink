@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: OAuthConfigurationError
 
-Defined in: [types/errors.ts:89](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L89)
+Defined in: [types/errors.ts:132](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L132)
 
 Thrown when OAuth configuration is invalid or missing
 
@@ -20,7 +20,7 @@ Thrown when OAuth configuration is invalid or missing
 
 > **new OAuthConfigurationError**(`message`): `OAuthConfigurationError`
 
-Defined in: [types/errors.ts:90](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L90)
+Defined in: [types/errors.ts:133](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L133)
 
 #### Parameters
 
@@ -42,7 +42,7 @@ Defined in: [types/errors.ts:90](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **code?**: `string`
 
-Defined in: [types/errors.ts:79](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L79)
+Defined in: [types/errors.ts:122](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L122)
 
 #### Inherited from
 

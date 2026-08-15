@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ValidationConfig** = `object`
 
-Defined in: [types/middleware.ts:426](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L426)
+Defined in: [types/middleware.ts:484](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L484)
 
 Validation configuration for the request-validation middleware.
 
@@ -18,7 +18,7 @@ Validation configuration for the request-validation middleware.
 
 > `optional` **bodySchema?**: [`MiddlewareRequestSchema`](MiddlewareRequestSchema.md)
 
-Defined in: [types/middleware.ts:427](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L427)
+Defined in: [types/middleware.ts:485](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L485)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/middleware.ts:427](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **querySchema?**: [`MiddlewareRequestSchema`](MiddlewareRequestSchema.md)
 
-Defined in: [types/middleware.ts:428](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L428)
+Defined in: [types/middleware.ts:486](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L486)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/middleware.ts:428](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **paramsSchema?**: [`MiddlewareRequestSchema`](MiddlewareRequestSchema.md)
 
-Defined in: [types/middleware.ts:429](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L429)
+Defined in: [types/middleware.ts:487](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L487)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/middleware.ts:429](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **headersSchema?**: [`MiddlewareRequestSchema`](MiddlewareRequestSchema.md)
 
-Defined in: [types/middleware.ts:430](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L430)
+Defined in: [types/middleware.ts:488](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L488)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/middleware.ts:430](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **customValidator?**: (`ctx`) => `Promise`\<`void`\>
 
-Defined in: [types/middleware.ts:431](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L431)
+Defined in: [types/middleware.ts:489](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L489)
 
 #### Parameters
 
@@ -68,7 +68,7 @@ Defined in: [types/middleware.ts:431](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **skipPaths?**: `string`[]
 
-Defined in: [types/middleware.ts:432](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L432)
+Defined in: [types/middleware.ts:490](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L490)
 
 ---
 
@@ -76,7 +76,7 @@ Defined in: [types/middleware.ts:432](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **errorFormatter?**: (`errors`) => `unknown`
 
-Defined in: [types/middleware.ts:433](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L433)
+Defined in: [types/middleware.ts:491](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L491)
 
 #### Parameters
 

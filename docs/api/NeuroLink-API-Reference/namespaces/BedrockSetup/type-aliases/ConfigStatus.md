@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../../../../README.md)
+[**NeuroLink API Reference v11.2.3**](../../../../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ConfigStatus** = `object`
 
-Defined in: [types/cli.ts:835](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L835)
+Defined in: [types/cli.ts:855](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L855)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:835](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **hasCredentials**: `boolean`
 
-Defined in: [types/cli.ts:836](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L836)
+Defined in: [types/cli.ts:856](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L856)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:836](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **hasRegion**: `boolean`
 
-Defined in: [types/cli.ts:837](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L837)
+Defined in: [types/cli.ts:857](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L857)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:837](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **hasModel**: `boolean`
 
-Defined in: [types/cli.ts:838](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L838)
+Defined in: [types/cli.ts:858](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L858)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/cli.ts:838](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **isReconfiguring?**: `boolean`
 
-Defined in: [types/cli.ts:839](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L839)
+Defined in: [types/cli.ts:859](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L859)

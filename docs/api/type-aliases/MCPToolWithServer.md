@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MCPToolWithServer** = `object`
 
-Defined in: [types/cli.ts:1748](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1748)
+Defined in: [types/cli.ts:1868](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1868)
 
 Row in the MCP tools listing produced by `neurolink mcp tools`.
 
@@ -18,7 +18,7 @@ Row in the MCP tools listing produced by `neurolink mcp tools`.
 
 > **name**: `string`
 
-Defined in: [types/cli.ts:1749](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1749)
+Defined in: [types/cli.ts:1869](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1869)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1749](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **description**: `string`
 
-Defined in: [types/cli.ts:1750](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1750)
+Defined in: [types/cli.ts:1870](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1870)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1750](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **serverId**: `string`
 
-Defined in: [types/cli.ts:1751](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1751)
+Defined in: [types/cli.ts:1871](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1871)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:1751](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **serverName**: `string`
 
-Defined in: [types/cli.ts:1752](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1752)
+Defined in: [types/cli.ts:1872](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1872)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/cli.ts:1752](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **inputSchema?**: `object`
 
-Defined in: [types/cli.ts:1753](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1753)
+Defined in: [types/cli.ts:1873](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1873)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/cli.ts:1753](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **category?**: `string`
 
-Defined in: [types/cli.ts:1754](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1754)
+Defined in: [types/cli.ts:1874](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1874)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/cli.ts:1754](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **annotations?**: `object`
 
-Defined in: [types/cli.ts:1755](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1755)
+Defined in: [types/cli.ts:1875](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1875)
 
 #### readOnlyHint?
 

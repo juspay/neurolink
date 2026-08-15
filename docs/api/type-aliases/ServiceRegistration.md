@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ServiceRegistration**\<`T`\> = `object`
 
-Defined in: [types/service.ts:16](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/service.ts#L16)
+Defined in: [types/service.ts:16](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/service.ts#L16)
 
 Service registration configuration
 
@@ -24,7 +24,7 @@ Service registration configuration
 
 > **factory**: [`ServiceFactory`](ServiceFactory.md)\<`T`\>
 
-Defined in: [types/service.ts:17](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/service.ts#L17)
+Defined in: [types/service.ts:17](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/service.ts#L17)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/service.ts:17](https://github.com/juspay/neurolink/blob/ff50c
 
 > **singleton**: `boolean`
 
-Defined in: [types/service.ts:18](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/service.ts#L18)
+Defined in: [types/service.ts:18](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/service.ts#L18)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/service.ts:18](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **instance?**: `T`
 
-Defined in: [types/service.ts:19](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/service.ts#L19)
+Defined in: [types/service.ts:19](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/service.ts#L19)

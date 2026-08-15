@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CachedSession** = `object`
 
-Defined in: [types/proxy.ts:843](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L843)
+Defined in: [types/proxy.ts:1511](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1511)
 
 Cached session entry with TTL for the SessionIdentity cloaking plugin.
 
@@ -18,7 +18,7 @@ Cached session entry with TTL for the SessionIdentity cloaking plugin.
 
 > **userId**: `string`
 
-Defined in: [types/proxy.ts:844](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L844)
+Defined in: [types/proxy.ts:1512](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1512)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:844](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **expiresAt**: `number`
 
-Defined in: [types/proxy.ts:845](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L845)
+Defined in: [types/proxy.ts:1513](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1513)

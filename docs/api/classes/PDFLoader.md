@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: PDFLoader
 
-Defined in: [rag/document/loaders.ts:247](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/loaders.ts#L247)
+Defined in: [rag/document/loaders.ts:300](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/document/loaders.ts#L300)
 
 PDF file loader
 
@@ -33,7 +33,7 @@ Falls back to placeholder implementation if pdf-parse is not available.
 
 > **load**(`source`, `options?`): `Promise`\<[`MDocument`](MDocument.md)\>
 
-Defined in: [rag/document/loaders.ts:248](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/loaders.ts#L248)
+Defined in: [rag/document/loaders.ts:301](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/document/loaders.ts#L301)
 
 Load document from source
 
@@ -67,7 +67,7 @@ Promise resolving to MDocument
 
 > **canHandle**(`source`): `boolean`
 
-Defined in: [rag/document/loaders.ts:309](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/loaders.ts#L309)
+Defined in: [rag/document/loaders.ts:362](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/document/loaders.ts#L362)
 
 Check if loader can handle the source
 

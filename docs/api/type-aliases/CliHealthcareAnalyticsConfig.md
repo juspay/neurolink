@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CliHealthcareAnalyticsConfig** = `object`
 
-Defined in: [types/cli.ts:1650](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1650)
+Defined in: [types/cli.ts:1770](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1770)
 
 Analytics config for the healthcare evaluation domain.
 
@@ -18,7 +18,7 @@ Analytics config for the healthcare evaluation domain.
 
 > **trackPatientData**: `boolean`
 
-Defined in: [types/cli.ts:1651](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1651)
+Defined in: [types/cli.ts:1771](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1771)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1651](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **trackDiagnosticAccuracy**: `boolean`
 
-Defined in: [types/cli.ts:1652](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1652)
+Defined in: [types/cli.ts:1772](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1772)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/cli.ts:1652](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **trackTreatmentOutcomes**: `boolean`
 
-Defined in: [types/cli.ts:1653](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1653)
+Defined in: [types/cli.ts:1773](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1773)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MetricConfig** = `object`
 
-Defined in: [types/autoresearch.ts:19](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L19)
+Defined in: [types/autoresearch.ts:19](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L19)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/autoresearch.ts:19](https://github.com/juspay/neurolink/blob/
 
 > **name**: `string`
 
-Defined in: [types/autoresearch.ts:20](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L20)
+Defined in: [types/autoresearch.ts:20](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L20)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/autoresearch.ts:20](https://github.com/juspay/neurolink/blob/
 
 > **direction**: [`MetricDirection`](MetricDirection.md)
 
-Defined in: [types/autoresearch.ts:21](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L21)
+Defined in: [types/autoresearch.ts:21](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L21)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/autoresearch.ts:21](https://github.com/juspay/neurolink/blob/
 
 > **pattern**: `string`
 
-Defined in: [types/autoresearch.ts:22](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L22)
+Defined in: [types/autoresearch.ts:22](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L22)

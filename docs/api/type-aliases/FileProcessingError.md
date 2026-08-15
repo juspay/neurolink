@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileProcessingError** = `object`
 
-Defined in: [types/processor.ts:98](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L98)
+Defined in: [types/processor.ts:98](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L98)
 
 Structured file processing error with user-friendly messaging.
 This is the canonical error type used across all processor infrastructure.
@@ -19,7 +19,7 @@ This is the canonical error type used across all processor infrastructure.
 
 > **code**: [`FileErrorCode`](../enumerations/FileErrorCode.md) \| `string`
 
-Defined in: [types/processor.ts:100](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L100)
+Defined in: [types/processor.ts:100](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L100)
 
 Error code from FileErrorCode enum
 
@@ -29,7 +29,7 @@ Error code from FileErrorCode enum
 
 > **message**: `string`
 
-Defined in: [types/processor.ts:102](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L102)
+Defined in: [types/processor.ts:102](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L102)
 
 Technical error message
 
@@ -39,7 +39,7 @@ Technical error message
 
 > **userMessage**: `string`
 
-Defined in: [types/processor.ts:104](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L104)
+Defined in: [types/processor.ts:104](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L104)
 
 User-friendly error message
 
@@ -49,7 +49,7 @@ User-friendly error message
 
 > `optional` **suggestedAction?**: `string`
 
-Defined in: [types/processor.ts:106](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L106)
+Defined in: [types/processor.ts:106](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L106)
 
 Suggested action to resolve the error
 
@@ -59,7 +59,7 @@ Suggested action to resolve the error
 
 > `optional` **retryable?**: `boolean`
 
-Defined in: [types/processor.ts:108](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L108)
+Defined in: [types/processor.ts:108](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L108)
 
 Whether this error is potentially retryable
 
@@ -69,7 +69,7 @@ Whether this error is potentially retryable
 
 > `optional` **details?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/processor.ts:110](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L110)
+Defined in: [types/processor.ts:110](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L110)
 
 Additional context/details about the error
 
@@ -79,7 +79,7 @@ Additional context/details about the error
 
 > `optional` **technicalDetails?**: `string`
 
-Defined in: [types/processor.ts:112](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L112)
+Defined in: [types/processor.ts:112](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L112)
 
 Technical details (usually from original error)
 
@@ -89,6 +89,6 @@ Technical details (usually from original error)
 
 > `optional` **originalError?**: `Error`
 
-Defined in: [types/processor.ts:114](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L114)
+Defined in: [types/processor.ts:114](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L114)
 
 Original error that caused this failure

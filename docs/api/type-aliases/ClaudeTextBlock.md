@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClaudeTextBlock** = `object`
 
-Defined in: [types/proxy.ts:44](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L44)
+Defined in: [types/proxy.ts:56](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L56)
 
 A single text block in a Claude content array.
 
@@ -18,7 +18,7 @@ A single text block in a Claude content array.
 
 > **type**: `"text"`
 
-Defined in: [types/proxy.ts:45](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L45)
+Defined in: [types/proxy.ts:57](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L57)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:45](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **text**: `string`
 
-Defined in: [types/proxy.ts:46](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L46)
+Defined in: [types/proxy.ts:58](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L58)

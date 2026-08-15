@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileSummarizationCheckParams** = `object`
 
-Defined in: [types/context.ts:691](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L691)
+Defined in: [types/context.ts:714](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L714)
 
 Parameters for `shouldSummarizeFiles()`.
 
@@ -18,7 +18,7 @@ Parameters for `shouldSummarizeFiles()`.
 
 > **provider**: `string`
 
-Defined in: [types/context.ts:693](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L693)
+Defined in: [types/context.ts:716](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L716)
 
 AI provider name (e.g. "vertex", "anthropic")
 
@@ -28,7 +28,7 @@ AI provider name (e.g. "vertex", "anthropic")
 
 > `optional` **model?**: `string`
 
-Defined in: [types/context.ts:695](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L695)
+Defined in: [types/context.ts:718](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L718)
 
 Model name (optional -- falls back to provider default)
 
@@ -38,7 +38,7 @@ Model name (optional -- falls back to provider default)
 
 > **systemPromptTokens**: `number`
 
-Defined in: [types/context.ts:697](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L697)
+Defined in: [types/context.ts:720](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L720)
 
 Token estimate for the system prompt
 
@@ -48,7 +48,7 @@ Token estimate for the system prompt
 
 > **conversationHistoryTokens**: `number`
 
-Defined in: [types/context.ts:699](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L699)
+Defined in: [types/context.ts:722](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L722)
 
 Token estimate for conversation history
 
@@ -58,7 +58,7 @@ Token estimate for conversation history
 
 > **currentPromptTokens**: `number`
 
-Defined in: [types/context.ts:701](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L701)
+Defined in: [types/context.ts:724](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L724)
 
 Token estimate for the current user prompt
 
@@ -68,7 +68,7 @@ Token estimate for the current user prompt
 
 > **toolDefinitionTokens**: `number`
 
-Defined in: [types/context.ts:703](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L703)
+Defined in: [types/context.ts:726](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L726)
 
 Token estimate for tool definitions
 
@@ -78,7 +78,7 @@ Token estimate for tool definitions
 
 > **fileTokens**: `number`
 
-Defined in: [types/context.ts:705](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L705)
+Defined in: [types/context.ts:728](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L728)
 
 Token estimate for all attached files (sum)
 
@@ -88,7 +88,7 @@ Token estimate for all attached files (sum)
 
 > `optional` **fileCount?**: `number`
 
-Defined in: [types/context.ts:707](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L707)
+Defined in: [types/context.ts:730](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L730)
 
 Number of attached files
 
@@ -98,7 +98,7 @@ Number of attached files
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/context.ts:709](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L709)
+Defined in: [types/context.ts:732](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L732)
 
 Explicit maxTokens (output reserve) from user config
 
@@ -108,7 +108,7 @@ Explicit maxTokens (output reserve) from user config
 
 > `optional` **threshold?**: `number`
 
-Defined in: [types/context.ts:711](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L711)
+Defined in: [types/context.ts:734](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L734)
 
 Context usage fraction that triggers summarization (0.0-1.0, default 0.80)
 
@@ -118,7 +118,7 @@ Context usage fraction that triggers summarization (0.0-1.0, default 0.80)
 
 > `optional` **minTokensPerFile?**: `number`
 
-Defined in: [types/context.ts:713](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L713)
+Defined in: [types/context.ts:736](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L736)
 
 Minimum tokens per file in the summarization plan
 
@@ -128,6 +128,6 @@ Minimum tokens per file in the summarization plan
 
 > `optional` **maxTokensPerFile?**: `number`
 
-Defined in: [types/context.ts:715](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L715)
+Defined in: [types/context.ts:738](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L738)
 
 Maximum tokens per file in the summarization plan

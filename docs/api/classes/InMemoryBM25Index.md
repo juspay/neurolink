@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: InMemoryBM25Index
 
-Defined in: [rag/retrieval/hybridSearch.ts:28](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/retrieval/hybridSearch.ts#L28)
+Defined in: [rag/retrieval/hybridSearch.ts:28](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/retrieval/hybridSearch.ts#L28)
 
 In-memory BM25 implementation for testing and development
 
@@ -30,7 +30,7 @@ In-memory BM25 implementation for testing and development
 
 > **search**(`query`, `topK?`): `Promise`\<[`BM25Result`](../type-aliases/BM25Result.md)[]\>
 
-Defined in: [rag/retrieval/hybridSearch.ts:37](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/retrieval/hybridSearch.ts#L37)
+Defined in: [rag/retrieval/hybridSearch.ts:37](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/retrieval/hybridSearch.ts#L37)
 
 Search documents using BM25 algorithm
 
@@ -64,7 +64,7 @@ Array of BM25 results
 
 > **addDocuments**(`documents`): `Promise`\<`void`\>
 
-Defined in: [rag/retrieval/hybridSearch.ts:95](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/retrieval/hybridSearch.ts#L95)
+Defined in: [rag/retrieval/hybridSearch.ts:95](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/retrieval/hybridSearch.ts#L95)
 
 Add documents to the index
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StreamingRequestOptions** = `object`
 
-Defined in: [types/client.ts:1501](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1501)
+Defined in: [types/client.ts:1501](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1501)
 
 Streaming request options
 
@@ -18,7 +18,7 @@ Streaming request options
 
 > **input**: `object` & [`UnknownRecord`](UnknownRecord.md)
 
-Defined in: [types/client.ts:1503](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1503)
+Defined in: [types/client.ts:1503](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1503)
 
 Input text or data
 
@@ -34,7 +34,7 @@ Input text or data
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/client.ts:1505](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1505)
+Defined in: [types/client.ts:1505](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1505)
 
 Provider to use
 
@@ -44,7 +44,7 @@ Provider to use
 
 > `optional` **model?**: `string`
 
-Defined in: [types/client.ts:1507](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1507)
+Defined in: [types/client.ts:1507](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1507)
 
 Model to use
 
@@ -54,7 +54,7 @@ Model to use
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/client.ts:1509](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1509)
+Defined in: [types/client.ts:1509](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1509)
 
 Temperature
 
@@ -64,7 +64,7 @@ Temperature
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/client.ts:1511](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1511)
+Defined in: [types/client.ts:1511](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1511)
 
 Maximum tokens
 
@@ -74,7 +74,7 @@ Maximum tokens
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/client.ts:1513](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1513)
+Defined in: [types/client.ts:1513](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1513)
 
 System prompt
 
@@ -84,7 +84,7 @@ System prompt
 
 > `optional` **enableTools?**: `boolean`
 
-Defined in: [types/client.ts:1515](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1515)
+Defined in: [types/client.ts:1515](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1515)
 
 Enable tools
 
@@ -94,6 +94,6 @@ Enable tools
 
 > `optional` **context?**: [`UnknownRecord`](UnknownRecord.md)
 
-Defined in: [types/client.ts:1517](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1517)
+Defined in: [types/client.ts:1517](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1517)
 
 Context data

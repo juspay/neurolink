@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: NetworkError
 
-Defined in: [types/errors.ts:45](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L45)
+Defined in: [types/errors.ts:51](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L51)
 
 Thrown for network-related issues, such as connectivity problems or timeouts.
 
@@ -20,7 +20,7 @@ Thrown for network-related issues, such as connectivity problems or timeouts.
 
 > **new NetworkError**(`message`, `provider?`): `NetworkError`
 
-Defined in: [types/errors.ts:46](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L46)
+Defined in: [types/errors.ts:52](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L52)
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [types/errors.ts:46](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L18)
+Defined in: [types/errors.ts:18](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L18)
 
 #### Inherited from
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FlaggedItem** = `object`
 
-Defined in: [types/scorer.ts:681](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L681)
+Defined in: [types/scorer.ts:681](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L681)
 
 Flagged content row reported by the toxicity scorer.
 
@@ -18,7 +18,7 @@ Flagged content row reported by the toxicity scorer.
 
 > `optional` **text?**: `string`
 
-Defined in: [types/scorer.ts:682](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L682)
+Defined in: [types/scorer.ts:682](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L682)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/scorer.ts:682](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **category?**: `string`
 
-Defined in: [types/scorer.ts:683](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L683)
+Defined in: [types/scorer.ts:683](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L683)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/scorer.ts:683](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **severity?**: `string`
 
-Defined in: [types/scorer.ts:684](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L684)
+Defined in: [types/scorer.ts:684](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L684)

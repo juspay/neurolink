@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ResolutionOptions** = `object`
 
-Defined in: [types/dynamic.ts:95](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/dynamic.ts#L95)
+Defined in: [types/dynamic.ts:107](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/dynamic.ts#L107)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/dynamic.ts:95](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/dynamic.ts:96](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/dynamic.ts#L96)
+Defined in: [types/dynamic.ts:108](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/dynamic.ts#L108)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/dynamic.ts:96](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **cache?**: `boolean`
 
-Defined in: [types/dynamic.ts:97](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/dynamic.ts#L97)
+Defined in: [types/dynamic.ts:109](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/dynamic.ts#L109)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/dynamic.ts:97](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **cacheKey?**: `string`
 
-Defined in: [types/dynamic.ts:98](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/dynamic.ts#L98)
+Defined in: [types/dynamic.ts:110](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/dynamic.ts#L110)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/dynamic.ts:98](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **cacheTtl?**: `number`
 
-Defined in: [types/dynamic.ts:99](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/dynamic.ts#L99)
+Defined in: [types/dynamic.ts:111](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/dynamic.ts#L111)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/dynamic.ts:99](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **defaultValue?**: `unknown`
 
-Defined in: [types/dynamic.ts:100](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/dynamic.ts#L100)
+Defined in: [types/dynamic.ts:112](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/dynamic.ts#L112)
 
 ---
 
@@ -56,4 +56,4 @@ Defined in: [types/dynamic.ts:100](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **throwOnError?**: `boolean`
 
-Defined in: [types/dynamic.ts:101](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/dynamic.ts#L101)
+Defined in: [types/dynamic.ts:113](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/dynamic.ts#L113)

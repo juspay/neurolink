@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CacheInterceptorOptions** = `object`
 
-Defined in: [types/client.ts:1345](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1345)
+Defined in: [types/client.ts:1345](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1345)
 
 Cache options
 
@@ -18,7 +18,7 @@ Cache options
 
 > **ttl**: `number`
 
-Defined in: [types/client.ts:1347](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1347)
+Defined in: [types/client.ts:1347](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1347)
 
 Cache TTL in milliseconds
 
@@ -28,7 +28,7 @@ Cache TTL in milliseconds
 
 > `optional` **maxSize?**: `number`
 
-Defined in: [types/client.ts:1349](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1349)
+Defined in: [types/client.ts:1349](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1349)
 
 Maximum cache size
 
@@ -38,7 +38,7 @@ Maximum cache size
 
 > `optional` **keyGenerator?**: (`request`) => `string`
 
-Defined in: [types/client.ts:1351](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1351)
+Defined in: [types/client.ts:1351](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1351)
 
 Cache key generator
 
@@ -58,7 +58,7 @@ Cache key generator
 
 > `optional` **methods?**: `string`[]
 
-Defined in: [types/client.ts:1353](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1353)
+Defined in: [types/client.ts:1353](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1353)
 
 Methods to cache (default: ['GET'])
 
@@ -68,7 +68,7 @@ Methods to cache (default: ['GET'])
 
 > `optional` **includePaths?**: `RegExp`[]
 
-Defined in: [types/client.ts:1355](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1355)
+Defined in: [types/client.ts:1355](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1355)
 
 Paths to cache (regex patterns)
 
@@ -78,6 +78,6 @@ Paths to cache (regex patterns)
 
 > `optional` **excludePaths?**: `RegExp`[]
 
-Defined in: [types/client.ts:1357](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1357)
+Defined in: [types/client.ts:1357](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1357)
 
 Paths to exclude from cache

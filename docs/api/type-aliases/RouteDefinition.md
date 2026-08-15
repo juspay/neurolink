@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RouteDefinition** = `object`
 
-Defined in: [types/server.ts:395](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L395)
+Defined in: [types/server.ts:395](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L395)
 
 Route definition
 
@@ -18,7 +18,7 @@ Route definition
 
 > **method**: [`HttpMethod`](HttpMethod.md)
 
-Defined in: [types/server.ts:397](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L397)
+Defined in: [types/server.ts:397](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L397)
 
 HTTP method
 
@@ -28,7 +28,7 @@ HTTP method
 
 > **path**: `string`
 
-Defined in: [types/server.ts:400](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L400)
+Defined in: [types/server.ts:400](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L400)
 
 Route path (supports parameters like :id)
 
@@ -38,7 +38,7 @@ Route path (supports parameters like :id)
 
 > **handler**: [`RouteHandler`](RouteHandler.md)
 
-Defined in: [types/server.ts:403](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L403)
+Defined in: [types/server.ts:403](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L403)
 
 Route handler function
 
@@ -48,7 +48,7 @@ Route handler function
 
 > `optional` **description?**: `string`
 
-Defined in: [types/server.ts:406](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L406)
+Defined in: [types/server.ts:406](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L406)
 
 Route description (for documentation)
 
@@ -58,7 +58,7 @@ Route description (for documentation)
 
 > `optional` **requestSchema?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/server.ts:409](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L409)
+Defined in: [types/server.ts:409](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L409)
 
 Request schema (for validation)
 
@@ -68,7 +68,7 @@ Request schema (for validation)
 
 > `optional` **responseSchema?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/server.ts:412](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L412)
+Defined in: [types/server.ts:412](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L412)
 
 Response schema (for documentation)
 
@@ -78,7 +78,7 @@ Response schema (for documentation)
 
 > `optional` **auth?**: `boolean`
 
-Defined in: [types/server.ts:415](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L415)
+Defined in: [types/server.ts:415](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L415)
 
 Authentication required
 
@@ -88,7 +88,7 @@ Authentication required
 
 > `optional` **roles?**: `string`[]
 
-Defined in: [types/server.ts:418](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L418)
+Defined in: [types/server.ts:418](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L418)
 
 Required roles
 
@@ -98,7 +98,7 @@ Required roles
 
 > `optional` **rateLimit?**: [`RateLimitConfig`](RateLimitConfig.md)
 
-Defined in: [types/server.ts:421](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L421)
+Defined in: [types/server.ts:421](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L421)
 
 Rate limit override for this route
 
@@ -108,7 +108,7 @@ Rate limit override for this route
 
 > `optional` **streaming?**: [`StreamingConfig`](StreamingConfig.md)
 
-Defined in: [types/server.ts:424](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L424)
+Defined in: [types/server.ts:424](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L424)
 
 Streaming configuration
 
@@ -118,7 +118,7 @@ Streaming configuration
 
 > `optional` **tags?**: `string`[]
 
-Defined in: [types/server.ts:427](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L427)
+Defined in: [types/server.ts:427](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L427)
 
 Route tags (for documentation)
 
@@ -128,6 +128,6 @@ Route tags (for documentation)
 
 > `optional` **deprecated?**: [`RouteDeprecation`](RouteDeprecation.md)
 
-Defined in: [types/server.ts:430](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L430)
+Defined in: [types/server.ts:430](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L430)
 
 Route deprecation information

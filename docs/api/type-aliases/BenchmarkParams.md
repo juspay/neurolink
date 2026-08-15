@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BenchmarkParams** = `object`
 
-Defined in: [types/mcp.ts:2661](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2661)
+Defined in: [types/mcp.ts:2661](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2661)
 
 Parsed input for the benchmark-provider-performance MCP tool.
 
@@ -18,7 +18,7 @@ Parsed input for the benchmark-provider-performance MCP tool.
 
 > `optional` **providers?**: [`AiAnalysisProvider`](AiAnalysisProvider.md)[]
 
-Defined in: [types/mcp.ts:2662](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2662)
+Defined in: [types/mcp.ts:2662](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2662)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2662](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **testPrompts?**: `string`[]
 
-Defined in: [types/mcp.ts:2663](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2663)
+Defined in: [types/mcp.ts:2663](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2663)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2663](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **iterations**: `number`
 
-Defined in: [types/mcp.ts:2664](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2664)
+Defined in: [types/mcp.ts:2664](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2664)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:2664](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **metrics**: (`"latency"` \| `"quality"` \| `"cost"` \| `"tokens"`)[]
 
-Defined in: [types/mcp.ts:2665](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2665)
+Defined in: [types/mcp.ts:2665](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2665)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/mcp.ts:2665](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **maxTokens**: `number`
 
-Defined in: [types/mcp.ts:2666](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2666)
+Defined in: [types/mcp.ts:2666](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L2666)

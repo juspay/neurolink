@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **WSClientEventHandlers** = `object`
 
-Defined in: [types/client.ts:1028](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1028)
+Defined in: [types/client.ts:1028](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1028)
 
 Event handlers for the dedicated NeuroLinkWebSocket client
 
@@ -18,7 +18,7 @@ Event handlers for the dedicated NeuroLinkWebSocket client
 
 > `optional` **onOpen?**: () => `void`
 
-Defined in: [types/client.ts:1029](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1029)
+Defined in: [types/client.ts:1029](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1029)
 
 #### Returns
 
@@ -30,7 +30,7 @@ Defined in: [types/client.ts:1029](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **onClose?**: (`code`, `reason`) => `void`
 
-Defined in: [types/client.ts:1030](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1030)
+Defined in: [types/client.ts:1030](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1030)
 
 #### Parameters
 
@@ -52,7 +52,7 @@ Defined in: [types/client.ts:1030](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **onError?**: (`error`) => `void`
 
-Defined in: [types/client.ts:1031](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1031)
+Defined in: [types/client.ts:1031](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1031)
 
 #### Parameters
 
@@ -70,7 +70,7 @@ Defined in: [types/client.ts:1031](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **onMessage?**: (`event`) => `void`
 
-Defined in: [types/client.ts:1032](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1032)
+Defined in: [types/client.ts:1032](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1032)
 
 #### Parameters
 
@@ -88,7 +88,7 @@ Defined in: [types/client.ts:1032](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **onReconnect?**: (`attempt`) => `void`
 
-Defined in: [types/client.ts:1033](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1033)
+Defined in: [types/client.ts:1033](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1033)
 
 #### Parameters
 
@@ -106,7 +106,7 @@ Defined in: [types/client.ts:1033](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **onStateChange?**: (`state`) => `void`
 
-Defined in: [types/client.ts:1034](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1034)
+Defined in: [types/client.ts:1034](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1034)
 
 #### Parameters
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BatchEvaluationResult** = `object`
 
-Defined in: [types/evaluation.ts:454](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L454)
+Defined in: [types/evaluation.ts:449](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L449)
 
 Superset batch-result. `results` is a union of both item-result flavors;
 summary field names chosen from BatchEvaluator (`succeeded`, `passingRate`).
@@ -19,7 +19,7 @@ summary field names chosen from BatchEvaluator (`succeeded`, `passingRate`).
 
 > **results**: [`BatchEvaluationItemResult`](BatchEvaluationItemResult.md)[] \| [`BatchItemResult`](BatchItemResult.md)[]
 
-Defined in: [types/evaluation.ts:455](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L455)
+Defined in: [types/evaluation.ts:450](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L450)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/evaluation.ts:455](https://github.com/juspay/neurolink/blob/f
 
 > **summary**: `object`
 
-Defined in: [types/evaluation.ts:456](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L456)
+Defined in: [types/evaluation.ts:451](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L451)
 
 #### total
 
@@ -63,4 +63,4 @@ Defined in: [types/evaluation.ts:456](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **allSucceeded?**: `boolean`
 
-Defined in: [types/evaluation.ts:465](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L465)
+Defined in: [types/evaluation.ts:460](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L460)

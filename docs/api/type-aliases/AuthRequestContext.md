@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthRequestContext** = `object`
 
-Defined in: [types/auth.ts:342](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L342)
+Defined in: [types/auth.ts:342](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L342)
 
 Authentication request context
 
@@ -18,7 +18,7 @@ Authentication request context
 
 > `optional` **method?**: `string`
 
-Defined in: [types/auth.ts:344](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L344)
+Defined in: [types/auth.ts:344](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L344)
 
 HTTP method
 
@@ -28,7 +28,7 @@ HTTP method
 
 > `optional` **path?**: `string`
 
-Defined in: [types/auth.ts:346](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L346)
+Defined in: [types/auth.ts:346](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L346)
 
 Request URL/path
 
@@ -38,7 +38,7 @@ Request URL/path
 
 > **headers**: `Record`\<`string`, `string` \| `string`[] \| `undefined`\>
 
-Defined in: [types/auth.ts:348](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L348)
+Defined in: [types/auth.ts:348](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L348)
 
 HTTP request headers
 
@@ -48,7 +48,7 @@ HTTP request headers
 
 > `optional` **cookies?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/auth.ts:350](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L350)
+Defined in: [types/auth.ts:350](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L350)
 
 Request cookies
 
@@ -58,7 +58,7 @@ Request cookies
 
 > `optional` **query?**: `Record`\<`string`, `string` \| `string`[] \| `undefined`\>
 
-Defined in: [types/auth.ts:352](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L352)
+Defined in: [types/auth.ts:352](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L352)
 
 Query parameters
 
@@ -68,7 +68,7 @@ Query parameters
 
 > `optional` **body?**: `unknown`
 
-Defined in: [types/auth.ts:354](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L354)
+Defined in: [types/auth.ts:354](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L354)
 
 Request body (if available)
 
@@ -78,7 +78,7 @@ Request body (if available)
 
 > `optional` **ip?**: `string`
 
-Defined in: [types/auth.ts:356](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L356)
+Defined in: [types/auth.ts:356](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L356)
 
 IP address
 
@@ -88,7 +88,7 @@ IP address
 
 > `optional` **ipAddress?**: `string`
 
-Defined in: [types/auth.ts:358](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L358)
+Defined in: [types/auth.ts:358](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L358)
 
 IP address (alias for session builders that expect this field)
 
@@ -98,7 +98,7 @@ IP address (alias for session builders that expect this field)
 
 > `optional` **userAgent?**: `string`
 
-Defined in: [types/auth.ts:360](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L360)
+Defined in: [types/auth.ts:360](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L360)
 
 Request user agent
 
@@ -108,6 +108,6 @@ Request user agent
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/auth.ts:362](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L362)
+Defined in: [types/auth.ts:362](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L362)
 
 Request ID for tracing

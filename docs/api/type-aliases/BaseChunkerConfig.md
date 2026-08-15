@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BaseChunkerConfig** = `object`
 
-Defined in: [types/rag.ts:804](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L804)
+Defined in: [types/rag.ts:848](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L848)
 
 Base configuration for all chunkers
 
@@ -18,7 +18,7 @@ Base configuration for all chunkers
 
 > `optional` **maxSize?**: `number`
 
-Defined in: [types/rag.ts:806](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L806)
+Defined in: [types/rag.ts:850](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L850)
 
 Maximum chunk size (interpretation varies by strategy)
 
@@ -28,7 +28,7 @@ Maximum chunk size (interpretation varies by strategy)
 
 > `optional` **minSize?**: `number`
 
-Defined in: [types/rag.ts:808](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L808)
+Defined in: [types/rag.ts:852](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L852)
 
 Minimum chunk size
 
@@ -38,7 +38,7 @@ Minimum chunk size
 
 > `optional` **overlap?**: `number`
 
-Defined in: [types/rag.ts:810](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L810)
+Defined in: [types/rag.ts:854](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L854)
 
 Overlap between consecutive chunks
 
@@ -48,7 +48,7 @@ Overlap between consecutive chunks
 
 > `optional` **trimWhitespace?**: `boolean`
 
-Defined in: [types/rag.ts:812](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L812)
+Defined in: [types/rag.ts:856](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L856)
 
 Whether to trim whitespace from chunks
 
@@ -58,7 +58,7 @@ Whether to trim whitespace from chunks
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:814](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L814)
+Defined in: [types/rag.ts:858](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L858)
 
 Custom metadata to add to all chunks
 
@@ -68,6 +68,6 @@ Custom metadata to add to all chunks
 
 > `optional` **preserveMetadata?**: `boolean`
 
-Defined in: [types/rag.ts:816](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L816)
+Defined in: [types/rag.ts:860](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L860)
 
 Whether to preserve metadata from source document

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SummaryStats** = `object`
 
-Defined in: [types/workflow.ts:735](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L735)
+Defined in: [types/workflow.ts:735](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/workflow.ts#L735)
 
 Summary statistics for workflow executions
 
@@ -18,7 +18,7 @@ Summary statistics for workflow executions
 
 > **totalExecutions**: `number`
 
-Defined in: [types/workflow.ts:736](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L736)
+Defined in: [types/workflow.ts:736](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/workflow.ts#L736)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/workflow.ts:736](https://github.com/juspay/neurolink/blob/ff5
 
 > **averageScore**: `number`
 
-Defined in: [types/workflow.ts:737](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L737)
+Defined in: [types/workflow.ts:737](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/workflow.ts#L737)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/workflow.ts:737](https://github.com/juspay/neurolink/blob/ff5
 
 > **averageConfidence**: `number`
 
-Defined in: [types/workflow.ts:738](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L738)
+Defined in: [types/workflow.ts:738](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/workflow.ts#L738)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/workflow.ts:738](https://github.com/juspay/neurolink/blob/ff5
 
 > **averageExecutionTime**: `number`
 
-Defined in: [types/workflow.ts:739](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L739)
+Defined in: [types/workflow.ts:739](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/workflow.ts#L739)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/workflow.ts:739](https://github.com/juspay/neurolink/blob/ff5
 
 > **successRate**: `number`
 
-Defined in: [types/workflow.ts:740](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L740)
+Defined in: [types/workflow.ts:740](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/workflow.ts#L740)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/workflow.ts:740](https://github.com/juspay/neurolink/blob/ff5
 
 > **totalCost**: `number`
 
-Defined in: [types/workflow.ts:741](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L741)
+Defined in: [types/workflow.ts:741](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/workflow.ts#L741)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StepFinishEvent** = `object`
 
-Defined in: [types/providers.ts:1778](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1778)
+Defined in: [types/providers.ts:2052](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2052)
 
 Step finish event shape for multi-step generation.
 
@@ -22,7 +22,7 @@ Step finish event shape for multi-step generation.
 
 > `readonly` **toolCalls**: `ReadonlyArray`\<`unknown`\>
 
-Defined in: [types/providers.ts:1779](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1779)
+Defined in: [types/providers.ts:2053](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2053)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/providers.ts:1779](https://github.com/juspay/neurolink/blob/f
 
 > `readonly` **toolResults**: `ReadonlyArray`\<`unknown`\>
 
-Defined in: [types/providers.ts:1780](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1780)
+Defined in: [types/providers.ts:2054](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2054)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/providers.ts:1780](https://github.com/juspay/neurolink/blob/f
 
 > `readonly` **text**: `string`
 
-Defined in: [types/providers.ts:1781](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1781)
+Defined in: [types/providers.ts:2055](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2055)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/providers.ts:1781](https://github.com/juspay/neurolink/blob/f
 
 > `readonly` **finishReason**: `string`
 
-Defined in: [types/providers.ts:1782](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1782)
+Defined in: [types/providers.ts:2056](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2056)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/providers.ts:1782](https://github.com/juspay/neurolink/blob/f
 
 > `readonly` **usage**: `object`
 
-Defined in: [types/providers.ts:1783](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1783)
+Defined in: [types/providers.ts:2057](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2057)
 
 #### inputTokens?
 

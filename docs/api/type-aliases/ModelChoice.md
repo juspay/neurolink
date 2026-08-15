@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelChoice** = `object`
 
-Defined in: [types/common.ts:395](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L395)
+Defined in: [types/common.ts:425](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/common.ts#L425)
 
 Model choice for CLI prompts (inquirer format)
 
@@ -18,7 +18,7 @@ Model choice for CLI prompts (inquirer format)
 
 > **name**: `string`
 
-Defined in: [types/common.ts:396](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L396)
+Defined in: [types/common.ts:426](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/common.ts#L426)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/common.ts:396](https://github.com/juspay/neurolink/blob/ff50c
 
 > **value**: `string`
 
-Defined in: [types/common.ts:397](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L397)
+Defined in: [types/common.ts:427](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/common.ts#L427)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/common.ts:397](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **description?**: `string`
 
-Defined in: [types/common.ts:398](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L398)
+Defined in: [types/common.ts:428](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/common.ts#L428)

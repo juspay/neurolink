@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PruneConfig** = `object`
 
-Defined in: [types/context.ts:864](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L864)
+Defined in: [types/context.ts:988](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L988)
 
 Configuration for tool output pruning (Stage 1).
 
@@ -18,7 +18,7 @@ Configuration for tool output pruning (Stage 1).
 
 > `optional` **protectTokens?**: `number`
 
-Defined in: [types/context.ts:865](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L865)
+Defined in: [types/context.ts:989](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L989)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:865](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **minimumSavings?**: `number`
 
-Defined in: [types/context.ts:866](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L866)
+Defined in: [types/context.ts:990](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L990)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/context.ts:866](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **protectedTools?**: `string`[]
 
-Defined in: [types/context.ts:867](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L867)
+Defined in: [types/context.ts:991](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L991)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/context.ts:867](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/context.ts:868](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L868)
+Defined in: [types/context.ts:992](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L992)

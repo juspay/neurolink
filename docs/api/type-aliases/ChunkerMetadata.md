@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ChunkerMetadata** = `object`
 
-Defined in: [types/rag.ts:969](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L969)
+Defined in: [types/rag.ts:1013](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1013)
 
 Chunker metadata for factory registration
 
@@ -18,7 +18,7 @@ Chunker metadata for factory registration
 
 > **description**: `string`
 
-Defined in: [types/rag.ts:971](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L971)
+Defined in: [types/rag.ts:1015](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1015)
 
 Human-readable description
 
@@ -28,7 +28,7 @@ Human-readable description
 
 > `optional` **supportedTypes?**: [`DocumentType`](DocumentType.md)[]
 
-Defined in: [types/rag.ts:973](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L973)
+Defined in: [types/rag.ts:1017](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1017)
 
 Supported document types
 
@@ -38,7 +38,7 @@ Supported document types
 
 > `optional` **requiresExternalDeps?**: `boolean`
 
-Defined in: [types/rag.ts:975](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L975)
+Defined in: [types/rag.ts:1019](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1019)
 
 Whether the chunker requires external dependencies
 
@@ -48,7 +48,7 @@ Whether the chunker requires external dependencies
 
 > `optional` **defaultConfig?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:977](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L977)
+Defined in: [types/rag.ts:1021](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1021)
 
 Default configuration (can be any chunker-specific config)
 
@@ -58,7 +58,7 @@ Default configuration (can be any chunker-specific config)
 
 > `optional` **supportedOptions?**: `string`[]
 
-Defined in: [types/rag.ts:979](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L979)
+Defined in: [types/rag.ts:1023](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1023)
 
 Supported configuration options
 
@@ -68,7 +68,7 @@ Supported configuration options
 
 > `optional` **useCases?**: `string`[]
 
-Defined in: [types/rag.ts:981](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L981)
+Defined in: [types/rag.ts:1025](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1025)
 
 Use cases where this chunker excels
 
@@ -78,6 +78,6 @@ Use cases where this chunker excels
 
 > `optional` **aliases?**: `string`[]
 
-Defined in: [types/rag.ts:983](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L983)
+Defined in: [types/rag.ts:1027](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1027)
 
 Alternative names/aliases for this chunker

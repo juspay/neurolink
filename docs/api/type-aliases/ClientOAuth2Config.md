@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientOAuth2Config** = `object`
 
-Defined in: [types/client.ts:1096](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1096)
+Defined in: [types/client.ts:1096](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1096)
 
 OAuth2 client credentials configuration
 
@@ -18,7 +18,7 @@ OAuth2 client credentials configuration
 
 > **tokenUrl**: `string`
 
-Defined in: [types/client.ts:1098](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1098)
+Defined in: [types/client.ts:1098](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1098)
 
 Token endpoint URL
 
@@ -28,7 +28,7 @@ Token endpoint URL
 
 > **clientId**: `string`
 
-Defined in: [types/client.ts:1100](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1100)
+Defined in: [types/client.ts:1100](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1100)
 
 OAuth2 client ID
 
@@ -38,7 +38,7 @@ OAuth2 client ID
 
 > **clientSecret**: `string`
 
-Defined in: [types/client.ts:1102](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1102)
+Defined in: [types/client.ts:1102](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1102)
 
 OAuth2 client secret
 
@@ -48,7 +48,7 @@ OAuth2 client secret
 
 > `optional` **scope?**: `string`
 
-Defined in: [types/client.ts:1104](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1104)
+Defined in: [types/client.ts:1104](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1104)
 
 OAuth2 scope (optional)
 
@@ -58,6 +58,6 @@ OAuth2 scope (optional)
 
 > `optional` **audience?**: `string`
 
-Defined in: [types/client.ts:1106](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1106)
+Defined in: [types/client.ts:1106](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1106)
 
 Audience for the token (optional)

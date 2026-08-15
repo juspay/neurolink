@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RuntimeAccountState** = `object`
 
-Defined in: [types/proxy.ts:773](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L773)
+Defined in: [types/proxy.ts:1434](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1434)
 
 Runtime state for a proxy account.
 
@@ -18,7 +18,7 @@ Runtime state for a proxy account.
 
 > **consecutiveRefreshFailures**: `number`
 
-Defined in: [types/proxy.ts:774](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L774)
+Defined in: [types/proxy.ts:1435](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1435)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:774](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **permanentlyDisabled**: `boolean`
 
-Defined in: [types/proxy.ts:775](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L775)
+Defined in: [types/proxy.ts:1436](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1436)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:775](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **lastToken?**: `string`
 
-Defined in: [types/proxy.ts:776](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L776)
+Defined in: [types/proxy.ts:1437](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1437)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:776](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **lastRefreshToken?**: `string`
 
-Defined in: [types/proxy.ts:777](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L777)
+Defined in: [types/proxy.ts:1438](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1438)
 
 ---
 
@@ -50,8 +50,31 @@ Defined in: [types/proxy.ts:777](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **coolingUntil?**: `number`
 
-Defined in: [types/proxy.ts:781](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L781)
+Defined in: [types/proxy.ts:1443](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1443)
 
 Epoch-ms timestamp until which the account should not be used for new
-requests (set after 429 retries are exhausted). Other requests arriving
-during this window will skip the account rather than hammering it again.
+requests. Set from the actual Anthropic reset/retry window or from
+bounded refresh backoff. Other requests arriving during this window skip
+the account rather than hammering it.
+
+---
+
+### coolingReason?
+
+> `optional` **coolingReason?**: [`AccountCoolingReason`](AccountCoolingReason.md)
+
+Defined in: [types/proxy.ts:1445](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1445)
+
+Why the account is cooling (set alongside coolingUntil).
+
+---
+
+### quota?
+
+> `optional` **quota?**: [`AccountQuota`](AccountQuota.md)
+
+Defined in: [types/proxy.ts:1449](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1449)
+
+Latest quota snapshot parsed from Anthropic `anthropic-ratelimit-unified-*`
+headers on ANY response (success or 429). Drives proactive, reset-aware
+selection so we don't have to eat a 429 to discover an account is spent.

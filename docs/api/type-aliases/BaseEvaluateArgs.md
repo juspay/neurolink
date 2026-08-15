@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BaseEvaluateArgs** = `object`
 
-Defined in: [types/cli.ts:1346](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1346)
+Defined in: [types/cli.ts:1466](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1466)
 
 Base options shared across all `neurolink evaluate` subcommands.
 
@@ -18,7 +18,7 @@ Base options shared across all `neurolink evaluate` subcommands.
 
 > `optional` **json?**: `boolean`
 
-Defined in: [types/cli.ts:1347](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1347)
+Defined in: [types/cli.ts:1467](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1467)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1347](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **verbose?**: `boolean`
 
-Defined in: [types/cli.ts:1348](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1348)
+Defined in: [types/cli.ts:1468](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1468)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/cli.ts:1348](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **format?**: `"text"` \| `"json"` \| `"table"`
 
-Defined in: [types/cli.ts:1349](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1349)
+Defined in: [types/cli.ts:1469](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1469)

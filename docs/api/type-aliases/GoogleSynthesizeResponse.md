@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GoogleSynthesizeResponse** = `object`
 
-Defined in: [types/stt.ts:670](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L670)
+Defined in: [types/stt.ts:670](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L670)
 
 ## Properties
 
@@ -16,4 +16,4 @@ Defined in: [types/stt.ts:670](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **audioContent**: `string`
 
-Defined in: [types/stt.ts:671](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L671)
+Defined in: [types/stt.ts:671](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L671)

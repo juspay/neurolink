@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SimpleResult** = `object`
 
-Defined in: [types/aliases.ts:336](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L336)
+Defined in: [types/aliases.ts:350](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L350)
 
 Simple success/error result (different from generic OperationResult)
 Used for basic operation feedback without data payload
@@ -19,7 +19,7 @@ Used for basic operation feedback without data payload
 
 > **success**: `boolean`
 
-Defined in: [types/aliases.ts:337](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L337)
+Defined in: [types/aliases.ts:351](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L351)
 
 ---
 
@@ -27,4 +27,4 @@ Defined in: [types/aliases.ts:337](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **error?**: `string`
 
-Defined in: [types/aliases.ts:338](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L338)
+Defined in: [types/aliases.ts:352](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L352)

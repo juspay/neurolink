@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PerformanceMetrics** = `object`
 
-Defined in: [types/analytics.ts:64](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L64)
+Defined in: [types/analytics.ts:84](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/analytics.ts#L84)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/analytics.ts:64](https://github.com/juspay/neurolink/blob/ff5
 
 > **startTime**: `number`
 
-Defined in: [types/analytics.ts:65](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L65)
+Defined in: [types/analytics.ts:85](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/analytics.ts#L85)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/analytics.ts:65](https://github.com/juspay/neurolink/blob/ff5
 
 > `optional` **endTime?**: `number`
 
-Defined in: [types/analytics.ts:66](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L66)
+Defined in: [types/analytics.ts:86](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/analytics.ts#L86)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/analytics.ts:66](https://github.com/juspay/neurolink/blob/ff5
 
 > `optional` **duration?**: `number`
 
-Defined in: [types/analytics.ts:67](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L67)
+Defined in: [types/analytics.ts:87](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/analytics.ts#L87)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/analytics.ts:67](https://github.com/juspay/neurolink/blob/ff5
 
 > **memoryStart**: `NodeJS.MemoryUsage`
 
-Defined in: [types/analytics.ts:68](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L68)
+Defined in: [types/analytics.ts:88](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/analytics.ts#L88)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/analytics.ts:68](https://github.com/juspay/neurolink/blob/ff5
 
 > `optional` **memoryEnd?**: `NodeJS.MemoryUsage`
 
-Defined in: [types/analytics.ts:69](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L69)
+Defined in: [types/analytics.ts:89](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/analytics.ts#L89)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/analytics.ts:69](https://github.com/juspay/neurolink/blob/ff5
 
 > `optional` **memoryDelta?**: `object`
 
-Defined in: [types/analytics.ts:70](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L70)
+Defined in: [types/analytics.ts:90](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/analytics.ts#L90)
 
 #### rss
 

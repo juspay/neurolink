@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BedrockConfigStatus** = `object`
 
-Defined in: [types/cli.ts:1497](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1497)
+Defined in: [types/cli.ts:1617](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1617)
 
 Status of Bedrock setup configuration flags.
 
@@ -18,7 +18,7 @@ Status of Bedrock setup configuration flags.
 
 > **hasAccessKey**: `boolean`
 
-Defined in: [types/cli.ts:1498](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1498)
+Defined in: [types/cli.ts:1618](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1618)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1498](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **hasSecretKey**: `boolean`
 
-Defined in: [types/cli.ts:1499](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1499)
+Defined in: [types/cli.ts:1619](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1619)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/cli.ts:1499](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **hasRegion**: `boolean`
 
-Defined in: [types/cli.ts:1500](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1500)
+Defined in: [types/cli.ts:1620](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1620)

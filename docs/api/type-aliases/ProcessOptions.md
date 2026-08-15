@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProcessOptions** = `object`
 
-Defined in: [types/processor.ts:182](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L182)
+Defined in: [types/processor.ts:182](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L182)
 
 Options for file processing operations.
 Allows customization of download behavior and retry logic.
@@ -19,7 +19,7 @@ Allows customization of download behavior and retry logic.
 
 > `optional` **authHeaders?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/processor.ts:184](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L184)
+Defined in: [types/processor.ts:184](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L184)
 
 Authentication headers for download requests
 
@@ -29,7 +29,7 @@ Authentication headers for download requests
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/processor.ts:186](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L186)
+Defined in: [types/processor.ts:186](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L186)
 
 Override default timeout (in milliseconds)
 
@@ -39,6 +39,6 @@ Override default timeout (in milliseconds)
 
 > `optional` **retryConfig?**: [`ProcessorRetryConfig`](ProcessorRetryConfig.md)
 
-Defined in: [types/processor.ts:188](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L188)
+Defined in: [types/processor.ts:188](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L188)
 
 Retry configuration for transient failures

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ExtractParams** = `object`
 
-Defined in: [types/rag.ts:1073](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1073)
+Defined in: [types/rag.ts:1117](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1117)
 
 Combined extraction parameters
 
@@ -18,7 +18,7 @@ Combined extraction parameters
 
 > `optional` **title?**: `boolean` \| [`TitleExtractorConfig`](TitleExtractorConfig.md)
 
-Defined in: [types/rag.ts:1075](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1075)
+Defined in: [types/rag.ts:1119](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1119)
 
 Extract document title
 
@@ -28,7 +28,7 @@ Extract document title
 
 > `optional` **summary?**: `boolean` \| [`SummaryExtractorConfig`](SummaryExtractorConfig.md)
 
-Defined in: [types/rag.ts:1077](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1077)
+Defined in: [types/rag.ts:1121](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1121)
 
 Extract document summary
 
@@ -38,7 +38,7 @@ Extract document summary
 
 > `optional` **keywords?**: `boolean` \| [`KeywordExtractorConfig`](KeywordExtractorConfig.md)
 
-Defined in: [types/rag.ts:1079](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1079)
+Defined in: [types/rag.ts:1123](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1123)
 
 Extract keywords
 
@@ -48,7 +48,7 @@ Extract keywords
 
 > `optional` **questions?**: `boolean` \| [`QuestionExtractorConfig`](QuestionExtractorConfig.md)
 
-Defined in: [types/rag.ts:1081](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1081)
+Defined in: [types/rag.ts:1125](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1125)
 
 Generate Q&A pairs
 
@@ -58,6 +58,6 @@ Generate Q&A pairs
 
 > `optional` **custom?**: [`CustomSchemaExtractorConfig`](CustomSchemaExtractorConfig.md)
 
-Defined in: [types/rag.ts:1083](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1083)
+Defined in: [types/rag.ts:1127](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1127)
 
 Custom schema extraction

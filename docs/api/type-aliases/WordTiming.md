@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **WordTiming** = `object`
 
-Defined in: [types/stt.ts:106](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L106)
+Defined in: [types/stt.ts:106](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L106)
 
 Word-level timing information
 
@@ -18,7 +18,7 @@ Word-level timing information
 
 > **word**: `string`
 
-Defined in: [types/stt.ts:108](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L108)
+Defined in: [types/stt.ts:108](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L108)
 
 The word
 
@@ -28,7 +28,7 @@ The word
 
 > `optional` **startTime?**: `number`
 
-Defined in: [types/stt.ts:110](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L110)
+Defined in: [types/stt.ts:110](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L110)
 
 Start time in seconds
 
@@ -38,7 +38,7 @@ Start time in seconds
 
 > `optional` **start?**: `number`
 
-Defined in: [types/stt.ts:112](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L112)
+Defined in: [types/stt.ts:112](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L112)
 
 Start time alias
 
@@ -48,7 +48,7 @@ Start time alias
 
 > `optional` **endTime?**: `number`
 
-Defined in: [types/stt.ts:114](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L114)
+Defined in: [types/stt.ts:114](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L114)
 
 End time in seconds
 
@@ -58,7 +58,7 @@ End time in seconds
 
 > `optional` **end?**: `number`
 
-Defined in: [types/stt.ts:116](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L116)
+Defined in: [types/stt.ts:116](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L116)
 
 End time alias
 
@@ -68,7 +68,7 @@ End time alias
 
 > `optional` **confidence?**: `number`
 
-Defined in: [types/stt.ts:118](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L118)
+Defined in: [types/stt.ts:118](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L118)
 
 Confidence score (0-1)
 
@@ -78,6 +78,6 @@ Confidence score (0-1)
 
 > `optional` **speaker?**: `string`
 
-Defined in: [types/stt.ts:120](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L120)
+Defined in: [types/stt.ts:120](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stt.ts#L120)
 
 Speaker label (for diarization)

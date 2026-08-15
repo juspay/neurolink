@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GroundingSupport** = `object`
 
-Defined in: [types/grounding.ts:190](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L190)
+Defined in: [types/grounding.ts:190](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/grounding.ts#L190)
 
 Represents grounding support information from raw provider responses.
 Contains segment information and links to the grounding chunks that
@@ -35,7 +35,7 @@ const support: GroundingSupport = {
 
 > `optional` **segment?**: `object`
 
-Defined in: [types/grounding.ts:192](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L192)
+Defined in: [types/grounding.ts:192](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/grounding.ts#L192)
 
 The text segment that is being grounded
 
@@ -69,7 +69,7 @@ Index of the response part this segment belongs to
 
 > `optional` **groundingChunkIndices?**: `number`[]
 
-Defined in: [types/grounding.ts:203](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L203)
+Defined in: [types/grounding.ts:203](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/grounding.ts#L203)
 
 Indices into the groundingChunks array that support this segment
 
@@ -79,6 +79,6 @@ Indices into the groundingChunks array that support this segment
 
 > `optional` **confidenceScores?**: `number`[]
 
-Defined in: [types/grounding.ts:205](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L205)
+Defined in: [types/grounding.ts:205](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/grounding.ts#L205)
 
 Confidence scores corresponding to each grounding chunk index

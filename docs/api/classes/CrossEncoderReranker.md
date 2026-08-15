@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: CrossEncoderReranker
 
-Defined in: [rag/reranker/reranker.ts:393](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/reranker/reranker.ts#L393)
+Defined in: [rag/reranker/reranker.ts:393](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/reranker/reranker.ts#L393)
 
 Cross-encoder style reranker interface
 Placeholder for integration with cross-encoder models
@@ -17,7 +17,7 @@ Placeholder for integration with cross-encoder models
 
 > **new CrossEncoderReranker**(`modelName?`): `CrossEncoderReranker`
 
-Defined in: [rag/reranker/reranker.ts:396](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/reranker/reranker.ts#L396)
+Defined in: [rag/reranker/reranker.ts:396](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/reranker/reranker.ts#L396)
 
 #### Parameters
 
@@ -35,7 +35,7 @@ Defined in: [rag/reranker/reranker.ts:396](https://github.com/juspay/neurolink/b
 
 > **rerank**(`_query`, `_documents`): `Promise`\<`object`[]\>
 
-Defined in: [rag/reranker/reranker.ts:400](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/reranker/reranker.ts#L400)
+Defined in: [rag/reranker/reranker.ts:400](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/reranker/reranker.ts#L400)
 
 #### Parameters
 

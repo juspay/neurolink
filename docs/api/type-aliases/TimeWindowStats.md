@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TimeWindowStats** = `object`
 
-Defined in: [types/observability.ts:555](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L555)
+Defined in: [types/observability.ts:555](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L555)
 
 Aggregated metrics for a single time window.
 
@@ -18,7 +18,7 @@ Aggregated metrics for a single time window.
 
 > **windowStart**: `Date`
 
-Defined in: [types/observability.ts:556](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L556)
+Defined in: [types/observability.ts:556](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L556)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/observability.ts:556](https://github.com/juspay/neurolink/blo
 
 > **windowEnd**: `Date`
 
-Defined in: [types/observability.ts:557](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L557)
+Defined in: [types/observability.ts:557](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L557)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/observability.ts:557](https://github.com/juspay/neurolink/blo
 
 > **windowDurationMs**: `number`
 
-Defined in: [types/observability.ts:558](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L558)
+Defined in: [types/observability.ts:558](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L558)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/observability.ts:558](https://github.com/juspay/neurolink/blo
 
 > **requestCount**: `number`
 
-Defined in: [types/observability.ts:559](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L559)
+Defined in: [types/observability.ts:559](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L559)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/observability.ts:559](https://github.com/juspay/neurolink/blo
 
 > **errorCount**: `number`
 
-Defined in: [types/observability.ts:560](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L560)
+Defined in: [types/observability.ts:560](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L560)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/observability.ts:560](https://github.com/juspay/neurolink/blo
 
 > **successRate**: `number`
 
-Defined in: [types/observability.ts:561](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L561)
+Defined in: [types/observability.ts:561](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L561)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/observability.ts:561](https://github.com/juspay/neurolink/blo
 
 > **throughput**: `number`
 
-Defined in: [types/observability.ts:562](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L562)
+Defined in: [types/observability.ts:562](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L562)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/observability.ts:562](https://github.com/juspay/neurolink/blo
 
 > **latency**: [`LatencyStats`](LatencyStats.md)
 
-Defined in: [types/observability.ts:563](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L563)
+Defined in: [types/observability.ts:563](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L563)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/observability.ts:563](https://github.com/juspay/neurolink/blo
 
 > **tokens**: [`TokenUsageStats`](TokenUsageStats.md)
 
-Defined in: [types/observability.ts:564](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L564)
+Defined in: [types/observability.ts:564](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L564)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/observability.ts:564](https://github.com/juspay/neurolink/blo
 
 > **costByProvider**: `Map`\<`string`, [`ProviderCostStats`](ProviderCostStats.md)\>
 
-Defined in: [types/observability.ts:565](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L565)
+Defined in: [types/observability.ts:565](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L565)
 
 ---
 
@@ -98,4 +98,4 @@ Defined in: [types/observability.ts:565](https://github.com/juspay/neurolink/blo
 
 > **costByModel**: `Map`\<`string`, [`ModelCostStats`](ModelCostStats.md)\>
 
-Defined in: [types/observability.ts:566](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L566)
+Defined in: [types/observability.ts:566](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L566)

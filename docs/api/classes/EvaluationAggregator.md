@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: EvaluationAggregator
 
-Defined in: [evaluation/EvaluationAggregator.ts:39](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L39)
+Defined in: [evaluation/EvaluationAggregator.ts:39](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L39)
 
 EvaluationAggregator - Aggregates evaluation results and provides analytics.
 Supports statistical analysis, trend detection, and quality monitoring.
@@ -46,7 +46,7 @@ console.log(`Quality is ${trend.direction}`);
 
 > **addEvaluation**(`evaluation`): `void`
 
-Defined in: [evaluation/EvaluationAggregator.ts:47](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L47)
+Defined in: [evaluation/EvaluationAggregator.ts:47](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L47)
 
 Adds an evaluation to the aggregator.
 
@@ -68,7 +68,7 @@ The evaluation data to add
 
 > **addEvaluations**(`evaluations`): `void`
 
-Defined in: [evaluation/EvaluationAggregator.ts:56](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L56)
+Defined in: [evaluation/EvaluationAggregator.ts:56](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L56)
 
 Adds multiple evaluations to the aggregator.
 
@@ -90,7 +90,7 @@ Array of evaluation data to add
 
 > **clear**(): `void`
 
-Defined in: [evaluation/EvaluationAggregator.ts:63](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L63)
+Defined in: [evaluation/EvaluationAggregator.ts:63](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L63)
 
 Clears all evaluations from the aggregator.
 
@@ -104,7 +104,7 @@ Clears all evaluations from the aggregator.
 
 > **getCount**(): `number`
 
-Defined in: [evaluation/EvaluationAggregator.ts:70](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L70)
+Defined in: [evaluation/EvaluationAggregator.ts:70](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L70)
 
 Gets the current number of evaluations.
 
@@ -118,7 +118,7 @@ Gets the current number of evaluations.
 
 > **getEvaluations**(): [`EvaluationData`](../type-aliases/EvaluationData.md)[]
 
-Defined in: [evaluation/EvaluationAggregator.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L77)
+Defined in: [evaluation/EvaluationAggregator.ts:77](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L77)
 
 Gets all evaluations.
 
@@ -132,7 +132,7 @@ Gets all evaluations.
 
 > **aggregate**(`options?`): [`AggregationResult`](../type-aliases/AggregationResult.md)
 
-Defined in: [evaluation/EvaluationAggregator.ts:87](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L87)
+Defined in: [evaluation/EvaluationAggregator.ts:87](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L87)
 
 Aggregates all evaluations and returns comprehensive statistics.
 
@@ -158,7 +158,7 @@ Comprehensive aggregation result
 
 > **calculateStatistics**(`scores`): [`ScoreStatistics`](../type-aliases/ScoreStatistics.md)
 
-Defined in: [evaluation/EvaluationAggregator.ts:147](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L147)
+Defined in: [evaluation/EvaluationAggregator.ts:147](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L147)
 
 Calculates statistical summary for a set of scores.
 
@@ -182,7 +182,7 @@ Statistical summary
 
 > **calculateDistribution**(`scores`): [`ScoreDistribution`](../type-aliases/ScoreDistribution.md)
 
-Defined in: [evaluation/EvaluationAggregator.ts:193](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L193)
+Defined in: [evaluation/EvaluationAggregator.ts:193](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L193)
 
 Calculates the distribution of scores across quality ranges.
 
@@ -206,7 +206,7 @@ Score distribution
 
 > **analyzeSequenceTrend**(`windowSize?`): [`TrendAnalysis`](../type-aliases/TrendAnalysis.md)
 
-Defined in: [evaluation/EvaluationAggregator.ts:209](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L209)
+Defined in: [evaluation/EvaluationAggregator.ts:209](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L209)
 
 Analyzes sequence-based trends in evaluation scores (based on insertion order, not time).
 
@@ -230,7 +230,7 @@ Trend analysis
 
 > **getFailingEvaluations**(`threshold?`): [`EvaluationData`](../type-aliases/EvaluationData.md)[]
 
-Defined in: [evaluation/EvaluationAggregator.ts:384](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L384)
+Defined in: [evaluation/EvaluationAggregator.ts:384](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L384)
 
 Gets evaluations that failed to meet the threshold.
 
@@ -254,7 +254,7 @@ Array of failing evaluations
 
 > **getHighAlertEvaluations**(): [`EvaluationData`](../type-aliases/EvaluationData.md)[]
 
-Defined in: [evaluation/EvaluationAggregator.ts:393](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L393)
+Defined in: [evaluation/EvaluationAggregator.ts:393](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L393)
 
 Gets evaluations with high severity alerts.
 
@@ -270,7 +270,7 @@ Array of high-alert evaluations
 
 > **getOffTopicEvaluations**(): [`EvaluationData`](../type-aliases/EvaluationData.md)[]
 
-Defined in: [evaluation/EvaluationAggregator.ts:402](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L402)
+Defined in: [evaluation/EvaluationAggregator.ts:402](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L402)
 
 Gets evaluations marked as off-topic.
 
@@ -286,7 +286,7 @@ Array of off-topic evaluations
 
 > **getTopEvaluations**(`n?`): [`EvaluationData`](../type-aliases/EvaluationData.md)[]
 
-Defined in: [evaluation/EvaluationAggregator.ts:412](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L412)
+Defined in: [evaluation/EvaluationAggregator.ts:412](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L412)
 
 Gets the top N performing evaluations.
 
@@ -310,7 +310,7 @@ Array of top evaluations
 
 > **getBottomEvaluations**(`n?`): [`EvaluationData`](../type-aliases/EvaluationData.md)[]
 
-Defined in: [evaluation/EvaluationAggregator.ts:424](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L424)
+Defined in: [evaluation/EvaluationAggregator.ts:424](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L424)
 
 Gets the bottom N performing evaluations.
 
@@ -334,7 +334,7 @@ Array of bottom evaluations
 
 > **generateSummary**(`threshold?`): `string`
 
-Defined in: [evaluation/EvaluationAggregator.ts:436](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/EvaluationAggregator.ts#L436)
+Defined in: [evaluation/EvaluationAggregator.ts:436](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/EvaluationAggregator.ts#L436)
 
 Generates a text summary of the aggregation.
 

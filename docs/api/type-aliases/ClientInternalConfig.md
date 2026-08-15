@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientInternalConfig** = `object`
 
-Defined in: [types/client.ts:1597](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1597)
+Defined in: [types/client.ts:1597](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1597)
 
 Superset internal config for SSE and WebSocket client wrappers.
 The 9 shared fields are required. Protocol-specific fields
@@ -21,7 +21,7 @@ are optional — each client populates only its own fields.
 
 > **baseUrl**: `string`
 
-Defined in: [types/client.ts:1598](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1598)
+Defined in: [types/client.ts:1598](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1598)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: [types/client.ts:1598](https://github.com/juspay/neurolink/blob/ff50
 
 > **apiKey**: `string`
 
-Defined in: [types/client.ts:1599](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1599)
+Defined in: [types/client.ts:1599](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1599)
 
 ---
 
@@ -37,7 +37,7 @@ Defined in: [types/client.ts:1599](https://github.com/juspay/neurolink/blob/ff50
 
 > **token**: `string`
 
-Defined in: [types/client.ts:1600](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1600)
+Defined in: [types/client.ts:1600](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1600)
 
 ---
 
@@ -45,7 +45,7 @@ Defined in: [types/client.ts:1600](https://github.com/juspay/neurolink/blob/ff50
 
 > **timeout**: `number`
 
-Defined in: [types/client.ts:1601](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1601)
+Defined in: [types/client.ts:1601](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1601)
 
 ---
 
@@ -53,7 +53,7 @@ Defined in: [types/client.ts:1601](https://github.com/juspay/neurolink/blob/ff50
 
 > **headers**: `Record`\<`string`, `string`\>
 
-Defined in: [types/client.ts:1602](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1602)
+Defined in: [types/client.ts:1602](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1602)
 
 ---
 
@@ -61,7 +61,7 @@ Defined in: [types/client.ts:1602](https://github.com/juspay/neurolink/blob/ff50
 
 > **autoReconnect**: `boolean`
 
-Defined in: [types/client.ts:1603](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1603)
+Defined in: [types/client.ts:1603](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1603)
 
 ---
 
@@ -69,7 +69,7 @@ Defined in: [types/client.ts:1603](https://github.com/juspay/neurolink/blob/ff50
 
 > **maxReconnectAttempts**: `number`
 
-Defined in: [types/client.ts:1604](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1604)
+Defined in: [types/client.ts:1604](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1604)
 
 ---
 
@@ -77,7 +77,7 @@ Defined in: [types/client.ts:1604](https://github.com/juspay/neurolink/blob/ff50
 
 > **reconnectDelay**: `number`
 
-Defined in: [types/client.ts:1605](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1605)
+Defined in: [types/client.ts:1605](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1605)
 
 ---
 
@@ -85,7 +85,7 @@ Defined in: [types/client.ts:1605](https://github.com/juspay/neurolink/blob/ff50
 
 > **maxReconnectDelay**: `number`
 
-Defined in: [types/client.ts:1606](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1606)
+Defined in: [types/client.ts:1606](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1606)
 
 ---
 
@@ -93,7 +93,7 @@ Defined in: [types/client.ts:1606](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **useNativeEventSource?**: `boolean`
 
-Defined in: [types/client.ts:1607](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1607)
+Defined in: [types/client.ts:1607](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1607)
 
 ---
 
@@ -101,7 +101,7 @@ Defined in: [types/client.ts:1607](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **heartbeatInterval?**: `number`
 
-Defined in: [types/client.ts:1608](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1608)
+Defined in: [types/client.ts:1608](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1608)
 
 ---
 
@@ -109,4 +109,4 @@ Defined in: [types/client.ts:1608](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **queueSize?**: `number`
 
-Defined in: [types/client.ts:1609](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1609)
+Defined in: [types/client.ts:1609](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1609)

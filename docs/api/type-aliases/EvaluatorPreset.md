@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EvaluatorPreset** = `object`
 
-Defined in: [types/evaluation.ts:553](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L553)
+Defined in: [types/evaluation.ts:548](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L548)
 
 Configuration preset for common evaluation scenarios.
 
@@ -18,7 +18,7 @@ Configuration preset for common evaluation scenarios.
 
 > **name**: `string`
 
-Defined in: [types/evaluation.ts:554](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L554)
+Defined in: [types/evaluation.ts:549](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L549)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluation.ts:554](https://github.com/juspay/neurolink/blob/f
 
 > **description**: `string`
 
-Defined in: [types/evaluation.ts:555](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L555)
+Defined in: [types/evaluation.ts:550](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L550)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/evaluation.ts:555](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **config?**: [`EvaluationConfig`](EvaluationConfig.md)
 
-Defined in: [types/evaluation.ts:556](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L556)
+Defined in: [types/evaluation.ts:551](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L551)

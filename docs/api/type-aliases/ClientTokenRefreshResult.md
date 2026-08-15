@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientTokenRefreshResult** = `object`
 
-Defined in: [types/client.ts:1112](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1112)
+Defined in: [types/client.ts:1112](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1112)
 
 Token refresh result
 
@@ -18,7 +18,7 @@ Token refresh result
 
 > **accessToken**: `string`
 
-Defined in: [types/client.ts:1114](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1114)
+Defined in: [types/client.ts:1114](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1114)
 
 Access token
 
@@ -28,7 +28,7 @@ Access token
 
 > **expiresIn**: `number`
 
-Defined in: [types/client.ts:1116](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1116)
+Defined in: [types/client.ts:1116](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1116)
 
 Token expiry time in seconds
 
@@ -38,7 +38,7 @@ Token expiry time in seconds
 
 > **tokenType**: `string`
 
-Defined in: [types/client.ts:1118](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1118)
+Defined in: [types/client.ts:1118](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1118)
 
 Token type (usually "Bearer")
 
@@ -48,7 +48,7 @@ Token type (usually "Bearer")
 
 > `optional` **refreshToken?**: `string`
 
-Defined in: [types/client.ts:1120](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1120)
+Defined in: [types/client.ts:1120](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1120)
 
 Refresh token (if provided)
 
@@ -58,6 +58,6 @@ Refresh token (if provided)
 
 > `optional` **scope?**: `string`
 
-Defined in: [types/client.ts:1122](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1122)
+Defined in: [types/client.ts:1122](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1122)
 
 OAuth2 scope (if provided)

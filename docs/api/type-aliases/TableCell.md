@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TableCell** = `object`
 
-Defined in: [types/ppt.ts:304](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L304)
+Defined in: [types/ppt.ts:304](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L304)
 
 Table cell for data tables
 Maps to: addTable cell format
@@ -19,7 +19,7 @@ Maps to: addTable cell format
 
 > **text**: `string`
 
-Defined in: [types/ppt.ts:305](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L305)
+Defined in: [types/ppt.ts:305](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L305)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/ppt.ts:305](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **isHeader?**: `boolean`
 
-Defined in: [types/ppt.ts:307](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L307)
+Defined in: [types/ppt.ts:307](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L307)
 
 Is this a header cell?
 
@@ -37,7 +37,7 @@ Is this a header cell?
 
 > `optional` **colspan?**: `number`
 
-Defined in: [types/ppt.ts:309](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L309)
+Defined in: [types/ppt.ts:309](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L309)
 
 Column span
 
@@ -47,7 +47,7 @@ Column span
 
 > `optional` **rowspan?**: `number`
 
-Defined in: [types/ppt.ts:311](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L311)
+Defined in: [types/ppt.ts:311](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L311)
 
 Row span
 
@@ -57,7 +57,7 @@ Row span
 
 > `optional` **align?**: `"left"` \| `"center"` \| `"right"`
 
-Defined in: [types/ppt.ts:313](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L313)
+Defined in: [types/ppt.ts:313](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L313)
 
 Cell alignment
 
@@ -67,6 +67,6 @@ Cell alignment
 
 > `optional` **fill?**: `string`
 
-Defined in: [types/ppt.ts:315](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L315)
+Defined in: [types/ppt.ts:315](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L315)
 
 Cell background color (hex)

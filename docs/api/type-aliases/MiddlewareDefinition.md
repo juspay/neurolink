@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MiddlewareDefinition** = `object`
 
-Defined in: [types/server.ts:467](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L467)
+Defined in: [types/server.ts:467](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L467)
 
 Middleware definition
 
@@ -18,7 +18,7 @@ Middleware definition
 
 > **name**: `string`
 
-Defined in: [types/server.ts:469](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L469)
+Defined in: [types/server.ts:469](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L469)
 
 Middleware name
 
@@ -28,7 +28,7 @@ Middleware name
 
 > `optional` **order?**: `number`
 
-Defined in: [types/server.ts:472](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L472)
+Defined in: [types/server.ts:472](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L472)
 
 Execution order (lower = earlier)
 
@@ -38,7 +38,7 @@ Execution order (lower = earlier)
 
 > **handler**: [`MiddlewareHandler`](MiddlewareHandler.md)
 
-Defined in: [types/server.ts:475](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L475)
+Defined in: [types/server.ts:475](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L475)
 
 Middleware handler
 
@@ -48,7 +48,7 @@ Middleware handler
 
 > `optional` **paths?**: `string`[]
 
-Defined in: [types/server.ts:478](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L478)
+Defined in: [types/server.ts:478](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L478)
 
 Paths to apply middleware to (default: all)
 
@@ -58,6 +58,6 @@ Paths to apply middleware to (default: all)
 
 > `optional` **excludePaths?**: `string`[]
 
-Defined in: [types/server.ts:481](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L481)
+Defined in: [types/server.ts:481](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L481)
 
 Paths to exclude from middleware

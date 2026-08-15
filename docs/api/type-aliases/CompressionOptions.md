@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CompressionOptions** = `object`
 
-Defined in: [types/multimodal.ts:679](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L679)
+Defined in: [types/multimodal.ts:782](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L782)
 
 Options consumed by compressImage().
 
@@ -18,7 +18,7 @@ Options consumed by compressImage().
 
 > **provider**: [`ProviderName`](ProviderName.md)
 
-Defined in: [types/multimodal.ts:680](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L680)
+Defined in: [types/multimodal.ts:783](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L783)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/multimodal.ts:680](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **quality?**: `number`
 
-Defined in: [types/multimodal.ts:681](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L681)
+Defined in: [types/multimodal.ts:784](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L784)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/multimodal.ts:681](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **maxDimension?**: `number`
 
-Defined in: [types/multimodal.ts:682](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L682)
+Defined in: [types/multimodal.ts:785](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L785)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/multimodal.ts:682](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **format?**: [`SupportedFormat`](SupportedFormat.md)
 
-Defined in: [types/multimodal.ts:683](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L683)
+Defined in: [types/multimodal.ts:786](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L786)

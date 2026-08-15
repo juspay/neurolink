@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileDetectorOptions** = `object`
 
-Defined in: [types/file.ts:349](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L349)
+Defined in: [types/file.ts:507](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L507)
 
 File detector options
 
@@ -18,7 +18,7 @@ File detector options
 
 > `optional` **maxSize?**: `number`
 
-Defined in: [types/file.ts:350](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L350)
+Defined in: [types/file.ts:508](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L508)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:350](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/file.ts:351](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L351)
+Defined in: [types/file.ts:509](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L509)
 
 ---
 
@@ -34,7 +34,23 @@ Defined in: [types/file.ts:351](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **allowedTypes?**: [`FileType`](FileType.md)[]
 
-Defined in: [types/file.ts:352](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L352)
+Defined in: [types/file.ts:510](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L510)
+
+---
+
+### allowedBaseDir?
+
+> `optional` **allowedBaseDir?**: `string`
+
+Defined in: [types/file.ts:520](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L520)
+
+When set, local file paths must resolve inside this base directory;
+anything that escapes it (absolute path, `../` traversal, or a symlink
+pointing outside) is rejected. Containment is enforced on the real,
+symlink-resolved path of both the base dir and the target, so a symlink
+inside the base cannot be used to reach a file outside it. Servers that
+accept file paths from untrusted callers should set this to sandbox
+filesystem access; SDK callers loading their own files can omit it.
 
 ---
 
@@ -42,7 +58,7 @@ Defined in: [types/file.ts:352](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **audioOptions?**: [`AudioProcessorOptions`](AudioProcessorOptions.md)
 
-Defined in: [types/file.ts:353](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L353)
+Defined in: [types/file.ts:521](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L521)
 
 ---
 
@@ -50,7 +66,7 @@ Defined in: [types/file.ts:353](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **csvOptions?**: [`CSVProcessorOptions`](CSVProcessorOptions.md)
 
-Defined in: [types/file.ts:354](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L354)
+Defined in: [types/file.ts:522](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L522)
 
 ---
 
@@ -58,7 +74,15 @@ Defined in: [types/file.ts:354](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **officeOptions?**: [`OfficeProcessorOptions`](OfficeProcessorOptions.md)
 
-Defined in: [types/file.ts:355](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L355)
+Defined in: [types/file.ts:523](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L523)
+
+---
+
+### videoOptions?
+
+> `optional` **videoOptions?**: [`VideoProcessorOptions`](VideoProcessorOptions.md)
+
+Defined in: [types/file.ts:524](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L524)
 
 ---
 
@@ -66,7 +90,7 @@ Defined in: [types/file.ts:355](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **confidenceThreshold?**: `number`
 
-Defined in: [types/file.ts:356](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L356)
+Defined in: [types/file.ts:525](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L525)
 
 ---
 
@@ -74,7 +98,7 @@ Defined in: [types/file.ts:356](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/file.ts:357](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L357)
+Defined in: [types/file.ts:526](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L526)
 
 ---
 
@@ -82,7 +106,7 @@ Defined in: [types/file.ts:357](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/file.ts:359](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L359)
+Defined in: [types/file.ts:528](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L528)
 
 Maximum number of retry attempts for network requests (default: 3)
 
@@ -92,7 +116,7 @@ Maximum number of retry attempts for network requests (default: 3)
 
 > `optional` **retryDelay?**: `number`
 
-Defined in: [types/file.ts:361](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L361)
+Defined in: [types/file.ts:530](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L530)
 
 Initial retry delay in milliseconds with exponential backoff (default: 1000)
 
@@ -102,7 +126,7 @@ Initial retry delay in milliseconds with exponential backoff (default: 1000)
 
 > `optional` **mimetypeHint?**: `string`
 
-Defined in: [types/file.ts:371](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L371)
+Defined in: [types/file.ts:540](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L540)
 
 Caller-provided MIME type hint (e.g. "text/plain", "application/json").
 Used when the filename has no extension and magic-byte detection cannot
@@ -111,3 +135,20 @@ case. When set to a trustworthy mimetype (not "application/octet-stream"),
 it short-circuits the detection strategy loop with a high-confidence
 result so small files on the eager file-processing path still honor the
 hint (the lazy FileReferenceRegistry path has its own hint-handling).
+
+---
+
+### filenameHint?
+
+> `optional` **filenameHint?**: `string`
+
+Defined in: [types/file.ts:551](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L551)
+
+Caller-provided filename hint, the companion to [mimetypeHint](#mimetypehint).
+
+The unified file path unwraps a `FileWithMetadata` to its `buffer` before
+detection runs, so the object's `filename` is gone by the time extension
+resolution looks for one — and TAR in particular cannot be identified any
+other way, because its "ustar" marker sits at byte 257 rather than at
+offset 0. Passing the name alongside the bytes keeps `.odp`, `.rtf` and
+`.tar` routed to the processors that can actually read them.

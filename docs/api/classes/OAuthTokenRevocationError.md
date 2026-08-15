@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: OAuthTokenRevocationError
 
-Defined in: [types/errors.ts:135](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L135)
+Defined in: [types/errors.ts:178](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L178)
 
 Thrown when token revocation fails
 
@@ -20,7 +20,7 @@ Thrown when token revocation fails
 
 > **new OAuthTokenRevocationError**(`message`, `statusCode?`): `OAuthTokenRevocationError`
 
-Defined in: [types/errors.ts:136](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L136)
+Defined in: [types/errors.ts:179](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L179)
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [types/errors.ts:136](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **code?**: `string`
 
-Defined in: [types/errors.ts:79](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L79)
+Defined in: [types/errors.ts:122](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L122)
 
 #### Inherited from
 
@@ -58,4 +58,4 @@ Defined in: [types/errors.ts:79](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **statusCode?**: `number`
 
-Defined in: [types/errors.ts:138](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L138)
+Defined in: [types/errors.ts:181](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L181)

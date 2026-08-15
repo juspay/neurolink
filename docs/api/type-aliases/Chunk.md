@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **Chunk** = `object`
 
-Defined in: [types/rag.ts:762](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L762)
+Defined in: [types/rag.ts:806](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L806)
 
 Base chunk result with text and metadata
 
@@ -18,7 +18,7 @@ Base chunk result with text and metadata
 
 > **id**: `string`
 
-Defined in: [types/rag.ts:764](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L764)
+Defined in: [types/rag.ts:808](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L808)
 
 Unique identifier for the chunk
 
@@ -28,7 +28,7 @@ Unique identifier for the chunk
 
 > **text**: `string`
 
-Defined in: [types/rag.ts:766](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L766)
+Defined in: [types/rag.ts:810](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L810)
 
 The text content of the chunk
 
@@ -38,7 +38,7 @@ The text content of the chunk
 
 > **metadata**: [`ChunkMetadata`](ChunkMetadata.md)
 
-Defined in: [types/rag.ts:768](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L768)
+Defined in: [types/rag.ts:812](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L812)
 
 Metadata associated with the chunk
 
@@ -48,6 +48,6 @@ Metadata associated with the chunk
 
 > `optional` **embedding?**: `number`[]
 
-Defined in: [types/rag.ts:770](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L770)
+Defined in: [types/rag.ts:814](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L814)
 
 Optional embedding vector (populated after embedding)

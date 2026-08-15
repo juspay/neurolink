@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ImageGenToolParams** = `object`
 
-Defined in: [types/imageGen.ts:234](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/imageGen.ts#L234)
+Defined in: [types/imageGen.ts:234](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/imageGen.ts#L234)
 
 Tool parameters for AI model use
 
@@ -18,7 +18,7 @@ Tool parameters for AI model use
 
 > **prompt**: `string`
 
-Defined in: [types/imageGen.ts:238](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/imageGen.ts#L238)
+Defined in: [types/imageGen.ts:238](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/imageGen.ts#L238)
 
 Detailed description of the image to generate
 
@@ -28,7 +28,7 @@ Detailed description of the image to generate
 
 > `optional` **negativePrompt?**: `string`
 
-Defined in: [types/imageGen.ts:243](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/imageGen.ts#L243)
+Defined in: [types/imageGen.ts:243](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/imageGen.ts#L243)
 
 What to avoid in the generated image (optional)
 
@@ -38,7 +38,7 @@ What to avoid in the generated image (optional)
 
 > `optional` **aspectRatio?**: [`AspectRatio`](AspectRatio.md) \| `string`
 
-Defined in: [types/imageGen.ts:248](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/imageGen.ts#L248)
+Defined in: [types/imageGen.ts:248](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/imageGen.ts#L248)
 
 Aspect ratio like "16:9", "1:1", "4:3" (optional)
 
@@ -48,6 +48,6 @@ Aspect ratio like "16:9", "1:1", "4:3" (optional)
 
 > `optional` **style?**: [`StylePreset`](StylePreset.md) \| `string`
 
-Defined in: [types/imageGen.ts:253](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/imageGen.ts#L253)
+Defined in: [types/imageGen.ts:253](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/imageGen.ts#L253)
 
 Style like "realistic", "artistic", "cartoon" (optional)

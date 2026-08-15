@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SanitizeFileNameOptions** = `object`
 
-Defined in: [types/file.ts:422](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L422)
+Defined in: [types/file.ts:662](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L662)
 
 Options for filename sanitization.
 
@@ -18,7 +18,7 @@ Options for filename sanitization.
 
 > `optional` **maxLength?**: `number`
 
-Defined in: [types/file.ts:424](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L424)
+Defined in: [types/file.ts:664](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L664)
 
 Maximum length for the filename (default: 255)
 
@@ -28,7 +28,7 @@ Maximum length for the filename (default: 255)
 
 > `optional` **replacement?**: `string`
 
-Defined in: [types/file.ts:426](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L426)
+Defined in: [types/file.ts:666](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L666)
 
 Replacement character for invalid chars (default: '\_')
 
@@ -38,7 +38,7 @@ Replacement character for invalid chars (default: '\_')
 
 > `optional` **blockDangerousExtensions?**: `boolean`
 
-Defined in: [types/file.ts:428](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L428)
+Defined in: [types/file.ts:668](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L668)
 
 Whether to block dangerous extensions (default: true)
 
@@ -48,6 +48,6 @@ Whether to block dangerous extensions (default: true)
 
 > `optional` **allowHiddenFiles?**: `boolean`
 
-Defined in: [types/file.ts:430](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L430)
+Defined in: [types/file.ts:670](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L670)
 
 Whether to allow hidden files starting with dot (default: false)

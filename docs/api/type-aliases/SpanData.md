@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SpanData** = `object`
 
-Defined in: [types/span.ts:184](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L184)
+Defined in: [types/span.ts:184](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L184)
 
 Complete span data structure
 
@@ -18,7 +18,7 @@ Complete span data structure
 
 > **spanId**: `string`
 
-Defined in: [types/span.ts:186](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L186)
+Defined in: [types/span.ts:186](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L186)
 
 Unique span identifier
 
@@ -28,7 +28,7 @@ Unique span identifier
 
 > **traceId**: `string`
 
-Defined in: [types/span.ts:188](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L188)
+Defined in: [types/span.ts:188](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L188)
 
 Trace identifier for distributed tracing
 
@@ -38,7 +38,7 @@ Trace identifier for distributed tracing
 
 > `optional` **parentSpanId?**: `string`
 
-Defined in: [types/span.ts:190](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L190)
+Defined in: [types/span.ts:190](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L190)
 
 Parent span ID for nested operations
 
@@ -48,7 +48,7 @@ Parent span ID for nested operations
 
 > **type**: [`SpanType`](../enumerations/SpanType.md)
 
-Defined in: [types/span.ts:192](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L192)
+Defined in: [types/span.ts:192](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L192)
 
 Span type category
 
@@ -58,7 +58,7 @@ Span type category
 
 > **name**: `string`
 
-Defined in: [types/span.ts:194](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L194)
+Defined in: [types/span.ts:194](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L194)
 
 Human-readable span name
 
@@ -68,7 +68,7 @@ Human-readable span name
 
 > **startTime**: `string`
 
-Defined in: [types/span.ts:196](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L196)
+Defined in: [types/span.ts:196](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L196)
 
 Start timestamp (ISO 8601)
 
@@ -78,7 +78,7 @@ Start timestamp (ISO 8601)
 
 > `optional` **endTime?**: `string`
 
-Defined in: [types/span.ts:198](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L198)
+Defined in: [types/span.ts:198](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L198)
 
 End timestamp (ISO 8601)
 
@@ -88,7 +88,7 @@ End timestamp (ISO 8601)
 
 > `optional` **durationMs?**: `number`
 
-Defined in: [types/span.ts:200](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L200)
+Defined in: [types/span.ts:200](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L200)
 
 Duration in milliseconds
 
@@ -98,7 +98,7 @@ Duration in milliseconds
 
 > **status**: [`SpanStatus`](../enumerations/SpanStatus.md)
 
-Defined in: [types/span.ts:202](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L202)
+Defined in: [types/span.ts:202](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L202)
 
 Span status
 
@@ -108,7 +108,7 @@ Span status
 
 > `optional` **statusMessage?**: `string`
 
-Defined in: [types/span.ts:204](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L204)
+Defined in: [types/span.ts:204](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L204)
 
 Status message (for errors)
 
@@ -118,7 +118,7 @@ Status message (for errors)
 
 > **attributes**: [`SpanAttributes`](SpanAttributes.md)
 
-Defined in: [types/span.ts:206](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L206)
+Defined in: [types/span.ts:206](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L206)
 
 Span attributes/tags
 
@@ -128,7 +128,7 @@ Span attributes/tags
 
 > **events**: [`SpanEvent`](SpanEvent.md)[]
 
-Defined in: [types/span.ts:208](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L208)
+Defined in: [types/span.ts:208](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L208)
 
 Events within the span
 
@@ -138,6 +138,6 @@ Events within the span
 
 > **links**: [`SpanLink`](SpanLink.md)[]
 
-Defined in: [types/span.ts:210](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L210)
+Defined in: [types/span.ts:210](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L210)
 
 Links to related spans

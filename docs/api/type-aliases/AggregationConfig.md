@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AggregationConfig** = `object`
 
-Defined in: [types/scorer.ts:363](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L363)
+Defined in: [types/scorer.ts:363](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L363)
 
 Aggregation configuration
 
@@ -18,7 +18,7 @@ Aggregation configuration
 
 > **method**: [`AggregationMethod`](AggregationMethod.md)
 
-Defined in: [types/scorer.ts:365](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L365)
+Defined in: [types/scorer.ts:365](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L365)
 
 Aggregation method
 
@@ -28,7 +28,7 @@ Aggregation method
 
 > `optional` **weights?**: `Record`\<`string`, `number`\>
 
-Defined in: [types/scorer.ts:367](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L367)
+Defined in: [types/scorer.ts:367](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L367)
 
 Weights for weighted aggregation
 
@@ -38,7 +38,7 @@ Weights for weighted aggregation
 
 > `optional` **customFn?**: (`scores`) => `number`
 
-Defined in: [types/scorer.ts:369](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L369)
+Defined in: [types/scorer.ts:369](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L369)
 
 Custom aggregation function
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EnhancedSearchResult** = `object`
 
-Defined in: [types/grounding.ts:102](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L102)
+Defined in: [types/grounding.ts:102](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/grounding.ts#L102)
 
 Represents a search result returned from web search grounding.
 Contains the essential information from a web search result that
@@ -30,7 +30,7 @@ const result: EnhancedSearchResult = {
 
 > **uri**: `string`
 
-Defined in: [types/grounding.ts:104](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L104)
+Defined in: [types/grounding.ts:104](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/grounding.ts#L104)
 
 The full URI/URL of the search result
 
@@ -40,7 +40,7 @@ The full URI/URL of the search result
 
 > **title**: `string`
 
-Defined in: [types/grounding.ts:106](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L106)
+Defined in: [types/grounding.ts:106](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/grounding.ts#L106)
 
 The title of the search result page
 
@@ -50,6 +50,6 @@ The title of the search result page
 
 > `optional` **snippet?**: `string`
 
-Defined in: [types/grounding.ts:108](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L108)
+Defined in: [types/grounding.ts:108](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/grounding.ts#L108)
 
 Optional text snippet from the search result showing relevant content

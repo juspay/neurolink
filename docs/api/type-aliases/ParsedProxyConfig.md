@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ParsedProxyConfig** = `object`
 
-Defined in: [types/utilities.ts:51](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L51)
+Defined in: [types/utilities.ts:51](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L51)
 
 Parsed proxy configuration
 
@@ -18,7 +18,7 @@ Parsed proxy configuration
 
 > **protocol**: `string`
 
-Defined in: [types/utilities.ts:52](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L52)
+Defined in: [types/utilities.ts:52](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L52)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/utilities.ts:52](https://github.com/juspay/neurolink/blob/ff5
 
 > **hostname**: `string`
 
-Defined in: [types/utilities.ts:53](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L53)
+Defined in: [types/utilities.ts:53](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L53)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/utilities.ts:53](https://github.com/juspay/neurolink/blob/ff5
 
 > **port**: `number`
 
-Defined in: [types/utilities.ts:54](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L54)
+Defined in: [types/utilities.ts:54](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L54)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/utilities.ts:54](https://github.com/juspay/neurolink/blob/ff5
 
 > `optional` **auth?**: `object`
 
-Defined in: [types/utilities.ts:55](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L55)
+Defined in: [types/utilities.ts:55](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L55)
 
 #### username
 
@@ -58,4 +58,4 @@ Defined in: [types/utilities.ts:55](https://github.com/juspay/neurolink/blob/ff5
 
 > **cleanUrl**: `string`
 
-Defined in: [types/utilities.ts:59](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L59)
+Defined in: [types/utilities.ts:59](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L59)

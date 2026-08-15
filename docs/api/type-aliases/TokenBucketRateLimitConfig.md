@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TokenBucketRateLimitConfig** = `object`
 
-Defined in: [types/mcp.ts:929](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L929)
+Defined in: [types/mcp.ts:929](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L929)
 
 Token bucket rate limit configuration options for HTTP transport
 
@@ -18,7 +18,7 @@ Token bucket rate limit configuration options for HTTP transport
 
 > **requestsPerWindow**: `number`
 
-Defined in: [types/mcp.ts:931](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L931)
+Defined in: [types/mcp.ts:931](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L931)
 
 Maximum requests per window
 
@@ -28,7 +28,7 @@ Maximum requests per window
 
 > **windowMs**: `number`
 
-Defined in: [types/mcp.ts:933](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L933)
+Defined in: [types/mcp.ts:933](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L933)
 
 Window size in milliseconds (default: 60000 = 1 minute)
 
@@ -38,7 +38,7 @@ Window size in milliseconds (default: 60000 = 1 minute)
 
 > **useTokenBucket**: `boolean`
 
-Defined in: [types/mcp.ts:935](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L935)
+Defined in: [types/mcp.ts:935](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L935)
 
 Use token bucket algorithm (default: true)
 
@@ -48,7 +48,7 @@ Use token bucket algorithm (default: true)
 
 > **refillRate**: `number`
 
-Defined in: [types/mcp.ts:937](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L937)
+Defined in: [types/mcp.ts:937](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L937)
 
 Token refill rate (tokens per second, for token bucket)
 
@@ -58,6 +58,6 @@ Token refill rate (tokens per second, for token bucket)
 
 > **maxBurst**: `number`
 
-Defined in: [types/mcp.ts:939](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L939)
+Defined in: [types/mcp.ts:939](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L939)
 
 Maximum burst size (for token bucket)

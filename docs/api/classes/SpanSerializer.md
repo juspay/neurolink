@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: SpanSerializer
 
-Defined in: [observability/utils/spanSerializer.ts:22](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L22)
+Defined in: [observability/utils/spanSerializer.ts:22](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L22)
 
 Utility class for span creation and serialization
 
@@ -26,7 +26,7 @@ Utility class for span creation and serialization
 
 > `static` **createSpan**(`type`, `name`, `attributes?`, `parentSpanId?`, `traceId?`): [`SpanData`](../type-aliases/SpanData.md)
 
-Defined in: [observability/utils/spanSerializer.ts:30](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L30)
+Defined in: [observability/utils/spanSerializer.ts:30](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L30)
 
 Create a new span with generated IDs.
 
@@ -66,7 +66,7 @@ spans land inside the same Langfuse trace as Pipeline A spans (fix A5).
 
 > `static` **endSpan**(`span`, `status?`, `statusMessage?`): [`SpanData`](../type-aliases/SpanData.md)
 
-Defined in: [observability/utils/spanSerializer.ts:65](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L65)
+Defined in: [observability/utils/spanSerializer.ts:65](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L65)
 
 End a span with status
 
@@ -94,7 +94,7 @@ End a span with status
 
 > `static` **addEvent**(`span`, `name`, `attributes?`): [`SpanData`](../type-aliases/SpanData.md)
 
-Defined in: [observability/utils/spanSerializer.ts:85](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L85)
+Defined in: [observability/utils/spanSerializer.ts:85](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L85)
 
 Add event to span
 
@@ -122,7 +122,7 @@ Add event to span
 
 > `static` **updateAttributes**(`span`, `attributes`): [`SpanData`](../type-aliases/SpanData.md)
 
-Defined in: [observability/utils/spanSerializer.ts:105](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L105)
+Defined in: [observability/utils/spanSerializer.ts:105](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L105)
 
 Update span attributes
 
@@ -146,7 +146,7 @@ Update span attributes
 
 > `static` **toJSON**(`span`): `string`
 
-Defined in: [observability/utils/spanSerializer.ts:121](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L121)
+Defined in: [observability/utils/spanSerializer.ts:121](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L121)
 
 Serialize span to JSON for export
 
@@ -166,7 +166,7 @@ Serialize span to JSON for export
 
 > `static` **fromJSON**(`json`): [`SpanData`](../type-aliases/SpanData.md)
 
-Defined in: [observability/utils/spanSerializer.ts:146](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L146)
+Defined in: [observability/utils/spanSerializer.ts:146](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L146)
 
 Parse span from JSON
 
@@ -186,7 +186,7 @@ Parse span from JSON
 
 > `static` **toLangfuseFormat**(`span`): [`LangfuseSpan`](../type-aliases/LangfuseSpan.md)
 
-Defined in: [observability/utils/spanSerializer.ts:153](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L153)
+Defined in: [observability/utils/spanSerializer.ts:153](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L153)
 
 Serialize span for Langfuse format
 
@@ -206,7 +206,7 @@ Serialize span for Langfuse format
 
 > `static` **toLangSmithFormat**(`span`): [`LangSmithRun`](../type-aliases/LangSmithRun.md)
 
-Defined in: [observability/utils/spanSerializer.ts:189](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L189)
+Defined in: [observability/utils/spanSerializer.ts:189](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L189)
 
 Serialize span for LangSmith format
 
@@ -226,7 +226,7 @@ Serialize span for LangSmith format
 
 > `static` **toOtelFormat**(`span`): [`OtelSpan`](../type-aliases/OtelSpan.md)
 
-Defined in: [observability/utils/spanSerializer.ts:209](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L209)
+Defined in: [observability/utils/spanSerializer.ts:209](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L209)
 
 Serialize span for OpenTelemetry format
 
@@ -246,7 +246,7 @@ Serialize span for OpenTelemetry format
 
 > `static` **createGenerationSpan**(`params`): [`SpanData`](../type-aliases/SpanData.md)
 
-Defined in: [observability/utils/spanSerializer.ts:320](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L320)
+Defined in: [observability/utils/spanSerializer.ts:320](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L320)
 
 Create a generation span with AI-specific attributes
 
@@ -304,7 +304,7 @@ Create a generation span with AI-specific attributes
 
 > `static` **createToolCallSpan**(`params`): [`SpanData`](../type-aliases/SpanData.md)
 
-Defined in: [observability/utils/spanSerializer.ts:352](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L352)
+Defined in: [observability/utils/spanSerializer.ts:352](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L352)
 
 Create a tool call span
 
@@ -342,7 +342,7 @@ Create a tool call span
 
 > `static` **enrichWithTokenUsage**(`span`, `usage`): [`SpanData`](../type-aliases/SpanData.md)
 
-Defined in: [observability/utils/spanSerializer.ts:375](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L375)
+Defined in: [observability/utils/spanSerializer.ts:375](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L375)
 
 Enrich span with token usage
 
@@ -388,7 +388,7 @@ Enrich span with token usage
 
 > `static` **enrichWithCost**(`span`, `cost`): [`SpanData`](../type-aliases/SpanData.md)
 
-Defined in: [observability/utils/spanSerializer.ts:401](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L401)
+Defined in: [observability/utils/spanSerializer.ts:401](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L401)
 
 Enrich span with cost information
 
@@ -426,7 +426,7 @@ Enrich span with cost information
 
 > **serialize**(`span`): `string`
 
-Defined in: [observability/utils/spanSerializer.ts:130](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L130)
+Defined in: [observability/utils/spanSerializer.ts:130](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L130)
 
 Instance method to serialize a span object to JSON string
 
@@ -450,7 +450,7 @@ JSON string representation of the span
 
 > **deserialize**(`json`): [`SpanData`](../type-aliases/SpanData.md)
 
-Defined in: [observability/utils/spanSerializer.ts:139](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/utils/spanSerializer.ts#L139)
+Defined in: [observability/utils/spanSerializer.ts:139](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/observability/utils/spanSerializer.ts#L139)
 
 Instance method to deserialize a JSON string to span data
 

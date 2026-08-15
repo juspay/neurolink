@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ConfigManager
 
-Defined in: [config/configManager.ts:25](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/config/configManager.ts#L25)
+Defined in: [config/configManager.ts:25](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/config/configManager.ts#L25)
 
 Enhanced Config Manager with automatic backup/restore capabilities
 
@@ -26,7 +26,7 @@ Enhanced Config Manager with automatic backup/restore capabilities
 
 > **loadConfig**(): `Promise`\<[`NeuroLinkConfig`](../type-aliases/NeuroLinkConfig.md)\>
 
-Defined in: [config/configManager.ts:37](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/config/configManager.ts#L37)
+Defined in: [config/configManager.ts:37](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/config/configManager.ts#L37)
 
 Load configuration with caching
 
@@ -40,7 +40,7 @@ Load configuration with caching
 
 > **updateConfig**(`updates`, `options?`): `Promise`\<`void`\>
 
-Defined in: [config/configManager.ts:47](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/config/configManager.ts#L47)
+Defined in: [config/configManager.ts:47](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/config/configManager.ts#L47)
 
 Update configuration with automatic backup
 
@@ -64,7 +64,7 @@ Update configuration with automatic backup
 
 > **createBackup**(`reason?`): `Promise`\<`string`\>
 
-Defined in: [config/configManager.ts:107](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/config/configManager.ts#L107)
+Defined in: [config/configManager.ts:107](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/config/configManager.ts#L107)
 
 Create a backup with metadata
 
@@ -84,7 +84,7 @@ Create a backup with metadata
 
 > **listBackups**(): `Promise`\<[`BackupInfo`](../type-aliases/BackupInfo.md)[]\>
 
-Defined in: [config/configManager.ts:141](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/config/configManager.ts#L141)
+Defined in: [config/configManager.ts:141](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/config/configManager.ts#L141)
 
 List all available backups
 
@@ -98,7 +98,7 @@ List all available backups
 
 > **restoreFromBackup**(`backupFilename`): `Promise`\<`void`\>
 
-Defined in: [config/configManager.ts:185](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/config/configManager.ts#L185)
+Defined in: [config/configManager.ts:185](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/config/configManager.ts#L185)
 
 Restore from specific backup
 
@@ -118,7 +118,7 @@ Restore from specific backup
 
 > **restoreLatestBackup**(): `Promise`\<`void`\>
 
-Defined in: [config/configManager.ts:218](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/config/configManager.ts#L218)
+Defined in: [config/configManager.ts:218](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/config/configManager.ts#L218)
 
 Restore from latest backup
 
@@ -132,7 +132,7 @@ Restore from latest backup
 
 > **cleanupOldBackups**(`keepCount?`): `Promise`\<`void`\>
 
-Defined in: [config/configManager.ts:230](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/config/configManager.ts#L230)
+Defined in: [config/configManager.ts:230](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/config/configManager.ts#L230)
 
 Clean up old backups
 
@@ -152,7 +152,7 @@ Clean up old backups
 
 > **updateProviderStatus**(`providerId`, `status`): `Promise`\<`void`\>
 
-Defined in: [config/configManager.ts:250](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/config/configManager.ts#L250)
+Defined in: [config/configManager.ts:250](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/config/configManager.ts#L250)
 
 Update provider status
 
@@ -176,7 +176,7 @@ Update provider status
 
 > **validateConfig**(`config`): `Promise`\<[`ConfigValidationResult`](../type-aliases/ConfigValidationResult.md)\>
 
-Defined in: [config/configManager.ts:274](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/config/configManager.ts#L274)
+Defined in: [config/configManager.ts:274](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/config/configManager.ts#L274)
 
 Validate configuration
 
@@ -196,7 +196,7 @@ Validate configuration
 
 > **generateDefaultConfig**(): `Promise`\<[`NeuroLinkConfig`](../type-aliases/NeuroLinkConfig.md)\>
 
-Defined in: [config/configManager.ts:326](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/config/configManager.ts#L326)
+Defined in: [config/configManager.ts:326](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/config/configManager.ts#L326)
 
 Generate default configuration
 

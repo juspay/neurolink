@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **NeuroLinkExecutable** = `object`
 
-Defined in: [types/task.ts:295](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L295)
+Defined in: [types/task.ts:295](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L295)
 
 Minimal interface for the NeuroLink SDK methods needed by TaskExecutor
 
@@ -18,7 +18,7 @@ Minimal interface for the NeuroLink SDK methods needed by TaskExecutor
 
 > **generate**(`optionsOrPrompt`): `Promise`\<\{ `content`: `string`; `toolExecutions?`: `object`[]; `usage?`: \{ `input?`: `number`; `output?`: `number`; \}; \}\>
 
-Defined in: [types/task.ts:296](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L296)
+Defined in: [types/task.ts:296](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L296)
 
 #### Parameters
 

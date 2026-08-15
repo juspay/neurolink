@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ObservabilityHooks
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:19](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/hooks/observabilityHooks.ts#L19)
+Defined in: [evaluation/hooks/observabilityHooks.ts:19](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/hooks/observabilityHooks.ts#L19)
 
 Observability hooks manager
 
@@ -28,7 +28,7 @@ Observability hooks manager
 
 > **get** **enabled**(): `boolean`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:31](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/hooks/observabilityHooks.ts#L31)
+Defined in: [evaluation/hooks/observabilityHooks.ts:31](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/hooks/observabilityHooks.ts#L31)
 
 ##### Returns
 
@@ -38,7 +38,7 @@ Defined in: [evaluation/hooks/observabilityHooks.ts:31](https://github.com/juspa
 
 > **set** **enabled**(`value`): `void`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:27](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/hooks/observabilityHooks.ts#L27)
+Defined in: [evaluation/hooks/observabilityHooks.ts:27](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/hooks/observabilityHooks.ts#L27)
 
 Enable/disable observability
 
@@ -58,7 +58,7 @@ Enable/disable observability
 
 > **setTraceContext**(`context`): `void`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:38](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/hooks/observabilityHooks.ts#L38)
+Defined in: [evaluation/hooks/observabilityHooks.ts:38](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/hooks/observabilityHooks.ts#L38)
 
 Set trace context for all events
 
@@ -78,7 +78,7 @@ Set trace context for all events
 
 > **clearTraceContext**(): `void`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:45](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/hooks/observabilityHooks.ts#L45)
+Defined in: [evaluation/hooks/observabilityHooks.ts:45](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/hooks/observabilityHooks.ts#L45)
 
 Clear trace context
 
@@ -92,7 +92,7 @@ Clear trace context
 
 > **getTraceContext**(): [`EvaluationTraceContext`](../type-aliases/EvaluationTraceContext.md) \| `undefined`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:52](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/hooks/observabilityHooks.ts#L52)
+Defined in: [evaluation/hooks/observabilityHooks.ts:52](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/hooks/observabilityHooks.ts#L52)
 
 Get current trace context
 
@@ -106,7 +106,7 @@ Get current trace context
 
 > **on**\<`K`\>(`event`, `handler`): () => `void`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:59](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/hooks/observabilityHooks.ts#L59)
+Defined in: [evaluation/hooks/observabilityHooks.ts:59](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/hooks/observabilityHooks.ts#L59)
 
 Register an event handler
 
@@ -136,7 +136,7 @@ Register an event handler
 
 > **off**\<`K`\>(`event`, `handler`): `void`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:80](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/hooks/observabilityHooks.ts#L80)
+Defined in: [evaluation/hooks/observabilityHooks.ts:80](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/hooks/observabilityHooks.ts#L80)
 
 Remove an event handler
 
@@ -166,7 +166,7 @@ Remove an event handler
 
 > **emit**\<`K`\>(`event`, `data`): `Promise`\<`void`\>
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:90](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/hooks/observabilityHooks.ts#L90)
+Defined in: [evaluation/hooks/observabilityHooks.ts:90](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/hooks/observabilityHooks.ts#L90)
 
 Emit an event
 
@@ -196,7 +196,7 @@ Emit an event
 
 > **clear**(): `void`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:132](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/hooks/observabilityHooks.ts#L132)
+Defined in: [evaluation/hooks/observabilityHooks.ts:132](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/hooks/observabilityHooks.ts#L132)
 
 Clear all handlers
 
@@ -210,7 +210,7 @@ Clear all handlers
 
 > **listenerCount**(`event`): `number`
 
-Defined in: [evaluation/hooks/observabilityHooks.ts:139](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/hooks/observabilityHooks.ts#L139)
+Defined in: [evaluation/hooks/observabilityHooks.ts:139](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/evaluation/hooks/observabilityHooks.ts#L139)
 
 Get handler count for an event
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BackupInfo** = `object`
 
-Defined in: [types/config.ts:305](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L305)
+Defined in: [types/config.ts:429](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L429)
 
 Backup metadata information
 
@@ -18,7 +18,7 @@ Backup metadata information
 
 > **filename**: `string`
 
-Defined in: [types/config.ts:306](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L306)
+Defined in: [types/config.ts:430](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L430)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/config.ts:306](https://github.com/juspay/neurolink/blob/ff50c
 
 > **path**: `string`
 
-Defined in: [types/config.ts:307](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L307)
+Defined in: [types/config.ts:431](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L431)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/config.ts:307](https://github.com/juspay/neurolink/blob/ff50c
 
 > **metadata**: [`BackupMetadata`](BackupMetadata.md)
 
-Defined in: [types/config.ts:308](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L308)
+Defined in: [types/config.ts:432](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L432)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/config.ts:308](https://github.com/juspay/neurolink/blob/ff50c
 
 > **config**: [`NeuroLinkConfig`](NeuroLinkConfig.md)
 
-Defined in: [types/config.ts:309](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L309)
+Defined in: [types/config.ts:433](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L433)

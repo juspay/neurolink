@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RAGCircuitBreakerStats** = `object`
 
-Defined in: [types/rag.ts:206](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L206)
+Defined in: [types/rag.ts:208](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L208)
 
 Circuit breaker statistics
 
@@ -18,7 +18,7 @@ Circuit breaker statistics
 
 > **state**: [`CircuitState`](CircuitState.md)
 
-Defined in: [types/rag.ts:207](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L207)
+Defined in: [types/rag.ts:209](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L209)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/rag.ts:207](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **totalCalls**: `number`
 
-Defined in: [types/rag.ts:208](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L208)
+Defined in: [types/rag.ts:210](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L210)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/rag.ts:208](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **successfulCalls**: `number`
 
-Defined in: [types/rag.ts:209](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L209)
+Defined in: [types/rag.ts:211](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L211)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/rag.ts:209](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **failedCalls**: `number`
 
-Defined in: [types/rag.ts:210](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L210)
+Defined in: [types/rag.ts:212](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L212)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/rag.ts:210](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **failureRate**: `number`
 
-Defined in: [types/rag.ts:211](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L211)
+Defined in: [types/rag.ts:213](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L213)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/rag.ts:211](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **windowCalls**: `number`
 
-Defined in: [types/rag.ts:212](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L212)
+Defined in: [types/rag.ts:214](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L214)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/rag.ts:212](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **lastStateChange**: `Date`
 
-Defined in: [types/rag.ts:213](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L213)
+Defined in: [types/rag.ts:215](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L215)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/rag.ts:213](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **nextRetryTime?**: `Date`
 
-Defined in: [types/rag.ts:214](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L214)
+Defined in: [types/rag.ts:216](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L216)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/rag.ts:214](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **halfOpenCalls**: `number`
 
-Defined in: [types/rag.ts:215](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L215)
+Defined in: [types/rag.ts:217](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L217)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/rag.ts:215](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **averageLatency**: `number`
 
-Defined in: [types/rag.ts:216](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L216)
+Defined in: [types/rag.ts:218](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L218)
 
 ---
 
@@ -98,4 +98,4 @@ Defined in: [types/rag.ts:216](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **p95Latency**: `number`
 
-Defined in: [types/rag.ts:217](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L217)
+Defined in: [types/rag.ts:219](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L219)

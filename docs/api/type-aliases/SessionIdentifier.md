@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SessionIdentifier** = `object`
 
-Defined in: [types/conversation.ts:418](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L418)
+Defined in: [types/conversation.ts:474](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L474)
 
 Session identifier for Redis storage operations
 
@@ -18,7 +18,7 @@ Session identifier for Redis storage operations
 
 > **sessionId**: `string`
 
-Defined in: [types/conversation.ts:419](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L419)
+Defined in: [types/conversation.ts:475](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L475)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/conversation.ts:419](https://github.com/juspay/neurolink/blob
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/conversation.ts:420](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L420)
+Defined in: [types/conversation.ts:476](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L476)

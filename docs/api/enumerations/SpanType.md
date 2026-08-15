@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Enumeration: SpanType
 
-Defined in: [types/span.ts:10](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L10)
+Defined in: [types/span.ts:10](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L10)
 
 Span types for AI operations
 Following OTel GenAI conventions for span categorization
@@ -17,7 +17,7 @@ Following OTel GenAI conventions for span categorization
 
 > **AGENT_RUN**: `"agent.run"`
 
-Defined in: [types/span.ts:12](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L12)
+Defined in: [types/span.ts:12](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L12)
 
 Agent execution run (reserved for future multi-agent support)
 
@@ -27,7 +27,7 @@ Agent execution run (reserved for future multi-agent support)
 
 > **WORKFLOW_STEP**: `"workflow.step"`
 
-Defined in: [types/span.ts:14](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L14)
+Defined in: [types/span.ts:14](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L14)
 
 Workflow step execution (reserved for future workflow engine)
 
@@ -37,7 +37,7 @@ Workflow step execution (reserved for future workflow engine)
 
 > **TOOL_CALL**: `"tool.call"`
 
-Defined in: [types/span.ts:16](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L16)
+Defined in: [types/span.ts:16](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L16)
 
 Tool/function call
 
@@ -47,7 +47,7 @@ Tool/function call
 
 > **MODEL_GENERATION**: `"model.generation"`
 
-Defined in: [types/span.ts:18](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L18)
+Defined in: [types/span.ts:18](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L18)
 
 LLM generation request
 
@@ -57,7 +57,7 @@ LLM generation request
 
 > **EMBEDDING**: `"embedding"`
 
-Defined in: [types/span.ts:20](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L20)
+Defined in: [types/span.ts:20](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L20)
 
 Embedding generation (reserved for future embedding API)
 
@@ -67,7 +67,7 @@ Embedding generation (reserved for future embedding API)
 
 > **RETRIEVAL**: `"retrieval"`
 
-Defined in: [types/span.ts:22](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L22)
+Defined in: [types/span.ts:22](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L22)
 
 Retrieval operation (reserved for future RAG support)
 
@@ -77,7 +77,7 @@ Retrieval operation (reserved for future RAG support)
 
 > **MEMORY**: `"memory"`
 
-Defined in: [types/span.ts:24](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L24)
+Defined in: [types/span.ts:24](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L24)
 
 Memory operation
 
@@ -87,7 +87,7 @@ Memory operation
 
 > **CONTEXT_COMPACTION**: `"context.compaction"`
 
-Defined in: [types/span.ts:26](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L26)
+Defined in: [types/span.ts:26](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L26)
 
 Context compaction operation
 
@@ -97,7 +97,7 @@ Context compaction operation
 
 > **RAG**: `"rag"`
 
-Defined in: [types/span.ts:28](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L28)
+Defined in: [types/span.ts:28](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L28)
 
 RAG pipeline operation
 
@@ -107,7 +107,7 @@ RAG pipeline operation
 
 > **EVALUATION**: `"evaluation"`
 
-Defined in: [types/span.ts:30](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L30)
+Defined in: [types/span.ts:30](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L30)
 
 Evaluation/scoring operation
 
@@ -117,7 +117,7 @@ Evaluation/scoring operation
 
 > **MCP_TRANSPORT**: `"mcp.transport"`
 
-Defined in: [types/span.ts:32](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L32)
+Defined in: [types/span.ts:32](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L32)
 
 MCP transport operation
 
@@ -127,7 +127,7 @@ MCP transport operation
 
 > **MEDIA_GENERATION**: `"media.generation"`
 
-Defined in: [types/span.ts:34](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L34)
+Defined in: [types/span.ts:34](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L34)
 
 Media generation (image/video)
 
@@ -137,7 +137,7 @@ Media generation (image/video)
 
 > **PPT_GENERATION**: `"ppt.generation"`
 
-Defined in: [types/span.ts:36](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L36)
+Defined in: [types/span.ts:36](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L36)
 
 PPT/presentation generation
 
@@ -147,7 +147,7 @@ PPT/presentation generation
 
 > **WORKFLOW**: `"workflow"`
 
-Defined in: [types/span.ts:38](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L38)
+Defined in: [types/span.ts:38](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L38)
 
 Workflow execution
 
@@ -157,7 +157,7 @@ Workflow execution
 
 > **TTS**: `"tts"`
 
-Defined in: [types/span.ts:40](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L40)
+Defined in: [types/span.ts:40](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L40)
 
 TTS synthesis
 
@@ -167,7 +167,7 @@ TTS synthesis
 
 > **STT**: `"stt"`
 
-Defined in: [types/span.ts:42](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L42)
+Defined in: [types/span.ts:42](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L42)
 
 STT transcription
 
@@ -177,7 +177,7 @@ STT transcription
 
 > **SERVER_REQUEST**: `"server.request"`
 
-Defined in: [types/span.ts:44](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L44)
+Defined in: [types/span.ts:44](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L44)
 
 Server adapter request
 
@@ -187,6 +187,6 @@ Server adapter request
 
 > **CUSTOM**: `"custom"`
 
-Defined in: [types/span.ts:46](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L46)
+Defined in: [types/span.ts:46](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L46)
 
 Custom span

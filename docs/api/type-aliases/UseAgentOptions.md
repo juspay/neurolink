@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **UseAgentOptions** = `object`
 
-Defined in: [types/client.ts:625](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L625)
+Defined in: [types/client.ts:625](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L625)
 
 useAgent hook options
 
@@ -18,7 +18,7 @@ useAgent hook options
 
 > **agentId**: `string`
 
-Defined in: [types/client.ts:627](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L627)
+Defined in: [types/client.ts:627](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L627)
 
 Agent ID
 
@@ -28,7 +28,7 @@ Agent ID
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/client.ts:629](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L629)
+Defined in: [types/client.ts:629](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L629)
 
 Initial session ID
 
@@ -38,7 +38,7 @@ Initial session ID
 
 > `optional` **onResponse?**: (`result`) => `void`
 
-Defined in: [types/client.ts:631](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L631)
+Defined in: [types/client.ts:631](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L631)
 
 Called on agent response
 
@@ -58,7 +58,7 @@ Called on agent response
 
 > `optional` **onError?**: (`error`) => `void`
 
-Defined in: [types/client.ts:633](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L633)
+Defined in: [types/client.ts:633](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L633)
 
 Called on error
 
@@ -78,7 +78,7 @@ Called on error
 
 > `optional` **onToolCall?**: (`toolCall`) => `void`
 
-Defined in: [types/client.ts:635](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L635)
+Defined in: [types/client.ts:635](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L635)
 
 Called when tool is called
 
@@ -98,6 +98,6 @@ Called when tool is called
 
 > `optional` **initialInput?**: `string`
 
-Defined in: [types/client.ts:637](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L637)
+Defined in: [types/client.ts:637](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L637)
 
 Auto-execute on mount with initial input

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelDeploymentConfig** = `object`
 
-Defined in: [types/providers.ts:1423](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1423)
+Defined in: [types/providers.ts:1714](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1714)
 
 Model deployment configuration
 
@@ -18,7 +18,7 @@ Model deployment configuration
 
 > **modelName**: `string`
 
-Defined in: [types/providers.ts:1425](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1425)
+Defined in: [types/providers.ts:1716](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1716)
 
 Model name
 
@@ -28,7 +28,7 @@ Model name
 
 > **endpointName**: `string`
 
-Defined in: [types/providers.ts:1427](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1427)
+Defined in: [types/providers.ts:1718](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1718)
 
 Endpoint name
 
@@ -38,7 +38,7 @@ Endpoint name
 
 > **instanceType**: `string`
 
-Defined in: [types/providers.ts:1429](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1429)
+Defined in: [types/providers.ts:1720](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1720)
 
 EC2 instance type
 
@@ -48,7 +48,7 @@ EC2 instance type
 
 > **initialInstanceCount**: `number`
 
-Defined in: [types/providers.ts:1431](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1431)
+Defined in: [types/providers.ts:1722](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1722)
 
 Initial instance count
 
@@ -58,7 +58,7 @@ Initial instance count
 
 > **modelDataUrl**: `string`
 
-Defined in: [types/providers.ts:1433](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1433)
+Defined in: [types/providers.ts:1724](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1724)
 
 Model data S3 location
 
@@ -68,7 +68,7 @@ Model data S3 location
 
 > **image**: `string`
 
-Defined in: [types/providers.ts:1435](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1435)
+Defined in: [types/providers.ts:1726](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1726)
 
 Container image URI
 
@@ -78,7 +78,7 @@ Container image URI
 
 > **executionRoleArn**: `string`
 
-Defined in: [types/providers.ts:1437](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1437)
+Defined in: [types/providers.ts:1728](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1728)
 
 IAM execution role ARN
 
@@ -88,7 +88,7 @@ IAM execution role ARN
 
 > `optional` **tags?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/providers.ts:1439](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1439)
+Defined in: [types/providers.ts:1730](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1730)
 
 Resource tags
 
@@ -98,7 +98,7 @@ Resource tags
 
 > `optional` **autoScaling?**: `object`
 
-Defined in: [types/providers.ts:1441](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1441)
+Defined in: [types/providers.ts:1732](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1732)
 
 Auto scaling configuration
 

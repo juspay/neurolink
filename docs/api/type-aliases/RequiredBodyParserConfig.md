@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RequiredBodyParserConfig** = `object`
 
-Defined in: [types/server.ts:171](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L171)
+Defined in: [types/server.ts:171](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L171)
 
 Required body parser configuration
 
@@ -18,7 +18,7 @@ Required body parser configuration
 
 > **enabled**: `boolean`
 
-Defined in: [types/server.ts:172](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L172)
+Defined in: [types/server.ts:172](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L172)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/server.ts:172](https://github.com/juspay/neurolink/blob/ff50c
 
 > **maxSize**: `string`
 
-Defined in: [types/server.ts:173](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L173)
+Defined in: [types/server.ts:173](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L173)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/server.ts:173](https://github.com/juspay/neurolink/blob/ff50c
 
 > **jsonLimit**: `string`
 
-Defined in: [types/server.ts:174](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L174)
+Defined in: [types/server.ts:174](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L174)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/server.ts:174](https://github.com/juspay/neurolink/blob/ff50c
 
 > **urlEncoded**: `boolean`
 
-Defined in: [types/server.ts:175](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L175)
+Defined in: [types/server.ts:175](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L175)

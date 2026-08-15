@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SSEWriteOptions** = `object`
 
-Defined in: [types/server.ts:847](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L847)
+Defined in: [types/server.ts:847](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L847)
 
 SSE write options
 
@@ -18,7 +18,7 @@ SSE write options
 
 > `optional` **event?**: `string`
 
-Defined in: [types/server.ts:849](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L849)
+Defined in: [types/server.ts:849](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L849)
 
 Event name
 
@@ -28,7 +28,7 @@ Event name
 
 > **data**: `string` \| `object`
 
-Defined in: [types/server.ts:852](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L852)
+Defined in: [types/server.ts:852](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L852)
 
 Event data (will be JSON stringified if object)
 
@@ -38,7 +38,7 @@ Event data (will be JSON stringified if object)
 
 > `optional` **id?**: `string`
 
-Defined in: [types/server.ts:855](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L855)
+Defined in: [types/server.ts:855](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L855)
 
 Event ID
 
@@ -48,6 +48,6 @@ Event ID
 
 > `optional` **retry?**: `number`
 
-Defined in: [types/server.ts:858](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L858)
+Defined in: [types/server.ts:858](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L858)
 
 Retry interval in milliseconds

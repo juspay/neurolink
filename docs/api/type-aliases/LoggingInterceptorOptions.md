@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LoggingInterceptorOptions** = `object`
 
-Defined in: [types/client.ts:1282](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1282)
+Defined in: [types/client.ts:1282](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1282)
 
 Logging interceptor options
 
@@ -18,7 +18,7 @@ Logging interceptor options
 
 > `optional` **logRequest?**: `boolean`
 
-Defined in: [types/client.ts:1284](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1284)
+Defined in: [types/client.ts:1284](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1284)
 
 Log request details
 
@@ -28,7 +28,7 @@ Log request details
 
 > `optional` **logResponse?**: `boolean`
 
-Defined in: [types/client.ts:1286](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1286)
+Defined in: [types/client.ts:1286](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1286)
 
 Log response details
 
@@ -38,7 +38,7 @@ Log response details
 
 > `optional` **logBody?**: `boolean`
 
-Defined in: [types/client.ts:1288](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1288)
+Defined in: [types/client.ts:1288](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1288)
 
 Log request body
 
@@ -48,7 +48,7 @@ Log request body
 
 > `optional` **logResponseBody?**: `boolean`
 
-Defined in: [types/client.ts:1290](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1290)
+Defined in: [types/client.ts:1290](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1290)
 
 Log response body
 
@@ -58,7 +58,7 @@ Log response body
 
 > `optional` **logger?**: (`message`, `data?`) => `void`
 
-Defined in: [types/client.ts:1292](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1292)
+Defined in: [types/client.ts:1292](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1292)
 
 Custom logger function
 
@@ -82,6 +82,6 @@ Custom logger function
 
 > `optional` **redactFields?**: `string`[]
 
-Defined in: [types/client.ts:1294](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1294)
+Defined in: [types/client.ts:1294](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1294)
 
 Redact sensitive fields

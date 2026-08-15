@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ResponseMetadata** = `object`
 
-Defined in: [types/stream.ts:780](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L780)
+Defined in: [types/stream.ts:932](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L932)
 
 Response metadata from stream
 
@@ -18,7 +18,7 @@ Response metadata from stream
 
 > `optional` **id?**: `string`
 
-Defined in: [types/stream.ts:781](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L781)
+Defined in: [types/stream.ts:933](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L933)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/stream.ts:781](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **model?**: `string`
 
-Defined in: [types/stream.ts:782](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L782)
+Defined in: [types/stream.ts:934](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L934)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/stream.ts:782](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **timestamp?**: `number` \| `Date`
 
-Defined in: [types/stream.ts:783](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L783)
+Defined in: [types/stream.ts:935](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L935)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/stream.ts:783](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/stream.ts:784](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L784)
+Defined in: [types/stream.ts:936](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L936)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **Auth0Config** = `object`
 
-Defined in: [types/auth.ts:649](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L649)
+Defined in: [types/auth.ts:649](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L649)
 
 Auth0 provider configuration
 
@@ -18,7 +18,7 @@ Auth0 provider configuration
 
 > **domain**: `string`
 
-Defined in: [types/auth.ts:651](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L651)
+Defined in: [types/auth.ts:651](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L651)
 
 Auth0 domain (e.g., 'your-tenant.auth0.com')
 
@@ -28,7 +28,7 @@ Auth0 domain (e.g., 'your-tenant.auth0.com')
 
 > **clientId**: `string`
 
-Defined in: [types/auth.ts:653](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L653)
+Defined in: [types/auth.ts:653](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L653)
 
 Auth0 client ID
 
@@ -38,7 +38,7 @@ Auth0 client ID
 
 > `optional` **clientSecret?**: `string`
 
-Defined in: [types/auth.ts:655](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L655)
+Defined in: [types/auth.ts:655](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L655)
 
 Auth0 client secret (for backend operations)
 
@@ -48,7 +48,7 @@ Auth0 client secret (for backend operations)
 
 > `optional` **audience?**: `string`
 
-Defined in: [types/auth.ts:657](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L657)
+Defined in: [types/auth.ts:657](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L657)
 
 Auth0 audience (API identifier)
 
@@ -58,7 +58,7 @@ Auth0 audience (API identifier)
 
 > `optional` **scope?**: `string`
 
-Defined in: [types/auth.ts:659](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L659)
+Defined in: [types/auth.ts:659](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L659)
 
 Auth0 scope
 
@@ -68,7 +68,7 @@ Auth0 scope
 
 > `optional` **claimsNamespace?**: `string`
 
-Defined in: [types/auth.ts:661](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L661)
+Defined in: [types/auth.ts:661](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L661)
 
 Custom namespace for claims
 
@@ -78,7 +78,7 @@ Custom namespace for claims
 
 > `optional` **managementApi?**: `object`
 
-Defined in: [types/auth.ts:663](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L663)
+Defined in: [types/auth.ts:663](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L663)
 
 Management API configuration
 

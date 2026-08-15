@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TelemetryCommandArgs** = `object`
 
-Defined in: [types/cli.ts:1005](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1005)
+Defined in: [types/cli.ts:1125](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1125)
 
 Telemetry command arguments
 
@@ -18,7 +18,7 @@ Telemetry command arguments
 
 > `optional` **format?**: `"text"` \| `"json"` \| `"table"`
 
-Defined in: [types/cli.ts:1006](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1006)
+Defined in: [types/cli.ts:1126](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1126)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/cli.ts:1006](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **quiet?**: `boolean`
 
-Defined in: [types/cli.ts:1007](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1007)
+Defined in: [types/cli.ts:1127](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1127)

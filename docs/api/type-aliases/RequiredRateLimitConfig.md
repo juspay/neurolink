@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RequiredRateLimitConfig** = `object`
 
-Defined in: [types/server.ts:142](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L142)
+Defined in: [types/server.ts:142](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L142)
 
 Required rate limit configuration
 
@@ -18,7 +18,7 @@ Required rate limit configuration
 
 > **enabled**: `boolean`
 
-Defined in: [types/server.ts:143](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L143)
+Defined in: [types/server.ts:143](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L143)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/server.ts:143](https://github.com/juspay/neurolink/blob/ff50c
 
 > **windowMs**: `number`
 
-Defined in: [types/server.ts:144](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L144)
+Defined in: [types/server.ts:144](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L144)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/server.ts:144](https://github.com/juspay/neurolink/blob/ff50c
 
 > **maxRequests**: `number`
 
-Defined in: [types/server.ts:145](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L145)
+Defined in: [types/server.ts:145](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L145)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/server.ts:145](https://github.com/juspay/neurolink/blob/ff50c
 
 > **message**: `string`
 
-Defined in: [types/server.ts:146](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L146)
+Defined in: [types/server.ts:146](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L146)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/server.ts:146](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **skipPaths?**: `string`[]
 
-Defined in: [types/server.ts:147](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L147)
+Defined in: [types/server.ts:147](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L147)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/server.ts:147](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **keyGenerator?**: (`ctx`) => `string`
 
-Defined in: [types/server.ts:148](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L148)
+Defined in: [types/server.ts:148](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L148)
 
 #### Parameters
 

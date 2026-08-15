@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StreamToolCall** = `object`
 
-Defined in: [types/stream.ts:80](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L80)
+Defined in: [types/stream.ts:91](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L91)
 
 Type for tool execution calls (AI SDK compatible)
 
@@ -18,7 +18,7 @@ Type for tool execution calls (AI SDK compatible)
 
 > `optional` **type?**: `"tool-call"`
 
-Defined in: [types/stream.ts:81](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L81)
+Defined in: [types/stream.ts:92](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L92)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/stream.ts:81](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **toolCallId?**: `string`
 
-Defined in: [types/stream.ts:82](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L82)
+Defined in: [types/stream.ts:93](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L93)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/stream.ts:82](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **toolName**: `string`
 
-Defined in: [types/stream.ts:83](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L83)
+Defined in: [types/stream.ts:94](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L94)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/stream.ts:83](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **parameters?**: [`UnknownRecord`](UnknownRecord.md)
 
-Defined in: [types/stream.ts:84](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L84)
+Defined in: [types/stream.ts:95](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L95)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/stream.ts:84](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **args?**: [`UnknownRecord`](UnknownRecord.md)
 
-Defined in: [types/stream.ts:85](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L85)
+Defined in: [types/stream.ts:96](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L96)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/stream.ts:85](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **id?**: `string`
 
-Defined in: [types/stream.ts:86](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L86)
+Defined in: [types/stream.ts:97](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L97)

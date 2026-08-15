@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FixedWindowRateLimitConfig** = `object`
 
-Defined in: [types/middleware.ts:400](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L400)
+Defined in: [types/middleware.ts:458](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L458)
 
 Simple fixed-window rate-limit configuration.
 
@@ -18,7 +18,7 @@ Simple fixed-window rate-limit configuration.
 
 > **maxRequests**: `number`
 
-Defined in: [types/middleware.ts:401](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L401)
+Defined in: [types/middleware.ts:459](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L459)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/middleware.ts:401](https://github.com/juspay/neurolink/blob/f
 
 > **windowMs**: `number`
 
-Defined in: [types/middleware.ts:402](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L402)
+Defined in: [types/middleware.ts:460](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L460)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/middleware.ts:402](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **message?**: `string`
 
-Defined in: [types/middleware.ts:403](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L403)
+Defined in: [types/middleware.ts:461](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L461)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/middleware.ts:403](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **skipPaths?**: `string`[]
 
-Defined in: [types/middleware.ts:404](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L404)
+Defined in: [types/middleware.ts:462](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L462)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/middleware.ts:404](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **keyGenerator?**: (`ctx`) => `string`
 
-Defined in: [types/middleware.ts:405](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L405)
+Defined in: [types/middleware.ts:463](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L463)
 
 #### Parameters
 
@@ -68,7 +68,7 @@ Defined in: [types/middleware.ts:405](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **onRateLimitExceeded?**: (`ctx`, `retryAfter`) => `unknown`
 
-Defined in: [types/middleware.ts:406](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L406)
+Defined in: [types/middleware.ts:464](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L464)
 
 #### Parameters
 

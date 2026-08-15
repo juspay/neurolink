@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: NeuroLinkLanguageModel
 
-Defined in: [client/aiSdkAdapter.ts:49](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/aiSdkAdapter.ts#L49)
+Defined in: [client/aiSdkAdapter.ts:50](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/aiSdkAdapter.ts#L50)
 
 NeuroLink Language Model implementation compatible with Vercel AI SDK
 
@@ -15,7 +15,8 @@ Implements the LanguageModelV1 interface for drop-in compatibility.
 ## Example
 
 ```typescript
-import { generateText } from "ai";
+import { generateText } from "ai-sdk";
+// Replace "ai-sdk" with the Vercel AI SDK package name in your project.
 import { createNeuroLinkModel } from "@neurolink/ai-sdk";
 
 const model = createNeuroLinkModel({
@@ -39,7 +40,7 @@ const result = await generateText({
 
 > **new NeuroLinkLanguageModel**(`client`, `modelId`, `provider`, `options?`): `NeuroLinkLanguageModel`
 
-Defined in: [client/aiSdkAdapter.ts:55](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/aiSdkAdapter.ts#L55)
+Defined in: [client/aiSdkAdapter.ts:56](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/aiSdkAdapter.ts#L56)
 
 #### Parameters
 
@@ -69,7 +70,7 @@ Defined in: [client/aiSdkAdapter.ts:55](https://github.com/juspay/neurolink/blob
 
 > `readonly` **modelId**: `string`
 
-Defined in: [client/aiSdkAdapter.ts:50](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/aiSdkAdapter.ts#L50)
+Defined in: [client/aiSdkAdapter.ts:51](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/aiSdkAdapter.ts#L51)
 
 Model specification string
 
@@ -83,7 +84,7 @@ Model specification string
 
 > `readonly` **provider**: `string`
 
-Defined in: [client/aiSdkAdapter.ts:51](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/aiSdkAdapter.ts#L51)
+Defined in: [client/aiSdkAdapter.ts:52](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/aiSdkAdapter.ts#L52)
 
 Provider name
 
@@ -97,7 +98,7 @@ Provider name
 
 > **doGenerate**(`options`): `Promise`\<[`ClientLanguageModelResponse`](../type-aliases/ClientLanguageModelResponse.md)\>
 
-Defined in: [client/aiSdkAdapter.ts:70](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/aiSdkAdapter.ts#L70)
+Defined in: [client/aiSdkAdapter.ts:71](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/aiSdkAdapter.ts#L71)
 
 Generate a non-streaming response
 
@@ -121,7 +122,7 @@ Generate a non-streaming response
 
 > **doStream**(`options`): `Promise`\<[`ClientLanguageModelStreamResponse`](../type-aliases/ClientLanguageModelStreamResponse.md)\>
 
-Defined in: [client/aiSdkAdapter.ts:129](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/aiSdkAdapter.ts#L129)
+Defined in: [client/aiSdkAdapter.ts:130](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/aiSdkAdapter.ts#L130)
 
 Generate a streaming response
 

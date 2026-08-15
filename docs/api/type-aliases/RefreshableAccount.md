@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RefreshableAccount** = `object`
 
-Defined in: [types/proxy.ts:725](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L725)
+Defined in: [types/proxy.ts:1146](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1146)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:725](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **token**: `string`
 
-Defined in: [types/proxy.ts:726](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L726)
+Defined in: [types/proxy.ts:1147](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1147)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:726](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **refreshToken?**: `string`
 
-Defined in: [types/proxy.ts:727](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L727)
+Defined in: [types/proxy.ts:1148](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1148)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:727](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **expiresAt?**: `number`
 
-Defined in: [types/proxy.ts:728](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L728)
+Defined in: [types/proxy.ts:1149](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1149)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/proxy.ts:728](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **label**: `string`
 
-Defined in: [types/proxy.ts:729](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L729)
+Defined in: [types/proxy.ts:1150](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1150)

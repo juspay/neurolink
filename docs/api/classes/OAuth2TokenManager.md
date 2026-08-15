@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: OAuth2TokenManager
 
-Defined in: [client/auth.ts:46](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/auth.ts#L46)
+Defined in: [client/auth.ts:46](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/auth.ts#L46)
 
 OAuth2 Token Manager for client credentials flow
 
@@ -39,7 +39,7 @@ client.use(createDynamicAuthInterceptor(() => tokenManager.getToken()));
 
 > **new OAuth2TokenManager**(`config`, `options?`): `OAuth2TokenManager`
 
-Defined in: [client/auth.ts:52](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/auth.ts#L52)
+Defined in: [client/auth.ts:52](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/auth.ts#L52)
 
 #### Parameters
 
@@ -63,7 +63,7 @@ Defined in: [client/auth.ts:52](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **getToken**(): `Promise`\<`string`\>
 
-Defined in: [client/auth.ts:65](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/auth.ts#L65)
+Defined in: [client/auth.ts:65](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/auth.ts#L65)
 
 Get a valid access token
 
@@ -80,7 +80,7 @@ Handles concurrent requests by deduplicating token refresh calls.
 
 > **invalidate**(): `void`
 
-Defined in: [client/auth.ts:94](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/auth.ts#L94)
+Defined in: [client/auth.ts:94](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/auth.ts#L94)
 
 Invalidate the cached token
 
@@ -96,7 +96,7 @@ Call this when the token is rejected by the server to force a refresh.
 
 > **isValid**(): `boolean`
 
-Defined in: [client/auth.ts:102](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/auth.ts#L102)
+Defined in: [client/auth.ts:102](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/auth.ts#L102)
 
 Check if the cached token is valid
 
@@ -110,7 +110,7 @@ Check if the cached token is valid
 
 > **getExpiryTime**(): `number` \| `null`
 
-Defined in: [client/auth.ts:113](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/auth.ts#L113)
+Defined in: [client/auth.ts:113](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/auth.ts#L113)
 
 Get the token expiry time in milliseconds
 

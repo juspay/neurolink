@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StreamingMetadata** = `object`
 
-Defined in: [types/stream.ts:48](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L48)
+Defined in: [types/stream.ts:59](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L59)
 
 Streaming metadata for performance tracking
 
@@ -18,7 +18,7 @@ Streaming metadata for performance tracking
 
 > **startTime**: `number`
 
-Defined in: [types/stream.ts:49](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L49)
+Defined in: [types/stream.ts:60](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L60)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/stream.ts:49](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **endTime?**: `number`
 
-Defined in: [types/stream.ts:50](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L50)
+Defined in: [types/stream.ts:61](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L61)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/stream.ts:50](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **totalDuration?**: `number`
 
-Defined in: [types/stream.ts:51](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L51)
+Defined in: [types/stream.ts:62](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L62)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/stream.ts:51](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **averageChunkSize**: `number`
 
-Defined in: [types/stream.ts:52](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L52)
+Defined in: [types/stream.ts:63](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L63)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/stream.ts:52](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **maxChunkSize**: `number`
 
-Defined in: [types/stream.ts:53](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L53)
+Defined in: [types/stream.ts:64](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L64)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/stream.ts:53](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **minChunkSize**: `number`
 
-Defined in: [types/stream.ts:54](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L54)
+Defined in: [types/stream.ts:65](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L65)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/stream.ts:54](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **throughputBytesPerSecond?**: `number`
 
-Defined in: [types/stream.ts:55](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L55)
+Defined in: [types/stream.ts:66](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L66)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/stream.ts:55](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **streamingProvider**: `string`
 
-Defined in: [types/stream.ts:56](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L56)
+Defined in: [types/stream.ts:67](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L67)
 
 ---
 
@@ -82,4 +82,4 @@ Defined in: [types/stream.ts:56](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **modelUsed**: `string`
 
-Defined in: [types/stream.ts:57](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L57)
+Defined in: [types/stream.ts:68](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L68)

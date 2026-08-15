@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ImageGenToolResponse** = `object`
 
-Defined in: [types/imageGen.ts:259](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/imageGen.ts#L259)
+Defined in: [types/imageGen.ts:259](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/imageGen.ts#L259)
 
 Response from the image generation tool
 
@@ -18,7 +18,7 @@ Response from the image generation tool
 
 > **success**: `boolean`
 
-Defined in: [types/imageGen.ts:263](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/imageGen.ts#L263)
+Defined in: [types/imageGen.ts:263](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/imageGen.ts#L263)
 
 Whether the tool execution was successful
 
@@ -28,7 +28,7 @@ Whether the tool execution was successful
 
 > `optional` **image?**: `string`
 
-Defined in: [types/imageGen.ts:269](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/imageGen.ts#L269)
+Defined in: [types/imageGen.ts:269](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/imageGen.ts#L269)
 
 Data URI of the generated image (if successful)
 Format: data:image/png;base64,...
@@ -39,7 +39,7 @@ Format: data:image/png;base64,...
 
 > `optional` **message?**: `string`
 
-Defined in: [types/imageGen.ts:274](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/imageGen.ts#L274)
+Defined in: [types/imageGen.ts:274](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/imageGen.ts#L274)
 
 Human-readable message about the result
 
@@ -49,6 +49,6 @@ Human-readable message about the result
 
 > `optional` **error?**: `string`
 
-Defined in: [types/imageGen.ts:279](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/imageGen.ts#L279)
+Defined in: [types/imageGen.ts:279](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/imageGen.ts#L279)
 
 Error message if execution failed

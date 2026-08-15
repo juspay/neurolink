@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: WebSocketMessageRouter
 
-Defined in: [server/websocket/WebSocketHandler.ts:396](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L396)
+Defined in: [server/websocket/WebSocketHandler.ts:396](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/websocket/WebSocketHandler.ts#L396)
 
 WebSocket message router for handling different message types
 
@@ -26,7 +26,7 @@ WebSocket message router for handling different message types
 
 > **route**(`type`, `handler`): `void`
 
-Defined in: [server/websocket/WebSocketHandler.ts:405](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L405)
+Defined in: [server/websocket/WebSocketHandler.ts:405](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/websocket/WebSocketHandler.ts#L405)
 
 Register a message route
 
@@ -50,7 +50,7 @@ Register a message route
 
 > **handle**(`connection`, `message`): `Promise`\<`unknown`\>
 
-Defined in: [server/websocket/WebSocketHandler.ts:418](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L418)
+Defined in: [server/websocket/WebSocketHandler.ts:418](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/websocket/WebSocketHandler.ts#L418)
 
 Handle incoming message
 
@@ -74,7 +74,7 @@ Handle incoming message
 
 > **getRoutes**(): `string`[]
 
-Defined in: [server/websocket/WebSocketHandler.ts:450](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L450)
+Defined in: [server/websocket/WebSocketHandler.ts:450](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/websocket/WebSocketHandler.ts#L450)
 
 Get registered routes
 

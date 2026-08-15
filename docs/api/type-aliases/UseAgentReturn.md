@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **UseAgentReturn** = `object`
 
-Defined in: [types/client.ts:643](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L643)
+Defined in: [types/client.ts:643](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L643)
 
 useAgent hook return type
 
@@ -18,7 +18,7 @@ useAgent hook return type
 
 > **execute**: (`input`, `options?`) => `Promise`\<[`ClientAgentExecuteResult`](ClientAgentExecuteResult.md)\>
 
-Defined in: [types/client.ts:645](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L645)
+Defined in: [types/client.ts:645](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L645)
 
 Execute the agent
 
@@ -42,7 +42,7 @@ Execute the agent
 
 > **stream**: (`input`, `callbacks?`) => `Promise`\<`void`\>
 
-Defined in: [types/client.ts:650](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L650)
+Defined in: [types/client.ts:650](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L650)
 
 Stream execution
 
@@ -66,7 +66,7 @@ Stream execution
 
 > **sessionId**: `string` \| `null`
 
-Defined in: [types/client.ts:652](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L652)
+Defined in: [types/client.ts:652](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L652)
 
 Current session ID
 
@@ -76,7 +76,7 @@ Current session ID
 
 > **setSessionId**: (`sessionId`) => `void`
 
-Defined in: [types/client.ts:654](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L654)
+Defined in: [types/client.ts:654](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L654)
 
 Set session ID
 
@@ -96,7 +96,7 @@ Set session ID
 
 > **isLoading**: `boolean`
 
-Defined in: [types/client.ts:656](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L656)
+Defined in: [types/client.ts:656](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L656)
 
 Loading state
 
@@ -106,7 +106,7 @@ Loading state
 
 > **isStreaming**: `boolean`
 
-Defined in: [types/client.ts:658](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L658)
+Defined in: [types/client.ts:658](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L658)
 
 Streaming state
 
@@ -116,7 +116,7 @@ Streaming state
 
 > **result**: [`ClientAgentExecuteResult`](ClientAgentExecuteResult.md) \| `null`
 
-Defined in: [types/client.ts:660](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L660)
+Defined in: [types/client.ts:660](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L660)
 
 Last result
 
@@ -126,7 +126,7 @@ Last result
 
 > **error**: [`ClientApiError`](ClientApiError.md) \| `null`
 
-Defined in: [types/client.ts:662](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L662)
+Defined in: [types/client.ts:662](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L662)
 
 Error state
 
@@ -136,7 +136,7 @@ Error state
 
 > **clearError**: () => `void`
 
-Defined in: [types/client.ts:664](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L664)
+Defined in: [types/client.ts:664](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L664)
 
 Clear error
 
@@ -150,7 +150,7 @@ Clear error
 
 > **abort**: () => `void`
 
-Defined in: [types/client.ts:666](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L666)
+Defined in: [types/client.ts:666](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L666)
 
 Abort current execution
 

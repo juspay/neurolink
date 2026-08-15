@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VertexRegularSegment** = `object`
 
-Defined in: [types/providers.ts:1972](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1972)
+Defined in: [types/providers.ts:2346](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2346)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:1972](https://github.com/juspay/neurolink/blob/f
 
 > **type**: `"regular"`
 
-Defined in: [types/providers.ts:1973](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1973)
+Defined in: [types/providers.ts:2347](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2347)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/providers.ts:1973](https://github.com/juspay/neurolink/blob/f
 
 > **role**: `string`
 
-Defined in: [types/providers.ts:1974](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1974)
+Defined in: [types/providers.ts:2348](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2348)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/providers.ts:1974](https://github.com/juspay/neurolink/blob/f
 
 > **parts**: `unknown`[]
 
-Defined in: [types/providers.ts:1975](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1975)
+Defined in: [types/providers.ts:2349](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2349)

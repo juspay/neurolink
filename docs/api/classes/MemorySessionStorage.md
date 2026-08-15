@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: MemorySessionStorage
 
-Defined in: [auth/sessionManager.ts:31](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L31)
+Defined in: [auth/sessionManager.ts:31](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/sessionManager.ts#L31)
 
 In-memory session storage
 
@@ -33,7 +33,7 @@ or development. Sessions are lost on restart.
 
 > **get**(`sessionId`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md) \| `null`\>
 
-Defined in: [auth/sessionManager.ts:35](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L35)
+Defined in: [auth/sessionManager.ts:35](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/sessionManager.ts#L35)
 
 Get a session by ID
 
@@ -57,7 +57,7 @@ Get a session by ID
 
 > **set**(`session`): `Promise`\<`void`\>
 
-Defined in: [auth/sessionManager.ts:51](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L51)
+Defined in: [auth/sessionManager.ts:51](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/sessionManager.ts#L51)
 
 Store a session
 
@@ -81,7 +81,7 @@ Store a session
 
 > **delete**(`sessionId`): `Promise`\<`void`\>
 
-Defined in: [auth/sessionManager.ts:63](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L63)
+Defined in: [auth/sessionManager.ts:63](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/sessionManager.ts#L63)
 
 Delete a session
 
@@ -105,7 +105,7 @@ Delete a session
 
 > **getUserSessions**(`userId`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md)[]\>
 
-Defined in: [auth/sessionManager.ts:78](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L78)
+Defined in: [auth/sessionManager.ts:78](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/sessionManager.ts#L78)
 
 Get all sessions for a user
 
@@ -129,7 +129,7 @@ Get all sessions for a user
 
 > **deleteUserSessions**(`userId`): `Promise`\<`void`\>
 
-Defined in: [auth/sessionManager.ts:96](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L96)
+Defined in: [auth/sessionManager.ts:96](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/sessionManager.ts#L96)
 
 Delete all sessions for a user
 
@@ -153,7 +153,7 @@ Delete all sessions for a user
 
 > **clear**(): `Promise`\<`void`\>
 
-Defined in: [auth/sessionManager.ts:107](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L107)
+Defined in: [auth/sessionManager.ts:107](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/sessionManager.ts#L107)
 
 Clear all sessions (for cleanup)
 
@@ -171,7 +171,7 @@ Clear all sessions (for cleanup)
 
 > **isHealthy**(): `Promise`\<`boolean`\>
 
-Defined in: [auth/sessionManager.ts:112](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L112)
+Defined in: [auth/sessionManager.ts:112](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/sessionManager.ts#L112)
 
 Health check
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **KeycloakConfig** = `object`
 
-Defined in: [types/auth.ts:741](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L741)
+Defined in: [types/auth.ts:741](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L741)
 
 Keycloak provider configuration
 
@@ -18,7 +18,7 @@ Keycloak provider configuration
 
 > **serverUrl**: `string`
 
-Defined in: [types/auth.ts:743](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L743)
+Defined in: [types/auth.ts:743](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L743)
 
 Keycloak server URL
 
@@ -28,7 +28,7 @@ Keycloak server URL
 
 > **realm**: `string`
 
-Defined in: [types/auth.ts:745](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L745)
+Defined in: [types/auth.ts:745](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L745)
 
 Keycloak realm
 
@@ -38,7 +38,7 @@ Keycloak realm
 
 > **clientId**: `string`
 
-Defined in: [types/auth.ts:747](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L747)
+Defined in: [types/auth.ts:747](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L747)
 
 Client ID
 
@@ -48,7 +48,7 @@ Client ID
 
 > `optional` **clientSecret?**: `string`
 
-Defined in: [types/auth.ts:749](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L749)
+Defined in: [types/auth.ts:749](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L749)
 
 Client secret
 
@@ -58,6 +58,6 @@ Client secret
 
 > `optional` **verifyToken?**: `boolean`
 
-Defined in: [types/auth.ts:751](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L751)
+Defined in: [types/auth.ts:751](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L751)
 
 Verify token signature

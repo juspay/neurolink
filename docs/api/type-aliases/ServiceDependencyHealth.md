@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ServiceDependencyHealth** = `object`
 
-Defined in: [types/service.ts:62](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/service.ts#L62)
+Defined in: [types/service.ts:62](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/service.ts#L62)
 
 Service dependency health status
 
@@ -18,7 +18,7 @@ Service dependency health status
 
 > **name**: `string`
 
-Defined in: [types/service.ts:63](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/service.ts#L63)
+Defined in: [types/service.ts:63](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/service.ts#L63)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/service.ts:63](https://github.com/juspay/neurolink/blob/ff50c
 
 > **status**: [`ServiceStatus`](ServiceStatus.md)
 
-Defined in: [types/service.ts:64](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/service.ts#L64)
+Defined in: [types/service.ts:64](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/service.ts#L64)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/service.ts:64](https://github.com/juspay/neurolink/blob/ff50c
 
 > **lastChecked**: `Date`
 
-Defined in: [types/service.ts:65](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/service.ts#L65)
+Defined in: [types/service.ts:65](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/service.ts#L65)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/service.ts:65](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **responseTime?**: `number`
 
-Defined in: [types/service.ts:66](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/service.ts#L66)
+Defined in: [types/service.ts:66](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/service.ts#L66)

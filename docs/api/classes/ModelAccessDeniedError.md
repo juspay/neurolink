@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ModelAccessDeniedError
 
-Defined in: [types/errors.ts:210](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L210)
+Defined in: [types/errors.ts:253](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L253)
 
 Curator P1-1: thrown when a provider rejects a request because the
 caller's team / API key is not whitelisted for the requested model.
@@ -26,7 +26,7 @@ can choose a whitelisted alternative without scraping strings.
 
 > **new ModelAccessDeniedError**(`message`, `options?`): `ModelAccessDeniedError`
 
-Defined in: [types/errors.ts:215](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L215)
+Defined in: [types/errors.ts:258](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L258)
 
 #### Parameters
 
@@ -62,7 +62,7 @@ Defined in: [types/errors.ts:215](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L18)
+Defined in: [types/errors.ts:18](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L18)
 
 #### Inherited from
 
@@ -74,7 +74,7 @@ Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `readonly` **requestedModel**: `string` \| `undefined`
 
-Defined in: [types/errors.ts:211](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L211)
+Defined in: [types/errors.ts:254](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L254)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/errors.ts:211](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` **allowedModels**: `string`[] \| `undefined`
 
-Defined in: [types/errors.ts:212](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L212)
+Defined in: [types/errors.ts:255](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L255)
 
 ---
 
@@ -90,4 +90,4 @@ Defined in: [types/errors.ts:212](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` **code**: `"MODEL_ACCESS_DENIED"`
 
-Defined in: [types/errors.ts:213](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L213)
+Defined in: [types/errors.ts:256](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L256)

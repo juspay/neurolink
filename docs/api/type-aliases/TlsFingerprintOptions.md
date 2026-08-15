@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TlsFingerprintOptions** = `object`
 
-Defined in: [types/proxy.ts:417](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L417)
+Defined in: [types/proxy.ts:429](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L429)
 
 Options for the TlsFingerprint cloaking plugin.
 
@@ -18,7 +18,7 @@ Options for the TlsFingerprint cloaking plugin.
 
 > `optional` **profile?**: `string`
 
-Defined in: [types/proxy.ts:419](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L419)
+Defined in: [types/proxy.ts:431](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L431)
 
 Target fingerprint profile (e.g. "chrome-131", "node-22", "claude-code").
 
@@ -28,6 +28,6 @@ Target fingerprint profile (e.g. "chrome-131", "node-22", "claude-code").
 
 > `optional` **warnOnUse?**: `boolean`
 
-Defined in: [types/proxy.ts:421](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L421)
+Defined in: [types/proxy.ts:433](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L433)
 
 Whether the stub should log a warning that it is a no-op.

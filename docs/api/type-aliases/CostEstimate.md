@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CostEstimate** = `object`
 
-Defined in: [types/providers.ts:1475](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1475)
+Defined in: [types/providers.ts:1766](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1766)
 
 Cost estimation data
 
@@ -18,7 +18,7 @@ Cost estimation data
 
 > **estimatedCost**: `number`
 
-Defined in: [types/providers.ts:1477](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1477)
+Defined in: [types/providers.ts:1768](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1768)
 
 Estimated cost in USD
 
@@ -28,7 +28,7 @@ Estimated cost in USD
 
 > **currency**: `string`
 
-Defined in: [types/providers.ts:1479](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1479)
+Defined in: [types/providers.ts:1770](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1770)
 
 Currency code
 
@@ -38,7 +38,7 @@ Currency code
 
 > **breakdown**: `object`
 
-Defined in: [types/providers.ts:1481](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1481)
+Defined in: [types/providers.ts:1772](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1772)
 
 Cost breakdown
 
@@ -66,7 +66,7 @@ Total processing hours
 
 > `optional` **period?**: `object`
 
-Defined in: [types/providers.ts:1490](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1490)
+Defined in: [types/providers.ts:1781](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1781)
 
 Time period for estimate
 

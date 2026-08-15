@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderAttempt** = `object`
 
-Defined in: [types/providers.ts:637](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L637)
+Defined in: [types/providers.ts:889](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L889)
 
 Provider attempt result for iteration tracking (converted from interface)
 
@@ -18,7 +18,7 @@ Provider attempt result for iteration tracking (converted from interface)
 
 > **provider**: [`AIProviderName`](../enumerations/AIProviderName.md)
 
-Defined in: [types/providers.ts:638](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L638)
+Defined in: [types/providers.ts:890](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L890)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:638](https://github.com/juspay/neurolink/blob/ff
 
 > **model**: [`SupportedModelName`](SupportedModelName.md)
 
-Defined in: [types/providers.ts:639](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L639)
+Defined in: [types/providers.ts:891](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L891)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:639](https://github.com/juspay/neurolink/blob/ff
 
 > **success**: `boolean`
 
-Defined in: [types/providers.ts:640](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L640)
+Defined in: [types/providers.ts:892](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L892)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:640](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **error?**: `string`
 
-Defined in: [types/providers.ts:641](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L641)
+Defined in: [types/providers.ts:893](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L893)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/providers.ts:641](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **stack?**: `string`
 
-Defined in: [types/providers.ts:642](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L642)
+Defined in: [types/providers.ts:894](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L894)

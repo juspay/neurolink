@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AnalyticsConfig** = `object`
 
-Defined in: [types/config.ts:272](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L272)
+Defined in: [types/config.ts:362](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L362)
 
 Analytics configuration
 
@@ -18,7 +18,7 @@ Analytics configuration
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/config.ts:273](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L273)
+Defined in: [types/config.ts:363](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L363)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/config.ts:273](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **trackTokens?**: `boolean`
 
-Defined in: [types/config.ts:274](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L274)
+Defined in: [types/config.ts:364](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L364)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/config.ts:274](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **trackCosts?**: `boolean`
 
-Defined in: [types/config.ts:275](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L275)
+Defined in: [types/config.ts:365](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L365)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/config.ts:275](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **trackPerformance?**: `boolean`
 
-Defined in: [types/config.ts:276](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L276)
+Defined in: [types/config.ts:366](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L366)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/config.ts:276](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **trackErrors?**: `boolean`
 
-Defined in: [types/config.ts:277](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L277)
+Defined in: [types/config.ts:367](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L367)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/config.ts:277](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **exportFormat?**: `"json"` \| `"csv"` \| `"prometheus"`
 
-Defined in: [types/config.ts:278](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L278)
+Defined in: [types/config.ts:368](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L368)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/config.ts:278](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **exportPath?**: `string`
 
-Defined in: [types/config.ts:279](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L279)
+Defined in: [types/config.ts:369](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L369)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/config.ts:279](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **retention?**: `object`
 
-Defined in: [types/config.ts:280](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L280)
+Defined in: [types/config.ts:370](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/config.ts#L370)
 
 #### days?
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderSetupArgv** = `object`
 
-Defined in: [types/cli.ts:1298](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1298)
+Defined in: [types/cli.ts:1418](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1418)
 
 Shared yargs-argv shape for every provider-specific CLI setup command.
 
@@ -18,7 +18,7 @@ Shared yargs-argv shape for every provider-specific CLI setup command.
 
 > `optional` **check?**: `boolean`
 
-Defined in: [types/cli.ts:1299](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1299)
+Defined in: [types/cli.ts:1419](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1419)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/cli.ts:1299](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **nonInteractive?**: `boolean`
 
-Defined in: [types/cli.ts:1300](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1300)
+Defined in: [types/cli.ts:1420](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1420)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LanguageModelObject** = `object`
 
-Defined in: [types/providers.ts:1772](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1772)
+Defined in: [types/providers.ts:2046](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2046)
 
 Language model object shape (LanguageModelV2/V3).
 
@@ -18,7 +18,7 @@ Language model object shape (LanguageModelV2/V3).
 
 > `readonly` **modelId**: `string`
 
-Defined in: [types/providers.ts:1773](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1773)
+Defined in: [types/providers.ts:2047](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2047)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/providers.ts:1773](https://github.com/juspay/neurolink/blob/f
 
 > `readonly` **provider**: `string`
 
-Defined in: [types/providers.ts:1774](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1774)
+Defined in: [types/providers.ts:2048](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L2048)

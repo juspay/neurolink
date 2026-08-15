@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MiddlewareExecutionResult** = `object`
 
-Defined in: [types/middleware.ts:97](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L97)
+Defined in: [types/middleware.ts:127](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L127)
 
 Middleware execution result
 
@@ -18,7 +18,7 @@ Middleware execution result
 
 > **applied**: `boolean`
 
-Defined in: [types/middleware.ts:99](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L99)
+Defined in: [types/middleware.ts:129](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L129)
 
 Whether the middleware was applied
 
@@ -28,7 +28,7 @@ Whether the middleware was applied
 
 > **executionTime**: `number`
 
-Defined in: [types/middleware.ts:101](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L101)
+Defined in: [types/middleware.ts:131](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L131)
 
 Execution time in milliseconds
 
@@ -38,7 +38,7 @@ Execution time in milliseconds
 
 > `optional` **error?**: `Error`
 
-Defined in: [types/middleware.ts:103](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L103)
+Defined in: [types/middleware.ts:133](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L133)
 
 Any errors that occurred
 
@@ -48,6 +48,6 @@ Any errors that occurred
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/middleware.ts:105](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L105)
+Defined in: [types/middleware.ts:135](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L135)
 
 Additional metadata from the middleware

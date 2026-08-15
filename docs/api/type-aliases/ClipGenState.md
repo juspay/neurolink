@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClipGenState** = `object`
 
-Defined in: [types/multimodal.ts:636](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L636)
+Defined in: [types/multimodal.ts:739](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L739)
 
 State shared across clip-generation tasks for circuit-breaker logic.
 
@@ -18,7 +18,7 @@ State shared across clip-generation tasks for circuit-breaker logic.
 
 > **consecutiveFailures**: `number`
 
-Defined in: [types/multimodal.ts:637](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L637)
+Defined in: [types/multimodal.ts:740](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L740)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/multimodal.ts:637](https://github.com/juspay/neurolink/blob/f
 
 > **circuitOpen**: `boolean`
 
-Defined in: [types/multimodal.ts:638](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L638)
+Defined in: [types/multimodal.ts:741](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L741)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/multimodal.ts:638](https://github.com/juspay/neurolink/blob/f
 
 > **results**: ([`ClipResult`](ClipResult.md) \| `null`)[]
 
-Defined in: [types/multimodal.ts:639](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L639)
+Defined in: [types/multimodal.ts:742](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L742)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/multimodal.ts:639](https://github.com/juspay/neurolink/blob/f
 
 > **completions**: [`ClipCompletion`](ClipCompletion.md)[]
 
-Defined in: [types/multimodal.ts:640](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L640)
+Defined in: [types/multimodal.ts:743](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L743)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/multimodal.ts:640](https://github.com/juspay/neurolink/blob/f
 
 > **nextExpectedIndex**: `number`
 
-Defined in: [types/multimodal.ts:641](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L641)
+Defined in: [types/multimodal.ts:744](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L744)

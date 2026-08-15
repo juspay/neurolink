@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ConnectionResult** = `object`
 
-Defined in: [types/aliases.ts:354](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L354)
+Defined in: [types/aliases.ts:368](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L368)
 
 Connection result with latency information
 Used for detailed connection testing with performance metrics
@@ -19,7 +19,7 @@ Used for detailed connection testing with performance metrics
 
 > **connected**: `boolean`
 
-Defined in: [types/aliases.ts:355](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L355)
+Defined in: [types/aliases.ts:369](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L369)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/aliases.ts:355](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **latency?**: `number`
 
-Defined in: [types/aliases.ts:356](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L356)
+Defined in: [types/aliases.ts:370](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L370)
 
 ---
 
@@ -35,4 +35,4 @@ Defined in: [types/aliases.ts:356](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **error?**: `string`
 
-Defined in: [types/aliases.ts:357](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L357)
+Defined in: [types/aliases.ts:371](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/aliases.ts#L371)

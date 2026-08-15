@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CronSchedule** = `object`
 
-Defined in: [types/task.ts:54](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L54)
+Defined in: [types/task.ts:54](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L54)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/task.ts:54](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **type**: `"cron"`
 
-Defined in: [types/task.ts:55](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L55)
+Defined in: [types/task.ts:55](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L55)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/task.ts:55](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **expression**: `string`
 
-Defined in: [types/task.ts:57](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L57)
+Defined in: [types/task.ts:57](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L57)
 
 Standard 5-field cron expression, e.g. "0 9 \* \* \*"
 
@@ -34,6 +34,6 @@ Standard 5-field cron expression, e.g. "0 9 \* \* \*"
 
 > `optional` **timezone?**: `string`
 
-Defined in: [types/task.ts:59](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L59)
+Defined in: [types/task.ts:59](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L59)
 
 IANA timezone, e.g. "America/New_York"

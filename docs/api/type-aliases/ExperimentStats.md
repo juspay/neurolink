@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ExperimentStats** = `object`
 
-Defined in: [types/autoresearch.ts:104](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L104)
+Defined in: [types/autoresearch.ts:104](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L104)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/autoresearch.ts:104](https://github.com/juspay/neurolink/blob
 
 > **total**: `number`
 
-Defined in: [types/autoresearch.ts:105](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L105)
+Defined in: [types/autoresearch.ts:105](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L105)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/autoresearch.ts:105](https://github.com/juspay/neurolink/blob
 
 > **keepCount**: `number`
 
-Defined in: [types/autoresearch.ts:106](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L106)
+Defined in: [types/autoresearch.ts:106](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L106)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/autoresearch.ts:106](https://github.com/juspay/neurolink/blob
 
 > **discardCount**: `number`
 
-Defined in: [types/autoresearch.ts:107](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L107)
+Defined in: [types/autoresearch.ts:107](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L107)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/autoresearch.ts:107](https://github.com/juspay/neurolink/blob
 
 > **crashCount**: `number`
 
-Defined in: [types/autoresearch.ts:108](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L108)
+Defined in: [types/autoresearch.ts:108](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L108)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/autoresearch.ts:108](https://github.com/juspay/neurolink/blob
 
 > **timeoutCount**: `number`
 
-Defined in: [types/autoresearch.ts:109](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L109)
+Defined in: [types/autoresearch.ts:109](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L109)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/autoresearch.ts:109](https://github.com/juspay/neurolink/blob
 
 > **keepRate**: `number`
 
-Defined in: [types/autoresearch.ts:110](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L110)
+Defined in: [types/autoresearch.ts:110](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L110)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [types/autoresearch.ts:110](https://github.com/juspay/neurolink/blob
 
 > **bestMetric**: `number` \| `null`
 
-Defined in: [types/autoresearch.ts:111](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L111)
+Defined in: [types/autoresearch.ts:111](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L111)
 
 ---
 
@@ -72,4 +72,4 @@ Defined in: [types/autoresearch.ts:111](https://github.com/juspay/neurolink/blob
 
 > **bestCommit**: `string` \| `null`
 
-Defined in: [types/autoresearch.ts:112](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L112)
+Defined in: [types/autoresearch.ts:112](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L112)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProxyAccount** = `object`
 
-Defined in: [types/subscription.ts:1079](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1079)
+Defined in: [types/subscription.ts:1161](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1161)
 
 A single Claude account in the pool
 
@@ -18,7 +18,7 @@ A single Claude account in the pool
 
 > **id**: `string`
 
-Defined in: [types/subscription.ts:1080](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1080)
+Defined in: [types/subscription.ts:1162](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1162)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/subscription.ts:1080](https://github.com/juspay/neurolink/blo
 
 > `optional` **label?**: `string`
 
-Defined in: [types/subscription.ts:1081](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1081)
+Defined in: [types/subscription.ts:1163](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1163)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/subscription.ts:1081](https://github.com/juspay/neurolink/blo
 
 > **type**: `"oauth"` \| `"api_key"`
 
-Defined in: [types/subscription.ts:1082](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1082)
+Defined in: [types/subscription.ts:1164](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1164)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/subscription.ts:1082](https://github.com/juspay/neurolink/blo
 
 > `optional` **tokens?**: [`StoredOAuthTokens`](StoredOAuthTokens.md)
 
-Defined in: [types/subscription.ts:1083](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1083)
+Defined in: [types/subscription.ts:1165](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1165)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/subscription.ts:1083](https://github.com/juspay/neurolink/blo
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/subscription.ts:1084](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1084)
+Defined in: [types/subscription.ts:1166](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1166)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/subscription.ts:1084](https://github.com/juspay/neurolink/blo
 
 > **status**: `"healthy"` \| `"cooling"` \| `"disabled"`
 
-Defined in: [types/subscription.ts:1085](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1085)
+Defined in: [types/subscription.ts:1167](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1167)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/subscription.ts:1085](https://github.com/juspay/neurolink/blo
 
 > `optional` **cooldownUntil?**: `number`
 
-Defined in: [types/subscription.ts:1086](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1086)
+Defined in: [types/subscription.ts:1168](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1168)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/subscription.ts:1086](https://github.com/juspay/neurolink/blo
 
 > **consecutiveFailures**: `number`
 
-Defined in: [types/subscription.ts:1087](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1087)
+Defined in: [types/subscription.ts:1169](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1169)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/subscription.ts:1087](https://github.com/juspay/neurolink/blo
 
 > **requestCount**: `number`
 
-Defined in: [types/subscription.ts:1088](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1088)
+Defined in: [types/subscription.ts:1170](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1170)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/subscription.ts:1088](https://github.com/juspay/neurolink/blo
 
 > **lastUsed**: `number`
 
-Defined in: [types/subscription.ts:1089](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1089)
+Defined in: [types/subscription.ts:1171](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1171)
 
 ---
 
@@ -98,4 +98,4 @@ Defined in: [types/subscription.ts:1089](https://github.com/juspay/neurolink/blo
 
 > `optional` **subscriptionTier?**: [`ClaudeSubscriptionTier`](ClaudeSubscriptionTier.md)
 
-Defined in: [types/subscription.ts:1090](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1090)
+Defined in: [types/subscription.ts:1172](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1172)

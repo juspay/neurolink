@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: GoogleTTSHandler
 
-Defined in: [adapters/tts/googleTTSHandler.ts:29](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/adapters/tts/googleTTSHandler.ts#L29)
+Defined in: [adapters/tts/googleTTSHandler.ts:29](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/adapters/tts/googleTTSHandler.ts#L29)
 
 ## Implements
 
@@ -18,7 +18,7 @@ Defined in: [adapters/tts/googleTTSHandler.ts:29](https://github.com/juspay/neur
 
 > **new GoogleTTSHandler**(`credentialsPath?`): `GoogleTTSHandler`
 
-Defined in: [adapters/tts/googleTTSHandler.ts:59](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/adapters/tts/googleTTSHandler.ts#L59)
+Defined in: [adapters/tts/googleTTSHandler.ts:61](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/adapters/tts/googleTTSHandler.ts#L61)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [adapters/tts/googleTTSHandler.ts:59](https://github.com/juspay/neur
 
 > `readonly` **maxTextLength**: `number` = `GoogleTTSHandler.DEFAULT_MAX_TEXT_LENGTH`
 
-Defined in: [adapters/tts/googleTTSHandler.ts:56](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/adapters/tts/googleTTSHandler.ts#L56)
+Defined in: [adapters/tts/googleTTSHandler.ts:56](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/adapters/tts/googleTTSHandler.ts#L56)
 
 Maximum text length supported by Google Cloud TTS (in bytes).
 
@@ -54,7 +54,7 @@ before invoking provider handlers, not inside this class.
 
 > **isConfigured**(): `boolean`
 
-Defined in: [adapters/tts/googleTTSHandler.ts:72](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/adapters/tts/googleTTSHandler.ts#L72)
+Defined in: [adapters/tts/googleTTSHandler.ts:71](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/adapters/tts/googleTTSHandler.ts#L71)
 
 Validate that the provider is properly configured
 
@@ -74,7 +74,7 @@ True if provider can generate TTS
 
 > **getVoices**(`languageCode?`): `Promise`\<[`TTSVoice`](../type-aliases/TTSVoice.md)[]\>
 
-Defined in: [adapters/tts/googleTTSHandler.ts:85](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/adapters/tts/googleTTSHandler.ts#L85)
+Defined in: [adapters/tts/googleTTSHandler.ts:103](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/adapters/tts/googleTTSHandler.ts#L103)
 
 Get available voices for the provider
 
@@ -105,7 +105,7 @@ List of available voices
 
 > **synthesize**(`text`, `options`): `Promise`\<[`TTSResult`](../type-aliases/TTSResult.md)\>
 
-Defined in: [adapters/tts/googleTTSHandler.ts:202](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/adapters/tts/googleTTSHandler.ts#L202)
+Defined in: [adapters/tts/googleTTSHandler.ts:221](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/adapters/tts/googleTTSHandler.ts#L221)
 
 Generate audio from text using provider-specific TTS API
 

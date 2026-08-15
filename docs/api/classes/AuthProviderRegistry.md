@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: AuthProviderRegistry
 
-Defined in: [auth/AuthProviderRegistry.ts:44](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/AuthProviderRegistry.ts#L44)
+Defined in: [auth/AuthProviderRegistry.ts:44](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/AuthProviderRegistry.ts#L44)
 
 AuthProviderRegistry - registers all auth providers with the factory
 
@@ -29,7 +29,7 @@ application startup. The method is idempotent and concurrency-safe.
 
 > `static` **registerAllProviders**(): `Promise`\<`void`\>
 
-Defined in: [auth/AuthProviderRegistry.ts:51](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/AuthProviderRegistry.ts#L51)
+Defined in: [auth/AuthProviderRegistry.ts:51](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/AuthProviderRegistry.ts#L51)
 
 Register all auth providers with the factory
 
@@ -43,7 +43,7 @@ Register all auth providers with the factory
 
 > `static` **isRegistered**(): `boolean`
 
-Defined in: [auth/AuthProviderRegistry.ts:274](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/AuthProviderRegistry.ts#L274)
+Defined in: [auth/AuthProviderRegistry.ts:274](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/AuthProviderRegistry.ts#L274)
 
 Check if providers are registered
 
@@ -57,7 +57,7 @@ Check if providers are registered
 
 > `static` **clearRegistrations**(): `void`
 
-Defined in: [auth/AuthProviderRegistry.ts:281](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/AuthProviderRegistry.ts#L281)
+Defined in: [auth/AuthProviderRegistry.ts:281](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/auth/AuthProviderRegistry.ts#L281)
 
 Clear registrations (for testing)
 

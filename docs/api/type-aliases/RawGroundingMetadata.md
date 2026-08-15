@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RawGroundingMetadata** = `object`
 
-Defined in: [types/grounding.ts:227](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L227)
+Defined in: [types/grounding.ts:227](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/grounding.ts#L227)
 
 Raw grounding metadata as returned directly from AI providers.
 This is the unprocessed format that gets transformed into
@@ -37,7 +37,7 @@ const rawMetadata: RawGroundingMetadata = {
 
 > `optional` **webSearchQueries?**: `string`[]
 
-Defined in: [types/grounding.ts:229](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L229)
+Defined in: [types/grounding.ts:229](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/grounding.ts#L229)
 
 Array of search queries used by the provider for web grounding
 
@@ -47,7 +47,7 @@ Array of search queries used by the provider for web grounding
 
 > `optional` **searchEntryPoint?**: `object`
 
-Defined in: [types/grounding.ts:231](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L231)
+Defined in: [types/grounding.ts:231](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/grounding.ts#L231)
 
 Search entry point with rendered HTML content for display
 
@@ -63,7 +63,7 @@ HTML content that can be rendered to show search results
 
 > `optional` **groundingChunks?**: [`GroundingChunk`](GroundingChunk.md)[]
 
-Defined in: [types/grounding.ts:236](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L236)
+Defined in: [types/grounding.ts:236](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/grounding.ts#L236)
 
 Array of grounding chunks from the provider
 
@@ -73,6 +73,6 @@ Array of grounding chunks from the provider
 
 > `optional` **groundingSupports?**: [`GroundingSupport`](GroundingSupport.md)[]
 
-Defined in: [types/grounding.ts:238](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L238)
+Defined in: [types/grounding.ts:238](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/grounding.ts#L238)
 
 Array of grounding support information linking segments to chunks

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SpanLink** = `object`
 
-Defined in: [types/span.ts:175](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L175)
+Defined in: [types/span.ts:175](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L175)
 
 Link to related span
 
@@ -18,7 +18,7 @@ Link to related span
 
 > **traceId**: `string`
 
-Defined in: [types/span.ts:176](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L176)
+Defined in: [types/span.ts:176](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L176)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/span.ts:176](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **spanId**: `string`
 
-Defined in: [types/span.ts:177](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L177)
+Defined in: [types/span.ts:177](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L177)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/span.ts:177](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **attributes?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/span.ts:178](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/span.ts#L178)
+Defined in: [types/span.ts:178](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/span.ts#L178)

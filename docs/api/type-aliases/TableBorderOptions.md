@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TableBorderOptions** = `object`
 
-Defined in: [types/ppt.ts:847](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L847)
+Defined in: [types/ppt.ts:847](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L847)
 
 Table border options
 Maps to: pptxgenjs IBorderOptions
@@ -19,7 +19,7 @@ Maps to: pptxgenjs IBorderOptions
 
 > `optional` **type?**: `"solid"` \| `"dash"` \| `"none"`
 
-Defined in: [types/ppt.ts:849](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L849)
+Defined in: [types/ppt.ts:849](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L849)
 
 Border type
 
@@ -29,7 +29,7 @@ Border type
 
 > `optional` **pt?**: `number`
 
-Defined in: [types/ppt.ts:851](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L851)
+Defined in: [types/ppt.ts:851](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L851)
 
 Border thickness in points
 
@@ -39,6 +39,6 @@ Border thickness in points
 
 > `optional` **color?**: `string`
 
-Defined in: [types/ppt.ts:853](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L853)
+Defined in: [types/ppt.ts:853](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L853)
 
 Border color (hex)

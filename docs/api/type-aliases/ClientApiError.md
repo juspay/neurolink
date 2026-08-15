@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientApiError** = `object`
 
-Defined in: [types/client.ts:98](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L98)
+Defined in: [types/client.ts:98](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L98)
 
 Error response from API
 
@@ -18,7 +18,7 @@ Error response from API
 
 > **code**: `string`
 
-Defined in: [types/client.ts:100](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L100)
+Defined in: [types/client.ts:100](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L100)
 
 Error code (e.g., "RATE_LIMIT_EXCEEDED", "INVALID_REQUEST")
 
@@ -28,7 +28,7 @@ Error code (e.g., "RATE_LIMIT_EXCEEDED", "INVALID_REQUEST")
 
 > **message**: `string`
 
-Defined in: [types/client.ts:102](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L102)
+Defined in: [types/client.ts:102](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L102)
 
 Human-readable error message
 
@@ -38,7 +38,7 @@ Human-readable error message
 
 > **status**: `number`
 
-Defined in: [types/client.ts:104](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L104)
+Defined in: [types/client.ts:104](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L104)
 
 HTTP status code
 
@@ -48,7 +48,7 @@ HTTP status code
 
 > `optional` **details?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/client.ts:106](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L106)
+Defined in: [types/client.ts:106](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L106)
 
 Additional error details
 
@@ -58,7 +58,7 @@ Additional error details
 
 > `optional` **retryable?**: `boolean`
 
-Defined in: [types/client.ts:108](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L108)
+Defined in: [types/client.ts:108](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L108)
 
 Whether the error is retryable
 
@@ -68,6 +68,6 @@ Whether the error is retryable
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/client.ts:110](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L110)
+Defined in: [types/client.ts:110](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L110)
 
 Request ID for tracing

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileInfo** = `object`
 
-Defined in: [types/processor.ts:31](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L31)
+Defined in: [types/processor.ts:31](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L31)
 
 Generic file information - provider agnostic.
 Replaces Slack-specific SlackFileInfo with a universal interface.
@@ -31,7 +31,7 @@ const fileInfo: FileInfo = {
 
 > **id**: `string`
 
-Defined in: [types/processor.ts:33](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L33)
+Defined in: [types/processor.ts:33](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L33)
 
 Unique identifier for the file
 
@@ -41,7 +41,7 @@ Unique identifier for the file
 
 > **name**: `string`
 
-Defined in: [types/processor.ts:35](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L35)
+Defined in: [types/processor.ts:35](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L35)
 
 Original filename
 
@@ -51,7 +51,7 @@ Original filename
 
 > **mimetype**: `string`
 
-Defined in: [types/processor.ts:37](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L37)
+Defined in: [types/processor.ts:37](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L37)
 
 MIME type of the file
 
@@ -61,7 +61,7 @@ MIME type of the file
 
 > **size**: `number`
 
-Defined in: [types/processor.ts:39](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L39)
+Defined in: [types/processor.ts:39](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L39)
 
 File size in bytes
 
@@ -71,7 +71,7 @@ File size in bytes
 
 > `optional` **url?**: `string`
 
-Defined in: [types/processor.ts:41](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L41)
+Defined in: [types/processor.ts:41](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L41)
 
 Download URL (optional - use when file needs to be fetched)
 
@@ -81,7 +81,7 @@ Download URL (optional - use when file needs to be fetched)
 
 > `optional` **buffer?**: `Buffer`
 
-Defined in: [types/processor.ts:43](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L43)
+Defined in: [types/processor.ts:43](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L43)
 
 Direct file content (optional - use when file is already in memory)
 
@@ -91,6 +91,6 @@ Direct file content (optional - use when file is already in memory)
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/processor.ts:45](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L45)
+Defined in: [types/processor.ts:45](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L45)
 
 Extensibility - additional provider-specific metadata

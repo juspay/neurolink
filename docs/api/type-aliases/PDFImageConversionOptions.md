@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PDFImageConversionOptions** = `object`
 
-Defined in: [types/file.ts:396](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L396)
+Defined in: [types/file.ts:576](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L576)
 
 Options for converting PDF pages to images.
 
@@ -18,7 +18,7 @@ Options for converting PDF pages to images.
 
 > `optional` **scale?**: `number`
 
-Defined in: [types/file.ts:398](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L398)
+Defined in: [types/file.ts:578](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L578)
 
 Scale factor for image quality (1-4, default: 2)
 
@@ -28,7 +28,7 @@ Scale factor for image quality (1-4, default: 2)
 
 > `optional` **maxPages?**: `number`
 
-Defined in: [types/file.ts:400](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L400)
+Defined in: [types/file.ts:580](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L580)
 
 Maximum number of pages to convert (default: 20 from PDF_LIMITS.DEFAULT_MAX_PAGES)
 
@@ -38,6 +38,48 @@ Maximum number of pages to convert (default: 20 from PDF_LIMITS.DEFAULT_MAX_PAGE
 
 > `optional` **format?**: `"png"`
 
-Defined in: [types/file.ts:402](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L402)
+Defined in: [types/file.ts:582](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L582)
 
 Output format (default: png). Only PNG is currently implemented by PDFProcessor.
+
+---
+
+### maxCanvasPixels?
+
+> `optional` **maxCanvasPixels?**: `number`
+
+Defined in: [types/file.ts:588](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L588)
+
+Per-page pixel ceiling (#260). Any page whose width×height×scale² would
+exceed this is uniformly downscaled to stay under it, preventing a huge
+page from allocating gigabytes of canvas. Default: PDF_LIMITS.DEFAULT_MAX_CANVAS_PIXELS.
+
+---
+
+### password?
+
+> `optional` **password?**: `string`
+
+Defined in: [types/file.ts:590](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L590)
+
+Password for an encrypted PDF (passed to the underlying renderer) (#258).
+
+---
+
+### onProgress?
+
+> `optional` **onProgress?**: (`progress`) => `void` \| `Promise`\<`void`\>
+
+Defined in: [types/file.ts:592](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L592)
+
+Per-page progress callback invoked as each page is rendered (#302).
+
+#### Parameters
+
+##### progress
+
+[`PDFImageConversionProgress`](PDFImageConversionProgress.md)
+
+#### Returns
+
+`void` \| `Promise`\<`void`\>

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DocsCommandArgs** = `object`
 
-Defined in: [types/cli.ts:1079](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1079)
+Defined in: [types/cli.ts:1199](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1199)
 
 Docs command arguments
 
@@ -18,7 +18,7 @@ Docs command arguments
 
 > `optional` **transport?**: `"stdio"` \| `"http"`
 
-Defined in: [types/cli.ts:1080](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1080)
+Defined in: [types/cli.ts:1200](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1200)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/cli.ts:1080](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **port?**: `number`
 
-Defined in: [types/cli.ts:1081](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1081)
+Defined in: [types/cli.ts:1201](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1201)

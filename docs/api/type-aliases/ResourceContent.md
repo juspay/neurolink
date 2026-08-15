@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ResourceContent** = `object`
 
-Defined in: [types/mcp.ts:1948](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1948)
+Defined in: [types/mcp.ts:1948](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1948)
 
 Resource content returned when reading a resource
 
@@ -18,7 +18,7 @@ Resource content returned when reading a resource
 
 > **uri**: `string`
 
-Defined in: [types/mcp.ts:1952](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1952)
+Defined in: [types/mcp.ts:1952](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1952)
 
 Resource URI
 
@@ -28,7 +28,7 @@ Resource URI
 
 > `optional` **mimeType?**: `string`
 
-Defined in: [types/mcp.ts:1957](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1957)
+Defined in: [types/mcp.ts:1957](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1957)
 
 MIME type
 
@@ -38,7 +38,7 @@ MIME type
 
 > `optional` **text?**: `string`
 
-Defined in: [types/mcp.ts:1962](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1962)
+Defined in: [types/mcp.ts:1962](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1962)
 
 Text content (for text/\* MIME types)
 
@@ -48,6 +48,6 @@ Text content (for text/\* MIME types)
 
 > `optional` **blob?**: `string`
 
-Defined in: [types/mcp.ts:1967](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1967)
+Defined in: [types/mcp.ts:1967](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1967)
 
 Binary content as base64 (for non-text MIME types)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MCPConnectedServer** = `object`
 
-Defined in: [types/mcp.ts:245](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L245)
+Defined in: [types/mcp.ts:245](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L245)
 
 Connected MCP Server - High Reusability
 
@@ -18,7 +18,7 @@ Connected MCP Server - High Reusability
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:246](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L246)
+Defined in: [types/mcp.ts:246](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L246)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:246](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **transport**: [`MCPTransportType`](MCPTransportType.md)
 
-Defined in: [types/mcp.ts:247](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L247)
+Defined in: [types/mcp.ts:247](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L247)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:247](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **connected**: `boolean`
 
-Defined in: [types/mcp.ts:248](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L248)
+Defined in: [types/mcp.ts:248](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L248)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:248](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **description?**: `string`
 
-Defined in: [types/mcp.ts:249](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L249)
+Defined in: [types/mcp.ts:249](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L249)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/mcp.ts:249](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **tools**: [`MCPToolInfo`](MCPToolInfo.md)[]
 
-Defined in: [types/mcp.ts:250](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L250)
+Defined in: [types/mcp.ts:250](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L250)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/mcp.ts:250](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **lastSeen?**: `Date`
 
-Defined in: [types/mcp.ts:251](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L251)
+Defined in: [types/mcp.ts:251](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L251)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/mcp.ts:251](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **connectionTime?**: `Date`
 
-Defined in: [types/mcp.ts:252](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L252)
+Defined in: [types/mcp.ts:252](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L252)
 
 ---
 
@@ -74,4 +74,4 @@ Defined in: [types/mcp.ts:252](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **metadata?**: [`MCPServerMetadata`](MCPServerMetadata.md)
 
-Defined in: [types/mcp.ts:253](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L253)
+Defined in: [types/mcp.ts:253](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L253)

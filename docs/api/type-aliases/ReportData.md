@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ReportData** = `object`
 
-Defined in: [types/evaluation.ts:362](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L362)
+Defined in: [types/evaluation.ts:357](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L357)
 
 Report data structure
 
@@ -18,7 +18,7 @@ Report data structure
 
 > **title**: `string`
 
-Defined in: [types/evaluation.ts:364](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L364)
+Defined in: [types/evaluation.ts:359](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L359)
 
 Report title
 
@@ -28,7 +28,7 @@ Report title
 
 > **timestamp**: `number`
 
-Defined in: [types/evaluation.ts:366](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L366)
+Defined in: [types/evaluation.ts:361](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L361)
 
 Timestamp
 
@@ -38,7 +38,7 @@ Timestamp
 
 > **result**: [`PipelineResult`](PipelineResult.md) \| [`AggregatedScores`](AggregatedScores.md)
 
-Defined in: [types/evaluation.ts:368](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L368)
+Defined in: [types/evaluation.ts:363](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L363)
 
 Evaluation result
 
@@ -48,7 +48,7 @@ Evaluation result
 
 > `optional` **customSections?**: `object`[]
 
-Defined in: [types/evaluation.ts:370](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L370)
+Defined in: [types/evaluation.ts:365](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L365)
 
 Optional custom sections
 

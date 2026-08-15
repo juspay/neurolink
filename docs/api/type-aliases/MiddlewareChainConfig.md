@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MiddlewareChainConfig** = `object`
 
-Defined in: [types/middleware.ts:265](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L265)
+Defined in: [types/middleware.ts:295](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L295)
 
 Middleware chain configuration
 
@@ -18,7 +18,7 @@ Middleware chain configuration
 
 > **middlewares**: [`MiddlewareFactoryConfig`](MiddlewareFactoryConfig.md)[]
 
-Defined in: [types/middleware.ts:266](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L266)
+Defined in: [types/middleware.ts:296](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L296)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/middleware.ts:266](https://github.com/juspay/neurolink/blob/f
 
 > **errorHandling**: `"continue"` \| `"stop"` \| `"rollback"`
 
-Defined in: [types/middleware.ts:267](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L267)
+Defined in: [types/middleware.ts:297](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L297)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/middleware.ts:267](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/middleware.ts:268](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L268)
+Defined in: [types/middleware.ts:298](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L298)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/middleware.ts:268](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **retries?**: `number`
 
-Defined in: [types/middleware.ts:269](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L269)
+Defined in: [types/middleware.ts:299](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/middleware.ts#L299)

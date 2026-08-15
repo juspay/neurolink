@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SvgSanitizationResult** = `object`
 
-Defined in: [types/file.ts:446](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L446)
+Defined in: [types/file.ts:686](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L686)
 
 Result of SVG sanitization.
 
@@ -18,7 +18,7 @@ Result of SVG sanitization.
 
 > **content**: `string`
 
-Defined in: [types/file.ts:448](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L448)
+Defined in: [types/file.ts:688](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L688)
 
 Sanitized SVG content
 
@@ -28,7 +28,7 @@ Sanitized SVG content
 
 > **removedItems**: `string`[]
 
-Defined in: [types/file.ts:450](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L450)
+Defined in: [types/file.ts:690](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L690)
 
 Items that were removed during sanitization
 
@@ -38,6 +38,6 @@ Items that were removed during sanitization
 
 > **wasModified**: `boolean`
 
-Defined in: [types/file.ts:452](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L452)
+Defined in: [types/file.ts:692](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/file.ts#L692)
 
 Whether any content was modified

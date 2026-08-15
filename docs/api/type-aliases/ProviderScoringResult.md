@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderScoringResult** = `object`
 
-Defined in: [types/evaluationProviders.ts:75](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L75)
+Defined in: [types/evaluationProviders.ts:75](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L75)
 
 Provider scoring result
 
@@ -18,7 +18,7 @@ Provider scoring result
 
 > **provider**: [`ProviderModelConfig`](ProviderModelConfig.md)
 
-Defined in: [types/evaluationProviders.ts:76](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L76)
+Defined in: [types/evaluationProviders.ts:76](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L76)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluationProviders.ts:76](https://github.com/juspay/neurolin
 
 > **score**: `number`
 
-Defined in: [types/evaluationProviders.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L77)
+Defined in: [types/evaluationProviders.ts:77](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L77)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/evaluationProviders.ts:77](https://github.com/juspay/neurolin
 
 > **metrics**: [`ProviderPerformanceMetrics`](ProviderPerformanceMetrics.md) \| `null`
 
-Defined in: [types/evaluationProviders.ts:78](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L78)
+Defined in: [types/evaluationProviders.ts:78](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L78)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GraphQueryParams** = `object`
 
-Defined in: [types/rag.ts:1371](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1371)
+Defined in: [types/rag.ts:1415](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1415)
 
 Graph query parameters
 
@@ -18,7 +18,7 @@ Graph query parameters
 
 > **query**: `number`[]
 
-Defined in: [types/rag.ts:1373](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1373)
+Defined in: [types/rag.ts:1417](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1417)
 
 Query embedding vector
 
@@ -28,7 +28,7 @@ Query embedding vector
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/rag.ts:1375](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1375)
+Defined in: [types/rag.ts:1419](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1419)
 
 Number of results to return (default: 10)
 
@@ -38,7 +38,7 @@ Number of results to return (default: 10)
 
 > `optional` **randomWalkSteps?**: `number`
 
-Defined in: [types/rag.ts:1377](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1377)
+Defined in: [types/rag.ts:1421](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1421)
 
 Random walk steps (default: 100)
 
@@ -48,6 +48,6 @@ Random walk steps (default: 100)
 
 > `optional` **restartProb?**: `number`
 
-Defined in: [types/rag.ts:1379](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1379)
+Defined in: [types/rag.ts:1423](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1423)
 
 Restart probability for random walk (default: 0.15)

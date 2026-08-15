@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StreamingCapability** = `object`
 
-Defined in: [types/common.ts:527](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L527)
+Defined in: [types/common.ts:557](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/common.ts#L557)
 
 Streaming capability information for an endpoint
 
@@ -18,7 +18,7 @@ Streaming capability information for an endpoint
 
 > **supported**: `boolean`
 
-Defined in: [types/common.ts:529](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L529)
+Defined in: [types/common.ts:559](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/common.ts#L559)
 
 Whether streaming is supported
 
@@ -28,7 +28,7 @@ Whether streaming is supported
 
 > **protocol**: `"sse"` \| `"jsonl"` \| `"chunked"` \| `"none"`
 
-Defined in: [types/common.ts:531](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L531)
+Defined in: [types/common.ts:561](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/common.ts#L561)
 
 Detected streaming protocol
 
@@ -38,7 +38,7 @@ Detected streaming protocol
 
 > **modelType**: `"huggingface"` \| `"llama"` \| `"pytorch"` \| `"tensorflow"` \| `"custom"`
 
-Defined in: [types/common.ts:533](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L533)
+Defined in: [types/common.ts:563](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/common.ts#L563)
 
 Detected model framework
 
@@ -48,7 +48,7 @@ Detected model framework
 
 > `optional` **testEndpoint?**: `string`
 
-Defined in: [types/common.ts:535](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L535)
+Defined in: [types/common.ts:565](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/common.ts#L565)
 
 Test endpoint for streaming validation
 
@@ -58,7 +58,7 @@ Test endpoint for streaming validation
 
 > `optional` **parameters?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/common.ts:537](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L537)
+Defined in: [types/common.ts:567](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/common.ts#L567)
 
 Required parameters for streaming
 
@@ -68,7 +68,7 @@ Required parameters for streaming
 
 > **confidence**: `number`
 
-Defined in: [types/common.ts:539](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L539)
+Defined in: [types/common.ts:569](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/common.ts#L569)
 
 Confidence level of detection (0-1)
 
@@ -78,7 +78,7 @@ Confidence level of detection (0-1)
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/common.ts:541](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L541)
+Defined in: [types/common.ts:571](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/common.ts#L571)
 
 Additional metadata about the model
 

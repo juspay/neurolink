@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ConversationMemoryStats** = `object`
 
-Defined in: [types/conversation.ts:190](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L190)
+Defined in: [types/conversation.ts:217](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L217)
 
 Statistics about conversation memory usage (simplified for pure in-memory storage)
 
@@ -18,7 +18,7 @@ Statistics about conversation memory usage (simplified for pure in-memory storag
 
 > **totalSessions**: `number`
 
-Defined in: [types/conversation.ts:192](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L192)
+Defined in: [types/conversation.ts:219](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L219)
 
 Total number of active sessions
 
@@ -28,6 +28,6 @@ Total number of active sessions
 
 > **totalTurns**: `number`
 
-Defined in: [types/conversation.ts:195](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L195)
+Defined in: [types/conversation.ts:222](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L222)
 
 Total number of conversation turns across all sessions

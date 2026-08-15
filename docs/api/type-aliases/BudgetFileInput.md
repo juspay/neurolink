@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BudgetFileInput** = `object`
 
-Defined in: [types/context.ts:782](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L782)
+Defined in: [types/context.ts:805](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L805)
 
 Input file for aggregate budget enforcement.
 
@@ -18,7 +18,7 @@ Input file for aggregate budget enforcement.
 
 > **name**: `string`
 
-Defined in: [types/context.ts:783](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L783)
+Defined in: [types/context.ts:806](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L806)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:783](https://github.com/juspay/neurolink/blob/ff50
 
 > **sizeBytes**: `number`
 
-Defined in: [types/context.ts:784](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L784)
+Defined in: [types/context.ts:807](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L807)
 
 ---
 
@@ -34,6 +34,6 @@ Defined in: [types/context.ts:784](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **fileType?**: `string`
 
-Defined in: [types/context.ts:786](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L786)
+Defined in: [types/context.ts:809](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L809)
 
 Optional file type hint for type-aware token estimation

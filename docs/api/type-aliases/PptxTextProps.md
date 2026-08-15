@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PptxTextProps** = `object`
 
-Defined in: [types/ppt.ts:919](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L919)
+Defined in: [types/ppt.ts:919](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L919)
 
 Text properties for addText method
 Represents individual text items with formatting options
@@ -19,7 +19,7 @@ Represents individual text items with formatting options
 
 > **text**: `string`
 
-Defined in: [types/ppt.ts:920](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L920)
+Defined in: [types/ppt.ts:920](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L920)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/ppt.ts:920](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **options?**: `object`
 
-Defined in: [types/ppt.ts:921](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L921)
+Defined in: [types/ppt.ts:921](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L921)
 
 #### bullet?
 

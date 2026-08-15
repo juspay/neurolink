@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientAuthConfig** = `object`
 
-Defined in: [types/client.ts:1076](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1076)
+Defined in: [types/client.ts:1076](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1076)
 
 Authentication configuration options
 
@@ -18,7 +18,7 @@ Authentication configuration options
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/client.ts:1078](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1078)
+Defined in: [types/client.ts:1078](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1078)
 
 API key for header-based authentication
 
@@ -28,7 +28,7 @@ API key for header-based authentication
 
 > `optional` **token?**: `string`
 
-Defined in: [types/client.ts:1080](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1080)
+Defined in: [types/client.ts:1080](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1080)
 
 Bearer token for JWT/OAuth authentication
 
@@ -38,7 +38,7 @@ Bearer token for JWT/OAuth authentication
 
 > `optional` **refreshToken?**: () => `Promise`\<`string`\>
 
-Defined in: [types/client.ts:1082](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1082)
+Defined in: [types/client.ts:1082](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1082)
 
 Token refresh function for automatic token renewal
 
@@ -52,7 +52,7 @@ Token refresh function for automatic token renewal
 
 > `optional` **tokenExpiresAt?**: `number`
 
-Defined in: [types/client.ts:1084](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1084)
+Defined in: [types/client.ts:1084](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1084)
 
 Token expiry time in milliseconds
 
@@ -62,7 +62,7 @@ Token expiry time in milliseconds
 
 > `optional` **refreshBufferMs?**: `number`
 
-Defined in: [types/client.ts:1086](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1086)
+Defined in: [types/client.ts:1086](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1086)
 
 Buffer time before expiry to refresh token (default: 60000ms)
 
@@ -72,7 +72,7 @@ Buffer time before expiry to refresh token (default: 60000ms)
 
 > `optional` **headerName?**: `string`
 
-Defined in: [types/client.ts:1088](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1088)
+Defined in: [types/client.ts:1088](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1088)
 
 Custom authorization header name (default: "Authorization")
 
@@ -82,6 +82,6 @@ Custom authorization header name (default: "Authorization")
 
 > `optional` **apiKeyHeaderName?**: `string`
 
-Defined in: [types/client.ts:1090](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1090)
+Defined in: [types/client.ts:1090](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L1090)
 
 Custom API key header name (default: "X-API-Key")

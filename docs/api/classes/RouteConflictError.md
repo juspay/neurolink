@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: RouteConflictError
 
-Defined in: [server/errors.ts:133](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L133)
+Defined in: [server/errors.ts:133](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L133)
 
 Route conflict error
 
@@ -20,7 +20,7 @@ Route conflict error
 
 > **new RouteConflictError**(`path`, `method`, `existingRoute?`): `RouteConflictError`
 
-Defined in: [server/errors.ts:134](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L134)
+Defined in: [server/errors.ts:134](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L134)
 
 #### Parameters
 
@@ -50,7 +50,7 @@ Defined in: [server/errors.ts:134](https://github.com/juspay/neurolink/blob/ff50
 
 > `readonly` **code**: [`ServerAdapterErrorCodeType`](../type-aliases/ServerAdapterErrorCodeType.md)
 
-Defined in: [server/errors.ts:21](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L21)
+Defined in: [server/errors.ts:21](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L21)
 
 #### Inherited from
 
@@ -62,7 +62,7 @@ Defined in: [server/errors.ts:21](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` **category**: [`ErrorCategoryType`](../type-aliases/ErrorCategoryType.md)
 
-Defined in: [server/errors.ts:22](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L22)
+Defined in: [server/errors.ts:22](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L22)
 
 #### Inherited from
 
@@ -74,7 +74,7 @@ Defined in: [server/errors.ts:22](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` **severity**: [`ErrorSeverityType`](../type-aliases/ErrorSeverityType.md)
 
-Defined in: [server/errors.ts:23](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L23)
+Defined in: [server/errors.ts:23](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L23)
 
 #### Inherited from
 
@@ -86,7 +86,7 @@ Defined in: [server/errors.ts:23](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [server/errors.ts:24](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L24)
+Defined in: [server/errors.ts:24](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L24)
 
 #### Inherited from
 
@@ -98,7 +98,7 @@ Defined in: [server/errors.ts:24](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` `optional` **retryAfterMs?**: `number`
 
-Defined in: [server/errors.ts:25](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L25)
+Defined in: [server/errors.ts:25](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L25)
 
 #### Inherited from
 
@@ -110,7 +110,7 @@ Defined in: [server/errors.ts:25](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` `optional` **requestId?**: `string`
 
-Defined in: [server/errors.ts:26](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L26)
+Defined in: [server/errors.ts:26](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L26)
 
 #### Inherited from
 
@@ -122,7 +122,7 @@ Defined in: [server/errors.ts:26](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` `optional` **path?**: `string`
 
-Defined in: [server/errors.ts:27](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L27)
+Defined in: [server/errors.ts:27](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L27)
 
 #### Inherited from
 
@@ -134,7 +134,7 @@ Defined in: [server/errors.ts:27](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` `optional` **method?**: `string`
 
-Defined in: [server/errors.ts:28](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L28)
+Defined in: [server/errors.ts:28](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L28)
 
 #### Inherited from
 
@@ -146,7 +146,7 @@ Defined in: [server/errors.ts:28](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` `optional` **details?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [server/errors.ts:29](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L29)
+Defined in: [server/errors.ts:29](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L29)
 
 #### Inherited from
 
@@ -158,7 +158,7 @@ Defined in: [server/errors.ts:29](https://github.com/juspay/neurolink/blob/ff50c
 
 > `readonly` `optional` **cause?**: `Error`
 
-Defined in: [server/errors.ts:30](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L30)
+Defined in: [server/errors.ts:30](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L30)
 
 #### Inherited from
 
@@ -170,7 +170,7 @@ Defined in: [server/errors.ts:30](https://github.com/juspay/neurolink/blob/ff50c
 
 > **toJSON**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [server/errors.ts:59](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L59)
+Defined in: [server/errors.ts:59](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L59)
 
 Convert to JSON for API responses
 
@@ -188,7 +188,7 @@ Convert to JSON for API responses
 
 > **getHttpStatus**(): `number`
 
-Defined in: [server/errors.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/errors.ts#L77)
+Defined in: [server/errors.ts:77](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/server/errors.ts#L77)
 
 Get HTTP status code for this error
 

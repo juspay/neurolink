@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: TokenChunker
 
-Defined in: [rag/chunking/tokenChunker.ts:24](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/tokenChunker.ts#L24)
+Defined in: [rag/chunking/tokenChunker.ts:24](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/chunking/tokenChunker.ts#L24)
 
 Token-aware chunker implementation
 Splits text based on approximate token counts
@@ -34,7 +34,7 @@ For exact token counts, integrate with tiktoken or model-specific tokenizers.
 
 > `readonly` **strategy**: `"token"`
 
-Defined in: [rag/chunking/tokenChunker.ts:25](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/tokenChunker.ts#L25)
+Defined in: [rag/chunking/tokenChunker.ts:25](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/chunking/tokenChunker.ts#L25)
 
 Strategy name for identification
 
@@ -48,7 +48,7 @@ Strategy name for identification
 
 > **chunk**(`text`, `config?`): `Promise`\<[`Chunk`](../type-aliases/Chunk.md)[]\>
 
-Defined in: [rag/chunking/tokenChunker.ts:35](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/tokenChunker.ts#L35)
+Defined in: [rag/chunking/tokenChunker.ts:35](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/chunking/tokenChunker.ts#L35)
 
 Split text into chunks
 
@@ -82,7 +82,7 @@ Array of chunks
 
 > **estimateTokenCount**(`text`, `tokenizer?`): `number`
 
-Defined in: [rag/chunking/tokenChunker.ts:200](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/tokenChunker.ts#L200)
+Defined in: [rag/chunking/tokenChunker.ts:200](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/chunking/tokenChunker.ts#L200)
 
 Estimate token count for text
 
@@ -106,7 +106,7 @@ Estimate token count for text
 
 > **validateConfig**(`config`): [`ChunkerValidationResult`](../type-aliases/ChunkerValidationResult.md)
 
-Defined in: [rag/chunking/tokenChunker.ts:204](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/tokenChunker.ts#L204)
+Defined in: [rag/chunking/tokenChunker.ts:204](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/chunking/tokenChunker.ts#L204)
 
 #### Parameters
 

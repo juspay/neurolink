@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ScorerRule** = `object`
 
-Defined in: [types/scorer.ts:191](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L191)
+Defined in: [types/scorer.ts:191](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L191)
 
 Individual rule for rule-based scorers
 
@@ -18,7 +18,7 @@ Individual rule for rule-based scorers
 
 > **id**: `string`
 
-Defined in: [types/scorer.ts:193](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L193)
+Defined in: [types/scorer.ts:193](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L193)
 
 Rule identifier
 
@@ -28,7 +28,7 @@ Rule identifier
 
 > **description**: `string`
 
-Defined in: [types/scorer.ts:195](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L195)
+Defined in: [types/scorer.ts:195](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L195)
 
 Rule description
 
@@ -38,7 +38,7 @@ Rule description
 
 > **type**: `"regex"` \| `"keyword"` \| `"length"` \| `"custom"`
 
-Defined in: [types/scorer.ts:197](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L197)
+Defined in: [types/scorer.ts:197](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L197)
 
 Rule type
 
@@ -48,7 +48,7 @@ Rule type
 
 > **params**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/scorer.ts:199](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L199)
+Defined in: [types/scorer.ts:199](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L199)
 
 Rule parameters
 
@@ -58,6 +58,6 @@ Rule parameters
 
 > `optional` **weight?**: `number`
 
-Defined in: [types/scorer.ts:201](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L201)
+Defined in: [types/scorer.ts:201](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L201)
 
 Weight for this rule

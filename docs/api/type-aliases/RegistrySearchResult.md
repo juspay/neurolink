@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RegistrySearchResult** = `object`
 
-Defined in: [types/mcp.ts:1709](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1709)
+Defined in: [types/mcp.ts:1709](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1709)
 
 Search result
 
@@ -18,7 +18,7 @@ Search result
 
 > **entries**: [`McpRegistryEntry`](McpRegistryEntry.md)[]
 
-Defined in: [types/mcp.ts:1710](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1710)
+Defined in: [types/mcp.ts:1710](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1710)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:1710](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **totalCount**: `number`
 
-Defined in: [types/mcp.ts:1711](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1711)
+Defined in: [types/mcp.ts:1711](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1711)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:1711](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **page**: `number`
 
-Defined in: [types/mcp.ts:1712](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1712)
+Defined in: [types/mcp.ts:1712](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1712)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:1712](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **pageSize**: `number`
 
-Defined in: [types/mcp.ts:1713](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1713)
+Defined in: [types/mcp.ts:1713](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1713)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/mcp.ts:1713](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **hasMore**: `boolean`
 
-Defined in: [types/mcp.ts:1714](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1714)
+Defined in: [types/mcp.ts:1714](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1714)

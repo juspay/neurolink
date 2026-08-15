@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthSessionManager** = `object`
 
-Defined in: [types/auth.ts:1113](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1113)
+Defined in: [types/auth.ts:1113](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L1113)
 
 Session management: create, read, refresh, destroy.
 
@@ -18,7 +18,7 @@ Session management: create, read, refresh, destroy.
 
 > **createSession**(`user`, `context?`): `Promise`\<[`AuthSession`](AuthSession.md)\>
 
-Defined in: [types/auth.ts:1115](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1115)
+Defined in: [types/auth.ts:1115](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L1115)
 
 Create a new session for a user
 
@@ -42,7 +42,7 @@ Create a new session for a user
 
 > **getSession**(`sessionId`): `Promise`\<[`AuthSession`](AuthSession.md) \| `null`\>
 
-Defined in: [types/auth.ts:1121](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1121)
+Defined in: [types/auth.ts:1121](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L1121)
 
 Get an existing session by ID
 
@@ -62,7 +62,7 @@ Get an existing session by ID
 
 > **refreshSession**(`sessionId`): `Promise`\<[`AuthSession`](AuthSession.md) \| `null`\>
 
-Defined in: [types/auth.ts:1124](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1124)
+Defined in: [types/auth.ts:1124](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L1124)
 
 Refresh/extend a session
 
@@ -82,7 +82,7 @@ Refresh/extend a session
 
 > **destroySession**(`sessionId`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1127](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1127)
+Defined in: [types/auth.ts:1127](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L1127)
 
 Invalidate/destroy a session
 
@@ -102,7 +102,7 @@ Invalidate/destroy a session
 
 > **getUserSessions**(`userId`): `Promise`\<[`AuthSession`](AuthSession.md)[]\>
 
-Defined in: [types/auth.ts:1130](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1130)
+Defined in: [types/auth.ts:1130](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L1130)
 
 Get all active sessions for a user
 
@@ -122,7 +122,7 @@ Get all active sessions for a user
 
 > **destroyAllUserSessions**(`userId`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1133](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1133)
+Defined in: [types/auth.ts:1133](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/auth.ts#L1133)
 
 Invalidate all sessions for a user (global logout)
 

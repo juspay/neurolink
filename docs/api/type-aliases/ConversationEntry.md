@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ConversationEntry** = `object`
 
-Defined in: [types/task.ts:254](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L254)
+Defined in: [types/task.ts:254](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L254)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/task.ts:254](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **role**: `"user"` \| `"assistant"`
 
-Defined in: [types/task.ts:255](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L255)
+Defined in: [types/task.ts:255](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L255)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/task.ts:255](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **content**: `string`
 
-Defined in: [types/task.ts:256](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L256)
+Defined in: [types/task.ts:256](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L256)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/task.ts:256](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **timestamp**: `string`
 
-Defined in: [types/task.ts:257](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L257)
+Defined in: [types/task.ts:257](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L257)

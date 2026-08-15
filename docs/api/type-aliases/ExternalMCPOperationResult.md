@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ExternalMCPOperationResult**\<`T`\> = `object`
 
-Defined in: [types/externalMcp.ts:230](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/externalMcp.ts#L230)
+Defined in: [types/externalMcp.ts:230](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/externalMcp.ts#L230)
 
 External MCP server operation result
 
@@ -24,7 +24,7 @@ External MCP server operation result
 
 > **success**: `boolean`
 
-Defined in: [types/externalMcp.ts:232](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/externalMcp.ts#L232)
+Defined in: [types/externalMcp.ts:232](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/externalMcp.ts#L232)
 
 Whether the operation was successful
 
@@ -34,7 +34,7 @@ Whether the operation was successful
 
 > `optional` **data?**: `T`
 
-Defined in: [types/externalMcp.ts:235](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/externalMcp.ts#L235)
+Defined in: [types/externalMcp.ts:235](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/externalMcp.ts#L235)
 
 Result data if successful
 
@@ -44,7 +44,7 @@ Result data if successful
 
 > `optional` **error?**: `string`
 
-Defined in: [types/externalMcp.ts:238](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/externalMcp.ts#L238)
+Defined in: [types/externalMcp.ts:238](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/externalMcp.ts#L238)
 
 Error message if failed
 
@@ -54,7 +54,7 @@ Error message if failed
 
 > `optional` **serverId?**: `string`
 
-Defined in: [types/externalMcp.ts:241](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/externalMcp.ts#L241)
+Defined in: [types/externalMcp.ts:241](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/externalMcp.ts#L241)
 
 Server ID
 
@@ -64,7 +64,7 @@ Server ID
 
 > `optional` **duration?**: `number`
 
-Defined in: [types/externalMcp.ts:244](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/externalMcp.ts#L244)
+Defined in: [types/externalMcp.ts:244](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/externalMcp.ts#L244)
 
 Operation duration in milliseconds
 
@@ -74,7 +74,7 @@ Operation duration in milliseconds
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/externalMcp.ts:247](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/externalMcp.ts#L247)
+Defined in: [types/externalMcp.ts:247](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/externalMcp.ts#L247)
 
 Additional metadata
 

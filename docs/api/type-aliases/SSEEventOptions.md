@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SSEEventOptions** = `object`
 
-Defined in: [types/server.ts:1441](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1441)
+Defined in: [types/server.ts:1444](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L1444)
 
 Options for a single SSE message.
 
@@ -18,7 +18,7 @@ Options for a single SSE message.
 
 > `optional` **event?**: `string`
 
-Defined in: [types/server.ts:1442](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1442)
+Defined in: [types/server.ts:1445](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L1445)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/server.ts:1442](https://github.com/juspay/neurolink/blob/ff50
 
 > **data**: `string`
 
-Defined in: [types/server.ts:1443](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1443)
+Defined in: [types/server.ts:1446](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L1446)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/server.ts:1443](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **id?**: `string`
 
-Defined in: [types/server.ts:1444](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1444)
+Defined in: [types/server.ts:1447](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L1447)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/server.ts:1444](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **retry?**: `number`
 
-Defined in: [types/server.ts:1445](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1445)
+Defined in: [types/server.ts:1448](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L1448)

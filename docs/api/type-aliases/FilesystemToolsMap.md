@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FilesystemToolsMap** = `object`
 
-Defined in: [types/tools.ts:454](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L454)
+Defined in: [types/tools.ts:471](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tools.ts#L471)
 
 Subset of directAgentTools exposing only the "filesystem" category.
 
@@ -18,7 +18,7 @@ Subset of directAgentTools exposing only the "filesystem" category.
 
 > **readFile**: `Tool`
 
-Defined in: [types/tools.ts:455](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L455)
+Defined in: [types/tools.ts:472](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tools.ts#L472)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/tools.ts:455](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **listDirectory**: `Tool`
 
-Defined in: [types/tools.ts:456](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L456)
+Defined in: [types/tools.ts:473](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tools.ts#L473)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/tools.ts:456](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **writeFile**: `Tool`
 
-Defined in: [types/tools.ts:457](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L457)
+Defined in: [types/tools.ts:474](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tools.ts#L474)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VideoSaveResult** = `object`
 
-Defined in: [types/cli.ts:1625](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1625)
+Defined in: [types/cli.ts:1745](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1745)
 
 Result of saving video to file.
 
@@ -18,7 +18,7 @@ Result of saving video to file.
 
 > **success**: `boolean`
 
-Defined in: [types/cli.ts:1626](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1626)
+Defined in: [types/cli.ts:1746](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1746)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1626](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **path**: `string`
 
-Defined in: [types/cli.ts:1627](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1627)
+Defined in: [types/cli.ts:1747](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1747)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1627](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **size**: `number`
 
-Defined in: [types/cli.ts:1628](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1628)
+Defined in: [types/cli.ts:1748](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1748)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/cli.ts:1628](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **error?**: `string`
 
-Defined in: [types/cli.ts:1629](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1629)
+Defined in: [types/cli.ts:1749](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L1749)

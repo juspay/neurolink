@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,14 +8,17 @@
 
 > **MessageContent** = `object`
 
-Defined in: [types/multimodal.ts:429](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L429)
+Defined in: [types/multimodal.ts:500](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L500)
 
-Content format for multimodal messages (used internally)
-Compatible with Vercel AI SDK message format
+Content format for multimodal messages (used internally).
 
-## Indexable
-
-> \[`key`: `string`\]: `unknown`
+#325: the loose `[key: string]: unknown` index signature has been replaced
+with the concrete fields the codebase actually reads/writes across the
+text / image / file / tool-call / tool-result shapes. This keeps the broad
+structural compatibility the internal pipeline relies on (a single object
+type, not a strict discriminated union that would force narrowing at every
+consumer) while removing the "any key is allowed" hole that let typos and
+unrelated keys through unchecked.
 
 ## Properties
 
@@ -23,7 +26,7 @@ Compatible with Vercel AI SDK message format
 
 > **type**: `string`
 
-Defined in: [types/multimodal.ts:430](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L430)
+Defined in: [types/multimodal.ts:501](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L501)
 
 ---
 
@@ -31,7 +34,9 @@ Defined in: [types/multimodal.ts:430](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **text?**: `string`
 
-Defined in: [types/multimodal.ts:431](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L431)
+Defined in: [types/multimodal.ts:503](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L503)
+
+Text content (`type: "text"`).
 
 ---
 
@@ -39,7 +44,9 @@ Defined in: [types/multimodal.ts:431](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **image?**: `string`
 
-Defined in: [types/multimodal.ts:432](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L432)
+Defined in: [types/multimodal.ts:505](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L505)
+
+Base64 / data-URI image (`type: "image"`).
 
 ---
 
@@ -47,4 +54,98 @@ Defined in: [types/multimodal.ts:432](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **mimeType?**: `string`
 
-Defined in: [types/multimodal.ts:433](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L433)
+Defined in: [types/multimodal.ts:507](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L507)
+
+MIME type for image/file parts.
+
+---
+
+### data?
+
+> `optional` **data?**: `string` \| `Buffer`
+
+Defined in: [types/multimodal.ts:509](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L509)
+
+Raw file bytes or base64 (`type: "file"`/document parts).
+
+---
+
+### name?
+
+> `optional` **name?**: `string`
+
+Defined in: [types/multimodal.ts:511](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L511)
+
+File name for document/file parts.
+
+---
+
+### filename?
+
+> `optional` **filename?**: `string`
+
+Defined in: [types/multimodal.ts:513](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L513)
+
+File name (alias used by some file parts).
+
+---
+
+### toolCallId?
+
+> `optional` **toolCallId?**: `string`
+
+Defined in: [types/multimodal.ts:515](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L515)
+
+Tool-call identifier (`type: "tool-call"`/`"tool-result"`).
+
+---
+
+### toolName?
+
+> `optional` **toolName?**: `string`
+
+Defined in: [types/multimodal.ts:517](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L517)
+
+Tool name (`type: "tool-call"`/`"tool-result"`).
+
+---
+
+### args?
+
+> `optional` **args?**: `Record`\<`string`, `unknown`\>
+
+Defined in: [types/multimodal.ts:519](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L519)
+
+Tool-call arguments (`type: "tool-call"`).
+
+---
+
+### result?
+
+> `optional` **result?**: `unknown`
+
+Defined in: [types/multimodal.ts:521](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L521)
+
+Tool-result payload (`type: "tool-result"`).
+
+---
+
+### isError?
+
+> `optional` **isError?**: `boolean`
+
+Defined in: [types/multimodal.ts:523](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L523)
+
+Whether a tool-result represents an error (`type: "tool-result"`).
+
+---
+
+### providerOptions?
+
+> `optional` **providerOptions?**: `Record`\<`string`, `unknown`\>
+
+Defined in: [types/multimodal.ts:529](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L529)
+
+Provider-specific per-block options (e.g. Anthropic cache_control).
+Read as `item.providerOptions` when converting `MessageContent[]` to
+`ModelMessage[]` in `MessageBuilder.ts`.

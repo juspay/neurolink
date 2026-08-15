@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StoreConversationTurnOptions** = `object`
 
-Defined in: [types/conversation.ts:426](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L426)
+Defined in: [types/conversation.ts:482](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L482)
 
 Options for storing a conversation turn
 
@@ -18,7 +18,7 @@ Options for storing a conversation turn
 
 > **sessionId**: `string`
 
-Defined in: [types/conversation.ts:427](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L427)
+Defined in: [types/conversation.ts:483](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L483)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/conversation.ts:427](https://github.com/juspay/neurolink/blob
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/conversation.ts:428](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L428)
+Defined in: [types/conversation.ts:484](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L484)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/conversation.ts:428](https://github.com/juspay/neurolink/blob
 
 > **userMessage**: `string`
 
-Defined in: [types/conversation.ts:429](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L429)
+Defined in: [types/conversation.ts:485](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L485)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/conversation.ts:429](https://github.com/juspay/neurolink/blob
 
 > **aiResponse**: `string`
 
-Defined in: [types/conversation.ts:430](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L430)
+Defined in: [types/conversation.ts:486](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L486)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/conversation.ts:430](https://github.com/juspay/neurolink/blob
 
 > `optional` **startTimeStamp?**: `Date`
 
-Defined in: [types/conversation.ts:431](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L431)
+Defined in: [types/conversation.ts:487](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L487)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/conversation.ts:431](https://github.com/juspay/neurolink/blob
 
 > `optional` **providerDetails?**: [`ProviderDetails`](ProviderDetails.md)
 
-Defined in: [types/conversation.ts:432](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L432)
+Defined in: [types/conversation.ts:488](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L488)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/conversation.ts:432](https://github.com/juspay/neurolink/blob
 
 > `optional` **enableSummarization?**: `boolean`
 
-Defined in: [types/conversation.ts:433](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L433)
+Defined in: [types/conversation.ts:489](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L489)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/conversation.ts:433](https://github.com/juspay/neurolink/blob
 
 > `optional` **events?**: [`StreamEventSequence`](StreamEventSequence.md)[]
 
-Defined in: [types/conversation.ts:434](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L434)
+Defined in: [types/conversation.ts:490](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L490)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/conversation.ts:434](https://github.com/juspay/neurolink/blob
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/conversation.ts:436](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L436)
+Defined in: [types/conversation.ts:492](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L492)
 
 Observability request identifier for log correlation
 
@@ -92,7 +92,7 @@ Observability request identifier for log correlation
 
 > `optional` **tokenUsage?**: `object`
 
-Defined in: [types/conversation.ts:438](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L438)
+Defined in: [types/conversation.ts:494](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L494)
 
 API-reported token usage from provider response
 
@@ -122,6 +122,25 @@ API-reported token usage from provider response
 
 > `optional` **thoughtSignature?**: `string`
 
-Defined in: [types/conversation.ts:446](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L446)
+Defined in: [types/conversation.ts:502](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L502)
 
 Gemini 3 thought signature for reasoning continuity across turns
+
+---
+
+### skillMessages?
+
+> `optional` **skillMessages?**: [`ChatMessage`](ChatMessage.md)[]
+
+Defined in: [types/conversation.ts:515](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/conversation.ts#L515)
+
+Pinned skill-activation messages (skills v2) recorded during this turn.
+Inserted between the user and assistant messages so replayed history
+mirrors the actual order: ask → skill loaded → answer. Stored verbatim —
+skill instructions are never truncated.
+
+Invariant for history consumers: a skill-bearing turn is a
+user → skill(user-role, metadata.isSkill) → assistant triplet, so
+stored history is NOT strictly pair-wise alternating. Pair-based
+logic must filter `metadata.isSkill` first (see slidingWindowTruncator
+for the canonical partition-and-reanchor pattern).

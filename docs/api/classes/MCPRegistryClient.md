@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: MCPRegistryClient
 
-Defined in: [mcp/mcpRegistryClient.ts:199](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L199)
+Defined in: [mcp/mcpRegistryClient.ts:199](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L199)
 
 MCP Registry Client
 
@@ -37,7 +37,7 @@ const serverInfo = client.toServerInfo(entry);
 
 > **new MCPRegistryClient**(`config?`): `MCPRegistryClient`
 
-Defined in: [mcp/mcpRegistryClient.ts:204](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L204)
+Defined in: [mcp/mcpRegistryClient.ts:204](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L204)
 
 #### Parameters
 
@@ -59,7 +59,7 @@ Defined in: [mcp/mcpRegistryClient.ts:204](https://github.com/juspay/neurolink/b
 
 > **search**(`options?`): `Promise`\<[`RegistrySearchResult`](../type-aliases/RegistrySearchResult.md)\>
 
-Defined in: [mcp/mcpRegistryClient.ts:221](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L221)
+Defined in: [mcp/mcpRegistryClient.ts:221](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L221)
 
 Search the registry
 
@@ -79,7 +79,7 @@ Search the registry
 
 > **getEntry**(`id`): `Promise`\<[`McpRegistryEntry`](../type-aliases/McpRegistryEntry.md) \| `undefined`\>
 
-Defined in: [mcp/mcpRegistryClient.ts:310](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L310)
+Defined in: [mcp/mcpRegistryClient.ts:310](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L310)
 
 Get a specific entry by ID
 
@@ -99,7 +99,7 @@ Get a specific entry by ID
 
 > **getAllEntries**(): `Promise`\<[`McpRegistryEntry`](../type-aliases/McpRegistryEntry.md)[]\>
 
-Defined in: [mcp/mcpRegistryClient.ts:329](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L329)
+Defined in: [mcp/mcpRegistryClient.ts:329](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L329)
 
 Get all available entries
 
@@ -113,7 +113,7 @@ Get all available entries
 
 > **getByCategory**(`category`): `Promise`\<[`McpRegistryEntry`](../type-aliases/McpRegistryEntry.md)[]\>
 
-Defined in: [mcp/mcpRegistryClient.ts:362](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L362)
+Defined in: [mcp/mcpRegistryClient.ts:362](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L362)
 
 Get entries by category
 
@@ -133,7 +133,7 @@ Get entries by category
 
 > **getByTag**(`tag`): `Promise`\<[`McpRegistryEntry`](../type-aliases/McpRegistryEntry.md)[]\>
 
-Defined in: [mcp/mcpRegistryClient.ts:370](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L370)
+Defined in: [mcp/mcpRegistryClient.ts:370](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L370)
 
 Get entries by tag
 
@@ -153,7 +153,7 @@ Get entries by tag
 
 > **getCategories**(): `Promise`\<`string`[]\>
 
-Defined in: [mcp/mcpRegistryClient.ts:378](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L378)
+Defined in: [mcp/mcpRegistryClient.ts:378](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L378)
 
 Get all categories
 
@@ -167,7 +167,7 @@ Get all categories
 
 > **getTags**(): `Promise`\<`string`[]\>
 
-Defined in: [mcp/mcpRegistryClient.ts:394](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L394)
+Defined in: [mcp/mcpRegistryClient.ts:394](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L394)
 
 Get all tags
 
@@ -181,7 +181,7 @@ Get all tags
 
 > **toServerInfo**(`entry`): [`MCPServerInfo`](../type-aliases/MCPServerInfo.md)
 
-Defined in: [mcp/mcpRegistryClient.ts:410](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L410)
+Defined in: [mcp/mcpRegistryClient.ts:410](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L410)
 
 Convert registry entry to MCPServerInfo
 
@@ -201,7 +201,7 @@ Convert registry entry to MCPServerInfo
 
 > **addCustomEntry**(`entry`): `void`
 
-Defined in: [mcp/mcpRegistryClient.ts:443](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L443)
+Defined in: [mcp/mcpRegistryClient.ts:443](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L443)
 
 Add a custom registry entry
 
@@ -221,7 +221,7 @@ Add a custom registry entry
 
 > **removeCustomEntry**(`id`): `boolean`
 
-Defined in: [mcp/mcpRegistryClient.ts:452](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L452)
+Defined in: [mcp/mcpRegistryClient.ts:452](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L452)
 
 Remove a custom registry entry
 
@@ -241,7 +241,7 @@ Remove a custom registry entry
 
 > **addRegistry**(`config`): `void`
 
-Defined in: [mcp/mcpRegistryClient.ts:464](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L464)
+Defined in: [mcp/mcpRegistryClient.ts:464](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L464)
 
 Add a registry configuration
 
@@ -261,7 +261,7 @@ Add a registry configuration
 
 > **clearCache**(): `void`
 
-Defined in: [mcp/mcpRegistryClient.ts:474](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L474)
+Defined in: [mcp/mcpRegistryClient.ts:474](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L474)
 
 Clear the cache
 
@@ -275,7 +275,7 @@ Clear the cache
 
 > **checkRequiredEnvVars**(`entry`): `object`
 
-Defined in: [mcp/mcpRegistryClient.ts:482](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L482)
+Defined in: [mcp/mcpRegistryClient.ts:482](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L482)
 
 Check if required environment variables are set
 
@@ -303,7 +303,7 @@ Check if required environment variables are set
 
 > **getInstallCommand**(`entry`): `string` \| `undefined`
 
-Defined in: [mcp/mcpRegistryClient.ts:503](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L503)
+Defined in: [mcp/mcpRegistryClient.ts:503](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L503)
 
 Get installation command for an entry
 
@@ -323,7 +323,7 @@ Get installation command for an entry
 
 > **getPopularServers**(`limit?`): `Promise`\<[`McpRegistryEntry`](../type-aliases/McpRegistryEntry.md)[]\>
 
-Defined in: [mcp/mcpRegistryClient.ts:518](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L518)
+Defined in: [mcp/mcpRegistryClient.ts:518](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L518)
 
 Get popular servers
 
@@ -343,7 +343,7 @@ Get popular servers
 
 > **getVerifiedServers**(): `Promise`\<[`McpRegistryEntry`](../type-aliases/McpRegistryEntry.md)[]\>
 
-Defined in: [mcp/mcpRegistryClient.ts:531](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L531)
+Defined in: [mcp/mcpRegistryClient.ts:531](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L531)
 
 Get verified servers
 
@@ -357,7 +357,7 @@ Get verified servers
 
 > **getStatistics**(): `Promise`\<\{ `totalEntries`: `number`; `verifiedEntries`: `number`; `categories`: `number`; `tags`: `number`; `customEntries`: `number`; \}\>
 
-Defined in: [mcp/mcpRegistryClient.ts:542](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/mcpRegistryClient.ts#L542)
+Defined in: [mcp/mcpRegistryClient.ts:542](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/mcpRegistryClient.ts#L542)
 
 Get statistics
 

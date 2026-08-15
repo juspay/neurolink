@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **Logger** = `object`
 
-Defined in: [types/utilities.ts:81](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L81)
+Defined in: [types/utilities.ts:81](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L81)
 
 Logger interface matching the logger object shape
 Used for SDK tool contexts and other components that need a logger
@@ -19,7 +19,7 @@ Used for SDK tool contexts and other components that need a logger
 
 > **debug**: (...`args`) => `void`
 
-Defined in: [types/utilities.ts:82](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L82)
+Defined in: [types/utilities.ts:82](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L82)
 
 #### Parameters
 
@@ -37,7 +37,7 @@ Defined in: [types/utilities.ts:82](https://github.com/juspay/neurolink/blob/ff5
 
 > **info**: (...`args`) => `void`
 
-Defined in: [types/utilities.ts:83](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L83)
+Defined in: [types/utilities.ts:83](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L83)
 
 #### Parameters
 
@@ -55,7 +55,7 @@ Defined in: [types/utilities.ts:83](https://github.com/juspay/neurolink/blob/ff5
 
 > **warn**: (...`args`) => `void`
 
-Defined in: [types/utilities.ts:84](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L84)
+Defined in: [types/utilities.ts:84](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L84)
 
 #### Parameters
 
@@ -73,7 +73,7 @@ Defined in: [types/utilities.ts:84](https://github.com/juspay/neurolink/blob/ff5
 
 > **error**: (...`args`) => `void`
 
-Defined in: [types/utilities.ts:85](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L85)
+Defined in: [types/utilities.ts:85](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L85)
 
 #### Parameters
 
@@ -91,7 +91,7 @@ Defined in: [types/utilities.ts:85](https://github.com/juspay/neurolink/blob/ff5
 
 > **always**: (...`args`) => `void`
 
-Defined in: [types/utilities.ts:86](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L86)
+Defined in: [types/utilities.ts:86](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L86)
 
 #### Parameters
 
@@ -109,7 +109,7 @@ Defined in: [types/utilities.ts:86](https://github.com/juspay/neurolink/blob/ff5
 
 > **table**: (`data`) => `void`
 
-Defined in: [types/utilities.ts:87](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L87)
+Defined in: [types/utilities.ts:87](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L87)
 
 #### Parameters
 
@@ -127,7 +127,7 @@ Defined in: [types/utilities.ts:87](https://github.com/juspay/neurolink/blob/ff5
 
 > **setLogLevel**: (`level`) => `void`
 
-Defined in: [types/utilities.ts:88](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L88)
+Defined in: [types/utilities.ts:88](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L88)
 
 #### Parameters
 
@@ -145,7 +145,7 @@ Defined in: [types/utilities.ts:88](https://github.com/juspay/neurolink/blob/ff5
 
 > **getLogs**: (`level?`) => [`LogEntry`](LogEntry.md)[]
 
-Defined in: [types/utilities.ts:89](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L89)
+Defined in: [types/utilities.ts:89](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L89)
 
 #### Parameters
 
@@ -163,7 +163,7 @@ Defined in: [types/utilities.ts:89](https://github.com/juspay/neurolink/blob/ff5
 
 > **clearLogs**: () => `void`
 
-Defined in: [types/utilities.ts:90](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L90)
+Defined in: [types/utilities.ts:90](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L90)
 
 #### Returns
 
@@ -175,7 +175,7 @@ Defined in: [types/utilities.ts:90](https://github.com/juspay/neurolink/blob/ff5
 
 > **setEventEmitter**: (`emitter`) => `void`
 
-Defined in: [types/utilities.ts:91](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L91)
+Defined in: [types/utilities.ts:91](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L91)
 
 #### Parameters
 
@@ -195,7 +195,7 @@ Defined in: [types/utilities.ts:91](https://github.com/juspay/neurolink/blob/ff5
 
 > **clearEventEmitter**: () => `void`
 
-Defined in: [types/utilities.ts:94](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L94)
+Defined in: [types/utilities.ts:94](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/utilities.ts#L94)
 
 #### Returns
 

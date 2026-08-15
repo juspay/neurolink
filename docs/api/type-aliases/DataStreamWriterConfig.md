@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DataStreamWriterConfig** = `object`
 
-Defined in: [types/server.ts:1425](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1425)
+Defined in: [types/server.ts:1428](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L1428)
 
 Configuration for DataStreamWriter.
 
@@ -18,7 +18,7 @@ Configuration for DataStreamWriter.
 
 > **write**: (`chunk`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/server.ts:1426](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1426)
+Defined in: [types/server.ts:1429](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L1429)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [types/server.ts:1426](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **close?**: () => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/server.ts:1427](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1427)
+Defined in: [types/server.ts:1430](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L1430)
 
 #### Returns
 
@@ -48,7 +48,7 @@ Defined in: [types/server.ts:1427](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **format?**: `"sse"` \| `"ndjson"`
 
-Defined in: [types/server.ts:1428](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1428)
+Defined in: [types/server.ts:1431](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L1431)
 
 ---
 
@@ -56,4 +56,4 @@ Defined in: [types/server.ts:1428](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **includeTimestamps?**: `boolean`
 
-Defined in: [types/server.ts:1429](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1429)
+Defined in: [types/server.ts:1432](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L1432)

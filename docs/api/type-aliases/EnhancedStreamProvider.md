@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EnhancedStreamProvider** = `object`
 
-Defined in: [types/stream.ts:695](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L695)
+Defined in: [types/stream.ts:847](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L847)
 
 Enhanced provider type with stream method
 
@@ -18,7 +18,7 @@ Enhanced provider type with stream method
 
 > **stream**(`options`): `Promise`\<[`StreamResult`](StreamResult.md)\>
 
-Defined in: [types/stream.ts:696](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L696)
+Defined in: [types/stream.ts:848](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L848)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [types/stream.ts:696](https://github.com/juspay/neurolink/blob/ff50c
 
 > **getName**(): `string`
 
-Defined in: [types/stream.ts:697](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L697)
+Defined in: [types/stream.ts:849](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L849)
 
 #### Returns
 
@@ -48,7 +48,7 @@ Defined in: [types/stream.ts:697](https://github.com/juspay/neurolink/blob/ff50c
 
 > **isAvailable**(): `Promise`\<`boolean`\>
 
-Defined in: [types/stream.ts:698](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L698)
+Defined in: [types/stream.ts:850](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/stream.ts#L850)
 
 #### Returns
 

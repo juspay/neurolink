@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RegistryProcessResult**\<`T`\> = `object`
 
-Defined in: [types/processor.ts:381](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L381)
+Defined in: [types/processor.ts:381](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L381)
 
 Result of processing a file through the registry.
 Includes type information for tracking which processor was used.
@@ -25,7 +25,7 @@ Includes type information for tracking which processor was used.
 
 > **type**: `string`
 
-Defined in: [types/processor.ts:383](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L383)
+Defined in: [types/processor.ts:383](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L383)
 
 Type/name of the processor that handled the file
 
@@ -35,7 +35,7 @@ Type/name of the processor that handled the file
 
 > **data**: `T` \| `null`
 
-Defined in: [types/processor.ts:386](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L386)
+Defined in: [types/processor.ts:386](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L386)
 
 Processed data (null if processing failed)
 
@@ -45,6 +45,6 @@ Processed data (null if processing failed)
 
 > `optional` **error?**: [`UnsupportedFileError`](UnsupportedFileError.md)
 
-Defined in: [types/processor.ts:389](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L389)
+Defined in: [types/processor.ts:389](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L389)
 
 Error information if processing failed

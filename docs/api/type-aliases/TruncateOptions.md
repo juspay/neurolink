@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TruncateOptions** = `object`
 
-Defined in: [types/context.ts:792](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L792)
+Defined in: [types/context.ts:815](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L815)
 
 ## Deprecated
 
@@ -20,7 +20,7 @@ Use ToolOutputPreviewOptions instead.
 
 > `optional` **maxBytes?**: `number`
 
-Defined in: [types/context.ts:793](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L793)
+Defined in: [types/context.ts:816](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L816)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/context.ts:793](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **maxLines?**: `number`
 
-Defined in: [types/context.ts:794](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L794)
+Defined in: [types/context.ts:817](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L817)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/context.ts:794](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **direction?**: `"head"` \| `"tail"`
 
-Defined in: [types/context.ts:795](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L795)
+Defined in: [types/context.ts:818](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L818)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/context.ts:795](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **saveToDisk?**: `boolean`
 
-Defined in: [types/context.ts:796](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L796)
+Defined in: [types/context.ts:819](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L819)
 
 ---
 
@@ -52,4 +52,4 @@ Defined in: [types/context.ts:796](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **saveDir?**: `string`
 
-Defined in: [types/context.ts:797](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L797)
+Defined in: [types/context.ts:820](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L820)

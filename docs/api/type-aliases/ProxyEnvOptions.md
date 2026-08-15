@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProxyEnvOptions** = `object`
 
-Defined in: [types/proxy.ts:998](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L998)
+Defined in: [types/proxy.ts:1684](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1684)
 
 Options controlling proxy env file resolution.
 
@@ -18,7 +18,7 @@ Options controlling proxy env file resolution.
 
 > `optional` **explicitEnvFile?**: `string`
 
-Defined in: [types/proxy.ts:999](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L999)
+Defined in: [types/proxy.ts:1685](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1685)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:999](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **env?**: `NodeJS.ProcessEnv`
 
-Defined in: [types/proxy.ts:1000](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1000)
+Defined in: [types/proxy.ts:1686](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1686)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:1000](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **homeDir?**: `string`
 
-Defined in: [types/proxy.ts:1001](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1001)
+Defined in: [types/proxy.ts:1687](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L1687)

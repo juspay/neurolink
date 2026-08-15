@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AggregatedScores** = `object`
 
-Defined in: [types/scorer.ts:71](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L71)
+Defined in: [types/scorer.ts:71](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L71)
 
 Aggregated scores from multiple scorers
 
@@ -18,7 +18,7 @@ Aggregated scores from multiple scorers
 
 > **scores**: [`ScoreResult`](ScoreResult.md)[]
 
-Defined in: [types/scorer.ts:73](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L73)
+Defined in: [types/scorer.ts:73](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L73)
 
 Individual score results
 
@@ -28,7 +28,7 @@ Individual score results
 
 > **overallScore**: `number`
 
-Defined in: [types/scorer.ts:75](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L75)
+Defined in: [types/scorer.ts:75](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L75)
 
 Overall aggregated score
 
@@ -38,7 +38,7 @@ Overall aggregated score
 
 > **aggregationMethod**: [`AggregationMethod`](AggregationMethod.md)
 
-Defined in: [types/scorer.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L77)
+Defined in: [types/scorer.ts:77](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L77)
 
 Aggregation method used
 
@@ -48,7 +48,7 @@ Aggregation method used
 
 > **passed**: `boolean`
 
-Defined in: [types/scorer.ts:79](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L79)
+Defined in: [types/scorer.ts:79](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L79)
 
 Whether overall evaluation passed
 
@@ -58,7 +58,7 @@ Whether overall evaluation passed
 
 > **totalComputeTime**: `number`
 
-Defined in: [types/scorer.ts:81](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L81)
+Defined in: [types/scorer.ts:81](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L81)
 
 Total computation time (ms)
 
@@ -68,7 +68,7 @@ Total computation time (ms)
 
 > **timestamp**: `number`
 
-Defined in: [types/scorer.ts:83](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L83)
+Defined in: [types/scorer.ts:83](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L83)
 
 Timestamp of evaluation
 
@@ -78,6 +78,6 @@ Timestamp of evaluation
 
 > `optional` **correlationId?**: `string`
 
-Defined in: [types/scorer.ts:85](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L85)
+Defined in: [types/scorer.ts:85](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L85)
 
 Session/request ID for correlation

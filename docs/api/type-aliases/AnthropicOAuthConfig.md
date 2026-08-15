@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AnthropicOAuthConfig** = `object`
 
-Defined in: [types/subscription.ts:924](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L924)
+Defined in: [types/subscription.ts:1006](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1006)
 
 OAuth configuration options for AnthropicOAuth class
 
@@ -18,7 +18,7 @@ OAuth configuration options for AnthropicOAuth class
 
 > `optional` **clientId?**: `string`
 
-Defined in: [types/subscription.ts:926](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L926)
+Defined in: [types/subscription.ts:1008](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1008)
 
 OAuth client ID (optional, uses env var if not provided)
 
@@ -28,7 +28,7 @@ OAuth client ID (optional, uses env var if not provided)
 
 > `optional` **clientSecret?**: `string`
 
-Defined in: [types/subscription.ts:928](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L928)
+Defined in: [types/subscription.ts:1010](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1010)
 
 OAuth client secret (optional, for confidential clients)
 
@@ -38,7 +38,7 @@ OAuth client secret (optional, for confidential clients)
 
 > `optional` **redirectUri?**: `string`
 
-Defined in: [types/subscription.ts:930](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L930)
+Defined in: [types/subscription.ts:1012](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1012)
 
 Redirect URI for OAuth callback
 
@@ -48,7 +48,7 @@ Redirect URI for OAuth callback
 
 > `optional` **scopes?**: `string`[]
 
-Defined in: [types/subscription.ts:932](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L932)
+Defined in: [types/subscription.ts:1014](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1014)
 
 OAuth scopes to request
 
@@ -58,7 +58,7 @@ OAuth scopes to request
 
 > `optional` **authorizationUrl?**: `string`
 
-Defined in: [types/subscription.ts:934](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L934)
+Defined in: [types/subscription.ts:1016](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1016)
 
 Custom authorization endpoint URL
 
@@ -68,7 +68,7 @@ Custom authorization endpoint URL
 
 > `optional` **tokenUrl?**: `string`
 
-Defined in: [types/subscription.ts:936](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L936)
+Defined in: [types/subscription.ts:1018](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1018)
 
 Custom token endpoint URL
 
@@ -78,7 +78,7 @@ Custom token endpoint URL
 
 > `optional` **validationUrl?**: `string`
 
-Defined in: [types/subscription.ts:938](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L938)
+Defined in: [types/subscription.ts:1020](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1020)
 
 Custom token validation endpoint URL
 
@@ -88,6 +88,6 @@ Custom token validation endpoint URL
 
 > `optional` **revocationUrl?**: `string`
 
-Defined in: [types/subscription.ts:940](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L940)
+Defined in: [types/subscription.ts:1022](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L1022)
 
 Custom token revocation endpoint URL

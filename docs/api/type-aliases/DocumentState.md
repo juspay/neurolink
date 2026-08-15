@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DocumentState** = `object`
 
-Defined in: [types/rag.ts:1516](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1516)
+Defined in: [types/rag.ts:1560](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1560)
 
 Document processing state held by MDocument.
 
@@ -18,7 +18,7 @@ Document processing state held by MDocument.
 
 > **content**: `string`
 
-Defined in: [types/rag.ts:1517](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1517)
+Defined in: [types/rag.ts:1561](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1561)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/rag.ts:1517](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **type**: [`DocumentType`](DocumentType.md)
 
-Defined in: [types/rag.ts:1518](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1518)
+Defined in: [types/rag.ts:1562](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1562)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/rag.ts:1518](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **metadata**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1519](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1519)
+Defined in: [types/rag.ts:1563](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1563)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/rag.ts:1519](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **chunks**: [`Chunk`](Chunk.md)[]
 
-Defined in: [types/rag.ts:1520](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1520)
+Defined in: [types/rag.ts:1564](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1564)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/rag.ts:1520](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **embeddings**: `number`[][]
 
-Defined in: [types/rag.ts:1521](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1521)
+Defined in: [types/rag.ts:1565](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1565)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/rag.ts:1521](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **history**: `string`[]
 
-Defined in: [types/rag.ts:1522](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1522)
+Defined in: [types/rag.ts:1566](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L1566)

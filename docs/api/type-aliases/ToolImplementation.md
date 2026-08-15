@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolImplementation** = `object`
 
-Defined in: [types/tools.ts:121](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L121)
+Defined in: [types/tools.ts:138](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tools.ts#L138)
 
 Tool Implementation type for MCP tool registry
 Extracted from toolRegistry.ts for centralized type management
@@ -19,7 +19,7 @@ Extracted from toolRegistry.ts for centralized type management
 
 > **execute**: (`params`, `context?`) => `Promise`\<`unknown`\> \| `unknown`
 
-Defined in: [types/tools.ts:122](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L122)
+Defined in: [types/tools.ts:139](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tools.ts#L139)
 
 #### Parameters
 
@@ -41,7 +41,7 @@ Defined in: [types/tools.ts:122](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **description?**: `string`
 
-Defined in: [types/tools.ts:126](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L126)
+Defined in: [types/tools.ts:143](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tools.ts#L143)
 
 ---
 
@@ -49,7 +49,7 @@ Defined in: [types/tools.ts:126](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **inputSchema?**: `unknown`
 
-Defined in: [types/tools.ts:127](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L127)
+Defined in: [types/tools.ts:144](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tools.ts#L144)
 
 ---
 
@@ -57,7 +57,7 @@ Defined in: [types/tools.ts:127](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **outputSchema?**: `unknown`
 
-Defined in: [types/tools.ts:128](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L128)
+Defined in: [types/tools.ts:145](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tools.ts#L145)
 
 ---
 
@@ -65,7 +65,7 @@ Defined in: [types/tools.ts:128](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **category?**: `string`
 
-Defined in: [types/tools.ts:129](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L129)
+Defined in: [types/tools.ts:146](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tools.ts#L146)
 
 ---
 
@@ -73,7 +73,7 @@ Defined in: [types/tools.ts:129](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **permissions?**: `string`[]
 
-Defined in: [types/tools.ts:130](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L130)
+Defined in: [types/tools.ts:147](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tools.ts#L147)
 
 ---
 
@@ -81,7 +81,7 @@ Defined in: [types/tools.ts:130](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [types/tools.ts:132](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L132)
+Defined in: [types/tools.ts:149](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tools.ts#L149)
 
 Per-tool timeout in milliseconds, set at registration time
 
@@ -91,4 +91,4 @@ Per-tool timeout in milliseconds, set at registration time
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/tools.ts:133](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L133)
+Defined in: [types/tools.ts:150](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tools.ts#L150)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientAgentExecuteOptions** = `object`
 
-Defined in: [types/client.ts:296](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L296)
+Defined in: [types/client.ts:296](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L296)
 
 Agent execution options
 
@@ -18,7 +18,7 @@ Agent execution options
 
 > **agentId**: `string`
 
-Defined in: [types/client.ts:298](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L298)
+Defined in: [types/client.ts:298](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L298)
 
 Agent ID
 
@@ -28,7 +28,7 @@ Agent ID
 
 > **input**: `string`
 
-Defined in: [types/client.ts:300](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L300)
+Defined in: [types/client.ts:300](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L300)
 
 Input message
 
@@ -38,7 +38,7 @@ Input message
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/client.ts:302](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L302)
+Defined in: [types/client.ts:302](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L302)
 
 Session ID for conversation continuity
 
@@ -48,7 +48,7 @@ Session ID for conversation continuity
 
 > `optional` **context?**: [`UnknownRecord`](UnknownRecord.md)
 
-Defined in: [types/client.ts:304](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L304)
+Defined in: [types/client.ts:304](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L304)
 
 User context
 
@@ -58,7 +58,7 @@ User context
 
 > `optional` **stream?**: `boolean`
 
-Defined in: [types/client.ts:306](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L306)
+Defined in: [types/client.ts:306](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L306)
 
 Stream the response
 
@@ -68,7 +68,7 @@ Stream the response
 
 > `optional` **tools?**: `object`
 
-Defined in: [types/client.ts:308](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L308)
+Defined in: [types/client.ts:308](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L308)
 
 Tool execution options
 

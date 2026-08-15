@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TaskBackend** = `object`
 
-Defined in: [types/task.ts:268](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L268)
+Defined in: [types/task.ts:268](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L268)
 
 Abstracts the scheduling/looping mechanism.
 Implementations: BullMQ (production), NodeTimeout (development).
@@ -19,7 +19,7 @@ Implementations: BullMQ (production), NodeTimeout (development).
 
 > `readonly` **name**: `string`
 
-Defined in: [types/task.ts:269](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L269)
+Defined in: [types/task.ts:269](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L269)
 
 ## Methods
 
@@ -27,7 +27,7 @@ Defined in: [types/task.ts:269](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:271](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L271)
+Defined in: [types/task.ts:271](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L271)
 
 #### Returns
 
@@ -39,7 +39,7 @@ Defined in: [types/task.ts:271](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **shutdown**(): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:272](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L272)
+Defined in: [types/task.ts:272](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L272)
 
 #### Returns
 
@@ -51,7 +51,7 @@ Defined in: [types/task.ts:272](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **schedule**(`task`, `executor`): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:275](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L275)
+Defined in: [types/task.ts:275](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L275)
 
 Schedule a task for execution
 
@@ -75,7 +75,7 @@ Schedule a task for execution
 
 > **cancel**(`taskId`): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:277](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L277)
+Defined in: [types/task.ts:277](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L277)
 
 Cancel a scheduled task
 
@@ -95,7 +95,7 @@ Cancel a scheduled task
 
 > **pause**(`taskId`): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:279](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L279)
+Defined in: [types/task.ts:279](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L279)
 
 Pause a task's schedule
 
@@ -115,7 +115,7 @@ Pause a task's schedule
 
 > **resume**(`taskId`): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:281](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L281)
+Defined in: [types/task.ts:281](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L281)
 
 Resume a paused task
 
@@ -135,7 +135,7 @@ Resume a paused task
 
 > **isHealthy**(): `Promise`\<`boolean`\>
 
-Defined in: [types/task.ts:284](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L284)
+Defined in: [types/task.ts:284](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L284)
 
 Check if backend is operational
 

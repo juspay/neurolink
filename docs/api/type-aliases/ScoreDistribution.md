@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ScoreDistribution** = `object`
 
-Defined in: [types/evaluation.ts:487](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L487)
+Defined in: [types/evaluation.ts:482](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L482)
 
 Score distribution across ranges.
 
@@ -18,7 +18,7 @@ Score distribution across ranges.
 
 > **poor**: `number`
 
-Defined in: [types/evaluation.ts:489](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L489)
+Defined in: [types/evaluation.ts:484](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L484)
 
 Items scoring 1-3 (poor)
 
@@ -28,7 +28,7 @@ Items scoring 1-3 (poor)
 
 > **belowAverage**: `number`
 
-Defined in: [types/evaluation.ts:491](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L491)
+Defined in: [types/evaluation.ts:486](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L486)
 
 Items scoring 4-5 (below average)
 
@@ -38,7 +38,7 @@ Items scoring 4-5 (below average)
 
 > **average**: `number`
 
-Defined in: [types/evaluation.ts:493](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L493)
+Defined in: [types/evaluation.ts:488](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L488)
 
 Items scoring 6-7 (average)
 
@@ -48,7 +48,7 @@ Items scoring 6-7 (average)
 
 > **good**: `number`
 
-Defined in: [types/evaluation.ts:495](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L495)
+Defined in: [types/evaluation.ts:490](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L490)
 
 Items scoring 8-9 (good)
 
@@ -58,6 +58,6 @@ Items scoring 8-9 (good)
 
 > **excellent**: `number`
 
-Defined in: [types/evaluation.ts:497](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L497)
+Defined in: [types/evaluation.ts:492](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluation.ts#L492)
 
 Items scoring 10 (excellent)

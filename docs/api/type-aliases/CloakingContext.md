@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CloakingContext** = `object`
 
-Defined in: [types/proxy.ts:358](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L358)
+Defined in: [types/proxy.ts:370](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L370)
 
 Context passed through the cloaking pipeline.
 
@@ -18,7 +18,7 @@ Context passed through the cloaking pipeline.
 
 > **request**: [`CloakingRequest`](CloakingRequest.md)
 
-Defined in: [types/proxy.ts:359](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L359)
+Defined in: [types/proxy.ts:371](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L371)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:359](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **account**: [`CloakingAccount`](CloakingAccount.md)
 
-Defined in: [types/proxy.ts:360](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L360)
+Defined in: [types/proxy.ts:372](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L372)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:360](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **config**: `object`
 
-Defined in: [types/proxy.ts:361](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L361)
+Defined in: [types/proxy.ts:373](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L373)
 
 #### mode
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:361](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **response?**: `object`
 
-Defined in: [types/proxy.ts:365](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L365)
+Defined in: [types/proxy.ts:377](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/proxy.ts#L377)
 
 #### headers
 

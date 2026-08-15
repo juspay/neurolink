@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FormatValidationResult** = `object`
 
-Defined in: [types/scorer.ts:555](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L555)
+Defined in: [types/scorer.ts:555](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L555)
 
 Format validation result.
 
@@ -18,7 +18,7 @@ Format validation result.
 
 > **isValid**: `boolean`
 
-Defined in: [types/scorer.ts:556](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L556)
+Defined in: [types/scorer.ts:556](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L556)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/scorer.ts:556](https://github.com/juspay/neurolink/blob/ff50c
 
 > **detectedFormat**: [`FormatType`](FormatType.md) \| `null`
 
-Defined in: [types/scorer.ts:557](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L557)
+Defined in: [types/scorer.ts:557](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L557)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/scorer.ts:557](https://github.com/juspay/neurolink/blob/ff50c
 
 > **issues**: `string`[]
 
-Defined in: [types/scorer.ts:558](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L558)
+Defined in: [types/scorer.ts:558](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L558)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/scorer.ts:558](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **structureAnalysis?**: `object`
 
-Defined in: [types/scorer.ts:559](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L559)
+Defined in: [types/scorer.ts:559](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/scorer.ts#L559)

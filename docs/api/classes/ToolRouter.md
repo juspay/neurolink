@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ToolRouter
 
-Defined in: [mcp/routing/toolRouter.ts:50](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/routing/toolRouter.ts#L50)
+Defined in: [mcp/routing/toolRouter.ts:50](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/routing/toolRouter.ts#L50)
 
 Tool Router - Intelligent routing for MCP tool calls
 
@@ -36,7 +36,7 @@ console.log(`Routing to: ${decision.serverId}`);
 
 > **new ToolRouter**(`config?`): `ToolRouter`
 
-Defined in: [mcp/routing/toolRouter.ts:59](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/routing/toolRouter.ts#L59)
+Defined in: [mcp/routing/toolRouter.ts:59](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/routing/toolRouter.ts#L59)
 
 #### Parameters
 
@@ -58,7 +58,7 @@ Defined in: [mcp/routing/toolRouter.ts:59](https://github.com/juspay/neurolink/b
 
 > **destroy**(): `void`
 
-Defined in: [mcp/routing/toolRouter.ts:83](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/routing/toolRouter.ts#L83)
+Defined in: [mcp/routing/toolRouter.ts:83](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/routing/toolRouter.ts#L83)
 
 #### Returns
 
@@ -70,7 +70,7 @@ Defined in: [mcp/routing/toolRouter.ts:83](https://github.com/juspay/neurolink/b
 
 > **registerServer**(`serverId`, `capabilities?`): `void`
 
-Defined in: [mcp/routing/toolRouter.ts:104](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/routing/toolRouter.ts#L104)
+Defined in: [mcp/routing/toolRouter.ts:104](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/routing/toolRouter.ts#L104)
 
 Register a server as available for routing
 
@@ -94,7 +94,7 @@ Register a server as available for routing
 
 > **unregisterServer**(`serverId`): `void`
 
-Defined in: [mcp/routing/toolRouter.ts:125](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/routing/toolRouter.ts#L125)
+Defined in: [mcp/routing/toolRouter.ts:125](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/routing/toolRouter.ts#L125)
 
 Unregister a server from routing
 
@@ -114,7 +114,7 @@ Unregister a server from routing
 
 > **route**(`tool`, `context?`): [`RoutingDecision`](../type-aliases/RoutingDecision.md)
 
-Defined in: [mcp/routing/toolRouter.ts:146](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/routing/toolRouter.ts#L146)
+Defined in: [mcp/routing/toolRouter.ts:146](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/routing/toolRouter.ts#L146)
 
 Route a tool call to the best server
 
@@ -144,7 +144,7 @@ Route a tool call to the best server
 
 > **routeByCategory**(`tool`, `category`): `string`[]
 
-Defined in: [mcp/routing/toolRouter.ts:208](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/routing/toolRouter.ts#L208)
+Defined in: [mcp/routing/toolRouter.ts:208](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/routing/toolRouter.ts#L208)
 
 Route by tool category
 
@@ -168,7 +168,7 @@ Route by tool category
 
 > **routeByAnnotation**(`tool`): `string`[]
 
-Defined in: [mcp/routing/toolRouter.ts:216](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/routing/toolRouter.ts#L216)
+Defined in: [mcp/routing/toolRouter.ts:216](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/routing/toolRouter.ts#L216)
 
 Route by tool annotation hints
 
@@ -188,7 +188,7 @@ Route by tool annotation hints
 
 > **routeByCapability**(`tool`, `requiredCapabilities`): `string`[]
 
-Defined in: [mcp/routing/toolRouter.ts:262](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/routing/toolRouter.ts#L262)
+Defined in: [mcp/routing/toolRouter.ts:262](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/routing/toolRouter.ts#L262)
 
 Route by required capabilities
 
@@ -212,7 +212,7 @@ Route by required capabilities
 
 > **updateServerLoad**(`serverId`, `delta`): `void`
 
-Defined in: [mcp/routing/toolRouter.ts:292](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/routing/toolRouter.ts#L292)
+Defined in: [mcp/routing/toolRouter.ts:292](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/routing/toolRouter.ts#L292)
 
 Update server load for least-loaded routing
 
@@ -236,7 +236,7 @@ Update server load for least-loaded routing
 
 > **updateHealthStatus**(`serverId`, `healthy`): `void`
 
-Defined in: [mcp/routing/toolRouter.ts:300](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/routing/toolRouter.ts#L300)
+Defined in: [mcp/routing/toolRouter.ts:300](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/routing/toolRouter.ts#L300)
 
 Update server health status
 
@@ -260,7 +260,7 @@ Update server health status
 
 > **setAffinity**(`key`, `serverId`): `void`
 
-Defined in: [mcp/routing/toolRouter.ts:312](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/routing/toolRouter.ts#L312)
+Defined in: [mcp/routing/toolRouter.ts:312](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/routing/toolRouter.ts#L312)
 
 Set session/user affinity
 
@@ -284,7 +284,7 @@ Set session/user affinity
 
 > **clearAffinity**(`key`): `void`
 
-Defined in: [mcp/routing/toolRouter.ts:324](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/routing/toolRouter.ts#L324)
+Defined in: [mcp/routing/toolRouter.ts:324](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/routing/toolRouter.ts#L324)
 
 Clear affinity for a key
 
@@ -304,7 +304,7 @@ Clear affinity for a key
 
 > **getStats**(): `object`
 
-Defined in: [mcp/routing/toolRouter.ts:331](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/routing/toolRouter.ts#L331)
+Defined in: [mcp/routing/toolRouter.ts:331](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/mcp/routing/toolRouter.ts#L331)
 
 Get current routing statistics
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TaskRunError** = `object`
 
-Defined in: [types/task.ts:208](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L208)
+Defined in: [types/task.ts:208](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L208)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/task.ts:208](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **taskId**: `string`
 
-Defined in: [types/task.ts:209](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L209)
+Defined in: [types/task.ts:209](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L209)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/task.ts:209](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **runId**: `string`
 
-Defined in: [types/task.ts:210](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L210)
+Defined in: [types/task.ts:210](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L210)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/task.ts:210](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **error**: `string`
 
-Defined in: [types/task.ts:211](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L211)
+Defined in: [types/task.ts:211](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L211)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/task.ts:211](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **attempt**: `number`
 
-Defined in: [types/task.ts:212](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L212)
+Defined in: [types/task.ts:212](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L212)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/task.ts:212](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **maxAttempts**: `number`
 
-Defined in: [types/task.ts:213](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L213)
+Defined in: [types/task.ts:213](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L213)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/task.ts:213](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **willRetry**: `boolean`
 
-Defined in: [types/task.ts:214](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L214)
+Defined in: [types/task.ts:214](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L214)
 
 ---
 
@@ -64,6 +64,6 @@ Defined in: [types/task.ts:214](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **timestamp**: `string`
 
-Defined in: [types/task.ts:216](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L216)
+Defined in: [types/task.ts:216](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/task.ts#L216)
 
 ISO 8601

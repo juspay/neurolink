@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ResearchToolsDeps** = `object`
 
-Defined in: [types/autoresearch.ts:262](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L262)
+Defined in: [types/autoresearch.ts:262](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L262)
 
 Dependencies required to create research tools.
 
@@ -18,7 +18,7 @@ Dependencies required to create research tools.
 
 > **config**: [`ResearchConfig`](ResearchConfig.md)
 
-Defined in: [types/autoresearch.ts:263](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L263)
+Defined in: [types/autoresearch.ts:263](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L263)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/autoresearch.ts:263](https://github.com/juspay/neurolink/blob
 
 > **stateStore**: `ResearchStateStore`
 
-Defined in: [types/autoresearch.ts:264](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L264)
+Defined in: [types/autoresearch.ts:264](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L264)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/autoresearch.ts:264](https://github.com/juspay/neurolink/blob
 
 > **repoPolicy**: `RepoPolicy`
 
-Defined in: [types/autoresearch.ts:265](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L265)
+Defined in: [types/autoresearch.ts:265](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L265)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/autoresearch.ts:265](https://github.com/juspay/neurolink/blob
 
 > **runner**: `ExperimentRunner`
 
-Defined in: [types/autoresearch.ts:266](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L266)
+Defined in: [types/autoresearch.ts:266](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L266)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/autoresearch.ts:266](https://github.com/juspay/neurolink/blob
 
 > **recorder**: `ResultRecorder`
 
-Defined in: [types/autoresearch.ts:267](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L267)
+Defined in: [types/autoresearch.ts:267](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/autoresearch.ts#L267)

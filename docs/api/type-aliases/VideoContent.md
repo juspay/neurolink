@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VideoContent** = `object`
 
-Defined in: [types/multimodal.ts:306](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L306)
+Defined in: [types/multimodal.ts:370](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L370)
 
 Video content type for multimodal messages
 
@@ -36,7 +36,7 @@ const videoContent: VideoContent = {
 
 > **type**: `"video"`
 
-Defined in: [types/multimodal.ts:307](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L307)
+Defined in: [types/multimodal.ts:371](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L371)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/multimodal.ts:307](https://github.com/juspay/neurolink/blob/f
 
 > **data**: `Buffer` \| `string`
 
-Defined in: [types/multimodal.ts:308](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L308)
+Defined in: [types/multimodal.ts:372](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L372)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [types/multimodal.ts:308](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **mediaType?**: `"video/mp4"` \| `"video/webm"` \| `"video/ogg"` \| `"video/quicktime"` \| `"video/x-msvideo"` \| `"video/x-matroska"`
 
-Defined in: [types/multimodal.ts:309](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L309)
+Defined in: [types/multimodal.ts:373](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L373)
 
 ---
 
@@ -60,7 +60,7 @@ Defined in: [types/multimodal.ts:309](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/multimodal.ts:316](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L316)
+Defined in: [types/multimodal.ts:380](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L380)
 
 #### filename?
 

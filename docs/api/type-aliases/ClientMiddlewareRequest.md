@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientMiddlewareRequest** = `object`
 
-Defined in: [types/client.ts:471](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L471)
+Defined in: [types/client.ts:471](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L471)
 
 ClientMiddleware request object
 
@@ -18,7 +18,7 @@ ClientMiddleware request object
 
 > **url**: `string`
 
-Defined in: [types/client.ts:473](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L473)
+Defined in: [types/client.ts:473](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L473)
 
 Request URL
 
@@ -28,7 +28,7 @@ Request URL
 
 > **method**: `string`
 
-Defined in: [types/client.ts:475](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L475)
+Defined in: [types/client.ts:475](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L475)
 
 HTTP method
 
@@ -38,7 +38,7 @@ HTTP method
 
 > **headers**: `Record`\<`string`, `string`\>
 
-Defined in: [types/client.ts:477](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L477)
+Defined in: [types/client.ts:477](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L477)
 
 Request headers
 
@@ -48,7 +48,7 @@ Request headers
 
 > `optional` **body?**: `unknown`
 
-Defined in: [types/client.ts:479](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L479)
+Defined in: [types/client.ts:479](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L479)
 
 Request body
 
@@ -58,6 +58,6 @@ Request body
 
 > **context**: [`ClientMiddlewareContext`](ClientMiddlewareContext.md)
 
-Defined in: [types/client.ts:481](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L481)
+Defined in: [types/client.ts:481](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/client.ts#L481)
 
 ClientMiddleware context

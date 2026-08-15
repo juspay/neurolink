@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TextContent** = `object`
 
-Defined in: [types/multimodal.ts:50](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L50)
+Defined in: [types/multimodal.ts:50](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L50)
 
 Text content type for multimodal messages
 
@@ -18,7 +18,7 @@ Text content type for multimodal messages
 
 > **type**: `"text"`
 
-Defined in: [types/multimodal.ts:51](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L51)
+Defined in: [types/multimodal.ts:51](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L51)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/multimodal.ts:51](https://github.com/juspay/neurolink/blob/ff
 
 > **text**: `string`
 
-Defined in: [types/multimodal.ts:52](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L52)
+Defined in: [types/multimodal.ts:52](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/multimodal.ts#L52)

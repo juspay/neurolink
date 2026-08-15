@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderSelectionCriteria** = `object`
 
-Defined in: [types/evaluationProviders.ts:104](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L104)
+Defined in: [types/evaluationProviders.ts:104](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L104)
 
 Provider selection criteria
 
@@ -18,7 +18,7 @@ Provider selection criteria
 
 > **priority**: [`PerformancePriority`](PerformancePriority.md)
 
-Defined in: [types/evaluationProviders.ts:105](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L105)
+Defined in: [types/evaluationProviders.ts:105](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L105)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluationProviders.ts:105](https://github.com/juspay/neuroli
 
 > `optional` **maxCost?**: `number`
 
-Defined in: [types/evaluationProviders.ts:106](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L106)
+Defined in: [types/evaluationProviders.ts:106](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L106)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/evaluationProviders.ts:106](https://github.com/juspay/neuroli
 
 > `optional` **minSuccessRate?**: `number`
 
-Defined in: [types/evaluationProviders.ts:107](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L107)
+Defined in: [types/evaluationProviders.ts:107](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L107)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/evaluationProviders.ts:107](https://github.com/juspay/neuroli
 
 > `optional` **maxResponseTime?**: `number`
 
-Defined in: [types/evaluationProviders.ts:108](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L108)
+Defined in: [types/evaluationProviders.ts:108](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L108)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/evaluationProviders.ts:108](https://github.com/juspay/neuroli
 
 > `optional` **excludeProviders?**: `string`[]
 
-Defined in: [types/evaluationProviders.ts:109](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L109)
+Defined in: [types/evaluationProviders.ts:109](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L109)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/evaluationProviders.ts:109](https://github.com/juspay/neuroli
 
 > `optional` **requireCapabilities?**: `string`[]
 
-Defined in: [types/evaluationProviders.ts:110](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L110)
+Defined in: [types/evaluationProviders.ts:110](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/evaluationProviders.ts#L110)

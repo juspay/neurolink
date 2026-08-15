@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **JSONOutput** = `object`
 
-Defined in: [types/cli.ts:522](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L522)
+Defined in: [types/cli.ts:540](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L540)
 
 JSON output structure
 
@@ -18,7 +18,7 @@ JSON output structure
 
 > **success**: `boolean`
 
-Defined in: [types/cli.ts:523](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L523)
+Defined in: [types/cli.ts:541](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L541)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:523](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **data?**: [`JsonValue`](JsonValue.md)
 
-Defined in: [types/cli.ts:524](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L524)
+Defined in: [types/cli.ts:542](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L542)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:524](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **error?**: `string`
 
-Defined in: [types/cli.ts:525](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L525)
+Defined in: [types/cli.ts:543](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L543)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:525](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/cli.ts:526](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L526)
+Defined in: [types/cli.ts:544](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/cli.ts#L544)
 
 #### timestamp
 

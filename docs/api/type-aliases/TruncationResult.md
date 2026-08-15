@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TruncationResult** = `object`
 
-Defined in: [types/context.ts:894](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L894)
+Defined in: [types/context.ts:1018](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L1018)
 
 Result of sliding window truncation (Stage 4).
 
@@ -18,7 +18,7 @@ Result of sliding window truncation (Stage 4).
 
 > **truncated**: `boolean`
 
-Defined in: [types/context.ts:895](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L895)
+Defined in: [types/context.ts:1019](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L1019)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:895](https://github.com/juspay/neurolink/blob/ff50
 
 > **messages**: [`ChatMessage`](ChatMessage.md)[]
 
-Defined in: [types/context.ts:896](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L896)
+Defined in: [types/context.ts:1020](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L1020)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/context.ts:896](https://github.com/juspay/neurolink/blob/ff50
 
 > **messagesRemoved**: `number`
 
-Defined in: [types/context.ts:897](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L897)
+Defined in: [types/context.ts:1021](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L1021)

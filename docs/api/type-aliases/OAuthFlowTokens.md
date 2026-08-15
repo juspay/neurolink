@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OAuthFlowTokens** = `object`
 
-Defined in: [types/subscription.ts:888](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L888)
+Defined in: [types/subscription.ts:970](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L970)
 
 Parsed OAuth tokens from a fresh OAuth flow.
 Uses Date for expiresAt (vs number in OAuthTokens for storage).
@@ -19,7 +19,7 @@ Uses Date for expiresAt (vs number in OAuthTokens for storage).
 
 > **accessToken**: `string`
 
-Defined in: [types/subscription.ts:890](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L890)
+Defined in: [types/subscription.ts:972](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L972)
 
 The access token for API authentication
 
@@ -29,7 +29,7 @@ The access token for API authentication
 
 > **tokenType**: `string`
 
-Defined in: [types/subscription.ts:892](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L892)
+Defined in: [types/subscription.ts:974](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L974)
 
 Token type (typically "Bearer")
 
@@ -39,7 +39,7 @@ Token type (typically "Bearer")
 
 > **expiresAt**: `Date`
 
-Defined in: [types/subscription.ts:894](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L894)
+Defined in: [types/subscription.ts:976](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L976)
 
 Expiration timestamp (Date object)
 
@@ -49,7 +49,7 @@ Expiration timestamp (Date object)
 
 > `optional` **refreshToken?**: `string`
 
-Defined in: [types/subscription.ts:896](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L896)
+Defined in: [types/subscription.ts:978](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L978)
 
 Refresh token for obtaining new access tokens
 
@@ -59,6 +59,6 @@ Refresh token for obtaining new access tokens
 
 > **scopes**: `string`[]
 
-Defined in: [types/subscription.ts:898](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L898)
+Defined in: [types/subscription.ts:980](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/subscription.ts#L980)
 
 Granted scopes as an array

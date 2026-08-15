@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ChunkerRegistry
 
-Defined in: [rag/chunking/chunkerRegistry.ts:24](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/chunkerRegistry.ts#L24)
+Defined in: [rag/chunking/chunkerRegistry.ts:24](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/chunking/chunkerRegistry.ts#L24)
 
 Registry for chunking strategies
 Follows NeuroLink's factory pattern with lazy initialization
@@ -27,7 +27,7 @@ Follows NeuroLink's factory pattern with lazy initialization
 
 > `static` **initialize**(): `void`
 
-Defined in: [rag/chunking/chunkerRegistry.ts:31](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/chunkerRegistry.ts#L31)
+Defined in: [rag/chunking/chunkerRegistry.ts:31](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/chunking/chunkerRegistry.ts#L31)
 
 Initialize all built-in chunkers
 
@@ -41,7 +41,7 @@ Initialize all built-in chunkers
 
 > `static` **register**(`strategy`, `factory`): `void`
 
-Defined in: [rag/chunking/chunkerRegistry.ts:58](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/chunkerRegistry.ts#L58)
+Defined in: [rag/chunking/chunkerRegistry.ts:58](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/chunking/chunkerRegistry.ts#L58)
 
 Register a custom chunker
 
@@ -69,7 +69,7 @@ Factory function that creates chunker instance
 
 > `static` **get**(`strategy`): [`Chunker`](../type-aliases/Chunker.md)
 
-Defined in: [rag/chunking/chunkerRegistry.ts:68](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/chunkerRegistry.ts#L68)
+Defined in: [rag/chunking/chunkerRegistry.ts:68](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/chunking/chunkerRegistry.ts#L68)
 
 Get a chunker by strategy name
 
@@ -97,7 +97,7 @@ Error if strategy is not registered
 
 > `static` **getAvailableStrategies**(): [`ChunkingStrategy`](../type-aliases/ChunkingStrategy.md)[]
 
-Defined in: [rag/chunking/chunkerRegistry.ts:85](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/chunkerRegistry.ts#L85)
+Defined in: [rag/chunking/chunkerRegistry.ts:85](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/chunking/chunkerRegistry.ts#L85)
 
 Get all available chunking strategies
 
@@ -113,7 +113,7 @@ Array of strategy names
 
 > `static` **has**(`strategy`): `boolean`
 
-Defined in: [rag/chunking/chunkerRegistry.ts:95](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/chunkerRegistry.ts#L95)
+Defined in: [rag/chunking/chunkerRegistry.ts:95](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/chunking/chunkerRegistry.ts#L95)
 
 Check if a strategy is registered
 
@@ -137,7 +137,7 @@ True if strategy is registered
 
 > `static` **getRecommendedStrategy**(`contentType`): [`ChunkingStrategy`](../type-aliases/ChunkingStrategy.md)
 
-Defined in: [rag/chunking/chunkerRegistry.ts:105](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/chunkerRegistry.ts#L105)
+Defined in: [rag/chunking/chunkerRegistry.ts:105](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/chunking/chunkerRegistry.ts#L105)
 
 Get strategy recommendation based on content type
 
@@ -161,7 +161,7 @@ Recommended chunking strategy
 
 > `static` **getDefaultConfig**(`strategy`): `Record`\<`string`, `unknown`\>
 
-Defined in: [rag/chunking/chunkerRegistry.ts:141](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/chunkerRegistry.ts#L141)
+Defined in: [rag/chunking/chunkerRegistry.ts:141](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/chunking/chunkerRegistry.ts#L141)
 
 Get default configuration for a strategy
 
@@ -185,7 +185,7 @@ Default configuration object
 
 > `static` **reset**(): `void`
 
-Defined in: [rag/chunking/chunkerRegistry.ts:204](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/chunkerRegistry.ts#L204)
+Defined in: [rag/chunking/chunkerRegistry.ts:204](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/rag/chunking/chunkerRegistry.ts#L204)
 
 Reset the registry (useful for testing)
 

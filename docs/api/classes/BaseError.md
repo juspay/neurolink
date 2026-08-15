@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: BaseError
 
-Defined in: [types/errors.ts:5](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L5)
+Defined in: [types/errors.ts:5](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L5)
 
 Base error class for all NeuroLink-specific errors.
 This allows for easy identification of errors thrown by the SDK.
@@ -28,7 +28,7 @@ This allows for easy identification of errors thrown by the SDK.
 
 > **new BaseError**(`message`): `BaseError`
 
-Defined in: [types/errors.ts:6](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L6)
+Defined in: [types/errors.ts:6](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/errors.ts#L6)
 
 #### Parameters
 

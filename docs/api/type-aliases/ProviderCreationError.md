@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderCreationError** = `object`
 
-Defined in: [types/providers.ts:648](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L648)
+Defined in: [types/providers.ts:900](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L900)
 
 Error types for provider creation
 
@@ -18,7 +18,7 @@ Error types for provider creation
 
 > **code**: `"INVALID_PROVIDER"` \| `"CONFIGURATION_ERROR"` \| `"INSTANTIATION_ERROR"`
 
-Defined in: [types/providers.ts:649](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L649)
+Defined in: [types/providers.ts:901](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L901)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:649](https://github.com/juspay/neurolink/blob/ff
 
 > **message**: `string`
 
-Defined in: [types/providers.ts:650](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L650)
+Defined in: [types/providers.ts:902](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L902)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:650](https://github.com/juspay/neurolink/blob/ff
 
 > **provider**: `string`
 
-Defined in: [types/providers.ts:651](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L651)
+Defined in: [types/providers.ts:903](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L903)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/providers.ts:651](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **details?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/providers.ts:652](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L652)
+Defined in: [types/providers.ts:904](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L904)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SemanticChunkerConfig** = [`BaseChunkerConfig`](BaseChunkerConfig.md) & `object`
 
-Defined in: [types/rag.ts:933](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L933)
+Defined in: [types/rag.ts:977](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L977)
 
 Semantic chunker configuration
 LLM-based semantic splitting

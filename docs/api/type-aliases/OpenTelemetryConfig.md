@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OpenTelemetryConfig** = `object`
 
-Defined in: [types/observability.ts:175](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L175)
+Defined in: [types/observability.ts:175](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L175)
 
 OpenTelemetry configuration
 
@@ -18,7 +18,7 @@ OpenTelemetry configuration
 
 > **enabled**: `boolean`
 
-Defined in: [types/observability.ts:177](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L177)
+Defined in: [types/observability.ts:177](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L177)
 
 Whether OpenTelemetry is enabled
 
@@ -28,7 +28,7 @@ Whether OpenTelemetry is enabled
 
 > `optional` **endpoint?**: `string`
 
-Defined in: [types/observability.ts:179](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L179)
+Defined in: [types/observability.ts:179](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L179)
 
 OTLP endpoint URL
 
@@ -38,7 +38,7 @@ OTLP endpoint URL
 
 > `optional` **serviceName?**: `string`
 
-Defined in: [types/observability.ts:181](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L181)
+Defined in: [types/observability.ts:181](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L181)
 
 Service name for traces
 
@@ -48,6 +48,6 @@ Service name for traces
 
 > `optional` **serviceVersion?**: `string`
 
-Defined in: [types/observability.ts:183](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L183)
+Defined in: [types/observability.ts:183](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L183)
 
 Service version

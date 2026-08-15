@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GenerationModelConfig** = `object`
 
-Defined in: [types/rag.ts:237](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L237)
+Defined in: [types/rag.ts:239](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L239)
 
 Generation model configuration
 
@@ -18,7 +18,7 @@ Generation model configuration
 
 > **provider**: `string`
 
-Defined in: [types/rag.ts:238](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L238)
+Defined in: [types/rag.ts:240](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L240)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/rag.ts:238](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **modelName**: `string`
 
-Defined in: [types/rag.ts:239](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L239)
+Defined in: [types/rag.ts:241](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L241)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/rag.ts:239](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/rag.ts:240](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L240)
+Defined in: [types/rag.ts:242](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L242)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/rag.ts:240](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/rag.ts:241](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L241)
+Defined in: [types/rag.ts:243](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/rag.ts#L243)

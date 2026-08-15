@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProcessedArchive** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:898](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L898)
+Defined in: [types/processor.ts:954](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/processor.ts#L954)
 
 Processed archive result.
 Extends ProcessedFileBase with archive-specific metadata, entry listing,

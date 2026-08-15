@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **WebSocketConnection** = `object`
 
-Defined in: [types/server.ts:936](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L936)
+Defined in: [types/server.ts:936](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L936)
 
 WebSocket connection
 
@@ -18,7 +18,7 @@ WebSocket connection
 
 > **id**: `string`
 
-Defined in: [types/server.ts:937](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L937)
+Defined in: [types/server.ts:937](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L937)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/server.ts:937](https://github.com/juspay/neurolink/blob/ff50c
 
 > **socket**: `unknown`
 
-Defined in: [types/server.ts:938](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L938)
+Defined in: [types/server.ts:938](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L938)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/server.ts:938](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **user?**: [`AuthenticatedUser`](AuthenticatedUser.md)
 
-Defined in: [types/server.ts:939](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L939)
+Defined in: [types/server.ts:939](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L939)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/server.ts:939](https://github.com/juspay/neurolink/blob/ff50c
 
 > **metadata**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/server.ts:940](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L940)
+Defined in: [types/server.ts:940](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L940)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/server.ts:940](https://github.com/juspay/neurolink/blob/ff50c
 
 > **createdAt**: `number`
 
-Defined in: [types/server.ts:941](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L941)
+Defined in: [types/server.ts:941](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L941)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/server.ts:941](https://github.com/juspay/neurolink/blob/ff50c
 
 > **lastActivity**: `number`
 
-Defined in: [types/server.ts:942](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L942)
+Defined in: [types/server.ts:942](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/server.ts#L942)

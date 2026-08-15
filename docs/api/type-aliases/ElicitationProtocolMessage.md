@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ElicitationProtocolMessage** = `object`
 
-Defined in: [types/mcp.ts:1327](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1327)
+Defined in: [types/mcp.ts:1327](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1327)
 
 Base protocol message structure
 
@@ -18,7 +18,7 @@ Base protocol message structure
 
 > **jsonrpc**: `"2.0"`
 
-Defined in: [types/mcp.ts:1328](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1328)
+Defined in: [types/mcp.ts:1328](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1328)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:1328](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **id**: `string`
 
-Defined in: [types/mcp.ts:1329](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1329)
+Defined in: [types/mcp.ts:1329](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1329)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:1329](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **method**: [`ElicitationProtocolMessageType`](ElicitationProtocolMessageType.md)
 
-Defined in: [types/mcp.ts:1330](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1330)
+Defined in: [types/mcp.ts:1330](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1330)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/mcp.ts:1330](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **params**: [`ElicitationRequestParams`](ElicitationRequestParams.md) \| [`ElicitationResponseParams`](ElicitationResponseParams.md) \| [`ElicitationCancelParams`](ElicitationCancelParams.md)
 
-Defined in: [types/mcp.ts:1331](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1331)
+Defined in: [types/mcp.ts:1331](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/mcp.ts#L1331)

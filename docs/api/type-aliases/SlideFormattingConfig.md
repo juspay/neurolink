@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SlideFormattingConfig** = `object`
 
-Defined in: [types/ppt.ts:291](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L291)
+Defined in: [types/ppt.ts:291](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L291)
 
 Slide-level formatting config (can be specified by AI or use defaults)
 Applied to all bullets in the slide unless overridden at bullet level
@@ -19,7 +19,7 @@ Applied to all bullets in the slide unless overridden at bullet level
 
 > `optional` **baseFontSize?**: `number`
 
-Defined in: [types/ppt.ts:293](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L293)
+Defined in: [types/ppt.ts:293](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L293)
 
 Base font size for bullets (default calculated based on bullet count)
 
@@ -29,7 +29,7 @@ Base font size for bullets (default calculated based on bullet count)
 
 > `optional` **bulletStyle?**: [`BulletStyle`](BulletStyle.md)
 
-Defined in: [types/ppt.ts:295](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L295)
+Defined in: [types/ppt.ts:295](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L295)
 
 Default bullet style for this slide
 
@@ -39,6 +39,6 @@ Default bullet style for this slide
 
 > `optional` **lineSpacing?**: `number`
 
-Defined in: [types/ppt.ts:297](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L297)
+Defined in: [types/ppt.ts:297](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/ppt.ts#L297)
 
 Line spacing multiplier (default 1.2)

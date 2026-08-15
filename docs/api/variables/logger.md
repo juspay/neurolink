@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > `const` **logger**: `object`
 
-Defined in: [utils/logger.ts:471](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/utils/logger.ts#L471)
+Defined in: [utils/logger.ts:495](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/utils/logger.ts#L495)
 
 Main unified logger export that provides a simplified API for logging.
 This is the primary interface that should be used by application code.
@@ -82,6 +82,20 @@ Features:
 ### always
 
 > **always**: (...`args`) => `void`
+
+#### Parameters
+
+##### args
+
+...`unknown`[]
+
+#### Returns
+
+`void`
+
+### alwaysStderr
+
+> **alwaysStderr**: (...`args`) => `void`
 
 #### Parameters
 
@@ -175,7 +189,15 @@ Features:
 
 ### clearEventEmitter
 
-> **clearEventEmitter**: () => `void`
+> **clearEventEmitter**: (`ifEmitter?`) => `void`
+
+#### Parameters
+
+##### ifEmitter?
+
+###### emit
+
+(`event`, ...`args`) => `boolean`
 
 #### Returns
 

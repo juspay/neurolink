@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LangfuseContext** = `object`
 
-Defined in: [types/observability.ts:278](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L278)
+Defined in: [types/observability.ts:278](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L278)
 
 Extended context for Langfuse spans.
 Supports all Langfuse trace attributes for rich observability.
@@ -19,7 +19,7 @@ Supports all Langfuse trace attributes for rich observability.
 
 > `optional` **userId?**: `string` \| `null`
 
-Defined in: [types/observability.ts:279](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L279)
+Defined in: [types/observability.ts:279](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L279)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/observability.ts:279](https://github.com/juspay/neurolink/blo
 
 > `optional` **sessionId?**: `string` \| `null`
 
-Defined in: [types/observability.ts:280](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L280)
+Defined in: [types/observability.ts:280](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L280)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/observability.ts:280](https://github.com/juspay/neurolink/blo
 
 > `optional` **conversationId?**: `string` \| `null`
 
-Defined in: [types/observability.ts:282](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L282)
+Defined in: [types/observability.ts:282](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L282)
 
 Conversation/thread identifier for grouping related traces
 
@@ -45,7 +45,7 @@ Conversation/thread identifier for grouping related traces
 
 > `optional` **requestId?**: `string` \| `null`
 
-Defined in: [types/observability.ts:284](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L284)
+Defined in: [types/observability.ts:284](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L284)
 
 Request identifier for correlating with application logs
 
@@ -55,7 +55,7 @@ Request identifier for correlating with application logs
 
 > `optional` **traceName?**: `string` \| `null`
 
-Defined in: [types/observability.ts:286](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L286)
+Defined in: [types/observability.ts:286](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L286)
 
 Custom trace name for better organization in Langfuse UI
 
@@ -65,7 +65,7 @@ Custom trace name for better organization in Langfuse UI
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\> \| `null`
 
-Defined in: [types/observability.ts:288](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L288)
+Defined in: [types/observability.ts:288](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L288)
 
 Custom metadata to attach to spans
 
@@ -75,7 +75,7 @@ Custom metadata to attach to spans
 
 > `optional` **operationName?**: `string` \| `null`
 
-Defined in: [types/observability.ts:293](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L293)
+Defined in: [types/observability.ts:293](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L293)
 
 Explicit operation name (e.g., "ai.streamText", "chat", "embeddings").
 If set, overrides auto-detection from the span name.
@@ -86,7 +86,7 @@ If set, overrides auto-detection from the span name.
 
 > `optional` **autoDetectOperationName?**: `boolean`
 
-Defined in: [types/observability.ts:298](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L298)
+Defined in: [types/observability.ts:298](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L298)
 
 Override global autoDetectOperationName setting for this context.
 When undefined, uses the global setting (defaults to true).
@@ -97,7 +97,7 @@ When undefined, uses the global setting (defaults to true).
 
 > `optional` **customAttributes?**: `Record`\<`string`, `string` \| `number` \| `boolean`\>
 
-Defined in: [types/observability.ts:304](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L304)
+Defined in: [types/observability.ts:304](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/observability.ts#L304)
 
 Custom attributes to set on all spans within this context.
 These attributes are propagated to every span created within the

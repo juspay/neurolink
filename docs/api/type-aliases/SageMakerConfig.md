@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SageMakerConfig** = `object`
 
-Defined in: [types/providers.ts:1053](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1053)
+Defined in: [types/providers.ts:1344](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1344)
 
 AWS configuration options for SageMaker client
 
@@ -18,7 +18,7 @@ AWS configuration options for SageMaker client
 
 > **region**: `string`
 
-Defined in: [types/providers.ts:1055](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1055)
+Defined in: [types/providers.ts:1346](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1346)
 
 AWS region for SageMaker service
 
@@ -28,7 +28,7 @@ AWS region for SageMaker service
 
 > **accessKeyId**: `string`
 
-Defined in: [types/providers.ts:1057](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1057)
+Defined in: [types/providers.ts:1348](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1348)
 
 AWS access key ID
 
@@ -38,7 +38,7 @@ AWS access key ID
 
 > **secretAccessKey**: `string`
 
-Defined in: [types/providers.ts:1059](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1059)
+Defined in: [types/providers.ts:1350](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1350)
 
 AWS secret access key
 
@@ -48,7 +48,7 @@ AWS secret access key
 
 > `optional` **sessionToken?**: `string`
 
-Defined in: [types/providers.ts:1061](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1061)
+Defined in: [types/providers.ts:1352](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1352)
 
 AWS session token (optional, for temporary credentials)
 
@@ -58,7 +58,7 @@ AWS session token (optional, for temporary credentials)
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/providers.ts:1063](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1063)
+Defined in: [types/providers.ts:1354](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1354)
 
 Request timeout in milliseconds
 
@@ -68,7 +68,7 @@ Request timeout in milliseconds
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/providers.ts:1065](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1065)
+Defined in: [types/providers.ts:1356](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1356)
 
 Maximum number of retry attempts
 
@@ -78,6 +78,6 @@ Maximum number of retry attempts
 
 > `optional` **endpoint?**: `string`
 
-Defined in: [types/providers.ts:1067](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1067)
+Defined in: [types/providers.ts:1358](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1358)
 
 Custom SageMaker endpoint URL (optional)

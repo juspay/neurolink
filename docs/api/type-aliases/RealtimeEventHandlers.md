@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RealtimeEventHandlers** = `object`
 
-Defined in: [types/realtime.ts:184](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L184)
+Defined in: [types/realtime.ts:184](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L184)
 
 Realtime event handler callbacks
 
@@ -18,7 +18,7 @@ Realtime event handler callbacks
 
 > `optional` **onAudio?**: (`chunk`) => `void`
 
-Defined in: [types/realtime.ts:186](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L186)
+Defined in: [types/realtime.ts:186](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L186)
 
 Called when audio is received
 
@@ -38,7 +38,7 @@ Called when audio is received
 
 > `optional` **onTranscript?**: (`text`, `isFinal`) => `void`
 
-Defined in: [types/realtime.ts:188](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L188)
+Defined in: [types/realtime.ts:188](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L188)
 
 Called when text/transcript is received
 
@@ -62,7 +62,7 @@ Called when text/transcript is received
 
 > `optional` **onText?**: (`text`, `isFinal`) => `void`
 
-Defined in: [types/realtime.ts:190](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L190)
+Defined in: [types/realtime.ts:190](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L190)
 
 Called when the model generates text
 
@@ -86,7 +86,7 @@ Called when the model generates text
 
 > `optional` **onFunctionCall?**: (`name`, `args`) => `Promise`\<`unknown`\>
 
-Defined in: [types/realtime.ts:192](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L192)
+Defined in: [types/realtime.ts:192](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L192)
 
 Called when a function call is requested
 
@@ -110,7 +110,7 @@ Called when a function call is requested
 
 > `optional` **onStateChange?**: (`state`) => `void`
 
-Defined in: [types/realtime.ts:197](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L197)
+Defined in: [types/realtime.ts:197](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L197)
 
 Called when session state changes
 
@@ -130,7 +130,7 @@ Called when session state changes
 
 > `optional` **onError?**: (`error`) => `void`
 
-Defined in: [types/realtime.ts:199](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L199)
+Defined in: [types/realtime.ts:199](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L199)
 
 Called when an error occurs
 
@@ -150,7 +150,7 @@ Called when an error occurs
 
 > `optional` **onTurnStart?**: () => `void`
 
-Defined in: [types/realtime.ts:201](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L201)
+Defined in: [types/realtime.ts:201](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L201)
 
 Called when a turn starts
 
@@ -164,7 +164,7 @@ Called when a turn starts
 
 > `optional` **onTurnEnd?**: () => `void`
 
-Defined in: [types/realtime.ts:203](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L203)
+Defined in: [types/realtime.ts:203](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/realtime.ts#L203)
 
 Called when a turn ends
 

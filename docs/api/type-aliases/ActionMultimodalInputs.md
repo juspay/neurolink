@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ActionMultimodalInputs** = `object`
 
-Defined in: [types/action.ts:65](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/action.ts#L65)
+Defined in: [types/action.ts:65](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/action.ts#L65)
 
 Multimodal input paths
 
@@ -18,7 +18,7 @@ Multimodal input paths
 
 > `optional` **imagePaths?**: `string`[]
 
-Defined in: [types/action.ts:66](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/action.ts#L66)
+Defined in: [types/action.ts:66](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/action.ts#L66)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/action.ts:66](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **pdfPaths?**: `string`[]
 
-Defined in: [types/action.ts:67](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/action.ts#L67)
+Defined in: [types/action.ts:67](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/action.ts#L67)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/action.ts:67](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **csvPaths?**: `string`[]
 
-Defined in: [types/action.ts:68](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/action.ts#L68)
+Defined in: [types/action.ts:68](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/action.ts#L68)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/action.ts:68](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **videoPaths?**: `string`[]
 
-Defined in: [types/action.ts:69](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/action.ts#L69)
+Defined in: [types/action.ts:69](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/action.ts#L69)

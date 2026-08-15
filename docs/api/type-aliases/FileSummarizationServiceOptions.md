@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileSummarizationServiceOptions** = `object`
 
-Defined in: [types/context.ts:925](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L925)
+Defined in: [types/context.ts:1049](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L1049)
 
 Options for FileSummarizationService.
 
@@ -18,7 +18,7 @@ Options for FileSummarizationService.
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/context.ts:926](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L926)
+Defined in: [types/context.ts:1050](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L1050)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/context.ts:926](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **model?**: `string`
 
-Defined in: [types/context.ts:927](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L927)
+Defined in: [types/context.ts:1051](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L1051)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DomainEvaluationCriteria** = `object`
 
-Defined in: [types/domain.ts:24](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L24)
+Defined in: [types/domain.ts:24](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/domain.ts#L24)
 
 Domain evaluation criteria type
 
@@ -18,7 +18,7 @@ Domain evaluation criteria type
 
 > **accuracyWeight**: `number`
 
-Defined in: [types/domain.ts:25](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L25)
+Defined in: [types/domain.ts:25](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/domain.ts#L25)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/domain.ts:25](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **completenessWeight**: `number`
 
-Defined in: [types/domain.ts:26](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L26)
+Defined in: [types/domain.ts:26](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/domain.ts#L26)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/domain.ts:26](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **relevanceWeight**: `number`
 
-Defined in: [types/domain.ts:27](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L27)
+Defined in: [types/domain.ts:27](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/domain.ts#L27)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/domain.ts:27](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **terminologyWeight**: `number`
 
-Defined in: [types/domain.ts:28](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L28)
+Defined in: [types/domain.ts:28](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/domain.ts#L28)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/domain.ts:28](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **domainSpecificRules**: `string`[]
 
-Defined in: [types/domain.ts:29](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L29)
+Defined in: [types/domain.ts:29](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/domain.ts#L29)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/domain.ts:29](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **failurePatterns**: `string`[]
 
-Defined in: [types/domain.ts:30](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L30)
+Defined in: [types/domain.ts:30](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/domain.ts#L30)
 
 ---
 
@@ -66,4 +66,4 @@ Defined in: [types/domain.ts:30](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **successPatterns**: `string`[]
 
-Defined in: [types/domain.ts:31](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L31)
+Defined in: [types/domain.ts:31](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/domain.ts#L31)

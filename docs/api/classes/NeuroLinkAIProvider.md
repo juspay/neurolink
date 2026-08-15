@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: NeuroLinkAIProvider
 
-Defined in: [client/aiSdkAdapter.ts:317](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/aiSdkAdapter.ts#L317)
+Defined in: [client/aiSdkAdapter.ts:318](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/aiSdkAdapter.ts#L318)
 
 NeuroLink Provider for Vercel AI SDK
 
@@ -38,7 +38,7 @@ const result = await generateText({
 
 > **new NeuroLinkAIProvider**(`options`): `NeuroLinkProvider`
 
-Defined in: [client/aiSdkAdapter.ts:322](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/aiSdkAdapter.ts#L322)
+Defined in: [client/aiSdkAdapter.ts:323](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/aiSdkAdapter.ts#L323)
 
 #### Parameters
 
@@ -56,7 +56,7 @@ Defined in: [client/aiSdkAdapter.ts:322](https://github.com/juspay/neurolink/blo
 
 > **model**(`modelId?`, `options?`): [`NeuroLinkLanguageModel`](NeuroLinkLanguageModel.md)
 
-Defined in: [client/aiSdkAdapter.ts:339](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/aiSdkAdapter.ts#L339)
+Defined in: [client/aiSdkAdapter.ts:340](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/aiSdkAdapter.ts#L340)
 
 Create a language model instance
 
@@ -84,7 +84,7 @@ Additional model options
 
 > **call**(`modelId?`, `options?`): [`NeuroLinkLanguageModel`](NeuroLinkLanguageModel.md)
 
-Defined in: [client/aiSdkAdapter.ts:352](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/aiSdkAdapter.ts#L352)
+Defined in: [client/aiSdkAdapter.ts:353](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/aiSdkAdapter.ts#L353)
 
 Alias for model() - makes the provider callable
 
@@ -108,7 +108,7 @@ Alias for model() - makes the provider callable
 
 > **getClient**(): [`NeuroLinkClient`](NeuroLinkClient.md)
 
-Defined in: [client/aiSdkAdapter.ts:384](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/aiSdkAdapter.ts#L384)
+Defined in: [client/aiSdkAdapter.ts:385](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/client/aiSdkAdapter.ts#L385)
 
 Get the underlying client
 

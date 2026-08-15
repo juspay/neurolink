@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderConfigOptions** = `object`
 
-Defined in: [types/providers.ts:576](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L576)
+Defined in: [types/providers.ts:686](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L686)
 
 Configuration options for provider validation
 
@@ -18,7 +18,7 @@ Configuration options for provider validation
 
 > **providerName**: `string`
 
-Defined in: [types/providers.ts:577](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L577)
+Defined in: [types/providers.ts:687](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L687)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:577](https://github.com/juspay/neurolink/blob/ff
 
 > **envVarName**: `string`
 
-Defined in: [types/providers.ts:578](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L578)
+Defined in: [types/providers.ts:688](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L688)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:578](https://github.com/juspay/neurolink/blob/ff
 
 > **setupUrl**: `string`
 
-Defined in: [types/providers.ts:579](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L579)
+Defined in: [types/providers.ts:689](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L689)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:579](https://github.com/juspay/neurolink/blob/ff
 
 > **description**: `string`
 
-Defined in: [types/providers.ts:580](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L580)
+Defined in: [types/providers.ts:690](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L690)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/providers.ts:580](https://github.com/juspay/neurolink/blob/ff
 
 > **instructions**: `string`[]
 
-Defined in: [types/providers.ts:581](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L581)
+Defined in: [types/providers.ts:691](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L691)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/providers.ts:581](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **fallbackEnvVars?**: `string`[]
 
-Defined in: [types/providers.ts:582](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L582)
+Defined in: [types/providers.ts:692](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L692)
 
 ---
 
@@ -66,4 +66,4 @@ Defined in: [types/providers.ts:582](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **optional?**: `boolean`
 
-Defined in: [types/providers.ts:587](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L587)
+Defined in: [types/providers.ts:697](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L697)

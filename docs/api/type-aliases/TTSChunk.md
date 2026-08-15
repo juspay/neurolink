@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TTSChunk** = `object`
 
-Defined in: [types/tts.ts:255](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L255)
+Defined in: [types/tts.ts:273](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tts.ts#L273)
 
 TTS audio chunk for streaming Text-to-Speech output
 
@@ -21,7 +21,7 @@ Used in StreamChunk type to deliver audio alongside text content.
 
 > **data**: `Buffer`
 
-Defined in: [types/tts.ts:257](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L257)
+Defined in: [types/tts.ts:275](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tts.ts#L275)
 
 Audio data chunk as Buffer
 
@@ -31,7 +31,7 @@ Audio data chunk as Buffer
 
 > **format**: [`TTSAudioFormat`](TTSAudioFormat.md)
 
-Defined in: [types/tts.ts:259](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L259)
+Defined in: [types/tts.ts:277](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tts.ts#L277)
 
 Audio format of this chunk
 
@@ -41,7 +41,7 @@ Audio format of this chunk
 
 > **index**: `number`
 
-Defined in: [types/tts.ts:261](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L261)
+Defined in: [types/tts.ts:279](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tts.ts#L279)
 
 Chunk sequence number (0-indexed)
 
@@ -51,7 +51,7 @@ Chunk sequence number (0-indexed)
 
 > **isFinal**: `boolean`
 
-Defined in: [types/tts.ts:263](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L263)
+Defined in: [types/tts.ts:281](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tts.ts#L281)
 
 Whether this is the final audio chunk
 
@@ -61,7 +61,7 @@ Whether this is the final audio chunk
 
 > `optional` **cumulativeSize?**: `number`
 
-Defined in: [types/tts.ts:265](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L265)
+Defined in: [types/tts.ts:283](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tts.ts#L283)
 
 Cumulative audio size in bytes so far
 
@@ -71,7 +71,7 @@ Cumulative audio size in bytes so far
 
 > `optional` **estimatedDuration?**: `number`
 
-Defined in: [types/tts.ts:267](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L267)
+Defined in: [types/tts.ts:285](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tts.ts#L285)
 
 Estimated total duration in seconds (if available)
 
@@ -81,7 +81,7 @@ Estimated total duration in seconds (if available)
 
 > `optional` **voice?**: `string`
 
-Defined in: [types/tts.ts:269](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L269)
+Defined in: [types/tts.ts:287](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tts.ts#L287)
 
 Voice used for generation
 
@@ -91,6 +91,6 @@ Voice used for generation
 
 > `optional` **sampleRate?**: `number`
 
-Defined in: [types/tts.ts:271](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L271)
+Defined in: [types/tts.ts:289](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/tts.ts#L289)
 
 Sample rate in Hz

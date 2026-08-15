@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolOutputPreviewOptions** = `object`
 
-Defined in: [types/context.ts:811](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L811)
+Defined in: [types/context.ts:834](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L834)
 
 Options for tool output preview generation.
 
@@ -18,7 +18,7 @@ Options for tool output preview generation.
 
 > `optional` **maxBytes?**: `number`
 
-Defined in: [types/context.ts:813](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L813)
+Defined in: [types/context.ts:836](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L836)
 
 Maximum bytes for the preview (default: 50KB)
 
@@ -28,7 +28,7 @@ Maximum bytes for the preview (default: 50KB)
 
 > `optional` **maxLines?**: `number`
 
-Defined in: [types/context.ts:815](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L815)
+Defined in: [types/context.ts:838](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L838)
 
 Maximum lines for the preview (default: 2000)
 
@@ -38,7 +38,7 @@ Maximum lines for the preview (default: 2000)
 
 > `optional` **headRatio?**: `number`
 
-Defined in: [types/context.ts:817](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L817)
+Defined in: [types/context.ts:840](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L840)
 
 Fraction of preview budget allocated to the head (default: 0.25)
 
@@ -48,6 +48,6 @@ Fraction of preview budget allocated to the head (default: 0.25)
 
 > `optional` **tailRatio?**: `number`
 
-Defined in: [types/context.ts:819](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L819)
+Defined in: [types/context.ts:842](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/context.ts#L842)
 
 Fraction of preview budget allocated to the tail (default: 0.75)

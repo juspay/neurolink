@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **InvokeEndpointResponse** = `object`
 
-Defined in: [types/providers.ts:1192](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1192)
+Defined in: [types/providers.ts:1483](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1483)
 
 Response from SageMaker endpoint invocation
 
@@ -18,7 +18,7 @@ Response from SageMaker endpoint invocation
 
 > `optional` **Body?**: `Uint8Array`
 
-Defined in: [types/providers.ts:1194](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1194)
+Defined in: [types/providers.ts:1485](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1485)
 
 Response body
 
@@ -28,7 +28,7 @@ Response body
 
 > `optional` **ContentType?**: `string`
 
-Defined in: [types/providers.ts:1196](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1196)
+Defined in: [types/providers.ts:1487](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1487)
 
 Content type of the response
 
@@ -38,7 +38,7 @@ Content type of the response
 
 > `optional` **InvokedProductionVariant?**: `string`
 
-Defined in: [types/providers.ts:1198](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1198)
+Defined in: [types/providers.ts:1489](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1489)
 
 Invoked production variant
 
@@ -48,6 +48,6 @@ Invoked production variant
 
 > `optional` **CustomAttributes?**: `string`
 
-Defined in: [types/providers.ts:1200](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1200)
+Defined in: [types/providers.ts:1491](https://github.com/mansiverma897993/neurolink/blob/2b1aca22c252cf536a76d9d88df95d715b888328/src/lib/types/providers.ts#L1491)
 
 Custom attributes in the response
