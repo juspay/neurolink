@@ -6294,8 +6294,16 @@ export class GoogleVertexProvider extends BaseProvider {
 
     // Build messages from input
     const messages: VertexAnthropicMessage[] = [];
+    // input.text FIRST — the file preprocessors (processUnifiedFilesArray,
+    // processCSVFilesForNativeSDK) append attached-file content to input.text,
+    // while options.prompt is snapshotted from the ORIGINAL input.text at
+    // baseOptions creation (neurolink.ts). With prompt-first precedence every
+    // attached file was silently dropped on the Claude generate path — the
+    // model answered "no file attached" to a request that carried one. The
+    // native Gemini path already reads input.text first for exactly this
+    // reason.
     const inputText =
-      options.prompt || options.input?.text || "Please respond.";
+      options.input?.text || options.prompt || "Please respond.";
 
     // Replay conversationMessages (with tool turns), else the legacy text-only conversationHistory.
     if (
