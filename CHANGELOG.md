@@ -1,3 +1,9 @@
+## [10.12.6](https://github.com/juspay/neurolink/compare/v10.12.5...v10.12.6) (2026-08-15)
+
+### Bug Fixes
+
+- **(proxy):** isolate tests and harden failure handling ([f60fb7d](https://github.com/juspay/neurolink/commit/f60fb7d22131609a9ff4afbde277bd3816a04b3c))
+
 ## [10.12.5](https://github.com/juspay/neurolink/compare/v10.12.4...v10.12.5) (2026-08-15)
 
 ### Bug Fixes
