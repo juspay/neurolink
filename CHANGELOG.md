@@ -1,3 +1,9 @@
+## [10.12.9](https://github.com/juspay/neurolink/compare/v10.12.8...v10.12.9) (2026-08-15)
+
+### Bug Fixes
+
+- **(json):** recover a partial object from truncated structured output ([798e219](https://github.com/juspay/neurolink/commit/798e219a384b420e407b7466584f8683f2aea6a1)), closes [#635](https://github.com/juspay/neurolink/issues/635)
+
 ## [10.12.8](https://github.com/juspay/neurolink/compare/v10.12.7...v10.12.8) (2026-08-15)
 
 ### Bug Fixes
