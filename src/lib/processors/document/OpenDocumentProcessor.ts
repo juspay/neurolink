@@ -10,7 +10,11 @@
 import { createRequire } from "node:module";
 import * as zlib from "node:zlib";
 
-import { BaseFileProcessor } from "../base/BaseFileProcessor.js";
+import {
+  BaseFileProcessor,
+  contentTooLargeError,
+  isContentTooLarge,
+} from "../base/BaseFileProcessor.js";
 import { readZipEntryWithinLimit } from "../archive/zipEntryReader.js";
 import type {
   FileInfo,
@@ -99,8 +103,11 @@ export class OpenDocumentProcessor extends BaseFileProcessor<ProcessedOpenDocume
           zlib,
         );
         if (read.status === "too-large") {
-          throw new Error(
-            `content.xml exceeds the ${SIZE_LIMITS.DOCUMENT_MAX_MB}MB limit for OpenDocument content`,
+          // Coded, so the bound surfaces as FILE_TOO_LARGE (not retryable)
+          // rather than PROCESSING_FAILED (retryable). The file will be
+          // exactly as oversized on the next attempt.
+          throw contentTooLargeError(
+            `content.xml in "${this.getFilename(fileInfo)}" exceeds the ${SIZE_LIMITS.DOCUMENT_MAX_MB}MB limit for OpenDocument content`,
           );
         }
         if (read.status !== "ok") {
@@ -122,6 +129,13 @@ export class OpenDocumentProcessor extends BaseFileProcessor<ProcessedOpenDocume
         throw new Error("content.xml not found in OpenDocument archive");
       }
     } catch (error) {
+      // A size verdict passes through intact. Re-wrapping it as a plain Error
+      // drops the code, and the base class then reports PROCESSING_FAILED —
+      // which is retryable, so the caller would refetch and decompress a file
+      // guaranteed to be exactly as oversized.
+      if (isContentTooLarge(error)) {
+        throw error;
+      }
       const message = error instanceof Error ? error.message : "Unknown error";
       throw new Error(`Failed to extract OpenDocument content: ${message}`, {
         cause: error,
