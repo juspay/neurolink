@@ -50,6 +50,11 @@ function printAnalysis(
     logger.always(
       `    Attempts: ${report.attempts.total}, ${report.attempts.errors} errors${report.attempts.errors > 0 ? ` ${JSON.stringify(report.attempts.errorTypes)}` : ""}`,
     );
+    if (Object.keys(report.attempts.transportScopes).length > 0) {
+      logger.always(
+        `    Transport scopes: ${JSON.stringify(report.attempts.transportScopes)}`,
+      );
+    }
   }
   logger.always(
     report.coverage.lifecycle
@@ -81,6 +86,15 @@ function printAnalysis(
     logger.always(
       `    Selection reasons: ${JSON.stringify(report.routing.selectionReasons)}`,
     );
+    const productionQuotaProbes =
+      report.routing.selectionReasons.quota_probe ?? 0;
+    if (productionQuotaProbes > 0) {
+      logger.always(
+        chalk.yellow(
+          `    WARNING: ${productionQuotaProbes} production request(s) were selected for quota discovery`,
+        ),
+      );
+    }
     logger.always(
       `    Initial accounts: ${JSON.stringify(report.routing.initialAccounts)}`,
     );

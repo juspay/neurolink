@@ -1647,16 +1647,16 @@ async function testOrderAccountsByQuota(): Promise<boolean | null> {
     return false;
   }
 
-  // Probe-first: an account with NO quota data must sort before known
-  // accounts (one request reveals its windows). Ranking it last would starve
-  // it forever: never picked → never observed → never comparable.
+  // Unknown quota must not displace known healthy accounts. The adaptive
+  // refresh coordinator discovers unknown windows through the lightweight
+  // usage endpoint instead of sending production traffic as a probe.
   const d: Acct = { key: "anthropic:d", label: "d", token: "t", type: "oauth" };
   const probeOrdered = __testHooks
     .orderAccountsByQuota([a, b, d] as never, now, undefined)
     .map((x: { label: string }) => x.label);
-  if (probeOrdered.join(",") !== "d,b,a") {
+  if (probeOrdered.join(",") !== "b,a,d") {
     log(
-      `orderAccountsByQuota: expected d,b,a (unknown probed first), got ${probeOrdered.join(",")}`,
+      `orderAccountsByQuota: expected b,a,d (known healthy before unknown), got ${probeOrdered.join(",")}`,
       "red",
     );
     __testHooks.resetAllRuntimeState();
@@ -1680,7 +1680,7 @@ async function testOrderAccountsByQuota(): Promise<boolean | null> {
 
   __testHooks.resetAllRuntimeState();
   log(
-    "orderAccountsByQuota: soonest-reset-first + probe-first + primary tie-break passed",
+    "orderAccountsByQuota: soonest-reset-first + known-before-unknown + primary tie-break passed",
     "green",
   );
   return true;

@@ -18,6 +18,9 @@ export const PROXY_ACCOUNT_ROUTING_REASONS = [
   "insertion_order",
   "availability",
   "cooldown_recovery",
+  "quota_evidence",
+  // Retained for backwards-compatible analysis of pre-fix logs. New routing
+  // decisions must never select a production request for quota discovery.
   "quota_probe",
   "session_headroom",
   "session_reset",
