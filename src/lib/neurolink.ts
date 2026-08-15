@@ -94,6 +94,7 @@ import type {
   AnalyticsData,
   EvaluationData,
   NeurolinkCredentials,
+  OptionalValidationSchema,
   ProviderStatus,
   TextGenerationOptions,
   TextGenerationResult,
@@ -264,7 +265,11 @@ import {
 } from "./utils/lifecycleCallbacks.js";
 import { resolveLifecycleTimeoutMs } from "./utils/lifecycleTimeout.js";
 import { cloneOptionsForCallIsolation } from "./utils/cloneOptions.js";
-import { coerceJsonToSchema } from "./utils/json/coerce.js";
+import {
+  coerceJsonToSchema,
+  recoverScalarRoot,
+  schemaAccepts,
+} from "./utils/json/coerce.js";
 // Factory processing imports
 import {
   createCleanStreamOptions,
@@ -5453,6 +5458,98 @@ Current user's request: ${currentInput}`;
     return textOptions;
   }
 
+  /**
+   * Provider-agnostic JSON recovery for schema requests. Structured-output
+   * enforcement makes valid JSON the overwhelming case; for every other
+   * provider path — including generate() overrides (Vertex, Anthropic,
+   * Bedrock, Google AI Studio) — object/array roots are recovered here via
+   * balanced-scan + jsonrepair and scalar JSON roots via plain JSON.parse,
+   * with the parsed value exposed as `structuredData`. If nothing JSON-shaped
+   * is recoverable (pure prose), the raw text is returned, `structuredData`
+   * stays undefined, and a WARN makes the case observable.
+   *
+   * Mutates `textResult` in place, and must run BEFORE the end-of-generation
+   * emits so event consumers see the same content/structuredData the caller
+   * receives.
+   */
+  private recoverStructuredData(
+    textResult: TextGenerationResult,
+    schema: OptionalValidationSchema,
+  ): void {
+    // A provider path that produced its own `structuredData` normally owns it.
+    // The one exception is a STRING the caller's schema rejects: that is the
+    // raw completion leaking through as structured output (the shape a
+    // truncated response degrades to), so re-run recovery over the text rather
+    // than handing back a value the declared schema forbids.
+    const structuredIsRejectedString =
+      typeof textResult.structuredData === "string" &&
+      !schemaAccepts(schema, textResult.structuredData);
+    if (
+      !schema ||
+      (textResult.structuredData !== undefined &&
+        !structuredIsRejectedString) ||
+      typeof textResult.content !== "string"
+    ) {
+      return;
+    }
+    if (structuredIsRejectedString) {
+      textResult.structuredData = undefined;
+    }
+    const coerced = coerceJsonToSchema(textResult.content, schema);
+    if (coerced) {
+      textResult.content = coerced.content;
+      textResult.structuredData = coerced.structuredData;
+      if (coerced.repaired) {
+        textResult.jsonRepaired = true;
+      }
+      if (coerced.truncated) {
+        textResult.jsonTruncated = true;
+      }
+      return;
+    }
+    const scalar = recoverScalarRoot(textResult.content, schema);
+    switch (scalar.kind) {
+      case "empty":
+        // A JSON-encoded empty string is an EMPTY completion, not a recovered
+        // scalar — normalize to a true empty so callers' empty-response
+        // handling fires instead of a literal '""' reaching the user.
+        // `structuredData` stays undefined.
+        textResult.content = "";
+        logger.warn(
+          "[NeuroLink] schema requested but the model returned an empty JSON string; normalizing to empty content",
+          { provider: textResult.provider, model: textResult.model },
+        );
+        break;
+      case "accepted":
+        // Only publish a scalar root the caller's schema actually accepts.
+        // Under an OBJECT schema a recovered string is the raw completion in
+        // disguise — the shape a truncated response degrades to — and exposing
+        // it hands the caller a `structuredData` that violates the schema they
+        // passed.
+        textResult.structuredData = scalar.value;
+        break;
+      case "rejected":
+        logger.warn(
+          "[NeuroLink] recovered a JSON scalar the requested schema rejects; leaving structuredData unset",
+          {
+            provider: textResult.provider,
+            model: textResult.model,
+            scalarType: typeof scalar.value,
+          },
+        );
+        break;
+      case "nullish":
+        // JSON null/undefined — no structured value to publish.
+        break;
+      case "not-json":
+        logger.warn(
+          "[NeuroLink] schema requested but no JSON could be recovered from model output; returning raw text",
+          { provider: textResult.provider, model: textResult.model },
+        );
+        break;
+    }
+  }
+
   private finalizeGenerateRequestResult(params: {
     generateSpan: ReturnType<typeof tracers.sdk.startSpan>;
     options: GenerateOptions;
@@ -5472,58 +5569,7 @@ Current user's request: ${currentInput}`;
       startTime,
     } = params;
 
-    // Provider-agnostic JSON coercion for schema requests. Structured-output
-    // enforcement makes valid JSON the overwhelming case; for every other
-    // provider path — including generate() overrides (Vertex, Anthropic,
-    // Bedrock, Google AI Studio) — object/array roots are recovered here via
-    // balanced-scan + jsonrepair and scalar JSON roots via plain JSON.parse,
-    // with the parsed value exposed as `structuredData`. If nothing
-    // JSON-shaped is recoverable (pure prose), the raw text is returned,
-    // `structuredData` stays undefined, and a WARN makes the case observable.
-    // Runs BEFORE the end-of-generation emits below so event consumers see
-    // the same coerced content/structuredData the caller receives.
-    if (
-      textOptions.schema &&
-      textResult.structuredData === undefined &&
-      typeof textResult.content === "string"
-    ) {
-      const coerced = coerceJsonToSchema(
-        textResult.content,
-        textOptions.schema,
-      );
-      if (coerced) {
-        textResult.content = coerced.content;
-        textResult.structuredData = coerced.structuredData;
-        if (coerced.repaired) {
-          textResult.jsonRepaired = true;
-        }
-        if (coerced.truncated) {
-          textResult.jsonTruncated = true;
-        }
-      } else {
-        try {
-          const scalar: unknown = JSON.parse(textResult.content);
-          if (scalar === "") {
-            // A JSON-encoded empty string is an EMPTY completion, not a
-            // recovered scalar — normalize to a true empty so callers'
-            // empty-response handling fires instead of a literal '""'
-            // reaching the user. `structuredData` stays undefined.
-            textResult.content = "";
-            logger.warn(
-              "[NeuroLink] schema requested but the model returned an empty JSON string; normalizing to empty content",
-              { provider: textResult.provider, model: textResult.model },
-            );
-          } else if (scalar !== null && scalar !== undefined) {
-            textResult.structuredData = scalar;
-          }
-        } catch {
-          logger.warn(
-            "[NeuroLink] schema requested but no JSON could be recovered from model output; returning raw text",
-            { provider: textResult.provider, model: textResult.model },
-          );
-        }
-      }
-    }
+    this.recoverStructuredData(textResult, textOptions.schema);
 
     // Surface truncation when a schema was requested: either the provider
     // reported finishReason="length" or the recovered JSON came from an
