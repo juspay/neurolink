@@ -103,6 +103,34 @@ function isDownloadTooLarge(error: unknown): boolean {
   );
 }
 
+/**
+ * Marker on the error raised when a processor refuses content for exceeding
+ * the size limit *after* the download — a ZIP entry that expands past the
+ * bound, say.
+ *
+ * Separate from DOWNLOAD_TOO_LARGE because the two fire at different stages,
+ * but it exists for the same reason. Without it a bound that fires reaches
+ * `buildProcessedResultWithResult` as a plain Error and becomes
+ * PROCESSING_FAILED, which is `retryable: true` — so a caller retries a
+ * deterministic refusal three times and gets the identical answer each time.
+ * FILE_TOO_LARGE is `retryable: false`, which is the truth about this failure.
+ */
+export const CONTENT_TOO_LARGE_CODE = "CONTENT_TOO_LARGE";
+
+/** An error that a processor's own size bound was exceeded. */
+export function contentTooLargeError(message: string): Error {
+  const error = new Error(message) as NodeJS.ErrnoException;
+  error.code = CONTENT_TOO_LARGE_CODE;
+  return error;
+}
+
+/** Whether `error` is a processor size bound firing rather than a fault. */
+export function isContentTooLarge(error: unknown): boolean {
+  return (
+    (error as NodeJS.ErrnoException | null)?.code === CONTENT_TOO_LARGE_CODE
+  );
+}
+
 /** Node's signal that a zlib output bound was reached. */
 function isBufferTooLargeError(error: unknown): boolean {
   return (
@@ -454,6 +482,23 @@ export abstract class BaseFileProcessor<T extends ProcessedFileBase> {
       const result = await this.buildProcessedResult(buffer, fileInfo);
       return { success: true, data: result };
     } catch (error) {
+      // A size bound firing is a verdict, not a fault: PROCESSING_FAILED is
+      // retryable, and re-running a decompression that will hit the same
+      // ceiling is the one thing worth not doing three times.
+      if (isContentTooLarge(error)) {
+        return {
+          success: false,
+          // Same detail keys as the other FILE_TOO_LARGE sites, so anything
+          // reading them does not have to special-case where the verdict came
+          // from. `sizeMB` is absent on purpose: the decompressed size is the
+          // number this bound exists to never find out.
+          error: this.createError(FileErrorCode.FILE_TOO_LARGE, {
+            maxMB: this.config.maxSizeMB,
+            type: this.config.fileTypeName,
+            reason: error instanceof Error ? error.message : undefined,
+          }),
+        };
+      }
       return {
         success: false,
         error: this.createError(
