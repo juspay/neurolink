@@ -1360,6 +1360,19 @@ export async function processUnifiedFilesArray(
         options.systemPrompt = existingSystem
           ? `${existingSystem}${filePromptAugmentation}`
           : filePromptAugmentation.trim();
+
+        // Keep options.prompt in sync with the enriched input.text.
+        // neurolink.ts snapshots `prompt: options.input?.text` at baseOptions
+        // creation — BEFORE this function appends file content — and some
+        // native paths (executeNativeAnthropicGenerate historically) read
+        // `options.prompt` first. Leaving the stale snapshot in place means
+        // every appended file is silently dropped on those paths and the model
+        // answers "no file attached". Same dual-write processCSVFilesForNativeSDK
+        // already documents for exactly this trap.
+        const promptCarrier = options as { prompt?: string };
+        if (typeof promptCarrier.prompt === "string") {
+          promptCarrier.prompt = inp2.text;
+        }
       }
     },
   );
