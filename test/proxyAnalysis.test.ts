@@ -179,6 +179,7 @@ describe("offline proxy log analysis", () => {
         attemptDurationMs: 25,
         errorType: "transport_error",
         errorCode: "ETIMEDOUT",
+        transportScope: "connection_transport",
       },
     ]);
 
@@ -278,6 +279,7 @@ describe("offline proxy log analysis", () => {
       errors: 3,
       errorTypes: { http_429: 2, transport_error: 1 },
       errorCodes: { ETIMEDOUT: 1 },
+      transportScopes: { connection_transport: 1 },
     });
     expect(report.rateLimits).toEqual({
       attemptRateLimits: 3,

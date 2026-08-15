@@ -518,6 +518,43 @@ export type ProxyAccountRoutingReason =
 
 export type ProxyAccountType = (typeof PROXY_ACCOUNT_TYPES)[number];
 
+export type ProxyQuotaFreshness =
+  | "unknown"
+  | "fresh"
+  | "stale_known"
+  | "refresh_due";
+
+export type ProxyQuotaRefreshReason =
+  | "startup_unknown"
+  | "handoff_prewarm"
+  | "ambiguous_snapshot"
+  | "manual";
+
+export type ProxyQuotaSaturationKind = "none" | "soft" | "hard";
+
+export type ProxyTransportScope =
+  | "shared_provider_transport"
+  | "connection_transport"
+  | "account_specific";
+
+export type ProxyNetworkTransportScope = Exclude<
+  ProxyTransportScope,
+  "account_specific"
+>;
+
+export type ProxyProviderTransportProbeOutcome =
+  | "recovered"
+  | "failed"
+  | "abandoned";
+
+export type ProxyProviderTransportPermit =
+  | { allowed: true; probe: boolean; generation: number }
+  | {
+      allowed: false;
+      errorCode: string | null;
+      transportScope: ProxyNetworkTransportScope;
+    };
+
 export type ProxyAccountRoutingCandidate = {
   account: string;
   accountType: ProxyAccountType;
@@ -528,6 +565,15 @@ export type ProxyAccountRoutingCandidate = {
   saturated: boolean;
   quotaObserved: boolean;
   quotaStale: boolean;
+  quotaFreshness?: ProxyQuotaFreshness;
+  refreshNeeded?: boolean;
+  refreshReason?: ProxyQuotaRefreshReason | null;
+  refreshInFlight?: boolean;
+  lastRefreshAttemptAt?: number | null;
+  lastRefreshSuccessAt?: number | null;
+  nextRefreshEligibleAt?: number | null;
+  saturationKind?: ProxyQuotaSaturationKind;
+  softLimitOverrideReason?: "overage" | "weekly_expiry" | null;
   quotaLastUpdated: number | null;
   quotaAgeMs: number | null;
   coolingActive: boolean;
@@ -568,7 +614,17 @@ export type ProxyAccountSortMetrics = {
   usable: boolean;
   saturated: boolean;
   hasQuota: boolean;
+  quotaEvidenceRank: number;
   quotaStale: boolean;
+  quotaFreshness: ProxyQuotaFreshness;
+  refreshNeeded: boolean;
+  refreshReason: ProxyQuotaRefreshReason | null;
+  refreshInFlight: boolean;
+  lastRefreshAttemptAt: number | null;
+  lastRefreshSuccessAt: number | null;
+  nextRefreshEligibleAt: number | null;
+  saturationKind: ProxyQuotaSaturationKind;
+  softLimitOverrideReason: "overage" | "weekly_expiry" | null;
   quotaLastUpdated: number | null;
   quotaAgeMs: number | null;
   coolingActive: boolean;
@@ -605,6 +661,8 @@ export type RequestLogEntry = {
   errorMessage?: string;
   /** Low-level transport code such as ETIMEDOUT or EADDRNOTAVAIL. */
   errorCode?: string;
+  /** Whether changing credentials can affect this transport failure. */
+  transportScope?: ProxyTransportScope;
   inputTokens?: number;
   outputTokens?: number;
   cacheCreationTokens?: number;
@@ -637,6 +695,8 @@ export type RequestAttemptLogEntry = {
   errorMessage?: string;
   /** Low-level transport code such as ETIMEDOUT or EADDRNOTAVAIL. */
   errorCode?: string;
+  /** Whether changing credentials can affect this transport failure. */
+  transportScope?: ProxyTransportScope;
   /** Whether this failed attempt may be retried without changing the request. */
   retryable?: boolean;
   /** Distinguishes short-lived admission throttles from exhausted quota windows. */
@@ -680,6 +740,8 @@ export type ClaudeFinalRequestLogger = (
     outputTokens?: number;
     cacheCreationTokens?: number;
     cacheReadTokens?: number;
+    errorCode?: string;
+    transportScope?: ProxyTransportScope;
   },
 ) => void;
 
@@ -691,6 +753,8 @@ export type ClaudeLoggedErrorBuilder = (
     account?: string;
     accountType?: string;
     attempt?: number;
+    errorCode?: string;
+    transportScope?: ProxyTransportScope;
   },
 ) => ClaudeErrorResponse;
 
@@ -718,6 +782,7 @@ export type AnthropicAttemptLogger = (
     retryable?: boolean;
     /** Low-level transport code such as ETIMEDOUT or EADDRNOTAVAIL. */
     errorCode?: string;
+    transportScope?: ProxyTransportScope;
     rateLimitKind?: "transient" | "quota";
     cooldownReason?: "transient" | "session" | "weekly" | "unified";
     /** Override for nested retries whose attempt starts after this logger. */
@@ -741,6 +806,8 @@ export type AnthropicLoopState = {
   authCooldownMessage: string | null;
   fallbackFailureMessage?: string;
   attemptNumber: number;
+  lastTransportErrorCode?: string;
+  lastTransportScope?: ProxyNetworkTransportScope;
 };
 
 export type AnthropicUpstreamBody = {
@@ -887,6 +954,8 @@ export type TransientRateLimitRetryBudget = {
 export type AnthropicUpstreamFetchResult = {
   continueLoop: boolean;
   retrySameAccount?: boolean;
+  transportScope?: ProxyNetworkTransportScope;
+  errorCode?: string;
   /** When set, the caller should wait this many ms before retrying (from upstream retry-after). */
   retryAfterMs?: number;
   /** Set on a genuine 429: how long / why to cool this account before rotating. */
@@ -1194,6 +1263,36 @@ export type AccountUsageFetchResult =
       status?: number;
     };
 
+export type ProxyQuotaRefreshRuntimeState = {
+  inFlight: boolean;
+  lastAttemptAt?: number;
+  lastSuccessAt?: number;
+  nextEligibleAt?: number;
+  consecutiveFailures: number;
+  lastFailureReason?: string;
+  lastCompletedTrigger?: string;
+  coalesced: number;
+};
+
+export type ProxyQuotaRefreshMetrics = {
+  attempted: number;
+  succeeded: number;
+  failed: number;
+  coalesced: number;
+  backoffSuppressed: number;
+  triggerDeduplicated: number;
+};
+
+export type ProxyQuotaRefreshRunResult =
+  | {
+      kind: "completed";
+      result: AccountUsageFetchResult;
+      /** Lower bound for the freshness of the returned usage snapshot. */
+      startedAt: number;
+    }
+  | { kind: "backoff"; nextEligibleAt: number }
+  | { kind: "not_due" };
+
 /** Per-account result inside a GET /limits response. */
 export type ProxyLimitsAccountResult = {
   /** Account label (quota-store key). */
@@ -1215,6 +1314,8 @@ export type ProxyLimitsRefreshResponse = {
   /** True when served from stored state without contacting Anthropic. */
   snapshot: boolean;
   results: ProxyLimitsAccountResult[];
+  /** Process-local refresh activity; contains no credentials or response body. */
+  refreshMetrics?: ProxyQuotaRefreshMetrics;
 };
 
 /**
@@ -1781,6 +1882,7 @@ export type ProxyAnalysisReport = {
     errors: number;
     errorTypes: Record<string, number>;
     errorCodes: Record<string, number>;
+    transportScopes: Record<string, number>;
   };
   rateLimits: {
     attemptRateLimits: number;

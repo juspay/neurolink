@@ -26,6 +26,8 @@ import {
   parseQuotaHeaders,
   saveAccountQuota,
 } from "../src/lib/proxy/accountQuota.js";
+import { AccountQuotaRefreshCoordinator } from "../src/lib/proxy/accountQuotaRefreshCoordinator.js";
+import { ProviderTransportCoordinator } from "../src/lib/proxy/providerTransportCoordinator.js";
 import {
   resolveProxyPaths,
   resolveProxyUsageStatsPath,
@@ -110,12 +112,17 @@ describe("weekly-expiry quota routing", () => {
   const quota = (
     now: number,
     overrides: Partial<{
+      unifiedStatus: string | undefined;
       sessionUsed: number;
       sessionStatus: string;
       sessionResetAt: number;
       weeklyUsed: number;
       weeklyStatus: string;
       weeklyResetAt: number;
+      fallbackPercentage: number;
+      fallbackStatus: string;
+      overageStatus: string;
+      upgradePaths: string;
     }>,
   ) => ({
     unifiedStatus: "allowed",
@@ -272,7 +279,7 @@ describe("weekly-expiry quota routing", () => {
     ).toBeUndefined();
   });
 
-  it("temporarily demotes an urgent weekly account at the session soft limit", () => {
+  it("keeps an urgent weekly account first at the soft limit when overage is available", () => {
     const now = Date.UTC(2026, 6, 17, 12, 0, 0);
     const nowSec = Math.floor(now / 1000);
     setQuota("urgent@example.com", now, {
@@ -280,6 +287,44 @@ describe("weekly-expiry quota routing", () => {
       sessionResetAt: nowSec + 30 * 60,
       weeklyUsed: 0.4,
       weeklyResetAt: nowSec + 12 * 60 * 60,
+      fallbackStatus: "available",
+      overageStatus: "allowed",
+      upgradePaths: "overage",
+    });
+    setQuota("later@example.com", now, {
+      sessionUsed: 0.2,
+      sessionResetAt: nowSec + 2 * 60 * 60,
+      weeklyUsed: 0.2,
+      weeklyResetAt: nowSec + 3 * 24 * 60 * 60,
+    });
+
+    expect(order(["urgent@example.com", "later@example.com"], now)).toEqual([
+      "urgent@example.com",
+      "later@example.com",
+    ]);
+    expect(
+      decision(["urgent@example.com", "later@example.com"], now),
+    ).toMatchObject({
+      initialAccount: "urgent@example.com",
+      selectionReason: "weekly_reset",
+    });
+    expect(
+      order(["urgent@example.com", "later@example.com"], now + 31 * 60 * 1000),
+    ).toEqual(["urgent@example.com", "later@example.com"]);
+  });
+
+  it("temporarily demotes a soft-limited account without a continuation path", () => {
+    const now = Date.UTC(2026, 6, 17, 12, 0, 0);
+    const nowSec = Math.floor(now / 1000);
+    setQuota("urgent@example.com", now, {
+      sessionUsed: 0.98,
+      sessionResetAt: nowSec + 30 * 60,
+      weeklyUsed: 0.4,
+      weeklyResetAt: nowSec + 12 * 60 * 60,
+      fallbackPercentage: 0,
+      fallbackStatus: "unavailable",
+      overageStatus: "unavailable",
+      upgradePaths: "",
     });
     setQuota("later@example.com", now, {
       sessionUsed: 0.2,
@@ -298,12 +343,9 @@ describe("weekly-expiry quota routing", () => {
       initialAccount: "later@example.com",
       selectionReason: "session_headroom",
     });
-    expect(
-      order(["urgent@example.com", "later@example.com"], now + 31 * 60 * 1000),
-    ).toEqual(["urgent@example.com", "later@example.com"]);
   });
 
-  it("probes an account with no quota snapshot before observed accounts", () => {
+  it("keeps unknown accounts behind observed healthy accounts", () => {
     const now = Date.UTC(2026, 6, 17, 12, 0, 0);
     setQuota("observed@example.com", now, {
       weeklyUsed: 0.1,
@@ -313,21 +355,239 @@ describe("weekly-expiry quota routing", () => {
     expect(
       decision(["observed@example.com", "unknown@example.com"], now),
     ).toMatchObject({
-      initialAccount: "unknown@example.com",
-      selectionReason: "quota_probe",
+      initialAccount: "observed@example.com",
+      selectionReason: "quota_evidence",
       candidates: [
-        expect.objectContaining({
-          account: "unknown@example.com",
-          quotaObserved: false,
-          quotaLastUpdated: null,
-          quotaAgeMs: null,
-        }),
         expect.objectContaining({
           account: "observed@example.com",
           quotaObserved: true,
+          quotaFreshness: "fresh",
+        }),
+        expect.objectContaining({
+          account: "unknown@example.com",
+          quotaObserved: false,
+          quotaFreshness: "unknown",
+          quotaLastUpdated: null,
+          quotaAgeMs: null,
         }),
       ],
     });
+  });
+
+  it("keeps stale-known healthy quota ordered after the old 15-minute boundary", () => {
+    const now = Date.UTC(2026, 6, 17, 12, 0, 0);
+    const observedAt = now - 16 * 60 * 1000;
+    setQuota("urgent@example.com", observedAt, {
+      weeklyUsed: 0.4,
+      weeklyResetAt: Math.floor(now / 1000) + 12 * 60 * 60,
+    });
+    setQuota("later@example.com", now, {
+      weeklyUsed: 0.1,
+      weeklyResetAt: Math.floor(now / 1000) + 3 * 24 * 60 * 60,
+    });
+
+    const routingDecision = decision(
+      ["urgent@example.com", "later@example.com"],
+      now,
+    );
+    expect(routingDecision).toMatchObject({
+      initialAccount: "urgent@example.com",
+      selectionReason: "weekly_reset",
+    });
+    expect(routingDecision?.candidates[0]).toMatchObject({
+      account: "urgent@example.com",
+      quotaObserved: true,
+      quotaStale: true,
+      quotaFreshness: "stale_known",
+    });
+  });
+
+  it("keeps stale allowed windows usable when optional status fields are absent", () => {
+    const now = Date.UTC(2026, 6, 17, 12, 0, 0);
+    const observedAt = now - 16 * 60 * 1000;
+    setQuota("urgent@example.com", observedAt, {
+      unifiedStatus: undefined,
+      overageStatus: "unavailable",
+      fallbackPercentage: 0,
+      weeklyUsed: 0.4,
+      weeklyResetAt: Math.floor(now / 1000) + 12 * 60 * 60,
+    });
+
+    expect(decision(["urgent@example.com"], now)?.candidates[0]).toMatchObject({
+      usable: true,
+      quotaFreshness: "stale_known",
+      refreshNeeded: false,
+    });
+  });
+
+  it("does not let an older usage refresh overwrite passive quota evidence", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "neurolink-quota-race-"));
+    tempDirs.push(dir);
+    initAccountCooldown(join(dir, "cooldowns.json"));
+    initAccountQuota(join(dir, "quotas.json"));
+    const now = Date.now();
+    const candidate = account("race@example.com");
+    setQuota(candidate.label, now, {
+      overageStatus: "unavailable",
+      fallbackPercentage: 0,
+      sessionUsed: 0.2,
+      weeklyUsed: 0.3,
+    });
+
+    const result = await __testHooks.applyAccountUsageResult(
+      candidate,
+      {
+        ok: true,
+        usage: {
+          five_hour: { utilization: 100 },
+          seven_day: { utilization: 100 },
+        },
+      },
+      now - 1,
+    );
+
+    expect(result).toMatchObject({ lastUpdated: now, sessionUsed: 0.2 });
+    const runtimeState = __testHooks.getAccountRuntimeState(candidate.key);
+    expect(runtimeState).toMatchObject({
+      quota: { lastUpdated: now, sessionUsed: 0.2, weeklyUsed: 0.3 },
+    });
+    expect(runtimeState?.coolingUntil).toBeUndefined();
+  });
+
+  it("does not refresh a healthy idle account merely because its evidence is old", async () => {
+    const now = Date.now();
+    const observedAt = now - 16 * 60 * 1000;
+    setQuota("active@example.com", observedAt, {
+      sessionUsed: 0.2,
+      weeklyUsed: 0.3,
+      weeklyResetAt: Math.floor(now / 1000) + 24 * 60 * 60,
+    });
+    setQuota("idle@example.com", observedAt, {
+      sessionUsed: 0.1,
+      weeklyUsed: 0.1,
+      weeklyResetAt: Math.floor(now / 1000) + 3 * 24 * 60 * 60,
+    });
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValue(new Error("unexpected quota refresh"));
+
+    __testHooks.scheduleAdaptiveQuotaRefreshes(
+      [account("active@example.com"), account("idle@example.com")],
+      [account("active@example.com"), account("idle@example.com")],
+      0.97,
+    );
+    await Promise.resolve();
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("prewarms the next account once per active reset window", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "neurolink-quota-prewarm-"));
+    tempDirs.push(dir);
+    initAccountCooldown(join(dir, "cooldowns.json"));
+    initAccountQuota(join(dir, "quotas.json"));
+    const now = Date.now();
+    const nowSec = Math.floor(now / 1000);
+    setQuota("active@example.com", now, {
+      sessionUsed: 0.92,
+      sessionResetAt: nowSec + 60 * 60,
+      weeklyUsed: 0.4,
+      weeklyResetAt: nowSec + 24 * 60 * 60,
+    });
+    setQuota("next@example.com", now - 16 * 60 * 1000, {
+      sessionUsed: 0.1,
+      sessionResetAt: nowSec + 2 * 60 * 60,
+      weeklyUsed: 0.1,
+      weeklyResetAt: nowSec + 3 * 24 * 60 * 60,
+    });
+
+    let resolveFetch!: (response: Response) => void;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+    const accounts = [
+      account("active@example.com"),
+      account("next@example.com"),
+    ];
+
+    for (let index = 0; index < 100; index += 1) {
+      __testHooks.scheduleAdaptiveQuotaRefreshes(accounts, accounts, 0.97);
+    }
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toContain("/api/oauth/usage");
+    expect(__testHooks.getQuotaRefreshState(accounts[1].key)).toMatchObject({
+      inFlight: true,
+      coalesced: 99,
+    });
+
+    resolveFetch(
+      new Response(
+        JSON.stringify({
+          five_hour: {
+            utilization: 10,
+            resets_at: new Date(now + 2 * 60 * 60_000).toISOString(),
+          },
+          seven_day: {
+            utilization: 10,
+            resets_at: new Date(now + 3 * 24 * 60 * 60_000).toISOString(),
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(__testHooks.getQuotaRefreshState(accounts[1].key).inFlight).toBe(
+        false,
+      ),
+    );
+
+    __testHooks.scheduleAdaptiveQuotaRefreshes(accounts, accounts, 0.97);
+    await Promise.resolve();
+    expect(fetchSpy).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes stale candidate evidence during a hard quota handoff", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "neurolink-quota-handoff-"));
+    tempDirs.push(dir);
+    initAccountCooldown(join(dir, "cooldowns.json"));
+    initAccountQuota(join(dir, "quotas.json"));
+    const now = Date.now();
+    const nowSec = Math.floor(now / 1000);
+    setQuota("next@example.com", now - 16 * 60 * 1000, {
+      sessionUsed: 0.1,
+      sessionResetAt: nowSec + 2 * 60 * 60,
+      weeklyUsed: 0.1,
+      weeklyResetAt: nowSec + 3 * 24 * 60 * 60,
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          five_hour: {
+            utilization: 10,
+            resets_at: new Date(now + 2 * 60 * 60_000).toISOString(),
+          },
+          seven_day: {
+            utilization: 10,
+            resets_at: new Date(now + 3 * 24 * 60 * 60_000).toISOString(),
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    const current = account("active@example.com");
+    const candidate = account("next@example.com");
+
+    __testHooks.scheduleHandoffQuotaRefresh(
+      current,
+      candidate,
+      now + 60_000,
+      0.97,
+    );
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce());
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toContain("/api/oauth/usage");
   });
 
   it("reports the exact comparator factor that selected the first account", () => {
@@ -752,6 +1012,7 @@ describe("upstream attempt classification and retry amplification", () => {
       {
         retryable: true,
         errorCode: "EADDRNOTAVAIL",
+        transportScope: "connection_transport",
       },
     );
     expect(getStats()).toMatchObject({ totalAttemptErrors: 1 });
@@ -772,6 +1033,8 @@ describe("upstream attempt classification and retry amplification", () => {
       continueLoop: true,
       retrySameAccount: true,
       sawNetworkError: true,
+      transportScope: "shared_provider_transport",
+      errorCode: "ENOTFOUND",
     });
     expect(logAttempt).toHaveBeenCalledWith(
       502,
@@ -780,7 +1043,394 @@ describe("upstream attempt classification and retry amplification", () => {
       {
         retryable: true,
         errorCode: "ENOTFOUND",
+        transportScope: "shared_provider_transport",
       },
+    );
+  });
+
+  it("coalesces concurrent quota refreshes and deduplicates a completed trigger", async () => {
+    const coordinator = new AccountQuotaRefreshCoordinator();
+    const account = fetchArgs(vi.fn(), vi.fn()).account;
+    let resolveFetch:
+      | ((value: { ok: true; usage: Record<string, never> }) => void)
+      | undefined;
+    const fetcher = vi.fn(
+      () =>
+        new Promise<{ ok: true; usage: Record<string, never> }>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+
+    const refreshes = Array.from({ length: 100 }, () =>
+      coordinator.run(account, "handoff:window-1", fetcher),
+    );
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(coordinator.getState(account.key)).toMatchObject({
+      inFlight: true,
+      coalesced: 99,
+    });
+    resolveFetch?.({ ok: true, usage: {} });
+    await expect(Promise.all(refreshes)).resolves.toHaveLength(100);
+    await expect(
+      coordinator.run(account, "handoff:window-1", fetcher),
+    ).resolves.toEqual({ kind: "not_due" });
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(coordinator.getMetrics()).toEqual({
+      attempted: 1,
+      succeeded: 1,
+      failed: 0,
+      coalesced: 99,
+      backoffSuppressed: 0,
+      triggerDeduplicated: 1,
+    });
+  });
+
+  it("backs off a failed quota refresh without erasing its trigger eligibility", async () => {
+    const coordinator = new AccountQuotaRefreshCoordinator();
+    const account = fetchArgs(vi.fn(), vi.fn()).account;
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: false as const,
+      reason: "network" as const,
+      error: "resolver unavailable",
+    });
+
+    await expect(
+      coordinator.run(account, "startup-unknown", fetcher, { now: 1_000 }),
+    ).resolves.toMatchObject({
+      kind: "completed",
+      result: { ok: false, reason: "network" },
+    });
+    await expect(
+      coordinator.run(account, "startup-unknown", fetcher, { now: 2_000 }),
+    ).resolves.toEqual({ kind: "backoff", nextEligibleAt: 31_000 });
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(coordinator.getMetrics()).toEqual({
+      attempted: 1,
+      succeeded: 0,
+      failed: 1,
+      coalesced: 0,
+      backoffSuppressed: 1,
+      triggerDeduplicated: 0,
+    });
+
+    await coordinator.run(account, "startup-unknown", fetcher, {
+      now: 31_000,
+    });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("aborts a transport backoff waiter without a timer reference error", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    try {
+      const coordinator = new ProviderTransportCoordinator();
+      const initial = await coordinator.acquire();
+      coordinator.reportTransportFailure(
+        "ENOTFOUND",
+        "shared_provider_transport",
+        initial,
+      );
+
+      const controller = new AbortController();
+      const waiting = coordinator.acquire(controller.signal);
+      controller.abort(new Error("request cancelled"));
+
+      await expect(waiting).rejects.toThrow("request cancelled");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("bounds recovery-probe waiters and releases a stale probe", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    try {
+      const coordinator = new ProviderTransportCoordinator();
+      const initial = await coordinator.acquire();
+      coordinator.reportTransportFailure(
+        "ENOTFOUND",
+        "shared_provider_transport",
+        initial,
+      );
+
+      const ownerPromise = coordinator.acquire();
+      await vi.advanceTimersByTimeAsync(250);
+      const owner = await ownerPromise;
+      expect(owner).toEqual({ allowed: true, probe: true, generation: 1 });
+
+      const waiterPromise = coordinator.acquire();
+      await vi.advanceTimersByTimeAsync(30_000);
+      await expect(waiterPromise).resolves.toMatchObject({
+        allowed: false,
+        errorCode: "ENOTFOUND",
+        transportScope: "shared_provider_transport",
+      });
+
+      coordinator.reportSuccess(owner);
+      const nextOwnerPromise = coordinator.acquire();
+      await vi.advanceTimersByTimeAsync(250);
+      await expect(nextOwnerPromise).resolves.toEqual({
+        allowed: true,
+        probe: true,
+        generation: 2,
+      });
+      coordinator.reportProbeAbandoned(await nextOwnerPromise);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not let an older success release a newer recovery probe", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    try {
+      const coordinator = new ProviderTransportCoordinator();
+      const olderPermit = await coordinator.acquire();
+      const failingPermit = await coordinator.acquire();
+      coordinator.reportTransportFailure(
+        "ENOTFOUND",
+        "shared_provider_transport",
+        failingPermit,
+      );
+
+      const probePromise = coordinator.acquire();
+      await vi.advanceTimersByTimeAsync(250);
+      const probe = await probePromise;
+      expect(probe).toEqual({ allowed: true, probe: true, generation: 1 });
+
+      const waiter = coordinator.acquire();
+      coordinator.reportSuccess(olderPermit);
+      coordinator.reportTransportFailure(
+        "ENOTFOUND",
+        "shared_provider_transport",
+        probe,
+      );
+
+      await expect(waiter).resolves.toMatchObject({
+        allowed: false,
+        errorCode: "ENOTFOUND",
+        transportScope: "shared_provider_transport",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("hands an abandoned recovery probe to a waiter without failing it", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    try {
+      const coordinator = new ProviderTransportCoordinator();
+      const initial = await coordinator.acquire();
+      coordinator.reportTransportFailure(
+        "ENOTFOUND",
+        "shared_provider_transport",
+        initial,
+      );
+
+      const ownerPromise = coordinator.acquire();
+      await vi.advanceTimersByTimeAsync(250);
+      const owner = await ownerPromise;
+      const waiter = coordinator.acquire();
+      coordinator.reportProbeAbandoned(owner);
+
+      const replacement = await waiter;
+      expect(replacement).toEqual({
+        allowed: true,
+        probe: true,
+        generation: 2,
+      });
+      coordinator.reportTransportFailure(
+        "ENOTFOUND",
+        "shared_provider_transport",
+        replacement,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("bounds shared DNS retries per request without rotating credentials", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "neurolink-dns-budget-"));
+    tempDirs.push(dir);
+    initAccountCooldown(join(dir, "cooldowns.json"));
+    initAccountQuota(join(dir, "quotas.json"));
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const accountKeys = [
+      "anthropic:first@example.com",
+      "anthropic:second@example.com",
+      "anthropic:third@example.com",
+    ];
+    vi.spyOn(tokenStore, "pruneExpired").mockResolvedValue(undefined);
+    vi.spyOn(tokenStore, "listByPrefix").mockResolvedValue(accountKeys);
+    vi.spyOn(tokenStore, "isDisabled").mockResolvedValue(false);
+    vi.spyOn(tokenStore, "loadTokens").mockImplementation(async (key) => ({
+      accessToken: `${key.split(":")[1]}-token`,
+      refreshToken: "test-refresh-token",
+      expiresAt: Date.now() + 60 * 60 * 1000,
+      tokenType: "Bearer",
+    }));
+
+    const attemptedTokens: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      attemptedTokens.push(
+        (init?.headers as Record<string, string>).authorization,
+      );
+      throw Object.assign(new TypeError("fetch failed"), {
+        cause: { code: "ENOTFOUND" },
+      });
+    });
+
+    const route = createClaudeProxyRoutes(
+      undefined,
+      "",
+      "fill-first",
+      false,
+      accountKeys[0],
+      {
+        runtimeConfigProvider: () => ({
+          generation: 1,
+          strategy: "fill-first",
+          modelRouter: undefined,
+          passthrough: false,
+          primaryAccountKey: accountKeys[0],
+          accountAllowlist: undefined,
+          quotaRoutingEnabled: false,
+          sessionSoftLimit: 0.97,
+          sessionResetToleranceMs: 15 * 60 * 1000,
+        }),
+      },
+    ).routes.find(
+      (candidate) =>
+        candidate.method === "POST" && candidate.path === "/v1/messages",
+    );
+    expect(route).toBeDefined();
+
+    const result = await route!.handler({
+      requestId: "dns-budget",
+      method: "POST",
+      path: "/v1/messages",
+      headers: {},
+      query: {},
+      params: {},
+      body: {
+        model: "claude-test",
+        max_tokens: 16,
+        messages: [{ role: "user", content: "hello" }],
+      },
+      neurolink: {},
+      toolRegistry: {},
+      timestamp: Date.now(),
+      metadata: {},
+    } as never);
+
+    expect(attemptedTokens).toEqual([
+      "Bearer first@example.com-token",
+      "Bearer first@example.com-token",
+      "Bearer first@example.com-token",
+    ]);
+    expect(JSON.stringify(result)).toContain("shared Anthropic network");
+    expect(JSON.stringify(result)).not.toContain("shared_provider_transport");
+    expect(JSON.stringify(result)).toContain("ENOTFOUND");
+    expect(getTerminalErrors().recent[0]).toMatchObject({
+      errorCode: "ENOTFOUND",
+    });
+  });
+
+  it("uses one recovery probe for a concurrent DNS outage", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "neurolink-dns-half-open-"));
+    tempDirs.push(dir);
+    initAccountCooldown(join(dir, "cooldowns.json"));
+    initAccountQuota(join(dir, "quotas.json"));
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const accountKeys = [
+      "anthropic:first@example.com",
+      "anthropic:second@example.com",
+      "anthropic:third@example.com",
+    ];
+    vi.spyOn(tokenStore, "pruneExpired").mockResolvedValue(undefined);
+    vi.spyOn(tokenStore, "listByPrefix").mockResolvedValue(accountKeys);
+    vi.spyOn(tokenStore, "isDisabled").mockResolvedValue(false);
+    vi.spyOn(tokenStore, "loadTokens").mockImplementation(async (key) => ({
+      accessToken: `${key.split(":")[1]}-token`,
+      refreshToken: "test-refresh-token",
+      expiresAt: Date.now() + 60 * 60 * 1000,
+      tokenType: "Bearer",
+    }));
+
+    const fetchError = Object.assign(new TypeError("fetch failed"), {
+      cause: { code: "ENOTFOUND" },
+    });
+    const attemptedTokens: string[] = [];
+    const rejectInitial: Array<(error: Error) => void> = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      attemptedTokens.push(
+        (init?.headers as Record<string, string>).authorization,
+      );
+      if (rejectInitial.length < 10) {
+        return new Promise<Response>((_resolve, reject) => {
+          rejectInitial.push(reject);
+        });
+      }
+      throw fetchError;
+    });
+
+    const route = createClaudeProxyRoutes(
+      undefined,
+      "",
+      "fill-first",
+      false,
+      accountKeys[0],
+      {
+        runtimeConfigProvider: () => ({
+          generation: 1,
+          strategy: "fill-first",
+          modelRouter: undefined,
+          passthrough: false,
+          primaryAccountKey: accountKeys[0],
+          accountAllowlist: undefined,
+          quotaRoutingEnabled: false,
+          sessionSoftLimit: 0.97,
+          sessionResetToleranceMs: 15 * 60 * 1000,
+        }),
+      },
+    ).routes.find(
+      (candidate) =>
+        candidate.method === "POST" && candidate.path === "/v1/messages",
+    );
+    expect(route).toBeDefined();
+
+    const requests = Array.from({ length: 10 }, (_, index) =>
+      route!.handler({
+        requestId: `dns-half-open-${index}`,
+        method: "POST",
+        path: "/v1/messages",
+        headers: {},
+        query: {},
+        params: {},
+        body: {
+          model: "claude-test",
+          max_tokens: 16,
+          messages: [{ role: "user", content: "hello" }],
+        },
+        neurolink: {},
+        toolRegistry: {},
+        timestamp: Date.now(),
+        metadata: {},
+      } as never),
+    );
+    await vi.waitFor(() => expect(rejectInitial).toHaveLength(10));
+    for (const reject of rejectInitial) {
+      reject(fetchError);
+    }
+    await Promise.all(requests);
+
+    expect(attemptedTokens).toHaveLength(12);
+    expect(new Set(attemptedTokens)).toEqual(
+      new Set(["Bearer first@example.com-token"]),
     );
   });
 
@@ -801,6 +1451,7 @@ describe("upstream attempt classification and retry amplification", () => {
       {
         retryable: false,
         errorCode: "ERR_INVALID_URL",
+        transportScope: "connection_transport",
       },
     );
     expect(getStats()).toMatchObject({ totalAttemptErrors: 1 });
@@ -1645,6 +2296,7 @@ describe("upstream attempt classification and retry amplification", () => {
     for (const code of [
       "EADDRNOTAVAIL",
       "ENOTFOUND",
+      "EAI_AGAIN",
       "ECONNREFUSED",
       "EHOSTUNREACH",
       "UND_ERR_CONNECT_TIMEOUT",
@@ -2016,9 +2668,9 @@ describe("cooldown persistence", () => {
       )?.candidates[0],
     ).toMatchObject({
       usable: true,
-      quotaObserved: false,
+      quotaObserved: true,
       quotaStale: true,
-      unifiedStatus: null,
+      quotaFreshness: "refresh_due",
     });
   });
 

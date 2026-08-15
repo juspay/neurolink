@@ -39,6 +39,19 @@ const ROUTING_MODES = new Set<string>(PROXY_ACCOUNT_ROUTING_MODES);
 const ROUTING_REASONS = new Set<string>(PROXY_ACCOUNT_ROUTING_REASONS);
 const ROUTING_ACCOUNT_TYPES = new Set<string>(PROXY_ACCOUNT_TYPES);
 const COOLING_REASONS = new Set<string>(ACCOUNT_COOLING_REASONS);
+const QUOTA_FRESHNESS_VALUES = new Set([
+  "unknown",
+  "fresh",
+  "stale_known",
+  "refresh_due",
+]);
+const QUOTA_REFRESH_REASONS = new Set([
+  "startup_unknown",
+  "handoff_prewarm",
+  "ambiguous_snapshot",
+  "manual",
+]);
+const QUOTA_SATURATION_KINDS = new Set(["none", "soft", "hard"]);
 const MAX_RETAINED_ROUTING_RECORDS = 200;
 const MAX_ROUTING_RECORDS_BEFORE_COMPACTION = MAX_RETAINED_ROUTING_RECORDS * 2;
 
@@ -150,6 +163,40 @@ function routingCandidateValue(
     ("overageEligible" in candidate &&
       candidate.overageEligible !== undefined &&
       typeof candidate.overageEligible !== "boolean") ||
+    ("quotaFreshness" in candidate &&
+      candidate.quotaFreshness !== undefined &&
+      (typeof candidate.quotaFreshness !== "string" ||
+        !QUOTA_FRESHNESS_VALUES.has(candidate.quotaFreshness))) ||
+    ("refreshNeeded" in candidate &&
+      candidate.refreshNeeded !== undefined &&
+      typeof candidate.refreshNeeded !== "boolean") ||
+    ("refreshInFlight" in candidate &&
+      candidate.refreshInFlight !== undefined &&
+      typeof candidate.refreshInFlight !== "boolean") ||
+    ("refreshReason" in candidate &&
+      candidate.refreshReason !== undefined &&
+      candidate.refreshReason !== null &&
+      (typeof candidate.refreshReason !== "string" ||
+        !QUOTA_REFRESH_REASONS.has(candidate.refreshReason))) ||
+    [
+      "lastRefreshAttemptAt",
+      "lastRefreshSuccessAt",
+      "nextRefreshEligibleAt",
+    ].some(
+      (field) =>
+        field in candidate &&
+        candidate[field] !== undefined &&
+        !isNullableFiniteNumber(candidate[field]),
+    ) ||
+    ("saturationKind" in candidate &&
+      candidate.saturationKind !== undefined &&
+      (typeof candidate.saturationKind !== "string" ||
+        !QUOTA_SATURATION_KINDS.has(candidate.saturationKind))) ||
+    ("softLimitOverrideReason" in candidate &&
+      candidate.softLimitOverrideReason !== undefined &&
+      candidate.softLimitOverrideReason !== null &&
+      candidate.softLimitOverrideReason !== "overage" &&
+      candidate.softLimitOverrideReason !== "weekly_expiry") ||
     !(
       candidate.coolingReason === null ||
       (typeof candidate.coolingReason === "string" &&
@@ -169,6 +216,24 @@ function routingCandidateValue(
     saturated: candidate.saturated as boolean,
     quotaObserved: candidate.quotaObserved as boolean,
     quotaStale: candidate.quotaStale === true,
+    quotaFreshness:
+      candidate.quotaFreshness as ProxyAccountRoutingCandidate["quotaFreshness"],
+    refreshNeeded:
+      candidate.refreshNeeded as ProxyAccountRoutingCandidate["refreshNeeded"],
+    refreshReason:
+      candidate.refreshReason as ProxyAccountRoutingCandidate["refreshReason"],
+    refreshInFlight:
+      candidate.refreshInFlight as ProxyAccountRoutingCandidate["refreshInFlight"],
+    lastRefreshAttemptAt:
+      candidate.lastRefreshAttemptAt as ProxyAccountRoutingCandidate["lastRefreshAttemptAt"],
+    lastRefreshSuccessAt:
+      candidate.lastRefreshSuccessAt as ProxyAccountRoutingCandidate["lastRefreshSuccessAt"],
+    nextRefreshEligibleAt:
+      candidate.nextRefreshEligibleAt as ProxyAccountRoutingCandidate["nextRefreshEligibleAt"],
+    saturationKind:
+      candidate.saturationKind as ProxyAccountRoutingCandidate["saturationKind"],
+    softLimitOverrideReason:
+      candidate.softLimitOverrideReason as ProxyAccountRoutingCandidate["softLimitOverrideReason"],
     quotaLastUpdated: candidate.quotaLastUpdated as number | null,
     quotaAgeMs: candidate.quotaAgeMs as number | null,
     coolingActive: candidate.coolingActive as boolean,
@@ -700,6 +765,7 @@ export async function analyzeProxyLogs(
   let totalAttemptErrors = 0;
   const attemptErrorTypes: Record<string, number> = {};
   const attemptErrorCodes: Record<string, number> = {};
+  const attemptTransportScopes: Record<string, number> = {};
   let attemptRateLimits = 0;
   let transientRateLimits = 0;
   let quotaRateLimits = 0;
@@ -736,6 +802,10 @@ export async function analyzeProxyLogs(
           if (errorCode) {
             increment(attemptErrorCodes, errorCode);
           }
+        }
+        const transportScope = stringValue(record.transportScope);
+        if (transportScope) {
+          increment(attemptTransportScopes, transportScope);
         }
         const requestAttempts = attemptsByRequest.get(requestId) ?? {
           count: 0,
@@ -991,6 +1061,7 @@ export async function analyzeProxyLogs(
       errors: totalAttemptErrors,
       errorTypes: attemptErrorTypes,
       errorCodes: attemptErrorCodes,
+      transportScopes: attemptTransportScopes,
     },
     rateLimits: {
       attemptRateLimits,

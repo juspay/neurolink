@@ -1,15 +1,15 @@
 /**
  * On-Demand Account Usage Fetch
  *
- * Manual refetch path for account limits: queries Anthropic's OAuth usage
- * endpoint (the same call Claude Code's /usage makes) to get FRESH session /
- * weekly / model-scoped windows for an account without consuming any tokens
- * and without starting a 5h session window.
+ * Lightweight account-limit refresh: queries Anthropic's OAuth usage endpoint
+ * (the same call Claude Code's /usage makes) to get fresh session / weekly /
+ * model-scoped windows without consuming tokens or starting a 5h session.
  *
  * This complements — never replaces — the passive header capture in
  * accountQuota.ts: `usageToQuota` normalizes the endpoint payload into the
  * same `AccountQuota` shape so refreshed data flows through the existing
- * save/merge/cooldown chain.
+ * save/merge/cooldown chain. Manual refresh and adaptive proxy prewarming use
+ * the same transport through the route-owned single-flight coordinator.
  *
  * Only OAuth (Bearer) accounts have subscription windows; api_key accounts
  * are skipped and keep their header-derived absolute limits.

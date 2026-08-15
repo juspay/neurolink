@@ -45,6 +45,8 @@ import {
   listAnthropicAccountsForUsage,
   usageToQuota,
 } from "../../proxy/accountUsage.js";
+import { AccountQuotaRefreshCoordinator } from "../../proxy/accountQuotaRefreshCoordinator.js";
+import { ProviderTransportCoordinator } from "../../proxy/providerTransportCoordinator.js";
 import {
   buildProxyLimitHeaders,
   summarizePoolHeadroom,
@@ -108,6 +110,7 @@ import type {
   AccountAdmissionState,
   AccountCooldownPlan,
   AccountQuota,
+  AccountUsageFetchResult,
   AnthropicAttemptLogger,
   AnthropicAuthRetryResult,
   AnthropicLoopState,
@@ -234,9 +237,12 @@ function fetchAnthropicUpstream(
 }
 
 const accountRuntimeState = new Map<string, RuntimeAccountState>();
+const accountQuotaRefreshCoordinator = new AccountQuotaRefreshCoordinator();
+const providerTransportCoordinator = new ProviderTransportCoordinator();
 
-/** Persisted quota is advisory after a restart. Older snapshots cannot reject
- * an account or create a new cooldown because the provider may have reset it. */
+/** Snapshot age is diagnostic and controls lightweight refresh eligibility. It
+ * must never discard known healthy routing evidence or trigger a user request
+ * on another account solely to rediscover quota. */
 const QUOTA_SNAPSHOT_FRESHNESS_MS = 15 * 60 * 1000;
 
 /** Shared across requests so a concurrent burst gets at most two retries for
@@ -954,6 +960,87 @@ const lastUsageFetchAt = new Map<string, number>();
 let limitsRefreshInFlight: Promise<ProxyLimitsRefreshResponse> | null = null;
 const USAGE_REFRESH_CONCURRENCY = 4;
 
+async function applyAccountUsageResult(
+  account: ProxyPassthroughAccount,
+  fetchResult: AccountUsageFetchResult,
+  observedAt: number,
+  prior?: AccountQuota | null,
+): Promise<AccountQuota | null> {
+  if (fetchResult.ok === false) {
+    return null;
+  }
+  const state = getOrCreateRuntimeState(account.key);
+  const quota = usageToQuota(fetchResult.usage, {
+    now: observedAt,
+    prior: state.quota ?? prior ?? null,
+  });
+  if (!quota) {
+    return null;
+  }
+  // The usage payload cannot be newer than the request that fetched it. A
+  // passive response captured after that request started wins, including its
+  // cooldown decision and persisted snapshot.
+  if (quota.lastUpdated < (state.quota?.lastUpdated ?? 0)) {
+    return state.quota ?? null;
+  }
+  state.quota = quota;
+  const cooldownUpdate = reconcileCooldownFromQuota(state, quota, Date.now());
+  if (cooldownUpdate?.kind === "cooled") {
+    await saveAccountCooldown(
+      account.key,
+      cooldownUpdate.coolingUntil,
+      cooldownUpdate.coolingReason,
+    ).catch(() => {
+      // Non-fatal: the cooldown is already active in memory.
+    });
+  } else if (cooldownUpdate?.kind === "cleared") {
+    await clearAccountCooldown(account.key, cooldownUpdate.coolingUntil).catch(
+      () => {
+        // Non-fatal: the next successful response will reconcile again.
+      },
+    );
+  }
+  await saveAccountQuota(account.label, quota).catch(() => {
+    // Non-fatal: quota persistence is best-effort.
+  });
+  return quota;
+}
+
+async function fetchValidatedAccountUsage(
+  account: ProxyPassthroughAccount,
+): Promise<AccountUsageFetchResult> {
+  const result = await fetchAccountUsage(account);
+  if (result.ok === false) {
+    return result;
+  }
+  const recognizable = usageToQuota(result.usage, {
+    now: Date.now(),
+    prior: accountRuntimeState.get(account.key)?.quota ?? null,
+  });
+  return recognizable
+    ? result
+    : {
+        ok: false,
+        reason: "parse",
+        error: "usage payload had no recognizable limit windows",
+      };
+}
+
+async function refreshAccountQuotaInBackground(
+  account: ProxyPassthroughAccount,
+  trigger: string,
+): Promise<void> {
+  const refresh = await accountQuotaRefreshCoordinator.run(
+    account,
+    trigger,
+    fetchValidatedAccountUsage,
+  );
+  if (refresh.kind !== "completed" || refresh.result.ok === false) {
+    return;
+  }
+  await applyAccountUsageResult(account, refresh.result, refresh.startedAt);
+}
+
 /**
  * Fetch fresh limits from Anthropic's usage endpoint for every eligible OAuth
  * account and write them through the exact same chain the passive header
@@ -1016,6 +1103,7 @@ async function refreshAccountLimits(
       results: accounts.map((account) =>
         buildResult(account, "snapshot", null),
       ),
+      refreshMetrics: accountQuotaRefreshCoordinator.getMetrics(),
     };
   }
 
@@ -1041,7 +1129,17 @@ async function refreshAccountLimits(
       // Isolate failures per account: an unexpected rejection must not abort
       // the Promise.all sweep and turn the whole /limits response into a 502.
       try {
-        const fetchResult = await fetchAccountUsage(account);
+        const refresh = await accountQuotaRefreshCoordinator.run(
+          account,
+          `manual:${account.key}`,
+          fetchValidatedAccountUsage,
+          { force: true },
+        );
+        if (refresh.kind !== "completed") {
+          results[index] = buildResult(account, "throttled", null);
+          continue;
+        }
+        const fetchResult = refresh.result;
         // `=== false` (not `!ok`) — the react-hooks sub-build compiles this
         // file without strictNullChecks, where negated boolean-discriminant
         // narrowing does not apply.
@@ -1054,12 +1152,12 @@ async function refreshAccountLimits(
           );
           continue;
         }
-        const state = getOrCreateRuntimeState(account.key);
-        const capturedAt = Date.now();
-        const quota = usageToQuota(fetchResult.usage, {
-          now: capturedAt,
-          prior: state.quota ?? persisted[account.label] ?? null,
-        });
+        const quota = await applyAccountUsageResult(
+          account,
+          fetchResult,
+          refresh.startedAt,
+          persisted[account.label] ?? null,
+        );
         if (!quota) {
           results[index] = buildResult(
             account,
@@ -1069,35 +1167,6 @@ async function refreshAccountLimits(
           );
           continue;
         }
-        // Guard against a passive header capture that landed mid-fetch: never
-        // replace a fresher runtime snapshot with an older reading.
-        if (quota.lastUpdated >= (state.quota?.lastUpdated ?? 0)) {
-          state.quota = quota;
-        }
-        const cooldownUpdate = reconcileCooldownFromQuota(
-          state,
-          quota,
-          capturedAt,
-        );
-        if (cooldownUpdate?.kind === "cooled") {
-          await saveAccountCooldown(
-            account.key,
-            cooldownUpdate.coolingUntil,
-            cooldownUpdate.coolingReason,
-          ).catch(() => {
-            // Non-fatal: cooldown is already active in memory.
-          });
-        } else if (cooldownUpdate?.kind === "cleared") {
-          await clearAccountCooldown(
-            account.key,
-            cooldownUpdate.coolingUntil,
-          ).catch(() => {
-            // Non-fatal: the next successful response will reconcile again.
-          });
-        }
-        await saveAccountQuota(account.label, quota).catch(() => {
-          // Non-fatal: quota persistence is best-effort
-        });
         results[index] = buildResult(account, "refreshed", quota);
       } catch (err) {
         results[index] = buildResult(
@@ -1115,7 +1184,12 @@ async function refreshAccountLimits(
       () => worker(),
     ),
   );
-  return { fetchedAt, snapshot: false, results };
+  return {
+    fetchedAt,
+    snapshot: false,
+    results,
+    refreshMetrics: accountQuotaRefreshCoordinator.getMetrics(),
+  };
 }
 
 /** Quota-aware selection is on by default; disable with
@@ -1173,9 +1247,33 @@ function accountSortMetrics(
     q && Number.isFinite(q.lastUpdated) ? q.lastUpdated : null;
   const quotaAgeMs =
     quotaLastUpdated === null ? null : Math.max(0, now - quotaLastUpdated);
+  const refreshState = accountQuotaRefreshCoordinator.getState(accountKey);
   const quotaStale =
     quotaAgeMs !== null && quotaAgeMs > QUOTA_SNAPSHOT_FRESHNESS_MS;
-  const routingQuota = quotaStale ? undefined : q;
+  const normalizeStatus = (status: string): string =>
+    status.trim().toLowerCase();
+  const rawOverageEligible = isQuotaOverageAvailable(q);
+  const observedStatuses = [
+    q?.unifiedStatus,
+    q?.sessionStatus,
+    q?.weeklyStatus,
+  ].filter((status): status is string => !!status?.trim());
+  const staleHardOrAmbiguous =
+    quotaStale &&
+    !!q &&
+    !rawOverageEligible &&
+    observedStatuses.some((status) => normalizeStatus(status) !== "allowed");
+  const quotaFreshness = !q
+    ? ("unknown" as const)
+    : !quotaStale
+      ? ("fresh" as const)
+      : staleHardOrAmbiguous
+        ? ("refresh_due" as const)
+        : ("stale_known" as const);
+  // A stale rejection is advisory after restart and cannot quarantine an
+  // account. Keep it as evidence, rank it behind known-healthy accounts, and
+  // refresh it through the usage endpoint before relying on the old status.
+  const routingQuota = staleHardOrAmbiguous ? undefined : q;
   const coolingActive = !!st?.coolingUntil && now < st.coolingUntil;
   // resetEpochToMs returns undefined for absent OR passed resets, so a
   // ticking window is exactly "reset !== undefined".
@@ -1204,19 +1302,52 @@ function accountSortMetrics(
       : "allowed"
     : null;
   const overageEligible = isQuotaOverageAvailable(routingQuota);
-  const saturated =
-    sessionStatus === "throttled" ||
-    (sessionTicking && (sessionUsed ?? 0) >= sessionSoftLimit);
+  const hardSaturated =
+    !overageEligible &&
+    (sessionStatus === "rejected" ||
+      sessionStatus === "throttled" ||
+      weeklyStatus === "rejected" ||
+      weeklyStatus === "throttled" ||
+      routingQuota?.unifiedStatus?.trim().toLowerCase() === "rejected" ||
+      (sessionTicking && (sessionUsed ?? 0) >= 1) ||
+      (weeklyTicking && (weeklyUsed ?? 0) >= 1));
+  const softSaturated =
+    !hardSaturated &&
+    !overageEligible &&
+    sessionTicking &&
+    (sessionUsed ?? 0) >= sessionSoftLimit;
+  const saturated = hardSaturated || softSaturated;
   return {
-    usable:
-      !coolingActive &&
-      weeklyStatus !== "rejected" &&
-      (sessionStatus !== "rejected" || overageEligible) &&
-      (routingQuota?.unifiedStatus?.trim().toLowerCase() !== "rejected" ||
-        overageEligible),
-    saturated: !quotaStale && saturated,
-    hasQuota: !!routingQuota,
+    usable: !coolingActive && !hardSaturated,
+    saturated,
+    hasQuota: !!q,
+    quotaEvidenceRank:
+      quotaFreshness === "fresh" || quotaFreshness === "stale_known"
+        ? 0
+        : quotaFreshness === "refresh_due"
+          ? 1
+          : 2,
     quotaStale,
+    quotaFreshness,
+    refreshNeeded:
+      quotaFreshness === "unknown" || quotaFreshness === "refresh_due",
+    refreshReason:
+      quotaFreshness === "unknown"
+        ? "startup_unknown"
+        : quotaFreshness === "refresh_due"
+          ? "ambiguous_snapshot"
+          : null,
+    refreshInFlight: refreshState.inFlight,
+    lastRefreshAttemptAt: refreshState.lastAttemptAt ?? null,
+    lastRefreshSuccessAt: refreshState.lastSuccessAt ?? null,
+    nextRefreshEligibleAt: refreshState.nextEligibleAt ?? null,
+    saturationKind: hardSaturated ? "hard" : softSaturated ? "soft" : "none",
+    softLimitOverrideReason:
+      overageEligible &&
+      sessionTicking &&
+      (sessionUsed ?? 0) >= sessionSoftLimit
+        ? "overage"
+        : null,
     quotaLastUpdated,
     quotaAgeMs,
     coolingActive,
@@ -1262,8 +1393,8 @@ function compareAccountRoutingFactors(
       au === bu ? "insertion_order" : "cooldown_recovery",
     ];
   }
-  if (ma.hasQuota !== mb.hasQuota) {
-    return [ma.hasQuota ? 1 : -1, "quota_probe"];
+  if (ma.quotaEvidenceRank !== mb.quotaEvidenceRank) {
+    return [ma.quotaEvidenceRank - mb.quotaEvidenceRank, "quota_evidence"];
   }
   if (ma.saturated !== mb.saturated) {
     return [ma.saturated ? 1 : -1, "session_headroom"];
@@ -1329,9 +1460,8 @@ function orderAccountsByQuotaWithMetrics(
  * temporarily demoted until that session resets.
  *
  * Priority among usable accounts:
- *   1. no quota data yet — probe first: one request reveals its windows and
- *      self-corrects the ordering. (Ranking unknowns last would starve them
- *      forever: never picked → never observed → never comparable.)
+ *   1. known healthy quota before unknown or ambiguous stale evidence. Quota
+ *      discovery is handled by a lightweight usage GET, never a user request.
  *   2. session headroom before session-saturated (>= soft limit or
  *      "throttled") — do not re-hammer an urgent weekly account while its 5h
  *      capacity is temporarily unavailable.
@@ -1360,6 +1490,103 @@ function orderAccountsByQuota(
     sessionSoftLimit,
     sessionResetToleranceMs,
   ).orderedAccounts;
+}
+
+function scheduleAdaptiveQuotaRefreshes(
+  accounts: ProxyPassthroughAccount[],
+  orderedAccounts: ProxyPassthroughAccount[],
+  sessionSoftLimit: number,
+  routingMetrics?: ReadonlyMap<string, ProxyAccountSortMetrics>,
+): void {
+  for (const account of accounts) {
+    if (account.type !== "oauth") {
+      continue;
+    }
+    const metrics =
+      routingMetrics?.get(account.key) ??
+      accountSortMetrics(
+        account.key,
+        Date.now(),
+        sessionSoftLimit,
+        getSessionResetToleranceMs(),
+      );
+    if (metrics.quotaFreshness === "unknown") {
+      void refreshAccountQuotaInBackground(
+        account,
+        `startup-unknown:${account.key}`,
+      ).catch((error) => {
+        logger.debug(
+          `[proxy] background quota discovery failed account=${account.label}: ${describeTransportError(error)}`,
+        );
+      });
+    } else if (metrics.quotaFreshness === "refresh_due") {
+      void refreshAccountQuotaInBackground(
+        account,
+        `ambiguous:${metrics.quotaLastUpdated ?? 0}`,
+      ).catch((error) => {
+        logger.debug(
+          `[proxy] ambiguous quota refresh failed account=${account.label}: ${describeTransportError(error)}`,
+        );
+      });
+    }
+  }
+
+  const active = orderedAccounts[0];
+  const candidate = orderedAccounts[1];
+  if (!active || !candidate || candidate.type !== "oauth") {
+    return;
+  }
+  const activeQuota = accountRuntimeState.get(active.key)?.quota;
+  if (!activeQuota) {
+    return;
+  }
+  const sessionPrewarmAt = Math.max(0, sessionSoftLimit - 0.05);
+  const needsPrewarm =
+    (activeQuota.sessionUsed ?? 0) >= sessionPrewarmAt ||
+    (activeQuota.weeklyUsed ?? 0) >= 0.9;
+  if (!needsPrewarm) {
+    return;
+  }
+  const trigger = [
+    "handoff",
+    active.key,
+    activeQuota.sessionResetAt ?? 0,
+    activeQuota.weeklyResetAt ?? 0,
+    candidate.key,
+  ].join(":");
+  void refreshAccountQuotaInBackground(candidate, trigger).catch((error) => {
+    logger.debug(
+      `[proxy] quota handoff prewarm failed account=${candidate.label}: ${describeTransportError(error)}`,
+    );
+  });
+}
+
+function scheduleHandoffQuotaRefresh(
+  current: ProxyPassthroughAccount,
+  candidate: ProxyPassthroughAccount | undefined,
+  handoffEpoch: number,
+  sessionSoftLimit: number,
+): void {
+  if (!candidate || candidate.type !== "oauth") {
+    return;
+  }
+  const metrics = accountSortMetrics(
+    candidate.key,
+    Date.now(),
+    sessionSoftLimit,
+    getSessionResetToleranceMs(),
+  );
+  if (metrics.quotaFreshness === "fresh") {
+    return;
+  }
+  void refreshAccountQuotaInBackground(
+    candidate,
+    `hard-handoff:${current.key}:${handoffEpoch}:${candidate.key}`,
+  ).catch((error) => {
+    logger.debug(
+      `[proxy] hard-handoff quota refresh failed account=${candidate.label}: ${describeTransportError(error)}`,
+    );
+  });
 }
 
 function buildRoutingDecision(args: {
@@ -1412,6 +1639,15 @@ function buildRoutingDecision(args: {
       saturated: metrics.saturated,
       quotaObserved: metrics.hasQuota,
       quotaStale: metrics.quotaStale,
+      quotaFreshness: metrics.quotaFreshness,
+      refreshNeeded: metrics.refreshNeeded,
+      refreshReason: metrics.refreshReason,
+      refreshInFlight: metrics.refreshInFlight,
+      lastRefreshAttemptAt: metrics.lastRefreshAttemptAt,
+      lastRefreshSuccessAt: metrics.lastRefreshSuccessAt,
+      nextRefreshEligibleAt: metrics.nextRefreshEligibleAt,
+      saturationKind: metrics.saturationKind,
+      softLimitOverrideReason: metrics.softLimitOverrideReason,
       quotaLastUpdated: metrics.quotaLastUpdated,
       quotaAgeMs: metrics.quotaAgeMs,
       coolingActive: metrics.coolingActive,
@@ -1491,7 +1727,10 @@ function selectClaudeProxyAccountOrder(args: {
   sessionSoftLimit: number;
   sessionResetToleranceMs: number;
   setRoutingDecision: (decision: ProxyAccountRoutingDecision) => void;
-}): ProxyPassthroughAccount[] {
+}): {
+  orderedAccounts: ProxyPassthroughAccount[];
+  metricsByKey: Map<string, ProxyAccountSortMetrics>;
+} {
   const {
     enabledAccounts,
     accountStrategy,
@@ -1582,7 +1821,7 @@ function selectClaudeProxyAccountOrder(args: {
   if (routingDecision) {
     setRoutingDecision(routingDecision);
   }
-  return orderedAccounts;
+  return { orderedAccounts, metricsByKey };
 }
 
 // ---------------------------------------------------------------------------
@@ -3142,7 +3381,7 @@ async function loadClaudeProxyAccounts(args: {
     return { response: buildLoggedClaudeError(401, reauthMsg) };
   }
 
-  const orderedAccounts = selectClaudeProxyAccountOrder({
+  const { orderedAccounts, metricsByKey } = selectClaudeProxyAccountOrder({
     enabledAccounts,
     accountStrategy,
     primaryAccountKey,
@@ -3151,6 +3390,18 @@ async function loadClaudeProxyAccounts(args: {
     sessionResetToleranceMs,
     setRoutingDecision,
   });
+  if (
+    accountStrategy === "fill-first" &&
+    quotaRoutingEnabled &&
+    enabledAccounts.length > 1
+  ) {
+    scheduleAdaptiveQuotaRefreshes(
+      enabledAccounts,
+      orderedAccounts,
+      sessionSoftLimit,
+      metricsByKey,
+    );
+  }
 
   const normalizedAnthropicBody = normalizeClaudeRequestForAnthropic(body);
   const bodyStr = JSON.stringify(normalizedAnthropicBody);
@@ -3667,6 +3918,8 @@ function buildClaudeAnthropicFailureResponse(args: {
   sawTransientFailure: boolean;
   sawRateLimit: boolean;
   lastError: unknown;
+  lastTransportErrorCode?: string;
+  lastTransportScope?: "shared_provider_transport" | "connection_transport";
   fallbackFailureMessage?: string;
   orderedAccounts: ProxyPassthroughAccount[];
   buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
@@ -3695,6 +3948,8 @@ function buildClaudeAnthropicFailureResponse(args: {
     sawTransientFailure,
     sawRateLimit,
     lastError,
+    lastTransportErrorCode,
+    lastTransportScope,
     fallbackFailureMessage,
     orderedAccounts,
     buildLoggedClaudeError,
@@ -3758,7 +4013,13 @@ function buildClaudeAnthropicFailureResponse(args: {
     const fallbackSuffix = fallbackFailureMessage
       ? ` Fallback also failed: ${fallbackFailureMessage}`
       : "";
-    const msg = `All Anthropic accounts failed due to transient upstream/network errors. Last error: ${
+    const transportDescription =
+      lastTransportScope === "shared_provider_transport"
+        ? "shared Anthropic network"
+        : lastTransportScope === "connection_transport"
+          ? "Anthropic connection"
+          : null;
+    const msg = `${transportDescription ? `${transportDescription} failure prevented safe cross-account rotation` : "All Anthropic accounts failed due to transient upstream/network errors"}. Last error${lastTransportErrorCode ? ` (${lastTransportErrorCode})` : ""}: ${
       lastError instanceof Error
         ? lastError.message
         : String(lastError ?? "unknown")
@@ -3769,6 +4030,12 @@ function buildClaudeAnthropicFailureResponse(args: {
       502,
       msg,
       fallbackFailureMessage ? "fallback_exhausted" : "transient_error",
+      {
+        ...(lastTransportErrorCode
+          ? { errorCode: lastTransportErrorCode }
+          : {}),
+        ...(lastTransportScope ? { transportScope: lastTransportScope } : {}),
+      },
     );
   }
 
@@ -6021,6 +6288,7 @@ function createClaudeRequestRuntimeContext(args: {
               ? "stream_error"
               : "handler_error",
         message: errorMessage,
+        errorCode: extra?.errorCode,
       });
     } else {
       recordFinalSuccess(finalAccountLabel, finalAccountType);
@@ -6040,6 +6308,10 @@ function createClaudeRequestRuntimeContext(args: {
       responseTimeMs: Date.now() - requestStartTime,
       ...(errorType ? { errorType } : {}),
       ...(errorMessage ? { errorMessage } : {}),
+      ...(extra?.errorCode ? { errorCode: extra.errorCode } : {}),
+      ...(extra?.transportScope
+        ? { transportScope: extra.transportScope }
+        : {}),
       ...(extra?.inputTokens !== undefined
         ? { inputTokens: extra.inputTokens }
         : {}),
@@ -6072,6 +6344,7 @@ function createClaudeRequestRuntimeContext(args: {
       extra?.accountType ?? "final",
       errorType,
       message,
+      extra,
     );
     logProxyBody({
       phase: "client_response",
@@ -6137,6 +6410,9 @@ function createAnthropicAttemptLogger(args: {
       ...(errorType ? { errorType } : {}),
       ...(errorMessage ? { errorMessage } : {}),
       ...(extra?.errorCode ? { errorCode: extra.errorCode } : {}),
+      ...(extra?.transportScope
+        ? { transportScope: extra.transportScope }
+        : {}),
       ...(extra?.inputTokens !== undefined
         ? { inputTokens: extra.inputTokens }
         : {}),
@@ -6467,6 +6743,7 @@ async function fetchAnthropicAccountResponse(args: {
     });
   } catch (fetchErr) {
     const retryable = isRetryableNetworkError(fetchErr);
+    const transportScope = classifyNetworkTransportScope(fetchErr);
     // Every dispatched upstream request is an attempt, including terminal
     // transport failures. Record it once before preserving the throw behavior.
     sawNetworkError = true;
@@ -6481,6 +6758,7 @@ async function fetchAnthropicAccountResponse(args: {
     logAttempt(502, "network_error", errorMessage, {
       retryable,
       errorCode,
+      transportScope,
     });
     tracer?.setError("network_error", errorMessage);
     if (retryable) {
@@ -6493,6 +6771,8 @@ async function fetchAnthropicAccountResponse(args: {
     return {
       continueLoop: true,
       retrySameAccount: true,
+      transportScope,
+      errorCode,
       lastError,
       sawRateLimit,
       sawNetworkError,
@@ -6760,6 +7040,17 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     let rateLimitSameAccountRetries = 0;
 
     while (true) {
+      const transportPermit = await providerTransportCoordinator.acquire(
+        ctx.abortSignal,
+      );
+      if (transportPermit.allowed === false) {
+        loopState.sawNetworkError = true;
+        loopState.lastTransportErrorCode =
+          transportPermit.errorCode ?? undefined;
+        loopState.lastTransportScope = transportPermit.transportScope;
+        loopState.lastError = `Anthropic transport recovery probe failed (${transportPermit.errorCode ?? "unknown"})`;
+        break accountLoop;
+      }
       loopState.attemptNumber += 1;
       if (tracer && loopState.attemptNumber === 1 && acctSelectionSpan) {
         tracer.setAccountSelection({
@@ -6804,6 +7095,9 @@ async function handleAnthropicRoutedClaudeRequest(args: {
         !preparedAttempt.finalBodyStr ||
         preparedAttempt.fetchStartMs === undefined
       ) {
+        if (transportPermit.probe) {
+          providerTransportCoordinator.reportProbeAbandoned(transportPermit);
+        }
         continue accountLoop;
       }
 
@@ -6826,31 +7120,55 @@ async function handleAnthropicRoutedClaudeRequest(args: {
       if (!admissionLease) {
         // A later account may be immediately available. Preserve the routing
         // order but do not leave a request queued behind a busy first choice.
+        if (transportPermit.probe) {
+          providerTransportCoordinator.reportProbeAbandoned(transportPermit);
+        }
         continue accountLoop;
       }
       let admissionTransferredToStream = false;
       try {
-        const fetchResult = await fetchAnthropicAccountResponse({
-          url,
-          headers: preparedAttempt.headers,
-          finalBodyStr: preparedAttempt.finalBodyStr,
-          account,
-          accountState,
-          enabledAccounts,
-          orderedAccounts,
-          tracer,
-          logAttempt,
-          logProxyBody,
-          fetchStartMs: preparedAttempt.fetchStartMs,
-          attemptNumber: loopState.attemptNumber,
-          currentLastError: loopState.lastError,
-          currentSawRateLimit: loopState.sawRateLimit,
-          currentSawNetworkError: loopState.sawNetworkError,
-          upstreamSpan: preparedAttempt.upstreamSpan,
-        });
+        let fetchResult: AnthropicUpstreamFetchResult;
+        try {
+          fetchResult = await fetchAnthropicAccountResponse({
+            url,
+            headers: preparedAttempt.headers,
+            finalBodyStr: preparedAttempt.finalBodyStr,
+            account,
+            accountState,
+            enabledAccounts,
+            orderedAccounts,
+            tracer,
+            logAttempt,
+            logProxyBody,
+            fetchStartMs: preparedAttempt.fetchStartMs,
+            attemptNumber: loopState.attemptNumber,
+            currentLastError: loopState.lastError,
+            currentSawRateLimit: loopState.sawRateLimit,
+            currentSawNetworkError: loopState.sawNetworkError,
+            upstreamSpan: preparedAttempt.upstreamSpan,
+          });
+        } catch (error) {
+          if (transportPermit.probe) {
+            providerTransportCoordinator.reportProbeAbandoned(transportPermit);
+          }
+          throw error;
+        }
+        if (fetchResult.transportScope) {
+          providerTransportCoordinator.reportTransportFailure(
+            fetchResult.errorCode,
+            fetchResult.transportScope,
+            transportPermit,
+          );
+        } else {
+          providerTransportCoordinator.reportSuccess(transportPermit);
+        }
         loopState.lastError = fetchResult.lastError;
         loopState.sawRateLimit = fetchResult.sawRateLimit;
         loopState.sawNetworkError = fetchResult.sawNetworkError;
+        if (fetchResult.transportScope) {
+          loopState.lastTransportScope = fetchResult.transportScope;
+          loopState.lastTransportErrorCode = fetchResult.errorCode;
+        }
         if (fetchResult.terminalError) {
           return finalizeAnthropicTerminalFetchError({
             terminalError: fetchResult.terminalError,
@@ -6934,6 +7252,14 @@ async function handleAnthropicRoutedClaudeRequest(args: {
             logger.always(
               `[proxy] account=${account.label} rate-limited (${plan.reason}); cooling ~${minutesUntil(plan.coolingUntil, Date.now())}m until ${new Date(plan.coolingUntil).toISOString()}, rotating`,
             );
+            if (plan.rotateImmediately) {
+              scheduleHandoffQuotaRefresh(
+                account,
+                effectiveAccounts[accountIndex + 1],
+                plan.coolingUntil,
+                sessionSoftLimit,
+              );
+            }
             continue accountLoop;
           }
           // Transient error retry (network errors, 529 overloaded)
@@ -6951,10 +7277,16 @@ async function handleAnthropicRoutedClaudeRequest(args: {
             await sleep(delayMs);
             continue;
           }
-          if (fetchResult.retrySameAccount) {
+          if (fetchResult.retrySameAccount && !fetchResult.transportScope) {
             logger.always(
               `[proxy] exhausted transient same-account retries for account=${account.label}; rotating`,
             );
+          }
+          if (fetchResult.transportScope) {
+            logger.always(
+              `[proxy] Anthropic ${fetchResult.transportScope} failure code=${fetchResult.errorCode ?? "unknown"}; suppressing cross-account rotation after ${transientSameAccountRetries + 1} attempts`,
+            );
+            break accountLoop;
           }
           continue accountLoop;
         }
@@ -7208,6 +7540,8 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     sawTransientFailure: loopState.sawTransientFailure,
     sawRateLimit: loopState.sawRateLimit,
     lastError: loopState.lastError,
+    lastTransportErrorCode: loopState.lastTransportErrorCode,
+    lastTransportScope: loopState.lastTransportScope,
     fallbackFailureMessage: loopState.fallbackFailureMessage,
     orderedAccounts,
     buildLoggedClaudeError,
@@ -7808,11 +8142,21 @@ function isRetryableNetworkError(error: unknown): boolean {
       // The Anthropic host is fixed, so ENOTFOUND can be a transient resolver
       // outage. Keep it inside the existing bounded same-account retry budget.
       "ENOTFOUND",
+      "EAI_AGAIN",
       "EHOSTUNREACH",
       "UND_ERR_CONNECT_TIMEOUT",
       "UND_ERR_CONNECT",
     ].includes(code)
   );
+}
+
+function classifyNetworkTransportScope(
+  error: unknown,
+): "shared_provider_transport" | "connection_transport" {
+  const code = getErrorCode(error);
+  return code === "ENOTFOUND" || code === "EAI_AGAIN"
+    ? "shared_provider_transport"
+    : "connection_transport";
 }
 
 const TRANSIENT_HTTP_STATUSES = new Set([
@@ -7985,15 +8329,21 @@ export const __testHooks = {
   planCooldownFor429,
   reconcileCooldownFromQuota,
   refreshAccountLimits,
+  applyAccountUsageResult,
   clearLimitsRefreshStateForTests: (): void => {
     lastUsageFetchAt.clear();
     limitsRefreshInFlight = null;
+    accountQuotaRefreshCoordinator.clear();
   },
   isRetryableNetworkError,
   isPermanentRefreshFailure,
   getStreamFailureDetails,
   trackUpstreamReadableStream,
   orderAccountsByQuota,
+  scheduleAdaptiveQuotaRefreshes,
+  scheduleHandoffQuotaRefresh,
+  getQuotaRefreshState: (key: string) =>
+    accountQuotaRefreshCoordinator.getState(key),
   buildQuotaRoutingDecision: (
     accounts: ProxyPassthroughAccount[],
     now: number,
@@ -8048,6 +8398,8 @@ export const __testHooks = {
     transientRateLimitRetryBudgets.clear();
     transientCooldownAdmissionSchedules.clear();
     accountAdmissionStates.clear();
+    accountQuotaRefreshCoordinator.clear();
+    providerTransportCoordinator.clear();
     primaryAccountIndex = 0;
     lastKnownAccountCount = 0;
   },
