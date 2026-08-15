@@ -26,10 +26,12 @@
  */
 import "dotenv/config";
 
-import {
-  ChromaVectorStore,
-  translateMetadataFilter,
-} from "../src/lib/rag/stores/chroma.js";
+import { ChromaVectorStore } from "../dist/index.js";
+// `translateMetadataFilter` is not exported from the package. It is imported
+// here under the determinism exception to CLAUDE.md rule 15: filter-dialect
+// translation is pure, table-driven logic, and a live `generate()` cannot be
+// made to emit the specific filter shapes that need covering.
+import { translateMetadataFilter } from "../src/lib/rag/stores/chroma.js";
 import type {
   ChromaClientLike,
   ChromaCollectionLike,

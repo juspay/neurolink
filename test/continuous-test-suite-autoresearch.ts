@@ -6,6 +6,14 @@
  * Tests the consumer-facing flow: can a developer configure autoresearch,
  * point it at a real repo, run it, and get measurable improvements?
  *
+ * ## Determinism exception (CLAUDE.md rule 15)
+ *
+ * Autoresearch is a background task system, not something a caller reaches
+ * through `generate()` / `stream()`, so there is no public surface to drive.
+ * `ResearchWorker` and `executeAutoresearchTick` are imported directly and run
+ * against a fixture git repo, which is what makes branch creation, state files
+ * and tick behaviour observable at all.
+ *
  * No AI provider needed. Uses a deterministic fixture repo where
  * we simulate what the AI does (read file, write fix, commit, run experiment).
  *
@@ -1333,7 +1341,7 @@ async function testG2ExecuteAutoresearchTick(): Promise<boolean | null> {
   try {
     const { executeAutoresearchTick } =
       await import("../src/lib/tasks/autoresearchTaskExecutor.js");
-    const { NeuroLink } = await import("../src/lib/neurolink.js");
+    const { NeuroLink } = await import("../dist/index.js");
 
     const nl = new NeuroLink();
 

@@ -16,7 +16,7 @@
  * Run with: npx tsx test/continuous-test-suite-mcp-result-cache.ts
  */
 
-import { NeuroLink } from "../src/lib/neurolink.js";
+import { NeuroLink } from "../dist/index.js";
 import { assert, assertEqual, defineSuite } from "./helpers/harness.js";
 import { observe, stub, withStubs } from "./helpers/stubs.js";
 

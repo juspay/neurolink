@@ -13,10 +13,14 @@ export function skipIfEnvMissing(...vars: string[]): string | null {
  *
  * Implemented as a list of named pattern entries so the test harness
  * can introspect them (see `EXPECTED_PROVIDER_ERROR_PATTERNS` below).
- * Every entry below MUST be exercised by at least one fixture in
- * `test/helpers/envGuard.test.ts` — the `test:envguard` self-check
- * fails if a pattern has zero coverage, which prevents silent
- * regex bit-rot as upstream provider error wording drifts.
+ *
+ * ⚠️ These patterns are no longer covered by an automated self-check.
+ * `envGuard.test.ts` used to assert every entry had at least one fixture,
+ * but it was a unit suite and was removed when the suites became
+ * end-to-end only (CLAUDE.md rule 15). Nothing now catches regex bit-rot
+ * as upstream provider wording drifts — a pattern that stops matching
+ * turns a skip into a hard failure, and one that matches too broadly
+ * turns a real failure into a silent skip. Review changes here by hand.
  *
  * Each pattern below is anchored to a specific framing that real
  * provider SDKs emit. We deliberately avoid loose substrings

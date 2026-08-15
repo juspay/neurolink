@@ -26,9 +26,7 @@
  */
 import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
 import { installMockFetch } from "./utils/mockFetch.js";
-import { NeuroLink } from "../src/lib/neurolink.js";
-import { ProviderImageAdapter } from "../src/lib/adapters/providerImageAdapter.js";
-import { buildMultimodalMessagesArray } from "../src/lib/utils/messageBuilder.js";
+import { NeuroLink } from "../dist/index.js";
 import type { GenerateOptions } from "../src/lib/types/index.js";
 
 const { test, runSuite } = defineSuite("Provider fallback latency");
@@ -357,75 +355,13 @@ await test("provider hang under internal timeout falls back within seconds", asy
 // ---------------------------------------------------------------------------
 // 3. Vision capability registry
 // ---------------------------------------------------------------------------
-
-await test("vision: Claude 5 / Opus 4.x+ families accepted on anthropic and vertex", () => {
-  const expectTrue: Array<[string, string]> = [
-    ["anthropic", "claude-sonnet-5"],
-    ["anthropic", "claude-sonnet-5-20260203"],
-    ["anthropic", "claude-opus-5"],
-    ["anthropic", "claude-opus-4-7"],
-    ["anthropic", "claude-opus-4-8"],
-    ["anthropic", "claude-fable-5"],
-    ["vertex", "claude-sonnet-5@20260203"],
-    ["vertex", "vertex_ai/claude-sonnet-5@20260203"],
-    ["vertex", "claude-opus-4-6"],
-  ];
-  for (const [provider, model] of expectTrue) {
-    assertEqual(
-      ProviderImageAdapter.supportsVision(provider, model),
-      true,
-      `${provider}/${model} must be vision-capable`,
-    );
-  }
-  const expectFalse: Array<[string, string]> = [
-    ["anthropic", "claude-3-5-haiku"], // legacy number-first id, never had vision
-    ["anthropic", "gpt-4o"], // fail-closed for foreign models
-  ];
-  for (const [provider, model] of expectFalse) {
-    assertEqual(
-      ProviderImageAdapter.supportsVision(provider, model),
-      false,
-      `${provider}/${model} must stay rejected (fail-closed)`,
-    );
-  }
-});
-
-await test("vision: proxy mode (ANTHROPIC_BASE_URL) does not capability-gate", () => {
-  const saved = process.env.ANTHROPIC_BASE_URL;
-  process.env.ANTHROPIC_BASE_URL = "https://proxy.example.test";
-  try {
-    assertEqual(
-      ProviderImageAdapter.supportsVision("anthropic", "totally-unknown-model"),
-      true,
-      "behind a proxy the upstream decides — no static gating",
-    );
-  } finally {
-    if (saved === undefined) {
-      delete process.env.ANTHROPIC_BASE_URL;
-    } else {
-      process.env.ANTHROPIC_BASE_URL = saved;
-    }
-  }
-});
-
-await test("vision: message building passes for anthropic/claude-sonnet-5 with an image", async () => {
-  // 1x1 transparent PNG.
-  const png = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
-    "base64",
-  );
-  const options = {
-    input: { text: "describe this image", images: [png] },
-  } as GenerateOptions;
-  const messages = await buildMultimodalMessagesArray(
-    options,
-    "anthropic",
-    "claude-sonnet-5",
-  );
-  assert(
-    messages.length > 0,
-    "multimodal message building must not reject claude-sonnet-5",
-  );
-});
+//
+// Three tests here called `ProviderImageAdapter.supportsVision()` and
+// `buildMultimodalMessagesArray()` directly, to assert which model families are
+// vision-capable and that proxy mode does not capability-gate. Both are
+// internal, so they went with the unit suites (CLAUDE.md rule 15). Vision
+// delivery is still covered end to end by continuous-test-suite-file-formats,
+// which attaches a real image and requires the model to read it; what is no
+// longer asserted is the capability table itself.
 
 await runSuite();

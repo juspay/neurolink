@@ -26,9 +26,7 @@
  * Run: npx tsx test/continuous-test-suite-provider-fallback.ts
  */
 import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
-import { NeuroLink } from "../src/lib/neurolink.js";
-import { AnthropicProvider } from "../src/lib/providers/anthropic.js";
-import { CLAUDE_CLI_USER_AGENT } from "../src/lib/auth/anthropicOAuth.js";
+import { NeuroLink } from "../dist/index.js";
 
 const { test, runSuite } = defineSuite(
   "Provider fallback + Anthropic proxy UA",
@@ -368,100 +366,12 @@ await test("post-retry gate widened: callback consulted again when the retry fai
 // ---------------------------------------------------------------------------
 // Anthropic proxy User-Agent
 // ---------------------------------------------------------------------------
-
-type ClientInternals = {
-  client: { _options?: { defaultHeaders?: Record<string, string> } };
-};
-
-function withAnthropicEnv(
-  baseUrl: string | undefined,
-  fn: () => void | Promise<void>,
-): void | Promise<void> {
-  const saved = process.env.ANTHROPIC_BASE_URL;
-  if (baseUrl === undefined) {
-    delete process.env.ANTHROPIC_BASE_URL;
-  } else {
-    process.env.ANTHROPIC_BASE_URL = baseUrl;
-  }
-  const restore = () => {
-    if (saved === undefined) {
-      delete process.env.ANTHROPIC_BASE_URL;
-    } else {
-      process.env.ANTHROPIC_BASE_URL = saved;
-    }
-  };
-  try {
-    const out = fn();
-    if (out instanceof Promise) {
-      return out.finally(restore);
-    }
-    restore();
-    return out;
-  } catch (err) {
-    restore();
-    throw err;
-  }
-}
-
-await test("proxy mode: api_key path spoofs the claude-cli User-Agent", () =>
-  withAnthropicEnv("https://proxy.example.test", () => {
-    // credentials.apiKey (without oauthToken) forces the api_key branch.
-    const provider = new AnthropicProvider(undefined, undefined, undefined, {
-      apiKey: "sk-ant-test-dummy",
-    });
-    const headers = provider.getAuthHeaders();
-    assertEqual(
-      headers["User-Agent"],
-      CLAUDE_CLI_USER_AGENT,
-      "proxy mode must override the SDK User-Agent with the claude-cli UA",
-    );
-    assert(
-      CLAUDE_CLI_USER_AGENT.startsWith("claude-cli/"),
-      "spoofed UA must be the claude-cli one the OAuth path already uses",
-    );
-    // The constructed SDK client must actually carry it as a default header
-    // (defaultHeaders merge AFTER the SDK's built-in UA, so this wins).
-    const client = (provider as unknown as ClientInternals).client;
-    assertEqual(
-      client._options?.defaultHeaders?.["User-Agent"],
-      CLAUDE_CLI_USER_AGENT,
-      "client defaultHeaders must carry the User-Agent override",
-    );
-  }));
-
-await test("direct mode (no ANTHROPIC_BASE_URL): honest SDK User-Agent kept", () =>
-  withAnthropicEnv(undefined, () => {
-    const provider = new AnthropicProvider(undefined, undefined, undefined, {
-      apiKey: "sk-ant-test-dummy",
-    });
-    const headers = provider.getAuthHeaders();
-    assertEqual(
-      "User-Agent" in headers,
-      false,
-      "direct-to-Anthropic traffic must not override the SDK User-Agent",
-    );
-    const client = (provider as unknown as ClientInternals).client;
-    assertEqual(
-      client._options?.defaultHeaders?.["User-Agent"],
-      undefined,
-      "client defaultHeaders must not contain a User-Agent override",
-    );
-  }));
-
-await test("proxy mode UA override applies with beta features disabled", () =>
-  withAnthropicEnv("https://proxy.example.test", () => {
-    const provider = new AnthropicProvider(
-      undefined,
-      undefined,
-      { enableBetaFeatures: false },
-      { apiKey: "sk-ant-test-dummy" },
-    );
-    const headers = provider.getAuthHeaders();
-    assertEqual(
-      headers["User-Agent"],
-      CLAUDE_CLI_USER_AGENT,
-      "UA override must not be gated behind enableBetaFeatures",
-    );
-  }));
+//
+// Three tests here asserted that proxy mode spoofs the claude-cli User-Agent
+// and that direct mode does not. They constructed `AnthropicProvider` directly
+// and read `getAuthHeaders()` plus the SDK client's private `_options`, so they
+// went with the unit suites (CLAUDE.md rule 15). Proving it end to end needs a
+// request interceptor around a live call, which this suite does not have — so
+// the UA behaviour is currently unasserted.
 
 await runSuite();

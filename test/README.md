@@ -5,6 +5,14 @@
 > `test/helpers/`. Three CI tiers — **unit** (free), **live** (API keys),
 > **product** (paid metered).
 
+> **Every suite here is end-to-end.** A test must exercise a surface this
+> package ships: construct `NeuroLink` and call `generate()` / `stream()`,
+> or drive the built CLI through `runCLI`. Importing a module out of
+> `src/lib/` to assert on it directly is a unit test and does not belong in
+> this directory — see CLAUDE.md rule 15. (The `test:unit` tier keeps its
+> name for its cost profile: free, no live API calls. It is not a
+> unit-testing tier.)
+
 ## Contents
 
 1. [Quick start](#1-quick-start)
@@ -36,29 +44,36 @@ npx tsx test/continuous-test-suite-<name>.ts [--provider=vertex] [--model=gpt-4o
 
 ## 2. Tiers
 
-| Tier               | Frequency         | Suites                                                                                                                                | Cost                  |
-| ------------------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| **`test:unit`**    | every commit      | `bugfixes`, `dynamic`, `mcp:infra`, `mcp:bash`, `mcp:limits`, `mcp:spans`, `autoresearch:redis`, `credentials`                        | $0                    |
-| **`test:live`**    | when keys present | `providers`, `mcp:http`, `mcp:sdk`, `mcp:cli`, `observability`, `context`, `memory`, `tool-reliability`, `evaluation`, `autoresearch` | small per-call        |
-| **`test:product`** | release gate      | `media` (image+video), `tts`, `ppt`, `proxy`                                                                                          | metered (image/video) |
+| Tier               | Frequency         | Suites                                                                                                                                                                                                                                                                | Cost                  |
+| ------------------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **`test:unit`**    | local / pre-push  | `bugfixes`, `mcp:infra`, `mcp:spans`, `tool-routing`, `tool-routing-cli`, `tool-dedup`, `model-pool`, `tool-routing-semantic`, `mcp-result-cache`, `model-not-found-retryable`, `archive:security`, `office:security`, the three `vector-*` stores, `provider-wiring` | $0                    |
+| **`test:live`**    | when keys present | `providers`, `mcp:http`, `mcp:sdk`, `mcp:cli`, `observability`, `context`, `memory`, `tool-reliability`, `evaluation`, `autoresearch`                                                                                                                                 | small per-call        |
+| **`test:product`** | release gate      | `media` (image+video), `tts`, `ppt`, `proxy`                                                                                                                                                                                                                          | metered (image/video) |
 
-The MCP family (`mcp:*`) is split across seven files: `mcp:infra` (no-API
-classes), `mcp:bash` (subprocess), `mcp:limits` (output-size handling),
-`mcp:spans` (tracing-attribute regression), `mcp:sdk` (live SDK calls),
-`mcp:cli` (live CLI subprocess), `mcp:http` (HTTP transport). The
-`test:mcp:full` chain runs all seven in dependency order.
+**What CI actually runs.** Not `test:unit`. The `provider-safety-net` job in
+`.github/workflows/ci.yml` runs `build` + `test:providers-mocked` +
+`test:provider-structure` on every PR, and the same pair is the `pre-push`
+hook. The `test` job is format-check, eslint, `validate:all` and the builds.
+Everything else in this directory runs when someone runs it, so a suite you
+add here is not automatically a gate.
+
+The MCP family (`mcp:*`) is split across five files: `mcp:infra` (no-API
+classes), `mcp:spans` (tracing-attribute regression), `mcp:sdk` (live SDK
+calls), `mcp:cli` (live CLI subprocess), `mcp:http` (HTTP transport). The
+`test:mcp:full` chain runs all five in dependency order.
 
 `autoresearch` is bundled with `test:live` because its live half hits
 real providers; the e2e half checks `HAS_PROVIDER` and skips cleanly
-without provider keys, but it is not invoked from `test:unit`.
-`autoresearch:redis` (Redis-integration tests) runs in `test:unit`.
+without provider keys, but it is not invoked from `test:unit`. The separate
+`autoresearch:redis` suite was removed with the unit suites.
 
 ## 3. Suite map
 
 ```
-unit     bugfixes, dynamic, mcp:infra, mcp:bash, mcp:limits, mcp:spans,
-         autoresearch:redis, credentials (incl. issue-01 model-access
-         regression)
+unit     bugfixes, mcp:infra, mcp:spans, tool-routing, tool-routing-cli,
+         tool-dedup, model-pool, tool-routing-semantic, mcp-result-cache,
+         model-not-found-retryable, archive:security, office:security,
+         vector-chroma / vector-pgvector / vector-pinecone, provider-wiring
 
 live     providers (incl. issue-03 fallback regression), mcp:http
          (HTTP-transport), mcp:sdk (SDK live API), mcp:cli (CLI
@@ -82,7 +97,6 @@ suites):
 continuous-test-suite.ts                     (root orchestrator)
 continuous-test-suite-auth.ts
 continuous-test-suite-autoresearch.ts        (e2e + live)
-continuous-test-suite-autoresearch-redis.ts  (kept standalone — Redis integration)
 continuous-test-suite-bugfixes.ts
 continuous-test-suite-client.ts
 continuous-test-suite-context.ts             (+ issue-02 + issue-06 absorbed)
@@ -90,11 +104,9 @@ continuous-test-suite-credentials.ts         (+ issue-01 absorbed)
 continuous-test-suite-dynamic.ts
 continuous-test-suite-evaluation.ts          (+ evaluation-scoring absorbed)
 continuous-test-suite-hitl.ts                (human-in-the-loop workflow)
-continuous-test-suite-mcp-bash.ts            (Part 5 — bash subprocess)
 continuous-test-suite-mcp-cli.ts             (Part 4/4b — CLI live)
 continuous-test-suite-mcp-http.ts            (HTTP transport)
 continuous-test-suite-mcp-infra.ts           (Part 1/1b/1c — infrastructure, no API)
-continuous-test-suite-mcp-output-limits.ts   (Part 5b — output limits)
 continuous-test-suite-mcp-sdk.ts             (Part 2/3/3b/3c — SDK live)
 continuous-test-suite-mcp-spans.ts           (Part 6 — issue-05 spans)
 continuous-test-suite-media-gen.ts
@@ -112,7 +124,6 @@ continuous-test-suite-tasks.ts
 continuous-test-suite-tool-reliability.ts
 continuous-test-suite-tts.ts
 continuous-test-suite-voice.ts
-continuous-test-suite-voice-server.ts
 continuous-test-suite-workflow.ts
 ```
 
@@ -138,8 +149,10 @@ resolution (argv → `NEUROLINK_TEST_PROVIDER` → `TEST_PROVIDER` →
 defaults), skip-on-missing-env, and subprocess + temp-dir wrappers
 (`runCLI`, `tempDir`).
 
-`envGuard.ts` is unit-tested (`pnpm run test:envguard`, **80/80 PASS**)
-to prevent the SKIP patterns from ever overmatching real bug strings.
+`envGuard.ts` used to carry its own coverage self-check
+(`envGuard.test.ts`), which was removed when the suites became
+end-to-end only. Its SKIP patterns are now maintained by review — see the
+warning at the top of `envGuard.ts` before changing them.
 
 ## 5. Writing a new suite
 
@@ -416,8 +429,8 @@ Before consolidation, the suite was 38 ad-hoc files with five problems:
 - **`autoresearch-redis.ts` → `tasks.ts`** — self-contained
   Redis-integration suite (14 tests covering serialization + file/Redis/
   BullMQ stores). Mixing with general task tests would muddy semantics
-  and orphan the rest of the file. Kept standalone; runs via
-  `test:autoresearch:redis`.
+  and orphan the rest of the file. Kept standalone; later removed with the
+  unit suites (CLAUDE.md rule 15).
 
 ### SDK fixes shipped during the verification sweep
 
@@ -483,8 +496,9 @@ gateway responses observed during the live sweep:
   `rate_limited`, `too many requests`) — promoted from auth-only to
   transport-always-skip
 
-`envGuard.test.ts` is the unit suite enforcing the patterns don't
-overmatch real bug strings (80/80 PASS).
+`envGuard.test.ts` was the unit suite enforcing the patterns don't
+overmatch real bug strings. It was removed with the rest of the unit
+suites; the patterns are now review-maintained.
 
 ### Verified end-state
 
@@ -493,7 +507,6 @@ overmatch real bug strings (80/80 PASS).
 | `pnpm run check` (typecheck, 3,632 files)   | 0 errors / 0 warnings                                 |
 | `pnpm run lint`                             | 0 errors / 19 pre-existing warnings (none in `test/`) |
 | `pnpm run build` (vite + prepack + publint) | clean                                                 |
-| `pnpm run test:envguard`                    | **80/80 PASS**                                        |
 | All 32 consolidated suites                  | **0 FAILs**                                           |
 | `new-providers`                             | 62 PASS / 11 SKIP / 0 FAIL                            |
 

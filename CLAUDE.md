@@ -48,7 +48,20 @@ These are non-negotiable. Violating them breaks the build or introduces bugs.
 
 14. **No double type assertions** — Never cast through `unknown`/`any` (`x as unknown as T`, `x as any as T`). A double assertion defeats the compiler's structural-overlap check entirely — the value is trusted as `T` with zero validation. Fix the type at the source, narrow with a runtime-validating type guard, or use a single `as T` (still overlap-checked). Applies to `src/`; test files are exempt. The rare genuine type-system boundary requires `// eslint-disable-next-line no-restricted-syntax -- <reason>`.
 
-**Enforcement:** All rules (2, 7-14) are enforced via ESLint. Rules 2 and 7-13 use custom rules in `eslint-rules/`; rule 14 uses core `no-restricted-syntax` AST selectors in `eslint.config.js`. Run `pnpm run lint` (or the pre-commit hook) — no shell scripts, no regex heuristics, everything AST-based.
+15. **Tests are end-to-end only** — Every suite must exercise a surface this package actually ships: construct `NeuroLink` and call `generate()` / `stream()`, or drive the built CLI via `runCLI` (`node dist/cli/index.js`). A suite that imports a module out of `src/lib/` to assert on it directly is a unit test and does not belong here. The point is to test what callers can reach — across providers, adapters and file types — not internal shapes that are free to change. If a behaviour seems reachable only from the inside, that is usually a sign it needs a public surface, not a unit test.
+
+    **Import the built entry, not the source.** Anything the package exports — `NeuroLink`, `ModelPool`, `AIProviderFactory`, `MCPToolRegistry`, the vector stores — comes from `../dist/index.js`. Importing the same class from `src/lib/` tests a copy callers never load. Confirm a symbol is really exported by listing the **runtime** exports of `dist/index.js`, not by grepping `dist/index.d.ts`: that file re-exports under aliases, so `NeuroLinkError as ClientNeuroLinkError` makes `NeuroLinkError` look public when only `ClientNeuroLinkError` exists at runtime.
+
+    **⚠️ One module graph per suite.** `dist/index.js` is a separate bundled copy of everything in `src/lib/`. Mixing the two inside one file breaks anything that depends on object identity — stubs, spies, `instanceof` — and it breaks _silently_, with a clean typecheck. Three ways this has already bitten:
+    - `stub(AIProviderFactory, "createProvider")` on the `src` copy while `NeuroLink` came from `dist` → the stub was inert and the suite started making real network calls. It went from 0.01s / 21 passing to 45s with one skip and one failure.
+    - `logger` imported from `dist` while the code under test logged through `src`'s logger → six log-assertion tests failed because the spy watched a different instance.
+    - `instanceof NeuroLinkError` across the two copies → never true.
+
+    So: a suite that drives only the public surface takes everything from `dist`. A suite operating under the determinism exception below takes everything from `src`. Never both.
+
+    **The one exception is determinism.** A test may sit outside this rule only when it needs deterministic control that a live call cannot give — a pure translation table, a fixed set of inputs, a recorded backend. The vector-store suites are the standing example: they drive real backends (pglite in-process Postgres, recorded fixtures) and cover filter-dialect translation that no live `generate()` could be made to emit. Convenience, speed, and "it is easier to assert on the internal" are not exceptions. When you take the exception, say so in the file's header and name what determinism buys.
+
+**Enforcement:** Rules 2 and 7-14 are enforced via ESLint. Rules 2 and 7-13 use custom rules in `eslint-rules/`; rule 14 uses core `no-restricted-syntax` AST selectors in `eslint.config.js`. Run `pnpm run lint` (or the pre-commit hook) — no shell scripts, no regex heuristics, everything AST-based. **Rule 15 is not lint-enforced** — it is a review check.
 
 | Rule     | ESLint rule                              |
 | -------- | ---------------------------------------- |
@@ -188,7 +201,8 @@ pnpm run lint             # Check lint + format
 pnpm run format           # Auto-format
 pnpm run check:all        # All quality checks
 
-# Testing (all suites run via tsx; there is no vitest runner despite vitest.config.ts existing)
+# Testing — every suite is end-to-end (see "Tests are end-to-end only" below).
+# All suites run via tsx; there is no vitest runner despite vitest.config.ts existing.
 pnpm test                 # Main suite (test/continuous-test-suite.ts)
 pnpm run test:ci          # test + test:client
 pnpm run test:client      # SDK client suite
@@ -197,10 +211,8 @@ pnpm run test:mcp         # MCP infrastructure (no-API; mcp-infra.ts)
 pnpm run test:mcp:http    # HTTP-transport suite (mcp-http.ts) — live
 pnpm run test:mcp:sdk     # Live SDK MCP enhancements (mcp-sdk.ts)
 pnpm run test:mcp:cli     # Live CLI MCP suite (mcp-cli.ts)
-pnpm run test:mcp:bash    # Bash subprocess (mcp-bash.ts) — no API
-pnpm run test:mcp:limits  # Output limits + artifacts (mcp-output-limits.ts) — no API
 pnpm run test:mcp:spans   # Issue#5 span attributes (mcp-spans.ts) — no API
-pnpm run test:mcp:full    # All seven mcp-* suites in dependency order
+pnpm run test:mcp:full    # All five mcp-* suites in dependency order
 pnpm run test:rag         # RAG suite
 pnpm run test:skills      # Native skills suite (mostly no-API; live test skips without keys)
 pnpm run test:providers   # Provider-specific feature tests
@@ -216,7 +228,13 @@ pnpm run test:credentials # Includes issue-01 model-access regression
 pnpm run test:evaluation  # Includes evaluation-scoring sub-suite
 pnpm run test:middleware
 pnpm run test:autoresearch       # E2E + live (live half skips without keys)
-pnpm run test:autoresearch:redis # Redis storage tests
+
+# What CI actually gates — NOT test:unit.
+# .github/workflows/ci.yml has a `provider-safety-net` job running
+#   build + test:providers-mocked + test:provider-structure
+# on every PR; the same pair is the pre-push hook. The job named `test` is
+# format-check, eslint, validate:all and the builds. Everything else in test/
+# runs only when someone runs it, so adding a suite does not make it a gate.
 
 # Run a single suite directly
 npx tsx test/continuous-test-suite-<name>.ts
