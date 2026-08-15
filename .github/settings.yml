@@ -177,7 +177,8 @@ branches:
         strict: true
         contexts:
           - "test"
-          - "build"
+          - "build-check"
+          - "provider-safety-net"
           # AI code review — fails only on a Yama BLOCKED verdict (see
           # .github/workflows/yama-review.yml + yama.config.yaml).
           - "Yama PR Review"
@@ -196,7 +197,8 @@ branches:
         strict: true
         contexts:
           - "test"
-          - "build"
+          - "build-check"
+          - "provider-safety-net"
           # AI code review — fails only on a Yama BLOCKED verdict (see
           # .github/workflows/yama-review.yml + yama.config.yaml).
           - "Yama PR Review"

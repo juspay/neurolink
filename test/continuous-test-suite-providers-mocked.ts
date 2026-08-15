@@ -21,6 +21,9 @@ import "dotenv/config";
  *   LLM (custom shape):      Cohere, Cloudflare Workers AI, Replicate
  *   Embeddings:              Voyage AI, Jina AI
  *   Image-gen:               Stability, Ideogram, Recraft
+ *   LLM (native, fetch-interceptable):    OpenAI, Azure, Anthropic
+ *   LLM (native, construction-only —
+ *        SDK bypasses globalThis.fetch):  Vertex, Bedrock
  *
  * Run with: pnpm run test:providers-mocked
  */
@@ -88,6 +91,19 @@ function openAIChatResponse(content: string, model: string): unknown {
       },
     ],
     usage: { prompt_tokens: 5, completion_tokens: 5, total_tokens: 10 },
+  };
+}
+
+function anthropicMessageResponse(text: string, model: string): unknown {
+  return {
+    id: "msg_mock",
+    type: "message",
+    role: "assistant",
+    model,
+    content: [{ type: "text", text }],
+    stop_reason: "end_turn",
+    stop_sequence: null,
+    usage: { input_tokens: 5, output_tokens: 5 },
   };
 }
 
@@ -176,7 +192,7 @@ const OPENAI_COMPAT_PROVIDERS: OpenAICompatSpec[] = [
 
 async function runOpenAICompatProvider(spec: OpenAICompatSpec): Promise<void> {
   const section = `LLM ${spec.provider}`;
-  const fakeKey = `sk-mock-${spec.provider}-1234567890abcdef`;
+  const fakeKey = `test-fake-${spec.provider}-credential`;
   setEnv(spec.envVar, fakeKey);
   if (spec.extraEnv) {
     for (const [k, v] of Object.entries(spec.extraEnv)) {
@@ -308,7 +324,7 @@ async function runReplicateLLMSection(): Promise<void> {
   console.log("\n=== LLM replicate (predict-then-poll) ===");
   const section = "LLM replicate";
 
-  const fakeKey = "r8_mock_replicate_token_1234567890";
+  const fakeKey = "test-fake-replicate-credential";
   setEnv("REPLICATE_API_TOKEN", fakeKey);
 
   const { NeuroLink } = await import("../dist/index.js");
@@ -568,7 +584,7 @@ function fakeEmbeddingResponse(
 
 async function runEmbeddingProvider(spec: EmbeddingSpec): Promise<void> {
   const section = `EMBED ${spec.provider}`;
-  const fakeKey = `mock-${spec.provider}-key-1234567890`;
+  const fakeKey = `test-fake-${spec.provider}-credential`;
   setEnv(spec.envVar, fakeKey);
 
   const { ProviderFactory } =
@@ -811,7 +827,7 @@ const FAKE_PNG_BASE64 = Buffer.from(FAKE_PNG_BYTES).toString("base64");
 
 async function runStabilityImageGen(): Promise<void> {
   const section = "IMG stability";
-  const fakeKey = "sk-stability-mock-1234567890abcdef";
+  const fakeKey = "test-fake-stability-credential";
   setEnv("STABILITY_API_KEY", fakeKey);
 
   const { NeuroLink } = await import("../dist/index.js");
@@ -922,7 +938,7 @@ async function runStabilityImageGen(): Promise<void> {
 
 async function runIdeogramImageGen(): Promise<void> {
   const section = "IMG ideogram";
-  const fakeKey = "ideogram-mock-key-1234567890";
+  const fakeKey = "test-fake-ideogram-credential";
   setEnv("IDEOGRAM_API_KEY", fakeKey);
 
   const { NeuroLink } = await import("../dist/index.js");
@@ -1050,7 +1066,7 @@ async function runIdeogramImageGen(): Promise<void> {
 
 async function runRecraftImageGen(): Promise<void> {
   const section = "IMG recraft";
-  const fakeKey = "recraft-mock-key-1234567890";
+  const fakeKey = "test-fake-recraft-credential";
   setEnv("RECRAFT_API_KEY", fakeKey);
 
   const { NeuroLink } = await import("../dist/index.js");
@@ -1172,6 +1188,734 @@ async function runImageGenSection(): Promise<void> {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Section: OpenAI (native client — the base OpenAIChatCompletionsProvider
+// whose defaults every OpenAI-compat provider above inherits, so it gets
+// its own bespoke section rather than joining OPENAI_COMPAT_PROVIDERS)
+// ───────────────────────────────────────────────────────────────────────
+
+async function runOpenAISection(): Promise<void> {
+  const section = "LLM openai";
+  console.log(`\n=== ${section} ===`);
+  const fakeKey = "test-fake-openai-credential";
+  const model = "gpt-4o-mini";
+  setEnv("OPENAI_API_KEY", fakeKey);
+  // Pin every env var resolveOpenAIBaseURL() consults so an ambient
+  // OPENAI_BASE_URL in the running shell/CI can't reroute this section away
+  // from the api.openai.com mock and cause a "[mockFetch] No route matched".
+  setEnv("OPENAI_BASE_URL", undefined);
+
+  const { NeuroLink } = await import("../dist/index.js");
+
+  // ── Happy path ──────────────────────────────────────────────────────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.openai.com/v1/chat/completions",
+          respond: { status: 200, json: openAIChatResponse("pong", model) },
+        },
+      ],
+      async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const result = await nl.generate({
+          provider: "openai",
+          model,
+          input: { text: "ping" },
+          disableTools: true,
+        });
+
+        expect(calls.length > 0, "at least one fetch call captured");
+        const call = calls[0];
+        expect(
+          call.url.includes("api.openai.com/v1/chat/completions"),
+          `URL contains 'api.openai.com/v1/chat/completions' (got ${call.url})`,
+        );
+        expectEq(call.method, "POST", "request method");
+        expect(
+          (call.headers["authorization"] ?? "").startsWith(`Bearer ${fakeKey}`),
+          `Authorization header starts with 'Bearer ${fakeKey.slice(0, 12)}...'`,
+        );
+        const body = call.bodyJson as { model: string; messages: unknown[] };
+        expect(typeof body === "object", "body is JSON object");
+        expectEq(body.model, model, "body.model");
+        expect(Array.isArray(body.messages), "body.messages is array");
+
+        expect(
+          (result.content ?? "").toLowerCase().includes("pong"),
+          `response content includes 'pong' (got ${JSON.stringify(result.content?.slice(0, 100))})`,
+        );
+        record(results, `${section}: happy-path generate()`, true);
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: happy-path generate()`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── 401 → AuthenticationError (buildAPIError always sets a numeric
+  // statusCode, so this classifies via the statusCode branch alone) ──────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.openai.com/v1/chat/completions",
+          respond: {
+            status: 401,
+            json: {
+              error: {
+                message: "Invalid API key",
+                type: "invalid_request_error",
+              },
+            },
+          },
+        },
+      ],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        try {
+          await nl.generate({
+            provider: "openai",
+            model,
+            input: { text: "ping" },
+            disableTools: true,
+          });
+          record(
+            results,
+            `${section}: 401 → AuthenticationError`,
+            false,
+            "no error thrown",
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          record(
+            results,
+            `${section}: 401 → AuthenticationError`,
+            /invalid openai api key|incorrect api key|invalid api key/i.test(
+              msg,
+            ),
+            `msg='${msg.slice(0, 120)}'`,
+          );
+        }
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: 401 → AuthenticationError`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── 429 → RateLimitError. directProviderGeneration() wraps the final
+  // thrown error once the single-provider retry budget is exhausted
+  // ("Failed to generate text with all providers. Last error: ..."), so we
+  // substring-match the classified inner message rather than the wrapper,
+  // which is orchestration-layer text, not part of this provider's contract.
+  // ─────────────────────────────────────────────────────────────────────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.openai.com/v1/chat/completions",
+          respond: {
+            status: 429,
+            json: {
+              error: {
+                message: "Rate limit reached",
+                type: "rate_limit_error",
+              },
+            },
+          },
+        },
+      ],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        try {
+          await nl.generate({
+            provider: "openai",
+            model,
+            input: { text: "ping" },
+            disableTools: true,
+          });
+          record(
+            results,
+            `${section}: 429 → RateLimitError`,
+            false,
+            "no error thrown",
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          record(
+            results,
+            `${section}: 429 → RateLimitError`,
+            msg.includes("OpenAI rate limit exceeded. Please try again later."),
+            `msg='${msg.slice(0, 120)}'`,
+          );
+        }
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: 429 → RateLimitError`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: Azure OpenAI (api-key header, not Bearer; deployment-scoped URL)
+// ───────────────────────────────────────────────────────────────────────
+
+async function runAzureSection(): Promise<void> {
+  const section = "LLM azure";
+  console.log(`\n=== ${section} ===`);
+  const fakeKey = "test-fake-azure-credential";
+  const deployment = "mock-deployment";
+  const resourceOrigin = "https://mock-resource.openai.azure.com";
+  setEnv("AZURE_OPENAI_API_KEY", fakeKey);
+  setEnv("AZURE_OPENAI_ENDPOINT", resourceOrigin);
+  // Pin every other env var the Azure constructor consults so ambient values
+  // from the running shell/CI can't change the URL this section expects
+  // (AZURE_API_VERSION feeds directly into expectedUrl below) or the
+  // deployment fallback chain (harmless here since `model` is passed
+  // explicitly, but pinned for defense-in-depth).
+  setEnv("AZURE_API_VERSION", undefined);
+  setEnv("AZURE_OPENAI_MODEL", undefined);
+  setEnv("AZURE_OPENAI_DEPLOYMENT", undefined);
+  setEnv("AZURE_OPENAI_DEPLOYMENT_ID", undefined);
+
+  const { NeuroLink } = await import("../dist/index.js");
+  const expectedUrl = `${resourceOrigin}/openai/deployments/${deployment}/chat/completions?api-version=2025-04-01-preview`;
+
+  // ── Happy path ──────────────────────────────────────────────────────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: expectedUrl,
+          respond: {
+            status: 200,
+            json: openAIChatResponse("pong", deployment),
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const result = await nl.generate({
+          provider: "azure",
+          model: deployment,
+          input: { text: "ping" },
+          disableTools: true,
+        });
+
+        expect(calls.length > 0, "at least one fetch call captured");
+        const call = calls[0];
+        expectEq(call.url, expectedUrl, "request URL");
+        expectEq(call.method, "POST", "request method");
+        expectEq(call.headers["api-key"], fakeKey, "api-key header");
+        expect(
+          !("authorization" in call.headers),
+          "Authorization header must NOT be set (Azure uses api-key)",
+        );
+        const body = call.bodyJson as { messages: unknown[] };
+        expect(Array.isArray(body.messages), "body.messages is array");
+
+        expect(
+          (result.content ?? "").toLowerCase().includes("pong"),
+          `response content includes 'pong' (got ${JSON.stringify(result.content?.slice(0, 100))})`,
+        );
+        record(results, `${section}: happy-path generate()`, true);
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: happy-path generate()`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── 401 → AuthenticationError (message.includes("401") substring check).
+  // ProviderError's base constructor always prepends "[azure] " to the
+  // formatted message, so we substring-match the classification-specific
+  // text rather than exact-matching the whole string. ─────────────────────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: expectedUrl,
+          respond: {
+            status: 401,
+            json: { error: { message: "401 Unauthorized" } },
+          },
+        },
+      ],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        try {
+          await nl.generate({
+            provider: "azure",
+            model: deployment,
+            input: { text: "ping" },
+            disableTools: true,
+          });
+          record(
+            results,
+            `${section}: 401 → AuthenticationError`,
+            false,
+            "no error thrown",
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          record(
+            results,
+            `${section}: 401 → AuthenticationError`,
+            msg.includes("Invalid Azure OpenAI API key or endpoint."),
+            `msg='${msg.slice(0, 120)}'`,
+          );
+        }
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: 401 → AuthenticationError`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── 429 → NO dedicated branch in Azure's formatProviderError; falls
+  // through to a generic ProviderError. This test documents that gap by
+  // asserting the actual (imperfect) behavior, not RateLimitError. Also
+  // retryable at the orchestration layer (not in NON_RETRYABLE_HTTP_STATUS
+  // _CODES), so directProviderGeneration() wraps the final message once the
+  // single-provider retry budget exhausts — substring-match the classified
+  // inner text, not the wrapper. ────────────────────────────────────────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: expectedUrl,
+          respond: {
+            status: 429,
+            json: { error: { message: "Rate limit exceeded" } },
+          },
+        },
+      ],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        try {
+          await nl.generate({
+            provider: "azure",
+            model: deployment,
+            input: { text: "ping" },
+            disableTools: true,
+          });
+          record(
+            results,
+            `${section}: 429 → generic ProviderError (documented gap)`,
+            false,
+            "no error thrown",
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          record(
+            results,
+            `${section}: 429 → generic ProviderError (documented gap)`,
+            msg.includes("Azure OpenAI error: "),
+            `msg='${msg.slice(0, 120)}'`,
+          );
+        }
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: 429 → generic ProviderError (documented gap)`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: Anthropic (x-api-key + anthropic-version headers, not Bearer)
+// ───────────────────────────────────────────────────────────────────────
+
+async function runAnthropicSection(): Promise<void> {
+  const section = "LLM anthropic";
+  console.log(`\n=== ${section} ===`);
+  const fakeKey = "test-fake-anthropic-credential";
+  const model = "claude-sonnet-4-6";
+  setEnv("ANTHROPIC_API_KEY", fakeKey);
+  // Pin every env var the Anthropic client's routing/auth-method resolution
+  // consults so ambient state in the running shell/CI can't hijack this
+  // section away from the mock:
+  //  - ANTHROPIC_BASE_URL: reroutes the SDK to a proxy host entirely (this
+  //    exact confound was hit in one sandbox and produced a generic SDK
+  //    "Connection error." that masked every assertion below).
+  //  - ANTHROPIC_AUTH_METHOD: detectAuthMethod() prefers OAuth over API key
+  //    whenever an OAuth token is present; forcing "api_key" here guarantees
+  //    the x-api-key header path this section asserts, regardless of any
+  //    ambient ANTHROPIC_OAUTH_TOKEN / CLAUDE_OAUTH_TOKEN.
+  setEnv("ANTHROPIC_BASE_URL", undefined);
+  setEnv("ANTHROPIC_AUTH_METHOD", "api_key");
+
+  const { NeuroLink } = await import("../dist/index.js");
+
+  // ── Happy path ──────────────────────────────────────────────────────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.anthropic.com/v1/messages",
+          respond: {
+            status: 200,
+            json: anthropicMessageResponse("pong", model),
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const result = await nl.generate({
+          provider: "anthropic",
+          model,
+          input: { text: "ping" },
+          disableTools: true,
+        });
+
+        expect(calls.length > 0, "at least one fetch call captured");
+        const call = calls[0];
+        expect(
+          call.url.includes("api.anthropic.com/v1/messages"),
+          `URL contains 'api.anthropic.com/v1/messages' (got ${call.url})`,
+        );
+        expectEq(call.method, "POST", "request method");
+        expectEq(call.headers["x-api-key"], fakeKey, "x-api-key header");
+        expectEq(
+          call.headers["anthropic-version"],
+          "2023-06-01",
+          "anthropic-version header",
+        );
+        expect(
+          !("authorization" in call.headers),
+          "Authorization header must NOT be set (Anthropic uses x-api-key)",
+        );
+        const body = call.bodyJson as { model: string; messages: unknown[] };
+        expectEq(body.model, model, "body.model");
+        expect(Array.isArray(body.messages), "body.messages is array");
+
+        expect(
+          (result.content ?? "").toLowerCase().includes("pong"),
+          `response content includes 'pong' (got ${JSON.stringify(result.content?.slice(0, 100))})`,
+        );
+        record(results, `${section}: happy-path generate()`, true);
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: happy-path generate()`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── 401 → misclassifies to generic ProviderError. The auth branch only
+  // matches "API_KEY_INVALID" / "Invalid API key" substrings; the SDK's
+  // real 401 message is "401 <body message>", which matches neither.
+  // This test documents that gap rather than asserting AuthenticationError.
+  // ProviderError's base constructor also prepends "[anthropic] " to the
+  // formatted message, so we substring-match the classification-specific
+  // text rather than anchoring on the start of the string. ────────────────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.anthropic.com/v1/messages",
+          respond: {
+            status: 401,
+            json: {
+              type: "error",
+              error: {
+                type: "authentication_error",
+                message: "invalid x-api-key",
+              },
+            },
+          },
+        },
+      ],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        try {
+          await nl.generate({
+            provider: "anthropic",
+            model,
+            input: { text: "ping" },
+            disableTools: true,
+          });
+          record(
+            results,
+            `${section}: 401 → generic ProviderError (documented gap)`,
+            false,
+            "no error thrown",
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          record(
+            results,
+            `${section}: 401 → generic ProviderError (documented gap)`,
+            msg.includes("Anthropic error: 401"),
+            `msg='${msg.slice(0, 120)}'`,
+          );
+        }
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: 401 → generic ProviderError (documented gap)`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── 429 → correctly classifies via the "429" substring match. Retryable
+  // at the orchestration layer, so directProviderGeneration() wraps the
+  // final message once the single-provider retry budget exhausts —
+  // substring-match the classified inner text, not the wrapper. ─────────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.anthropic.com/v1/messages",
+          respond: {
+            status: 429,
+            json: {
+              type: "error",
+              error: { type: "rate_limit_error", message: "Rate limited" },
+            },
+          },
+        },
+      ],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        try {
+          await nl.generate({
+            provider: "anthropic",
+            model,
+            input: { text: "ping" },
+            disableTools: true,
+          });
+          record(
+            results,
+            `${section}: 429 → RateLimitError`,
+            false,
+            "no error thrown",
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          record(
+            results,
+            `${section}: 429 → RateLimitError`,
+            msg.includes(
+              "Anthropic rate limit exceeded. Please try again later.",
+            ),
+            `msg='${msg.slice(0, 120)}'`,
+          );
+        }
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: 429 → RateLimitError`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: Vertex (construction + formatProviderError contract only —
+// gaxios routes ADC token exchange through node-fetch, not globalThis.fetch,
+// so installMockFetch() cannot intercept it. This section verifies
+// provider construction plus the 403/429 branches of formatProviderError()
+// directly instead of a full request/response round trip)
+// ───────────────────────────────────────────────────────────────────────
+
+async function runVertexSection(): Promise<void> {
+  const section = "Vertex (construction + formatProviderError contract)";
+  console.log(`\n=== ${section} ===`);
+  console.log(
+    "  NOTE: Vertex's ADC token exchange goes through gaxios -> the " +
+      "node-fetch npm package directly, not globalThis.fetch, so " +
+      "installMockFetch() cannot intercept it. This section verifies " +
+      "provider construction plus the 403/429 branches of " +
+      "formatProviderError() directly instead of a full request/response " +
+      "round trip.",
+  );
+
+  setEnv(
+    "GOOGLE_SERVICE_ACCOUNT_KEY",
+    JSON.stringify({
+      type: "service_account",
+      project_id: "mock-project",
+      private_key:
+        "-----BEGIN PRIVATE KEY-----\nMOCK\n-----END PRIVATE KEY-----\n",
+      client_email: "mock@mock-project.iam.gserviceaccount.com",
+    }),
+  );
+  // GoogleVertexProvider's constructor writes GOOGLE_CLOUD_PROJECT /
+  // GOOGLE_CLOUD_LOCATION back onto process.env directly whenever the
+  // `credentials` param carries projectId/location (client.ts:830-836) —
+  // a side effect the constructor performs itself, not something this test
+  // sets. Snapshot both through setEnv() *before* constructing so
+  // restoreEnv() still puts the ambient values (real ones, in a dev shell
+  // with a .env) back afterward instead of leaking the mock ones.
+  setEnv("GOOGLE_CLOUD_PROJECT", process.env.GOOGLE_CLOUD_PROJECT);
+  setEnv("GOOGLE_CLOUD_LOCATION", process.env.GOOGLE_CLOUD_LOCATION);
+
+  try {
+    const { GoogleVertexProvider } =
+      await import("../dist/lib/providers/googleVertex/client.js");
+    const { AuthenticationError, RateLimitError } =
+      await import("../dist/lib/types/index.js");
+
+    const provider = new GoogleVertexProvider(
+      "gemini-2.5-flash",
+      "vertex",
+      undefined,
+      "us-central1",
+      { projectId: "mock-project", location: "us-central1" },
+    );
+    record(results, `${section}: constructs without throwing`, true);
+
+    const formatError = (
+      provider as unknown as {
+        formatProviderError(error: unknown): Error;
+      }
+    ).formatProviderError.bind(provider);
+
+    const authErr = formatError({
+      message: "403 PERMISSION_DENIED: caller does not have permission",
+    });
+    record(
+      results,
+      `${section}: 403 → AuthenticationError`,
+      authErr instanceof AuthenticationError,
+      `got ${authErr.constructor.name}`,
+    );
+
+    const rateErr = formatError({
+      message: '429 RESOURCE_EXHAUSTED: {"retryDelay":"12s"}',
+    });
+    record(
+      results,
+      `${section}: 429 → RateLimitError`,
+      rateErr instanceof RateLimitError,
+      `got ${rateErr.constructor.name}`,
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: setup`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: Bedrock (construction + formatProviderError contract only —
+// AWS SDK v3's @smithy/node-http-handler uses native Node http(s), not
+// globalThis.fetch, so installMockFetch() cannot intercept it)
+// ───────────────────────────────────────────────────────────────────────
+
+async function runBedrockSection(): Promise<void> {
+  const section = "Bedrock (construction + formatProviderError contract)";
+  console.log(`\n=== ${section} ===`);
+  console.log(
+    "  NOTE: AWS SDK v3's @smithy/node-http-handler uses native Node " +
+      "http/http2/https, not globalThis.fetch, so installMockFetch() " +
+      "cannot intercept it. This section verifies provider construction " +
+      "plus the AccessDeniedException/ThrottlingException branches of " +
+      "formatProviderError() directly instead of a full request/response " +
+      "round trip.",
+  );
+
+  try {
+    const { AmazonBedrockProvider } =
+      await import("../dist/lib/providers/amazonBedrock/client.js");
+    const { AuthenticationError, RateLimitError } =
+      await import("../dist/lib/types/index.js");
+
+    const provider = new AmazonBedrockProvider(
+      "anthropic.claude-3-5-sonnet-20241022-v2:0",
+      undefined,
+      "us-east-1",
+      { accessKeyId: "MOCKACCESSKEYID", secretAccessKey: "mock-secret" },
+    );
+    record(results, `${section}: constructs without throwing`, true);
+
+    const formatError = (
+      provider as unknown as {
+        formatProviderError(error: unknown): Error;
+      }
+    ).formatProviderError.bind(provider);
+
+    const authErr = formatError(
+      new Error(
+        "AccessDeniedException: User is not authorized to perform this action",
+      ),
+    );
+    record(
+      results,
+      `${section}: AccessDeniedException → AuthenticationError`,
+      authErr instanceof AuthenticationError,
+      `got ${authErr.constructor.name}`,
+    );
+
+    const throttleErr = formatError(
+      Object.assign(new Error("Rate exceeded"), {
+        name: "ThrottlingException",
+      }),
+    );
+    record(
+      results,
+      `${section}: ThrottlingException → RateLimitError`,
+      throttleErr instanceof RateLimitError,
+      `got ${throttleErr.constructor.name}`,
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: setup`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Section: main
 // ───────────────────────────────────────────────────────────────────────
 
@@ -1187,6 +1931,11 @@ async function main(): Promise<void> {
     await runReplicateLLMSection();
     await runEmbeddingsSection();
     await runImageGenSection();
+    await runOpenAISection();
+    await runAzureSection();
+    await runAnthropicSection();
+    await runVertexSection();
+    await runBedrockSection();
   } finally {
     restoreEnv();
   }

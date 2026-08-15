@@ -624,16 +624,6 @@ export function getMaxOutputTokens(model: string): number {
 }
 
 /**
- * Check if a model supports vision/image input
- *
- * @param model - The model ID
- * @returns true if the model supports vision
- */
-export function supportsVision(model: string): boolean {
-  return MODEL_METADATA[model]?.supportsVision ?? false;
-}
-
-/**
  * Check if a model supports extended thinking
  *
  * @param model - The model ID

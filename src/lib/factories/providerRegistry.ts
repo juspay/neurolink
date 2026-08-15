@@ -244,14 +244,14 @@ export class ProviderRegistry {
         async (
           modelName?: string,
           _providerName?: string,
-          _sdk?: NeuroLink,
-          _region?: string,
+          sdk?: NeuroLink,
+          region?: string,
           credentials?: UnknownRecord,
         ) => {
           const hfCreds = credentials as NeurolinkCredentials["huggingFace"];
           const { HuggingFaceProvider } =
             await import("../providers/huggingFace/index.js");
-          return new HuggingFaceProvider(modelName, undefined, hfCreds);
+          return new HuggingFaceProvider(modelName, sdk, region, hfCreds);
         },
         process.env.HUGGINGFACE_MODEL ||
           HuggingFaceModels.QWEN_2_5_72B_INSTRUCT,

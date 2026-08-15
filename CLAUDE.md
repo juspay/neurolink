@@ -159,8 +159,9 @@ User input (text + files)
 | `src/lib/mcp/mcpClientFactory.ts`                  | Creates MCP clients for all transport types                        |
 | `src/lib/processors/registry/ProcessorRegistry.ts` | Selects file processor by MIME type + priority                     |
 | `src/lib/types/index.ts`                           | Main type exports (start here for any type lookup)                 |
-| `src/lib/types/providers.ts`                       | `AIProvider` interface, `AIProviderName` enum                      |
+| `src/lib/types/providers.ts`                       | `AIProvider` type                                                  |
 | `src/lib/types/mcp.ts`                             | `MCPTransportType` and MCP config types                            |
+| `src/lib/constants/enums.ts`                       | `AIProviderName` enum                                              |
 | `src/lib/constants/contextWindows.ts`              | Per-provider, per-model context window sizes                       |
 | `src/lib/context/contextCompactor.ts`              | Multi-stage context reduction orchestrator                         |
 | `src/lib/context/budgetChecker.ts`                 | Pre-call budget validation                                         |
@@ -263,7 +264,7 @@ confirming it reports `✗` and exits non-zero rather than `⊘`.
 ### Adding a New Provider
 
 1. Create `src/lib/providers/yourProvider.ts` — extend `BaseProvider`
-2. Add name to `AIProviderName` enum in `src/lib/types/providers.ts`
+2. Add name to `AIProviderName` enum in `src/lib/constants/enums.ts`
 3. Add model constants to `src/lib/models/`
 4. Register in `ProviderRegistry.registerAllProviders()` using a dynamic import:
 

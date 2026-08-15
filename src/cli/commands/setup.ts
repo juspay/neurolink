@@ -22,7 +22,29 @@ import { handleBedrockSetup } from "./setup-bedrock.js";
 import { handleGCPSetup } from "./setup-gcp.js";
 import { handleHuggingFaceSetup } from "./setup-huggingface.js";
 import { handleMistralSetup } from "./setup-mistral.js";
-import type { SetupArgs, SetupProviderInfo } from "../../lib/types/index.js";
+import type {
+  ProviderConfigOptions,
+  SetupArgs,
+  SetupProviderInfo,
+} from "../../lib/types/index.js";
+import {
+  createCloudflareConfig,
+  createCohereConfig,
+  createDeepSeekConfig,
+  createFireworksConfig,
+  createGroqConfig,
+  createIdeogramConfig,
+  createJinaConfig,
+  createNvidiaNimConfig,
+  createOpenAICompatibleConfig,
+  createPerplexityConfig,
+  createRecraftConfig,
+  createReplicateConfig,
+  createStabilityConfig,
+  createTogetherAIConfig,
+  createVoyageConfig,
+  createXaiConfig,
+} from "../../lib/utils/providerConfig.js";
 
 // Provider information database
 const PROVIDERS: SetupProviderInfo[] = [
@@ -144,6 +166,154 @@ const PROVIDERS: SetupProviderInfo[] = [
     setupCommand: "neurolink setup --provider openrouter",
   },
 ];
+
+/**
+ * ProviderConfigOptions for the 21 canonical AIProviderName values the
+ * interactive wizard above doesn't have a bespoke handleXSetup() for. 16
+ * reuse the existing createXConfig() factories in providerConfig.ts; the
+ * remaining 5 (ollama, litellm, sagemaker, lm-studio, llamacpp) don't have a
+ * factory and are defined inline using their real env var names. lm-studio
+ * and llamacpp previously had createLmStudioConfig()/createLlamaCppConfig()
+ * factories, but those were removed as dead code in a later cleanup — this
+ * mirrors that removal rather than re-adding them.
+ */
+export const EXTRA_PROVIDER_CONFIGS: Record<string, ProviderConfigOptions> = {
+  "openai-compatible": createOpenAICompatibleConfig(),
+  deepseek: createDeepSeekConfig(),
+  "nvidia-nim": createNvidiaNimConfig(),
+  xai: createXaiConfig(),
+  groq: createGroqConfig(),
+  cohere: createCohereConfig(),
+  replicate: createReplicateConfig(),
+  "together-ai": createTogetherAIConfig(),
+  fireworks: createFireworksConfig(),
+  perplexity: createPerplexityConfig(),
+  voyage: createVoyageConfig(),
+  jina: createJinaConfig(),
+  stability: createStabilityConfig(),
+  ideogram: createIdeogramConfig(),
+  recraft: createRecraftConfig(),
+  cloudflare: createCloudflareConfig(),
+  ollama: {
+    providerName: "Ollama",
+    envVarName: "OLLAMA_BASE_URL",
+    setupUrl: "https://ollama.com/download",
+    description:
+      "Run open-source models locally via Ollama's OpenAI-compatible API.",
+    instructions: [
+      "Install Ollama from https://ollama.com/download",
+      "Pull a model: ollama pull llama3.1",
+      "Ollama serves its API at http://localhost:11434 by default — set OLLAMA_BASE_URL only to override.",
+      "Optionally set OLLAMA_MODEL to choose the default model.",
+    ],
+    optional: true,
+  },
+  litellm: {
+    providerName: "LiteLLM",
+    envVarName: "LITELLM_API_KEY",
+    setupUrl: "https://docs.litellm.ai/docs/simple_proxy",
+    description:
+      "Route through a LiteLLM proxy server for unified access to 100+ upstream providers.",
+    instructions: [
+      "Start a LiteLLM proxy server (see https://docs.litellm.ai/docs/simple_proxy).",
+      "Set LITELLM_BASE_URL to the proxy's URL (defaults to http://localhost:4000).",
+      "Set LITELLM_API_KEY to the proxy's virtual key (defaults to a permissive placeholder for local proxies without auth).",
+    ],
+    fallbackEnvVars: ["LITELLM_BASE_URL"],
+    optional: true,
+  },
+  sagemaker: {
+    providerName: "Amazon SageMaker",
+    envVarName: "SAGEMAKER_ENDPOINT_NAME",
+    setupUrl:
+      "https://docs.aws.amazon.com/sagemaker/latest/dg/realtime-endpoints.html",
+    description:
+      "Invoke a self-hosted model on an Amazon SageMaker real-time inference endpoint.",
+    instructions: [
+      "Deploy a model to a SageMaker real-time endpoint (see AWS docs above).",
+      "Set SAGEMAKER_ENDPOINT_NAME to the deployed endpoint's name.",
+      "Set SAGEMAKER_REGION to the AWS region hosting the endpoint.",
+      "Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (or use an AWS credential provider chain) for authentication.",
+    ],
+    fallbackEnvVars: [
+      "SAGEMAKER_REGION",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SECRET_ACCESS_KEY",
+    ],
+    optional: false,
+  },
+  "lm-studio": {
+    providerName: "LM Studio",
+    envVarName: "LM_STUDIO_BASE_URL",
+    setupUrl: "https://lmstudio.ai/",
+    description:
+      "Run open-source models locally via LM Studio's OpenAI-compatible API.",
+    instructions: [
+      "Install LM Studio from https://lmstudio.ai/",
+      'Load a model in the LM Studio app and click "Start Server".',
+      "LM Studio serves its API at http://localhost:1234/v1 by default — set LM_STUDIO_BASE_URL only to override.",
+      "Optionally set LM_STUDIO_API_KEY if running behind an auth-proxying reverse proxy.",
+      "Optionally set LM_STUDIO_MODEL to choose the default model.",
+    ],
+    fallbackEnvVars: ["LM_STUDIO_API_KEY", "LM_STUDIO_MODEL"],
+    optional: true,
+  },
+  llamacpp: {
+    providerName: "llama.cpp",
+    envVarName: "LLAMACPP_BASE_URL",
+    setupUrl: "https://github.com/ggerganov/llama.cpp",
+    description:
+      "Run a self-hosted GGUF model locally via llama.cpp's OpenAI-compatible llama-server.",
+    instructions: [
+      "Build or install llama.cpp from https://github.com/ggerganov/llama.cpp",
+      "Start the server: ./llama-server -m model.gguf --port 8080",
+      "llama-server serves its API at http://localhost:8080/v1 by default — set LLAMACPP_BASE_URL only to override.",
+      "Optionally set LLAMACPP_API_KEY if running behind an auth-proxying reverse proxy.",
+      "Optionally set LLAMACPP_MODEL to choose the default model.",
+    ],
+    fallbackEnvVars: ["LLAMACPP_API_KEY", "LLAMACPP_MODEL"],
+    optional: true,
+  },
+};
+
+/**
+ * Generic, data-driven setup printout for providers without a bespoke
+ * interactive handler — reads directly from a ProviderConfigOptions entry.
+ */
+function printGenericProviderSetup(
+  providerId: string,
+  config: ProviderConfigOptions,
+): void {
+  logger.always("");
+  logger.always(chalk.blue(`🔧 ${config.providerName} Setup`));
+  logger.always("");
+  logger.always(config.description);
+  logger.always("");
+  logger.always(chalk.yellow("Setup steps:"));
+  config.instructions.forEach((step, index) => {
+    logger.always(`  ${index + 1}. ${step}`);
+  });
+  logger.always("");
+  logger.always(chalk.yellow("Environment variable:"));
+  const optionalNote = config.optional
+    ? " (optional — has a working local default)"
+    : "";
+  logger.always(
+    chalk.cyan(`  export ${config.envVarName}=your_value_here${optionalNote}`),
+  );
+  if (config.fallbackEnvVars?.length) {
+    logger.always(
+      chalk.cyan(`  Also relevant: ${config.fallbackEnvVars.join(", ")}`),
+    );
+  }
+  logger.always("");
+  logger.always(chalk.yellow("Test the configuration:"));
+  logger.always(
+    chalk.cyan(`  neurolink generate "Hello!" --provider ${providerId}`),
+  );
+  logger.always("");
+  logger.always(chalk.gray(`Docs: ${config.setupUrl}`));
+}
 
 /**
  * Main setup command handler
@@ -457,7 +627,9 @@ async function runProviderSelection(): Promise<void> {
 /**
  * Delegate to existing provider setup commands
  */
-async function delegateToProviderSetup(providerId: string): Promise<void> {
+export async function delegateToProviderSetup(
+  providerId: string,
+): Promise<void> {
   const setupArgs = {
     nonInteractive: false,
     "non-interactive": false,
@@ -494,8 +666,14 @@ async function delegateToProviderSetup(providerId: string): Promise<void> {
     case "openrouter":
       await handleOpenRouterSetup();
       break;
-    default:
-      throw new Error(`Unknown provider: ${providerId}`);
+    default: {
+      const genericConfig = EXTRA_PROVIDER_CONFIGS[providerId];
+      if (!genericConfig) {
+        throw new Error(`Unknown provider: ${providerId}`);
+      }
+      printGenericProviderSetup(providerId, genericConfig);
+      break;
+    }
   }
 
   // After successful setup, show completion message

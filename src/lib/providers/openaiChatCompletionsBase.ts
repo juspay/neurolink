@@ -64,6 +64,7 @@ import type {
   ZodUnknownSchema,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { redactUrlCredentials } from "../utils/logSanitize.js";
 import { NoOutputGeneratedError } from "../utils/generationErrors.js";
 import {
   buildNoOutputSentinel,
@@ -413,6 +414,44 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       typeof this.config.apiKey === "string" &&
       this.config.apiKey.trim().length > 0
     );
+  }
+
+  /**
+   * Shared local-runtime reachability probe: GET `${baseURL}/models` with a
+   * short timeout, requiring at least one model entry with a non-empty id.
+   * Local providers (Ollama, LM Studio, llama.cpp) call this from their own
+   * validateConfiguration() override instead of relying on the base class's
+   * "apiKey is a non-empty string" default, which can't detect an
+   * unreachable local server.
+   */
+  protected async probeModelsEndpoint(
+    headers: Record<string, string> = {},
+  ): Promise<boolean> {
+    try {
+      const url = `${stripTrailingSlash(this.config.baseURL)}/models`;
+      const proxyFetch = createProxyFetch();
+      const response = await proxyFetch(url, {
+        headers: { ...headers, "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!response.ok) {
+        return false;
+      }
+      const data = (await response
+        .json()
+        .catch(() => null)) as ModelsResponse | null;
+      return Boolean(
+        data?.data?.some(
+          (m) => typeof m?.id === "string" && m.id.trim().length > 0,
+        ),
+      );
+    } catch (error) {
+      logger.debug(`[${this.constructor.name}] probeModelsEndpoint failed`, {
+        baseURL: redactUrlCredentials(this.config.baseURL),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
   }
 
   /**

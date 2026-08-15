@@ -1,7 +1,7 @@
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { directAgentTools } from "../agent/directTools.js";
 import type { AIProviderName } from "../constants/enums.js";
-import { IMAGE_GENERATION_MODELS } from "../core/constants.js";
+import { isImageGenerationModel } from "../core/constants.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
 import { modelSupports } from "../models/modelRegistry.js";
@@ -355,9 +355,7 @@ export abstract class BaseProvider implements AIProvider {
     // Skip this path when the caller explicitly requests non-image output (e.g.
     // JSON analysis) so dual-mode models like gemini-3.1-flash-image-preview
     // can still perform text/structured generation.
-    const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
-      this.modelName.includes(m),
-    );
+    const isImageModel = isImageGenerationModel(this.modelName);
     const requestsNonImageOutput =
       options.output?.format === "json" ||
       options.output?.format === "structured" ||
@@ -1368,9 +1366,7 @@ export abstract class BaseProvider implements AIProvider {
         return await this.handleVideoGeneration(options, startTime);
       }
 
-      const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
-        this.modelName.includes(m),
-      );
+      const isImageModel = isImageGenerationModel(this.modelName);
       const requestsNonImageOutput =
         options.output?.format === "json" ||
         options.output?.format === "structured" ||

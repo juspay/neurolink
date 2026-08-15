@@ -41,6 +41,7 @@ export class HuggingFaceProvider extends OpenAIChatCompletionsProvider {
   constructor(
     modelName?: string,
     sdk?: unknown,
+    _region?: string,
     credentials?: NeurolinkCredentials["huggingFace"],
   ) {
     const apiKey = credentials?.apiKey?.trim()

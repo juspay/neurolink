@@ -366,8 +366,8 @@ export class GenerationHandler {
     // JSON Schema to the provider instead: it appends an additive
     // `final_result` tool and returns the answer as that tool's arguments,
     // keeping the real tools callable. Bedrock is deliberately excluded — it
-    // runs on the third-party @ai-sdk/amazon-bedrock model, which has no such
-    // handling.
+    // talks to the raw AWS SDK directly, not an ai-sdk provider package, and
+    // has no such handling.
     const finalResultSchema =
       this.providerName === "anthropic" &&
       !!options.schema &&

@@ -277,5 +277,3 @@ export class VoyageProvider extends BaseProvider {
     };
   }
 }
-
-export default VoyageProvider;

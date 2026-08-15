@@ -9,10 +9,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [20]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,10 +18,10 @@ jobs:
         with:
           version: 10.15.1
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: "20"
           cache: "pnpm"
 
       - name: Install ffmpeg
@@ -82,6 +78,40 @@ jobs:
         run: |
           pnpm run build:cli
           node dist/cli/index.js --help
+
+  provider-safety-net:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: 🔄 SvelteKit Sync
+        run: |
+          echo "🔄 Running SvelteKit sync to generate TypeScript configs..."
+          pnpm exec svelte-kit sync
+
+      - name: Build package
+        run: pnpm run build
+
+      - name: Mocked provider contract tests (no API keys required)
+        run: pnpm run test:providers-mocked
+
+      - name: Provider structure tests (registry ↔ filesystem, no API keys required)
+        run: pnpm run test:provider-structure
 
   # action-smoke-test:
   #   name: GitHub Action Smoke Test
@@ -297,12 +327,6 @@ jobs:
         run: |
           echo "📈 Running TypeScript compiler strict checks on source files..."
           npx tsc --noEmit --strict --project tsconfig.json
-
-      - name: 🎯 Test Suite Validation
-        run: |
-          echo "🎯 Continuous test suites are run separately with API keys"
-          echo "Skipping automated test execution in CI"
-        continue-on-error: true
 
       - name: 📋 Quality Summary
         run: |

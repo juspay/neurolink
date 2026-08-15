@@ -31,7 +31,8 @@ const getDefaultPerplexityModel = (): string =>
  *
  * Sonar models with built-in web grounding. OpenAI-compatible chat
  * completions at api.perplexity.ai. Best for queries that need fresh
- * web context (search-augmented answers + citations).
+ * web context (search-augmented answers). Citation data, if the API returns
+ * any, is not extracted or exposed by this provider.
  *
  * All request/stream/tool-loop orchestration lives in
  * `OpenAIChatCompletionsProvider`; this class only declares configuration
