@@ -45,6 +45,7 @@ import type {
   PersistedAccountCooldown,
   ProxyGuardArgs,
   ProxyHealthProbe,
+  ProxyLogCleanupScheduler,
   ProxyNeurolinkRuntime,
   ProxySpinner,
   ProxyStartApp,
@@ -65,6 +66,7 @@ import type {
 import type { NeuroLink } from "../../lib/neurolink.js";
 import { configureProxyKeepAliveDispatcher } from "../../lib/proxy/proxyDispatcher.js";
 import { ProxyRuntimeConfigStore } from "../../lib/proxy/runtimeConfig.js";
+import { startProxyLogCleanupScheduler } from "../../lib/proxy/logCleanupScheduler.js";
 import {
   anthropicAccountKeysEqual,
   createAccountAllowlist,
@@ -1572,13 +1574,15 @@ async function createProxyNeurolinkRuntime(logsDir?: string) {
 
   const { NeuroLink } = await import("../../lib/neurolink.js");
   const neurolink = new NeuroLink();
-  const { initRequestLogger, cleanupLogs } =
+  const { initRequestLogger } =
     await import("../../lib/proxy/requestLogger.js");
 
   initRequestLogger(true, logsDir);
-  cleanupLogs(7, 500);
 
-  return { neurolink, cleanupLogs };
+  return {
+    neurolink,
+    logsDir: logsDir ?? join(homedir(), ".neurolink", "logs"),
+  };
 }
 
 function registerProxyRequestTracking(
@@ -2764,11 +2768,11 @@ async function refreshProxyTokensInBackground(
 }
 
 function startProxyBackgroundMaintenance(
-  cleanupLogs: (days: number, maxMb: number) => void,
+  logsDir: string,
   getAccountAllowlist: () => AccountAllowlist | undefined,
 ): {
   refreshInterval: NodeJS.Timeout;
-  logCleanupInterval: NodeJS.Timeout;
+  logCleanupScheduler: ProxyLogCleanupScheduler;
 } {
   const refreshInterval = setInterval(() => {
     if (backgroundRefreshInProgress) {
@@ -2785,19 +2789,8 @@ function startProxyBackgroundMaintenance(
         backgroundRefreshInProgress = false;
       });
   }, 30_000);
-  const logCleanupInterval = setInterval(
-    () => {
-      try {
-        cleanupLogs(7, 500);
-      } catch (error) {
-        logger.debug(
-          `[proxy] background log cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-    },
-    60 * 60 * 1000,
-  );
-  return { refreshInterval, logCleanupInterval };
+  const logCleanupScheduler = startProxyLogCleanupScheduler({ logsDir });
+  return { refreshInterval, logCleanupScheduler };
 }
 
 function registerProxyShutdownHandlers(params: {
@@ -2806,7 +2799,7 @@ function registerProxyShutdownHandlers(params: {
   port: number;
   isDev?: boolean;
   refreshInterval: NodeJS.Timeout;
-  logCleanupInterval: NodeJS.Timeout;
+  logCleanupScheduler: ProxyLogCleanupScheduler;
   updaterSupervisor?: { stop: () => void };
   stopRuntimeConfig?: () => void;
   registerSignals?: boolean;
@@ -2854,7 +2847,7 @@ function registerProxyShutdownHandlers(params: {
     }
     shutdownStarted = true;
     clearInterval(params.refreshInterval);
-    clearInterval(params.logCleanupInterval);
+    await params.logCleanupScheduler.stop();
     params.updaterSupervisor?.stop();
     params.stopRuntimeConfig?.();
     logger.always(`\nShutting down proxy (${signal})...`);
@@ -2989,7 +2982,7 @@ async function startProxyRuntime(params: {
   accountAllowlist: AccountAllowlist | undefined;
   loadedEnvFile: string | undefined;
   passthrough: boolean;
-  cleanupLogs: ProxyNeurolinkRuntime["cleanupLogs"];
+  logsDir: ProxyNeurolinkRuntime["logsDir"];
   runtimeConfigStore?: ProxyRuntimeConfigStore;
 }): Promise<void> {
   const socketWorker = isProxySocketWorkerProcess();
@@ -3251,7 +3244,7 @@ async function startProxyRuntime(params: {
     );
   }
 
-  const maintenance = startProxyBackgroundMaintenance(params.cleanupLogs, () =>
+  const maintenance = startProxyBackgroundMaintenance(params.logsDir, () =>
     params.runtimeConfigStore
       ? params.runtimeConfigStore.getSnapshot().accountAllowlist
       : params.accountAllowlist,
@@ -3495,7 +3488,7 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
     // content-filters. Runs once, after env load so it can be tuned via env.
     configureProxyKeepAliveDispatcher();
 
-    const { neurolink, cleanupLogs } = await createProxyNeurolinkRuntime(
+    const { neurolink, logsDir } = await createProxyNeurolinkRuntime(
       devPaths?.logsDir,
     );
     const configPath = argv.config
@@ -3560,7 +3553,7 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       accountAllowlist,
       loadedEnvFile,
       passthrough,
-      cleanupLogs,
+      logsDir,
       runtimeConfigStore,
     });
   } catch (error) {

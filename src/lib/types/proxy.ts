@@ -767,7 +767,7 @@ export type LoadedClaudeAccountContext = {
 export type AnthropicSuccessResult =
   | {
       retryNextAccount: true;
-      failure?: { message: string; rateLimit: boolean };
+      failure?: { message: string; rateLimit: boolean; retryDelayMs?: number };
     }
   | { response: Response | unknown; holdsAccountAdmission?: boolean };
 
@@ -818,6 +818,8 @@ export type AnthropicAuthRetryResult = {
   response?: Response | unknown;
   holdsAccountAdmission?: boolean;
   continueLoop: boolean;
+  /** Failure-path pacing before rotating after provider-wide overload. */
+  retryDelayMs?: number;
   lastError: unknown;
   authFailureMessage: string | null;
   sawRateLimit: boolean;
@@ -830,6 +832,8 @@ export type AnthropicNonOkResult = {
   response?: Response | unknown;
   continueLoop: boolean;
   retrySameAccount?: boolean;
+  /** Failure-path pacing before rotating after provider-wide overload. */
+  retryDelayMs?: number;
   lastError: unknown;
   authFailureMessage: string | null;
   sawTransientFailure: boolean;
@@ -1718,6 +1722,9 @@ export type ProxyAnalysisReport = {
     attemptLatency: boolean;
     cacheUsage: boolean;
     routingDecisions: boolean;
+    /** True only when every stream needed for cross-stream request/attempt
+     * reconciliation begins at or before the requested analysis window. */
+    comparableRequestAttempts: boolean;
   };
   dataQuality: {
     linesRead: number;
@@ -1731,6 +1738,8 @@ export type ProxyAnalysisReport = {
         observedFrom: string | null;
         observedTo: string | null;
         startsAtOrBeforeRequestedWindow: boolean;
+        /** Whether this stream can support claims covering the full window. */
+        completeWindow: boolean;
       }
     >;
     bodyArtifacts: {
@@ -2420,6 +2429,15 @@ export type RollingWorkerFailureDetails = {
   supervisorAction?: "none" | "sigkill_after_transfer_failure";
 };
 
+export type RollingWorkerSupervisorEvent = {
+  at: string;
+  type: "activated" | "failure" | "failed_transfer" | "rejected_socket";
+  generation: number | null;
+  version: string | null;
+  phase?: "startup" | "activation" | "runtime" | "transfer";
+  reason?: string;
+};
+
 export type RollingWorkerSupervisorSnapshot = {
   generation: number;
   active: { pid: number; version: string; generation: number } | null;
@@ -2432,6 +2450,8 @@ export type RollingWorkerSupervisorSnapshot = {
   queuedSockets: number;
   rejectedSockets: number;
   failedTransfers: number;
+  /** Bounded generation-scoped evidence for attributing lifetime counters. */
+  recentEvents: RollingWorkerSupervisorEvent[];
   lastFailure:
     | ({
         at: string;
@@ -2701,7 +2721,20 @@ export type ProxyNeurolinkRuntime = {
   neurolink: {
     getToolRegistry(): MCPToolRegistry;
   };
-  cleanupLogs: (daysToKeep?: number, maxFiles?: number) => void;
+  logsDir: string;
+};
+
+/** Data passed to the isolated proxy log-retention worker. */
+export type ProxyLogCleanupWorkerData = {
+  logsDir: string;
+  maxAgeDays: number;
+  maxSizeMb: number;
+};
+
+/** Lifecycle handle for non-blocking proxy log retention. */
+export type ProxyLogCleanupScheduler = {
+  trigger: () => boolean;
+  stop: () => Promise<void>;
 };
 
 /** Hono app + readiness state created by the proxy start command. */

@@ -21,6 +21,28 @@ import * as os from "os";
 import * as path from "path";
 import { fileURLToPath } from "url";
 
+// This suite starts a real proxy process. Isolate every path before any proxy
+// module or CLI child can resolve the operator's home directory.
+const TEST_HOME = fs.mkdtempSync(
+  path.join(os.tmpdir(), "neurolink-proxy-e2e-home-"),
+);
+process.env.HOME = TEST_HOME;
+process.env.USERPROFILE = TEST_HOME;
+process.env.XDG_CONFIG_HOME = path.join(TEST_HOME, ".config");
+process.env.NEUROLINK_PROXY_TEST_ISOLATED = "1";
+const LIVE_PROXY_TESTS_ALLOWED =
+  process.env.NEUROLINK_PROXY_TEST_ALLOW_LIVE === "1";
+if (!LIVE_PROXY_TESTS_ALLOWED) {
+  for (const variable of [
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "OPENAI_API_KEY",
+    "GOOGLE_API_KEY",
+  ]) {
+    delete process.env[variable];
+  }
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -91,98 +113,24 @@ const LAUNCHD_GUARD_MARKERS = [
 
 /**
  * Anthropic model used for the proxy round-trip tests.
- * Reviewer follow-up: previously hardcoded `claude-sonnet-4-20250514` in
- * every request; now matches the rest of the suite by reading
- * `ANTHROPIC_MODEL` (config-parser fixtures at the bottom of the file
- * stay literal because they assert on the YAML they emitted).
+ * The default must remain a currently supported model. An explicit override is
+ * accepted only for an operator-authorized live test run.
  */
-const PROXY_TEST_MODEL =
-  process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
+const PROXY_TEST_MODEL = LIVE_PROXY_TESTS_ALLOWED
+  ? process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6"
+  : "claude-sonnet-4-6";
 
-// State file management: the proxy CLI uses a single global state file to
-// prevent multiple instances.  We back it up before our test run and restore
-// it afterwards so an already-running proxy on a different port is unaffected.
+// These paths are inside TEST_HOME. They can never refer to the installed proxy.
 const PROXY_STATE_PATH = path.join(
   os.homedir(),
   ".neurolink",
   "proxy-state.json",
 );
-let savedProxyState: string | null = null;
-let proxyStateExisted = false;
-
-function backupAndClearProxyState(): void {
-  try {
-    savedProxyState = fs.readFileSync(PROXY_STATE_PATH, "utf8");
-    proxyStateExisted = true;
-    fs.unlinkSync(PROXY_STATE_PATH);
-    log("Backed up and cleared existing proxy-state.json", "cyan");
-  } catch {
-    savedProxyState = null; // file did not exist
-    proxyStateExisted = false;
-  }
-}
-
-function restoreProxyState(): void {
-  if (proxyStateExisted && savedProxyState !== null) {
-    try {
-      fs.writeFileSync(PROXY_STATE_PATH, savedProxyState);
-      log("Restored original proxy-state.json", "cyan");
-    } catch {
-      /* best effort */
-    }
-  } else {
-    // File did not exist before tests — remove any file created during tests
-    try {
-      if (fs.existsSync(PROXY_STATE_PATH)) {
-        fs.unlinkSync(PROXY_STATE_PATH);
-        log("Removed proxy-state.json created during tests", "cyan");
-      }
-    } catch {
-      /* best effort */
-    }
-  }
-}
-
-// Claude Code settings backup: the proxy auto-writes ANTHROPIC_BASE_URL into
-// ~/.claude/settings.json.  We snapshot it before the test and restore after.
 const CLAUDE_SETTINGS_PATH = path.join(
   os.homedir(),
   ".claude",
   "settings.json",
 );
-let savedClaudeSettings: string | null = null;
-let claudeSettingsExisted = false;
-
-function backupClaudeSettings(): void {
-  try {
-    savedClaudeSettings = fs.readFileSync(CLAUDE_SETTINGS_PATH, "utf8");
-    claudeSettingsExisted = true;
-  } catch {
-    savedClaudeSettings = null;
-    claudeSettingsExisted = false;
-  }
-}
-
-function restoreClaudeSettings(): void {
-  if (claudeSettingsExisted && savedClaudeSettings !== null) {
-    try {
-      fs.writeFileSync(CLAUDE_SETTINGS_PATH, savedClaudeSettings);
-      log("Restored original Claude settings.json", "cyan");
-    } catch {
-      /* best effort */
-    }
-  } else {
-    // File did not exist before tests — remove any file created during tests
-    try {
-      if (fs.existsSync(CLAUDE_SETTINGS_PATH)) {
-        fs.unlinkSync(CLAUDE_SETTINGS_PATH);
-        log("Removed settings.json created during tests", "cyan");
-      }
-    } catch {
-      /* best effort */
-    }
-  }
-}
 
 /**
  * Start the proxy server as a child process.
@@ -195,11 +143,8 @@ async function startProxy(): Promise<boolean> {
     return false;
   }
 
-  // Remove stale state file so the CLI does not refuse to start
-  backupAndClearProxyState();
-
-  // Backup Claude Code settings (proxy auto-configures ANTHROPIC_BASE_URL)
-  backupClaudeSettings();
+  fs.mkdirSync(path.dirname(PROXY_STATE_PATH), { recursive: true });
+  fs.mkdirSync(path.dirname(CLAUDE_SETTINGS_PATH), { recursive: true });
 
   return new Promise<boolean>((resolve) => {
     proxyProcess = spawn(
@@ -378,6 +323,9 @@ const claudeHeaders: Record<string, string> = {
  * Returns true if credentials exist; false if they should be skipped.
  */
 function hasValidCredentials(): boolean {
+  if (!LIVE_PROXY_TESTS_ALLOWED) {
+    return false;
+  }
   // 1. Check TokenStore compound keys (tokenStore is async, use file check)
   //    The actual file used by TokenStore is "tokens.json" (not "token-store.json").
   const tokenStorePath = path.join(os.homedir(), ".neurolink", "tokens.json");
@@ -557,31 +505,40 @@ async function testProxyModelsEndpoint(): Promise<boolean | null> {
       return false;
     }
     const body = (await resp.json()) as {
-      object?: string;
       data?: Array<{
         id?: string;
-        object?: string;
-        created?: number;
-        owned_by?: string;
+        type?: string;
+        display_name?: string;
+        created_at?: string;
       }>;
+      first_id?: string | null;
+      last_id?: string | null;
+      has_more?: boolean;
     };
 
-    if (body.object !== "list") {
-      log(`Expected object="list", got "${body.object}"`, "red");
-      return false;
-    }
     if (!Array.isArray(body.data) || body.data.length === 0) {
       log("Expected non-empty data array", "red");
       return false;
     }
+    if (
+      typeof body.first_id !== "string" ||
+      typeof body.last_id !== "string" ||
+      typeof body.has_more !== "boolean"
+    ) {
+      log(
+        `Model pagination has incorrect shape: ${JSON.stringify(body)}`,
+        "red",
+      );
+      return false;
+    }
 
-    // Validate shape of each model entry
+    // This is the Anthropic-compatible route, not the OpenAI list schema.
     for (const model of body.data) {
       if (
         typeof model.id !== "string" ||
-        typeof model.object !== "string" ||
-        typeof model.created !== "number" ||
-        typeof model.owned_by !== "string"
+        model.type !== "model" ||
+        typeof model.display_name !== "string" ||
+        typeof model.created_at !== "string"
       ) {
         log(`Model entry has incorrect shape: ${JSON.stringify(model)}`, "red");
         return false;
@@ -1299,7 +1256,7 @@ async function testProxyConfigLoading(): Promise<boolean | null> {
 routing:
   modelMappings:
     - from: "test-model-*"
-      to: "claude-sonnet-4-20250514"
+      to: "claude-sonnet-4-6"
       provider: "anthropic"
   passthroughModels:
     - "claude-*"
@@ -1322,7 +1279,7 @@ routing:
       parsed.routing?.modelMappings &&
       parsed.routing.modelMappings.length > 0 &&
       parsed.routing.modelMappings[0].from === "test-model-*" &&
-      parsed.routing.modelMappings[0].to === "claude-sonnet-4-20250514";
+      parsed.routing.modelMappings[0].to === "claude-sonnet-4-6";
     const hasPassthrough =
       parsed.routing?.passthroughModels &&
       parsed.routing.passthroughModels.includes("claude-*");
@@ -1658,14 +1615,21 @@ async function testOrderAccountsByQuota(): Promise<boolean | null> {
   // a: weekly resets in 3d ; b: weekly resets in 8h (soonest) ; c: session
   // rejected (cooling until +2h). Expect: b (soonest weekly) → a → c (unusable).
   __testHooks.setAccountRuntimeState("anthropic:a", {
-    quota: makeQuota({ weeklyResetAt: nowSec + 3 * 24 * 3600 }) as never,
+    quota: makeQuota({
+      lastUpdated: now,
+      weeklyResetAt: nowSec + 3 * 24 * 3600,
+    }) as never,
   });
   __testHooks.setAccountRuntimeState("anthropic:b", {
-    quota: makeQuota({ weeklyResetAt: nowSec + 8 * 3600 }) as never,
+    quota: makeQuota({
+      lastUpdated: now,
+      weeklyResetAt: nowSec + 8 * 3600,
+    }) as never,
   });
   __testHooks.setAccountRuntimeState("anthropic:c", {
     coolingUntil: now + 2 * 3600 * 1000,
     quota: makeQuota({
+      lastUpdated: now,
       sessionStatus: "rejected",
       sessionResetAt: nowSec + 2 * 3600,
     }) as never,
@@ -1775,7 +1739,7 @@ async function runWeeklyExpiryOrderingCases(
       .join(",");
   const setQuota = (l: string, over: Record<string, number | string>): void =>
     __testHooks.setAccountRuntimeState(`anthropic:${l}`, {
-      quota: makeQuota(over) as never,
+      quota: makeQuota({ lastUpdated: now, ...over }) as never,
     });
   const fail = (msg: string): false => {
     log(msg, "red");
@@ -2546,8 +2510,7 @@ async function runAllTests(): Promise<void> {
     }
   } finally {
     await stopProxy();
-    restoreProxyState();
-    restoreClaudeSettings();
+    fs.rmSync(TEST_HOME, { recursive: true, force: true });
   }
 }
 

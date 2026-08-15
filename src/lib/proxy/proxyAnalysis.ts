@@ -912,6 +912,10 @@ export async function analyzeProxyLogs(
     accounts,
   );
   const routingSummary = summarizeRouting(finalRequests);
+  const streamComplete = (stream: ProxyAnalysisStreamName): boolean => {
+    const range = observedRanges[stream];
+    return range.from !== null && range.from <= sinceMs;
+  };
 
   return {
     generatedAt: new Date(nowMs).toISOString(),
@@ -932,6 +936,8 @@ export async function analyzeProxyLogs(
       attemptLatency: attemptLatency.length > 0,
       cacheUsage: finalSummary.cache.requestsWithUsage > 0,
       routingDecisions: routingSummary.totalRecords > 0,
+      comparableRequestAttempts:
+        streamComplete("requests") && streamComplete("attempts"),
     },
     dataQuality: {
       linesRead,
@@ -949,6 +955,7 @@ export async function analyzeProxyLogs(
               range.to === null ? null : new Date(range.to).toISOString(),
             startsAtOrBeforeRequestedWindow:
               range.from !== null && range.from <= sinceMs,
+            completeWindow: range.from !== null && range.from <= sinceMs,
           },
         ]),
       ) as ProxyAnalysisReport["dataQuality"]["streams"],

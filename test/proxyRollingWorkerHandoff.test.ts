@@ -581,6 +581,22 @@ describe("rolling proxy worker supervisor", () => {
     expect(workers[0].terminated).toContain("SIGKILL");
     expect(sockets.every((socket) => socket.destroyed)).toBe(true);
     expect(logs).toContainEqual(expect.stringContaining("worker IPC failed"));
+    expect(supervisor.snapshot().recentEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "failed_transfer",
+          generation: 1,
+          version: "9.93.1",
+          phase: "transfer",
+        }),
+        expect.objectContaining({
+          type: "rejected_socket",
+          generation: 1,
+          version: "9.93.1",
+          reason: "transfer_failure",
+        }),
+      ]),
+    );
 
     workers[0].exit(null, "SIGKILL");
     const replacement = supervisor.replace("9.93.1");

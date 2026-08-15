@@ -179,6 +179,7 @@ let lastKnownAccountCount = 0;
 const MAX_AUTH_RETRIES = 5;
 const MAX_TRANSIENT_SAME_ACCOUNT_RETRIES = 2;
 const TRANSIENT_SAME_ACCOUNT_RETRY_DELAYS_MS = [250, 1_000] as const;
+const OVERLOAD_ACCOUNT_ROTATION_DELAYS_MS = [250, 500, 1_000, 2_000] as const;
 const MAX_FALLBACK_NETWORK_RETRIES = 1;
 const FALLBACK_STREAM_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
 
@@ -4206,7 +4207,13 @@ async function handleAnthropicStreamingSuccessResponse(args: {
     });
     return {
       retryNextAccount: true,
-      failure: { message: preflight.message, rateLimit: isRateLimit },
+      failure: {
+        message: preflight.message,
+        rateLimit: isRateLimit,
+        ...(preflight.errorType === "overloaded_error"
+          ? { retryDelayMs: getOverloadRotationDelayMs(attemptNumber) }
+          : {}),
+      },
     };
   }
 
@@ -5150,6 +5157,9 @@ async function handleAnthropicAuthRetry(args: {
           const failure = successResult.failure;
           return {
             continueLoop: true,
+            ...(failure?.retryDelayMs
+              ? { retryDelayMs: failure.retryDelayMs }
+              : {}),
             lastError: failure?.message ?? currentLastError,
             authFailureMessage: currentAuthFailureMessage,
             sawRateLimit: currentSawRateLimit || Boolean(failure?.rateLimit),
@@ -5874,6 +5884,9 @@ async function handleAnthropicNonOkResponse(args: {
     return {
       continueLoop: true,
       retrySameAccount: !upstreamOverload,
+      ...(upstreamOverload
+        ? { retryDelayMs: getOverloadRotationDelayMs(attemptNumber) }
+        : {}),
       lastError: currentLastError,
       authFailureMessage: currentAuthFailureMessage,
       sawTransientFailure: currentSawTransientFailure,
@@ -6737,7 +6750,11 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     );
   }
 
-  accountLoop: for (const account of effectiveAccounts) {
+  accountLoop: for (const [
+    accountIndex,
+    account,
+  ] of effectiveAccounts.entries()) {
+    const hasNextAccount = accountIndex < effectiveAccounts.length - 1;
     const accountState = getOrCreateRuntimeState(account.key);
     let transientSameAccountRetries = 0;
     let rateLimitSameAccountRetries = 0;
@@ -6988,6 +7005,12 @@ async function handleAnthropicRoutedClaudeRequest(args: {
             return authRetryResult.response;
           }
           if (authRetryResult.continueLoop) {
+            if (hasNextAccount && authRetryResult.retryDelayMs) {
+              logger.always(
+                `[proxy] pacing cross-account SSE overload rotation for ${authRetryResult.retryDelayMs}ms after auth refresh`,
+              );
+              await sleep(authRetryResult.retryDelayMs);
+            }
             continue accountLoop;
           }
         }
@@ -7038,6 +7061,12 @@ async function handleAnthropicRoutedClaudeRequest(args: {
                 `[proxy] exhausted transient same-account retries for account=${account.label}; rotating`,
               );
             }
+            if (hasNextAccount && nonOkResult.retryDelayMs) {
+              logger.always(
+                `[proxy] pacing cross-account overload rotation for ${nonOkResult.retryDelayMs}ms`,
+              );
+              await sleep(nonOkResult.retryDelayMs);
+            }
             continue accountLoop;
           }
           break accountLoop;
@@ -7083,6 +7112,12 @@ async function handleAnthropicRoutedClaudeRequest(args: {
             loopState.lastError = successResult.failure.message;
             loopState.sawRateLimit ||= successResult.failure.rateLimit;
             loopState.sawTransientFailure ||= !successResult.failure.rateLimit;
+            if (hasNextAccount && successResult.failure.retryDelayMs) {
+              logger.always(
+                `[proxy] pacing cross-account SSE overload rotation for ${successResult.failure.retryDelayMs}ms`,
+              );
+              await sleep(successResult.failure.retryDelayMs);
+            }
           }
           continue accountLoop;
         }
@@ -7697,6 +7732,14 @@ export function getTransientSameAccountRetryDelayMs(
   return TRANSIENT_SAME_ACCOUNT_RETRY_DELAYS_MS[index] ?? 0;
 }
 
+export function getOverloadRotationDelayMs(attemptNumber: number): number {
+  const index = Math.min(
+    Math.max(attemptNumber - 1, 0),
+    OVERLOAD_ACCOUNT_ROTATION_DELAYS_MS.length - 1,
+  );
+  return jitteredDelay(OVERLOAD_ACCOUNT_ROTATION_DELAYS_MS[index] ?? 250);
+}
+
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -8044,6 +8087,7 @@ export const __testHooks = {
   describeTransportError,
   redactProviderErrorMessage,
   isUpstreamOverload,
+  getOverloadRotationDelayMs,
   shouldAttemptClaudeFallback,
   executeClaudeFallbackWithRetry,
   buildClaudeAnthropicFailureResponse,

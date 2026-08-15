@@ -33,9 +33,13 @@ function printAnalysis(
       : chalk.yellow("    Completed: unavailable (no final request logs)"),
   );
   logger.always(
-    report.coverage.attempts && report.coverage.finalRequests
+    report.coverage.attempts &&
+      report.coverage.finalRequests &&
+      report.coverage.comparableRequestAttempts
       ? `    Recovered after retry: ${report.requests.recoveredAfterRetry}`
-      : chalk.yellow("    Recovered after retry: unavailable"),
+      : chalk.yellow(
+          "    Recovered after retry: unavailable (request/attempt windows are incomplete or non-comparable)",
+        ),
   );
   if (report.requests.errors > 0) {
     logger.always(
@@ -117,6 +121,13 @@ function printAnalysis(
   }
   logger.always("");
   logger.always(chalk.bold("  Data Quality"));
+  if (!report.coverage.comparableRequestAttempts) {
+    logger.always(
+      chalk.yellow(
+        "    WARNING: request and attempt totals do not cover a comparable full window; do not reconcile them as one cohort",
+      ),
+    );
+  }
   logger.always(
     `    ${report.dataQuality.linesRead} lines scanned, ${report.dataQuality.malformedLines} malformed, ${report.dataQuality.unsupportedLifecycleLines} unsupported lifecycle, ${report.dataQuality.lifecycleSequenceGaps} sequence gaps, ${report.dataQuality.lifecycleSequenceDuplicates} duplicates`,
   );
@@ -126,7 +137,7 @@ function printAnalysis(
   for (const [stream, range] of Object.entries(report.dataQuality.streams)) {
     if (range.observedFrom) {
       logger.always(
-        `    ${stream}: ${range.observedFrom} to ${range.observedTo}${range.startsAtOrBeforeRequestedWindow ? "" : chalk.yellow(" (starts after requested window)")}`,
+        `    ${stream}: ${range.observedFrom} to ${range.observedTo}${range.completeWindow ? "" : chalk.yellow(" (partial: starts after requested window)")}`,
       );
     }
   }
