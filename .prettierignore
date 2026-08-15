@@ -68,3 +68,6 @@ recovered-docs/
 
 # Temporary investigation artifacts
 fix/
+
+# SDD scratch workspaces (git-ignored agent working files)
+.superpowers/

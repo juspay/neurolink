@@ -1,34 +1,10 @@
-import { z } from "zod";
 import { isAbortError } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
-import type {
-  DynamicModelConfig as ModelConfig,
-  ModelRegistry,
+import {
+  ModelRegistrySchema,
+  type DynamicModelConfig as ModelConfig,
+  type ModelRegistry,
 } from "../types/index.js";
-
-/**
- * Model configuration schema for validation
- */
-const ModelConfigSchema = z.object({
-  id: z.string(),
-  displayName: z.string(),
-  capabilities: z.array(z.string()),
-  deprecated: z.boolean(),
-  pricing: z.object({
-    input: z.number(),
-    output: z.number(),
-  }),
-  contextWindow: z.number(),
-  releaseDate: z.string(),
-});
-
-const ModelRegistrySchema = z.object({
-  version: z.string(),
-  lastUpdated: z.string(),
-  models: z.record(z.string(), z.record(z.string(), ModelConfigSchema)),
-  aliases: z.record(z.string(), z.string()).optional(),
-  defaults: z.record(z.string(), z.string()).optional(),
-});
 
 /**
  * Dynamic Model Provider

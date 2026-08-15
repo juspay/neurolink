@@ -63,6 +63,21 @@ function flattenReplicateOutput(output: unknown): string {
 }
 
 /**
+ * Resolve Replicate credentials, aliasing the standard `apiKey`/`baseURL`
+ * field names (shared with every other provider in `NeurolinkCredentials`)
+ * against the legacy `apiToken`/`baseUrl` names. The standard name wins
+ * when both are present; used identically for instance-level and per-call
+ * credentials so aliasing never drifts between the two.
+ */
+function resolveReplicateCredentials(
+  credentials?: NeurolinkCredentials["replicate"],
+): { apiToken?: string; baseUrl?: string } {
+  const apiToken = credentials?.apiKey?.trim() || credentials?.apiToken?.trim();
+  const baseUrl = credentials?.baseURL || credentials?.baseUrl;
+  return { apiToken, baseUrl };
+}
+
+/**
  * Replicate LLM Provider — predict-then-stream pattern.
  *
  * Replicate's prediction API is asynchronous: POST `/predictions`, poll
@@ -99,12 +114,13 @@ export class ReplicateProvider extends BaseProvider {
 
     super(modelName, "replicate" as AIProviderName, validatedNeurolink);
 
-    const overrideToken = credentials?.apiToken?.trim();
+    const { apiToken: overrideToken, baseUrl: overrideBaseUrl } =
+      resolveReplicateCredentials(credentials);
     this.apiToken =
       overrideToken && overrideToken.length > 0
         ? overrideToken
         : validateApiKey(createReplicateConfig());
-    this.baseURL = credentials?.baseUrl;
+    this.baseURL = overrideBaseUrl;
 
     logger.debug("Replicate Provider initialized", {
       modelName: this.modelName,
@@ -158,7 +174,7 @@ export class ReplicateProvider extends BaseProvider {
         ? { prompt: optionsOrPrompt }
         : optionsOrPrompt;
 
-    const { IMAGE_GENERATION_MODELS } = await import("../core/constants.js");
+    const { isImageGenerationModel } = await import("../core/constants.js");
 
     // Delegate special output modes to base class (which never calls getAISDKModel for these)
     if (
@@ -170,9 +186,7 @@ export class ReplicateProvider extends BaseProvider {
     }
 
     // Image-gen models: delegate to base which calls executeImageGeneration()
-    const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
-      this.modelName.includes(m),
-    );
+    const isImageModel = isImageGenerationModel(this.modelName);
     const requestsNonImageOutput =
       options.output?.format === "json" ||
       options.output?.format === "structured" ||
@@ -247,8 +261,9 @@ export class ReplicateProvider extends BaseProvider {
     const perCallCreds = (
       options as StreamOptions & { credentials?: NeurolinkCredentials }
     ).credentials?.replicate;
-    const effectiveToken = perCallCreds?.apiToken?.trim() || this.apiToken;
-    const effectiveBaseUrl = perCallCreds?.baseUrl || this.baseURL;
+    const resolvedPerCall = resolveReplicateCredentials(perCallCreds);
+    const effectiveToken = resolvedPerCall.apiToken || this.apiToken;
+    const effectiveBaseUrl = resolvedPerCall.baseUrl || this.baseURL;
     const auth = getReplicateAuth({
       apiToken: effectiveToken,
       baseUrl: effectiveBaseUrl,
@@ -346,8 +361,9 @@ export class ReplicateProvider extends BaseProvider {
     const startTime = Date.now();
     // Resolve per-call credentials first, then fall back to instance-level.
     const perCallCreds = options.credentials?.replicate;
-    const effectiveToken = perCallCreds?.apiToken?.trim() || this.apiToken;
-    const effectiveBaseUrl = perCallCreds?.baseUrl || this.baseURL;
+    const resolvedPerCall = resolveReplicateCredentials(perCallCreds);
+    const effectiveToken = resolvedPerCall.apiToken || this.apiToken;
+    const effectiveBaseUrl = resolvedPerCall.baseUrl || this.baseURL;
     const auth = getReplicateAuth({
       apiToken: effectiveToken,
       baseUrl: effectiveBaseUrl,
@@ -519,5 +535,3 @@ export class ReplicateProvider extends BaseProvider {
     };
   }
 }
-
-export default ReplicateProvider;

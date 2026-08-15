@@ -100,6 +100,7 @@ await test("a provider-specific override stays authoritative over the registry d
   const provider = new HuggingFaceProvider(
     "microsoft/DialoGPT-medium",
     undefined,
+    undefined,
     { apiKey: "test-key", baseURL: "https://example.invalid" },
   );
   assert(

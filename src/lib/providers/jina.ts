@@ -324,5 +324,3 @@ export class JinaProvider extends BaseProvider {
     };
   }
 }
-
-export default JinaProvider;

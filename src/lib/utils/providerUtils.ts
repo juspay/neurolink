@@ -35,30 +35,6 @@ export async function getBestProvider(
       `[getBestProvider] Using explicitly requested provider: ${requestedProvider}`,
     );
 
-    // Optional health check for logging purposes only
-    try {
-      const health = await ProviderHealthChecker.checkProviderHealth(
-        requestedProvider as AIProviderName,
-        { includeConnectivityTest: false, cacheResults: true },
-      );
-
-      if (health.isHealthy) {
-        logger.debug(
-          `[getBestProvider] Explicitly requested provider ${requestedProvider} is healthy`,
-        );
-      } else {
-        logger.warn(
-          `[getBestProvider] Explicitly requested provider ${requestedProvider} may have issues, but using anyway`,
-          { error: health.error },
-        );
-      }
-    } catch (error) {
-      logger.warn(
-        `[getBestProvider] Health check failed for explicitly requested provider ${requestedProvider}, using anyway`,
-        { error: error instanceof Error ? error.message : String(error) },
-      );
-    }
-
     // ALWAYS return the explicitly requested provider
     return requestedProvider;
   }
@@ -533,18 +509,9 @@ export function hasProviderEnvVars(provider: string): boolean {
  * @returns Array of available provider names
  */
 export function getAvailableProviders(): string[] {
-  return [
-    "bedrock",
-    "vertex",
-    "openai",
-    "anthropic",
-    "azure",
-    "google-ai",
-    "litellm",
-    "huggingface",
-    "ollama",
-    "mistral",
-  ];
+  return Object.values(AIProviderName).filter(
+    (name) => name !== AIProviderName.AUTO,
+  );
 }
 
 /**

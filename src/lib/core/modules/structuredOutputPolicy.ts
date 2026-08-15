@@ -44,8 +44,8 @@ export function isGeminiProvider(
  * `providerOptions.anthropic.finalResultSchema`, and the provider appends an
  * additive `final_result` tool (see providers/anthropic/structuredOutput.ts) —
  * schema enforcement without giving up tool calling. "bedrock" has no such
- * handling (it runs on the third-party @ai-sdk/amazon-bedrock model) and still
- * falls back to text-mode coercion.
+ * handling (it talks to the raw AWS SDK directly, not an ai-sdk provider
+ * package) and still falls back to text-mode coercion.
  */
 export function isNativeAnthropicProvider(providerName: string): boolean {
   return providerName === "anthropic" || providerName === "bedrock";

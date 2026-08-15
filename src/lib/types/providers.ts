@@ -216,7 +216,12 @@ export type NeurolinkCredentials = {
   fireworks?: { apiKey?: string; baseURL?: string };
   perplexity?: { apiKey?: string; baseURL?: string };
   cloudflare?: { apiKey?: string; accountId?: string; baseURL?: string };
-  replicate?: { apiToken?: string; baseUrl?: string };
+  replicate?: {
+    apiToken?: string;
+    baseUrl?: string;
+    apiKey?: string;
+    baseURL?: string;
+  };
   voyage?: { apiKey?: string; baseURL?: string };
   jina?: { apiKey?: string; baseURL?: string };
   stability?: { apiKey?: string; baseURL?: string };
@@ -1786,18 +1791,6 @@ export namespace TelemetryTypes {
 // ============================================================================
 // OpenRouter Provider Types
 // ============================================================================
-
-/**
- * OpenRouter provider configuration
- */
-export type OpenRouterConfig = {
-  /** OpenRouter API key */
-  apiKey: string;
-  /** HTTP Referer header for attribution on openrouter.ai/activity */
-  referer?: string;
-  /** App name for X-Title header attribution */
-  appName?: string;
-};
 
 /**
  * OpenRouter model information from /api/v1/models endpoint

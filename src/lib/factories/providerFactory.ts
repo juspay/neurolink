@@ -13,6 +13,34 @@ import { logger } from "../utils/logger.js";
 // All providers loaded dynamically via registry to avoid circular dependencies
 
 /**
+ * Maps registered provider names to NeurolinkCredentials keys. Most names
+ * match (openai, anthropic, vertex, bedrock, etc.) but every kebab-case
+ * provider whose canonical credentials key is camelCase — or otherwise
+ * spelled differently — MUST be mapped here, otherwise per-call/instance
+ * credential overrides silently get dropped (createProvider() looks up
+ * credentials["lm-studio"], which is undefined, while the caller wrote
+ * credentials.lmStudio).
+ */
+export const CREDENTIAL_KEY_MAP: Record<string, string> = {
+  "google-ai": "googleAiStudio",
+  "openai-compatible": "openaiCompatible",
+  huggingface: "huggingFace",
+  "lm-studio": "lmStudio",
+  "nvidia-nim": "nvidiaNim",
+  "together-ai": "together",
+};
+
+/**
+ * Resolve a registered provider name to its NeurolinkCredentials key.
+ * Falls back to the provider name itself when no remapping is needed.
+ */
+export function resolveCredentialKey(providerName: string): string {
+  return (
+    CREDENTIAL_KEY_MAP[providerName.toLowerCase()] ?? providerName.toLowerCase()
+  );
+}
+
+/**
  * True Factory Pattern implementation for AI Providers
  * Uses registration-based approach to eliminate switch statements
  * and enable dynamic provider registration
@@ -92,21 +120,7 @@ export class ProviderFactory {
       model = model || registration.defaultModel;
     }
 
-    // Map registered provider names to NeurolinkCredentials keys.
-    // Most names match (openai, anthropic, vertex, bedrock, etc.)
-    // but every kebab-case provider whose canonical credentials key is
-    // camelCase MUST be mapped here — otherwise per-call credential
-    // overrides silently get dropped (the factory looks up
-    // credentials["lm-studio"] which is undefined while the user wrote
-    // credentials.lmStudio).
-    const credentialKeyMap: Record<string, string> = {
-      "google-ai": "googleAiStudio",
-      "openai-compatible": "openaiCompatible",
-      huggingface: "huggingFace",
-      "lm-studio": "lmStudio",
-      "nvidia-nim": "nvidiaNim",
-    };
-    const credKey = credentialKeyMap[normalizedName] ?? normalizedName;
+    const credKey = resolveCredentialKey(normalizedName);
 
     // Extract provider-scoped credential slice (e.g. credentials.openai for OpenAI)
     const scopedCredentials = credentials
@@ -122,54 +136,18 @@ export class ProviderFactory {
         );
       }
 
-      let result: AIProvider;
+      const factoryResult = (
+        registration.constructor as (
+          modelName?: string,
+          providerName?: string,
+          sdk?: NeuroLink,
+          region?: string,
+          credentials?: Record<string, unknown>,
+        ) => Promise<AIProvider> | AIProvider
+      )(model, resolvedProviderName, sdk, region, scopedCredentials);
 
-      try {
-        const factoryResult = (
-          registration.constructor as (
-            modelName?: string,
-            providerName?: string,
-            sdk?: NeuroLink,
-            region?: string,
-            credentials?: Record<string, unknown>,
-          ) => Promise<AIProvider> | AIProvider
-        )(model, resolvedProviderName, sdk, region, scopedCredentials);
-
-        // Handle both sync and async results
-        result =
-          factoryResult instanceof Promise
-            ? await factoryResult
-            : factoryResult;
-      } catch (factoryError) {
-        if (
-          registration.constructor.prototype &&
-          registration.constructor.prototype.constructor ===
-            registration.constructor
-        ) {
-          try {
-            result = new (registration.constructor as new (
-              modelName?: string,
-              providerName?: string,
-              sdk?: NeuroLink,
-              region?: string,
-              credentials?: Record<string, unknown>,
-            ) => AIProvider)(
-              model,
-              resolvedProviderName,
-              sdk,
-              region,
-              scopedCredentials,
-            );
-          } catch (constructorError) {
-            throw new Error(
-              `Both factory function and constructor failed. Factory error: ${factoryError}. Constructor error: ${constructorError}`,
-              { cause: constructorError },
-            );
-          }
-        } else {
-          throw factoryError;
-        }
-      }
+      const result =
+        factoryResult instanceof Promise ? await factoryResult : factoryResult;
 
       return result;
     } catch (error) {

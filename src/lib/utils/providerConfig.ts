@@ -470,45 +470,6 @@ export function createNvidiaNimConfig(): ProviderConfigOptions {
 }
 
 /**
- * Creates LM Studio provider configuration (local server)
- */
-export function createLmStudioConfig(): ProviderConfigOptions {
-  return {
-    providerName: "LM Studio",
-    envVarName: "LM_STUDIO_BASE_URL",
-    setupUrl: "https://lmstudio.ai/",
-    description: "LM Studio server URL",
-    instructions: [
-      "1. Install LM Studio: https://lmstudio.ai/",
-      "2. Open LM Studio and download a model (e.g. Llama 3.2 3B Instruct)",
-      '3. Click "Local Server" → Start Server',
-      "4. Default URL is http://localhost:1234/v1 (override via LM_STUDIO_BASE_URL)",
-    ],
-    // Base URL is optional — defaults to http://localhost:1234/v1 if unset.
-    optional: true,
-  };
-}
-
-/**
- * Creates llama.cpp provider configuration (local server)
- */
-export function createLlamaCppConfig(): ProviderConfigOptions {
-  return {
-    providerName: "llama.cpp",
-    envVarName: "LLAMACPP_BASE_URL",
-    setupUrl: "https://github.com/ggerganov/llama.cpp",
-    description: "llama.cpp server URL",
-    instructions: [
-      "1. Build llama.cpp: https://github.com/ggerganov/llama.cpp#build",
-      "2. Run: ./llama-server -m model.gguf --port 8080",
-      "3. Default URL is http://localhost:8080/v1 (override via LLAMACPP_BASE_URL)",
-    ],
-    // Base URL is optional — defaults to http://localhost:8080/v1 if unset.
-    optional: true,
-  };
-}
-
-/**
  * Creates xAI Grok provider configuration.
  */
 export function createXaiConfig(): ProviderConfigOptions {

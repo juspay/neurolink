@@ -316,8 +316,13 @@ class EnvironmentManager {
   reportValidation(validation: any) {
     console.log("\n📊 ENVIRONMENT VALIDATION RESULTS");
     console.log("=".repeat(50));
-    console.log(`✅ Configured providers: ${validation.configured.length}/9`);
-    console.log(`⚠️  Missing providers: ${validation.missing.length}/9`);
+    const totalProviders = Object.keys(validation.providers).length;
+    console.log(
+      `✅ Configured providers: ${validation.configured.length}/${totalProviders}`,
+    );
+    console.log(
+      `⚠️  Missing providers: ${validation.missing.length}/${totalProviders}`,
+    );
 
     if (validation.configured.length > 0) {
       console.log(`\n🟢 Configured providers:`);
@@ -357,8 +362,9 @@ class EnvironmentManager {
     const diversityWeight = 20; // 20% for provider diversity
     const bestPracticeWeight = 10; // 10% for following best practices
 
+    const totalProviders = Object.keys(validation.providers).length;
     const configuredScore =
-      (validation.configured.length / 9) * configuredWeight;
+      (validation.configured.length / totalProviders) * configuredWeight;
     const diversityScore =
       Math.min(validation.configured.length / 3, 1) * diversityWeight;
     const bestPracticeScore = validation.configured.includes("openai")

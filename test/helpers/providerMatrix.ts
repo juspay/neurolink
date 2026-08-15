@@ -1,6 +1,6 @@
 /**
  * Provider capability matrix — the single source of truth for what each of
- * NeuroLink's 13 providers supports. Used by the matrix test runner and any
+ * NeuroLink's 30 providers supports. Used by the matrix test runner and any
  * suite that needs to skip a test based on provider capability.
  *
  * Adding a new provider:

@@ -50,6 +50,10 @@ export class LlamaCppProvider extends OpenAIChatCompletionsProvider {
     });
   }
 
+  async validateConfiguration(): Promise<boolean> {
+    return this.probeModelsEndpoint(this.getAuthHeaders());
+  }
+
   protected getProviderName(): AIProviderName {
     return "llamacpp" as AIProviderName;
   }

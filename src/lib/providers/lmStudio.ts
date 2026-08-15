@@ -1,10 +1,5 @@
 import type { AIProviderName } from "../constants/enums.js";
-import { createProxyFetch } from "../proxy/proxyFetch.js";
-import type {
-  ModelsResponse,
-  NeurolinkCredentials,
-  UnknownRecord,
-} from "../types/index.js";
+import type { NeurolinkCredentials, UnknownRecord } from "../types/index.js";
 import {
   InvalidModelError,
   NetworkError,
@@ -109,32 +104,11 @@ export class LMStudioProvider extends OpenAIChatCompletionsProvider {
   }
 
   async validateConfiguration(): Promise<boolean> {
-    try {
-      const url = `${this.config.baseURL.replace(/\/$/, "")}/models`;
-      const proxyFetch = createProxyFetch();
-      const r = await proxyFetch(url, {
-        headers:
-          this.config.apiKey && this.config.apiKey !== LM_STUDIO_PLACEHOLDER_KEY
-            ? { Authorization: `Bearer ${this.config.apiKey}` }
-            : undefined,
-        signal: AbortSignal.timeout(5000),
-      });
-      if (!r.ok) {
-        return false;
-      }
-      // A 200 with an empty data array means LM Studio is up but no model is
-      // loaded — `resolveModelName()` will fall back to FALLBACK_MODEL and the
-      // first real request will fail. Require at least one loaded model so
-      // health checks honestly reflect whether the provider is usable.
-      const data = (await r.json().catch(() => null)) as ModelsResponse | null;
-      return Boolean(
-        data?.data?.some(
-          (m) => typeof m?.id === "string" && m.id.trim().length > 0,
-        ),
-      );
-    } catch {
-      return false;
-    }
+    return this.probeModelsEndpoint(
+      this.config.apiKey && this.config.apiKey !== LM_STUDIO_PLACEHOLDER_KEY
+        ? { Authorization: `Bearer ${this.config.apiKey}` }
+        : {},
+    );
   }
 
   getConfiguration() {

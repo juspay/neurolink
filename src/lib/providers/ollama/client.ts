@@ -2,7 +2,6 @@ import type { AIProviderName } from "../../constants/enums.js";
 import { modelConfig } from "../../core/modelConfiguration.js";
 import { createProxyFetch } from "../../proxy/proxyFetch.js";
 import type {
-  ModelsResponse,
   NeurolinkCredentials,
   StreamOptions,
   TextGenerationOptions,
@@ -246,32 +245,7 @@ export class OllamaProvider extends OpenAIChatCompletionsProvider {
    * back to a model that the first real request can't serve, so report unusable.
    */
   async validateConfiguration(): Promise<boolean> {
-    try {
-      const url = `${stripTrailingSlash(this.config.baseURL)}/models`;
-      const proxyFetch = createProxyFetch();
-      const r = await proxyFetch(url, {
-        headers: {
-          ...this.getAuthHeaders(),
-          "Content-Type": "application/json",
-        },
-        signal: AbortSignal.timeout(5000),
-      });
-      if (!r.ok) {
-        return false;
-      }
-      const data = (await r.json().catch(() => null)) as ModelsResponse | null;
-      return Boolean(
-        data?.data?.some(
-          (m) => typeof m?.id === "string" && m.id.trim().length > 0,
-        ),
-      );
-    } catch (error) {
-      logger.debug("Ollama validateConfiguration probe failed", {
-        baseURL: redactUrlCredentials(this.config.baseURL),
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return false;
-    }
+    return this.probeModelsEndpoint(this.getAuthHeaders());
   }
 
   getConfiguration() {

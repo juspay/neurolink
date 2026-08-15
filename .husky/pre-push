@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Cheap no-API tier: build freshness + mocked provider contracts + registry
+# structure. Keeps local pushes fast; live-credential suites run in the
+# separate nightly live-matrix.yml workflow, not on every push.
+pnpm run pre-push

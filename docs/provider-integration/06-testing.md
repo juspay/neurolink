@@ -11,35 +11,26 @@
 
 ### A. `test/continuous-test-suite-providers.ts`
 
-This is the main provider suite. The relevant section is the `ALL_PROVIDERS` array (around line 73):
+**Updated 2026-08-15:** the `ALL_PROVIDERS` array described below no longer
+exists — `continuous-test-suite-providers.ts` deleted it once provider
+coverage moved to two more targeted places:
 
-```diff
- const ALL_PROVIDERS = [
-   "openai",
-   "anthropic",
-   "vertex",
-   "google-ai",
-   "openrouter",
-   "bedrock",
-   "azure",
-   "mistral",
-   "ollama",
-   "litellm",
-   "huggingface",
-+  "deepseek",
-+  "nvidia-nim",
-+  "lm-studio",
-+  "llamacpp",
- ] as const;
-```
+1. **Structural completeness** (zero API keys, runs in CI on every commit):
+   `test/continuous-test-suite-provider-structure.ts`
+   (`pnpm run test:provider-structure`) asserts every value in the
+   canonical `AIProviderName` enum resolves via `ProviderFactory`, and every
+   `src/lib/providers/*.ts` module has exactly one dynamic import in
+   `providerRegistry.ts`.
+2. **Live per-provider generate/stream sweep** (needs API keys, runs
+   nightly via `.github/workflows/live-matrix.yml`, not a PR gate):
+   `test/continuous-test-suite-provider-matrix.ts` (`pnpm run test:matrix`)
+   iterates `test/helpers/providerMatrix.ts`'s `PROVIDERS` map — see that
+   file's header comment for the current provider count and coverage gaps.
 
-The all-provider loop at the bottom of this file iterates `ALL_PROVIDERS` and:
-
-1. Calls `validateConfiguration()` on the provider
-2. Skips with `[SKIP] env not configured` if it returns false
-3. Otherwise runs `generate("Hi")` and `stream("Hi")`
-
-For local providers (LM Studio, llama.cpp), the skip behavior already works because `validateConfiguration()` does an HTTP probe of `/v1/models` or `/health`. If the server isn't running, returns false → tests skip.
+If you're adding a new provider, add it to `providerMatrix.ts`'s
+`PROVIDERS` map so `test:matrix` picks it up automatically;
+`test:provider-structure` needs no edits — it derives its expectations from
+the `AIProviderName` enum and the filesystem, not a hand-maintained list.
 
 ### B. `test/continuous-test-suite-credentials.ts`
 
@@ -134,7 +125,7 @@ Likely no changes needed — it invokes per-domain suites which are already wire
 
 ### D. `package.json`
 
-The canonical entrypoint for the four new providers is **`pnpm run test:new-providers`**, which runs the dedicated suite `test/continuous-test-suite-new-providers.ts` (full feature surface per provider — generate, stream, tools, structured, reasoning, vision-where-supported, abort, timeout, per-call creds, telemetry, error formatting). The existing `test:providers` (`ALL_PROVIDERS` loop) and `test:credentials` are still useful for cross-provider checks but the new suite is the primary coverage for the integration.
+The canonical entrypoint for the four new providers is **`pnpm run test:new-providers`**, which runs the dedicated suite `test/continuous-test-suite-new-providers.ts` (full feature surface per provider — generate, stream, tools, structured, reasoning, vision-where-supported, abort, timeout, per-call creds, telemetry, error formatting). The existing `test:providers` and `test:credentials` are still useful for cross-provider checks but the new suite is the primary coverage for the integration.
 
 ## NVIDIA NIM-specific test (the only one that needs custom assertions)
 
