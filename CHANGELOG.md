@@ -1,3 +1,9 @@
+## [10.12.8](https://github.com/juspay/neurolink/compare/v10.12.7...v10.12.8) (2026-08-15)
+
+### Bug Fixes
+
+- **(proxy):** harden quota routing and transport retries ([e7c5ebb](https://github.com/juspay/neurolink/commit/e7c5ebb9eae979382795478b148f176476107ee9))
+
 ## [10.12.7](https://github.com/juspay/neurolink/compare/v10.12.6...v10.12.7) (2026-08-15)
 
 ### Bug Fixes
