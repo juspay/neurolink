@@ -256,6 +256,7 @@ describe("offline proxy log analysis", () => {
       attemptLatency: true,
       cacheUsage: true,
       routingDecisions: true,
+      comparableRequestAttempts: false,
     });
     expect(report.lifecycle).toMatchObject({
       accepted: 2,
@@ -581,6 +582,7 @@ describe("offline proxy log analysis", () => {
       observedFrom: "2026-07-18T10:00:00.000Z",
       observedTo: "2026-07-18T11:47:00.000Z",
       startsAtOrBeforeRequestedWindow: true,
+      completeWindow: true,
     });
     expect(report.dataQuality.bodyArtifacts).toEqual({
       capturesIndexed: 6,
@@ -610,6 +612,7 @@ describe("offline proxy log analysis", () => {
       attemptLatency: false,
       cacheUsage: false,
       routingDecisions: false,
+      comparableRequestAttempts: false,
     });
     expect(report.dataQuality.routingDecisions).toEqual({
       valid: 0,
@@ -618,6 +621,43 @@ describe("offline proxy log analysis", () => {
     });
     expect(report.requests.completed).toBe(0);
     expect(report.lifecycle.unsettled).toBe(0);
+  });
+
+  it("does not compare request and attempt totals when one retained stream starts late", async () => {
+    const logDir = await mkdtemp(join(tmpdir(), "neurolink-analysis-"));
+    tempDirs.push(logDir);
+    await writeJsonLines(logDir, "proxy-attempts-2026-07-18.jsonl", [
+      {
+        timestamp: "2026-07-18T10:00:00.000Z",
+        requestId: "attempt-1",
+        account: "test@example.com",
+        accountType: "oauth",
+        responseStatus: 200,
+        attemptDurationMs: 20,
+      },
+    ]);
+    await writeJsonLines(logDir, "proxy-2026-07-18.jsonl", [
+      {
+        timestamp: "2026-07-18T11:00:00.000Z",
+        requestId: "request-1",
+        method: "POST",
+        account: "test@example.com",
+        accountType: "oauth",
+        responseStatus: 200,
+      },
+    ]);
+
+    const report = await analyzeProxyLogs({
+      logsDir: logDir,
+      since: "2h",
+      nowMs,
+    });
+
+    expect(report.coverage.finalRequests).toBe(true);
+    expect(report.coverage.attempts).toBe(true);
+    expect(report.coverage.comparableRequestAttempts).toBe(false);
+    expect(report.dataQuality.streams.requests.completeWindow).toBe(false);
+    expect(report.dataQuality.streams.attempts.completeWindow).toBe(true);
   });
 
   it("does not claim attempt coverage from a file with no records in the requested window", async () => {

@@ -5,6 +5,7 @@ import type {
   RollingWorkerFailureDetails,
   RollingWorkerHandle,
   RollingWorkerSupervisorOptions,
+  RollingWorkerSupervisorEvent,
   RollingWorkerSupervisorSnapshot,
   TransferableProxySocket,
 } from "../types/index.js";
@@ -14,6 +15,7 @@ const DEFAULT_READY_TIMEOUT_MS = 30_000;
 const DEFAULT_SOCKET_QUEUE_LIMIT = 1_024;
 const DEFAULT_SOCKET_QUEUE_TIMEOUT_MS = 30_000;
 const DEFAULT_SHUTDOWN_TIMEOUT_MS = 30_000;
+const MAX_RECENT_SUPERVISOR_EVENTS = 100;
 
 /**
  * Owns worker generations while the caller owns the public listening socket.
@@ -39,6 +41,7 @@ export class RollingWorkerSupervisor {
   private replacement: Promise<RollingWorkerSupervisorSnapshot> | null = null;
   private rejectedSockets = 0;
   private failedTransfers = 0;
+  private readonly recentEvents: RollingWorkerSupervisorEvent[] = [];
   private lastFailure: RollingWorkerSupervisorSnapshot["lastFailure"] = null;
   private closed = false;
   private shutdownPromise: Promise<void> | null = null;
@@ -81,6 +84,7 @@ export class RollingWorkerSupervisor {
       queuedSockets: this.queuedSockets.length,
       rejectedSockets: this.rejectedSockets,
       failedTransfers: this.failedTransfers,
+      recentEvents: [...this.recentEvents],
       lastFailure: this.lastFailure,
     };
   }
@@ -396,6 +400,11 @@ export class RollingWorkerSupervisor {
         this.options.log?.(
           `[proxy-supervisor] activated generation=${generation} pid=${handle.pid} version=${expectedVersion}`,
         );
+        this.recordEvent({
+          type: "activated",
+          generation,
+          version: expectedVersion,
+        });
         this.publishState();
         finish();
       });
@@ -534,6 +543,13 @@ export class RollingWorkerSupervisor {
   ): void {
     this.failedTransfers += 1;
     const detail = this.describeTransferError(error);
+    this.recordEvent({
+      type: "failed_transfer",
+      generation: worker.generation,
+      version: worker.version,
+      phase: "transfer",
+      reason: detail,
+    });
     const lifecycle = this.extractLifecycleFailureDetails(
       error,
       worker.handle.pid,
@@ -567,11 +583,27 @@ export class RollingWorkerSupervisor {
       }
       this.publishState();
     }
-    this.rejectSocket(socket);
+    this.rejectSocket(
+      socket,
+      worker.generation,
+      worker.version,
+      "transfer_failure",
+    );
   }
 
-  private rejectSocket(socket: TransferableProxySocket): void {
+  private rejectSocket(
+    socket: TransferableProxySocket,
+    generation: number | null = this.active?.generation ?? null,
+    version: string | null = this.active?.version ?? null,
+    reason = "unavailable",
+  ): void {
     this.rejectedSockets += 1;
+    this.recordEvent({
+      type: "rejected_socket",
+      generation,
+      version,
+      reason,
+    });
     socket.destroy();
     this.publishState();
   }
@@ -631,6 +663,27 @@ export class RollingWorkerSupervisor {
       message: message.slice(0, 1_000),
       ...details,
     };
+    this.recordEvent({
+      type: "failure",
+      generation,
+      version,
+      phase,
+      reason: message,
+    });
+  }
+
+  private recordEvent(event: Omit<RollingWorkerSupervisorEvent, "at">): void {
+    this.recentEvents.push({
+      at: new Date().toISOString(),
+      ...event,
+      ...(event.reason ? { reason: event.reason.slice(0, 1_000) } : {}),
+    });
+    if (this.recentEvents.length > MAX_RECENT_SUPERVISOR_EVENTS) {
+      this.recentEvents.splice(
+        0,
+        this.recentEvents.length - MAX_RECENT_SUPERVISOR_EVENTS,
+      );
+    }
   }
 
   private publishState(): void {

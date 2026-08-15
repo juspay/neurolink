@@ -1295,7 +1295,8 @@ describe("upstream attempt classification and retry amplification", () => {
     );
   });
 
-  it("rotates immediately after an HTTP 529 overload", async () => {
+  it("rotates with pacing after an HTTP 529 overload", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
     const account = {
       key: "anthropic:primary@example.com",
       label: "primary@example.com",
@@ -1332,8 +1333,17 @@ describe("upstream attempt classification and retry amplification", () => {
     expect(result).toMatchObject({
       continueLoop: true,
       retrySameAccount: false,
+      retryDelayMs: 250,
       sawTransientFailure: true,
     });
+  });
+
+  it("paces repeated overload rotations with bounded positive jitter", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.2);
+    expect(__testHooks.getOverloadRotationDelayMs(1)).toBe(262);
+    expect(__testHooks.getOverloadRotationDelayMs(2)).toBe(525);
+    expect(__testHooks.getOverloadRotationDelayMs(3)).toBe(1_050);
+    expect(__testHooks.getOverloadRotationDelayMs(99)).toBe(2_100);
   });
 
   it("shares two transient retries across an entire concurrent account window", () => {
