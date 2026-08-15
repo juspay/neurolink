@@ -135,6 +135,7 @@
     "test:file-detector-magic-bytes": "npx tsx test/continuous-test-suite-file-detector-magic-bytes.ts",
     "test:json": "npx tsx test/continuous-test-suite-json.ts",
     "test:json-e2e": "npx tsx test/continuous-test-suite-json-e2e.ts",
+    "test:coerce-truncation": "npx tsx test/continuous-test-suite-coerce-truncation.ts",
     "test:workflow": "npx tsx test/continuous-test-suite-workflow.ts",
     "test:hitl": "npx tsx test/continuous-test-suite-hitl.ts",
     "test:analytics": "npx tsx test/continuous-test-suite-analytics.ts",

@@ -57,7 +57,11 @@ import {
   isToolsSchemaConflictError,
   isToolsSchemaExclusionInForce,
 } from "./structuredOutputPolicy.js";
-import { coerceJsonToSchema } from "../../utils/json/coerce.js";
+import {
+  coerceJsonToSchema,
+  recoverScalarRoot,
+  schemaAccepts,
+} from "../../utils/json/coerce.js";
 import { convertZodToJsonSchema } from "../../utils/schemaConversion.js";
 import type {
   LanguageModel,
@@ -1133,9 +1137,9 @@ export class GenerationHandler {
         }
         return coerced.content;
       }
-      try {
-        const scalar: unknown = JSON.parse(strippedText);
-        if (scalar === "") {
+      const scalar = recoverScalarRoot(strippedText, options.schema);
+      switch (scalar.kind) {
+        case "empty":
           // A JSON-encoded empty string is an EMPTY completion, not a
           // recovered scalar — normalize to a true empty ('' content, no
           // structuredData) so callers' empty-response handling fires
@@ -1145,19 +1149,32 @@ export class GenerationHandler {
             { provider: this.providerName, model: this.modelName },
           );
           return "";
-        }
-        if (scalar !== null && scalar !== undefined) {
-          structuredData = scalar;
+        case "accepted":
+          // A JSON scalar root is only real structured data when the caller's
+          // schema actually accepts it. Under an OBJECT schema a recovered
+          // string/number is the raw completion in disguise (the shape a
+          // truncated response degrades to) — publishing it would hand the
+          // caller a `structuredData` that violates the schema they passed.
+          structuredData = scalar.value;
           return strippedText;
-        }
-      } catch {
-        // not JSON at all — fall through to raw text + WARN
+        case "rejected":
+          logger.warn(
+            "[GenerationHandler] recovered a JSON scalar the requested schema rejects; leaving structuredData unset",
+            {
+              provider: this.providerName,
+              model: this.modelName,
+              scalarType: typeof scalar.value,
+            },
+          );
+          return strippedText;
+        case "nullish":
+        case "not-json":
+          logger.warn(
+            "[GenerationHandler] schema requested but no JSON could be recovered from model text; returning raw text",
+            { provider: this.providerName, model: this.modelName },
+          );
+          return strippedText;
       }
-      logger.warn(
-        "[GenerationHandler] schema requested but no JSON could be recovered from model text; returning raw text",
-        { provider: this.providerName, model: this.modelName },
-      );
-      return strippedText;
     };
     if (useStructuredOutput) {
       try {
@@ -1173,7 +1190,23 @@ export class GenerationHandler {
         const rawTextEcho =
           typeof experimentalOutput === "string" &&
           experimentalOutput === (generateResult.text ?? "");
-        if (experimentalOutput !== undefined && !rawTextEcho) {
+        // The equality check above only catches an EXACT echo. On a multi-step
+        // or truncated turn the echo can differ from `text` (a different step's
+        // text, a fence, trailing whitespace), and a raw string would then be
+        // published as `structuredData` under an object schema — the "returned
+        // a string instead of the schema object" failure. A string is trusted
+        // as structured output ONLY when the caller's schema accepts it
+        // (string-root schemas keep working); otherwise it is coerced like any
+        // other raw model text.
+        const untrustedStringOutput =
+          typeof experimentalOutput === "string" &&
+          !!options.schema &&
+          !schemaAccepts(options.schema, experimentalOutput);
+        if (
+          experimentalOutput !== undefined &&
+          !rawTextEcho &&
+          !untrustedStringOutput
+        ) {
           // AI-SDK already parsed + schema-validated the object. Expose it
           // directly and serialise canonically — no hand-parsing needed.
           structuredData = experimentalOutput;

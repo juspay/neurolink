@@ -1566,18 +1566,24 @@ export class AnthropicProvider extends BaseProvider {
 
         const content: Array<{ type: string } & Record<string, unknown>> = [];
         let finalResultText: string | undefined;
+        // Text emitted in forced-json mode, kept only as a fallback (see below).
+        const jsonModeText: string[] = [];
+        let jsonToolAnswered = false;
         for (const block of response.content) {
           if (block.type === "thinking") {
             content.push({ type: "reasoning", text: block.thinking });
           } else if (block.type === "text") {
             // In forced-json mode the payload arrives via the tool input, not
             // text — pass text through only in normal mode.
-            if (!jsonTool) {
+            if (jsonTool) {
+              jsonModeText.push(block.text);
+            } else {
               content.push({ type: "text", text: block.text });
             }
           } else if (block.type === "tool_use") {
             if (jsonTool && block.name === jsonTool) {
               // Unwrap the synthetic tool call back into text JSON.
+              jsonToolAnswered = true;
               content.push({
                 type: "text",
                 text: stringifyToolInput(block.input),
@@ -1598,6 +1604,15 @@ export class AnthropicProvider extends BaseProvider {
               });
             }
           }
+        }
+        // Forced-json mode normally drops text blocks because the payload rides
+        // in the synthetic tool's input. But when the response is cut short
+        // (stop_reason "max_tokens") the tool call can be missing entirely, and
+        // dropping the text would leave an EMPTY completion with nothing for
+        // coerceJsonToSchema to recover. Fall back to the text so a partial
+        // object can still be salvaged and flagged truncated.
+        if (jsonTool && !jsonToolAnswered && jsonModeText.length > 0) {
+          content.push({ type: "text", text: jsonModeText.join("") });
         }
 
         // final_result is terminal — parity with the native Claude-on-Vertex

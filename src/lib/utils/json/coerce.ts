@@ -19,6 +19,7 @@
 import { jsonrepair } from "jsonrepair";
 import type {
   JsonCoercionResult,
+  ScalarRecoveryDecision,
   ValidationSchema,
 } from "../../types/index.js";
 import { logger } from "../logger.js";
@@ -27,6 +28,57 @@ import { nextBalancedJsonSpan } from "./extract.js";
 /** True when the schema exposes a Zod-style `safeParse` we can validate with. */
 function hasSafeParse(schema: ValidationSchema): boolean {
   return typeof (schema as { safeParse?: unknown }).safeParse === "function";
+}
+
+/**
+ * Does `value` satisfy `schema`? A schema we cannot validate with (absent, or
+ * without a Zod-style `safeParse`) accepts everything — callers use this as a
+ * gate, not as proof, so an unknown schema must never block a value.
+ *
+ * Exists so the consumers of coerceJsonToSchema can refuse to publish a
+ * recovered value as `structuredData` when the caller's schema rejects it —
+ * e.g. a raw *string* under an object schema, which is the shape a truncated
+ * response degrades to.
+ */
+export function schemaAccepts(
+  schema: ValidationSchema | undefined,
+  value: unknown,
+): boolean {
+  if (!schema || !hasSafeParse(schema)) {
+    return true;
+  }
+  return (
+    schema as { safeParse: (v: unknown) => { success: boolean } }
+  ).safeParse(value).success;
+}
+
+/**
+ * Recover a JSON *scalar* root (string/number/boolean) from model text. The
+ * object/array case is handled by `coerceJsonToSchema`; this covers the
+ * residual scalar root after that path returns null. Encapsulates the JSON
+ * parsing, the empty-string normalization, and the `schemaAccepts` gate so the
+ * same policy cannot drift between consumers (`neurolink.recoverStructuredData`
+ * and `GenerationHandler.coerceTextMode`).
+ */
+export function recoverScalarRoot(
+  text: string,
+  schema: ValidationSchema | undefined,
+): ScalarRecoveryDecision {
+  try {
+    const scalar: unknown = JSON.parse(text);
+    if (scalar === "") {
+      return { kind: "empty" };
+    }
+    if (scalar === null || scalar === undefined) {
+      return { kind: "nullish" };
+    }
+    if (schemaAccepts(schema, scalar)) {
+      return { kind: "accepted", value: scalar };
+    }
+    return { kind: "rejected", value: scalar };
+  } catch {
+    return { kind: "not-json" };
+  }
 }
 
 /**
@@ -58,6 +110,42 @@ function parseOrRepair(
 
 /** Bounds the recursive nested-string unwrap against pathological inputs. */
 const MAX_NESTED_UNWRAP_DEPTH = 6;
+
+/** Bounds the structural back-off when salvaging a truncated root object. */
+const MAX_SALVAGE_TRIMS = 8;
+
+/**
+ * Last-resort recovery for output cut off mid-JSON: walk the unclosed root span
+ * backwards to successively earlier structural boundaries (`,` / `}` / `]`) and
+ * re-attempt parse+repair at each one. Truncation can land somewhere jsonrepair
+ * cannot close on its own (inside an escape, a half-written key, a dangling
+ * separator); dropping back to the last completed field gives it a repairable
+ * prefix. Returns a PARTIAL object — the fields the model did finish — so a
+ * truncated response degrades to an incomplete object rather than to raw text.
+ */
+function salvageTruncatedRoot(span: string): unknown | undefined {
+  let candidate = span;
+  for (let i = 0; i < MAX_SALVAGE_TRIMS && candidate.length > 1; i++) {
+    const cut = Math.max(
+      candidate.lastIndexOf(","),
+      candidate.lastIndexOf("}"),
+      candidate.lastIndexOf("]"),
+    );
+    if (cut <= 0) {
+      break;
+    }
+    candidate = candidate.slice(0, cut);
+    const outcome = parseOrRepair(candidate);
+    if (
+      outcome !== undefined &&
+      outcome.value !== null &&
+      typeof outcome.value === "object"
+    ) {
+      return outcome.value;
+    }
+  }
+  return undefined;
+}
 
 /**
  * Recursively replace any string-valued field whose content is itself a JSON
@@ -151,32 +239,60 @@ export function coerceJsonToSchema(
   //  3. first "{" or "[" to end of text (TRUNCATED output —
   //     finishReason=length — where the closing bracket was cut off;
   //     jsonrepair closes it)
-  // `truncated` marks the first-open-to-end candidate: it is only reachable
-  // when no balanced span and no first-to-last span matched, i.e. there was no
-  // closing bracket at all — the signature of token-truncated output.
-  const candidates: Array<{ text: string; truncated: boolean }> = [];
+  // `truncated` marks a candidate that could only come from output cut short:
+  // the first-open-to-end span, and — when the ROOT bracket never closes —
+  // every other candidate too, since all of them are then partial views of an
+  // unfinished document.
+  //
+  // `rootAligned` marks candidates that start at the document's first opening
+  // bracket, i.e. at the real root. Candidates are ordered root-aligned FIRST.
+  // On truncated output the root brace never balances, so the balanced scan
+  // walks on and matches brackets that live INSIDE a string value (`[step 1]`
+  // in a shell script, say) — a syntactically fine but semantically bogus
+  // array. Preferring the root keeps the partial real object ahead of that.
+  const candidates: Array<{
+    text: string;
+    truncated: boolean;
+    rootAligned: boolean;
+  }> = [];
+  const openIndexes = [text.indexOf("{"), text.indexOf("[")].filter(
+    (i) => i >= 0,
+  );
+  const firstOpen = openIndexes.length > 0 ? Math.min(...openIndexes) : -1;
+  let rootClosed = false;
   let searchFrom = 0;
   for (;;) {
     const found = nextBalancedJsonSpan(text, searchFrom);
     if (!found) {
       break;
     }
-    candidates.push({ text: found.span, truncated: false });
+    const start = found.end - found.span.length;
+    if (start === firstOpen) {
+      rootClosed = true;
+    }
+    candidates.push({
+      text: found.span,
+      truncated: false,
+      rootAligned: start === firstOpen,
+    });
     searchFrom = found.end;
   }
-  const openIndexes = [text.indexOf("{"), text.indexOf("[")].filter(
-    (i) => i >= 0,
-  );
-  const firstOpen = openIndexes.length > 0 ? Math.min(...openIndexes) : -1;
+  // No balanced span starts at the root bracket → the document is unclosed.
+  const rootUnclosed = firstOpen >= 0 && !rootClosed;
   const lastClose = Math.max(text.lastIndexOf("}"), text.lastIndexOf("]"));
   if (firstOpen >= 0 && lastClose > firstOpen) {
     candidates.push({
       text: text.slice(firstOpen, lastClose + 1),
-      truncated: false,
+      truncated: rootUnclosed,
+      rootAligned: true,
     });
   }
   if (firstOpen >= 0) {
-    candidates.push({ text: text.slice(firstOpen), truncated: true });
+    candidates.push({
+      text: text.slice(firstOpen),
+      truncated: true,
+      rootAligned: true,
+    });
   }
 
   // JSON-string-literal wrapper: some providers double-encode and return the
@@ -193,7 +309,11 @@ export function coerceJsonToSchema(
           if (!innerSpan) {
             break;
           }
-          candidates.push({ text: innerSpan.span, truncated: false });
+          candidates.push({
+            text: innerSpan.span,
+            truncated: false,
+            rootAligned: false,
+          });
           innerFrom = innerSpan.end;
         }
       }
@@ -202,17 +322,33 @@ export function coerceJsonToSchema(
     }
   }
 
+  // Stable partition: root-aligned candidates first. Only the ORDER changes —
+  // no candidate is dropped — so the multi-object "prefer the most complete
+  // schema-valid candidate" selection below is unaffected (it is order
+  // independent), while the unschema'd first-parseable-wins path and the
+  // `firstValid` fallback now favour the document's real root.
+  const ordered = [
+    ...candidates.filter((c) => c.rootAligned),
+    ...candidates.filter((c) => !c.rootAligned),
+  ];
+
   let firstValid:
-    | { value: unknown; repaired: boolean; truncated: boolean }
+    | {
+        value: unknown;
+        repaired: boolean;
+        truncated: boolean;
+        rootAligned: boolean;
+      }
     | undefined;
   const schemaValid: Array<{
     value: unknown;
     repaired: boolean;
     truncated: boolean;
+    rootAligned: boolean;
   }> = [];
   const hasSchema = !!(schema && hasSafeParse(schema));
   const seen = new Set<string>();
-  for (const candidate of candidates) {
+  for (const candidate of ordered) {
     if (seen.has(candidate.text)) {
       continue;
     }
@@ -229,6 +365,7 @@ export function coerceJsonToSchema(
       value: outcome.value,
       repaired: outcome.repaired,
       truncated: candidate.truncated,
+      rootAligned: candidate.rootAligned,
     };
     if (firstValid === undefined) {
       firstValid = record;
@@ -259,6 +396,7 @@ export function coerceJsonToSchema(
           value: unwrapped.value,
           repaired: true,
           truncated: candidate.truncated,
+          rootAligned: candidate.rootAligned,
         });
       } else if (
         // Single-element array wrapper: for an OBJECT schema, models sometimes
@@ -277,6 +415,7 @@ export function coerceJsonToSchema(
           value: outcome.value[0],
           repaired: true,
           truncated: candidate.truncated,
+          rootAligned: candidate.rootAligned,
         });
       }
     }
@@ -296,7 +435,35 @@ export function coerceJsonToSchema(
         )
       : undefined;
 
-  const chosen = schemaMatch ?? firstValid;
+  let chosen = schemaMatch ?? firstValid;
+  // Salvage the root when the document is unclosed AND nothing trustworthy came
+  // out of it: either nothing parsed at all, or the only parseable candidate is
+  // a bracket pair scraped from INSIDE a string value (not root-aligned, not
+  // schema-valid) — the `["step 1"]`-from-a-shell-script case. Backing off to
+  // the last completed field yields a PARTIAL OBJECT flagged `truncated`,
+  // instead of a bogus value or raw text degrading to a string.
+  if (
+    rootUnclosed &&
+    schemaMatch === undefined &&
+    (chosen === undefined || !chosen.rootAligned)
+  ) {
+    const salvaged = salvageTruncatedRoot(text.slice(firstOpen));
+    if (salvaged !== undefined) {
+      logger.debug("[coerceJsonToSchema] salvaged a partial truncated object", {
+        textLength: text.length,
+      });
+      chosen = {
+        value: salvaged,
+        repaired: true,
+        truncated: true,
+        rootAligned: true,
+      };
+    } else if (chosen !== undefined) {
+      // Nothing salvageable, but we still know the output was truncated —
+      // never report a candidate scraped from a truncated document as complete.
+      chosen = { ...chosen, truncated: true };
+    }
+  }
   if (chosen === undefined) {
     return null;
   }

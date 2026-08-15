@@ -531,4 +531,45 @@ await test("vertex:claude-sonnet-4-6 — forced truncation is observable, never 
   );
 });
 
+// The exact regression behind #1156 lived on the DIRECT Anthropic path: a
+// max_tokens cut left `structuredData` as a STRING (the raw completion) where
+// the schema required an object. Force the same cut here and assert the
+// contract — structuredData is a plain object (never a string), and
+// jsonTruncated === true tells a caller the object is partial.
+await test("anthropic:claude-sonnet-4-6 — forced truncation yields a partial object, never a string", async () => {
+  let res: SchemaResult;
+  try {
+    res = (await nl.generate({
+      input: { text: HUGE_OUTPUT_PROMPT },
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      schema: agentSchema,
+      tools: pingTool,
+      disableTools: false,
+      temperature: 0,
+      maxTokens: 200, // force a cut-off mid-JSON (260-line script won't fit)
+    })) as SchemaResult;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (isInfraError(msg)) {
+      throw new Skip(`anthropic: ${msg.slice(0, 120)}`);
+    }
+    throw err;
+  }
+  JSON.parse(res.content); // must be valid JSON, truncated or not
+  const isObject =
+    res.structuredData !== undefined &&
+    res.structuredData !== null &&
+    typeof res.structuredData === "object" &&
+    !Array.isArray(res.structuredData);
+  assert(isObject, "structuredData must be a plain object, never a string");
+  assert(
+    res.jsonTruncated === true,
+    `truncation must be flagged jsonTruncated=true (jsonTruncated=${res.jsonTruncated}, finishReason=${res.finishReason})`,
+  );
+  console.log(
+    `      · direct-Anthropic forced truncation: plain object + jsonTruncated=true`,
+  );
+});
+
 await runSuite();
