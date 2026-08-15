@@ -8,8 +8,32 @@
  */
 
 import { execFileSync } from "child_process";
-import { NeuroLink } from "../src/lib/neurolink.js";
-import { withTimeout } from "../src/lib/utils/async/withTimeout.js";
+import { NeuroLink } from "../dist/index.js";
+
+/**
+ * Bound a test function's runtime. This is test plumbing, not a behaviour
+ * under test — it used to borrow `withTimeout` from `src/lib/`, which made
+ * this suite depend on an internal helper it never meant to exercise.
+ */
+async function withDeadline<T>(
+  promise: Promise<T>,
+  ms: number,
+  message: string,
+): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
 
 type TestResult = {
   name: string;
@@ -43,7 +67,7 @@ async function run(
   let result: boolean | null = false;
   let error: string | null = null;
   try {
-    result = await withTimeout(
+    result = await withDeadline(
       fn(),
       TEST_CONFIG.timeout,
       `${name} timed out after ${TEST_CONFIG.timeout}ms`,

@@ -3,6 +3,17 @@
 /**
  * Continuous Test Suite — Claude Proxy
  *
+ * ## Determinism exception (CLAUDE.md rule 15)
+ *
+ * Most of this suite drives the shipped CLI. A handful of cases instead import
+ * `__testHooks` from `claudeProxyRoutes`, plus `loadProxyConfig` and the
+ * accountQuota helpers, to cover 429-cooldown planning, account ordering by
+ * quota, and weekly-expiry ordering. Those are deterministic table-driven
+ * decisions with no live path: reproducing them end to end would mean
+ * provoking a specific sequence of 429s across several real accounts, which
+ * cannot be arranged on demand. `__testHooks` is a test-only export in `src/`
+ * and should shrink as this logic gains a real surface.
+ *
  * Tests the proxy server end-to-end:
  * - Starts the proxy
  * - Sends real requests through it

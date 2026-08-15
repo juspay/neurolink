@@ -19,10 +19,20 @@ import { defineSuite, Skip, assert, assertEqual } from "./helpers/harness.js";
 import { skipUnlessProviderAvailable } from "./helpers/skipIf.js";
 import { isExpectedProviderError } from "./helpers/envGuard.js";
 
-import { ModelPool, classifyProviderError } from "../src/lib/routing/index.js";
-import { createDefaultRequestRouter } from "../src/lib/routing/requestRouter.js";
-import { AIProviderFactory } from "../src/lib/core/factory.js";
-import { NeuroLink } from "../src/lib/neurolink.js";
+// ModelPool, classifyProviderError, createDefaultRequestRouter and
+// AIProviderFactory are all exported from the package — this suite tests the
+// shipped surface, so it imports them from the built entry rather than from
+// `src/lib/`. Taking NeuroLink from the same module graph is what keeps the
+// `AIProviderFactory.createProvider` stub below effective; split the two and
+// the stub silently patches a different copy and the tests start making real
+// network calls.
+import {
+  ModelPool,
+  classifyProviderError,
+  createDefaultRequestRouter,
+  AIProviderFactory,
+  NeuroLink,
+} from "../dist/index.js";
 import type { AIProviderName } from "../src/lib/constants/enums.js";
 import type {
   AIProvider,
@@ -1204,7 +1214,7 @@ await test("[LIVE] pool falls back from bogus model to real provider", async () 
 
   // Dynamically import NeuroLink only if we have keys (avoids initialization
   // side-effects when keys are absent)
-  const { NeuroLink } = await import("../src/lib/neurolink.js");
+  const { NeuroLink } = await import("../dist/index.js");
 
   const nl = new NeuroLink({
     conversationMemory: { enabled: false },

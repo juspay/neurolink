@@ -122,7 +122,7 @@ async function testGenerateOnFinish(): Promise<boolean | null> {
   logTest("onFinish fires after generation", "TESTING");
 
   try {
-    const { NeuroLink } = await import("../src/lib/neurolink.js");
+    const { NeuroLink } = await import("../dist/index.js");
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let finishPayload: any = null;
@@ -192,7 +192,7 @@ async function testGenerateOnError(): Promise<boolean | null> {
   logTest("onError fires on generation failure", "TESTING");
 
   try {
-    const { NeuroLink } = await import("../src/lib/neurolink.js");
+    const { NeuroLink } = await import("../dist/index.js");
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let errorPayload: any = null;
@@ -260,7 +260,7 @@ async function testGenerateCallbackIsolation(): Promise<boolean | null> {
   logTest("Throwing callback does not break generation", "TESTING");
 
   try {
-    const { NeuroLink } = await import("../src/lib/neurolink.js");
+    const { NeuroLink } = await import("../dist/index.js");
 
     const sdk = new NeuroLink();
     const result = await sdk.generate({
@@ -319,7 +319,7 @@ async function testStreamOnFinish(): Promise<boolean | null> {
   logTest("onFinish fires after streaming", "TESTING");
 
   try {
-    const { NeuroLink } = await import("../src/lib/neurolink.js");
+    const { NeuroLink } = await import("../dist/index.js");
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let finishPayload: any = null;
@@ -393,7 +393,7 @@ async function testStreamOnChunk(): Promise<boolean | null> {
   logTest("onChunk fires per streaming chunk", "TESTING");
 
   try {
-    const { NeuroLink } = await import("../src/lib/neurolink.js");
+    const { NeuroLink } = await import("../dist/index.js");
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const chunkPayloads: any[] = [];
@@ -462,7 +462,7 @@ async function testStreamOnError(): Promise<boolean | null> {
   logTest("onError fires on stream failure", "TESTING");
 
   try {
-    const { NeuroLink } = await import("../src/lib/neurolink.js");
+    const { NeuroLink } = await import("../dist/index.js");
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let errorPayload: any = null;
@@ -530,7 +530,7 @@ async function testStreamCallbackIsolation(): Promise<boolean | null> {
   logTest("Throwing callback does not break streaming", "TESTING");
 
   try {
-    const { NeuroLink } = await import("../src/lib/neurolink.js");
+    const { NeuroLink } = await import("../dist/index.js");
 
     const sdk = new NeuroLink();
     const streamResult = await sdk.stream({
@@ -589,69 +589,13 @@ async function testStreamCallbackIsolation(): Promise<boolean | null> {
 }
 
 // ============================================================
-// TEST #8: isRecoverableError classification
+// TEST #8: isRecoverableError classification — REMOVED
 // ============================================================
-
-async function testIsRecoverableError(): Promise<boolean | null> {
-  logSection("Test #8: isRecoverableError classification");
-  logTest("Error classification", "TESTING");
-
-  try {
-    const { isRecoverableError } =
-      await import("../src/lib/utils/errorHandling.js");
-
-    const recoverable = [
-      "rate limit exceeded",
-      "request timeout",
-      "ECONNRESET",
-      "ECONNREFUSED",
-      "socket hang up",
-      "Error 429: Too many requests",
-      "Service Unavailable 503",
-      "Bad Gateway 502",
-    ];
-
-    const nonRecoverable = [
-      "Invalid API key",
-      "Model not found",
-      "Permission denied",
-      "Bad request: malformed JSON",
-    ];
-
-    const errors: string[] = [];
-
-    for (const msg of recoverable) {
-      if (!isRecoverableError(new Error(msg))) {
-        errors.push(`"${msg}" should be recoverable`);
-      }
-    }
-
-    for (const msg of nonRecoverable) {
-      if (isRecoverableError(new Error(msg))) {
-        errors.push(`"${msg}" should NOT be recoverable`);
-      }
-    }
-
-    if (errors.length > 0) {
-      logTest("Error classification", "FAIL", errors.join("; "));
-      return false;
-    }
-
-    logTest(
-      "Error classification",
-      "PASS",
-      `${recoverable.length} recoverable + ${nonRecoverable.length} non-recoverable correctly classified`,
-    );
-    return true;
-  } catch (error) {
-    logTest(
-      "Error classification",
-      "FAIL",
-      error instanceof Error ? error.message : String(error),
-    );
-    return false;
-  }
-}
+//
+// This called `isRecoverableError` out of `src/lib/utils/errorHandling.js`
+// and asserted its classification of ~20 error strings. It went with the unit
+// suites (CLAUDE.md rule 15); the classifier has no public surface, so which
+// errors count as recoverable is no longer asserted anywhere.
 
 // ============================================================
 // MAIN RUNNER
@@ -678,7 +622,6 @@ async function runAllTests(): Promise<void> {
     { name: "stream() onChunk", fn: testStreamOnChunk },
     { name: "stream() onError", fn: testStreamOnError },
     { name: "stream() callback isolation", fn: testStreamCallbackIsolation },
-    { name: "isRecoverableError", fn: testIsRecoverableError },
   ];
 
   for (const test of tests) {

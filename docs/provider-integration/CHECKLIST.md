@@ -372,7 +372,7 @@ These items are mandatory regardless of which section above you're working from.
 
 - [ ] **SDK reference validated via `isNeuroLink(sdk)`** from `src/lib/neurolink.js` — NOT duck-type via `"getInMemoryServers" in sdk`. The brand check (`Symbol.for("@juspay/neurolink/sdk-brand")`) survives minification and isn't tied to method names.
 - [ ] **Logging fetch wrappers use `createLoggingFetch`** from `src/lib/utils/loggingFetch.ts`. Don't hand-roll the wrap-and-log pattern; the shared helper already sanitises bodies under `NEUROLINK_DEBUG_HTTP=1`.
-- [ ] **Run the regression suites**: `pnpm run test:ssrf && pnpm run test:log-sanitize && pnpm run test:stream-span` — all three are offline (no API keys needed) and cover the bypass / drift classes found in this PR's review.
+- [ ] **Review against `SAFETY-PRIMITIVES.md` §8 by hand.** The `ssrf`, `log-sanitize` and `stream-span` regression suites that used to cover the bypass / drift classes from this PR's review were removed with the unit suites — nothing runs them now.
 
 ---
 

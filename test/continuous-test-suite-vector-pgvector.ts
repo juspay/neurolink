@@ -26,7 +26,7 @@ import "dotenv/config";
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite/vector";
 import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
-import { PgVectorStore } from "../src/lib/rag/stores/pgvector.js";
+import { PgVectorStore } from "../dist/index.js";
 import type { PgClientLike } from "../src/lib/types/index.js";
 
 const { test, runSuite } = defineSuite("PgVectorStore (pgvector adapter)");

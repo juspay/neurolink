@@ -32,7 +32,7 @@ const buffer = await safeDownload(videoUrl, {
 });
 ```
 
-**Guarantees** (each enforced by tests in `test/continuous-test-suite-ssrf.ts`):
+**Guarantees** (these were enforced by `test/continuous-test-suite-ssrf.ts`, now removed — the guarantees still hold in the implementation, but nothing tests them):
 
 - Resolves and validates the hostname against blocked CIDRs:
   RFC 1918, loopback, link-local, CGNAT, IPv6 loopback / link-local /
@@ -65,7 +65,7 @@ const { url, ip, family } = await validateAndResolveUrl(url);
 **ESLint enforcement:** none yet — prefer `safeDownload` over
 hand-rolled `fetch + assertSafeUrl + readBoundedBuffer` chains.
 
-**Tests:** `pnpm run test:ssrf` (40 cases covering H01 + H06 in the review).
+**Tests:** none — the 40-case `ssrf` suite covering H01 + H06 was removed with the unit suites. Review-enforced.
 
 ---
 
@@ -107,7 +107,7 @@ substring outside `logSanitize.ts`. Bypass via `// eslint-disable-next-line`
 with justification only when the redaction is unrelated (e.g. CLI flag
 form `--token foo`).
 
-**Tests:** `pnpm run test:log-sanitize` (41 cases covering H03 + H04).
+**Tests:** none — the 41-case `log-sanitize` suite covering H03 + H04 was removed with the unit suites. Review-enforced.
 
 ---
 
@@ -155,8 +155,9 @@ the parent in the trace tree.
 `withClientStreamSpan` wraps the returned iterable so the span stays
 open until the **consumer** reaches end-of-stream / errors / aborts.
 
-**Lifecycle guarantees** (each enforced by tests in
-`test/continuous-test-suite-stream-span.ts`):
+**Lifecycle guarantees** (these were enforced by
+`test/continuous-test-suite-stream-span.ts`, now removed — still true of the
+implementation, but no longer tested):
 
 - Span unfinished after the wrapper returns.
 - Span ends `OK` when the consumer reaches the end of the iterable.
@@ -172,9 +173,9 @@ open until the **consumer** reaches end-of-stream / errors / aborts.
 `lmStudio`, `nvidiaNim`, `cloudflare`, `ollama` (×2 — with/without
 tools), `googleAiStudio`, `googleVertex`.
 
-**Tests:** `pnpm run test:stream-span` (105 cases including pattern
-sweep that ensures no legacy `withClientSpan(` remains for streaming
-in any provider).
+**Tests:** none — the 105-case `stream-span` suite was removed with the unit
+suites. Its pattern sweep for legacy `withClientSpan(` on streaming paths is
+no longer run; check by hand.
 
 ---
 
@@ -212,9 +213,10 @@ survives minification and isn't tied to method names.
 llamaCpp, lmStudio, mistral, nvidiaNim, perplexity, togetherAi,
 replicate, stability, recraft, xai, voyage, cloudflare, deepseek.
 
-**Tests:** the pattern sweep section of `test/continuous-test-suite-stream-span.ts`
-asserts each provider uses `isNeuroLink(` and has no leftover
-`"getInMemoryServers" in sdk` reference.
+**Tests:** none. The pattern sweep in `test/continuous-test-suite-stream-span.ts`
+used to assert each provider uses `isNeuroLink(` and has no leftover
+`"getInMemoryServers" in sdk` reference; that suite was removed with the unit
+suites, so a provider added with duck-typing will no longer be caught.
 
 ---
 
@@ -308,14 +310,21 @@ near-identical copies with subtle differences). Now centralised.
 
 ## 8. Test scripts
 
-| Script                       | Suite                                        | Covers                                                                                                  |
-| ---------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `pnpm run test:ssrf`         | `test/continuous-test-suite-ssrf.ts`         | H01 + H06 bypass categories, handler-coverage audit                                                     |
-| `pnpm run test:log-sanitize` | `test/continuous-test-suite-log-sanitize.ts` | H03 + H04 token formats, record/header sanitization, H04 regression grep                                |
-| `pnpm run test:stream-span`  | `test/continuous-test-suite-stream-span.ts`  | H07 span lifetime + error path + recordException ordering, M08 typed-error sweep, M09 brand check sweep |
+⚠️ **These three suites no longer exist.** `ssrf`, `log-sanitize` and
+`stream-span` each imported the primitive out of `src/lib/` and asserted on
+it directly, so they were removed when the suites became end-to-end only
+(CLAUDE.md rule 15).
 
-All three run offline (no API keys required, no external network for
-the IP-literal paths) so they're safe to wire into pre-commit / CI.
+| Removed suite                                | Covered                                                                                                 |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `test/continuous-test-suite-ssrf.ts`         | H01 + H06 bypass categories, handler-coverage audit                                                     |
+| `test/continuous-test-suite-log-sanitize.ts` | H03 + H04 token formats, record/header sanitization, H04 regression grep                                |
+| `test/continuous-test-suite-stream-span.ts`  | H07 span lifetime + error path + recordException ordering, M08 typed-error sweep, M09 brand check sweep |
+
+Nothing has replaced them. The primitives themselves are unchanged and the
+`eslint` rules that force callers through them still apply, but the bypass
+categories above are now caught only by review. Treat the checklist below
+as the live control.
 
 ---
 
@@ -328,7 +337,7 @@ When adding any new provider / modality / handler, tick:
 - [ ] Streaming spans wrapped in `withClientStreamSpan` (NOT `withClientSpan`)
 - [ ] Provider SDK reference validated via `isNeuroLink(sdk)` (NOT duck-typing)
 - [ ] `formatProviderError` returns typed errors (`AuthenticationError` / `RateLimitError` / `InvalidModelError` / `NetworkError` / `ProviderError` / `NeuroLinkError`) — never plain `Error`
-- [ ] `pnpm run test:ssrf && pnpm run test:log-sanitize && pnpm run test:stream-span` all pass
+- [ ] Reviewed by hand against §8 — the `ssrf` / `log-sanitize` / `stream-span` suites that used to gate this were removed with the unit suites
 
 If a custom redaction or fetch pattern is genuinely required, add an
 `eslint-disable-next-line` with a one-line justification rather than

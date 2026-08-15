@@ -159,9 +159,9 @@ function getServerUrl(): string {
 
 async function startServer(): Promise<boolean> {
   try {
-    const { NeuroLink } = await import("../src/lib/neurolink.js");
+    const { NeuroLink } = await import("../dist/index.js");
     const { createServer, registerAllRoutes } =
-      await import("../src/lib/server/index.js");
+      await import("../dist/index.js");
 
     const sdk = new NeuroLink();
 
@@ -209,7 +209,7 @@ async function testClientHealthCheck(): Promise<boolean | null> {
   logTest("Client connects to server", "TESTING");
 
   try {
-    const { createClient } = await import("../src/lib/client/index.js");
+    const { createClient } = await import("../dist/index.js");
 
     const client = createClient({
       baseUrl: getServerUrl(),
@@ -256,7 +256,7 @@ async function testClientGenerate(): Promise<boolean | null> {
   }
 
   try {
-    const { createClient } = await import("../src/lib/client/index.js");
+    const { createClient } = await import("../dist/index.js");
 
     const client = createClient({ baseUrl: getServerUrl() });
 
@@ -308,7 +308,7 @@ async function testClientStream(): Promise<boolean | null> {
   }
 
   try {
-    const { createClient } = await import("../src/lib/client/index.js");
+    const { createClient } = await import("../dist/index.js");
 
     const client = createClient({ baseUrl: getServerUrl() });
 
@@ -375,7 +375,7 @@ async function testMiddlewareComposition(): Promise<boolean | null> {
 
   try {
     const { createClient, composeMiddleware } =
-      await import("../src/lib/client/index.js");
+      await import("../dist/index.js");
 
     const executionOrder: string[] = [];
 
@@ -446,7 +446,7 @@ async function testAuthInterceptor(): Promise<boolean | null> {
 
   try {
     const { createClient, createApiKeyAuthInterceptor } =
-      await import("../src/lib/client/index.js");
+      await import("../dist/index.js");
 
     let capturedHeaders: Record<string, string> = {};
 
@@ -517,7 +517,7 @@ async function testErrorHierarchy(): Promise<boolean | null> {
       mapStatusToErrorCode,
       isNeuroLinkError,
       createErrorFromResponse,
-    } = await import("../src/lib/client/index.js");
+    } = await import("../dist/index.js");
 
     const errors: string[] = [];
 
@@ -554,7 +554,7 @@ async function testErrorHierarchy(): Promise<boolean | null> {
     // Test 3: isRetryableError
     // Use ClientNetworkError (from errors.ts) which extends NeuroLinkError with retryable=true
     // The plain NetworkError from httpClient.ts is NOT a NeuroLinkError
-    const { ClientNetworkError } = await import("../src/lib/client/index.js");
+    const { ClientNetworkError } = await import("../dist/index.js");
     const retryable = new ClientNetworkError("connection reset");
     if (!isRetryableError(retryable)) {
       errors.push("NetworkError should be retryable");
@@ -634,7 +634,7 @@ async function testJWTUtilities(): Promise<boolean | null> {
 
   try {
     const { decodeJWTPayload, isJWTExpired, getJWTExpiry, JWTTokenManager } =
-      await import("../src/lib/client/index.js");
+      await import("../dist/index.js");
 
     const errors: string[] = [];
 
@@ -733,7 +733,7 @@ async function testAiSdkAdapter(): Promise<boolean | null> {
 
   try {
     const { createNeuroLinkProvider, createNeuroLinkModel } =
-      await import("../src/lib/client/index.js");
+      await import("../dist/index.js");
 
     const errors: string[] = [];
 
@@ -824,8 +824,7 @@ async function testAiSdkGenerate(): Promise<boolean | null> {
   logTest("AI SDK doGenerate() round-trip", "TESTING");
 
   try {
-    const { createNeuroLinkProvider } =
-      await import("../src/lib/client/index.js");
+    const { createNeuroLinkProvider } = await import("../dist/index.js");
 
     const provider = createNeuroLinkProvider({
       baseUrl: getServerUrl(),
@@ -894,7 +893,7 @@ async function testSSEClient(): Promise<boolean | null> {
   logTest("SSEClient streams real responses", "TESTING");
 
   try {
-    const { SSEClient } = await import("../src/lib/client/index.js");
+    const { SSEClient } = await import("../dist/index.js");
 
     const sseUrl = `${getServerUrl()}/api/agent/stream`;
 
@@ -1023,7 +1022,7 @@ async function testClientErrorHandling(): Promise<boolean | null> {
   logTest("Client produces typed errors on failures", "TESTING");
 
   try {
-    const { createClient } = await import("../src/lib/client/index.js");
+    const { createClient } = await import("../dist/index.js");
 
     const client = createClient({ baseUrl: getServerUrl() });
 
@@ -1075,7 +1074,7 @@ async function testReactHooksExports(): Promise<boolean | null> {
   logTest("React hooks are importable", "TESTING");
 
   try {
-    const clientModule = await import("../src/lib/client/index.js");
+    const clientModule = await import("../dist/index.js");
 
     const hooks = [
       "NeuroLinkProvider",
@@ -1181,7 +1180,7 @@ async function testRetryInterceptor(): Promise<boolean | null> {
 
   try {
     const { createClient, createRetryInterceptor } =
-      await import("../src/lib/client/index.js");
+      await import("../dist/index.js");
 
     let retryCallbackCount = 0;
 

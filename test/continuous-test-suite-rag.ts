@@ -62,18 +62,33 @@ import type {
   VectorQueryResult,
 } from "../src/lib/types/index.js";
 import type { z } from "zod";
-import { NeuroLink } from "../src/lib/neurolink.js";
-// Import RAG components
+import { NeuroLink } from "../dist/index.js";
+// RAG components.
+//
+// Everything the package exports comes from the built entry. The rest is
+// imported from `src/lib/` under the determinism exception to CLAUDE.md rule
+// 15: chunk boundaries, reranker ordering and registry metadata are exact,
+// table-driven outcomes, and `generate({ rag })` only ever shows the answer the
+// model produced — it cannot reveal where a chunker split a document or which
+// order a reranker chose.
+import {
+  ChunkerRegistry,
+  createChunker,
+  createHybridSearch,
+  createVectorQueryTool,
+  getAvailableStrategies,
+  InMemoryBM25Index,
+  InMemoryVectorStore,
+  linearCombination,
+  reciprocalRankFusion,
+} from "../dist/index.js";
 import {
   ChunkerFactory,
   chunkerFactory,
-  createChunker,
-  getAvailableStrategies,
   getChunkerMetadata,
   getDefaultConfig,
 } from "../src/lib/rag/ChunkerFactory.js";
 import {
-  ChunkerRegistry,
   chunkerRegistry,
   getAvailableChunkers,
   getChunker,
@@ -94,16 +109,6 @@ import {
   RerankerRegistry,
   rerankerRegistry,
 } from "../src/lib/rag/reranker/RerankerRegistry.js";
-import {
-  createHybridSearch,
-  InMemoryBM25Index,
-  linearCombination,
-  reciprocalRankFusion,
-} from "../src/lib/rag/retrieval/hybridSearch.js";
-import {
-  createVectorQueryTool,
-  InMemoryVectorStore,
-} from "../src/lib/rag/retrieval/vectorQueryTool.js";
 // ============================================================================
 // Test Configuration
 // ============================================================================

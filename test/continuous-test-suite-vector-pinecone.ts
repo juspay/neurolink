@@ -19,10 +19,10 @@
  */
 
 import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
-import {
-  PineconeVectorStore,
-  translatePineconeFilter,
-} from "../src/lib/rag/stores/pinecone.js";
+import { PineconeVectorStore } from "../dist/index.js";
+// See the note in continuous-test-suite-vector-chroma.ts — `translatePineconeFilter`
+// is internal and kept under the determinism exception to CLAUDE.md rule 15.
+import { translatePineconeFilter } from "../src/lib/rag/stores/pinecone.js";
 import type {
   MetadataFilter,
   PineconeIndexLike,

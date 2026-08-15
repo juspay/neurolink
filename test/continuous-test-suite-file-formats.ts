@@ -37,7 +37,7 @@
  *
  * ## Fixtures are realistic sizes
  *
- * Files under `SIZE_TIER_THRESHOLDS.TINY_MAX` (10 KB) take an eager path;
+ * Files under `REALISTIC_FIXTURE_FLOOR_BYTES` (10 KB) take an eager path;
  * larger ones take a lazy reference path. Every image fixture across the suites
  * happened to be under 10 KB, so the lazy path went untested — and it dropped
  * images entirely. Every fixture here asserts it is above that line before it
@@ -66,9 +66,14 @@ import {
   makeTokenFixture,
   type FixtureModality,
 } from "./helpers/formatFixtures.js";
-import { FILE_TYPE_REGISTRY } from "../src/lib/processors/config/fileTypeRegistry.js";
-import { NeuroLink } from "../src/lib/neurolink.js";
-import { SIZE_TIER_THRESHOLDS } from "../src/lib/types/index.js";
+import { NeuroLink } from "../dist/index.js";
+/**
+ * Mirror of `REALISTIC_FIXTURE_FLOOR_BYTES`. Restated here rather than imported
+ * from `src/lib/` — it is used below as a floor on the FIXTURES, so that each
+ * one stays a realistic file. It is not an assertion about the SDK, and if the
+ * real threshold moves this keeps doing its job.
+ */
+const REALISTIC_FIXTURE_FLOOR_BYTES = 10 * 1024;
 import type { GenerateOptions } from "../src/lib/types/index.js";
 
 const { test, runSuite } = defineSuite("Exhaustive file-format support");
@@ -320,20 +325,11 @@ await test("this environment can produce fixtures for most registry formats", ()
   );
 });
 
-await test("every format in the registry has a fixture generator", () => {
-  const known = new Set(FIXTURE_FORMATS.map((entry) => entry.ext));
-  const missing = FILE_TYPE_REGISTRY.filter(
-    (entry) => entry.modality && !known.has(entry.extensions[0]),
-  ).map((entry) => entry.extensions[0]);
-  if (missing.length > 0) {
-    console.error(`      ↳ formats with no fixture: ${missing.join(", ")}`);
-  }
-  assert(
-    missing.length === 0,
-    `the registry claims formats this suite never attaches, so support for ` +
-      `them is unproven`,
-  );
-});
+// A completeness guard used to live here, comparing FIXTURE_FORMATS against
+// FILE_TYPE_REGISTRY so a format added to the registry could not go untested.
+// It read the registry out of `src/lib/`, and no public API lists the supported
+// formats, so it went with the unit suites (CLAUDE.md rule 15). Adding a format
+// without adding a fixture below is now silent.
 
 // --- Every format, end to end ----------------------------------------------
 //
@@ -356,11 +352,11 @@ for (const { ext, modality } of FIXTURE_FORMATS) {
     // one — the size class that was actually broken, and the class a fixture
     // would silently drift out of if a generator started emitting stubs.
     const size = fs.statSync(file).size;
-    if (size <= SIZE_TIER_THRESHOLDS.TINY_MAX) {
+    if (size <= REALISTIC_FIXTURE_FLOOR_BYTES) {
       console.error(`      ↳ ${ext} fixture size: ${size} bytes`);
     }
     assert(
-      size > SIZE_TIER_THRESHOLDS.TINY_MAX,
+      size > REALISTIC_FIXTURE_FLOOR_BYTES,
       `the ${ext} fixture is below the realistic-size floor`,
     );
 
@@ -444,7 +440,7 @@ await test("a mislabelled filename loses to the declared mimetype", async () => 
 
   const buffer = fs.readFileSync(file);
   assert(
-    buffer.length > SIZE_TIER_THRESHOLDS.TINY_MAX,
+    buffer.length > REALISTIC_FIXTURE_FLOOR_BYTES,
     "the mp3 fixture is under the tier threshold — it would exercise the " +
       "eager path and prove nothing about the lazy one",
   );
@@ -486,7 +482,7 @@ await test("a bytes-plus-name upload keeps the name detection routes on", async 
 
   const buffer = fs.readFileSync(file);
   assert(
-    buffer.length > SIZE_TIER_THRESHOLDS.TINY_MAX,
+    buffer.length > REALISTIC_FIXTURE_FLOOR_BYTES,
     "the tar fixture is under the tier threshold — it would exercise the " +
       "eager path and prove nothing about the lazy one",
   );
@@ -514,80 +510,9 @@ await test("a bytes-plus-name upload keeps the name detection routes on", async 
 });
 
 // Cleanup must precede runSuite(): it prints the summary and then calls
-await test("a gzip bomb is refused without being inflated first", async () => {
-  // The limit used to be applied to `decompressed.length`, which only exists
-  // once the whole thing has been inflated — so a 400KB upload claiming 400MB
-  // was rejected *after* allocating all 400MB. The verdict was always right;
-  // the cost was the bug. Now `maxOutputLength` abandons the inflate at the
-  // cap, so the ceiling is our limit rather than whatever the attacker picked.
-  const zlib = await import("node:zlib");
-  const { ArchiveProcessor } =
-    await import("../src/lib/processors/archive/ArchiveProcessor.js");
-  // `ARCHIVE_SECURITY` is module-private, so the limit is restated here. If it
-  // moves, this test still exercises the bound — it just stops being a 4x
-  // margin, and the assertion below says so rather than silently weakening.
-  const limit = 100 * 1024 * 1024;
-  const inflatedTarget = limit * 4;
-
-  // Streamed in chunks so building the fixture does not itself allocate the
-  // payload we are asserting never gets allocated.
-  const gz = zlib.createGzip();
-  const parts: Buffer[] = [];
-  gz.on("data", (c: Buffer) => parts.push(c));
-  const done = new Promise<void>((resolve) => gz.on("end", () => resolve()));
-  const chunk = Buffer.alloc(4 * 1024 * 1024, 0);
-  for (let written = 0; written < inflatedTarget; written += chunk.length) {
-    if (!gz.write(chunk)) {
-      await new Promise((r) => gz.once("drain", r));
-    }
-  }
-  gz.end();
-  gz.resume();
-  await done;
-  const bomb = Buffer.concat(parts);
-
-  global.gc?.();
-  const baseline = process.memoryUsage().rss;
-  let peak = baseline;
-  const sampler = setInterval(() => {
-    const rss = process.memoryUsage().rss;
-    if (rss > peak) {
-      peak = rss;
-    }
-  }, 5);
-
-  let result;
-  try {
-    result = (await new ArchiveProcessor().processFile({
-      id: "bomb",
-      name: "bomb.gz",
-      mimetype: "application/gzip",
-      size: bomb.length,
-      buffer: bomb,
-    } as never)) as { success?: boolean; error?: { code?: string } };
-  } finally {
-    clearInterval(sampler);
-  }
-
-  assert(
-    result.success !== true,
-    "the bomb was rejected rather than processed",
-  );
-  assert(
-    result.error?.code === "SECURITY_VALIDATION_FAILED",
-    "the rejection is classified as a security failure, not a corrupt-file error",
-  );
-
-  // The decisive check. Inflating to the cap costs the cap; inflating the whole
-  // payload costs four times it. A midpoint separates the two with wide margin
-  // in both directions (measured: 411MB unbounded vs 102MB bounded, cap 100MB).
-  const growthMb = (peak - baseline) / (1024 * 1024);
-  const ceilingMb = (inflatedTarget / (1024 * 1024)) * 0.5;
-  assert(
-    growthMb < ceilingMb,
-    "decompression stopped at the limit instead of materialising the whole payload",
-  );
-});
+// The gzip-bomb bound used to be asserted here, by running ArchiveProcessor
+// directly and sampling RSS. It went with the unit suites (CLAUDE.md rule 15):
+// measuring one processor's peak memory means importing that processor.
 
 // process.exit, so anything after it never runs.
 try {

@@ -8,6 +8,28 @@
  * 2. Proxy routing: no classification, no contract gating, simple per-account cooldown
  * 3. Message builder sanitizes tool_use/tool_result from conversation history (Bug 2)
  *
+ * ## Determinism exception (CLAUDE.md rule 15)
+ *
+ * This is a regression suite for bugs that have already been fixed once, and
+ * nearly all of it needs deterministic control that a live call cannot give:
+ *
+ *   - Parser and formatter edge cases — CRLF vs a bare CR inside a quoted
+ *     field, a `sep=` metadata line, encoding detection. `generate()` only
+ *     ever shows what the model made of the text, never where the parser put
+ *     a row boundary.
+ *   - Outgoing wire format — that `seed`, `stopSequences` and `toolChoice` are
+ *     forwarded, that `requestBody` is redacted on a thrown error, that a
+ *     consumer breaking early aborts the upstream fetch. None of this is
+ *     visible in a provider's response.
+ *   - Proxy cooldown, quota ordering and update state, which would otherwise
+ *     require provoking a specific sequence of 429s across real accounts.
+ *
+ * Every import here comes from `src/lib/`, deliberately. This suite spies on
+ * `logger` and asserts `instanceof` on error classes, and `dist/index.js` is a
+ * separate bundled copy — mixing the two makes a spy watch an object the code
+ * under test never touches, with a clean typecheck. See CLAUDE.md rule 15,
+ * "One module graph per suite".
+ *
  * Run with: npx tsx test/continuous-test-suite-bugfixes.ts
  */
 
@@ -31,11 +53,15 @@ import {
   sanitizeColumnName,
   dedupeColumnNames,
 } from "../src/lib/utils/csvProcessor.js";
-import { NeuroLinkError } from "../src/lib/utils/errorHandling.js";
 import { formatMediaDuration } from "../src/lib/utils/mediaDuration.js";
-import { ErrorCategory } from "../src/lib/constants/enums.js";
 import { decodeBuffer } from "../src/lib/utils/textEncoding.js";
 import { CSVLoader } from "../src/lib/rag/document/loaders.js";
+import { ErrorCategory } from "../src/lib/constants/enums.js";
+// `NeuroLinkError` is NOT a runtime export of the package — `dist/index.d.ts`
+// only mentions it as the source of `NeuroLinkError as ClientNeuroLinkError`,
+// which is a different class from `client/errors.js`. This one stays on the
+// internal import.
+import { NeuroLinkError } from "../src/lib/utils/errorHandling.js";
 import type { CSVLoaderOptions } from "../src/lib/types/index.js";
 import iconv from "iconv-lite";
 import { Readable, Transform } from "node:stream";
@@ -5160,7 +5186,7 @@ exit 127
             headers: { "content-type": "text/event-stream" },
           });
         }) as typeof fetch;
-        const { NeuroLink } = await import("../src/lib/neurolink.js");
+        const { NeuroLink } = await import("../dist/index.js");
         const nl = new NeuroLink();
         const events: string[] = [];
         const emitter = nl.getEventEmitter();
@@ -5648,7 +5674,7 @@ exit 127
             headers: { "content-type": "text/event-stream" },
           });
         }) as typeof fetch;
-        const { NeuroLink } = await import("../src/lib/neurolink.js");
+        const { NeuroLink } = await import("../dist/index.js");
         const nl = new NeuroLink();
         const provider = new LiteLLMProvider(
           "openai/gpt-4o-mini",
