@@ -1,3 +1,9 @@
+## [10.12.5](https://github.com/juspay/neurolink/compare/v10.12.4...v10.12.5) (2026-08-15)
+
+### Bug Fixes
+
+- **(processors):** bound pptx and opendocument entry decompression ([6377369](https://github.com/juspay/neurolink/commit/63773698fd265a5503a0383a1ae919a91a153c5d))
+
 ## [10.12.4](https://github.com/juspay/neurolink/compare/v10.12.3...v10.12.4) (2026-08-14)
 
 ### Bug Fixes
