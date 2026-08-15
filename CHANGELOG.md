@@ -1,3 +1,9 @@
+## [10.12.7](https://github.com/juspay/neurolink/compare/v10.12.6...v10.12.7) (2026-08-15)
+
+### Bug Fixes
+
+- **(vertex):** stop dropping input.files content on the Claude generate path ([6d88778](https://github.com/juspay/neurolink/commit/6d88778bf3f07f954009b9b56f6b11fef3f7b810))
+
 ## [10.12.6](https://github.com/juspay/neurolink/compare/v10.12.5...v10.12.6) (2026-08-15)
 
 ### Bug Fixes
