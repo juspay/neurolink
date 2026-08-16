@@ -1498,9 +1498,11 @@ async function runAzureSection(): Promise<void> {
     );
   }
 
-  // ── 429 → NO dedicated branch in Azure's formatProviderError; falls
-  // through to a generic ProviderError. This test documents that gap by
-  // asserting the actual (imperfect) behavior, not RateLimitError. Also
+  // ── 429 → RateLimitError (Plan 07 / Task 3 fix). Azure's formatProviderError
+  // previously special-cased only "401" and let everything else — including
+  // 429 — fall through to one undifferentiated ProviderError. It now appends
+  // DEFAULT_ERROR_RULES after its 401 override, so a 429 gets the shared
+  // rate-limit classification like every other migrated provider. Also
   // retryable at the orchestration layer (not in NON_RETRYABLE_HTTP_STATUS
   // _CODES), so directProviderGeneration() wraps the final message once the
   // single-provider retry budget exhausts — substring-match the classified
@@ -1528,7 +1530,7 @@ async function runAzureSection(): Promise<void> {
           });
           record(
             results,
-            `${section}: 429 → generic ProviderError (documented gap)`,
+            `${section}: 429 → RateLimitError`,
             false,
             "no error thrown",
           );
@@ -1536,8 +1538,8 @@ async function runAzureSection(): Promise<void> {
           const msg = err instanceof Error ? err.message : String(err);
           record(
             results,
-            `${section}: 429 → generic ProviderError (documented gap)`,
-            msg.includes("Azure OpenAI error: "),
+            `${section}: 429 → RateLimitError`,
+            msg.includes("rate limit exceeded"),
             `msg='${msg.slice(0, 120)}'`,
           );
         }
@@ -1546,7 +1548,7 @@ async function runAzureSection(): Promise<void> {
   } catch (err) {
     record(
       results,
-      `${section}: 429 → generic ProviderError (documented gap)`,
+      `${section}: 429 → RateLimitError`,
       false,
       err instanceof Error ? err.message : String(err),
     );
@@ -1637,13 +1639,19 @@ async function runAnthropicSection(): Promise<void> {
     );
   }
 
-  // ── 401 → misclassifies to generic ProviderError. The auth branch only
-  // matches "API_KEY_INVALID" / "Invalid API key" substrings; the SDK's
-  // real 401 message is "401 <body message>", which matches neither.
-  // This test documents that gap rather than asserting AuthenticationError.
-  // ProviderError's base constructor also prepends "[anthropic] " to the
-  // formatted message, so we substring-match the classification-specific
-  // text rather than anchoring on the start of the string. ────────────────
+  // ── 401 → AuthenticationError. Previously a documented gap: the auth
+  // branch only matched "API_KEY_INVALID" / "Invalid API key" substrings,
+  // and the SDK's real 401 message is "401 <body message>", which matches
+  // neither — this test used to pin the resulting generic-ProviderError
+  // misclassification. Task 4's classifyProviderError migration adds a
+  // ctx.statusCode === 401 fallback that fixes it, so this now asserts the
+  // corrected AuthenticationError-grade classification. 401 is non-retryable
+  // at the orchestration layer, so (unlike the 429 case below) the message
+  // surfaces WITHOUT the "Failed to generate text with all providers"
+  // wrapper — verified against an actual mocked run. ProviderError's base
+  // constructor still prepends "[anthropic] " to the formatted message, so
+  // we substring-match the classification-specific text rather than
+  // anchoring on the start of the string. ────────────────────────────────
   try {
     await withMocks(
       [
@@ -1673,7 +1681,7 @@ async function runAnthropicSection(): Promise<void> {
           });
           record(
             results,
-            `${section}: 401 → generic ProviderError (documented gap)`,
+            `${section}: 401 → AuthenticationError`,
             false,
             "no error thrown",
           );
@@ -1681,8 +1689,10 @@ async function runAnthropicSection(): Promise<void> {
           const msg = err instanceof Error ? err.message : String(err);
           record(
             results,
-            `${section}: 401 → generic ProviderError (documented gap)`,
-            msg.includes("Anthropic error: 401"),
+            `${section}: 401 → AuthenticationError`,
+            msg.includes(
+              "Invalid Anthropic API key. Please check your ANTHROPIC_API_KEY environment variable.",
+            ),
             `msg='${msg.slice(0, 120)}'`,
           );
         }
@@ -1691,7 +1701,7 @@ async function runAnthropicSection(): Promise<void> {
   } catch (err) {
     record(
       results,
-      `${section}: 401 → generic ProviderError (documented gap)`,
+      `${section}: 401 → AuthenticationError`,
       false,
       err instanceof Error ? err.message : String(err),
     );

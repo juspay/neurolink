@@ -62,6 +62,22 @@ import {
 import { OllamaCommandFactory } from "./ollamaCommandFactory.js";
 import { SageMakerCommandFactory } from "./sagemakerCommandFactory.js";
 import { AgentCommandFactory } from "../commands/agent.js";
+import { PROVIDER_DESCRIPTORS } from "../../lib/factories/providerDescriptors.js";
+
+/**
+ * Every provider name + alias, derived from PROVIDER_DESCRIPTORS, plus
+ * "auto" and the CLI-only "anthropic-subscription" pseudo-provider (not a
+ * real AIProviderName — special-cased at runtime to rewrite
+ * options.provider to "anthropic").
+ */
+const DERIVED_PROVIDER_CHOICES: string[] = [
+  "auto",
+  ...PROVIDER_DESCRIPTORS.flatMap((d) => [d.name, ...d.aliases]),
+  "anthropic-subscription",
+];
+
+/** Space-separated form for the bash-completion script, kept in sync with DERIVED_PROVIDER_CHOICES by construction. */
+export const BASH_COMPLETION_PROVIDERS = DERIVED_PROVIDER_CHOICES.join(" ");
 
 /**
  * CLI Command Factory for generate commands
@@ -100,61 +116,10 @@ export class CLICommandFactory {
   }
 
   // Common options available on all commands
-  private static readonly commonOptions = {
+  static readonly commonOptions = {
     // Core generation options
     provider: {
-      choices: [
-        "auto",
-        "openai",
-        "openai-compatible",
-        "openrouter",
-        "or",
-        "bedrock",
-        "vertex",
-        "googleVertex",
-        "anthropic",
-        "anthropic-subscription", // Anthropic with subscription tier support
-        "azure",
-        "google-ai",
-        "google-ai-studio",
-        "huggingface",
-        "ollama",
-        "mistral",
-        "litellm",
-        "sagemaker",
-        "deepseek",
-        "ds",
-        "nvidia-nim",
-        "nim",
-        "nvidia",
-        "lm-studio",
-        "lmstudio",
-        "lms",
-        "llamacpp",
-        "llama.cpp",
-        "xai",
-        "grok",
-        "groq",
-        "cohere",
-        "together-ai",
-        "together",
-        "fireworks",
-        "perplexity",
-        "pplx",
-        "cloudflare",
-        "workers-ai",
-        "cf-ai",
-        "replicate",
-        "voyage",
-        "voyage-ai",
-        "jina",
-        "jina-ai",
-        "stability",
-        "stability-ai",
-        "sd",
-        "ideogram",
-        "recraft",
-      ],
+      choices: DERIVED_PROVIDER_CHOICES,
       default: "auto",
       description:
         "AI provider to use (auto-selects best available). Use 'anthropic-subscription' for Claude subscription plans.",
@@ -6037,7 +6002,9 @@ export class CLICommandFactory {
         "        generate|gen)\n" +
         '            case "${prev}" in\n' +
         "                --provider|-p)\n" +
-        '                    COMPREPLY=( $(compgen -W "auto openai openai-compatible openrouter or bedrock vertex googleVertex anthropic anthropic-subscription azure google-ai google-ai-studio huggingface ollama mistral litellm sagemaker deepseek ds nvidia-nim nim lm-studio lmstudio llamacpp llama.cpp xai grok groq cohere together-ai together fireworks perplexity pplx cloudflare workers-ai cf-ai replicate voyage voyage-ai jina jina-ai stability stability-ai sd ideogram recraft" -- ${cur}) )\n' +
+        '                    COMPREPLY=( $(compgen -W "' +
+        BASH_COMPLETION_PROVIDERS +
+        '" -- ${cur}) )\n' +
         "                    return 0\n" +
         "                    ;;\n" +
         "                --format|-f|--output-format)\n" +
@@ -6172,3 +6139,6 @@ export class CLICommandFactory {
     }
   }
 }
+
+/** Re-export of CLICommandFactory's static option definitions for direct import by tests/tooling. */
+export const commonOptions = CLICommandFactory.commonOptions;

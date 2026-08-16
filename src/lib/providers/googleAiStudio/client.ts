@@ -48,6 +48,7 @@ import {
 } from "../../types/index.js";
 import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
+import { isToolsSchemaExclusionInForce } from "../../core/modules/structuredOutputPolicy.js";
 import {
   GEMINI_ELISION_NOTE,
   planGeminiLoopReclaim,
@@ -93,7 +94,10 @@ import type { LanguageModel, Schema, Tool } from "../../types/index.js";
 // Import proper types for multimodal message handling
 
 // Create Google GenAI client
-async function createGoogleGenAIClient(apiKey: string): Promise<GenAIClient> {
+async function createGoogleGenAIClient(
+  apiKey: string,
+  baseURL?: string,
+): Promise<GenAIClient> {
   const mod: unknown = await import("@google/genai");
   const ctor = (mod as Record<string, unknown>).GoogleGenAI as unknown;
   if (!ctor) {
@@ -107,11 +111,17 @@ async function createGoogleGenAIClient(apiKey: string): Promise<GenAIClient> {
     });
   }
   const Ctor = ctor as GoogleGenAIClass;
-  // Include httpOptions with proxy fetch for corporate network support
+  // Include httpOptions with proxy fetch for corporate network support.
+  // baseUrl is only included when resolved — verified against
+  // @google/genai's ApiClient (dist/node/index.cjs) that it falls back to
+  // its own default whenever httpOptions.baseUrl is undefined, so omitting
+  // the key and passing `baseUrl: undefined` behave identically; the key is
+  // still omitted outright for a cleaner outbound config object.
   return new Ctor({
     apiKey,
     httpOptions: {
       fetch: createProxyFetch(),
+      ...(baseURL ? { baseUrl: baseURL } : {}),
     },
   });
 }
@@ -230,12 +240,12 @@ function reclaimAiStudioContext(
 }
 
 export class GoogleAIStudioProvider extends BaseProvider {
-  private credentials?: { apiKey?: string };
+  private credentials?: { apiKey?: string; baseURL?: string };
 
   constructor(
     modelName?: string,
     sdk?: unknown,
-    credentials?: { apiKey?: string },
+    credentials?: { apiKey?: string; baseURL?: string },
   ) {
     super(
       modelName,
@@ -400,7 +410,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
     // Use the @google/genai client for image generation
     let client: GenAIClient;
     try {
-      client = await createGoogleGenAIClient(apiKey);
+      client = await createGoogleGenAIClient(apiKey, this.getBaseURL());
     } catch {
       throw new AuthenticationError(
         "Missing '@google/genai'. Install with: npm install @google/genai",
@@ -773,8 +783,9 @@ export class GoogleAIStudioProvider extends BaseProvider {
     await this.preprocessNativeFileInput(options);
 
     // Structured output (analysisSchema, JSON format, or schema) is incompatible with tools on Gemini.
-    const wantsStructuredOutput =
-      analysisSchema || options.output?.format === "json" || options.schema;
+    const wantsStructuredOutput = Boolean(
+      analysisSchema || options.output?.format === "json" || options.schema,
+    );
 
     // Tool filter (a0269210): trust options.tools — caller (BaseProvider.stream)
     // already merged MCP/built-in tools with user tools and applied any
@@ -790,14 +801,15 @@ export class GoogleAIStudioProvider extends BaseProvider {
       tools: optionTools,
     };
 
-    // Check for tools + JSON schema conflict (Gemini limitation)
+    // Tools + JSON conflict (Gemini), via the shared predicate.
     const wantsJsonOutput = options.output?.format === "json" || options.schema;
-    if (
-      wantsJsonOutput &&
-      mergedOptions.tools &&
-      Object.keys(mergedOptions.tools).length > 0 &&
-      !mergedOptions.disableTools
-    ) {
+    const exclusionInForce = isToolsSchemaExclusionInForce(
+      this.providerName,
+      modelName,
+      !mergedOptions.disableTools,
+      Object.keys(mergedOptions.tools ?? {}).length,
+    );
+    if (wantsJsonOutput && exclusionInForce) {
       logger.warn(
         "[GoogleAIStudio] Gemini does not support tools and JSON schema output simultaneously. Disabling tools for this request.",
       );
@@ -855,7 +867,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
         try {
           const apiKey = this.getApiKey();
-          const client = await createGoogleGenAIClient(apiKey);
+          const client = await createGoogleGenAIClient(
+            apiKey,
+            this.getBaseURL(),
+          );
 
           logger.debug(
             "[GoogleAIStudio] Using native @google/genai for Gemini 3",
@@ -1333,7 +1348,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
         try {
           const apiKey = this.getApiKey();
-          const client = await createGoogleGenAIClient(apiKey);
+          const client = await createGoogleGenAIClient(
+            apiKey,
+            this.getBaseURL(),
+          );
 
           logger.debug(
             "[GoogleAIStudio] Using native @google/genai for Gemini 3 generate",
@@ -1380,7 +1398,25 @@ export class GoogleAIStudioProvider extends BaseProvider {
           let declarationsResult: NativeToolDeclarationsResult | undefined;
 
           const shouldUseTools = !options.disableTools;
-          if (shouldUseTools) {
+          // Structured output (JSON format or schema) is incompatible with
+          // tools on Gemini — routed through the shared predicate so this
+          // decision matches stream()'s orchestrator (previously this path
+          // had no proactive check and silently dropped the schema instead).
+          const wantsNativeJsonRequested = Boolean(
+            options.output?.format === "json" || options.schema,
+          );
+          const exclusionInForce = isToolsSchemaExclusionInForce(
+            this.providerName,
+            modelName,
+            shouldUseTools,
+            Object.keys(options.tools || {}).length,
+          );
+          if (wantsNativeJsonRequested && exclusionInForce) {
+            logger.warn(
+              "[GoogleAIStudio] Gemini does not support tools and JSON schema output simultaneously. Disabling tools for this request (generate()).",
+            );
+          }
+          if (shouldUseTools && !exclusionInForce) {
             const tools = options.tools || {};
 
             if (Object.keys(tools).length > 0) {
@@ -1405,9 +1441,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
           // Native JSON / schema enforcement (generate path). Mirrors the
           // stream block above; only set when no tools are being sent
           // because Gemini cannot combine function calling with JSON mime.
-          const wantsNativeJson =
-            !toolsConfig &&
-            (options.output?.format === "json" || !!options.schema);
+          const wantsNativeJson = !toolsConfig && wantsNativeJsonRequested;
           const nativeResponseSchema =
             wantsNativeJson && options.schema
               ? buildGeminiResponseSchema(options.schema as ZodUnknownSchema)
@@ -1890,7 +1924,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
     // Dynamic import to avoid hard dependency unless audio streaming is used
     let client: GenAIClient;
     try {
-      client = await createGoogleGenAIClient(apiKey);
+      client = await createGoogleGenAIClient(apiKey, this.getBaseURL());
     } catch {
       throw new AuthenticationError(
         "Missing '@google/genai'. Install with: pnpm add @google/genai",
@@ -2100,7 +2134,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
     try {
       const apiKey = this.getApiKey();
-      const client = await createGoogleGenAIClient(apiKey);
+      const client = await createGoogleGenAIClient(apiKey, this.getBaseURL());
 
       const result = await client.models.embedContent({
         model: embeddingModelName,
@@ -2151,7 +2185,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
     try {
       const apiKey = this.getApiKey();
-      const client = await createGoogleGenAIClient(apiKey);
+      const client = await createGoogleGenAIClient(apiKey, this.getBaseURL());
 
       const result = await client.models.embedContent({
         model: embeddingModelName,
@@ -2195,6 +2229,17 @@ export class GoogleAIStudioProvider extends BaseProvider {
     }
 
     return apiKey;
+  }
+
+  // Mirrors mistral.ts's baseURL precedence (credentials override, then env,
+  // then unset — the SDK's own default applies when unset). Blank/whitespace
+  // values are treated as unset so an empty override can't accidentally
+  // clobber the default.
+  private getBaseURL(): string | undefined {
+    const baseURL =
+      this.credentials?.baseURL?.trim() ||
+      process.env.GOOGLE_AI_BASE_URL?.trim();
+    return baseURL && baseURL.length > 0 ? baseURL : undefined;
   }
 }
 

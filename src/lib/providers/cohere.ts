@@ -3,11 +3,17 @@ import { CohereModels } from "../constants/enums.js";
 import {
   AuthenticationError,
   InvalidModelError,
-  NetworkError,
   ProviderError,
   RateLimitError,
 } from "../types/index.js";
-import type { NeurolinkCredentials, UnknownRecord } from "../types/index.js";
+import type {
+  NeurolinkCredentials,
+  ProviderErrorRule,
+} from "../types/index.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../utils/errorClassifier.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
@@ -16,7 +22,7 @@ import {
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import { createTimeoutController, TimeoutError } from "../utils/timeout.js";
+import { createTimeoutController } from "../utils/timeout.js";
 import { stripTrailingSlash } from "./openaiChatCompletionsClient.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
@@ -90,45 +96,40 @@ export class CohereProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(`Request timed out: ${error.message}`, "cohere");
-    }
-    const errorRecord = error as UnknownRecord;
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error";
-
-    if (
-      message.includes("invalid api token") ||
-      message.includes("Authentication") ||
-      message.includes("401") ||
-      message.includes("invalid_api_token")
-    ) {
-      return new AuthenticationError(
-        "Invalid Cohere API key. Check COHERE_API_KEY. Get one at https://dashboard.cohere.com/api-keys",
-        "cohere",
-      );
-    }
-    if (message.includes("rate limit") || message.includes("429")) {
-      return new RateLimitError(
-        "Cohere rate limit exceeded. Back off and retry.",
-        "cohere",
-      );
-    }
-    if (message.includes("model_not_found") || message.includes("404")) {
-      return new InvalidModelError(
-        `Cohere model '${this.modelName}' not found. Use command-r, command-r-plus, or command-r7b-12-2024.`,
-        "cohere",
-      );
-    }
-    if (message.includes("trial limit") || message.includes("trial_limit")) {
-      return new ProviderError(
-        "Cohere trial usage limit exceeded. Upgrade at https://dashboard.cohere.com/billing.",
-        "cohere",
-      );
-    }
-    return new ProviderError(`Cohere error: ${message}`, "cohere");
+    const rules: ProviderErrorRule[] = [
+      // "invalid api token" is checked lowercase (case-sensitive substring, as
+      // in the original) — deliberately NOT normalized to match the family's
+      // more common "Invalid API key" capitalization, since Cohere's actual
+      // wire message differs.
+      {
+        match: (ctx) =>
+          /invalid api token|Authentication|401|invalid_api_token/.test(
+            ctx.message,
+          ),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid Cohere API key. Check COHERE_API_KEY. Get one at https://dashboard.cohere.com/api-keys",
+      },
+      {
+        match: (ctx) => /rate limit|429/.test(ctx.message),
+        errorClass: RateLimitError,
+        message: "Cohere rate limit exceeded. Back off and retry.",
+      },
+      {
+        match: (ctx) => /model_not_found|404/.test(ctx.message),
+        errorClass: InvalidModelError,
+        message: () =>
+          `Cohere model '${this.modelName}' not found. Use command-r, command-r-plus, or command-r7b-12-2024.`,
+      },
+      {
+        match: (ctx) => /trial limit|trial_limit/.test(ctx.message),
+        errorClass: ProviderError,
+        message:
+          "Cohere trial usage limit exceeded. Upgrade at https://dashboard.cohere.com/billing.",
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(error, rules, "cohere", this.modelName);
   }
 
   async validateConfiguration(): Promise<boolean> {

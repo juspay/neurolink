@@ -54,6 +54,7 @@ import type {
   ChatMessage,
   MinimalChatMessage,
   MultimodalAudioEntry,
+  ProviderErrorRule,
 } from "../../types/index.js";
 import {
   AuthenticationError,
@@ -62,6 +63,7 @@ import {
   ProviderError,
   RateLimitError,
 } from "../../types/index.js";
+import { classifyProviderError } from "../../utils/errorClassifier.js";
 import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
 import { applyVertexAnthropicCacheBreakpoints } from "../../utils/anthropicCacheBreakpoints.js";
 import { FileDetector } from "../../utils/fileDetector.js";
@@ -7969,20 +7971,6 @@ export class GoogleVertexProvider extends BaseProvider {
 
   protected formatProviderError(error: unknown): Error {
     const errorRecord = error as UnknownRecord;
-    if (
-      typeof errorRecord?.name === "string" &&
-      errorRecord.name === "TimeoutError"
-    ) {
-      return new NetworkError(
-        `Google Vertex AI request timed out. Consider increasing timeout or using a lighter model.`,
-        this.providerName,
-      );
-    }
-
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error occurred";
     const statusCode =
       typeof errorRecord?.status === "number"
         ? errorRecord.status
@@ -7990,139 +7978,142 @@ export class GoogleVertexProvider extends BaseProvider {
           ? errorRecord.statusCode
           : undefined;
 
-    // Authentication and permission errors
-    if (
-      message.includes("PERMISSION_DENIED") ||
-      message.includes("UNAUTHENTICATED") ||
-      message.includes("Invalid API key") ||
-      statusCode === 401 ||
-      statusCode === 403
-    ) {
-      return new AuthenticationError(
-        `Google Vertex AI Permission Denied. Your Google Cloud credentials don't have permission to access Vertex AI. ` +
+    const rules: ProviderErrorRule[] = [
+      {
+        // Duck-typed on .name rather than `instanceof TimeoutError` —
+        // Vertex's own `withTimeout` (../../utils/async/index.js) throws a
+        // TimeoutError class distinct from the one classifyProviderError's
+        // built-in fast path checks (../../utils/timeout.js), so that fast
+        // path never fires for a real Vertex timeout. This rule preserves
+        // the pre-migration duck-typed match (both classes set
+        // `.name = "TimeoutError"`) and the original Vertex-specific
+        // message — see task-4-report.md for the full writeup.
+        match: (ctx) => ctx.errorName === "TimeoutError",
+        errorClass: NetworkError,
+        message:
+          "Google Vertex AI request timed out. Consider increasing timeout or using a lighter model.",
+      },
+      {
+        match: (ctx) =>
+          /PERMISSION_DENIED|UNAUTHENTICATED|Invalid API key/i.test(
+            ctx.message,
+          ) ||
+          statusCode === 401 ||
+          statusCode === 403,
+        errorClass: AuthenticationError,
+        message: () =>
+          `Google Vertex AI Permission Denied. Your Google Cloud credentials don't have permission to access Vertex AI. ` +
           `Required Steps: 1. Ensure your service account has Vertex AI User role ` +
           `2. Check if Vertex AI API is enabled in your project ` +
           `3. Verify your project ID is correct ` +
           `4. Confirm your location/region has Vertex AI available`,
-        this.providerName,
-      );
-    }
-
-    // Model not found errors
-    if (
-      message.includes("NOT_FOUND") ||
-      message.includes("model not found") ||
-      message.includes("Model not found") ||
-      statusCode === 404
-    ) {
-      const modelSuggestions = this.getModelSuggestions(this.modelName);
-      return new InvalidModelError(
-        `Model '${this.modelName}' is not available in region ${this.location}. ` +
-          `Suggested alternatives: ${modelSuggestions}. ` +
-          `Troubleshooting: 1. Check model name spelling and format ` +
-          `2. Verify model is available in your region ` +
-          `3. Ensure your project has access to the model ` +
-          `4. For Claude models, enable Anthropic integration in Google Cloud Console`,
-        this.providerName,
-      );
-    }
-
-    // Rate limit / quota / capacity errors. Anthropic-on-Vertex capacity
-    // exhaustion surfaces as overloaded_error (HTTP 529) — same operational
-    // meaning as a 429, so classify it here instead of the generic 5xx branch.
-    if (
-      message.includes("QUOTA_EXCEEDED") ||
-      message.includes("RATE_LIMIT_EXCEEDED") ||
-      message.includes("rate limit") ||
-      message.includes("429") ||
-      statusCode === 429 ||
-      statusCode === 529 ||
-      /overloaded/i.test(message)
-    ) {
-      // Surface retry guidance when the SDK error carries it. @google/genai
-      // ApiError nests RetryInfo inside the JSON error body's details array,
-      // so fall back to scraping retryDelay out of the raw message.
-      const retryDelay =
-        typeof errorRecord?.retryDelay === "string"
-          ? errorRecord.retryDelay
-          : (/["']?retryDelay["']?\s*[:=]\s*["']?(\d+(?:\.\d+)?s)/.exec(
-              message,
-            )?.[1] ?? undefined);
-      // Prefer the per-request context the native catches attach to the
-      // error (this.modelName can be stale when options.model overrides the
-      // instance default). Gemini models are force-routed to the "global"
-      // endpoint regardless of configured location — report the region the
-      // request actually hit.
-      const requestModel =
-        typeof errorRecord?.requestModel === "string"
-          ? errorRecord.requestModel
-          : this.modelName;
-      const effectiveRegion =
-        typeof errorRecord?.requestRegion === "string"
-          ? errorRecord.requestRegion
-          : resolveVertexRegionForModel(requestModel, this.location);
-      return new RateLimitError(
-        `Google Vertex AI rate limit / shared-capacity exhausted (429 RESOURCE_EXHAUSTED / overloaded) ` +
-          `for model '${requestModel}' in region '${effectiveRegion}'.` +
-          (retryDelay
-            ? ` Upstream suggests retrying after ${retryDelay}.`
-            : "") +
-          ` Solutions: 1. Retry with backoff ` +
-          `2. Check your Vertex AI quotas in Google Cloud Console (shared-capacity 429s can occur below quota) ` +
-          `3. Try a different region or model ` +
-          `4. Request provisioned throughput for sustained load`,
-        this.providerName,
-      );
-    }
-
-    // Network connectivity errors
-    if (
-      message.includes("ECONNRESET") ||
-      message.includes("ENOTFOUND") ||
-      message.includes("ETIMEDOUT") ||
-      message.includes("ECONNREFUSED") ||
-      message.includes("network") ||
-      message.includes("connection")
-    ) {
-      return new NetworkError(
-        `Connection error: ${message}`,
-        this.providerName,
-      );
-    }
-
-    // Server errors (5xx)
-    if (
-      message.includes("500") ||
-      message.includes("502") ||
-      message.includes("503") ||
-      message.includes("504") ||
-      message.includes("server error") ||
-      message.includes("Internal Server Error") ||
-      message.includes("INTERNAL") ||
-      message.includes("UNAVAILABLE") ||
-      (statusCode && statusCode >= 500 && statusCode < 600)
-    ) {
-      return new ProviderError(
-        `Google Vertex AI server error: ${message}. Please try again later.`,
-        this.providerName,
-      );
-    }
-
-    // Invalid argument errors
-    if (message.includes("INVALID_ARGUMENT")) {
-      return new ProviderError(
-        `Google Vertex AI Invalid Request: ${message}. ` +
+      },
+      {
+        match: (ctx) =>
+          /NOT_FOUND|model not found|Model not found/i.test(ctx.message) ||
+          statusCode === 404,
+        errorClass: InvalidModelError,
+        message: () => {
+          const modelSuggestions = this.getModelSuggestions(this.modelName);
+          return (
+            `Model '${this.modelName}' is not available in region ${this.location}. ` +
+            `Suggested alternatives: ${modelSuggestions}. ` +
+            `Troubleshooting: 1. Check model name spelling and format ` +
+            `2. Verify model is available in your region ` +
+            `3. Ensure your project has access to the model ` +
+            `4. For Claude models, enable Anthropic integration in Google Cloud Console`
+          );
+        },
+      },
+      {
+        // Rate limit / quota / capacity errors. Anthropic-on-Vertex capacity
+        // exhaustion surfaces as overloaded_error (HTTP 529) — same
+        // operational meaning as a 429, so classify it here instead of the
+        // generic 5xx branch below.
+        match: (ctx) =>
+          /QUOTA_EXCEEDED|RATE_LIMIT_EXCEEDED|rate limit|429/i.test(
+            ctx.message,
+          ) ||
+          statusCode === 429 ||
+          statusCode === 529 ||
+          /overloaded/i.test(ctx.message),
+        errorClass: RateLimitError,
+        message: (ctx) => {
+          // Surface retry guidance when the SDK error carries it.
+          // @google/genai ApiError nests RetryInfo inside the JSON error
+          // body's details array, so fall back to scraping retryDelay out
+          // of the raw message.
+          const retryDelay =
+            typeof errorRecord?.retryDelay === "string"
+              ? errorRecord.retryDelay
+              : (/["']?retryDelay["']?\s*[:=]\s*["']?(\d+(?:\.\d+)?s)/.exec(
+                  ctx.message,
+                )?.[1] ?? undefined);
+          // Prefer the per-request context the native catches attach to the
+          // error (this.modelName can be stale when options.model overrides
+          // the instance default). Gemini models are force-routed to the
+          // "global" endpoint regardless of configured location — report
+          // the region the request actually hit.
+          const requestModel =
+            typeof errorRecord?.requestModel === "string"
+              ? errorRecord.requestModel
+              : this.modelName;
+          const effectiveRegion =
+            typeof errorRecord?.requestRegion === "string"
+              ? errorRecord.requestRegion
+              : resolveVertexRegionForModel(requestModel, this.location);
+          return (
+            `Google Vertex AI rate limit / shared-capacity exhausted (429 RESOURCE_EXHAUSTED / overloaded) ` +
+            `for model '${requestModel}' in region '${effectiveRegion}'.` +
+            (retryDelay
+              ? ` Upstream suggests retrying after ${retryDelay}.`
+              : "") +
+            ` Solutions: 1. Retry with backoff ` +
+            `2. Check your Vertex AI quotas in Google Cloud Console (shared-capacity 429s can occur below quota) ` +
+            `3. Try a different region or model ` +
+            `4. Request provisioned throughput for sustained load`
+          );
+        },
+      },
+      {
+        match: (ctx) =>
+          /ECONNRESET|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|network|connection/i.test(
+            ctx.message,
+          ),
+        errorClass: NetworkError,
+        message: (ctx) => `Connection error: ${ctx.message}`,
+      },
+      {
+        match: (ctx) =>
+          /500|502|503|504|server error|Internal Server Error|INTERNAL|UNAVAILABLE/i.test(
+            ctx.message,
+          ) ||
+          (statusCode !== undefined && statusCode >= 500 && statusCode < 600),
+        errorClass: ProviderError,
+        message: (ctx) =>
+          `Google Vertex AI server error: ${ctx.message}. Please try again later.`,
+      },
+      {
+        match: (ctx) => /INVALID_ARGUMENT/i.test(ctx.message),
+        errorClass: ProviderError,
+        message: (ctx) =>
+          `Google Vertex AI Invalid Request: ${ctx.message}. ` +
           `Check: 1. Request parameters are within model limits ` +
           `2. Input text is properly formatted ` +
           `3. Temperature and other settings are valid ` +
           `4. Model supports your request type`,
-        this.providerName,
-      );
-    }
-
-    return new ProviderError(
-      `Google Vertex AI error: ${message}`,
+      },
+      {
+        match: () => true,
+        errorClass: ProviderError,
+        message: (ctx) => `Google Vertex AI error: ${ctx.message}`,
+      },
+    ];
+    return classifyProviderError(
+      error,
+      rules,
       this.providerName,
+      this.modelName,
     );
   }
 

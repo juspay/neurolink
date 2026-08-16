@@ -462,7 +462,7 @@ export const PROVIDERS: Record<string, ProviderEntry> = {
   "together-ai": {
     name: "together-ai",
     defaultModel: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-    envVars: ["TOGETHER_AI_API_KEY"],
+    envVars: ["TOGETHER_API_KEY"],
     text: true,
     streaming: true,
     tools: true,

@@ -1,21 +1,20 @@
 import { type AIProviderName, APIVersions } from "../constants/enums.js";
-import {
-  AuthenticationError,
-  NetworkError,
-  ProviderError,
-} from "../types/index.js";
+import { AuthenticationError } from "../types/index.js";
 import type {
   NeurolinkCredentials,
   OpenAICompatChatRequest,
-  UnknownRecord,
+  ProviderErrorRule,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../utils/errorClassifier.js";
 import {
   createAzureAPIKeyConfig,
   createAzureEndpointConfig,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import { TimeoutError } from "../utils/timeout.js";
 import { transformParamsForLogging } from "../utils/transformationUtils.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 import { requiresMaxCompletionTokens } from "./openaiChatCompletionsClient.js";
@@ -206,25 +205,21 @@ export class AzureOpenAIProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(`Request timed out: ${error.message}`, "azure");
-    }
-    const errorObj = error as UnknownRecord;
-    if (
-      errorObj?.message &&
-      typeof errorObj.message === "string" &&
-      errorObj.message.includes("401")
-    ) {
-      return new AuthenticationError(
-        "Invalid Azure OpenAI API key or endpoint.",
-        "azure",
-      );
-    }
-    const message =
-      errorObj?.message && typeof errorObj.message === "string"
-        ? errorObj.message
-        : "Unknown error";
-    return new ProviderError(`Azure OpenAI error: ${message}`, "azure");
+    // RULING 1 fix: previously only a raw "401" substring was special-cased —
+    // everything else (429, 404, network errors, 5xx) fell through to one
+    // generic ProviderError. The 401 branch below is preserved byte-for-byte
+    // (message text + the raw-substring match style); DEFAULT_ERROR_RULES now
+    // gives 429/404/network/5xx their correct classifications instead of the
+    // old undifferentiated catch-all.
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) => /401/.test(ctx.message),
+        errorClass: AuthenticationError,
+        message: "Invalid Azure OpenAI API key or endpoint.",
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(error, rules, "azure", this.modelName);
   }
 
   // ===========================================================================

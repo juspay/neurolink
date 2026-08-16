@@ -12,6 +12,18 @@ import "dotenv/config";
  * check removal. Each test() block below corresponds to one numbered task
  * in docs/superpowers/plans/2026-08-15-01-tier-a-bug-fixes.md.
  *
+ * ALL-DIST module graph (rule 15, audited rework batch I): this suite
+ * predates CLAUDE.md rule 15 (it landed in the plan-01 tier-A purge,
+ * ec68f0a5, before upstream a47c4353 introduced the rule) and never carried
+ * a rule-15 header. Auditing it against the rule found it already
+ * compliant — every runtime import resolves to `../dist/...`. The single
+ * `import type { NeurolinkCredentials } from "../src/lib/types/index.js"`
+ * is type-only: TypeScript erases it at compile time, so it emits no JS
+ * import and contributes no second runtime module graph — it exists purely
+ * so `KNOWN_CREDENTIAL_KEYS` fails to typecheck (not silently drifts) if
+ * `NeurolinkCredentials` gains/loses/renames a key. No conversion needed;
+ * this header documents that finding for future auditors.
+ *
  * Run: pnpm run build && npx tsx test/continuous-test-suite-provider-wiring.ts
  *      pnpm run test:provider-wiring
  */

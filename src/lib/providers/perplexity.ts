@@ -1,21 +1,21 @@
 import type { AIProviderName } from "../constants/enums.js";
 import { PerplexityModels } from "../constants/enums.js";
-import {
-  AuthenticationError,
-  InvalidModelError,
-  NetworkError,
-  ProviderError,
-  RateLimitError,
+import { AuthenticationError } from "../types/index.js";
+import type {
+  NeurolinkCredentials,
+  ProviderErrorRule,
 } from "../types/index.js";
-import type { NeurolinkCredentials, UnknownRecord } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../utils/errorClassifier.js";
 import {
   createPerplexityConfig,
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
 const PERPLEXITY_DEFAULT_BASE_URL = "https://api.perplexity.ai";
@@ -85,39 +85,17 @@ export class PerplexityProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(
-        `Request timed out: ${error.message}`,
-        "perplexity",
-      );
-    }
-    const errorRecord = error as UnknownRecord;
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error";
-    if (
-      message.includes("Invalid API key") ||
-      message.includes("Authentication") ||
-      message.includes("401")
-    ) {
-      return new AuthenticationError(
-        "Invalid Perplexity API key. Get one at https://www.perplexity.ai/settings/api",
-        "perplexity",
-      );
-    }
-    if (message.includes("rate limit") || message.includes("429")) {
-      return new RateLimitError(
-        "Perplexity rate limit exceeded. Back off and retry.",
-        "perplexity",
-      );
-    }
-    if (message.includes("model_not_found") || message.includes("404")) {
-      return new InvalidModelError(
-        `Perplexity model '${this.modelName}' not found. Use sonar, sonar-pro, sonar-reasoning, sonar-reasoning-pro, or sonar-deep-research.`,
-        "perplexity",
-      );
-    }
-    return new ProviderError(`Perplexity error: ${message}`, "perplexity");
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /Invalid API key|Authentication/i.test(ctx.message),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid Perplexity API key. Get one at https://www.perplexity.ai/settings/api",
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(error, rules, "perplexity", this.modelName);
   }
 }

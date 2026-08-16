@@ -27,6 +27,8 @@ import type {
   SetupArgs,
   SetupProviderInfo,
 } from "../../lib/types/index.js";
+import type { AIProviderName } from "../../lib/constants/enums.js";
+import { PROVIDER_DESCRIPTORS_BY_NAME } from "../../lib/factories/providerDescriptors.js";
 import {
   createCloudflareConfig,
   createCohereConfig,
@@ -473,49 +475,29 @@ async function runSetupWizard(): Promise<void> {
 /**
  * Check which providers are already configured
  */
-async function checkExistingConfigurations(): Promise<string[]> {
+export async function checkExistingConfigurations(): Promise<string[]> {
   const configured: string[] = [];
-
-  // Check for environment variables that indicate configured providers
-  if (
-    process.env.GOOGLE_AI_API_KEY ||
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY
-  ) {
-    configured.push("google-ai");
+  for (const p of PROVIDERS) {
+    const descriptor = PROVIDER_DESCRIPTORS_BY_NAME.get(p.id as AIProviderName);
+    if (!descriptor) {
+      continue;
+    }
+    const { apiKey, fallbacks, extraRequired, extraRequiredFallbacks } =
+      descriptor.envVars;
+    const hasPrimary =
+      !!apiKey &&
+      (!!process.env[apiKey] ||
+        (fallbacks ?? []).some((v) => !!process.env[v]));
+    if (!hasPrimary) {
+      continue;
+    }
+    const requiredOk =
+      (extraRequired ?? []).every((v) => !!process.env[v]) ||
+      (extraRequiredFallbacks ?? []).some((v) => !!process.env[v]);
+    if (requiredOk) {
+      configured.push(p.id);
+    }
   }
-  if (process.env.OPENAI_API_KEY) {
-    configured.push("openai");
-  }
-  if (process.env.ANTHROPIC_API_KEY) {
-    configured.push("anthropic");
-  }
-  if (process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT) {
-    configured.push("azure");
-  }
-  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
-    configured.push("bedrock");
-  }
-  if (
-    process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-    process.env.GOOGLE_SERVICE_ACCOUNT_KEY
-  ) {
-    configured.push("vertex");
-  }
-  if (
-    process.env.HUGGINGFACE_API_KEY ||
-    process.env.HUGGINGFACE_API_TOKEN ||
-    process.env.HF_TOKEN ||
-    process.env.HF_API_TOKEN
-  ) {
-    configured.push("huggingface");
-  }
-  if (process.env.MISTRAL_API_KEY) {
-    configured.push("mistral");
-  }
-  if (process.env.OPENROUTER_API_KEY) {
-    configured.push("openrouter");
-  }
-
   return configured;
 }
 

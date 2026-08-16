@@ -1,21 +1,21 @@
 import type { AIProviderName } from "../constants/enums.js";
 import { CloudflareModels } from "../constants/enums.js";
-import {
-  AuthenticationError,
-  InvalidModelError,
-  NetworkError,
-  ProviderError,
-  RateLimitError,
+import { AuthenticationError } from "../types/index.js";
+import type {
+  NeurolinkCredentials,
+  ProviderErrorRule,
 } from "../types/index.js";
-import type { NeurolinkCredentials, UnknownRecord } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../utils/errorClassifier.js";
 import {
   createCloudflareConfig,
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
 /**
@@ -105,42 +105,17 @@ export class CloudflareProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(
-        `Request timed out: ${error.message}`,
-        "cloudflare",
-      );
-    }
-    const errorRecord = error as UnknownRecord;
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error";
-    if (
-      message.includes("Invalid API key") ||
-      message.includes("Authentication") ||
-      message.includes("401")
-    ) {
-      return new AuthenticationError(
-        "Invalid Cloudflare API key. Use a token with Workers AI Read+Write scope. Get one at https://dash.cloudflare.com/profile/api-tokens",
-        "cloudflare",
-      );
-    }
-    if (message.includes("rate limit") || message.includes("429")) {
-      return new RateLimitError(
-        "Cloudflare Workers AI rate limit exceeded. Free-tier neurons reset daily.",
-        "cloudflare",
-      );
-    }
-    if (message.includes("model_not_found") || message.includes("404")) {
-      return new InvalidModelError(
-        `Cloudflare model '${this.modelName}' not found. Browse https://developers.cloudflare.com/workers-ai/models/`,
-        "cloudflare",
-      );
-    }
-    return new ProviderError(
-      `Cloudflare Workers AI error: ${message}`,
-      "cloudflare",
-    );
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /Invalid API key|Authentication/i.test(ctx.message),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid Cloudflare API key. Use a token with Workers AI Read+Write scope. Get one at https://dash.cloudflare.com/profile/api-tokens",
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(error, rules, "cloudflare", this.modelName);
   }
 }

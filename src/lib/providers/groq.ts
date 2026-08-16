@@ -4,11 +4,17 @@ import {
   AuthenticationError,
   InvalidModelError,
   ProviderError,
-  RateLimitError,
 } from "../types/index.js";
-import type { NeurolinkCredentials, UnknownRecord } from "../types/index.js";
+import type {
+  NeurolinkCredentials,
+  ProviderErrorRule,
+} from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../utils/errorClassifier.js";
 import {
   createGroqConfig,
   getProviderModel,
@@ -87,47 +93,31 @@ export class GroqProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
+    // Groq's TimeoutError maps to plain ProviderError (not NetworkError, the
+    // classifier's built-in default) — intercept before delegating.
     if (error instanceof TimeoutError) {
       return new ProviderError(
         `Groq request timed out: ${error.message}`,
         "groq",
       );
     }
-    const errorRecord = error as UnknownRecord;
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error";
-
-    if (
-      message.includes("Invalid API key") ||
-      message.includes("Authentication") ||
-      message.includes("401") ||
-      message.includes("invalid_api_key")
-    ) {
-      return new AuthenticationError(
-        "Invalid Groq API key. Check GROQ_API_KEY. Get one at https://console.groq.com/keys",
-        "groq",
-      );
-    }
-    if (message.includes("rate limit") || message.includes("429")) {
-      return new RateLimitError(
-        "Groq rate limit exceeded. Free tier limits are tight; consider upgrading or backing off.",
-        "groq",
-      );
-    }
-    if (
-      message.includes("model_not_found") ||
-      message.includes("404") ||
-      message.includes("model_decommissioned")
-    ) {
-      return new InvalidModelError(
-        message.includes("model_decommissioned")
-          ? `Groq model '${this.modelName}' was decommissioned. Pick a current model from https://console.groq.com/docs/models.`
-          : `Groq model '${this.modelName}' not found. See https://console.groq.com/docs/models for the current catalog.`,
-        "groq",
-      );
-    }
-    return new ProviderError(`Groq error: ${message}`, "groq");
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /Invalid API key|Authentication|invalid_api_key/i.test(ctx.message),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid Groq API key. Check GROQ_API_KEY. Get one at https://console.groq.com/keys",
+      },
+      {
+        match: (ctx) => /model_decommissioned/i.test(ctx.message),
+        errorClass: InvalidModelError,
+        message: (ctx) =>
+          `Groq model '${ctx.modelName}' was decommissioned. Pick a current model from https://console.groq.com/docs/models.`,
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(error, rules, "groq", this.modelName);
   }
 }

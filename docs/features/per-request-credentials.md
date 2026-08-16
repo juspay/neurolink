@@ -95,7 +95,7 @@ All fields are optional — omit any field you want to fall through to a lower-p
 | ----------------- | ------------------ | -------------------------------------------------------------------------------------------------- |
 | OpenAI            | `openai`           | `apiKey`, `baseURL`                                                                                |
 | Anthropic         | `anthropic`        | `apiKey`, `oauthToken`                                                                             |
-| Google AI Studio  | `googleAiStudio`   | `apiKey`                                                                                           |
+| Google AI Studio  | `googleAiStudio`   | `apiKey`, `baseURL`                                                                                |
 | Google Vertex AI  | `vertex`           | `projectId`, `location`, `apiKey` (Express Mode), `serviceAccountKey`, `clientEmail`, `privateKey` |
 | Amazon Bedrock    | `bedrock`          | `accessKeyId`, `secretAccessKey`, `sessionToken`, `region`                                         |
 | Amazon SageMaker  | `sagemaker`        | `accessKeyId`, `secretAccessKey`, `sessionToken`, `region`, `endpoint`                             |

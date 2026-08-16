@@ -271,7 +271,7 @@ export class RateLimitError extends ServerAdapterError {
 /**
  * Timeout error
  */
-export class TimeoutError extends ServerAdapterError {
+export class ServerTimeoutError extends ServerAdapterError {
   constructor(timeoutMs: number, operation?: string, requestId?: string) {
     super(
       `Operation timed out after ${timeoutMs}ms${operation ? `: ${operation}` : ""}`,
@@ -284,7 +284,7 @@ export class TimeoutError extends ServerAdapterError {
         details: { timeoutMs, operation },
       },
     );
-    this.name = "TimeoutError";
+    this.name = "ServerTimeoutError";
   }
 }
 

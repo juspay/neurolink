@@ -1,13 +1,16 @@
 import type { AIProviderName } from "../constants/enums.js";
-import type { NeurolinkCredentials, UnknownRecord } from "../types/index.js";
-import {
-  InvalidModelError,
-  NetworkError,
-  ProviderError,
+import type {
+  NeurolinkCredentials,
+  ProviderErrorRule,
+  UnknownRecord,
 } from "../types/index.js";
+import { InvalidModelError, NetworkError } from "../types/index.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../utils/errorClassifier.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
-import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
 const LM_STUDIO_DEFAULT_BASE_URL = "http://localhost:1234/v1";
@@ -68,39 +71,33 @@ export class LMStudioProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(
-        `Request timed out: ${error.message}`,
-        "lm-studio",
-      );
-    }
+    // `code`/`cause.code` aren't part of ProviderErrorContext, so they're read
+    // off the raw error here (mirrors ollama's `responseBody` extraction) for
+    // the ECONNREFUSED rule below, which the pre-migration code also checked
+    // via a duck-typed error code in addition to the message text.
     const errorRecord = error as UnknownRecord;
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error";
     const cause = (errorRecord?.cause as UnknownRecord) ?? {};
     const code = (errorRecord?.code ?? cause?.code) as string | undefined;
 
-    if (
-      code === "ECONNREFUSED" ||
-      message.includes("ECONNREFUSED") ||
-      message.includes("Failed to fetch") ||
-      message.includes("fetch failed")
-    ) {
-      return new NetworkError(
-        `LM Studio server not reachable at ${redactUrlCredentials(this.config.baseURL)}. ` +
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) =>
+          code === "ECONNREFUSED" ||
+          /ECONNREFUSED|Failed to fetch|fetch failed/.test(ctx.message),
+        errorClass: NetworkError,
+        message: () =>
+          `LM Studio server not reachable at ${redactUrlCredentials(this.config.baseURL)}. ` +
           `Open the LM Studio app, load a model, and click "Start Server".`,
-        "lm-studio",
-      );
-    }
-    if (message.includes("model_not_found") || message.includes("404")) {
-      return new InvalidModelError(
-        `LM Studio model '${this.modelName}' is not loaded. Load it in the LM Studio app first.`,
-        "lm-studio",
-      );
-    }
-    return new ProviderError(`LM Studio error: ${message}`, "lm-studio");
+      },
+      {
+        match: (ctx) => /model_not_found|404/.test(ctx.message),
+        errorClass: InvalidModelError,
+        message: () =>
+          `LM Studio model '${this.modelName}' is not loaded. Load it in the LM Studio app first.`,
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(error, rules, "lm-studio", this.modelName);
   }
 
   async validateConfiguration(): Promise<boolean> {

@@ -36,6 +36,14 @@
 import { AIProviderFactory } from "./core/factory.js";
 export { AIProviderFactory };
 
+// Provider descriptor exports (single source of truth for provider identity)
+export { ProviderFactory } from "./factories/providerFactory.js";
+export {
+  PROVIDER_DESCRIPTORS,
+  PROVIDER_DESCRIPTORS_BY_NAME,
+  PROVIDER_ALIAS_INDEX,
+} from "./factories/providerDescriptors.js";
+
 // Config Manager export
 export { NeuroLinkConfigManager as ConfigManager } from "./config/configManager.js";
 
@@ -1095,8 +1103,6 @@ export {
   // Validation
   AgentExecuteRequestSchema,
   AlreadyRunningError,
-  AuthenticationError,
-  AuthorizationError,
   // Framework Adapters
   BaseServerAdapter,
   ConfigurationError,
@@ -1150,7 +1156,6 @@ export {
   NotRunningError,
   // OpenAPI
   pipeAsyncIterableToDataStream,
-  RateLimitError,
   RouteConflictError,
   RouteNotFoundError,
   registerAllRoutes,
@@ -1158,15 +1163,17 @@ export {
   ServerAdapterError,
   ServerAdapterErrorCode,
   ServerAdapterFactory,
+  ServerAuthenticationError,
+  ServerAuthorizationError,
   ServerNameParamSchema,
   ServerRateLimitError,
   ServerStartError,
   ServerStopError,
+  ServerTimeoutError,
   ServerValidationError,
   SessionIdParamSchema,
   StreamAbortedError,
   StreamingError,
-  TimeoutError,
   ToolArgumentsSchema,
   ToolExecuteRequestSchema,
   ToolNameParamSchema,
@@ -1182,6 +1189,13 @@ export {
   WebSocketMessageRouter,
   wrapError,
 } from "./server/index.js";
+/**
+ * @deprecated Use `ServerTimeoutError` instead — renamed to end the naming
+ * collision with the canonical `utils/timeout.ts` `TimeoutError`. Kept as an
+ * alias so existing callers importing `TimeoutError` from `@juspay/neurolink`
+ * are not broken.
+ */
+export { ServerTimeoutError as TimeoutError } from "./server/index.js";
 
 // ============================================================================
 // RAG DOCUMENT PROCESSING - Retrieval-Augmented Generation

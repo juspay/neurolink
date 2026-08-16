@@ -157,6 +157,7 @@ import {
 import { AIProviderFactory } from "./core/factory.js";
 import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import { createToolEventPayload } from "./core/toolEvents.js";
+import { ProviderFactory } from "./factories/providerFactory.js";
 import { ProviderRegistry } from "./factories/providerRegistry.js";
 import { FileReferenceRegistry } from "./files/fileReferenceRegistry.js";
 import { createFileTools } from "./files/fileTools.js";
@@ -556,30 +557,24 @@ export const NEUROLINK_BRAND: unique symbol = Symbol.for(
 );
 
 /**
- * Providers whose native tool-calling support is model-dependent or absent —
- * i.e. every provider that overrides `supportsTools()` and can return false
- * (verified against src/lib/providers: ollama and openrouter are
- * model-dependent; huggingface is deployment-dependent; the rest are
- * image/embedding providers). Only these still receive the full tool listing
- * in the system prompt on the generate path, where no provider instance
- * exists yet to ask directly; every other provider gets tool definitions
- * natively via its `tools` parameter, so repeating them in the prompt was
- * pure token duplication. The stream path asks the provider instance
- * (`provider.supportsTools()`) instead of this list. BaseProvider resolves its
- * default through MODEL_REGISTRY's `modelSupports()` facade; keep this list in
- * sync with provider-specific `supportsTools()` overrides when adding providers.
+ * True when a provider needs tools described in the prompt rather than
+ * passed via the API's native tool-calling parameter (ollama/openrouter
+ * are model-dependent; huggingface is deployment-dependent; the
+ * image/embedding providers don't support tool calling at all). Only these
+ * still receive the full tool listing in the system prompt on the generate
+ * path, where no provider instance exists yet to ask directly; every other
+ * provider gets tool definitions natively via its `tools` parameter, so
+ * repeating them in the prompt was pure token duplication. The stream path
+ * asks the provider instance (`provider.supportsTools()`) instead of this
+ * check. Derived from ProviderDescriptor.toolSupport instead of a
+ * hand-maintained Set — see PROVIDER_DESCRIPTORS in
+ * src/lib/factories/providerDescriptors.ts for the underlying data;
+ * BaseProvider resolves its own runtime default through MODEL_REGISTRY's
+ * `modelSupports()` facade.
  */
-const PROMPT_ONLY_TOOL_PROVIDERS = new Set<string>([
-  "ollama",
-  "huggingface",
-  "openrouter",
-  "ideogram",
-  "recraft",
-  "replicate",
-  "stability",
-  "jina",
-  "voyage",
-]);
+function isPromptOnlyToolProvider(providerName: string): boolean {
+  return ProviderFactory.getDescriptor(providerName)?.toolSupport !== "native";
+}
 
 /**
  * Type-guard for opaque values that should be a {@link NeuroLink} instance.
@@ -7443,7 +7438,7 @@ Current user's request: ${currentInput}`;
     }
     // Providers with native tool calling receive full definitions via their
     // `tools` parameter; only prompt-based providers still get the listing.
-    const nativeToolSupport = !PROMPT_ONLY_TOOL_PROVIDERS.has(
+    const nativeToolSupport = !isPromptOnlyToolProvider(
       String(providerName).toLowerCase(),
     );
     const enhancedSystemPrompt = options.skipToolPromptInjection
@@ -14149,19 +14144,14 @@ Current user's request: ${currentInput}`;
     void AIProviderFactory;
     void hasProviderEnvVars;
 
-    const providers = [
-      "openai",
-      "bedrock",
-      "vertex",
-      "googleVertex",
-      "anthropic",
-      "azure",
-      "google-ai",
-      "huggingface",
-      "ollama",
-      "mistral",
-      "litellm",
-    ] as const;
+    // Derived from the descriptor registry instead of a hand-maintained
+    // list — covers all real providers (was previously hardcoded to 11,
+    // including "googleVertex" as a duplicate entry alongside "vertex";
+    // that alias remains resolvable via PROVIDER_ALIAS_INDEX/CLI choices,
+    // it just no longer gets its own separate status-check entry).
+    const providers = ProviderFactory.getAllDescriptors().map(
+      (d) => d.name,
+    ) as readonly string[];
 
     // Test providers with controlled concurrency
     // This reduces total time from 16s (sequential) to ~3s (parallel) while preventing resource exhaustion

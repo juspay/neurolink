@@ -161,7 +161,7 @@ export type AWSCredentialConfig = {
 export type NeurolinkCredentials = {
   openai?: { apiKey?: string; baseURL?: string };
   anthropic?: { apiKey?: string; oauthToken?: string };
-  googleAiStudio?: { apiKey?: string };
+  googleAiStudio?: { apiKey?: string; baseURL?: string };
   vertex?: {
     projectId?: string;
     location?: string;
@@ -1060,6 +1060,8 @@ export type GenAIClient = {
 export type GoogleGenAIHttpOptions = {
   /** Custom fetch implementation for proxy support */
   fetch?: typeof fetch;
+  /** Override the API base URL (e.g. a corporate proxy or mock endpoint) */
+  baseUrl?: string;
 };
 
 /**
@@ -1968,6 +1970,65 @@ export type ProviderRegistration = {
   constructor: ProviderConstructor;
   defaultModel?: string;
   aliases?: string[];
+  descriptor?: ProviderDescriptor;
+};
+
+/**
+ * Single source of truth for one AI provider's static identity: how it's
+ * addressed (name/aliases), how it's authenticated (credentialsKey/envVars),
+ * what it defaults to (defaultModel), and how the rest of the codebase
+ * should treat it (toolSupport/localRuntime/healthCheck). Every consumer
+ * that used to hand-maintain its own provider table (CLI choices,
+ * CREDENTIAL_KEY_MAP, env-var checks, health-check dispatch, auto-select
+ * priority, PROMPT_ONLY_TOOL_PROVIDERS) derives from PROVIDER_DESCRIPTORS
+ * instead. See src/lib/factories/providerDescriptors.ts for the data.
+ */
+export type ProviderDescriptor = {
+  /** Canonical identity — matches an AIProviderName enum member (never AUTO). */
+  name: AIProviderName;
+  /** Alternate spellings accepted by the CLI and the alias index (kebab-case, shorthand, legacy names). Does not include `name` itself. */
+  aliases: readonly string[];
+  /** Key into NeurolinkCredentials for per-call/per-instance credential overrides. */
+  credentialsKey: keyof NeurolinkCredentials;
+  /** Environment variables this provider reads at runtime. */
+  envVars: {
+    /** Primary identity/secret env var. Absent for providers with no required credential (Ollama, LM Studio, llama.cpp) or that use extraRequired instead of a single key (Vertex). */
+    apiKey?: string;
+    /** Alternate env vars accepted in place of apiKey, checked in order after apiKey. */
+    fallbacks?: readonly string[];
+    baseURL?: string;
+    /** Alternate env vars accepted in place of baseURL. */
+    baseURLFallbacks?: readonly string[];
+    /** Env var that overrides the static defaultModel at runtime. */
+    model?: string;
+    /** Alternate env vars accepted in place of model, checked in order after model. */
+    modelFallbacks?: readonly string[];
+    /** Additional env vars required alongside apiKey (e.g. AWS secret key, Azure endpoint). */
+    extraRequired?: readonly string[];
+    /** Alternate ways to satisfy extraRequired when it isn't a plain env-var list (e.g. Vertex's file-path-OR-individual-fields auth). */
+    extraRequiredFallbacks?: readonly string[];
+    /** True when the provider is usable with zero configuration (local runtime with a documented default URL, or a documented non-secret default like LiteLLM's "sk-anything"). */
+    optional?: boolean;
+  };
+  /**
+   * Static fallback model. The empty string "" is a documented sentinel
+   * meaning "no static default — resolved at runtime via envVars.model or
+   * provider-side auto-discovery" (used by Bedrock, OpenAI-Compatible,
+   * LM Studio, llama.cpp, matching how providerRegistry.ts already passes
+   * `undefined` as their defaultModel argument today).
+   */
+  defaultModel: string;
+  toolSupport: "native" | "prompt-only" | "none" | "model-dependent";
+  /** True only for providers that run entirely on the caller's machine with no cloud account (Ollama, LM Studio, llama.cpp). LiteLLM is a local proxy but commonly points at cloud models, so it is deliberately false. */
+  localRuntime: boolean;
+  /** How ProviderHealthChecker should verify this provider is reachable. */
+  healthCheck: "env-only" | "models-probe" | "live-generate";
+  setupUrl?: string;
+  timeouts?: { generateMs?: number; streamMs?: number };
+  /** Ascending priority (1 = tried first) in the auto-select fallback chain used by getBestProvider(). Undefined = not part of the auto-select chain. */
+  autoSelectPriority?: number;
+  /** Format-validation regex sourced from providerConfig.ts's API_KEY_FORMATS, when one exists for this provider. */
+  apiKeyFormatPattern?: RegExp;
 };
 
 // =============================================================================

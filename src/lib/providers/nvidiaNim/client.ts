@@ -5,15 +5,18 @@ import type {
   NvidiaNimExtraBody,
   OpenAICompatBuildBodyArgs,
   OpenAICompatChatRequest,
-  UnknownRecord,
+  ProviderErrorRule,
 } from "../../types/index.js";
 import {
   AuthenticationError,
   InvalidModelError,
-  NetworkError,
   ProviderError,
   RateLimitError,
 } from "../../types/index.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../../utils/errorClassifier.js";
 import { logger } from "../../utils/logger.js";
 import { redactUrlCredentials } from "../../utils/logSanitize.js";
 import {
@@ -21,7 +24,6 @@ import {
   getProviderModel,
   validateApiKey,
 } from "../../utils/providerConfig.js";
-import { TimeoutError } from "../../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
 
 /**
@@ -313,54 +315,43 @@ export class NvidiaNimProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(
-        `Request timed out: ${error.message}`,
-        "nvidia-nim",
-      );
-    }
-    const errorRecord = error as UnknownRecord;
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error";
-
-    // NIM canonically returns HTTP 401/Unauthorized for invalid API keys,
-    // but its OpenAI-compatible gateway sometimes surfaces a bare 400 +
-    // "Bad Request" with no body details for both malformed-credentials
-    // and bad-parameter cases. Because the two are indistinguishable from
-    // the message alone, we DON'T promote bare 400/Bad Request to "invalid
-    // key" here — that would mis-classify legitimate parameter errors
-    // (e.g. unsupported `reasoning_budget`, unsupported `chat_template`)
-    // as auth failures. Tests that probe the auth path (K1) detect
-    // "bad request" / "400" themselves; tests that probe parameter retry
-    // (K5) need the original "Bad Request" message to surface.
-    if (
-      message.includes("Invalid API key") ||
-      message.includes("401") ||
-      message.includes("Unauthorized")
-    ) {
-      return new AuthenticationError(
-        "Invalid NVIDIA NIM API key. Get one at https://build.nvidia.com/settings/api-keys",
-        "nvidia-nim",
-      );
-    }
-    if (message.includes("rate limit") || message.includes("429")) {
-      return new RateLimitError("NVIDIA NIM rate limit exceeded", "nvidia-nim");
-    }
-    if (message.includes("404") || message.includes("model_not_found")) {
-      return new InvalidModelError(
-        `NVIDIA NIM model '${this.modelName}' not available. Browse the catalog at https://build.nvidia.com/models`,
-        "nvidia-nim",
-      );
-    }
-    if (message.includes("quota") || message.includes("403")) {
-      return new ProviderError(
-        "NVIDIA NIM quota exceeded for your account",
-        "nvidia-nim",
-      );
-    }
-    return new ProviderError(`NVIDIA NIM error: ${message}`, "nvidia-nim");
+    const rules: ProviderErrorRule[] = [
+      // NIM canonically returns HTTP 401/Unauthorized for invalid API keys,
+      // but its OpenAI-compatible gateway sometimes surfaces a bare 400 +
+      // "Bad Request" with no body details for both malformed-credentials
+      // and bad-parameter cases. Because the two are indistinguishable from
+      // the message alone, bare 400/"Bad Request" is deliberately NOT
+      // promoted to "invalid key" here — that would mis-classify legitimate
+      // parameter errors (e.g. unsupported `reasoning_budget`, unsupported
+      // `chat_template`) as auth failures. Tests that probe the auth path
+      // (K1) detect "bad request" / "400" themselves; tests that probe
+      // parameter retry (K5) need the original "Bad Request" message to
+      // surface.
+      {
+        match: (ctx) => /Invalid API key|401|Unauthorized/.test(ctx.message),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid NVIDIA NIM API key. Get one at https://build.nvidia.com/settings/api-keys",
+      },
+      {
+        match: (ctx) => /rate limit|429/.test(ctx.message),
+        errorClass: RateLimitError,
+        message: "NVIDIA NIM rate limit exceeded",
+      },
+      {
+        match: (ctx) => /404|model_not_found/.test(ctx.message),
+        errorClass: InvalidModelError,
+        message: () =>
+          `NVIDIA NIM model '${this.modelName}' not available. Browse the catalog at https://build.nvidia.com/models`,
+      },
+      {
+        match: (ctx) => /quota|403/.test(ctx.message),
+        errorClass: ProviderError,
+        message: "NVIDIA NIM quota exceeded for your account",
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(error, rules, "nvidia-nim", this.modelName);
   }
 
   async validateConfiguration(): Promise<boolean> {

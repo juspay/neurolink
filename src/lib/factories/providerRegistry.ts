@@ -36,6 +36,7 @@ import {
   RecraftModels,
   ReplicateModels,
 } from "../constants/enums.js";
+import { PROVIDER_DESCRIPTORS_BY_NAME } from "./providerDescriptors.js";
 
 /**
  * Provider Registry - registers all providers with the factory
@@ -120,6 +121,7 @@ export class ProviderRegistry {
         },
         GoogleAIModels.GEMINI_2_5_FLASH,
         ["googleAiStudio", "google", "gemini", "google-ai", "google-ai-studio"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.GOOGLE_AI),
       );
 
       // Register OpenAI provider
@@ -139,6 +141,7 @@ export class ProviderRegistry {
         },
         OpenAIModels.GPT_4O_MINI,
         ["gpt", "chatgpt"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.OPENAI),
       );
 
       // Register Anthropic provider
@@ -164,6 +167,7 @@ export class ProviderRegistry {
         },
         AnthropicModels.CLAUDE_SONNET_4_6,
         ["claude", "anthropic"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.ANTHROPIC),
       );
 
       // Register Amazon Bedrock provider
@@ -188,6 +192,7 @@ export class ProviderRegistry {
         },
         undefined, // Let provider read BEDROCK_MODEL from .env
         ["bedrock", "aws"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.BEDROCK),
       );
 
       // Register Azure OpenAI provider
@@ -211,6 +216,7 @@ export class ProviderRegistry {
           process.env.AZURE_OPENAI_DEPLOYMENT_ID ||
           "gpt-4o-mini",
         ["azure", "azureOpenai"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.AZURE),
       );
 
       // Register Google Vertex AI provider
@@ -236,6 +242,7 @@ export class ProviderRegistry {
         },
         VertexModels.CLAUDE_4_6_SONNET,
         ["vertex", "googleVertex"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.VERTEX),
       );
 
       // Register Hugging Face provider (Unified Router implementation)
@@ -256,6 +263,7 @@ export class ProviderRegistry {
         process.env.HUGGINGFACE_MODEL ||
           HuggingFaceModels.QWEN_2_5_72B_INSTRUCT,
         ["huggingface", "hf"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.HUGGINGFACE),
       );
 
       // Register Mistral AI provider
@@ -274,6 +282,7 @@ export class ProviderRegistry {
         },
         MistralModels.MISTRAL_LARGE_LATEST,
         ["mistral"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.MISTRAL),
       );
 
       // Register Ollama provider
@@ -293,6 +302,7 @@ export class ProviderRegistry {
         },
         process.env.OLLAMA_MODEL || OllamaModels.LLAMA3_2_LATEST,
         ["ollama", "local"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.OLLAMA),
       );
 
       // Register LiteLLM provider
@@ -312,6 +322,7 @@ export class ProviderRegistry {
         },
         process.env.LITELLM_MODEL || LiteLLMModels.OPENAI_GPT_4O_MINI,
         ["litellm"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.LITELLM),
       );
 
       // Register OpenAI Compatible provider
@@ -337,6 +348,7 @@ export class ProviderRegistry {
         },
         process.env.OPENAI_COMPATIBLE_MODEL || undefined, // Enable auto-discovery when no model specified
         ["openai-compatible", "vllm", "compatible"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.OPENAI_COMPATIBLE),
       );
 
       // Register OpenRouter provider (300+ models from 60+ providers)
@@ -367,6 +379,7 @@ export class ProviderRegistry {
         // provider's getDefault.
         process.env.OPENROUTER_MODEL || OpenRouterModels.CLAUDE_SONNET_4_5,
         ["openrouter", "or"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.OPENROUTER),
       );
 
       // Register Amazon SageMaker provider
@@ -393,6 +406,7 @@ export class ProviderRegistry {
         },
         process.env.SAGEMAKER_MODEL || "sagemaker-model",
         ["sagemaker", "aws-sagemaker"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.SAGEMAKER),
       );
 
       // Register DeepSeek provider
@@ -411,6 +425,7 @@ export class ProviderRegistry {
         },
         process.env.DEEPSEEK_MODEL || DeepSeekModels.DEEPSEEK_CHAT,
         ["deepseek", "ds"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.DEEPSEEK),
       );
 
       // Register NVIDIA NIM provider
@@ -430,6 +445,7 @@ export class ProviderRegistry {
         },
         process.env.NVIDIA_NIM_MODEL || NvidiaNimModels.LLAMA_3_3_70B_INSTRUCT,
         ["nvidia", "nim", "nvidia-nim"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.NVIDIA_NIM),
       );
 
       // Register LM Studio provider (local)
@@ -448,6 +464,7 @@ export class ProviderRegistry {
         },
         process.env.LM_STUDIO_MODEL || undefined,
         ["lmstudio", "lm-studio", "lms"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.LM_STUDIO),
       );
 
       // Register llama.cpp provider (local)
@@ -466,6 +483,7 @@ export class ProviderRegistry {
         },
         process.env.LLAMACPP_MODEL || undefined,
         ["llamacpp", "llama.cpp", "llama-cpp"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.LLAMACPP),
       );
       // Register xAI Grok provider
       ProviderFactory.registerProvider(
@@ -483,6 +501,7 @@ export class ProviderRegistry {
         },
         process.env.XAI_MODEL || XaiModels.GROK_3,
         ["xai", "grok"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.XAI),
       );
 
       // Register Groq provider
@@ -501,6 +520,7 @@ export class ProviderRegistry {
         },
         process.env.GROQ_MODEL || GroqModels.LLAMA_3_3_70B_VERSATILE,
         ["groq"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.GROQ),
       );
 
       // Register Cohere provider
@@ -519,6 +539,7 @@ export class ProviderRegistry {
         },
         process.env.COHERE_MODEL || CohereModels.COMMAND_R_PLUS,
         ["cohere"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.COHERE),
       );
 
       // Register Together AI provider
@@ -544,6 +565,7 @@ export class ProviderRegistry {
         process.env.TOGETHER_MODEL ||
           TogetherAIModels.LLAMA_3_3_70B_INSTRUCT_TURBO,
         ["together-ai", "together"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.TOGETHER_AI),
       );
 
       // Register Fireworks AI provider
@@ -569,6 +591,7 @@ export class ProviderRegistry {
         },
         process.env.FIREWORKS_MODEL || FireworksModels.DEEPSEEK_V4_PRO,
         ["fireworks"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.FIREWORKS),
       );
 
       // Register Perplexity provider
@@ -594,6 +617,7 @@ export class ProviderRegistry {
         },
         process.env.PERPLEXITY_MODEL || PerplexityModels.SONAR,
         ["perplexity", "pplx"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.PERPLEXITY),
       );
 
       // Register Cloudflare Workers AI provider
@@ -619,6 +643,7 @@ export class ProviderRegistry {
         },
         process.env.CLOUDFLARE_MODEL || CloudflareModels.LLAMA_3_3_70B_FAST,
         ["cloudflare", "workers-ai", "cf-ai"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.CLOUDFLARE),
       );
 
       // Register Voyage AI embeddings provider
@@ -637,6 +662,7 @@ export class ProviderRegistry {
         },
         process.env.VOYAGE_MODEL || VoyageModels.VOYAGE_3_5,
         ["voyage", "voyage-ai"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.VOYAGE),
       );
 
       // Register Jina AI embeddings + reranking provider
@@ -655,6 +681,7 @@ export class ProviderRegistry {
         },
         process.env.JINA_MODEL || JinaModels.JINA_EMBEDDINGS_V3,
         ["jina", "jina-ai"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.JINA),
       );
 
       // Register Stability AI image-gen provider
@@ -680,6 +707,7 @@ export class ProviderRegistry {
         },
         process.env.STABILITY_MODEL || StabilityModels.STABLE_IMAGE_ULTRA,
         ["stability", "stability-ai", "sd"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.STABILITY),
       );
 
       // Register Ideogram image-gen provider
@@ -698,6 +726,7 @@ export class ProviderRegistry {
         },
         process.env.IDEOGRAM_MODEL || IdeogramModels.IDEOGRAM_V3,
         ["ideogram"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.IDEOGRAM),
       );
 
       // Register Replicate LLM provider (multi-modal — also serves video /
@@ -724,6 +753,7 @@ export class ProviderRegistry {
         },
         process.env.REPLICATE_MODEL || ReplicateModels.LLAMA_3_70B_INSTRUCT,
         ["replicate"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.REPLICATE),
       );
 
       // Register Recraft image-gen provider
@@ -742,6 +772,7 @@ export class ProviderRegistry {
         },
         process.env.RECRAFT_MODEL || RecraftModels.RECRAFT_V3,
         ["recraft"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.RECRAFT),
       );
 
       logger.debug("All AI providers registered successfully");
