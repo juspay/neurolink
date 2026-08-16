@@ -51,6 +51,7 @@ import {
   TEXT_EXTENSION_MIME_MAP,
 } from "../processors/config/mimeConstants.js";
 import { CSVProcessor } from "./csvProcessor.js";
+import { withRetry } from "../core/infrastructure/retry.js";
 import { ImageProcessor } from "./imageProcessor.js";
 import { detectIsoBmffImageMimeType, hasFtypBoxSignature } from "./isoBmff.js";
 import { logger } from "./logger.js";
@@ -67,12 +68,6 @@ import {
   normalizeMimeHint,
 } from "./mimeTypeHints.js";
 import { PDFProcessor } from "./pdfProcessor.js";
-
-/**
- * Default retry configuration constants
- */
-const DEFAULT_MAX_RETRIES = 3;
-const DEFAULT_RETRY_DELAY = 1000; // milliseconds
 
 /**
  * Short-TTL cache of URL → Content-Type (#323). A URL is commonly detected more
@@ -257,50 +252,6 @@ function isRetryableNetworkError(error: unknown): boolean {
   ];
 
   return transientKeywords.some((keyword) => errorMessage.includes(keyword));
-}
-
-/**
- * Execute an operation with automatic retry logic on transient network errors
- *
- * @param operation - Async function to execute
- * @param options - Retry configuration options
- * @returns Promise resolving to the operation result
- * @throws Error if all retry attempts fail or error is non-retryable
- */
-async function withRetry<T>(
-  operation: () => Promise<T>,
-  options: { maxRetries?: number; retryDelay?: number } = {},
-): Promise<T> {
-  const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
-  const retryDelay = options.retryDelay ?? DEFAULT_RETRY_DELAY;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await operation();
-    } catch (error) {
-      const isRetryable = isRetryableNetworkError(error);
-      const isLastAttempt = attempt === maxRetries;
-
-      if (!isRetryable || isLastAttempt) {
-        throw error;
-      }
-
-      // Calculate exponential backoff delay
-      const delay = retryDelay * 2 ** attempt;
-
-      logger.debug("Retrying network operation after transient error", {
-        attempt: attempt + 1,
-        maxRetries,
-        delay,
-        error: error instanceof Error ? error.message : String(error),
-      });
-
-      await new Promise((resolve) => setTimeout(resolve, delay));
-    }
-  }
-
-  // TypeScript exhaustiveness check - should never reach here
-  throw new Error("Retry logic failed unexpectedly");
 }
 
 /**
@@ -2067,8 +2018,6 @@ export class FileDetector {
   ): Promise<Buffer> {
     const maxSize = options?.maxSize || 200 * 1024 * 1024; // 200MB default (matches Curator memory-safety cap)
     const timeout = options?.timeout || FileDetector.DEFAULT_NETWORK_TIMEOUT;
-    const maxRetries = options?.maxRetries ?? DEFAULT_MAX_RETRIES;
-    const retryDelay = options?.retryDelay ?? DEFAULT_RETRY_DELAY;
 
     // #317: pre-flight HEAD to reject an oversized file BEFORE downloading any
     // body. content-length is advisory (chunked responses omit it), so a
@@ -2191,7 +2140,11 @@ export class FileDetector {
           throw redacted;
         }
       },
-      { maxRetries, retryDelay },
+      {
+        maxRetries: options?.maxRetries ?? 3,
+        baseDelayMs: options?.retryDelay ?? 1000,
+        shouldRetry: isRetryableNetworkError,
+      },
     );
   }
 

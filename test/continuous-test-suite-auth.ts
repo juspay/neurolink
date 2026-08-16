@@ -79,7 +79,7 @@ import { Hono } from "hono";
 
 import { CustomAuthProvider } from "../dist/lib/auth/index.js";
 
-import { AuthorizationError } from "../dist/lib/server/index.js";
+import { ServerAuthorizationError } from "../dist/lib/server/index.js";
 
 import {
   createBearerAuthMiddleware,
@@ -587,7 +587,7 @@ async function testServerRBAC(): Promise<void> {
         (p: string) => !effectivePermissions.has(p),
       );
       if (missing.length > 0) {
-        throw new AuthorizationError(
+        throw new ServerAuthorizationError(
           `Missing required permissions: ${missing.join(", ")}`,
           `req-${Date.now()}`,
           missing,

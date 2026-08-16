@@ -37,12 +37,14 @@ import type {
   TextGenerationOptions,
   BedrockContentBlock,
   BedrockMessage,
+  ProviderErrorRule,
 } from "../../types/index.js";
 import {
   AuthenticationError,
   ProviderError,
   RateLimitError,
 } from "../../types/index.js";
+import { classifyProviderError } from "../../utils/errorClassifier.js";
 import { isAbortError, withTimeout } from "../../utils/errorHandling.js";
 import { emitToolEndFromStepFinish } from "../../utils/toolEndEmitter.js";
 import { logger } from "../../utils/logger.js";
@@ -2404,39 +2406,45 @@ export class AmazonBedrockProvider extends BaseProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    // Handle AWS SDK specific errors
-    const message = error instanceof Error ? error.message : String(error);
-
-    if (message.includes("AccessDeniedException")) {
-      return new AuthenticationError(
-        "AWS Bedrock access denied. Check your credentials and permissions.",
-        this.providerName,
-      );
-    }
-
-    if (message.includes("ValidationException")) {
-      return new ProviderError(
-        `Validation error: ${message}`,
-        this.providerName,
-      );
-    }
-
-    // Check for AWS-specific throttling BEFORE generic mapping
-    const errName = (error as { name?: string })?.name ?? "";
-    const errCode = (error as { code?: string })?.code ?? "";
-    if (
-      errName === "ThrottlingException" ||
-      errCode === "ThrottlingException"
-    ) {
-      return new RateLimitError(
-        `Bedrock rate limit (throttled): ${error instanceof Error ? error.message : String(error)}`,
-        "bedrock",
-      );
-    }
-
-    return new ProviderError(
-      `AWS Bedrock error: ${message}`,
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) => /AccessDeniedException/i.test(ctx.message),
+        errorClass: AuthenticationError,
+        message:
+          "AWS Bedrock access denied. Check your credentials and permissions.",
+      },
+      {
+        // Checked before the generic ValidationException fallback — a
+        // throttling error can be shaped like a validation error in some
+        // AWS SDK error message templates, but .name/.code are authoritative.
+        match: (ctx) =>
+          ctx.errorName === "ThrottlingException" ||
+          ctx.errorCode === "ThrottlingException",
+        errorClass: RateLimitError,
+        message: (ctx) => `Bedrock rate limit (throttled): ${ctx.message}`,
+      },
+      {
+        match: (ctx) => /ValidationException/i.test(ctx.message),
+        errorClass: ProviderError,
+        message: (ctx) => `Validation error: ${ctx.message}`,
+      },
+      {
+        match: () => true,
+        errorClass: ProviderError,
+        message: (ctx) => `AWS Bedrock error: ${ctx.message}`,
+      },
+    ];
+    // this.providerName resolves to the literal "bedrock" (getProviderName()
+    // returns it directly, and the constructor only overrides providerName
+    // when an explicit providerName is passed in) — verified matches the
+    // pre-migration hardcoded "bedrock" literal in the throttling branch, so
+    // a single classifyProviderError call using this.providerName for every
+    // rule (rather than a per-rule literal) is not a behavior change.
+    return classifyProviderError(
+      error,
+      rules,
       this.providerName,
+      this.modelName,
     );
   }
 

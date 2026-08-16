@@ -671,6 +671,7 @@ GOOGLE_AI_API_KEY=AIza-your-key-here
 GOOGLE_AI_MODEL=gemini-2.5-flash  # Default model
 GOOGLE_AI_TIMEOUT=60000  # Request timeout (ms)
 GOOGLE_AI_MAX_RETRIES=3  # Retry attempts on rate limits
+GOOGLE_AI_BASE_URL=https://generativelanguage.googleapis.com  # Custom endpoint
 ```
 
 ### Programmatic Configuration

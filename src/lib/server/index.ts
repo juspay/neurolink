@@ -40,8 +40,10 @@ export { KoaServerAdapter } from "./adapters/koaAdapter.js";
 export {
   AlreadyRunningError,
   // Authentication/Authorization errors
-  AuthenticationError,
-  AuthorizationError,
+  // (aliased: the bare names resolve to the provider-error classes of the
+  // same name from types/ on the public @juspay/neurolink surface)
+  AuthenticationError as ServerAuthenticationError,
+  AuthorizationError as ServerAuthorizationError,
   // Configuration errors
   ConfigurationError,
   // Error recovery
@@ -65,7 +67,7 @@ export {
   // Streaming errors
   StreamingError,
   // Timeout errors
-  TimeoutError,
+  ServerTimeoutError,
   // Validation errors
   ValidationError as ServerValidationError,
   WebSocketConnectionError,
@@ -115,7 +117,6 @@ export {
   createRateLimitMiddleware,
   createSlidingWindowRateLimitMiddleware,
   InMemoryRateLimitStore,
-  RateLimitError,
 } from "./middleware/rateLimit.js";
 export {
   CommonSchemas,

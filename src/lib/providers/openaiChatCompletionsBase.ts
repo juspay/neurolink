@@ -18,6 +18,7 @@
  * direct HTTP client + multi-step tool-execution loop driven by SSE.
  */
 
+import { trace } from "@opentelemetry/api";
 import type { AIProviderName } from "../constants/enums.js";
 import {
   getAvailableInputTokens,
@@ -78,6 +79,7 @@ import {
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { transformToolExecutions } from "../utils/transformationUtils.js";
+import { withProviderRetry } from "../utils/providerRetry.js";
 import { resolveDeferredTool } from "../tools/toolDiscovery.js";
 import {
   buildAPIError,
@@ -1309,31 +1311,54 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         args.modelId,
       ),
     );
-    let res = await args.fetchImpl(args.url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...this.getAuthHeaders(),
-      },
-      body: JSON.stringify(body),
-      ...(args.abortSignal ? { signal: args.abortSignal } : {}),
-    });
-    if (!res.ok) {
-      const apiErr = await buildAPIError(args.url, body, res);
-      // One-shot 400 retry — overflow corrector first (re-fits max_tokens
-      // from the provider's own numbers + self-heals the window registry),
-      // then the subclass hook (e.g. NIM strips chat_template /
-      // reasoning_budget when a model rejects them).
+    // The initial fetch gets 429/5xx retry-with-backoff via the same
+    // primitive the non-streaming path already uses (withProviderRetry).
+    // `doFetch` throws the classified APIError (buildAPIError attaches
+    // .statusCode + .responseHeaders, which withProviderRetry's duck-typing
+    // reads directly) so a non-ok response is what drives the retry
+    // decision, not a return value.
+    const doFetch = async (): Promise<Response> => {
+      const attemptRes = await args.fetchImpl(args.url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...this.getAuthHeaders(),
+        },
+        body: JSON.stringify(body),
+        ...(args.abortSignal ? { signal: args.abortSignal } : {}),
+      });
+      if (!attemptRes.ok) {
+        throw await buildAPIError(args.url, body, attemptRes);
+      }
+      return attemptRes;
+    };
+
+    let res: Response;
+    try {
+      res = await withProviderRetry(
+        doFetch,
+        trace.getActiveSpan() ?? undefined,
+        `${this.providerName} stream`,
+      );
+    } catch (err) {
+      // The one-shot 400 context-overflow fallback lives outside
+      // withProviderRetry (400 isn't retryable there anyway — see
+      // isRetryableProviderError), so it fires on the classified error's
+      // .statusCode. The raw Response is no longer in scope here: it was
+      // consumed inside doFetch's closure, either returned on success or
+      // discarded after buildAPIError read its body on failure.
+      const apiErr = err as Error & {
+        statusCode?: number;
+        responseBody?: string;
+      };
+      // Overflow corrector first (re-fits max_tokens from the provider's
+      // own numbers + self-heals the window registry), then the subclass
+      // hook (e.g. NIM strips chat_template / reasoning_budget when a model
+      // rejects them).
       const retryBody =
-        res.status === 400
-          ? (this.correctBodyAfterContextOverflow(
-              body,
-              apiErr as Error & { statusCode?: number; responseBody?: string },
-            ) ??
-            this.adjustBodyAfter400(
-              body,
-              apiErr as Error & { statusCode?: number; responseBody?: string },
-            ))
+        apiErr.statusCode === 400
+          ? (this.correctBodyAfterContextOverflow(body, apiErr) ??
+            this.adjustBodyAfter400(body, apiErr))
           : undefined;
       if (!retryBody) {
         throw apiErr;

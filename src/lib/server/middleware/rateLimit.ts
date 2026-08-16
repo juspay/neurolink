@@ -166,11 +166,6 @@ function defaultKeyGenerator(ctx: ServerContext): string {
 }
 
 /**
- * Re-export RateLimitError from errors for convenience
- */
-export { RateLimitError } from "../errors.js";
-
-/**
  * Create a sliding window rate limiter
  * More accurate than fixed window but slightly more complex
  */

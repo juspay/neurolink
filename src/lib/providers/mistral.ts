@@ -1,21 +1,21 @@
 import type { AIProviderName } from "../constants/enums.js";
 import { MistralModels } from "../constants/enums.js";
-import {
-  AuthenticationError,
-  InvalidModelError,
-  NetworkError,
-  ProviderError,
-  RateLimitError,
+import { AuthenticationError } from "../types/index.js";
+import type {
+  NeurolinkCredentials,
+  ProviderErrorRule,
 } from "../types/index.js";
-import type { NeurolinkCredentials, UnknownRecord } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../utils/errorClassifier.js";
 import {
   createMistralConfig,
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
 const MISTRAL_DEFAULT_BASE_URL = "https://api.mistral.ai/v1";
@@ -89,40 +89,18 @@ export class MistralProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(`Request timed out: ${error.message}`, "mistral");
-    }
-    const errorRecord = error as UnknownRecord;
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error";
-
-    if (
-      message.includes("API_KEY_INVALID") ||
-      message.includes("Invalid API key") ||
-      message.includes("Unauthorized") ||
-      message.includes("401")
-    ) {
-      return new AuthenticationError(
-        "Invalid Mistral API key. Please check your MISTRAL_API_KEY environment variable.",
-        "mistral",
-      );
-    }
-    if (
-      message.includes("rate limit") ||
-      message.includes("Rate limit") ||
-      message.includes("429")
-    ) {
-      return new RateLimitError("Mistral rate limit exceeded", "mistral");
-    }
-    if (message.includes("model_not_found") || message.includes("404")) {
-      return new InvalidModelError(
-        `Mistral model '${this.modelName}' not found.`,
-        "mistral",
-      );
-    }
-    return new ProviderError(`Mistral error: ${message}`, "mistral");
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /API_KEY_INVALID|Invalid API key|Unauthorized/i.test(ctx.message),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid Mistral API key. Please check your MISTRAL_API_KEY environment variable.",
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(error, rules, "mistral", this.modelName);
   }
 
   // ===========================================================================

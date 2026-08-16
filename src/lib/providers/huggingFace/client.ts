@@ -2,11 +2,17 @@ import type { AIProviderName } from "../../constants/enums.js";
 import {
   AuthenticationError,
   InvalidModelError,
-  NetworkError,
   ProviderError,
   RateLimitError,
 } from "../../types/index.js";
-import type { NeurolinkCredentials, UnknownRecord } from "../../types/index.js";
+import type {
+  NeurolinkCredentials,
+  ProviderErrorRule,
+} from "../../types/index.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../../utils/errorClassifier.js";
 import { logger } from "../../utils/logger.js";
 import { redactUrlCredentials } from "../../utils/logSanitize.js";
 import {
@@ -14,7 +20,6 @@ import {
   getProviderModel,
   validateApiKey,
 } from "../../utils/providerConfig.js";
-import { TimeoutError } from "../../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
 
 const HUGGINGFACE_DEFAULT_BASE_URL = "https://router.huggingface.co/v1";
@@ -105,54 +110,34 @@ export class HuggingFaceProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(
-        `Request timed out: ${error.message}`,
-        "huggingface",
-      );
-    }
-
-    const errorObj = error as UnknownRecord;
-    const message =
-      errorObj?.message && typeof errorObj.message === "string"
-        ? errorObj.message
-        : "Unknown error";
-
-    // Enhanced error messages with tool calling context
-    if (
-      message.includes("API_TOKEN_INVALID") ||
-      message.includes("Invalid token")
-    ) {
-      return new AuthenticationError(
-        "Invalid HuggingFace API token. Please check your HUGGINGFACE_API_KEY environment variable.",
-        "huggingface",
-      );
-    }
-
-    if (message.includes("rate limit")) {
-      return new RateLimitError(
-        "HuggingFace rate limit exceeded. Consider using a paid plan or try again later.",
-        "huggingface",
-      );
-    }
-
-    if (message.includes("model") && message.includes("not found")) {
-      return new InvalidModelError(
-        `HuggingFace model '${this.modelName}' not found.\n\nSuggestions:\n1. Check model name spelling\n2. Ensure model exists on HuggingFace Hub\n3. For tool calling, use: Llama-3.1-8B-Instruct, Hermes-3-Llama-3.2-3B, or CodeLlama-34b-Instruct-hf`,
-        "huggingface",
-      );
-    }
-
-    if (message.includes("function") || message.includes("tool")) {
-      return new ProviderError(
-        `HuggingFace tool calling error: ${message}\n\nNotes:\n1. Ensure you're using a tool-capable model (Llama-3.1+, Hermes-3+, CodeLlama)\n2. Check that your model supports function calling\n3. Verify tool schema format is correct`,
-        "huggingface",
-      );
-    }
-
-    return new ProviderError(
-      `HuggingFace Provider Error: ${message}`,
-      "huggingface",
-    );
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) => /API_TOKEN_INVALID|Invalid token/.test(ctx.message),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid HuggingFace API token. Please check your HUGGINGFACE_API_KEY environment variable.",
+      },
+      {
+        match: (ctx) => /rate limit/.test(ctx.message),
+        errorClass: RateLimitError,
+        message:
+          "HuggingFace rate limit exceeded. Consider using a paid plan or try again later.",
+      },
+      {
+        match: (ctx) =>
+          /model/.test(ctx.message) && /not found/.test(ctx.message),
+        errorClass: InvalidModelError,
+        message: () =>
+          `HuggingFace model '${this.modelName}' not found.\n\nSuggestions:\n1. Check model name spelling\n2. Ensure model exists on HuggingFace Hub\n3. For tool calling, use: Llama-3.1-8B-Instruct, Hermes-3-Llama-3.2-3B, or CodeLlama-34b-Instruct-hf`,
+      },
+      {
+        match: (ctx) => /function|tool/.test(ctx.message),
+        errorClass: ProviderError,
+        message: (ctx) =>
+          `HuggingFace tool calling error: ${ctx.message}\n\nNotes:\n1. Ensure you're using a tool-capable model (Llama-3.1+, Hermes-3+, CodeLlama)\n2. Check that your model supports function calling\n3. Verify tool schema format is correct`,
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(error, rules, "huggingface", this.modelName);
   }
 }

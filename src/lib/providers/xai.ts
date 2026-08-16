@@ -1,21 +1,21 @@
 import type { AIProviderName } from "../constants/enums.js";
 import { XaiModels } from "../constants/enums.js";
-import {
-  AuthenticationError,
-  InvalidModelError,
-  NetworkError,
-  ProviderError,
-  RateLimitError,
+import { AuthenticationError, ProviderError } from "../types/index.js";
+import type {
+  NeurolinkCredentials,
+  ProviderErrorRule,
 } from "../types/index.js";
-import type { NeurolinkCredentials, UnknownRecord } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../utils/errorClassifier.js";
 import {
   createXaiConfig,
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
 const XAI_DEFAULT_BASE_URL = "https://api.x.ai/v1";
@@ -88,47 +88,23 @@ export class XaiProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(`Request timed out: ${error.message}`, "xai");
-    }
-    const errorRecord = error as UnknownRecord;
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error";
-
-    if (
-      message.includes("Invalid API key") ||
-      message.includes("Authentication") ||
-      message.includes("401") ||
-      message.includes("invalid_api_key")
-    ) {
-      return new AuthenticationError(
-        "Invalid xAI API key. Please check your XAI_API_KEY environment variable. Get one at https://console.x.ai/",
-        "xai",
-      );
-    }
-    if (message.includes("rate limit") || message.includes("429")) {
-      return new RateLimitError(
-        "xAI rate limit exceeded. Back off and retry.",
-        "xai",
-      );
-    }
-    if (message.includes("model_not_found") || message.includes("404")) {
-      return new InvalidModelError(
-        `xAI model '${this.modelName}' not found. Use grok-2-latest, grok-3, grok-3-mini, grok-2-vision-latest, or grok-beta.`,
-        "xai",
-      );
-    }
-    if (
-      message.includes("insufficient_quota") ||
-      message.includes("quota exceeded")
-    ) {
-      return new ProviderError(
-        "xAI account has insufficient quota. Top up at https://console.x.ai/",
-        "xai",
-      );
-    }
-    return new ProviderError(`xAI error: ${message}`, "xai");
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /Invalid API key|Authentication|invalid_api_key/i.test(ctx.message),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid xAI API key. Please check your XAI_API_KEY environment variable. Get one at https://console.x.ai/",
+      },
+      {
+        match: (ctx) => /insufficient_quota|quota exceeded/i.test(ctx.message),
+        errorClass: ProviderError,
+        message:
+          "xAI account has insufficient quota. Top up at https://console.x.ai/",
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(error, rules, "xai", this.modelName);
   }
 }

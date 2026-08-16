@@ -1,9 +1,16 @@
 import type { AIProviderName } from "../constants/enums.js";
 import { NetworkError, ProviderError } from "../types/index.js";
-import type { NeurolinkCredentials, UnknownRecord } from "../types/index.js";
+import type {
+  NeurolinkCredentials,
+  ProviderErrorRule,
+  UnknownRecord,
+} from "../types/index.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../utils/errorClassifier.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
-import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
 const LLAMACPP_DEFAULT_BASE_URL = "http://localhost:8080/v1";
@@ -71,38 +78,32 @@ export class LlamaCppProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(
-        `Request timed out: ${error.message}`,
-        "llamacpp",
-      );
-    }
+    // `code`/`cause.code` aren't part of ProviderErrorContext, so they're read
+    // off the raw error here (mirrors ollama's `responseBody` extraction) for
+    // the ECONNREFUSED rule below, which the pre-migration code also checked
+    // via a duck-typed error code in addition to the message text.
     const errorRecord = error as UnknownRecord;
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error";
     const cause = (errorRecord?.cause as UnknownRecord) ?? {};
     const code = (errorRecord?.code ?? cause?.code) as string | undefined;
 
-    if (
-      code === "ECONNREFUSED" ||
-      message.includes("ECONNREFUSED") ||
-      message.includes("Failed to fetch") ||
-      message.includes("fetch failed")
-    ) {
-      return new NetworkError(
-        `llama.cpp server not reachable at ${redactUrlCredentials(this.config.baseURL)}. ` +
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) =>
+          code === "ECONNREFUSED" ||
+          /ECONNREFUSED|Failed to fetch|fetch failed/.test(ctx.message),
+        errorClass: NetworkError,
+        message: () =>
+          `llama.cpp server not reachable at ${redactUrlCredentials(this.config.baseURL)}. ` +
           "Start it with: ./llama-server -m model.gguf --port 8080",
-        "llamacpp",
-      );
-    }
-    if (message.includes("400")) {
-      return new ProviderError(
-        "llama.cpp rejected the request. Common cause: model doesn't support tools (start llama-server with --jinja for tool support).",
-        "llamacpp",
-      );
-    }
-    return new ProviderError(`llama.cpp error: ${message}`, "llamacpp");
+      },
+      {
+        match: (ctx) => /400/.test(ctx.message),
+        errorClass: ProviderError,
+        message:
+          "llama.cpp rejected the request. Common cause: model doesn't support tools (start llama-server with --jinja for tool support).",
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(error, rules, "llamacpp", this.modelName);
   }
 }

@@ -6,13 +6,13 @@ import type {
   EnhancedGenerateResult,
   NeurolinkCredentials,
   OpenAICompatStreamLifecycleListeners,
+  ProviderErrorRule,
   TextGenerationOptions,
   UnknownRecord,
 } from "../../types/index.js";
 import {
   AuthenticationError,
   InvalidModelError,
-  NetworkError,
   ProviderError,
   RateLimitError,
 } from "../../types/index.js";
@@ -20,13 +20,17 @@ import { logger } from "../../utils/logger.js";
 import { redactUrlCredentials } from "../../utils/logSanitize.js";
 import { calculateCost } from "../../utils/pricing.js";
 import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../../utils/errorClassifier.js";
+import {
   createOpenAIConfig,
   getProviderModel,
   validateApiKey,
 } from "../../utils/providerConfig.js";
 import { MAX_IMAGE_BYTES, readBoundedBuffer } from "../../utils/sizeGuard.js";
 import { assertSafeUrl } from "../../utils/ssrfGuard.js";
-import { createTimeoutController, TimeoutError } from "../../utils/timeout.js";
+import { createTimeoutController } from "../../utils/timeout.js";
 import { stripTrailingSlash } from "../openaiChatCompletionsClient.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
 
@@ -133,69 +137,56 @@ export class OpenAIProvider extends OpenAIChatCompletionsProvider {
   }
 
   public formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(error.message, this.providerName);
-    }
-
+    // `type` isn't part of `ProviderErrorContext` (it's an OpenAI-specific
+    // error-body field), so it's read directly off the raw error here and
+    // captured by the rule closures below.
     const errorObj = error as UnknownRecord;
-    const message =
-      errorObj?.message && typeof errorObj.message === "string"
-        ? errorObj.message
-        : "Unknown error";
     const errorType =
       errorObj?.type && typeof errorObj.type === "string"
         ? errorObj.type
         : undefined;
-    const statusCode =
-      typeof errorObj?.status === "number"
-        ? errorObj.status
-        : typeof errorObj?.statusCode === "number"
-          ? errorObj.statusCode
-          : undefined;
 
-    // Curator P1-1 / Reviewer Finding #4: only the explicit auth markers
-    // map to AuthenticationError. Earlier we treated every
-    // `invalid_request_error` as an auth failure — that's OpenAI's catch-all
-    // for any bad request (unsupported parameter, malformed JSON, etc.) and
-    // mislabelled them as "invalid API key". Use credential-specific
-    // signals only.
-    if (
-      message.includes("API_KEY_INVALID") ||
-      message.includes("Invalid API key") ||
-      message.includes("Incorrect API key") ||
-      message.includes("invalid_api_key") ||
-      errorType === "invalid_api_key" ||
-      statusCode === 401
-    ) {
-      return new AuthenticationError(
-        message.includes("Incorrect API key") ||
-          message.includes("Invalid API key")
-          ? message
-          : "Invalid OpenAI API key. Please check your OPENAI_API_KEY environment variable.",
-        this.providerName,
-      );
-    }
-
-    if (
-      message.includes("rate limit") ||
-      errorType === "rate_limit_error" ||
-      statusCode === 429
-    ) {
-      return new RateLimitError(
-        "OpenAI rate limit exceeded. Please try again later.",
-        this.providerName,
-      );
-    }
-
-    if (message.includes("model_not_found")) {
-      return new InvalidModelError(
-        `Model not found: ${this.modelName}`,
-        this.providerName,
-      );
-    }
-
-    // Generic provider error
-    return new ProviderError(`OpenAI error: ${message}`, this.providerName);
+    const rules: ProviderErrorRule[] = [
+      // Curator P1-1 / Reviewer Finding #4: only the explicit auth markers
+      // map to AuthenticationError. Earlier we treated every
+      // `invalid_request_error` as an auth failure — that's OpenAI's
+      // catch-all for any bad request (unsupported parameter, malformed
+      // JSON, etc.) and mislabelled them as "invalid API key". Use
+      // credential-specific signals only.
+      {
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          errorType === "invalid_api_key" ||
+          /API_KEY_INVALID|Invalid API key|Incorrect API key|invalid_api_key/i.test(
+            ctx.message,
+          ),
+        errorClass: AuthenticationError,
+        message: (ctx) =>
+          /Incorrect API key|Invalid API key/i.test(ctx.message)
+            ? ctx.message
+            : "Invalid OpenAI API key. Please check your OPENAI_API_KEY environment variable.",
+      },
+      {
+        match: (ctx) =>
+          ctx.statusCode === 429 ||
+          errorType === "rate_limit_error" ||
+          /rate limit/i.test(ctx.message),
+        errorClass: RateLimitError,
+        message: "OpenAI rate limit exceeded. Please try again later.",
+      },
+      {
+        match: (ctx) => /model_not_found/i.test(ctx.message),
+        errorClass: InvalidModelError,
+        message: (ctx) => `Model not found: ${ctx.modelName}`,
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(
+      error,
+      rules,
+      this.providerName,
+      this.modelName,
+    );
   }
 
   // ===========================================================================

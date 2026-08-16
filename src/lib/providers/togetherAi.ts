@@ -1,21 +1,21 @@
 import type { AIProviderName } from "../constants/enums.js";
 import { TogetherAIModels } from "../constants/enums.js";
-import type { NeurolinkCredentials, UnknownRecord } from "../types/index.js";
-import {
-  AuthenticationError,
-  InvalidModelError,
-  NetworkError,
-  ProviderError,
-  RateLimitError,
+import type {
+  NeurolinkCredentials,
+  ProviderErrorRule,
 } from "../types/index.js";
+import { AuthenticationError } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../utils/errorClassifier.js";
 import {
   createTogetherAIConfig,
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
 const TOGETHER_DEFAULT_BASE_URL = "https://api.together.xyz/v1";
@@ -93,39 +93,17 @@ export class TogetherAIProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(
-        `Request timed out: ${error.message}`,
-        "together-ai",
-      );
-    }
-    const errorRecord = error as UnknownRecord;
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error";
-    if (
-      message.includes("Invalid API key") ||
-      message.includes("Authentication") ||
-      message.includes("401")
-    ) {
-      return new AuthenticationError(
-        "Invalid Together AI API key. Get one at https://api.together.xyz/settings/api-keys",
-        "together-ai",
-      );
-    }
-    if (message.includes("rate limit") || message.includes("429")) {
-      return new RateLimitError(
-        "Together AI rate limit exceeded. Back off and retry.",
-        "together-ai",
-      );
-    }
-    if (message.includes("model_not_found") || message.includes("404")) {
-      return new InvalidModelError(
-        `Together AI model '${this.modelName}' not found. Browse the catalog at https://api.together.xyz/models`,
-        "together-ai",
-      );
-    }
-    return new ProviderError(`Together AI error: ${message}`, "together-ai");
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /Invalid API key|Authentication/i.test(ctx.message),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid Together AI API key. Get one at https://api.together.xyz/settings/api-keys",
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(error, rules, "together-ai", this.modelName);
   }
 }

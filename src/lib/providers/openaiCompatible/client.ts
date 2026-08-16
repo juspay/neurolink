@@ -3,13 +3,14 @@ import {
   AuthenticationError,
   InvalidModelError,
   NetworkError,
-  ProviderError,
-  RateLimitError,
 } from "../../types/index.js";
-import type { UnknownRecord } from "../../types/index.js";
+import type { ProviderErrorRule } from "../../types/index.js";
 import { logger } from "../../utils/logger.js";
 import { redactUrlCredentials } from "../../utils/logSanitize.js";
-import { TimeoutError } from "../../utils/timeout.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../../utils/errorClassifier.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
 
 import { FALLBACK_OPENAI_COMPATIBLE_MODEL } from "./constants.js";
@@ -77,70 +78,50 @@ export class OpenAICompatibleProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(
-        `Request timed out: ${error.message}`,
-        "openai-compatible",
-      );
-    }
-
-    const errorRecord = error as UnknownRecord;
-    if (
-      errorRecord?.name === "TimeoutError" ||
-      (typeof errorRecord?.message === "string" &&
-        errorRecord.message.includes("Timeout"))
-    ) {
-      return new NetworkError(
-        `Request timed out: ${errorRecord?.message || "Unknown timeout"}`,
-        "openai-compatible",
-      );
-    }
-
-    if (typeof errorRecord?.message === "string") {
-      if (
-        errorRecord.message.includes("ECONNREFUSED") ||
-        errorRecord.message.includes("Failed to fetch")
-      ) {
-        return new NetworkError(
+    const rules: ProviderErrorRule[] = [
+      // Duck-typed timeout check (name === "TimeoutError" or a "Timeout"
+      // substring) — broader than classifyProviderError's built-in
+      // `instanceof TimeoutError` handling, so it's preserved as an
+      // explicit rule rather than relying on the default.
+      {
+        match: (ctx) =>
+          ctx.errorName === "TimeoutError" || /Timeout/.test(ctx.message),
+        errorClass: NetworkError,
+        message: (ctx) => `Request timed out: ${ctx.message}`,
+      },
+      {
+        match: (ctx) => /ECONNREFUSED|Failed to fetch/i.test(ctx.message),
+        errorClass: NetworkError,
+        message: () =>
           `OpenAI Compatible endpoint not available. Please check your OPENAI_COMPATIBLE_BASE_URL: ${redactUrlCredentials(this.config.baseURL)}`,
-          "openai-compatible",
-        );
-      }
-
-      if (
-        errorRecord.message.includes("API_KEY_INVALID") ||
-        errorRecord.message.includes("Invalid API key") ||
-        errorRecord.message.includes("Unauthorized")
-      ) {
-        return new AuthenticationError(
+      },
+      {
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /API_KEY_INVALID|Invalid API key|Unauthorized/i.test(ctx.message),
+        errorClass: AuthenticationError,
+        message:
           "Invalid OpenAI Compatible API key. Please check your OPENAI_COMPATIBLE_API_KEY environment variable.",
-          "openai-compatible",
-        );
-      }
-
-      if (errorRecord.message.includes("rate limit")) {
-        return new RateLimitError(
-          "OpenAI Compatible rate limit exceeded. Please try again later.",
-          "openai-compatible",
-        );
-      }
-
-      if (
-        errorRecord.message.includes("model") &&
-        (errorRecord.message.includes("not found") ||
-          errorRecord.message.includes("does not exist"))
-      ) {
-        return new InvalidModelError(
-          `Model '${this.modelName}' not available on OpenAI Compatible endpoint. ` +
-            "Please check available models or use getAvailableModels() to see supported models.",
-          "openai-compatible",
-        );
-      }
-    }
-
-    return new ProviderError(
-      `OpenAI Compatible error: ${errorRecord?.message || "Unknown error"}`,
+      },
+      // "does not exist" isn't covered by DEFAULT_ERROR_RULES's
+      // model_not_found/"model not found" pattern — preserved verbatim.
+      {
+        match: (ctx) =>
+          /model/i.test(ctx.message) &&
+          (/not found/i.test(ctx.message) ||
+            /does not exist/i.test(ctx.message)),
+        errorClass: InvalidModelError,
+        message: (ctx) =>
+          `Model '${ctx.modelName}' not available on OpenAI Compatible endpoint. ` +
+          "Please check available models or use getAvailableModels() to see supported models.",
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(
+      error,
+      rules,
       "openai-compatible",
+      this.modelName,
     );
   }
 }

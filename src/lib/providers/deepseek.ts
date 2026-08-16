@@ -3,23 +3,24 @@ import { DeepSeekModels } from "../constants/enums.js";
 import {
   AuthenticationError,
   InvalidModelError,
-  NetworkError,
   ProviderError,
-  RateLimitError,
 } from "../types/index.js";
 import type {
   NeurolinkCredentials,
   OpenAICompatResponseFormat,
-  UnknownRecord,
+  ProviderErrorRule,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../utils/errorClassifier.js";
 import {
   createDeepSeekConfig,
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
-import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
@@ -102,48 +103,32 @@ export class DeepSeekProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(
-        `Request timed out: ${error.message}`,
-        "deepseek",
-      );
-    }
-    const errorRecord = error as UnknownRecord;
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error";
-
-    if (
-      message.includes("Invalid API key") ||
-      message.includes("Authentication") ||
-      message.includes("401")
-    ) {
-      return new AuthenticationError(
-        "Invalid DeepSeek API key. Please check your DEEPSEEK_API_KEY environment variable.",
-        "deepseek",
-      );
-    }
-    if (message.includes("rate limit") || message.includes("429")) {
-      return new RateLimitError("DeepSeek rate limit exceeded", "deepseek");
-    }
-    if (
-      message.includes("Insufficient Balance") ||
-      message.includes("insufficient_balance") ||
-      message.includes("402")
-    ) {
-      return new ProviderError(
-        "DeepSeek account has insufficient balance. Top up at https://platform.deepseek.com/usage",
-        "deepseek",
-      );
-    }
-    if (message.includes("model_not_found") || message.includes("404")) {
-      return new InvalidModelError(
-        `DeepSeek model '${this.modelName}' not found. Use 'deepseek-chat' or 'deepseek-reasoner'.`,
-        "deepseek",
-      );
-    }
-    return new ProviderError(`DeepSeek error: ${message}`, "deepseek");
+    const rules: ProviderErrorRule[] = [
+      {
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /Invalid API key|Authentication/i.test(ctx.message),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid DeepSeek API key. Please check your DEEPSEEK_API_KEY environment variable.",
+      },
+      {
+        match: (ctx) =>
+          ctx.statusCode === 402 ||
+          /Insufficient Balance|insufficient_balance/i.test(ctx.message),
+        errorClass: ProviderError,
+        message:
+          "DeepSeek account has insufficient balance. Top up at https://platform.deepseek.com/usage",
+      },
+      {
+        match: (ctx) => /model_not_found/i.test(ctx.message),
+        errorClass: InvalidModelError,
+        message: (ctx) =>
+          `DeepSeek model '${ctx.modelName}' not found. Use 'deepseek-chat' or 'deepseek-reasoner'.`,
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(error, rules, "deepseek", this.modelName);
   }
 
   // ===========================================================================

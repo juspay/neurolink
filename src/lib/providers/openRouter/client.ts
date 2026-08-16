@@ -10,13 +10,16 @@ import type {
   NeurolinkCredentials,
   OpenRouterModelInfo,
   OpenRouterModelsResponse,
-  UnknownRecord,
+  ProviderErrorRule,
 } from "../../types/index.js";
 import { createProxyFetch } from "../../proxy/proxyFetch.js";
+import {
+  classifyProviderError,
+  DEFAULT_ERROR_RULES,
+} from "../../utils/errorClassifier.js";
 import { isAbortError } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
 import { redactUrlCredentials } from "../../utils/logSanitize.js";
-import { TimeoutError } from "../../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
 import { stripTrailingSlash } from "../openaiChatCompletionsClient.js";
 import { getDefaultOpenRouterModel } from "./utils.js";
@@ -121,111 +124,84 @@ export class OpenRouterProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(
-        `Request timed out: ${error.message}`,
-        "openrouter",
-      );
-    }
-
-    // Check for timeout by error name and message as fallback
-    const errorRecord = error as UnknownRecord;
-    if (
-      errorRecord?.name === "TimeoutError" ||
-      (typeof errorRecord?.message === "string" &&
-        errorRecord.message.includes("Timeout"))
-    ) {
-      return new NetworkError(
-        `Request timed out: ${errorRecord?.message || "Unknown timeout"}`,
-        "openrouter",
-      );
-    }
-    if (typeof errorRecord?.message === "string") {
-      if (
-        errorRecord.message.includes("ECONNREFUSED") ||
-        errorRecord.message.includes("Failed to fetch")
-      ) {
-        return new NetworkError(
+    const rules: ProviderErrorRule[] = [
+      // Duck-typed timeout detection (name === "TimeoutError" OR message
+      // contains "Timeout", case-sensitive — matches the original's
+      // `.includes("Timeout")`) distinct from the `instanceof TimeoutError`
+      // check classifyProviderError already performs first.
+      {
+        match: (ctx) =>
+          ctx.errorName === "TimeoutError" || /Timeout/.test(ctx.message),
+        errorClass: NetworkError,
+        message: (ctx) => `Request timed out: ${ctx.message}`,
+      },
+      {
+        match: (ctx) => /ECONNREFUSED|Failed to fetch/.test(ctx.message),
+        errorClass: NetworkError,
+        message:
           "OpenRouter API not available. Please check your network connection and try again.",
-          "openrouter",
-        );
-      }
-
-      if (
-        errorRecord.message.includes("API_KEY_INVALID") ||
-        errorRecord.message.includes("Invalid API key") ||
-        errorRecord.message.includes("invalid_api_key") ||
-        errorRecord.message.includes("Unauthorized")
-      ) {
-        return new AuthenticationError(
+      },
+      {
+        match: (ctx) =>
+          /API_KEY_INVALID|Invalid API key|invalid_api_key|Unauthorized/.test(
+            ctx.message,
+          ),
+        errorClass: AuthenticationError,
+        message:
           "Invalid OpenRouter API key. Please check your OPENROUTER_API_KEY environment variable. " +
-            "Get your key at https://openrouter.ai/keys",
-          "openrouter",
-        );
-      }
-
-      if (errorRecord.message.includes("rate limit")) {
-        return new RateLimitError(
+          "Get your key at https://openrouter.ai/keys",
+      },
+      {
+        match: (ctx) => /rate limit/.test(ctx.message),
+        errorClass: RateLimitError,
+        message:
           "OpenRouter rate limit exceeded. Please try again later or upgrade your account at https://openrouter.ai/credits",
-          "openrouter",
-        );
-      }
-
-      if (
-        errorRecord.message.includes("model") &&
-        errorRecord.message.includes("not found")
-      ) {
-        return new InvalidModelError(
+      },
+      {
+        match: (ctx) =>
+          /model/.test(ctx.message) && /not found/.test(ctx.message),
+        errorClass: InvalidModelError,
+        message: () =>
           `Model '${this.modelName}' not available on OpenRouter. ` +
-            "Browse available models at https://openrouter.ai/models",
-          "openrouter",
-        );
-      }
-
-      if (errorRecord.message.includes("insufficient_credits")) {
-        return new ProviderError(
+          "Browse available models at https://openrouter.ai/models",
+      },
+      {
+        match: (ctx) => /insufficient_credits/.test(ctx.message),
+        errorClass: ProviderError,
+        message:
           "Insufficient OpenRouter credits. Add credits at https://openrouter.ai/credits",
-          "openrouter",
-        );
-      }
-
+      },
       // "No endpoints found" — model temporarily unavailable or unsupported
       // parameters. Distinct from tool errors: it can happen on any request
       // when the model has no available providers on OpenRouter.
-      if (errorRecord.message.includes("No endpoints found")) {
-        return new InvalidModelError(
+      {
+        match: (ctx) => /No endpoints found/.test(ctx.message),
+        errorClass: InvalidModelError,
+        message: () =>
           `No endpoints found for model '${this.modelName}' on OpenRouter. ` +
-            "The model may be temporarily unavailable or does not support the requested parameters. " +
-            "Try a different model or check availability at https://openrouter.ai/models",
-          "openrouter",
-        );
-      }
-
+          "The model may be temporarily unavailable or does not support the requested parameters. " +
+          "Try a different model or check availability at https://openrouter.ai/models",
+      },
       // Tool/function calling errors
-      if (
-        errorRecord.message.includes("tool use") ||
-        errorRecord.message.includes("tool_use") ||
-        errorRecord.message.includes("function_call") ||
-        errorRecord.message.includes("tools are not supported")
-      ) {
-        return new ProviderError(
+      {
+        match: (ctx) =>
+          /tool use|tool_use|function_call|tools are not supported/.test(
+            ctx.message,
+          ),
+        errorClass: ProviderError,
+        message: () =>
           `Model '${this.modelName}' does not support tool calling. ` +
-            "Use a tool-capable model like:\n" +
-            "  • google/gemini-2.0-flash-exp:free (free)\n" +
-            "  • meta-llama/llama-3.3-70b-instruct:free (free)\n" +
-            "  • anthropic/claude-3.7-sonnet (paid)\n" +
-            "  • openai/gpt-4o (paid)\n" +
-            "Or use --disableTools flag. " +
-            "See all tool-capable models at https://openrouter.ai/models?supported_parameters=tools",
-          "openrouter",
-        );
-      }
-    }
-
-    return new ProviderError(
-      `OpenRouter error: ${errorRecord?.message || "Unknown error"}`,
-      "openrouter",
-    );
+          "Use a tool-capable model like:\n" +
+          "  • google/gemini-2.0-flash-exp:free (free)\n" +
+          "  • meta-llama/llama-3.3-70b-instruct:free (free)\n" +
+          "  • anthropic/claude-3.7-sonnet (paid)\n" +
+          "  • openai/gpt-4o (paid)\n" +
+          "Or use --disableTools flag. " +
+          "See all tool-capable models at https://openrouter.ai/models?supported_parameters=tools",
+      },
+      ...DEFAULT_ERROR_RULES,
+    ];
+    return classifyProviderError(error, rules, "openrouter", this.modelName);
   }
 
   // ===========================================================================

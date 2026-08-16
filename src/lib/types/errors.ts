@@ -72,6 +72,43 @@ export class InvalidModelError extends ProviderError {
   }
 }
 
+/**
+ * Everything a ProviderErrorRule's `match`/`message` functions can inspect
+ * about a raw thrown error, pre-extracted once so every rule doesn't
+ * re-derive the same duck-typed fields.
+ */
+export type ProviderErrorContext = {
+  /** The raw thrown value, for rules that need custom inspection beyond the extracted fields. */
+  error: unknown;
+  /** `.message` off the raw error, or "Unknown error" if absent/non-string. */
+  message: string;
+  /** HTTP status code, duck-typed from `.statusCode` / `.status`. */
+  statusCode: number | undefined;
+  /** `.name` off the raw error (e.g. AWS SDK exception names like "ThrottlingException"). */
+  errorName: string | undefined;
+  /** `.code` off the raw error (e.g. AWS SDK / Node network error codes). */
+  errorCode: string | undefined;
+  /** Provider key passed to classifyProviderError (e.g. "mistral", "vertex"). */
+  provider: string;
+  /** Model name in effect for this call, when the caller has one available. */
+  modelName: string | undefined;
+};
+
+/**
+ * One row of a provider's error-classification table. Rules are tried in
+ * array order; the first `match` to return true wins. `errorClass` must be
+ * `ProviderError` or one of its subclasses (AuthenticationError,
+ * RateLimitError, InvalidModelError, NetworkError, ...) sharing its
+ * `(message, provider?)` constructor shape. `message` can be a static
+ * string or a function of the context, for providers that need to
+ * interpolate a model name, a scraped retry-delay, or an AWS error code.
+ */
+export type ProviderErrorRule = {
+  match: (ctx: ProviderErrorContext) => boolean;
+  errorClass: new (message: string, provider?: string) => ProviderError;
+  message: string | ((ctx: ProviderErrorContext) => string);
+};
+
 // =============================================================================
 // OAUTH ERROR CLASSES
 // =============================================================================

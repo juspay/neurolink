@@ -9,6 +9,7 @@
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
+import { PROVIDER_DESCRIPTORS } from "../../src/lib/factories/providerDescriptors.js";
 
 class EnvironmentManager {
   envFile: string;
@@ -246,24 +247,27 @@ class EnvironmentManager {
 
     const env = await this.parseEnvFile(this.envFile);
 
+    const providers: Record<string, boolean> = {};
+    for (const d of PROVIDER_DESCRIPTORS) {
+      if (d.envVars.optional || d.localRuntime) {
+        providers[d.name] =
+          d.name === "ollama" ? await this.checkOllamaStatus() : true;
+        continue;
+      }
+      const { apiKey, fallbacks, extraRequired, extraRequiredFallbacks } =
+        d.envVars;
+      const hasPrimary =
+        !!apiKey && (!!env[apiKey] || (fallbacks ?? []).some((v) => !!env[v]));
+      const requiredOk =
+        (extraRequired ?? []).every((v) => !!env[v]) ||
+        (extraRequiredFallbacks ?? []).some((v) => !!env[v]);
+      providers[d.name] = hasPrimary && requiredOk;
+    }
+
     const validation = {
       configured: [],
       missing: [],
-      providers: {
-        openai: !!env.OPENAI_API_KEY,
-        anthropic: !!env.ANTHROPIC_API_KEY,
-        "google-ai": !!env.GOOGLE_AI_API_KEY,
-        vertex: !!(
-          env.GOOGLE_APPLICATION_CREDENTIALS ||
-          env.GOOGLE_SERVICE_ACCOUNT_KEY ||
-          env.GOOGLE_AUTH_CLIENT_EMAIL
-        ),
-        bedrock: !!(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY),
-        azure: !!(env.AZURE_OPENAI_API_KEY && env.AZURE_OPENAI_ENDPOINT),
-        huggingface: !!env.HUGGINGFACE_API_KEY,
-        ollama: await this.checkOllamaStatus(),
-        mistral: !!env.MISTRAL_API_KEY,
-      },
+      providers,
       warnings: [],
       recommendations: [],
     };

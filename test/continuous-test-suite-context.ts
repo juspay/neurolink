@@ -1989,6 +1989,125 @@ async function testTokenEstimationAccuracy(
   }
 }
 
+// --- Test: FileDetector.loadFromURL retries transient network failures ---
+// Regression coverage for Plan 07 Task 7 (fileDetector's local withRetry
+// migrated onto core/infrastructure/retry.ts). Verifies retry BEHAVIOR is
+// unchanged post-migration: a transient connection failure is retried and
+// the eventual successful response is still returned.
+async function testFileDetectorLoadFromURLRetry(): Promise<boolean | null> {
+  const testName =
+    "FileDetector - loadFromURL retries transient failures then succeeds";
+  logTest(testName, "TESTING");
+
+  const http = await import("node:http");
+  const expectedBody = "retry-migration-fixture-ok";
+  const failuresBeforeSuccess = 2;
+  let requestCount = 0;
+
+  const server = http.createServer((req, res) => {
+    // Count GETs only. loadFromURL issues a HEAD pre-flight whose failure is
+    // swallowed and never charged against the retry budget, so counting every
+    // method would let the assertion below pass without any retry happening.
+    if (req.method !== "GET") {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end();
+      return;
+    }
+    requestCount++;
+    if (requestCount <= failuresBeforeSuccess) {
+      // Reset the connection to trigger a retryable transient network error
+      // (ECONNRESET), the class of failure this retry path exists to survive.
+      req.socket.destroy();
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end(expectedBody);
+  });
+
+  let bindError: Error | undefined;
+  let port = 0;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", (err) => reject(err));
+      server.listen(0, "127.0.0.1", () => {
+        server.unref();
+        resolve();
+      });
+    });
+    const address = server.address();
+    port = typeof address === "object" && address ? address.port : 0;
+  } catch (err) {
+    bindError = err instanceof Error ? err : new Error(String(err));
+  }
+
+  if (bindError || !port) {
+    logTest(
+      testName,
+      "SKIP",
+      `cannot bind local HTTP server in this environment: ${bindError?.message ?? "no port assigned"}`,
+    );
+    try {
+      server.close();
+    } catch {
+      /* already closed */
+    }
+    return null;
+  }
+
+  try {
+    // loadFromURL is `private static` in the source, but that's a
+    // compile-time-only modifier — at runtime it's a plain static method on
+    // FileDetector, which is what this test exercises directly rather than
+    // routing through the full detectAndProcess() pipeline.
+    const { FileDetector } = await import("../dist/lib/utils/fileDetector.js");
+    const detector = FileDetector as unknown as {
+      loadFromURL: (
+        url: string,
+        options?: {
+          maxRetries?: number;
+          retryDelay?: number;
+          timeout?: number;
+        },
+      ) => Promise<Buffer>;
+    };
+
+    const buffer = await detector.loadFromURL(
+      `http://127.0.0.1:${port}/fixture.txt`,
+      { maxRetries: failuresBeforeSuccess, retryDelay: 20, timeout: 5000 },
+    );
+
+    if (buffer.toString("utf-8") !== expectedBody) {
+      logTest(testName, "FAIL", "response body did not match fixture");
+      return false;
+    }
+    if (requestCount !== failuresBeforeSuccess + 1) {
+      logTest(
+        testName,
+        "FAIL",
+        `expected ${failuresBeforeSuccess + 1} total requests, saw ${requestCount}`,
+      );
+      return false;
+    }
+
+    logTest(
+      testName,
+      "PASS",
+      `retried ${failuresBeforeSuccess} transient failures then succeeded on attempt ${requestCount}`,
+    );
+    return true;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logTest(testName, "FAIL", `loadFromURL did not recover: ${msg}`);
+    return false;
+  } finally {
+    try {
+      server.close();
+    } catch {
+      /* already closed */
+    }
+  }
+}
+
 // --- Test 18: Concurrent Conversations ---
 async function testConcurrentConversations(
   _sdk: NeuroLink,
@@ -3724,6 +3843,10 @@ async function runAllTests(): Promise<void> {
     {
       name: "Concurrent Conversations",
       fn: () => testConcurrentConversations(sharedSdk),
+    },
+    {
+      name: "FileDetector loadFromURL Retry",
+      fn: () => testFileDetectorLoadFromURLRetry(),
     },
     // Observability Tests — DELETED. Coverage now lives in
     // continuous-test-suite-observability.ts; this duplicate was ~92 lines.

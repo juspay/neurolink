@@ -41,7 +41,6 @@ import {
   wrapFetchWithLimitCapture,
 } from "./rateLimitCapture.js";
 import type {
-  UnknownRecord,
   AnthropicProviderConfig,
   StreamOptions,
   StreamResult,
@@ -55,6 +54,7 @@ import type {
   ClaudeSubscriptionTier,
   ClaudeUsageInfo,
   OAuthToken,
+  ProviderErrorRule,
   ZodUnknownSchema,
 } from "../../types/index.js";
 import {
@@ -63,6 +63,7 @@ import {
   ProviderError,
   RateLimitError,
 } from "../../types/index.js";
+import { classifyProviderError } from "../../utils/errorClassifier.js";
 import { logger } from "../../utils/logger.js";
 import {
   ANTHROPIC_ELISION_NOTE,
@@ -92,7 +93,6 @@ import {
   composeAbortSignals,
   createTimeoutController,
   mergeAbortSignals,
-  TimeoutError,
 } from "../../utils/timeout.js";
 import { resolveToolChoice } from "../../utils/toolChoice.js";
 import { emitToolEndFromStepFinish } from "../../utils/toolEndEmitter.js";
@@ -104,6 +104,7 @@ import {
 } from "../../utils/noOutputSentinel.js";
 import { convertZodToJsonSchema } from "../../utils/schemaConversion.js";
 import { resolveClaudeMaxTokens } from "../../utils/tokenLimits.js";
+import { withProviderRetry } from "../../utils/providerRetry.js";
 import {
   toAnthropicImageBlock,
   fileToAnthropicBlock,
@@ -1681,64 +1682,51 @@ export class AnthropicProvider extends BaseProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    if (error instanceof TimeoutError) {
-      return new NetworkError(
-        `Request timed out after ${error.timeout}ms`,
-        this.providerName,
-      );
-    }
-
-    const errorRecord = error as UnknownRecord;
-    const message =
-      typeof errorRecord?.message === "string"
-        ? errorRecord.message
-        : "Unknown error";
-
-    if (
-      message.includes("API_KEY_INVALID") ||
-      message.includes("Invalid API key")
-    ) {
-      return new AuthenticationError(
-        "Invalid Anthropic API key. Please check your ANTHROPIC_API_KEY environment variable.",
-        this.providerName,
-      );
-    }
-
-    if (
-      message.includes("rate limit") ||
-      message.includes("too_many_requests") ||
-      message.includes("429")
-    ) {
-      return new RateLimitError(
-        "Anthropic rate limit exceeded. Please try again later.",
-        this.providerName,
-      );
-    }
-
-    if (
-      message.includes("ECONNRESET") ||
-      message.includes("ENOTFOUND") ||
-      message.includes("ECONNREFUSED") ||
-      message.includes("network") ||
-      message.includes("connection")
-    ) {
-      return new NetworkError(
-        `Connection error: ${message}`,
-        this.providerName,
-      );
-    }
-
-    if (
-      message.includes("500") ||
-      message.includes("502") ||
-      message.includes("503") ||
-      message.includes("504") ||
-      message.includes("server error")
-    ) {
-      return new ProviderError(`Server error: ${message}`, this.providerName);
-    }
-
-    return new ProviderError(`Anthropic error: ${message}`, this.providerName);
+    const rules: ProviderErrorRule[] = [
+      {
+        // Plan 02's mocked-contract work documented a pre-existing gap: the
+        // Anthropic SDK formats auth failures as a bare "401 <msg>" string,
+        // which the message-text regex alone does not catch — mirrors
+        // Vertex's statusCode === 401 fallback in this same task.
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /API_KEY_INVALID|Invalid API key/i.test(ctx.message),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid Anthropic API key. Please check your ANTHROPIC_API_KEY environment variable.",
+      },
+      {
+        match: (ctx) =>
+          ctx.statusCode === 429 ||
+          /rate limit|too_many_requests|429/i.test(ctx.message),
+        errorClass: RateLimitError,
+        message: "Anthropic rate limit exceeded. Please try again later.",
+      },
+      {
+        match: (ctx) =>
+          /ECONNRESET|ENOTFOUND|ECONNREFUSED|network|connection/i.test(
+            ctx.message,
+          ),
+        errorClass: NetworkError,
+        message: (ctx) => `Connection error: ${ctx.message}`,
+      },
+      {
+        match: (ctx) => /500|502|503|504|server error/i.test(ctx.message),
+        errorClass: ProviderError,
+        message: (ctx) => `Server error: ${ctx.message}`,
+      },
+      {
+        match: () => true,
+        errorClass: ProviderError,
+        message: (ctx) => `Anthropic error: ${ctx.message}`,
+      },
+    ];
+    return classifyProviderError(
+      error,
+      rules,
+      this.providerName,
+      this.modelName,
+    );
   }
 
   // executeGenerate removed - BaseProvider handles all generation with tools
@@ -2150,9 +2138,14 @@ export class AnthropicProvider extends BaseProvider {
           ...(anthropicToolChoice ? { tool_choice: anthropicToolChoice } : {}),
           ...(thinking ? { thinking } : {}),
         };
-        const events = await client.messages.create(params, {
-          signal: abortSignal ?? undefined,
-        });
+        const events = await withProviderRetry(
+          () =>
+            client.messages.create(params, {
+              signal: abortSignal ?? undefined,
+            }),
+          trace.getActiveSpan() ?? undefined,
+          `${this.providerName} stream`,
+        );
 
         // Per-step accumulators, keyed by content-block index so blocks are
         // replayed to the conversation in order (thinking blocks must be

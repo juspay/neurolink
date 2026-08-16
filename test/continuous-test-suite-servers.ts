@@ -677,7 +677,7 @@ async function testRateLimitMiddleware(): Promise<boolean | null> {
     [
       "createSlidingWindowRateLimitMiddleware",
       "InMemoryRateLimitStore",
-      "RateLimitError",
+      "ServerRateLimitError",
     ],
   );
 }
@@ -1159,10 +1159,10 @@ async function testErrorHandling(): Promise<boolean | null> {
       "ServerAdapterError",
       "ConfigurationError",
       "ServerValidationError",
-      "AuthenticationError",
-      "AuthorizationError",
+      "ServerAuthenticationError",
+      "ServerAuthorizationError",
       "ServerRateLimitError",
-      "TimeoutError",
+      "ServerTimeoutError",
       "StreamingError",
     ];
 
@@ -1394,9 +1394,13 @@ async function testRateLimitConfiguration(): Promise<boolean | null> {
       );
     }
 
-    // Check RateLimitError
-    if (typeof mod.RateLimitError === "function") {
-      logTest("Rate Limit Config - Error", "PASS", "RateLimitError exported");
+    // Check ServerRateLimitError
+    if (typeof mod.ServerRateLimitError === "function") {
+      logTest(
+        "Rate Limit Config - Error",
+        "PASS",
+        "ServerRateLimitError exported",
+      );
     }
 
     return true;
