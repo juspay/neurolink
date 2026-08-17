@@ -675,6 +675,8 @@ export type SetupArgs = {
   status?: boolean;
   interactive?: boolean;
   help?: boolean;
+  check?: boolean;
+  nonInteractive?: boolean;
 };
 
 /**

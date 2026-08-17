@@ -10103,6 +10103,125 @@ exit 127
       }
     },
   },
+  // ---------- setup command --check/--non-interactive flag forwarding ----------
+  // `neurolink setup --provider <p> --check` used to build its delegated
+  // provider-setup argv with `check`/`nonInteractive` hardcoded to `false`,
+  // silently dropping whatever the caller passed. With a credential already
+  // present, that meant `--check` still fell through to an interactive
+  // "do you want to reconfigure?" prompt instead of the check-only path — and
+  // with no TTY attached (stdio "ignore" below, matching how CI/scripts
+  // invoke the CLI), inquirer aborted with "User force closed the prompt"
+  // and the process exited non-zero. `stdio: ["ignore", ...]` gives stdin an
+  // immediate EOF, exactly like the failure mode this test targets — a
+  // hanging prompt would instead be caught by the `timeout` below.
+  {
+    name: "CLI setup: --provider <p> --check takes the check-only path (no interactive prompt, no hang)",
+    category: "cli",
+    fn: async () => {
+      const { spawnSync } = await import("node:child_process");
+      const { existsSync } = await import("node:fs");
+      const cli = "dist/cli/index.js";
+      if (!existsSync(cli)) {
+        return true; // dist not built in this run — covered by CI's built CLI.
+      }
+      // Force the "credential already present" branch deterministically,
+      // independent of whatever OPENAI_API_KEY happens to be set to in the
+      // ambient test environment — no network call is made either way, the
+      // check-only path only reads env vars.
+      const env = {
+        ...process.env,
+        NO_COLOR: "1",
+        OPENAI_API_KEY: "sk-test-fake-key-for-flag-forwarding-check",
+      };
+      const r = spawnSync(
+        process.execPath,
+        [cli, "setup", "--provider", "openai", "--check"],
+        {
+          encoding: "utf8",
+          env,
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 10_000,
+        },
+      );
+      const combined = `${r.stdout}${r.stderr}`;
+      return (
+        r.status === 0 &&
+        r.signal === null &&
+        /OpenAI setup complete/.test(combined) &&
+        !/Do you want to reconfigure/.test(combined) &&
+        !/force closed/.test(combined)
+      );
+    },
+  },
+  {
+    name: "CLI setup: --provider <p> --check behaves the same as the dedicated `setup <p> --check` subcommand",
+    category: "cli",
+    fn: async () => {
+      const { spawnSync } = await import("node:child_process");
+      const { existsSync } = await import("node:fs");
+      const cli = "dist/cli/index.js";
+      if (!existsSync(cli)) {
+        return true;
+      }
+      const env = {
+        ...process.env,
+        NO_COLOR: "1",
+        OPENAI_API_KEY: "sk-test-fake-key-for-flag-forwarding-check",
+      };
+      const run = (args: string[]) =>
+        spawnSync(process.execPath, [cli, ...args], {
+          encoding: "utf8",
+          env,
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 10_000,
+        });
+      const viaFlag = run(["setup", "--provider", "openai", "--check"]);
+      const viaSubcommand = run(["setup", "openai", "--check"]);
+      const combined = (r: { stdout: string; stderr: string }) =>
+        `${r.stdout}${r.stderr}`;
+      return (
+        viaFlag.status === 0 &&
+        viaSubcommand.status === 0 &&
+        /OpenAI setup complete/.test(combined(viaFlag)) &&
+        /OpenAI setup complete/.test(combined(viaSubcommand))
+      );
+    },
+  },
+  {
+    name: "CLI setup: --provider <p> --non-interactive skips the reconfigure prompt (no hang)",
+    category: "cli",
+    fn: async () => {
+      const { spawnSync } = await import("node:child_process");
+      const { existsSync } = await import("node:fs");
+      const cli = "dist/cli/index.js";
+      if (!existsSync(cli)) {
+        return true;
+      }
+      const env = {
+        ...process.env,
+        NO_COLOR: "1",
+        OPENAI_API_KEY: "sk-test-fake-key-for-flag-forwarding-check",
+      };
+      const r = spawnSync(
+        process.execPath,
+        [cli, "setup", "--provider", "openai", "--non-interactive"],
+        {
+          encoding: "utf8",
+          env,
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 10_000,
+        },
+      );
+      const combined = `${r.stdout}${r.stderr}`;
+      return (
+        r.status === 0 &&
+        r.signal === null &&
+        /Using existing OpenAI configuration/.test(combined) &&
+        !/Do you want to reconfigure/.test(combined) &&
+        !/force closed/.test(combined)
+      );
+    },
+  },
 ];
 
 // ============================================================================

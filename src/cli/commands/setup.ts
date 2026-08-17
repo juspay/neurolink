@@ -332,7 +332,10 @@ export async function handleSetup(argv: SetupArgs): Promise<void> {
     }
 
     if (argv.provider && argv.provider !== "auto") {
-      return await delegateToProviderSetup(argv.provider);
+      return await delegateToProviderSetup(argv.provider, {
+        check: argv.check,
+        nonInteractive: argv.nonInteractive,
+      });
     }
 
     // Main setup wizard
@@ -611,11 +614,17 @@ async function runProviderSelection(): Promise<void> {
  */
 export async function delegateToProviderSetup(
   providerId: string,
-): Promise<void> {
-  const setupArgs = {
-    nonInteractive: false,
-    "non-interactive": false,
+  flags: { check?: boolean; nonInteractive?: boolean } = {
     check: false,
+    nonInteractive: false,
+  },
+): Promise<void> {
+  const nonInteractive = flags.nonInteractive ?? false;
+  const check = flags.check ?? false;
+  const setupArgs = {
+    nonInteractive,
+    "non-interactive": nonInteractive,
+    check,
     _: [] as (string | number)[],
     $0: "neurolink",
   };
