@@ -39,6 +39,47 @@ import {
 import { PROVIDER_DESCRIPTORS_BY_NAME } from "./providerDescriptors.js";
 
 /**
+ * Static module -> provider-ID manifest for every provider registered below.
+ * Module names (file/dir under src/lib/providers/) intentionally differ from
+ * their canonical IDs (e.g. amazonBedrock -> "bedrock", googleVertex ->
+ * "vertex"); static scanners that cannot resolve the dynamic import() calls
+ * use this mapping to confirm a module is registered. Enforced at runtime so
+ * the registry cannot silently drift from this manifest.
+ */
+export const PROVIDER_MODULE_TO_ID: Readonly<Record<string, AIProviderName>> = {
+  amazonBedrock: AIProviderName.BEDROCK,
+  amazonSagemaker: AIProviderName.SAGEMAKER,
+  anthropic: AIProviderName.ANTHROPIC,
+  azureOpenai: AIProviderName.AZURE,
+  cloudflare: AIProviderName.CLOUDFLARE,
+  cohere: AIProviderName.COHERE,
+  deepseek: AIProviderName.DEEPSEEK,
+  fireworks: AIProviderName.FIREWORKS,
+  googleAiStudio: AIProviderName.GOOGLE_AI,
+  googleVertex: AIProviderName.VERTEX,
+  groq: AIProviderName.GROQ,
+  huggingFace: AIProviderName.HUGGINGFACE,
+  ideogram: AIProviderName.IDEOGRAM,
+  jina: AIProviderName.JINA,
+  litellm: AIProviderName.LITELLM,
+  llamaCpp: AIProviderName.LLAMACPP,
+  lmStudio: AIProviderName.LM_STUDIO,
+  mistral: AIProviderName.MISTRAL,
+  nvidiaNim: AIProviderName.NVIDIA_NIM,
+  ollama: AIProviderName.OLLAMA,
+  openAI: AIProviderName.OPENAI,
+  openaiCompatible: AIProviderName.OPENAI_COMPATIBLE,
+  openRouter: AIProviderName.OPENROUTER,
+  perplexity: AIProviderName.PERPLEXITY,
+  recraft: AIProviderName.RECRAFT,
+  replicate: AIProviderName.REPLICATE,
+  stability: AIProviderName.STABILITY,
+  togetherAi: AIProviderName.TOGETHER_AI,
+  voyage: AIProviderName.VOYAGE,
+  xai: AIProviderName.XAI,
+};
+
+/**
  * Provider Registry - registers all providers with the factory
  * This is where we migrate providers one by one to the new pattern
  */
@@ -92,10 +133,12 @@ export class ProviderRegistry {
    * (avoids circular dependencies; see CLAUDE.md).
    *
    * Not registered (by design): index.ts, providerTypeUtils.ts,
-   * anthropicBaseProvider.ts (legacy; anthropic.ts is live),
-   * googleNativeGemini3.ts (shared helpers). Filename != provider ID
-   * (e.g. amazonBedrock -> "bedrock"); static scanners that miss dynamic
-   * imports may false-positive (Pattern Analysis #1178).
+   * openaiChatCompletionsBase.ts, openaiChatCompletionsClient.ts,
+   * anthropicImageBlocks.ts (shared base/helper modules), anthropicBaseProvider.ts
+   * (legacy; anthropic.ts is live), googleNativeGemini3.ts (shared helpers).
+   * Filename != provider ID (e.g. amazonBedrock -> "bedrock"); the
+   * statically-scannable PROVIDER_MODULE_TO_ID manifest maps every registered
+   * module to its provider ID and is enforced below (Pattern Analysis #1178/#1317).
    */
   // eslint-disable-next-line max-lines-per-function
   private static async _doRegister(): Promise<void> {
@@ -774,6 +817,23 @@ export class ProviderRegistry {
         ["recraft"],
         PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.RECRAFT),
       );
+
+      const unregistered = Object.entries(PROVIDER_MODULE_TO_ID).filter(
+        ([module, id]) => {
+          if (!ProviderFactory.hasProvider(id)) {
+            logger.error(
+              `[ProviderRegistry] drift: module "${module}" not registered as "${id}"`,
+            );
+            return true;
+          }
+          return false;
+        },
+      );
+      if (unregistered.length > 0) {
+        throw new Error(
+          `ProviderRegistry drift: ${unregistered.length} module(s) in PROVIDER_MODULE_TO_ID are not registered`,
+        );
+      }
 
       logger.debug("All AI providers registered successfully");
 

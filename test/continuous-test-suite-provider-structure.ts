@@ -247,6 +247,31 @@ await test("Provider Registration Completeness", async () => {
     "AUTO must not be registered as a concrete provider",
   );
 
+  const { PROVIDER_MODULE_TO_ID } =
+    await import("../dist/lib/factories/providerRegistry.js");
+  const manifestFailures: string[] = [];
+  for (const base of concreteProviders) {
+    if (!(base in PROVIDER_MODULE_TO_ID)) {
+      manifestFailures.push(
+        `module "${base}" missing from PROVIDER_MODULE_TO_ID`,
+      );
+    }
+  }
+  for (const [module, id] of Object.entries(PROVIDER_MODULE_TO_ID)) {
+    if (!ProviderFactory.hasProvider(id)) {
+      manifestFailures.push(
+        `manifest entry "${module}" -> "${id}" is not registered`,
+      );
+    }
+  }
+  if (manifestFailures.length > 0) {
+    console.error("ProviderRegistry manifest mismatches:", manifestFailures);
+  }
+  assert(
+    manifestFailures.length === 0,
+    `${manifestFailures.length} manifest mismatch(es)`,
+  );
+
   const claimedKeys = new Map<string, string>();
   const keyCollisions: string[] = [];
   for (const id of canonicalIds) {
