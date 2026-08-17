@@ -8,7 +8,7 @@
 
 > **AnthropicProviderConfig** = [`IndividualProviderConfig`](IndividualProviderConfig.md) & `object`
 
-Defined in: [types/providers.ts:543](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L543)
+Defined in: [types/providers.ts:560](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L560)
 
 Anthropic-specific provider configuration
 

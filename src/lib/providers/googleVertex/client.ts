@@ -35,6 +35,7 @@ import type {
   AgenticLoopOptions,
   GeminiTurnContent,
   NativeToolDeclarationsResult,
+  EmbedInput,
   UnknownRecord,
   ZodUnknownSchema,
   EnhancedGenerateResult,
@@ -8313,7 +8314,18 @@ export class GoogleVertexProvider extends BaseProvider {
    * provider", and `neurolink rag index --provider=vertex` fails even
    * though the SDK conceptually supports it.
    */
-  async embed(text: string, modelName?: string): Promise<number[]> {
+  async embed(
+    input: string | EmbedInput,
+    modelName?: string,
+  ): Promise<number[]> {
+    if (typeof input !== "string" && input.image) {
+      throw new ProviderError(
+        `${this.providerName} does not support image embeddings; provide text input`,
+        this.providerName,
+      );
+    }
+
+    const text = typeof input === "string" ? input : (input.text ?? "");
     const embeddingModelName =
       modelName || this.getDefaultEmbeddingModel() || "text-embedding-004";
 

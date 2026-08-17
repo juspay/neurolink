@@ -8,7 +8,7 @@
 
 > **AdaptiveSemaphoreConfig** = `object`
 
-Defined in: [types/providers.ts:1356](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1356)
+Defined in: [types/providers.ts:1381](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1381)
 
 Adaptive semaphore configuration for concurrency management
 
@@ -18,7 +18,7 @@ Adaptive semaphore configuration for concurrency management
 
 > **initialConcurrency**: `number`
 
-Defined in: [types/providers.ts:1357](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1357)
+Defined in: [types/providers.ts:1382](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1382)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:1357](https://github.com/juspay/neurolink/blob/r
 
 > **maxConcurrency**: `number`
 
-Defined in: [types/providers.ts:1358](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1358)
+Defined in: [types/providers.ts:1383](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1383)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/providers.ts:1358](https://github.com/juspay/neurolink/blob/r
 
 > **minConcurrency**: `number`
 
-Defined in: [types/providers.ts:1359](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1359)
+Defined in: [types/providers.ts:1384](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1384)

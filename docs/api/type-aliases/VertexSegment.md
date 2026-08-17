@@ -8,4 +8,4 @@
 
 > **VertexSegment** = [`VertexToolStep`](VertexToolStep.md) \| [`VertexRegularSegment`](VertexRegularSegment.md)
 
-Defined in: [types/providers.ts:2422](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2422)
+Defined in: [types/providers.ts:2447](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2447)

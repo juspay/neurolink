@@ -8,7 +8,7 @@
 
 > **VectorQueryResult** = `object`
 
-Defined in: [types/rag.ts:1193](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1193)
+Defined in: [types/rag.ts:1212](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1212)
 
 Vector store query result
 
@@ -18,7 +18,7 @@ Vector store query result
 
 > **id**: `string`
 
-Defined in: [types/rag.ts:1195](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1195)
+Defined in: [types/rag.ts:1214](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1214)
 
 Unique identifier
 
@@ -28,7 +28,7 @@ Unique identifier
 
 > `optional` **text?**: `string`
 
-Defined in: [types/rag.ts:1197](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1197)
+Defined in: [types/rag.ts:1216](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1216)
 
 Text content
 
@@ -38,7 +38,7 @@ Text content
 
 > `optional` **score?**: `number`
 
-Defined in: [types/rag.ts:1199](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1199)
+Defined in: [types/rag.ts:1218](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1218)
 
 Similarity/relevance score
 
@@ -48,7 +48,7 @@ Similarity/relevance score
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1201](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1201)
+Defined in: [types/rag.ts:1220](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1220)
 
 Associated metadata
 
@@ -58,6 +58,6 @@ Associated metadata
 
 > `optional` **vector?**: `number`[]
 
-Defined in: [types/rag.ts:1203](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1203)
+Defined in: [types/rag.ts:1222](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1222)
 
 Embedding vector (if requested)

@@ -8,7 +8,7 @@
 
 > **TokenChunkerConfig** = [`BaseChunkerConfig`](BaseChunkerConfig.md) & `object`
 
-Defined in: [types/rag.ts:904](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L904)
+Defined in: [types/rag.ts:923](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L923)
 
 Token chunker configuration
 Token-aware splitting using tokenizer

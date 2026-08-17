@@ -88,6 +88,8 @@ export {
   TextLoader,
   WebLoader,
 } from "./document/index.js";
+// Image Loader for multi-modal RAG
+export { ImageLoader } from "./document/imageLoader.js";
 // Error handling
 export * from "./errors/index.js";
 // Graph RAG

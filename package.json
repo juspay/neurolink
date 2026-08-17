@@ -88,6 +88,7 @@
     "test:media": "pnpm exec tsx test/continuous-test-suite-media-gen.ts",
     "test:media-registry-collisions": "pnpm exec tsx test/continuous-test-suite-media-registry-collisions.ts",
     "test:memory": "pnpm exec tsx test/continuous-test-suite-memory.ts",
+    "test:multimodal-rag": "pnpm exec tsx test/continuous-test-suite-multimodal-rag.ts",
     "test:proxy-sharing": "pnpm run build && pnpm exec tsx test/continuous-test-suite-proxy-sharing.ts",
     "test:openai-compat-streaming-retry": "pnpm exec tsx test/continuous-test-suite-openai-compat-streaming-retry.ts",
     "test:anthropic-streaming-retry": "pnpm exec tsx test/continuous-test-suite-anthropic-streaming-retry.ts",

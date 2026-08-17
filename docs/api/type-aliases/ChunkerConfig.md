@@ -8,6 +8,6 @@
 
 > **ChunkerConfig** = [`CharacterChunkerConfig`](CharacterChunkerConfig.md) \| [`RecursiveChunkerConfig`](RecursiveChunkerConfig.md) \| [`SentenceChunkerConfig`](SentenceChunkerConfig.md) \| [`TokenChunkerConfig`](TokenChunkerConfig.md) \| [`MarkdownChunkerConfig`](MarkdownChunkerConfig.md) \| [`HTMLChunkerConfig`](HTMLChunkerConfig.md) \| [`JSONChunkerConfig`](JSONChunkerConfig.md) \| [`LaTeXChunkerConfig`](LaTeXChunkerConfig.md) \| [`SemanticChunkerConfig`](SemanticChunkerConfig.md)
 
-Defined in: [types/rag.ts:995](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L995)
+Defined in: [types/rag.ts:1014](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1014)
 
 Union type for all chunker configurations

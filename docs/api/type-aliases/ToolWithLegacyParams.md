@@ -8,7 +8,7 @@
 
 > **ToolWithLegacyParams** = `object`
 
-Defined in: [types/providers.ts:2117](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2117)
+Defined in: [types/providers.ts:2142](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2142)
 
 Represents an AI SDK Tool that may carry a legacy `parameters` field
 (from AI SDK v3/v4) in addition to the current `inputSchema`.
@@ -19,7 +19,7 @@ Represents an AI SDK Tool that may carry a legacy `parameters` field
 
 > `optional` **description?**: `string`
 
-Defined in: [types/providers.ts:2118](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2118)
+Defined in: [types/providers.ts:2143](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2143)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/providers.ts:2118](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **inputSchema?**: `unknown`
 
-Defined in: [types/providers.ts:2119](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2119)
+Defined in: [types/providers.ts:2144](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2144)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/providers.ts:2119](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **execute?**: (...`args`) => `unknown`
 
-Defined in: [types/providers.ts:2120](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2120)
+Defined in: [types/providers.ts:2145](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2145)
 
 #### Parameters
 
@@ -53,6 +53,6 @@ Defined in: [types/providers.ts:2120](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **parameters?**: `unknown`
 
-Defined in: [types/providers.ts:2122](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2122)
+Defined in: [types/providers.ts:2147](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2147)
 
 Legacy field from AI SDK v3/v4

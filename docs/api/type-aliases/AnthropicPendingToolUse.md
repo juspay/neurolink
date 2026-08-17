@@ -8,7 +8,7 @@
 
 > **AnthropicPendingToolUse** = `object`
 
-Defined in: [types/providers.ts:1040](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1040)
+Defined in: [types/providers.ts:1065](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1065)
 
 A tool_use block being assembled across Anthropic `input_json_delta` events.
 
@@ -18,7 +18,7 @@ A tool_use block being assembled across Anthropic `input_json_delta` events.
 
 > **id**: `string`
 
-Defined in: [types/providers.ts:1041](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1041)
+Defined in: [types/providers.ts:1066](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1066)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:1041](https://github.com/juspay/neurolink/blob/r
 
 > **name**: `string`
 
-Defined in: [types/providers.ts:1042](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1042)
+Defined in: [types/providers.ts:1067](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1067)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/providers.ts:1042](https://github.com/juspay/neurolink/blob/r
 
 > **inputJson**: `string`
 
-Defined in: [types/providers.ts:1043](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1043)
+Defined in: [types/providers.ts:1068](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1068)

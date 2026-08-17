@@ -2,6 +2,7 @@ import type { AIProviderName } from "../../constants/enums.js";
 import { modelConfig } from "../../core/modelConfiguration.js";
 import { createProxyFetch } from "../../proxy/proxyFetch.js";
 import type {
+  EmbedInput,
   NeurolinkCredentials,
   ProviderErrorRule,
   StreamOptions,
@@ -276,7 +277,18 @@ export class OllamaProvider extends OpenAIChatCompletionsProvider {
    * Uses `OLLAMA_EMBEDDING_MODEL` (default `nomic-embed-text`); the embedding
    * model must be pulled locally (`ollama pull nomic-embed-text`).
    */
-  async embed(text: string, modelName?: string): Promise<number[]> {
+  async embed(
+    input: string | EmbedInput,
+    modelName?: string,
+  ): Promise<number[]> {
+    if (typeof input !== "string" && input.image) {
+      throw new ProviderError(
+        `${this.providerName} does not support image embeddings; provide text input`,
+        this.providerName,
+      );
+    }
+
+    const text = typeof input === "string" ? input : (input.text ?? "");
     const embeddingModel =
       modelName ||
       process.env.OLLAMA_EMBEDDING_MODEL ||

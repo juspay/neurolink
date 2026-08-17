@@ -8,7 +8,7 @@
 
 > **GraphStats** = `object`
 
-Defined in: [types/rag.ts:1429](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1429)
+Defined in: [types/rag.ts:1448](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1448)
 
 Graph statistics
 
@@ -18,7 +18,7 @@ Graph statistics
 
 > **nodeCount**: `number`
 
-Defined in: [types/rag.ts:1430](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1430)
+Defined in: [types/rag.ts:1449](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1449)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/rag.ts:1430](https://github.com/juspay/neurolink/blob/release
 
 > **edgeCount**: `number`
 
-Defined in: [types/rag.ts:1431](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1431)
+Defined in: [types/rag.ts:1450](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1450)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/rag.ts:1431](https://github.com/juspay/neurolink/blob/release
 
 > **avgDegree**: `number`
 
-Defined in: [types/rag.ts:1432](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1432)
+Defined in: [types/rag.ts:1451](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1451)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/rag.ts:1432](https://github.com/juspay/neurolink/blob/release
 
 > **threshold**: `number`
 
-Defined in: [types/rag.ts:1433](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1433)
+Defined in: [types/rag.ts:1452](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1452)

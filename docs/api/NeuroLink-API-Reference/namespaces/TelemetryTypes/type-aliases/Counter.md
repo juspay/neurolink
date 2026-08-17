@@ -8,7 +8,7 @@
 
 > **Counter** = `object`
 
-Defined in: [types/providers.ts:1962](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1962)
+Defined in: [types/providers.ts:1987](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1987)
 
 ## Methods
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:1962](https://github.com/juspay/neurolink/blob/r
 
 > **add**(`value`, `attributes?`): `void`
 
-Defined in: [types/providers.ts:1963](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1963)
+Defined in: [types/providers.ts:1988](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1988)
 
 #### Parameters
 

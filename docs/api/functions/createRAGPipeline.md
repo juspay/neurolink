@@ -8,7 +8,7 @@
 
 > **createRAGPipeline**(`options`): [`RAGPipeline`](../classes/RAGPipeline.md)
 
-Defined in: [rag/pipeline/RAGPipeline.ts:543](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L543)
+Defined in: [rag/pipeline/RAGPipeline.ts:1023](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L1023)
 
 Create a simple RAG pipeline with sensible defaults
 
@@ -37,6 +37,10 @@ Basic configuration options
 #### enableGraph?
 
 `boolean`
+
+#### multiModal?
+
+[`MultiModalRAGConfig`](../type-aliases/MultiModalRAGConfig.md)
 
 ## Returns
 

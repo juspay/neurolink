@@ -8,7 +8,7 @@
 
 > **CustomSchemaExtractorConfig** = [`BaseExtractorConfig`](BaseExtractorConfig.md) & `object`
 
-Defined in: [types/rag.ts:1107](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1107)
+Defined in: [types/rag.ts:1126](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1126)
 
 Custom schema extractor configuration
 

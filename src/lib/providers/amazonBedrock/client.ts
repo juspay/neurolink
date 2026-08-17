@@ -22,6 +22,7 @@ import type { NeuroLink } from "../../neurolink.js";
 import type {
   AgenticLoopStepRequest,
   AgenticLoopUsage,
+  EmbedInput,
   JsonValue,
   StreamOptions,
   StreamResult,
@@ -54,6 +55,38 @@ import { type Span, SpanKind, SpanStatusCode } from "@opentelemetry/api";
 
 import { bedrockTracer } from "./constants.js";
 import { loadBedrockControl } from "./utils.js";
+
+/**
+ * The only image formats Nova Multimodal Embeddings accepts.
+ *
+ * An allowlist rather than a derivation from the mimetype, because every
+ * shortcut here produces a value Nova rejects for some ordinary input:
+ * splitting on "/" yields `svg+xml` for an SVG and `jpeg; charset=binary`
+ * when the mimetype carries parameters, and normalising `jpeg` to `jpg` —
+ * the natural-looking direction — turns the single most common input into
+ * the one spelling that is not on this list.
+ */
+const NOVA_IMAGE_FORMATS: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpeg",
+  "image/jpg": "jpeg",
+  "image/gif": "gif",
+  "image/webp": "webp",
+};
+
+/**
+ * Nova's format name for `mimeType`, or undefined when Nova has no name for it.
+ *
+ * Deliberately not defaulting to png. The RAG image path accepts bmp, tiff and
+ * avif, none of which Nova names, so a default would hand AWS a BMP labelled as
+ * a PNG — bytes and declared format disagreeing, with no error and no way for
+ * the caller to tell it happened. An unnamed format is surfaced to the caller
+ * instead; see the throw at the call site.
+ */
+function novaImageFormat(mimeType?: string): string | undefined {
+  const normalized = (mimeType ?? "").split(";").at(0)?.trim().toLowerCase();
+  return NOVA_IMAGE_FORMATS[normalized ?? ""];
+}
 
 export class AmazonBedrockProvider extends BaseProvider {
   private bedrockClient: BedrockRuntimeClient;
@@ -1492,26 +1525,117 @@ export class AmazonBedrockProvider extends BaseProvider {
   }
 
   /**
-   * Generate embeddings for text using Amazon Bedrock embedding models
-   * Uses the native AWS SDK InvokeModel command for Titan embeddings
-   * @param text - The text to embed
+   * Generate embeddings for text or multi-modal input using Amazon Bedrock.
+   * Supports both text-only models (Titan Embed Text) and multi-modal models
+   * (Titan Embed Image, Nova Multimodal Embeddings).
+   *
+   * @param input - Text string or EmbedInput with text/image/mimeType
    * @param modelName - The embedding model to use (default: amazon.titan-embed-text-v2:0)
    * @returns Promise resolving to the embedding vector
    */
-  async embed(text: string, modelName?: string): Promise<number[]> {
-    const embeddingModelName = modelName || "amazon.titan-embed-text-v2:0";
+  async embed(
+    input: string | EmbedInput,
+    modelName?: string,
+  ): Promise<number[]> {
+    // Normalize input to EmbedInput shape
+    const embedInput = typeof input === "string" ? { text: input } : input;
+
+    const embeddingModelName = modelName || this.getDefaultEmbeddingModel();
+    const isNovaModel =
+      embeddingModelName.includes("nova") &&
+      embeddingModelName.includes("multimodal");
+    const isMultiModalModel =
+      embeddingModelName.includes("image") ||
+      embeddingModelName.includes("multimodal") ||
+      embeddingModelName === "amazon.titan-embed-image-v1" ||
+      isNovaModel;
 
     logger.debug("Generating embedding", {
       provider: this.providerName,
       model: embeddingModelName,
-      textLength: text.length,
+      hasText: typeof embedInput.text === "string",
+      hasImage: embedInput.image !== undefined,
+      isMultiModalModel,
     });
 
     try {
-      // Titan Embed models expect a specific input format
-      const requestBody = JSON.stringify({
-        inputText: text,
-      });
+      // Build request body based on model type
+      let requestBody: string;
+
+      if (embedInput.image && !isMultiModalModel) {
+        throw new ProviderError(
+          `${this.providerName} model ${embeddingModelName} does not support image embeddings`,
+          this.providerName,
+        );
+      }
+
+      if (isNovaModel) {
+        // Nova Multimodal Embeddings uses SINGLE_EMBEDDING + singleEmbeddingParams
+        // for BOTH text-only and image requests. Nova requires exactly one
+        // modality per request — combined image+text is rejected explicitly
+        // rather than silently dropping one of them.
+        if (embedInput.image && embedInput.text) {
+          throw new ProviderError(
+            `${this.providerName} model ${embeddingModelName} does not support combined image+text embeddings; provide exactly one of image or text`,
+            this.providerName,
+          );
+        }
+
+        const singleEmbeddingParams: Record<string, unknown> = {
+          embeddingPurpose: "GENERIC_RETRIEVAL",
+        };
+
+        if (embedInput.image) {
+          const imageBuffer = Buffer.isBuffer(embedInput.image)
+            ? embedInput.image
+            : Buffer.from(embedInput.image, "base64");
+
+          const imageFormat = novaImageFormat(embedInput.mimeType);
+          if (imageFormat === undefined) {
+            throw new ProviderError(
+              `${this.providerName} model ${embeddingModelName} does not support image format ` +
+                `'${embedInput.mimeType ?? "unknown"}'; supported formats are ` +
+                `${Object.keys(NOVA_IMAGE_FORMATS).join(", ")}`,
+              this.providerName,
+            );
+          }
+
+          singleEmbeddingParams.image = {
+            detailLevel: "STANDARD_IMAGE",
+            format: imageFormat,
+            source: {
+              bytes: imageBuffer.toString("base64"),
+            },
+          };
+        }
+
+        if (embedInput.text) {
+          singleEmbeddingParams.text = {
+            value: embedInput.text,
+            truncationMode: "NONE",
+          };
+        }
+
+        requestBody = JSON.stringify({
+          taskType: "SINGLE_EMBEDDING",
+          singleEmbeddingParams,
+        });
+      } else if (embedInput.image) {
+        // Titan Multimodal Embeddings expects inputImage as a base64 string
+        const imageBuffer = Buffer.isBuffer(embedInput.image)
+          ? embedInput.image
+          : Buffer.from(embedInput.image, "base64");
+
+        requestBody = JSON.stringify({
+          inputText: embedInput.text ?? "",
+          inputImage: imageBuffer.toString("base64"),
+        });
+      } else {
+        // Text-only embedding (Titan Embed Text)
+        requestBody = JSON.stringify({
+          inputText: embedInput.text ?? "",
+        });
+      }
 
       const command = new InvokeModelCommand({
         modelId: embeddingModelName,
@@ -1526,27 +1650,33 @@ export class AmazonBedrockProvider extends BaseProvider {
         new Error("Bedrock embedding API call timed out"),
       );
 
-      // Parse the response
+      // Parse the response — Titan returns `embedding`, Nova returns `embeddings[0].embedding`
       const responseBody = JSON.parse(
         new TextDecoder().decode(response.body),
-      ) as { embedding: number[] };
+      ) as {
+        embedding?: unknown;
+        embeddings?: Array<{ embedding?: unknown }>;
+      };
 
-      if (!responseBody.embedding || !Array.isArray(responseBody.embedding)) {
+      const embedding = isNovaModel
+        ? responseBody.embeddings?.at(0)?.embedding
+        : responseBody.embedding;
+
+      if (!Array.isArray(embedding)) {
         throw new Error("Invalid embedding response from Bedrock");
       }
 
       logger.debug("Embedding generated successfully", {
         provider: this.providerName,
         model: embeddingModelName,
-        embeddingDimension: responseBody.embedding.length,
+        embeddingDimension: embedding.length,
       });
 
-      return responseBody.embedding;
+      return embedding as number[];
     } catch (error) {
       logger.error("Embedding generation failed", {
         error: error instanceof Error ? error.message : String(error),
         model: embeddingModelName,
-        textLength: text.length,
       });
 
       throw this.handleProviderError(error);
@@ -1560,7 +1690,7 @@ export class AmazonBedrockProvider extends BaseProvider {
    * @returns Promise resolving to an array of embedding vectors
    */
   async embedMany(texts: string[], modelName?: string): Promise<number[][]> {
-    const embeddingModelName = modelName || "amazon.titan-embed-text-v2:0";
+    const embeddingModelName = modelName || this.getDefaultEmbeddingModel();
 
     logger.debug("Generating batch embeddings", {
       provider: this.providerName,

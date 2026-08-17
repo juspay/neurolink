@@ -8,7 +8,7 @@
 
 > **WebLoaderOptions** = [`LoaderOptions`](LoaderOptions.md) & `object`
 
-Defined in: [types/rag.ts:555](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L555)
+Defined in: [types/rag.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L574)
 
 Web loader options
 

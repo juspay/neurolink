@@ -8,7 +8,7 @@
 
 > **getAvailableStrategies**(): [`ChunkingStrategy`](../type-aliases/ChunkingStrategy.md)[]
 
-Defined in: [rag/index.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/rag/index.ts#L248)
+Defined in: [rag/index.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/rag/index.ts#L250)
 
 Get available chunking strategies
 
