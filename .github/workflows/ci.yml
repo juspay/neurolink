@@ -24,21 +24,25 @@ jobs:
           node-version: "20"
           cache: "pnpm"
 
+      # Installed from the runner's package index rather than a third-party
+      # action that downloads release assets from another repository. That
+      # action has broken this pipeline twice: first when the 8.1 asset was
+      # published corrupt, then again when the 7.1 pin added to work around
+      # it stopped resolving. Neither failure was caused by anything in this
+      # repository, and both blocked every open pull request. apt carries a
+      # version new enough for what the suites exercise, and it cannot be
+      # invalidated by an upstream release being moved or rebuilt.
       - name: Install ffmpeg
-        uses: AnimMouse/setup-ffmpeg@v1
-        with:
-          # Pin to a known-good release. The default (latest → FFmpeg 8.1)
-          # BtbN/FFmpeg-Builds Linux asset is currently corrupt and fails the
-          # job at download ("xz: File format not recognized"). Revert once
-          # upstream republishes a valid 8.1 build.
-          version: "7.1"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Verify ffmpeg installation
         run: |
           echo "🎬 Verifying ffmpeg installation..."
           ffmpeg -version || {
             echo "❌ ffmpeg installation failed!"
-            echo "Please check the setup-ffmpeg action configuration."
+            echo "apt-get install ffmpeg did not produce a working binary."
             exit 1
           }
           echo "✅ ffmpeg installed successfully"
@@ -189,21 +193,25 @@ jobs:
           node-version: "22"
           cache: "pnpm"
 
+      # Installed from the runner's package index rather than a third-party
+      # action that downloads release assets from another repository. That
+      # action has broken this pipeline twice: first when the 8.1 asset was
+      # published corrupt, then again when the 7.1 pin added to work around
+      # it stopped resolving. Neither failure was caused by anything in this
+      # repository, and both blocked every open pull request. apt carries a
+      # version new enough for what the suites exercise, and it cannot be
+      # invalidated by an upstream release being moved or rebuilt.
       - name: Install ffmpeg
-        uses: AnimMouse/setup-ffmpeg@v1
-        with:
-          # Pin to a known-good release. The default (latest → FFmpeg 8.1)
-          # BtbN/FFmpeg-Builds Linux asset is currently corrupt and fails the
-          # job at download ("xz: File format not recognized"). Revert once
-          # upstream republishes a valid 8.1 build.
-          version: "7.1"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Verify ffmpeg installation
         run: |
           echo "🎬 Verifying ffmpeg installation..."
           ffmpeg -version || {
             echo "❌ ffmpeg installation failed!"
-            echo "Please check the setup-ffmpeg action configuration."
+            echo "apt-get install ffmpeg did not produce a working binary."
             exit 1
           }
           echo "✅ ffmpeg installed successfully"
@@ -266,21 +274,25 @@ jobs:
           node-version: "22"
           cache: "pnpm"
 
+      # Installed from the runner's package index rather than a third-party
+      # action that downloads release assets from another repository. That
+      # action has broken this pipeline twice: first when the 8.1 asset was
+      # published corrupt, then again when the 7.1 pin added to work around
+      # it stopped resolving. Neither failure was caused by anything in this
+      # repository, and both blocked every open pull request. apt carries a
+      # version new enough for what the suites exercise, and it cannot be
+      # invalidated by an upstream release being moved or rebuilt.
       - name: Install ffmpeg
-        uses: AnimMouse/setup-ffmpeg@v1
-        with:
-          # Pin to a known-good release. The default (latest → FFmpeg 8.1)
-          # BtbN/FFmpeg-Builds Linux asset is currently corrupt and fails the
-          # job at download ("xz: File format not recognized"). Revert once
-          # upstream republishes a valid 8.1 build.
-          version: "7.1"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Verify ffmpeg installation
         run: |
           echo "🎬 Verifying ffmpeg installation..."
           ffmpeg -version || {
             echo "❌ ffmpeg installation failed!"
-            echo "Please check the setup-ffmpeg action configuration."
+            echo "apt-get install ffmpeg did not produce a working binary."
             exit 1
           }
           echo "✅ ffmpeg installed successfully"
