@@ -8,7 +8,7 @@
 
 > **ChunkParams** = `object`
 
-Defined in: [types/rag.ts:1494](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1494)
+Defined in: [types/rag.ts:1513](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1513)
 
 Chunk parameters for MDocument
 
@@ -18,7 +18,7 @@ Chunk parameters for MDocument
 
 > `optional` **strategy?**: [`ChunkingStrategy`](ChunkingStrategy.md)
 
-Defined in: [types/rag.ts:1496](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1496)
+Defined in: [types/rag.ts:1515](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1515)
 
 Chunking strategy to use
 
@@ -28,7 +28,7 @@ Chunking strategy to use
 
 > `optional` **config?**: [`ChunkerConfig`](ChunkerConfig.md)
 
-Defined in: [types/rag.ts:1498](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1498)
+Defined in: [types/rag.ts:1517](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1517)
 
 Strategy-specific configuration
 
@@ -38,6 +38,6 @@ Strategy-specific configuration
 
 > `optional` **extract?**: [`ExtractParams`](ExtractParams.md)
 
-Defined in: [types/rag.ts:1500](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1500)
+Defined in: [types/rag.ts:1519](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1519)
 
 Metadata extraction options

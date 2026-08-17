@@ -8,7 +8,7 @@
 
 > **VectorQueryResponse** = `object`
 
-Defined in: [types/rag.ts:1264](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1264)
+Defined in: [types/rag.ts:1283](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1283)
 
 Vector query result wrapper
 
@@ -18,7 +18,7 @@ Vector query result wrapper
 
 > **relevantContext**: `string`
 
-Defined in: [types/rag.ts:1266](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1266)
+Defined in: [types/rag.ts:1285](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1285)
 
 Formatted relevant context string
 
@@ -28,7 +28,7 @@ Formatted relevant context string
 
 > **sources**: [`VectorQueryResult`](VectorQueryResult.md)[]
 
-Defined in: [types/rag.ts:1268](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1268)
+Defined in: [types/rag.ts:1287](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1287)
 
 Source query results
 
@@ -38,7 +38,7 @@ Source query results
 
 > **totalResults**: `number`
 
-Defined in: [types/rag.ts:1270](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1270)
+Defined in: [types/rag.ts:1289](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1289)
 
 Total results found
 
@@ -48,7 +48,7 @@ Total results found
 
 > **metadata**: `object`
 
-Defined in: [types/rag.ts:1272](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1272)
+Defined in: [types/rag.ts:1291](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1291)
 
 Query metadata
 

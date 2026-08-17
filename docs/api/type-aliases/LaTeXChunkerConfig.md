@@ -8,7 +8,7 @@
 
 > **LaTeXChunkerConfig** = [`BaseChunkerConfig`](BaseChunkerConfig.md) & `object`
 
-Defined in: [types/rag.ts:964](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L964)
+Defined in: [types/rag.ts:983](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L983)
 
 LaTeX chunker configuration
 LaTeX structure-aware splitting

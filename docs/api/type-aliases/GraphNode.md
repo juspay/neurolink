@@ -8,7 +8,7 @@
 
 > **GraphNode** = `object`
 
-Defined in: [types/rag.ts:1345](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1345)
+Defined in: [types/rag.ts:1364](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1364)
 
 Graph node representing a document chunk
 
@@ -18,7 +18,7 @@ Graph node representing a document chunk
 
 > **id**: `string`
 
-Defined in: [types/rag.ts:1347](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1347)
+Defined in: [types/rag.ts:1366](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1366)
 
 Unique node identifier
 
@@ -28,7 +28,7 @@ Unique node identifier
 
 > **content**: `string`
 
-Defined in: [types/rag.ts:1349](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1349)
+Defined in: [types/rag.ts:1368](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1368)
 
 Text content of the node
 
@@ -38,7 +38,7 @@ Text content of the node
 
 > **metadata**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1351](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1351)
+Defined in: [types/rag.ts:1370](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1370)
 
 Node metadata
 
@@ -48,6 +48,6 @@ Node metadata
 
 > `optional` **embedding?**: `number`[]
 
-Defined in: [types/rag.ts:1353](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1353)
+Defined in: [types/rag.ts:1372](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1372)
 
 Embedding vector

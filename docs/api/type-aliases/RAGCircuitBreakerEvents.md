@@ -8,7 +8,7 @@
 
 > **RAGCircuitBreakerEvents** = `object`
 
-Defined in: [types/rag.ts:634](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L634)
+Defined in: [types/rag.ts:653](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L653)
 
 Event map for RAG circuit breaker.
 
@@ -18,7 +18,7 @@ Event map for RAG circuit breaker.
 
 > **stateChange**: \[\{ `oldState`: [`CircuitState`](CircuitState.md); `newState`: [`CircuitState`](CircuitState.md); `reason`: `string`; `timestamp`: `Date`; \}\]
 
-Defined in: [types/rag.ts:635](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L635)
+Defined in: [types/rag.ts:654](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L654)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/rag.ts:635](https://github.com/juspay/neurolink/blob/release/
 
 > **callSuccess**: \[\{ `duration`: `number`; `timestamp`: `Date`; `operationType?`: `string`; \}\]
 
-Defined in: [types/rag.ts:643](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L643)
+Defined in: [types/rag.ts:662](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L662)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/rag.ts:643](https://github.com/juspay/neurolink/blob/release/
 
 > **callFailure**: \[\{ `error`: `string`; `duration`: `number`; `timestamp`: `Date`; `operationType?`: `string`; \}\]
 
-Defined in: [types/rag.ts:644](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L644)
+Defined in: [types/rag.ts:663](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L663)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/rag.ts:644](https://github.com/juspay/neurolink/blob/release/
 
 > **circuitOpen**: \[\{ `failureRate`: `number`; `totalCalls`: `number`; `timestamp`: `Date`; \}\]
 
-Defined in: [types/rag.ts:652](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L652)
+Defined in: [types/rag.ts:671](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L671)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/rag.ts:652](https://github.com/juspay/neurolink/blob/release/
 
 > **circuitHalfOpen**: \[\{ `timestamp`: `Date`; \}\]
 
-Defined in: [types/rag.ts:653](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L653)
+Defined in: [types/rag.ts:672](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L672)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/rag.ts:653](https://github.com/juspay/neurolink/blob/release/
 
 > **circuitClosed**: \[\{ `timestamp`: `Date`; \}\]
 
-Defined in: [types/rag.ts:654](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L654)
+Defined in: [types/rag.ts:673](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L673)

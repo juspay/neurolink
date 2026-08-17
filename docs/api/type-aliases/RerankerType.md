@@ -8,6 +8,6 @@
 
 > **RerankerType** = `"llm"` \| `"cross-encoder"` \| `"cohere"` \| `"simple"` \| `"batch"`
 
-Defined in: [types/rag.ts:365](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L365)
+Defined in: [types/rag.ts:368](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L368)
 
 Supported reranker types

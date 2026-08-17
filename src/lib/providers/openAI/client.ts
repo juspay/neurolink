@@ -3,6 +3,7 @@ import type { AIProviderName } from "../../constants/enums.js";
 import { AIProviderName as AIProviderNameEnum } from "../../constants/enums.js";
 import { createProxyFetch } from "../../proxy/proxyFetch.js";
 import type {
+  EmbedInput,
   EnhancedGenerateResult,
   NeurolinkCredentials,
   OpenAICompatStreamLifecycleListeners,
@@ -291,11 +292,22 @@ export class OpenAIProvider extends OpenAIChatCompletionsProvider {
   /**
    * Generate an embedding for a single text input via native /v1/embeddings.
    *
-   * @param text - The text to embed
+   * @param input - The text to embed (string or EmbedInput)
    * @param modelName - The embedding model to use (default: text-embedding-3-small)
    * @returns Promise resolving to the embedding vector
    */
-  async embed(text: string, modelName?: string): Promise<number[]> {
+  async embed(
+    input: string | EmbedInput,
+    modelName?: string,
+  ): Promise<number[]> {
+    if (typeof input !== "string" && input.image) {
+      throw new ProviderError(
+        `${this.providerName} does not support image embeddings; provide text input`,
+        this.providerName,
+      );
+    }
+
+    const text = typeof input === "string" ? input : (input.text ?? "");
     const embeddingModelName = modelName || this.getDefaultEmbeddingModel();
 
     logger.debug("Generating embedding", {

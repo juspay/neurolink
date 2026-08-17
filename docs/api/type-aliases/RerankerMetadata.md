@@ -8,7 +8,7 @@
 
 > **RerankerMetadata** = `object`
 
-Defined in: [types/rag.ts:418](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L418)
+Defined in: [types/rag.ts:421](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L421)
 
 Reranker metadata for discovery and documentation
 
@@ -18,7 +18,7 @@ Reranker metadata for discovery and documentation
 
 > **description**: `string`
 
-Defined in: [types/rag.ts:420](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L420)
+Defined in: [types/rag.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L423)
 
 Human-readable description
 
@@ -28,7 +28,7 @@ Human-readable description
 
 > **defaultConfig**: `Partial`\<[`RerankerConfig`](RerankerConfig.md)\>
 
-Defined in: [types/rag.ts:422](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L422)
+Defined in: [types/rag.ts:425](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L425)
 
 Default configuration
 
@@ -38,7 +38,7 @@ Default configuration
 
 > **supportedOptions**: `string`[]
 
-Defined in: [types/rag.ts:424](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L424)
+Defined in: [types/rag.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L427)
 
 Supported configuration options
 
@@ -48,7 +48,7 @@ Supported configuration options
 
 > **useCases**: `string`[]
 
-Defined in: [types/rag.ts:426](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L426)
+Defined in: [types/rag.ts:429](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L429)
 
 Recommended use cases
 
@@ -58,7 +58,7 @@ Recommended use cases
 
 > **aliases**: `string`[]
 
-Defined in: [types/rag.ts:428](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L428)
+Defined in: [types/rag.ts:431](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L431)
 
 Alternative names for this reranker
 
@@ -68,7 +68,7 @@ Alternative names for this reranker
 
 > **requiresModel**: `boolean`
 
-Defined in: [types/rag.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L430)
+Defined in: [types/rag.ts:433](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L433)
 
 Whether this reranker requires an AI model
 
@@ -78,6 +78,6 @@ Whether this reranker requires an AI model
 
 > **requiresExternalAPI**: `boolean`
 
-Defined in: [types/rag.ts:432](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L432)
+Defined in: [types/rag.ts:435](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L435)
 
 Whether this reranker requires external API

@@ -8,11 +8,14 @@ import {
   getMetricsAggregator,
 } from "../observability/index.js";
 import { logger } from "../utils/logger.js";
+import { redactUrlForError } from "../utils/logSanitize.js";
 import { createChunker } from "./ChunkerFactory.js";
 import {
   createVectorQueryTool,
   InMemoryVectorStore,
 } from "./retrieval/vectorQueryTool.js";
+import { ImageLoader } from "./document/imageLoader.js";
+import { IMAGE_EXTENSIONS } from "../processors/config/index.js";
 import type {
   ChunkingStrategy,
   RAGConfig,
@@ -60,6 +63,9 @@ function detectStrategy(filePath: string): ChunkingStrategy {
   const ext = extname(filePath).toLowerCase();
   return EXTENSION_TO_STRATEGY[ext] || "recursive";
 }
+
+/** Embedding dimension used by {@link generateSimpleEmbedding}. */
+const EMBEDDING_DIMENSION = 128;
 
 /**
  * Simple hash function for strings (FNV-1a variant).
@@ -230,17 +236,77 @@ async function _prepareRAGToolInner(
     throw new Error("RAG config requires at least one file path in 'files'");
   }
 
-  // 1. Load files
+  // 1. Load files — separate text and image files
   const fileContents: Array<{
     path: string;
     content: string;
     strategy: ChunkingStrategy;
   }> = [];
 
+  const imageFiles: Array<{
+    path: string;
+    ext: string;
+  }> = [];
+
   for (const filePath of files) {
+    // HTTP(S) sources are handled by ImageLoader directly and must not go
+    // through resolve()/existsSync(), which would mangle the URL into a
+    // bogus local path and always report it as missing.
+    if (/^https?:\/\//i.test(filePath)) {
+      // `new URL()` throws on a string the guarding regex still accepts —
+      // "https://" is the minimal case. Uncaught, it leaves this loop, is
+      // rethrown by prepareRAGTool, and disables RAG for the WHOLE call, so
+      // one bad entry discards every file already loaded. Skip the source
+      // instead, matching how an unreadable local file is handled below.
+      let ext: string;
+      try {
+        ext = extname(new URL(filePath).pathname).toLowerCase();
+      } catch {
+        logger.warn(
+          `[RAG] Malformed URL source, skipping: ${redactUrlForError(filePath)}`,
+        );
+        continue;
+      }
+      if (ext === ".svg") {
+        // IMAGE_EXTENSIONS includes .svg, but every consumer downstream of
+        // here treats an image as raster bytes: ImageLoader returns the file
+        // verbatim, captioning base64s it into a vision call, and the Bedrock
+        // embed path ships it as-is — Nova rejects the format outright and
+        // Titan accepts markup it cannot embed meaningfully. Skipping is
+        // honest; supporting it needs a rasterize-or-sanitize step in
+        // ImageLoader, not a classification change here.
+        logger.warn(
+          `[RAG] SVG is not supported as a RAG image source, skipping: ${redactUrlForError(filePath)}`,
+        );
+        continue;
+      }
+      if ((IMAGE_EXTENSIONS as readonly string[]).includes(ext)) {
+        imageFiles.push({ path: filePath, ext });
+      } else {
+        logger.warn(
+          `[RAG] Unsupported URL source, skipping: ${redactUrlForError(filePath)}`,
+        );
+      }
+      continue;
+    }
+
     const resolvedPath = resolve(filePath);
     if (!existsSync(resolvedPath)) {
       logger.warn(`[RAG] File not found, skipping: ${resolvedPath}`);
+      continue;
+    }
+
+    // Detect image files by extension
+    const ext = extname(resolvedPath).toLowerCase();
+    if (ext === ".svg") {
+      // See the URL branch above for why SVG is excluded from the raster path.
+      logger.warn(
+        `[RAG] SVG is not supported as a RAG image source, skipping: ${resolvedPath}`,
+      );
+      continue;
+    }
+    if ((IMAGE_EXTENSIONS as readonly string[]).includes(ext)) {
+      imageFiles.push({ path: resolvedPath, ext });
       continue;
     }
 
@@ -256,13 +322,14 @@ async function _prepareRAGToolInner(
   }
 
   // Auto-increase topK for multi-file scenarios to ensure coverage
-  // (computed after loading so it reflects only files that actually exist)
+  // (computed after loading so it reflects only files that actually exist).
+  // Image files count toward the file total so image-only RAG gets a topK
+  // that covers every source.
+  const totalSources = fileContents.length + imageFiles.length;
   const topK =
-    fileContents.length > 1
-      ? Math.max(userTopK, fileContents.length * 3)
-      : userTopK;
+    totalSources > 1 ? Math.max(userTopK, totalSources * 3) : userTopK;
 
-  if (fileContents.length === 0) {
+  if (fileContents.length === 0 && imageFiles.length === 0) {
     throw new Error(
       "RAG: No files could be loaded. Check that file paths exist and are readable.",
     );
@@ -305,11 +372,59 @@ async function _prepareRAGToolInner(
   }
 
   logger.info(
-    `[RAG] Created ${allChunks.length} chunks from ${fileContents.length} files`,
+    `[RAG] Created ${allChunks.length} chunks from ${fileContents.length} text files`,
   );
 
+  // 2b. Load image files (multi-modal RAG).
+  //
+  // Deliberately NOT embedded here. Images are vectorised below through the
+  // same `embedFn` as the text chunks, because index-wide a single embedding
+  // space is the whole precondition for similarity to mean anything. Embedding
+  // them here — as this path originally did, with a hash of the caption —
+  // produced a 128-dimension image vector sitting in an index whose text
+  // vectors came from a provider at 768 or 1536, which is not a worse ranking
+  // but an incomparable one.
+  const imageChunks: Array<{
+    id: string;
+    text: string;
+    metadata: Record<string, unknown>;
+  }> = [];
+
+  if (imageFiles.length > 0) {
+    const imageLoader = new ImageLoader();
+
+    for (const { path: imgPath } of imageFiles) {
+      try {
+        const imageDoc = await imageLoader.load(imgPath);
+
+        // Use filename-based text representation for simple embedding
+        const imageText = imageDoc.text;
+
+        imageChunks.push({
+          id: `img-chunk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: imageText,
+          metadata: {
+            text: imageText,
+            source: imgPath,
+            hasImage: true,
+            mimeType: imageDoc.mimeType,
+            imageWidth: imageDoc.metadata.width,
+            imageHeight: imageDoc.metadata.height,
+          },
+        });
+      } catch (error) {
+        logger.warn(
+          `[RAG] Failed to load image: ${imgPath}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    logger.info(
+      `[RAG] Loaded ${imageChunks.length} image files for multi-modal RAG`,
+    );
+  }
+
   // 3. Generate embeddings and store in vector store
-  const EMBEDDING_DIMENSION = 128;
   const vectorStore = new InMemoryVectorStore();
   const indexName = "rag-index";
 
@@ -348,11 +463,19 @@ async function _prepareRAGToolInner(
     }
   }
 
+  // Text and image captions embed together, in one call and under one
+  // fallback. Splitting them into two try/catch blocks would let the text side
+  // succeed on the provider while the image side fell back to the hash, which
+  // is the mixed-space index this is trying to prevent.
   let chunkVectors: number[][];
+  let imageVectors: number[][];
   try {
-    chunkVectors = await Promise.all(
-      allChunks.map((chunk) => embedFn(chunk.text)),
-    );
+    const allVectors = await Promise.all([
+      ...allChunks.map((chunk) => embedFn(chunk.text)),
+      ...imageChunks.map((chunk) => embedFn(chunk.text)),
+    ]);
+    chunkVectors = allVectors.slice(0, allChunks.length);
+    imageVectors = allVectors.slice(allChunks.length);
   } catch (error) {
     // One failed chunk must not leave a mixed-space index — flip the whole
     // index AND all queries back to the hash space together.
@@ -365,19 +488,45 @@ async function _prepareRAGToolInner(
     chunkVectors = allChunks.map((chunk) =>
       generateSimpleEmbedding(chunk.text, EMBEDDING_DIMENSION),
     );
+    imageVectors = imageChunks.map((chunk) =>
+      generateSimpleEmbedding(chunk.text, EMBEDDING_DIMENSION),
+    );
   }
-  const items = allChunks.map((chunk, i) => ({
-    id: `rag-chunk-${i}`,
-    vector: chunkVectors[i],
-    metadata: {
-      text: chunk.text,
-      ...chunk.metadata,
-    },
-  }));
+  const items = [
+    ...allChunks.map((chunk, i) => ({
+      id: `rag-chunk-${i}`,
+      vector: chunkVectors[i],
+      metadata: {
+        text: chunk.text,
+        ...chunk.metadata,
+      },
+    })),
+    ...imageChunks.map((chunk, i) => ({
+      id: chunk.id,
+      vector: imageVectors[i],
+      metadata: chunk.metadata,
+    })),
+  ];
+
+  // The guard near the top of this function fires when no source was found
+  // at all. This one covers the other way to end up with an empty index:
+  // sources WERE found and every one of them failed to load — an image over
+  // the size ceiling, a corrupt file, an unreachable URL. Each of those is
+  // caught and warned individually, so without this the call returns
+  // `chunksIndexed: 0` alongside a positive `filesLoaded` and reports
+  // success, and the caller gets a silently empty knowledge base.
+  if (items.length === 0) {
+    throw new Error(
+      "RAG: every source failed to load, so nothing was indexed. " +
+        "Check the warnings above for the per-source reason.",
+    );
+  }
 
   await vectorStore.upsert(indexName, items);
 
-  logger.info(`[RAG] Indexed ${items.length} chunks in vector store`);
+  logger.info(
+    `[RAG] Indexed ${items.length} chunks (${allChunks.length} text + ${imageChunks.length} images) in vector store`,
+  );
 
   // 4. Create the search tool
   // Determine embedding provider/model for the query tool
@@ -421,17 +570,18 @@ async function _prepareRAGToolInner(
             generateSimpleEmbedding(query, EMBEDDING_DIMENSION),
           );
 
-          // Fetch more candidates than needed so diversity can select across files
-          const fetchK = fileContents.length > 1 ? topK * 3 : topK;
+          // Fetch more candidates than needed so diversity can select across files and images
+          const loadedSources = fileContents.length + imageChunks.length;
+          const fetchK = loadedSources > 1 ? topK * 3 : topK;
           const rawResults = await vectorStore.query({
             indexName,
             queryVector: queryEmbedding,
             topK: fetchK,
           });
 
-          // Apply source-file diversity for multi-file RAG
+          // Apply source-file diversity for multi-file/multi-image RAG
           const results =
-            fileContents.length > 1
+            loadedSources > 1
               ? diversifyResults(rawResults, topK)
               : rawResults.slice(0, topK);
 
@@ -447,7 +597,8 @@ async function _prepareRAGToolInner(
           const relevantContext = results
             .map(
               (r, i) =>
-                `[${i + 1}] ${(r.metadata?.text as string) || r.text || ""}`,
+                `[${i + 1}] ${(r.metadata?.text as string) || r.text || ""}` +
+                ((r.metadata?.hasImage as boolean) ? " [image]" : ""),
             )
             .join("\n\n");
 
@@ -462,6 +613,7 @@ async function _prepareRAGToolInner(
                 0,
                 200,
               ),
+              hasImage: (r.metadata?.hasImage as boolean) ?? false,
             })),
             totalResults: results.length,
           };
@@ -473,8 +625,8 @@ async function _prepareRAGToolInner(
   return {
     tool: aiTool,
     toolName,
-    chunksIndexed: allChunks.length,
-    filesLoaded: fileContents.length,
+    chunksIndexed: allChunks.length + imageChunks.length,
+    filesLoaded: fileContents.length + imageFiles.length,
   };
 }
 

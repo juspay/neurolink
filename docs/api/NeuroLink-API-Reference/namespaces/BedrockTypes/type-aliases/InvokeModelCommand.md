@@ -8,7 +8,7 @@
 
 > **InvokeModelCommand** = `object`
 
-Defined in: [types/providers.ts:1929](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1929)
+Defined in: [types/providers.ts:1954](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1954)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:1929](https://github.com/juspay/neurolink/blob/r
 
 > **input**: `object`
 
-Defined in: [types/providers.ts:1930](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1930)
+Defined in: [types/providers.ts:1955](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1955)
 
 #### modelId
 

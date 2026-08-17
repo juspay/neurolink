@@ -8,6 +8,6 @@
 
 > **ExtractorType** = `"title"` \| `"summary"` \| `"keywords"` \| `"questions"` \| `"custom"`
 
-Defined in: [types/rag.ts:1037](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1037)
+Defined in: [types/rag.ts:1056](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1056)
 
 Metadata extraction types

@@ -8,7 +8,7 @@
 
 > **ChunkerValidationResult** = `object`
 
-Defined in: [types/rag.ts:839](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L839)
+Defined in: [types/rag.ts:858](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L858)
 
 Validation result for chunker configuration
 
@@ -18,7 +18,7 @@ Validation result for chunker configuration
 
 > **valid**: `boolean`
 
-Defined in: [types/rag.ts:840](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L840)
+Defined in: [types/rag.ts:859](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L859)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/rag.ts:840](https://github.com/juspay/neurolink/blob/release/
 
 > **errors**: `string`[]
 
-Defined in: [types/rag.ts:841](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L841)
+Defined in: [types/rag.ts:860](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L860)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/rag.ts:841](https://github.com/juspay/neurolink/blob/release/
 
 > **warnings**: `string`[]
 
-Defined in: [types/rag.ts:842](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L842)
+Defined in: [types/rag.ts:861](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L861)

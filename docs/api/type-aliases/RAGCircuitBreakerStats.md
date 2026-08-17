@@ -8,7 +8,7 @@
 
 > **RAGCircuitBreakerStats** = `object`
 
-Defined in: [types/rag.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L208)
+Defined in: [types/rag.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L209)
 
 Circuit breaker statistics
 
@@ -18,7 +18,7 @@ Circuit breaker statistics
 
 > **state**: [`CircuitState`](CircuitState.md)
 
-Defined in: [types/rag.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L209)
+Defined in: [types/rag.ts:210](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L210)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/rag.ts:209](https://github.com/juspay/neurolink/blob/release/
 
 > **totalCalls**: `number`
 
-Defined in: [types/rag.ts:210](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L210)
+Defined in: [types/rag.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L211)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/rag.ts:210](https://github.com/juspay/neurolink/blob/release/
 
 > **successfulCalls**: `number`
 
-Defined in: [types/rag.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L211)
+Defined in: [types/rag.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L212)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/rag.ts:211](https://github.com/juspay/neurolink/blob/release/
 
 > **failedCalls**: `number`
 
-Defined in: [types/rag.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L212)
+Defined in: [types/rag.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L213)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/rag.ts:212](https://github.com/juspay/neurolink/blob/release/
 
 > **failureRate**: `number`
 
-Defined in: [types/rag.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L213)
+Defined in: [types/rag.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L214)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/rag.ts:213](https://github.com/juspay/neurolink/blob/release/
 
 > **windowCalls**: `number`
 
-Defined in: [types/rag.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L214)
+Defined in: [types/rag.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L215)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/rag.ts:214](https://github.com/juspay/neurolink/blob/release/
 
 > **lastStateChange**: `Date`
 
-Defined in: [types/rag.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L215)
+Defined in: [types/rag.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L216)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/rag.ts:215](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **nextRetryTime?**: `Date`
 
-Defined in: [types/rag.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L216)
+Defined in: [types/rag.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L217)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/rag.ts:216](https://github.com/juspay/neurolink/blob/release/
 
 > **halfOpenCalls**: `number`
 
-Defined in: [types/rag.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L217)
+Defined in: [types/rag.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L218)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/rag.ts:217](https://github.com/juspay/neurolink/blob/release/
 
 > **averageLatency**: `number`
 
-Defined in: [types/rag.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L218)
+Defined in: [types/rag.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L219)
 
 ---
 
@@ -98,4 +98,4 @@ Defined in: [types/rag.ts:218](https://github.com/juspay/neurolink/blob/release/
 
 > **p95Latency**: `number`
 
-Defined in: [types/rag.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L219)
+Defined in: [types/rag.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L220)

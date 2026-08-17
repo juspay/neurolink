@@ -8,7 +8,7 @@
 
 > **Span** = `object`
 
-Defined in: [types/providers.ts:1972](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1972)
+Defined in: [types/providers.ts:1997](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1997)
 
 ## Methods
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:1972](https://github.com/juspay/neurolink/blob/r
 
 > **end**(): `void`
 
-Defined in: [types/providers.ts:1973](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1973)
+Defined in: [types/providers.ts:1998](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1998)
 
 #### Returns
 
@@ -28,7 +28,7 @@ Defined in: [types/providers.ts:1973](https://github.com/juspay/neurolink/blob/r
 
 > **setStatus**(`status`): `void`
 
-Defined in: [types/providers.ts:1974](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1974)
+Defined in: [types/providers.ts:1999](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1999)
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [types/providers.ts:1974](https://github.com/juspay/neurolink/blob/r
 
 > **recordException**(`exception`): `void`
 
-Defined in: [types/providers.ts:1975](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1975)
+Defined in: [types/providers.ts:2000](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2000)
 
 #### Parameters
 

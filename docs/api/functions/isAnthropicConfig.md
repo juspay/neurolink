@@ -8,7 +8,7 @@
 
 > **isAnthropicConfig**(`config`): `config is AnthropicProviderConfig`
 
-Defined in: [types/providers.ts:617](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L617)
+Defined in: [types/providers.ts:634](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L634)
 
 Type guard to check if a configuration is an AnthropicProviderConfig
 

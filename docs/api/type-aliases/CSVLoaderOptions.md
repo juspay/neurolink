@@ -8,7 +8,7 @@
 
 > **CSVLoaderOptions** = [`LoaderOptions`](LoaderOptions.md) & `object`
 
-Defined in: [types/rag.ts:585](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L585)
+Defined in: [types/rag.ts:604](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L604)
 
 CSV loader options
 

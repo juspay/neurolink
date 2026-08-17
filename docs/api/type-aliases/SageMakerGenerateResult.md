@@ -8,7 +8,7 @@
 
 > **SageMakerGenerateResult** = `object`
 
-Defined in: [types/providers.ts:1835](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1835)
+Defined in: [types/providers.ts:1860](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1860)
 
 SageMaker generation result type for better type safety
 
@@ -18,7 +18,7 @@ SageMaker generation result type for better type safety
 
 > `optional` **text?**: `string`
 
-Defined in: [types/providers.ts:1836](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1836)
+Defined in: [types/providers.ts:1861](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1861)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:1836](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **reasoning?**: `string` \| (\{ `type`: `"text"`; `text`: `string`; `signature?`: `string`; \} \| \{ `type`: `"redacted"`; `data`: `string`; \})[]
 
-Defined in: [types/providers.ts:1837](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1837)
+Defined in: [types/providers.ts:1862](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1862)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:1837](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **files?**: `object`[]
 
-Defined in: [types/providers.ts:1843](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1843)
+Defined in: [types/providers.ts:1868](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1868)
 
 #### data
 
@@ -50,7 +50,7 @@ Defined in: [types/providers.ts:1843](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **logprobs?**: `object`[]
 
-Defined in: [types/providers.ts:1844](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1844)
+Defined in: [types/providers.ts:1869](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1869)
 
 #### token
 
@@ -70,7 +70,7 @@ Defined in: [types/providers.ts:1844](https://github.com/juspay/neurolink/blob/r
 
 > **usage**: `object`
 
-Defined in: [types/providers.ts:1849](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1849)
+Defined in: [types/providers.ts:1874](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1874)
 
 #### promptTokens
 
@@ -90,7 +90,7 @@ Defined in: [types/providers.ts:1849](https://github.com/juspay/neurolink/blob/r
 
 > **finishReason**: `"stop"` \| `"length"` \| `"content-filter"` \| `"tool-calls"` \| `"error"` \| `"unknown"`
 
-Defined in: [types/providers.ts:1854](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1854)
+Defined in: [types/providers.ts:1879](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1879)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/providers.ts:1854](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **warnings?**: `object`[]
 
-Defined in: [types/providers.ts:1861](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1861)
+Defined in: [types/providers.ts:1886](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1886)
 
 #### type
 
@@ -114,7 +114,7 @@ Defined in: [types/providers.ts:1861](https://github.com/juspay/neurolink/blob/r
 
 > **rawCall**: `object`
 
-Defined in: [types/providers.ts:1862](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1862)
+Defined in: [types/providers.ts:1887](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1887)
 
 #### rawPrompt
 
@@ -130,7 +130,7 @@ Defined in: [types/providers.ts:1862](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **rawResponse?**: `object`
 
-Defined in: [types/providers.ts:1863](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1863)
+Defined in: [types/providers.ts:1888](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1888)
 
 #### headers?
 
@@ -142,7 +142,7 @@ Defined in: [types/providers.ts:1863](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **request?**: `object`
 
-Defined in: [types/providers.ts:1864](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1864)
+Defined in: [types/providers.ts:1889](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1889)
 
 #### body?
 
@@ -154,7 +154,7 @@ Defined in: [types/providers.ts:1864](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **toolCalls?**: [`SageMakerToolCall`](SageMakerToolCall.md)[]
 
-Defined in: [types/providers.ts:1865](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1865)
+Defined in: [types/providers.ts:1890](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1890)
 
 ---
 
@@ -162,4 +162,4 @@ Defined in: [types/providers.ts:1865](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **object?**: `unknown`
 
-Defined in: [types/providers.ts:1866](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1866)
+Defined in: [types/providers.ts:1891](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1891)

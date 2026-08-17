@@ -8,7 +8,7 @@
 
 > **VectorProviderOptions** = `object`
 
-Defined in: [types/rag.ts:1213](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1213)
+Defined in: [types/rag.ts:1232](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1232)
 
 Provider-specific query options
 
@@ -18,7 +18,7 @@ Provider-specific query options
 
 > `optional` **pinecone?**: `object`
 
-Defined in: [types/rag.ts:1215](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1215)
+Defined in: [types/rag.ts:1234](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1234)
 
 Pinecone options
 
@@ -36,7 +36,7 @@ Pinecone options
 
 > `optional` **pgVector?**: `object`
 
-Defined in: [types/rag.ts:1220](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1220)
+Defined in: [types/rag.ts:1239](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1239)
 
 pgVector options
 
@@ -58,7 +58,7 @@ pgVector options
 
 > `optional` **chroma?**: `object`
 
-Defined in: [types/rag.ts:1226](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1226)
+Defined in: [types/rag.ts:1245](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1245)
 
 Chroma options
 

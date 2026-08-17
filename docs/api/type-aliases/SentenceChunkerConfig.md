@@ -8,7 +8,7 @@
 
 > **SentenceChunkerConfig** = [`BaseChunkerConfig`](BaseChunkerConfig.md) & `object`
 
-Defined in: [types/rag.ts:891](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L891)
+Defined in: [types/rag.ts:910](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L910)
 
 Sentence chunker configuration
 Sentence-aware splitting

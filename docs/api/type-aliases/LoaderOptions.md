@@ -8,7 +8,7 @@
 
 > **LoaderOptions** = `object`
 
-Defined in: [types/rag.ts:543](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L543)
+Defined in: [types/rag.ts:562](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L562)
 
 Document loader options
 
@@ -18,7 +18,7 @@ Document loader options
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:545](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L545)
+Defined in: [types/rag.ts:564](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L564)
 
 Custom metadata to add to document
 
@@ -28,7 +28,7 @@ Custom metadata to add to document
 
 > `optional` **encoding?**: `BufferEncoding`
 
-Defined in: [types/rag.ts:547](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L547)
+Defined in: [types/rag.ts:566](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L566)
 
 Encoding for text files
 
@@ -38,6 +38,6 @@ Encoding for text files
 
 > `optional` **type?**: [`DocumentType`](DocumentType.md)
 
-Defined in: [types/rag.ts:549](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L549)
+Defined in: [types/rag.ts:568](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L568)
 
 Document type override

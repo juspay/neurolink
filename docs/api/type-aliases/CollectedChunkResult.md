@@ -8,7 +8,7 @@
 
 > **CollectedChunkResult** = `object`
 
-Defined in: [types/providers.ts:2072](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2072)
+Defined in: [types/providers.ts:2097](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2097)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:2072](https://github.com/juspay/neurolink/blob/r
 
 > **rawResponseParts**: `unknown`[]
 
-Defined in: [types/providers.ts:2073](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2073)
+Defined in: [types/providers.ts:2098](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2098)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/providers.ts:2073](https://github.com/juspay/neurolink/blob/r
 
 > **stepFunctionCalls**: [`NativeFunctionCall`](NativeFunctionCall.md)[]
 
-Defined in: [types/providers.ts:2074](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2074)
+Defined in: [types/providers.ts:2099](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2099)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/providers.ts:2074](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/providers.ts:2076](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2076)
+Defined in: [types/providers.ts:2101](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2101)
 
 Raw `Candidate.finishReason` from the last chunk that carried one.
 
@@ -42,7 +42,7 @@ Raw `Candidate.finishReason` from the last chunk that carried one.
 
 > **inputTokens**: `number`
 
-Defined in: [types/providers.ts:2077](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2077)
+Defined in: [types/providers.ts:2102](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2102)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/providers.ts:2077](https://github.com/juspay/neurolink/blob/r
 
 > **outputTokens**: `number`
 
-Defined in: [types/providers.ts:2078](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2078)
+Defined in: [types/providers.ts:2103](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2103)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/providers.ts:2078](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **cacheReadTokens?**: `number`
 
-Defined in: [types/providers.ts:2084](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2084)
+Defined in: [types/providers.ts:2109](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2109)
 
 Gemini cached-content tokens (overlapping: included in promptTokenCount).
 Surfaced so the call site can subtract from input and bill at cacheRead
@@ -70,7 +70,7 @@ rate. Subtraction happens at the call site, not in the collector.
 
 > `optional` **cacheCreationTokens?**: `number`
 
-Defined in: [types/providers.ts:2086](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2086)
+Defined in: [types/providers.ts:2111](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2111)
 
 Cache creation tokens (symmetry; Gemini does not emit this).
 
@@ -80,7 +80,7 @@ Cache creation tokens (symmetry; Gemini does not emit this).
 
 > `optional` **reasoningTokens?**: `number`
 
-Defined in: [types/providers.ts:2092](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2092)
+Defined in: [types/providers.ts:2117](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2117)
 
 Gemini thinking tokens (usageMetadata.thoughtsTokenCount). Billed at the
 output rate but NOT included in candidatesTokenCount — Gemini reports

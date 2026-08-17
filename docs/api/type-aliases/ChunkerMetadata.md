@@ -8,7 +8,7 @@
 
 > **ChunkerMetadata** = `object`
 
-Defined in: [types/rag.ts:1013](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1013)
+Defined in: [types/rag.ts:1032](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1032)
 
 Chunker metadata for factory registration
 
@@ -18,7 +18,7 @@ Chunker metadata for factory registration
 
 > **description**: `string`
 
-Defined in: [types/rag.ts:1015](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1015)
+Defined in: [types/rag.ts:1034](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1034)
 
 Human-readable description
 
@@ -28,7 +28,7 @@ Human-readable description
 
 > `optional` **supportedTypes?**: [`DocumentType`](DocumentType.md)[]
 
-Defined in: [types/rag.ts:1017](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1017)
+Defined in: [types/rag.ts:1036](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1036)
 
 Supported document types
 
@@ -38,7 +38,7 @@ Supported document types
 
 > `optional` **requiresExternalDeps?**: `boolean`
 
-Defined in: [types/rag.ts:1019](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1019)
+Defined in: [types/rag.ts:1038](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1038)
 
 Whether the chunker requires external dependencies
 
@@ -48,7 +48,7 @@ Whether the chunker requires external dependencies
 
 > `optional` **defaultConfig?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1021](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1021)
+Defined in: [types/rag.ts:1040](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1040)
 
 Default configuration (can be any chunker-specific config)
 
@@ -58,7 +58,7 @@ Default configuration (can be any chunker-specific config)
 
 > `optional` **supportedOptions?**: `string`[]
 
-Defined in: [types/rag.ts:1023](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1023)
+Defined in: [types/rag.ts:1042](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1042)
 
 Supported configuration options
 
@@ -68,7 +68,7 @@ Supported configuration options
 
 > `optional` **useCases?**: `string`[]
 
-Defined in: [types/rag.ts:1025](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1025)
+Defined in: [types/rag.ts:1044](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1044)
 
 Use cases where this chunker excels
 
@@ -78,6 +78,6 @@ Use cases where this chunker excels
 
 > `optional` **aliases?**: `string`[]
 
-Defined in: [types/rag.ts:1027](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1027)
+Defined in: [types/rag.ts:1046](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1046)
 
 Alternative names/aliases for this chunker

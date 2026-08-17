@@ -8,7 +8,7 @@
 
 > **MDocumentConfig** = `object`
 
-Defined in: [types/rag.ts:1484](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1484)
+Defined in: [types/rag.ts:1503](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1503)
 
 MDocument configuration
 
@@ -18,7 +18,7 @@ MDocument configuration
 
 > **type**: [`DocumentType`](DocumentType.md)
 
-Defined in: [types/rag.ts:1486](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1486)
+Defined in: [types/rag.ts:1505](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1505)
 
 Document type
 
@@ -28,6 +28,6 @@ Document type
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1488](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1488)
+Defined in: [types/rag.ts:1507](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1507)
 
 Custom metadata

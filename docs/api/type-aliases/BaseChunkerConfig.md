@@ -8,7 +8,7 @@
 
 > **BaseChunkerConfig** = `object`
 
-Defined in: [types/rag.ts:848](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L848)
+Defined in: [types/rag.ts:867](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L867)
 
 Base configuration for all chunkers
 
@@ -18,7 +18,7 @@ Base configuration for all chunkers
 
 > `optional` **maxSize?**: `number`
 
-Defined in: [types/rag.ts:850](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L850)
+Defined in: [types/rag.ts:869](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L869)
 
 Maximum chunk size (interpretation varies by strategy)
 
@@ -28,7 +28,7 @@ Maximum chunk size (interpretation varies by strategy)
 
 > `optional` **minSize?**: `number`
 
-Defined in: [types/rag.ts:852](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L852)
+Defined in: [types/rag.ts:871](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L871)
 
 Minimum chunk size
 
@@ -38,7 +38,7 @@ Minimum chunk size
 
 > `optional` **overlap?**: `number`
 
-Defined in: [types/rag.ts:854](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L854)
+Defined in: [types/rag.ts:873](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L873)
 
 Overlap between consecutive chunks
 
@@ -48,7 +48,7 @@ Overlap between consecutive chunks
 
 > `optional` **trimWhitespace?**: `boolean`
 
-Defined in: [types/rag.ts:856](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L856)
+Defined in: [types/rag.ts:875](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L875)
 
 Whether to trim whitespace from chunks
 
@@ -58,7 +58,7 @@ Whether to trim whitespace from chunks
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:858](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L858)
+Defined in: [types/rag.ts:877](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L877)
 
 Custom metadata to add to all chunks
 
@@ -68,6 +68,6 @@ Custom metadata to add to all chunks
 
 > `optional` **preserveMetadata?**: `boolean`
 
-Defined in: [types/rag.ts:860](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L860)
+Defined in: [types/rag.ts:879](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L879)
 
 Whether to preserve metadata from source document

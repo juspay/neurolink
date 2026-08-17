@@ -8,6 +8,6 @@
 
 > **CitationFormat** = `"inline"` \| `"footnote"` \| `"numbered"` \| `"none"`
 
-Defined in: [types/rag.ts:13](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L13)
+Defined in: [types/rag.ts:14](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L14)
 
 Citation format options

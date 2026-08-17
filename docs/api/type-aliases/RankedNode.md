@@ -8,7 +8,7 @@
 
 > **RankedNode** = `object`
 
-Defined in: [types/rag.ts:1391](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1391)
+Defined in: [types/rag.ts:1410](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1410)
 
 Ranked node result from graph query
 
@@ -18,7 +18,7 @@ Ranked node result from graph query
 
 > **id**: `string`
 
-Defined in: [types/rag.ts:1393](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1393)
+Defined in: [types/rag.ts:1412](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1412)
 
 Node ID
 
@@ -28,7 +28,7 @@ Node ID
 
 > **content**: `string`
 
-Defined in: [types/rag.ts:1395](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1395)
+Defined in: [types/rag.ts:1414](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1414)
 
 Node content
 
@@ -38,7 +38,7 @@ Node content
 
 > **metadata**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1397](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1397)
+Defined in: [types/rag.ts:1416](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1416)
 
 Node metadata
 
@@ -48,6 +48,6 @@ Node metadata
 
 > **score**: `number`
 
-Defined in: [types/rag.ts:1399](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1399)
+Defined in: [types/rag.ts:1418](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1418)
 
 Relevance score

@@ -8,7 +8,7 @@
 
 > **RAGCircuitBreakerConfig** = `object`
 
-Defined in: [types/rag.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L190)
+Defined in: [types/rag.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L191)
 
 Circuit breaker configuration
 
@@ -18,7 +18,7 @@ Circuit breaker configuration
 
 > **failureThreshold**: `number`
 
-Defined in: [types/rag.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L192)
+Defined in: [types/rag.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L193)
 
 Number of failures before opening circuit (default: 5)
 
@@ -28,7 +28,7 @@ Number of failures before opening circuit (default: 5)
 
 > **resetTimeout**: `number`
 
-Defined in: [types/rag.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L194)
+Defined in: [types/rag.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L195)
 
 Time in ms before attempting reset (default: 60000)
 
@@ -38,7 +38,7 @@ Time in ms before attempting reset (default: 60000)
 
 > **halfOpenMaxCalls**: `number`
 
-Defined in: [types/rag.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L196)
+Defined in: [types/rag.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L197)
 
 Max calls allowed in half-open state (default: 3)
 
@@ -48,7 +48,7 @@ Max calls allowed in half-open state (default: 3)
 
 > **operationTimeout**: `number`
 
-Defined in: [types/rag.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L198)
+Defined in: [types/rag.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L199)
 
 Operation timeout in ms (default: 30000)
 
@@ -58,7 +58,7 @@ Operation timeout in ms (default: 30000)
 
 > **minimumCallsBeforeCalculation**: `number`
 
-Defined in: [types/rag.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L200)
+Defined in: [types/rag.ts:201](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L201)
 
 Minimum calls before calculating failure rate (default: 10)
 
@@ -68,6 +68,6 @@ Minimum calls before calculating failure rate (default: 10)
 
 > **statisticsWindowSize**: `number`
 
-Defined in: [types/rag.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L202)
+Defined in: [types/rag.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L203)
 
 Time window for statistics in ms (default: 300000 - 5 minutes)

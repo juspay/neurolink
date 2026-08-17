@@ -10,6 +10,7 @@ import {
   RateLimitError,
 } from "../types/index.js";
 import type {
+  EmbedInput,
   NeurolinkCredentials,
   StreamOptions,
   StreamResult,
@@ -153,7 +154,18 @@ export class VoyageProvider extends BaseProvider {
 
   // ===== Embedding implementations =====
 
-  override async embed(text: string, modelName?: string): Promise<number[]> {
+  override async embed(
+    input: string | EmbedInput,
+    modelName?: string,
+  ): Promise<number[]> {
+    if (typeof input !== "string" && input.image) {
+      throw new ProviderError(
+        `${this.providerName} does not support image embeddings; provide text input`,
+        this.providerName,
+      );
+    }
+
+    const text = typeof input === "string" ? input : (input.text ?? "");
     const vectors = await this.callEmbeddings([text], modelName);
     if (!vectors[0]) {
       throw new ProviderError(

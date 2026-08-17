@@ -8,6 +8,6 @@
 
 > **ModelCapability** = `"text"` \| `"vision"` \| `"function-calling"` \| `"embedding"` \| `"audio"` \| `"video"` \| `"code"` \| `"reasoning"` \| `"multimodal"`
 
-Defined in: [types/providers.ts:359](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L359)
+Defined in: [types/providers.ts:376](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L376)
 
 Model Capabilities - Maximally Reusable

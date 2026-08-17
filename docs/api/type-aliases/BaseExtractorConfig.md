@@ -8,7 +8,7 @@
 
 > **BaseExtractorConfig** = `object`
 
-Defined in: [types/rag.ts:1047](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1047)
+Defined in: [types/rag.ts:1066](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1066)
 
 Base configuration for metadata extractors
 
@@ -18,7 +18,7 @@ Base configuration for metadata extractors
 
 > `optional` **modelName?**: `string`
 
-Defined in: [types/rag.ts:1049](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1049)
+Defined in: [types/rag.ts:1068](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1068)
 
 Language model to use for extraction
 
@@ -28,7 +28,7 @@ Language model to use for extraction
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/rag.ts:1051](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1051)
+Defined in: [types/rag.ts:1070](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1070)
 
 Provider for the model
 
@@ -38,7 +38,7 @@ Provider for the model
 
 > `optional` **promptTemplate?**: `string`
 
-Defined in: [types/rag.ts:1053](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1053)
+Defined in: [types/rag.ts:1072](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1072)
 
 Custom prompt template
 
@@ -48,7 +48,7 @@ Custom prompt template
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/rag.ts:1055](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1055)
+Defined in: [types/rag.ts:1074](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1074)
 
 Maximum tokens for LLM response
 
@@ -58,6 +58,6 @@ Maximum tokens for LLM response
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/rag.ts:1057](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1057)
+Defined in: [types/rag.ts:1076](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1076)
 
 Temperature for LLM generation

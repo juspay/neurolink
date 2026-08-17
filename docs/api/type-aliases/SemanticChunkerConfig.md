@@ -8,7 +8,7 @@
 
 > **SemanticChunkerConfig** = [`BaseChunkerConfig`](BaseChunkerConfig.md) & `object`
 
-Defined in: [types/rag.ts:977](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L977)
+Defined in: [types/rag.ts:996](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L996)
 
 Semantic chunker configuration
 LLM-based semantic splitting

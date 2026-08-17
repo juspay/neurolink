@@ -8,6 +8,6 @@
 
 > **DocumentType** = `"text"` \| `"markdown"` \| `"html"` \| `"json"` \| `"latex"` \| `"csv"` \| `"pdf"`
 
-Defined in: [types/rag.ts:758](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L758)
+Defined in: [types/rag.ts:777](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L777)
 
 Supported document types for processing

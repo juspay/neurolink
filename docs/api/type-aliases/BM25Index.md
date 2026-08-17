@@ -8,7 +8,7 @@
 
 > **BM25Index** = `object`
 
-Defined in: [types/rag.ts:443](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L443)
+Defined in: [types/rag.ts:446](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L446)
 
 BM25 Index type
 Implementations should provide sparse retrieval capabilities
@@ -19,7 +19,7 @@ Implementations should provide sparse retrieval capabilities
 
 > **search**(`query`, `topK?`): `Promise`\<[`BM25Result`](BM25Result.md)[]\>
 
-Defined in: [types/rag.ts:450](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L450)
+Defined in: [types/rag.ts:453](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L453)
 
 Search documents using BM25 algorithm
 
@@ -49,7 +49,7 @@ Array of BM25 results
 
 > **addDocuments**(`documents`): `Promise`\<`void`\>
 
-Defined in: [types/rag.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L456)
+Defined in: [types/rag.ts:459](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L459)
 
 Add documents to the index
 

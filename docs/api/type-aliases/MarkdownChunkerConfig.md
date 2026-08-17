@@ -8,7 +8,7 @@
 
 > **MarkdownChunkerConfig** = [`BaseChunkerConfig`](BaseChunkerConfig.md) & `object`
 
-Defined in: [types/rag.ts:919](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L919)
+Defined in: [types/rag.ts:938](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L938)
 
 Markdown chunker configuration
 Structure-aware markdown splitting

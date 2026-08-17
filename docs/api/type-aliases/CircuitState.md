@@ -8,6 +8,6 @@
 
 > **CircuitState** = `"closed"` \| `"open"` \| `"half-open"`
 
-Defined in: [types/rag.ts:631](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L631)
+Defined in: [types/rag.ts:650](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L650)
 
 Circuit breaker state.

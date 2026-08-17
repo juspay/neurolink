@@ -8,7 +8,7 @@
 
 > **Chunk** = `object`
 
-Defined in: [types/rag.ts:806](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L806)
+Defined in: [types/rag.ts:825](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L825)
 
 Base chunk result with text and metadata
 
@@ -18,7 +18,7 @@ Base chunk result with text and metadata
 
 > **id**: `string`
 
-Defined in: [types/rag.ts:808](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L808)
+Defined in: [types/rag.ts:827](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L827)
 
 Unique identifier for the chunk
 
@@ -28,7 +28,7 @@ Unique identifier for the chunk
 
 > **text**: `string`
 
-Defined in: [types/rag.ts:810](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L810)
+Defined in: [types/rag.ts:829](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L829)
 
 The text content of the chunk
 
@@ -38,7 +38,7 @@ The text content of the chunk
 
 > **metadata**: [`ChunkMetadata`](ChunkMetadata.md)
 
-Defined in: [types/rag.ts:812](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L812)
+Defined in: [types/rag.ts:831](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L831)
 
 Metadata associated with the chunk
 
@@ -48,6 +48,6 @@ Metadata associated with the chunk
 
 > `optional` **embedding?**: `number`[]
 
-Defined in: [types/rag.ts:814](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L814)
+Defined in: [types/rag.ts:833](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L833)
 
 Optional embedding vector (populated after embedding)

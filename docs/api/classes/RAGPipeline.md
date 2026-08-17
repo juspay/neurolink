@@ -6,7 +6,7 @@
 
 # Class: RAGPipeline
 
-Defined in: [rag/pipeline/RAGPipeline.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L70)
+Defined in: [rag/pipeline/RAGPipeline.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L90)
 
 RAG (Retrieval-Augmented Generation) Document Processing
 
@@ -43,7 +43,7 @@ console.log(response.answer);
 
 > **new RAGPipeline**(`config`): `RAGPipeline`
 
-Defined in: [rag/pipeline/RAGPipeline.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L82)
+Defined in: [rag/pipeline/RAGPipeline.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L113)
 
 #### Parameters
 
@@ -61,7 +61,7 @@ Defined in: [rag/pipeline/RAGPipeline.ts:82](https://github.com/juspay/neurolink
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: [rag/pipeline/RAGPipeline.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L112)
+Defined in: [rag/pipeline/RAGPipeline.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L158)
 
 Initialize the pipeline (lazy loading of providers)
 
@@ -75,7 +75,7 @@ Initialize the pipeline (lazy loading of providers)
 
 > **ingest**(`sources`, `options?`): `Promise`\<\{ `documentsProcessed`: `number`; `chunksCreated`: `number`; \}\>
 
-Defined in: [rag/pipeline/RAGPipeline.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L146)
+Defined in: [rag/pipeline/RAGPipeline.ts:205](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L205)
 
 Ingest documents into the pipeline
 
@@ -103,7 +103,7 @@ Ingestion options
 
 > **query**(`query`, `options?`): `Promise`\<[`RAGResponse`](../type-aliases/RAGResponse.md)\>
 
-Defined in: [rag/pipeline/RAGPipeline.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L273)
+Defined in: [rag/pipeline/RAGPipeline.ts:332](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L332)
 
 Query the pipeline
 
@@ -133,7 +133,7 @@ RAG response with retrieved context and optional generated answer
 
 > **getStats**(): [`PipelineStats`](../type-aliases/PipelineStats.md)
 
-Defined in: [rag/pipeline/RAGPipeline.ts:418](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L418)
+Defined in: [rag/pipeline/RAGPipeline.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L477)
 
 Get pipeline statistics
 
@@ -147,7 +147,7 @@ Get pipeline statistics
 
 > **getId**(): `string`
 
-Defined in: [rag/pipeline/RAGPipeline.ts:432](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L432)
+Defined in: [rag/pipeline/RAGPipeline.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L491)
 
 Get pipeline ID
 
@@ -161,10 +161,96 @@ Get pipeline ID
 
 > **clear**(): `Promise`\<`void`\>
 
-Defined in: [rag/pipeline/RAGPipeline.ts:439](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L439)
+Defined in: [rag/pipeline/RAGPipeline.ts:498](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L498)
 
 Clear all indexed data
 
 #### Returns
 
 `Promise`\<`void`\>
+
+---
+
+### ingestImages()
+
+> **ingestImages**(`sources`, `options?`): `Promise`\<\{ `imagesProcessed`: `number`; `chunksCreated`: `number`; \}\>
+
+Defined in: [rag/pipeline/RAGPipeline.ts:523](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L523)
+
+Ingest images into the pipeline for multi-modal RAG.
+Loads images, generates embeddings via the configured multi-modal provider,
+and stores them alongside text chunks in the vector store.
+
+#### Parameters
+
+##### sources
+
+(`string` \| `Buffer`\<`ArrayBufferLike`\>)[]
+
+Array of image file paths, URLs, or Buffer objects
+
+##### options?
+
+[`IngestOptions`](../type-aliases/IngestOptions.md)
+
+Ingestion options
+
+#### Returns
+
+`Promise`\<\{ `imagesProcessed`: `number`; `chunksCreated`: `number`; \}\>
+
+---
+
+### queryMultiModal()
+
+> **queryMultiModal**(`query`, `options?`): `Promise`\<[`MultiModalSearchResult`](../type-aliases/MultiModalSearchResult.md)[]\>
+
+Defined in: [rag/pipeline/RAGPipeline.ts:704](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L704)
+
+Query the pipeline with multi-modal input (text, image, or both).
+
+#### Parameters
+
+##### query
+
+[`EmbedInput`](../type-aliases/EmbedInput.md)
+
+Text, image, or combined query
+
+##### options?
+
+[`QueryOptions`](../type-aliases/QueryOptions.md)
+
+Query options
+
+#### Returns
+
+`Promise`\<[`MultiModalSearchResult`](../type-aliases/MultiModalSearchResult.md)[]\>
+
+Array of multi-modal search results
+
+---
+
+### getMultiModalStats()
+
+> **getMultiModalStats**(): `object`
+
+Defined in: [rag/pipeline/RAGPipeline.ts:785](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L785)
+
+Get multi-modal pipeline statistics
+
+#### Returns
+
+`object`
+
+##### totalImages
+
+> **totalImages**: `number`
+
+##### totalTextChunks
+
+> **totalTextChunks**: `number`
+
+##### multiModalEnabled
+
+> **multiModalEnabled**: `boolean`
