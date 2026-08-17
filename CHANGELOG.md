@@ -1,3 +1,9 @@
+## [11.1.0](https://github.com/juspay/neurolink/compare/v11.0.0...v11.1.0) (2026-08-17)
+
+### Features
+
+- **(providers):** descriptor single-source-of-truth, unified error classification and retry ([5502259](https://github.com/juspay/neurolink/commit/5502259c75207cbbd010f7bf2ea3c379a730e021))
+
 ## [11.0.0](https://github.com/juspay/neurolink/compare/v10.12.9...v11.0.0) (2026-08-16)
 
 ### ⚠ BREAKING CHANGES
