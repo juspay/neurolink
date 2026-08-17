@@ -11,7 +11,7 @@ import {
   AnthropicModels,
   BedrockModels,
 } from "../constants/enums.js";
-import { PROJECT_ID_FORMAT } from "./providerConfig.js";
+import { PROJECT_ID_FORMAT, satisfiesFallbacks } from "./providerConfig.js";
 import { basename } from "path";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type {
@@ -284,7 +284,7 @@ export class ProviderHealthChecker {
 
       const hasValidAuth =
         (extraRequired ?? []).every((v) => !!process.env[v]) ||
-        (extraRequiredFallbacks ?? []).some((v) => !!process.env[v]);
+        satisfiesFallbacks(extraRequiredFallbacks, process.env);
 
       logger.debug("Vertex auth final result", { hasValidAuth });
 
@@ -488,48 +488,40 @@ export class ProviderHealthChecker {
   }
 
   /**
-   * Providers whose credential model can't be reduced to "every one of
-   * these exact env vars must be literally set" — the check in
-   * checkEnvironmentConfiguration() below ANDs every entry in the
-   * returned list together, which can't express Vertex's file-OR-
-   * individual-creds-OR-service-account auth, Bedrock's AWS SDK default
-   * provider chain (profile / IAM role, no env vars at all), or
-   * LiteLLM's documented zero-config local proxy. Their real requirement
-   * is validated by checkProviderSpecificConfig()'s dedicated per-provider
-   * checks instead — matches the original hand-written switch's
-   * deliberate `return []` for exactly these three. Naively deriving
-   * [apiKey, ...extraRequired] from the descriptor here (as for the other
-   * 27 providers) would make checkEnvironmentConfiguration() push a false
-   * "missing environment variables" issue — and therefore isHealthy=false
-   * — for legitimate fallback-based Vertex auth, AWS_PROFILE/IAM-role
-   * Bedrock auth, and unauthenticated local LiteLLM proxies. See
-   * hasProviderEnvVars() in providerUtils.ts for the equivalent OR-aware
-   * check used for auto-select gating.
-   */
-  private static readonly ENV_CHECK_DELEGATED_TO_SPECIFIC_CONFIG =
-    new Set<string>([
-      AIProviderName.VERTEX,
-      AIProviderName.BEDROCK,
-      AIProviderName.LITELLM,
-    ]);
-
-  /**
-   * Get required environment variables for a provider
+   * Get required environment variables for a provider.
+   *
+   * Returns `[]` for providers with `descriptor.credentialsResolvedExternally
+   * === true` (Vertex, Bedrock, LiteLLM) — the check in
+   * checkEnvironmentConfiguration() below ANDs every entry in the returned
+   * list together, which can't express Vertex's file-OR-individual-creds-
+   * OR-service-account auth, Bedrock's AWS SDK default provider chain
+   * (profile / IAM role, no env vars at all), or LiteLLM's documented
+   * zero-config local proxy. Their real requirement is validated by
+   * checkProviderSpecificConfig()'s dedicated per-provider checks instead.
+   * Naively deriving [apiKey, ...extraRequired] from the descriptor for
+   * these three (as for the other 27 providers) would make
+   * checkEnvironmentConfiguration() push a false "missing environment
+   * variables" issue — and therefore isHealthy=false — for legitimate
+   * fallback-based Vertex auth, AWS_PROFILE/IAM-role Bedrock auth, and
+   * unauthenticated local LiteLLM proxies. See hasProviderEnvVars() in
+   * providerUtils.ts for the equivalent OR-aware check used for
+   * auto-select gating. See `ProviderDescriptor.credentialsResolvedExternally`
+   * (types/providers.ts) for the field's full documentation.
    */
   static getRequiredEnvironmentVariables(providerName: string): string[] {
-    // Resolve the descriptor FIRST so the delegation-Set check below is
-    // keyed on the canonical, alias-resolved `descriptor.name` — not the
-    // raw, possibly-aliased `providerName` argument. Checking the raw
-    // input here would let documented aliases (e.g. "googleVertex" for
+    // Resolve the descriptor FIRST so the field check below is keyed on
+    // the canonical, alias-resolved `descriptor.credentialsResolvedExternally`
+    // — not the raw, possibly-aliased `providerName` argument. Checking the
+    // raw input here would let documented aliases (e.g. "googleVertex" for
     // vertex, "aws" for bedrock) skip the delegation and fall through to
     // the naive [apiKey, ...extraRequired] derivation below, reproducing
     // the exact false "missing environment variables" regression this
-    // Set exists to prevent.
+    // field exists to prevent.
     const descriptor = ProviderFactory.getDescriptor(providerName);
     if (!descriptor) {
       return [];
     }
-    if (this.ENV_CHECK_DELEGATED_TO_SPECIFIC_CONFIG.has(descriptor.name)) {
+    if (descriptor.credentialsResolvedExternally) {
       return [];
     }
     const { apiKey, extraRequired } = descriptor.envVars;
@@ -689,7 +681,7 @@ export class ProviderHealthChecker {
     }
 
     if (!hasValidAuth) {
-      hasValidAuth = this.checkIndividualGoogleCredentials(healthStatus);
+      hasValidAuth = this.checkExtraRequiredFallbackCredentials(healthStatus);
     }
 
     if (!hasValidAuth) {
@@ -697,7 +689,7 @@ export class ProviderHealthChecker {
         "Google Cloud authentication not configured or credentials file missing",
       );
       healthStatus.recommendations.push(
-        "Set either GOOGLE_APPLICATION_CREDENTIALS (valid file path), GOOGLE_SERVICE_ACCOUNT_KEY (base64), or both GOOGLE_AUTH_CLIENT_EMAIL and GOOGLE_AUTH_PRIVATE_KEY",
+        "Set either GOOGLE_APPLICATION_CREDENTIALS (valid file path), GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK, GOOGLE_SERVICE_ACCOUNT_KEY (base64), or both GOOGLE_AUTH_CLIENT_EMAIL and GOOGLE_AUTH_PRIVATE_KEY",
       );
     }
 
@@ -737,18 +729,26 @@ export class ProviderHealthChecker {
   }
 
   /**
-   * Check individual Google credentials
+   * Check Vertex's non-file auth fallbacks (GOOGLE_APPLICATION_CREDENTIALS_
+   * NEUROLINK, GOOGLE_SERVICE_ACCOUNT_KEY, or the GOOGLE_AUTH_CLIENT_EMAIL +
+   * GOOGLE_AUTH_PRIVATE_KEY pair) via the descriptor's extraRequiredFallbacks
+   * instead of a hand-maintained env-var list, so this stays in sync with
+   * the real gating logic (hasGoogleCredentials()) the same way
+   * checkApiKeyValidity()'s vertex branch does. The previous hand-rolled
+   * version only recognized GOOGLE_SERVICE_ACCOUNT_KEY or the email+key
+   * pair — missing GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK, the
+   * descriptor's documented first-priority fallback.
    */
-  private static checkIndividualGoogleCredentials(
+  private static checkExtraRequiredFallbackCredentials(
     healthStatus: ProviderHealthStatusOptions,
   ): boolean {
-    const hasServiceAccountKey = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-    const hasIndividualCredentials = !!(
-      process.env.GOOGLE_AUTH_CLIENT_EMAIL &&
-      process.env.GOOGLE_AUTH_PRIVATE_KEY
+    const descriptor = ProviderFactory.getDescriptor(AIProviderName.VERTEX);
+    const hasValidAuth = satisfiesFallbacks(
+      descriptor?.envVars.extraRequiredFallbacks,
+      process.env,
     );
 
-    if (hasServiceAccountKey || hasIndividualCredentials) {
+    if (hasValidAuth) {
       healthStatus.hasApiKey = true;
       return true;
     }

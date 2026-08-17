@@ -197,6 +197,130 @@ void runSuite(async () => {
     );
   });
 
+  section("Batch J Task 1 — buildErrorContext's bounded .cause chain walk");
+
+  await test("buildErrorContext walks a nested .cause (two levels deep) so a transient errorCode still classifies as NetworkError", () => {
+    // Mirrors undici's real shape for a closed-port fetch: the outer
+    // TypeError carries no code, an intermediate wrapper carries no code
+    // either, and the actionable code lives on the innermost cause.
+    const innermost = Object.assign(new Error("refused by peer"), {
+      code: "ECONNREFUSED",
+    });
+    const middle = new Error("socket layer failure", { cause: innermost });
+    const outer = new TypeError("fetch failed", { cause: middle });
+    const result = classifyProviderError(outer, DEFAULT_ERROR_RULES, "acme");
+    assert(
+      result instanceof NetworkError,
+      "a transient code two levels down the cause chain was not surfaced to the rule table",
+    );
+  });
+
+  await test("a signed URL in a nested cause is redacted out of the composed message", () => {
+    // undici puts the full request URL in the cause's message, so composing
+    // it in raw would carry a presigned token into a client-facing error.
+    const innermost = new Error(
+      "request to https://storage.example.com/bucket/key?X-Amz-Signature=deadbeefsecret&X-Amz-Expires=900 failed",
+    );
+    const outer = new TypeError("fetch failed", { cause: innermost });
+    const result = classifyProviderError(outer, DEFAULT_ERROR_RULES, "acme");
+    assert(
+      !result.message.includes("deadbeefsecret"),
+      "the signature value from a nested cause reached the classified message",
+    );
+    assert(
+      !result.message.includes("X-Amz-Signature"),
+      "the signed query string from a nested cause reached the classified message",
+    );
+    // Compare the surviving host exactly rather than by substring: a
+    // substring check would also pass for an attacker-controlled host like
+    // storage.example.com.evil.test, and asserts nothing about what was
+    // actually kept.
+    const survivingUrl = result.message.match(/https?:\/\/[^\s]+/)?.[0];
+    assert(
+      survivingUrl !== undefined &&
+        new URL(survivingUrl).host === "storage.example.com",
+      "redaction did not leave the bare host, so nothing diagnostic survived",
+    );
+  });
+
+  await test("a cyclic .cause chain terminates classification instead of hanging", () => {
+    const a: Error & { cause?: unknown } = new Error("outer link");
+    const b: Error & { cause?: unknown } = Object.assign(
+      new Error("inner link"),
+      { code: "ETIMEDOUT" },
+    );
+    a.cause = b;
+    b.cause = a; // deliberate cycle
+    const start = Date.now();
+    const result = classifyProviderError(a, DEFAULT_ERROR_RULES, "acme");
+    const elapsedMs = Date.now() - start;
+    assert(
+      elapsedMs < 2000,
+      "classification of a cyclic cause chain took too long to return",
+    );
+    assert(
+      result instanceof NetworkError,
+      "a cyclic cause chain carrying a transient code was not classified before the walk was bounded off",
+    );
+  });
+
+  section("Batch J Task 3 — tightened rule-5 (5xx) message matching");
+
+  await test("rule 5 does NOT match an unrelated 3-digit number in message text (max_tokens limit)", () => {
+    const err = new Error("max_tokens (500) exceeds model limit");
+    const result = classifyProviderError(err, DEFAULT_ERROR_RULES, "acme");
+    assert(
+      result instanceof ProviderError,
+      "expected the generic no-match fallback (still ProviderError, per R4's class-invariance)",
+    );
+    assert(
+      !result.message.includes("server error"),
+      "the loose old regex would have misfired on the bare digits in '(500)' — tightened rule 5 must not label this a server error",
+    );
+  });
+
+  await test("rule 5 still matches a real textual 5xx message with no statusCode set (502 Bad Gateway)", () => {
+    const err = new Error("502 Bad Gateway");
+    const result = classifyProviderError(err, DEFAULT_ERROR_RULES, "acme");
+    assert(
+      result instanceof ProviderError,
+      "a real 502-shaped message should still classify as ProviderError",
+    );
+    assert(
+      result.message.includes("acme server error:"),
+      "a real 502-shaped message should still be labeled via rule 5's server-error message, not fall through to the generic no-match message",
+    );
+  });
+
+  await test("rule 5 still matches a real 5xx message wrapped by a generic HTTP client (status code phrasing)", () => {
+    const err = new Error("Request failed with status code 500");
+    const result = classifyProviderError(err, DEFAULT_ERROR_RULES, "acme");
+    assert(
+      result.message.includes("acme server error:"),
+      "a common HTTP-client wrapper phrase ('status code 5xx') should still trigger rule 5",
+    );
+  });
+
+  await test("rule 5's tightening does not change the classified CLASS even where it changes the message (a bare 3-digit number with no qualifying context)", () => {
+    const withoutContext = classifyProviderError(
+      new Error("value must be under 500"),
+      DEFAULT_ERROR_RULES,
+      "acme",
+    );
+    const withStatusCode = classifyProviderError(
+      Object.assign(new Error("value must be under 500"), {
+        status: 500,
+      }),
+      DEFAULT_ERROR_RULES,
+      "acme",
+    );
+    assert(
+      withoutContext instanceof ProviderError &&
+        withStatusCode instanceof ProviderError,
+      "R4: whether or not the message-only regex matches, the class must stay ProviderError — the no-match fallback and rule 5 share the same class",
+    );
+  });
+
   // ===========================================================================
   // Ported from continuous-test-suite-error-classifier-openai-compat.ts
   // (old File2) — Part A test-a (TimeoutError) x19 providers

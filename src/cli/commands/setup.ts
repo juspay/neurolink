@@ -46,6 +46,7 @@ import {
   createTogetherAIConfig,
   createVoyageConfig,
   createXaiConfig,
+  satisfiesFallbacks,
 } from "../../lib/utils/providerConfig.js";
 
 // Provider information database
@@ -496,7 +497,7 @@ export async function checkExistingConfigurations(): Promise<string[]> {
     }
     const requiredOk =
       (extraRequired ?? []).every((v) => !!process.env[v]) ||
-      (extraRequiredFallbacks ?? []).some((v) => !!process.env[v]);
+      satisfiesFallbacks(extraRequiredFallbacks, process.env);
     if (requiredOk) {
       configured.push(p.id);
     }

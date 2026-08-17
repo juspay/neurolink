@@ -15,6 +15,7 @@ import {
   API_KEY_FORMATS,
   API_KEY_LENGTHS,
   PROJECT_ID_FORMAT,
+  satisfiesFallbacks,
 } from "./providerConfig.js";
 import { DEFAULT_OLLAMA_MODEL } from "../providers/ollama/constants.js";
 import { ProviderFactory } from "../factories/providerFactory.js";
@@ -448,7 +449,7 @@ export function hasProviderEnvVars(provider: string): boolean {
   }
   return (
     (extraRequired ?? []).every((v) => !!process.env[v]) ||
-    (extraRequiredFallbacks ?? []).some((v) => !!process.env[v])
+    satisfiesFallbacks(extraRequiredFallbacks, process.env)
   );
 }
 
