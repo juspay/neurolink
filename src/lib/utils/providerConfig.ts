@@ -222,6 +222,35 @@ export function hasProviderCredentials(envVars: string[]): boolean {
   return envVars.some((envVar) => !!process.env[envVar]);
 }
 
+/**
+ * Evaluates a `ProviderDescriptor.envVars.extraRequiredFallbacks`-shaped
+ * list against an env-var source. Each entry is either a single env var
+ * name (satisfied on its own) or a nested array of names that must ALL be
+ * present together (e.g. Vertex's GOOGLE_AUTH_CLIENT_EMAIL +
+ * GOOGLE_AUTH_PRIVATE_KEY pair, which is only valid auth as a pair).
+ * Returns true when at least one entry is satisfied. The single evaluation
+ * site for this shape — every consumer (providerUtils.ts, providerHealth.ts,
+ * setup.ts, environmentManager.ts) must call this instead of re-deriving the
+ * same `.some()`/`.every()` logic, so they can't drift out of sync with each
+ * other or with the real auth gate (hasGoogleCredentials()).
+ * @param env Explicit env-var source (`process.env`, or a parsed .env file) —
+ *   never hardcoded, so callers checking a file's contents (not the live
+ *   process env) can reuse this too.
+ */
+export function satisfiesFallbacks(
+  fallbacks: readonly (string | readonly string[])[] | undefined,
+  env: Record<string, string | undefined>,
+): boolean {
+  if (!fallbacks) {
+    return false;
+  }
+  return fallbacks.some((entry) =>
+    typeof entry === "string"
+      ? !!env[entry]
+      : entry.every((name) => !!env[name]),
+  );
+}
+
 // =============================================================================
 // PROVIDER-SPECIFIC CONFIGURATION CREATORS
 // =============================================================================

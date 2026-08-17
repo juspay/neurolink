@@ -15,6 +15,7 @@ import type {
   ProxyEnvironmentSnapshot,
 } from "../types/index.js";
 import { createHash } from "node:crypto";
+import { TRANSIENT_NETWORK_CODES } from "../constants/networkErrorCodes.js";
 
 async function getLangfuseContext(): Promise<LangfuseContext | undefined> {
   try {
@@ -105,16 +106,6 @@ function extractHostname(url: string | URL | RequestInfo): string {
     return "[unknown]";
   }
 }
-
-/** Error codes classified as transient (module-scope: the retry path is hot). */
-const TRANSIENT_NETWORK_CODES = new Set([
-  "ECONNRESET",
-  "ETIMEDOUT",
-  "ECONNREFUSED",
-  "EPIPE",
-  "UND_ERR_SOCKET",
-  "UND_ERR_CONNECT_TIMEOUT",
-]);
 
 /**
  * Classify a fetch failure as a transient network error worth retrying.

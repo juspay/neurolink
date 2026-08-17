@@ -72,9 +72,13 @@ function handleMockRequest(
 ): void {
   hitCount++;
   if (destroySocketOnRequest) {
-    // Simulates a genuine ECONNRESET: abort the connection mid-flight
-    // instead of responding, so the client's http layer raises a real
-    // ECONNRESET, not a synthetic message string.
+    // Abort the connection mid-flight instead of responding. NOT a real
+    // ECONNRESET, contrary to what this comment used to claim: undici's
+    // native fetch() surfaces this as `TypeError: fetch failed` wrapping a
+    // `SocketError` with message "other side closed" and code
+    // `UND_ERR_SOCKET` on `.cause` — confirmed by live repro through the
+    // actual `createProxyFetch()` path. Never the literal "ECONNRESET"
+    // text or code.
     req.socket?.destroy();
     return;
   }
@@ -212,7 +216,14 @@ async function startMockServer(
 
 // A port nothing listens on: connecting here raises a real ECONNREFUSED
 // without needing to bind+close a real server (avoids a reuse race).
-const CLOSED_PORT_ORIGIN = "http://127.0.0.1:1";
+// Deliberately NOT port 1 — undici's Fetch-spec "bad ports" blocklist
+// rejects port 1 (plus a handful of other low ports) before attempting any
+// connection, yielding `.cause = Error("bad port")` with no `.code` at all,
+// which is a client-side misconfiguration, not a transient transport
+// failure — confirmed by live repro through the real `createProxyFetch()`
+// path. 65533 is outside that blocklist and produces a genuine
+// `.cause = Error("connect ECONNREFUSED ...")` with `code: "ECONNREFUSED"`.
+const CLOSED_PORT_ORIGIN = "http://127.0.0.1:65533";
 
 // ---------------------------------------------------------------------------
 // Env var snapshot/restore — cloned from providers-mocked.ts's pattern.
@@ -428,23 +439,27 @@ async function main(): Promise<void> {
         expectClass: RateLimitError,
       });
 
-      // File1 #7: real socket reset (not a synthetic message string) via
+      // File1 #7: real socket death (not a synthetic message string) via
       // req.socket.destroy(). Node's native fetch (undici) surfaces this as
-      // `TypeError: fetch failed` with the real ECONNRESET nested under
-      // `.cause`, not in the top-level `.message` — so DEFAULT_ERROR_RULES'
-      // NetworkError rule (which pattern-matches literal "ECONNRESET" text
-      // in the message) never actually fires for a real Node-fetch transport
-      // failure; it falls through to the generic-fallback ProviderError
-      // rule. No status code either -> also wrapped. Renamed from the
-      // original "-> NetworkError" expectation to reflect what a real socket
-      // reset actually classifies as through this provider's shared HTTP
-      // client (same "fetch failed" gap documented for openai-compatible's
-      // ECONNREFUSED case below).
+      // `TypeError: fetch failed` wrapping a `SocketError` with message
+      // "other side closed" and code `UND_ERR_SOCKET` on `.cause` — NOT the
+      // literal "ECONNRESET" text or code (confirmed by live repro through
+      // the real `createProxyFetch()` path). buildErrorContext() now walks
+      // that `.cause` chain (bounded, cycle-guarded) and composes the
+      // deepest cause's message in, and DEFAULT_ERROR_RULES' NetworkError
+      // rule matches `ctx.errorCode` against a shared transient-code set
+      // (TRANSIENT_NETWORK_CODES, also used by proxyFetch.ts's own retry
+      // gate) in addition to its message regex — so this now correctly
+      // classifies as NetworkError instead of falling through to the
+      // generic fallback. No status code either -> still wrapped by the
+      // provider-fallback loop, so instanceof identity doesn't survive;
+      // asserted via the rule's "Connection error" message text instead,
+      // matching the existing precedent for this exact wrapping behavior.
       setSocketDestroyHandler();
       await expectGenerateError({
-        name: "DEFAULT_ERROR_RULES via mistral: real ECONNRESET -> generic ProviderError (fetch failed, not NetworkError)",
+        name: "DEFAULT_ERROR_RULES via mistral: real socket death (UND_ERR_SOCKET) -> NetworkError",
         run: () => gen({ provider: "mistral", model: "mistral-large-latest" }),
-        messageIncludes: ["mistral error: fetch failed"],
+        messageIncludes: ["Connection error"],
       });
 
       // File1 #8: unmatched -> generic ProviderError
@@ -751,21 +766,29 @@ async function main(): Promise<void> {
       "test-fake-openai-compatible-credential",
     );
     setEnv("OPENAI_COMPATIBLE_BASE_URL", CLOSED_PORT_ORIGIN);
-    // No status code on a transport-level failure -> retryable -> wrapped
-    // (see the DEFAULT_ERROR_RULES mistral ECONNRESET case for rationale).
-    // Same underlying gap as that mistral case: Node's native fetch surfaces
-    // a closed-port ECONNREFUSED as `TypeError: fetch failed` with the real
-    // errno nested under `.cause`, not in the top-level `.message` that gets
-    // wrapped into the generic ProviderError -> the base URL is never
-    // actually present in `.message` to assert against. Renamed from the
-    // original "-> NetworkError naming the base URL" expectation (and that
-    // base-URL substring check dropped) to reflect what this transport
-    // failure actually classifies as; only the generic-fallback prefix is
-    // pinned here.
+    // CLOSED_PORT_ORIGIN now points at port 65533 (outside undici's Fetch-spec
+    // "bad ports" blocklist — see that constant's own comment), so this is a
+    // genuine closed-port connection attempt: Node's native fetch surfaces it
+    // as `TypeError: fetch failed` wrapping a real `Error("connect ECONNREFUSED
+    // ...")` with code `ECONNREFUSED` on `.cause` — confirmed by live repro
+    // through the real `createProxyFetch()` path. This provider never reaches
+    // DEFAULT_ERROR_RULES' generic NetworkError rule for this case: its own
+    // formatProviderError() (openaiCompatible/client.ts) checks a bespoke
+    // `/ECONNREFUSED|Failed to fetch/i` rule against ctx.message FIRST, naming
+    // the configured base URL. That rule already existed in wave 2, but never
+    // fired for this test because port 1's "bad port" cause carries no
+    // ECONNREFUSED text at all. buildErrorContext()'s new cause-walk now
+    // composes the deepest cause's message (which does contain "ECONNREFUSED")
+    // into ctx.message, so the provider's own rule matches and this correctly
+    // classifies as NetworkError. Still no status code, so the
+    // provider-fallback loop still wraps it and instanceof identity doesn't
+    // survive — asserted via the provider's bespoke message text (and the
+    // base URL it names) rather than "Connection error", which is
+    // DEFAULT_ERROR_RULES' generic rule 4 format and not what fires here.
     await expectGenerateError({
-      name: "openai-compatible: real ECONNREFUSED (closed port) -> generic ProviderError (wrapped, not NetworkError)",
+      name: "openai-compatible: real ECONNREFUSED (closed port) -> NetworkError naming the base URL",
       run: () => gen({ provider: "openai-compatible", model: "gpt-4o-mini" }),
-      messageIncludes: ["openai-compatible error:"],
+      messageIncludes: ["OpenAI Compatible endpoint not available", "65533"],
     });
 
     setEnv("OPENAI_COMPATIBLE_BASE_URL", mockOrigin);
@@ -1084,9 +1107,17 @@ async function main(): Promise<void> {
       messageIncludes: ["Anthropic rate limit exceeded"],
     });
 
+    // Real socket death (not a synthetic message string) via
+    // req.socket.destroy(). Node's native fetch (undici) surfaces this as
+    // `TypeError: fetch failed` wrapping a `SocketError` with message
+    // "other side closed" and code `UND_ERR_SOCKET` on `.cause` — NOT the
+    // literal "ECONNRESET" text or code, matching the mistral case above.
+    // Assertion is correct (buildErrorContext walks `.cause` and the
+    // NetworkError rule matches the transient errorCode set), only the old
+    // name lied about the mechanism.
     setSocketDestroyHandler();
     await expectGenerateError({
-      name: "anthropic: real ECONNRESET -> NetworkError",
+      name: "anthropic: real socket death (UND_ERR_SOCKET) -> NetworkError",
       run: () =>
         gen({ provider: "anthropic", model: "claude-3-5-sonnet-20241022" }),
       messageIncludes: ["Connection error"],

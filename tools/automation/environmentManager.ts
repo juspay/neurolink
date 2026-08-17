@@ -10,6 +10,7 @@ import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import { PROVIDER_DESCRIPTORS } from "../../src/lib/factories/providerDescriptors.js";
+import { satisfiesFallbacks } from "../../src/lib/utils/providerConfig.js";
 
 class EnvironmentManager {
   envFile: string;
@@ -260,7 +261,7 @@ class EnvironmentManager {
         !!apiKey && (!!env[apiKey] || (fallbacks ?? []).some((v) => !!env[v]));
       const requiredOk =
         (extraRequired ?? []).every((v) => !!env[v]) ||
-        (extraRequiredFallbacks ?? []).some((v) => !!env[v]);
+        satisfiesFallbacks(extraRequiredFallbacks, env);
       providers[d.name] = hasPrimary && requiredOk;
     }
 

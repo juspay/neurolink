@@ -2005,8 +2005,8 @@ export type ProviderDescriptor = {
     modelFallbacks?: readonly string[];
     /** Additional env vars required alongside apiKey (e.g. AWS secret key, Azure endpoint). */
     extraRequired?: readonly string[];
-    /** Alternate ways to satisfy extraRequired when it isn't a plain env-var list (e.g. Vertex's file-path-OR-individual-fields auth). */
-    extraRequiredFallbacks?: readonly string[];
+    /** Alternate ways to satisfy extraRequired when it isn't a plain env-var list (e.g. Vertex's file-path-OR-individual-fields auth). Each entry is either a single env var name (satisfied alone) or a nested array of names that must ALL be present together (e.g. Vertex's GOOGLE_AUTH_CLIENT_EMAIL + GOOGLE_AUTH_PRIVATE_KEY pair, which is only valid as a pair). Evaluate with `satisfiesFallbacks()` (providerConfig.ts) rather than re-deriving this logic at each call site. */
+    extraRequiredFallbacks?: readonly (string | readonly string[])[];
     /** True when the provider is usable with zero configuration (local runtime with a documented default URL, or a documented non-secret default like LiteLLM's "sk-anything"). */
     optional?: boolean;
   };
@@ -2029,6 +2029,21 @@ export type ProviderDescriptor = {
   autoSelectPriority?: number;
   /** Format-validation regex sourced from providerConfig.ts's API_KEY_FORMATS, when one exists for this provider. */
   apiKeyFormatPattern?: RegExp;
+  /**
+   * True when this provider's credentials are resolved by an external chain
+   * or its own config validator rather than by plain env-var presence, so
+   * its required-env-vars can't be expressed as "every one of these exact
+   * names must be literally set". Examples: Vertex accepts a service-account
+   * file OR individual client-email/private-key fields OR a base64 key
+   * (an OR, not an AND, of auth paths); Bedrock falls back to the AWS SDK's
+   * own default credential chain (shared profile, IAM role) with no env
+   * vars required at all; LiteLLM is a documented zero-config local proxy.
+   * `ProviderHealthChecker.getRequiredEnvironmentVariables()` returns `[]`
+   * for these providers and defers to `checkProviderSpecificConfig()`'s
+   * dedicated per-provider check instead of deriving a flat AND-list from
+   * `envVars`.
+   */
+  credentialsResolvedExternally?: boolean;
 };
 
 // =============================================================================

@@ -3397,12 +3397,47 @@ async function test_6_8_fullstream_providers_gate_on_content_yielded(): Promise<
   const testName =
     "6.8 — REGRESSION: OpenRouter/LiteLLM gate post-stream NoOutput detect on contentYielded, not raw chunkCount";
   const fs = await import("node:fs/promises");
-  const targets = [
-    "dist/lib/providers/openRouter.js",
-    "dist/lib/providers/litellm.js",
-  ];
+
+  // OpenRouter and LiteLLM are directories in src (client.ts + index.ts),
+  // not flat files, so the compiled output is `.../openRouter/client.js`
+  // — never a flat `openRouter.js`. Both provider classes `extends
+  // OpenAIChatCompletionsProvider` and inherit its stream loop rather than
+  // reimplementing it, so `contentYielded` itself only appears in the
+  // shared base class's compiled output, not in either provider's own
+  // file. The base class also doesn't call a `detectPostStreamNoOutput`
+  // helper (that's a separate mechanism StreamHandler.ts uses for
+  // providers that don't extend this base) — it builds the sentinel
+  // inline via `buildNoOutputSentinel`/`stampNoOutputSpan`. So this test
+  // checks two things: the shared base class still gates on
+  // `contentYielded` (not raw chunk count) before emitting the sentinel,
+  // and each provider still inherits that gate rather than growing its
+  // own unguarded stream path.
+  const basePath = "dist/providers/openaiChatCompletionsBase.js";
+  const providerTargets: Record<string, string> = {
+    OpenRouter: "dist/providers/openRouter/client.js",
+    LiteLLM: "dist/providers/litellm/client.js",
+  };
   const issues: string[] = [];
-  for (const path of targets) {
+
+  let baseSrc = "";
+  try {
+    baseSrc = await fs.readFile(basePath, "utf-8");
+  } catch (err) {
+    issues.push(`cannot read ${basePath}: ${(err as Error).message}`);
+  }
+  if (baseSrc) {
+    const baseGatesOnContentYielded =
+      /contentYielded\s*===\s*0[\s\S]{0,400}?(buildNoOutputSentinel|stampNoOutputSpan)/.test(
+        baseSrc,
+      );
+    if (!baseGatesOnContentYielded) {
+      issues.push(
+        `${basePath}: 'contentYielded === 0 ... (buildNoOutputSentinel|stampNoOutputSpan)' pattern not found`,
+      );
+    }
+  }
+
+  for (const [name, path] of Object.entries(providerTargets)) {
     let src: string;
     try {
       src = await fs.readFile(path, "utf-8");
@@ -3410,24 +3445,18 @@ async function test_6_8_fullstream_providers_gate_on_content_yielded(): Promise<
       issues.push(`cannot read ${path}: ${(err as Error).message}`);
       continue;
     }
-    // Look for the production-fix gate. Both providers should reference
-    // `contentYielded` (the corrected counter). If either still uses
-    // `chunkCount` near `detectPostStreamNoOutput`, the gate is dead.
-    const usesContentYielded =
-      /contentYielded\s*===\s*0[\s\S]{0,400}?detectPostStreamNoOutput/.test(
-        src,
-      );
-    if (!usesContentYielded) {
+    if (!/extends\s+OpenAIChatCompletionsProvider/.test(src)) {
       issues.push(
-        `${path}: 'contentYielded === 0 ... detectPostStreamNoOutput' pattern not found`,
+        `${path}: ${name} no longer extends OpenAIChatCompletionsProvider — shared contentYielded gate is not inherited`,
       );
     }
   }
+
   if (issues.length === 0) {
     recordIssue06(
       testName,
       "PASS",
-      `both fullStream providers gate post-stream detect on contentYielded`,
+      `both fullStream providers inherit the shared base class's contentYielded-gated post-stream detect`,
     );
   } else {
     recordIssue06(testName, "FAIL", `bug-confirmed: ${issues.join("; ")}`);

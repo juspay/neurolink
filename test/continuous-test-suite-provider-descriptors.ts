@@ -295,6 +295,236 @@ await runSuite(async () => {
     }
   });
 
+  logSection("apiKeyFormatPattern coverage (8 descriptors set it)");
+
+  await test("apiKeyFormatPattern: every field present on a descriptor is a real RegExp instance", async () => {
+    const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
+    for (const d of PROVIDER_DESCRIPTORS as Array<{
+      name: string;
+      apiKeyFormatPattern?: unknown;
+    }>) {
+      if (d.apiKeyFormatPattern !== undefined) {
+        assert(
+          d.apiKeyFormatPattern instanceof RegExp,
+          `${d.name} apiKeyFormatPattern is not a RegExp instance`,
+        );
+      }
+    }
+  });
+
+  await test("apiKeyFormatPattern: descriptors without the field simply omit it, never an empty/no-op pattern", async () => {
+    const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
+    // Every 30 canonical names, minus the 8 that legitimately set the field.
+    const withPattern = new Set([
+      "bedrock",
+      "openai",
+      "anthropic",
+      "azure",
+      "google-ai",
+      "huggingface",
+      "mistral",
+      "sagemaker",
+    ]);
+    let checkedAbsent = 0;
+    for (const d of PROVIDER_DESCRIPTORS as Array<{
+      name: string;
+      apiKeyFormatPattern?: unknown;
+    }>) {
+      if (!withPattern.has(d.name)) {
+        assert(
+          d.apiKeyFormatPattern === undefined,
+          `${d.name} unexpectedly carries an apiKeyFormatPattern field`,
+        );
+        checkedAbsent += 1;
+      }
+    }
+    // Sanity: the 30-descriptor set minus the 8 with-pattern entries is 22.
+    assertEqual(
+      checkedAbsent,
+      22,
+      "apiKeyFormatPattern absence count mismatch — descriptor roster may have changed",
+    );
+  });
+
+  // Realistic sample construction, never a real credential. Base units are
+  // built from mixed letters+digits (or uppercase-only for the AWS-shaped
+  // patterns, which are case-sensitive) and combined with .repeat()/.slice()
+  // so exact lengths are computed by the runtime rather than hand-counted —
+  // avoiding an off-by-one that would silently invalidate a positive case.
+  // Reject samples are derived from a REAL competing credential shape
+  // (a different provider's own prefix/format) wherever a realistic mix-up
+  // exists, rather than an arbitrary string that trivially fails.
+  const alnum = "A1b2C3d4E5f6"; // 12 chars, no hyphen/underscore
+  const mixedWithSeparators = "A1b2C3d4E5f6-Xy9Z_"; // 18 chars, incl. -/_
+  const awsUnit = "AKIA1B2C3D4"; // 11 chars, uppercase+digits only
+
+  const awsAccept = awsUnit.repeat(2).slice(0, 20);
+  const azureAccept = alnum.repeat(3).slice(0, 32);
+  const mistralAccept = "Q7wE9rT2yU4i".repeat(3).slice(0, 32);
+  const hfAccept = `hf_${alnum.repeat(4).slice(0, 37)}`;
+  const googleAiAccept = `AIza${mixedWithSeparators.repeat(2).slice(0, 35)}`;
+  const openaiAccept = `sk-${alnum.repeat(4)}`; // 48-char body, meets {48,}
+  // 108-char body (18 * 6), comfortably over the {95,} minimum.
+  const anthropicAccept = `sk-ant-${mixedWithSeparators.repeat(6)}`;
+
+  type PatternCase = {
+    provider: string;
+    accept: string;
+    rejectShape: string;
+  };
+  const patternCases: PatternCase[] = [
+    {
+      provider: "bedrock",
+      accept: awsAccept,
+      // Same 20-char shape, lowercased — the regex is uppercase-only, and a
+      // lowercased paste is a realistic real-world mistake.
+      rejectShape: awsAccept.toLowerCase(),
+    },
+    {
+      provider: "sagemaker",
+      // Same [A-Z0-9]{20} shape as bedrock, but this exercises SageMaker's
+      // OWN apiKeyFormatPattern field (API_KEY_FORMATS.aws), a distinct
+      // RegExp object from bedrock's (API_KEY_FORMATS.bedrock) even though
+      // the source pattern text is identical.
+      accept: awsAccept,
+      rejectShape: awsAccept.toLowerCase(),
+    },
+    {
+      provider: "openai",
+      accept: openaiAccept,
+      // Real-world mix-up: a "pk-" (publishable-key-style) prefix instead
+      // of "sk-", same body shape/length otherwise.
+      rejectShape: `pk-${alnum.repeat(4)}`,
+    },
+    {
+      provider: "anthropic",
+      accept: anthropicAccept,
+      // Real-world mix-up: an OpenAI-shaped "sk-..." key missing the
+      // "ant-" segment Anthropic requires.
+      rejectShape: openaiAccept,
+    },
+    {
+      provider: "azure",
+      accept: azureAccept,
+      // Same content, with a hyphen spliced in — Azure's key has no
+      // separators, unlike a resource/GUID string it's easily confused
+      // with. Also changes the length away from the required 32.
+      rejectShape: `${azureAccept.slice(0, 16)}-${azureAccept.slice(16)}`,
+    },
+    {
+      provider: "google-ai",
+      accept: googleAiAccept,
+      // Real-world mix-up: Google's own OAuth access-token prefix
+      // ("ya29.") instead of the API-key prefix ("AIza").
+      rejectShape: `ya29.${mixedWithSeparators.repeat(2).slice(0, 35)}`,
+    },
+    {
+      provider: "huggingface",
+      accept: hfAccept,
+      // Real-world mix-up: a GitHub personal-access-token prefix ("ghp_")
+      // instead of HuggingFace's ("hf_").
+      rejectShape: `ghp_${alnum.repeat(4).slice(0, 36)}`,
+    },
+    {
+      provider: "mistral",
+      accept: mistralAccept,
+      rejectShape: `${mistralAccept.slice(0, 16)}-${mistralAccept.slice(16)}`,
+    },
+  ];
+
+  await test("apiKeyFormatPattern: accepts a realistic well-formed sample per provider", async () => {
+    const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
+    const byName = new Map(
+      (
+        PROVIDER_DESCRIPTORS as Array<{
+          name: string;
+          apiKeyFormatPattern?: RegExp;
+        }>
+      ).map((d) => [d.name, d]),
+    );
+    for (const { provider, accept } of patternCases) {
+      const pattern = byName.get(provider)?.apiKeyFormatPattern;
+      assert(
+        pattern !== undefined,
+        `${provider} descriptor is missing its apiKeyFormatPattern field`,
+      );
+      assert(
+        pattern!.test(accept),
+        `${provider} apiKeyFormatPattern rejected a realistic well-formed sample`,
+      );
+    }
+  });
+
+  await test("apiKeyFormatPattern: rejects an empty string per provider", async () => {
+    const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
+    const byName = new Map(
+      (
+        PROVIDER_DESCRIPTORS as Array<{
+          name: string;
+          apiKeyFormatPattern?: RegExp;
+        }>
+      ).map((d) => [d.name, d]),
+    );
+    for (const { provider } of patternCases) {
+      const pattern = byName.get(provider)?.apiKeyFormatPattern;
+      assert(
+        pattern !== undefined && !pattern.test(""),
+        `${provider} apiKeyFormatPattern accepted an empty string`,
+      );
+    }
+  });
+
+  await test("apiKeyFormatPattern: rejects a wrong-prefix/wrong-shape sample per provider", async () => {
+    const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
+    const byName = new Map(
+      (
+        PROVIDER_DESCRIPTORS as Array<{
+          name: string;
+          apiKeyFormatPattern?: RegExp;
+        }>
+      ).map((d) => [d.name, d]),
+    );
+    for (const { provider, rejectShape } of patternCases) {
+      const pattern = byName.get(provider)?.apiKeyFormatPattern;
+      assert(
+        pattern !== undefined && !pattern.test(rejectShape),
+        `${provider} apiKeyFormatPattern accepted a wrong-shape sample`,
+      );
+    }
+  });
+
+  await test("apiKeyFormatPattern: completes well under a second against a 10k-char pathological input (ReDoS guard)", async () => {
+    const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
+    const byName = new Map(
+      (
+        PROVIDER_DESCRIPTORS as Array<{
+          name: string;
+          apiKeyFormatPattern?: RegExp;
+        }>
+      ).map((d) => [d.name, d]),
+    );
+    // Pathological-ish input: 10k chars that are almost-but-not-quite a
+    // match for several of these patterns at once (mixed prefix text
+    // followed by a long alnum run), to stress any backtracking, not just
+    // an unrelated random string.
+    const pathological = `sk-ant-AIzahf_${"A1b2C3d4E5f6".repeat(833)}`; // ~10k chars
+    assert(
+      pathological.length > 9_900,
+      "pathological ReDoS-guard fixture is shorter than intended",
+    );
+    for (const { provider } of patternCases) {
+      const pattern = byName.get(provider)?.apiKeyFormatPattern;
+      assert(pattern !== undefined, `${provider} descriptor pattern missing`);
+      const start = performance.now();
+      pattern!.test(pathological);
+      const elapsedMs = performance.now() - start;
+      assert(
+        elapsedMs < 500,
+        `${provider} apiKeyFormatPattern took too long against a pathological input (${elapsedMs.toFixed(1)}ms)`,
+      );
+    }
+  });
+
   logSection("providerUtils env-var checks cover all 30 providers");
 
   await test("hasProviderEnvVars recognizes a provider outside the old 10-case switch (regression)", async () => {
@@ -452,7 +682,11 @@ await runSuite(async () => {
     );
   });
 
-  await test("getRequiredEnvironmentVariables still delegates vertex/bedrock/litellm to their specific-config checks (regression)", async () => {
+  await test("getRequiredEnvironmentVariables still delegates vertex/bedrock/litellm to their specific-config checks via credentialsResolvedExternally (regression)", async () => {
+    // Was backed by a hand-maintained ENV_CHECK_DELEGATED_TO_SPECIFIC_CONFIG
+    // Set; now derived from descriptor.credentialsResolvedExternally. Same
+    // observable behavior — proven identical for all 30 providers + all
+    // aliases by a before/after capture across the refactor.
     const { ProviderHealthChecker } =
       await import("../dist/utils/providerHealth.js");
     for (const providerName of ["vertex", "bedrock", "litellm"] as const) {
@@ -464,13 +698,14 @@ await runSuite(async () => {
     }
   });
 
-  await test("getRequiredEnvironmentVariables resolves aliases before consulting the specific-config delegation set (regression)", async () => {
+  await test("getRequiredEnvironmentVariables resolves aliases before consulting the credentialsResolvedExternally delegation field (regression)", async () => {
     const { ProviderHealthChecker } =
       await import("../dist/utils/providerHealth.js");
     // "googleVertex" and "aws" are documented aliases for vertex/bedrock.
-    // The delegation check must key off the resolved descriptor name, not
-    // the raw alias string, or it silently skips delegation for aliased
-    // input and reports a false non-empty required-vars list.
+    // The delegation check must key off the resolved descriptor's
+    // credentialsResolvedExternally field, not the raw alias string, or it
+    // silently skips delegation for aliased input and reports a false
+    // non-empty required-vars list.
     assertEqual(
       ProviderHealthChecker.getRequiredEnvironmentVariables("googleVertex")
         .length,
@@ -602,7 +837,12 @@ await runSuite(async () => {
 
   logSection("setup.ts checkExistingConfigurations derived from descriptors");
 
-  await test("checkExistingConfigurations detects together via descriptor-driven logic (characterization)", async () => {
+  await test("checkExistingConfigurations: primary key alone is enough for a provider with no extraRequired (mistral)", async () => {
+    // Renamed from "...detects together via descriptor-driven logic
+    // (characterization)" — that name was a leftover from an earlier
+    // together-ai-flavored version of this test; it pins MISTRAL_API_KEY
+    // and asserts "mistral", not "together". Kept mistral (no fallbacks, no
+    // extraRequired) as the cleanest primary-key-only case.
     const savedMistral = process.env.MISTRAL_API_KEY;
     process.env.MISTRAL_API_KEY = "test-key-for-suite-only";
     try {
@@ -618,6 +858,151 @@ await runSuite(async () => {
         delete process.env.MISTRAL_API_KEY;
       } else {
         process.env.MISTRAL_API_KEY = savedMistral;
+      }
+    }
+  });
+
+  await test("checkExistingConfigurations: a fallback env var alone satisfies the primary-key check (anthropic OAuth token, no ANTHROPIC_API_KEY)", async () => {
+    const controlledVars = [
+      "ANTHROPIC_API_KEY",
+      "ANTHROPIC_OAUTH_TOKEN",
+      "CLAUDE_OAUTH_TOKEN",
+      "ANTHROPIC_OAUTH_ACCESS_TOKEN",
+    ] as const;
+    const saved: Record<string, string | undefined> = {};
+    for (const v of controlledVars) {
+      saved[v] = process.env[v];
+    }
+    try {
+      delete process.env.ANTHROPIC_API_KEY;
+      process.env.ANTHROPIC_OAUTH_TOKEN = "test-oauth-token-for-suite-only";
+      delete process.env.CLAUDE_OAUTH_TOKEN;
+      delete process.env.ANTHROPIC_OAUTH_ACCESS_TOKEN;
+      const { checkExistingConfigurations } =
+        await import("../dist/cli/commands/setup.js");
+      const configured = await checkExistingConfigurations();
+      assert(
+        configured.includes("anthropic"),
+        "anthropic should be detected from its OAuth fallback var alone",
+      );
+    } finally {
+      for (const v of controlledVars) {
+        if (saved[v] === undefined) {
+          delete process.env[v];
+        } else {
+          process.env[v] = saved[v];
+        }
+      }
+    }
+  });
+
+  await test("checkExistingConfigurations: extraRequired vars are ANDed with the primary key, not treated as optional (bedrock)", async () => {
+    const controlledVars = [
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SECRET_ACCESS_KEY",
+    ] as const;
+    const saved: Record<string, string | undefined> = {};
+    for (const v of controlledVars) {
+      saved[v] = process.env[v];
+    }
+    try {
+      const { checkExistingConfigurations } =
+        await import("../dist/cli/commands/setup.js");
+
+      // Primary key alone, secret unset: extraRequired must block reporting.
+      process.env.AWS_ACCESS_KEY_ID = "test-access-key-for-suite-only";
+      delete process.env.AWS_SECRET_ACCESS_KEY;
+      const withoutSecret = await checkExistingConfigurations();
+      assert(
+        !withoutSecret.includes("bedrock"),
+        "bedrock should not be reported without its extraRequired secret var",
+      );
+
+      // Both present: now it should report.
+      process.env.AWS_SECRET_ACCESS_KEY = "test-secret-key-for-suite-only";
+      const withSecret = await checkExistingConfigurations();
+      assert(
+        withSecret.includes("bedrock"),
+        "bedrock should be reported once both its primary and extraRequired vars are set",
+      );
+    } finally {
+      for (const v of controlledVars) {
+        if (saved[v] === undefined) {
+          delete process.env[v];
+        } else {
+          process.env[v] = saved[v];
+        }
+      }
+    }
+  });
+
+  await test("checkExistingConfigurations: vertex's nested extraRequiredFallbacks pair requires BOTH halves, not one (email+key, via the real setup.ts function)", async () => {
+    // Distinct from the hasProviderEnvVars pair tests further below — this
+    // drives the actual setup.ts checkExistingConfigurations() function
+    // (its own satisfiesFallbacks call site), not providerUtils.
+    const controlledVars = [
+      "GOOGLE_CLOUD_PROJECT_ID",
+      "GOOGLE_APPLICATION_CREDENTIALS",
+      "GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK",
+      "GOOGLE_SERVICE_ACCOUNT_KEY",
+      "GOOGLE_AUTH_CLIENT_EMAIL",
+      "GOOGLE_AUTH_PRIVATE_KEY",
+    ] as const;
+    const saved: Record<string, string | undefined> = {};
+    for (const v of controlledVars) {
+      saved[v] = process.env[v];
+    }
+    try {
+      const { checkExistingConfigurations } =
+        await import("../dist/cli/commands/setup.js");
+
+      // Primary satisfied, extraRequired unset, only ONE half of the pair.
+      process.env.GOOGLE_CLOUD_PROJECT_ID = "test-project-for-suite-only";
+      delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      delete process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK;
+      delete process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+      process.env.GOOGLE_AUTH_CLIENT_EMAIL = "test-email-for-suite-only";
+      delete process.env.GOOGLE_AUTH_PRIVATE_KEY;
+      const oneHalf = await checkExistingConfigurations();
+      assert(
+        !oneHalf.includes("vertex"),
+        "vertex should not be reported from the email half of the pair alone",
+      );
+
+      // Now both halves.
+      process.env.GOOGLE_AUTH_PRIVATE_KEY = "test-key-for-suite-only";
+      const bothHalves = await checkExistingConfigurations();
+      assert(
+        bothHalves.includes("vertex"),
+        "vertex should be reported once both halves of the email+key pair are set",
+      );
+    } finally {
+      for (const v of controlledVars) {
+        if (saved[v] === undefined) {
+          delete process.env[v];
+        } else {
+          process.env[v] = saved[v];
+        }
+      }
+    }
+  });
+
+  await test("checkExistingConfigurations: a provider with no primary key set is not reported (openrouter)", async () => {
+    const saved = process.env.OPENROUTER_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+    try {
+      const { checkExistingConfigurations } =
+        await import("../dist/cli/commands/setup.js");
+      const configured = await checkExistingConfigurations();
+      assert(
+        !configured.includes("openrouter"),
+        "openrouter should not be reported with no primary key var set",
+      );
+    } finally {
+      if (saved === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = saved;
       }
     }
   });
@@ -651,6 +1036,172 @@ await runSuite(async () => {
         delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
       } else {
         process.env.GOOGLE_APPLICATION_CREDENTIALS = savedCredentials;
+      }
+    }
+  });
+
+  logSection(
+    "extraRequiredFallbacks paired-credential semantics (Vertex email+key)",
+  );
+
+  await test("satisfiesFallbacks: undefined fallbacks list is unsatisfied", async () => {
+    const { satisfiesFallbacks } =
+      await import("../dist/utils/providerConfig.js");
+    assert(
+      satisfiesFallbacks(undefined, {}) === false,
+      "an undefined fallbacks list should never be satisfied",
+    );
+  });
+
+  await test("satisfiesFallbacks: a flat string entry is satisfied alone", async () => {
+    const { satisfiesFallbacks } =
+      await import("../dist/utils/providerConfig.js");
+    assert(
+      satisfiesFallbacks(["SOME_VAR"], { SOME_VAR: "x" }) === true,
+      "a flat entry present in env should satisfy on its own",
+    );
+    assert(
+      satisfiesFallbacks(["SOME_VAR"], {}) === false,
+      "a flat entry absent from env should not satisfy",
+    );
+  });
+
+  await test("satisfiesFallbacks: a paired entry requires every name in the pair, not just one", async () => {
+    const { satisfiesFallbacks } =
+      await import("../dist/utils/providerConfig.js");
+    const pairFallback = [["EMAIL_VAR", "KEY_VAR"]] as const;
+    assert(
+      satisfiesFallbacks(pairFallback, { EMAIL_VAR: "e" }) === false,
+      "email half alone should not satisfy a paired entry",
+    );
+    assert(
+      satisfiesFallbacks(pairFallback, { KEY_VAR: "k" }) === false,
+      "key half alone should not satisfy a paired entry",
+    );
+    assert(
+      satisfiesFallbacks(pairFallback, { EMAIL_VAR: "e", KEY_VAR: "k" }) ===
+        true,
+      "both halves present together should satisfy a paired entry",
+    );
+  });
+
+  await test("satisfiesFallbacks: a flat entry later in the list still satisfies when an earlier paired entry doesn't", async () => {
+    const { satisfiesFallbacks } =
+      await import("../dist/utils/providerConfig.js");
+    const mixed = [["EMAIL_VAR", "KEY_VAR"], "SERVICE_ACCOUNT_VAR"] as const;
+    assert(
+      satisfiesFallbacks(mixed, { SERVICE_ACCOUNT_VAR: "s" }) === true,
+      "a satisfied flat entry should still win even when a preceding paired entry is unsatisfied",
+    );
+  });
+
+  await test("vertex descriptor: GOOGLE_AUTH_CLIENT_EMAIL alone (no private key) does not satisfy the paired fallback", async () => {
+    const controlledVars = [
+      "GOOGLE_CLOUD_PROJECT_ID",
+      "GOOGLE_APPLICATION_CREDENTIALS",
+      "GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK",
+      "GOOGLE_SERVICE_ACCOUNT_KEY",
+      "GOOGLE_AUTH_CLIENT_EMAIL",
+      "GOOGLE_AUTH_PRIVATE_KEY",
+    ] as const;
+    const saved: Record<string, string | undefined> = {};
+    for (const v of controlledVars) {
+      saved[v] = process.env[v];
+    }
+    try {
+      process.env.GOOGLE_CLOUD_PROJECT_ID = "test-project-for-suite-only";
+      delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      delete process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK;
+      delete process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+      process.env.GOOGLE_AUTH_CLIENT_EMAIL = "test-email-for-suite-only";
+      delete process.env.GOOGLE_AUTH_PRIVATE_KEY;
+      const { hasProviderEnvVars } =
+        await import("../dist/utils/providerUtils.js");
+      assert(
+        hasProviderEnvVars("vertex") === false,
+        "vertex should not be considered configured from the client email alone",
+      );
+    } finally {
+      for (const v of controlledVars) {
+        if (saved[v] === undefined) {
+          delete process.env[v];
+        } else {
+          process.env[v] = saved[v];
+        }
+      }
+    }
+  });
+
+  await test("vertex descriptor: GOOGLE_AUTH_PRIVATE_KEY alone (no client email) does not satisfy the paired fallback", async () => {
+    const controlledVars = [
+      "GOOGLE_CLOUD_PROJECT_ID",
+      "GOOGLE_APPLICATION_CREDENTIALS",
+      "GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK",
+      "GOOGLE_SERVICE_ACCOUNT_KEY",
+      "GOOGLE_AUTH_CLIENT_EMAIL",
+      "GOOGLE_AUTH_PRIVATE_KEY",
+    ] as const;
+    const saved: Record<string, string | undefined> = {};
+    for (const v of controlledVars) {
+      saved[v] = process.env[v];
+    }
+    try {
+      process.env.GOOGLE_CLOUD_PROJECT_ID = "test-project-for-suite-only";
+      delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      delete process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK;
+      delete process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+      delete process.env.GOOGLE_AUTH_CLIENT_EMAIL;
+      process.env.GOOGLE_AUTH_PRIVATE_KEY = "test-key-for-suite-only";
+      const { hasProviderEnvVars } =
+        await import("../dist/utils/providerUtils.js");
+      assert(
+        hasProviderEnvVars("vertex") === false,
+        "vertex should not be considered configured from the private key alone",
+      );
+    } finally {
+      for (const v of controlledVars) {
+        if (saved[v] === undefined) {
+          delete process.env[v];
+        } else {
+          process.env[v] = saved[v];
+        }
+      }
+    }
+  });
+
+  await test("vertex descriptor: GOOGLE_AUTH_CLIENT_EMAIL + GOOGLE_AUTH_PRIVATE_KEY together satisfy the paired fallback", async () => {
+    const controlledVars = [
+      "GOOGLE_CLOUD_PROJECT_ID",
+      "GOOGLE_APPLICATION_CREDENTIALS",
+      "GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK",
+      "GOOGLE_SERVICE_ACCOUNT_KEY",
+      "GOOGLE_AUTH_CLIENT_EMAIL",
+      "GOOGLE_AUTH_PRIVATE_KEY",
+    ] as const;
+    const saved: Record<string, string | undefined> = {};
+    for (const v of controlledVars) {
+      saved[v] = process.env[v];
+    }
+    try {
+      process.env.GOOGLE_CLOUD_PROJECT_ID = "test-project-for-suite-only";
+      delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      delete process.env.GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK;
+      delete process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+      process.env.GOOGLE_AUTH_CLIENT_EMAIL = "test-email-for-suite-only";
+      process.env.GOOGLE_AUTH_PRIVATE_KEY = "test-key-for-suite-only";
+      const { hasProviderEnvVars } =
+        await import("../dist/utils/providerUtils.js");
+      assert(
+        hasProviderEnvVars("vertex") === true,
+        "vertex should be considered configured from the email+key pair together",
+      );
+    } finally {
+      for (const v of controlledVars) {
+        if (saved[v] === undefined) {
+          delete process.env[v];
+        } else {
+          process.env[v] = saved[v];
+        }
       }
     }
   });

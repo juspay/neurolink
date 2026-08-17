@@ -53,6 +53,9 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
     timeouts: { generateMs: 45_000, streamMs: 120_000 },
     autoSelectPriority: 7,
     apiKeyFormatPattern: API_KEY_FORMATS.bedrock,
+    // Falls back to the AWS SDK's own default credential chain (shared
+    // profile, IAM role) when these env vars are absent — see field JSDoc.
+    credentialsResolvedExternally: true,
   },
   {
     name: AIProviderName.OPENAI,
@@ -116,12 +119,14 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
       // priority than GOOGLE_APPLICATION_CREDENTIALS by the real gating
       // logic (hasGoogleCredentials() in googleVertex/client.ts and
       // googleVertex/utils.ts) — corrected here vs. the plan snippet, which
-      // omitted it.
+      // omitted it. GOOGLE_AUTH_CLIENT_EMAIL and GOOGLE_AUTH_PRIVATE_KEY are
+      // nested together because hasGoogleCredentials() only accepts them as
+      // a pair — either alone is not valid auth, unlike the other flat
+      // entries here which are each independently sufficient.
       extraRequiredFallbacks: [
         "GOOGLE_APPLICATION_CREDENTIALS_NEUROLINK",
         "GOOGLE_SERVICE_ACCOUNT_KEY",
-        "GOOGLE_AUTH_CLIENT_EMAIL",
-        "GOOGLE_AUTH_PRIVATE_KEY",
+        ["GOOGLE_AUTH_CLIENT_EMAIL", "GOOGLE_AUTH_PRIVATE_KEY"],
       ],
     },
     defaultModel: VertexModels.CLAUDE_4_6_SONNET,
@@ -131,6 +136,9 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
     setupUrl: "https://console.cloud.google.com/",
     timeouts: { generateMs: 60_000, streamMs: 120_000 },
     autoSelectPriority: 3,
+    // OR-of-multiple-auth-paths (file / individual fields / base64 key) —
+    // not a flat AND-list of required env vars. See field JSDoc.
+    credentialsResolvedExternally: true,
   },
   {
     name: AIProviderName.ANTHROPIC,
@@ -268,6 +276,8 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
     setupUrl: "https://docs.litellm.ai/docs/proxy/quick_start",
     timeouts: { generateMs: 300_000, streamMs: 120_000 },
     autoSelectPriority: 1,
+    // Documented zero-config local proxy — see field JSDoc.
+    credentialsResolvedExternally: true,
   },
   {
     name: AIProviderName.SAGEMAKER,
