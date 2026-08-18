@@ -61,7 +61,9 @@ These are non-negotiable. Violating them breaks the build or introduces bugs.
 
     **The one exception is determinism.** A test may sit outside this rule only when it needs deterministic control that a live call cannot give — a pure translation table, a fixed set of inputs, a recorded backend. The vector-store suites are the standing example: they drive real backends (pglite in-process Postgres, recorded fixtures) and cover filter-dialect translation that no live `generate()` could be made to emit. Convenience, speed, and "it is easier to assert on the internal" are not exceptions. When you take the exception, say so in the file's header and name what determinism buys.
 
-**Enforcement:** Rules 2 and 7-14 are enforced via ESLint. Rules 2 and 7-13 use custom rules in `eslint-rules/`; rule 14 uses core `no-restricted-syntax` AST selectors in `eslint.config.js`. Run `pnpm run lint` (or the pre-commit hook) — no shell scripts, no regex heuristics, everything AST-based. **Rule 15 is not lint-enforced** — it is a review check.
+**Enforcement:** Rules 2 and 7-15 are enforced via ESLint. Rules 2, 7-13 and 15 use custom rules in `eslint-rules/`; rule 14 uses core `no-restricted-syntax` AST selectors in `eslint.config.js`. Run `pnpm run lint` (or the pre-commit hook) — no shell scripts, no regex heuristics, everything AST-based.
+
+Rule 15's determinism exception is the `allow` list on `neurolink/e2e-tests-only` in `eslint.config.js`. Adding a file to it is a review decision, and the file's own header must say what determinism buys — it is not a way to silence the rule. The rule ignores type-only imports (`import type`, and `{ type A }` where every specifier is type-only) because they are erased and assert nothing.
 
 | Rule     | ESLint rule                              |
 | -------- | ---------------------------------------- |
@@ -74,6 +76,7 @@ These are non-negotiable. Violating them breaks the build or introduces bugs.
 | 12       | `neurolink/no-type-export-outside-types` |
 | 13       | `neurolink/barrel-type-imports`          |
 | 14       | `no-restricted-syntax` (AST selectors)   |
+| 15       | `neurolink/e2e-tests-only`               |
 
 ---
 

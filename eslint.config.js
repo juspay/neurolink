@@ -251,8 +251,38 @@ export default [
     },
     plugins: {
       "@typescript-eslint": tseslint,
+      neurolink,
     },
     rules: {
+      // Rule 15 — tests drive the shipped surface, not src/lib. The `allow`
+      // list is the determinism exception: a suite may sit outside the rule
+      // only when it needs deterministic control a live call cannot give.
+      // Every entry states why in its own file header. Adding to this list is
+      // a review decision, not a way to silence the rule.
+      "neurolink/e2e-tests-only": [
+        "error",
+        {
+          allow: [
+            // Chunk boundaries and reranker ordering are exact outcomes;
+            // generate({ rag }) only ever shows the model's answer.
+            "test/continuous-test-suite-rag.ts",
+            // Parser edge cases, outgoing wire format, proxy cooldown/quota.
+            "test/continuous-test-suite-bugfixes.ts",
+            // 429-cooldown planning and quota ordering across accounts.
+            "test/continuous-test-suite-proxy.ts",
+            // Background task system with no public surface at all.
+            "test/continuous-test-suite-autoresearch.ts",
+            // Filter-dialect translation no live generate() could emit.
+            "test/continuous-test-suite-vector-chroma.ts",
+            "test/continuous-test-suite-vector-pinecone.ts",
+            // Synthetic rule tables, duck-typed error shapes no real SDK
+            // produces, and module-export-shape checks. Its header already
+            // states the exception and the all-src module graph.
+            "test/continuous-test-suite-error-classifier-contract.ts",
+          ],
+        },
+      ],
+
       // Disable base rules that are covered by TypeScript
       "no-unused-vars": "off",
       "no-undef": "off",

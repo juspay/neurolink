@@ -34,5 +34,6 @@ module.exports = {
     "no-inline-secret-regex": require("./no-inline-secret-regex.cjs"),
     "provider-typed-errors": require("./provider-typed-errors.cjs"),
     "provider-base-class": require("./provider-base-class.cjs"),
+    "e2e-tests-only": require("./e2e-tests-only.cjs"),
   },
 };
