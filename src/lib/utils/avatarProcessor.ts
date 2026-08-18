@@ -24,6 +24,7 @@ import type {
 } from "../types/index.js";
 import { NeuroLinkError } from "./errorHandling.js";
 import { logger } from "./logger.js";
+import { HandlerRegistry } from "../core/handlerRegistry.js";
 
 /**
  * Avatar-specific error codes.
@@ -69,25 +70,16 @@ export class AvatarError extends NeuroLinkError {
  * Static processor managing the avatar handler registry.
  */
 export class AvatarProcessor {
-  private static readonly handlers = new Map<string, AvatarHandler>();
+  private static readonly registry = new HandlerRegistry<AvatarHandler>(
+    "AvatarProcessor",
+  );
 
   /**
    * Register an avatar handler for a specific provider.
    */
   static registerHandler(providerName: string, handler: AvatarHandler): void {
-    if (!providerName) {
-      throw new Error("Provider name is required");
-    }
-    if (!handler) {
-      throw new Error("Handler is required");
-    }
-    const key = providerName.toLowerCase();
-    if (this.handlers.has(key)) {
-      logger.warn(
-        `[AvatarProcessor] Overwriting existing handler for provider: ${key}`,
-      );
-    }
-    this.handlers.set(key, handler);
+    const key = providerName ? providerName.toLowerCase() : providerName;
+    this.registry.register(providerName, handler);
     logger.debug(`[AvatarProcessor] Registered avatar handler: ${key}`);
   }
 
@@ -95,17 +87,14 @@ export class AvatarProcessor {
    * Check if a provider has a registered avatar handler.
    */
   static supports(providerName: string): boolean {
-    if (!providerName) {
-      return false;
-    }
-    return this.handlers.has(providerName.toLowerCase());
+    return this.registry.supports(providerName);
   }
 
   /**
    * List the names of all registered providers.
    */
   static listProviders(): string[] {
-    return Array.from(this.handlers.keys());
+    return this.registry.list();
   }
 
   /**
@@ -115,7 +104,14 @@ export class AvatarProcessor {
    * already-registered primary handler when backfilling its aliases.
    */
   static getHandler(providerName: string): AvatarHandler | undefined {
-    return this.handlers.get(providerName.toLowerCase());
+    return this.registry.get(providerName);
+  }
+
+  /**
+   * Clear all registered handlers (for testing).
+   */
+  static clearHandlers(): void {
+    this.registry.clear();
   }
 
   private static buildSpanAttributes(

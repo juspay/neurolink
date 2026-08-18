@@ -11,6 +11,7 @@ import { logger } from "./logger.js";
 import type { TTSOptions, TTSResult, TTSHandler } from "../types/index.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 import { NeuroLinkError } from "./errorHandling.js";
+import { HandlerRegistry } from "../core/handlerRegistry.js";
 import {
   SpanSerializer,
   SpanType,
@@ -75,11 +76,12 @@ export class TTSError extends NeuroLinkError {
 export class TTSProcessor {
   /**
    * Handler registry mapping provider names to TTS handlers
-   * Uses Map for O(1) lookups and better type safety
    *
    * @private
    */
-  private static readonly handlers = new Map<string, TTSHandler>();
+  private static readonly registry = new HandlerRegistry<TTSHandler>(
+    "TTSProcessor",
+  );
 
   /**
    * Default maximum text length for TTS synthesis (in bytes)
@@ -112,23 +114,10 @@ export class TTSProcessor {
    * ```
    */
   static registerHandler(providerName: string, handler: TTSHandler): void {
-    if (!providerName) {
-      throw new Error("Provider name is required");
-    }
-
-    if (!handler) {
-      throw new Error("Handler is required");
-    }
-
-    const normalizedName = providerName.toLowerCase();
-
-    if (this.handlers.has(normalizedName)) {
-      logger.warn(
-        `[TTSProcessor] Overwriting existing handler for provider: ${normalizedName}`,
-      );
-    }
-
-    this.handlers.set(normalizedName, handler);
+    const normalizedName = providerName
+      ? providerName.toLowerCase()
+      : providerName;
+    this.registry.register(providerName, handler);
     logger.debug(
       `[TTSProcessor] Registered TTS handler for provider: ${normalizedName}`,
     );
@@ -145,8 +134,22 @@ export class TTSProcessor {
    * @returns Handler instance or undefined if not registered
    */
   static getHandler(providerName: string): TTSHandler | undefined {
-    const normalizedName = providerName.toLowerCase();
-    return this.handlers.get(normalizedName);
+    return this.registry.get(providerName);
+  }
+
+  /**
+   * List the names of all registered providers.
+   */
+  static listProviders(): string[] {
+    return this.registry.list();
+  }
+
+  /**
+   * Removes every registered TTS handler. Primarily for test isolation —
+   * production code should not need to call this.
+   */
+  static clearHandlers(): void {
+    this.registry.clear();
   }
 
   /**
@@ -170,8 +173,7 @@ export class TTSProcessor {
       return false;
     }
 
-    const normalizedName = providerName.toLowerCase();
-    const isSupported = this.handlers.has(normalizedName);
+    const isSupported = this.registry.supports(providerName);
 
     if (!isSupported) {
       logger.debug(`[TTSProcessor] Provider ${providerName} is not supported`);
@@ -253,7 +255,7 @@ export class TTSProcessor {
           retriable: false,
           context: {
             provider,
-            availableProviders: Array.from(this.handlers.keys()),
+            availableProviders: this.registry.list(),
           },
         });
       }

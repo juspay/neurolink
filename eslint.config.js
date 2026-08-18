@@ -272,6 +272,10 @@ export default [
             "test/continuous-test-suite-proxy.ts",
             // Background task system with no public surface at all.
             "test/continuous-test-suite-autoresearch.ts",
+            // HandlerRegistry<THandler> is internal composition plumbing
+            // never exported from any package entry point — no public
+            // surface at all (same reasoning as autoresearch above).
+            "test/continuous-test-suite-handler-registry.ts",
             // Filter-dialect translation no live generate() could emit.
             "test/continuous-test-suite-vector-chroma.ts",
             "test/continuous-test-suite-vector-pinecone.ts",

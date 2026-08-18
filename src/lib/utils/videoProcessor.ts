@@ -31,6 +31,7 @@ import { logger } from "./logger.js";
 // the same module. Both throws and instanceof checks resolve to the same
 // class.
 import { VideoError } from "../adapters/video/vertexVideoHandler.js";
+import { HandlerRegistry } from "../core/handlerRegistry.js";
 
 export { VideoError, VIDEO_ERROR_CODES };
 
@@ -42,25 +43,16 @@ export { VideoError, VIDEO_ERROR_CODES };
  * O(1) on a normalised lower-case provider key.
  */
 export class VideoProcessor {
-  private static readonly handlers = new Map<string, VideoHandler>();
+  private static readonly registry = new HandlerRegistry<VideoHandler>(
+    "VideoProcessor",
+  );
 
   /**
    * Register a video handler for a specific provider.
    */
   static registerHandler(providerName: string, handler: VideoHandler): void {
-    if (!providerName) {
-      throw new Error("Provider name is required");
-    }
-    if (!handler) {
-      throw new Error("Handler is required");
-    }
-    const key = providerName.toLowerCase();
-    if (this.handlers.has(key)) {
-      logger.warn(
-        `[VideoProcessor] Overwriting existing handler for provider: ${key}`,
-      );
-    }
-    this.handlers.set(key, handler);
+    const key = providerName ? providerName.toLowerCase() : providerName;
+    this.registry.register(providerName, handler);
     logger.debug(`[VideoProcessor] Registered video handler: ${key}`);
   }
 
@@ -68,21 +60,25 @@ export class VideoProcessor {
    * Check if a provider has a registered video handler.
    */
   static supports(providerName: string): boolean {
-    if (!providerName) {
-      return false;
-    }
-    return this.handlers.has(providerName.toLowerCase());
+    return this.registry.supports(providerName);
   }
 
   /**
    * List the names of all registered providers.
    */
   static listProviders(): string[] {
-    return Array.from(this.handlers.keys());
+    return this.registry.list();
   }
 
   private static getHandler(providerName: string): VideoHandler | undefined {
-    return this.handlers.get(providerName.toLowerCase());
+    return this.registry.get(providerName);
+  }
+
+  /**
+   * Clear all registered handlers (for testing).
+   */
+  static clearHandlers(): void {
+    this.registry.clear();
   }
 
   private static buildSpanAttributes(
