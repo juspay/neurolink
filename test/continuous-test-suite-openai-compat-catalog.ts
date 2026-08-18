@@ -2,18 +2,55 @@
 import "dotenv/config";
 
 /**
- * Config-Driven OpenAI-Compat Catalog — contract + regression suite.
+ * OpenAI-Compat Catalog — E2E contract + regression suite.
  *
- * Covers:
- *   - resolveOpenAICompatConfig() credential/baseURL precedence (Task 1)
- *   - ConfiguredOpenAICompatProvider hook delegation + error mapping (Task 3)
- *   - OPENAI_COMPAT_CATALOG structural invariants (Task 4)
- *   - adjustBodyAfter400 composition fix regression (Task 6)
+ * Rewritten to comply with CLAUDE.md rule 15 ("tests are end-to-end only").
+ * The previous version imported `resolveOpenAICompatConfig()` and
+ * `ConfiguredOpenAICompatProvider` through deep `../dist/lib/...` paths and
+ * drove them directly, including reaching past TypeScript to call the
+ * protected `formatProviderError()` — none of that is a surface this
+ * package ships. Every case below instead constructs `NeuroLink` (imported
+ * only from `../dist/index.js`) and calls `generate()` against a
+ * route-based mocked `fetch` (`test/utils/mockFetch.ts`), then asserts on
+ * the error class + message a real caller actually receives.
+ *
+ * No determinism exception is taken anywhere in this file — every section,
+ * including catalog-structure coverage, is driven through `generate()`.
+ * A handful of pure data-shape invariants the original file checked by
+ * reading `OPENAI_COMPAT_CATALOG` directly are genuinely not observable
+ * from outside the package; those are named and dropped explicitly in the
+ * final section's header comment rather than faked or silently lost.
+ *
+ * Key end-to-end fact this suite relies on throughout: NeuroLink's
+ * provider-fallback wrapper (`directProviderGeneration` in neurolink.ts)
+ * only lets a "non-retryable" error class (AuthenticationError,
+ * InvalidModelError, and a few others — see
+ * `isNonRetryableProviderError`) escape to the caller unwrapped. Anything
+ * else — RateLimitError, NetworkError, a plain ProviderError from a
+ * TimeoutError override — gets caught, the (single, explicitly-named)
+ * provider is not retried further, and the loop still exits through
+ * `throw new Error(\`Failed to generate text with all providers. Last
+ * error: ${lastError.message}\`)`. So the *class* NeuroLink hands the
+ * caller for a retryable case is always the generic `Error`, and the
+ * per-provider text this suite pins verbatim shows up as a substring of
+ * that wrapper's message, not as `error.message` on its own. That is
+ * real, observable, public behavior — not a suite limitation — and it is
+ * exactly what lets this suite tell Groq's TimeoutError override apart
+ * from every other catalog entry's default (section 4): the wrapper class
+ * is identical either way, but the embedded per-provider text differs.
  *
  * Run with: pnpm run test:openai-compat-catalog
  * (Runs against dist/ — `pnpm run build` first.)
  */
 
+import {
+  NeuroLink,
+  AuthenticationError,
+  InvalidModelError,
+  ProviderError,
+  RateLimitError,
+  NetworkError,
+} from "../dist/index.js";
 import {
   installMockFetch,
   record,
@@ -23,6 +60,10 @@ import {
 } from "./utils/mockFetch.js";
 
 const results: TestRecord[] = [];
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: shared setup
+// ───────────────────────────────────────────────────────────────────────
 
 const ORIGINAL_ENV: Record<string, string | undefined> = {};
 
@@ -44,6 +85,43 @@ function restoreEnv(): void {
     } else {
       process.env[name] = value;
     }
+  }
+}
+
+// `dotenv/config` (above) loads this repo's `.env`, which on a developer
+// machine may carry real GROQ_API_KEY / XAI_API_KEY values. Every case in
+// this suite must be reachable with NO real provider credentials — env
+// vars are always either set to a known fake value or deleted outright, so
+// suite behavior never depends on what a given machine's `.env` contains.
+// `restoreEnv()` in `main()`'s `finally` puts back whatever `.env` actually
+// set, so this has no effect outside the suite's own run.
+const CATALOG_ENV_VARS = [
+  "GROQ_API_KEY",
+  "GROQ_BASE_URL",
+  "GROQ_MODEL",
+  "XAI_API_KEY",
+  "XAI_BASE_URL",
+  "XAI_MODEL",
+  "TOGETHER_API_KEY",
+  "TOGETHER_BASE_URL",
+  "TOGETHER_MODEL",
+  "FIREWORKS_API_KEY",
+  "FIREWORKS_BASE_URL",
+  "FIREWORKS_MODEL",
+  "PERPLEXITY_API_KEY",
+  "PERPLEXITY_BASE_URL",
+  "PERPLEXITY_MODEL",
+  "MISTRAL_API_KEY",
+  "MISTRAL_BASE_URL",
+  "MISTRAL_MODEL",
+  "CLOUDFLARE_API_KEY",
+  "CLOUDFLARE_ACCOUNT_ID",
+  "CLOUDFLARE_MODEL",
+];
+
+function neutralizeCatalogEnv(): void {
+  for (const name of CATALOG_ENV_VARS) {
+    setEnv(name, undefined);
   }
 }
 
@@ -76,562 +154,907 @@ function openAIChatResponse(content: string, model: string): unknown {
   };
 }
 
-// ───────────────────────────────────────────────────────────────────────
-// Section: resolveOpenAICompatConfig (Task 1)
-// ───────────────────────────────────────────────────────────────────────
+function okResp(model: string): { status: number; json: unknown } {
+  return { status: 200, json: openAIChatResponse("pong", model) };
+}
 
-async function testResolveConfigPrecedence(): Promise<void> {
-  const section = "resolveOpenAICompatConfig";
-  setEnv("TEST_CATALOG_API_KEY", "env-key-abc");
-  setEnv("TEST_CATALOG_BASE_URL", undefined);
+function errResp(
+  status: number,
+  message: string,
+  type: string,
+): { status: number; json: unknown } {
+  return { status, json: { error: { message, type } } };
+}
 
-  const { resolveOpenAICompatConfig } =
-    await import("../dist/lib/utils/providerConfig.js");
-
-  const fakeEntry = {
-    apiKeyEnvVar: "TEST_CATALOG_API_KEY",
-    baseURLEnvVar: "TEST_CATALOG_BASE_URL",
-    defaultBaseURL: "https://default.example.com/v1",
-    configOptions: {
-      providerName: "TestCatalog",
-      envVarName: "TEST_CATALOG_API_KEY",
-      setupUrl: "https://example.com/setup",
-      description: "API key",
-      instructions: ["1. Get a key"],
-    },
+/** A route whose response resolves after `delayMs` — used to provoke a
+ *  client-side TimeoutError when paired with a short `timeout` option. */
+function slowOkRoute(delayMs: number, model: string) {
+  return async (): Promise<{ status: number; json: unknown }> => {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    return okResp(model);
   };
+}
 
+function newNL(): InstanceType<typeof NeuroLink> {
+  return new NeuroLink({ conversationMemory: { enabled: false } });
+}
+
+async function runCase(name: string, fn: () => Promise<void>): Promise<void> {
   try {
-    // credentials override wins over env
-    const r1 = resolveOpenAICompatConfig(fakeEntry, {
-      apiKey: "override-key",
-      baseURL: "https://override.example.com/v1",
-    });
-    expectEq(
-      r1.apiKey,
-      "override-key",
-      "resolved key uses credentials override",
-    );
-    expectEq(
-      r1.baseURL,
-      "https://override.example.com/v1",
-      "baseURL uses credentials override",
-    );
-
-    // env wins over static default when no credentials override
-    setEnv("TEST_CATALOG_BASE_URL", "https://env.example.com/v1");
-    const r2 = resolveOpenAICompatConfig(fakeEntry, undefined);
-    expectEq(r2.apiKey, "env-key-abc", "resolved key falls back to env var");
-    expectEq(
-      r2.baseURL,
-      "https://env.example.com/v1",
-      "baseURL falls back to env var over static default",
-    );
-
-    // static default wins when neither credentials nor env baseURL set
-    setEnv("TEST_CATALOG_BASE_URL", undefined);
-    const r3 = resolveOpenAICompatConfig(fakeEntry, undefined);
-    expectEq(
-      r3.baseURL,
-      "https://default.example.com/v1",
-      "baseURL falls back to static default",
-    );
-
-    // blank/whitespace credentials override does NOT bypass env/default
-    const r4 = resolveOpenAICompatConfig(fakeEntry, {
-      apiKey: "   ",
-      baseURL: "   ",
-    });
-    expectEq(r4.apiKey, "env-key-abc", "blank key override ignored");
-    expectEq(
-      r4.baseURL,
-      "https://default.example.com/v1",
-      "blank baseURL override ignored",
-    );
-
-    record(results, `${section}: precedence order`, true);
+    await fn();
+    record(results, name, true);
   } catch (err) {
     record(
       results,
-      `${section}: precedence order`,
+      name,
       false,
       err instanceof Error ? err.message : String(err),
     );
   }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section 1: credential / baseURL precedence — static baseURL branch
+// (groq: baseURLEnvVar + defaultBaseURL, no computedBaseURL)
+//
+// Exercised entirely through NeuroLink's public `credentials` option
+// (see docs/features/per-request-credentials.md) plus assertions on the
+// request URL / Authorization header the mock captured — never by calling
+// resolveOpenAICompatConfig() directly.
+// ───────────────────────────────────────────────────────────────────────
+
+const GROQ_URL = "api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
+const GROQ_DEFAULT_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+async function testResolveConfigPrecedence(): Promise<void> {
+  const section = "config precedence (groq, static baseURL)";
+
+  await runCase(`${section}: credentials override wins over env`, async () => {
+    setEnv("GROQ_API_KEY", "env-groq-key");
+    setEnv("GROQ_BASE_URL", "https://env-groq-proxy.example.com/v1");
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "override-groq-proxy.example.com/v1/chat/completions",
+          respond: okResp(GROQ_MODEL),
+        },
+      ],
+      async ({ calls }) => {
+        await newNL().generate({
+          provider: "groq",
+          model: GROQ_MODEL,
+          input: { text: "ping" },
+          disableTools: true,
+          credentials: {
+            groq: {
+              apiKey: "override-key",
+              baseURL: "https://override-groq-proxy.example.com/v1",
+            },
+          },
+        });
+        expect(calls.length > 0, "request captured");
+        expect(
+          new URL(calls[0].url).hostname === "override-groq-proxy.example.com",
+          "request URL uses credentials.baseURL override, not the env var",
+        );
+        expect(
+          (calls[0].headers["authorization"] ?? "").includes("override-key"),
+          "Authorization header uses credentials.apiKey override, not the env var",
+        );
+      },
+    );
+  });
+
+  await runCase(
+    `${section}: env var wins over static default (apiKey + baseURL)`,
+    async () => {
+      setEnv("GROQ_API_KEY", "env-key-xyz");
+      setEnv("GROQ_BASE_URL", "https://env-groq-proxy-2.example.com/v1");
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "env-groq-proxy-2.example.com/v1/chat/completions",
+            respond: okResp(GROQ_MODEL),
+          },
+        ],
+        async ({ calls }) => {
+          await newNL().generate({
+            provider: "groq",
+            model: GROQ_MODEL,
+            input: { text: "ping" },
+            disableTools: true,
+          });
+          expect(
+            new URL(calls[0].url).hostname === "env-groq-proxy-2.example.com",
+            "request URL falls back to GROQ_BASE_URL over the static default",
+          );
+          expect(
+            (calls[0].headers["authorization"] ?? "").includes("env-key-xyz"),
+            "Authorization header falls back to GROQ_API_KEY",
+          );
+        },
+      );
+    },
+  );
+
+  await runCase(
+    `${section}: static default wins with no credentials or env baseURL`,
+    async () => {
+      setEnv("GROQ_API_KEY", "env-key-xyz");
+      setEnv("GROQ_BASE_URL", undefined);
+      await withMocks(
+        [{ method: "POST", url: GROQ_URL, respond: okResp(GROQ_MODEL) }],
+        async ({ calls }) => {
+          await newNL().generate({
+            provider: "groq",
+            model: GROQ_MODEL,
+            input: { text: "ping" },
+            disableTools: true,
+          });
+          expectEq(
+            calls[0].url,
+            GROQ_DEFAULT_URL,
+            "request URL uses the catalog entry's static defaultBaseURL",
+          );
+        },
+      );
+    },
+  );
+
+  await runCase(
+    `${section}: blank credentials override is ignored, falls back to env`,
+    async () => {
+      setEnv("GROQ_API_KEY", "env-key-abc");
+      setEnv("GROQ_BASE_URL", undefined);
+      await withMocks(
+        [{ method: "POST", url: GROQ_URL, respond: okResp(GROQ_MODEL) }],
+        async ({ calls }) => {
+          await newNL().generate({
+            provider: "groq",
+            model: GROQ_MODEL,
+            input: { text: "ping" },
+            disableTools: true,
+            credentials: { groq: { apiKey: "   ", baseURL: "   " } },
+          });
+          expect(
+            (calls[0].headers["authorization"] ?? "").includes("env-key-abc"),
+            "whitespace-only credentials.apiKey is ignored, env var used instead",
+          );
+          expectEq(
+            calls[0].url,
+            GROQ_DEFAULT_URL,
+            "whitespace-only credentials.baseURL is ignored, static default used instead",
+          );
+        },
+      );
+    },
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section 2: credential / baseURL precedence — computedBaseURL branch
+// (cloudflare: apiKey + accountId, no baseURLEnvVar/defaultBaseURL)
+// ───────────────────────────────────────────────────────────────────────
+
+const CF_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const CF_MISSING_ACCOUNT_ID_MESSAGE =
+  "CLOUDFLARE_ACCOUNT_ID is required (or pass credentials.cloudflare.accountId). Get the account id from https://dash.cloudflare.com/";
+
+function cfURL(accountId: string): string {
+  return `api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`;
 }
 
 async function testResolveConfigComputedBaseURL(): Promise<void> {
-  const section = "resolveOpenAICompatConfig";
-  setEnv("TEST_CATALOG_ACCOUNT_API_KEY", "env-key-xyz");
-  setEnv("TEST_CATALOG_ACCOUNT_ID", undefined);
+  const section = "config precedence (cloudflare, computedBaseURL)";
 
-  const { resolveOpenAICompatConfig } =
-    await import("../dist/lib/utils/providerConfig.js");
-
-  const fakeEntry = {
-    apiKeyEnvVar: "TEST_CATALOG_ACCOUNT_API_KEY",
-    configOptions: {
-      providerName: "TestAccountCatalog",
-      envVarName: "TEST_CATALOG_ACCOUNT_API_KEY",
-      setupUrl: "https://example.com/setup",
-      description: "API key",
-      instructions: ["1. Get a key"],
+  await runCase(
+    `${section}: missing accountId throws the entry's exact message`,
+    async () => {
+      setEnv("CLOUDFLARE_API_KEY", undefined);
+      setEnv("CLOUDFLARE_ACCOUNT_ID", undefined);
+      let threw = false;
+      try {
+        await newNL().generate({
+          provider: "cloudflare",
+          model: CF_MODEL,
+          input: { text: "ping" },
+          disableTools: true,
+          credentials: { cloudflare: { apiKey: "test-key" } },
+        });
+      } catch (err) {
+        threw = true;
+        const msg = err instanceof Error ? err.message : String(err);
+        expect(
+          msg.includes(CF_MISSING_ACCOUNT_ID_MESSAGE),
+          "thrown message contains computedBaseURL.missingValueMessage verbatim",
+        );
+      }
+      expect(threw, "missing accountId (no credentials, no env) throws");
     },
-    computedBaseURL: {
-      envVar: "TEST_CATALOG_ACCOUNT_ID",
-      missingValueMessage:
-        "TEST_CATALOG_ACCOUNT_ID is required (or pass credentials.accountId).",
-      build: (accountId: string) =>
-        `https://api.example.com/accounts/${accountId}/v1`,
-    },
-  };
+  );
 
-  try {
-    // missing accountId throws with the exact configured message
-    let threw = false;
-    try {
-      resolveOpenAICompatConfig(fakeEntry, undefined);
-    } catch (err) {
-      threw = true;
-      expect(
-        err instanceof Error &&
-          err.message ===
-            "TEST_CATALOG_ACCOUNT_ID is required (or pass credentials.accountId).",
-        "missing-accountId error message matches entry.computedBaseURL.missingValueMessage",
+  await runCase(
+    `${section}: env var supplies accountId, baseURL is built from it`,
+    async () => {
+      setEnv("CLOUDFLARE_ACCOUNT_ID", "acct-env-123");
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: cfURL("acct-env-123"),
+            respond: okResp(CF_MODEL),
+          },
+        ],
+        async ({ calls }) => {
+          await newNL().generate({
+            provider: "cloudflare",
+            model: CF_MODEL,
+            input: { text: "ping" },
+            disableTools: true,
+            credentials: { cloudflare: { apiKey: "test-key" } },
+          });
+          expect(
+            calls[0].url.includes("accounts/acct-env-123/"),
+            "computed baseURL built from CLOUDFLARE_ACCOUNT_ID env var",
+          );
+        },
       );
-    }
-    expect(threw, "missing accountId throws");
+    },
+  );
 
-    // env var supplies accountId, base URL is built from it
-    setEnv("TEST_CATALOG_ACCOUNT_ID", "acct-123");
-    const r1 = resolveOpenAICompatConfig(fakeEntry, undefined);
-    expectEq(
-      r1.baseURL,
-      "https://api.example.com/accounts/acct-123/v1",
-      "computed baseURL built from env accountId",
-    );
+  await runCase(
+    `${section}: credentials.accountId overrides the env var`,
+    async () => {
+      setEnv("CLOUDFLARE_ACCOUNT_ID", "acct-env-should-not-be-used");
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: cfURL("acct-cred-999"),
+            respond: okResp(CF_MODEL),
+          },
+        ],
+        async ({ calls }) => {
+          await newNL().generate({
+            provider: "cloudflare",
+            model: CF_MODEL,
+            input: { text: "ping" },
+            disableTools: true,
+            credentials: {
+              cloudflare: { apiKey: "test-key", accountId: "acct-cred-999" },
+            },
+          });
+          expect(
+            calls[0].url.includes("accounts/acct-cred-999/"),
+            "computed baseURL built from credentials.accountId, not the env var",
+          );
+        },
+      );
+    },
+  );
 
-    // credentials.accountId overrides env
-    const r2 = resolveOpenAICompatConfig(fakeEntry, {
-      accountId: "acct-999",
-    });
-    expectEq(
-      r2.baseURL,
-      "https://api.example.com/accounts/acct-999/v1",
-      "computed baseURL built from credentials.accountId over env",
-    );
-
-    // explicit credentials.baseURL bypasses computation entirely
-    const r3 = resolveOpenAICompatConfig(fakeEntry, {
-      accountId: "acct-999",
-      baseURL: "https://custom.example.com/v1",
-    });
-    expectEq(
-      r3.baseURL,
-      "https://custom.example.com/v1",
-      "explicit credentials.baseURL bypasses computedBaseURL.build",
-    );
-
-    record(results, `${section}: computedBaseURL (accountId) path`, true);
-  } catch (err) {
-    record(
-      results,
-      `${section}: computedBaseURL (accountId) path`,
-      false,
-      err instanceof Error ? err.message : String(err),
-    );
-  }
+  await runCase(
+    `${section}: explicit credentials.baseURL bypasses computedBaseURL.build`,
+    async () => {
+      setEnv("CLOUDFLARE_ACCOUNT_ID", undefined);
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: "custom-cf-proxy.example.com/v1/chat/completions",
+            respond: okResp(CF_MODEL),
+          },
+        ],
+        async ({ calls }) => {
+          await newNL().generate({
+            provider: "cloudflare",
+            model: CF_MODEL,
+            input: { text: "ping" },
+            disableTools: true,
+            credentials: {
+              cloudflare: {
+                apiKey: "test-key",
+                // accountId given too — baseURL must still win outright,
+                // with no accountId needed (env is unset above).
+                accountId: "acct-should-be-irrelevant",
+                baseURL: "https://custom-cf-proxy.example.com/v1",
+              },
+            },
+          });
+          expectEq(
+            calls[0].url,
+            "https://custom-cf-proxy.example.com/v1/chat/completions",
+            "explicit credentials.baseURL is used verbatim, computedBaseURL.build never runs",
+          );
+        },
+      );
+    },
+  );
 }
 
 // ───────────────────────────────────────────────────────────────────────
-// Section: ConfiguredOpenAICompatProvider (Task 3)
+// Section 3: error-classification rules + shared classifier fallback
+// (together-ai: no timeoutErrorClass override — the six-of-seven default)
 // ───────────────────────────────────────────────────────────────────────
+
+const TG_URL = "api.together.xyz/v1/chat/completions";
+const TG_MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo";
 
 async function testConfiguredProviderHookDelegation(): Promise<void> {
-  const section = "ConfiguredOpenAICompatProvider";
-  setEnv("TEST_CONFIGURED_API_KEY", "sk-configured-test-key");
-  setEnv("TEST_CONFIGURED_BASE_URL", undefined);
+  const section = "ConfiguredOpenAICompatProvider (together-ai)";
+  setEnv("TOGETHER_API_KEY", undefined);
 
-  const { ConfiguredOpenAICompatProvider } =
-    await import("../dist/lib/providers/configuredOpenAICompat.js");
-  const { AuthenticationError, RateLimitError, InvalidModelError } =
-    await import("../dist/lib/types/index.js");
-
-  const fakeEntry = {
-    providerName: "test-configured" as never,
-    aliases: ["test-configured"],
-    apiKeyEnvVar: "TEST_CONFIGURED_API_KEY",
-    baseURLEnvVar: "TEST_CONFIGURED_BASE_URL",
-    defaultBaseURL: "https://configured.example.com/v1",
-    configOptions: {
-      providerName: "TestConfigured",
-      envVarName: "TEST_CONFIGURED_API_KEY",
-      setupUrl: "https://example.com/docs/test-configured",
-      description: "API key",
-      instructions: ["1. Get a key"],
+  await runCase(
+    `${section}: 401 maps to AuthenticationError, unwrapped`,
+    async () => {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: TG_URL,
+            respond: errResp(401, "invalid_api_key", "auth_error"),
+          },
+        ],
+        async () => {
+          let caught: unknown;
+          try {
+            await newNL().generate({
+              provider: "together-ai",
+              model: TG_MODEL,
+              input: { text: "ping" },
+              disableTools: true,
+              credentials: { together: { apiKey: "test-key" } },
+            });
+          } catch (err) {
+            caught = err;
+          }
+          expect(caught instanceof AuthenticationError, "error class");
+          expectEq(
+            (caught as Error).message,
+            "[together-ai] Invalid Together AI API key. Get one at https://api.together.xyz/settings/api-keys",
+            "together-ai's bespoke auth message, unwrapped (AuthenticationError is non-retryable)",
+          );
+        },
+      );
     },
-    modelEnvVar: "TEST_CONFIGURED_MODEL",
-    defaultModel: "test-model-default",
-    registryDefaultModel: "test-model-default",
-    registryDefaultModelChecksEnvVar: true,
-    fallbackModelName: "test-model-fallback",
-    fallbackModels: ["test-model-fallback", "test-model-alt"],
-    // Real ProviderErrorRule shape (match/errorClass/message), matching
-    // plan 07's contract exactly. Deliberately has NO always-true catch-all
-    // rule, so the "unrelated failure" case below exercises
-    // classifyProviderError's own built-in fallback rather than anything
-    // this fixture supplies — proving the class needs no catch-all of its
-    // own to behave correctly.
-    errorRules: [
-      {
-        match: (ctx: { message: string }) =>
-          /invalid api key|401/i.test(ctx.message),
-        errorClass: AuthenticationError,
-        message: "invalid api key (test)",
-      },
-      {
-        match: (ctx: { message: string }) =>
-          /rate limit|429/i.test(ctx.message),
-        errorClass: RateLimitError,
-        message: "rate limit exceeded (test)",
-      },
-      {
-        match: (ctx: { message: string }) =>
-          /model_not_found|404/i.test(ctx.message),
-        errorClass: InvalidModelError,
-        message: (ctx: { modelName?: string }) =>
-          `model '${ctx.modelName}' not found (test)`,
-      },
-    ],
-  };
+  );
 
-  try {
-    const provider = new ConfiguredOpenAICompatProvider(
-      fakeEntry,
-      undefined,
-      undefined,
-      undefined,
-    );
+  await runCase(
+    `${section}: 404 model_not_found maps to InvalidModelError, unwrapped`,
+    async () => {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: TG_URL,
+            respond: errResp(
+              404,
+              "model_not_found: no such model",
+              "invalid_request_error",
+            ),
+          },
+        ],
+        async () => {
+          let caught: unknown;
+          try {
+            await newNL().generate({
+              provider: "together-ai",
+              model: "totally-fake-model",
+              input: { text: "ping" },
+              disableTools: true,
+              credentials: { together: { apiKey: "test-key" } },
+            });
+          } catch (err) {
+            caught = err;
+          }
+          expect(caught instanceof InvalidModelError, "error class");
+          expectEq(
+            (caught as Error).message,
+            "[together-ai] together-ai model 'totally-fake-model' not found.",
+            "DEFAULT_ERROR_RULES's generic model-not-found message, unwrapped",
+          );
+        },
+      );
+    },
+  );
 
-    // Explicit pin on construction itself succeeding — not just an implicit
-    // pass-through of the surrounding try/catch. Regression guard for the
-    // class-initialization-order defect fixed in this task: `this.entry`
-    // was read (as `this.entry.modelEnvVar`) by a base-constructor-invoked
-    // override before the subclass had assigned it, so a broken fix throws
-    // here specifically, not somewhere generic.
-    expect(
-      provider instanceof ConfiguredOpenAICompatProvider,
-      "construction succeeds and returns a ConfiguredOpenAICompatProvider instance",
-    );
+  await runCase(
+    `${section}: unmatched error falls through to classifyProviderError's built-in fallback`,
+    async () => {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: TG_URL,
+            // 422 matches no DEFAULT_ERROR_RULES pattern (no digit-based
+            // rule fires on this message) but IS a non-retryable HTTP
+            // status, so the resulting ProviderError still escapes
+            // unwrapped — see NON_RETRYABLE_HTTP_STATUS_CODES.
+            respond: errResp(
+              422,
+              "unprocessable content: weird payload shape",
+              "invalid_request_error",
+            ),
+          },
+        ],
+        async () => {
+          let caught: unknown;
+          try {
+            await newNL().generate({
+              provider: "together-ai",
+              model: TG_MODEL,
+              input: { text: "ping" },
+              disableTools: true,
+              credentials: { together: { apiKey: "test-key" } },
+            });
+          } catch (err) {
+            caught = err;
+          }
+          expect(
+            caught instanceof ProviderError &&
+              !(caught instanceof AuthenticationError) &&
+              !(caught instanceof RateLimitError) &&
+              !(caught instanceof InvalidModelError) &&
+              !(caught instanceof NetworkError),
+            "error is exactly ProviderError, no rule's subclass",
+          );
+          expectEq(
+            (caught as Error).message,
+            "[together-ai] together-ai error: unprocessable content: weird payload shape",
+            "classifyProviderError's own built-in fallback message, unwrapped",
+          );
+        },
+      );
+    },
+  );
 
-    expectEq(
-      (provider as unknown as { providerName: string }).providerName,
-      "test-configured",
-      "getProviderName() delegates to entry.providerName",
-    );
-    expectEq(
-      (provider as unknown as { modelName: string }).modelName,
-      "test-model-default",
-      "getDefaultModel() delegates to entry.defaultModel (no env override set)",
-    );
+  await runCase(
+    `${section}: 429 maps to RateLimitError, wrapped by the single-provider fallback loop`,
+    async () => {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: TG_URL,
+            respond: errResp(429, "rate limit exceeded", "rate_limit_error"),
+          },
+        ],
+        async () => {
+          let caught: unknown;
+          try {
+            await newNL().generate({
+              provider: "together-ai",
+              model: TG_MODEL,
+              input: { text: "ping" },
+              disableTools: true,
+              credentials: { together: { apiKey: "test-key" } },
+            });
+          } catch (err) {
+            caught = err;
+          }
+          // RateLimitError is not in isNonRetryableProviderError's list, so
+          // directProviderGeneration's single-provider loop still exhausts
+          // and wraps it into a generic Error — the real DEFAULT_ERROR_RULES
+          // text survives as a substring of that wrapper's message.
+          expect(
+            !(caught instanceof RateLimitError) && caught instanceof Error,
+            "top-level class is the generic fallback Error, not RateLimitError directly",
+          );
+          expect(
+            (caught as Error).message.includes(
+              "[together-ai] together-ai rate limit exceeded. Please try again later.",
+            ),
+            "DEFAULT_ERROR_RULES's rate-limit message survives verbatim inside the wrapper",
+          );
+        },
+      );
+    },
+  );
 
-    // formatProviderError: authentication
-    const authErr = (
-      provider as unknown as { formatProviderError(e: unknown): Error }
-    )["formatProviderError"](new Error("Invalid API key: 401"));
-    expect(
-      authErr.constructor.name === "AuthenticationError",
-      `authentication rule maps to AuthenticationError (got ${authErr.constructor.name})`,
-    );
-
-    // formatProviderError: throttling (was "rate-limit rule maps to..." in
-    // the brief — reworded: "rate-limit" (hyphenated) matches envGuard's
-    // `rate_limit` SKIP pattern (`rate[ _-]?limit`), so a real failure here
-    // would be silently downgraded to a skip instead of a hard fail).
-    const rlErr = (
-      provider as unknown as { formatProviderError(e: unknown): Error }
-    )["formatProviderError"](new Error("rate limit exceeded, 429"));
-    expect(
-      rlErr.constructor.name === "RateLimitError",
-      `throttling rule maps to RateLimitError (got ${rlErr.constructor.name})`,
-    );
-
-    // formatProviderError: invalid-model
-    const modelErr = (
-      provider as unknown as { formatProviderError(e: unknown): Error }
-    )["formatProviderError"](new Error("model_not_found: no such model"));
-    expect(
-      modelErr.constructor.name === "InvalidModelError",
-      `invalid-model rule maps to InvalidModelError (got ${modelErr.constructor.name})`,
-    );
-
-    // formatProviderError: no rule matches, and fakeEntry.errorRules has no
-    // catch-all of its own — this exercises classifyProviderError's own
-    // built-in fallback (`new ProviderError(`${provider} error: ${message}`, provider)`)
-    const genErr = (
-      provider as unknown as { formatProviderError(e: unknown): Error }
-    )["formatProviderError"](new Error("some unrelated failure"));
-    expect(
-      genErr.constructor.name === "ProviderError",
-      `unmatched error falls through to classifyProviderError's built-in ProviderError fallback (got ${genErr.constructor.name})`,
-    );
-
-    // formatProviderError: TimeoutError special-cased to NetworkError
-    // regardless of catalog errorRules
-    const { TimeoutError } = await import("../dist/lib/utils/timeout.js");
-    const timeoutErr = (
-      provider as unknown as { formatProviderError(e: unknown): Error }
-    )["formatProviderError"](new TimeoutError("took too long"));
-    expect(
-      timeoutErr.constructor.name === "NetworkError",
-      `TimeoutError maps to NetworkError (got ${timeoutErr.constructor.name})`,
-    );
-
-    record(results, `${section}: hook delegation + error classification`, true);
-  } catch (err) {
-    record(
-      results,
-      `${section}: hook delegation + error classification`,
-      false,
-      err instanceof Error ? err.message : String(err),
-    );
-  }
+  await runCase(
+    `${section}: TimeoutError maps to the classifier's default NetworkError text (no override)`,
+    async () => {
+      await withMocks(
+        [{ method: "POST", url: TG_URL, respond: slowOkRoute(500, TG_MODEL) }],
+        async () => {
+          let caught: unknown;
+          try {
+            await newNL().generate({
+              provider: "together-ai",
+              model: TG_MODEL,
+              input: { text: "ping" },
+              disableTools: true,
+              timeout: 50,
+              credentials: { together: { apiKey: "test-key" } },
+            });
+          } catch (err) {
+            caught = err;
+          }
+          expect(
+            !(caught instanceof NetworkError) && caught instanceof Error,
+            "top-level class is the generic fallback Error, not NetworkError directly",
+          );
+          expect(
+            (caught as Error).message.includes(
+              "[together-ai] Request timed out: together-ai generate operation timed out after 50",
+            ),
+            "classifier's unmodified default timeout text survives inside the wrapper (no per-provider prefix)",
+          );
+        },
+      );
+    },
+  );
 }
 
 // ───────────────────────────────────────────────────────────────────────
-// Section: Groq's 3 pre-migration quirks, verified against the deleted
-// subclass's exact source (Task 7)
-//
-// Groq is the one catalog provider with genuine hand-written behavior
-// beyond auth+429 boilerplate: its formatProviderError() (a) intercepted
-// TimeoutError itself instead of falling through to
-// classifyProviderError()'s non-overridable TimeoutError -> NetworkError
-// default, (b) used a Groq-specific 401/auth message instead of
-// DEFAULT_ERROR_RULES's generic one, and (c) had a bespoke
-// model_decommissioned rule with a dynamic, model-name-interpolated
-// message. All three are asserted here against the EXACT strings recovered
-// from `git show origin/release:src/lib/providers/groq.ts` (byte-identical
-// to this branch's HEAD before groq.ts was deleted in this same commit) —
-// not against a loose regex, and not against the new code's own output.
-// The (a) and (b)/(c) rules are expressed as two different mechanisms: (a)
-// is OpenAICompatCatalogEntry.timeoutErrorClass, consulted before the
-// shared classifier ever runs; (b)/(c) are catalog-entry errorRules,
-// spread through classifyProviderError exactly like the old subclass's
-// custom rule array did (see openaiCompatCatalog.ts).
+// Section 4: Groq's pre-migration quirks — timeout override, bespoke auth
+// message, and model_decommissioned — verified end-to-end against the
+// exact strings recovered from `git show origin/release:src/lib/providers/
+// groq.ts` (byte-identical to this branch's HEAD before groq.ts was
+// deleted). Contrasted against xai (which sets no timeoutErrorClass) to
+// show the override really is Groq-only, not just a coincidence of one
+// provider's mock.
 // ───────────────────────────────────────────────────────────────────────
+
+const XAI_URL = "api.x.ai/v1/chat/completions";
+const XAI_MODEL = "grok-3";
 
 async function testGroqTimeoutErrorClassOverride(): Promise<void> {
   const section = "Groq pre-migration quirks";
-  try {
-    const { ConfiguredOpenAICompatProvider } =
-      await import("../dist/lib/providers/configuredOpenAICompat.js");
-    const { OPENAI_COMPAT_CATALOG } =
-      await import("../dist/lib/providers/openaiCompatCatalog.js");
-    const { TimeoutError } = await import("../dist/lib/utils/timeout.js");
+  setEnv("GROQ_API_KEY", undefined);
+  setEnv("XAI_API_KEY", undefined);
 
-    const groqEntry = OPENAI_COMPAT_CATALOG.find(
-      (e: { providerName: string }) => e.providerName === "groq",
-    );
-    if (!groqEntry) {
-      throw new Error("groq entry exists in the catalog");
-    }
+  await runCase(
+    `${section}: (a) TimeoutError -> Groq's bespoke ProviderError text, distinct from xai's default`,
+    async () => {
+      let groqCaught: unknown;
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: GROQ_URL,
+            respond: slowOkRoute(500, GROQ_MODEL),
+          },
+        ],
+        async () => {
+          try {
+            await newNL().generate({
+              provider: "groq",
+              model: GROQ_MODEL,
+              input: { text: "ping" },
+              disableTools: true,
+              timeout: 50,
+              credentials: { groq: { apiKey: "test-key" } },
+            });
+          } catch (err) {
+            groqCaught = err;
+          }
+        },
+      );
+      expect(groqCaught instanceof Error, "groq timeout still throws");
+      expect(
+        (groqCaught as Error).message.includes(
+          "[groq] Groq request timed out: groq generate operation timed out after 50",
+        ),
+        "groq's bespoke 'Groq request timed out: ...' text (the timeoutErrorClass override) survives inside the wrapper",
+      );
 
-    // An explicit key, not `undefined`: the 4th argument is the credentials
-    // override, and leaving it out makes resolveOpenAICompatConfig() fall
-    // through to validateApiKey(), which throws on any machine where
-    // GROQ_API_KEY is unset. This suite asserts error *classification*, so it
-    // must not depend on the developer's environment holding a real Groq key.
-    const provider = new ConfiguredOpenAICompatProvider(
-      groqEntry,
-      "llama-3.3-70b-versatile",
-      undefined,
-      { apiKey: "test-key" },
-    );
-    const formatProviderError = (
-      provider as unknown as { formatProviderError(e: unknown): Error }
-    )["formatProviderError"].bind(provider);
+      let xaiCaught: unknown;
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: XAI_URL,
+            respond: slowOkRoute(500, XAI_MODEL),
+          },
+        ],
+        async () => {
+          try {
+            await newNL().generate({
+              provider: "xai",
+              model: XAI_MODEL,
+              input: { text: "ping" },
+              disableTools: true,
+              timeout: 50,
+              credentials: { xai: { apiKey: "test-key" } },
+            });
+          } catch (err) {
+            xaiCaught = err;
+          }
+        },
+      );
+      expect(xaiCaught instanceof Error, "xai timeout still throws");
+      expect(
+        (xaiCaught as Error).message.includes(
+          "[xai] Request timed out: xai generate operation timed out after 50",
+        ) && !(xaiCaught as Error).message.includes("Xai request timed out"),
+        "xai gets the classifier's unmodified default text — no per-provider 'timed out' prefix, unlike groq",
+      );
+    },
+  );
 
-    // (a) TimeoutError -> plain ProviderError, not the classifier's default
-    // NetworkError. Old subclass: `new ProviderError(\`Groq request timed
-    // out: ${error.message}\`, "groq")`.
-    const timeoutErr = formatProviderError(
-      new TimeoutError(
-        "Request timeout after 5000ms",
-        5000,
-        "groq",
-        "generate",
-      ),
-    );
-    expect(
-      timeoutErr.constructor.name === "ProviderError",
-      `groq TimeoutError maps to ProviderError, not the classifier's default NetworkError (got ${timeoutErr.constructor.name})`,
-    );
-    expectEq(
-      timeoutErr.message,
-      "[groq] Groq request timed out: Request timeout after 5000ms",
-      "groq timeout message matches the pre-migration subclass verbatim",
-    );
+  await runCase(
+    `${section}: (b) 401 -> Groq's own message, not DEFAULT_ERROR_RULES's generic one`,
+    async () => {
+      let caught: unknown;
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: GROQ_URL,
+            respond: errResp(401, "invalid_api_key", "auth_error"),
+          },
+        ],
+        async () => {
+          try {
+            await newNL().generate({
+              provider: "groq",
+              model: GROQ_MODEL,
+              input: { text: "ping" },
+              disableTools: true,
+              credentials: { groq: { apiKey: "test-key" } },
+            });
+          } catch (err) {
+            caught = err;
+          }
+        },
+      );
+      expect(caught instanceof AuthenticationError, "error class");
+      expectEq(
+        (caught as Error).message,
+        "[groq] Invalid Groq API key. Check GROQ_API_KEY. Get one at https://console.groq.com/keys",
+        "groq's bespoke auth text, byte-identical to the deleted subclass",
+      );
+    },
+  );
 
-    // (b) 401/auth -> Groq's own message, not DEFAULT_ERROR_RULES's generic
-    // "Invalid ${provider} API key. Please check your credentials." Old
-    // subclass's exact string, reproduced verbatim below.
-    const authErr = formatProviderError(new Error("invalid_api_key"));
-    expectEq(
-      authErr.constructor.name,
-      "AuthenticationError",
-      "groq auth error maps to AuthenticationError",
-    );
-    expectEq(
-      authErr.message,
-      "[groq] Invalid Groq API key. Check GROQ_API_KEY. Get one at https://console.groq.com/keys",
-      "groq auth error message matches the pre-migration subclass's bespoke text, not DEFAULT_ERROR_RULES's generic one",
-    );
+  await runCase(
+    `${section}: (c) model_decommissioned -> InvalidModelError with the dynamic model-name message`,
+    async () => {
+      let caught: unknown;
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: GROQ_URL,
+            respond: errResp(
+              404,
+              "model_decommissioned",
+              "invalid_request_error",
+            ),
+          },
+        ],
+        async () => {
+          try {
+            await newNL().generate({
+              provider: "groq",
+              model: GROQ_MODEL,
+              input: { text: "ping" },
+              disableTools: true,
+              credentials: { groq: { apiKey: "test-key" } },
+            });
+          } catch (err) {
+            caught = err;
+          }
+        },
+      );
+      expect(caught instanceof InvalidModelError, "error class");
+      expectEq(
+        (caught as Error).message,
+        `[groq] Groq model '${GROQ_MODEL}' was decommissioned. Pick a current model from https://console.groq.com/docs/models.`,
+        "groq's bespoke decommissioned text, byte-identical to the deleted subclass, model name interpolated",
+      );
+    },
+  );
 
-    // (c) model_decommissioned -> InvalidModelError with a dynamic,
-    // model-name-interpolated message. Old subclass's exact template,
-    // reproduced verbatim below (modelName is the "llama-3.3-70b-versatile"
-    // this provider was constructed with, above).
-    const decommissionedErr = formatProviderError(
-      new Error("model_decommissioned"),
-    );
-    expectEq(
-      decommissionedErr.constructor.name,
-      "InvalidModelError",
-      "groq model_decommissioned error maps to InvalidModelError",
-    );
-    expectEq(
-      decommissionedErr.message,
-      "[groq] Groq model 'llama-3.3-70b-versatile' was decommissioned. Pick a current model from https://console.groq.com/docs/models.",
-      "groq model_decommissioned message matches the pre-migration subclass verbatim",
-    );
-
-    // Every other catalog entry must still get the classifier's unmodified
-    // default — this field is a single documented opt-out, not a pattern.
-    const others = (
-      OPENAI_COMPAT_CATALOG as Array<{
-        providerName: string;
-        timeoutErrorClass?: unknown;
-      }>
-    ).filter((e) => e.providerName !== "groq");
-    expect(
-      others.every((e) => e.timeoutErrorClass === undefined),
-      "no catalog entry other than groq sets timeoutErrorClass",
-    );
-
-    record(results, `${section}: timeout/auth/model_decommissioned`, true);
-  } catch (err) {
-    record(
-      results,
-      `${section}: timeout/auth/model_decommissioned`,
-      false,
-      err instanceof Error ? err.message : String(err),
-    );
-  }
+  await runCase(
+    `${section}: generic model_not_found (not decommissioned) still uses the shared default, not swallowed by the decommissioned rule`,
+    async () => {
+      let caught: unknown;
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: GROQ_URL,
+            respond: errResp(
+              404,
+              "model_not_found: no such model",
+              "invalid_request_error",
+            ),
+          },
+        ],
+        async () => {
+          try {
+            await newNL().generate({
+              provider: "groq",
+              model: GROQ_MODEL,
+              input: { text: "ping" },
+              disableTools: true,
+              credentials: { groq: { apiKey: "test-key" } },
+            });
+          } catch (err) {
+            caught = err;
+          }
+        },
+      );
+      expect(caught instanceof InvalidModelError, "error class");
+      expectEq(
+        (caught as Error).message,
+        `[groq] groq model '${GROQ_MODEL}' not found.`,
+        "DEFAULT_ERROR_RULES's generic not-found message — the decommissioned rule's narrower regex does not match this text",
+      );
+    },
+  );
 }
 
 // ───────────────────────────────────────────────────────────────────────
-// Section: OPENAI_COMPAT_CATALOG structural invariants (Task 4)
+// Section 5: catalog membership + alias routing.
+//
+// The original file asserted a handful of pure data-shape facts by
+// reading OPENAI_COMPAT_CATALOG directly: exactly 7 entries, no duplicate
+// providerName/alias across the whole array, every entry has exactly one
+// of (baseURLEnvVar+defaultBaseURL) or computedBaseURL, apiKeyEnvVar
+// equals configOptions.envVarName, errorRules is non-empty, and Mistral's
+// lone registryDefaultModelChecksEnvVar=false quirk. None of that is
+// reachable from outside the package — there is no public surface that
+// enumerates the catalog array — so per rule 15 it cannot be re-asserted
+// as-is without importing the module directly, which this file does not
+// do anywhere. Rather than drop this section, it is converted to what
+// *is* observable: every canonical provider name AND every alias in the
+// catalog actually routes to the right host and succeeds end-to-end
+// against a mock, using exactly the env var name the entry documents.
+//
+// This operationally subsumes two of the dropped invariants rather than
+// merely approximating them:
+//   - "apiKeyEnvVar matches configOptions.envVarName": if the two
+//     diverged, the env var this suite sets (named after apiKeyEnvVar,
+//     read from openaiCompatCatalog.ts) would not be the one
+//     validateApiKey() actually reads, and construction would fail with
+//     a missing-credential error instead of succeeding.
+//   - "no alias collisions": every alias below asserts its own distinct
+//     expected URL; a collision with another entry would route the
+//     request to the wrong host and fail the assertion.
+//
+// What genuinely could not be carried forward, and why — see
+// coverageDropped in this task's report, not silently reproduced here:
+//   - Catalog cardinality is exactly 7 (this suite can prove no fewer
+//     than these 7 names work, never that an 8th unexpected entry
+//     doesn't also exist — there is no public "list the catalog" call).
+//   - The XOR shape invariant on baseURLEnvVar/computedBaseURL, and
+//     "errorRules is non-empty" — pure structural facts about the raw
+//     entry object with no behavioral surface at all (every real entry
+//     always spreads DEFAULT_ERROR_RULES, so errorRules is never
+//     actually empty by construction; there is nothing a live call could
+//     observe to tell an empty array apart from a correct one it happens
+//     to fully override).
+//   - Mistral's registryDefaultModelChecksEnvVar=false quirk: this flows
+//     into ProviderFactory.registerProvider()'s defaultModel argument,
+//     consumed by registry/model-listing code paths, not by
+//     ConfiguredOpenAICompatProvider.getDefaultModel() (which always
+//     re-derives from entry.modelEnvVar/defaultModel regardless). No
+//     generate() call was found that observably differs based on this
+//     field.
 // ───────────────────────────────────────────────────────────────────────
 
+type AliasCheck = {
+  alias: string;
+  envVar: string;
+  extraEnv?: Record<string, string>;
+  urlMatch: string;
+  model: string;
+};
+
+const CATALOG_ALIAS_CHECKS: AliasCheck[] = [
+  {
+    alias: "groq",
+    envVar: "GROQ_API_KEY",
+    urlMatch: GROQ_URL,
+    model: GROQ_MODEL,
+  },
+  { alias: "xai", envVar: "XAI_API_KEY", urlMatch: XAI_URL, model: XAI_MODEL },
+  { alias: "grok", envVar: "XAI_API_KEY", urlMatch: XAI_URL, model: XAI_MODEL },
+  {
+    alias: "together-ai",
+    envVar: "TOGETHER_API_KEY",
+    urlMatch: TG_URL,
+    model: TG_MODEL,
+  },
+  {
+    alias: "together",
+    envVar: "TOGETHER_API_KEY",
+    urlMatch: TG_URL,
+    model: TG_MODEL,
+  },
+  {
+    alias: "fireworks",
+    envVar: "FIREWORKS_API_KEY",
+    urlMatch: "api.fireworks.ai/inference/v1/chat/completions",
+    model: "accounts/fireworks/models/llama-v3p3-70b-instruct",
+  },
+  {
+    alias: "perplexity",
+    envVar: "PERPLEXITY_API_KEY",
+    urlMatch: "api.perplexity.ai",
+    model: "sonar",
+  },
+  {
+    alias: "pplx",
+    envVar: "PERPLEXITY_API_KEY",
+    urlMatch: "api.perplexity.ai",
+    model: "sonar",
+  },
+  {
+    alias: "mistral",
+    envVar: "MISTRAL_API_KEY",
+    urlMatch: "api.mistral.ai/v1/chat/completions",
+    model: "mistral-small-2506",
+  },
+  {
+    alias: "cloudflare",
+    envVar: "CLOUDFLARE_API_KEY",
+    extraEnv: { CLOUDFLARE_ACCOUNT_ID: "acct-cf-primary" },
+    urlMatch: cfURL("acct-cf-primary"),
+    model: CF_MODEL,
+  },
+  {
+    alias: "workers-ai",
+    envVar: "CLOUDFLARE_API_KEY",
+    extraEnv: { CLOUDFLARE_ACCOUNT_ID: "acct-cf-workers" },
+    urlMatch: cfURL("acct-cf-workers"),
+    model: CF_MODEL,
+  },
+  {
+    alias: "cf-ai",
+    envVar: "CLOUDFLARE_API_KEY",
+    extraEnv: { CLOUDFLARE_ACCOUNT_ID: "acct-cf-cfai" },
+    urlMatch: cfURL("acct-cf-cfai"),
+    model: CF_MODEL,
+  },
+];
+
 async function testCatalogStructuralInvariants(): Promise<void> {
-  const section = "OPENAI_COMPAT_CATALOG";
-  try {
-    const { OPENAI_COMPAT_CATALOG } =
-      await import("../dist/lib/providers/openaiCompatCatalog.js");
+  const section = "OPENAI_COMPAT_CATALOG membership + alias routing";
 
-    expectEq(OPENAI_COMPAT_CATALOG.length, 7, "catalog has exactly 7 entries");
-
-    const providerNames = OPENAI_COMPAT_CATALOG.map(
-      (e: { providerName: string }) => e.providerName,
-    );
-    expectEq(
-      new Set(providerNames).size,
-      providerNames.length,
-      "providerName values are unique",
-    );
-    for (const expected of [
-      "groq",
-      "xai",
-      "together-ai",
-      "fireworks",
-      "perplexity",
-      "mistral",
-      "cloudflare",
-    ]) {
-      expect(
-        providerNames.includes(expected),
-        `catalog includes providerName '${expected}'`,
-      );
-    }
-
-    const allAliases = OPENAI_COMPAT_CATALOG.flatMap(
-      (e: { aliases: string[] }) => e.aliases,
-    );
-    expectEq(
-      new Set(allAliases).size,
-      allAliases.length,
-      "no alias collisions across catalog entries",
-    );
-
-    for (const entry of OPENAI_COMPAT_CATALOG as Array<
-      Record<string, unknown>
-    >) {
-      expect(
-        typeof entry.apiKeyEnvVar === "string" && entry.apiKeyEnvVar.length > 0,
-        `${String(entry.providerName)}: apiKeyEnvVar is a non-empty string`,
-      );
-      // apiKeyEnvVar is declarative; validateApiKey reads
-      // configOptions.envVarName. Two fields naming one variable are only
-      // safe while they cannot disagree.
-      const configOptions = entry.configOptions as
-        | { envVarName?: string }
-        | undefined;
-      expectEq(
-        configOptions?.envVarName,
-        entry.apiKeyEnvVar,
-        `${String(entry.providerName)}: apiKeyEnvVar matches the env var actually read`,
-      );
-      expect(
-        Boolean(entry.baseURLEnvVar && entry.defaultBaseURL) !==
-          Boolean(entry.computedBaseURL),
-        `${String(entry.providerName)}: has exactly one of (baseURLEnvVar+defaultBaseURL) or computedBaseURL`,
-      );
-      expect(
-        Array.isArray(entry.errorRules) &&
-          (entry.errorRules as unknown[]).length > 0,
-        `${String(entry.providerName)}: errorRules is a non-empty array`,
-      );
-    }
-
-    // The one documented quirk: Mistral is the only entry whose registry
-    // default does not check its model env var.
-    const mistral = OPENAI_COMPAT_CATALOG.find(
-      (e: { providerName: string }) => e.providerName === "mistral",
-    ) as { registryDefaultModelChecksEnvVar: boolean } | undefined;
-    expect(!!mistral, "mistral entry exists");
-    expectEq(
-      mistral?.registryDefaultModelChecksEnvVar,
-      false,
-      "mistral.registryDefaultModelChecksEnvVar is false (preserved quirk)",
-    );
-    const nonMistral = (
-      OPENAI_COMPAT_CATALOG as Array<{
-        providerName: string;
-        registryDefaultModelChecksEnvVar: boolean;
-      }>
-    ).filter((e) => e.providerName !== "mistral");
-    expect(
-      nonMistral.every((e) => e.registryDefaultModelChecksEnvVar === true),
-      "every non-mistral entry has registryDefaultModelChecksEnvVar true",
-    );
-
-    record(results, `${section}: structural invariants`, true);
-  } catch (err) {
-    record(
-      results,
-      `${section}: structural invariants`,
-      false,
-      err instanceof Error ? err.message : String(err),
+  for (const check of CATALOG_ALIAS_CHECKS) {
+    await runCase(
+      `${section}: '${check.alias}' routes to its own host and succeeds`,
+      async () => {
+        setEnv(check.envVar, `test-fake-${check.alias}-credential`);
+        if (check.extraEnv) {
+          for (const [k, v] of Object.entries(check.extraEnv)) {
+            setEnv(k, v);
+          }
+        }
+        await withMocks(
+          [
+            {
+              method: "POST",
+              url: check.urlMatch,
+              respond: okResp(check.model),
+            },
+          ],
+          async ({ calls }) => {
+            const result = await newNL().generate({
+              provider: check.alias,
+              model: check.model,
+              input: { text: "ping" },
+              disableTools: true,
+            });
+            expect(calls.length > 0, "request captured");
+            expect(
+              calls[0].url.includes(check.urlMatch),
+              `request URL matches this alias's expected host (got ${calls[0].url.split("?")[0]})`,
+            );
+            expect(
+              (result.content ?? "").toLowerCase().includes("pong"),
+              "response parses into GenerateResult.content",
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -641,7 +1064,8 @@ async function testCatalogStructuralInvariants(): Promise<void> {
 // ───────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  console.log("=== OpenAI-Compat Catalog Suite ===");
+  console.log("=== OpenAI-Compat Catalog Suite (E2E) ===");
+  neutralizeCatalogEnv();
   try {
     await testResolveConfigPrecedence();
     await testResolveConfigComputedBaseURL();
