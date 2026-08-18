@@ -1097,6 +1097,12 @@ export type AuthCommandArgs = BaseCommandArgs & {
   config?: string;
   /** Email passed to `auth set-primary <email>` */
   email?: string;
+  /** Why an account is being disabled, recorded by `auth disable` */
+  reason?: string;
+  /** Subcommand verb for `auth cooldown <action>` */
+  action?: string;
+  /** `auth cooldown clear --all` */
+  all?: boolean;
   /** Yargs positional arguments */
   _?: (string | number)[];
 };
@@ -1431,7 +1437,7 @@ export type ProviderSetupConfig = {
 // =============================================================================
 
 /** Providers supported by the `neurolink auth` command. */
-export type SupportedProvider = "anthropic";
+export type SupportedProvider = "anthropic" | "codex";
 
 // =============================================================================
 // AUTORESEARCH COMMAND (from cli/commands/autoresearch.ts)

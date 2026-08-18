@@ -6,7 +6,11 @@ import type {
   PersistedAccountCooldown,
 } from "../types/index.js";
 import { AsyncMutex } from "../utils/asyncMutex.js";
-import { ACCOUNT_COOLING_REASONS } from "./routingEvidence.js";
+import { logger } from "../utils/logger.js";
+import {
+  ACCOUNT_COOLING_REASONS,
+  MAX_COOLDOWN_MS_BY_REASON,
+} from "./routingEvidence.js";
 import { writeJsonSnapshotAtomically } from "./snapshotPersistence.js";
 
 const COOLDOWN_FILE = "account-cooldowns.json";
@@ -46,6 +50,39 @@ function isPersistedCooldown(
   );
 }
 
+/**
+ * Cap a persisted cooldown at what its reason can plausibly mean, measured from
+ * when it was written.
+ *
+ * Entries written before per-reason ceilings existed can hold a wildly
+ * out-of-range wait — a "session" cooldown running for days, from a single stale
+ * reset timestamp. Clamping on load heals those without operator action.
+ * Clamping rather than dropping keeps a legitimate long weekly cooldown intact.
+ */
+function sanitizePersistedCooldown(
+  accountKey: string,
+  entry: PersistedAccountCooldown,
+): PersistedAccountCooldown {
+  const ceiling = MAX_COOLDOWN_MS_BY_REASON[entry.reason];
+  if (ceiling === undefined) {
+    return entry;
+  }
+  const latest = entry.updatedAt + ceiling;
+  if (entry.coolingUntil <= latest) {
+    return entry;
+  }
+  // Announce it: an account silently parked far beyond what its reason can mean
+  // is exactly the condition that is hard to diagnose from the outside, and this
+  // runs once per process so it cannot become noise.
+  const hours = (ms: number): string => (ms / 3_600_000).toFixed(1);
+  logger.always(
+    `[proxy] cooldown clamp: ${accountKey} ${entry.reason} entry healed from ` +
+      `${hours(entry.coolingUntil - entry.updatedAt)}h to ` +
+      `${hours(ceiling)}h — the stored wait exceeded what "${entry.reason}" can mean`,
+  );
+  return { ...entry, coolingUntil: latest };
+}
+
 async function ensureAccountCooldownsLoaded(): Promise<void> {
   if (!cacheLoaded) {
     if (!cacheLoadPromise) {
@@ -55,10 +92,14 @@ async function ensureAccountCooldownsLoaded(): Promise<void> {
             await readFile(getCooldownFilePath(), "utf8"),
           ) as Record<string, unknown>;
           memoryCache = Object.fromEntries(
-            Object.entries(parsed).filter(
-              (entry): entry is [string, PersistedAccountCooldown] =>
+            Object.entries(parsed)
+              .filter((entry): entry is [string, PersistedAccountCooldown] =>
                 isPersistedCooldown(entry[1]),
-            ),
+              )
+              .map(([key, entry]) => [
+                key,
+                sanitizePersistedCooldown(key, entry),
+              ]),
           );
         } catch {
           memoryCache = {};

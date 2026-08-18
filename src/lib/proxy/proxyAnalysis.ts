@@ -133,7 +133,13 @@ function routingCandidateValue(
     "sessionStatus",
     "weeklyStatus",
   ];
-  const optionalNullableStringFields = ["fallbackStatus", "upgradePaths"];
+  const optionalNullableStringFields = [
+    "fallbackStatus",
+    "upgradePaths",
+    "scopedModel",
+    "scopedStatus",
+  ];
+  const optionalNullableNumberFields = ["scopedUsed", "scopedResetAt"];
   if (
     !stringValue(candidate.account) ||
     typeof candidate.accountType !== "string" ||
@@ -182,6 +188,7 @@ function routingCandidateValue(
       "lastRefreshAttemptAt",
       "lastRefreshSuccessAt",
       "nextRefreshEligibleAt",
+      ...optionalNullableNumberFields,
     ].some(
       (field) =>
         field in candidate &&
@@ -252,6 +259,10 @@ function routingCandidateValue(
     weeklyStatus: candidate.weeklyStatus as string | null,
     weeklyUsed: candidate.weeklyUsed as number | null,
     weeklyResetAt: candidate.weeklyResetAt as number | null,
+    scopedModel: candidate.scopedModel as string | null | undefined,
+    scopedStatus: candidate.scopedStatus as string | null | undefined,
+    scopedUsed: candidate.scopedUsed as number | null | undefined,
+    scopedResetAt: candidate.scopedResetAt as number | null | undefined,
   };
 }
 

@@ -417,20 +417,61 @@ neurolink auth refresh anthropic
 
 ### `neurolink auth cleanup`
 
-Remove expired and disabled accounts from the token store.
+Remove accounts from the token store whose credentials no longer work.
 
 ```bash
 neurolink auth cleanup           # Interactive: prompts before removing
 neurolink auth cleanup --force   # Remove without prompting
 ```
 
-### `neurolink auth enable`
+Only accounts the proxy gave up on are deleted — expired entries with no refresh
+token, and accounts disabled for `missing_refresh_token`, `refresh_invalid` or
+`refresh_failed`. An account you disabled yourself, or one blocked by an
+organization policy, still holds a valid login, so cleanup keeps it and tells you
+to use `auth enable` or `auth remove` instead.
 
-Re-enable a previously disabled account (e.g., one disabled after repeated refresh failures).
+### `neurolink auth enable` / `neurolink auth disable`
+
+Take an account out of the proxy pool, or put it back. Disabling keeps the
+credentials; the proxy re-reads the token store on every request, so it takes
+effect on the next one without a restart.
 
 ```bash
-neurolink auth enable work       # Re-enable the account labeled "work"
+neurolink auth disable anthropic:work --reason "org disabled oauth"
+neurolink auth enable anthropic:work
 ```
+
+The proxy also disables an account automatically when Anthropic refuses it on an
+organization entitlement policy (`403 permission_error`), after rotating the
+request to a healthy account. Re-enable it once an admin restores access.
+
+### `neurolink auth cooldown`
+
+Inspect or release the per-account rate-limit cooldowns the proxy persists.
+
+```bash
+neurolink auth cooldown list
+neurolink auth cooldown clear anthropic:work
+neurolink auth cooldown clear --all
+```
+
+A running proxy caches cooldowns for its process lifetime, so restart it for a
+clear to take effect on an instance that is already serving.
+
+### `neurolink auth overage`
+
+Show or set whether the pool may keep serving on paid extra usage once an
+account's subscription window is spent. Writes `routing.use-overage` to the proxy
+config, which a running proxy picks up automatically.
+
+```bash
+neurolink auth overage status    # also shows what Anthropic reports per account
+neurolink auth overage never     # stop at the subscription limit
+```
+
+Only `never` overrides the provider. Nothing here can enable extra usage that
+Anthropic reports as disabled — `status` names the reason when it is, for example
+`org_level_disabled`.
 
 ## Multi-Account Setup
 
@@ -461,19 +502,59 @@ When `routing.account-allowlist` is configured, this discovery happens only with
 
 Within the account pool, the proxy uses **fill-first** routing: it always tries the first non-cooling account and only switches on failure. This avoids unnecessary identity switches that could confuse Claude Code's session state.
 
+### Model-scoped weekly limits
+
+Some plans cap a specific model separately from the overall weekly window — a
+Fable-only weekly allowance, for instance. Anthropic reports that cap as its own
+header family (`anthropic-ratelimit-unified-7d_oi-*`), sent **only** on responses
+for the model it applies to, so the proxy learns about it from live traffic
+rather than needing a refresh.
+
+Routing treats a spent model-scoped cap as per-model, never per-account:
+
+- An account whose cap for the requested model is spent is skipped for **that
+  model only**. It stays fully available for every other model, and no cooldown
+  is set — cooling is account-wide and would wrongly withhold a healthy account.
+- Among accounts that do have headroom, the one closest to spending its
+  allowance is preferred, so the pool finishes an allowance rather than spreading
+  across all of them. This rung only applies when both candidates report a window
+  for the model.
+- If **every** account has spent the cap, the request is not attempted. The
+  client gets a `429` naming the model, the real reset time, and that other
+  models remain available — switch model, or add an account with headroom.
+- A scoped window older than the quota freshness budget is ignored, so stale or
+  mis-parsed data can never take the pool down. Routing falls back to attempting
+  the request.
+
+`neurolink auth list` shows any scoped window under its account, and
+`GET /limits` returns the full `windows[]` array.
+
 ### Cooldown and backoff
 
 When an account encounters an error, it enters a cooldown period based on the error type:
 
-| Failure                                                | Cooldown                                          | Behavior                                         |
-| ------------------------------------------------------ | ------------------------------------------------- | ------------------------------------------------ |
-| Authoritative unified, 5-hour, or 7-day rejection      | Upstream reset or `Retry-After`, capped at 8 days | Persist cooldown and rotate immediately          |
-| Transient burst 429                                    | Upstream delay, capped at 15 minutes              | At most 2 same-account retries, then rotate      |
-| Refresh credential rejection (`400`/`401`/`403`/`404`) | Disabled until explicit login                     | Rotate without retrying an invalid refresh token |
-| Refresh network, `429`, or `5xx`                       | 30 seconds to 5 minutes                           | Persist auth cooldown and rotate                 |
-| Upstream `5xx` or network error                        | Bounded same-account retries                      | Rotate after retry budget                        |
+| Failure                                                | Cooldown                                           | Behavior                                         |
+| ------------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------ |
+| Authoritative unified, 5-hour, or 7-day rejection      | Upstream reset or `Retry-After`, capped per reason | Persist cooldown and rotate immediately          |
+| Transient burst 429                                    | Upstream delay, capped at 15 minutes               | At most 2 same-account retries, then rotate      |
+| Refresh credential rejection (`400`/`401`/`403`/`404`) | Disabled until explicit login                      | Rotate without retrying an invalid refresh token |
+| Refresh network, `429`, or `5xx`                       | 30 seconds to 5 minutes                            | Persist auth cooldown and rotate                 |
+| Upstream `5xx` or network error                        | Bounded same-account retries                       | Rotate after retry budget                        |
 
 Cooldown updates are extend-only: a late concurrent response cannot shorten a longer known reset window.
+
+Each cooldown is also capped by what its reason can mean — a `session` cooldown
+describes a 5-hour window, so it can never run for days no matter what reset the
+upstream reports. The cap is applied when the cooldown is written and again when
+it is read back from disk, so an entry written by an older build heals itself on
+load and logs that it did:
+
+```
+[proxy] cooldown clamp: anthropic:work session entry healed from 206.0h to 5.3h — the stored wait exceeded what "session" can mean
+```
+
+Use `neurolink auth cooldown list` to see what is currently parked, and
+`neurolink auth cooldown clear <account>` to release one.
 
 ## Error Handling
 

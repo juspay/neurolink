@@ -308,6 +308,21 @@ export function validateProxyConfig(config: unknown): string[] {
       errors.push("routing.quota-routing must be a boolean");
     }
 
+    // Without this a typo (`use-overage: nevr`) loads cleanly and silently
+    // falls back to "auto" — the operator asked to block paid extra usage and
+    // gets provider-driven overage instead.
+    const rawUseOverage = routing["use-overage"] ?? routing.useOverage;
+    if (
+      rawUseOverage !== undefined &&
+      !["auto", "always", "never"].includes(
+        typeof rawUseOverage === "string"
+          ? rawUseOverage.trim().toLowerCase()
+          : "",
+      )
+    ) {
+      errors.push("routing.use-overage must be auto, always, or never");
+    }
+
     const rawAutoFallback = routing["auto-fallback"] ?? routing.autoFallback;
     const normalizedAutoFallback =
       typeof rawAutoFallback === "string"
@@ -549,6 +564,25 @@ function parseRoutingConfig(
     } else {
       logger.warn(
         `[proxy-config] Ignoring routing.quotaRouting: expected boolean, got ${typeof rawQuotaRouting}`,
+      );
+    }
+  }
+
+  const rawUseOverage = raw["use-overage"] ?? raw.useOverage;
+  if (rawUseOverage !== undefined) {
+    const normalized =
+      typeof rawUseOverage === "string"
+        ? rawUseOverage.trim().toLowerCase()
+        : "";
+    if (
+      normalized === "auto" ||
+      normalized === "always" ||
+      normalized === "never"
+    ) {
+      result.useOverage = normalized;
+    } else {
+      logger.warn(
+        `[proxy-config] Ignoring routing.useOverage: expected auto|always|never, got ${String(rawUseOverage)}`,
       );
     }
   }

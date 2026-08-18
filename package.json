@@ -112,6 +112,7 @@
     "test:credentials": "npx tsx test/continuous-test-suite-credentials.ts",
     "test:dynamic": "npx tsx test/continuous-test-suite-dynamic.ts",
     "test:proxy": "npx tsx test/continuous-test-suite-proxy.ts",
+    "test:codex": "npx tsx test/continuous-test-suite-codex.ts",
     "test:bugfixes": "npx tsx test/continuous-test-suite-bugfixes.ts",
     "test:json-e2e": "npx tsx test/continuous-test-suite-json-e2e.ts",
     "test:workflow": "npx tsx test/continuous-test-suite-workflow.ts",
