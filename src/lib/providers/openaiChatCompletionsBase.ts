@@ -677,28 +677,31 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             const apiErr = await buildAPIError(url, body, res);
             // One-shot 400 retry. The overflow corrector runs FIRST (it can
             // re-fit max_tokens from the provider's own numbers and also
-            // self-heals the runtime window registry); otherwise a subclass
-            // may strip a rejected field and return a modified body (e.g.
-            // NIM's chat_template / reasoning_budget). The retry runs under
-            // the SAME timeout controller as the first attempt, so the
-            // configured timeout caps the overall call — matching the
-            // streaming path, which reuses its composed signal for the retry.
+            // self-heals the runtime window registry); its output then feeds
+            // a subclass hook that may strip a rejected field (e.g. NIM's
+            // chat_template / reasoning_budget), so a body that needs BOTH
+            // fixes gets both — a plain `??` between the two would let
+            // whichever ran first silently win and drop the other's fix. The
+            // retry runs under the SAME timeout controller as the first
+            // attempt, so the configured timeout caps the overall call —
+            // matching the streaming path, which reuses its composed signal
+            // for the retry.
             const retryBody =
               res.status === 400
-                ? (correctBodyAfterContextOverflow(
-                    body,
-                    apiErr as Error & {
+                ? (() => {
+                    const typedErr = apiErr as Error & {
                       statusCode?: number;
                       responseBody?: string;
-                    },
-                  ) ??
-                  adjustBodyAfter400(
-                    body,
-                    apiErr as Error & {
-                      statusCode?: number;
-                      responseBody?: string;
-                    },
-                  ))
+                    };
+                    const overflowCorrected = correctBodyAfterContextOverflow(
+                      body,
+                      typedErr,
+                    );
+                    return (
+                      adjustBodyAfter400(overflowCorrected ?? body, typedErr) ??
+                      overflowCorrected
+                    );
+                  })()
                 : undefined;
             if (!retryBody) {
               throw apiErr;
@@ -1351,14 +1354,24 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         statusCode?: number;
         responseBody?: string;
       };
-      // Overflow corrector first (re-fits max_tokens from the provider's
-      // own numbers + self-heals the window registry), then the subclass
-      // hook (e.g. NIM strips chat_template / reasoning_budget when a model
-      // rejects them).
+      // Overflow corrector first (re-fits max_tokens from the provider's own
+      // numbers + self-heals the window registry); its output then feeds the
+      // subclass hook (e.g. NIM strips chat_template / reasoning_budget when
+      // a model rejects them), so a body needing BOTH fixes gets both — a
+      // plain `??` between the two would let whichever ran first silently
+      // win and drop the other's fix.
       const retryBody =
         apiErr.statusCode === 400
-          ? (this.correctBodyAfterContextOverflow(body, apiErr) ??
-            this.adjustBodyAfter400(body, apiErr))
+          ? (() => {
+              const overflowCorrected = this.correctBodyAfterContextOverflow(
+                body,
+                apiErr,
+              );
+              return (
+                this.adjustBodyAfter400(overflowCorrected ?? body, apiErr) ??
+                overflowCorrected
+              );
+            })()
           : undefined;
       if (!retryBody) {
         throw apiErr;
