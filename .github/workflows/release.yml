@@ -32,13 +32,9 @@ jobs:
           registry-url: https://registry.npmjs.org/
 
       - name: Install ffmpeg
-        uses: AnimMouse/setup-ffmpeg@v1
-        with:
-          # Pin to a known-good release, matching ci.yml. The unpinned default
-          # resolves to a version BtbN/FFmpeg-Builds has no Linux asset for, so
-          # the download 404s and fails the job at extract ("xz: (stdin): File
-          # format not recognized"). Revert once upstream publishes it.
-          version: "7.1"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Verify ffmpeg installation
         run: |
@@ -87,13 +83,9 @@ jobs:
           cache: "pnpm"
 
       - name: Install ffmpeg
-        uses: AnimMouse/setup-ffmpeg@v1
-        with:
-          # Pin to a known-good release, matching ci.yml. The unpinned default
-          # resolves to a version BtbN/FFmpeg-Builds has no Linux asset for, so
-          # the download 404s and fails the job at extract ("xz: (stdin): File
-          # format not recognized"). Revert once upstream publishes it.
-          version: "7.1"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Verify ffmpeg installation
         run: |
