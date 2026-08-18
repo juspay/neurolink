@@ -165,31 +165,64 @@ export function installMockFetch(routes: Route[]): MockFetchHandle {
     const call: CapturedCall = { method, url, headers, bodyText, bodyJson };
     calls.push(call);
 
-    for (const route of routes) {
-      const methodOk = !route.method || route.method.toUpperCase() === method;
-      const urlOk =
-        typeof route.url === "string"
-          ? url.includes(route.url)
-          : route.url.test(url);
-      if (methodOk && urlOk) {
-        const spec =
-          typeof route.respond === "function"
-            ? await route.respond(call)
-            : route.respond;
-        return buildResponse(spec);
+    const respond = async (): Promise<Response> => {
+      for (const route of routes) {
+        const methodOk = !route.method || route.method.toUpperCase() === method;
+        const urlOk =
+          typeof route.url === "string"
+            ? url.includes(route.url)
+            : route.url.test(url);
+        if (methodOk && urlOk) {
+          const spec =
+            typeof route.respond === "function"
+              ? await route.respond(call)
+              : route.respond;
+          return buildResponse(spec);
+        }
       }
-    }
 
-    throw new Error(
-      `[mockFetch] No route matched ${method} ${url}\n` +
-        `  Available routes:\n` +
-        routes
-          .map(
-            (r) =>
-              `    - ${r.method ?? "ANY"} ${r.url instanceof RegExp ? r.url.source : r.url}`,
-          )
-          .join("\n"),
-    );
+      throw new Error(
+        `[mockFetch] No route matched ${method} ${url}\n` +
+          `  Available routes:\n` +
+          routes
+            .map(
+              (r) =>
+                `    - ${r.method ?? "ANY"} ${r.url instanceof RegExp ? r.url.source : r.url}`,
+            )
+            .join("\n"),
+      );
+    };
+
+    // Real fetch rejects with an AbortError as soon as the caller's signal
+    // fires, regardless of how long the response takes to build. A route
+    // whose `respond` deliberately delays (simulating a slow upstream, e.g.
+    // to exercise a caller-side timeout) would otherwise resolve anyway,
+    // since nothing here was watching the signal.
+    const signal =
+      init?.signal ?? (input instanceof Request ? input.signal : undefined);
+    if (!signal) {
+      return respond();
+    }
+    if (signal.aborted) {
+      throw (
+        signal.reason ??
+        new DOMException("The operation was aborted", "AbortError")
+      );
+    }
+    return new Promise<Response>((resolve, reject) => {
+      const onAbort = (): void => {
+        reject(
+          signal.reason ??
+            new DOMException("The operation was aborted", "AbortError"),
+        );
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      respond()
+        .then(resolve, reject)
+        .finally(() => {
+          signal.removeEventListener("abort", onAbort);
+        });
+    });
   }) as typeof fetch;
 
   return {
