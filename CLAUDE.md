@@ -181,6 +181,42 @@ User input (text + files)
 | `src/lib/rag/ragIntegration.ts`                    | `prepareRAGTool()` — auto RAG setup for generate/stream            |
 | `src/cli/factories/commandFactory.ts`              | All CLI command options and flag definitions                       |
 | `src/lib/server/routes/agentRoutes.ts`             | HTTP server routes including `/api/agent/embed`                    |
+| `src/lib/server/routes/claudeProxyRoutes.ts`       | Anthropic pool engine — account routing, retry, SSE relay          |
+| `src/lib/server/routes/codexProxyRoutes.ts`        | Codex (ChatGPT) pool engine — `/backend-api/codex/responses`       |
+| `src/lib/auth/codexOAuth.ts`                       | Codex OAuth: `auth.json` import, refresh, account-id resolution    |
+
+### Proxy pool engines
+
+The proxy runs two independent subscription pool engines that share the token
+store and the cooldown/quota persistence layer:
+
+|                    | Anthropic (Claude)              | Codex (ChatGPT)                           |
+| ------------------ | ------------------------------- | ----------------------------------------- |
+| Inbound route      | `POST /v1/messages`             | `POST /backend-api/codex/responses`       |
+| Upstream           | `api.anthropic.com/v1/messages` | `chatgpt.com/backend-api/codex/responses` |
+| Wire format        | Anthropic Messages              | OpenAI Responses                          |
+| Token-store prefix | `anthropic:`                    | `codex:`                                  |
+| Quota windows      | unified 5h / 7d                 | primary / secondary                       |
+
+Both engines key **cooldowns** by the full account key. **Quota** is keyed by the
+full key on the Codex side but by the bare label (`foo`, not `anthropic:foo`) on
+the Anthropic side — a historical asymmetry, not a pattern to copy. Either way
+`codex:foo` cannot collide with an Anthropic entry, because no bare label
+contains a `:` prefix. Prefer the full key in new code; when reading quota for an
+Anthropic account you must use `account.label`.
+
+**Migrating the Anthropic side to full keys** (not done, deliberately): the bare
+label is persisted in `~/.neurolink/account-quotas.json` on every user's machine,
+so a change of key means either losing every stored snapshot — which blinds
+quota-aware routing until each account is observed again — or a one-time
+migration that rewrites `<label>` to `anthropic:<label>` on load and tolerates
+both shapes for a release. Until that is worth doing, treat the bare label as
+load-bearing for Anthropic quota and use the full key everywhere else.
+
+When adding a third provider, follow the Codex pattern: a new
+`<provider>OAuth.ts`, a `<provider>AccountUsage.ts` quota parser, and a
+`<provider>ProxyRoutes.ts` engine — do not modify the Anthropic hot path.
+See `docs/features/codex-proxy-support.md`.
 
 ---
 

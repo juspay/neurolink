@@ -37,6 +37,8 @@ import {
   getUnifiedRateLimitStatus,
   isQuotaOverageAvailable,
   loadAccountQuotas,
+  mergeQuotaSnapshot,
+  modelFamilyToken,
   parseQuotaHeaders,
   saveAccountQuota,
 } from "../../proxy/accountQuota.js";
@@ -47,6 +49,7 @@ import {
 } from "../../proxy/accountUsage.js";
 import { AccountQuotaRefreshCoordinator } from "../../proxy/accountQuotaRefreshCoordinator.js";
 import { ProviderTransportCoordinator } from "../../proxy/providerTransportCoordinator.js";
+import { MAX_COOLDOWN_MS_BY_REASON } from "../../proxy/routingEvidence.js";
 import {
   buildProxyLimitHeaders,
   summarizePoolHeadroom,
@@ -109,11 +112,15 @@ import type {
   AccountAdmissionLease,
   AccountAdmissionState,
   AccountCooldownPlan,
+  AccountCoolingReason,
   AccountQuota,
+  AccountQuotaWindow,
   AccountUsageFetchResult,
   AnthropicAttemptLogger,
   AnthropicAuthRetryResult,
+  AnthropicEntitlementFailure,
   AnthropicLoopState,
+  AnthropicScopedExhaustion,
   AnthropicNonOkResult,
   AnthropicSuccessResult,
   AnthropicUpstreamBodyBuilder,
@@ -138,6 +145,7 @@ import type {
   ProxyLimitsAccountResult,
   ProxyLimitsRefreshResponse,
   ProxyQuotaCooldownUpdate,
+  ProxyOveragePolicy,
   ProxyPassthroughAccount,
   ProxyQuotaSource,
   QueuedAccountAdmission,
@@ -760,12 +768,22 @@ function publishLimitHeaders(
   }
 }
 
-/** Clamp a cooldown target epoch-ms into [now+MIN, now+MAX]. */
-function clampCooldownUntil(untilMs: number, now: number): number {
-  return Math.min(
-    Math.max(untilMs, now + MIN_COOLDOWN_MS),
-    now + MAX_COOLDOWN_MS,
+/**
+ * Clamp a cooldown target epoch-ms into [now+MIN, now+MAX], additionally capped
+ * by what the reason can plausibly mean — a "session" cooldown describes a
+ * 5-hour window, so a stale or malformed reset must not be able to park the
+ * account for days under that label.
+ */
+function clampCooldownUntil(
+  untilMs: number,
+  now: number,
+  reason?: AccountCoolingReason,
+): number {
+  const ceiling = Math.min(
+    MAX_COOLDOWN_MS,
+    (reason && MAX_COOLDOWN_MS_BY_REASON[reason]) ?? MAX_COOLDOWN_MS,
   );
+  return Math.min(Math.max(untilMs, now + MIN_COOLDOWN_MS), now + ceiling);
 }
 
 /**
@@ -787,6 +805,7 @@ function planCooldownFor429(
   retryAfterMs: number,
   now: number,
   unifiedStatus: string | undefined = quota?.unifiedStatus,
+  policy: ProxyOveragePolicy = overagePolicy,
 ): AccountCooldownPlan {
   // Weekly exhaustion takes precedence — it's the longest, hardest ceiling.
   if (quota && quota.weeklyStatus === "rejected") {
@@ -795,18 +814,18 @@ function planCooldownFor429(
       (retryAfterMs > 0 ? now + retryAfterMs : now + DEFAULT_COOLING_PERIOD_MS);
     return {
       reason: "weekly",
-      coolingUntil: clampCooldownUntil(reset, now),
+      coolingUntil: clampCooldownUntil(reset, now, "weekly"),
       rotateImmediately: true,
     };
   }
-  const overageAvailable = isQuotaOverageAvailable(quota);
+  const overageAvailable = isOverageUsable(quota, policy);
   if (quota && quota.sessionStatus === "rejected" && !overageAvailable) {
     const reset =
       resetEpochToMs(quota.sessionResetAt, now) ??
       (retryAfterMs > 0 ? now + retryAfterMs : now + DEFAULT_COOLING_PERIOD_MS);
     return {
       reason: "session",
-      coolingUntil: clampCooldownUntil(reset, now),
+      coolingUntil: clampCooldownUntil(reset, now, "session"),
       rotateImmediately: true,
     };
   }
@@ -818,7 +837,7 @@ function planCooldownFor429(
       retryAfterMs > 0 ? now + retryAfterMs : now + DEFAULT_HARD_COOLDOWN_MS;
     return {
       reason: "unified",
-      coolingUntil: clampCooldownUntil(reset, now),
+      coolingUntil: clampCooldownUntil(reset, now, "unified"),
       rotateImmediately: true,
     };
   }
@@ -851,8 +870,9 @@ function reconcileCooldownFromQuota(
   state: RuntimeAccountState,
   quota: AccountQuota,
   now: number,
+  policy: ProxyOveragePolicy = overagePolicy,
 ): ProxyQuotaCooldownUpdate {
-  const overageAvailable = isQuotaOverageAvailable(quota);
+  const overageAvailable = isOverageUsable(quota, policy);
   let until: number | undefined;
   let reason: RuntimeAccountState["coolingReason"];
   if (quota.weeklyStatus === "rejected") {
@@ -891,7 +911,7 @@ function reconcileCooldownFromQuota(
   if (until === undefined) {
     return null;
   }
-  const clamped = clampCooldownUntil(until, now);
+  const clamped = clampCooldownUntil(until, now, reason);
   if (!state.coolingUntil || clamped > state.coolingUntil) {
     state.coolingUntil = clamped;
     state.coolingReason = reason;
@@ -983,7 +1003,7 @@ async function applyAccountUsageResult(
   if (quota.lastUpdated < (state.quota?.lastUpdated ?? 0)) {
     return state.quota ?? null;
   }
-  state.quota = quota;
+  state.quota = mergeQuotaSnapshot(state.quota, quota);
   const cooldownUpdate = reconcileCooldownFromQuota(state, quota, Date.now());
   if (cooldownUpdate?.kind === "cooled") {
     await saveAccountCooldown(
@@ -1227,6 +1247,53 @@ function getSessionResetToleranceMs(): number {
 }
 
 /**
+ * Operator policy on spending paid extra usage, refreshed from the runtime
+ * config snapshot on every request so a config edit applies mid-flight.
+ *
+ * Module-level rather than threaded through because every routing and cooldown
+ * decision consults it, and the value is uniform for a given proxy generation.
+ */
+let overagePolicy: ProxyOveragePolicy = "auto";
+
+/**
+ * Publish the operator's extra-usage policy for paths that cannot receive it
+ * explicitly. Callers that make a routing or cooldown decision take it as a
+ * parameter instead — see {@link isOverageUsable} — so a concurrent request or
+ * a hot config reload cannot change the answer mid-flight.
+ *
+ * `undefined` means "no runtime config on this path", which is not a request to
+ * clear an operator's setting, so the current value is kept.
+ */
+function setOveragePolicy(policy: ProxyOveragePolicy | undefined): void {
+  if (policy !== undefined) {
+    overagePolicy = policy;
+  }
+}
+
+/** The policy in force for a request that did not capture one explicitly. */
+function currentOveragePolicy(): ProxyOveragePolicy {
+  return overagePolicy;
+}
+
+/**
+ * Whether this account may keep serving on paid extra usage.
+ *
+ * The provider decides what is possible; the operator decides what is
+ * permitted. `never` therefore vetoes an enabled account, while `always` can
+ * only confirm a signal Anthropic already gives — nothing here can switch on
+ * extra usage the organization has disabled.
+ */
+function isOverageUsable(
+  quota: Parameters<typeof isQuotaOverageAvailable>[0],
+  policy: ProxyOveragePolicy = overagePolicy,
+): boolean {
+  if (policy === "never") {
+    return false;
+  }
+  return isQuotaOverageAvailable(quota);
+}
+
+/**
  * Derive the ordering signals for an account from its latest runtime quota.
  *
  * Reset freshening: a window whose reset epoch has already passed is treated
@@ -1235,11 +1302,199 @@ function getSessionResetToleranceMs(): number {
  * window Anthropic has since renewed. The snapshot itself is refreshed from
  * live response headers the next time the account serves a request.
  */
+/** Shortest scope token we will match on, so a degenerately broad scope name
+ *  (e.g. "Claude") cannot silently apply a per-model cap to every model. */
+const MIN_SCOPE_TOKEN_LENGTH = 4;
+
+function normalizeModelToken(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * The distinguishing part of a scope display name. The shared vendor prefix is
+ * dropped so a window scoped to plain "Claude" collapses to "" and is rejected
+ * by the length guard rather than matching every Claude model.
+ */
+function scopeMatchToken(scopeModel: string): string {
+  const normalized = normalizeModelToken(scopeModel);
+  return normalized.startsWith("claude") ? normalized.slice(6) : normalized;
+}
+
+/**
+ * How well a window's scope identifies the requested model, or null when it does
+ * not apply. Higher wins; an exact wire-id agreement is unambiguous and so
+ * outranks every display-name match.
+ */
+function scopeMatchScore(
+  window: AccountQuotaWindow,
+  normalizedModel: string,
+  requestedFamily: string,
+): number | null {
+  if (
+    window.scopeModelId &&
+    normalizeModelToken(modelFamilyToken(window.scopeModelId)) ===
+      requestedFamily
+  ) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  if (!window.scopeModel) {
+    return null;
+  }
+  const scopeToken = scopeMatchToken(window.scopeModel);
+  if (
+    scopeToken.length < MIN_SCOPE_TOKEN_LENGTH ||
+    !normalizedModel.includes(scopeToken)
+  ) {
+    return null;
+  }
+  return scopeToken.length;
+}
+
+/**
+ * When a scoped window was last observed. Falls back through the usage-API
+ * sweep timestamp to the flat snapshot time.
+ *
+ * Needed because the flat fields refresh on every response while `windows` only
+ * changes when the served model has a scoped cap — so a days-old scoped window
+ * rides along on a `lastUpdated` from seconds ago and looks current.
+ */
+function scopedWindowObservedAt(
+  quota: AccountQuota,
+  window: AccountQuotaWindow,
+): number {
+  return window.updatedAt ?? quota.windowsUpdatedAt ?? quota.lastUpdated;
+}
+
+/**
+ * Find the model-scoped quota window that applies to the requested model.
+ *
+ * Two sources describe the same cap differently: response headers carry the wire
+ * id of the model just served, while the usage API reports a DISPLAY name
+ * ("Fable", "Claude Opus 4.6"). So an exact wire-id match is tried first and
+ * display-name containment over alphanumeric-normalized forms is the fallback.
+ * Among equally specific matches the freshest observation wins, which favours
+ * the continuously-updated header window over a manually-refreshed one.
+ *
+ * Returns null whenever the account reports no applicable, still-fresh scoped
+ * cap — the common case.
+ */
+function matchScopedQuotaWindow(
+  quota: AccountQuota | undefined,
+  requestedModel: string | undefined,
+  now: number = Date.now(),
+): AccountQuotaWindow | null {
+  if (!quota?.windows?.length || !requestedModel) {
+    return null;
+  }
+  const normalizedModel = normalizeModelToken(requestedModel);
+  if (!normalizedModel) {
+    return null;
+  }
+  const requestedFamily = normalizeModelToken(modelFamilyToken(requestedModel));
+  let best: AccountQuotaWindow | null = null;
+  let bestScore = -1;
+  let bestObservedAt = -1;
+  for (const window of quota.windows) {
+    // `isActive` marks which window the provider considers binding right now,
+    // not whether the cap applies — a scoped cap reads as inactive until it is
+    // the tightest constraint, which is far too late to route around it.
+    if (
+      now - scopedWindowObservedAt(quota, window) >
+      QUOTA_SNAPSHOT_FRESHNESS_MS
+    ) {
+      continue;
+    }
+    const score = scopeMatchScore(window, normalizedModel, requestedFamily);
+    if (score === null) {
+      continue;
+    }
+    const observedAt = scopedWindowObservedAt(quota, window);
+    if (
+      score > bestScore ||
+      (score === bestScore && observedAt > bestObservedAt)
+    ) {
+      best = window;
+      bestScore = score;
+      bestObservedAt = observedAt;
+    }
+  }
+  return best;
+}
+
+/**
+ * Split a candidate set by whether each account can still serve the requested
+ * model under its model-scoped cap.
+ *
+ * An account is scoped out only on evidence strong enough to act on: a fresh
+ * window, a reset that is actually ticking, a rejected/spent reading, and no
+ * paid extra usage to absorb the overflow. Anything weaker leaves the account
+ * eligible — a stale or mis-parsed window must never be able to empty the pool.
+ *
+ * `exhaustion` is populated only when every candidate is scoped out AND the
+ * evidence is trustworthy, which is what lets the caller report "switch model"
+ * instead of a generic rate limit.
+ */
+function evaluateScopedExhaustion(
+  accounts: ProxyPassthroughAccount[],
+  requestedModel: string | undefined,
+  now: number = Date.now(),
+  policy: ProxyOveragePolicy = overagePolicy,
+): {
+  eligible: ProxyPassthroughAccount[];
+  exhaustion: AnthropicScopedExhaustion | null;
+} {
+  if (!requestedModel || accounts.length === 0) {
+    return { eligible: accounts, exhaustion: null };
+  }
+  const eligible: ProxyPassthroughAccount[] = [];
+  const exhausted: { label: string; window: AccountQuotaWindow }[] = [];
+  let overageDisabledReason: string | undefined;
+  for (const account of accounts) {
+    const quota = accountRuntimeState.get(account.key)?.quota;
+    const window = matchScopedQuotaWindow(quota, requestedModel, now);
+    const reset = window ? resetEpochToMs(window.resetsAt, now) : undefined;
+    const spent =
+      window !== null &&
+      reset !== undefined &&
+      ((window.status ?? "").trim().toLowerCase() === "rejected" ||
+        (window.used ?? 0) >= 1) &&
+      !isOverageUsable(quota, policy);
+    if (!spent || !window) {
+      eligible.push(account);
+      continue;
+    }
+    exhausted.push({ label: account.label, window });
+    overageDisabledReason ??= quota?.overageDisabledReason;
+  }
+  if (eligible.length > 0 || exhausted.length === 0) {
+    return { eligible, exhaustion: null };
+  }
+  const earliestResetMs = Math.min(
+    ...exhausted.map(
+      (entry) =>
+        resetEpochToMs(entry.window.resetsAt, now) ?? Number.POSITIVE_INFINITY,
+    ),
+  );
+  return {
+    eligible,
+    exhaustion: {
+      model: requestedModel,
+      scopeModel:
+        exhausted[0]?.window.scopeModel ?? modelFamilyToken(requestedModel),
+      earliestResetMs,
+      accounts: exhausted.map((entry) => entry.label),
+      ...(overageDisabledReason ? { overageDisabledReason } : {}),
+    },
+  };
+}
+
 function accountSortMetrics(
   accountKey: string,
   now: number,
   sessionSoftLimit: number,
   sessionResetToleranceMs: number,
+  requestedModel?: string,
+  policy: ProxyOveragePolicy = overagePolicy,
 ): ProxyAccountSortMetrics {
   const st = accountRuntimeState.get(accountKey);
   const q = st?.quota;
@@ -1301,7 +1556,9 @@ function accountSortMetrics(
       ? (routingQuota.weeklyStatus ?? "unknown")
       : "allowed"
     : null;
-  const overageEligible = isQuotaOverageAvailable(routingQuota);
+  // isOverageUsable layers the operator's routing.use-overage policy over the
+  // provider signal isQuotaOverageAvailable reads.
+  const overageEligible = isOverageUsable(routingQuota, policy);
   const hardSaturated =
     !overageEligible &&
     (sessionStatus === "rejected" ||
@@ -1317,9 +1574,47 @@ function accountSortMetrics(
     sessionTicking &&
     (sessionUsed ?? 0) >= sessionSoftLimit;
   const saturated = hardSaturated || softSaturated;
+  // Model-scoped weekly cap for the model this request actually asks for.
+  // Reset-freshened exactly like session/weekly: a window whose reset has
+  // passed reads as renewed, never as spent.
+  const scopedWindow = matchScopedQuotaWindow(
+    routingQuota,
+    requestedModel,
+    now,
+  );
+  const scopedReset = scopedWindow
+    ? resetEpochToMs(scopedWindow.resetsAt, now)
+    : undefined;
+  const scopedTicking = scopedReset !== undefined;
+  const scopedUsed = scopedWindow
+    ? scopedTicking
+      ? scopedWindow.used
+      : 0
+    : null;
+  const scopedStatus = scopedWindow
+    ? scopedTicking
+      ? (scopedWindow.status ?? "unknown")
+      : "allowed"
+    : null;
+  const scopedSaturated =
+    !quotaStale && scopedTicking && (scopedUsed ?? 0) >= sessionSoftLimit;
   return {
-    usable: !coolingActive && !hardSaturated,
+    // A rejected model-scoped window means this account cannot serve THIS
+    // model, even though it may be perfectly healthy for others. Excluding it
+    // here only affects ordering — the real gate is evaluateScopedExhaustion,
+    // and neither cools the account, which would wrongly withhold it from
+    // every other model.
+    usable:
+      !coolingActive &&
+      !hardSaturated &&
+      (scopedStatus !== "rejected" || overageEligible),
     saturated,
+    scopedModel: scopedWindow?.scopeModel ?? null,
+    scopedStatus,
+    scopedUsed,
+    scopedReset: scopedReset ?? Number.POSITIVE_INFINITY,
+    scopedUsedForSort: scopedUsed ?? -1,
+    scopedSaturated,
     hasQuota: !!q,
     quotaEvidenceRank:
       quotaFreshness === "fresh" || quotaFreshness === "stale_known"
@@ -1399,6 +1694,12 @@ function compareAccountRoutingFactors(
   if (ma.saturated !== mb.saturated) {
     return [ma.saturated ? 1 : -1, "session_headroom"];
   }
+  // Per-model headroom, after overall session capacity: an account whose cap
+  // for THIS model is nearly spent is demoted even when its 5h/7d are healthy.
+  // No-op when neither account reports a scoped window for the model.
+  if (ma.scopedSaturated !== mb.scopedSaturated) {
+    return [ma.scopedSaturated ? 1 : -1, "scoped_headroom"];
+  }
   if (ma.saturated && mb.saturated) {
     if (ma.sessionResetBucket !== mb.sessionResetBucket) {
       return [ma.sessionResetBucket - mb.sessionResetBucket, "session_reset"];
@@ -1413,6 +1714,21 @@ function compareAccountRoutingFactors(
     if (ma.sessionResetBucket !== mb.sessionResetBucket) {
       return [ma.sessionResetBucket - mb.sessionResetBucket, "session_reset"];
     }
+  }
+  // Fill-first within the per-model allowance: finish off the account closest
+  // to spending its cap for this model before opening a fresher one. Ranked
+  // above overall weekly utilization because it is the tighter constraint.
+  // Both sides must actually report a scoped window. Comparing a real
+  // utilization against the "absent" sentinel would rank the account that has a
+  // window above one that does not — and since only the account serving a model
+  // gets that model's window, it would funnel all of a model's traffic onto
+  // whichever account happened to serve it first.
+  if (
+    ma.scopedUsed !== null &&
+    mb.scopedUsed !== null &&
+    ma.scopedUsedForSort !== mb.scopedUsedForSort
+  ) {
+    return [mb.scopedUsedForSort - ma.scopedUsedForSort, "scoped_utilization"];
   }
   if (ma.weeklyUsedForSort !== mb.weeklyUsedForSort) {
     return [mb.weeklyUsedForSort - ma.weeklyUsedForSort, "weekly_utilization"];
@@ -1429,6 +1745,7 @@ function orderAccountsByQuotaWithMetrics(
   primaryKey: string | undefined,
   sessionSoftLimit: number,
   sessionResetToleranceMs: number,
+  requestedModel?: string,
 ): {
   orderedAccounts: ProxyPassthroughAccount[];
   metricsByKey: Map<string, ProxyAccountSortMetrics>;
@@ -1441,6 +1758,7 @@ function orderAccountsByQuotaWithMetrics(
         now,
         sessionSoftLimit,
         sessionResetToleranceMs,
+        requestedModel,
       ),
     ]),
   );
@@ -1482,6 +1800,7 @@ function orderAccountsByQuota(
   primaryKey: string | undefined,
   sessionSoftLimit: number = getSessionSoftLimit(),
   sessionResetToleranceMs: number = getSessionResetToleranceMs(),
+  requestedModel?: string,
 ): ProxyPassthroughAccount[] {
   return orderAccountsByQuotaWithMetrics(
     accounts,
@@ -1489,6 +1808,7 @@ function orderAccountsByQuota(
     primaryKey,
     sessionSoftLimit,
     sessionResetToleranceMs,
+    requestedModel,
   ).orderedAccounts;
 }
 
@@ -1674,6 +1994,12 @@ function buildRoutingDecision(args: {
       weeklyResetAt: Number.isFinite(metrics.weeklyReset)
         ? metrics.weeklyReset
         : null,
+      scopedModel: metrics.scopedModel,
+      scopedStatus: metrics.scopedStatus,
+      scopedUsed: metrics.scopedUsed,
+      scopedResetAt: Number.isFinite(metrics.scopedReset)
+        ? metrics.scopedReset
+        : null,
     });
   }
   const initialAccount = orderedAccounts[0];
@@ -1726,6 +2052,7 @@ function selectClaudeProxyAccountOrder(args: {
   quotaRoutingEnabled: boolean;
   sessionSoftLimit: number;
   sessionResetToleranceMs: number;
+  requestedModel?: string;
   setRoutingDecision: (decision: ProxyAccountRoutingDecision) => void;
 }): {
   orderedAccounts: ProxyPassthroughAccount[];
@@ -1738,6 +2065,7 @@ function selectClaudeProxyAccountOrder(args: {
     quotaRoutingEnabled,
     sessionSoftLimit,
     sessionResetToleranceMs,
+    requestedModel,
     setRoutingDecision,
   } = args;
   let orderedAccounts = [...enabledAccounts];
@@ -1760,6 +2088,7 @@ function selectClaudeProxyAccountOrder(args: {
       primaryAccountKey,
       sessionSoftLimit,
       sessionResetToleranceMs,
+      requestedModel,
     );
     orderedAccounts = quotaOrder.orderedAccounts;
     metricsByKey = quotaOrder.metricsByKey;
@@ -1800,6 +2129,7 @@ function selectClaudeProxyAccountOrder(args: {
           evaluatedAt,
           sessionSoftLimit,
           sessionResetToleranceMs,
+          requestedModel,
         ),
       ]),
     );
@@ -2585,7 +2915,9 @@ async function handleClaudePassthroughRequest(args: {
   // to report — but the upstream quota headers are still the caller's real
   // limits. Published before the ok/non-ok split so a 429 carries them too.
   {
-    const passthroughQuota = parseQuotaHeaders(response.headers);
+    const passthroughQuota = parseQuotaHeaders(response.headers, {
+      model: body.model,
+    });
     publishLimitHeaders(ctx, {
       upstreamHeaders: response.headers,
       quota: passthroughQuota,
@@ -3158,6 +3490,11 @@ async function loadClaudeProxyAccounts(args: {
   }
 
   const compoundKeys = await tokenStore.listByPrefix("anthropic:");
+  // Tracked so an empty pool can name the real cause: "every account is
+  // entitlement-blocked" is a different problem from "no credentials".
+  const entitlementBlockedLabels: string[] = [];
+  let skippedDisabledCount = 0;
+  let skippedForOtherReasons = 0;
   for (const key of compoundKeys) {
     if (!isAccountAllowed(key, accountAllowlist)) {
       logger.debug(
@@ -3184,12 +3521,17 @@ async function loadClaudeProxyAccounts(args: {
           `[proxy] skipping disabled account=${key.split(":")[1] ?? key}`,
         );
         existingState.permanentlyDisabled = true;
+        if (disabledReason === "entitlement_blocked") {
+          entitlementBlockedLabels.push(key.split(":")[1] ?? key);
+        }
+        skippedDisabledCount += 1;
         continue;
       }
     }
 
     const tokens = await tokenStore.loadTokens(key);
     if (!tokens) {
+      skippedForOtherReasons += 1;
       continue;
     }
 
@@ -3351,6 +3693,30 @@ async function loadClaudeProxyAccounts(args: {
   }
 
   if (accounts.length === 0) {
+    // Once every account has been disabled on entitlement the loop never runs,
+    // so this is the only place the client can learn why. A flat 401 here would
+    // send the user to re-authenticate, which cannot fix an org policy.
+    if (
+      entitlementBlockedLabels.length > 0 &&
+      entitlementBlockedLabels.length === skippedDisabledCount &&
+      skippedForOtherReasons === 0
+    ) {
+      const entitlementMessage = buildEntitlementErrorMessage({
+        status: 403,
+        accounts: entitlementBlockedLabels,
+        message: "OAuth authentication is not allowed for this organization.",
+        errorCode: "oauth_not_allowed_for_organization",
+      });
+      tracer?.setError("permission_error", entitlementMessage);
+      tracer?.end(403, Date.now() - requestStartTime);
+      return {
+        response: buildLoggedClaudeError(
+          403,
+          entitlementMessage,
+          "permission_error",
+        ),
+      };
+    }
     const noCredentialsMessage = accountAllowlist
       ? "No allowed Anthropic credentials are currently available"
       : compoundKeys.length > 0
@@ -3388,6 +3754,7 @@ async function loadClaudeProxyAccounts(args: {
     quotaRoutingEnabled,
     sessionSoftLimit,
     sessionResetToleranceMs,
+    requestedModel: typeof body.model === "string" ? body.model : undefined,
     setRoutingDecision,
   });
   if (
@@ -3904,6 +4271,106 @@ async function tryAutoClaudeFallback(args: {
   }
 }
 
+/** Human-readable list that stays short when the pool is large. */
+function joinAccountLabels(labels: string[], max = 5): string {
+  const unique = [...new Set(labels)];
+  if (unique.length <= max) {
+    return unique.join(", ");
+  }
+  return `${unique.slice(0, max).join(", ")} and ${unique.length - max} more`;
+}
+
+/**
+ * The client-facing text for "every account is blocked by an organization
+ * entitlement policy". Names the accounts and the remedy, because the upstream
+ * message alone ("OAuth authentication is currently not allowed…") gives no
+ * indication that a pool was involved or which credential to fix.
+ */
+function buildEntitlementErrorMessage(
+  failure: AnthropicEntitlementFailure,
+): string {
+  const count = new Set(failure.accounts).size;
+  const code = failure.errorCode ? ` (${failure.errorCode})` : "";
+  return (
+    `All ${count} Anthropic account${count === 1 ? "" : "s"} are blocked by an ` +
+    `organization entitlement policy${code}. Accounts: ${joinAccountLabels(
+      failure.accounts,
+    )}. Upstream: "${failure.message}". Ask an organization admin to re-enable ` +
+    `Claude Code OAuth access, then run: neurolink auth enable anthropic:<account>.`
+  );
+}
+
+/** Name the subscription window a set of cooldowns is waiting on. */
+function describeCoolingWindow(states: RuntimeAccountState[]): string {
+  const reasons = new Set(states.map((state) => state.coolingReason));
+  if (reasons.size === 1) {
+    switch ([...reasons][0]) {
+      case "session":
+        return "5-hour subscription window";
+      case "weekly":
+        return "7-day subscription window";
+      case "unified":
+        return "subscription limit";
+      case "transient":
+        return "upstream burst limit";
+      default:
+        break;
+    }
+  }
+  return "upstream rate limits";
+}
+
+/**
+ * The provider's stated reason that paid extra usage is unavailable, taken from
+ * the first account that reports one. Anthropic sends this on every response
+ * (e.g. "org_level_disabled"); without it an exhausted pool looks like a proxy
+ * failure rather than a billing policy.
+ */
+function findOverageDisabledReason(
+  accounts: ProxyPassthroughAccount[],
+): string | undefined {
+  for (const account of accounts) {
+    const quota = accountRuntimeState.get(account.key)?.quota;
+    if (
+      quota?.overageDisabledReason &&
+      quota.overageStatus?.trim().toLowerCase() !== "allowed"
+    ) {
+      return quota.overageDisabledReason;
+    }
+  }
+  return undefined;
+}
+
+/** Suffix explaining why paid overage cannot absorb an exhausted window. */
+function buildOverageUnavailableSuffix(reason: string | undefined): string {
+  if (!reason) {
+    return "";
+  }
+  return (
+    ` Paid extra usage is unavailable for this organization (${reason}), so ` +
+    `there is no additional capacity before the window resets.`
+  );
+}
+
+/**
+ * The client-facing text for "every account has spent its model-scoped cap".
+ * Distinct from a normal rate limit: the same accounts remain healthy for every
+ * other model, so switching model is a real remedy and backing off is not.
+ */
+function buildScopedExhaustionMessage(
+  exhaustion: AnthropicScopedExhaustion,
+): string {
+  const count = new Set(exhaustion.accounts).size;
+  return (
+    `All ${count} Anthropic account${count === 1 ? "" : "s"} have exhausted the ` +
+    `model-scoped limit for ${exhaustion.model} (window "${exhaustion.scopeModel}"). ` +
+    `Other models remain available on this pool — switch model, or add an account ` +
+    `with remaining ${exhaustion.scopeModel} capacity. Earliest reset at ` +
+    `${new Date(exhaustion.earliestResetMs).toISOString()}.` +
+    buildOverageUnavailableSuffix(exhaustion.overageDisabledReason)
+  );
+}
+
 function buildClaudeAnthropicFailureResponse(args: {
   tracer?: ProxyTracer;
   requestStartTime: number;
@@ -3914,6 +4381,8 @@ function buildClaudeAnthropicFailureResponse(args: {
     body: string;
     contentType?: string;
   } | null;
+  entitlementFailure: AnthropicEntitlementFailure | null;
+  scopedExhaustion: AnthropicScopedExhaustion | null;
   sawNetworkError: boolean;
   sawTransientFailure: boolean;
   sawRateLimit: boolean;
@@ -3944,6 +4413,8 @@ function buildClaudeAnthropicFailureResponse(args: {
     authFailureMessage,
     authCooldownMessage,
     invalidRequestFailure,
+    entitlementFailure,
+    scopedExhaustion,
     sawNetworkError,
     sawTransientFailure,
     sawRateLimit,
@@ -3956,6 +4427,23 @@ function buildClaudeAnthropicFailureResponse(args: {
     logProxyBody,
     logFinalRequest,
   } = args;
+
+  // Ranked above the auth rung on purpose: an organization policy block is a
+  // more specific diagnosis than "authentication failed". But only when the
+  // policy explains the *whole* pool — otherwise a single blocked account would
+  // mask four genuine 5xx failures behind a 403, telling the client not to retry
+  // when retrying is exactly right. No retry-after: waiting cannot fix a policy.
+  const entitlementExplainsPool =
+    entitlementFailure !== null &&
+    orderedAccounts.length > 0 &&
+    new Set(entitlementFailure.accounts).size >= orderedAccounts.length;
+  if (entitlementExplainsPool && entitlementFailure && !sawRateLimit) {
+    const message = buildEntitlementErrorMessage(entitlementFailure);
+    tracer?.setError("permission_error", message);
+    tracer?.end(403, Date.now() - requestStartTime);
+    return buildLoggedClaudeError(403, message, "permission_error");
+  }
+
   if (authFailureMessage && !sawRateLimit) {
     tracer?.setError("authentication_error", authFailureMessage);
     tracer?.end(401, Date.now() - requestStartTime);
@@ -4039,6 +4527,50 @@ function buildClaudeAnthropicFailureResponse(args: {
     );
   }
 
+  /** Emit the 429 the client sees, with an honest retry-after. */
+  const respondRateLimited = (
+    message: string,
+    retryAfterSec: number,
+  ): Response => {
+    const errorBody = buildClaudeError(429, message, "overloaded_error");
+    tracer?.setError("rate_limit_error", message);
+    tracer?.end(429, Date.now() - requestStartTime);
+    logFinalRequest(429, "", "final", "rate_limit_error", message);
+    const errorBodyText = JSON.stringify(errorBody);
+    const headers = {
+      "content-type": "application/json",
+      "retry-after": String(retryAfterSec),
+    };
+    logProxyBody({
+      phase: "client_response",
+      headers,
+      body: errorBodyText,
+      bodySize: Buffer.byteLength(errorBodyText, "utf8"),
+      contentType: "application/json",
+      responseStatus: 429,
+      durationMs: Date.now() - requestStartTime,
+    });
+    return new Response(errorBodyText, { status: 429, headers });
+  };
+
+  // A model-scoped cap is spent on every account. No upstream call was made, so
+  // sawRateLimit is false and this must be caught before the generic
+  // "all accounts failed" 502 below, which would report the wrong cause and
+  // invite an immediate, guaranteed-to-fail retry.
+  if (scopedExhaustion) {
+    const message = buildScopedExhaustionMessage(scopedExhaustion);
+    logger.always(
+      `[proxy] model-scoped limit exhausted for ${scopedExhaustion.model} on all accounts`,
+    );
+    return respondRateLimited(
+      message,
+      Math.max(
+        1,
+        Math.ceil((scopedExhaustion.earliestResetMs - Date.now()) / 1000),
+      ),
+    );
+  }
+
   if (!sawRateLimit) {
     const fallbackSuffix = fallbackFailureMessage
       ? ` Fallback also failed: ${fallbackFailureMessage}`
@@ -4077,36 +4609,20 @@ function buildClaudeAnthropicFailureResponse(args: {
   const retryAfterSec = allAccountsCooling
     ? Math.max(1, Math.ceil((earliestRetryAt - now) / 1000))
     : 1;
+  // Name the window that actually ran out. "rate limits" alone cannot be acted
+  // on: a 5-hour session window and a 7-day weekly window call for very
+  // different responses from the caller.
+  const windowLabel = describeCoolingWindow(activeRateLimitCooldowns);
+  const overageSuffix = buildOverageUnavailableSuffix(
+    findOverageDisabledReason(orderedAccounts),
+  );
   const errorMessage = allAccountsCooling
-    ? `All ${orderedAccounts.length} Anthropic accounts are cooling after upstream rate limits. Earliest retry at ${new Date(earliestRetryAt).toISOString()}.`
-    : `All ${orderedAccounts.length} accounts rate-limited after per-account retries.`;
+    ? `All ${orderedAccounts.length} Anthropic accounts are cooling after the ${windowLabel} was exhausted. Earliest retry at ${new Date(earliestRetryAt).toISOString()}.${overageSuffix}`
+    : `All ${orderedAccounts.length} accounts rate-limited after per-account retries.${overageSuffix}`;
   logger.always(
     `[proxy] all accounts rate-limited, retry in ${retryAfterSec}s`,
   );
-  const errorBody = buildClaudeError(429, errorMessage, "overloaded_error");
-  tracer?.setError("rate_limit_error", errorMessage);
-  tracer?.end(429, Date.now() - requestStartTime);
-  logFinalRequest(429, "", "final", "rate_limit_error", errorMessage);
-  const errorBodyText = JSON.stringify(errorBody);
-  logProxyBody({
-    phase: "client_response",
-    headers: {
-      "content-type": "application/json",
-      "retry-after": String(retryAfterSec),
-    },
-    body: errorBodyText,
-    bodySize: Buffer.byteLength(errorBodyText, "utf8"),
-    contentType: "application/json",
-    responseStatus: 429,
-    durationMs: Date.now() - requestStartTime,
-  });
-  return new Response(errorBodyText, {
-    status: 429,
-    headers: {
-      "content-type": "application/json",
-      "retry-after": String(retryAfterSec),
-    },
-  });
+  return respondRateLimited(errorMessage, retryAfterSec);
 }
 
 async function handleAnthropicSuccessfulResponse(args: {
@@ -4161,12 +4677,12 @@ async function handleAnthropicSuccessfulResponse(args: {
   accountState.consecutiveRefreshFailures = 0;
   logger.always(`[proxy] ← ${response.status} account=${account.label}`);
 
-  const quota = parseQuotaHeaders(response.headers);
+  const quota = parseQuotaHeaders(response.headers, { model: body.model });
   if (quota) {
     // Stash the latest quota on runtime state so the next request can pick the
     // account whose window resets soonest (max-utilization) and proactively
     // skip rejected windows unless Anthropic explicitly permits overage.
-    accountState.quota = quota;
+    accountState.quota = mergeQuotaSnapshot(accountState.quota, quota);
     const cooldownUpdate = reconcileCooldownFromQuota(
       accountState,
       quota,
@@ -4282,6 +4798,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
 }): Promise<AnthropicSuccessResult> {
   const {
     ctx,
+    body,
     account,
     accountState,
     response,
@@ -4408,7 +4925,7 @@ async function handleAnthropicStreamingSuccessResponse(args: {
     ).toString("utf8");
     const isRateLimit = preflight.errorType === "rate_limit_error";
     const logicalStatus = isRateLimit ? 429 : 502;
-    const quota = parseQuotaHeaders(responseHeaders);
+    const quota = parseQuotaHeaders(responseHeaders, { model: body.model });
     const now = Date.now();
     if (isRateLimit) {
       const cooldownPlan = planCooldownFor429(
@@ -4417,7 +4934,9 @@ async function handleAnthropicStreamingSuccessResponse(args: {
         now,
         getUnifiedRateLimitStatus(responseHeaders),
       );
-      accountState.quota = quota ?? accountState.quota;
+      accountState.quota = quota
+        ? mergeQuotaSnapshot(accountState.quota, quota)
+        : accountState.quota;
       const rateLimitKind =
         cooldownPlan.reason === "transient" ? "transient" : "quota";
       if (
@@ -5090,6 +5609,7 @@ async function handleAnthropicJsonSuccessResponse(args: {
 async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
   account: ProxyPassthroughAccount;
   accountState: RuntimeAccountState;
+  requestedModel?: string;
   retryResp: Response;
   tracer?: ProxyTracer;
   requestStartTime: number;
@@ -5116,6 +5636,7 @@ async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
   const {
     account,
     accountState,
+    requestedModel,
     retryResp,
     tracer,
     requestStartTime,
@@ -5127,11 +5648,13 @@ async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
     logProxyBody,
     logFinalRequest,
   } = args;
-  const retryQuota = parseQuotaHeaders(retryResp.headers);
+  const retryQuota = parseQuotaHeaders(retryResp.headers, {
+    model: requestedModel,
+  });
   if (retryQuota) {
     // Keep the auth-retry success path in parity with the main success path:
     // stash quota for proactive selection and reconcile a rejected window.
-    accountState.quota = retryQuota;
+    accountState.quota = mergeQuotaSnapshot(accountState.quota, retryQuota);
     const cooldownUpdate = reconcileCooldownFromQuota(
       accountState,
       retryQuota,
@@ -5264,6 +5787,7 @@ async function handleAnthropicAuthRetry(args: {
   ) => void;
   lastError: unknown;
   authFailureMessage: string | null;
+  entitlementFailure: AnthropicEntitlementFailure | null;
   sawRateLimit: boolean;
   sawTransientFailure: boolean;
   sawNetworkError: boolean;
@@ -5288,6 +5812,7 @@ async function handleAnthropicAuthRetry(args: {
     logFinalRequest,
     lastError,
     authFailureMessage,
+    entitlementFailure,
     sawRateLimit,
     sawTransientFailure,
     sawNetworkError,
@@ -5298,6 +5823,7 @@ async function handleAnthropicAuthRetry(args: {
   });
   let currentLastError = lastError;
   let currentAuthFailureMessage = authFailureMessage;
+  let currentEntitlementFailure = entitlementFailure;
   let currentSawRateLimit = sawRateLimit;
   let currentSawTransientFailure = sawTransientFailure;
   let currentSawNetworkError = sawNetworkError;
@@ -5408,6 +5934,7 @@ async function handleAnthropicAuthRetry(args: {
               response: await handleAnthropicSuccessfulNonStreamRetryResponse({
                 account,
                 accountState,
+                requestedModel: body.model,
                 retryResp,
                 tracer,
                 requestStartTime,
@@ -5429,6 +5956,7 @@ async function handleAnthropicAuthRetry(args: {
               : {}),
             lastError: failure?.message ?? currentLastError,
             authFailureMessage: currentAuthFailureMessage,
+            entitlementFailure: currentEntitlementFailure,
             sawRateLimit: currentSawRateLimit || Boolean(failure?.rateLimit),
             sawTransientFailure:
               currentSawTransientFailure ||
@@ -5443,6 +5971,7 @@ async function handleAnthropicAuthRetry(args: {
           continueLoop: false,
           lastError: currentLastError,
           authFailureMessage: currentAuthFailureMessage,
+          entitlementFailure: currentEntitlementFailure,
           sawRateLimit: currentSawRateLimit,
           sawTransientFailure: currentSawTransientFailure,
           sawNetworkError: currentSawNetworkError,
@@ -5508,6 +6037,7 @@ async function handleAnthropicAuthRetry(args: {
           continueLoop: false,
           lastError: retryBody,
           authFailureMessage: currentAuthFailureMessage,
+          entitlementFailure: currentEntitlementFailure,
           sawRateLimit: currentSawRateLimit,
           sawTransientFailure: currentSawTransientFailure,
           sawNetworkError: currentSawNetworkError,
@@ -5523,9 +6053,14 @@ async function handleAnthropicAuthRetry(args: {
         // Cool the account per its real reset window before rotating, so a
         // session/weekly-exhausted account isn't re-selected next request.
         const nowRetry = Date.now();
-        const retryQuota429 = parseQuotaHeaders(retryRespHeaders);
+        const retryQuota429 = parseQuotaHeaders(retryRespHeaders, {
+          model: body.model,
+        });
         if (retryQuota429) {
-          accountState.quota = retryQuota429;
+          accountState.quota = mergeQuotaSnapshot(
+            accountState.quota,
+            retryQuota429,
+          );
         }
         const retryPlan = planCooldownFor429(
           retryQuota429,
@@ -5574,6 +6109,49 @@ async function handleAnthropicAuthRetry(args: {
       }
 
       if (retryStatus === 401 || retryStatus === 402 || retryStatus === 403) {
+        // An organization/plan entitlement refusal is not an authentication
+        // problem: the token just minted is valid and refreshing again cannot
+        // change the verdict. Rotate now instead of burning the remaining
+        // refresh cycles and their one-second waits on a certain failure.
+        if (isAccountEntitlementError(retryStatus, retryBody)) {
+          const parsedRetry = parseClaudeErrorBody(retryBody);
+          recordAttemptError(account.label, account.type, retryStatus);
+          retryLogAttempt(
+            retryStatus,
+            "permission_error",
+            summarizeErrorMessage(retryBody),
+          );
+          currentEntitlementFailure = {
+            status: retryStatus,
+            accounts: [
+              ...(currentEntitlementFailure?.accounts ?? []),
+              account.label,
+            ],
+            message:
+              currentEntitlementFailure?.message ??
+              parsedRetry.message ??
+              summarizeErrorMessage(retryBody),
+            ...(parsedRetry.errorCode
+              ? { errorCode: parsedRetry.errorCode }
+              : {}),
+          };
+          if (
+            account.type === "oauth" &&
+            isDurableEntitlementBlock(retryStatus, retryBody)
+          ) {
+            await disableAccountUntilReauth(
+              account,
+              accountState,
+              "entitlement_blocked",
+            );
+          }
+          authRetryError = `entitlement blocked for account=${account.label}`;
+          currentLastError = authRetryError;
+          logger.always(
+            `[proxy] ← ${retryStatus} account=${account.label} entitlement blocked after refresh; advancing to next account`,
+          );
+          break;
+        }
         recordAttemptError(account.label, account.type, retryStatus);
         retryLogAttempt(
           retryStatus,
@@ -5617,6 +6195,7 @@ async function handleAnthropicAuthRetry(args: {
           continueLoop: false,
           lastError: currentLastError,
           authFailureMessage: currentAuthFailureMessage,
+          entitlementFailure: currentEntitlementFailure,
           sawRateLimit: currentSawRateLimit,
           sawTransientFailure: currentSawTransientFailure,
           sawNetworkError: currentSawNetworkError,
@@ -5635,6 +6214,7 @@ async function handleAnthropicAuthRetry(args: {
           continueLoop: false,
           lastError: currentLastError,
           authFailureMessage: currentAuthFailureMessage,
+          entitlementFailure: currentEntitlementFailure,
           sawRateLimit: currentSawRateLimit,
           sawTransientFailure: currentSawTransientFailure,
           sawNetworkError: currentSawNetworkError,
@@ -5675,6 +6255,7 @@ async function handleAnthropicAuthRetry(args: {
           continueLoop: false,
           lastError: currentLastError,
           authFailureMessage: currentAuthFailureMessage,
+          entitlementFailure: currentEntitlementFailure,
           sawRateLimit: currentSawRateLimit,
           sawTransientFailure: currentSawTransientFailure,
           sawNetworkError: currentSawNetworkError,
@@ -5706,6 +6287,7 @@ async function handleAnthropicAuthRetry(args: {
     continueLoop: true,
     lastError: currentLastError,
     authFailureMessage: currentAuthFailureMessage,
+    entitlementFailure: currentEntitlementFailure,
     sawRateLimit: currentSawRateLimit,
     sawTransientFailure: currentSawTransientFailure,
     sawNetworkError: currentSawNetworkError,
@@ -5902,6 +6484,7 @@ async function handleAnthropicNonOkResponse(args: {
     body: string;
     contentType?: string;
   } | null;
+  entitlementFailure: AnthropicEntitlementFailure | null;
 }): Promise<AnthropicNonOkResult> {
   const {
     response,
@@ -5920,11 +6503,13 @@ async function handleAnthropicNonOkResponse(args: {
     authFailureMessage,
     sawTransientFailure,
     invalidRequestFailure,
+    entitlementFailure,
   } = args;
   let currentLastError = lastError;
   let currentAuthFailureMessage = authFailureMessage;
   let currentSawTransientFailure = sawTransientFailure;
   let currentInvalidRequestFailure = invalidRequestFailure;
+  let currentEntitlementFailure = entitlementFailure;
 
   const errBody = await response.text();
   const errRespHeaders: Record<string, string> = {};
@@ -5986,6 +6571,7 @@ async function handleAnthropicNonOkResponse(args: {
         authFailureMessage: currentAuthFailureMessage,
         sawTransientFailure: currentSawTransientFailure,
         invalidRequestFailure: currentInvalidRequestFailure,
+        entitlementFailure: currentEntitlementFailure,
         upstreamSpan: undefined,
       };
     }
@@ -6010,6 +6596,75 @@ async function handleAnthropicNonOkResponse(args: {
       authFailureMessage: currentAuthFailureMessage,
       sawTransientFailure: currentSawTransientFailure,
       invalidRequestFailure: currentInvalidRequestFailure,
+      entitlementFailure: currentEntitlementFailure,
+      upstreamSpan: undefined,
+    };
+  }
+
+  if (
+    account.type === "oauth" &&
+    isAccountEntitlementError(response.status, errBody)
+  ) {
+    // Anthropic refuses this credential on organization/plan policy, e.g.
+    // "OAuth authentication is currently not allowed for this organization."
+    // Neither a retry nor a token refresh can fix it, but another account may
+    // not be subject to the same policy — so rotate rather than fail the client.
+    //
+    // Must precede the no-refresh-token branch below: that branch matches the
+    // same 401/402/403 statuses and would disable the account as
+    // `missing_refresh_token`, telling the user to re-login — which cannot help
+    // and burns a working credential.
+    //
+    // Like the beta-rejection branch above, deliberately sets neither
+    // `currentInvalidRequestFailure` (would suppress provider fallback and
+    // outrank a later account's real 429) nor `currentAuthFailureMessage`
+    // (would surface a misleading "re-authenticate" 401).
+    const parsed = parseClaudeErrorBody(errBody);
+    recordAttemptError(account.label, account.type, response.status);
+    currentEntitlementFailure = {
+      status: response.status,
+      accounts: [...(currentEntitlementFailure?.accounts ?? []), account.label],
+      message:
+        currentEntitlementFailure?.message ??
+        parsed.message ??
+        summarizeErrorMessage(errBody),
+      ...(parsed.errorCode ? { errorCode: parsed.errorCode } : {}),
+    };
+    logger.always(
+      `[proxy] ← ${response.status} account=${account.label} entitlement blocked${
+        parsed.errorCode ? ` (${parsed.errorCode})` : ""
+      }; advancing to next account`,
+    );
+    logAttempt(
+      response.status,
+      "permission_error",
+      summarizeErrorMessage(errBody),
+    );
+    tracer?.setError("permission_error", summarizeErrorMessage(errBody));
+    tracer?.recordRetry(account.label, "entitlement_blocked");
+    if (
+      account.type === "oauth" &&
+      isDurableEntitlementBlock(response.status, errBody)
+    ) {
+      await disableAccountUntilReauth(
+        account,
+        accountState,
+        "entitlement_blocked",
+      );
+    }
+    advancePrimaryIfCurrent(
+      account.key,
+      enabledAccounts.length,
+      orderedAccounts[0]?.key,
+    );
+    currentLastError = summarizeErrorMessage(errBody);
+    return {
+      continueLoop: true,
+      lastError: currentLastError,
+      authFailureMessage: currentAuthFailureMessage,
+      sawTransientFailure: currentSawTransientFailure,
+      invalidRequestFailure: currentInvalidRequestFailure,
+      entitlementFailure: currentEntitlementFailure,
       upstreamSpan: undefined,
     };
   }
@@ -6050,6 +6705,7 @@ async function handleAnthropicNonOkResponse(args: {
       authFailureMessage: currentAuthFailureMessage,
       sawTransientFailure: currentSawTransientFailure,
       invalidRequestFailure: currentInvalidRequestFailure,
+      entitlementFailure: currentEntitlementFailure,
       upstreamSpan: undefined,
     };
   }
@@ -6085,6 +6741,7 @@ async function handleAnthropicNonOkResponse(args: {
       authFailureMessage: currentAuthFailureMessage,
       sawTransientFailure: currentSawTransientFailure,
       invalidRequestFailure: currentInvalidRequestFailure,
+      entitlementFailure: currentEntitlementFailure,
       upstreamSpan: undefined,
     };
   }
@@ -6111,6 +6768,7 @@ async function handleAnthropicNonOkResponse(args: {
       authFailureMessage: currentAuthFailureMessage,
       sawTransientFailure: currentSawTransientFailure,
       invalidRequestFailure: currentInvalidRequestFailure,
+      entitlementFailure: currentEntitlementFailure,
       upstreamSpan: undefined,
     };
   }
@@ -6158,6 +6816,7 @@ async function handleAnthropicNonOkResponse(args: {
       authFailureMessage: currentAuthFailureMessage,
       sawTransientFailure: currentSawTransientFailure,
       invalidRequestFailure: currentInvalidRequestFailure,
+      entitlementFailure: currentEntitlementFailure,
       upstreamSpan: undefined,
     };
   }
@@ -6184,6 +6843,7 @@ async function handleAnthropicNonOkResponse(args: {
     authFailureMessage: currentAuthFailureMessage,
     sawTransientFailure: currentSawTransientFailure,
     invalidRequestFailure: currentInvalidRequestFailure,
+    entitlementFailure: currentEntitlementFailure,
     upstreamSpan: undefined,
   };
 }
@@ -6696,6 +7356,7 @@ async function fetchAnthropicAccountResponse(args: {
   url: string;
   headers: Record<string, string>;
   finalBodyStr: string;
+  requestedModel?: string;
   account: ProxyPassthroughAccount;
   accountState: RuntimeAccountState;
   enabledAccounts: ProxyPassthroughAccount[];
@@ -6714,6 +7375,7 @@ async function fetchAnthropicAccountResponse(args: {
     url,
     headers,
     finalBodyStr,
+    requestedModel,
     account,
     accountState: _accountState2,
     enabledAccounts: _enabledAccounts,
@@ -6841,7 +7503,7 @@ async function fetchAnthropicAccountResponse(args: {
     // exhaustion 429 we rotate immediately and park the account until its
     // ACTUAL reset, not a 60s hardcap.
     const now = Date.now();
-    const quota = parseQuotaHeaders(errRespHeaders);
+    const quota = parseQuotaHeaders(errRespHeaders, { model: requestedModel });
     const unifiedStatus = getUnifiedRateLimitStatus(errRespHeaders);
     const cooldownPlan = planCooldownFor429(
       quota,
@@ -6958,6 +7620,10 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     clientHeaders,
     isClaudeClientRequest,
   } = loadedAccounts;
+  // Snapshot the operator policy once. Reading the module value later would let
+  // a concurrent /limits call or a hot config reload change this request's
+  // answer partway through its own account loop.
+  const requestOveragePolicy = currentOveragePolicy();
   const loopState: AnthropicLoopState = {
     lastError: undefined,
     sawRateLimit: false,
@@ -6966,6 +7632,8 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     invalidRequestFailure: null,
     authFailureMessage: null,
     authCooldownMessage: null,
+    entitlementFailure: null,
+    scopedExhaustion: null,
     attemptNumber: 0,
   };
   const acctSelectionSpan = tracer?.startAccountSelection();
@@ -7008,6 +7676,30 @@ async function handleAnthropicRoutedClaudeRequest(args: {
       loopState.authCooldownMessage = `All ${orderedAccounts.length} Anthropic accounts are temporarily unavailable while OAuth refresh is cooling. Earliest retry at ${new Date(earliestRetryAt).toISOString()}.`;
     }
   }
+
+  // Second eligibility gate, alongside cooldowns: an account whose model-scoped
+  // cap for THIS model is spent will 429 with certainty. Unlike a cooldown the
+  // condition is per-model, so it must not park the account — it stays fully
+  // available for every other model.
+  const scopedExhaustion = evaluateScopedExhaustion(
+    effectiveAccounts,
+    typeof body.model === "string" ? body.model : undefined,
+    Date.now(),
+    requestOveragePolicy,
+  );
+  if (scopedExhaustion.eligible.length > 0) {
+    effectiveAccounts = scopedExhaustion.eligible;
+  } else if (scopedExhaustion.exhaustion) {
+    // Every account is scoped out on evidence we trust. Record it and let the
+    // loop fall through to the post-loop path, so a configured fallback chain
+    // still runs and only the terminal message changes. Returning here instead
+    // would silently drop that fallback.
+    loopState.scopedExhaustion = scopedExhaustion.exhaustion;
+    loopState.lastError = `Model-scoped limit exhausted for ${scopedExhaustion.exhaustion.model}`;
+    effectiveAccounts = [];
+  }
+  // Otherwise the scoped evidence was stale or absent: attempt the request
+  // anyway rather than let a mis-parsed window take the pool down.
 
   const accountAdmissionCapacity = modelRouter?.getMaxInflightPerAccount?.();
   // When every eligible account is busy, reserve the first account that frees
@@ -7133,6 +7825,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
             url,
             headers: preparedAttempt.headers,
             finalBodyStr: preparedAttempt.finalBodyStr,
+            requestedModel: body.model,
             account,
             accountState,
             enabledAccounts,
@@ -7186,7 +7879,10 @@ async function handleAnthropicRoutedClaudeRequest(args: {
             const plan = fetchResult.cooldownPlan;
             // Refresh the account's quota snapshot for proactive selection.
             if (fetchResult.quota) {
-              accountState.quota = fetchResult.quota;
+              accountState.quota = mergeQuotaSnapshot(
+                accountState.quota,
+                fetchResult.quota,
+              );
               saveAccountQuota(account.label, fetchResult.quota).catch(() => {
                 // Non-fatal: routing already has the in-memory snapshot.
               });
@@ -7321,12 +8017,14 @@ async function handleAnthropicRoutedClaudeRequest(args: {
             onStreamTerminal: admissionLease.release,
             lastError: loopState.lastError,
             authFailureMessage: loopState.authFailureMessage,
+            entitlementFailure: loopState.entitlementFailure,
             sawRateLimit: loopState.sawRateLimit,
             sawTransientFailure: loopState.sawTransientFailure,
             sawNetworkError: loopState.sawNetworkError,
           });
           loopState.lastError = authRetryResult.lastError;
           loopState.authFailureMessage = authRetryResult.authFailureMessage;
+          loopState.entitlementFailure = authRetryResult.entitlementFailure;
           loopState.sawRateLimit = authRetryResult.sawRateLimit;
           loopState.sawTransientFailure = authRetryResult.sawTransientFailure;
           loopState.sawNetworkError = authRetryResult.sawNetworkError;
@@ -7365,11 +8063,13 @@ async function handleAnthropicRoutedClaudeRequest(args: {
             authFailureMessage: loopState.authFailureMessage,
             sawTransientFailure: loopState.sawTransientFailure,
             invalidRequestFailure: loopState.invalidRequestFailure,
+            entitlementFailure: loopState.entitlementFailure,
           });
           loopState.lastError = nonOkResult.lastError;
           loopState.authFailureMessage = nonOkResult.authFailureMessage;
           loopState.sawTransientFailure = nonOkResult.sawTransientFailure;
           loopState.invalidRequestFailure = nonOkResult.invalidRequestFailure;
+          loopState.entitlementFailure = nonOkResult.entitlementFailure;
           if (nonOkResult.response !== undefined) {
             return nonOkResult.response;
           }
@@ -7536,6 +8236,8 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     authFailureMessage: loopState.authFailureMessage,
     authCooldownMessage: loopState.authCooldownMessage,
     invalidRequestFailure: loopState.invalidRequestFailure,
+    entitlementFailure: loopState.entitlementFailure,
+    scopedExhaustion: loopState.scopedExhaustion,
     sawNetworkError: loopState.sawNetworkError,
     sawTransientFailure: loopState.sawTransientFailure,
     sawRateLimit: loopState.sawRateLimit,
@@ -7651,7 +8353,9 @@ export function createClaudeProxyRoutes(
             quotaRoutingEnabled: isQuotaRoutingEnabled(),
             sessionSoftLimit: getSessionSoftLimit(),
             sessionResetToleranceMs: getSessionResetToleranceMs(),
+            useOverage: "auto",
           };
+          setOveragePolicy(requestRouting.useOverage);
           const requestModelRouter = requestRouting.modelRouter;
           const body = ctx.body as ClaudeRequest | undefined;
 
@@ -7870,9 +8574,13 @@ export function createClaudeProxyRoutes(
         method: "GET",
         path: `${basePath}/limits`,
         handler: async (ctx: ServerContext) => {
-          const effectiveAllowlist = runtimeConfigProvider
-            ? runtimeConfigProvider().accountAllowlist
-            : accountAllowlist;
+          const limitsRouting = runtimeConfigProvider?.();
+          const effectiveAllowlist =
+            limitsRouting?.accountAllowlist ?? accountAllowlist;
+          // A refresh reconciles cooldowns from the fetched quota, so it makes
+          // the same overage judgement the request path does and needs the same
+          // operator policy in scope.
+          setOveragePolicy(limitsRouting?.useOverage);
           const snapshotOnly =
             ctx.query?.snapshot === "true" || ctx.query?.snapshot === "1";
           const accountFilter = ctx.query?.account;
@@ -7952,7 +8660,7 @@ function reconcileEligibleAccountRuntimeState(
 async function disableAccountUntilReauth(
   account: ProxyPassthroughAccount,
   state: RuntimeAccountState,
-  reason: "missing_refresh_token" | "refresh_invalid",
+  reason: "missing_refresh_token" | "refresh_invalid" | "entitlement_blocked",
 ): Promise<boolean> {
   try {
     const { tokenStore } = await import("../../auth/tokenStore.js");
@@ -7990,7 +8698,9 @@ async function disableAccountUntilReauth(
 
   state.permanentlyDisabled = true;
   logger.always(
-    `[proxy] account=${account.label} disabled until re-authentication. Run: neurolink auth login anthropic --method oauth`,
+    reason === "entitlement_blocked"
+      ? `[proxy] account=${account.label} disabled: the organization blocks Claude Code OAuth. Ask an admin to re-enable it, then run: neurolink auth enable ${account.key}`
+      : `[proxy] account=${account.label} disabled until re-authentication. Run: neurolink auth login anthropic --method oauth`,
   );
   return true;
 }
@@ -8170,7 +8880,11 @@ export function parseClaudeErrorBody(errBody: string): ParsedClaudeError {
   try {
     const parsed = JSON.parse(errBody) as {
       type?: unknown;
-      error?: { type?: unknown; message?: unknown };
+      error?: {
+        type?: unknown;
+        message?: unknown;
+        details?: { error_code?: unknown } | null;
+      };
     };
     if (
       parsed &&
@@ -8178,6 +8892,7 @@ export function parseClaudeErrorBody(errBody: string): ParsedClaudeError {
       parsed.error &&
       typeof parsed.error === "object"
     ) {
+      const errorCode = parsed.error.details?.error_code;
       return {
         errorType:
           typeof parsed.error.type === "string" ? parsed.error.type : undefined,
@@ -8185,6 +8900,7 @@ export function parseClaudeErrorBody(errBody: string): ParsedClaudeError {
           typeof parsed.error.message === "string"
             ? parsed.error.message
             : undefined,
+        ...(typeof errorCode === "string" ? { errorCode } : {}),
       };
     }
   } catch {
@@ -8236,6 +8952,68 @@ export function isSubscriptionBetaRejection(
     message.includes("beta") &&
     message.includes("subscription") &&
     message.includes("available")
+  );
+}
+
+/**
+ * Organization/plan entitlement codes Anthropic reports in `error.details`.
+ * Membership here is what promotes a rejection from "rotate" to "remember".
+ */
+const ENTITLEMENT_ERROR_CODES = new Set([
+  "oauth_not_allowed_for_organization",
+  "oauth_not_allowed",
+  "organization_disabled",
+]);
+
+/**
+ * An entitlement rejection: Anthropic refuses THIS credential on organization
+ * or plan policy, e.g. `403 permission_error` /
+ * "OAuth authentication is currently not allowed for this organization."
+ *
+ * The taxonomy makes this safe to rotate on: `permission_error` is reserved for
+ * credential/organization permission, distinct from `invalid_request_error`
+ * (request shape) and `not_found_error`, both already terminal above. No
+ * `permission_error` is caused by the request body, so the identical request
+ * can succeed on a different account.
+ *
+ * Deliberately broad — rotation is cheap and reversible. Persisting the block
+ * is gated on the narrower {@link isDurableEntitlementBlock}.
+ */
+export function isAccountEntitlementError(
+  status: number,
+  errBody: string,
+): boolean {
+  if (status !== 401 && status !== 402 && status !== 403) {
+    return false;
+  }
+  const parsed = parseClaudeErrorBody(errBody);
+  if (parsed.errorType === "permission_error") {
+    return true;
+  }
+  return (
+    parsed.errorCode !== undefined &&
+    ENTITLEMENT_ERROR_CODES.has(parsed.errorCode)
+  );
+}
+
+/**
+ * Whether an entitlement rejection is specific enough to disable the account
+ * until someone re-enables it. Narrower than {@link isAccountEntitlementError}
+ * because disabling is sticky and user-visible: an unrecognised
+ * `permission_error` should rotate through the pool and surface a 403, never
+ * durably remove a credential on a guess.
+ */
+export function isDurableEntitlementBlock(
+  status: number,
+  errBody: string,
+): boolean {
+  if (!isAccountEntitlementError(status, errBody)) {
+    return false;
+  }
+  const parsed = parseClaudeErrorBody(errBody);
+  return (
+    parsed.errorCode !== undefined &&
+    ENTITLEMENT_ERROR_CODES.has(parsed.errorCode)
   );
 }
 
@@ -8350,6 +9128,7 @@ export const __testHooks = {
     primaryKey: string | undefined,
     sessionSoftLimit: number = getSessionSoftLimit(),
     sessionResetToleranceMs: number = getSessionResetToleranceMs(),
+    requestedModel?: string,
   ): ProxyAccountRoutingDecision | undefined => {
     const order = orderAccountsByQuotaWithMetrics(
       accounts,
@@ -8357,6 +9136,7 @@ export const __testHooks = {
       primaryKey,
       sessionSoftLimit,
       sessionResetToleranceMs,
+      requestedModel,
     );
     return buildRoutingDecision({
       accounts,
@@ -8443,4 +9223,9 @@ export const __testHooks = {
   shouldAttemptClaudeFallback,
   executeClaudeFallbackWithRetry,
   buildClaudeAnthropicFailureResponse,
+  isAccountEntitlementError,
+  isDurableEntitlementBlock,
+  evaluateScopedExhaustion,
+  matchScopedQuotaWindow,
+  setOveragePolicy,
 };

@@ -591,6 +591,13 @@ export type ProxyAccountRoutingCandidate = {
   weeklyStatus: string | null;
   weeklyUsed: number | null;
   weeklyResetAt: number | null;
+  /** Display name of the model-scoped window that matched the requested model
+   *  (e.g. "Fable"), or null when the account reports no scoped cap for it.
+   *  Optional so schema-v1 readers of older records stay valid. */
+  scopedModel?: string | null;
+  scopedStatus?: string | null;
+  scopedUsed?: number | null;
+  scopedResetAt?: number | null;
 };
 
 export type ProxyAccountRoutingDecision = {
@@ -643,6 +650,15 @@ export type ProxyAccountSortMetrics = {
   weeklyReset: number;
   weeklyUsed: number | null;
   weeklyUsedForSort: number;
+  /** Model-scoped weekly window matching the requested model. All null/false
+   *  when the account reports no scoped cap for it (the common case), which
+   *  makes every scoped comparator rung a no-op for unscoped traffic. */
+  scopedModel: string | null;
+  scopedStatus: string | null;
+  scopedUsed: number | null;
+  scopedReset: number;
+  scopedUsedForSort: number;
+  scopedSaturated: boolean;
 };
 
 export type RequestLogEntry = {
@@ -804,6 +820,8 @@ export type AnthropicLoopState = {
   } | null;
   authFailureMessage: string | null;
   authCooldownMessage: string | null;
+  entitlementFailure: AnthropicEntitlementFailure | null;
+  scopedExhaustion: AnthropicScopedExhaustion | null;
   fallbackFailureMessage?: string;
   attemptNumber: number;
   lastTransportErrorCode?: string;
@@ -889,6 +907,7 @@ export type AnthropicAuthRetryResult = {
   retryDelayMs?: number;
   lastError: unknown;
   authFailureMessage: string | null;
+  entitlementFailure: AnthropicEntitlementFailure | null;
   sawRateLimit: boolean;
   sawTransientFailure: boolean;
   sawNetworkError: boolean;
@@ -909,6 +928,7 @@ export type AnthropicNonOkResult = {
     body: string;
     contentType?: string;
   } | null;
+  entitlementFailure: AnthropicEntitlementFailure | null;
   upstreamSpan?: Span;
 };
 
@@ -1179,6 +1199,17 @@ export type AccountQuota = {
   overageStatus: string;
   /** Whether Anthropic reports that paid overage is actively serving traffic. */
   overageInUse?: boolean;
+  /** Why overage is unavailable, verbatim from
+   *  anthropic-ratelimit-unified-overage-disabled-reason (e.g.
+   *  "org_level_disabled"). Present only when the provider states one. */
+  overageDisabledReason?: string;
+  /** Authoritative extra-usage switch from the usage API's
+   *  `extra_usage.is_enabled`. Unlike the header trio this is reported even for
+   *  an account that has never served a request. */
+  overageEnabled?: boolean;
+  /** Which window Anthropic considers binding right now, verbatim from
+   *  anthropic-ratelimit-unified-representative-claim (e.g. "five_hour"). */
+  representativeClaim?: string;
   /** Epoch ms when we last captured this data */
   lastUpdated: number;
   /** Dynamic per-plan limit buckets from the usage API `limits[]` array
@@ -1217,8 +1248,21 @@ export type AccountQuotaWindow = {
   isActive?: boolean;
   /** Model display name for model-scoped windows (e.g. "Fable"). */
   scopeModel?: string;
+  /** Wire model id for the scope when the provider reports one
+   *  (`scope.model.id`), which matches a request's `model` exactly and so beats
+   *  display-name matching. Often null in practice. */
+  scopeModelId?: string;
   /** Surface scope when the provider reports one. */
   scopeSurface?: string;
+  /** Epoch ms this individual window was observed. Lets a header-derived window
+   *  and a usage-API window on the same account age independently — the flat
+   *  `lastUpdated` refreshes on every response and would otherwise make a
+   *  days-old scoped window look current. */
+  updatedAt?: number;
+  /** Provenance of this window, mirroring AccountQuotaSource. */
+  source?: AccountQuotaSource;
+  /** Raw unified header token for header-derived windows, e.g. "7d_oi". */
+  headerWindow?: string;
 };
 
 /** One utilization window from the OAuth usage endpoint (wire shape, loose). */
@@ -2707,6 +2751,42 @@ export type ClaudeSnapshot = {
 export type ParsedClaudeError = {
   errorType?: string;
   message?: string;
+  /** `error.details.error_code`, e.g. "oauth_not_allowed_for_organization".
+   *  Absent on payloads that carry no details object. */
+  errorCode?: string;
+};
+
+/**
+ * Accounts rejected by an organization/plan entitlement policy during a single
+ * request. Anthropic answers such an account with a `permission_error` that no
+ * amount of retrying or token refreshing can fix, but which a *different*
+ * account may not hit at all — so it drives rotation, and is reported to the
+ * client only once every account has been tried.
+ */
+export type AnthropicEntitlementFailure = {
+  status: number;
+  /** Labels of every account that rejected this request on entitlement. */
+  accounts: string[];
+  /** Upstream message from the first such rejection. */
+  message: string;
+  errorCode?: string;
+};
+
+/**
+ * Every account's model-scoped window for the requested model is spent. Unlike
+ * a cooldown this is per-model: the same accounts stay healthy for every other
+ * model, so the client is told to switch model rather than to back off.
+ */
+export type AnthropicScopedExhaustion = {
+  /** Wire model id from the request. */
+  model: string;
+  /** Display name of the exhausted window, e.g. "Fable". */
+  scopeModel: string;
+  /** Epoch ms of the soonest reset across the exhausted accounts. */
+  earliestResetMs: number;
+  accounts: string[];
+  /** Provider reason overage is unavailable, e.g. "org_level_disabled". */
+  overageDisabledReason?: string;
 };
 
 // =============================================================================
@@ -2740,7 +2820,13 @@ export type ProxyRequestRoutingSnapshot = {
   quotaRoutingEnabled: boolean;
   sessionSoftLimit: number;
   sessionResetToleranceMs: number;
+  /** Operator policy on spending paid extra usage once a subscription window is
+   *  spent. Only "never" can override the provider's own signal. */
+  useOverage: ProxyOveragePolicy;
 };
+
+/** Operator policy for paid extra usage. */
+export type ProxyOveragePolicy = "auto" | "always" | "never";
 
 /** Immutable last-known-good proxy configuration published at runtime. */
 export type ProxyRuntimeConfigSnapshot = ProxyRequestRoutingSnapshot & {

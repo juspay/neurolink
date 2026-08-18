@@ -1492,6 +1492,30 @@ async function testPrimaryMaybeResetToHome(): Promise<boolean | null> {
 // Tests: quota-aware cooldown planning (reset-based, no 60s hardcap)
 // ============================================================================
 
+/**
+ * Report a routing-case failure and reset the shared runtime state first.
+ *
+ * `__testHooks` state is module-level, so a case that returns early on failure
+ * leaves the next case reading its accounts and quotas. One real failure then
+ * cascades into unrelated ones and buries the original cause.
+ */
+async function failRoutingCase(message: string): Promise<false> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  log(message, "red");
+  __testHooks.resetAllRuntimeState();
+  return false;
+}
+
+/**
+ * Fixed epoch-ms the routing cases evaluate against. Cases must also pass
+ * `lastUpdated: TEST_NOW` into makeQuota: routing discards a snapshot older
+ * than QUOTA_SNAPSHOT_FRESHNESS_MS, and the wall-clock default sits far
+ * enough from this clock to read as months stale, which silently routes a
+ * case down the unknown-quota probe path instead of the comparator.
+ */
+const TEST_NOW = 1_800_000_000_000;
+
 function makeQuota(
   over: Record<string, number | string>,
 ): Record<string, number | string> {
@@ -1700,6 +1724,1053 @@ async function testOrderAccountsByQuota(): Promise<boolean | null> {
 // ============================================================================
 // Tests: weekly-expiry-first ordering, soft limit, and reset freshening
 // ============================================================================
+
+async function testScopedQuotaRouting(): Promise<boolean | null> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+  const now = TEST_NOW;
+  const nowSec = Math.floor(now / 1000);
+
+  type Acct = { key: string; label: string; token: string; type: "oauth" };
+  const mk = (label: string): Acct => ({
+    key: `anthropic:${label}`,
+    label,
+    token: "t",
+    type: "oauth",
+  });
+
+  const baseQuota = (windows?: unknown[]) => ({
+    sessionUsed: 0.1,
+    sessionStatus: "allowed",
+    sessionResetAt: nowSec + 3600,
+    weeklyUsed: 0.1,
+    weeklyStatus: "allowed",
+    weeklyResetAt: nowSec + 5 * 24 * 3600,
+    fallbackPercentage: 0,
+    overageStatus: "rejected",
+    lastUpdated: now,
+    windows,
+  });
+  const scoped = (scopeModel: string, used: number, status = "allowed") => ({
+    kind: "weekly_scoped",
+    group: "weekly",
+    used,
+    status,
+    resetsAt: nowSec + 4 * 24 * 3600,
+    isActive: true,
+    scopeModel,
+  });
+  const order = (accts: Acct[], model?: string): string =>
+    __testHooks
+      .orderAccountsByQuota(
+        accts as never,
+        now,
+        undefined,
+        undefined,
+        undefined,
+        model,
+      )
+      .map((x: { label: string }) => x.label)
+      .join(",");
+
+  const fail = (message: string): false => {
+    log(message, "red");
+    __testHooks.resetAllRuntimeState();
+    return false;
+  };
+
+  // A scoped cap that is spent must exclude the account for THAT model only.
+  const a = mk("a");
+  const b = mk("b");
+  __testHooks.setAccountRuntimeState(a.key, {
+    quota: baseQuota([scoped("Fable", 1.0, "rejected")]) as never,
+  });
+  __testHooks.setAccountRuntimeState(b.key, { quota: baseQuota() as never });
+  if (order([a, b], "claude-fable-5-20260115") !== "b,a") {
+    return fail("scoped routing: exhausted scoped cap must sort last");
+  }
+  if (order([a, b], "claude-sonnet-4-5-20250929") !== "a,b") {
+    return fail("scoped routing: other models must not be penalised");
+  }
+  // A scoped rejection must never park the whole account.
+  if (__testHooks.getAccountRuntimeState(a.key)?.coolingUntil !== undefined) {
+    return fail("scoped routing: scoped rejection must not set a cooldown");
+  }
+
+  // Unscoped traffic must behave exactly as before.
+  __testHooks.resetAllRuntimeState();
+  const c = mk("c");
+  const d = mk("d");
+  __testHooks.setAccountRuntimeState(c.key, {
+    quota: { ...baseQuota(), weeklyResetAt: nowSec + 3 * 24 * 3600 } as never,
+  });
+  __testHooks.setAccountRuntimeState(d.key, {
+    quota: { ...baseQuota(), weeklyResetAt: nowSec + 8 * 3600 } as never,
+  });
+  if (order([c, d]) !== "d,c" || order([c, d], "claude-sonnet-4-5") !== "d,c") {
+    return fail("scoped routing: unscoped ordering must be unchanged");
+  }
+
+  // Fill-first inside the scoped allowance, and headroom demotion past the
+  // soft limit.
+  __testHooks.resetAllRuntimeState();
+  const e = mk("e");
+  const f = mk("f");
+  __testHooks.setAccountRuntimeState(e.key, {
+    quota: baseQuota([scoped("Fable", 0.2)]) as never,
+  });
+  __testHooks.setAccountRuntimeState(f.key, {
+    quota: baseQuota([scoped("Fable", 0.8)]) as never,
+  });
+  if (order([e, f], "claude-fable-5-20260115") !== "f,e") {
+    return fail("scoped routing: higher scoped utilization must go first");
+  }
+  __testHooks.setAccountRuntimeState(f.key, {
+    quota: baseQuota([scoped("Fable", 0.99)]) as never,
+  });
+  __testHooks.setAccountRuntimeState(e.key, {
+    quota: baseQuota([scoped("Fable", 0.5)]) as never,
+  });
+  if (order([e, f], "claude-fable-5-20260115") !== "e,f") {
+    return fail("scoped routing: saturated scoped cap must be demoted");
+  }
+
+  // Match guards: a bare vendor scope matches nothing; versions do not leak.
+  __testHooks.resetAllRuntimeState();
+  const g = mk("g");
+  const h = mk("h");
+  __testHooks.setAccountRuntimeState(g.key, {
+    quota: baseQuota([scoped("Claude", 1.0, "rejected")]) as never,
+  });
+  __testHooks.setAccountRuntimeState(h.key, { quota: baseQuota() as never });
+  if (order([g, h], "claude-sonnet-4-5-20250929") !== "g,h") {
+    return fail('scoped routing: bare "Claude" scope must not gate models');
+  }
+  __testHooks.setAccountRuntimeState(g.key, {
+    quota: baseQuota([scoped("Claude Opus 4.6", 1.0, "rejected")]) as never,
+  });
+  if (order([g, h], "claude-opus-4-6-20260115") !== "h,g") {
+    return fail("scoped routing: version-specific cap must gate its version");
+  }
+  if (order([g, h], "claude-opus-4-5-20250101") !== "g,h") {
+    return fail("scoped routing: version cap must not leak to other versions");
+  }
+
+  // A stale snapshot must be ignored for scoped decisions too.
+  __testHooks.resetAllRuntimeState();
+  const i = mk("i");
+  const j = mk("j");
+  __testHooks.setAccountRuntimeState(i.key, {
+    quota: {
+      ...baseQuota([scoped("Fable", 1.0, "rejected")]),
+      lastUpdated: now - 20 * 60 * 1000,
+    } as never,
+  });
+  __testHooks.setAccountRuntimeState(j.key, { quota: baseQuota() as never });
+  if (order([i, j], "claude-fable-5-20260115") !== "i,j") {
+    return fail("scoped routing: stale scoped snapshot must be ignored");
+  }
+
+  __testHooks.resetAllRuntimeState();
+  log(
+    "scoped quota routing: exclusion + fill-first + guards + staleness passed",
+    "green",
+  );
+  return true;
+}
+
+// ============================================================================
+// Tests: organization entitlement rejections rotate instead of failing
+// ============================================================================
+
+/** The body Anthropic returns when an org has disabled Claude Code OAuth. */
+const ENTITLEMENT_403_BODY = JSON.stringify({
+  type: "error",
+  error: {
+    type: "permission_error",
+    message:
+      "OAuth authentication is currently not allowed for this organization.",
+    details: { error_code: "oauth_not_allowed_for_organization" },
+  },
+});
+
+async function testEntitlementDetectors(): Promise<boolean | null> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const { isAccountEntitlementError, isDurableEntitlementBlock } = __testHooks;
+
+  const cases: Array<{
+    what: string;
+    status: number;
+    body: string;
+    rotate: boolean;
+    persist: boolean;
+  }> = [
+    {
+      what: "org-disabled 403",
+      status: 403,
+      body: ENTITLEMENT_403_BODY,
+      rotate: true,
+      persist: true,
+    },
+    {
+      // Rotation is cheap and reversible, so an unrecognised permission_error
+      // still rotates; persisting it would disable an account on a guess.
+      what: "unknown permission_error",
+      status: 403,
+      body: JSON.stringify({
+        type: "error",
+        error: { type: "permission_error", message: "nope" },
+      }),
+      rotate: true,
+      persist: false,
+    },
+    {
+      what: "malformed request",
+      status: 400,
+      body: JSON.stringify({
+        type: "error",
+        error: { type: "invalid_request_error", message: "bad" },
+      }),
+      rotate: false,
+      persist: false,
+    },
+    {
+      what: "rate limit",
+      status: 429,
+      body: JSON.stringify({
+        type: "error",
+        error: { type: "rate_limit_error", message: "slow down" },
+      }),
+      rotate: false,
+      persist: false,
+    },
+    {
+      what: "non-JSON 403",
+      status: 403,
+      body: "<html>",
+      rotate: false,
+      persist: false,
+    },
+    {
+      what: "404",
+      status: 404,
+      body: ENTITLEMENT_403_BODY,
+      rotate: false,
+      persist: false,
+    },
+  ];
+
+  for (const c of cases) {
+    if (isAccountEntitlementError(c.status, c.body) !== c.rotate) {
+      log(`entitlement detector: wrong rotate verdict for ${c.what}`, "red");
+      return false;
+    }
+    if (isDurableEntitlementBlock(c.status, c.body) !== c.persist) {
+      log(`entitlement detector: wrong persist verdict for ${c.what}`, "red");
+      return false;
+    }
+  }
+  log(`entitlement detectors: ${cases.length} cases passed`, "green");
+  return true;
+}
+
+async function testEntitlementRotation(): Promise<boolean | null> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+
+  // A synthetic key so the shared token store is never asked to disable a real
+  // account; markDisabled is a no-op for a provider it does not know.
+  const account = {
+    key: "anthropic:entitlement@test",
+    label: "entitlement@test",
+    token: "t",
+    type: "oauth" as const,
+    refreshToken: "r",
+  };
+  const noop = (): void => undefined;
+
+  const result = await __testHooks.handleAnthropicNonOkResponse({
+    response: new Response(ENTITLEMENT_403_BODY, {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    }),
+    account: account as never,
+    accountState: {
+      consecutiveRefreshFailures: 0,
+      permanentlyDisabled: false,
+    } as never,
+    enabledAccounts: [account] as never,
+    orderedAccounts: [account] as never,
+    requestStartTime: Date.now(),
+    fetchStartMs: Date.now(),
+    attemptNumber: 1,
+    logAttempt: noop as never,
+    logProxyBody: noop as never,
+    logFinalRequest: noop as never,
+    lastError: undefined,
+    authFailureMessage: null,
+    sawTransientFailure: false,
+    invalidRequestFailure: null,
+    entitlementFailure: null,
+  });
+
+  if (result.continueLoop !== true || result.response !== undefined) {
+    return await failRoutingCase(
+      "entitlement rotation: must rotate, not return a terminal response",
+    );
+  }
+  if (result.invalidRequestFailure !== null) {
+    // Setting it would suppress provider fallback and outrank a later 429.
+    return await failRoutingCase(
+      "entitlement rotation: must not record an invalid-request failure",
+    );
+  }
+  if (result.authFailureMessage !== null) {
+    return await failRoutingCase(
+      "entitlement rotation: must not surface an auth failure",
+    );
+  }
+  if (
+    result.entitlementFailure?.accounts.length !== 1 ||
+    result.entitlementFailure.errorCode !== "oauth_not_allowed_for_organization"
+  ) {
+    return await failRoutingCase(
+      "entitlement rotation: entitlement failure not recorded",
+    );
+  }
+
+  __testHooks.resetAllRuntimeState();
+  log(
+    "entitlement rotation: rotates and records without poisoning state",
+    "green",
+  );
+  return true;
+}
+
+async function testEntitlementTerminalResponse(): Promise<boolean | null> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const noop = (): void => undefined;
+  const result = __testHooks.buildClaudeAnthropicFailureResponse({
+    tracer: undefined,
+    requestStartTime: Date.now(),
+    // An auth failure is present too: the entitlement diagnosis is the more
+    // specific one and must win, or the user is told to re-login pointlessly.
+    authFailureMessage: "re-authenticate please",
+    authCooldownMessage: null,
+    invalidRequestFailure: null,
+    entitlementFailure: {
+      status: 403,
+      accounts: ["a@test", "b@test"],
+      message:
+        "OAuth authentication is currently not allowed for this organization.",
+      errorCode: "oauth_not_allowed_for_organization",
+    },
+    scopedExhaustion: null,
+    sawNetworkError: false,
+    sawTransientFailure: false,
+    sawRateLimit: false,
+    lastError: undefined,
+    fallbackFailureMessage: undefined,
+    // The pool must be fully accounted for by the block: the rung deliberately
+    // stands down when only some accounts were blocked, so the other accounts'
+    // real failures are not masked behind a do-not-retry 403.
+    orderedAccounts: [
+      { key: "anthropic:a", label: "a@test", token: "t", type: "oauth" },
+      { key: "anthropic:b", label: "b@test", token: "t", type: "oauth" },
+    ] as never,
+    buildLoggedClaudeError: ((
+      status: number,
+      message: string,
+      errorType?: string,
+    ) => ({ status, message, errorType })) as never,
+    logProxyBody: noop as never,
+    logFinalRequest: noop as never,
+  }) as { status?: number; message?: string; errorType?: string };
+
+  if (result.status !== 403 || result.errorType !== "permission_error") {
+    log("entitlement terminal: expected a 403 permission_error", "red");
+    return false;
+  }
+  if (
+    !result.message?.includes("organization entitlement policy") ||
+    !result.message.includes("neurolink auth enable")
+  ) {
+    log("entitlement terminal: message lacks the cause or the remedy", "red");
+    return false;
+  }
+  log(
+    "entitlement terminal: 403 outranks the auth rung and names the fix",
+    "green",
+  );
+  return true;
+}
+
+// ============================================================================
+// Tests: cooldowns cannot outlast what their reason can mean
+// ============================================================================
+
+async function testCooldownReasonCeilings(): Promise<boolean | null> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const now = TEST_NOW;
+  const nowSec = Math.floor(now / 1000);
+
+  // A 5-hour window reporting a reset 9 days out is not believable; without a
+  // per-reason ceiling this parked accounts for days under reason "session".
+  const sessionPlan = __testHooks.planCooldownFor429(
+    makeQuota({
+      sessionStatus: "rejected",
+      sessionResetAt: nowSec + 9 * 24 * 3600,
+    }) as never,
+    0,
+    now,
+  );
+  const sessionHours = (sessionPlan.coolingUntil - now) / 3600000;
+  if (sessionPlan.reason !== "session" || sessionHours > 5.5) {
+    log(
+      `cooldown ceiling: session plan exceeded its window (${sessionHours.toFixed(1)}h)`,
+      "red",
+    );
+    return false;
+  }
+
+  // A genuine weekly cooldown must survive intact.
+  const weeklyPlan = __testHooks.planCooldownFor429(
+    makeQuota({
+      weeklyStatus: "rejected",
+      weeklyResetAt: nowSec + 6 * 24 * 3600,
+    }) as never,
+    0,
+    now,
+  );
+  const weeklyDays = (weeklyPlan.coolingUntil - now) / 86400000;
+  if (weeklyPlan.reason !== "weekly" || weeklyDays < 5.9) {
+    log(
+      `cooldown ceiling: weekly plan was truncated (${weeklyDays.toFixed(1)}d)`,
+      "red",
+    );
+    return false;
+  }
+
+  log("cooldown ceilings: session capped, weekly preserved", "green");
+  return true;
+}
+
+async function testPersistedCooldownClamp(): Promise<boolean | null> {
+  const { initAccountCooldown, loadAccountCooldowns } =
+    await import("../src/lib/proxy/accountCooldown.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-cooldown-"));
+  const file = path.join(dir, "account-cooldowns.json");
+  try {
+    // Reproduces a real on-disk entry: a "session" cooldown running 206 hours,
+    // written before per-reason ceilings existed. It must heal on load rather
+    // than needing an operator to clear it.
+    const updatedAt = TEST_NOW - 24 * 3600 * 1000;
+    fs.writeFileSync(
+      file,
+      JSON.stringify({
+        "anthropic:stuck": {
+          coolingUntil: updatedAt + 206 * 3600 * 1000,
+          reason: "session",
+          updatedAt,
+        },
+        "anthropic:legit": {
+          coolingUntil: updatedAt + 6 * 24 * 3600 * 1000,
+          reason: "weekly",
+          updatedAt,
+        },
+      }),
+    );
+    initAccountCooldown(file);
+    const loaded = await loadAccountCooldowns();
+    if (!loaded["anthropic:stuck"] || !loaded["anthropic:legit"]) {
+      log("persisted cooldown clamp: an entry was dropped on load", "red");
+      return false;
+    }
+
+    const stuckHours =
+      (loaded["anthropic:stuck"].coolingUntil - updatedAt) / 3600000;
+    if (stuckHours > 5.5) {
+      log(
+        `persisted cooldown clamp: session entry still spans ${stuckHours.toFixed(1)}h`,
+        "red",
+      );
+      return false;
+    }
+    const legitDays =
+      (loaded["anthropic:legit"].coolingUntil - updatedAt) / 86400000;
+    if (legitDays < 5.9) {
+      log(
+        "persisted cooldown clamp: weekly entry must not be shortened",
+        "red",
+      );
+      return false;
+    }
+    log(
+      "persisted cooldown clamp: stale session entry healed on load",
+      "green",
+    );
+    return true;
+  } finally {
+    // Leave the module pointed somewhere that still exists: initAccountCooldown
+    // mutates module-level state, so a later cooldown write in this process
+    // would otherwise target the directory removed below.
+    initAccountCooldown(
+      path.join(os.tmpdir(), "neurolink-cooldown-discard.json"),
+    );
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// ============================================================================
+// Tests: cleanup must not delete credentials that still work
+// ============================================================================
+
+async function testCleanupRetainsUsableCredentials(): Promise<boolean | null> {
+  const { readFileSync } = await import("fs");
+  const src = readFileSync(
+    path.join(process.cwd(), "src/cli/commands/auth.ts"),
+    "utf-8",
+  );
+
+  // `auth cleanup --force` hard-deletes disabled entries. The partition must be
+  // expressed as "reasons that mean the credential is broken", so an operator's
+  // free-text `auth disable --reason` is retained. Written as an allowlist of
+  // recoverable reasons instead, any unlisted reason silently becomes a delete —
+  // which destroyed a real credential during development.
+  if (!src.includes("BROKEN_CREDENTIAL_DISABLE_REASONS")) {
+    log("cleanup guard: expected the broken-credential reason set", "red");
+    return false;
+  }
+  if (!src.includes("!BROKEN_CREDENTIAL_DISABLE_REASONS.has(reason)")) {
+    log("cleanup guard: retention must be the negated membership test", "red");
+    return false;
+  }
+  for (const reason of [
+    "missing_refresh_token",
+    "refresh_invalid",
+    "refresh_failed",
+  ]) {
+    if (!src.includes(`"${reason}"`)) {
+      log(`cleanup guard: deletable reason ${reason} is not enumerated`, "red");
+      return false;
+    }
+  }
+  log("cleanup guard: only broken credentials are deletable", "green");
+  return true;
+}
+
+// ============================================================================
+// Tests: model-scoped windows come from live response headers
+// ============================================================================
+
+/** The unified header family Anthropic returns on a Fable response. */
+function fableResponseHeaders(nowSec: number): Record<string, string> {
+  return {
+    "anthropic-ratelimit-unified-5h-utilization": "0.2",
+    "anthropic-ratelimit-unified-5h-status": "allowed",
+    "anthropic-ratelimit-unified-5h-reset": String(nowSec + 3600),
+    "anthropic-ratelimit-unified-7d-utilization": "0.3",
+    "anthropic-ratelimit-unified-7d-status": "allowed",
+    "anthropic-ratelimit-unified-7d-reset": String(nowSec + 5 * 24 * 3600),
+    "anthropic-ratelimit-unified-7d_oi-utilization": "0.9",
+    "anthropic-ratelimit-unified-7d_oi-status": "allowed",
+    "anthropic-ratelimit-unified-7d_oi-reset": String(nowSec + 4 * 24 * 3600),
+    "anthropic-ratelimit-unified-overage-status": "rejected",
+    "anthropic-ratelimit-unified-overage-disabled-reason": "org_level_disabled",
+    "anthropic-ratelimit-unified-representative-claim": "five_hour",
+  };
+}
+
+async function testScopedQuotaHeaderParsing(): Promise<boolean | null> {
+  const { parseQuotaHeaders, mergeQuotaSnapshot } =
+    await import("../src/lib/proxy/accountQuota.js");
+  const now = TEST_NOW;
+  const nowSec = Math.floor(now / 1000);
+  const headers = fableResponseHeaders(nowSec);
+
+  const quota = parseQuotaHeaders(headers, {
+    model: "claude-fable-5-20260115",
+    now,
+  });
+  if (!quota) {
+    log("scoped header parsing: expected a quota snapshot", "red");
+    return false;
+  }
+  const scopedWindows = (quota.windows ?? []).filter(
+    (w) => w.headerWindow === "7d_oi",
+  );
+  if (scopedWindows.length !== 1) {
+    log("scoped header parsing: expected exactly one scoped window", "red");
+    return false;
+  }
+  const [window] = scopedWindows;
+  // Tagged by family, not the dated wire id, so a new snapshot date still matches.
+  if (
+    window.scopeModel !== "claude-fable-5" ||
+    window.kind !== "weekly_scoped" ||
+    window.source !== "headers" ||
+    window.updatedAt !== now
+  ) {
+    log("scoped header parsing: window shape is wrong", "red");
+    return false;
+  }
+  if (
+    quota.overageDisabledReason !== "org_level_disabled" ||
+    quota.representativeClaim !== "five_hour"
+  ) {
+    log("scoped header parsing: overage/claim fields were dropped", "red");
+    return false;
+  }
+  // Anthropic sends no `unified-fallback` header, so this stays "unknown" and
+  // the legacy back-compat branch of isQuotaOverageAvailable stays inert. Making
+  // it reachable would stop cooling accounts that park correctly today.
+  if (quota.fallbackStatus !== "unknown") {
+    log("scoped header parsing: fallbackStatus default must not change", "red");
+    return false;
+  }
+  // The header does not say which model it scopes, so an untagged capture must
+  // not invent one.
+  const untagged = parseQuotaHeaders(headers, { now });
+  if (!untagged) {
+    log("scoped header parsing: untagged headers must still parse", "red");
+    return false;
+  }
+  if ((untagged.windows ?? []).length !== 0) {
+    log("scoped header parsing: must not emit a window without a model", "red");
+    return false;
+  }
+  // An Opus response carries no scoped family at all.
+  const opusHeaders = { ...headers };
+  delete opusHeaders["anthropic-ratelimit-unified-7d_oi-utilization"];
+  delete opusHeaders["anthropic-ratelimit-unified-7d_oi-status"];
+  delete opusHeaders["anthropic-ratelimit-unified-7d_oi-reset"];
+  const opusQuota = parseQuotaHeaders(opusHeaders, {
+    model: "claude-opus-5",
+    now,
+  });
+  if (!opusQuota) {
+    log("scoped header parsing: unscoped headers must still parse", "red");
+    return false;
+  }
+  if ((opusQuota.windows ?? []).length !== 0) {
+    log("scoped header parsing: unscoped response must yield no window", "red");
+    return false;
+  }
+
+  // The merge is what keeps scoped routing alive: a later Opus response carries
+  // no scoped window, and must not erase the Fable one.
+  const merged = mergeQuotaSnapshot(quota, opusQuota);
+  if (
+    (merged.windows ?? []).filter((w) => w.headerWindow === "7d_oi").length !==
+    1
+  ) {
+    log("scoped header parsing: merge dropped the scoped window", "red");
+    return false;
+  }
+
+  // A new model snapshot describes the same cap, so it must update the existing
+  // window rather than append one per release and grow the array forever.
+  const laterSnapshot = parseQuotaHeaders(headers, {
+    model: "claude-fable-5-20260320",
+    now: now + 1000,
+  });
+  if (!laterSnapshot) {
+    log("scoped header parsing: later snapshot must parse", "red");
+    return false;
+  }
+  const afterUpgrade = mergeQuotaSnapshot(merged, laterSnapshot);
+  const scopedAfter = (afterUpgrade.windows ?? []).filter(
+    (w) => w.headerWindow === "7d_oi",
+  );
+  if (scopedAfter.length !== 1 || scopedAfter[0].updatedAt !== now + 1000) {
+    log(
+      "scoped header parsing: snapshot bump must replace, not accumulate",
+      "red",
+    );
+    return false;
+  }
+
+  log("scoped header parsing: 7d_oi captured, tagged, and preserved", "green");
+  return true;
+}
+
+async function testScopedExhaustionGate(): Promise<boolean | null> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+  const now = TEST_NOW;
+  const nowSec = Math.floor(now / 1000);
+  const mk = (label: string) => ({
+    key: `anthropic:${label}`,
+    label,
+    token: "t",
+    type: "oauth" as const,
+  });
+  const quotaWith = (used: number, status: string, ageMs = 0) => ({
+    ...makeQuota({ overageStatus: "rejected" }),
+    lastUpdated: now - ageMs,
+    windows: [
+      {
+        kind: "weekly_scoped",
+        group: "weekly",
+        used,
+        status,
+        resetsAt: nowSec + 3 * 24 * 3600,
+        scopeModel: "claude-fable-5",
+        source: "headers",
+        updatedAt: now - ageMs,
+      },
+    ],
+  });
+
+  const spent = mk("spent");
+  const fresh = mk("fresh");
+  __testHooks.setAccountRuntimeState(spent.key, {
+    quota: quotaWith(1, "rejected") as never,
+  });
+  __testHooks.setAccountRuntimeState(fresh.key, {
+    quota: quotaWith(0.2, "allowed") as never,
+  });
+
+  // With headroom available elsewhere, the spent account is excluded outright —
+  // ordering alone would still send the request there when it sorts first.
+  const withHeadroom = __testHooks.evaluateScopedExhaustion(
+    [spent, fresh] as never,
+    "claude-fable-5-20260115",
+    now,
+  );
+  if (
+    withHeadroom.eligible.length !== 1 ||
+    withHeadroom.eligible[0].label !== "fresh" ||
+    withHeadroom.exhaustion !== null
+  ) {
+    return await failRoutingCase(
+      "scoped gate: a spent account must be excluded when headroom exists",
+    );
+  }
+
+  // Every account spent: report it rather than making a doomed upstream call.
+  const allSpent = __testHooks.evaluateScopedExhaustion(
+    [spent] as never,
+    "claude-fable-5-20260115",
+    now,
+  );
+  if (
+    allSpent.eligible.length !== 0 ||
+    allSpent.exhaustion?.scopeModel !== "claude-fable-5" ||
+    allSpent.exhaustion.accounts.length !== 1
+  ) {
+    return await failRoutingCase(
+      "scoped gate: full exhaustion must be reported",
+    );
+  }
+
+  // Another model is unaffected — this is a per-model cap, not a cooldown.
+  const otherModel = __testHooks.evaluateScopedExhaustion(
+    [spent] as never,
+    "claude-opus-5",
+    now,
+  );
+  if (otherModel.eligible.length !== 1 || otherModel.exhaustion !== null) {
+    return await failRoutingCase(
+      "scoped gate: other models must stay eligible",
+    );
+  }
+
+  // Stale evidence must never take the pool down.
+  __testHooks.setAccountRuntimeState(spent.key, {
+    quota: quotaWith(1, "rejected", 30 * 60 * 1000) as never,
+  });
+  const stale = __testHooks.evaluateScopedExhaustion(
+    [spent] as never,
+    "claude-fable-5-20260115",
+    now,
+  );
+  if (stale.eligible.length !== 1 || stale.exhaustion !== null) {
+    return await failRoutingCase(
+      "scoped gate: a stale window must not exclude an account",
+    );
+  }
+
+  // A scoped rejection is per-model, so it must never park the account.
+  if (
+    __testHooks.getAccountRuntimeState(spent.key)?.coolingUntil !== undefined
+  ) {
+    return await failRoutingCase(
+      "scoped gate: scoped exhaustion must not set a cooldown",
+    );
+  }
+
+  // A window persisted without `status` must not crash the gate. The quota file
+  // is JSON.parse'd with no validation, and this runs before the account loop —
+  // a throw here 502s every request until the file is deleted by hand.
+  __testHooks.setAccountRuntimeState(spent.key, {
+    quota: {
+      ...makeQuota({}),
+      lastUpdated: now,
+      windows: [
+        {
+          kind: "weekly_scoped",
+          scopeModel: "claude-fable-5",
+          resetsAt: nowSec + 3600,
+          updatedAt: now,
+        },
+      ],
+    } as never,
+  });
+  const malformed = __testHooks.evaluateScopedExhaustion(
+    [spent] as never,
+    "claude-fable-5-20260115",
+    now,
+  );
+  if (malformed.eligible.length !== 1) {
+    return await failRoutingCase(
+      "scoped gate: a window without a status must not exclude",
+    );
+  }
+
+  __testHooks.resetAllRuntimeState();
+  log("scoped gate: excludes, reports, and never empties the pool", "green");
+  return true;
+}
+
+async function testScopedSortNeedsBothWindows(): Promise<boolean | null> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+  const now = TEST_NOW;
+  const nowSec = Math.floor(now / 1000);
+  const mk = (label: string) => ({
+    key: `anthropic:${label}`,
+    label,
+    token: "t",
+    type: "oauth" as const,
+  });
+
+  // Only the account that has served a model gets that model's scoped window.
+  // If the fill-first rung compared a real utilization against the "absent"
+  // sentinel, the account holding a window would always win — funnelling every
+  // request for that model onto whichever account happened to serve it first,
+  // and inverting the weekly fill-first order.
+  const scopedLight = mk("scopedlight");
+  const unscopedHeavy = mk("unscopedheavy");
+  __testHooks.setAccountRuntimeState(scopedLight.key, {
+    quota: {
+      ...makeQuota({ weeklyUsed: 0.05, weeklyResetAt: nowSec + 6 * 24 * 3600 }),
+      lastUpdated: now,
+      windows: [
+        {
+          kind: "weekly_scoped",
+          group: "weekly",
+          used: 0.1,
+          status: "allowed",
+          resetsAt: nowSec + 3 * 24 * 3600,
+          scopeModel: "claude-fable-5",
+          source: "headers",
+          updatedAt: now,
+        },
+      ],
+    } as never,
+  });
+  __testHooks.setAccountRuntimeState(unscopedHeavy.key, {
+    quota: {
+      ...makeQuota({ weeklyUsed: 0.95, weeklyResetAt: nowSec + 6 * 24 * 3600 }),
+      lastUpdated: now,
+    } as never,
+  });
+
+  const order = __testHooks
+    .orderAccountsByQuota(
+      [scopedLight, unscopedHeavy] as never,
+      now,
+      undefined,
+      undefined,
+      undefined,
+      "claude-fable-5-20260115",
+    )
+    .map((x: { label: string }) => x.label)
+    .join(",");
+  if (order !== "unscopedheavy,scopedlight") {
+    log(
+      "scoped sort: a one-sided scoped window must not override weekly fill-first",
+      "red",
+    );
+    __testHooks.resetAllRuntimeState();
+    return false;
+  }
+
+  __testHooks.resetAllRuntimeState();
+  log(
+    "scoped sort: fill-first preserved when only one side is scoped",
+    "green",
+  );
+  return true;
+}
+
+async function testApiKeyPermissionErrorKeepsItsDiagnosis(): Promise<
+  boolean | null
+> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  __testHooks.resetAllRuntimeState();
+
+  // Anthropic answers an under-privileged API key with permission_error too.
+  // Routing that into the OAuth entitlement branch would tell the operator to
+  // ask an admin to re-enable Claude Code OAuth — meaningless for an API key.
+  const account = {
+    key: "anthropic:env",
+    label: "env",
+    token: "sk-test",
+    type: "api_key" as const,
+  };
+  const noop = (): void => undefined;
+  const result = await __testHooks.handleAnthropicNonOkResponse({
+    response: new Response(
+      JSON.stringify({
+        type: "error",
+        error: {
+          type: "permission_error",
+          message: "Your API key does not have permission to use the resource.",
+        },
+      }),
+      { status: 403, headers: { "content-type": "application/json" } },
+    ),
+    account: account as never,
+    accountState: {
+      consecutiveRefreshFailures: 0,
+      permanentlyDisabled: false,
+    } as never,
+    enabledAccounts: [account] as never,
+    orderedAccounts: [account] as never,
+    requestStartTime: Date.now(),
+    fetchStartMs: Date.now(),
+    attemptNumber: 1,
+    logAttempt: noop as never,
+    logProxyBody: noop as never,
+    logFinalRequest: noop as never,
+    lastError: undefined,
+    authFailureMessage: null,
+    sawTransientFailure: false,
+    invalidRequestFailure: null,
+    entitlementFailure: null,
+  });
+
+  if (result.entitlementFailure !== null) {
+    return await failRoutingCase(
+      "api_key 403: must not be recorded as an entitlement block",
+    );
+  }
+  if (!result.authFailureMessage) {
+    return await failRoutingCase(
+      "api_key 403: must keep its api-key authentication diagnosis",
+    );
+  }
+
+  __testHooks.resetAllRuntimeState();
+  log("api_key 403: keeps its own diagnosis", "green");
+  return true;
+}
+
+async function testEntitlementNeedsWholePool(): Promise<boolean | null> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const noop = (): void => undefined;
+  const build = (accountCount: number): { status?: number } =>
+    __testHooks.buildClaudeAnthropicFailureResponse({
+      tracer: undefined,
+      requestStartTime: Date.now(),
+      authFailureMessage: null,
+      authCooldownMessage: null,
+      invalidRequestFailure: null,
+      entitlementFailure: {
+        status: 403,
+        accounts: ["a@test"],
+        message: "not allowed for this organization",
+        errorCode: "oauth_not_allowed_for_organization",
+      },
+      scopedExhaustion: null,
+      sawNetworkError: true,
+      sawTransientFailure: true,
+      sawRateLimit: false,
+      lastError: "connection reset",
+      fallbackFailureMessage: undefined,
+      orderedAccounts: Array.from({ length: accountCount }, (_, i) => ({
+        key: `anthropic:a${i}`,
+        label: `a${i}`,
+        token: "t",
+        type: "oauth" as const,
+      })) as never,
+      buildLoggedClaudeError: ((status: number) => ({ status })) as never,
+      logProxyBody: noop as never,
+      logFinalRequest: noop as never,
+    }) as { status?: number };
+
+  // One blocked account among many that failed for real reasons must not mask
+  // them behind a 403 — a 403 tells the client not to retry, and retrying is
+  // exactly right for a transport failure.
+  if (build(4).status !== 502) {
+    log(
+      "entitlement scope: a partial block must not win over real failures",
+      "red",
+    );
+    return false;
+  }
+  if (build(1).status !== 403) {
+    log("entitlement scope: a fully blocked pool must report 403", "red");
+    return false;
+  }
+  log("entitlement scope: 403 only when it explains the whole pool", "green");
+  return true;
+}
+
+async function testQuotaMergePreservesProviderConfig(): Promise<
+  boolean | null
+> {
+  const { mergeQuotaSnapshot } =
+    await import("../src/lib/proxy/accountQuota.js");
+  // Each source reports a different half of the extra-usage picture, so a plain
+  // overwrite makes whether an exhausted account gets parked depend on which
+  // source happened to write last.
+  const fromUsageApi = {
+    ...makeQuota({}),
+    lastUpdated: TEST_NOW,
+    source: "usage-api",
+    overageEnabled: true,
+  };
+  const fromHeaders = {
+    ...makeQuota({}),
+    lastUpdated: TEST_NOW + 1000,
+    source: "headers",
+    overageDisabledReason: "org_level_disabled",
+  };
+
+  const afterHeaders = mergeQuotaSnapshot(
+    fromUsageApi as never,
+    fromHeaders as never,
+  );
+  if (afterHeaders.overageEnabled !== true) {
+    log(
+      "quota merge: usage-api extra-usage flag must survive a header capture",
+      "red",
+    );
+    return false;
+  }
+  const afterRefresh = mergeQuotaSnapshot(afterHeaders, fromUsageApi as never);
+  if (afterRefresh.overageDisabledReason !== "org_level_disabled") {
+    log(
+      "quota merge: header-only overage reason must survive a refresh",
+      "red",
+    );
+    return false;
+  }
+  log("quota merge: provider configuration survives both directions", "green");
+  return true;
+}
 
 async function testWeeklyExpiryOrdering(): Promise<boolean | null> {
   const { __testHooks } =
@@ -2352,6 +3423,13 @@ async function testCliPrimaryRoundtrip(): Promise<boolean | null> {
 // Test Registration
 // ============================================================================
 
+/**
+ * Categories that never touch the spawned proxy — they drive exported helpers
+ * directly. A launchd-managed daemon makes the live cases unrunnable but says
+ * nothing about these, and skipping them hides real regressions.
+ */
+const IN_PROCESS_CATEGORIES = new Set(["proxy-config", "proxy-primary"]);
+
 const tests: TestFunction[] = [
   // Infrastructure (proxy lifecycle)
   { name: "Proxy Startup", fn: testProxyStartup, category: "proxy-infra" },
@@ -2401,6 +3479,71 @@ const tests: TestFunction[] = [
     category: "proxy-primary",
   },
   {
+    name: "Quota: model-scoped caps gate routing",
+    fn: testScopedQuotaRouting,
+    category: "proxy-primary",
+  },
+  {
+    name: "Quota: scoped windows parsed from live headers",
+    fn: testScopedQuotaHeaderParsing,
+    category: "proxy-primary",
+  },
+  {
+    name: "Quota: scoped exhaustion gates eligibility",
+    fn: testScopedExhaustionGate,
+    category: "proxy-primary",
+  },
+  {
+    name: "Quota: scoped sort needs a window on both sides",
+    fn: testScopedSortNeedsBothWindows,
+    category: "proxy-primary",
+  },
+  {
+    name: "Quota: merge preserves provider configuration",
+    fn: testQuotaMergePreservesProviderConfig,
+    category: "proxy-primary",
+  },
+  {
+    name: "Entitlement: detector tiers",
+    fn: testEntitlementDetectors,
+    category: "proxy-primary",
+  },
+  {
+    name: "Entitlement: 403 rotates instead of failing the request",
+    fn: testEntitlementRotation,
+    category: "proxy-primary",
+  },
+  {
+    name: "Entitlement: terminal 403 names cause and remedy",
+    fn: testEntitlementTerminalResponse,
+    category: "proxy-primary",
+  },
+  {
+    name: "Entitlement: api_key 403 keeps its own diagnosis",
+    fn: testApiKeyPermissionErrorKeepsItsDiagnosis,
+    category: "proxy-primary",
+  },
+  {
+    name: "Entitlement: 403 only when it explains the whole pool",
+    fn: testEntitlementNeedsWholePool,
+    category: "proxy-primary",
+  },
+  {
+    name: "Cooldown: per-reason ceilings",
+    fn: testCooldownReasonCeilings,
+    category: "proxy-primary",
+  },
+  {
+    name: "Cooldown: stale persisted entry clamped on load",
+    fn: testPersistedCooldownClamp,
+    category: "proxy-primary",
+  },
+  {
+    name: "Cleanup: only broken credentials are deletable",
+    fn: testCleanupRetainsUsableCredentials,
+    category: "proxy-primary",
+  },
+  {
     name: "Quota: saveAccountQuota merges across restarts",
     fn: testSaveAccountQuotaMerges,
     category: "proxy-primary",
@@ -2418,7 +3561,10 @@ const tests: TestFunction[] = [
   {
     name: "Primary: /status fallback (no primary configured)",
     fn: testStatusPrimaryAccountFallback,
-    category: "proxy-primary",
+    // Reads /status over HTTP, so it needs the spawned proxy — it must stay
+    // outside IN_PROCESS_CATEGORIES or a launchd-managed environment turns its
+    // skip into a failed fetch.
+    category: "proxy-infra",
   },
   {
     name: "Primary: CLI set-primary/get-primary/clear-primary roundtrip",
@@ -2498,7 +3644,7 @@ async function runAllTests(): Promise<void> {
       if (
         proxyLaunchdManaged &&
         test.name !== "Proxy Startup" &&
-        test.category !== "proxy-config"
+        !IN_PROCESS_CATEGORIES.has(test.category ?? "")
       ) {
         recordTest(test.name, false, true, "launchd-managed proxy detected");
         continue;

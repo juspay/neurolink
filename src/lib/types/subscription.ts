@@ -1211,6 +1211,19 @@ export type ProxyRoutingConfig = {
   passthroughModels?: string[];
   /** Enable quota-aware fill-first account ordering. Defaults to true. */
   quotaRouting?: boolean;
+  /**
+   * Whether an account may keep serving on paid extra usage once its
+   * subscription window is spent.
+   *
+   * - `auto` (default): follow whatever Anthropic reports for the account.
+   * - `never`: park the account at the subscription limit even when extra usage
+   *   is enabled, so the pool can never spend credits.
+   * - `always`: keep serving whenever the provider permits extra usage.
+   *
+   * Only `never` can override the provider — nothing here can enable extra usage
+   * that Anthropic has disabled (e.g. `org_level_disabled`).
+   */
+  useOverage?: "auto" | "always" | "never";
   /** Session utilization threshold used to proactively demote an account. */
   sessionSoftLimit?: number;
   /** Reset-time bucket width used when ordering quota windows. */

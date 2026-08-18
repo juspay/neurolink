@@ -245,12 +245,17 @@ function toFraction(percent: number | null | undefined): number | undefined {
     : undefined;
 }
 
-function mapUsageLimit(entry: AnthropicUsageLimit): AccountQuotaWindow {
+function mapUsageLimit(
+  entry: AnthropicUsageLimit,
+  now: number,
+): AccountQuotaWindow {
   const window: AccountQuotaWindow = {
     kind: entry.kind ?? "unknown",
     used: toFraction(entry.percent) ?? 0,
     status: deriveWindowStatus(entry.percent, entry.severity),
     resetsAt: isoToEpochSeconds(entry.resets_at),
+    source: "usage-api",
+    updatedAt: now,
   };
   if (entry.group !== undefined) {
     window.group = entry.group;
@@ -264,6 +269,13 @@ function mapUsageLimit(entry: AnthropicUsageLimit): AccountQuotaWindow {
   const scopeModel = entry.scope?.model?.display_name;
   if (scopeModel) {
     window.scopeModel = scopeModel;
+  }
+  // The wire id matches a request's `model` exactly, so keeping it lets routing
+  // skip the fuzzy display-name match ("Fable" vs "claude-fable-5-20260115").
+  // Often null in practice, which is why the display-name path still exists.
+  const scopeModelId = entry.scope?.model?.id;
+  if (scopeModelId) {
+    window.scopeModelId = scopeModelId;
   }
   const scopeSurface = entry.scope?.surface;
   if (scopeSurface) {
@@ -293,7 +305,7 @@ export function usageToQuota(
   }
 
   const { now, prior } = opts;
-  const windows = limits.map(mapUsageLimit);
+  const windows = limits.map((entry) => mapUsageLimit(entry, now));
   const sessionLimit = limits.find((entry) => entry.kind === "session");
   const weeklyLimit = limits.find((entry) => entry.kind === "weekly_all");
 
@@ -333,6 +345,10 @@ export function usageToQuota(
     weeklyResetAt,
     fallbackPercentage: prior?.fallbackPercentage ?? 0,
     overageStatus,
+    // Authoritative: the header trio the legacy overage checks rely on is only
+    // ever sent on a served response, so an account refreshed but not yet used
+    // would otherwise look overage-ineligible even with extra usage switched on.
+    ...(typeof overageEnabled === "boolean" ? { overageEnabled } : {}),
     lastUpdated: now,
     windows,
     windowsUpdatedAt: now,

@@ -2758,6 +2758,7 @@ const tests: TestFunction[] = [
         authFailureMessage: null,
         sawTransientFailure: false,
         invalidRequestFailure: null,
+        entitlementFailure: null,
       });
       return (
         result.continueLoop === true &&
@@ -3203,11 +3204,17 @@ const tests: TestFunction[] = [
         "utf-8",
       );
       // Known-cooling accounts must not be re-hammered. The final response
-      // should expose the earliest persisted retry timestamp instead.
+      // should expose the earliest persisted retry timestamp instead, and now
+      // also name the window that ran out (describeCoolingWindow) so the caller
+      // can tell a 5-hour pause from a 7-day one.
+      // Declaring the helper is not enough — a dead helper with the right name
+      // would pass. Require it to be called from the message the client sees.
+      const windowLabelUsed =
+        /const windowLabel = describeCoolingWindow\(/.test(src) &&
+        /cooling after the \$\{windowLabel\}/.test(src);
       return (
-        src.includes(
-          "Anthropic accounts are cooling after upstream rate limits",
-        ) &&
+        windowLabelUsed &&
+        src.includes("function describeCoolingWindow") &&
         src.includes("Earliest retry at") &&
         src.includes("let effectiveAccounts = nonCoolingAccounts;")
       );

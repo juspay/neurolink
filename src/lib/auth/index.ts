@@ -50,6 +50,29 @@ export {
 // OAuth types (canonical definitions in types/subscriptionTypes.ts)
 
 // =============================================================================
+// CODEX (ChatGPT) OAUTH - subscription pool support
+// =============================================================================
+
+export {
+  CODEX_CLIENT_ID,
+  CODEX_AUTH_URL,
+  CODEX_TOKEN_URL,
+  CODEX_REDIRECT_URI,
+  CODEX_DEFAULT_SCOPES,
+  CODEX_BACKEND_BASE_URL,
+  CODEX_RESPONSES_URL,
+  CODEX_USAGE_URL,
+  CODEX_USER_AGENT,
+  CODEX_ORIGINATOR,
+  decodeCodexAccessToken,
+  decodeCodexEmail,
+  resolveCodexAccountId,
+  importCodexAuthFile,
+  refreshCodexToken,
+  codexTokenNeedsRefresh,
+} from "./codexOAuth.js";
+
+// =============================================================================
 // TOKEN STORE - Secure Token Storage
 // =============================================================================
 

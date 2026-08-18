@@ -14,6 +14,7 @@ export * from "./autoresearch.js";
 export * from "./circuitBreakerErrors.js";
 export * from "./cli.js";
 export * from "./client.js";
+export * from "./codex.js";
 export * from "./common.js";
 export * from "./config.js";
 export * from "./context.js";

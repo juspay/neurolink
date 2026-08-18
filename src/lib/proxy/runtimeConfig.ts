@@ -349,6 +349,7 @@ async function buildCandidate(
     )
     .digest("hex")
     .slice(0, 16);
+  const useOverage = routing?.useOverage ?? "auto";
   const fingerprintSource = JSON.stringify({
     strategy,
     passthrough: options.passthrough,
@@ -358,6 +359,7 @@ async function buildCandidate(
     quotaRoutingEnabled,
     sessionSoftLimit,
     sessionResetToleranceMs,
+    useOverage,
   });
   const configHash = createHash("sha256")
     .update(fingerprintSource)
@@ -378,6 +380,7 @@ async function buildCandidate(
       quotaRoutingEnabled,
       sessionSoftLimit,
       sessionResetToleranceMs,
+      useOverage,
     }),
     configFilePresent,
     envFilePresent,
