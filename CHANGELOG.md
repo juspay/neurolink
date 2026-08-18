@@ -1,3 +1,9 @@
+## [11.2.0](https://github.com/juspay/neurolink/compare/v11.1.1...v11.2.0) (2026-08-18)
+
+### Features
+
+- **(providers):** add the catalog foundations for OpenAI-compatible providers ([baf1b2a](https://github.com/juspay/neurolink/commit/baf1b2a7c23bb85286a564e82b34a444e44aa715))
+
 ## [11.1.1](https://github.com/juspay/neurolink/compare/v11.1.0...v11.1.1) (2026-08-18)
 
 ### Bug Fixes
