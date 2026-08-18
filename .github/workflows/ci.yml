@@ -117,6 +117,9 @@ jobs:
       - name: Provider structure tests (registry ↔ filesystem, no API keys required)
         run: pnpm run test:provider-structure
 
+      - name: Error classifier contract tests (TimeoutError classification per provider, no API keys required)
+        run: pnpm run test:error-classifier-contract
+
   # action-smoke-test:
   #   name: GitHub Action Smoke Test
   #   runs-on: ubuntu-latest

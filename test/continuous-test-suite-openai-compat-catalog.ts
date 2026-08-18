@@ -399,6 +399,137 @@ async function testConfiguredProviderHookDelegation(): Promise<void> {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Section: Groq's 3 pre-migration quirks, verified against the deleted
+// subclass's exact source (Task 7)
+//
+// Groq is the one catalog provider with genuine hand-written behavior
+// beyond auth+429 boilerplate: its formatProviderError() (a) intercepted
+// TimeoutError itself instead of falling through to
+// classifyProviderError()'s non-overridable TimeoutError -> NetworkError
+// default, (b) used a Groq-specific 401/auth message instead of
+// DEFAULT_ERROR_RULES's generic one, and (c) had a bespoke
+// model_decommissioned rule with a dynamic, model-name-interpolated
+// message. All three are asserted here against the EXACT strings recovered
+// from `git show origin/release:src/lib/providers/groq.ts` (byte-identical
+// to this branch's HEAD before groq.ts was deleted in this same commit) —
+// not against a loose regex, and not against the new code's own output.
+// The (a) and (b)/(c) rules are expressed as two different mechanisms: (a)
+// is OpenAICompatCatalogEntry.timeoutErrorClass, consulted before the
+// shared classifier ever runs; (b)/(c) are catalog-entry errorRules,
+// spread through classifyProviderError exactly like the old subclass's
+// custom rule array did (see openaiCompatCatalog.ts).
+// ───────────────────────────────────────────────────────────────────────
+
+async function testGroqTimeoutErrorClassOverride(): Promise<void> {
+  const section = "Groq pre-migration quirks";
+  try {
+    const { ConfiguredOpenAICompatProvider } =
+      await import("../dist/lib/providers/configuredOpenAICompat.js");
+    const { OPENAI_COMPAT_CATALOG } =
+      await import("../dist/lib/providers/openaiCompatCatalog.js");
+    const { TimeoutError } = await import("../dist/lib/utils/timeout.js");
+
+    const groqEntry = OPENAI_COMPAT_CATALOG.find(
+      (e: { providerName: string }) => e.providerName === "groq",
+    );
+    if (!groqEntry) {
+      throw new Error("groq entry exists in the catalog");
+    }
+
+    // An explicit key, not `undefined`: the 4th argument is the credentials
+    // override, and leaving it out makes resolveOpenAICompatConfig() fall
+    // through to validateApiKey(), which throws on any machine where
+    // GROQ_API_KEY is unset. This suite asserts error *classification*, so it
+    // must not depend on the developer's environment holding a real Groq key.
+    const provider = new ConfiguredOpenAICompatProvider(
+      groqEntry,
+      "llama-3.3-70b-versatile",
+      undefined,
+      { apiKey: "test-key" },
+    );
+    const formatProviderError = (
+      provider as unknown as { formatProviderError(e: unknown): Error }
+    )["formatProviderError"].bind(provider);
+
+    // (a) TimeoutError -> plain ProviderError, not the classifier's default
+    // NetworkError. Old subclass: `new ProviderError(\`Groq request timed
+    // out: ${error.message}\`, "groq")`.
+    const timeoutErr = formatProviderError(
+      new TimeoutError(
+        "Request timeout after 5000ms",
+        5000,
+        "groq",
+        "generate",
+      ),
+    );
+    expect(
+      timeoutErr.constructor.name === "ProviderError",
+      `groq TimeoutError maps to ProviderError, not the classifier's default NetworkError (got ${timeoutErr.constructor.name})`,
+    );
+    expectEq(
+      timeoutErr.message,
+      "[groq] Groq request timed out: Request timeout after 5000ms",
+      "groq timeout message matches the pre-migration subclass verbatim",
+    );
+
+    // (b) 401/auth -> Groq's own message, not DEFAULT_ERROR_RULES's generic
+    // "Invalid ${provider} API key. Please check your credentials." Old
+    // subclass's exact string, reproduced verbatim below.
+    const authErr = formatProviderError(new Error("invalid_api_key"));
+    expectEq(
+      authErr.constructor.name,
+      "AuthenticationError",
+      "groq auth error maps to AuthenticationError",
+    );
+    expectEq(
+      authErr.message,
+      "[groq] Invalid Groq API key. Check GROQ_API_KEY. Get one at https://console.groq.com/keys",
+      "groq auth error message matches the pre-migration subclass's bespoke text, not DEFAULT_ERROR_RULES's generic one",
+    );
+
+    // (c) model_decommissioned -> InvalidModelError with a dynamic,
+    // model-name-interpolated message. Old subclass's exact template,
+    // reproduced verbatim below (modelName is the "llama-3.3-70b-versatile"
+    // this provider was constructed with, above).
+    const decommissionedErr = formatProviderError(
+      new Error("model_decommissioned"),
+    );
+    expectEq(
+      decommissionedErr.constructor.name,
+      "InvalidModelError",
+      "groq model_decommissioned error maps to InvalidModelError",
+    );
+    expectEq(
+      decommissionedErr.message,
+      "[groq] Groq model 'llama-3.3-70b-versatile' was decommissioned. Pick a current model from https://console.groq.com/docs/models.",
+      "groq model_decommissioned message matches the pre-migration subclass verbatim",
+    );
+
+    // Every other catalog entry must still get the classifier's unmodified
+    // default — this field is a single documented opt-out, not a pattern.
+    const others = (
+      OPENAI_COMPAT_CATALOG as Array<{
+        providerName: string;
+        timeoutErrorClass?: unknown;
+      }>
+    ).filter((e) => e.providerName !== "groq");
+    expect(
+      others.every((e) => e.timeoutErrorClass === undefined),
+      "no catalog entry other than groq sets timeoutErrorClass",
+    );
+
+    record(results, `${section}: timeout/auth/model_decommissioned`, true);
+  } catch (err) {
+    record(
+      results,
+      `${section}: timeout/auth/model_decommissioned`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Section: OPENAI_COMPAT_CATALOG structural invariants (Task 4)
 // ───────────────────────────────────────────────────────────────────────
 
@@ -515,6 +646,7 @@ async function main(): Promise<void> {
     await testResolveConfigPrecedence();
     await testResolveConfigComputedBaseURL();
     await testConfiguredProviderHookDelegation();
+    await testGroqTimeoutErrorClassOverride();
     await testCatalogStructuralInvariants();
   } finally {
     restoreEnv();

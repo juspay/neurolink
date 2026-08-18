@@ -127,6 +127,11 @@ type OpenAICompatSpec = {
   model: string;
   /** Friendly auth-error substring expected in the 401 case. */
   authErrorMatch: RegExp;
+  /** Optional: when set, runs a 429 case asserting this pattern against
+   *  the surfaced error message. Providers ported off a hand-written
+   *  subclass in this plan set this; pre-existing entries left it unset
+   *  (no regression — the case is skipped, not failed, when absent). */
+  rateLimitErrorMatch?: RegExp;
 };
 
 const OPENAI_COMPAT_PROVIDERS: OpenAICompatSpec[] = [
@@ -137,6 +142,7 @@ const OPENAI_COMPAT_PROVIDERS: OpenAICompatSpec[] = [
     authPrefix: "Bearer ",
     model: "grok-3",
     authErrorMatch: /xai|401|unauthor|api key/i,
+    rateLimitErrorMatch: /xai|rate.?limit|429/i,
   },
   {
     provider: "groq",
@@ -145,6 +151,7 @@ const OPENAI_COMPAT_PROVIDERS: OpenAICompatSpec[] = [
     authPrefix: "Bearer ",
     model: "llama-3.3-70b-versatile",
     authErrorMatch: /groq|401|unauthor|api key/i,
+    rateLimitErrorMatch: /groq|rate.?limit|429/i,
   },
   {
     provider: "together-ai",
@@ -153,6 +160,7 @@ const OPENAI_COMPAT_PROVIDERS: OpenAICompatSpec[] = [
     authPrefix: "Bearer ",
     model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
     authErrorMatch: /together|401|unauthor|api key/i,
+    rateLimitErrorMatch: /together|rate.?limit|429/i,
   },
   {
     provider: "fireworks",
@@ -161,6 +169,7 @@ const OPENAI_COMPAT_PROVIDERS: OpenAICompatSpec[] = [
     authPrefix: "Bearer ",
     model: "accounts/fireworks/models/llama-v3p3-70b-instruct",
     authErrorMatch: /fireworks|401|unauthor|api key/i,
+    rateLimitErrorMatch: /fireworks|rate.?limit|429/i,
   },
   {
     provider: "perplexity",
@@ -169,6 +178,7 @@ const OPENAI_COMPAT_PROVIDERS: OpenAICompatSpec[] = [
     authPrefix: "Bearer ",
     model: "sonar",
     authErrorMatch: /perplex|401|unauthor|api key/i,
+    rateLimitErrorMatch: /perplex|rate.?limit|429/i,
   },
   {
     provider: "cohere",
@@ -187,6 +197,16 @@ const OPENAI_COMPAT_PROVIDERS: OpenAICompatSpec[] = [
     authPrefix: "Bearer ",
     model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     authErrorMatch: /cloudflare|401|unauthor|api key/i,
+    rateLimitErrorMatch: /cloudflare|rate.?limit|429/i,
+  },
+  {
+    provider: "mistral",
+    envVar: "MISTRAL_API_KEY",
+    urlMatch: "api.mistral.ai/v1/chat/completions",
+    authPrefix: "Bearer ",
+    model: "mistral-small-2506",
+    authErrorMatch: /mistral|401|unauthor|api key/i,
+    rateLimitErrorMatch: /mistral|rate.?limit|429/i,
   },
 ];
 
@@ -304,6 +324,61 @@ async function runOpenAICompatProvider(spec: OpenAICompatSpec): Promise<void> {
       false,
       err instanceof Error ? err.message : String(err),
     );
+  }
+
+  // ── 429 (only for specs that opt in) ───────────────────────────────
+  if (spec.rateLimitErrorMatch) {
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: spec.urlMatch,
+            respond: {
+              status: 429,
+              json: {
+                error: {
+                  message: "Rate limit exceeded",
+                  type: "rate_limit_error",
+                },
+              },
+            },
+          },
+        ],
+        async () => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          try {
+            await nl.generate({
+              provider: spec.provider,
+              model: spec.model,
+              input: { text: "ping" },
+              disableTools: true,
+            });
+            record(
+              results,
+              `${section}: 429 surfaces friendly error`,
+              false,
+              "no error thrown",
+            );
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            record(
+              results,
+              `${section}: 429 surfaces friendly error`,
+              spec.rateLimitErrorMatch!.test(msg),
+              `msg='${msg.slice(0, 120)}'`,
+            );
+          }
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        `${section}: 429 surfaces friendly error`,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   }
 }
 

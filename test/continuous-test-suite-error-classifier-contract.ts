@@ -70,15 +70,14 @@ import {
   NetworkError,
   ProviderError,
 } from "../src/lib/types/index.js";
-import type { ProviderErrorRule } from "../src/lib/types/index.js";
+import type {
+  ProviderErrorRule,
+  OpenAICompatCatalogEntry,
+} from "../src/lib/types/index.js";
 import { TimeoutError } from "../src/lib/utils/timeout.js";
-import { MistralProvider } from "../src/lib/providers/mistral.js";
-import { GroqProvider } from "../src/lib/providers/groq.js";
-import { XaiProvider } from "../src/lib/providers/xai.js";
-import { TogetherAIProvider } from "../src/lib/providers/togetherAi.js";
-import { FireworksProvider } from "../src/lib/providers/fireworks.js";
-import { PerplexityProvider } from "../src/lib/providers/perplexity.js";
-import { CloudflareProvider } from "../src/lib/providers/cloudflare.js";
+import { AIProviderName } from "../src/lib/constants/enums.js";
+import { ConfiguredOpenAICompatProvider } from "../src/lib/providers/configuredOpenAICompat.js";
+import { OPENAI_COMPAT_CATALOG } from "../src/lib/providers/openaiCompatCatalog.js";
 import { OpenAICompatibleProvider } from "../src/lib/providers/openaiCompatible/client.js";
 import { OpenAIProvider } from "../src/lib/providers/openAI/client.js";
 import { DeepSeekProvider } from "../src/lib/providers/deepseek.js";
@@ -99,6 +98,67 @@ import { defineSuite, assert } from "./helpers/harness.js";
 const { test, runSuite, section } = defineSuite(
   "Error classifier contract (Plan 07, rule 15 determinism exception)",
 );
+
+/**
+ * Several providers below are constructed bare, and their constructors throw
+ * when their credential env var is absent. On a developer machine a .env
+ * supplies those, so the suite passed locally while failing anywhere without
+ * them — which is exactly what happened the first time it ran in CI.
+ *
+ * These are pinned rather than merely defaulted: reading a real key from the
+ * environment would make the suite's behaviour depend on which machine runs
+ * it, and nothing here performs a request, so a fixed placeholder is both
+ * safe and more honest than whatever happens to be configured.
+ */
+const FAKE_PROVIDER_CREDENTIALS: Record<string, string> = {
+  OPENAI_API_KEY: "test-fake-openai-credential",
+  DEEPSEEK_API_KEY: "test-fake-deepseek-credential",
+  AZURE_OPENAI_API_KEY: "test-fake-azure-credential",
+  AZURE_OPENAI_ENDPOINT: "https://test-fake.openai.azure.com",
+  LITELLM_API_KEY: "test-fake-litellm-credential",
+  NVIDIA_NIM_API_KEY: "test-fake-nvidia-credential",
+  OPENROUTER_API_KEY: "test-fake-openrouter-credential",
+  HUGGINGFACE_API_KEY: "test-fake-huggingface-credential",
+  HF_TOKEN: "test-fake-huggingface-credential",
+  COHERE_API_KEY: "test-fake-cohere-credential",
+  // The native trio further down the file. Anthropic accepts an API key or one
+  // of three OAuth tokens; pinning the auth method as well keeps an ambient
+  // token from selecting a different code path than the one under test.
+  ANTHROPIC_API_KEY: "test-fake-anthropic-credential",
+  ANTHROPIC_AUTH_METHOD: "api_key",
+  AWS_ACCESS_KEY_ID: "test-fake-aws-key-id",
+  AWS_SECRET_ACCESS_KEY: "test-fake-aws-secret",
+  AWS_REGION: "us-east-1",
+};
+
+/** Neutralised so an ambient token cannot pick a different auth path. */
+const CLEARED_CREDENTIAL_ENV = [
+  "ANTHROPIC_OAUTH_TOKEN",
+  "CLAUDE_OAUTH_TOKEN",
+  "ANTHROPIC_OAUTH_ACCESS_TOKEN",
+];
+
+const ORIGINAL_CREDENTIAL_ENV: Record<string, string | undefined> = {};
+for (const [name, value] of Object.entries(FAKE_PROVIDER_CREDENTIALS)) {
+  ORIGINAL_CREDENTIAL_ENV[name] = process.env[name];
+  process.env[name] = value;
+}
+for (const name of CLEARED_CREDENTIAL_ENV) {
+  ORIGINAL_CREDENTIAL_ENV[name] = process.env[name];
+  delete process.env[name];
+}
+
+function restoreCredentialEnv(): void {
+  for (const [name, value] of Object.entries(ORIGINAL_CREDENTIAL_ENV)) {
+    if (value === undefined) {
+      delete process.env[name];
+    } else {
+      process.env[name] = value;
+    }
+  }
+}
+
+process.on("exit", restoreCredentialEnv);
 
 void runSuite(async () => {
   // ===========================================================================
@@ -332,50 +392,100 @@ void runSuite(async () => {
     timeoutErrorClass: typeof NetworkError | typeof ProviderError;
   };
 
+  // The 7 OpenAI-compat providers migrated onto ConfiguredOpenAICompatProvider
+  // (plan 05) no longer have a concrete subclass to import — each is now a
+  // data row in OPENAI_COMPAT_CATALOG. Constructing through the same generic
+  // class + catalog entry the registry itself uses keeps this suite testing
+  // the real code path instead of a class that no longer exists.
+  function getCatalogEntry(name: AIProviderName): OpenAICompatCatalogEntry {
+    const entry = OPENAI_COMPAT_CATALOG.find((e) => e.providerName === name);
+    if (!entry) {
+      throw new Error(`No OPENAI_COMPAT_CATALOG entry found for "${name}"`);
+    }
+    return entry;
+  }
+
+  // Explicit fake credentials on every catalog-driven case below:
+  // ConfiguredOpenAICompatProvider's constructor calls resolveOpenAICompatConfig
+  // -> validateApiKey, which throws when neither an override nor the env var
+  // is present. These run at suite-build time outside any test(), so a throw
+  // would abort the whole file on a machine without the real key configured.
   const providers: ProviderCase[] = [
     {
       name: "mistral",
-      instance: new MistralProvider(),
+      instance: new ConfiguredOpenAICompatProvider(
+        getCatalogEntry(AIProviderName.MISTRAL),
+        undefined,
+        undefined,
+        { apiKey: "test-key-not-used" },
+      ),
       timeoutErrorClass: NetworkError,
     },
     {
       name: "groq",
-      instance: new GroqProvider(),
+      instance: new ConfiguredOpenAICompatProvider(
+        getCatalogEntry(AIProviderName.GROQ),
+        undefined,
+        undefined,
+        { apiKey: "test-key-not-used" },
+      ),
+      // Groq alone preserves its pre-migration subclass's own TimeoutError
+      // interception (-> ProviderError) via the catalog's timeoutErrorClass
+      // field; every other entry falls through to the classifier's default
+      // TimeoutError -> NetworkError mapping.
       timeoutErrorClass: ProviderError,
     },
     {
       name: "xai",
-      instance: new XaiProvider(),
+      instance: new ConfiguredOpenAICompatProvider(
+        getCatalogEntry(AIProviderName.XAI),
+        undefined,
+        undefined,
+        { apiKey: "test-key-not-used" },
+      ),
       timeoutErrorClass: NetworkError,
     },
     {
       name: "together-ai",
-      instance: new TogetherAIProvider(undefined, undefined, undefined, {
-        apiKey: "test-key-not-used",
-      }),
+      instance: new ConfiguredOpenAICompatProvider(
+        getCatalogEntry(AIProviderName.TOGETHER_AI),
+        undefined,
+        undefined,
+        { apiKey: "test-key-not-used" },
+      ),
       timeoutErrorClass: NetworkError,
     },
     {
       name: "fireworks",
-      instance: new FireworksProvider(),
+      instance: new ConfiguredOpenAICompatProvider(
+        getCatalogEntry(AIProviderName.FIREWORKS),
+        undefined,
+        undefined,
+        { apiKey: "test-key-not-used" },
+      ),
       timeoutErrorClass: NetworkError,
     },
     {
       name: "perplexity",
-      instance: new PerplexityProvider(undefined, undefined, undefined, {
-        apiKey: "test-key-not-used",
-      }),
+      instance: new ConfiguredOpenAICompatProvider(
+        getCatalogEntry(AIProviderName.PERPLEXITY),
+        undefined,
+        undefined,
+        { apiKey: "test-key-not-used" },
+      ),
       timeoutErrorClass: NetworkError,
     },
     {
       name: "cloudflare",
-      // Explicit fake credentials: this constructor throws when its env vars
-      // are absent, and it runs at suite-build time outside any test(), so a
-      // throw would abort the whole file on a machine without them.
-      instance: new CloudflareProvider(undefined, undefined, undefined, {
-        apiKey: "test-key-not-used",
-        accountId: "test-account-for-suite-only",
-      }),
+      instance: new ConfiguredOpenAICompatProvider(
+        getCatalogEntry(AIProviderName.CLOUDFLARE),
+        undefined,
+        undefined,
+        {
+          apiKey: "test-key-not-used",
+          accountId: "test-account-for-suite-only",
+        },
+      ),
       timeoutErrorClass: NetworkError,
     },
     {
@@ -449,8 +559,15 @@ void runSuite(async () => {
     await test(`${name}: TimeoutError -> ${timeoutErrorClass.name}`, () => {
       const err = new TimeoutError("timed out", 3000, name, "generate");
       const result = instance.formatProviderError(err);
+      // Exact class, not `instanceof`: NetworkError/AuthenticationError/
+      // RateLimitError all extend ProviderError, so an instanceof check
+      // against ProviderError (Groq's expected class) would silently accept
+      // a NetworkError result too — exactly the regression this case exists
+      // to catch, since Groq's whole reason for a distinct expectation is
+      // that it does NOT get the classifier's default TimeoutError ->
+      // NetworkError mapping like everyone else.
       assert(
-        result instanceof timeoutErrorClass,
+        result.constructor === timeoutErrorClass,
         `${name} did not map TimeoutError to the expected error class`,
       );
     });
