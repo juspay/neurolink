@@ -1,3 +1,9 @@
+## [11.2.1](https://github.com/juspay/neurolink/compare/v11.2.0...v11.2.1) (2026-08-18)
+
+### Bug Fixes
+
+- **(proxy):** rotate off entitlement-blocked accounts and route model-scoped quota ([a634f8a](https://github.com/juspay/neurolink/commit/a634f8ae5124daec78ea336f5d211f3b960690be))
+
 ## [11.2.0](https://github.com/juspay/neurolink/compare/v11.1.1...v11.2.0) (2026-08-18)
 
 ### Features
