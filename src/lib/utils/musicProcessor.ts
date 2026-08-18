@@ -24,6 +24,7 @@ import type {
 } from "../types/index.js";
 import { NeuroLinkError } from "./errorHandling.js";
 import { logger } from "./logger.js";
+import { HandlerRegistry } from "../core/handlerRegistry.js";
 
 /**
  * Music-specific error codes.
@@ -68,25 +69,16 @@ export class MusicError extends NeuroLinkError {
  * Static processor managing the music handler registry.
  */
 export class MusicProcessor {
-  private static readonly handlers = new Map<string, MusicHandler>();
+  private static readonly registry = new HandlerRegistry<MusicHandler>(
+    "MusicProcessor",
+  );
 
   /**
    * Register a music handler for a specific provider.
    */
   static registerHandler(providerName: string, handler: MusicHandler): void {
-    if (!providerName) {
-      throw new Error("Provider name is required");
-    }
-    if (!handler) {
-      throw new Error("Handler is required");
-    }
-    const key = providerName.toLowerCase();
-    if (this.handlers.has(key)) {
-      logger.warn(
-        `[MusicProcessor] Overwriting existing handler for provider: ${key}`,
-      );
-    }
-    this.handlers.set(key, handler);
+    const key = providerName ? providerName.toLowerCase() : providerName;
+    this.registry.register(providerName, handler);
     logger.debug(`[MusicProcessor] Registered music handler: ${key}`);
   }
 
@@ -94,17 +86,14 @@ export class MusicProcessor {
    * Check if a provider has a registered music handler.
    */
   static supports(providerName: string): boolean {
-    if (!providerName) {
-      return false;
-    }
-    return this.handlers.has(providerName.toLowerCase());
+    return this.registry.supports(providerName);
   }
 
   /**
    * List the names of all registered providers.
    */
   static listProviders(): string[] {
-    return Array.from(this.handlers.keys());
+    return this.registry.list();
   }
 
   /**
@@ -114,7 +103,14 @@ export class MusicProcessor {
    * already-registered primary handler when backfilling its aliases.
    */
   static getHandler(providerName: string): MusicHandler | undefined {
-    return this.handlers.get(providerName.toLowerCase());
+    return this.registry.get(providerName);
+  }
+
+  /**
+   * Clear all registered handlers (for testing).
+   */
+  static clearHandlers(): void {
+    this.registry.clear();
   }
 
   private static buildSpanAttributes(

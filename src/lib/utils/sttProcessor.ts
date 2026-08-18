@@ -12,6 +12,7 @@ import type { STTOptions, STTResult, STTHandler } from "../types/index.js";
 import { STT_ERROR_CODES } from "../types/index.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 import { STTError } from "../voice/errors.js";
+import { HandlerRegistry } from "../core/handlerRegistry.js";
 import {
   SpanSerializer,
   SpanType,
@@ -39,11 +40,12 @@ import {
 export class STTProcessor {
   /**
    * Handler registry mapping provider names to STT handlers
-   * Uses Map for O(1) lookups and better type safety
    *
    * @private
    */
-  private static readonly handlers = new Map<string, STTHandler>();
+  private static readonly registry = new HandlerRegistry<STTHandler>(
+    "STTProcessor",
+  );
 
   /**
    * Default maximum audio duration for STT transcription (in seconds)
@@ -76,23 +78,10 @@ export class STTProcessor {
    * ```
    */
   static registerHandler(providerName: string, handler: STTHandler): void {
-    if (!providerName) {
-      throw new Error("Provider name is required");
-    }
-
-    if (!handler) {
-      throw new Error("Handler is required");
-    }
-
-    const normalizedName = providerName.toLowerCase();
-
-    if (this.handlers.has(normalizedName)) {
-      logger.warn(
-        `[STTProcessor] Overwriting existing handler for provider: ${normalizedName}`,
-      );
-    }
-
-    this.handlers.set(normalizedName, handler);
+    const normalizedName = providerName
+      ? providerName.toLowerCase()
+      : providerName;
+    this.registry.register(providerName, handler);
     logger.debug(
       `[STTProcessor] Registered STT handler for provider: ${normalizedName}`,
     );
@@ -108,8 +97,22 @@ export class STTProcessor {
    * @returns Handler instance or undefined if not registered
    */
   static getHandler(providerName: string): STTHandler | undefined {
-    const normalizedName = providerName.toLowerCase();
-    return this.handlers.get(normalizedName);
+    return this.registry.get(providerName);
+  }
+
+  /**
+   * List the names of all registered providers.
+   */
+  static listProviders(): string[] {
+    return this.registry.list();
+  }
+
+  /**
+   * Removes every registered STT handler. Primarily for test isolation —
+   * production code should not need to call this.
+   */
+  static clearHandlers(): void {
+    this.registry.clear();
   }
 
   /**
@@ -133,8 +136,7 @@ export class STTProcessor {
       return false;
     }
 
-    const normalizedName = providerName.toLowerCase();
-    const isSupported = this.handlers.has(normalizedName);
+    const isSupported = this.registry.supports(providerName);
 
     if (!isSupported) {
       logger.debug(`[STTProcessor] Provider ${providerName} is not supported`);
@@ -227,7 +229,7 @@ export class STTProcessor {
           retriable: false,
           context: {
             provider,
-            availableProviders: Array.from(this.handlers.keys()),
+            availableProviders: this.registry.list(),
           },
         });
       }

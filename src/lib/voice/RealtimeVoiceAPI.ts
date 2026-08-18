@@ -23,6 +23,7 @@ import {
   REALTIME_ERROR_CODES,
 } from "../types/index.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
+import { HandlerRegistry } from "../core/handlerRegistry.js";
 
 /**
  * Realtime Processor class for orchestrating realtime voice operations
@@ -53,7 +54,9 @@ export class RealtimeProcessor {
   /**
    * Handler registry mapping provider names to Realtime handlers
    */
-  private static readonly handlers = new Map<string, RealtimeHandler>();
+  private static readonly registry = new HandlerRegistry<RealtimeHandler>(
+    "RealtimeProcessor",
+  );
 
   /**
    * Active sessions by provider
@@ -67,23 +70,10 @@ export class RealtimeProcessor {
    * @param handler - Realtime handler implementation
    */
   static registerHandler(providerName: string, handler: RealtimeHandler): void {
-    if (!providerName) {
-      throw new Error("Provider name is required");
-    }
-
-    if (!handler) {
-      throw new Error("Handler is required");
-    }
-
-    const normalizedName = providerName.toLowerCase();
-
-    if (this.handlers.has(normalizedName)) {
-      logger.warn(
-        `[RealtimeProcessor] Overwriting existing handler for provider: ${normalizedName}`,
-      );
-    }
-
-    this.handlers.set(normalizedName, handler);
+    const normalizedName = providerName
+      ? providerName.toLowerCase()
+      : providerName;
+    this.registry.register(providerName, handler);
     logger.debug(
       `[RealtimeProcessor] Registered Realtime handler for provider: ${normalizedName}`,
     );
@@ -96,27 +86,21 @@ export class RealtimeProcessor {
    * already-registered primary handler when backfilling its aliases.
    */
   static getHandler(providerName: string): RealtimeHandler | undefined {
-    const normalizedName = providerName.toLowerCase();
-    return this.handlers.get(normalizedName);
+    return this.registry.get(providerName);
   }
 
   /**
    * Check if a provider is supported
    */
   static supports(providerName: string): boolean {
-    if (!providerName) {
-      return false;
-    }
-
-    const normalizedName = providerName.toLowerCase();
-    return this.handlers.has(normalizedName);
+    return this.registry.supports(providerName);
   }
 
   /**
    * Get list of all registered providers
    */
   static getProviders(): string[] {
-    return Array.from(this.handlers.keys());
+    return this.registry.list();
   }
 
   /**
@@ -135,10 +119,7 @@ export class RealtimeProcessor {
     const handler = this.getHandler(provider);
 
     if (!handler) {
-      throw RealtimeError.providerNotSupported(
-        provider,
-        Array.from(this.handlers.keys()),
-      );
+      throw RealtimeError.providerNotSupported(provider, this.registry.list());
     }
 
     if (!handler.isConfigured()) {
@@ -200,10 +181,7 @@ export class RealtimeProcessor {
     const handler = this.getHandler(provider);
 
     if (!handler) {
-      throw RealtimeError.providerNotSupported(
-        provider,
-        Array.from(this.handlers.keys()),
-      );
+      throw RealtimeError.providerNotSupported(provider, this.registry.list());
     }
 
     if (!handler.isConnected()) {
@@ -247,10 +225,7 @@ export class RealtimeProcessor {
     const handler = this.getHandler(provider);
 
     if (!handler) {
-      throw RealtimeError.providerNotSupported(
-        provider,
-        Array.from(this.handlers.keys()),
-      );
+      throw RealtimeError.providerNotSupported(provider, this.registry.list());
     }
 
     if (!handler.isConnected()) {
@@ -280,10 +255,7 @@ export class RealtimeProcessor {
     const handler = this.getHandler(provider);
 
     if (!handler) {
-      throw RealtimeError.providerNotSupported(
-        provider,
-        Array.from(this.handlers.keys()),
-      );
+      throw RealtimeError.providerNotSupported(provider, this.registry.list());
     }
 
     if (!handler.isConnected()) {
@@ -331,10 +303,7 @@ export class RealtimeProcessor {
     const handler = this.getHandler(provider);
 
     if (!handler) {
-      throw RealtimeError.providerNotSupported(
-        provider,
-        Array.from(this.handlers.keys()),
-      );
+      throw RealtimeError.providerNotSupported(provider, this.registry.list());
     }
 
     if (!handler.isConnected()) {
@@ -370,10 +339,7 @@ export class RealtimeProcessor {
     const handler = this.getHandler(provider);
 
     if (!handler) {
-      throw RealtimeError.providerNotSupported(
-        provider,
-        Array.from(this.handlers.keys()),
-      );
+      throw RealtimeError.providerNotSupported(provider, this.registry.list());
     }
 
     if (!handler.isConnected()) {
@@ -437,7 +403,7 @@ export class RealtimeProcessor {
   static clearHandlers(): void {
     // Disconnect all active sessions
     for (const [provider] of this.sessions) {
-      const handler = this.handlers.get(provider);
+      const handler = this.registry.get(provider);
       if (handler?.isConnected()) {
         handler.disconnect().catch(() => {
           // Ignore errors during cleanup
@@ -445,8 +411,8 @@ export class RealtimeProcessor {
       }
     }
 
-    this.handlers.clear();
     this.sessions.clear();
+    this.registry.clear();
     logger.debug("[RealtimeProcessor] Cleared all handlers and sessions");
   }
 }
