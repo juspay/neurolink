@@ -31,21 +31,23 @@ jobs:
           cache: "pnpm"
           registry-url: https://registry.npmjs.org/
 
+      # Installed from the runner's package index rather than a third-party
+      # action that downloads release assets from another repository. That
+      # action broke this workflow twice — first a corrupt 8.1 asset, then
+      # the 7.1 pin added to work around it — and because this is the
+      # publish workflow, each break silently stopped releases from going
+      # out while CI still looked healthy. ci.yml was moved off it already.
       - name: Install ffmpeg
-        uses: AnimMouse/setup-ffmpeg@v1
-        with:
-          # Pin to a known-good release, matching ci.yml. The unpinned default
-          # resolves to a version BtbN/FFmpeg-Builds has no Linux asset for, so
-          # the download 404s and fails the job at extract ("xz: (stdin): File
-          # format not recognized"). Revert once upstream publishes it.
-          version: "7.1"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Verify ffmpeg installation
         run: |
           echo "🎬 Verifying ffmpeg installation..."
           ffmpeg -version || {
             echo "❌ ffmpeg installation failed!"
-            echo "Please check the setup-ffmpeg action configuration."
+            echo "apt-get install ffmpeg did not produce a working binary."
             exit 1
           }
           echo "✅ ffmpeg installed successfully"
@@ -86,21 +88,23 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           cache: "pnpm"
 
+      # Installed from the runner's package index rather than a third-party
+      # action that downloads release assets from another repository. That
+      # action broke this workflow twice — first a corrupt 8.1 asset, then
+      # the 7.1 pin added to work around it — and because this is the
+      # publish workflow, each break silently stopped releases from going
+      # out while CI still looked healthy. ci.yml was moved off it already.
       - name: Install ffmpeg
-        uses: AnimMouse/setup-ffmpeg@v1
-        with:
-          # Pin to a known-good release, matching ci.yml. The unpinned default
-          # resolves to a version BtbN/FFmpeg-Builds has no Linux asset for, so
-          # the download 404s and fails the job at extract ("xz: (stdin): File
-          # format not recognized"). Revert once upstream publishes it.
-          version: "7.1"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Verify ffmpeg installation
         run: |
           echo "🎬 Verifying ffmpeg installation..."
           ffmpeg -version || {
             echo "❌ ffmpeg installation failed!"
-            echo "Please check the setup-ffmpeg action configuration."
+            echo "apt-get install ffmpeg did not produce a working binary."
             exit 1
           }
           echo "✅ ffmpeg installed successfully"
