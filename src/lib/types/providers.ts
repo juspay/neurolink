@@ -28,6 +28,7 @@ import type {
 } from "./generate.js";
 import type { MultimodalAudioEntry } from "./file.js";
 import type { StreamOptions, StreamResult } from "./stream.js";
+import type { ProviderErrorRule } from "./errors.js";
 import type { ExternalMCPToolInfo } from "./externalMcp.js";
 
 // Subscription types for Claude/Anthropic authentication and tier management
@@ -695,6 +696,115 @@ export type ProviderConfigOptions = {
   // (or empty string) instead of throwing when it's unset.
   optional?: boolean;
 };
+
+/**
+ * Minimal credential shape accepted by resolveOpenAICompatConfig() and
+ * ConfiguredOpenAICompatProvider. A structural superset of every real
+ * per-provider NeurolinkCredentials["<key>"] slice in this family (groq,
+ * xai, together, fireworks, perplexity, mistral, cloudflare) — all fields
+ * optional, so passing e.g. NeurolinkCredentials["groq"] (which has no
+ * accountId) here is always structurally valid.
+ */
+export type OpenAICompatCredentials = {
+  apiKey?: string;
+  baseURL?: string;
+  accountId?: string;
+};
+
+/**
+ * One row of the config-driven OpenAI-compatible provider catalog
+ * (OPENAI_COMPAT_CATALOG, src/lib/providers/openaiCompatCatalog.ts).
+ * Replaces a hand-written OpenAIChatCompletionsProvider subclass for
+ * providers whose only differences from every sibling are credentials,
+ * base URL, model defaults, and error-message classification.
+ */
+export type OpenAICompatCatalogEntry = {
+  /** Registry key / nl.generate({provider}) value, e.g. "groq". */
+  providerName: AIProviderName;
+  /** Registry aliases, e.g. ["together-ai", "together"]. */
+  aliases: string[];
+  /**
+   * Env var holding the API key, e.g. "GROQ_API_KEY".
+   *
+   * Declarative: the key is actually read through `configOptions.envVarName`,
+   * which `validateApiKey` consults. This field exists so an entry states its
+   * credential source without a caller having to reach into configOptions,
+   * and the catalog suite asserts the two always name the same variable — two
+   * fields describing one fact are worth nothing if they can disagree.
+   */
+  apiKeyEnvVar: string;
+  /**
+   * Env var that can override the base URL, e.g. "GROQ_BASE_URL". Omit
+   * for entries that use computedBaseURL instead (e.g. Cloudflare).
+   */
+  baseURLEnvVar?: string;
+  /** Static default base URL. Omit for computedBaseURL entries. */
+  defaultBaseURL?: string;
+  /**
+   * Present only for providers whose base URL is computed from an extra
+   * required credential value instead of a static default (Cloudflare's
+   * accountId). Deliberately narrow (accountId-shaped) rather than a
+   * generic extra-field mechanism — Cloudflare is the only current user.
+   */
+  computedBaseURL?: {
+    /** Env var fallback for the extra value, e.g. "CLOUDFLARE_ACCOUNT_ID". */
+    envVar: string;
+    /** Thrown when neither credentials.accountId nor envVar supply a value. */
+    missingValueMessage: string;
+    /** Builds the base URL from the resolved accountId. */
+    build: (accountId: string) => string;
+  };
+  /** Setup/help metadata, passed to validateApiKey(). Not consumed by
+   *  classifyProviderError() — that function's ProviderErrorContext has no
+   *  docsUrl field; any URL a rule's message needs is inlined in the rule
+   *  itself (see Task 4). */
+  configOptions: ProviderConfigOptions;
+  /** Env var for the default model, e.g. "GROQ_MODEL". */
+  modelEnvVar: string;
+  /** Default model when modelEnvVar is unset. */
+  defaultModel: string;
+  /**
+   * The literal passed as ProviderFactory.registerProvider()'s defaultModel
+   * argument (resolved before the provider is constructed). Preserves each
+   * provider's exact pre-migration registry behavior.
+   */
+  registryDefaultModel: string;
+  /**
+   * True for every provider except Mistral: whether the registry-level
+   * default also consults modelEnvVar before falling back to
+   * registryDefaultModel. False is a pre-existing, intentionally-preserved
+   * quirk unique to Mistral's registration (see plan's Design reference).
+   */
+  registryDefaultModelChecksEnvVar: boolean;
+  /** Fallback model name (getFallbackModelName()). */
+  fallbackModelName: string;
+  /** Fallback model list (getFallbackModels()). */
+  fallbackModels: string[];
+  /**
+   * Error-classification rules, consumed by classifyProviderError. Typed
+   * as a mutable array — not readonly — because plan 07's
+   * `classifyProviderError(error, rules: ProviderErrorRule[], provider, modelName?)`
+   * declares `rules` as `ProviderErrorRule[]`; a `readonly` array here
+   * would not be assignable to that parameter without a cast, which rule
+   * 14 (no double assertions) and general hygiene both rule out. Each
+   * entry's array is still constructed as a fresh literal per provider in
+   * Task 4, so nothing actually mutates it at runtime.
+   */
+  errorRules: ProviderErrorRule[];
+};
+
+/** The subset of OpenAICompatCatalogEntry that resolveOpenAICompatConfig()
+ *  needs — lets call sites pass a minimal object without the full catalog
+ *  entry (e.g. in tests, or a future non-catalog caller). */
+export type OpenAICompatConfigInput = Pick<
+  OpenAICompatCatalogEntry,
+  | "providerName"
+  | "apiKeyEnvVar"
+  | "baseURLEnvVar"
+  | "defaultBaseURL"
+  | "computedBaseURL"
+  | "configOptions"
+>;
 
 // ============================================================================
 // CORE PROVIDER INTERFACES

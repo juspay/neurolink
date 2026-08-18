@@ -63,6 +63,15 @@ const PROVIDER_REGISTRATION_EXCLUSIONS = new Set([
   "anthropicImageBlocks",
   "openaiChatCompletionsBase",
   "openaiChatCompletionsClient",
+  // Pure data: the catalog of OpenAI-compatible provider entries. It exports
+  // a const array, not a provider class, so it is a non-provider file in the
+  // first sense above.
+  "openaiCompatCatalog",
+  // The generic class the catalog drives. It is a real provider class, but
+  // it is not registered under its own name — the registry will dynamically
+  // import it once per catalog entry when the registration loop lands, and
+  // at that point this exclusion becomes unnecessary and should be removed.
+  "configuredOpenAICompat",
 ]);
 
 const DYNAMIC_PROVIDER_IMPORT_RE =

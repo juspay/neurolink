@@ -14,6 +14,8 @@ import type {
   AnthropicAuthConfig,
   OAuthToken,
   AnthropicAuthConfigResult,
+  OpenAICompatConfigInput,
+  OpenAICompatCredentials,
 } from "../types/index.js";
 
 import { logger } from "./logger.js";
@@ -1489,4 +1491,76 @@ export function describeAnthropicConfig(): string {
   lines.push(`Priority Access: ${config.limits.priorityAccess ? "Yes" : "No"}`);
 
   return lines.join("\n");
+}
+
+/**
+ * Resolves the {apiKey, baseURL} pair for a config-driven OpenAI-compatible
+ * catalog entry (see OpenAICompatCatalogEntry in types/providers.ts).
+ *
+ * Extracted from the identical 6-line precedence block that was copy-pasted
+ * across groq.ts, xai.ts, togetherAi.ts, fireworks.ts, perplexity.ts, and
+ * mistral.ts, plus Cloudflare's accountId-computed-baseURL variant.
+ *
+ * Precedence (matches every ported subclass's original behavior exactly):
+ *   apiKey:  credentials.apiKey (trimmed, non-blank) > env var > throw
+ *   baseURL: credentials.baseURL (trimmed, non-blank)
+ *            > env var (if entry.baseURLEnvVar is set, trimmed, non-blank)
+ *            > entry.defaultBaseURL
+ *   baseURL (computedBaseURL entries, e.g. Cloudflare):
+ *            credentials.baseURL > computedBaseURL.build(accountId), where
+ *            accountId = credentials.accountId (trimmed) > env var (trimmed)
+ *            > throw computedBaseURL.missingValueMessage
+ */
+export function resolveOpenAICompatConfig(
+  entry: OpenAICompatConfigInput,
+  credentials?: OpenAICompatCredentials,
+): { apiKey: string; baseURL: string } {
+  const overrideApiKey = credentials?.apiKey?.trim();
+  const apiKey =
+    overrideApiKey && overrideApiKey.length > 0
+      ? overrideApiKey
+      : validateApiKey(entry.configOptions);
+
+  if (entry.computedBaseURL) {
+    const { envVar, missingValueMessage, build } = entry.computedBaseURL;
+    // An explicit base URL is checked first and trimmed the same way the
+    // static branch trims it. It makes the account id irrelevant — there is
+    // nothing left to build — so demanding one anyway would reject a fully
+    // specified override.
+    const overrideComputedBaseURL = credentials?.baseURL?.trim();
+    if (overrideComputedBaseURL && overrideComputedBaseURL.length > 0) {
+      return { apiKey, baseURL: overrideComputedBaseURL };
+    }
+    const extraValue = (
+      credentials?.accountId ??
+      process.env[envVar] ??
+      ""
+    ).trim();
+    if (!extraValue) {
+      throw new Error(missingValueMessage);
+    }
+    return { apiKey, baseURL: build(extraValue) };
+  }
+
+  const overrideBaseURL = credentials?.baseURL?.trim();
+  const envBaseURL = entry.baseURLEnvVar
+    ? process.env[entry.baseURLEnvVar]?.trim()
+    : undefined;
+  const baseURL =
+    (overrideBaseURL && overrideBaseURL.length > 0
+      ? overrideBaseURL
+      : undefined) ??
+    (envBaseURL && envBaseURL.length > 0 ? envBaseURL : undefined) ??
+    entry.defaultBaseURL;
+  if (!baseURL) {
+    // Reachable only for an entry that sets neither defaultBaseURL nor
+    // computedBaseURL. Returning "" instead would hand the SDK an empty base
+    // URL and surface as a confusing request failure far from the cause.
+    throw new Error(
+      `${entry.providerName}: no base URL. Set one in credentials` +
+        (entry.baseURLEnvVar ? `, set ${entry.baseURLEnvVar}` : "") +
+        `, or give the catalog entry a defaultBaseURL.`,
+    );
+  }
+  return { apiKey, baseURL };
 }
