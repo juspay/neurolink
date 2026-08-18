@@ -1,3 +1,9 @@
+## [11.2.2](https://github.com/juspay/neurolink/compare/v11.2.1...v11.2.2) (2026-08-18)
+
+### Bug Fixes
+
+- **(providers):** compose overflow and subclass 400-retry body corrections ([d001db0](https://github.com/juspay/neurolink/commit/d001db014f8d034d7bd3db3fd51bc607608acbfc))
+
 ## [11.2.1](https://github.com/juspay/neurolink/compare/v11.2.0...v11.2.1) (2026-08-18)
 
 ### Bug Fixes
