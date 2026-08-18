@@ -1,3 +1,12 @@
+## [11.1.1](https://github.com/juspay/neurolink/compare/v11.1.0...v11.1.1) (2026-08-18)
+
+### Bug Fixes
+
+- **(cli):** forward setup --check and --non-interactive flags to provider delegation ([889dc7c](https://github.com/juspay/neurolink/commit/889dc7cae77dc87ab98d1dd948fddaebf35ed9a4))
+- **(cli):** stop setup --list/--status from chaining into an interactive prompt ([3b958b6](https://github.com/juspay/neurolink/commit/3b958b61e665dee098195916d6c3755eb60ed832))
+- **(processors):** report an oversized OpenDocument as too large, not failed ([6e09a4b](https://github.com/juspay/neurolink/commit/6e09a4ba634661869a5777199d8e8914d7980a10))
+- **(providers):** classify transport errors, honor paired credentials, repair dead tests ([632767d](https://github.com/juspay/neurolink/commit/632767dac6467d6025170e695b87401c749fbdc4)), closes [#1335](https://github.com/juspay/neurolink/issues/1335) [#1337](https://github.com/juspay/neurolink/issues/1337)
+
 ## [11.1.0](https://github.com/juspay/neurolink/compare/v11.0.0...v11.1.0) (2026-08-17)
 
 ### Features
