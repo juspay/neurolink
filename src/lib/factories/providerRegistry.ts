@@ -15,20 +15,13 @@ import {
   OpenAIModels,
   AnthropicModels,
   VertexModels,
-  MistralModels,
   OllamaModels,
   LiteLLMModels,
   HuggingFaceModels,
   DeepSeekModels,
   NvidiaNimModels,
   OpenRouterModels,
-  XaiModels,
-  GroqModels,
   CohereModels,
-  TogetherAIModels,
-  FireworksModels,
-  PerplexityModels,
-  CloudflareModels,
   VoyageModels,
   JinaModels,
   StabilityModels,
@@ -37,6 +30,8 @@ import {
   ReplicateModels,
 } from "../constants/enums.js";
 import { PROVIDER_DESCRIPTORS_BY_NAME } from "./providerDescriptors.js";
+import { OPENAI_COMPAT_CATALOG } from "../providers/openaiCompatCatalog.js";
+import type { OpenAICompatCredentials } from "../types/index.js";
 
 /**
  * Static module -> provider-ID manifest for every provider registered below.
@@ -309,24 +304,36 @@ export class ProviderRegistry {
         PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.HUGGINGFACE),
       );
 
-      // Register Mistral AI provider
-      ProviderFactory.registerProvider(
-        AIProviderName.MISTRAL,
-        async (
-          modelName?: string,
-          _providerName?: string,
-          sdk?: NeuroLink,
-          _region?: string,
-          credentials?: UnknownRecord,
-        ) => {
-          const mistralCreds = credentials as NeurolinkCredentials["mistral"];
-          const { MistralProvider } = await import("../providers/mistral.js");
-          return new MistralProvider(modelName, sdk, undefined, mistralCreds);
-        },
-        MistralModels.MISTRAL_LARGE_LATEST,
-        ["mistral"],
-        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.MISTRAL),
-      );
+      // Register the config-driven OpenAI-compatible catalog providers
+      // (groq, xai, together-ai, fireworks, perplexity, mistral, cloudflare).
+      // To add a new zero-quirk OpenAI-compatible provider, add one entry to
+      // OPENAI_COMPAT_CATALOG (openaiCompatCatalog.ts) — not a new block here.
+      for (const entry of OPENAI_COMPAT_CATALOG) {
+        ProviderFactory.registerProvider(
+          entry.providerName,
+          async (
+            modelName?: string,
+            _providerName?: string,
+            sdk?: NeuroLink,
+            _region?: string,
+            credentials?: UnknownRecord,
+          ) => {
+            const { ConfiguredOpenAICompatProvider } =
+              await import("../providers/configuredOpenAICompat.js");
+            return new ConfiguredOpenAICompatProvider(
+              entry,
+              modelName,
+              sdk,
+              credentials as OpenAICompatCredentials | undefined,
+            );
+          },
+          entry.registryDefaultModelChecksEnvVar
+            ? process.env[entry.modelEnvVar] || entry.registryDefaultModel
+            : entry.registryDefaultModel,
+          entry.aliases,
+          PROVIDER_DESCRIPTORS_BY_NAME.get(entry.providerName),
+        );
+      }
 
       // Register Ollama provider
       ProviderFactory.registerProvider(
@@ -528,44 +535,6 @@ export class ProviderRegistry {
         ["llamacpp", "llama.cpp", "llama-cpp"],
         PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.LLAMACPP),
       );
-      // Register xAI Grok provider
-      ProviderFactory.registerProvider(
-        AIProviderName.XAI,
-        async (
-          modelName?: string,
-          _providerName?: string,
-          sdk?: NeuroLink,
-          _region?: string,
-          credentials?: UnknownRecord,
-        ) => {
-          const xaiCreds = credentials as NeurolinkCredentials["xai"];
-          const { XaiProvider } = await import("../providers/xai.js");
-          return new XaiProvider(modelName, sdk, undefined, xaiCreds);
-        },
-        process.env.XAI_MODEL || XaiModels.GROK_3,
-        ["xai", "grok"],
-        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.XAI),
-      );
-
-      // Register Groq provider
-      ProviderFactory.registerProvider(
-        AIProviderName.GROQ,
-        async (
-          modelName?: string,
-          _providerName?: string,
-          sdk?: NeuroLink,
-          _region?: string,
-          credentials?: UnknownRecord,
-        ) => {
-          const groqCreds = credentials as NeurolinkCredentials["groq"];
-          const { GroqProvider } = await import("../providers/groq.js");
-          return new GroqProvider(modelName, sdk, undefined, groqCreds);
-        },
-        process.env.GROQ_MODEL || GroqModels.LLAMA_3_3_70B_VERSATILE,
-        ["groq"],
-        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.GROQ),
-      );
-
       // Register Cohere provider
       ProviderFactory.registerProvider(
         AIProviderName.COHERE,
@@ -583,110 +552,6 @@ export class ProviderRegistry {
         process.env.COHERE_MODEL || CohereModels.COMMAND_R_PLUS,
         ["cohere"],
         PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.COHERE),
-      );
-
-      // Register Together AI provider
-      ProviderFactory.registerProvider(
-        AIProviderName.TOGETHER_AI,
-        async (
-          modelName?: string,
-          _providerName?: string,
-          sdk?: NeuroLink,
-          _region?: string,
-          credentials?: UnknownRecord,
-        ) => {
-          const togetherCreds = credentials as NeurolinkCredentials["together"];
-          const { TogetherAIProvider } =
-            await import("../providers/togetherAi.js");
-          return new TogetherAIProvider(
-            modelName,
-            sdk,
-            undefined,
-            togetherCreds,
-          );
-        },
-        process.env.TOGETHER_MODEL ||
-          TogetherAIModels.LLAMA_3_3_70B_INSTRUCT_TURBO,
-        ["together-ai", "together"],
-        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.TOGETHER_AI),
-      );
-
-      // Register Fireworks AI provider
-      ProviderFactory.registerProvider(
-        AIProviderName.FIREWORKS,
-        async (
-          modelName?: string,
-          _providerName?: string,
-          sdk?: NeuroLink,
-          _region?: string,
-          credentials?: UnknownRecord,
-        ) => {
-          const fireworksCreds =
-            credentials as NeurolinkCredentials["fireworks"];
-          const { FireworksProvider } =
-            await import("../providers/fireworks.js");
-          return new FireworksProvider(
-            modelName,
-            sdk,
-            undefined,
-            fireworksCreds,
-          );
-        },
-        process.env.FIREWORKS_MODEL || FireworksModels.DEEPSEEK_V4_PRO,
-        ["fireworks"],
-        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.FIREWORKS),
-      );
-
-      // Register Perplexity provider
-      ProviderFactory.registerProvider(
-        AIProviderName.PERPLEXITY,
-        async (
-          modelName?: string,
-          _providerName?: string,
-          sdk?: NeuroLink,
-          _region?: string,
-          credentials?: UnknownRecord,
-        ) => {
-          const perplexityCreds =
-            credentials as NeurolinkCredentials["perplexity"];
-          const { PerplexityProvider } =
-            await import("../providers/perplexity.js");
-          return new PerplexityProvider(
-            modelName,
-            sdk,
-            undefined,
-            perplexityCreds,
-          );
-        },
-        process.env.PERPLEXITY_MODEL || PerplexityModels.SONAR,
-        ["perplexity", "pplx"],
-        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.PERPLEXITY),
-      );
-
-      // Register Cloudflare Workers AI provider
-      ProviderFactory.registerProvider(
-        AIProviderName.CLOUDFLARE,
-        async (
-          modelName?: string,
-          _providerName?: string,
-          sdk?: NeuroLink,
-          _region?: string,
-          credentials?: UnknownRecord,
-        ) => {
-          const cloudflareCreds =
-            credentials as NeurolinkCredentials["cloudflare"];
-          const { CloudflareProvider } =
-            await import("../providers/cloudflare.js");
-          return new CloudflareProvider(
-            modelName,
-            sdk,
-            undefined,
-            cloudflareCreds,
-          );
-        },
-        process.env.CLOUDFLARE_MODEL || CloudflareModels.LLAMA_3_3_70B_FAST,
-        ["cloudflare", "workers-ai", "cf-ai"],
-        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.CLOUDFLARE),
       );
 
       // Register Voyage AI embeddings provider

@@ -125,7 +125,7 @@
     "test:tool-dedup": "npx tsx test/continuous-test-suite-tool-dedup.ts",
     "test:model-not-found-retryable": "npx tsx test/continuous-test-suite-model-not-found-retryable.ts",
     "test:ci": "pnpm run test && pnpm run test:client && pnpm run test:hitl",
-    "// CI tier — fast, no live AI calls, safe for every commit (test:unit; also see the separate provider-safety-net CI job, which runs build + test:providers-mocked + test:provider-structure on every PR)": "",
+    "// CI tier — fast, no live AI calls, safe for every commit (test:unit; also see the separate provider-safety-net CI job, which runs build + test:providers-mocked + test:provider-structure + test:error-classifier-contract on every PR)": "",
     "test:tool-routing": "npx tsx test/continuous-test-suite-tool-routing.ts",
     "test:tool-routing-semantic": "npx tsx test/continuous-test-suite-tool-routing-semantic.ts",
     "test:unit": "pnpm run test:bugfixes && pnpm run test:mcp:infra && pnpm run test:mcp:spans && pnpm run test:tool-routing && pnpm run test:tool-routing-cli && pnpm run test:tool-dedup && pnpm run test:model-pool && pnpm run test:tool-routing-semantic && pnpm run test:mcp-result-cache && pnpm run test:model-not-found-retryable && pnpm run test:archive:security && pnpm run test:office:security && pnpm run test:vector-chroma && pnpm run test:vector-pgvector && pnpm run test:vector-pinecone && pnpm run test:provider-wiring",

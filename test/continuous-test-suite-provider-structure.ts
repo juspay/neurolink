@@ -67,10 +67,12 @@ const PROVIDER_REGISTRATION_EXCLUSIONS = new Set([
   // a const array, not a provider class, so it is a non-provider file in the
   // first sense above.
   "openaiCompatCatalog",
-  // The generic class the catalog drives. It is a real provider class, but
-  // it is not registered under its own name — the registry will dynamically
-  // import it once per catalog entry when the registration loop lands, and
-  // at that point this exclusion becomes unnecessary and should be removed.
+  // The generic class the catalog drives. It IS registered and IS dynamically
+  // imported (once, inside the OPENAI_COMPAT_CATALOG loop), but never under a
+  // provider ID of its own — one module backs all seven catalog entries. The
+  // PROVIDER_MODULE_TO_ID manifest maps one module to exactly one
+  // AIProviderName, so this module has no single honest entry there; the seven
+  // IDs it registers are covered by their own manifest keys instead.
   "configuredOpenAICompat",
 ]);
 

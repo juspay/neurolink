@@ -10,6 +10,7 @@ import {
   resolveOpenAICompatConfig,
 } from "../utils/providerConfig.js";
 import { classifyProviderError } from "../utils/errorClassifier.js";
+import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
 /**
@@ -72,9 +73,18 @@ export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvide
   }
 
   protected formatProviderError(error: unknown): Error {
-    // classifyProviderError handles TimeoutError internally (always maps
-    // to NetworkError, ahead of any rule table) — no local pre-check
-    // needed or wanted here; see this task's design note.
+    // classifyProviderError hard-codes TimeoutError -> NetworkError ahead
+    // of any rule table and does not allow a per-provider override. An
+    // entry can opt out of that default via timeoutErrorClass (currently
+    // only Groq, reproducing its pre-migration subclass's own TimeoutError
+    // interception) — checked here, before ever reaching the shared
+    // classifier, so every other entry still gets its unmodified default.
+    if (error instanceof TimeoutError && this.entry.timeoutErrorClass) {
+      return new this.entry.timeoutErrorClass(
+        `${this.entry.configOptions.providerName} request timed out: ${error.message}`,
+        this.entry.providerName,
+      );
+    }
     return classifyProviderError(
       error,
       this.entry.errorRules,

@@ -28,7 +28,7 @@ import type {
 } from "./generate.js";
 import type { MultimodalAudioEntry } from "./file.js";
 import type { StreamOptions, StreamResult } from "./stream.js";
-import type { ProviderErrorRule } from "./errors.js";
+import type { ProviderError, ProviderErrorRule } from "./errors.js";
 import type { ExternalMCPToolInfo } from "./externalMcp.js";
 
 // Subscription types for Claude/Anthropic authentication and tier management
@@ -791,6 +791,20 @@ export type OpenAICompatCatalogEntry = {
    * Task 4, so nothing actually mutates it at runtime.
    */
   errorRules: ProviderErrorRule[];
+  /**
+   * Optional override for the Error subclass a TimeoutError should produce
+   * for this entry. classifyProviderError() hard-codes
+   * TimeoutError -> NetworkError unconditionally, ahead of any rule table,
+   * and does not make that mapping overridable per-provider (see
+   * errorClassifier.ts). Groq's pre-migration subclass predates that
+   * shared classifier and intercepted TimeoutError itself, returning a
+   * plain ProviderError instead — this field lets
+   * ConfiguredOpenAICompatProvider reproduce that one documented
+   * divergence as data (see its formatProviderError), rather than adding a
+   * class-level hook back in. Omit for every entry whose timeout should use
+   * the classifier's default (six of the seven catalog entries).
+   */
+  timeoutErrorClass?: new (message: string, provider?: string) => ProviderError;
 };
 
 /** The subset of OpenAICompatCatalogEntry that resolveOpenAICompatConfig()

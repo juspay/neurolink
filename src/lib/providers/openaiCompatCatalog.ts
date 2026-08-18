@@ -72,17 +72,15 @@ export const OPENAI_COMPAT_CATALOG: readonly OpenAICompatCatalogEntry[] = [
       GroqModels.LLAMA_3_2_90B_VISION_PREVIEW,
       GroqModels.LLAMA_3_2_11B_VISION_PREVIEW,
     ],
-    // KNOWN GAP (not reproducible by this data-only array — flagged for PR C,
-    // see plan-05/task-A-report.md): live GroqProvider.formatProviderError()
-    // intercepts TimeoutError and returns a plain ProviderError BEFORE ever
-    // calling classifyProviderError, overriding that function's own
-    // (non-overridable) rule that TimeoutError always maps to NetworkError.
-    // ConfiguredOpenAICompatProvider.formatProviderError() has no such
-    // pre-check hook, so migrating Groq onto it as-is would silently
-    // reclassify Groq timeouts as NetworkError. This entry's errorRules
-    // still mirrors Groq's live rule array faithfully for every other error
-    // shape; the TimeoutError special case is a structural gap in
-    // ConfiguredOpenAICompatProvider, not a data error here.
+    // Groq's pre-migration subclass intercepted TimeoutError itself and
+    // returned a plain ProviderError, ahead of classifyProviderError's own
+    // non-overridable TimeoutError -> NetworkError default. Expressed here
+    // as data — see OpenAICompatCatalogEntry.timeoutErrorClass and
+    // ConfiguredOpenAICompatProvider.formatProviderError, which consults
+    // this field before ever delegating to the shared classifier. No other
+    // entry in this catalog sets it, so every other provider still gets
+    // the classifier's unmodified default.
+    timeoutErrorClass: ProviderError,
     errorRules: [
       {
         match: (ctx) =>
