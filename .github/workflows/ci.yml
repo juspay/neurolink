@@ -33,9 +33,27 @@ jobs:
       # version new enough for what the suites exercise, and it cannot be
       # invalidated by an upstream release being moved or rebuilt.
       - name: Install ffmpeg
+        timeout-minutes: 5
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ffmpeg
+          if command -v ffmpeg >/dev/null 2>&1; then
+            echo "ffmpeg already present: $(ffmpeg -version | head -1)"
+            exit 0
+          fi
+          export DEBIAN_FRONTEND=noninteractive
+          # Runners boot with unattended-upgrades holding the dpkg lock, and a
+          # plain apt-get waits on that lock forever. On 2026-08-18 this step
+          # sat in_progress for 90 minutes on two open PRs, leaving the quality
+          # gate permanently "pending" with nothing to re-run against. Bound
+          # every wait so a contended lock fails fast, and let the step
+          # deadline catch anything the bounds miss.
+          sudo systemctl stop unattended-upgrades.service >/dev/null 2>&1 || true
+          for attempt in 1 2 3; do
+            sudo apt-get -o DPkg::Lock::Timeout=60 -o Acquire::Retries=3 update && break
+            echo "apt-get update failed (attempt ${attempt}/3), retrying in 5s"
+            sleep 5
+          done
+          sudo apt-get -o DPkg::Lock::Timeout=60 -o Acquire::Retries=3 \
+            install -y --no-install-recommends ffmpeg
 
       - name: Verify ffmpeg installation
         run: |
@@ -205,9 +223,27 @@ jobs:
       # version new enough for what the suites exercise, and it cannot be
       # invalidated by an upstream release being moved or rebuilt.
       - name: Install ffmpeg
+        timeout-minutes: 5
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ffmpeg
+          if command -v ffmpeg >/dev/null 2>&1; then
+            echo "ffmpeg already present: $(ffmpeg -version | head -1)"
+            exit 0
+          fi
+          export DEBIAN_FRONTEND=noninteractive
+          # Runners boot with unattended-upgrades holding the dpkg lock, and a
+          # plain apt-get waits on that lock forever. On 2026-08-18 this step
+          # sat in_progress for 90 minutes on two open PRs, leaving the quality
+          # gate permanently "pending" with nothing to re-run against. Bound
+          # every wait so a contended lock fails fast, and let the step
+          # deadline catch anything the bounds miss.
+          sudo systemctl stop unattended-upgrades.service >/dev/null 2>&1 || true
+          for attempt in 1 2 3; do
+            sudo apt-get -o DPkg::Lock::Timeout=60 -o Acquire::Retries=3 update && break
+            echo "apt-get update failed (attempt ${attempt}/3), retrying in 5s"
+            sleep 5
+          done
+          sudo apt-get -o DPkg::Lock::Timeout=60 -o Acquire::Retries=3 \
+            install -y --no-install-recommends ffmpeg
 
       - name: Verify ffmpeg installation
         run: |
@@ -286,9 +322,27 @@ jobs:
       # version new enough for what the suites exercise, and it cannot be
       # invalidated by an upstream release being moved or rebuilt.
       - name: Install ffmpeg
+        timeout-minutes: 5
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ffmpeg
+          if command -v ffmpeg >/dev/null 2>&1; then
+            echo "ffmpeg already present: $(ffmpeg -version | head -1)"
+            exit 0
+          fi
+          export DEBIAN_FRONTEND=noninteractive
+          # Runners boot with unattended-upgrades holding the dpkg lock, and a
+          # plain apt-get waits on that lock forever. On 2026-08-18 this step
+          # sat in_progress for 90 minutes on two open PRs, leaving the quality
+          # gate permanently "pending" with nothing to re-run against. Bound
+          # every wait so a contended lock fails fast, and let the step
+          # deadline catch anything the bounds miss.
+          sudo systemctl stop unattended-upgrades.service >/dev/null 2>&1 || true
+          for attempt in 1 2 3; do
+            sudo apt-get -o DPkg::Lock::Timeout=60 -o Acquire::Retries=3 update && break
+            echo "apt-get update failed (attempt ${attempt}/3), retrying in 5s"
+            sleep 5
+          done
+          sudo apt-get -o DPkg::Lock::Timeout=60 -o Acquire::Retries=3 \
+            install -y --no-install-recommends ffmpeg
 
       - name: Verify ffmpeg installation
         run: |
