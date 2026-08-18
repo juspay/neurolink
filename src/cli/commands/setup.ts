@@ -323,13 +323,17 @@ function printGenericProviderSetup(
  */
 export async function handleSetup(argv: SetupArgs): Promise<void> {
   try {
-    // Handle specific flags
+    // Handle specific flags. `--list`/`--status` are documented as one-shot,
+    // non-interactive informational commands (see the `setup --list` /
+    // `setup --status` examples in setupCommandFactory.ts) — pass
+    // interactive: false so they print and return instead of chaining into
+    // the wizard's follow-up inquirer prompt below.
     if (argv.list) {
-      return await showProviderList();
+      return await showProviderList(false);
     }
 
     if (argv.status) {
-      return await showProviderStatus();
+      return await showProviderStatus(false);
     }
 
     if (argv.provider && argv.provider !== "auto") {
@@ -739,9 +743,15 @@ async function showSetupCompletion(providerId: string): Promise<void> {
 }
 
 /**
- * Show detailed provider information
+ * Show detailed provider information.
+ *
+ * @param interactive - When true (the default, used by the interactive
+ * wizard's "learn more" menu choice), follows up with a prompt offering to
+ * launch the setup wizard. When false (used by the direct `setup --list`
+ * flag), returns immediately after printing so the command exits cleanly
+ * without waiting on stdin.
  */
-async function showProviderList(): Promise<void> {
+async function showProviderList(interactive = true): Promise<void> {
   logger.always(chalk.blue("📚 NeuroLink Supported AI Providers"));
   logger.always("");
 
@@ -782,6 +792,10 @@ async function showProviderList(): Promise<void> {
   logger.always("• neurolink setup --provider bedrock");
   logger.always("");
 
+  if (!interactive) {
+    return;
+  }
+
   const { action } = await inquirer.prompt([
     {
       type: "select",
@@ -800,9 +814,15 @@ async function showProviderList(): Promise<void> {
 }
 
 /**
- * Show provider status with detailed information
+ * Show provider status with detailed information.
+ *
+ * @param interactive - When true (the default, used by the interactive
+ * wizard's "check status" menu choice), follows up with a prompt offering to
+ * set up another provider. When false (used by the direct `setup --status`
+ * flag), returns immediately after printing so the command exits cleanly
+ * without waiting on stdin.
  */
-async function showProviderStatus(): Promise<void> {
+async function showProviderStatus(interactive = true): Promise<void> {
   const spinner = ora("🔍 Checking all AI provider configurations...").start();
 
   try {
@@ -908,6 +928,10 @@ async function showProviderStatus(): Promise<void> {
       }
       logger.always("• Check performance: neurolink provider status");
       logger.always("");
+    }
+
+    if (!interactive) {
+      return;
     }
 
     const { setupAnother } = await inquirer.prompt([

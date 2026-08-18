@@ -10222,6 +10222,96 @@ exit 127
       );
     },
   },
+  // `setup --list`/`setup --status` are documented (setupCommandFactory.ts
+  // examples) as one-shot, non-interactive informational commands, but
+  // showProviderList()/showProviderStatus() unconditionally chained into an
+  // interactive wizard's follow-up inquirer.prompt() regardless of how they
+  // were reached. With stdin closed (no TTY, matching CI/scripts) that
+  // trailing prompt either threw immediately ("User force closed the
+  // prompt", caught by handleSetup's outer catch -> exit 1 for --list) or,
+  // once real background provider-probe network calls were keeping the
+  // event loop alive, never resolved at all (--status hung indefinitely).
+  // The fix threads an `interactive` flag through both functions so a
+  // direct `--list`/`--status` invocation returns right after printing.
+  {
+    name: "CLI setup: --list prints the provider list and exits cleanly (no hang, no force-closed prompt)",
+    category: "cli",
+    fn: async () => {
+      const { existsSync } = await import("node:fs");
+      if (!existsSync(CLI_DIST_PATH)) {
+        return true; // dist not built in this run — covered by CI's built CLI.
+      }
+      const { spawnSync } = await import("node:child_process");
+      const r = spawnSync(
+        process.execPath,
+        [CLI_DIST_PATH, "setup", "--list"],
+        {
+          encoding: "utf8",
+          env: { ...process.env, NO_COLOR: "1" },
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 10_000,
+        },
+      );
+      const combined = `${r.stdout}${r.stderr}`;
+      return (
+        r.status === 0 &&
+        r.signal === null &&
+        /NeuroLink Supported AI Providers/.test(combined) &&
+        /Quick Start Recommendations/.test(combined) &&
+        !/Ready to set up a provider/.test(combined) &&
+        !/force closed/.test(combined)
+      );
+    },
+  },
+  {
+    name: "CLI setup: --status prints provider status and exits cleanly with no credentials (no hang, no force-closed prompt)",
+    category: "cli",
+    fn: async () => {
+      const { existsSync, mkdtempSync, rmSync } = await import("node:fs");
+      if (!existsSync(CLI_DIST_PATH)) {
+        return true;
+      }
+      const { spawnSync } = await import("node:child_process");
+      // Isolated cwd (no .env file) with a minimal, hand-built env (no
+      // spread of process.env) so no ambient or repo-local provider
+      // credential can sneak in — getProviderStatus() probes real
+      // providers, so any credential here would turn this into a live
+      // network test and defeat the point of the regression guard.
+      const dir = mkdtempSync(pathJoin(tmpdir(), "cli-setup-status-"));
+      try {
+        const env = {
+          PATH: process.env.PATH ?? "",
+          HOME: process.env.HOME ?? "",
+          NO_COLOR: "1",
+        };
+        const start = Date.now();
+        const r = spawnSync(
+          process.execPath,
+          [CLI_DIST_PATH, "setup", "--status"],
+          {
+            encoding: "utf8",
+            cwd: dir,
+            env,
+            stdio: ["ignore", "pipe", "pipe"],
+            timeout: 20_000,
+          },
+        );
+        const elapsed = Date.now() - start;
+        const combined = `${r.stdout}${r.stderr}`;
+        return (
+          r.status === 0 &&
+          r.signal === null &&
+          elapsed < 15_000 && // regression guard: a re-introduced hang must fail fast, not stall CI
+          /NeuroLink Provider Status/.test(combined) &&
+          /provider\(s\) working/.test(combined) &&
+          !/Would you like to set up another provider/.test(combined) &&
+          !/force closed/.test(combined)
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  },
 ];
 
 // ============================================================================
