@@ -279,6 +279,14 @@ export default [
             // produces, and module-export-shape checks. Its header already
             // states the exception and the all-src module graph.
             "test/continuous-test-suite-error-classifier-contract.ts",
+            // Account ordering, 429 cooldown planning and refresh-failure
+            // classification, which would otherwise need a specific sequence
+            // of 429s and token-endpoint failures across several real ChatGPT
+            // accounts to provoke. Its header states the exception in full,
+            // including that `__testHooks` should shrink as the logic gains a
+            // real surface. Its last two cases drive the built CLI and are
+            // deliberately outside the exception.
+            "test/continuous-test-suite-codex.ts",
           ],
         },
       ],
