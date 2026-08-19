@@ -205,6 +205,81 @@ jobs:
           pnpm pack
           ls -la dist/
 
+  # Deliberately NOT a required status check. These suites are new and this job
+  # exists so a regression in them is visible, not so it can block a merge on
+  # day one. Promote it to required once it has proven stable.
+  #
+  # It exists at all because the alternative was demonstrated: the OpenAI-compat
+  # catalog suite sat in no CI job, broke (it threw on any machine without
+  # GROQ_API_KEY), and nobody noticed — because nothing ran it. A suite wired
+  # into nothing is documentation, not a test.
+  extended-suites:
+    runs-on: ubuntu-latest
+    name: Extended Suites (non-blocking)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: SvelteKit sync
+        run: pnpm exec svelte-kit sync
+
+      # Every one of these suites imports from ../dist/index.js per rule 15, so
+      # the built output is a prerequisite rather than an optimisation.
+      - name: Build
+        run: pnpm run build
+
+      - name: Run extended suites
+        run: |
+          # No provider credentials are set in this job, and that is the point:
+          # each of these suites drives the public API against stubs, local
+          # fixtures or mocked fetch, so a suite that starts making real network
+          # calls fails here rather than silently costing money and flaking.
+          SUITES="
+            test:openai-compat-catalog
+            test:handler-registry
+            test:tts:unit
+            test:stt:unit
+            test:avatar:unit
+            test:music:unit
+            test:video:unit
+            test:realtime:unit
+          "
+          FAILED=""
+          for s in $SUITES; do
+            echo "::group::$s"
+            if pnpm run "$s"; then
+              echo "PASS $s"
+            else
+              echo "FAIL $s"
+              FAILED="$FAILED $s"
+            fi
+            echo "::endgroup::"
+          done
+
+          echo ""
+          echo "──────────────────────────────────────────────"
+          if [ -n "$FAILED" ]; then
+            # Every suite runs before failing, so one broken suite does not hide
+            # the state of the other seven.
+            echo "Failing suites:$FAILED"
+            exit 1
+          fi
+          echo "All extended suites passed."
+
   proxy-performance:
     name: Proxy Performance Gates
     runs-on: ubuntu-latest
