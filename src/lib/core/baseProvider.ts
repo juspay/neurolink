@@ -1,7 +1,7 @@
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { directAgentTools } from "../agent/directTools.js";
 import type { AIProviderName } from "../constants/enums.js";
-import { isImageGenerationModel } from "../core/constants.js";
+import { isImageGenerationModel } from "./constants.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
 import { modelSupports } from "../models/modelRegistry.js";
@@ -18,7 +18,9 @@ import type {
   AIProvider,
   AnalyticsData,
   EnhancedGenerateResult,
+  TTSChunk,
   TTSMetadata,
+  TTSResult,
   TextGenerationOptions,
   TextGenerationResult,
   StandardRecord,
@@ -44,6 +46,7 @@ import {
 } from "../utils/lifecycleCallbacks.js";
 import { resolveLifecycleTimeoutMs } from "../utils/lifecycleTimeout.js";
 import { logger } from "../utils/logger.js";
+import { interleaveTTSStream } from "../utils/ttsStream.js";
 import {
   TimeoutError as AsyncTimeoutError,
   withTimeoutFn,
@@ -663,6 +666,80 @@ export abstract class BaseProvider implements AIProvider {
   }
 
   /**
+   * Build the fake-stream output and apply the same incremental TTS wrapper
+   * used by the standard NeuroLink stream path.
+   */
+  private createFakeStreamingOutput(
+    result: EnhancedGenerateResult | null,
+    options: StreamOptions,
+    onTTSComplete?: (result: TTSResult | undefined) => void,
+  ): AsyncIterable<
+    | { content: string }
+    | {
+        type: "image";
+        imageOutput: NonNullable<EnhancedGenerateResult["imageOutput"]>;
+      }
+    | { type: "tts_audio"; audio: TTSChunk }
+  > {
+    const incrementalTTS = options.tts?.enabled === true;
+    const source = (async function* () {
+      if (result?.content) {
+        const words = result.content.split(/(\s+)/);
+        let buffer = "";
+
+        for (let i = 0; i < words.length; i++) {
+          buffer += words[i];
+          const shouldYield =
+            i === words.length - 1 ||
+            buffer.length > 50 ||
+            /[.!?;,]\s*$/.test(buffer);
+          if (shouldYield && buffer.trim()) {
+            yield { content: buffer };
+            buffer = "";
+            await new Promise((resolve) => {
+              setTimeout(resolve, Math.random() * 9 + 1);
+            });
+          }
+        }
+
+        if (buffer.trim()) {
+          yield { content: buffer };
+        }
+      }
+
+      if (result?.imageOutput) {
+        yield { type: "image" as const, imageOutput: result.imageOutput };
+      }
+
+      if (result?.audio && !incrementalTTS) {
+        yield {
+          type: "tts_audio" as const,
+          audio: {
+            data: result.audio.buffer,
+            format: result.audio.format,
+            index: 0,
+            isFinal: true,
+            cumulativeSize: result.audio.size,
+            voice: result.audio.voice,
+            sampleRate: result.audio.sampleRate,
+          },
+        };
+      }
+    })();
+
+    if (!incrementalTTS || !options.tts) {
+      return source;
+    }
+
+    return interleaveTTSStream({
+      stream: source,
+      provider: options.tts.provider ?? options.provider ?? this.providerName,
+      options: options.tts,
+      onComplete: onTTSComplete,
+    });
+  }
+
+  /**
    * Execute fake streaming - extracted method for reusability
    */
   private async executeFakeStreaming(
@@ -705,10 +782,10 @@ export abstract class BaseProvider implements AIProvider {
         skipToolPromptInjection: options.skipToolPromptInjection,
         timeout: options.timeout,
         stt: options.stt,
-        // Forward TTS options too — without this, the fake-streaming fallback
-        // path silently drops `tts` and the resulting StreamResult never
-        // produces a `tts_audio` chunk even when synthesis was requested.
-        tts: options.tts,
+        // Streaming TTS is synthesized incrementally by
+        // createFakeStreamingOutput; do not let generate() perform a duplicate
+        // input- or whole-response synthesis first.
+        tts: options.tts?.enabled ? undefined : options.tts,
       };
 
       logger.debug(`Calling generate for fake streaming`, {
@@ -728,66 +805,49 @@ export abstract class BaseProvider implements AIProvider {
         timestamp: Date.now(),
       });
 
+      const incrementalTTS = options.tts?.enabled === true;
+      const ttsProvider =
+        options.tts?.provider ?? options.provider ?? this.providerName;
+      const ttsStartedAt = Date.now();
+      let resolveAudio: ((value: TTSResult | undefined) => void) | undefined;
+      let audioSettled = false;
+      const audio = incrementalTTS
+        ? new Promise<TTSResult | undefined>((resolve) => {
+            resolveAudio = resolve;
+          }).catch(() => undefined)
+        : undefined;
+      const ttsMetadata: TTSMetadata | undefined = incrementalTTS
+        ? {
+            attempted: TTSProcessor.supports(ttsProvider),
+            success: false,
+          }
+        : result?.ttsMetadata;
+      const onTTSComplete = incrementalTTS
+        ? (
+            ttsResult: TTSResult | undefined,
+            error?: NonNullable<TTSMetadata["error"]>,
+          ) => {
+            if (audioSettled) {
+              return;
+            }
+            audioSettled = true;
+            if (ttsMetadata) {
+              ttsMetadata.success =
+                error === undefined && ttsResult !== undefined;
+              if (error) {
+                ttsMetadata.error = error;
+              } else {
+                delete ttsMetadata.error;
+              }
+              ttsMetadata.latency = Date.now() - ttsStartedAt;
+            }
+            resolveAudio?.(ttsResult);
+          }
+        : undefined;
+
       // Create a synthetic stream from the generate result that simulates progressive delivery
       return {
-        stream: (async function* () {
-          if (result?.content) {
-            // Split content into words for more natural streaming
-            const words = result.content.split(/(\s+)/); // Keep whitespace
-            let buffer = "";
-
-            for (let i = 0; i < words.length; i++) {
-              buffer += words[i];
-
-              // Yield chunks of roughly 5-10 words or at punctuation
-              const shouldYield =
-                i === words.length - 1 || // Last word
-                buffer.length > 50 || // Buffer getting long
-                /[.!?;,]\s*$/.test(buffer); // End of sentence/clause
-
-              if (shouldYield && buffer.trim()) {
-                yield { content: buffer };
-                buffer = "";
-
-                // Small delay to simulate streaming (1-10ms)
-                await new Promise((resolve) => {
-                  setTimeout(resolve, Math.random() * 9 + 1);
-                });
-              }
-            }
-
-            // Yield all remaining content
-            if (buffer.trim()) {
-              yield { content: buffer };
-            }
-          }
-
-          // 🔧 CRITICAL FIX: Yield image output if present
-          if (result?.imageOutput) {
-            yield {
-              type: "image" as const,
-              imageOutput: result.imageOutput,
-            };
-          }
-
-          // Yield synthesized audio so callers using stream() with tts.enabled
-          // still receive a tts_audio chunk on the fake-streaming fallback
-          // path (matches the discriminator used by the real streaming path).
-          if (result?.audio) {
-            yield {
-              type: "tts_audio" as const,
-              audio: {
-                data: result.audio.buffer,
-                format: result.audio.format,
-                index: 0,
-                isFinal: true,
-                cumulativeSize: result.audio.size,
-                voice: result.audio.voice,
-                sampleRate: result.audio.sampleRate,
-              },
-            };
-          }
-        })(),
+        stream: this.createFakeStreamingOutput(result, options, onTTSComplete),
         usage: result?.usage,
         provider: result?.provider,
         model: result?.model,
@@ -810,6 +870,8 @@ export abstract class BaseProvider implements AIProvider {
         // 🔧 FIX: Include analytics and evaluation from generate result
         analytics: result?.analytics,
         evaluation: result?.evaluation,
+        audio,
+        ttsMetadata,
       };
     } catch (error) {
       logger.error(

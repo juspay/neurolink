@@ -8,7 +8,7 @@
 
 > **StreamToolCall** = `object`
 
-Defined in: [types/stream.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L91)
+Defined in: [types/stream.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L92)
 
 Type for tool execution calls (AI SDK compatible)
 
@@ -18,7 +18,7 @@ Type for tool execution calls (AI SDK compatible)
 
 > `optional` **type?**: `"tool-call"`
 
-Defined in: [types/stream.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L92)
+Defined in: [types/stream.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L93)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/stream.ts:92](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **toolCallId?**: `string`
 
-Defined in: [types/stream.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L93)
+Defined in: [types/stream.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L94)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/stream.ts:93](https://github.com/juspay/neurolink/blob/releas
 
 > **toolName**: `string`
 
-Defined in: [types/stream.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L94)
+Defined in: [types/stream.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L95)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/stream.ts:94](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **parameters?**: [`UnknownRecord`](UnknownRecord.md)
 
-Defined in: [types/stream.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L95)
+Defined in: [types/stream.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L96)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/stream.ts:95](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **args?**: [`UnknownRecord`](UnknownRecord.md)
 
-Defined in: [types/stream.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L96)
+Defined in: [types/stream.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L97)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/stream.ts:96](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **id?**: `string`
 
-Defined in: [types/stream.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L97)
+Defined in: [types/stream.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L98)

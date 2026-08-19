@@ -1772,12 +1772,12 @@ async function testStreamAudioPromise(sdk: NeuroLink): Promise<boolean | null> {
 async function testStreamTTSUseAiResponseFalse(
   sdk: NeuroLink,
 ): Promise<boolean | null> {
-  // T3: stream() + tts.useAiResponse:false → result.audio resolves to undefined
-  // (must not hang or throw — the resolver-on-finally guarantee from neurolink.ts).
-  logTest("T3: stream() + TTS Mode 1 audio Promise = undefined", "TESTING");
+  // T3: stream() synthesizes whenever tts.enabled is true; useAiResponse keeps
+  // its input-vs-response meaning for generate() and does not gate stream().
+  logTest("T3: stream() + TTS enabled audio Promise resolves", "TESTING");
   if (isCredentialsMissing()) {
     logTest(
-      "T3: stream() + TTS Mode 1 audio Promise = undefined",
+      "T3: stream() + TTS enabled audio Promise resolves",
       "SKIP",
       "creds missing",
     );
@@ -1804,16 +1804,17 @@ async function testStreamTTSUseAiResponseFalse(
         setTimeout(() => resolve("timeout"), 5000),
       ),
     ]);
-    const ok = audio === undefined;
+    const ok =
+      audio !== "timeout" && audio !== undefined && audio.buffer.length > 0;
     logTest(
-      "T3: stream() + TTS Mode 1 audio Promise = undefined",
+      "T3: stream() + TTS enabled audio Promise resolves",
       ok ? "PASS" : "FAIL",
-      `result=${audio === "timeout" ? "TIMEOUT" : typeof audio}`,
+      `result=${audio === "timeout" ? "TIMEOUT" : `bytes=${audio?.buffer.length ?? 0}`}`,
     );
     return ok;
   } catch (err) {
     logTest(
-      "T3: stream() + TTS Mode 1 audio Promise = undefined",
+      "T3: stream() + TTS enabled audio Promise resolves",
       "FAIL",
       err instanceof Error ? err.message : String(err),
     );
@@ -2142,7 +2143,7 @@ async function runAllTests(): Promise<void> {
       fn: () => testStreamAudioPromise(sharedSdk),
     },
     {
-      name: "T3: stream() + TTS Mode 1 audio Promise = undefined",
+      name: "T3: stream() + TTS enabled audio Promise resolves",
       fn: () => testStreamTTSUseAiResponseFalse(sharedSdk),
     },
     {

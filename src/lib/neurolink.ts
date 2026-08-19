@@ -103,7 +103,7 @@ import type {
   MCPServerCategory,
   MCPServerInfo,
   MCPStatus,
-  AudioChunk,
+  ProviderStreamChunk,
   StreamOptions,
   StreamResult,
   StreamToolCall,
@@ -238,8 +238,8 @@ import { tracers } from "./telemetry/tracers.js";
 // Voice integration imports
 import type {
   STTResult,
+  TTSMetadata,
   TTSResult,
-  TTSChunk,
   TTSOptions,
   SessionExport,
   SessionListItem,
@@ -264,6 +264,7 @@ import {
   hasLifecycleErrorFired,
   markLifecycleErrorFired,
 } from "./utils/lifecycleCallbacks.js";
+import { interleaveTTSStream } from "./utils/ttsStream.js";
 import { resolveLifecycleTimeoutMs } from "./utils/lifecycleTimeout.js";
 import { cloneOptionsForCallIsolation } from "./utils/cloneOptions.js";
 import {
@@ -8714,7 +8715,9 @@ Current user's request: ${currentInput}`;
    *
    * // Consume the stream
    * for await (const chunk of result.stream) {
-   *   process.stdout.write(chunk.content);
+   *   if ("content" in chunk) {
+   *     process.stdout.write(chunk.content);
+   *   }
    * }
    *
    * // Advanced streaming with options
@@ -9093,19 +9096,19 @@ Current user's request: ${currentInput}`;
           .thinking?.thinkingLevel,
       );
 
-      // TTS Mode 2 deferred: stream() emits text first, then synthesizes the
-      // accumulated response into a single audio chunk at end-of-stream and
-      // resolves `streamResult.audio` with the same TTSResult. The resolver is
+      // Streaming TTS deferred: stream() always synthesizes the streamed AI
+      // response when TTS is enabled, regardless of generate()'s
+      // input-vs-response `useAiResponse` switch. It resolves
+      // `streamResult.audio` with the aggregate TTSResult. The resolver is
       // plumbed explicitly through the params bag (M11: previously a
       // `_streamTtsResolve` cast on the caller's options object — fragile if
       // the same options object was reused across concurrent stream() calls).
       const ttsOptions = options.tts;
-      const wantsStreamTtsMode2 = !!(
-        ttsOptions?.enabled && ttsOptions?.useAiResponse
-      );
+      const wantsStreamTtsMode2 = ttsOptions?.enabled === true;
       let resolveStreamTtsAudio:
         | ((value: TTSResult | undefined) => void)
         | undefined;
+      let streamTtsMetadata: TTSMetadata | undefined;
       const streamTtsAudioPromise = wantsStreamTtsMode2
         ? new Promise<TTSResult | undefined>((resolve) => {
             resolveStreamTtsAudio = resolve;
@@ -9123,6 +9126,9 @@ Current user's request: ${currentInput}`;
             streamId,
             originalPrompt,
             ttsResolver: resolveStreamTtsAudio,
+            ttsMetadataSink: (metadata) => {
+              streamTtsMetadata = metadata;
+            },
           }),
         ),
       );
@@ -9131,6 +9137,7 @@ Current user's request: ${currentInput}`;
       }
       if (streamTtsAudioPromise) {
         streamResult.audio = streamTtsAudioPromise;
+        streamResult.ttsMetadata = streamTtsMetadata;
       }
       return streamResult;
     } catch (error) {
@@ -9818,14 +9825,16 @@ Current user's request: ${currentInput}`;
     streamId: string;
     originalPrompt: string;
     /**
-     * Resolver for `streamResult.audio` Promise (TTS Mode 2). Set when the
-     * caller requested `tts.enabled && tts.useAiResponse`. Always resolved
+     * Resolver for the streaming `streamResult.audio` Promise. Set when the
+     * caller requested `tts.enabled`. Always resolved
      * exactly once: with the synthesised TTSResult on success, or `undefined`
      * on synthesis failure / non-Mode-2 path / stream error. Plumbed
      * explicitly via this params bag (M11) instead of via a side-channel
      * cast on the caller's options object.
      */
     ttsResolver?: (value: TTSResult | undefined) => void;
+    /** Receives the mutable streaming-TTS metadata reference before return. */
+    ttsMetadataSink?: (value: TTSMetadata | undefined) => void;
   }): Promise<StreamResult> {
     const {
       options,
@@ -9836,6 +9845,7 @@ Current user's request: ${currentInput}`;
       streamId,
       originalPrompt,
       ttsResolver,
+      ttsMetadataSink,
     } = params;
 
     logger.debug("[NeuroLink] Running standard stream request", {
@@ -9876,6 +9886,18 @@ Current user's request: ${currentInput}`;
         analytics: streamAnalytics,
         metadata: providerStreamMetadata,
       } = await this.createMCPStream(enhancedOptions);
+      let streamedTTSResult: TTSResult | undefined;
+      const { stream: incrementalStream, ttsMetadata: streamTtsMetadata } =
+        await this.createIncrementalTTSStream({
+          stream: mcpStream,
+          ttsOptions: enhancedOptions.tts,
+          providerName,
+          fallbackProvider: enhancedOptions.provider,
+          onComplete: (result) => {
+            streamedTTSResult = result;
+          },
+        });
+      ttsMetadataSink?.(streamTtsMetadata);
       const streamState = {
         finishReason: streamFinishReason ?? "stop",
         toolCalls: streamToolCalls,
@@ -9932,7 +9954,7 @@ Current user's request: ${currentInput}`;
         // NoOutputGeneratedError, and we want fallback to fire there.
         let realOutputChunks = 0;
         try {
-          for await (const chunk of mcpStream) {
+          for await (const chunk of incrementalStream) {
             chunkCount++;
             const isNoOutputSentinel =
               chunk !== null &&
@@ -9997,7 +10019,7 @@ Current user's request: ${currentInput}`;
             streamState.toolCalls.length === 0 &&
             streamState.toolResults.length === 0
           ) {
-            yield* self.handleStreamFallback(
+            const fallbackStream = self.handleStreamFallback(
               metadata,
               streamState,
               originalPrompt,
@@ -10007,24 +10029,21 @@ Current user's request: ${currentInput}`;
                 accumulatedContent += content;
               },
             );
+            const { stream: incrementalFallback } =
+              await self.createIncrementalTTSStream({
+                stream: fallbackStream,
+                ttsOptions: enhancedOptions.tts,
+                providerName,
+                fallbackProvider: enhancedOptions.provider,
+                ttsMetadata: streamTtsMetadata,
+                onComplete: (result) => {
+                  streamedTTSResult = result;
+                },
+              });
+            yield* incrementalFallback;
           }
 
-          // TTS Mode 2 for stream(): synthesize the accumulated response
-          // and yield ONE final audio chunk so callers iterating the stream
-          // get the audio inline; also resolve `streamResult.audio` so the
-          // ergonomic `await result.audio` pattern works post-iteration.
-          // m5: synthesis logic lives in a dedicated helper to keep this
-          // generator under the max-lines-per-function lint budget.
-          const ttsModeResult = await self.synthesizeStreamModeTwo({
-            ttsOptions: enhancedOptions.tts,
-            providerName,
-            fallbackProvider: enhancedOptions.provider,
-            accumulatedContent,
-            ttsResolver,
-          });
-          if (ttsModeResult.audioChunk) {
-            yield ttsModeResult.audioChunk;
-          }
+          ttsResolver?.(streamedTTSResult);
 
           resolvedUsage = streamUsage;
           if (!resolvedUsage && streamAnalytics) {
@@ -10295,6 +10314,7 @@ Current user's request: ${currentInput}`;
         providerMetadata: providerStreamMetadata,
       });
     } catch (error) {
+      ttsResolver?.(undefined);
       if (options.disableInternalFallback) {
         throw error;
       }
@@ -10309,92 +10329,84 @@ Current user's request: ${currentInput}`;
     }
   }
 
-  /**
-   * TTS Mode 2 synthesis helper for the stream() pipeline.
-   *
-   * m5 — extracted from runStandardStreamRequest so the surrounding generator
-   * stays under the max-lines-per-function lint budget. Behaviour preserved
-   * exactly:
-   * - When Mode 2 is enabled (`tts.enabled && tts.useAiResponse`) AND the
-   *   model produced non-empty content: synthesises one final audio buffer
-   *   and returns it as an `audioChunk` for the caller to `yield`. Resolves
-   *   `ttsResolver` with the `TTSResult`.
-   * - When Mode 2 is enabled but synthesis fails: logs a warning and resolves
-   *   `ttsResolver` with `undefined`.
-   * - When Mode 2 is requested but skipped (empty content / wrong mode):
-   *   resolves `ttsResolver` with `undefined` early so callers awaiting
-   *   `result.audio` unblock before the surrounding `finally` cleanup
-   *   completes (Issue 7 latency micro-opt — the finally block also resolves
-   *   defensively, so this is a redundant early signal, not a coverage fix).
-   */
-  private async synthesizeStreamModeTwo(params: {
+  /** Wrap one provider stream with incremental TTS synthesis. */
+  private async createIncrementalTTSStream(params: {
+    stream: AsyncIterable<ProviderStreamChunk>;
     ttsOptions: TTSOptions | undefined;
     providerName: string;
     fallbackProvider?: string;
-    accumulatedContent: string;
-    ttsResolver?: (value: TTSResult | undefined) => void;
-  }): Promise<{ audioChunk?: { type: "tts_audio"; audio: TTSChunk } }> {
-    const {
-      ttsOptions,
-      providerName,
-      fallbackProvider,
-      accumulatedContent,
-      ttsResolver,
-    } = params;
+    ttsMetadata?: TTSMetadata;
+    onComplete: (value: TTSResult | undefined) => void;
+  }): Promise<{
+    stream: AsyncIterable<ProviderStreamChunk>;
+    ttsMetadata?: TTSMetadata;
+  }> {
+    const { stream, ttsOptions, providerName, fallbackProvider, onComplete } =
+      params;
 
-    if (
-      !ttsOptions?.enabled ||
-      !ttsOptions.useAiResponse ||
-      accumulatedContent.trim().length === 0
-    ) {
-      ttsResolver?.(undefined);
-      return {};
+    if (!ttsOptions?.enabled) {
+      onComplete(undefined);
+      return { stream };
     }
 
-    try {
-      const { TTSProcessor } = await import("./utils/ttsProcessor.js");
-      // ttsOptions.provider takes precedence; otherwise fall back to the
-      // chat provider ID ONLY when it happens to be a registered TTS handler
-      // (e.g. "google-ai" works for both LLM and TTS). For LLM-only IDs like
-      // "anthropic", we'd otherwise complete generation and then fail synth —
-      // surface that mismatch up front instead.
-      const candidate = ttsOptions.provider ?? fallbackProvider ?? providerName;
-      const ttsProvider =
-        candidate && TTSProcessor.supports(candidate) ? candidate : undefined;
-      if (!ttsProvider) {
-        throw new Error(
-          `No TTS provider resolved for stream Mode 2 (set tts.provider explicitly — chat provider "${candidate ?? "<unset>"}" is not a registered TTS handler)`,
-        );
+    const { TTSProcessor } = await import("./utils/ttsProcessor.js");
+    const concreteFallback =
+      fallbackProvider === "auto" ? undefined : fallbackProvider;
+    const candidate = ttsOptions.provider ?? concreteFallback ?? providerName;
+    const ttsProvider =
+      candidate && TTSProcessor.supports(candidate) ? candidate : undefined;
+    const ttsMetadata = params.ttsMetadata ?? {
+      attempted: ttsProvider !== undefined,
+      success: false,
+    };
+    ttsMetadata.attempted = ttsProvider !== undefined;
+    ttsMetadata.success = false;
+    delete ttsMetadata.error;
+    delete ttsMetadata.latency;
+    const ttsStartedAt = Date.now();
+    let completionRecorded = false;
+    const recordCompletion = (
+      result: TTSResult | undefined,
+      error?: NonNullable<TTSMetadata["error"]>,
+    ) => {
+      if (completionRecorded) {
+        return;
       }
-      const ttsResult = await TTSProcessor.synthesize(
-        accumulatedContent,
-        ttsProvider,
-        ttsOptions,
-      );
-      ttsResolver?.(ttsResult);
-      return {
-        audioChunk: {
-          type: "tts_audio" as const,
-          audio: {
-            data: ttsResult.buffer,
-            format: ttsResult.format,
-            index: 0,
-            isFinal: true,
-            cumulativeSize: ttsResult.size,
-            voice: ttsResult.voice,
-            sampleRate: ttsResult.sampleRate,
-          },
-        },
-      };
-    } catch (ttsError) {
+      completionRecorded = true;
+      ttsMetadata.success = error === undefined && result !== undefined;
+      if (error) {
+        ttsMetadata.error = error;
+      } else {
+        delete ttsMetadata.error;
+      }
+      ttsMetadata.latency = Date.now() - ttsStartedAt;
+      onComplete(result);
+    };
+    if (!ttsProvider) {
       logger.warn(
-        `[NeuroLink.stream] Stream TTS Mode 2 synthesis failed: ${
-          ttsError instanceof Error ? ttsError.message : String(ttsError)
-        }`,
+        `[NeuroLink.stream] No TTS provider resolved for incremental streaming (set tts.provider explicitly — chat provider "${candidate ?? "<unset>"}" is not a registered TTS handler)`,
       );
-      ttsResolver?.(undefined);
-      return {};
+      recordCompletion(undefined);
+      return { stream, ttsMetadata };
     }
+
+    return {
+      stream: interleaveTTSStream({
+        stream,
+        provider: ttsProvider,
+        options: ttsOptions,
+        onComplete: recordCompletion,
+      }),
+      ttsMetadata,
+    };
+  }
+
+  /** Prevent provider fallback streams from duplicating outer streaming TTS. */
+  private deferProviderStreamTTS(options: StreamOptions): StreamOptions {
+    if (options.tts?.enabled) {
+      return { ...options, tts: undefined };
+    }
+    return options;
   }
 
   /**
@@ -10711,12 +10723,7 @@ Current user's request: ${currentInput}`;
     enhancedOptions: StreamOptions,
     providerName: string,
     appendContent: (content: string) => void,
-  ): AsyncGenerator<
-    | { content: string }
-    | { type: "audio"; audio: AudioChunk }
-    | { type: "tts_audio"; audio: TTSChunk }
-    | { type: "image"; imageOutput: { base64: string } }
-  > {
+  ): AsyncGenerator<ProviderStreamChunk> {
     metadata.fallbackAttempted = true;
     const errorMsg =
       "Stream completed with 0 chunks (possible guardrails block)";
@@ -10815,7 +10822,7 @@ Current user's request: ${currentInput}`;
             } as TextGenerationOptions);
 
       const fallbackResult = await fallbackProvider.stream({
-        ...enhancedOptions,
+        ...this.deferProviderStreamTTS(enhancedOptions),
         model: fallbackRoute.model,
         conversationMessages,
       });
@@ -11100,12 +11107,7 @@ Current user's request: ${currentInput}`;
    * Create MCP stream
    */
   private async createMCPStream(options: StreamOptions): Promise<{
-    stream: AsyncIterable<
-      | { content: string }
-      | { type: "audio"; audio: AudioChunk }
-      | { type: "tts_audio"; audio: TTSChunk }
-      | { type: "image"; imageOutput: { base64: string } }
-    >;
+    stream: AsyncIterable<ProviderStreamChunk>;
     provider: string;
     usage?: { input: number; output: number; total: number };
     model?: string;
@@ -11442,7 +11444,7 @@ Current user's request: ${currentInput}`;
           );
 
           const poolStreamResult = await poolStreamProvider.stream({
-            ...options,
+            ...this.deferProviderStreamTTS(options),
             provider: poolStreamProviderName as AIProviderName,
             model: poolStreamModel,
             region: poolStreamRegion,
@@ -11532,7 +11534,7 @@ Current user's request: ${currentInput}`;
     // 🔧 FIX: Pass enhanced system prompt to real streaming
     // Tools will be accessed through the streamText call in executeStream
     const streamResult = await provider.stream({
-      ...options,
+      ...this.deferProviderStreamTTS(options),
       systemPrompt: enhancedSystemPrompt, // Use enhanced prompt with tool descriptions
       conversationMessages,
     });
@@ -11564,12 +11566,7 @@ Current user's request: ${currentInput}`;
    * Process stream result
    */
   private async processStreamResult(
-    _stream: AsyncIterable<
-      | { content: string }
-      | { type: "audio"; audio: AudioChunk }
-      | { type: "tts_audio"; audio: TTSChunk }
-      | { type: "image"; imageOutput: { base64: string } }
-    >,
+    _stream: AsyncIterable<ProviderStreamChunk>,
     _options: StreamOptions,
     _factoryResult: unknown,
   ): Promise<{
@@ -11617,12 +11614,7 @@ Current user's request: ${currentInput}`;
       analytics?: AnalyticsData;
       evaluation?: EvaluationData;
     },
-    stream: AsyncIterable<
-      | { content: string }
-      | { type: "audio"; audio: AudioChunk }
-      | { type: "tts_audio"; audio: TTSChunk }
-      | { type: "image"; imageOutput: { base64: string } }
-    >,
+    stream: AsyncIterable<ProviderStreamChunk>,
     config: {
       providerName: string;
       options: StreamOptions;

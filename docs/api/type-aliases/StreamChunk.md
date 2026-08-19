@@ -8,7 +8,7 @@
 
 > **StreamChunk** = \{ `type`: `"text"`; `content`: `string`; \} \| \{ `type`: `"tts_audio"`; `audio`: [`TTSChunk`](TTSChunk.md); \}
 
-Defined in: [types/stream.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L207)
+Defined in: [types/stream.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L208)
 
 Stream chunk type using discriminated union for type safety
 

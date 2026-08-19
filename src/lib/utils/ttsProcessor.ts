@@ -8,7 +8,12 @@
  */
 
 import { logger } from "./logger.js";
-import type { TTSOptions, TTSResult, TTSHandler } from "../types/index.js";
+import type {
+  TTSChunk,
+  TTSOptions,
+  TTSResult,
+  TTSHandler,
+} from "../types/index.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 import { NeuroLinkError } from "./errorHandling.js";
 import { HandlerRegistry } from "../core/handlerRegistry.js";
@@ -29,6 +34,96 @@ export const TTS_ERROR_CODES = {
   SYNTHESIS_FAILED: "TTS_SYNTHESIS_FAILED",
   INVALID_INPUT: "TTS_INVALID_INPUT",
 } as const;
+
+const DEFAULT_STREAMING_BUFFER_SIZE = 120;
+const SENTENCE_BOUNDARY = /[.!?]+(?:["')\]]+)?(?=\s|$)/g;
+
+/** Internal signal raised after all buffered segments have been attempted. */
+export class IncrementalTTSSynthesisError extends Error {
+  readonly firstError: unknown;
+  readonly failedSegments: readonly number[];
+
+  constructor(firstError: unknown, failedSegments: number[]) {
+    super(
+      `Incremental TTS failed for ${failedSegments.length} segment${failedSegments.length === 1 ? "" : "s"}`,
+    );
+    this.name = "IncrementalTTSSynthesisError";
+    this.firstError = firstError;
+    this.failedSegments = [...failedSegments];
+  }
+}
+
+function findSentenceEnds(text: string): number[] {
+  const ends: number[] = [];
+  for (const match of text.matchAll(SENTENCE_BOUNDARY)) {
+    ends.push((match.index ?? 0) + match[0].length);
+  }
+  return ends;
+}
+
+const HIGH_SURROGATE_START = 0xd800;
+const HIGH_SURROGATE_END = 0xdbff;
+const LOW_SURROGATE_START = 0xdc00;
+const LOW_SURROGATE_END = 0xdfff;
+
+/**
+ * Move a split index off the middle of a surrogate pair.
+ *
+ * The cap is measured in UTF-16 code units, so a hard split can land between
+ * the two halves of an astral character (emoji, rarer CJK). That would end one
+ * segment with a lone high surrogate and start the next with its low half, and
+ * providers receive U+FFFD instead of the character. Backing the split off by
+ * one code unit keeps the pair whole in the next segment.
+ *
+ * A split at index 1 is left alone: backing off would yield an empty segment
+ * with an unchanged remainder, and a cap that small cannot hold the pair anyway.
+ */
+function avoidSurrogateSplit(text: string, splitAt: number): number {
+  if (splitAt <= 1 || splitAt >= text.length) {
+    return splitAt;
+  }
+  const high = text.charCodeAt(splitAt - 1);
+  const low = text.charCodeAt(splitAt);
+  const splitsPair =
+    high >= HIGH_SURROGATE_START &&
+    high <= HIGH_SURROGATE_END &&
+    low >= LOW_SURROGATE_START &&
+    low <= LOW_SURROGATE_END;
+  return splitsPair ? splitAt - 1 : splitAt;
+}
+
+function takeBufferedSegment(
+  buffer: string,
+  flushBoundary: number,
+  maxTextLength: number,
+  inputComplete: boolean,
+): { segment: string; remainder: string } | undefined {
+  const cappedText = buffer.slice(0, maxTextLength);
+  const sentenceEnds = findSentenceEnds(cappedText);
+  let splitAt =
+    buffer.length >= flushBoundary ? sentenceEnds.at(-1) : undefined;
+
+  if (splitAt === undefined && buffer.length >= maxTextLength) {
+    splitAt = sentenceEnds.at(-1) ?? maxTextLength;
+  }
+
+  if (splitAt === undefined && inputComplete && buffer.trim()) {
+    splitAt = Math.min(buffer.length, maxTextLength);
+  }
+
+  if (splitAt === undefined) {
+    return undefined;
+  }
+
+  splitAt = avoidSurrogateSplit(buffer, splitAt);
+
+  const segment = buffer.slice(0, splitAt).trim();
+  const remainder = buffer.slice(splitAt).trimStart();
+  if (!segment) {
+    return { segment: "", remainder };
+  }
+  return { segment, remainder };
+}
 
 /**
  * TTS Error class for text-to-speech specific errors
@@ -352,6 +447,139 @@ export class TTSProcessor {
         },
         originalError: err instanceof Error ? err : undefined,
       });
+    }
+  }
+
+  /**
+   * Incrementally synthesize sentence-buffered text chunks.
+   *
+   * Text is flushed at a sentence boundary after `streamingBufferSize`
+   * characters, or hard-split before the provider's maximum text length.
+   * Each segment goes through `synthesize()`, preserving the existing handler
+   * registry, validation, error normalization, and telemetry seam.
+   *
+   * The most recent successful audio chunk is held until another succeeds or
+   * the input ends, so exactly one real audio chunk carries `isFinal: true`
+   * without emitting a separate empty terminator chunk.
+   */
+  static async *synthesizeStream(
+    textChunks: AsyncIterable<string>,
+    provider: string,
+    options: TTSOptions,
+    shouldStop?: () => boolean,
+  ): AsyncGenerator<TTSChunk> {
+    const handler = this.getHandler(provider);
+    const maxTextLength = Math.max(
+      1,
+      handler?.maxTextLength ?? this.DEFAULT_MAX_TEXT_LENGTH,
+    );
+    const requestedBoundary =
+      options.streamingBufferSize ?? DEFAULT_STREAMING_BUFFER_SIZE;
+    const flushBoundary = Math.min(
+      Math.max(1, Math.trunc(requestedBoundary)),
+      maxTextLength,
+    );
+    let buffer = "";
+    let chunkIndex = 0;
+    let cumulativeSize = 0;
+    let cumulativeDuration = 0;
+    let pendingChunk: TTSChunk | undefined;
+    let segmentNumber = 0;
+    let firstFailure: unknown;
+    const failedSegments: number[] = [];
+
+    const synthesizeSegment = async (
+      segment: string,
+    ): Promise<TTSChunk | undefined> => {
+      const currentSegment = ++segmentNumber;
+      try {
+        const result = await this.synthesize(segment, provider, options);
+        cumulativeSize += result.size;
+        cumulativeDuration += result.duration ?? 0;
+        return {
+          data: result.buffer,
+          format: result.format,
+          index: chunkIndex++,
+          isFinal: false,
+          cumulativeSize,
+          estimatedDuration: cumulativeDuration || undefined,
+          voice: result.voice,
+          sampleRate: result.sampleRate,
+        };
+      } catch (error) {
+        if (failedSegments.length === 0) {
+          firstFailure = error;
+        }
+        failedSegments.push(currentSegment);
+        logger.warn(
+          `[TTSProcessor] Incremental synthesis skipped a buffered segment: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        return undefined;
+      }
+    };
+
+    for await (const textChunk of textChunks) {
+      if (shouldStop?.()) {
+        break;
+      }
+      buffer += textChunk;
+
+      while (!shouldStop?.()) {
+        const buffered = takeBufferedSegment(
+          buffer,
+          flushBoundary,
+          maxTextLength,
+          false,
+        );
+        if (!buffered) {
+          break;
+        }
+        buffer = buffered.remainder;
+        if (!buffered.segment) {
+          continue;
+        }
+
+        const chunk = await synthesizeSegment(buffered.segment);
+        if (chunk) {
+          if (pendingChunk) {
+            yield pendingChunk;
+          }
+          pendingChunk = chunk;
+        }
+      }
+    }
+
+    while (!shouldStop?.()) {
+      const buffered = takeBufferedSegment(
+        buffer,
+        flushBoundary,
+        maxTextLength,
+        true,
+      );
+      if (!buffered) {
+        break;
+      }
+      buffer = buffered.remainder;
+      if (!buffered.segment) {
+        continue;
+      }
+
+      const chunk = await synthesizeSegment(buffered.segment);
+      if (chunk) {
+        if (pendingChunk) {
+          yield pendingChunk;
+        }
+        pendingChunk = chunk;
+      }
+    }
+
+    if (pendingChunk) {
+      yield { ...pendingChunk, isFinal: true };
+    }
+    if (failedSegments.length > 0) {
+      throw new IncrementalTTSSynthesisError(firstFailure, failedSegments);
     }
   }
 }

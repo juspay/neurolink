@@ -317,6 +317,12 @@ export default [
             // a consumer migrates. Its header states this in full, including
             // that the suite should be converted or retired once one does.
             "test/continuous-test-suite-model-manifests.ts",
+            // Direct `synthesizeStream` access covers only the
+            // handler-synthesis seam: provider/default text caps,
+            // surrogate-safe splits, and final-chunk failure isolation.
+            // Sentence carry-over and flush behaviour drive the public
+            // `stream()` surface instead.
+            "test/continuous-test-suite-tts-unit.ts",
 
             // ---------------------------------------------------------------
             // Grandfathered when this rule was extended to cover deep `dist/`

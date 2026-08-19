@@ -8,7 +8,7 @@
 
 > **PCMEncoding** = `"PCM16LE"`
 
-Defined in: [types/stream.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L148)
+Defined in: [types/stream.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L149)
 
 Stream function options type - Primary method for streaming content
 Future-ready for multi-modal capabilities while maintaining text focus

@@ -8,6 +8,6 @@
 
 > **ToolCalls** = [`StreamToolCall`](StreamToolCall.md)[]
 
-Defined in: [types/stream.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L127)
+Defined in: [types/stream.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L128)
 
 Tool Calls Array - High Reusability

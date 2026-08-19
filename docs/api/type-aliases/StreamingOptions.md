@@ -8,7 +8,7 @@
 
 > **StreamingOptions** = `object`
 
-Defined in: [types/stream.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L74)
+Defined in: [types/stream.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L75)
 
 Options for AI requests with unified provider configuration
 
@@ -18,7 +18,7 @@ Options for AI requests with unified provider configuration
 
 > **providers**: [`AIModelProviderConfig`](AIModelProviderConfig.md)[]
 
-Defined in: [types/stream.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L75)
+Defined in: [types/stream.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L76)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/stream.ts:75](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/stream.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L76)
+Defined in: [types/stream.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L77)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/stream.ts:76](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/stream.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L77)
+Defined in: [types/stream.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L78)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/stream.ts:77](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/stream.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L78)
+Defined in: [types/stream.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L79)

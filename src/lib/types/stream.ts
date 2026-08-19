@@ -25,6 +25,7 @@ import type { StreamNoOutputSentinel } from "./noOutputSentinel.js";
 import type {
   AdditionalMemoryUser,
   GenerateStopReason,
+  TTSMetadata,
   ToolExecutionCaptureOptions,
 } from "./generate.js";
 import type {
@@ -219,6 +220,13 @@ export type StreamChunk =
       /** TTS audio chunk data */
       audio: TTSChunk;
     };
+
+/** Provider-level chunks accepted by NeuroLink's core streaming pipeline. */
+export type ProviderStreamChunk =
+  | { content: string }
+  | { type: "audio"; audio: AudioChunk }
+  | { type: "tts_audio"; audio: TTSChunk }
+  | { type: "image"; imageOutput: { base64: string } };
 
 export type StreamOptions = {
   /**
@@ -844,13 +852,37 @@ export type StreamResult = {
   transcription?: STTResult;
 
   /**
-   * TTS Mode 2 result (when `tts.enabled && tts.useAiResponse`).
-   * Resolves with the synthesized audio after the stream completes;
-   * resolves to undefined if TTS was not enabled or synthesis failed.
-   * The same audio is also yielded as a final chunk on `stream` for callers
-   * that prefer to consume it inline.
+   * Streaming TTS result (when `tts.enabled`). `stream()` synthesizes the AI
+   * response incrementally; `useAiResponse` continues to select input vs
+   * response synthesis for non-streaming generation.
+   * Resolves with the synthesized audio after the caller drains `stream` to
+   * completion; like other stream-final fields, it remains pending while the
+   * lazy stream is unconsumed. It resolves with the aggregate of whatever
+   * segments were synthesized: a synthesis failure part-way through still
+   * resolves with the earlier segments rather than discarding them. It resolves
+   * to undefined only when no segment was produced — TTS was not enabled, no
+   * handler resolved for the requested provider, the model stream errored, every
+   * synthesis failed, or the caller stopped draining `stream` before it ended
+   * (an abandoned stream settles undefined rather than a partial aggregate).
+   * Audio is also yielded incrementally as ordered
+   * `tts_audio` chunks. Each chunk, including the final one, contains only its
+   * own buffered segment. The aggregate is a byte concatenation of those
+   * independently synthesized segments, so what it is depends on the format's
+   * framing: for frame- or sample-stream formats (`mp3`, `mpeg`, `mpga`,
+   * `pcm16`) it is one playable stream; for header-bearing container formats
+   * (`wav`, `flac`, `m4a`, `mp4`, `webm`) it is not a valid file, because each
+   * segment carries its own header; for `ogg`/`opus` it is a chained stream that
+   * some decoders read only through its first segment. Use the individual chunk
+   * buffers when each segment must be a valid container file.
    */
   audio?: Promise<TTSResult | undefined>;
+
+  /**
+   * Outcome metadata for streaming TTS synthesis. This is a mutable reference
+   * whose success and latency fields are finalized asynchronously; read it
+   * after draining `stream`.
+   */
+  ttsMetadata?: TTSMetadata;
 };
 
 /**

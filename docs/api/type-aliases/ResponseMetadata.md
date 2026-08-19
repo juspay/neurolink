@@ -8,7 +8,7 @@
 
 > **ResponseMetadata** = `object`
 
-Defined in: [types/stream.ts:944](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L944)
+Defined in: [types/stream.ts:976](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L976)
 
 Response metadata from stream
 
@@ -18,7 +18,7 @@ Response metadata from stream
 
 > `optional` **id?**: `string`
 
-Defined in: [types/stream.ts:945](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L945)
+Defined in: [types/stream.ts:977](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L977)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/stream.ts:945](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **model?**: `string`
 
-Defined in: [types/stream.ts:946](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L946)
+Defined in: [types/stream.ts:978](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L978)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/stream.ts:946](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **timestamp?**: `number` \| `Date`
 
-Defined in: [types/stream.ts:947](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L947)
+Defined in: [types/stream.ts:979](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L979)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/stream.ts:947](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/stream.ts:948](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L948)
+Defined in: [types/stream.ts:980](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L980)

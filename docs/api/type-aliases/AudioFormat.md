@@ -8,7 +8,7 @@
 
 > **AudioFormat** = [`TTSAudioFormat`](TTSAudioFormat.md)
 
-Defined in: [types/tts.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L169)
+Defined in: [types/tts.ts:178](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L178)
 
 ## Deprecated
 

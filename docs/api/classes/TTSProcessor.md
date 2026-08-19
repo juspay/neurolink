@@ -6,7 +6,7 @@
 
 # Class: TTSProcessor
 
-Defined in: [utils/ttsProcessor.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L76)
+Defined in: [utils/ttsProcessor.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L171)
 
 TTS processor class for orchestrating text-to-speech operations
 
@@ -41,7 +41,7 @@ if (TTSProcessor.supports("google-ai")) {
 
 > `static` **registerHandler**(`providerName`, `handler`): `void`
 
-Defined in: [utils/ttsProcessor.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L116)
+Defined in: [utils/ttsProcessor.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L211)
 
 Register a TTS handler for a specific provider
 
@@ -83,7 +83,7 @@ TTSProcessor.registerHandler('google-ai', googleHandler);
 
 > `static` **getHandler**(`providerName`): [`TTSHandler`](../type-aliases/TTSHandler.md) \| `undefined`
 
-Defined in: [utils/ttsProcessor.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L136)
+Defined in: [utils/ttsProcessor.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L231)
 
 Get a registered TTS handler by provider name.
 
@@ -111,7 +111,7 @@ Handler instance or undefined if not registered
 
 > `static` **listProviders**(): `string`[]
 
-Defined in: [utils/ttsProcessor.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L143)
+Defined in: [utils/ttsProcessor.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L238)
 
 List the names of all registered providers.
 
@@ -125,7 +125,7 @@ List the names of all registered providers.
 
 > `static` **clearHandlers**(): `void`
 
-Defined in: [utils/ttsProcessor.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L151)
+Defined in: [utils/ttsProcessor.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L246)
 
 Removes every registered TTS handler. Primarily for test isolation —
 production code should not need to call this.
@@ -140,7 +140,7 @@ production code should not need to call this.
 
 > `static` **supports**(`providerName`): `boolean`
 
-Defined in: [utils/ttsProcessor.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L168)
+Defined in: [utils/ttsProcessor.ts:263](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L263)
 
 Check if a provider is supported (has a registered TTS handler)
 
@@ -172,7 +172,7 @@ if (TTSProcessor.supports("google-ai")) {
 
 > `static` **synthesize**(`text`, `provider`, `options`): `Promise`\<[`TTSResult`](../type-aliases/TTSResult.md)\>
 
-Defined in: [utils/ttsProcessor.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L218)
+Defined in: [utils/ttsProcessor.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L313)
 
 Synthesize speech from text using a registered TTS provider
 
@@ -231,3 +231,44 @@ const result = await TTSProcessor.synthesize("Hello, world!", "google-ai", {
 console.log(`Generated ${result.size} bytes of ${result.format} audio`);
 // Save to file or play the audio buffer
 ```
+
+---
+
+### synthesizeStream()
+
+> `static` **synthesizeStream**(`textChunks`, `provider`, `options`, `shouldStop?`): `AsyncGenerator`\<[`TTSChunk`](../type-aliases/TTSChunk.md)\>
+
+Defined in: [utils/ttsProcessor.ts:465](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L465)
+
+Incrementally synthesize sentence-buffered text chunks.
+
+Text is flushed at a sentence boundary after `streamingBufferSize`
+characters, or hard-split before the provider's maximum text length.
+Each segment goes through `synthesize()`, preserving the existing handler
+registry, validation, error normalization, and telemetry seam.
+
+The most recent successful audio chunk is held until another succeeds or
+the input ends, so exactly one real audio chunk carries `isFinal: true`
+without emitting a separate empty terminator chunk.
+
+#### Parameters
+
+##### textChunks
+
+`AsyncIterable`\<`string`\>
+
+##### provider
+
+`string`
+
+##### options
+
+[`TTSOptions`](../type-aliases/TTSOptions.md)
+
+##### shouldStop?
+
+() => `boolean`
+
+#### Returns
+
+`AsyncGenerator`\<[`TTSChunk`](../type-aliases/TTSChunk.md)\>

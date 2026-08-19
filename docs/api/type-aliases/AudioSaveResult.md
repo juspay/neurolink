@@ -8,7 +8,7 @@
 
 > **AudioSaveResult** = `object`
 
-Defined in: [types/tts.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L137)
+Defined in: [types/tts.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L146)
 
 Result of saving audio to file
 
@@ -18,7 +18,7 @@ Result of saving audio to file
 
 > **success**: `boolean`
 
-Defined in: [types/tts.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L139)
+Defined in: [types/tts.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L148)
 
 Whether the save was successful
 
@@ -28,7 +28,7 @@ Whether the save was successful
 
 > **path**: `string`
 
-Defined in: [types/tts.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L141)
+Defined in: [types/tts.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L150)
 
 Full path to the saved file
 
@@ -38,7 +38,7 @@ Full path to the saved file
 
 > **size**: `number`
 
-Defined in: [types/tts.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L143)
+Defined in: [types/tts.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L152)
 
 File size in bytes
 
@@ -48,6 +48,6 @@ File size in bytes
 
 > `optional` **error?**: `string`
 
-Defined in: [types/tts.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L145)
+Defined in: [types/tts.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L154)
 
 Error message if failed

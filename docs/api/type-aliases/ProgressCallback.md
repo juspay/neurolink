@@ -8,7 +8,7 @@
 
 > **ProgressCallback** = (`progress`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/stream.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L84)
+Defined in: [types/stream.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L85)
 
 Progress callback for streaming operations
 
