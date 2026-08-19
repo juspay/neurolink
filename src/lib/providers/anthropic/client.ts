@@ -111,12 +111,14 @@ import {
 } from "../anthropicImageBlocks.js";
 import { resolveSamplingParams } from "../../models/modelRegistry.js";
 import {
-  createChunkQueue,
   createDeferredAnalytics,
   stringifyToolInput,
 } from "../openaiChatCompletionsClient.js";
+import { createStreamChannel } from "../../core/streamChannel.js";
+import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";
 
 import { ANTHROPIC_BETA_HEADERS } from "./constants.js";
+import { cacheControlOf } from "./cacheControl.js";
 import {
   appendFinalResultInstruction,
   appendFinalResultTool,
@@ -304,23 +306,6 @@ const detectAuthMethod = (
 // ───────────────────────────────────────────────────────────────────────────
 // Native Messages-API conversion helpers (NeuroLink/V3 shapes → Anthropic)
 // ───────────────────────────────────────────────────────────────────────────
-
-/**
- * Read an Anthropic cache breakpoint from a message/part/tool carrier.
- * MessageBuilder marks system messages (and GenerationHandler marks the last
- * tool definition) with `providerOptions.anthropic.cacheControl` — the
- * AI-SDK-era prompt-caching contract this native path must keep honoring.
- */
-const cacheControlOf = (
-  carrier: unknown,
-): Anthropic.Messages.CacheControlEphemeral | undefined => {
-  const cc = (
-    carrier as {
-      providerOptions?: { anthropic?: { cacheControl?: { type?: string } } };
-    }
-  )?.providerOptions?.anthropic?.cacheControl;
-  return cc?.type === "ephemeral" ? { type: "ephemeral" } : undefined;
-};
 
 /** Serialize a tool-result `output` into text for a tool_result block. */
 const stringifyAnthropicToolOutput = (output: unknown): string => {
@@ -570,38 +555,6 @@ const messagesToAnthropic = (
     ...(system !== undefined ? { system } : {}),
     messages,
   };
-};
-
-/** Convert a NeuroLink tool record into Anthropic tool definitions. */
-const toolsToAnthropic = (
-  tools: Record<string, Tool>,
-): Anthropic.Messages.Tool[] | undefined => {
-  const entries = Object.entries(tools);
-  if (entries.length === 0) {
-    return undefined;
-  }
-  return entries.map(([name, tool]) => {
-    const t = tool as {
-      description?: string;
-      inputSchema?: unknown;
-      parameters?: unknown;
-    };
-    const rawSchema = t.inputSchema ?? t.parameters;
-    const input_schema = (
-      rawSchema
-        ? convertZodToJsonSchema(rawSchema as never)
-        : { type: "object", properties: {} }
-    ) as Anthropic.Messages.Tool.InputSchema;
-    // GenerationHandler marks the last tool definition with a cache
-    // breakpoint when prompt caching is active — keep honoring it.
-    const cc = cacheControlOf(tool);
-    return {
-      name,
-      ...(t.description ? { description: t.description } : {}),
-      input_schema,
-      ...(cc ? { cache_control: cc } : {}),
-    };
-  });
 };
 
 /** Map a NeuroLink tool choice onto Anthropic's tool_choice shape. */
@@ -1826,7 +1779,9 @@ export class AnthropicProvider extends BaseProvider {
         ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
         : {};
       anthropicTools = shouldUseTools
-        ? toolsToAnthropic(toolsRecord)
+        ? (toNativeToolDeclarations(toolsRecord, "input_schema") as
+            | Anthropic.Messages.Tool[]
+            | undefined)
         : undefined;
       // Build message array from options with multimodal support, then
       // convert to the Anthropic Messages payload (system + content blocks).
@@ -1889,7 +1844,11 @@ export class AnthropicProvider extends BaseProvider {
 
     const maxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
     const emitter = this.neurolink?.getEventEmitter();
-    const { pushChunk, nextChunk } = createChunkQueue();
+    const channel = createStreamChannel<{
+      content: string;
+      reasoning?: string;
+    }>();
+    const { push: pushChunk } = channel;
     const { usagePromise, finishPromise, resolveUsage, resolveFinish } =
       createDeferredAnalytics();
 
@@ -2010,7 +1969,11 @@ export class AnthropicProvider extends BaseProvider {
             Object.entries(toolsRecord).filter(([name]) => !declared.has(name)),
           );
           if (Object.keys(hydrated).length > 0) {
-            anthropicTools.push(...(toolsToAnthropic(hydrated) ?? []));
+            anthropicTools.push(
+              ...((toNativeToolDeclarations(hydrated, "input_schema") as
+                | Anthropic.Messages.Tool[]
+                | undefined) ?? []),
+            );
             logger.info(
               `[Anthropic] ${Object.keys(hydrated).length} tool(s) hydrated mid-turn via discovery: ${Object.keys(hydrated).join(", ")}`,
             );
@@ -2451,11 +2414,11 @@ export class AnthropicProvider extends BaseProvider {
           }
         }
         timeoutController?.cleanup();
-        pushChunk({ done: true });
+        channel.close();
       });
     loopPromise.catch(() => {
       // Swallowed by design: the generator below surfaces loop errors after
-      // draining the queue; this guard only prevents an unhandled-rejection
+      // draining the channel; this guard only prevents an unhandled-rejection
       // crash when the consumer abandons the stream early.
     });
 
@@ -2463,11 +2426,7 @@ export class AnthropicProvider extends BaseProvider {
     const transformedStream = async function* () {
       let contentYielded = 0;
       try {
-        for (;;) {
-          const chunk = await nextChunk();
-          if ("done" in chunk) {
-            break;
-          }
+        for await (const chunk of channel.iterable) {
           if (
             "content" in chunk &&
             typeof chunk.content === "string" &&
@@ -2477,7 +2436,7 @@ export class AnthropicProvider extends BaseProvider {
           }
           yield chunk;
         }
-        // Surface any error the loop threw after draining the queue.
+        // Surface any error the loop threw after draining the channel.
         await loopPromise;
         // No-output path: stream completed normally but yielded zero text.
         if (contentYielded === 0 && toolsUsed.length === 0) {

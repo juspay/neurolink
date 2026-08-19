@@ -116,7 +116,6 @@ import {
   buildTurnTimeoutMessage,
   buildWrapupNudgeText,
   createContextGuard,
-  createTextChannel,
   createTurnClock,
   extractThoughtSignature,
   isAbortError,
@@ -125,6 +124,8 @@ import {
   resolveTurnStopReason,
   DedupExecuteMap,
 } from "../googleNativeGemini3/index.js";
+import { createStreamChannel } from "../../core/streamChannel.js";
+import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";
 import {
   getAvailableInputTokens,
   getContextWindowSize,
@@ -1548,22 +1549,20 @@ export class GoogleVertexProvider extends BaseProvider {
       Object.keys(options.tools).length > 0 &&
       !options.disableTools
     ) {
-      const functionDeclarations: VertexGenaiFunctionDeclaration[] = [];
-
-      for (const [name, tool] of Object.entries(options.tools)) {
-        functionDeclarations.push(
-          this.buildGeminiFunctionDeclaration(name, tool),
-        );
-        if (tool.execute) {
-          executeMap.set(name, tool.execute);
-        }
+      const declared = toNativeToolDeclarations(
+        options.tools,
+        "functionDeclarations",
+      );
+      tools = declared.toolsConfig;
+      for (const [name, execute] of declared.executeMap) {
+        executeMap.set(name, execute);
       }
 
-      tools = [{ functionDeclarations }];
-
       logger.debug("[GoogleVertex] Converted tools for native SDK", {
-        toolCount: functionDeclarations.length,
-        toolNames: functionDeclarations.map((t) => t.name),
+        toolCount: declared.toolsConfig[0].functionDeclarations.length,
+        toolNames: declared.toolsConfig[0].functionDeclarations.map(
+          (t) => t.name,
+        ),
       });
     }
 
@@ -2843,22 +2842,20 @@ export class GoogleVertexProvider extends BaseProvider {
     const executeMap = new DedupExecuteMap();
 
     if (Object.keys(combinedTools).length > 0) {
-      const functionDeclarations: VertexGenaiFunctionDeclaration[] = [];
-
-      for (const [name, tool] of Object.entries(combinedTools)) {
-        functionDeclarations.push(
-          this.buildGeminiFunctionDeclaration(name, tool),
-        );
-        if (tool.execute) {
-          executeMap.set(name, tool.execute);
-        }
+      const declared = toNativeToolDeclarations(
+        combinedTools,
+        "functionDeclarations",
+      );
+      tools = declared.toolsConfig;
+      for (const [name, execute] of declared.executeMap) {
+        executeMap.set(name, execute);
       }
 
-      tools = [{ functionDeclarations }];
-
       logger.debug("[GoogleVertex] Converted tools for native SDK generate", {
-        toolCount: functionDeclarations.length,
-        toolNames: functionDeclarations.map((t) => t.name),
+        toolCount: declared.toolsConfig[0].functionDeclarations.length,
+        toolNames: declared.toolsConfig[0].functionDeclarations.map(
+          (t) => t.name,
+        ),
       });
     }
 
@@ -4438,7 +4435,7 @@ export class GoogleVertexProvider extends BaseProvider {
       output: unknown;
     }> = [];
 
-    const channel = createTextChannel();
+    const channel = createStreamChannel<{ content: string }>();
 
     // Mutable holders the StreamResult references. Background loop updates
     // these as state progresses; consumer reads them after iterating the
@@ -4725,7 +4722,7 @@ export class GoogleVertexProvider extends BaseProvider {
                     new Date().toISOString(),
                   );
                 }
-                channel.push(delta);
+                channel.push({ content: delta });
                 liveTextPushedLength += delta.length;
               }
             });
@@ -4867,7 +4864,7 @@ export class GoogleVertexProvider extends BaseProvider {
             );
             if (finalResultCall) {
               structuredOutputRef.value = finalResultCall.input;
-              channel.push(JSON.stringify(finalResultCall.input));
+              channel.push({ content: JSON.stringify(finalResultCall.input) });
               modelFinished = true;
               logger.debug(
                 "[GoogleVertex] Extracted structured output from final_result tool (stream)",
@@ -5320,7 +5317,7 @@ export class GoogleVertexProvider extends BaseProvider {
                 maxSteps,
                 toolCallCount: externalToolCallCount,
               });
-              channel.push(exitMessage);
+              channel.push({ content: exitMessage });
               aggregatedTurnText = exitMessage;
             }
           } else if (useFinalResultTool) {
@@ -5403,7 +5400,9 @@ export class GoogleVertexProvider extends BaseProvider {
               );
               if (forcedFinalResult) {
                 structuredOutputRef.value = forcedFinalResult.input;
-                channel.push(JSON.stringify(forcedFinalResult.input));
+                channel.push({
+                  content: JSON.stringify(forcedFinalResult.input),
+                });
                 synthesizedFinalAnswer = true;
                 logger.debug(
                   "[GoogleVertex] Forced finalization returned structured output (stream)",
@@ -5413,7 +5412,7 @@ export class GoogleVertexProvider extends BaseProvider {
                 const capMessage = hitContextLimit
                   ? buildContextCapMessage(externalToolCallCount)
                   : buildToolLoopCapMessage(maxSteps, externalToolCallCount);
-                channel.push(capMessage);
+                channel.push({ content: capMessage });
                 aggregatedTurnText += capMessage;
               }
             } catch (error) {
@@ -5442,7 +5441,7 @@ export class GoogleVertexProvider extends BaseProvider {
                       maxSteps,
                       toolCallCount: externalToolCallCount,
                     });
-              channel.push(exitMessage);
+              channel.push({ content: exitMessage });
               aggregatedTurnText += exitMessage;
             }
           } else {
@@ -5526,13 +5525,13 @@ export class GoogleVertexProvider extends BaseProvider {
                   .join("");
                 if (backstopText) {
                   synthesizedFinalAnswer = true;
-                  channel.push(backstopText);
+                  channel.push({ content: backstopText });
                   aggregatedTurnText = backstopText;
                 } else {
                   const capMessage = hitContextLimit
                     ? buildContextCapMessage(externalToolCallCount)
                     : buildToolLoopCapMessage(maxSteps, externalToolCallCount);
-                  channel.push(capMessage);
+                  channel.push({ content: capMessage });
                   aggregatedTurnText = capMessage;
                 }
               } catch (error) {
@@ -5562,7 +5561,7 @@ export class GoogleVertexProvider extends BaseProvider {
                         maxSteps,
                         toolCallCount: externalToolCallCount,
                       });
-                channel.push(exitMessage);
+                channel.push({ content: exitMessage });
                 aggregatedTurnText = exitMessage;
               }
             }
@@ -5593,7 +5592,7 @@ export class GoogleVertexProvider extends BaseProvider {
                   maxSteps,
                   toolCallCount: externalToolCallTotal,
                 });
-          channel.push(exitMessage);
+          channel.push({ content: exitMessage });
           aggregatedTurnText = exitMessage;
         }
 

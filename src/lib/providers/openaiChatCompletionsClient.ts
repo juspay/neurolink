@@ -26,7 +26,6 @@ import type {
   OpenAICompatMessageContent,
   OpenAICompatResponseFormat,
   OpenAICompatSSEResult,
-  OpenAICompatStreamChunk,
   OpenAICompatToolCallWire,
   OpenAICompatToolChoiceWire,
   OpenAICompatUsage,
@@ -796,32 +795,6 @@ export const createDeferredAnalytics = () => {
     resolveFinish = r;
   });
   return { usagePromise, finishPromise, resolveUsage, resolveFinish };
-};
-
-// Single-producer / single-consumer chunk queue. The streaming loop pushes
-// `{content}` deltas as they arrive from SSE and a final `{done:true}` when
-// it finishes; the consumer's AsyncIterable pulls from `nextChunk()`.
-export const createChunkQueue = () => {
-  const chunkQueue: OpenAICompatStreamChunk[] = [];
-  let pendingResolve: ((chunk: OpenAICompatStreamChunk) => void) | undefined;
-  const pushChunk = (c: OpenAICompatStreamChunk) => {
-    if (pendingResolve) {
-      const r = pendingResolve;
-      pendingResolve = undefined;
-      r(c);
-    } else {
-      chunkQueue.push(c);
-    }
-  };
-  const nextChunk = (): Promise<OpenAICompatStreamChunk> =>
-    new Promise((resolve) => {
-      if (chunkQueue.length > 0) {
-        resolve(chunkQueue.shift() as OpenAICompatStreamChunk);
-      } else {
-        pendingResolve = resolve;
-      }
-    });
-  return { pushChunk, nextChunk };
 };
 
 export const mergeUsage = (

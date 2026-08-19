@@ -86,6 +86,7 @@
     "test:adjust-body-after-400": "npx tsx test/continuous-test-suite-adjust-body-after-400.ts",
     "test:error-classification-e2e": "npx tsx test/continuous-test-suite-error-classification-e2e.ts",
     "test:error-classifier-contract": "npx tsx test/continuous-test-suite-error-classifier-contract.ts",
+    "test:loop-engine": "npx tsx test/continuous-test-suite-loop-engine.ts",
     "test:middleware": "npx tsx test/continuous-test-suite-middleware.ts",
     "test:observability": "npx tsx test/continuous-test-suite-observability.ts",
     "test:ppt": "npx tsx test/continuous-test-suite-ppt.ts",
