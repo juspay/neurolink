@@ -31,45 +31,21 @@ jobs:
           cache: "pnpm"
           registry-url: https://registry.npmjs.org/
 
-      # Installed from the runner's package index rather than a third-party
-      # action that downloads release assets from another repository. That
-      # action broke this workflow twice — first a corrupt 8.1 asset, then
-      # the 7.1 pin added to work around it — and because this is the
-      # publish workflow, each break silently stopped releases from going
-      # out while CI still looked healthy. ci.yml was moved off it already.
-      - name: Install ffmpeg
-        timeout-minutes: 15
-        run: |
-          if command -v ffmpeg >/dev/null 2>&1; then
-            echo "ffmpeg already present: $(ffmpeg -version | head -1)"
-            exit 0
-          fi
-          export DEBIAN_FRONTEND=noninteractive
-          # Runners boot with unattended-upgrades holding the dpkg lock, and a
-          # plain apt-get waits on that lock forever. On 2026-08-18 this step
-          # sat in_progress for 90 minutes on two open PRs, leaving the quality
-          # gate permanently "pending" with nothing to re-run against. Bound
-          # every wait so a contended lock fails fast, and let the step
-          # deadline catch anything the bounds miss.
-          sudo systemctl stop unattended-upgrades.service >/dev/null 2>&1 || true
-          APT_OPTS="-o DPkg::Lock::Timeout=60 -o Acquire::Retries=3"
-          APT_OPTS="$APT_OPTS -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
-          for attempt in 1 2 3; do
-            sudo apt-get $APT_OPTS update && break
-            echo "apt-get update failed (attempt ${attempt}/3), retrying in 5s"
-            sleep 5
-          done
-          sudo apt-get $APT_OPTS install -y --no-install-recommends ffmpeg
-
-      - name: Verify ffmpeg installation
-        run: |
-          echo "🎬 Verifying ffmpeg installation..."
-          ffmpeg -version || {
-            echo "❌ ffmpeg installation failed!"
-            echo "apt-get install ffmpeg did not produce a working binary."
-            exit 1
-          }
-          echo "✅ ffmpeg installed successfully"
+      # ffmpeg is deliberately NOT installed in this workflow. Nothing these
+      # jobs run needs it: no package script invokes it, and src/ shells out to
+      # ffmpeg only at runtime (frame extraction, video merge, audio playback),
+      # never during install, lint, typecheck, build or pack. provider-safety-net
+      # has always built and run its suites without it.
+      #
+      # Removed after the apt install broke CI three ways in one day: a corrupt
+      # published asset, a version pin that stopped resolving, and an Ubuntu
+      # mirror returning Ign: for every index while apt sat for 14 minutes.
+      # Because build-check is a required check, each of those blocked every
+      # open pull request on a dependency none of these jobs use.
+      #
+      # If a job here ever runs a suite that genuinely exercises media, install
+      # ffmpeg in THAT job only, and bound every wait (DPkg::Lock::Timeout,
+      # Acquire::*::Timeout) plus a step timeout-minutes.
 
       - name: Install dependencies
         run: pnpm i
@@ -106,46 +82,6 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
           cache: "pnpm"
-
-      # Installed from the runner's package index rather than a third-party
-      # action that downloads release assets from another repository. That
-      # action broke this workflow twice — first a corrupt 8.1 asset, then
-      # the 7.1 pin added to work around it — and because this is the
-      # publish workflow, each break silently stopped releases from going
-      # out while CI still looked healthy. ci.yml was moved off it already.
-      - name: Install ffmpeg
-        timeout-minutes: 15
-        run: |
-          if command -v ffmpeg >/dev/null 2>&1; then
-            echo "ffmpeg already present: $(ffmpeg -version | head -1)"
-            exit 0
-          fi
-          export DEBIAN_FRONTEND=noninteractive
-          # Runners boot with unattended-upgrades holding the dpkg lock, and a
-          # plain apt-get waits on that lock forever. On 2026-08-18 this step
-          # sat in_progress for 90 minutes on two open PRs, leaving the quality
-          # gate permanently "pending" with nothing to re-run against. Bound
-          # every wait so a contended lock fails fast, and let the step
-          # deadline catch anything the bounds miss.
-          sudo systemctl stop unattended-upgrades.service >/dev/null 2>&1 || true
-          APT_OPTS="-o DPkg::Lock::Timeout=60 -o Acquire::Retries=3"
-          APT_OPTS="$APT_OPTS -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
-          for attempt in 1 2 3; do
-            sudo apt-get $APT_OPTS update && break
-            echo "apt-get update failed (attempt ${attempt}/3), retrying in 5s"
-            sleep 5
-          done
-          sudo apt-get $APT_OPTS install -y --no-install-recommends ffmpeg
-
-      - name: Verify ffmpeg installation
-        run: |
-          echo "🎬 Verifying ffmpeg installation..."
-          ffmpeg -version || {
-            echo "❌ ffmpeg installation failed!"
-            echo "apt-get install ffmpeg did not produce a working binary."
-            exit 1
-          }
-          echo "✅ ffmpeg installed successfully"
 
       - name: Upgrade npm for native OIDC publish support
         run: |
