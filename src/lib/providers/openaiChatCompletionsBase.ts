@@ -86,7 +86,6 @@ import {
   buildBody,
   buildToolsForOpenAI,
   buildWireToolNameMaps,
-  createChunkQueue,
   createDeferredAnalytics,
   ensureJsonWordInBody,
   estimateWireTokens,
@@ -100,6 +99,7 @@ import {
   v3ToolChoiceToOpenAI,
   v3ToolsToOpenAI,
 } from "./openaiChatCompletionsClient.js";
+import { createStreamChannel } from "../core/streamChannel.js";
 
 /**
  * Safety margin (tokens) when fitting `max_tokens` to a runtime-discovered
@@ -908,7 +908,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
 
     const { usagePromise, finishPromise, resolveUsage, resolveFinish } =
       createDeferredAnalytics();
-    const { pushChunk, nextChunk } = createChunkQueue();
+    const channel = createStreamChannel<OpenAICompatStreamChunk>();
 
     // Per-provider lifecycle hook (e.g. OTel span wrap for LiteLLM).
     const lifecycle = this.onStreamStart(modelId);
@@ -928,7 +928,8 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       emitter,
       toolsUsed,
       toolExecutionSummaries,
-      pushChunk,
+      pushChunk: channel.push,
+      closeChannel: channel.close,
       resolveUsage,
       resolveFinish,
     });
@@ -961,11 +962,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     const transformedStream = async function* () {
       let contentYielded = 0;
       try {
-        for (;;) {
-          const chunk = await nextChunk();
-          if ("done" in chunk) {
-            break;
-          }
+        for await (const chunk of channel.iterable) {
           if (
             "content" in chunk &&
             typeof chunk.content === "string" &&
@@ -975,7 +972,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           }
           yield chunk;
         }
-        // Surface any error that the loop threw after we drained the queue.
+        // Surface any error that the loop threw after we drained the channel.
         await loopPromise;
         // No-output path: stream completed normally but yielded zero text.
         // Build an enriched sentinel + stamp the active OTel span so
@@ -1095,6 +1092,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       toolsUsed,
       toolExecutionSummaries,
       pushChunk,
+      closeChannel,
       resolveUsage,
       resolveFinish,
     } = args;
@@ -1257,7 +1255,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
 
       resolveUsage(toDeferredUsage());
       resolveFinish(stepFinish ?? "stop");
-      pushChunk({ done: true });
+      closeChannel();
       return {
         finishReason: stepFinish ?? "stop",
         usage: stepUsage,
@@ -1270,7 +1268,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       // instead of zeroing the whole turn.
       resolveUsage(toDeferredUsage());
       resolveFinish("error");
-      pushChunk({ done: true });
+      closeChannel();
       throw err;
     }
   }

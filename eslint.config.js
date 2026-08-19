@@ -291,6 +291,20 @@ export default [
             // real surface. Its last two cases drive the built CLI and are
             // deliberately outside the exception.
             "test/continuous-test-suite-codex.ts",
+            // Internal agentic-loop-engine primitives (streamChannel,
+            // nativeToolFormat, loopEngine) have no exported surface at all
+            // — none of src/lib/core/{streamChannel,nativeToolFormat,
+            // loopEngine}.ts is reachable via package.json's `exports` map,
+            // and nothing outside their own tests imports them yet (Tasks
+            // 1-3 add the engine core only; no provider is migrated onto it
+            // in this PR). Exact push/close/error ordering, per-adapter
+            // retry-call counts against a hand-written fake adapter, and
+            // PostEmissionStepError's unwrap-in-both-directions behavior are
+            // facts about the primitives' own contracts, not about any
+            // provider's wire format — no live or mocked generate()/stream()
+            // call can deterministically produce them. Its header states the
+            // exception in full.
+            "test/continuous-test-suite-loop-engine.ts",
           ],
         },
       ],

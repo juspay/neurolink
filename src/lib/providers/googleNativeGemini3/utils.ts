@@ -30,7 +30,7 @@ import type {
   NativeFunctionResponse,
   NativeToolDeclarationsResult,
   NativeToolsConfig,
-  TextChannel,
+  StreamChannel,
   ToolWithLegacyParams,
   VertexNativePart,
   VertexSegment,
@@ -876,85 +876,6 @@ export async function collectStreamChunks(
 }
 
 /**
- * Create a push-based text channel that bridges a background producer
- * (the agentic tool-calling loop) with an async-iterable consumer.
- *
- * This enables truly incremental streaming: text parts are yielded to the
- * caller as they arrive from the network, rather than being buffered until
- * the model finishes generating.
- */
-export function createTextChannel(): TextChannel {
-  const queue: Array<{ content: string }> = [];
-  let done = false;
-  let fatalError: unknown = undefined;
-  // Resolve the current "wait for data" promise when new data arrives
-  let notify: (() => void) | null = null;
-
-  function wake(): void {
-    if (notify) {
-      const fn = notify;
-      notify = null;
-      fn();
-    }
-  }
-
-  function push(text: string): void {
-    if (done) {
-      return;
-    }
-    queue.push({ content: text });
-    wake();
-  }
-
-  function close(): void {
-    done = true;
-    wake();
-  }
-
-  function error(err: unknown): void {
-    done = true;
-    fatalError = err;
-    wake();
-  }
-
-  let readIndex = 0;
-
-  async function* iterable(): AsyncIterable<{ content: string }> {
-    try {
-      while (true) {
-        if (readIndex < queue.length) {
-          yield queue[readIndex++];
-          // Periodically compact consumed chunks to avoid unbounded retention
-          if (readIndex > 1024 && readIndex * 2 >= queue.length) {
-            queue.splice(0, readIndex);
-            readIndex = 0;
-          }
-        } else if (done) {
-          if (fatalError !== undefined) {
-            throw fatalError instanceof Error
-              ? fatalError
-              : new Error(String(fatalError));
-          }
-          return;
-        } else {
-          // Wait until the producer pushes data or signals completion
-          await new Promise<void>((resolve) => {
-            notify = resolve;
-          });
-        }
-      }
-    } finally {
-      // Consumer stopped reading (e.g. disconnect/cancel): stop buffering.
-      done = true;
-      queue.length = 0;
-      notify?.();
-    }
-  }
-
-  return { push, close, error, iterable: iterable() };
-}
-
-/**
  * Iterate a single stream step incrementally, pushing text parts to `channel`
  * as they arrive from the network while simultaneously accumulating the full
  * `CollectedChunkResult` needed for history and token accounting.
@@ -970,7 +891,7 @@ export async function collectStreamChunksIncremental(
     functionCalls?: NativeFunctionCall[];
     [key: string]: unknown;
   }>,
-  channel: TextChannel,
+  channel: StreamChannel<{ content: string }>,
 ): Promise<CollectedChunkResult> {
   const rawResponseParts: unknown[] = [];
   const stepFunctionCalls: NativeFunctionCall[] = [];
@@ -993,7 +914,7 @@ export async function collectStreamChunksIncremental(
         rawResponseParts.push(part);
         // Forward text parts to the consumer immediately
         if (typeof part.text === "string" && part.text.length > 0) {
-          channel.push(part.text);
+          channel.push({ content: part.text });
         }
       }
     }

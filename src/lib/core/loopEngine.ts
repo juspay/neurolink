@@ -1,0 +1,294 @@
+import { createStreamChannel } from "./streamChannel.js";
+import type {
+  AgenticLoopAdapter,
+  AgenticLoopOptions,
+  AgenticLoopResult,
+  AgenticLoopStepResult,
+  AgenticLoopToolCallResult,
+  AgenticLoopUsage,
+} from "../types/index.js";
+import { logger } from "../utils/logger.js";
+import { withProviderRetry } from "../utils/providerRetry.js";
+
+/**
+ * Marks a step error that occurred AFTER at least one chunk had already
+ * been streamed to the consumer for this step. Retrying at that point
+ * would duplicate or interleave already-emitted output, so this wrapper
+ * deliberately carries none of the original error's status/retry
+ * metadata (`.statusCode`/`.status`, no APICallError/NeuroLinkError
+ * branding) — that makes `withProviderRetry`'s internal
+ * `isRetryableProviderError()` check return false via its duck-typed
+ * fallback, which ends the retry loop on the very next classification
+ * instead of sleeping and re-invoking `adapter.executeStep`. The engine
+ * unwraps back to the original `cause` before it ever reaches the
+ * caller — see the try/catch around the `withProviderRetry` call below.
+ */
+class PostEmissionStepError extends Error {
+  constructor(public readonly cause: unknown) {
+    super(cause instanceof Error ? cause.message : String(cause));
+  }
+}
+
+function sumUsage(a: AgenticLoopUsage, b: AgenticLoopUsage): AgenticLoopUsage {
+  return {
+    inputTokens: a.inputTokens + b.inputTokens,
+    outputTokens: a.outputTokens + b.outputTokens,
+    cacheReadTokens:
+      (a.cacheReadTokens ?? 0) + (b.cacheReadTokens ?? 0) || undefined,
+    cacheWriteTokens:
+      (a.cacheWriteTokens ?? 0) + (b.cacheWriteTokens ?? 0) || undefined,
+    reasoningTokens:
+      (a.reasoningTokens ?? 0) + (b.reasoningTokens ?? 0) || undefined,
+  };
+}
+
+/**
+ * Run one adapter-parameterized agentic tool-calling turn. Owns the
+ * maxSteps-bounded loop, generic tool dispatch (with an opt-in
+ * TOOL_NOT_FOUND/failure-strike breaker — see AgenticLoopAdapter.toolFailureBreaker),
+ * per-step usage accumulation, a single optional malformed-call retry,
+ * chunk emission through streamChannel, and a pre-first-chunk 429/5xx
+ * retry (via withProviderRetry) around every adapter.executeStep() call.
+ * The retry wrap is unconditional and adapter-agnostic — every migrated
+ * provider gets it for free, not just the ones that had a hand-rolled
+ * version before migration (see Verified Fact 4-adjacent note in Task 4
+ * Step 1 and the Risks & Rollback "Deliberate behavior changes" list for
+ * which families are gaining this for the first time). Everything
+ * wire-format-specific (building the request, parsing the SDK response,
+ * serializing tool results back into the conversation, mapping the raw
+ * stop reason) is delegated to `adapter`.
+ */
+export function runAgenticLoop<TConversation>(
+  adapter: AgenticLoopAdapter<TConversation>,
+  initialConversation: TConversation,
+  options: AgenticLoopOptions,
+): {
+  stream: AsyncIterable<{ content: string }>;
+  resultPromise: Promise<AgenticLoopResult<TConversation>>;
+} {
+  const channel = createStreamChannel<{ content: string }>();
+  const internalAbort = new AbortController();
+  const onCallerAbort = () => internalAbort.abort();
+  options.abortSignal?.addEventListener("abort", onCallerAbort);
+  if (options.abortSignal?.aborted) {
+    internalAbort.abort();
+  }
+
+  const failedTools = new Map<string, { count: number; lastError: string }>();
+  let malformedRetryUsed = false;
+
+  const resultPromise = (async (): Promise<
+    AgenticLoopResult<TConversation>
+  > => {
+    let conversation = initialConversation;
+    let usage: AgenticLoopUsage = { inputTokens: 0, outputTokens: 0 };
+    let finalText = "";
+    let rawStopReason: string | undefined;
+    const allToolCalls: AgenticLoopResult<TConversation>["toolCalls"] = [];
+    const allToolExecutions: AgenticLoopResult<TConversation>["toolExecutions"] =
+      [];
+    let hadToolCallsAtCap = false;
+
+    try {
+      for (let step = 0; step < adapter.maxSteps; step++) {
+        if (internalAbort.signal.aborted) {
+          break;
+        }
+
+        if (adapter.planReclaim) {
+          const reclaimed = adapter.planReclaim(conversation, step);
+          if (reclaimed) {
+            conversation = reclaimed.conversation;
+          }
+        }
+
+        const request = adapter.buildStepRequest(conversation, step);
+
+        // Pre-first-chunk 429/5xx retry: watch whether THIS attempt of
+        // THIS step pushes anything to the shared channel before it
+        // throws. `hasEmitted` resets at the top of every attempt
+        // withProviderRetry makes; the instant an attempt emits and then
+        // throws, the thrown error is rewrapped as a PostEmissionStepError
+        // (no status/branding info survives the rewrap), which
+        // isRetryableProviderError() duck-types as non-retryable — so
+        // withProviderRetry gives up immediately instead of sleeping and
+        // re-invoking executeStep, which would duplicate/interleave
+        // output already sent to the consumer. The original error (not
+        // the wrapper) is what the caller of runAgenticLoop ultimately
+        // sees, via the unwrap in the catch below.
+        let hasEmitted = false;
+        const watchedChannel = {
+          push: (chunk: { content: string }) => {
+            hasEmitted = true;
+            channel.push(chunk);
+          },
+        };
+        let stepResult: AgenticLoopStepResult;
+        try {
+          stepResult = await withProviderRetry(
+            async () => {
+              hasEmitted = false;
+              try {
+                return await adapter.executeStep(
+                  request,
+                  watchedChannel,
+                  internalAbort.signal,
+                );
+              } catch (err) {
+                throw hasEmitted ? new PostEmissionStepError(err) : err;
+              }
+            },
+            undefined, // no OTel span threaded through the engine today; adapters instrument their own steps if they need span-level detail
+            `${adapter.providerLabel}.step`,
+          );
+        } catch (err) {
+          throw err instanceof PostEmissionStepError ? err.cause : err;
+        }
+
+        usage = sumUsage(usage, stepResult.usage);
+        rawStopReason = stepResult.rawStopReason;
+
+        if (
+          adapter.isMalformedStep?.(stepResult) &&
+          !malformedRetryUsed &&
+          !internalAbort.signal.aborted
+        ) {
+          malformedRetryUsed = true;
+          logger.warn(
+            `[${adapter.providerLabel}] Malformed function call at step ${step + 1}/${adapter.maxSteps}; retrying once.`,
+          );
+          conversation =
+            adapter.buildMalformedRetryNote?.(conversation) ?? conversation;
+          continue;
+        }
+
+        if (stepResult.toolCalls.length === 0) {
+          finalText = stepResult.text || finalText;
+          break;
+        }
+
+        if (step === adapter.maxSteps - 1) {
+          hadToolCallsAtCap = true;
+        }
+
+        const toolResults: AgenticLoopToolCallResult[] = [];
+        for (const call of stepResult.toolCalls) {
+          allToolCalls.push(call);
+          const breaker = adapter.toolFailureBreaker;
+          const failInfo = breaker ? failedTools.get(call.name) : undefined;
+          if (breaker && failInfo && failInfo.count >= breaker.maxRetries) {
+            const output = {
+              error: `TOOL_PERMANENTLY_FAILED: "${call.name}" has failed ${failInfo.count} times. Last error: ${failInfo.lastError}.`,
+              status: "permanently_failed",
+              do_not_retry: true,
+            };
+            toolResults.push({
+              ...call,
+              output,
+              error: output.error,
+              permanentlyFailed: true,
+            });
+            allToolExecutions.push({
+              name: call.name,
+              input: call.args,
+              output,
+            });
+            continue;
+          }
+          const tool = options.tools?.[call.name];
+          if (!tool?.execute) {
+            const output = breaker
+              ? {
+                  error: `TOOL_NOT_FOUND: "${call.name}" does not exist.`,
+                  status: "permanently_failed",
+                  do_not_retry: true,
+                }
+              : { error: `Tool not found: ${call.name}` };
+            toolResults.push({
+              ...call,
+              output,
+              error: output.error,
+              permanentlyFailed: !!breaker,
+            });
+            allToolExecutions.push({
+              name: call.name,
+              input: call.args,
+              output,
+            });
+            continue;
+          }
+          try {
+            const output = await tool.execute(call.args, {
+              toolCallId: call.id,
+              abortSignal: internalAbort.signal,
+            });
+            toolResults.push({ ...call, output });
+            allToolExecutions.push({
+              name: call.name,
+              input: call.args,
+              output,
+            });
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            if (breaker) {
+              const current = failedTools.get(call.name) ?? {
+                count: 0,
+                lastError: "",
+              };
+              current.count++;
+              current.lastError = message;
+              failedTools.set(call.name, current);
+            }
+            const output = { error: message, status: "failed" };
+            toolResults.push({ ...call, output, error: message });
+            allToolExecutions.push({
+              name: call.name,
+              input: call.args,
+              output,
+            });
+          }
+        }
+
+        conversation = adapter.buildToolResultMessages(
+          conversation,
+          stepResult,
+          toolResults,
+        );
+      }
+
+      const finishReason = adapter.mapFinishReason(
+        rawStopReason,
+        hadToolCallsAtCap,
+      );
+      return {
+        text: finalText,
+        toolCalls: allToolCalls,
+        toolExecutions: allToolExecutions,
+        usage,
+        finishReason,
+        rawStopReason,
+        conversation,
+      };
+    } catch (err) {
+      // Must run before the finally block's channel.close(): a consumer
+      // parked in the channel's iterable is woken by whichever of
+      // error()/close() runs first, and close() alone would let a
+      // stream-only consumer observe a clean end of stream for a turn that
+      // actually failed. Calling error() here — synchronously, inside this
+      // catch — guarantees it lands before close(), with no dependence on
+      // microtask scheduling (unlike an outer promise-chained catch handler
+      // on this IIFE, which would run in a later microtask after `finally`
+      // already closed the channel).
+      channel.error(err);
+      throw err;
+    } finally {
+      // close() after error() is harmless: it only flips `done`, and
+      // streamChannel.error() keeps its error state intact regardless of a
+      // later close() call.
+      channel.close();
+      options.abortSignal?.removeEventListener("abort", onCallerAbort);
+    }
+  })();
+
+  return { stream: channel.iterable, resultPromise };
+}

@@ -2019,18 +2019,6 @@ export type CollectedChunkResult = {
   reasoningTokens?: number;
 };
 
-/** Push-based text channel for incremental streaming. */
-export type TextChannel = {
-  /** Push a text chunk to the consumer. */
-  push: (text: string) => void;
-  /** Signal that no more chunks will arrive. */
-  close: () => void;
-  /** Signal that the producer encountered a fatal error. */
-  error: (err: unknown) => void;
-  /** Async iterable consumed by the StreamResult. */
-  iterable: AsyncIterable<{ content: string }>;
-};
-
 // =============================================================================
 // PROVIDER TYPE UTILS (moved from providers/providerTypeUtils.ts)
 // =============================================================================

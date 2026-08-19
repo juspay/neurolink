@@ -70,12 +70,10 @@ import { resolveToolExecutionRecords } from "../../core/toolExecutionRecorder.js
 import {
   buildGeminiResponseSchema,
   buildNativeConfig,
-  buildNativeToolDeclarations,
   collectStreamChunks,
   collectStreamChunksIncremental,
   computeMaxSteps,
   createContextGuard,
-  createTextChannel,
   buildUserPartsWithMultimodal,
   executeNativeToolCalls,
   extractTextFromParts,
@@ -86,6 +84,8 @@ import {
   refreshNativeToolDeclarations,
   DedupExecuteMap,
 } from "../googleNativeGemini3/index.js";
+import { createStreamChannel } from "../../core/streamChannel.js";
+import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";
 import { createProxyFetch } from "../../proxy/proxyFetch.js";
 import type { LanguageModel, Schema, Tool } from "../../types/index.js";
 
@@ -920,7 +920,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
             Object.keys(options.tools).length > 0 &&
             !options.disableTools
           ) {
-            const result = buildNativeToolDeclarations(options.tools);
+            const result = toNativeToolDeclarations(
+              options.tools,
+              "functionDeclarations",
+            );
             declarationsResult = result;
             toolsConfig = result.toolsConfig;
             executeMap = result.executeMap;
@@ -966,7 +969,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
           // Create a push-based text channel so the caller receives tokens as
           // they arrive from the network rather than after full buffering.
-          const channel = createTextChannel();
+          const channel = createStreamChannel<{ content: string }>();
 
           // Shared mutable state updated by the background agentic loop.
           const allToolCalls: Array<{
@@ -1221,7 +1224,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
                   lastStepText,
                 );
                 if (fallback) {
-                  channel.push(fallback);
+                  channel.push({ content: fallback });
                 }
               }
 
@@ -1420,7 +1423,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
             const tools = options.tools || {};
 
             if (Object.keys(tools).length > 0) {
-              const result = buildNativeToolDeclarations(tools);
+              const result = toNativeToolDeclarations(
+                tools,
+                "functionDeclarations",
+              );
               declarationsResult = result;
               toolsConfig = result.toolsConfig;
               executeMap = result.executeMap;
