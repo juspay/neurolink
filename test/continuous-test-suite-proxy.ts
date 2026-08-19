@@ -14,6 +14,14 @@
  * cannot be arranged on demand. `__testHooks` is a test-only export in `src/`
  * and should shrink as this logic gains a real surface.
  *
+ * Three further cases import `__openCodeTestHooks` from the proxy CLI command
+ * to cover OpenCode client auto-configuration. Those writers resolve paths
+ * from the environment and are reachable only from `proxy start` and
+ * `proxy setup` — neither of which can be pointed at a throwaway HOME without
+ * starting a real server and a launchd unit. Determinism here buys the one
+ * thing an end-to-end run cannot: asserting what the writer does when the
+ * target CLI is *absent*, which is the case that silently regressed.
+ *
  * Tests the proxy server end-to-end:
  * - Starts the proxy
  * - Sends real requests through it
@@ -1364,6 +1372,149 @@ async function testProxyShutdown(): Promise<boolean | null> {
 
   log("Proxy shutdown verified", "green");
   return true;
+}
+
+// ============================================================================
+// Tests: OpenCode client auto-configuration (in-process, throwaway HOME)
+// ============================================================================
+
+/**
+ * OpenCode resolves its global config with the unmodified `xdg-basedir`
+ * package — `XDG_CONFIG_HOME || ~/.config`, with no platform branch. The proxy
+ * used to special-case darwin to `~/Library/Application Support/opencode`,
+ * which OpenCode never reads, so auto-configuration silently no-opped on every
+ * Mac.
+ */
+async function testOpenCodeConfigDirIsXdgOnAllPlatforms(): Promise<boolean> {
+  const { __openCodeTestHooks } = await import("../src/cli/commands/proxy.js");
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  try {
+    process.env.XDG_CONFIG_HOME = "/tmp/neurolink-xdg-probe";
+    const dir = __openCodeTestHooks.getOpenCodeConfigDir();
+    if (dir !== path.join("/tmp/neurolink-xdg-probe", "opencode")) {
+      log(
+        `OpenCode config dir ignored XDG_CONFIG_HOME on ${process.platform}`,
+        "red",
+      );
+      return false;
+    }
+
+    delete process.env.XDG_CONFIG_HOME;
+    const fallback = __openCodeTestHooks.getOpenCodeConfigDir();
+    if (fallback !== path.join(os.homedir(), ".config", "opencode")) {
+      log(
+        `OpenCode config dir did not fall back to ~/.config on ${process.platform}`,
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+  }
+}
+
+/**
+ * The writer must report whether it actually wrote. It used to return void, so
+ * the caller printed "Auto-configured OpenCode settings" even when OpenCode was
+ * absent and nothing had been written.
+ */
+async function testOpenCodeWriterReportsWhetherItWrote(): Promise<boolean> {
+  const { __openCodeTestHooks } = await import("../src/cli/commands/proxy.js");
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-opencode-"));
+  try {
+    // OpenCode absent: the config dir does not exist.
+    process.env.XDG_CONFIG_HOME = path.join(root, "absent");
+    const missing = await __openCodeTestHooks.setOpenCodeProxySettings(
+      "http://127.0.0.1:55669/v1",
+    );
+    if (missing !== false) {
+      log(
+        `OpenCode writer claimed success with no config dir (got ${String(missing)})`,
+        "red",
+      );
+      return false;
+    }
+
+    // OpenCode present: the config dir exists.
+    const present = path.join(root, "present");
+    fs.mkdirSync(path.join(present, "opencode"), { recursive: true });
+    process.env.XDG_CONFIG_HOME = present;
+    const wrote = await __openCodeTestHooks.setOpenCodeProxySettings(
+      "http://127.0.0.1:55669/v1",
+    );
+    if (wrote !== true) {
+      log(
+        `OpenCode writer did not report a successful write (got ${String(wrote)})`,
+        "red",
+      );
+      return false;
+    }
+
+    const written = JSON.parse(
+      fs.readFileSync(__openCodeTestHooks.getOpenCodeConfigPath(), "utf8"),
+    ) as { provider?: { neurolink?: { options?: { baseURL?: string } } } };
+    if (
+      written.provider?.neurolink?.options?.baseURL !==
+      "http://127.0.0.1:55669/v1"
+    ) {
+      log("OpenCode writer did not record the proxy base URL", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/** A user's pre-existing provider.neurolink must survive set() then clear(). */
+async function testOpenCodeClearRestoresUserConfig(): Promise<boolean> {
+  const { __openCodeTestHooks } = await import("../src/cli/commands/proxy.js");
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-opencode-"));
+  try {
+    fs.mkdirSync(path.join(root, "opencode"), { recursive: true });
+    process.env.XDG_CONFIG_HOME = root;
+    const configPath = __openCodeTestHooks.getOpenCodeConfigPath();
+    const original = { provider: { neurolink: { name: "user's own block" } } };
+    fs.writeFileSync(configPath, JSON.stringify(original, null, 2));
+
+    await __openCodeTestHooks.setOpenCodeProxySettings(
+      "http://127.0.0.1:55669/v1",
+    );
+    await __openCodeTestHooks.clearOpenCodeProxySettings(
+      "http://127.0.0.1:55669/v1",
+    );
+
+    const after = JSON.parse(fs.readFileSync(configPath, "utf8")) as {
+      provider?: { neurolink?: { name?: string } };
+    };
+    if (after.provider?.neurolink?.name !== "user's own block") {
+      log(
+        "OpenCode clear did not restore the user's pre-existing block",
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 }
 
 // ============================================================================
@@ -3502,6 +3653,21 @@ const tests: TestFunction[] = [
     name: "Quota: merge preserves provider configuration",
     fn: testQuotaMergePreservesProviderConfig,
     category: "proxy-primary",
+  },
+  {
+    name: "OpenCode: config dir is XDG on all platforms",
+    fn: testOpenCodeConfigDirIsXdgOnAllPlatforms,
+    category: "proxy-config",
+  },
+  {
+    name: "OpenCode: writer reports whether it wrote",
+    fn: testOpenCodeWriterReportsWhetherItWrote,
+    category: "proxy-config",
+  },
+  {
+    name: "OpenCode: clear restores the user's own config",
+    fn: testOpenCodeClearRestoresUserConfig,
+    category: "proxy-config",
   },
   {
     name: "Entitlement: detector tiers",

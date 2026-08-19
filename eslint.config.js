@@ -268,7 +268,9 @@ export default [
             "test/continuous-test-suite-rag.ts",
             // Parser edge cases, outgoing wire format, proxy cooldown/quota.
             "test/continuous-test-suite-bugfixes.ts",
-            // 429-cooldown planning and quota ordering across accounts.
+            // 429-cooldown planning and quota ordering across accounts, plus
+            // OpenCode client-config writing against a throwaway XDG dir —
+            // including the not-installed branch, which no live run reaches.
             "test/continuous-test-suite-proxy.ts",
             // Background task system with no public surface at all.
             "test/continuous-test-suite-autoresearch.ts",

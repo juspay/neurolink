@@ -60,13 +60,23 @@ Claude Code then sends all requests to the proxy's `/v1/messages` endpoint (Anth
 
 ### Config File Locations
 
-OpenCode uses XDG base directories (via `xdg-basedir` npm package):
+OpenCode uses XDG base directories via the `xdg-basedir` npm package, which
+resolves `XDG_CONFIG_HOME || ~/.config` on **every** platform — there is no
+macOS special case. (OpenCode's binary does contain a
+`/Library/Application Support/opencode` literal, but that is
+`systemManagedConfigDir()`, an MDM policy directory at the filesystem root
+with no `$HOME` prefix — not the per-user config path.)
 
-| Platform    | Global Config Path                                     |
-| ----------- | ------------------------------------------------------ |
-| **macOS**   | `~/Library/Application Support/opencode/opencode.json` |
-| **Linux**   | `~/.config/opencode/opencode.json`                     |
-| **Windows** | `%LOCALAPPDATA%/opencode/opencode.json`                |
+| Platform    | Global Config Path                              |
+| ----------- | ----------------------------------------------- |
+| **macOS**   | `~/.config/opencode/opencode.json`              |
+| **Linux**   | `~/.config/opencode/opencode.json`              |
+| **Windows** | `~/.config/opencode/opencode.json` (unverified) |
+
+The macOS row was verified empirically against OpenCode 1.3.13 (embedded
+`xdg-basedir` source in the shipped binary, plus `opencode models` confirming
+which file is actually loaded). The Windows row follows from the same
+branch-free resolution code but has **not** been checked on a Windows machine.
 
 Project-level config: `.opencode/opencode.json` in any parent directory.
 
@@ -319,8 +329,8 @@ const OPENCODE_CONFIG_DIR = join(
 const OPENCODE_CONFIG_PATH = join(OPENCODE_CONFIG_DIR, "opencode.json");
 ```
 
-On macOS: `~/Library/Application Support/opencode/opencode.json`
-On Linux: `~/.config/opencode/opencode.json`
+On macOS and Linux alike: `~/.config/opencode/opencode.json`
+(`XDG_CONFIG_HOME` wins when set)
 
 ### Detection
 
