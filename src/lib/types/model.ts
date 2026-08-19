@@ -268,3 +268,83 @@ export type ModelRoutingOptions = {
   /** Fallback strategy if primary choice fails */
   fallbackStrategy?: "fast" | "reasoning" | "auto";
 };
+
+/**
+ * A single model's metadata inside a provider's manifest. This is the one
+ * canonical shape every model-metadata consumer (context windows, pricing,
+ * MODEL_REGISTRY, vision capability, output-token ceilings) is intended to
+ * migrate onto — this PR is purely additive and does not yet move any
+ * consumer over.
+ *
+ * `pricingPerMTok` is optional by design: a model with no verified price
+ * (e.g. a just-announced model pricing.ts hasn't priced yet) must not report
+ * a fabricated rate. Absence here means "unknown", not "free" — callers that
+ * need to distinguish "free" from "unknown" already have `hasPricing()`
+ * (src/lib/utils/pricing.ts) for that.
+ */
+export type ProviderModelManifestEntry = {
+  /** Alternate identifiers that resolve to this canonical model id. */
+  aliases: string[];
+  /** Human-readable name. Falls back to a mechanical id-derived name when absent. */
+  displayName?: string;
+  contextWindow: number;
+  maxOutputTokens: number;
+  pricingPerMTok?: {
+    input: number;
+    output: number;
+    cacheRead?: number;
+    cacheWrite?: number;
+  };
+  vision: boolean;
+  nativeAudio?: boolean;
+  functionCalling: boolean;
+  reasoning?: boolean;
+  jsonMode?: boolean;
+  /**
+   * Whether the model accepts classic sampling parameters (temperature/topP).
+   * Mirrors ModelCapabilities.samplingParams (src/lib/types/model.ts:131) —
+   * unset means supported.
+   */
+  samplingParams?: boolean;
+  /**
+   * Hand-tuned ModelInfo.performance/useCases/category values, carried
+   * forward verbatim for the ids that already had a MODEL_REGISTRY entry
+   * before this migration. Absent for every id that never had one — those
+   * get performance/useCases/category derived mechanically instead (see
+   * Task 9's buildModelRegistryFromManifests). Never populate this for a
+   * genuinely new model: mechanical derivation is the correct default, and
+   * a fabricated "curated" value would be worse than an honestly-derived one.
+   */
+  curated?: {
+    performance?: ModelPerformance;
+    useCases?: UseCaseSuitability;
+    category?: ModelInfo["category"];
+  };
+};
+
+/**
+ * A regex-driven patch applied to an unlisted, gateway-shaped model id that
+ * matches `pattern` (e.g. "vertex_ai/claude-sonnet-5@20260203"). Generalizes
+ * the pattern VISION_FAMILY_RULES (src/lib/adapters/providerImageAdapter.ts)
+ * and SAMPLING_PARAM_REJECTING_FAMILIES (src/lib/models/modelRegistry.ts)
+ * already use independently, keyed per-provider instead of globally.
+ */
+export type ManifestFamilyRule = {
+  pattern: RegExp;
+  patch: Partial<ProviderModelManifestEntry>;
+};
+
+/**
+ * One provider's complete model manifest: every model NeuroLink knows about
+ * for that provider, plus the provider-wide fallback used when a caller
+ * passes a model id the manifest has never seen (a symbolic/local provider
+ * model, or a brand-new release the manifest hasn't been updated for yet).
+ */
+export type ProviderModelManifest = {
+  /** Used for `_default`-key lookups and providers with no named-model list. */
+  defaultContextWindow: number;
+  /** Applied, in order, to the resolved entry (see manifestRegistry.ts). */
+  familyRules?: ManifestFamilyRule[];
+  /** Keyed by canonical model id (the same id `ModelInfo.id` / AIProvider calls use). */
+  models: Record<string, ProviderModelManifestEntry>;
+};
