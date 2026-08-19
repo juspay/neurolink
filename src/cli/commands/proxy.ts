@@ -709,17 +709,21 @@ async function clearClaudeProxySettings(
 // =============================================================================
 
 function getOpenCodeConfigDir(): string {
-  if (process.platform === "darwin") {
-    return join(homedir(), "Library", "Application Support", "opencode");
-  }
-  // Linux/other: XDG_CONFIG_HOME or ~/.config
+  // OpenCode resolves this with the unmodified `xdg-basedir` package —
+  // `XDG_CONFIG_HOME || ~/.config` — on every platform, macOS included. There
+  // is deliberately no darwin branch here: `~/Library/Application Support/
+  // opencode` is not a path OpenCode reads. (The similar-looking literal in
+  // OpenCode's binary is `systemManagedConfigDir()`, an MDM policy directory
+  // at the filesystem root with no $HOME prefix.)
   return join(
     process.env.XDG_CONFIG_HOME || join(homedir(), ".config"),
     "opencode",
   );
 }
 
-const OPENCODE_CONFIG_PATH = join(getOpenCodeConfigDir(), "opencode.json");
+function getOpenCodeConfigPath(): string {
+  return join(getOpenCodeConfigDir(), "opencode.json");
+}
 
 /**
  * Key under which we persist the snapshot of the user's pre-existing
@@ -734,20 +738,22 @@ const OPENCODE_ORIGINAL_KEY = "__proxy_original_neurolink";
 async function setOpenCodeProxySettings(
   baseUrl: string,
   proxyKey?: string,
-): Promise<void> {
+): Promise<boolean> {
   const fs = await import("fs");
 
   const configDir = getOpenCodeConfigDir();
   try {
     fs.accessSync(configDir);
   } catch {
-    // OpenCode not installed — config directory does not exist, skip silently
-    return;
+    // OpenCode not installed — config directory does not exist. Report the
+    // skip so the caller does not print a success message for work that did
+    // not happen.
+    return false;
   }
 
   let config: Record<string, unknown>;
   try {
-    config = JSON.parse(fs.readFileSync(OPENCODE_CONFIG_PATH, "utf8"));
+    config = JSON.parse(fs.readFileSync(getOpenCodeConfigPath(), "utf8"));
   } catch {
     // file missing/invalid — create fresh config object
     config = { provider: {} };
@@ -780,7 +786,8 @@ async function setOpenCodeProxySettings(
   };
 
   config.provider = provider;
-  fs.writeFileSync(OPENCODE_CONFIG_PATH, JSON.stringify(config, null, 2));
+  fs.writeFileSync(getOpenCodeConfigPath(), JSON.stringify(config, null, 2));
+  return true;
 }
 
 async function clearOpenCodeProxySettings(
@@ -789,7 +796,7 @@ async function clearOpenCodeProxySettings(
   const fs = await import("fs");
   let config: Record<string, unknown>;
   try {
-    config = JSON.parse(fs.readFileSync(OPENCODE_CONFIG_PATH, "utf8"));
+    config = JSON.parse(fs.readFileSync(getOpenCodeConfigPath(), "utf8"));
   } catch {
     return false;
   }
@@ -838,9 +845,23 @@ async function clearOpenCodeProxySettings(
   }
 
   config.provider = provider;
-  fs.writeFileSync(OPENCODE_CONFIG_PATH, JSON.stringify(config, null, 2));
+  fs.writeFileSync(getOpenCodeConfigPath(), JSON.stringify(config, null, 2));
   return hadNeurolink;
 }
+
+/**
+ * Test-only export (CLAUDE.md rule 15 determinism exception). The OpenCode
+ * client writers resolve paths from the environment and are only reachable
+ * from `proxy start` / `proxy setup`, neither of which can be driven against a
+ * throwaway HOME without starting a real server. Consumed by
+ * test/continuous-test-suite-proxy.ts.
+ */
+export const __openCodeTestHooks = {
+  getOpenCodeConfigDir,
+  getOpenCodeConfigPath,
+  setOpenCodeProxySettings,
+  clearOpenCodeProxySettings,
+};
 
 // =============================================================================
 // CODEX (ChatGPT) AUTO-CONFIGURATION
@@ -3488,9 +3509,12 @@ async function startProxyRuntime(params: {
     }
 
     try {
-      await setOpenCodeProxySettings(`${url}/v1`);
-      logger.always(chalk.green("  ✓ Auto-configured OpenCode settings"));
-      logger.always(chalk.dim("    Restart OpenCode to connect through proxy"));
+      if (await setOpenCodeProxySettings(`${url}/v1`)) {
+        logger.always(chalk.green("  ✓ Auto-configured OpenCode settings"));
+        logger.always(
+          chalk.dim("    Restart OpenCode to connect through proxy"),
+        );
+      }
     } catch (error) {
       logger.debug(
         "[proxy] Failed to auto-configure OpenCode: " +
@@ -5400,8 +5424,9 @@ export const proxySetupCommand: CommandModule = {
         console.info(chalk.yellow(`  Set manually: ANTHROPIC_BASE_URL=${url}`));
       }
       try {
-        await setOpenCodeProxySettings(`${url}/v1`);
-        console.info(chalk.green("  ✓ OpenCode configured"));
+        if (await setOpenCodeProxySettings(`${url}/v1`)) {
+          console.info(chalk.green("  ✓ OpenCode configured"));
+        }
       } catch (e) {
         console.info(
           chalk.yellow(
