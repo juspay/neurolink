@@ -30,7 +30,7 @@ Defined in: [constants/enums.ts:396](https://github.com/juspay/neurolink/blob/ff
 
 ### CLAUDE_4_5_OPUS
 
-> **CLAUDE_4_5_OPUS**: `"claude-opus-4-5@20251124"`
+> **CLAUDE_4_5_OPUS**: `"claude-opus-4-5@20251101"`
 
 Defined in: [constants/enums.ts:399](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/constants/enums.ts#L399)
 

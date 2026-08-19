@@ -156,7 +156,7 @@ export const PROVIDER_TOKEN_LIMITS = {
     "gemini-1.5-flash": 8192,
     // Claude 4.5 Series (September-November 2025)
     "claude-sonnet-4-5@20250929": 8192,
-    "claude-opus-4-5@20251124": 8192,
+    "claude-opus-4-5@20251101": 8192,
     "claude-haiku-4-5@20251001": 8192,
     // Claude 4 Series (May 2025)
     "claude-sonnet-4@20250514": 4096,

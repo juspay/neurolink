@@ -290,7 +290,7 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     "anthropic.claude-opus-4-6-v1:0": 1_000_000,
     "anthropic.claude-sonnet-4-6": 1_000_000,
     // Claude 4.5
-    "anthropic.claude-opus-4-5-20251124-v1:0": 200_000,
+    "anthropic.claude-opus-4-5-20251101-v1:0": 200_000,
     "anthropic.claude-sonnet-4-5-20250929-v1:0": 200_000,
     "anthropic.claude-haiku-4-5-20251001-v1:0": 200_000,
     // Claude legacy
