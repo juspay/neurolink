@@ -1,3 +1,13 @@
+## [11.2.3](https://github.com/juspay/neurolink/compare/v11.2.2...v11.2.3) (2026-08-19)
+
+### Bug Fixes
+
+- **(ci):** bound every apt wait so the ffmpeg install cannot hang a job ([6fa48c5](https://github.com/juspay/neurolink/commit/6fa48c5d6f3f16d1b2ba6e00fba7828c60b1831a)), closes [#1354](https://github.com/juspay/neurolink/issues/1354)
+- **(ci):** give the ffmpeg install a realistic deadline ([a349050](https://github.com/juspay/neurolink/commit/a34905015cb2ae589ee60644909dd21113ccbc49)), closes [#1355](https://github.com/juspay/neurolink/issues/1355)
+- **(ci):** stop installing ffmpeg in jobs that never use it ([6f83923](https://github.com/juspay/neurolink/commit/6f839235c14805c631184861d489815da272ff43))
+- **(lint):** allow-list the codex suite so rule 15 stops blocking every commit ([ea74285](https://github.com/juspay/neurolink/commit/ea742854f97babc687745ae1491301cbf9665464))
+- **(providers):** make provider registration statically discoverable ([0e93549](https://github.com/juspay/neurolink/commit/0e93549924c490e9ea974c4886269097bede6ad6)), closes [1178/#1317](https://github.com/1178/neurolink/issues/1317)
+
 ## [11.2.2](https://github.com/juspay/neurolink/compare/v11.2.1...v11.2.2) (2026-08-18)
 
 ### Bug Fixes
