@@ -9,7 +9,7 @@ export let cachedCredentialsPath: string | null = null;
 export const VERTEX_MODEL_ALIASES: Record<string, string> = {
   // Claude 4.x shorthand aliases → versioned names
   "claude-sonnet-4-5": "claude-sonnet-4-5@20250929",
-  "claude-opus-4-5": "claude-opus-4-5@20251124",
+  "claude-opus-4-5": "claude-opus-4-5@20251101",
   "claude-haiku-4-5": "claude-haiku-4-5@20251001",
   "claude-sonnet-4": "claude-sonnet-4@20250514",
   "claude-opus-4": "claude-opus-4@20250514",

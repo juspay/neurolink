@@ -284,4 +284,80 @@ await test("Provider Registration Completeness", async () => {
   );
 });
 
+/**
+ * A per-model token-limit key that no enum value points at is dead config:
+ * either the key is stale, or the enum carries a different id for the same
+ * model and the limit is silently never applied.
+ *
+ * That second case is how Bedrock/Vertex Claude Opus 4.5 shipped with an
+ * unusable model id — the tables were keyed on the real id (…20251101…)
+ * while the enums emitted the launch date (…20251124…), so the enum value
+ * reached AWS as an invalid identifier and its token limit was never read.
+ * Nothing failed loudly, because an unmatched key just falls through to the
+ * provider default.
+ */
+/**
+ * Keys deliberately kept for model ids the enums no longer advertise but
+ * callers may still pass by hand. Unlike the failure this test guards
+ * against, none of these is a *disagreement* — no enum value names the same
+ * model under a different id.
+ */
+const KNOWN_UNREFERENCED_TOKEN_KEYS: Record<string, readonly string[]> = {
+  BEDROCK: [
+    // Regional inference-profile spelling ("us." prefix) of a bare id the
+    // enum already carries.
+    "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    // On-demand id the enum does not carry at all, kept for callers who pass
+    // it directly. Not a regional variant.
+    "anthropic.claude-3-opus-20240229-v1:0",
+  ],
+  // Gemini 1.5 names the Vertex enum no longer advertises, still accepted
+  // when passed by hand.
+  VERTEX: ["gemini-1.5-pro", "gemini-1.5-flash"],
+};
+
+await test("Model id tables agree with the model enums", async () => {
+  const { BedrockModels, VertexModels, AnthropicModels } =
+    await import("../dist/lib/constants/enums.js");
+  const { PROVIDER_TOKEN_LIMITS } =
+    await import("../dist/lib/constants/tokens.js");
+
+  const surfaces = [
+    { table: "BEDROCK", models: BedrockModels },
+    { table: "VERTEX", models: VertexModels },
+    { table: "ANTHROPIC", models: AnthropicModels },
+  ] as const;
+
+  const orphans: string[] = [];
+  for (const { table, models } of surfaces) {
+    const limits = (
+      PROVIDER_TOKEN_LIMITS as unknown as Record<string, Record<string, number>>
+    )[table];
+    if (!limits) {
+      orphans.push(`${table}: no PROVIDER_TOKEN_LIMITS entry`);
+      continue;
+    }
+    const declared = new Set(Object.values(models) as string[]);
+    const allowed = new Set(KNOWN_UNREFERENCED_TOKEN_KEYS[table] ?? []);
+    for (const key of Object.keys(limits)) {
+      if (key === "default" || allowed.has(key) || declared.has(key)) {
+        continue;
+      }
+      orphans.push(`${table}.${key}`);
+    }
+  }
+
+  // The offending keys are printed, never interpolated into the assertion
+  // message: they contain provider names, and defineSuite downgrades a
+  // failure to SKIP when the message looks like a provider error.
+  if (orphans.length > 0) {
+    console.error("  unreachable token-limit keys:");
+    orphans.forEach((o) => console.error(`    ${o}`));
+  }
+  assert(
+    orphans.length === 0,
+    `${orphans.length} token-limit key(s) unreachable from any model enum (listed above)`,
+  );
+});
+
 await runSuite();

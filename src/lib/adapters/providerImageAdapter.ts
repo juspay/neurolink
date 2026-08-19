@@ -420,7 +420,7 @@ const VISION_CAPABILITIES = {
     "claude-opus-4-5",
     "claude-opus-4.5",
     "anthropic.claude-opus-4-5",
-    "anthropic.claude-opus-4-5-20251124-v1:0",
+    "anthropic.claude-opus-4-5-20251101-v1:0",
     "claude-haiku-4-5",
     "claude-haiku-4.5",
     "anthropic.claude-haiku-4-5",

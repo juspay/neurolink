@@ -251,7 +251,7 @@ const haiku35 = await ai.generate({
 | ------------------------------------------- | ----------------------- | ------- |
 | `anthropic.claude-opus-4-6-v1:0`            | Claude 4.6 Opus         | 1M      |
 | `anthropic.claude-sonnet-4-6`               | Claude 4.6 Sonnet       | 1M      |
-| `anthropic.claude-opus-4-5-20251124-v1:0`   | Claude 4.5 Opus         | 200K    |
+| `anthropic.claude-opus-4-5-20251101-v1:0`   | Claude 4.5 Opus         | 200K    |
 | `anthropic.claude-sonnet-4-5-20250929-v1:0` | Claude 4.5 Sonnet       | 200K    |
 | `anthropic.claude-haiku-4-5-20251001-v1:0`  | Claude 4.5 Haiku        | 200K    |
 | `anthropic.claude-opus-4-1-20250805-v1:0`   | Claude 4.1 Opus         | 200K    |

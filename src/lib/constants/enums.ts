@@ -93,7 +93,7 @@ export enum BedrockModels {
   CLAUDE_4_6_SONNET = "anthropic.claude-sonnet-4-6",
 
   // Claude 4.5 Series (September-November 2025)
-  CLAUDE_4_5_OPUS = "anthropic.claude-opus-4-5-20251124-v1:0",
+  CLAUDE_4_5_OPUS = "anthropic.claude-opus-4-5-20251101-v1:0",
   CLAUDE_4_5_SONNET = "anthropic.claude-sonnet-4-5-20250929-v1:0",
   CLAUDE_4_5_HAIKU = "anthropic.claude-haiku-4-5-20251001-v1:0",
 
@@ -418,7 +418,7 @@ export enum VertexModels {
   CLAUDE_4_6_SONNET = "claude-sonnet-4-6",
 
   // Claude 4.5 Series (September-November 2025)
-  CLAUDE_4_5_OPUS = "claude-opus-4-5@20251124",
+  CLAUDE_4_5_OPUS = "claude-opus-4-5@20251101",
   CLAUDE_4_5_SONNET = "claude-sonnet-4-5@20250929",
   CLAUDE_4_5_HAIKU = "claude-haiku-4-5@20251001",
 
