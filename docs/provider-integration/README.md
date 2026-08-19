@@ -19,7 +19,9 @@ If you're adding code today, start with [`CHECKLIST.md`](CHECKLIST.md) (decision
 What are you adding?
 
 ├─ A new LLM / chat provider
-│  → 15-adding-llm-provider.md
+│  → tiers/README.md (pick your tier: aggregator passthrough / catalog
+│  entry / adapter-native / full custom — see also 15-adding-llm-provider.md,
+│  now a redirect into the tiers)
 │
 ├─ A new voice handler
 │  ├─ TTS (Text-to-Speech) → 16-adding-tts-provider.md
@@ -47,18 +49,21 @@ For a fast pre-flight checklist you can paste into your PR description, see [`CH
 
 ### How-to guides (the playbook)
 
-| Doc                                                                    | Scope                                                   | When to read                                                                                |
-| ---------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| [`15-adding-llm-provider.md`](15-adding-llm-provider.md)               | New chat / text-generation provider                     | Adding xAI Grok, Groq, Cohere, Together, Fireworks, Perplexity, Cloudflare Workers AI, etc. |
-| [`16-adding-tts-provider.md`](16-adding-tts-provider.md)               | New text-to-speech handler                              | Adding Fish Audio, Cartesia, Murf, PlayHT, Sarvam TTS                                       |
-| [`17-adding-stt-provider.md`](17-adding-stt-provider.md)               | New speech-to-text handler                              | Adding AssemblyAI, Gladia, Rev.ai, Speechmatics                                             |
-| [`18-adding-realtime-provider.md`](18-adding-realtime-provider.md)     | New bidirectional voice handler                         | Adding Hume EVI, Resemble.ai realtime, custom WebSocket protocols                           |
-| [`19-adding-video-provider.md`](19-adding-video-provider.md)           | New video-generation provider (incl. one-time refactor) | Adding Kling, Runway, Pika, Luma, Wan-Alpha (via Replicate)                                 |
-| [`20-adding-image-gen-provider.md`](20-adding-image-gen-provider.md)   | New image-gen provider or model                         | Adding Stability, FLUX direct, Ideogram, Recraft, or new models on existing providers       |
-| [`21-adding-new-modality.md`](21-adding-new-modality.md)               | A brand-new modality category                           | Adding Avatar (D-ID, HeyGen), Music (Beatoven, Lyria, ElevenLabs Music), 3D, SFX, etc.      |
-| [`22-adding-multimodal-provider.md`](22-adding-multimodal-provider.md) | A provider spanning multiple modalities                 | Adding Replicate, Together AI, Fireworks AI, Cloudflare Workers AI                          |
-| [`CHECKLIST.md`](CHECKLIST.md)                                         | Pasteable PR checklist                                  | Every PR — pick the §A-§H section that matches                                              |
-| [`SAFETY-PRIMITIVES.md`](SAFETY-PRIMITIVES.md)                         | Cross-cutting safety helpers reference                  | Whenever you download external URLs, log responses, or wrap streaming with OTel spans       |
+| Doc                                                                    | Scope                                                                | When to read                                                                                             |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [`15-adding-llm-provider.md`](15-adding-llm-provider.md)               | **Superseded** — legacy redirect only                                | New chat/text-generation providers: start at [`tiers/README.md`](tiers/README.md) instead                |
+| [`16-adding-tts-provider.md`](16-adding-tts-provider.md)               | New text-to-speech handler                                           | Adding Fish Audio, Cartesia, Murf, PlayHT, Sarvam TTS                                                    |
+| [`17-adding-stt-provider.md`](17-adding-stt-provider.md)               | New speech-to-text handler                                           | Adding AssemblyAI, Gladia, Rev.ai, Speechmatics                                                          |
+| [`18-adding-realtime-provider.md`](18-adding-realtime-provider.md)     | New bidirectional voice handler                                      | Adding Hume EVI, Resemble.ai realtime, custom WebSocket protocols                                        |
+| [`19-adding-video-provider.md`](19-adding-video-provider.md)           | New video-generation provider (incl. one-time refactor)              | Adding Kling, Runway, Pika, Luma, Wan-Alpha (via Replicate)                                              |
+| [`20-adding-image-gen-provider.md`](20-adding-image-gen-provider.md)   | New image-gen provider or model                                      | Adding Stability, FLUX direct, Ideogram, Recraft, or new models on existing providers                    |
+| [`21-adding-new-modality.md`](21-adding-new-modality.md)               | A brand-new modality category                                        | Adding Avatar (D-ID, HeyGen), Music (Beatoven, Lyria, ElevenLabs Music), 3D, SFX, etc.                   |
+| [`22-adding-multimodal-provider.md`](22-adding-multimodal-provider.md) | A provider spanning multiple modalities                              | Adding Replicate, Together AI, Fireworks AI, Cloudflare Workers AI                                       |
+| [`CHECKLIST.md`](CHECKLIST.md)                                         | Pasteable PR checklist                                               | Every PR — pick the §A-§H section that matches                                                           |
+| [`tiers/README.md`](tiers/README.md)                                   | Tiered LLM-provider onboarding (the current canonical path)          | Adding any new chat/text-generation provider — read this first, not `15-adding-llm-provider.md` directly |
+| [`adr/README.md`](adr/README.md)                                       | Why the tiers/catalog/descriptor/CI-gate are shaped the way they are | Before proposing a change to the onboarding process itself                                               |
+| [`manifests/README.md`](manifests/README.md)                           | The per-provider manifest convention                                 | Every Tier 2+ provider PR                                                                                |
+| [`SAFETY-PRIMITIVES.md`](SAFETY-PRIMITIVES.md)                         | Cross-cutting safety helpers reference                               | Whenever you download external URLs, log responses, or wrap streaming with OTel spans                    |
 
 ### Implementation journals (the worked examples)
 

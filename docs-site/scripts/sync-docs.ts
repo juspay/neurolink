@@ -1401,6 +1401,26 @@ const LINK_MAPPINGS: Record<string, string> = {
   checklist: "/provider-integration/checklist",
   "SAFETY-PRIMITIVES": "/provider-integration/safety-primitives",
   "safety-primitives": "/provider-integration/safety-primitives",
+  // Tiered onboarding playbook. These live in subdirectories, and without an
+  // entry here a link to one resolves against the site root — a link to
+  // tiers/README.md becomes /docs/tiers/readme, which does not exist and
+  // fails the build's broken-link check.
+  "tiers/README": "/provider-integration/tiers/readme",
+  "tiers/tier-1-aggregator-passthrough":
+    "/provider-integration/tiers/tier-1-aggregator-passthrough",
+  "tiers/tier-2-catalog-entry":
+    "/provider-integration/tiers/tier-2-catalog-entry",
+  "tiers/tier-3-adapter-native":
+    "/provider-integration/tiers/tier-3-adapter-native",
+  "tiers/tier-4-full-custom": "/provider-integration/tiers/tier-4-full-custom",
+  "adr/README": "/provider-integration/adr/readme",
+  "adr/0001-provider-descriptor-as-source-of-truth":
+    "/provider-integration/adr/0001-provider-descriptor-as-source-of-truth",
+  "adr/0002-catalog-over-subclass-default":
+    "/provider-integration/adr/0002-catalog-over-subclass-default",
+  "adr/0003-mocked-contract-as-merge-gate":
+    "/provider-integration/adr/0003-mocked-contract-as-merge-gate",
+  "manifests/README": "/provider-integration/manifests/readme",
 };
 
 /**

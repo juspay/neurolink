@@ -10,7 +10,7 @@ For full context on any line, follow the link to the matching guide.
 
 What are you adding?
 
-- [ ] **A new LLM / chat provider** → use [§A](#a--new-llm-provider-12-files)
+- [ ] **A new LLM / chat provider** → use [§A](#a--new-llm-provider-tiered--see-tiers)
 - [ ] **A new TTS provider** → use [§B](#b--new-tts-provider-6-files)
 - [ ] **A new STT provider** → use [§C](#c--new-stt-provider-6-files)
 - [ ] **A new realtime / bidirectional voice provider** → use [§D](#d--new-realtime-provider-6-files)
@@ -21,52 +21,41 @@ What are you adding?
 
 ---
 
-## §A — New LLM provider (12 files)
+## §A — New LLM provider (tiered — see `tiers/`)
 
-Full guide: [`15-adding-llm-provider.md`](15-adding-llm-provider.md)
+Full guide: `tiers/README.md`. Pick your tier first;
+each tier doc has its own exact file checklist and verification
+commands — don't paste a generic 12-file list anymore, it's stale.
 
-**Code (12 files):**
+- [ ] Tier picked and justified: 1 (aggregator passthrough) / 2 (catalog
+      entry) / 3 (adapter-native) / 4 (full custom — `tier4Justification`
+      written in the manifest)
+- [ ] All files listed in the matching `tiers/tier-N-*.md` checklist
+      touched
+- [ ] `docs/provider-integration/manifests/<name>.json` created (Tier 2+
+      only; see `manifests/README.md`)
+- [ ] Mocked-contract section added to
+      `test/continuous-test-suite-providers-mocked.ts` (Tier 2+ only)
+- [ ] `pnpm run check && pnpm run lint && pnpm run test:providers-mocked
+&& pnpm run verify:provider-onboarding && pnpm run build` all green
+- [ ] CLI smoke test passes (`pnpm run cli generate "..." --provider
+<name>`)
 
-- [ ] `src/lib/providers/<name>.ts` — NEW provider class extending `BaseProvider`
-- [ ] `src/lib/constants/enums.ts` — add to `AIProviderName` + add `<Name>Models` enum
-- [ ] `src/lib/types/providers.ts` — extend `NeurolinkCredentials` with `<key>?: { apiKey?, baseURL? }`
-- [ ] `src/lib/utils/providerConfig.ts` — add `create<Name>Config()` helper
-- [ ] `src/lib/factories/providerRegistry.ts` — add registration block (dynamic import)
-- [ ] `src/lib/providers/index.ts` — add re-export
-- [ ] `src/lib/constants/contextWindows.ts` — add `<provider>: { _default, ... }` block
-- [ ] `src/lib/utils/modelChoices.ts` — `TOP_MODELS_CONFIG` + `DEFAULT_MODELS` rows
-- [ ] `src/lib/adapters/providerImageAdapter.ts` — add `VISION_CAPABILITIES` entry
-- [ ] `src/cli/factories/commandFactory.ts` — 3 spots (provider choices, secondary, bash completion)
-- [ ] `.env.example` — append env-var section
-- [ ] `src/lib/utils/pricing.ts` — add per-1K-token cost entries
-
-**Tests:**
-
-- [ ] `test/continuous-test-suite-providers.ts` — add to `ALL_PROVIDERS`
-- [ ] `test/continuous-test-suite-credentials.ts` — add per-call credential test
-- [ ] `test/continuous-test-suite-new-providers.ts` — add full feature suite section (generate, stream, tools, structured output, abort, timeout, telemetry, error formatting)
-- [ ] If small context window (≤8 192): update `PROVIDER_MAX_TOKENS` in 12 test files (see §14d in [`15-adding-llm-provider.md`](15-adding-llm-provider.md))
-
-**Docs:**
+**Docs (Tier 2 and above; Tier 1 is different — see the note below):**
 
 - [ ] `docs/getting-started/providers/<name>.md` — NEW per-provider guide
 - [ ] `docs/getting-started/providers/index.md` — add card
 - [ ] `docs/getting-started/provider-setup.md` — add to index
-- [ ] `docs/getting-started/environment-variables.md` — document new env vars
+- [ ] `docs/getting-started/environment-variables.md` — document new env
+      vars
+
+Tier 1 adds no new `AIProviderName`, so the per-provider guide, card, and
+index entries above don't apply. Only `environment-variables.md` may be
+touched, and even that is optional — see the Tier 1 guide's own checklist
+item in `tiers/tier-1-aggregator-passthrough.md`.
+
 - [ ] `docs/reference/provider-comparison.md` — add row
-- [ ] `docs/reference/provider-selection.md` — mention in decision tree
-- [ ] `docs/reference/provider-feature-compatibility.md` — capability columns
-- [ ] `README.md` — update provider count + table
-- [ ] `docs-site/sidebars.ts` — add doc to sidebar
-- [ ] (Optional) `docs/provider-integration/<NN>-<name>.md` — implementation journal for non-trivial providers
-
-**Validation:**
-
-- [ ] `pnpm run check` — 0 errors
-- [ ] `pnpm run lint` — 0 errors (rules 7-13 enforced)
-- [ ] `pnpm run build` — clean
-- [ ] `pnpm run test:new-providers` — green
-- [ ] CLI smoke test passes (`pnpm run cli generate "..." --provider <name>`)
+- [ ] `README.md` — update provider count
 
 ---
 
@@ -315,7 +304,7 @@ Full guide: [`22-adding-multimodal-provider.md`](22-adding-multimodal-provider.m
 
 **LLM flavor (per §A):**
 
-- [ ] Full §A checklist (12 files), but `executeStream` and `executeImageGeneration` use the shared lifecycle helper
+- [ ] Full §A checklist (pick the matching tier — this is Tier 3-shaped, since it needs a bespoke provider class), but `executeStream` and `executeImageGeneration` use the shared lifecycle helper
 - [ ] Add image-gen model prefixes to `IMAGE_GENERATION_MODELS` (`flux`, `sdxl`, etc. for Replicate)
 
 **Video flavor:**
