@@ -37,7 +37,7 @@ const CRITICAL_SECURITY_RULES = [
 ];
 
 // Configuration: Packages to temporarily ignore in vulnerability scanning
-// TODO: Address these vulnerabilities in a separate security update
+// TODO(#1318): Address these vulnerabilities in a separate security update
 const IGNORED_VULNERABLE_PACKAGES = [
   "jsondiffpatch", // XSS in ai dependency - tracked separately
   "ai", // File upload bypass - planned upgrade

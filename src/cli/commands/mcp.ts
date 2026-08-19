@@ -2111,7 +2111,7 @@ export class MCPCommandFactory {
 ${tools
   .map(
     (toolName) =>
-      `        { name: "${toolName}", description: "TODO: Add description for ${toolName}", inputSchema: { type: "object", properties: {}, required: [] } },`,
+      `        { name: "${toolName}", description: "Add a description for ${toolName}", inputSchema: { type: "object", properties: {}, required: [] } },`,
   )
   .join("\n")}
       ],
@@ -2122,7 +2122,7 @@ ${tools
 ${tools
   .map(
     (toolName) => `        case "${toolName}":
-          // TODO: Implement ${toolName} tool
+          // Implement ${toolName} tool logic here
           return {
             content: [{ type: "text", text: "${toolName} executed successfully" }],
           };`,
@@ -2233,7 +2233,7 @@ npm run build  # Build for production
 
 ## Tools
 
-${tools.length > 0 ? tools.map((t) => `- **${t}**: TODO: Add description`).join("\n") : "- **hello**: A simple hello tool"}
+${tools.length > 0 ? tools.map((t) => `- **${t}**: add a description`).join("\n") : "- **hello**: A simple hello tool"}
 `;
 
     fs.writeFileSync(path.join(serverDir, "README.md"), readme);
@@ -2263,7 +2263,7 @@ ${tools.length > 0 ? tools.map((t) => `- **${t}**: TODO: Add description`).join(
                 const _safeName = toolName.replace(/-/g, "_");
                 const keyword = index === 0 ? "if" : "elif";
                 return `    ${keyword} name == "${toolName}":
-        # TODO: Implement ${toolName} tool
+        # Implement ${toolName} tool logic here
         return [TextContent(type="text", text="${toolName} executed successfully")]`;
               })
               .join("\n");
@@ -2294,7 +2294,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
               (toolName) => `
         Tool(
             name="${toolName}",
-            description="TODO: Add description for ${toolName}",
+            description="Add a description for ${toolName}",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -2386,7 +2386,7 @@ neurolink mcp add ${serverName} python ${path.join(serverDir, "server.py")}
 
 ## Tools
 
-${tools.length > 0 ? tools.map((t) => `- **${t}**: TODO: Add description`).join("\n") : "- **hello**: A simple hello tool"}
+${tools.length > 0 ? tools.map((t) => `- **${t}**: add a description`).join("\n") : "- **hello**: A simple hello tool"}
 `;
 
     fs.writeFileSync(path.join(serverDir, "README.md"), readme);
@@ -2445,7 +2445,7 @@ if (handlers[request.params.name]) {
       tools.length > 0
         ? tools.map(
             (t) =>
-              `{ name: "${t}", description: "TODO: Add description", inputSchema: { type: "object", properties: {} } }`,
+              `{ name: "${t}", description: "Add a description", inputSchema: { type: "object", properties: {} } }`,
           )
         : [
             `{ name: "hello", description: "A simple hello tool", inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } }`,
@@ -2505,7 +2505,7 @@ neurolink mcp add ${serverName} node ${path.join(serverDir, "server.js")}
 
 ## Tools
 
-${tools.length > 0 ? tools.map((t) => `- **${t}**: TODO: Add description`).join("\n") : "- **hello**: A simple hello tool"}
+${tools.length > 0 ? tools.map((t) => `- **${t}**: add a description`).join("\n") : "- **hello**: A simple hello tool"}
 `;
 
     fs.writeFileSync(path.join(serverDir, "README.md"), readme);
