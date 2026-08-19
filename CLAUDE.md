@@ -163,30 +163,33 @@ User input (text + files)
 
 ## Key Files
 
-| File                                               | Purpose                                                            |
-| -------------------------------------------------- | ------------------------------------------------------------------ |
-| `src/lib/neurolink.ts`                             | Main SDK class — orchestrates everything                           |
-| `src/lib/factories/providerRegistry.ts`            | Provider registration (use dynamic imports here)                   |
-| `src/lib/core/baseProvider.ts`                     | Base class all providers extend; central `stream()` tool merge     |
-| `src/lib/utils/messageBuilder.ts`                  | Constructs messages; handles all file types                        |
-| `src/lib/adapters/providerImageAdapter.ts`         | Per-provider multimodal formatting + vision capability map         |
-| `src/lib/adapters/tts/`                            | TTS provider handlers (Google TTS, Cartesia); new handlers go here |
-| `src/lib/mcp/toolRegistry.ts`                      | Tool management + MCP server registry                              |
-| `src/lib/mcp/mcpClientFactory.ts`                  | Creates MCP clients for all transport types                        |
-| `src/lib/processors/registry/ProcessorRegistry.ts` | Selects file processor by MIME type + priority                     |
-| `src/lib/types/index.ts`                           | Main type exports (start here for any type lookup)                 |
-| `src/lib/types/providers.ts`                       | `AIProvider` type                                                  |
-| `src/lib/types/mcp.ts`                             | `MCPTransportType` and MCP config types                            |
-| `src/lib/constants/enums.ts`                       | `AIProviderName` enum                                              |
-| `src/lib/constants/contextWindows.ts`              | Per-provider, per-model context window sizes                       |
-| `src/lib/context/contextCompactor.ts`              | Multi-stage context reduction orchestrator                         |
-| `src/lib/context/budgetChecker.ts`                 | Pre-call budget validation                                         |
-| `src/lib/rag/ragIntegration.ts`                    | `prepareRAGTool()` — auto RAG setup for generate/stream            |
-| `src/cli/factories/commandFactory.ts`              | All CLI command options and flag definitions                       |
-| `src/lib/server/routes/agentRoutes.ts`             | HTTP server routes including `/api/agent/embed`                    |
-| `src/lib/server/routes/claudeProxyRoutes.ts`       | Anthropic pool engine — account routing, retry, SSE relay          |
-| `src/lib/server/routes/codexProxyRoutes.ts`        | Codex (ChatGPT) pool engine — `/backend-api/codex/responses`       |
-| `src/lib/auth/codexOAuth.ts`                       | Codex OAuth: `auth.json` import, refresh, account-id resolution    |
+| File                                               | Purpose                                                                                                                  |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `src/lib/neurolink.ts`                             | Main SDK class — orchestrates everything                                                                                 |
+| `src/lib/factories/providerRegistry.ts`            | Provider registration (use dynamic imports here)                                                                         |
+| `src/lib/core/baseProvider.ts`                     | Base class all providers extend; central `stream()` tool merge                                                           |
+| `src/lib/utils/messageBuilder.ts`                  | Constructs messages; handles all file types                                                                              |
+| `src/lib/adapters/providerImageAdapter.ts`         | Per-provider multimodal formatting + vision capability map                                                               |
+| `src/lib/adapters/tts/`                            | TTS provider handlers (Google TTS, Cartesia); new handlers go here                                                       |
+| `src/lib/mcp/toolRegistry.ts`                      | Tool management + MCP server registry                                                                                    |
+| `src/lib/mcp/mcpClientFactory.ts`                  | Creates MCP clients for all transport types                                                                              |
+| `src/lib/processors/registry/ProcessorRegistry.ts` | Selects file processor by MIME type + priority                                                                           |
+| `src/lib/types/index.ts`                           | Main type exports (start here for any type lookup)                                                                       |
+| `src/lib/types/providers.ts`                       | `AIProvider` type, `NeurolinkCredentials`, `ProviderDescriptor` type                                                     |
+| `src/lib/factories/providerDescriptors.ts`         | `PROVIDER_DESCRIPTORS` — single source of truth for provider metadata (aliases, credentials key, env vars, tool support) |
+| `src/lib/providers/openaiCompatCatalog.ts`         | `OPENAI_COMPAT_CATALOG` — data rows for zero-quirk OpenAI-wire-compatible providers (Tier 2 onboarding)                  |
+| `docs/provider-integration/tiers/README.md`        | Tiered new-provider onboarding guide — start here for any new provider                                                   |
+| `src/lib/types/mcp.ts`                             | `MCPTransportType` and MCP config types                                                                                  |
+| `src/lib/constants/enums.ts`                       | `AIProviderName` enum (the actual location — not `types/providers.ts`)                                                   |
+| `src/lib/constants/contextWindows.ts`              | Per-provider, per-model context window sizes                                                                             |
+| `src/lib/context/contextCompactor.ts`              | Multi-stage context reduction orchestrator                                                                               |
+| `src/lib/context/budgetChecker.ts`                 | Pre-call budget validation                                                                                               |
+| `src/lib/rag/ragIntegration.ts`                    | `prepareRAGTool()` — auto RAG setup for generate/stream                                                                  |
+| `src/cli/factories/commandFactory.ts`              | All CLI command options and flag definitions                                                                             |
+| `src/lib/server/routes/agentRoutes.ts`             | HTTP server routes including `/api/agent/embed`                                                                          |
+| `src/lib/server/routes/claudeProxyRoutes.ts`       | Anthropic pool engine — account routing, retry, SSE relay                                                                |
+| `src/lib/server/routes/codexProxyRoutes.ts`        | Codex (ChatGPT) pool engine — `/backend-api/codex/responses`                                                             |
+| `src/lib/auth/codexOAuth.ts`                       | Codex OAuth: `auth.json` import, refresh, account-id resolution                                                          |
 
 ### Proxy pool engines
 
@@ -395,26 +398,14 @@ waits forever on the dpkg lock that `unattended-upgrades` holds.
 
 ### Adding a New Provider
 
-1. Create `src/lib/providers/yourProvider.ts` — extend `BaseProvider`
-2. Add name to `AIProviderName` enum in `src/lib/constants/enums.ts`
-3. Add model constants to `src/lib/models/`
-4. Register in `ProviderRegistry.registerAllProviders()` using a dynamic import:
+**Start at `docs/provider-integration/tiers/README.md`** — it routes you to one of four tiers by actual effort required, not a one-size-fits-all checklist:
 
-   ```typescript
-   ProviderFactory.registerProvider(
-     AIProviderName.YOUR_PROVIDER,
-     async (modelName?, _providerName?, sdk?) => {
-       const { YourProvider } = await import("../providers/yourProvider.js");
-       return new YourProvider(modelName, sdk as NeuroLink | undefined);
-     },
-     YourModels.DEFAULT,
-     ["alias1", "alias2"],
-   );
-   ```
+- **Tier 1 — aggregator passthrough** (a model already served by LiteLLM/OpenRouter): zero code, just a model id. See `tiers/tier-1-aggregator-passthrough.md`.
+- **Tier 2 — catalog entry** (OpenAI-wire-compatible, zero behavioral quirks — most new providers): one `AIProviderName` enum member + one `OpenAICompatCatalogEntry` row in `src/lib/providers/openaiCompatCatalog.ts` + one `ProviderDescriptor` row in `src/lib/factories/providerDescriptors.ts` + a `NeurolinkCredentials` slice in `src/lib/types/providers.ts` + one dynamic `ProviderFactory.registerProvider()` block in `src/lib/factories/providerRegistry.ts` + one mocked-contract test section + a manifest. ~1 hour. See `tiers/tier-2-catalog-entry.md` for the full checklist.
+- **Tier 3 — adapter-based native** (own SDK/wire format, still a normal HTTP request/response lifecycle): a `src/lib/providers/<name>.ts` class extending `BaseProvider`, days. See `tiers/tier-3-adapter-native.md`.
+- **Tier 4 — full custom** (SageMaker-class: non-HTTP protocol or SDK-signed auth): everything Tier 3 needs plus a custom lifecycle, and a written `tier4Justification` in its manifest. See `tiers/tier-4-full-custom.md`.
 
-5. If multimodal: add vision capabilities to `ProviderImageAdapter.VISION_CAPABILITIES`
-6. Add to CLI provider choices in `src/cli/factories/commandFactory.ts`
-7. Add tests to the most relevant `test/continuous-test-suite-*.ts` (e.g. `-providers.ts`), or create a new suite `test/continuous-test-suite-<name>.ts` and add a matching `test:<name>` script in `package.json`
+`AIProviderName` lives in `src/lib/constants/enums.ts` (not `src/lib/types/providers.ts`). Tier 2+ providers — every tier that adds an `AIProviderName` member — must end with a manifest at `docs/provider-integration/manifests/<name>.json` and a green `pnpm run verify:provider-onboarding`; this is a required CI gate, not optional. Tier 1 adds no `AIProviderName` member, so neither the manifest nor the gate applies to it — see `tiers/tier-1-aggregator-passthrough.md`. Use `pnpm run scaffold:provider` (`tools/scaffold-provider.ts`) to generate starting-point snippets instead of copy-pasting from an existing provider by hand.
 
 ### Adding a New File Processor
 

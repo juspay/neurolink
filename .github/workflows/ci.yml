@@ -113,6 +113,9 @@ jobs:
       - name: Error classifier contract tests (TimeoutError classification per provider, no API keys required)
         run: pnpm run test:error-classifier-contract
 
+      - name: 🧩 Provider Onboarding Completeness
+        run: pnpm run verify:provider-onboarding
+
   # action-smoke-test:
   #   name: GitHub Action Smoke Test
   #   runs-on: ubuntu-latest

@@ -97,6 +97,8 @@
     "test:mcp:spans": "npx tsx test/continuous-test-suite-mcp-spans.ts",
     "test:mcp:infra": "npx tsx test/continuous-test-suite-mcp-infra.ts",
     "test:providers-mocked": "npx tsx test/continuous-test-suite-providers-mocked.ts",
+    "scaffold:provider": "npx tsx tools/scaffold-provider.ts",
+    "verify:provider-onboarding": "npx tsx tools/verify-provider-onboarding.ts",
     "test:openai-compat-catalog": "npx tsx test/continuous-test-suite-openai-compat-catalog.ts",
     "test:provider-descriptors": "npx tsx test/continuous-test-suite-provider-descriptors.ts",
     "test:provider-structure": "npx tsx test/continuous-test-suite-provider-structure.ts",

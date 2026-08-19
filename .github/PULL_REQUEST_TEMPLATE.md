@@ -63,6 +63,22 @@ If yes, describe:
 - Migration path for users
 - Deprecation warnings added?
 
+## New Provider Onboarding
+
+**Does this PR add a new provider or a new aggregator-served model?** Pick a tier per `docs/provider-integration/tiers/README.md`:
+
+- [ ] N/A — no provider/model change
+- [ ] Tier 1 — aggregator passthrough only (LiteLLM/OpenRouter model id, no new `AIProviderName` member — see `docs/provider-integration/tiers/tier-1-aggregator-passthrough.md`). **No manifest and no mocked-contract section required**: `pnpm run verify:provider-onboarding` only gates providers that add an `AIProviderName` member, which Tier 1 never does.
+- [ ] Tier 2/3/4 — adds a new `AIProviderName` member — complete the checklist below
+
+If Tier 2/3/4:
+
+- [ ] Tier selected (2/3/4) per `docs/provider-integration/tiers/README.md`
+- [ ] Manifest added at `docs/provider-integration/manifests/<name>.json` (`tier4Justification` filled in if Tier 4)
+- [ ] Mocked-contract test section added to `test/continuous-test-suite-providers-mocked.ts`
+- [ ] `pnpm run test:providers-mocked` passes locally
+- [ ] `pnpm run verify:provider-onboarding` passes locally
+
 ## Testing
 
 **How has this been tested?**
