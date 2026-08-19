@@ -58,6 +58,9 @@ export type TTSOptions = {
   /**
    * Use the AI-generated response for TTS instead of the input text
    *
+   * This switch applies to non-streaming generation. `stream()` always
+   * synthesizes the streamed AI response incrementally when TTS is enabled.
+   *
    * When false or undefined (default): TTS will synthesize the input text/prompt directly without calling AI generation
    * When true: TTS will synthesize the AI-generated response after generation completes
    *
@@ -102,6 +105,12 @@ export type TTSOptions = {
   play?: boolean;
   /** Override TTS provider (e.g., "elevenlabs", "openai-tts", "azure-tts") */
   provider?: TTSProviderName;
+  /**
+   * Minimum buffered text length before incremental stream synthesis flushes
+   * at a sentence boundary. The provider's maximum text length remains a hard
+   * upper bound. Defaults to 120 characters.
+   */
+  streamingBufferSize?: number;
 };
 
 /**
@@ -258,6 +267,14 @@ export function isValidTTSOptions(options: unknown): options is TTSOptions {
   }
   if (opts.quality !== undefined) {
     if (!VALID_TTS_QUALITIES.includes(opts.quality)) {
+      return false;
+    }
+  }
+  if (opts.streamingBufferSize !== undefined) {
+    if (
+      !Number.isInteger(opts.streamingBufferSize) ||
+      opts.streamingBufferSize < 1
+    ) {
       return false;
     }
   }

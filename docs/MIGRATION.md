@@ -7,14 +7,14 @@ by [`docs/guides/migration-guide.md`](./guides/migration-guide.md) and the
 auto-generated changelog (see the
 [GitHub releases page](https://github.com/juspay/neurolink/releases)).
 
-Three breaking changes shipped across 9.94.x–9.95.x. Each is intentional and
-stays as shipped — this document exists so downstream consumers know what
-changed and how to adapt.
+Three breaking changes shipped across 9.94.x–9.95.x, and a fourth is registered
+below before release. Each is intentional — this document exists so downstream
+consumers know what changed and how to adapt.
 
 ## Policy
 
 Per this repository's `CLAUDE.md` (Critical Rule 5), the public SDK API must
-not break existing callers. The three breaking changes below shipped in
+not break existing callers. The first three breaking changes below shipped in
 9.94.x–9.95.x without an accompanying migration path and are documented here
 retroactively. Going forward, any breaking change **must** ship its migration
 path in the same release that introduces it — not documented after the fact.
@@ -194,3 +194,19 @@ function handleBatch(argv: BatchCommandArgs) {
   unchanged — this is a type-only rename of the property NeuroLink's own
   `batch` command handler reads internally; end users invoking
   `neurolink batch <promptsFile>` on the command line see no difference.
+
+---
+
+## 4. `stream()` synthesizes whenever `tts.enabled` is set (unreleased)
+
+**Who is affected:** SDK callers using `stream()` with `tts.enabled: true`
+without setting `useAiResponse: true`.
+
+**What changed:** those callers now receive incremental `tts_audio` chunks and
+the aggregate `streamResult.audio`. `useAiResponse` continues to choose input
+versus response synthesis for `generate()`; it no longer gates synthesis for
+`stream()`.
+
+**How to adapt:** disable TTS for a text-only stream by omitting `tts` or setting
+`tts.enabled: false`. Keep `tts.enabled: true` when streamed response audio is
+desired; no `useAiResponse` value is required on that path.

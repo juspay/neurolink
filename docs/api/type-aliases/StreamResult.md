@@ -8,7 +8,7 @@
 
 > **StreamResult** = `object`
 
-Defined in: [types/stream.ts:727](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L727)
+Defined in: [types/stream.ts:735](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L735)
 
 Stream function result type - Primary output format for streaming
 Future-ready for multi-modal outputs while maintaining text focus
@@ -19,7 +19,7 @@ Future-ready for multi-modal outputs while maintaining text focus
 
 > `optional` **knowledge?**: [`KnowledgeGroundingMetadata`](KnowledgeGroundingMetadata.md)
 
-Defined in: [types/stream.ts:729](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L729)
+Defined in: [types/stream.ts:737](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L737)
 
 Knowledge-grounding diagnostics for this turn (present only when grounding ran).
 
@@ -29,7 +29,7 @@ Knowledge-grounding diagnostics for this turn (present only when grounding ran).
 
 > **stream**: `AsyncIterable`\<\{ `content`: `string`; `reasoning?`: `string`; \} \| [`StreamNoOutputSentinel`](StreamNoOutputSentinel.md) \| \{ `type`: `"audio"`; `audio`: [`AudioChunk`](AudioChunk.md); \} \| \{ `type`: `"tts_audio"`; `audio`: [`TTSChunk`](TTSChunk.md); \} \| \{ `type`: `"image"`; `imageOutput`: \{ `base64`: `string`; \}; \} \| \{ `content`: `string`; `type?`: `"preliminary"` \| `"final"`; \}\>
 
-Defined in: [types/stream.ts:730](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L730)
+Defined in: [types/stream.ts:738](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L738)
 
 ---
 
@@ -37,7 +37,7 @@ Defined in: [types/stream.ts:730](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/stream.ts:745](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L745)
+Defined in: [types/stream.ts:753](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L753)
 
 ---
 
@@ -45,7 +45,7 @@ Defined in: [types/stream.ts:745](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **model?**: `string`
 
-Defined in: [types/stream.ts:746](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L746)
+Defined in: [types/stream.ts:754](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L754)
 
 ---
 
@@ -53,7 +53,7 @@ Defined in: [types/stream.ts:746](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **usage?**: [`TokenUsage`](TokenUsage.md)
 
-Defined in: [types/stream.ts:749](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L749)
+Defined in: [types/stream.ts:757](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L757)
 
 ---
 
@@ -61,7 +61,7 @@ Defined in: [types/stream.ts:749](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/stream.ts:752](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L752)
+Defined in: [types/stream.ts:760](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L760)
 
 ---
 
@@ -69,7 +69,7 @@ Defined in: [types/stream.ts:752](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **stopReason?**: [`GenerateStopReason`](GenerateStopReason.md)
 
-Defined in: [types/stream.ts:760](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L760)
+Defined in: [types/stream.ts:768](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L768)
 
 Why the agentic turn ended (see GenerateStopReason). For background-loop
 streams (native Vertex paths) prefer `metadata.stopReason` after draining
@@ -82,7 +82,7 @@ wrapper spreads can snapshot it before the loop finishes.
 
 > `optional` **rawFinishReason?**: `string`
 
-Defined in: [types/stream.ts:762](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L762)
+Defined in: [types/stream.ts:770](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L770)
 
 Verbatim provider finish/stop reason for the turn's terminal model call.
 
@@ -92,7 +92,7 @@ Verbatim provider finish/stop reason for the turn's terminal model call.
 
 > `optional` **toolCalls?**: [`StreamToolCall`](StreamToolCall.md)[]
 
-Defined in: [types/stream.ts:765](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L765)
+Defined in: [types/stream.ts:773](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L773)
 
 ---
 
@@ -100,7 +100,7 @@ Defined in: [types/stream.ts:765](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **toolResults?**: [`StreamToolResult`](StreamToolResult.md)[]
 
-Defined in: [types/stream.ts:766](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L766)
+Defined in: [types/stream.ts:774](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L774)
 
 ---
 
@@ -108,7 +108,7 @@ Defined in: [types/stream.ts:766](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **toolEvents?**: `AsyncIterable`\<[`ToolExecutionEvent`](ToolExecutionEvent.md)\>
 
-Defined in: [types/stream.ts:769](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L769)
+Defined in: [types/stream.ts:777](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L777)
 
 ---
 
@@ -116,7 +116,7 @@ Defined in: [types/stream.ts:769](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **toolExecutions?**: [`ToolExecutionSummary`](ToolExecutionSummary.md)[]
 
-Defined in: [types/stream.ts:770](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L770)
+Defined in: [types/stream.ts:778](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L778)
 
 ---
 
@@ -124,7 +124,7 @@ Defined in: [types/stream.ts:770](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **toolsUsed?**: `string`[]
 
-Defined in: [types/stream.ts:771](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L771)
+Defined in: [types/stream.ts:779](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L779)
 
 ---
 
@@ -132,7 +132,7 @@ Defined in: [types/stream.ts:771](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/stream.ts:774](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L774)
+Defined in: [types/stream.ts:782](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L782)
 
 #### streamId?
 
@@ -212,7 +212,7 @@ Defined in: [types/stream.ts:774](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **analytics?**: [`AnalyticsData`](AnalyticsData.md) \| `Promise`\<[`AnalyticsData`](AnalyticsData.md)\>
 
-Defined in: [types/stream.ts:804](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L804)
+Defined in: [types/stream.ts:812](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L812)
 
 ---
 
@@ -220,7 +220,7 @@ Defined in: [types/stream.ts:804](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **evaluation?**: [`EvaluationData`](EvaluationData.md) \| `Promise`\<[`EvaluationData`](EvaluationData.md)\>
 
-Defined in: [types/stream.ts:805](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L805)
+Defined in: [types/stream.ts:813](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L813)
 
 ---
 
@@ -228,7 +228,7 @@ Defined in: [types/stream.ts:805](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **events?**: `object`[]
 
-Defined in: [types/stream.ts:808](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L808)
+Defined in: [types/stream.ts:816](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L816)
 
 #### Index Signature
 
@@ -252,7 +252,7 @@ Defined in: [types/stream.ts:808](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **workflow?**: `object`
 
-Defined in: [types/stream.ts:816](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L816)
+Defined in: [types/stream.ts:824](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L824)
 
 #### originalResponse
 
@@ -320,7 +320,7 @@ Defined in: [types/stream.ts:816](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **transcription?**: [`STTResult`](STTResult.md)
 
-Defined in: [types/stream.ts:844](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L844)
+Defined in: [types/stream.ts:852](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L852)
 
 STT transcription result (when stt option is used)
 
@@ -330,10 +330,39 @@ STT transcription result (when stt option is used)
 
 > `optional` **audio?**: `Promise`\<[`TTSResult`](TTSResult.md) \| `undefined`\>
 
-Defined in: [types/stream.ts:853](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L853)
+Defined in: [types/stream.ts:878](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L878)
 
-TTS Mode 2 result (when `tts.enabled && tts.useAiResponse`).
-Resolves with the synthesized audio after the stream completes;
-resolves to undefined if TTS was not enabled or synthesis failed.
-The same audio is also yielded as a final chunk on `stream` for callers
-that prefer to consume it inline.
+Streaming TTS result (when `tts.enabled`). `stream()` synthesizes the AI
+response incrementally; `useAiResponse` continues to select input vs
+response synthesis for non-streaming generation.
+Resolves with the synthesized audio after the caller drains `stream` to
+completion; like other stream-final fields, it remains pending while the
+lazy stream is unconsumed. It resolves with the aggregate of whatever
+segments were synthesized: a synthesis failure part-way through still
+resolves with the earlier segments rather than discarding them. It resolves
+to undefined only when no segment was produced — TTS was not enabled, no
+handler resolved for the requested provider, the model stream errored, every
+synthesis failed, or the caller stopped draining `stream` before it ended
+(an abandoned stream settles undefined rather than a partial aggregate).
+Audio is also yielded incrementally as ordered
+`tts_audio` chunks. Each chunk, including the final one, contains only its
+own buffered segment. The aggregate is a byte concatenation of those
+independently synthesized segments, so what it is depends on the format's
+framing: for frame- or sample-stream formats (`mp3`, `mpeg`, `mpga`,
+`pcm16`) it is one playable stream; for header-bearing container formats
+(`wav`, `flac`, `m4a`, `mp4`, `webm`) it is not a valid file, because each
+segment carries its own header; for `ogg`/`opus` it is a chained stream that
+some decoders read only through its first segment. Use the individual chunk
+buffers when each segment must be a valid container file.
+
+---
+
+### ttsMetadata?
+
+> `optional` **ttsMetadata?**: [`TTSMetadata`](TTSMetadata.md)
+
+Defined in: [types/stream.ts:885](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L885)
+
+Outcome metadata for streaming TTS synthesis. This is a mutable reference
+whose success and latency fields are finalized asynchronously; read it
+after draining `stream`.

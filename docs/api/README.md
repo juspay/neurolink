@@ -2473,6 +2473,7 @@ console.log(result.content);
 - [AudioInputSpec](type-aliases/AudioInputSpec.md)
 - [AudioChunk](type-aliases/AudioChunk.md)
 - [StreamChunk](type-aliases/StreamChunk.md)
+- [ProviderStreamChunk](type-aliases/ProviderStreamChunk.md)
 - [StreamOptions](type-aliases/StreamOptions.md)
 - [StreamResult](type-aliases/StreamResult.md)
 - [EnhancedStreamProvider](type-aliases/EnhancedStreamProvider.md)

@@ -255,10 +255,9 @@ const result = await neurolink.generate({
 > **Note:** when `useAiResponse: true`, NeuroLink synthesizes the chat
 > provider's text response. If your chat provider has no TTS counterpart
 > (e.g. `anthropic`, `bedrock`), set `tts.provider` explicitly — otherwise
-> stream Mode 2 will throw `No TTS provider resolved for stream Mode 2`
-> after text generation completes. Chat providers that double as TTS
-> handlers (e.g. `google-ai`, `vertex`) auto-resolve when `tts.provider`
-> is omitted.
+> streaming continues as text-only and logs a provider-resolution warning.
+> Chat providers that double as TTS handlers (e.g. `google-ai`, `vertex`)
+> auto-resolve when `tts.provider` is omitted.
 
 **Use cases:**
 
@@ -646,39 +645,56 @@ audioFiles.forEach((item, index) => {
 
 ### 7. Streaming Text + Audio
 
-Stream AI-generated text and convert to audio:
+Mode 2 can synthesize sentence-buffered audio while the text response is still
+streaming. `stream()` synthesizes whenever `tts.enabled` is set;
+`useAiResponse` selects input-versus-response synthesis for `generate()` and
+does not apply to `stream()`. `streamingBufferSize` sets the minimum number of
+buffered characters before a completed sentence is flushed (default: 120). A
+provider's `maxTextLength` remains a hard boundary; handlers without an override
+use the 3,000-character default.
+
+If one segment fails, NeuroLink keeps the text stream and already-yielded audio,
+attempts the remaining segments, and resolves `streamResult.audio` from the
+surviving chunks. After the stream is drained, `streamResult.ttsMetadata` reports
+`success: false` and a structured, sanitized `error` identifying the failed
+segment count and positions. The first segment failure supplies the error detail.
 
 ```typescript
 async function streamAndSpeak(prompt: string, voice: string) {
-  // Step 1: Stream AI response
   const streamResult = await neurolink.stream({
     input: { text: prompt },
     provider: "google-ai",
     model: "gemini-2.0-flash-exp",
+    tts: {
+      enabled: true,
+      provider: "google-ai",
+      voice,
+      streamingBufferSize: 80,
+    },
   });
 
   let fullText = "";
   for await (const chunk of streamResult.stream) {
-    fullText += chunk.content;
-    process.stdout.write(chunk.content);
+    if ("content" in chunk) {
+      fullText += chunk.content;
+      process.stdout.write(chunk.content);
+    } else if ("type" in chunk && chunk.type === "tts_audio") {
+      // Chunks are ordered by index. cumulativeSize grows monotonically,
+      // and exactly the last successful audio chunk has isFinal=true.
+      playAudioChunk(chunk.audio.data);
+    }
   }
 
-  console.log("\n\nConverting to audio...");
-
-  // Step 2: Convert complete text to audio
-  const ttsResult = await neurolink.generate({
-    input: { text: fullText },
-    provider: "google-ai",
-    tts: {
-      enabled: true,
-      voice,
-      play: true,
-    },
-  });
-
+  // After stream iteration, audio resolves to the concatenated TTS result.
+  // That aggregate is a byte concatenation of the independently synthesized
+  // segments: one playable stream for mp3/mpeg/mpga/pcm16, but NOT a valid
+  // file for header-bearing containers (wav, flac, m4a, mp4, webm), and a
+  // chained stream for ogg/opus that some decoders read only through its first
+  // segment. Use the per-chunk `chunk.audio.data` buffers when each segment
+  // must stand alone.
   return {
     text: fullText,
-    audio: ttsResult.audio,
+    audio: await streamResult.audio,
   };
 }
 
@@ -688,6 +704,13 @@ const result = await streamAndSpeak(
   "en-US-Neural2-C",
 );
 ```
+
+The buffering heuristic recognizes `.`, `!`, or `?` followed by whitespace or
+the end of a text chunk. Short sentences remain buffered until the configured
+boundary or stream completion. Text without sentence punctuation is hard-split
+at the provider limit, so repeated synthesis calls never exceed that cap. The
+same chunk ordering and finality rules apply when a provider falls back to
+synthetic streaming.
 
 ---
 

@@ -8,6 +8,6 @@
 
 > **TTSVoiceType** = `"standard"` \| `"wavenet"` \| `"neural"` \| `"chirp"` \| `"unknown"`
 
-Defined in: [types/tts.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L149)
+Defined in: [types/tts.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L158)
 
 Allowed TTS voice types
