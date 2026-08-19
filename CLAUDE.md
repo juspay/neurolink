@@ -314,6 +314,81 @@ suite affected — the hazard is for new assertions.
 When adding a suite, sanity-check it by breaking one assertion on purpose and
 confirming it reports `✗` and exits non-zero rather than `⊘`.
 
+### ⚠️ Never write a CI-skip directive into a commit message
+
+GitHub honours `[skip ci]`, `[ci skip]`, `[no ci]`, `[skip actions]` and
+`[actions skip]` **anywhere in a commit message — subject or body**. It does not
+care whether you meant it or were quoting it. A commit that contains one runs
+**no workflows at all** for its push.
+
+This is not a hypothetical. A PR merged to `release` quoting semantic-release's
+own `chore(release): x.y.z [skip ci]` template, while documenting that those
+commits were going away, and the merge ran nothing: no CI, no release job. The
+failure is invisible by construction — a suppressed run looks exactly like a run
+that was never required — and it surfaced only because the branch's check list
+looked implausibly short an hour later.
+
+If you need to write about a directive, break up the literal (`skip-ci`) or put
+the explanation in the **PR body**, which GitHub does not scan. This is now
+enforced: `Reject CI-Skip Directives` in `single-commit-enforcement.yml` reads
+the full message with `%B` and fails the PR. Note the older
+`Validate Commit Message Format` step reads only `%s`, so it cannot see a
+directive in the body — that gap is exactly how this got through.
+
+### ⚠️ Required status checks and the release bot
+
+`release` carries required status checks (`test`, `provider-safety-net`,
+`build-check`, `🔒 Single Commit Policy Validation`) with **no bypass actors**.
+
+Anything that pushes **directly** to `release` — rather than through a PR —
+carries no check runs, so every required check reads as missing and the push is
+declined:
+
+```
+GH013: Repository rule violations found for refs/heads/release
+- 4 of 4 required status checks are expected.
+! [remote rejected]   HEAD -> release
+```
+
+This blocked publishing entirely when the checks were first enabled, because
+`@semantic-release/git` pushed the version bump back to the branch. The usual
+remedy — allowing the GitHub Actions app to bypass — **cannot be configured at
+repository level**; that actor must belong to the owner organization. The fix
+was to drop `@semantic-release/git` so nothing pushes to the branch at all.
+
+Consequences worth knowing before you go looking for them:
+
+- `CHANGELOG.md` is **not** committed to the repo any more. It is still
+  generated and still ships inside the published package, and the notes remain
+  on the GitHub Release.
+- `package.json`'s version in git no longer tracks the published version.
+  semantic-release derives the next version from **tags**, so publishing is
+  correct, but `--version` from a git clone reports whatever was last committed.
+- There are no more `chore(release): x.y.z [skip ci]` commits on the branch.
+
+**Before adding anything that writes to `release`, check whether it pushes
+directly.** If it does, it will be rejected, and the failure appears as a
+release-job error rather than anything resembling a permissions problem.
+
+### ⚠️ ffmpeg is deliberately not installed in CI
+
+Nothing CI runs needs it. No package script invokes it, nothing installs it as a
+dependency, and `src/` shells out to ffmpeg only at **runtime** (frame
+extraction, video merging, audio playback) — never during install, lint,
+typecheck, build or pack, which is all the CI jobs do. `provider-safety-net` has
+always built the package and run its suites without it.
+
+It was removed after breaking CI four ways in a single day: a corrupt published
+asset, a version pin that stopped resolving, a step deadline too tight for a
+slow mirror, and an Ubuntu mirror returning `Ign:` for every index while apt sat
+for fourteen minutes. Because `build-check` is a required check, each of those
+blocked **every open pull request** on a dependency none of the jobs use.
+
+If a job ever genuinely exercises media, install ffmpeg **in that job only**, and
+bound every wait — `DPkg::Lock::Timeout`, `Acquire::http::Timeout`,
+`Acquire::https::Timeout` — plus a step `timeout-minutes`. An unbounded `apt-get`
+waits forever on the dpkg lock that `unattended-upgrades` holds.
+
 ---
 
 ## How-To Guides
