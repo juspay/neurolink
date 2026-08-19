@@ -38,7 +38,7 @@ jobs:
       # publish workflow, each break silently stopped releases from going
       # out while CI still looked healthy. ci.yml was moved off it already.
       - name: Install ffmpeg
-        timeout-minutes: 5
+        timeout-minutes: 15
         run: |
           if command -v ffmpeg >/dev/null 2>&1; then
             echo "ffmpeg already present: $(ffmpeg -version | head -1)"
@@ -52,13 +52,14 @@ jobs:
           # every wait so a contended lock fails fast, and let the step
           # deadline catch anything the bounds miss.
           sudo systemctl stop unattended-upgrades.service >/dev/null 2>&1 || true
+          APT_OPTS="-o DPkg::Lock::Timeout=60 -o Acquire::Retries=3"
+          APT_OPTS="$APT_OPTS -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
           for attempt in 1 2 3; do
-            sudo apt-get -o DPkg::Lock::Timeout=60 -o Acquire::Retries=3 update && break
+            sudo apt-get $APT_OPTS update && break
             echo "apt-get update failed (attempt ${attempt}/3), retrying in 5s"
             sleep 5
           done
-          sudo apt-get -o DPkg::Lock::Timeout=60 -o Acquire::Retries=3 \
-            install -y --no-install-recommends ffmpeg
+          sudo apt-get $APT_OPTS install -y --no-install-recommends ffmpeg
 
       - name: Verify ffmpeg installation
         run: |
@@ -113,7 +114,7 @@ jobs:
       # publish workflow, each break silently stopped releases from going
       # out while CI still looked healthy. ci.yml was moved off it already.
       - name: Install ffmpeg
-        timeout-minutes: 5
+        timeout-minutes: 15
         run: |
           if command -v ffmpeg >/dev/null 2>&1; then
             echo "ffmpeg already present: $(ffmpeg -version | head -1)"
@@ -127,13 +128,14 @@ jobs:
           # every wait so a contended lock fails fast, and let the step
           # deadline catch anything the bounds miss.
           sudo systemctl stop unattended-upgrades.service >/dev/null 2>&1 || true
+          APT_OPTS="-o DPkg::Lock::Timeout=60 -o Acquire::Retries=3"
+          APT_OPTS="$APT_OPTS -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
           for attempt in 1 2 3; do
-            sudo apt-get -o DPkg::Lock::Timeout=60 -o Acquire::Retries=3 update && break
+            sudo apt-get $APT_OPTS update && break
             echo "apt-get update failed (attempt ${attempt}/3), retrying in 5s"
             sleep 5
           done
-          sudo apt-get -o DPkg::Lock::Timeout=60 -o Acquire::Retries=3 \
-            install -y --no-install-recommends ffmpeg
+          sudo apt-get $APT_OPTS install -y --no-install-recommends ffmpeg
 
       - name: Verify ffmpeg installation
         run: |
