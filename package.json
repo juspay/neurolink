@@ -110,6 +110,7 @@
     "test:tts:unit": "npx tsx test/continuous-test-suite-tts-unit.ts",
     "test:stt:unit": "npx tsx test/continuous-test-suite-stt-unit.ts",
     "test:realtime:unit": "npx tsx test/continuous-test-suite-realtime-unit.ts",
+    "test:video:unit": "npx tsx test/continuous-test-suite-video-generation-unit.ts",
     "test:voice": "npx tsx test/continuous-test-suite-voice.ts",
     "test:avatar": "npx tsx test/continuous-test-suite-avatar.ts",
     "test:avatar:unit": "npx tsx test/continuous-test-suite-avatar-unit.ts",
