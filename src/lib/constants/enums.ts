@@ -522,7 +522,12 @@ export enum GoogleAIModels {
  * Supported Models for Anthropic (Direct API)
  */
 export enum AnthropicModels {
-  // Claude 4.6 Series (Latest - February 2026)
+  // Claude 5 Series (mid 2026) — see MODEL_CONTEXT_WINDOWS.anthropic
+  // (src/lib/constants/contextWindows.ts) for the 1M context window this id
+  // already carries there.
+  CLAUDE_SONNET_5 = "claude-sonnet-5",
+
+  // Claude 4.6 Series (February 2026)
   CLAUDE_OPUS_4_6 = "claude-opus-4-6",
   CLAUDE_SONNET_4_6 = "claude-sonnet-4-6",
 
