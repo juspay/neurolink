@@ -128,6 +128,47 @@ jobs:
 
           echo "✅ Commit message format is valid"
 
+      - name: Reject CI-Skip Directives
+        if: steps.validate.outputs.status == 'compliant'
+        run: |
+          COMMIT_HASH="${{ steps.validate.outputs.commit_hash }}"
+          # The format check above reads only the subject line (%s). GitHub reads
+          # the WHOLE message, body included, so a skip directive quoted in a body
+          # -- e.g. while documenting semantic-release's own commit template --
+          # silently suppresses every workflow for the resulting push. That has
+          # already happened once on `release`: the merge ran no CI at all, and
+          # nothing reported it, because a skipped run looks identical to a run
+          # that was never required.
+          FULL_MSG=$(git log -1 --pretty=format:%B "$COMMIT_HASH")
+
+          if echo "$FULL_MSG" | grep -qiE '\[(skip ci|ci skip|no ci|skip actions|actions skip)\]'; then
+            echo "❌ POLICY VIOLATION: commit message contains a CI-skip directive"
+            echo ""
+            echo "Offending line(s):"
+            echo "$FULL_MSG" | grep -niE '\[(skip ci|ci skip|no ci|skip actions|actions skip)\]' | sed 's/^/    /'
+            echo ""
+            echo "GitHub honours [skip ci], [ci skip], [no ci], [skip actions] and"
+            echo "[actions skip] anywhere in a commit message -- subject or body."
+            echo "Merging this would push a commit that runs no workflows at all,"
+            echo "including the checks required to protect this branch."
+            echo ""
+            echo "🔧 TO FIX:"
+            echo "  If you were quoting the directive rather than intending it,"
+            echo "  break up the literal text -- write 'skip-ci' or 'skip<space>ci'"
+            echo "  instead -- or move the explanation to the pull request body,"
+            echo "  which GitHub does not scan."
+            echo ""
+            echo "    git commit --amend"
+            echo "    git push --force-with-lease"
+            echo ""
+            echo "  If you genuinely need to skip CI, say so on the pull request"
+            echo "  and have someone merge it deliberately -- it should not be a"
+            echo "  side effect of how a commit message happens to be worded."
+            exit 1
+          fi
+
+          echo "✅ No CI-skip directives in commit message"
+
       - name: Check for Merge Commits
         if: steps.validate.outputs.status == 'compliant'
         run: |
