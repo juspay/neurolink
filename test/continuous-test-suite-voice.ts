@@ -279,7 +279,7 @@ function isValidWAV(buffer: Buffer): boolean {
  * @param durationSeconds - Duration in seconds (default 1)
  * @returns WAV buffer ready for STT testing
  *
- * TODO(stt-fixture): A 440Hz sine tone is non-speech, so STT tests using
+ * TODO(#1318, stt-fixture): A 440Hz sine tone is non-speech, so STT tests using
  * this buffer can only assert response-shape, not transcription content.
  * The next pass should add a small spoken-WAV fixture (with attribution)
  * under test/fixtures/ and have STT cases assert

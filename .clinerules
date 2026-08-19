@@ -402,7 +402,7 @@ memory-bank/research/          # Research & analysis
 ### **Documentation Creation Workflow**
 
 #### **For API Documentation (docs/)**
-<!-- TODO: ADD this -->
+<!-- TODO(#1318): ADD this -->
 
 #### **For Internal Knowledge (memory-bank/)**
 ```bash

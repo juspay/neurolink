@@ -327,7 +327,7 @@ export type SuiteHandle = {
    * style used by continuous-test-suite-mcp.ts). Increments the same
    * counters that `test()` does.
    *
-   * TODO(harness-migration): remove this shim after every suite migrates
+   * TODO(#1318, harness-migration): remove this shim after every suite migrates
    * to the `test()` form (only the MCP family still uses it at the time
    * of writing). The dual shape is intentional but should not ossify.
    */

@@ -1584,7 +1584,7 @@ function registerHITLBusinessTools(neurolink: NeuroLink): void {
 
 /*
  * ========================================================================================
- * TODO: FIX HITL TESTS - CURRENT APPROACH IS NON-DETERMINISTIC
+ * TODO(#1318): FIX HITL TESTS - CURRENT APPROACH IS NON-DETERMINISTIC
  * ========================================================================================
  *
  * PROBLEM:
@@ -4758,7 +4758,7 @@ async function runAllTests(): Promise<void> {
     { name: "SDK Stream", fn: () => testSDKStream(sharedSdk) },
     { name: "SDK Business Tools", fn: testSDKBusinessTools },
     { name: "SDK Business Tools (CLI Simulation)", fn: testCLIBusinessTools },
-    // TODO: Fix HITL tests later - commented out for now (see HITL TODO block above)
+    // TODO(#1318): Fix HITL tests later - commented out for now (see HITL TODO block above)
     // HITL logic fixed: PASS if AI calls tool + HITL fires, SKIP (null) if AI doesn't call tool
     // { name: "SDK HITL Generate", fn: testSDKHITLGenerate },
     // { name: "SDK HITL Stream", fn: testSDKHITLStream },
