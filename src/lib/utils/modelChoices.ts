@@ -173,7 +173,6 @@ const TOP_MODELS_CONFIG: Record<
       model: MistralModels.CODESTRAL_LATEST,
       description: "Specialized for code",
     },
-    { model: MistralModels.PIXTRAL_LARGE, description: "Multimodal vision" },
     {
       model: MistralModels.MAGISTRAL_MEDIUM_LATEST,
       description: "Reasoning model",
