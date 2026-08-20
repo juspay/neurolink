@@ -305,6 +305,49 @@ export default [
             // call can deterministically produce them. Its header states the
             // exception in full.
             "test/continuous-test-suite-loop-engine.ts",
+            // manifestRegistry has no consumer yet — this PR series adds the
+            // manifest as an additive metadata source and migrates nothing
+            // onto it, so no generate()/stream()/CLI path reaches the
+            // resolver. The alias-resolution bug the suite exists to catch (a
+            // bare model name silently losing its real contextWindow to the
+            // provider default) is unreachable from any public surface until
+            // a consumer migrates. Its header states this in full, including
+            // that the suite should be converted or retired once one does.
+            "test/continuous-test-suite-model-manifests.ts",
+
+            // ---------------------------------------------------------------
+            // Grandfathered when this rule was extended to cover deep `dist/`
+            // paths as well as `src/`.
+            //
+            // These predate the extension. Rewriting an import from
+            // `../src/lib/x.js` to `../dist/lib/x.js` satisfied the old rule
+            // without changing what the suite proved, so the deep-dist form
+            // became the established local pattern — `provider-structure.ts`
+            // even greps the *source text* of providerRegistry.ts. That is
+            // the corpus the rule now encodes, not evasion of it.
+            //
+            // Listing them keeps the gate green while making the rule bite
+            // for every NEW suite, which is where the value is. This block is
+            // debt, not a clean bill of health: each entry should either gain
+            // a real public surface or be converted. Do not add to this block
+            // — a new suite belongs above, with its own stated reason.
+            // ---------------------------------------------------------------
+            "test/continuous-test-suite.ts",
+            "test/continuous-test-suite-auth.ts",
+            "test/continuous-test-suite-context.ts",
+            "test/continuous-test-suite-credentials.ts",
+            "test/continuous-test-suite-error-classification-e2e.ts",
+            "test/continuous-test-suite-memory.ts",
+            "test/continuous-test-suite-observability.ts",
+            "test/continuous-test-suite-ppt.ts",
+            "test/continuous-test-suite-provider-descriptors.ts",
+            "test/continuous-test-suite-provider-structure.ts",
+            "test/continuous-test-suite-provider-wiring.ts",
+            "test/continuous-test-suite-providers-mocked.ts",
+            "test/continuous-test-suite-providers.ts",
+            "test/continuous-test-suite-skills.ts",
+            "test/continuous-test-suite-tool-dedup.ts",
+            "test/continuous-test-suite-voice.ts",
           ],
         },
       ],
