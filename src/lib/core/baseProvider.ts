@@ -26,7 +26,13 @@ import type {
   ValidationSchema,
   ZodUnknownSchema,
 } from "../types/index.js";
-import { isAbortError, NeuroLinkError } from "../utils/errorHandling.js";
+import {
+  ERROR_CODES,
+  isAbortError,
+  NeuroLinkError,
+} from "../utils/errorHandling.js";
+import { createAnalytics as buildAnalytics } from "./analytics.js";
+import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 import {
   duckTypedStatusCode,
   extractRetryAfterMsFromError,
@@ -1928,12 +1934,108 @@ export abstract class BaseProvider implements AIProvider {
   // ===================
 
   /**
-   * Provider-specific streaming implementation (only used when tools are disabled)
+   * Opt-in streaming hook. A provider that produces an async iterable of text
+   * chunks plus promises for how the turn ended implements this and gets a
+   * working `executeStream` for free.
+   *
+   * Deliberately optional rather than abstract: every provider that already
+   * overrides `executeStream` directly — the older and still perfectly valid
+   * pattern — never needs it.
+   *
+   * `finishReason` and `usage` are promises because both are only knowable
+   * once the underlying stream has finished. Resolve them when it does; the
+   * default `executeStream` chains off them rather than waiting for a
+   * consumer, so they must settle even if nobody drains the stream.
    */
-  protected abstract executeStream(
+  protected doStream?(options: StreamOptions): Promise<{
+    stream: AsyncIterable<{ content: string }>;
+    finishReason: Promise<string>;
+    usage: Promise<{ inputTokens: number; outputTokens: number }>;
+    warnings?: string[];
+  }>;
+
+  /**
+   * Provider-specific streaming implementation (only used when tools are
+   * disabled).
+   *
+   * This used to be `protected abstract`, which meant a provider had exactly
+   * two options: write the whole adapter by hand, or not stream at all. The
+   * failure mode that produced was SageMaker's — a complete, working
+   * `doStream` sitting one property access away from an `executeStream` that
+   * unconditionally threw "not yet fully implemented". Providers that
+   * implement `doStream` now inherit a correct implementation, and providers
+   * that override this method are unaffected.
+   */
+  protected async executeStream(
     options: StreamOptions,
-    analysisSchema?: ValidationSchema,
-  ): Promise<StreamResult>;
+    _analysisSchema?: ValidationSchema,
+  ): Promise<StreamResult> {
+    if (!this.doStream) {
+      throw new NeuroLinkError({
+        code: ERROR_CODES.INVALID_CONFIGURATION,
+        message: `${this.providerName} cannot stream: it neither implements doStream() nor overrides executeStream()`,
+        category: ErrorCategory.CONFIGURATION,
+        severity: ErrorSeverity.CRITICAL,
+        retriable: false,
+        context: { provider: this.providerName, model: this.modelName },
+      });
+    }
+
+    const startTime = Date.now();
+    const { stream, finishReason, usage, warnings } =
+      await this.doStream(options);
+
+    if (warnings?.length) {
+      logger.warn(`[${this.providerName}] doStream reported warnings`, {
+        provider: this.providerName,
+        count: warnings.length,
+      });
+    }
+
+    // `metadata` is handed back by reference and filled in when the turn
+    // ends — the documented contract for background-loop streams, since a
+    // result-object spread would snapshot a top-level getter before the
+    // stream has produced anything.
+    const metadata: NonNullable<StreamResult["metadata"]> = {
+      startTime,
+      streamId: `${this.providerName}-${startTime}`,
+    };
+
+    // Chained off the provider's own promises rather than off the consumer
+    // draining the stream. Binding analytics to a stream iterator's finally
+    // block means a caller that awaits analytics without iterating waits
+    // forever, because a generator body does not run until it is iterated.
+    const analytics = (async () => {
+      const [resolvedFinishReason, resolvedUsage] = await Promise.all([
+        finishReason,
+        usage,
+      ]);
+      metadata.finishReason = resolvedFinishReason;
+      metadata.rawFinishReason = resolvedFinishReason;
+      return buildAnalytics(
+        this.providerName,
+        this.modelName || this.getDefaultModel(),
+        {
+          usage: {
+            input: resolvedUsage.inputTokens,
+            output: resolvedUsage.outputTokens,
+            total: resolvedUsage.inputTokens + resolvedUsage.outputTokens,
+          },
+          stopReason: resolvedFinishReason,
+        },
+        Date.now() - startTime,
+        { streamingMode: true },
+      );
+    })();
+
+    return {
+      stream,
+      model: this.modelName || this.getDefaultModel(),
+      provider: this.getProviderName(),
+      analytics,
+      metadata,
+    };
+  }
 
   /**
    * Get the provider name
