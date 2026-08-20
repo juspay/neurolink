@@ -119,6 +119,9 @@ jobs:
       - name: Bedrock loop characterization (local HTTP/2 stand-in, no API keys required)
         run: pnpm run test:bedrock-loop-characterization
 
+      - name: SageMaker streaming (local stand-in, no API keys required)
+        run: pnpm run test:sagemaker-streaming
+
       - name: 🧩 Provider Onboarding Completeness
         run: pnpm run verify:provider-onboarding
 
