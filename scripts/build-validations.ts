@@ -13,6 +13,7 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import ts from "typescript";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -232,6 +233,46 @@ class NeuroLinkBuildValidator {
     }
   }
 
+  /**
+   * Line numbers of catch clauses whose body is genuinely empty AND carries
+   * no explanation.
+   *
+   * A catch block that swallows an error on purpose and says why is the
+   * established idiom here — there are a couple of hundred of them, all
+   * reading like `catch { // endpoint is optional, fall through }`. Those are
+   * documented decisions, not defects. What this looks for is the silent
+   * kind: no statements and no comment saying why.
+   */
+  private findEmptyCatchLines(content: string, filePath: string): number[] {
+    const lines: number[] = [];
+    const source = ts.createSourceFile(
+      filePath,
+      content,
+      ts.ScriptTarget.Latest,
+      /* setParentNodes */ true,
+    );
+
+    const visit = (node: ts.Node): void => {
+      if (ts.isCatchClause(node) && node.block.statements.length === 0) {
+        // Comments live between the braces but are not statements, so read
+        // the block's own text rather than asking for its children.
+        const inner = content.slice(
+          node.block.getStart(source) + 1,
+          node.block.getEnd() - 1,
+        );
+        if (!inner.includes("//") && !inner.includes("/*")) {
+          lines.push(
+            source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
+          );
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+
+    return lines;
+  }
+
   // Custom rule: Check for proper error handling
   checkErrorHandling(): void {
     this.log("Checking error handling patterns...");
@@ -248,15 +289,17 @@ class NeuroLinkBuildValidator {
         if (!content) continue;
         const lines = content.split("\n");
 
-        lines.forEach((line: string, index: number) => {
-          // Check for empty catch blocks
-          if (
-            line.includes("catch") &&
-            (line.includes("{}") || line.includes("catch()"))
-          ) {
-            this.errors.push(`Empty catch block in ${file}:${index + 1}`);
-          }
+        // Empty catch blocks are found by parsing, not by matching substrings
+        // on a line. The previous rule flagged any line containing "catch"
+        // together with "{}" or "catch()", which matches a comment mentioning
+        // `.catch()`, a deliberate `.catch(() => {})`, and a perfectly normal
+        // handler on a line that happens to also return `{}` — while a real
+        // `catch {}` split across two lines slipped past it entirely.
+        for (const line of this.findEmptyCatchLines(content, fullPath)) {
+          this.errors.push(`Empty catch block in ${file}:${line}`);
+        }
 
+        lines.forEach((line: string, index: number) => {
           // Check for Promise without error handling (improved accuracy)
           if (line.includes("new Promise")) {
             // Check if this Promise has error handling in the surrounding context
