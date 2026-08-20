@@ -953,4 +953,50 @@ await test("an adapter that omits a terminal call from toolCalls ends the turn v
   );
 });
 
+// ---------------------------------------------------------------------------
+// Reasoning chunks survive the engine's channel
+// ---------------------------------------------------------------------------
+
+await test("a reasoning delta pushed by an adapter reaches the consumer", async () => {
+  // Extended-thinking providers (direct Anthropic, AI Studio, Vertex) emit a
+  // chunk whose `content` is empty and whose thinking delta rides in
+  // `reasoning`. A channel typed `{ content: string }` drops that field
+  // silently — the text path keeps working, so the loss would only show up as
+  // missing thinking output for every one of those providers at once, which
+  // is exactly what Tasks 8-11 would have shipped.
+  const adapter: AgenticLoopAdapter<string[]> = {
+    providerLabel: "fake-reasoning",
+    maxSteps: 2,
+    buildStepRequest: (conversation) => ({ raw: conversation }),
+    executeStep: async (_request, channel) => {
+      channel.push({ content: "", reasoning: "thinking out loud" });
+      channel.push({ content: "the answer" });
+      return {
+        text: "the answer",
+        reasoning: "thinking out loud",
+        toolCalls: [],
+        usage: { inputTokens: 1, outputTokens: 1 },
+        rawStopReason: "end_turn",
+        raw: undefined,
+      };
+    },
+    buildToolResultMessages: (conversation) => conversation,
+    mapFinishReason: () => "stop",
+  };
+  const { stream, resultPromise } = runAgenticLoop(adapter, [], { tools: {} });
+  const chunks: Array<{ content: string; reasoning?: string }> = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  await resultPromise;
+  assert(
+    chunks.some((c) => c.reasoning === "thinking out loud"),
+    "the reasoning delta was dropped on its way through the engine channel",
+  );
+  assert(
+    chunks.some((c) => c.content === "the answer"),
+    "the text chunk did not survive alongside the reasoning chunk",
+  );
+});
+
 await runSuite();

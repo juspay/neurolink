@@ -1,6 +1,7 @@
 import { createStreamChannel } from "./streamChannel.js";
 import type {
   AgenticLoopAdapter,
+  AgenticLoopChunk,
   AgenticLoopOptions,
   AgenticLoopResult,
   AgenticLoopStepResult,
@@ -63,10 +64,10 @@ export function runAgenticLoop<TConversation>(
   initialConversation: TConversation,
   options: AgenticLoopOptions,
 ): {
-  stream: AsyncIterable<{ content: string }>;
+  stream: AsyncIterable<AgenticLoopChunk>;
   resultPromise: Promise<AgenticLoopResult<TConversation>>;
 } {
-  const channel = createStreamChannel<{ content: string }>();
+  const channel = createStreamChannel<AgenticLoopChunk>();
   const internalAbort = new AbortController();
   const onCallerAbort = () => internalAbort.abort();
   options.abortSignal?.addEventListener("abort", onCallerAbort);
@@ -120,7 +121,7 @@ export function runAgenticLoop<TConversation>(
         // sees, via the unwrap in the catch below.
         let hasEmitted = false;
         const watchedChannel = {
-          push: (chunk: { content: string }) => {
+          push: (chunk: AgenticLoopChunk) => {
             hasEmitted = true;
             channel.push(chunk);
           },
