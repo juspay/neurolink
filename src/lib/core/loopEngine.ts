@@ -198,7 +198,16 @@ export function runAgenticLoop<TConversation>(
             });
             continue;
           }
-          const tool = options.tools?.[call.name];
+          // Second lookup path for adapters that discover tools mid-turn.
+          // The miss is defined as "nothing executable under this name"
+          // rather than "no key under this name", because the guard directly
+          // below already treats a present-but-unexecutable entry as absent —
+          // a deferred-catalog placeholder is exactly that shape, and it is
+          // precisely what hydration exists to resolve.
+          const declaredTool = options.tools?.[call.name];
+          const tool = declaredTool?.execute
+            ? declaredTool
+            : (adapter.resolveToolOnMiss?.(call.name) ?? declaredTool);
           if (!tool?.execute) {
             const output = breaker
               ? {
