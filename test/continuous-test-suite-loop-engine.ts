@@ -9,8 +9,9 @@ import "dotenv/config";
  * `../src/...`. This is the deliberate, documented exception to rule 15's
  * "one module graph per suite, end-to-end tests only" mandate. The three
  * modules under test — `src/lib/core/streamChannel.ts`,
- * `src/lib/core/nativeToolFormat.ts` (added by Task 2), and
- * `src/lib/core/loopEngine.ts` (added by Task 3) — have no exported surface
+ * `src/lib/core/nativeToolFormat.ts` (added by Task 2),
+ * `src/lib/core/loopEngine.ts` (added by Task 3), and `BaseProvider`'s
+ * default `executeStream` (added by Task 5) — have no exported surface
  * at all: none of them is reachable through package.json's `exports` map
  * (`.`, `./client`, `./types`, `./cli`, `./server`, `./browser`, ... — no
  * entry resolves into `src/lib/core/`), and as of this PR nothing outside
@@ -33,6 +34,12 @@ import "dotenv/config";
  *     been pushed to the channel does NOT retry and surfaces the original,
  *     unwrapped error). No provider is wired to the engine yet, so there is
  *     no live call that could exercise this at all.
+ *   - `BaseProvider`'s default `executeStream`, which only exists for
+ *     subclasses that implement the optional `doStream` hook. `BaseProvider`
+ *     is abstract and never constructed by callers, so there is no shipped
+ *     surface that reaches the default at all until a provider adopts it
+ *     (Task 6, SageMaker). This suite builds minimal fake subclasses so the
+ *     contract is pinned before anything depends on it.
  *
  * No API keys, no network, no LLM.
  *
@@ -44,6 +51,9 @@ import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
 import { createStreamChannel } from "../src/lib/core/streamChannel.js";
 import { toNativeToolDeclarations } from "../src/lib/core/nativeToolFormat.js";
 import { runAgenticLoop } from "../src/lib/core/loopEngine.js";
+import { BaseProvider } from "../src/lib/core/baseProvider.js";
+import type { AIProviderName } from "../src/lib/constants/enums.js";
+import type { StreamOptions } from "../src/lib/types/index.js";
 import type {
   AgenticLoopAdapter,
   AgenticLoopStepResult,
@@ -646,6 +656,152 @@ await test("runAgenticLoop: a stream-only consumer observes the failure — the 
     resultRejected = true;
   }
   assert(resultRejected, "resultPromise also rejects for the same failure");
+});
+
+// ---------------------------------------------------------------------------
+// BaseProvider's default executeStream (Plan 08, Task 5)
+// ---------------------------------------------------------------------------
+
+/** The smallest subclass that satisfies BaseProvider's remaining abstracts. */
+abstract class FakeProviderBase extends BaseProvider {
+  protected getProviderName(): AIProviderName {
+    return "fake" as AIProviderName;
+  }
+  protected getDefaultModel(): string {
+    return "fake-model";
+  }
+  public getAISDKModel(): never {
+    throw new Error("not used by these cases");
+  }
+  protected formatProviderError(error: unknown): Error {
+    return error instanceof Error ? error : new Error(String(error));
+  }
+}
+
+class WorkingDoStreamProvider extends FakeProviderBase {
+  protected async doStream(_options: StreamOptions) {
+    async function* chunks() {
+      yield { content: "hello " };
+      yield { content: "world" };
+    }
+    return {
+      stream: chunks(),
+      finishReason: Promise.resolve("stop"),
+      usage: Promise.resolve({ inputTokens: 3, outputTokens: 2 }),
+      warnings: [],
+    };
+  }
+}
+
+class ThrowingDoStreamProvider extends FakeProviderBase {
+  protected async doStream(_options: StreamOptions): Promise<never> {
+    throw new Error("synthetic doStream failure");
+  }
+}
+
+/** Implements neither doStream nor an executeStream override. */
+class NoStreamProvider extends FakeProviderBase {}
+
+await test("the default executeStream streams a doStream provider's chunks", async () => {
+  const provider = new WorkingDoStreamProvider("fake-model");
+  const result = await provider.stream({ input: { text: "hi there" } });
+  let text = "";
+  for await (const chunk of result.stream) {
+    text += chunk.content ?? "";
+  }
+  assertEqual(
+    text,
+    "hello world",
+    "streamed text did not match doStream's chunks",
+  );
+});
+
+await test("the default executeStream reports finishReason and usage from doStream's promises", async () => {
+  const provider = new WorkingDoStreamProvider("fake-model");
+  const result = await provider.stream({ input: { text: "hi there" } });
+  for await (const chunk of result.stream) {
+    void chunk;
+  }
+  const analytics = await result.analytics;
+  assertEqual(
+    analytics?.tokenUsage?.output,
+    2,
+    "usage was not the value doStream's promise resolved to",
+  );
+  assertEqual(
+    result.metadata?.finishReason,
+    "stop",
+    "finishReason was not the value doStream's promise resolved to",
+  );
+});
+
+await test("analytics settles even when the consumer never drains the stream", async () => {
+  // Binding analytics to the stream iterator's finally block is the natural
+  // shape and the wrong one: a generator body does not run until iterated, so
+  // a caller that awaits analytics without consuming the stream waits
+  // forever. That exact bug shipped in the Bedrock provider and is pinned
+  // here so the shared default cannot reintroduce it.
+  const provider = new WorkingDoStreamProvider("fake-model");
+  const result = await provider.stream({ input: { text: "hi there" } });
+  // The timer is cleared rather than left pending: an uncleared timeout keeps
+  // the event loop alive and holds the suite open for its full duration after
+  // the assertion has already passed.
+  let timer: NodeJS.Timeout | undefined;
+  const settled = await Promise.race([
+    Promise.resolve(result.analytics).then(() => "SETTLED"),
+    new Promise((resolve) => {
+      timer = setTimeout(() => resolve("TIMED_OUT"), 10_000);
+    }),
+  ]).finally(() => {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  });
+  assertEqual(settled, "SETTLED", "analytics never settled without a drain");
+});
+
+await test("a doStream rejection propagates instead of being swallowed", async () => {
+  const provider = new ThrowingDoStreamProvider("fake-model");
+  let threw = false;
+  try {
+    const result = await provider.stream({ input: { text: "hi" } });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } catch {
+    threw = true;
+  }
+  assert(
+    threw,
+    "a doStream rejection must propagate, not be silently swallowed",
+  );
+});
+
+await test("a provider with neither doStream nor an override never yields a silent empty stream", async () => {
+  // The default's throw is deliberately not asserted on here. `stream()`
+  // re-throws only a small allowlist (abort/timeout/401/403/quota/rate
+  // limit/authentication) and falls back to fake streaming for everything
+  // else, so this provider degrades through generate() rather than
+  // surfacing the configuration error — which is the intended behaviour,
+  // and why the default's message shows up in logs rather than to the
+  // caller. What must never happen is the third outcome: a clean, empty,
+  // apparently-successful stream that silently produces nothing.
+  const provider = new NoStreamProvider("fake-model");
+  let failed = false;
+  let chunkCount = 0;
+  try {
+    const result = await provider.stream({ input: { text: "hi" } });
+    for await (const chunk of result.stream) {
+      chunkCount++;
+      void chunk;
+    }
+  } catch {
+    failed = true;
+  }
+  assert(
+    failed || chunkCount > 0,
+    "a provider that cannot stream produced a silent empty success",
+  );
 });
 
 await runSuite();
