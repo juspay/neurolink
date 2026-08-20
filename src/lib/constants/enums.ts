@@ -89,7 +89,7 @@ export enum BedrockModels {
   // ============================================================================
 
   // Claude 4.6 Series (Latest - February 2026)
-  CLAUDE_4_6_OPUS = "anthropic.claude-opus-4-6-v1:0",
+  CLAUDE_4_6_OPUS = "anthropic.claude-opus-4-6-v1",
   CLAUDE_4_6_SONNET = "anthropic.claude-sonnet-4-6",
 
   // Claude 4.5 Series (September-November 2025)
@@ -378,6 +378,13 @@ export enum AzureOpenAIModels {
   GPT_5_CHAT = "gpt-5-chat",
   GPT_5_CODEX = "gpt-5-codex",
   GPT_5_PRO = "gpt-5-pro",
+  /**
+   * @deprecated No such model exists on Azure OpenAI. "Turbo" was a GPT-3.5 and
+   * GPT-4 era suffix and was never carried into the GPT-5 family; the real
+   * series is gpt-5 / gpt-5-mini / gpt-5-nano / gpt-5-chat / gpt-5-codex /
+   * gpt-5-pro. Deploying this id fails. Kept only so existing code still
+   * compiles — scheduled for removal in the next major. Use GPT_5 instead.
+   */
   GPT_5_TURBO = "gpt-5-turbo",
 
   // O-Series Reasoning Models
@@ -521,11 +528,22 @@ export enum GoogleAIModels {
 /**
  * Supported Models for Anthropic (Direct API)
  */
+// Model states below track Anthropic's own status table at
+// platform.claude.com/docs/en/about-claude/model-deprecations. Those dates
+// cover Anthropic-operated platforms only — Amazon Bedrock and Google Cloud
+// set their own retirement schedules, so BedrockModels/VertexModels entries
+// are NOT retired just because the direct-API twin is.
 export enum AnthropicModels {
-  // Claude 5 Series (mid 2026) — see MODEL_CONTEXT_WINDOWS.anthropic
-  // (src/lib/constants/contextWindows.ts) for the 1M context window this id
-  // already carries there.
+  // Claude 5 Series (mid 2026). MODEL_CONTEXT_WINDOWS.anthropic
+  // (src/lib/constants/contextWindows.ts) already carries the 1M window
+  // these ids resolve to.
+  CLAUDE_OPUS_5 = "claude-opus-5",
   CLAUDE_SONNET_5 = "claude-sonnet-5",
+  CLAUDE_FABLE_5 = "claude-fable-5",
+
+  // Claude 4.7 / 4.8 Series
+  CLAUDE_OPUS_4_8 = "claude-opus-4-8",
+  CLAUDE_OPUS_4_7 = "claude-opus-4-7",
 
   // Claude 4.6 Series (February 2026)
   CLAUDE_OPUS_4_6 = "claude-opus-4-6",
@@ -537,10 +555,13 @@ export enum AnthropicModels {
   CLAUDE_4_5_HAIKU = "claude-haiku-4-5-20251001",
 
   // Claude 4.1 Series (Legacy)
+  /** @deprecated Retired from the Claude API on August 5, 2026. Use CLAUDE_OPUS_4_8 instead. */
   CLAUDE_OPUS_4_1 = "claude-opus-4-1-20250805",
 
   // Claude 4.0 Series (Legacy)
+  /** @deprecated Retired from the Claude API on June 15, 2026. Use CLAUDE_OPUS_4_8 instead. */
   CLAUDE_OPUS_4_0 = "claude-opus-4-20250514",
+  /** @deprecated Retired from the Claude API on June 15, 2026. Use CLAUDE_SONNET_4_6 instead. */
   CLAUDE_SONNET_4_0 = "claude-sonnet-4-20250514",
 
   // Claude 3.7 Series (Legacy)
@@ -596,8 +617,18 @@ export enum MistralModels {
   DEVSTRAL_MEDIUM_LATEST = "devstral-medium-latest",
   DEVSTRAL_SMALL_LATEST = "devstral-small-latest",
 
-  // Pixtral (Multimodal/Vision)
+  // Pixtral (Multimodal/Vision) — both retired by Mistral.
+  /**
+   * @deprecated Retired by Mistral on 2026-05-31. The id is also wrong: the
+   * API string was `pixtral-large-2411`, and Mistral publishes no dateless
+   * `pixtral-large` alias. Use MISTRAL_MEDIUM_LATEST instead.
+   */
   PIXTRAL_LARGE = "pixtral-large",
+  /**
+   * @deprecated Retired by Mistral on 2025-12-31. The API string was
+   * `pixtral-12b-2409`; no dateless alias is published. Mistral recommends
+   * Ministral 3 14B as the replacement.
+   */
   PIXTRAL_12B = "pixtral-12b",
 
   // Voxtral (Audio)

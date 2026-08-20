@@ -200,7 +200,9 @@ const VISION_CAPABILITIES = {
     // GPT-5 family
     "gpt-5",
     "gpt-5-pro",
-    "gpt-5-turbo",
+    // "gpt-5-turbo" removed: Azure publishes no such model, so advertising
+    // vision for it made supportsVision() vouch for an id that cannot be
+    // deployed.
     "gpt-5-chat",
     "gpt-5-mini",
     // GPT-4.1 family

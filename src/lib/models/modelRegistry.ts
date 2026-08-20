@@ -1097,8 +1097,11 @@ export const MODEL_REGISTRY: Record<string, ModelInfo> = {
       jsonMode: false,
     },
     pricing: {
-      inputCostPer1K: 0.015,
-      outputCostPer1K: 0.075,
+      // $5 / $25 per MTok. Was 0.015/0.075 — Claude 3 Opus's rate, left
+      // behind when the entry was updated to 4.5, so every cost estimate
+      // for this model came out 3x high.
+      inputCostPer1K: 0.005,
+      outputCostPer1K: 0.025,
       currency: "USD",
     },
     performance: {
@@ -1122,13 +1125,224 @@ export const MODEL_REGISTRY: Record<string, ModelInfo> = {
     },
     aliases: [
       "claude-4.5-opus",
-      "claude-opus-latest",
+      // "claude-opus-latest" now belongs to CLAUDE_OPUS_5. An alias declared
+      // on two entries silently resolves to whichever appears later in this
+      // object, so a "latest" pointer must live on exactly one model.
       "opus-4.5",
       "anthropic-flagship",
     ],
     deprecated: false,
     isLocal: false,
     releaseDate: "2025-11-24",
+    category: "reasoning",
+  },
+
+  // Claude 5 and 4.7/4.8. Limits and pricing from Anthropic's models
+  // overview comparison tables. All current Claude models take image input;
+  // these use adaptive thinking rather than the older `thinking.type`
+  // extended-thinking switch, which the overview marks "No" for each.
+  [AnthropicModels.CLAUDE_OPUS_5]: {
+    id: AnthropicModels.CLAUDE_OPUS_5,
+    name: "Claude Opus 5",
+    provider: AIProviderName.ANTHROPIC,
+    description: "For complex agentic coding and enterprise work",
+    capabilities: {
+      vision: true,
+      functionCalling: true,
+      codeGeneration: true,
+      reasoning: true,
+      multimodal: true,
+      streaming: true,
+      jsonMode: false,
+    },
+    pricing: {
+      inputCostPer1K: 0.005,
+      outputCostPer1K: 0.025,
+      currency: "USD",
+    },
+    performance: { speed: "medium", quality: "high", accuracy: "high" },
+    limits: {
+      maxContextTokens: 1000000,
+      maxOutputTokens: 128000,
+      maxRequestsPerMinute: 50,
+    },
+    useCases: {
+      coding: 10,
+      creative: 10,
+      analysis: 10,
+      conversation: 9,
+      reasoning: 10,
+      translation: 9,
+      summarization: 9,
+    },
+    aliases: ["opus-5", "claude-opus-latest"],
+    deprecated: false,
+    isLocal: false,
+    releaseDate: "2026-07-24",
+    category: "reasoning",
+  },
+
+  [AnthropicModels.CLAUDE_SONNET_5]: {
+    id: AnthropicModels.CLAUDE_SONNET_5,
+    name: "Claude Sonnet 5",
+    provider: AIProviderName.ANTHROPIC,
+    description: "The best combination of speed and intelligence",
+    capabilities: {
+      vision: true,
+      functionCalling: true,
+      codeGeneration: true,
+      reasoning: true,
+      multimodal: true,
+      streaming: true,
+      jsonMode: false,
+    },
+    pricing: {
+      inputCostPer1K: 0.002,
+      outputCostPer1K: 0.01,
+      currency: "USD",
+    },
+    performance: { speed: "fast", quality: "high", accuracy: "high" },
+    limits: {
+      maxContextTokens: 1000000,
+      maxOutputTokens: 128000,
+      maxRequestsPerMinute: 50,
+    },
+    useCases: {
+      coding: 9,
+      creative: 9,
+      analysis: 9,
+      conversation: 9,
+      reasoning: 9,
+      translation: 9,
+      summarization: 9,
+    },
+    aliases: ["sonnet-5", "claude-sonnet-latest"],
+    deprecated: false,
+    isLocal: false,
+    releaseDate: "2026-06-30",
+    category: "general",
+  },
+
+  [AnthropicModels.CLAUDE_FABLE_5]: {
+    id: AnthropicModels.CLAUDE_FABLE_5,
+    name: "Claude Fable 5",
+    provider: AIProviderName.ANTHROPIC,
+    description: "Next-generation intelligence for long-running agents",
+    capabilities: {
+      vision: true,
+      functionCalling: true,
+      codeGeneration: true,
+      reasoning: true,
+      multimodal: true,
+      streaming: true,
+      jsonMode: false,
+    },
+    pricing: {
+      inputCostPer1K: 0.01,
+      outputCostPer1K: 0.05,
+      currency: "USD",
+    },
+    performance: { speed: "slow", quality: "high", accuracy: "high" },
+    limits: {
+      maxContextTokens: 1000000,
+      maxOutputTokens: 128000,
+      maxRequestsPerMinute: 50,
+    },
+    useCases: {
+      coding: 10,
+      creative: 10,
+      analysis: 10,
+      conversation: 9,
+      reasoning: 10,
+      translation: 9,
+      summarization: 9,
+    },
+    aliases: ["fable-5"],
+    deprecated: false,
+    isLocal: false,
+    releaseDate: "2026-06-09",
+    category: "reasoning",
+  },
+
+  [AnthropicModels.CLAUDE_OPUS_4_8]: {
+    id: AnthropicModels.CLAUDE_OPUS_4_8,
+    name: "Claude Opus 4.8",
+    provider: AIProviderName.ANTHROPIC,
+    description: "Anthropic Opus 4.8, superseded by Claude Opus 5",
+    capabilities: {
+      vision: true,
+      functionCalling: true,
+      codeGeneration: true,
+      reasoning: true,
+      multimodal: true,
+      streaming: true,
+      jsonMode: false,
+    },
+    pricing: {
+      inputCostPer1K: 0.005,
+      outputCostPer1K: 0.025,
+      currency: "USD",
+    },
+    performance: { speed: "medium", quality: "high", accuracy: "high" },
+    limits: {
+      maxContextTokens: 1000000,
+      maxOutputTokens: 128000,
+      maxRequestsPerMinute: 50,
+    },
+    useCases: {
+      coding: 10,
+      creative: 9,
+      analysis: 10,
+      conversation: 9,
+      reasoning: 10,
+      translation: 9,
+      summarization: 9,
+    },
+    aliases: ["opus-4.8"],
+    deprecated: false,
+    isLocal: false,
+    releaseDate: "2026-05-28",
+    category: "reasoning",
+  },
+
+  [AnthropicModels.CLAUDE_OPUS_4_7]: {
+    id: AnthropicModels.CLAUDE_OPUS_4_7,
+    name: "Claude Opus 4.7",
+    provider: AIProviderName.ANTHROPIC,
+    description: "Anthropic Opus 4.7, superseded by Claude Opus 4.8",
+    capabilities: {
+      vision: true,
+      functionCalling: true,
+      codeGeneration: true,
+      reasoning: true,
+      multimodal: true,
+      streaming: true,
+      jsonMode: false,
+    },
+    pricing: {
+      inputCostPer1K: 0.005,
+      outputCostPer1K: 0.025,
+      currency: "USD",
+    },
+    performance: { speed: "medium", quality: "high", accuracy: "high" },
+    limits: {
+      maxContextTokens: 1000000,
+      maxOutputTokens: 128000,
+      maxRequestsPerMinute: 50,
+    },
+    useCases: {
+      coding: 10,
+      creative: 9,
+      analysis: 10,
+      conversation: 9,
+      reasoning: 10,
+      translation: 9,
+      summarization: 9,
+    },
+    aliases: ["opus-4.7"],
+    deprecated: false,
+    isLocal: false,
+    releaseDate: "2026-04-16",
     category: "reasoning",
   },
 
@@ -1171,7 +1385,9 @@ export const MODEL_REGISTRY: Record<string, ModelInfo> = {
       translation: 8,
       summarization: 8,
     },
-    aliases: ["claude-4.5-sonnet", "claude-sonnet-latest", "sonnet-4.5"],
+    // "claude-sonnet-latest" now belongs to CLAUDE_SONNET_5 — see the note
+    // on CLAUDE_OPUS_4_5's aliases.
+    aliases: ["claude-4.5-sonnet", "sonnet-4.5"],
     deprecated: false,
     isLocal: false,
     releaseDate: "2025-09-29",
@@ -1497,7 +1713,10 @@ export const MODEL_REGISTRY: Record<string, ModelInfo> = {
       summarization: 8,
     },
     aliases: ["pixtral", "mistral-vision"],
-    deprecated: false,
+    // Retired by Mistral on 2026-05-31. Kept so exact-id and alias lookups
+    // still resolve for existing callers; `deprecated` removes it from
+    // `models list` and the recommendation paths.
+    deprecated: true,
     isLocal: false,
     releaseDate: "2024-09-01",
     category: "vision",
@@ -2318,7 +2537,9 @@ export const MODEL_REGISTRY: Record<string, ModelInfo> = {
       summarization: 9,
     },
     aliases: ["azure-gpt-5-turbo", "gpt5-turbo-azure"],
-    deprecated: false,
+    // Azure OpenAI has never published a "gpt-5-turbo"; the id cannot be
+    // deployed. Flagged so it stops being offered as a live choice.
+    deprecated: true,
     isLocal: false,
     releaseDate: "2025-08-07",
     category: "general",
@@ -2423,7 +2644,9 @@ export const USE_CASE_RECOMMENDATIONS: Record<string, string[]> = {
     OpenAIModels.GPT_5_2_PRO,
     AnthropicModels.CLAUDE_OPUS_4_5,
     GoogleAIModels.GEMINI_2_5_PRO,
-    MistralModels.PIXTRAL_LARGE,
+    // Mistral's Pixtral Large sat here until it was retired on 2026-05-31.
+    // Left without a substitute rather than guessing at a replacement's
+    // vision support.
     BedrockModels.NOVA_PREMIER,
   ],
 };
