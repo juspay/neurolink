@@ -40,6 +40,46 @@ export type AgenticLoopToolFailureBreaker = {
   maxRetries: number;
 };
 
+/**
+ * DESIGN DECISION — mid-turn tool-discovery hydration (Plan 08 blocker 2,
+ * Task 7): resolved by the single optional `resolveToolOnMiss` field below,
+ * NOT by a broader `dispatchTools?` full-dispatch override. A full-dispatch
+ * override would let an adapter replace the engine's entire per-call
+ * dispatch — breaker bookkeeping, execution, toolExecutions aggregation — so
+ * every adapter needing hydration would have to reimplement that bookkeeping,
+ * and any later engine-level fix to dispatch would silently not apply to the
+ * adapters using the override. `resolveToolOnMiss` plugs into the existing
+ * dispatch at the one decision point that needs a second lookup, leaving
+ * breaker bookkeeping, retries and aggregation engine-owned for every
+ * provider, hydrated or not.
+ *
+ * DESIGN DECISION — originalNameMap propagation (blocker 3): needs ZERO
+ * engine or type change. Google's function-name sanitization is a translation
+ * concern between the wire (sanitized names out, sanitized names back on
+ * tool_call.name) and the engine's shape, which only ever sees plain string
+ * names. An adapter that needs the map threads it as a constructor-time
+ * closure and translates inside its own `executeStep` /
+ * `buildToolResultMessages`, before those names cross the engine boundary.
+ *
+ * DESIGN DECISION — reserved-step + forced finalization (blocker 1, part 2):
+ * stays OUTSIDE `runAgenticLoop`, in Vertex+Claude's own wrapper around
+ * `resultPromise`. The reserved step needs no engine change at all — an
+ * adapter declaring `maxSteps: requested - 1` means the engine's own loop
+ * never touches the reserved slot. The forced call is a one-shot action taken
+ * on the RESULT of a turn, not a repeatable step within one, so folding it in
+ * would teach the engine a family-specific concept (forced tool_choice, a
+ * distinguished terminal tool name) that every other adapter would then carry
+ * and never set.
+ *
+ * DESIGN DECISION — terminal tool-call marking (blocker 1, part 1): needs
+ * ZERO engine or type change. An adapter treats a detected terminal call as
+ * terminal by omitting it from `toolCalls` and putting its parsed payload in
+ * `text`. The engine already ends a turn the moment a step yields zero tool
+ * calls, so such a step is indistinguishable from an ordinary final text
+ * turn: never looked up in `options.tools`, never reaching TOOL_NOT_FOUND,
+ * never counted against the breaker. Proven by a case in the loop-engine
+ * suite rather than asserted here.
+ */
 export type AgenticLoopAdapter<TConversation = unknown, TRaw = unknown> = {
   readonly providerLabel: string;
   readonly maxSteps: number;
@@ -48,6 +88,23 @@ export type AgenticLoopAdapter<TConversation = unknown, TRaw = unknown> = {
   readonly stallTimeoutMs?: number;
   /** Set only for adapter instances whose client has the TOOL_NOT_FOUND strike breaker today: both Gemini adapters (AI Studio, Vertex+Gemini) AND the Vertex+Claude call to createAnthropicLoopAdapter — NOT the native-Anthropic call to that same factory, and not Bedrock. See Verified Fact 4. */
   readonly toolFailureBreaker?: AgenticLoopToolFailureBreaker;
+  /**
+   * Second lookup path, consulted when a tool call names nothing executable
+   * in the caller's `options.tools` — used by adapters supporting mid-turn
+   * discovery to hydrate a tool the model just found via `search_tools`, or a
+   * deferred-catalog tool called by its advertised name, before the engine
+   * falls through to TOOL_NOT_FOUND and the breaker strike. See the design
+   * decision above for why this is a narrow lookup and not a dispatch
+   * override.
+   */
+  readonly resolveToolOnMiss?: (name: string) =>
+    | {
+        execute: (
+          args: Record<string, unknown>,
+          opts: unknown,
+        ) => Promise<unknown>;
+      }
+    | undefined;
 
   buildStepRequest(
     conversation: TConversation,

@@ -804,4 +804,153 @@ await test("a provider with neither doStream nor an override never yields a sile
   );
 });
 
+// ---------------------------------------------------------------------------
+// resolveToolOnMiss hydration hook (Plan 08, Task 7)
+// ---------------------------------------------------------------------------
+
+function makeHydrationAdapter(config: {
+  toolCallsByStep: Array<
+    Array<{ id: string; name: string; args: Record<string, unknown> }>
+  >;
+  resolveToolOnMiss?: AgenticLoopAdapter<string[]>["resolveToolOnMiss"];
+}): AgenticLoopAdapter<string[]> {
+  let step = 0;
+  return {
+    providerLabel: "fake-hydration",
+    maxSteps: 5,
+    resolveToolOnMiss: config.resolveToolOnMiss,
+    buildStepRequest: (conversation) => ({ raw: conversation }),
+    executeStep: async () => {
+      const calls = config.toolCallsByStep[step] ?? [];
+      step++;
+      return {
+        text: calls.length === 0 ? "final answer" : "",
+        toolCalls: calls,
+        usage: { inputTokens: 1, outputTokens: 1 },
+        rawStopReason: calls.length === 0 ? "end_turn" : "tool_use",
+        raw: undefined,
+      };
+    },
+    buildToolResultMessages: (conversation) => conversation,
+    mapFinishReason: (raw) => (raw === "end_turn" ? "stop" : "tool-calls"),
+  };
+}
+
+await test("a tool call absent from options.tools is hydrated rather than failing as TOOL_NOT_FOUND", async () => {
+  let hydratedArgs: Record<string, unknown> | undefined;
+  const adapter = makeHydrationAdapter({
+    toolCallsByStep: [
+      [{ id: "call_1", name: "discovered_tool", args: { q: "x" } }],
+      [],
+    ],
+    resolveToolOnMiss: (name) =>
+      name === "discovered_tool"
+        ? {
+            execute: async (args) => {
+              hydratedArgs = args;
+              return { ok: true };
+            },
+          }
+        : undefined,
+  });
+  const { resultPromise } = runAgenticLoop(adapter, [], { tools: {} });
+  const result = await resultPromise;
+  assertEqual(hydratedArgs?.q, "x", "hydrated execute got the call's args");
+  const executed = result.toolExecutions.find(
+    (e) => e.name === "discovered_tool",
+  );
+  assert(
+    executed !== undefined &&
+      !("error" in ((executed.output ?? {}) as Record<string, unknown>)),
+    "a hydrated tool call must not be recorded as a failed execution",
+  );
+});
+
+await test("resolveToolOnMiss is not consulted when the name is already executable", async () => {
+  let consulted = false;
+  const adapter = makeHydrationAdapter({
+    toolCallsByStep: [[{ id: "call_1", name: "known_tool", args: {} }], []],
+    resolveToolOnMiss: () => {
+      consulted = true;
+      return undefined;
+    },
+  });
+  const { resultPromise } = runAgenticLoop(adapter, [], {
+    tools: { known_tool: { execute: async () => ({ ok: true }) } },
+  });
+  await resultPromise;
+  assert(
+    !consulted,
+    "resolveToolOnMiss must only be consulted on a miss, not for an executable tool",
+  );
+});
+
+await test("a declared-but-unexecutable tool is treated as a miss and hydrated", async () => {
+  // A deferred-catalog placeholder is present under its name but carries no
+  // execute. The engine's own guard already treats that as absent, so
+  // hydration has to reach it too, or the very shape this hook exists for
+  // would fall straight through to TOOL_NOT_FOUND.
+  let hydrated = false;
+  const adapter = makeHydrationAdapter({
+    toolCallsByStep: [[{ id: "call_1", name: "deferred_tool", args: {} }], []],
+    resolveToolOnMiss: (name) =>
+      name === "deferred_tool"
+        ? {
+            execute: async () => {
+              hydrated = true;
+              return { ok: true };
+            },
+          }
+        : undefined,
+  });
+  const { resultPromise } = runAgenticLoop(adapter, [], {
+    // Declared, but with nothing to run — the deferred-catalog shape.
+    tools: { deferred_tool: {} },
+  });
+  await resultPromise;
+  assert(hydrated, "a declared-but-unexecutable tool was not hydrated");
+});
+
+// ---------------------------------------------------------------------------
+// Terminal tool-call pattern needs no engine change (Task 7 proof)
+// ---------------------------------------------------------------------------
+
+await test("an adapter that omits a terminal call from toolCalls ends the turn via the existing zero-toolCalls path", async () => {
+  // Proves a design decision rather than new production code: Tasks 8 and 11
+  // mark a detected `final_result` terminal by leaving it out of `toolCalls`
+  // and putting its parsed payload in `text`. If that works against the
+  // engine as it stands, those tasks need no contract change.
+  const adapter: AgenticLoopAdapter<string[]> = {
+    providerLabel: "fake-terminal",
+    maxSteps: 5,
+    buildStepRequest: (conversation) => ({ raw: conversation }),
+    executeStep: async () => ({
+      text: JSON.stringify({ answer: 42 }),
+      toolCalls: [],
+      usage: { inputTokens: 5, outputTokens: 5 },
+      rawStopReason: "tool_use",
+      raw: undefined,
+    }),
+    buildToolResultMessages: (conversation) => conversation,
+    mapFinishReason: () => "stop",
+  };
+  const { resultPromise } = runAgenticLoop(adapter, [], { tools: {} });
+  const result = await resultPromise;
+  assertEqual(
+    result.text,
+    JSON.stringify({ answer: 42 }),
+    "a terminal step's parsed text became the turn's final text",
+  );
+  assertEqual(
+    result.toolCalls.length,
+    0,
+    "a terminal call must not appear in the turn's toolCalls",
+  );
+  assertEqual(
+    result.toolExecutions.length,
+    0,
+    "a terminal call must not be dispatched or recorded as an execution",
+  );
+});
+
 await runSuite();
